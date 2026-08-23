@@ -12,6 +12,12 @@ only in the sense that a bay which fails them cannot be used.
 **GEN-4** Every parking space is reachable by car from the road network and by pedestrians from walkable
 terrain, and is **enterable *and* exitable by a legal manoeuvre**, reverse permitted.
 
+**GEN-4e** **The way in is the bay's and not the car's**: where a walker is aimed to reach a car parked in
+a space is a fact about that space, settled with the ground it was painted on, and it is the ground off the
+driver's door of a body standing square in it. Read instead off wherever the car has actually come to rest,
+the point moves whenever anything nudges the body, and a walk already under way is re-planned round the lot
+by a shove nobody chose.
+
 **GEN-4b** Parking is laid as **lots** — a handful of spaces each, every space square to its kerb — and
 the count is whatever satisfies the relation that matters: **every building stands within a walking
 distance of a lot**. A lot is an oriented rectangle laid along the chord of the kerb it hangs off, offered

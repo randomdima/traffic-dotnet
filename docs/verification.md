@@ -15,14 +15,24 @@ model, not a new soak scene.**
 
 ```
 qq tests                  the unit tier: two seconds, and what is run after every edit
+qq tests --changed        the tiers this working tree's own changes can have moved
 qq tests unit town        a shipped city as well: half a minute
 qq tests all              the gates too: under three minutes
 qq tests e2e              the frames, unjudged
 qq tests e2e --judge      the frames, judged by an agent: money, and about half an hour
+qq doclint                every rule stated once, and every ID the code cites resolving
 dotnet run --project traffic-dotnet.csproj -- --bench maneuvers --map Odesa
 dotnet run --project traffic-dotnet.csproj -- --shot .tmp/town.png --map Test
 dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json
 ```
+
+**Judging is spelled `--judge` and happens nowhere else.** It is the one thing in this project that
+spends money, so no command reaches it by default and every route to the suite that is not
+`qq tests e2e --judge` takes the frames unjudged or leaves the tier out.
+
+**A test run is waited for and never backgrounded.** Started in the background it has to be polled,
+and a poll is a round trip that costs more than standing still does — the tier that fits the change
+is the way to make a run short, not launching it and asking whether it is done yet.
 
 ## The suite is selected by tier, not by folder
 
@@ -193,6 +203,12 @@ are for.
 written. The last line of `--bench maneuvers` is the set of catalogue entries nothing entered, which is
 how an unbuilt entry and an unreachable one are told apart; `--check` prints the dependency read-out; and
 every figure is quoted with the census that says whether the town it ran was a town.
+
+**The documents have two instruments of their own**, for the same reason and read the same way.
+`qq doclint` asks whether every rule is stated exactly once and every ID the code cites resolves — a
+citation to a renumbered or retired rule compiles, passes and misleads, and nothing else in the suite can
+see it; it runs inside `qq checks`. `qq outline`, given no argument, prints the longest files in `src/`,
+which is where "nothing grows past being readable" is checked rather than asserted.
 
 **A scenario laid to be hard is quoted and not gated.** The two proving grounds are the same lap with a
 different fifteen people on it, so `--bench track` and `--bench drunk` are read against each other — and

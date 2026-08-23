@@ -17,7 +17,7 @@ internal sealed partial class TownWorld
     ExitSpots.Standing StandingPeople => new(People.PositionM, People.RadiusM, People.Inside);
 
     /// <summary>
-    /// `P-9`: the door. Capacity is checked here, atomically — the claim held during the walk was
+    /// OBJ-5: the door. Capacity is checked here, atomically — the claim held during the walk was
     /// advisory and only kept the crowd down.
     /// </summary>
     void EnterTheBuilding(int person)
@@ -91,7 +91,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// `P-7`: a spot beside the car, preferring the side the pavement is on — the difference between the
+    /// PHY-7a: a spot beside the car, preferring the side the pavement is on — the difference between the
     /// next leg being a formality and being a road crossing. Refused means every position round the car
     /// is taken, so the person stays in it and asks again.
     /// </summary>
@@ -135,7 +135,7 @@ internal sealed partial class TownWorld
         WalkTo(person, doorM);
     }
 
-    /// <summary>`P-1`: the building places its occupant outside, and refuses while there is nowhere to put them.</summary>
+    /// <summary>PHY-7a: the building places its occupant outside, and refuses while there is nowhere to put them.</summary>
     bool TryLeaveTheBuilding(int person)
     {
         var where = _containers.WhereIs(person);

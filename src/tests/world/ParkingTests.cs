@@ -157,7 +157,7 @@ public class ParkingTests
     }
 
     /// <summary>
-    /// A bay's way in is <b>a fact about the bay</b> (WLK-3a): the ground off the driver's door of a car
+    /// A bay's way in is <b>a fact about the bay</b> (GEN-4e): the ground off the driver's door of a car
     /// standing squarely in it, and it does not move when anything else does.
     /// </summary>
     [Fact]

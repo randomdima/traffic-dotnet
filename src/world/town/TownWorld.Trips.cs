@@ -92,7 +92,7 @@ internal sealed partial class TownWorld
                 People.TimerS[person] -= sinceLastDecisionS;
                 if (People.TimerS[person] > 0f) return;
 
-                // `P-1`: refused means every spot outside the door is taken. That is not a stall — the
+                // PHY-7a: refused means every spot outside the door is taken. That is not a stall — the
                 // doorway empties as soon as whoever is standing in it walks off.
                 if (!TryLeaveTheBuilding(person)) return;
 
@@ -184,7 +184,7 @@ internal sealed partial class TownWorld
     bool HasReached(int person, float reachM) => (People.GoalM[person] - People.PositionM[person]).Length() <= reachM;
 
     /// <summary>
-    /// `P-10`'s draw: somewhere to be, and whether it is worth a car.
+    /// PER-9's draw: somewhere to be, and whether it is worth a car (PER-17).
     /// </summary>
     /// <remarks>
     /// Both ends are screened when the trip is chosen, with the strict question rather than the
@@ -325,7 +325,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// Where a walk to a car is aimed: the bay's own way in where it is parked in one, and the ground
-    /// off the driver's door where it is not — one at a kerb, one stopped in the road (`P-5`).
+    /// off the driver's door where it is not — one at a kerb, one stopped in the road (GEN-4e).
     /// </summary>
     Vector2 WayInOf(int car)
     {

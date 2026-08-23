@@ -27,7 +27,7 @@ internal readonly record struct Contained(ContainerKind Kind, int Index)
 /// <b>A claim is not an occupancy.</b> A person walking to a building holds a claim on it so that a
 /// town's worth of walkers do not all set off for the last free place in one building; the claim is
 /// advisory and only keeps the crowd down, and <b>capacity is checked atomically at the door</b>
-/// (`P-9`). Refused there is a real state — the building is full — and not a failure.
+/// (OBJ-5). Refused there is a real state — the building is full — and not a failure.
 /// </para>
 /// <para>
 /// <b>Nothing here decides whether a car may be boarded.</b> PER-4's free, stopped and intact is asked
@@ -70,7 +70,7 @@ internal sealed class Containers
     /// <summary>How many people are on their way to it, which is what makes one with room a better draw than one without.</summary>
     public int ClaimsOn(int building) => _buildingClaims[building];
 
-    /// <summary>Whether a building has room once the people already walking to it are counted (`P-10`).</summary>
+    /// <summary>Whether a building has room once the people already walking to it are counted (PER-11).</summary>
     public bool LooksLikelyToHaveRoom(int building) =>
         _buildingOccupants[building] + _buildingClaims[building] < _buildingCapacity[building];
 
@@ -82,7 +82,7 @@ internal sealed class Containers
     }
 
     /// <summary>
-    /// `P-9`: the door. <b>Capacity is checked here and nowhere else</b>, at the moment the person
+    /// OBJ-5: the door. <b>Capacity is checked here and nowhere else</b>, at the moment the person
     /// asks — a place counted when the trip was drawn is a place somebody else has since walked into.
     /// </summary>
     public bool TryAdmit(int building, int person)

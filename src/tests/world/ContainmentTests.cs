@@ -17,7 +17,7 @@ public class ContainmentTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// OBJ-5 and `P-9`: a building holds its capacity and not one more, and the check is at the door.
+    /// OBJ-5: a building holds its capacity and not one more, and the check is at the door.
     /// <b>A claim is not a place</b> — it keeps the crowd down and decides nothing.
     /// </summary>
     [Fact]

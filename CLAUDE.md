@@ -58,6 +58,8 @@ A change that costs either of them is not a trade to be weighed in passing — i
 | Deciding how a change gets checked | [docs/verification.md](docs/verification.md) — four tiers, cheapest that can answer it |
 | Asking "why is it like this?" | the nearest `decision-log.md` — never the code, which carries no history |
 | Understanding how one type works | that type's XML docs. There is no second description of it anywhere |
+| Opening a file you have not read | `qq outline <file>` first — the members and their line ranges, so the read is a range |
+| Resolving a rule the code cites | `qq req TER-5c` — what it says, which document owns it, and everything citing it |
 | Building, running, the command line | [readme.md](readme.md) |
 
 ## Where the documentation lives, and why there is so little of it
@@ -108,11 +110,16 @@ the `Tier` trait every test class carries ([tests/Tier.cs](src/tests/Tier.cs)); 
 | Ran | Costs | After |
 |---|---|---|
 | `qq tests` | 2 s | **every edit, no exceptions** |
+| `qq tests --changed` | what it picks | **any edit worth more than the unit tier** — it reads the tree and names the tiers those paths can have moved |
 | `qq tests unit town` | 25 s | a change to behaviour, before saying it works |
 | `qq tests all` | 2 m 45 s | touching the tick, the solver, a submit path — or before a commit |
 | `qq tests e2e` | 28 s | changing anything that draws, to look at the frames |
 | `qq tests e2e --judge` | **money**, ~30 min | a milestone, or when asked for by name — never unprompted |
 | `qq tests --name=Kerb town` | — | one class or one case, while fixing it |
+
+**A test run is waited for, never backgrounded and polled.** A poll is a round trip that costs more than
+waiting does; `--changed` is how a run is made short. And **`qq tests all` is the commit's tier, not the
+edit loop's** — reaching for it because choosing was harder than waiting is three minutes an edit.
 
 **Never open a windowed run to look at something `--shot` can answer** — it needs no window, no
 compositor and no desktop, and the image is the same recording against a different target.
@@ -127,5 +134,7 @@ compositor and no desktop, and the image is the same recording against a differe
 - **Metric units, and the unit is part of the name** — `…M`, `…Mps`, `…S`, `…Deg`, `…Px`. The metre↔pixel
   conversion has exactly one site.
 - **Prefer moving code to deleting it**, and commit before a change large enough to want an undo.
+- **A rule is cited by ID and the citation is checked**: `qq doclint` (inside `qq checks`) fails when a
+  cited ID resolves to nothing, and `qq req <ID>` is how one is looked up rather than grepped for.
 - **Name what has already refused it** before adding a check that refuses a movement (SIM-7). A second
   gate does not make the town safer; it makes the first one useless.

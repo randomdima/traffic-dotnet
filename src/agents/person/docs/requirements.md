@@ -119,6 +119,13 @@ back then, it buys one tick of ground and the wait begins again.
 
 **PER-9** Walk around the city from building to building. Destinations are drawn from the **agent seed**.
 
+**PER-17** **Whether a trip is walked is structural and never a weighted coin.** It is walked when the
+route to the destination never sets foot on a carriageway — the same block, however far round it is — or
+when the destination is inside the walk-worth distance; anything else is worth a car. The route the planner
+actually laid is what answers the first half, so "the same block" is a fact about that route rather than a
+reading taken off the distance, and a town's traffic is therefore a property of how it was laid out and
+comes out the same for the same seed.
+
 **PER-10** A car trip is: walk to this trip's car if it is free, stopped, intact and within a walk; enter
 it; drive to a bay near the destination; park; walk the rest.
 

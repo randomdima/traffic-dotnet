@@ -215,7 +215,7 @@ internal sealed class PersonFleet
     /// <summary>The car this trip is using (PER-10), or <see cref="NoCar"/>. <b>This trip's car and no other</b>.</summary>
     public int[] TripCar { get; }
 
-    /// <summary>What is left of a bounded interval — the dwell inside a building, or `P-12`'s own idle.</summary>
+    /// <summary>What is left of a bounded interval — the dwell inside a building (PER-11), or the idle between goals.</summary>
     public float[] TimerS { get; }
 
     /// <summary>
@@ -316,7 +316,7 @@ internal sealed class PersonFleet
     /// speed</b> (PER-3, PER-13) — there is ground to walk into or there is not.
     /// </summary>
     /// <remarks>
-    /// The kerb is asked first and answers for itself (`P-3`): a walker waiting out a red stands where the
+    /// The kerb is asked first and answers for itself (PER-15): a walker waiting out a red stands where the
     /// kerb put it rather than where the pavement in front of it ran out, and it may still walk back to the
     /// stand-off while it waits.
     /// </remarks>

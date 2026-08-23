@@ -10,7 +10,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.Person;
 
 /// <summary>
-/// The trip: what a person decides about one (WLK-8, PER-10a) and whether a whole one completes on a
+/// The trip: what a person decides about one (PER-17, PER-10a) and whether a whole one completes on a
 /// town (VER-8).
 /// </summary>
 [Collection(TrafficSimulation.Tests.Simulation.SolverCollection.Name)]
@@ -20,7 +20,7 @@ public class TripTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// WLK-8 is <b>structural and not a weighted coin</b>: the same block is walked however far it is,
+    /// PER-17 is <b>structural and not a weighted coin</b>: the same block is walked however far it is,
     /// and a trip that crosses a road is walked only while it is inside the walk-worth distance.
     /// </summary>
     [Fact]

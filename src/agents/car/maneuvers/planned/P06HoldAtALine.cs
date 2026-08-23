@@ -7,7 +7,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A place, not a thing</b>: what `P-5` waits for may move off on its own, and what this waits for
+/// <b>A place, not a thing</b>: what `P-4` waits for may move off on its own, and what this waits for
 /// will not. The distinction is what makes them two entries rather than one, and it is why the clock a
 /// car spends here is the signal's rather than the watchdog's — a car queueing through two phases at a
 /// busy junction is doing exactly what the light asked.

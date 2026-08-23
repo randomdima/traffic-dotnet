@@ -11,7 +11,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.Person;
 
 /// <summary>
-/// `P-3`: the question a walker asks before it steps off a kerb. <b>The band it steps into is asked
+/// PER-15: the question a walker asks before it steps off a kerb. <b>The band it steps into is asked
 /// whether it is anybody's</b>, against a book laid by hand over a real map's crossings; the signal half
 /// is checked on a running town.
 /// </summary>

@@ -74,7 +74,7 @@ internal enum LaneUse : byte
     /// is waited behind while it is moving and gone round once it has stopped.
     /// </para>
     /// <para>
-    /// <b>What it is not is traffic.</b> A walker asking what is coming down a lane (`P-3`) and a driver
+    /// <b>What it is not is traffic.</b> A walker asking what is coming down a lane (PER-15) and a driver
     /// asking what has come to rest in the mouth of its bay are both asking about cars, and neither is
     /// answered by another person on the road — which is why the queries about traffic name
     /// <see cref="Traffic"/> rather than <see cref="Bodies"/>.

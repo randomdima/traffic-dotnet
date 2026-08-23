@@ -53,7 +53,7 @@ internal static class TripProbe
     }
 
     /// <param name="TripsDrawn">PER-9's own count: how many times somebody picked somewhere to be.</param>
-    /// <param name="TripsWorthACar">And how many of those WLK-8 judged worth a car, which is the town's traffic.</param>
+    /// <param name="TripsWorthACar">And how many of those PER-17 judged worth a car, which is the town's traffic.</param>
     public readonly record struct TripSample(
         int Walkers, int Cars, long TripsDrawn, long TripsWorthACar, long Boardings, long BaysParkedIn,
         long Alightings, long BuildingsEntered, long DoorsFoundFull, long TripsGivenUp, int Dead, int Wrecked);

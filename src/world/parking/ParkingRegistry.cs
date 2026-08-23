@@ -25,7 +25,7 @@ namespace TrafficSimulation.World.Parking;
 /// stretch of time when the car is somewhere else. A bay with either is not free.
 /// </para>
 /// <para>
-/// <b>The way in is the bay's, not the car's</b> (WLK-3a): a walker is aimed at the ground off the
+/// <b>The way in is the bay's, not the car's</b> (GEN-4e): a walker is aimed at the ground off the
 /// driver's door of a car standing squarely in the bay, which is a point the town settled when it
 /// painted the bay. Worked out from where the car has actually come to rest, it moves every time
 /// something nudges the car, and a body nudged out of a bay is a walk re-planned round the lot.

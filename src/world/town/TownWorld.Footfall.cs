@@ -144,7 +144,7 @@ internal sealed partial class TownWorld
         }
 
         // Never past the place it is already held at, the gap it keeps included (TER-4c.1): the kerb a red
-        // is holding it at (`P-3`), or the edge of a lane the road refused it. Asking for ground on the far
+        // is holding it at (PER-15), or the edge of a lane the road refused it. Asking for ground on the far
         // side of either would queue the pavement behind it a crossing further up than anybody is going to
         // get, and would put this body's stretch over ground a driver has.
         var alongMps = AlongItsWalkMps(person);

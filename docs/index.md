@@ -62,10 +62,10 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, terminal states | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
-| `GEN-4…4d` | Bays and lots | [world/parking](../src/world/parking/docs/requirements.md) |
+| `GEN-4…4e` | Bays and lots, and the way into one | [world/parking](../src/world/parking/docs/requirements.md) |
 | `GEN-1…3`, `GEN-5…8` | The plan, and what laying a town owes | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…9a` | The car agent and its tyres | [agents/car](../src/agents/car/docs/requirements.md) |
-| `PER-1…16` | The walker, the trip, what it follows, and how it crosses | [agents/person](../src/agents/person/docs/requirements.md) |
+| `PER-1…17` | The walker, the trip, what it follows, how it crosses and when it takes a car | [agents/person](../src/agents/person/docs/requirements.md) |
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
 | `OBS-1`, `OBS-1a` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
 | `OBS-2`, `OBS-2a`, `OBS-2e…2g` | Start panel, settings, the legend, the ruler | [app/hud](../src/app/hud/docs/requirements.md) |

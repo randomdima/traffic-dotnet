@@ -11,7 +11,7 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// `P-3`, asked every tick and not on the clock: a walker whose line steps onto a crossing next
+    /// PER-15, asked every tick and not on the clock: a walker whose line steps onto a crossing next
     /// stands at the kerb until the road answers. Being held is not being stuck, so the clock that gives
     /// a leg up does not run while this is true. Every tick because the answer is about traffic — a gap
     /// re-checked into oblivion is a gap given away.

@@ -272,7 +272,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>How many walks have ended where they were going. The same figure for the other agent kind.</summary>
     public long WalkArrivals { get; private set; }
 
-    /// <summary>How many times a walker has stood at a kerb and asked the road, which is `P-3` running.</summary>
+    /// <summary>How many times a walker has stood at a kerb and asked the road, which is PER-15 running.</summary>
     public long KerbWaitsBegun { get; private set; }
 
     /// <summary>

@@ -58,7 +58,7 @@ public class CrossingBandsTests
 
     /// <summary>
     /// And <b>in the order the way meets them</b>, which is what makes the first band the one a body
-    /// stepping off the kerb enters — the whole of what `P-3` asks about. Two bands may touch where two
+    /// stepping off the kerb enters — the whole of what PER-15 asks about. Two bands may touch where two
     /// lanes do and may not overlap by more than the slack their edges were rounded out by.
     /// </summary>
     [Theory]

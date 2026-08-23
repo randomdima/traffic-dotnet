@@ -72,7 +72,7 @@ internal sealed partial class TownWorld
         // is one it has not asked for: a stride into the near lane is not a reason to stop the traffic in
         // the far one, and what a body may take is what its own ask reaches — the same bar a car's road is
         // held to. At a kerb the body stands short of the way and its own metre is unknown, so the lane it
-        // is about to step into is always in reach and `P-3` is what decides it.
+        // is about to step into is always in reach and PER-15 is what decides it.
         var reachM = float.IsFinite(alongM) ? alongM + WantsAheadM(person) : float.PositiveInfinity;
 
         var lookedAhead = false;

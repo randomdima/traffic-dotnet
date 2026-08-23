@@ -9,32 +9,33 @@ namespace TrafficSimulation.Agents.Person.Control;
 /// </summary>
 /// <remarks>
 /// <b>These are not the manoeuvre catalogue's entries and do not pretend to be.</b> Each covers the
-/// stretch of a trip a named entry will own — `P-1` leave the building, `P-2` walk the block, `P-5`
-/// approach the car, `P-6` board, `P-7` alight, `P-9` enter, `P-10` dwell, `P-11` wait for a place,
-/// `P-12` stand by — and what is missing is the arbitration and the escalation ladder between them,
-/// which is M8. A label reading `P-2` would claim behaviour that is not here.
+/// stretch of a trip an entry of the walker's own catalogue would own — leaving a building, walking
+/// the block, approaching the car, boarding, alighting, entering, dwelling, waiting for a place,
+/// standing by — and what is missing is the arbitration and the escalation ladder between them. The
+/// catalogue itself is the absence AGT-7 names; numbering these as if it existed would claim
+/// behaviour that is not here, in a family the driver's catalogue already owns.
 /// </remarks>
 internal enum TripStage : byte
 {
-    /// <summary>`P-12`: between goals, idling the brief interval that stops a town setting off on one tick.</summary>
+    /// <summary>Between goals, idling the brief interval that stops a town setting off on one tick.</summary>
     StandingBy,
 
-    /// <summary>`P-2`: walking to the destination building's own way in.</summary>
+    /// <summary>Walking to the destination building's own way in.</summary>
     WalkingToTheDoor,
 
-    /// <summary>`P-5`: walking to the way in of the car this trip is using.</summary>
+    /// <summary>Walking to the way in of the car this trip is using (GEN-4e).</summary>
     WalkingToTheCar,
 
     /// <summary>Inside the car, which is driving. The person supplies the car's action set (PER-6) and nothing else.</summary>
     Driving,
 
-    /// <summary>`P-7`: asking the car for a spot beside it, which is refused while every position round it is taken.</summary>
+    /// <summary>Asking the car for a spot beside it, which is refused while every position round it is taken (PHY-7a).</summary>
     Alighting,
 
-    /// <summary>`P-11`: the building was full at the door, so standing on walkable ground near it and asking again.</summary>
+    /// <summary>The building was full at the door, so standing on walkable ground near it and asking again.</summary>
     WaitingForAPlace,
 
-    /// <summary>`P-10`: inside, for the bounded interval that guarantees whoever is waiting outside gets a place.</summary>
+    /// <summary>Inside, for the bounded interval that guarantees whoever is waiting outside gets a place (PER-11).</summary>
     Dwelling,
 
     /// <summary>CTL-2: the goal was pinned by a hand, so nothing here draws another when it is reached.</summary>
@@ -45,7 +46,7 @@ internal enum TripStage : byte
 internal static class Trip
 {
     /// <summary>
-    /// <b>WLK-8, and it is structural rather than a weighted coin</b>: a trip is walked when the
+    /// <b>PER-17, and it is structural rather than a weighted coin</b>: a trip is walked when the
     /// destination is in the same block — a route to it that never sets foot on a carriageway — or when
     /// it is inside the walk-worth distance. Anything else is worth a car.
     /// </summary>
