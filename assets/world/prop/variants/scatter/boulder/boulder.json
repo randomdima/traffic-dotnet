@@ -1,0 +1,6 @@
+{
+  "id": "boulder",
+  "kind": 1,
+  "sprite": "boulder.png",
+  "diameterM": 1.20
+}

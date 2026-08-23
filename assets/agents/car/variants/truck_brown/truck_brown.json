@@ -1,0 +1,12 @@
+{
+  "id": "truck_brown",
+  "sprite": "truck_brown.png",
+  "wreck": { "sprite": "truck_brown_broken.png", "scale": [1.079, 1.051] },
+  "footprintM": [3.56, 2],
+  "frontAxleM": 1.068,
+  "rearAxleM": -1.068,
+  "trackM": 0.971,
+  "drivetrain": 2,
+  "handling": { "maxSpeed": 0.7, "acceleration": 0.43, "braking": 0.8, "cornering": 0.7 },
+  "hullM": [[-1.728, -0.708], [-1.404, -0.896], [0.652, -1], [1.623, -0.865], [1.77, -0.75], [1.78, 0.75], [1.415, 0.906], [0.548, 1], [-1.394, 0.896], [-1.717, 0.719]]
+}

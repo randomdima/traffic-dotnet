@@ -1,0 +1,6 @@
+{
+  "id": "chess_board",
+  "kind": 2,
+  "sprite": "chess_board.png",
+  "diameterM": 2.10
+}

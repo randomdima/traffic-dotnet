@@ -1,0 +1,12 @@
+{
+  "id": "hatch_teal",
+  "sprite": "hatch_teal.png",
+  "wreck": { "sprite": "hatch_teal_broken.png", "scale": [1.004, 1] },
+  "footprintM": [3.7, 1.92],
+  "frontAxleM": 0.988,
+  "rearAxleM": -1.176,
+  "trackM": 0.999,
+  "drivetrain": 1,
+  "handling": { "maxSpeed": 0.98, "acceleration": 0.89, "cornering": 1.05 },
+  "hullM": [[-1.475, -0.929], [1.256, -0.929], [1.746, -0.815], [1.84, -0.618], [1.85, 0.618], [1.756, 0.815], [1.266, 0.929], [-1.454, 0.929], [-1.829, 0.566], [-1.85, -0.493]]
+}

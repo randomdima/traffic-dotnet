@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="src/tests/traffic-dotnet-tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/" />
+  <Folder Name="/tools/glyphsheet/">
+    <Project Path="src/tools/glyphsheet/glyph-sheet.csproj" />
+  </Folder>
+  <Project Path="traffic-dotnet.csproj" />
+</Solution>

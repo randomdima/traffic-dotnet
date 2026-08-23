@@ -1,0 +1,6 @@
+{
+  "id": "boules_court",
+  "kind": 2,
+  "sprite": "boules_court.png",
+  "diameterM": 2.30
+}

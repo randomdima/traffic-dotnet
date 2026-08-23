@@ -1,0 +1,24 @@
+{
+  "variants": [
+    "../house_slate/house_slate.json",
+    "../cottage_tile/cottage_tile.json",
+    "../bungalow_green/bungalow_green.json",
+    "../terrace_brown/terrace_brown.json",
+    "../semi_blue/semi_blue.json",
+    "../house_timber/house_timber.json",
+    "../block_courtyard/block_courtyard.json",
+    "../tenement_row/tenement_row.json",
+    "../office_atrium/office_atrium.json",
+    "../condo_pool/condo_pool.json",
+    "../townhall_dome/townhall_dome.json",
+    "../hospital_pad/hospital_pad.json",
+    "../police_yard/police_yard.json",
+    "../library_lights/library_lights.json",
+    "../school_wings/school_wings.json",
+    "../firehouse/firehouse.json",
+    "../dep_store/dep_store.json",
+    "../supermarket/supermarket.json",
+    "../warehouse_saw/warehouse_saw.json",
+    "../corner_shop/corner_shop.json"
+  ]
+}

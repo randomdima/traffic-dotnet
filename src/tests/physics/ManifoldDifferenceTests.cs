@@ -1,0 +1,241 @@
+using System.Numerics;
+using Box2D.NET;
+using TrafficSimulation.World.Physics;
+using Xunit;
+using static Box2D.NET.B2Geometries;
+using static Box2D.NET.B2Manifolds;
+
+namespace TrafficSimulation.Tests.Physics;
+
+/// <summary>
+/// This engine's narrow phase against the incumbent's, over randomised poses. <b>Circle-circle and
+/// circle-box have closed forms; box-box does not, and it is where a solver is wrong subtly</b> — the
+/// classic failure is a reference face that alternates between ticks, which reads as a queue that
+/// shivers and as nothing at all in a test written against intuition.
+/// </summary>
+/// <remarks>
+/// <para>
+/// What is compared is <b>what the solver and the damage arbiter actually read</b>: whether the pair is
+/// touching at all, which way the normal points, and how deep the deepest point is. The number of points
+/// and where they sit along a face are a manifold's own business and two correct implementations may
+/// differ on them.
+/// </para>
+/// <para>
+/// The reference is a test-only package reference and reaches no shipped assembly. Rotations are handed
+/// over as the pair of numbers rather than as an angle for the reason
+/// <see cref="CastDifferenceTests.TheReferenceRoundsAnAngleAndThisEngineDoesNot"/> records.
+/// </para>
+/// </remarks>
+[Trait(Tier.Key, Tier.Unit)]
+public class ManifoldDifferenceTests
+{
+    /// <summary>Box2D v3's speculative distance is four linear slops, and so is this engine's — see SimConfig.SolverSpeculativeM.</summary>
+    const float MarginM = 0.02f;
+
+    const float ToleranceM = 1e-3f;
+
+    /// <summary>
+    /// The regime a town is actually in: two cars just about to touch, just touching, or a hand's depth
+    /// into each other. The pair is laid along a random direction at a drawn depth rather than at a
+    /// random offset, because a random offset over boxes this size is mostly <em>deep</em> overlap, which
+    /// is not what the town does and not where a manifold has to be right to the millimetre.
+    /// </summary>
+    [Fact]
+    public void TwoBoxesJustMeetingAgreeWithTheReference()
+    {
+        var draw = new Random(20260819);
+        var agreed = 0;
+        var touching = 0;
+
+        for (var pose = 0; pose < 20_000; pose++)
+        {
+            var halfA = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
+            var halfB = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
+            var rotationA = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
+            var rotationB = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
+
+            var towards = (float)draw.NextDouble() * MathF.Tau - MathF.PI;
+            var direction = new Vector2(MathF.Cos(towards), MathF.Sin(towards));
+
+            // How far each box reaches along the line between them, so the pair is laid at a drawn depth
+            // rather than at a drawn distance: a distance drawn off the circumradius would leave nine in
+            // ten of them apart, and a run of poses that never met would agree about nothing.
+            var apartM = Reach(direction, rotationA, halfA) + Reach(direction, rotationB, halfB)
+                         - ((float)draw.NextDouble() * (DeepestM + MarginM) - MarginM);
+            var betweenM = direction * apartM;
+
+            var met = Shape.Collide(
+                ShapeKind.Box, Vector2.Zero, rotationA, halfA,
+                ShapeKind.Box, betweenM, rotationB, halfB, MarginM, out var manifold);
+
+            var boxA = b2MakeBox(halfA.X, halfA.Y);
+            var boxB = b2MakeBox(halfB.X, halfB.Y);
+            var reference = b2CollidePolygons(
+                ref boxA, At(Vector2.Zero, rotationA), ref boxB, At(betweenM, rotationB));
+
+            Same(pose, met, manifold, reference, ref agreed, ref touching);
+        }
+
+        Assert.True(touching > 5_000, $"only {touching} of 20 000 box pairs touched, so the agreement says little");
+        Assert.Equal(20_000, agreed);
+    }
+
+    /// <summary>How far a box reaches from its own centre along one direction.</summary>
+    static float Reach(Vector2 direction, Vector2 rotation, Vector2 half) =>
+        half.X * MathF.Abs(Vector2.Dot(direction, rotation))
+        + half.Y * MathF.Abs(Vector2.Dot(direction, Shape.LeftPerpendicular(rotation)));
+
+    /// <summary>
+    /// And over the whole range, including depths no town produces: <b>the two implementations always
+    /// agree on whether the pair is touching</b>, which is the half of the answer the begin-touch report
+    /// and therefore the damage arbiter rest on.
+    /// </summary>
+    /// <remarks>
+    /// The normal is deliberately not compared here. Past about a quarter of a metre of overlap the two
+    /// candidate faces are routinely within a fraction of a millimetre of each other in depth, and which
+    /// of the two a separating-axis test picks at that point is a coin the reference tosses as well —
+    /// both answers are separating axes and neither is the wrong one. It is <b>the shallow regime that
+    /// has to be right to the millimetre</b>, and the test above is where that is asserted.
+    /// </remarks>
+    [Fact]
+    public void TwoBoxesAtAnyDepthAgreeWithTheReferenceOnWhetherTheyTouch()
+    {
+        var draw = new Random(1959);
+        var touching = 0;
+
+        for (var pose = 0; pose < 20_000; pose++)
+        {
+            var halfA = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
+            var halfB = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
+            var rotationA = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
+            var rotationB = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
+            var betweenM = new Vector2((float)draw.NextDouble() * 8f - 4f, (float)draw.NextDouble() * 8f - 4f);
+
+            var met = Shape.Collide(
+                ShapeKind.Box, Vector2.Zero, rotationA, halfA,
+                ShapeKind.Box, betweenM, rotationB, halfB, MarginM, out _);
+
+            var boxA = b2MakeBox(halfA.X, halfA.Y);
+            var boxB = b2MakeBox(halfB.X, halfB.Y);
+            var reference = b2CollidePolygons(
+                ref boxA, At(Vector2.Zero, rotationA), ref boxB, At(betweenM, rotationB));
+
+            Assert.True(
+                met == reference.pointCount > 0,
+                $"pose {pose}: this engine {(met ? "met" : "missed")}, the reference found {reference.pointCount} points");
+            if (met) touching++;
+        }
+
+        Assert.True(touching > 2_000, $"only {touching} of 20 000 box pairs touched, so the agreement says little");
+    }
+
+    /// <summary>
+    /// How deep the just-meeting poses are allowed to get. A soak of the shipped towns peaks at 189 mm,
+    /// so a quarter of a metre covers what the town does with room over.
+    /// </summary>
+    const float DeepestM = 0.25f;
+
+    [Fact]
+    public void ABoxAndACircleMeetWhereTheReferenceSaysTheyMeet()
+    {
+        var draw = new Random(1955);
+        var agreed = 0;
+        var touching = 0;
+
+        for (var pose = 0; pose < 20_000; pose++)
+        {
+            var half = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
+            var radiusM = 0.2f + (float)draw.NextDouble() * 1.5f;
+            var rotation = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
+            var betweenM = new Vector2((float)draw.NextDouble() * 6f - 3f, (float)draw.NextDouble() * 6f - 3f);
+
+            // The box first, so the normal runs box to circle in both — b2CollidePolygonAndCircle's does.
+            var met = Shape.Collide(
+                ShapeKind.Box, Vector2.Zero, rotation, half,
+                ShapeKind.Circle, betweenM, Shape.Rotation(0f), new Vector2(radiusM), MarginM, out var manifold);
+
+            var box = b2MakeBox(half.X, half.Y);
+            var circle = new B2Circle(new B2Vec2(0f, 0f), radiusM);
+            var reference = b2CollidePolygonAndCircle(
+                ref box, At(Vector2.Zero, rotation), in circle, At(betweenM, Shape.Rotation(0f)));
+
+            Same(pose, met, manifold, reference, ref agreed, ref touching);
+        }
+
+        Assert.True(touching > 2_000, $"only {touching} of 20 000 box-circle pairs touched, so the agreement says little");
+        Assert.Equal(20_000, agreed);
+    }
+
+    [Fact]
+    public void TwoCirclesMeetWhereTheReferenceSaysTheyMeet()
+    {
+        var draw = new Random(1972);
+        var agreed = 0;
+        var touching = 0;
+
+        for (var pose = 0; pose < 20_000; pose++)
+        {
+            var first = 0.2f + (float)draw.NextDouble() * 1.5f;
+            var second = 0.2f + (float)draw.NextDouble() * 1.5f;
+            var betweenM = new Vector2((float)draw.NextDouble() * 5f - 2.5f, (float)draw.NextDouble() * 5f - 2.5f);
+
+            var met = Shape.Collide(
+                ShapeKind.Circle, Vector2.Zero, Shape.Rotation(0f), new Vector2(first),
+                ShapeKind.Circle, betweenM, Shape.Rotation(0f), new Vector2(second), MarginM, out var manifold);
+
+            var circleA = new B2Circle(new B2Vec2(0f, 0f), first);
+            var circleB = new B2Circle(new B2Vec2(0f, 0f), second);
+            var reference = b2CollideCircles(
+                in circleA, At(Vector2.Zero, Shape.Rotation(0f)), in circleB, At(betweenM, Shape.Rotation(0f)));
+
+            Same(pose, met, manifold, reference, ref agreed, ref touching);
+        }
+
+        Assert.True(touching > 2_000, $"only {touching} of 20 000 circle pairs touched, so the agreement says little");
+        Assert.Equal(20_000, agreed);
+    }
+
+    /// <summary>
+    /// Whether the two manifolds say the same thing about the pair: touching or not, the same way round,
+    /// and the same deepest point.
+    /// </summary>
+    static void Same(int pose, bool met, in Manifold manifold, in B2Manifold reference, ref int agreed, ref int touching)
+    {
+        Assert.True(
+            met == reference.pointCount > 0,
+            $"pose {pose}: this engine {(met ? "met" : "missed")}, the reference found {reference.pointCount} points");
+
+        if (!met)
+        {
+            agreed++;
+            return;
+        }
+
+        touching++;
+        var theirNormal = new Vector2(reference.normal.X, reference.normal.Y);
+        Assert.True(
+            Vector2.Dot(manifold.Normal, theirNormal) > 0.999f,
+            $"pose {pose}: normal {manifold.Normal} at {Deepest(manifold):F5} m against the reference's " +
+            $"{theirNormal} at {Deepest(reference):F5} m");
+
+        Assert.Equal(Deepest(reference), Deepest(manifold), ToleranceM);
+        agreed++;
+    }
+
+    static float Deepest(in Manifold manifold) =>
+        manifold.PointCount > 1 ? MathF.Min(manifold.Separation0, manifold.Separation1) : manifold.Separation0;
+
+    static float Deepest(in B2Manifold manifold)
+    {
+        var deepest = float.MaxValue;
+        for (var point = 0; point < manifold.pointCount; point++)
+        {
+            deepest = MathF.Min(deepest, manifold.points[point].separation);
+        }
+
+        return deepest;
+    }
+
+    static B2Transform At(Vector2 positionM, Vector2 rotation) =>
+        new(new B2Vec2(positionM.X, positionM.Y), new B2Rot(rotation.X, rotation.Y));
+}

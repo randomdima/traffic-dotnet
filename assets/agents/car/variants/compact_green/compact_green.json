@@ -1,0 +1,12 @@
+{
+  "id": "compact_green",
+  "sprite": "compact_green.png",
+  "wreck": { "sprite": "compact_green_broken.png", "scale": [1.039, 0.993] },
+  "footprintM": [3.4, 1.96],
+  "frontAxleM": 0.828,
+  "rearAxleM": -0.963,
+  "trackM": 0.998,
+  "drivetrain": 1,
+  "handling": { "maxSpeed": 0.95, "acceleration": 0.89, "braking": 1.05, "cornering": 1.1 },
+  "hullM": [[-1.283, -0.928], [1.158, -0.917], [1.606, -0.73], [1.69, -0.386], [1.627, 0.615], [1.168, 0.928], [-1.262, 0.928], [-1.564, 0.771], [-1.669, 0.459], [-1.7, -0.709]]
+}

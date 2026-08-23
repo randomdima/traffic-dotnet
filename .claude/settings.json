@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Bash(DOTNET_PerfMapEnabled=1 DOTNET_EnableWriteXorExecute=0 perf record -F 999 -g --call-graph=fp -o .tmp/perf2.data -- dotnet bin/Release/net10.0/traffic-dotnet.dll --bench soak --map Odesa)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(dotnet bin/Release/net10.0/traffic-dotnet.dll --bench tick --map Odesa)",
+      "Bash(dotnet bin/Release/net10.0/traffic-dotnet.dll --bench town --map Odesa)"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "id": "van_purple",
+  "sprite": "van_purple.png",
+  "wreck": { "sprite": "van_purple_broken.png", "scale": [1, 1.058] },
+  "footprintM": [3.83, 2],
+  "frontAxleM": 1.387,
+  "rearAxleM": -1.169,
+  "trackM": 1.049,
+  "drivetrain": 1,
+  "handling": { "maxSpeed": 0.78, "acceleration": 0.53, "braking": 0.85, "cornering": 0.75 },
+  "hullM": [[-1.436, -0.979], [0.718, -1], [1.717, -0.938], [1.894, -0.385], [1.915, 0.583], [1.832, 0.823], [1.478, 0.958], [-1.426, 0.958], [-1.905, 0.823], [-1.915, -0.823]]
+}

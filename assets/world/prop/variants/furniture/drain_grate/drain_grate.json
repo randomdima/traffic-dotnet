@@ -1,0 +1,6 @@
+{
+  "id": "drain_grate",
+  "kind": 2,
+  "sprite": "drain_grate.png",
+  "diameterM": 0.70
+}

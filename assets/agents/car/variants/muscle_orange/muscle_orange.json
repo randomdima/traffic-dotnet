@@ -1,0 +1,12 @@
+{
+  "id": "muscle_orange",
+  "sprite": "muscle_orange.png",
+  "wreck": { "sprite": "muscle_orange_broken.png", "scale": [1, 1.007] },
+  "footprintM": [4, 1.94],
+  "frontAxleM": 1.222,
+  "rearAxleM": -1.191,
+  "trackM": 1.019,
+  "drivetrain": 0,
+  "handling": { "maxSpeed": 1.25, "acceleration": 1.4, "braking": 0.95, "cornering": 0.9 },
+  "hullM": [[-1.396, -0.949], [1.323, -0.949], [1.812, -0.855], [1.969, -0.334], [2, 0.125], [1.823, 0.845], [1.26, 0.949], [-1.281, 0.949], [-1.99, 0.772], [-2, -0.751]]
+}

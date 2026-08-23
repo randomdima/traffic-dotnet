@@ -1,0 +1,12 @@
+{
+  "id": "sedan_rust",
+  "sprite": "sedan_rust.png",
+  "wreck": { "sprite": "sedan_rust_broken.png", "scale": [0.997, 1.041] },
+  "footprintM": [3.95, 1.86],
+  "frontAxleM": 1.416,
+  "rearAxleM": -1.134,
+  "trackM": 0.990,
+  "drivetrain": 1,
+  "handling": { "maxSpeed": 0.92, "acceleration": 0.79, "braking": 0.95, "cornering": 0.9 },
+  "hullM": [[-1.965, -0.564], [-1.798, -0.878], [-1.391, -0.92], [1.746, -0.92], [1.965, -0.115], [1.944, 0.46], [1.756, 0.92], [-1.381, 0.92], [-1.944, 0.805], [-1.975, 0.418]]
+}

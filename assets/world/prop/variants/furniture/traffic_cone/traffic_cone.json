@@ -1,0 +1,6 @@
+{
+  "id": "traffic_cone",
+  "kind": 2,
+  "sprite": "traffic_cone.png",
+  "diameterM": 0.60
+}

@@ -1,0 +1,12 @@
+{
+  "id": "sports_pink",
+  "sprite": "sports_pink.png",
+  "wreck": { "sprite": "sports_pink_broken.png", "scale": [1, 1.11] },
+  "footprintM": [3.8, 1.92],
+  "frontAxleM": 1.018,
+  "rearAxleM": -1.154,
+  "trackM": 1.004,
+  "drivetrain": 0,
+  "handling": { "maxSpeed": 1.38, "acceleration": 1.54, "braking": 1.2, "cornering": 1.35 },
+  "hullM": [[-1.89, -0.584], [-1.369, -0.939], [1.286, -0.929], [1.619, -0.803], [1.848, -0.47], [1.9, 0.292], [1.629, 0.793], [1.296, 0.929], [-1.369, 0.929], [-1.879, 0.563]]
+}

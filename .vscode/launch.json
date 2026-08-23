@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Release, no debugger attached: the tiered-JIT steady state the engine is measured in.
+      // Other entries: --check, --ui, --shot <path>, --bench <name>.
+      "name": "Release (no debug)",
+      "type": "coreclr",
+      "request": "launch",
+      "noDebug": true,
+      "preLaunchTask": "build release",
+      "program": "${workspaceFolder}/bin/Release/net10.0/traffic-dotnet",
+      "args": ["--map", "Odesa"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Release (no debug, start menu)",
+      "type": "coreclr",
+      "request": "launch",
+      "noDebug": true,
+      "preLaunchTask": "build release",
+      "program": "${workspaceFolder}/bin/Release/net10.0/traffic-dotnet",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

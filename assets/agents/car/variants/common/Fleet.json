@@ -1,0 +1,20 @@
+{
+  "variants": [
+    "../muscle_orange/muscle_orange.json",
+    "../hatch_teal/hatch_teal.json",
+    "../truck_brown/truck_brown.json",
+    "../sports_pink/sports_pink.json",
+    "../apc_olive/apc_olive.json",
+    "../sedan_rust/sedan_rust.json",
+    "../pickup_tan/pickup_tan.json",
+    "../super_cyan/super_cyan.json",
+    "../muscle_blue/muscle_blue.json",
+    "../sports_red/sports_red.json",
+    "../compact_green/compact_green.json",
+    "../taxi_yellow/taxi_yellow.json",
+    "../van_purple/van_purple.json",
+    "../coupe_black/coupe_black.json",
+    "../sedan_silver/sedan_silver.json",
+    "../pickup_maroon/pickup_maroon.json"
+  ]
+}

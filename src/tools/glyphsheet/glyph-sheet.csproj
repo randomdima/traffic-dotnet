@@ -1,0 +1,23 @@
+<!-- A workshop tool, not the runtime: it runs on this machine, writes one .png, and its output carries
+     no dependency into the run. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TrafficSimulation.Tools.GlyphSheet</RootNamespace>
+    <AssemblyName>glyph-sheet</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
+    <!-- 2.1.3, not 3.x: 3.0 added a licence key whose absence fails the build outright. Same
+         rasteriser for a job that is one .png. -->
+    <PackageReference Include="SixLabors.Fonts" Version="2.1.3" />
+  </ItemGroup>
+
+</Project>

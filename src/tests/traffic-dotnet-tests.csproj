@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>TrafficSimulation.Tests</RootNamespace>
+    <AssemblyName>traffic-dotnet-tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.0" />
+    <!-- Test-only, and deliberately: the shipped solver is this project's own, and this package is the
+         independent implementation the narrow phase and the cast are checked against over randomised
+         poses. Box-box is where a manifold is wrong subtly, and a differential test is the only cheap
+         way to know. It leaves the shipped assembly entirely. -->
+    <PackageReference Include="Box2D.NET" Version="3.1.654" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../traffic-dotnet.csproj" />
+  </ItemGroup>
+
+</Project>

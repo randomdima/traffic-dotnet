@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Expected in src/runtime/ and in the mapped-buffer writer. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>TrafficSimulation</RootNamespace>
+    <AssemblyName>traffic-dotnet</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Plain JIT with tiered compilation and Dynamic PGO, both on by default: the fastest steady
+         state, which is the only thing this engine measures. NativeAOT is an export profile and a
+         measurement of its own, never the default. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- The engine's sources are src/, minus the two projects of their own that live beside them. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);assets/**;towns/**;src/tests/**;src/tools/**;bin/**;obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!-- The unit suite reads types that are internal because nothing outside this assembly is meant to
+       call them. This is the whole of the exception. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="traffic-dotnet-tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Windowing" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
+    <!-- 3.1.x, not 4.x: 4.0 added a licence key whose absence is two warnings on every build.
+         Same decode API, and the version to revisit if a licence is ever bought. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+  </ItemGroup>
+
+  <!-- The physics is not a package: src/world/physics/ is this project's own broad phase, narrow phase and
+       contact solver. Box2D.NET is referenced by the unit suite alone, as the independent
+       implementation the cast and the manifolds are checked against. -->
+
+  <!-- GLSL 460 -> SPIR-V by glslc, from the project file so it cannot be the forgotten step, and
+       embedded so the shipped assembly has no shader files to find at run time. -->
+  <ItemGroup>
+    <ShaderSource Include="src/runtime/shaders/*.vert;src/runtime/shaders/*.frag;src/runtime/shaders/*.comp" />
+  </ItemGroup>
+
+  <!-- The typeface, embedded for the same reason. Cut by src/tools/glyphsheet and committed — a
+       workshop tool's output, never a build step. -->
+  <ItemGroup>
+    <EmbeddedResource Include="src/runtime/glyphs/glyphs.png" LogicalName="Glyphs/glyphs.png" />
+  </ItemGroup>
+
+  <Target Name="CompileShaders" BeforeTargets="AssignTargetPaths"
+          Inputs="@(ShaderSource)" Outputs="@(ShaderSource->'$(IntermediateOutputPath)Shaders/%(Filename)%(Extension).spv')">
+    <MakeDir Directories="$(IntermediateOutputPath)Shaders" />
+    <Exec Command="glslc --target-env=vulkan1.3 -O &quot;%(ShaderSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv&quot;" />
+  </Target>
+
+  <!-- Two traps paid for once, both of which fail silently — the assembly builds, ships no shaders
+       and says nothing:
+       * this hangs off PrepareResources, never BeforeCompile: resources are named and split before
+         Compile is reached, so an EmbeddedResource added at BeforeCompile time is added to nothing;
+       * it batches over ShaderSource so each Include is a literal path. Including @(ShaderSpv) and
+         naming it with %(ShaderSpv.Filename) instead adds one empty item per shader (MSB4120). -->
+  <Target Name="EmbedShaders" AfterTargets="CompileShaders" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv"
+                        LogicalName="Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv" />
+    </ItemGroup>
+  </Target>
+
+</Project>
