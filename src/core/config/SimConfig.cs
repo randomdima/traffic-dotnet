@@ -26,9 +26,13 @@ internal sealed partial class SimConfig
 
     public CarFigures Car { get; init; } = new();
     public TyreFigures Tyre { get; init; } = new();
+    public LampFigures Lamps { get; init; } = new();
     public DrivingFigures Driving { get; init; } = new();
     public LadderFigures Ladder { get; init; } = new();
     public PersonFigures Person { get; init; } = new();
+    public AmbulanceFigures Ambulance { get; init; } = new();
+    public ServiceFigures Service { get; init; } = new();
+    public EvacuatorFigures Evacuator { get; init; } = new();
     public DamageFigures Damage { get; init; } = new();
     public RoadFigures Road { get; init; } = new();
     public BuildingFigures Building { get; init; } = new();
@@ -41,4 +45,5 @@ internal sealed partial class SimConfig
     public SolverFigures Solver { get; init; } = new();
     public SimFigures Sim { get; init; } = new();
     public ViewFigures View { get; init; } = new();
+    public ControlFigures Control { get; init; } = new();
 }

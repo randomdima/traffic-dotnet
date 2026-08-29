@@ -65,8 +65,6 @@ internal sealed class TerrainGrid
     /// </summary>
     public GroundEffect EffectAt(Vector2 pointM) => _catalog.EffectOf(_plan.Cells[CellIndexAt(pointM)]);
 
-    public Vector2 LaneDirectionAt(Vector2 pointM) => LaneDirectionOfCell(CellIndexAt(pointM));
-
     /// <summary>Whether the point is inside the grid at all, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) =>
         pointM.X >= 0f && pointM.Y >= 0f &&

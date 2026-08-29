@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -20,13 +21,16 @@ public class WalkingNetworkTests(ITestOutputHelper output)
 {
     public static TheoryData<string> Maps => Towns.EveryMapWithAFootway();
 
-    static (FootGraph Foot, WalkingNetwork Network) Of(string map)
+    /// <summary>One map's pavement and the network contracted over it, built once and read by every claim.</summary>
+    static (FootGraph Foot, WalkingNetwork Network) Of(string map) => Built.GetOrAdd(map, at =>
     {
-        var plan = Towns.Of(map);
+        var plan = Towns.Of(at);
         var config = SimConfig.Shipped();
         var foot = FootGraph.Build(plan, config);
         return (foot, WalkingNetwork.Build(foot, new TerrainGrid(plan, config), config));
-    }
+    });
+
+    static readonly ConcurrentDictionary<string, (FootGraph Foot, WalkingNetwork Network)> Built = new();
 
     /// <summary>Every stretch of pavement still belongs to some run, exactly once, in one place along it.</summary>
     [Theory]
@@ -99,7 +103,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
             var edges = runs.PiecesOf(link);
             var stations = runs.StationsOf(link);
 
-            Assert.NotEmpty(edges.ToArray());
+            Assert.False(edges.IsEmpty, $"{map}: run {link} is made of no edges");
             Assert.Equal(0f, stations[0], 4);
             for (var slot = 1; slot < edges.Length; slot++)
             {
@@ -647,30 +651,6 @@ public class WalkingNetworkTests(ITestOutputHelper output)
         for (var edge = 0; edge < foot.EdgeCount; edge++) most = Math.Max(most, foot.ArcsOf(edge).Length);
 
         return most;
-    }
-
-    /// <summary>What the shipped towns contract to, printed beside the driving side's own figures.</summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void WhatTheTownsContractTo(string map)
-    {
-        var (foot, network) = Of(map);
-        var runs = network.Runs;
-
-        var longestM = 0f;
-        var mostPieces = 0;
-        var totalM = 0f;
-        for (var link = 0; link < runs.LinkCount; link++)
-        {
-            longestM = MathF.Max(longestM, runs.LengthM(link));
-            mostPieces = Math.Max(mostPieces, runs.PiecesOf(link).Length);
-            totalM += runs.LengthM(link);
-        }
-
-        output.WriteLine(
-            $"{map}: {foot.NodeCount} fine nodes → {runs.Graph.NodeCount}, {foot.EdgeCount} stretches → " +
-            $"{runs.LinkCount} runs, mean {(runs.LinkCount == 0 ? 0f : totalM / runs.LinkCount):F0} m, " +
-            $"longest {longestM:F0} m, most stretches in one {mostPieces}");
     }
 
     /// <summary>

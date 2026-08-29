@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
@@ -13,7 +14,7 @@ namespace TrafficSimulation.Bench;
 /// it happened</b> — which is what makes it a thing that can be looked at, since a place with no time
 /// beside it is a place a <c>--shot</c> cannot be aimed at.
 /// </summary>
-internal readonly record struct Knock(int Person, Vector2 AtM, bool Killed, float AtS);
+internal readonly record struct Knock(int Person, Vector2 AtM, float AtS);
 
 /// <summary>
 /// What one shape of road costs one kind of car, taken off the proving ground while it is running.
@@ -38,6 +39,12 @@ internal readonly record struct Knock(int Person, Vector2 AtM, bool Killed, floa
 /// And the other half: how long, and how far, getting from the slowest the shape made it back up to speed
 /// took. <b>What the shape cost on the way out</b>, which is where a tight corner is dearer than a fast one.
 /// </param>
+/// <param name="PulledBestMps2">
+/// <b>The hardest the car ever got itself moving</b>, <c>(v²−u²)/2d</c> from the slowest it has been to
+/// wherever it got to since, over a stretch longer than the car itself. It is what says a car is driving
+/// rather than crawling, and it is the figure a fleet's rows are compared on — the best rather than a mean,
+/// because traffic can only ever have made it smaller.
+/// </param>
 /// <param name="SlowedAtMps2">
 /// What the car actually slowed at, <c>(u²−v²)/2d</c> <b>worked out for each slowing and meaned over
 /// them</b>. Reconstructed from the meaned speeds and the meaned distance instead, it was a mean of means
@@ -51,7 +58,7 @@ internal readonly record struct Knock(int Person, Vector2 AtM, bool Killed, floa
 /// </param>
 internal readonly record struct SectionFigures(
     int Passes, float TopMps, float HoldMps, int Stops, int Slowings, float SlowM, float SlowFromMps, float SlowToMps,
-    int Pulls, float AccelS, float AccelM, float OffLineM, float SlowedAtMps2)
+    int Pulls, float AccelS, float AccelM, float OffLineM, float SlowedAtMps2, float PulledBestMps2)
 {
     public bool Any => Passes > 0;
 }
@@ -123,7 +130,21 @@ internal sealed class TrackMetrics
     readonly int[] _shapeRoads;
     readonly int[] _shapeOfRoad;
     readonly Tally[] _tally;
+
+    /// <summary>
+    /// The same passes tallied by <em>which car drove them</em> rather than by which shape they were over.
+    /// <b>It is what the fleet lap is read by</b> (<see cref="TrackLap.Fleet"/>), where the cars differ in
+    /// everything a variant states and the question is whether each of them drove the road at all — while
+    /// the measured lap's table, whose cars differ only in drive layout, is read by shape.
+    /// </summary>
+    readonly Tally[] _perCar;
+
     readonly Watch[] _watch;
+
+    /// <summary>Which look each car wears and the body that look resolved to, taken once when the town is stood up.</summary>
+    readonly byte[] _variant;
+
+    readonly CarBuild[] _build;
 
     /// <summary>Whether each walker was already off its feet last tick, so a knock is counted once and not every tick of the stumble.</summary>
     readonly bool[] _wasDown;
@@ -145,20 +166,19 @@ internal sealed class TrackMetrics
         }
 
         _tally = new Tally[ShapeCount * Drivetrains];
+        _perCar = new Tally[world.Cars.Count];
         _watch = new Watch[world.Cars.Count];
-        for (var car = 0; car < _watch.Length; car++) _watch[car] = new Watch();
+        _variant = new byte[world.Cars.Count];
+        _build = new CarBuild[world.Cars.Count];
+        for (var car = 0; car < _watch.Length; car++)
+        {
+            _watch[car] = new Watch();
+            _variant[car] = world.Cars.Variant[car];
+            _build[car] = world.Cars.BuildOf(car);
+        }
 
         _wasDown = new bool[world.People.Count];
     }
-
-    /// <summary>
-    /// Whether this town is one these figures are about. <b>Either proving ground</b>: the two are the same
-    /// lap and differ only in who is standing on it, which is the whole reason their tables are comparable.
-    /// Every other map has no shapes to name.
-    /// </summary>
-    public static bool Measures(TownWorld world) =>
-        string.Equals(world.Plan.Name, TrackPlan.Name, StringComparison.Ordinal)
-        || string.Equals(world.Plan.Name, TrackPlan.DrunkName, StringComparison.Ordinal);
 
     /// <summary>How many shapes the lap carries, which is how many sections the panel and the probe print.</summary>
     public int Shapes => _shapeRoads.Length;
@@ -176,9 +196,6 @@ internal sealed class TrackMetrics
     /// stop for what was in front of it, and a body left lying in a lane blocks that lane for good.
     /// </summary>
     public long Knocks { get; private set; }
-
-    /// <summary>And how many of them did not get up again, which is the same event at its worst.</summary>
-    public long Killed { get; private set; }
 
     /// <summary>Where the last of them happened, so a count above zero says which pacer it was.</summary>
     public Knock LastKnock { get; private set; }
@@ -210,6 +227,21 @@ internal sealed class TrackMetrics
     /// driving at all.
     /// </summary>
     public float Laps(int car) => _watch[car].MovedM / _lapM;
+
+    /// <summary>The fastest this car ever went anywhere on the lap, shapes and links alike.</summary>
+    public float TopMps(int car) => _watch[car].EverTopMps;
+
+    /// <summary>Which look this car wears, and the body that look is (CAR-11) — what a fleet's row is named and sized by.</summary>
+    public string LookOf(int car) => CarCatalog.Shared.Variants[_variant[car]].Id;
+
+    public ref readonly CarBuild BuildOf(int car) => ref _build[car];
+
+    /// <summary>
+    /// Every shape as <em>one car</em> found it, which is what the fleet lap prints a row of: the passes it
+    /// got round cleanly, the ground its stops took, the run back up to speed afterwards, and the furthest
+    /// it ever ran from the line it was offered.
+    /// </summary>
+    public SectionFigures FiguresOfCar(int car) => _perCar[car].Row();
 
     /// <summary>One shape as one kind of car found it.</summary>
     public SectionFigures Figures(int shape, int drivetrain) => _tally[(shape * Drivetrains) + drivetrain].Row();
@@ -245,13 +277,11 @@ internal sealed class TrackMetrics
 
         for (var person = 0; person < _wasDown.Length && person < world.People.Count; person++)
         {
-            var down = world.People.Dead[person] || world.People.OffFeetForS[person] > 0f;
+            var down = world.People.Wounded[person];
             if (down && !_wasDown[person])
             {
                 Knocks++;
-                if (world.People.Dead[person]) Killed++;
-                LastKnock = new Knock(
-                    person, world.People.PositionM[person], world.People.Dead[person], world.ElapsedS);
+                LastKnock = new Knock(person, world.People.PositionM[person], world.ElapsedS);
             }
 
             _wasDown[person] = down;
@@ -269,6 +299,8 @@ internal sealed class TrackMetrics
 
         if (watch.Seen) watch.MovedM += (atM - watch.AtM).Length();
         (watch.AtM, watch.Seen) = (atM, true);
+        watch.EverTopMps = MathF.Max(watch.EverTopMps, alongMps);
+        Pulling(watch, car, alongMps);
 
         // What is limiting the car is what says whether any of this is about the road at all. Another car
         // in the way is the one thing this rig cannot subtract, and it is counted against whichever
@@ -277,6 +309,7 @@ internal sealed class TrackMetrics
         if (HeldByTraffic(world, car))
         {
             watch.LegDirty = true;
+            watch.PullDirty = true;
             if (watch.OnShape) watch.ShapeDirty = true;
         }
 
@@ -375,15 +408,77 @@ internal sealed class TrackMetrics
             before.AccelSumM += watch.LegTopAtM - watch.PullAwayFromM;
         }
 
-        if (watch.ShapeDirty || !float.IsFinite(watch.ShapeLowMps))
+        // And the same run, into the car's own tally — dirtied by the pull rather than by the whole leg,
+        // since what a car managed getting away from a corner is its own fact whether or not somebody was in
+        // front of it earlier on.
+        if (watch.PullingOutOf != NoShape && !watch.PullDirty && watch.LegTopAtM > watch.PullAwayFromM)
         {
-            // Nothing about this pass is quotable, and the run out of it cannot be either: what that run
-            // would be measured from is a slowest point this pass never established.
+            ref var mine = ref _perCar[car];
+            mine.Pulls++;
+            mine.AccelSumS += watch.LegTopAtS - watch.PullAwayFromS;
+            mine.AccelSumM += watch.LegTopAtM - watch.PullAwayFromM;
+        }
+
+        if (!float.IsFinite(watch.ShapeLowMps))
+        {
+            // The run out of this shape cannot be measured either: what it would be measured from is a
+            // slowest point this pass never established.
             watch.PullingOutOf = NoShape;
             return;
         }
 
-        ref var tally = ref _tally[(shape * Drivetrains) + drivetrain];
+        // <b>The shape's table takes only a pass the road was the reason for; the car's takes every pass it
+        // drove.</b> The two answer different questions — what a radius costs, against what a body did with
+        // the lap it was given — and a car queueing behind a slower one is still a car driving the road, off
+        // its line by however far it ran, braking at whatever rate it braked at.
+        if (!watch.ShapeDirty) Pass(ref _tally[(shape * Drivetrains) + drivetrain], watch);
+
+        Pass(ref _perCar[car], watch);
+
+        (watch.PullingOutOf, watch.PullAwayFromM, watch.PullAwayFromS, watch.PullAwayFromMps) =
+            (shape, watch.LowAtM, watch.LowAtS, watch.ShapeLowMps);
+        watch.PullDirty = false;
+    }
+
+    /// <summary>
+    /// <b>The hardest this car ever got itself moving</b>, read off its own speed trace rather than off a
+    /// leg of the lap: <c>(v²−u²)/2d</c> from the slowest it has been to wherever it has got to since.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The anchor is the slowest moment, and it moves forward every time that slowest is matched.</b> A
+    /// car brought to rest anchors at the standstill it is about to pull away from; one that is never
+    /// stopped anchors at the slowest corner it took. Either way the window opens at a minimum and the rate
+    /// off it is the car's own, so nothing has to know which shape it was on or whether the leg was clean.
+    /// </para>
+    /// <para>
+    /// <b>Why the best and not a mean</b>: on a lap carrying the whole fleet, a queue behind the slowest
+    /// body is the ordinary state, and every rate a queue produces is a rate somebody else set. Traffic can
+    /// only ever have made this figure smaller, so the best of them is a floor under what the car is worth
+    /// — which is the whole question a fleet's row is asked.
+    /// </para>
+    /// </remarks>
+    void Pulling(Watch watch, int car, float alongMps)
+    {
+        if (alongMps <= watch.SlowestMps)
+        {
+            (watch.SlowestMps, watch.SlowestAtM) = (alongMps, watch.MovedM);
+            return;
+        }
+
+        // Long enough that the figure is a pull and not two samples a tick apart, which at 60 Hz is
+        // centimetres and divides by nearly nothing.
+        var pulledM = watch.MovedM - watch.SlowestAtM;
+        if (pulledM <= _build[car].LengthM) return;
+
+        _perCar[car].PulledBestMps2 = MathF.Max(
+            _perCar[car].PulledBestMps2,
+            ((alongMps * alongMps) - (watch.SlowestMps * watch.SlowestMps)) / (2f * pulledM));
+    }
+
+    /// <summary>One pass written into one tally — the shape's, and the car's own.</summary>
+    static void Pass(ref Tally tally, Watch watch)
+    {
         tally.Passes++;
         tally.TopBestMps = MathF.Max(tally.TopBestMps, watch.ShapeTopMps);
         tally.WorstOffLineM = MathF.Max(tally.WorstOffLineM, watch.OffLineM);
@@ -397,18 +492,15 @@ internal sealed class TrackMetrics
             tally.HoldSumMps += watch.ShapeLowMps;
         }
 
-        if (!float.IsNaN(watch.SlowM))
-        {
-            tally.Slowings++;
-            tally.SlowSumM += watch.SlowM;
-            tally.SlowFromSumMps += watch.SlowFromMps;
-            tally.SlowToSumMps += watch.SlowToMps;
-            tally.SlowedAtSumMps2 +=
-                ((watch.SlowFromMps * watch.SlowFromMps) - (watch.SlowToMps * watch.SlowToMps))
-                / (2f * MathF.Max(watch.SlowM, 1e-3f));
-        }
+        if (float.IsNaN(watch.SlowM)) return;
 
-        (watch.PullingOutOf, watch.PullAwayFromM, watch.PullAwayFromS) = (shape, watch.LowAtM, watch.LowAtS);
+        tally.Slowings++;
+        tally.SlowSumM += watch.SlowM;
+        tally.SlowFromSumMps += watch.SlowFromMps;
+        tally.SlowToSumMps += watch.SlowToMps;
+        tally.SlowedAtSumMps2 +=
+            ((watch.SlowFromMps * watch.SlowFromMps) - (watch.SlowToMps * watch.SlowToMps))
+            / (2f * MathF.Max(watch.SlowM, 1e-3f));
     }
 
     /// <summary>
@@ -470,7 +562,7 @@ internal sealed class TrackMetrics
     /// </remarks>
     static bool HeldByTraffic(TownWorld world, int car) => world.Cars.Hold[car] switch
     {
-        DrivingHold.Reserved => true,
+        DrivingHold.Reserved => world.Cars.GrantCutBy[car] != HeadwayKind.Walker,
         DrivingHold.Headway => world.Cars.Context[car].Ahead != HeadwayKind.Walker,
         _ => false,
     };
@@ -504,6 +596,7 @@ internal sealed class TrackMetrics
         public int Pulls;
         public float AccelSumS;
         public float AccelSumM;
+        public float PulledBestMps2;
         public float WorstOffLineM;
 
         public void Add(in Tally other)
@@ -521,13 +614,15 @@ internal sealed class TrackMetrics
             Pulls += other.Pulls;
             AccelSumS += other.AccelSumS;
             AccelSumM += other.AccelSumM;
+            PulledBestMps2 = MathF.Max(PulledBestMps2, other.PulledBestMps2);
             WorstOffLineM = MathF.Max(WorstOffLineM, other.WorstOffLineM);
         }
 
         public readonly SectionFigures Row() => new(
             Passes, TopBestMps, Over(HoldSumMps, Held), Stops, Slowings, Over(SlowSumM, Slowings),
             Over(SlowFromSumMps, Slowings), Over(SlowToSumMps, Slowings), Pulls, Over(AccelSumS, Pulls),
-            Over(AccelSumM, Pulls), WorstOffLineM, Over(SlowedAtSumMps2, Slowings));
+            Over(AccelSumM, Pulls), WorstOffLineM, Over(SlowedAtSumMps2, Slowings),
+            PulledBestMps2);
 
         static float Over(float sum, int count) => count <= 0 ? 0f : sum / count;
     }
@@ -544,6 +639,10 @@ internal sealed class TrackMetrics
         public int Road = -1;
 
         public bool LegDirty = true;
+
+        /// <summary>The same, scoped to the run back up to speed rather than to the whole leg.</summary>
+        public bool PullDirty = true;
+
         public float LegTopMps;
         public float LegTopAtM = float.NaN;
         public float LegTopAtS = float.NaN;
@@ -570,6 +669,15 @@ internal sealed class TrackMetrics
 
         public float PullAwayFromM = float.NaN;
         public float PullAwayFromS = float.NaN;
+        public float PullAwayFromMps;
+
+        /// <summary>The fastest this car ever went anywhere on the lap, links included.</summary>
+        public float EverTopMps;
+
+        /// <summary>And the slowest, with where that was — the anchor the pull-away figure is read off.</summary>
+        public float SlowestMps = float.PositiveInfinity;
+
+        public float SlowestAtM;
 
         /// <summary>The first touch of the brakes since the leg was last at its fastest, which is what a slowing is measured from.</summary>
         public float BrakeFromM = float.NaN;

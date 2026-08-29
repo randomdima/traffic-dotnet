@@ -22,6 +22,19 @@ public class CollisionLayerTests
         Assert.True(CollisionLayers.Interact(CollisionLayer.Person, CollisionLayer.Static));
     }
 
+    /// <summary>
+    /// PHY-5b: the downed layer meets static geometry and nothing else. The closure is what makes that
+    /// true in both directions — a car whose row still named it would put it back in play from the far side.
+    /// </summary>
+    [Fact]
+    public void ADownedBodyMeetsTheGroundAndNothingElse()
+    {
+        Assert.True(CollisionLayers.Interact(CollisionLayer.Downed, CollisionLayer.Static));
+        Assert.False(CollisionLayers.Interact(CollisionLayer.Downed, CollisionLayer.Car));
+        Assert.False(CollisionLayers.Interact(CollisionLayer.Downed, CollisionLayer.Person));
+        Assert.False(CollisionLayers.Interact(CollisionLayer.Downed, CollisionLayer.Downed));
+    }
+
     [Fact]
     public void EveryPairOfLayersAgreesInBothDirections()
     {

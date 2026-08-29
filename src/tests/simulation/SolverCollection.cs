@@ -8,20 +8,22 @@ namespace TrafficSimulation.Tests.Simulation;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The reason is now the measurement and no longer the solver.</b> While the solver was a package it
-/// was found to be unsafe from two threads even in two separate worlds — a pool index past its own count
-/// inside its island builder, which is shared state being written twice — and this collection existed to
-/// keep the suite out of it. This engine's own solver holds no state outside the world that owns it, so
-/// two worlds on two threads are two worlds.
-/// </para>
-/// <para>
-/// What is left is worth as much: the gates in here are allocation and timing windows over towns of a
-/// thousand bodies, and a window taken while three other towns are being built beside it is a window
-/// nobody can quote. Serialising them is how the figures stay comparable between runs.
+/// <b>The reason is the measurement.</b> The gates in here are allocation and timing windows over towns of
+/// a thousand bodies, and a window taken while three other towns are being built beside it is a window
+/// nobody can quote. Serialising them is how the figures stay comparable between runs. This engine's own
+/// solver holds no state outside the world that owns it, so two worlds on two threads are two worlds and
+/// nothing else needs to be in here for safety.
 /// </para>
 /// <para>
 /// Parallelisation is switched off for this collection rather than for the assembly, so the two hundred
 /// tests that measure nothing keep running at once.
+/// </para>
+/// <para>
+/// <b>A class that measures nothing is a bug in here</b>, and a costly one: a class that only asserts about
+/// a town lays a single-file tail on the end of the town tier for nothing. <b>The membership test is
+/// whether a failure could be caused by something else running</b> — a byte count, a wall clock, a crossing
+/// count, or the one class that stands a world of the incumbent package's own, whose worlds live in a
+/// static roster (<see cref="Physics.CastDifferenceTests"/>). Everything else runs beside everything else.
 /// </para>
 /// </remarks>
 [CollectionDefinition(Name, DisableParallelization = true)]

@@ -24,7 +24,7 @@ internal static class P16SquareUpInTheBay
     /// </summary>
     public static ManeuverStart Begin(in DriveScene scene, ManeuverDesk desk, int subject)
     {
-        var bay = desk.BayOf(scene.Car) >= 0 ? desk.BayOf(scene.Car) : desk.ReservationOf(scene.Car);
+        var bay = desk.BayInHand(scene.Car);
         return bay >= 0 && desk.LayTheExitLine(scene.Car, bay) ? ManeuverStart.Yes : ManeuverStart.No;
     }
 

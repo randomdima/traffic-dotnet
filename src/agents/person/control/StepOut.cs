@@ -18,7 +18,7 @@ internal readonly record struct PacedStep(int Lane, float AlongM, Vector2 RoadM)
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>There is no crossing under it and that is the point.</b> `P-12` is about paint — a band of lane a
+/// <b>There is no crossing under it and that is the point.</b> A right of way is about paint — a band of lane a
 /// driver owes a stop short of, and a walker that waits for a phase before using it. A body that steps into
 /// a lane where nothing is painted is owed nothing by anybody, and what has to stop for it is a driver
 /// looking at what is in front of it and nothing else.

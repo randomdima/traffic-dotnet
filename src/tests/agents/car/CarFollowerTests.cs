@@ -17,16 +17,19 @@ public class CarFollowerTests
 {
     static readonly SimConfig Figures = SimConfig.Shipped();
 
+    /// <summary>The nominal car: what is asked here is the controller's arithmetic, not a variant's.</summary>
+    static readonly CarBuild Car = CarBuild.Nominal(Figures, Figures.Car.DrivenFrontShare);
+
     static readonly ArcSeg[] Straight = [new ArcSeg(Vector2.Zero, 0f, 400f, 0f)];
 
     static CarPose At(float alongM, float alongMps) =>
-        new(new Vector2(alongM + Figures.Car.WheelbaseM * 0.5f, 0f), 0f, new Vector2(alongMps, 0f), 0f,
+        new(new Vector2(alongM + Car.CentreAheadOfAxleM, 0f), 0f, new Vector2(alongMps, 0f), 0f,
             Figures.Car.MassKg, Vector2.Zero);
 
     static float Target(ReadOnlySpan<ArcSeg> line, float progressM, float alongMps, in DriveContext context, out DrivingHold hold) =>
         CarFollower.TargetSpeedMps(
-            Figures, line, progressM, Spline.TotalLengthM(line), 0f, alongMps, CarFollower.LookaheadM(Figures, alongMps),
-            context, out hold, out _);
+            Figures, Car, line, progressM, Spline.TotalLengthM(line), 0f, alongMps,
+            CarFollower.LookaheadM(Car, alongMps, Figures.Driving.LookaheadS), context, out hold, out _);
 
     /// <summary>Something the lane index has nothing to say about, which is the one reading the rays still hold a car off.</summary>
     static DriveContext Unnamed(float headwayM, float headwaySpeedMps = 0f) =>
@@ -35,7 +38,7 @@ public class CarFollowerTests
     [Fact]
     public void AStraightAheadAsksForNoSteeringAtAll()
     {
-        var steerRad = CarFollower.Steer(Figures, Straight, 10f, new Vector2(10f, 0f), Vector2.UnitX, 8f);
+        var steerRad = CarFollower.Steer(Car, Straight, 10f, new Vector2(10f, 0f), Vector2.UnitX, 8f);
 
         Assert.Equal(0f, steerRad, 1e-4f);
     }
@@ -47,8 +50,8 @@ public class CarFollowerTests
     [Fact]
     public void ACarOffToTheLeftOfItsLineSteersBackTowardsIt()
     {
-        var gentle = CarFollower.Steer(Figures, Straight, 10f, new Vector2(10f, -0.5f), Vector2.UnitX, 8f);
-        var harder = CarFollower.Steer(Figures, Straight, 10f, new Vector2(10f, -2f), Vector2.UnitX, 8f);
+        var gentle = CarFollower.Steer(Car, Straight, 10f, new Vector2(10f, -0.5f), Vector2.UnitX, 8f);
+        var harder = CarFollower.Steer(Car, Straight, 10f, new Vector2(10f, -2f), Vector2.UnitX, 8f);
 
         Assert.True(gentle > 0f, "a car left of its line turns right to rejoin it");
         Assert.True(harder > gentle);
@@ -61,7 +64,7 @@ public class CarFollowerTests
     [InlineData(30f)]
     public void TheWheelIsNeverTurnedPastItsOwnLock(float acrossM)
     {
-        var steerRad = CarFollower.Steer(Figures, Straight, 10f, new Vector2(10f, acrossM), Vector2.UnitX, 4f);
+        var steerRad = CarFollower.Steer(Car, Straight, 10f, new Vector2(10f, acrossM), Vector2.UnitX, 4f);
 
         Assert.InRange(
             steerRad, -Figures.Car.MaxSteeringDeg * MathF.PI / 180f, Figures.Car.MaxSteeringDeg * MathF.PI / 180f);
@@ -175,12 +178,17 @@ public class CarFollowerTests
     /// tail in front, credited with what that body will have vacated once it is at rest, less the gap kept
     /// behind wherever it stops.
     /// </summary>
+    /// <remarks>
+    /// <b>Cut by a queue, which is what makes it a following distance</b>: a following time is kept from what
+    /// is being followed and from nothing else, so what the grant was cut at is part of the grant.
+    /// </remarks>
     static DriveContext Granted(float gapToTheTailM, float aheadMps) =>
         DriveContext.Clear with
         {
             AuthorityM = gapToTheTailM
-                         + (aheadMps * aheadMps / (2f * CarFollower.BrakingMps2(Figures, 1f)))
+                         + (aheadMps * aheadMps / (2f * CarFollower.BrakingMps2(Figures, Car, 1f)))
                          - Figures.CarTailMarginM,
+            GrantCutBy = HeadwayKind.Queue,
         };
 
     /// <summary>
@@ -215,7 +223,7 @@ public class CarFollowerTests
     [Fact]
     public void AStoppedCarHoldsItselfOnTheHandbrake()
     {
-        var command = CarFollower.Pedals(Figures, 0f, 0f, 0f, Figures.TickSeconds);
+        var command = CarFollower.Pedals(Figures, Car, 0f, 0f, 0f, Figures.TickSeconds);
 
         Assert.True(command.Handbrake);
         Assert.Equal(0f, command.ThrottleMps2);
@@ -228,7 +236,7 @@ public class CarFollowerTests
     [InlineData(30f, 0f, -30f)]
     public void OnePedalOrTheOtherAndNeverBoth(float alongMps, float targetMps, float lastMps2)
     {
-        var command = CarFollower.Pedals(Figures, 0.1f, targetMps, alongMps, Figures.TickSeconds, lastMps2);
+        var command = CarFollower.Pedals(Figures, Car, 0.1f, targetMps, alongMps, Figures.TickSeconds, lastMps2);
 
         Assert.True(command.ThrottleMps2 == 0f || command.BrakeMps2 == 0f);
         Assert.InRange(command.ThrottleMps2, 0f, Figures.Car.AccelerationMps2);
@@ -244,17 +252,17 @@ public class CarFollowerTests
     [Fact]
     public void ThePedalMovesAtItsOwnRateAndNotInOneTick()
     {
-        var travelMps2 = Figures.CarPedalRateMps3 * Figures.TickSeconds;
+        var travelMps2 = Car.PedalRateMps3 * Figures.TickSeconds;
 
         // Flat out, then asked for a standstill: what arrives this tick is one tick of pedal travel.
         var first = CarFollower.Pedals(
-            Figures, 0f, 0f, 30f, Figures.TickSeconds, Figures.Car.AccelerationMps2);
+            Figures, Car, 0f, 0f, 30f, Figures.TickSeconds, Figures.Car.AccelerationMps2);
 
         Assert.Equal(Figures.Car.AccelerationMps2 - travelMps2, CarFollower.PedalMps2(first), 1e-3f);
 
         // And the tick after that, from where it got to — so the whole travel is a pedal-travel long.
         var second = CarFollower.Pedals(
-            Figures, 0f, 0f, 30f, Figures.TickSeconds, CarFollower.PedalMps2(first));
+            Figures, Car, 0f, 0f, 30f, Figures.TickSeconds, CarFollower.PedalMps2(first));
 
         Assert.Equal(Figures.Car.AccelerationMps2 - (2f * travelMps2), CarFollower.PedalMps2(second), 1e-3f);
     }
@@ -278,7 +286,7 @@ public class CarFollowerTests
     public void TheLineIsTheRearAxlesAndNotTheBodys()
     {
         var pose = At(10f, 0f);
-        var rearAxleM = CarFollower.RearAxleM(Figures, pose.PositionM, pose.HeadingRad);
+        var rearAxleM = CarFollower.RearAxleM(Car, pose.PositionM, pose.HeadingRad);
 
         Assert.Equal(10f, rearAxleM.X, 1e-4f);
         Assert.Equal(0f, CarFollower.OffLineM(Straight, rearAxleM, 10f), 1e-3f);

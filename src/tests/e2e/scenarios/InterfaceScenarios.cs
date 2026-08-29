@@ -37,35 +37,86 @@ internal static class InterfaceScenarios
                 "No two panels overlap one another.",
                 "Text in the panels is legible and not cut off mid-word.",
                 "The panels do not cover the middle of the view where the town is.",
+                "One line in the top-left corner says what the run is: its frame rate, the name of the "
+                + "map, and its pace. It is collapsed, so nothing else is written under it.",
+                "Two square buttons stand in the top-right corner, one marked with a question mark and "
+                + "one with a menu glyph, and neither has a panel open under it.",
                 "The scale legend is in the bottom-right corner, drawn straight on the town with "
                 + "nothing behind it: one graduated bar ending on a large mark at each end, its large "
                 + "marks carrying figures above them, the last of which names the unit.",
             ],
-            Expected: "hud.png"),
+            Expected: "hud.png",
+            ExpectedNote: "The reference is the older interface, whose top-left corner was two boxes of "
+                          + "text and whose top-right was one button. Judge the claims against this "
+                          + "frame; the corners differing from the reference is the change itself."),
+
+        new(
+            Name: "status-panel",
+            Group: "wider",
+            Map: "Test",
+            Subject: "The status panel with its body open: the run's own line, and under it what the "
+                     + "frame cost, where the tick went, and the census the figures were taken over.",
+            FrameWidthM: 120f, FinestFeatureM: 0.6f,
+            AtM: new Vector2(240f, 160f), Seconds: 30, Ui: ["frame"],
+            Expect:
+            [
+                "The panel is in the top-left corner and its first line carries the frame rate, the "
+                + "map name and the pace.",
+                "Under a rule below that line the rows are indented under headings, and each heading "
+                + "is marked to say whether what is under it is showing.",
+                "Every row carries a figure with its unit, and the figures line up in one column.",
+                "The panel's rows all end inside it: nothing is drawn through its bottom edge.",
+                "The offscreen path times no frames, so the frame heading says it was not measured "
+                + "rather than printing zeroes under it.",
+            ]),
 
         new(
             Name: "start-menu",
             Group: "wider",
             Map: "Test",
             Subject: "The start menu, which is what the game opens on: no city is built until one is "
-                     + "picked (GEN-1b). The list is the one list — the same one the command line and "
-                     + "the in-game picker read (OBS-2a).",
+                     + "picked (GEN-1b). The map list is the one list — the same one the command line "
+                     + "and the in-game picker read (OBS-2a).",
             // No ground in any of these claims: the frame is the interface at its own scale.
             FrameWidthM: 0f, FinestFeatureM: 0f,
             AtM: null, Seconds: 0, Ui: ["menu"],
             Expect:
             [
                 "The game shows a menu rather than a town: nothing has been built yet.",
+                "The menu hangs under the menu button in the top-right corner, aligned to that "
+                + "button's outer edge, rather than standing in the middle of the screen.",
+                "It carries three tabs: two pages and, last, a red button that leaves the game.",
                 "Every place the build ships is a row, each with a name and a one-line description of "
                 + "what it is.",
-                "Scenarios and check scenes are behind their own pages rather than mixed in with the "
-                + "places — a menu of two cities should not read as a menu of two cities and a "
-                + "laboratory.",
-                "The way out of the game is a button inside the menu, not a key that quits from "
-                + "nowhere.",
+                "The scenarios are behind a second collapsible group that is shut, with only its "
+                + "heading showing — a menu of two cities should not read as a menu of two cities and "
+                + "a laboratory.",
+                "There is no close button on the panel.",
                 "Nothing on the menu is clipped, overlapping or unreadable.",
             ],
-            Expected: "start-menu.png"),
+            Expected: "start-menu.png",
+            ExpectedNote: "The reference is the older menu, which filled the middle of the screen and "
+                          + "cut its pages seven ways. Judge the claims against this frame; where it "
+                          + "hangs and how many tabs it has are the change itself."),
+
+        new(
+            Name: "controls-card",
+            Group: "wider",
+            Map: "Test",
+            Subject: "The control legend, which is its own popup under the question mark beside the "
+                     + "gear rather than a page of the menu.",
+            FrameWidthM: 120f, FinestFeatureM: 0.6f,
+            AtM: new Vector2(240f, 160f), Seconds: 30, Ui: ["controls"],
+            Expect:
+            [
+                "The panel hangs under the question-mark button in the top-right corner, aligned to "
+                + "that button's outer edge.",
+                "It is two columns: the key on the left and what it does on the right, one pair a row.",
+                "Every row's key column carries something legible — no row has an empty key.",
+                "The camera, the selection, the orders, the drive keys, the handbrake, the pace and "
+                + "freeze keys, fullscreen and Escape are all named.",
+                "Nothing on it is clipped, overlapping or unreadable.",
+            ]),
 
         new(
             Name: "ruler-and-legend",
@@ -112,9 +163,13 @@ internal static class InterfaceScenarios
                 "A node stands only where a body can go more than one way — at the junction and at "
                 + "the crossing ends, not part-way along a street.",
                 "Every pavement carries two lines of chevrons running opposite ways, one lane each "
-                + "way.",
-                "Chevrons run across each crossing, joining the pavements on the two banks: a "
-                + "crossing is a link of the walking network.",
+                + "way, and the chevrons of the two lines stand square across the pavement from each "
+                + "other rather than drifting out of step along it.",
+                "A line runs across each crossing, joining the pavements on the two banks: a crossing "
+                + "is a link of the walking network.",
+                "The crossings are marked with bars square across them rather than with chevrons, "
+                + "because a crossing is too narrow for a lane each way and is therefore one line "
+                + "walked in both directions.",
                 "The junction's amber arcs are the movements a car may make through it — straight "
                 + "through, and the turns — and each is a curve a car could actually drive rather "
                 + "than a corner cut square.",
@@ -124,6 +179,35 @@ internal static class InterfaceScenarios
             ],
             Expected: "debug-networks.png",
             ExpectedNote: AdHocReference),
+
+        new(
+            Name: "debug-bay-ways",
+            Group: "wider",
+            Map: "Test",
+            Subject: "One parking lot with the network layer on: the two ways at every bay — the line a "
+                     + "car is driven in on and the line it is backed out on — which are ways of the "
+                     + "driving network like the movements through a junction (GEN-4f).",
+            FrameWidthM: 24f, FinestFeatureM: 0.25f, // the stroke of a chevron
+            AtM: new Vector2(306.5f, 181.5f), Seconds: 12, Ui: ["nodes"],
+            Expect:
+            [
+                "Every bay of the lot has amber lines running between it and the road — a bay that "
+                + "nothing reaches would be a car park no route can use.",
+                "Each of those lines leaves or meets the carriageway on a curve a car could actually "
+                + "drive, rather than a corner cut square.",
+                "The lines arriving at a bay end inside it, lined up with the bay's own markings "
+                + "rather than at an angle across them.",
+                "Each line carries a dot at both ends: where it meets the road and where it reaches "
+                + "the bay.",
+                "The chevrons on a line all point the same way along it, and the lines into the bays "
+                + "point the opposite way from the lines out of them.",
+                "The two lines at one bay are told apart by their shade as well as by their chevrons: "
+                + "the line in is the amber the rest of the driving network is drawn in, and the line "
+                + "out — which is driven backwards — is a paler shade of it.",
+                "The bay lines are shades of the amber the movements through junctions elsewhere in "
+                + "the frame are drawn in, and not a colour of their own.",
+                "No bay line runs through a building or through a parked car's body.",
+            ]),
 
         new(
             Name: "debug-car-lines",
@@ -176,5 +260,78 @@ internal static class InterfaceScenarios
             ],
             Expected: "debug-collision.png",
             ExpectedNote: AdHocReference),
+
+        new(
+            Name: "debug-turn-circles",
+            Group: "wider",
+            Map: "Skidpad",
+            Subject: "One square of the skidpad with the turn-circle layer on (OBS-2j): the circle the "
+                     + "car's axles ask for, drawn over the circle its tyres wrote on the road. How far "
+                     + "the two differ is the measurement the pad exists to take and the probe is what "
+                     + "takes it; what this frame is for is that the construction drawn is the right one.",
+            FrameWidthM: 40f, FinestFeatureM: 0.15f,
+            AtM: new Vector2(250f, 50f), Seconds: 20, Ui: ["turn-circles"],
+            // Claims here are answerable off shapes a reviewer can see whole. Two things are not: the
+            // sprite draws no steering angle on its wheels, so "the front wheels are turned to the left"
+            // sends a reviewer cropping for art that does not exist; and a corner of a car 4 m wide in a
+            // 40 m frame is a few pixels of anti-aliasing, so which corner a line touches is not a
+            // question the frame answers. Both cost the judge its whole budget and settled nothing.
+            Expect:
+            [
+                "Three straight spokes are drawn, and all three meet at one point, which is the centre "
+                + "of the drawn circle.",
+                "Every one of the three spokes reaches the car: none stops short in open road, and none "
+                + "runs out past the car on the far side.",
+                "The centre stands off to one side of the car rather than under it, and the tyre tracks "
+                + "on the road curve around that same side.",
+                "The whole of the ground in the frame is road: no grass, no kerb and no pavement.",
+            ]),
+
+        // The two squares the pad exists to be read against each other. Both are the ahead, full-pedal
+        // row at 150 s, by when every circle on it has settled: one look holds the circle its axles ask
+        // for and one runs many times wide of it, and the layer draws the same construction over both.
+        new(
+            Name: "debug-turn-circle-runs-wide",
+            Group: "wider",
+            Map: "Skidpad",
+            Subject: "The muscle car's square of the skidpad, driving ahead on full left lock with the "
+                     + "pedal pinned, once its circle has settled (OBS-2j). The frame is the whole circle "
+                     + "it turns, with the circle its axles ask for drawn over the car.",
+            // Mid-pad rather than the leftmost column: a circle this wide framed on column one reaches
+            // off the map, and the ground in the frame is part of what is claimed.
+            FrameWidthM: 130f, FinestFeatureM: 0.4f,
+            AtM: new Vector2(850f, 250f), Seconds: 150, Ui: ["turn-circles"],
+            Expect:
+            [
+                "The tyre tracks on the road form one closed ring, and the car stands on that ring.",
+                "The drawn circle is a small ring beside the car, many times smaller than the ring the "
+                + "tyres wrote — the car is going round far wider than its own axles ask for.",
+                "The drawn centre stands to one side of the car, and the ring the tyres wrote is "
+                + "centred to that same side — the two agree about which way round the car is going.",
+                "The ring the tyres wrote is a circle and not a spiral: its arcs close on themselves "
+                + "rather than opening steadily outwards.",
+                "The whole of the ground in the frame is road: no grass, no kerb and no pavement.",
+            ]),
+
+        new(
+            Name: "debug-turn-circle-holds",
+            Group: "wider",
+            Map: "Skidpad",
+            Subject: "The sports car's square of the same row, at the same moment — a look whose tyres "
+                     + "hold what its lock asks for, so that the two circles can be seen to agree "
+                     + "(OBS-2j).",
+            FrameWidthM: 40f, FinestFeatureM: 0.22f,
+            AtM: new Vector2(350f, 250f), Seconds: 150, Ui: ["turn-circles"],
+            Expect:
+            [
+                "The drawn circle and the tyre tracks are arcs about one centre, within about a car's "
+                + "width of each other — the drawn circle is comparable in size to them and not a "
+                + "fraction of them.",
+                "The tracks are several concentric arcs, one a wheel, and the drawn circle lies among "
+                + "them or just inside the innermost.",
+                "The drawn centre stands where the three spokes meet, to the side of the car the tracks "
+                + "curve towards.",
+                "The whole of the ground in the frame is road: no grass, no kerb and no pavement.",
+            ]),
     ];
 }

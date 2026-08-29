@@ -80,7 +80,7 @@ public class ManeuverTraceTests
         trace.Changed(Maneuver.None, Maneuver.RunTheLine, inOneSpot: false);
 
         Assert.True(trace.EverEntered(Maneuver.RunTheLine));
-        Assert.False(trace.EverEntered(Maneuver.TurnAround));
+        Assert.False(trace.EverEntered(Maneuver.ParkInTheBay));
 
         trace.Reset();
         Assert.False(trace.EverEntered(Maneuver.RunTheLine));

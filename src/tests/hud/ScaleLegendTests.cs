@@ -48,6 +48,25 @@ public class ScaleLegendTests
     }
 
     /// <summary>
+    /// The marks of a bar are graduated in the unit its last figure carries, so a bar under a metre
+    /// reads 0, 20, 40 cm rather than three zeros and a distance.
+    /// </summary>
+    [Theory]
+    [InlineData(0.2f, 0.4f, "20")]
+    [InlineData(6f, 8f, "6")]
+    [InlineData(2.5f, 5f, "2.5")]
+    [InlineData(1200f, 2400f, "1.20")]
+    public void AMarksFigureIsInTheUnitTheBarNames(float metres, float alongsideM, string expected)
+    {
+        Span<char> text = stackalloc char[24];
+        var written = new TextBuffer(text);
+
+        Ladder.WriteFigure(ref written, metres, alongsideM);
+
+        Assert.Equal(expected, written.Written.ToString());
+    }
+
+    /// <summary>
     /// <b>The bar's length is held and it is the number of marks that changes.</b> Two framings an
     /// order of magnitude apart come out about the same length on screen and stand for very different
     /// distances — which is the pair of reference frames, asserted.

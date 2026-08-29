@@ -12,9 +12,11 @@ manoeuvre ends in is not the pose the plan expected (MAN-3), and a car that coul
 does not enter — which is what sends a car stranded on a verge to `E-8` rather than driving it with no
 line.
 
-**`Sb` — the state it delivers.** Whatever the road produced: a stop line, a junction, paint, or the
-staging place of the bay this leg holds. **A queue is not one of them** — a car held by the road it was
-granted is running its line on a shorter road, which is this entry (S-2a).
+**`Sb` — the state it delivers.** Whatever the road produced: a stop line, a junction, or the place the
+line leaves the road for the way into the bay this leg holds. **A queue is not one of them** — a car held
+by the road it was granted is running its line on a shorter road, which is this entry (S-2a) — and
+**neither is a crossing**: the pace over the paint (CAR-7b) and the stop short of somebody on it
+(TER-4c.1) are terms of the same profile, so a car at a zebra is on a shorter road too.
 
 **Line.** None of its own. It holds the route's line, drawn over the lanes the plan says to take and
 grown from its far end as the car eats it, so nothing already laid moves.
@@ -32,12 +34,13 @@ road reach the ladder — and the obstruction wait, which is the bound on standi
 | | Successor |
 |---|---|
 | the line was lost | keeps running — the standing rules re-acquire, and the blocked clock reaches the ladder |
-| at rest at the end of the leg's last lane | the plan's next step — `P-14` |
-| the crossing term bound the speed | `P-12` |
-| a stop point or the end of the line bound it | `P-6` |
+| the line has left the road for the way into the leg's own bay, or has stopped at the mouth of one the car reverses into | the plan's next step — `P-14` |
+| a stop point or the end of the line bound the speed | `P-6` |
 | at rest, past the obstruction wait, in front of a **named obstruction** at rest with nobody exercising priority | `E-4` |
-| the box ahead is within reserve distance and is this car's | `P-8`, or `P-11` where the route reverses |
+| the box ahead is within reserve distance and is this car's | `P-8` |
+| at rest where the line runs out, on a stretch the leg comes back the other way from | `P-19` |
 | the grant or the headway bound the speed | keeps running — **this is what queueing is** |
+| the crossing term bound the speed | keeps running — **this is what slowing at a zebra is** (CAR-7b) |
 
 **Why the exits are named off the binding term.** A car's speed is the minimum of everything that limits
 it, and the term that won is the least ambiguous reading there is of what the car is doing. Each entry

@@ -42,10 +42,11 @@ internal readonly record struct PlannedStep(Maneuver Id, int Subject)
 internal sealed class DrivePlan
 {
     /// <summary>
-    /// The longest chain a leg needs: leave the bay, run the line, park, stand. The two spare are for a
-    /// leg re-derived mid-way, which is the same chain with the step it has already taken still in it.
+    /// The longest chain a leg needs: leave the bay, run the line, park in a bay to turn at a car park and
+    /// leave it the other way (GEN-4l), run the line on, park, stand. The two spare are for a leg re-derived
+    /// mid-way, which is the same chain with the step it has already taken still in it.
     /// </summary>
-    public const int StepsPerLeg = 6;
+    public const int StepsPerLeg = 9;
 
     readonly PlannedStep[] _steps;
     readonly int[] _count;

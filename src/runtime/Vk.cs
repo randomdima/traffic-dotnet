@@ -77,9 +77,11 @@ internal sealed unsafe partial class Vk : IDisposable
     /// <remarks>
     /// It is what a frame rate from this build means: under FIFO the loop is paced by the display and
     /// the read-out is the refresh rate whatever the town costs — 120 fps on Test and on Odesa alike,
-    /// two towns fifty times apart. <see cref="Swapchain"/> carries the argument for each mode.
+    /// two towns fifty times apart. What the build costs under it is the read-out's cpu figure, since
+    /// the wait is measured apart from it (<c>FrameParts.BlockedMs</c>).
+    /// <see cref="Swapchain"/> carries the argument for each mode.
     /// </remarks>
-    public PresentModeKHR WantedPresentMode { get; set; } = PresentModeKHR.MailboxKhr;
+    public PresentModeKHR WantedPresentMode { get; set; } = PresentModeKHR.FifoKhr;
 
     /// <summary>
     /// Opens the loader, creates an instance, picks a physical device preferring a discrete GPU, and

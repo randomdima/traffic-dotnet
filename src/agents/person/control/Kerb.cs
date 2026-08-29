@@ -65,9 +65,12 @@ internal static class Kerb
         ReadOnlySpan<CrossingBands.Band> ahead, float waitedS)
     {
         if (signals.CrossingIsLit(crossing) && signals.ForCrossing(crossing, timeS) != SignalColour.Green) return false;
-        if (waitedS >= config.Person.KerbPatienceS) return true;
+        if (TheBandItStepsIntoIsFree(roads, ahead, claimM)) return true;
 
-        return TheBandItStepsIntoIsFree(roads, ahead, claimM);
+        // <b>Every other agent gives way to a rescue, and a body at a kerb is one of them</b> (AMB-4). The
+        // patience is PER-15's escape from a crossing that never clears, and an ambulance's road is the one
+        // thing it does not escape: a call lasts seconds, so what is being waited out is going to pass.
+        return waitedS >= config.Person.KerbPatienceS && !ARescueIsOver(roads, ahead, claimM);
     }
 
     /// <summary>
@@ -99,4 +102,12 @@ internal static class Kerb
     /// </remarks>
     public static bool BandIsFree(LaneOccupancy roads, CrossingBands.Band band, float claimM) =>
         !roads.AnyTrafficOver(roads.WayOfLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM);
+
+    /// <summary>Whether the lane this body is about to step into is inside an ambulance's road (AMB-4).</summary>
+    public static bool ARescueIsOver(
+        LaneOccupancy roads, ReadOnlySpan<CrossingBands.Band> ahead, float claimM) =>
+        ahead.Length > 0 && ARescueIsOver(roads, ahead[0], claimM);
+
+    public static bool ARescueIsOver(LaneOccupancy roads, CrossingBands.Band band, float claimM) =>
+        roads.AnyRescueOver(roads.WayOfLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM);
 }

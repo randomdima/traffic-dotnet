@@ -17,8 +17,13 @@ carries the whole of the warning, and a crossing shows green only against a road
 so a walker is never shown an amber to interpret.
 
 **TLT-3** An intersection carries **exactly one light bundle if and only if it admits conflicting
-movements** (TER-5c); a crossing on an intersection always qualifies. **Placement is not randomised**;
-each bundle's initial phase offset is drawn from the world seed.
+movements** (TER-5c), which is read off the shape of the junction rather than taken on trust from the map.
+**A crossing does not qualify one on its own**: an intersection of fewer than three arms admits no crossing
+car movements, so a dead end and an inline junction (TER-5b) carry no bundle, and the crossing an inline
+junction exists for is an **uncontrolled** one — governed by the walker's right of way over the traffic
+(TER-5e) rather than by a phase. Lit instead, a mid-block zebra holds a street on a timer nothing on it is
+waiting for. **Placement is not randomised**; each bundle's initial phase offset is drawn from the world
+seed.
 
 **TLT-4** A bundle shares a single cycle whose phases green an **axis** rather than a list of directions,
 so **conflicting greens are impossible by the shape of the table** rather than by a runtime check, and

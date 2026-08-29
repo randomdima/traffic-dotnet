@@ -1,5 +1,9 @@
 {
   "id": "supermarket",
   "sprite": "supermarket.png",
-  "footprintM": [19.00, 19.48]
+  "footprintM": [19.00, 19.48],
+  "partsM": [
+    { "atM": [0.0, -0.6], "sizeM": [19.0, 18.13] },
+    { "atM": [-2.64, -0.04], "sizeM": [8.51, 19.4] }
+  ]
 }

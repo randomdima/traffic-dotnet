@@ -20,11 +20,16 @@ namespace TrafficSimulation.World.Town;
 /// standing on once they have stopped</b>, which is the whole of what holds one body off the next.
 /// </para>
 /// <para>
-/// <b>What a walker does with the grant is where the two part company, and only there.</b> A driver hands
-/// the distance to a speed profile; a walker has none (PER-3) — its pace is a cap and never a curve — so
-/// the grant is read as a permission: it walks while there is ground granted to walk into and stands while
-/// there is not. That is the whole difference, and it is a difference in what reads the answer rather than
-/// in how the answer is arrived at.
+/// <b>What a walker does with the grant is where the two part company.</b> A driver hands the distance to a
+/// speed profile; a walker has none (PER-3) — its pace is a cap and never a curve — so the grant is read as
+/// a permission: it walks while there is ground granted to walk into and stands while there is not. It is a
+/// difference in what reads the answer rather than in how the answer is arrived at.
+/// </para>
+/// <para>
+/// <b>And what it is asked about is one use narrower</b> (PER-24, <see cref="LaneOccupancy.UnderWay"/>). A
+/// body going nowhere cuts no walk: the same walk that takes the grant picks it out
+/// (<see cref="PersonFleet.StepsRound"/>) and the feet go round it, so the book answers the same question
+/// with the same arithmetic and one of the two answers it gives is a step rather than a stop.
 /// </para>
 /// <para>
 /// <b>A way is one side of one stretch</b>, or the mitre between two of them. The two directions of a
@@ -132,7 +137,6 @@ internal sealed partial class TownWorld
     {
         People.ReserveAheadM[person] = 0f;
         People.AuthorityM[person] = float.PositiveInfinity;
-        People.HeldBy[person] = LaneUse.Reserved;
 
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any) return;
@@ -160,7 +164,8 @@ internal sealed partial class TownWorld
         {
             ref readonly var over = ref ways[index];
             _footfall.AddUnderWay(
-                over.Way, over.FromM, OnTheWayM(over, radiusM), over.ToM, alongMps, person, LaneRoster.Walking);
+                over.Way, over.FromM, OnTheWayM(over, radiusM), over.ToM, alongMps, person,
+                of: LaneRoster.Walking);
         }
     }
 
@@ -224,52 +229,56 @@ internal sealed partial class TownWorld
     /// (TER-5c.1): the ground where two ways cross is looked up in the book it belongs to, and nobody writes
     /// into a book of a network they are not on.
     /// </para>
+    /// <para>
+    /// <b>What it is not cut at is a body going nowhere</b> (PER-24, <see cref="LaneOccupancy.UnderWay"/>).
+    /// That is the whole of where a walker parts from a driver on the far side of the same book: a driver
+    /// waits behind a wreck and is eventually walked round it by the ladder, and a walker has feet — it is
+    /// handed the nearest one on the ground it asked for and aims past it in the same tick.
+    /// </para>
     /// </remarks>
     void GrantThePavement(int person, Span<LineWay> ways)
     {
+        People.StepsRound[person] = PersonFleet.NoBody;
         if (People.OnWay[person] == PersonFleet.NoWay) return;
 
-        var gripMps2 = FootGripMps2(person);
         var grantedToM = ReserveToM(person);
-        var heldBy = LaneUse.Reserved;
+
+        // The terms this walker is cut on, which are the driver's terms in the walker's own figures
+        // (<see cref="LaneCredit"/>). <b>It asks with the weakest rank</b>: no claim on the pavement is a
+        // walker's to take, so every stretch in front of it binds.
+        var asker = new LaneCredit(
+            _config.PersonStandstillGapM, LaneRoster.Walking, RightOfWay.TurningAcross);
 
         var count = WaysAlongTheWalk(person, People.RadiusM[person], grantedToM, ways);
         for (var index = 0; index < count; index++)
         {
             ref readonly var way = ref ways[index];
+            var fromM = OnTheWayM(way, People.RadiusM[person]);
 
             // In front of the body and not of the ground it holds, which is the road's own reading
             // (<see cref="LaneOccupancy.NextSpokenFor"/>): a stretch begins behind its owner's back.
-            var at = LaneOccupancy.FromTheStart;
-            while (_footfall.NextSpokenFor(
-                       way.Way, OnTheWayM(way, People.RadiusM[person]), way.ToM, person, ref at, out var taken,
-                       LaneRoster.Walking))
+            var cutM = OnTheLineM(
+                way,
+                _footfall.GrantedOn(
+                    way.Way, fromM, way.ToM, person, asker, out _, LaneOccupancy.UnderWay));
+            if (cutM < grantedToM) grantedToM = cutM;
+
+            // The one the walk runs into rather than the one it is granted up to: the nearest is what the
+            // feet have to get past, and a second body behind it is next tick's question.
+            if (People.StepsRound[person] == PersonFleet.NoBody
+                && _footfall.AheadObstruction(
+                    way.Way, fromM, way.ToM, person, out var inTheWay, LaneRoster.Walking))
             {
-                // A walker under way carries its own margin and its own stopping distance; a body standing
-                // about carries neither, and this one keeps its margin off that (TER-5c.2), exactly as the
-                // road's side does.
-                var creditM = taken.Use == LaneUse.Reserved && taken.Of == LaneRoster.Walking
-                    ? StoppingM(taken.AlongMps, gripMps2)
-                    : -_config.PersonStandstillGapM;
-
-                var cutM = way.LineFromM + (taken.FromM - way.FromM) + creditM;
-                if (cutM >= grantedToM) continue;
-
-                grantedToM = cutM;
-                heldBy = taken.Use;
+                People.StepsRound[person] = inTheWay.Occupant;
             }
 
             // A lane's edge is a place and has no margin of its own, so the asker's is taken off it here —
             // the walking side of the one cut that is not made at somebody else's stretch.
-            var runsOutM = WhereTheWalkRunsOut(person, way) - _config.PersonStandstillGapM;
-            if (runsOutM >= grantedToM) continue;
-
-            grantedToM = runsOutM;
-            heldBy = LaneUse.Reserved;
+            var runsOutM = WhereTheWalkRunsOut(person, way) + asker.AtAPlaceM;
+            if (runsOutM < grantedToM) grantedToM = runsOutM;
         }
 
         People.AuthorityM[person] = grantedToM - People.RadiusM[person];
-        People.HeldBy[person] = heldBy;
     }
 
     /// <summary>
@@ -312,11 +321,11 @@ internal sealed partial class TownWorld
         way = PersonFleet.NoWay;
         alongM = 0f;
 
-        if (!People.Walking[person] || People.Dead[person] || !People.IsOnItsFeet(person)) return false;
+        if (!People.Walking[person] || !People.IsOnItsFeet(person)) return false;
 
         // A hand at the keys aims a walker wherever it likes and the line under it is whatever was last
         // laid, so what the book would be reading is where that walker was going before the hand took it.
-        if (_hands.Held && _selected.Kind == SelectionKind.Person && _selected.Index == person) return false;
+        if (_hands.Held && _selected.Holds(SelectionKind.Person, person)) return false;
 
         var at = People.WalkedAt(person);
         if (at < 0 || at >= People.WalkedCount[person]) return false;

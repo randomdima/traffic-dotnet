@@ -91,7 +91,7 @@ internal static class WalkProbe
         var paceReachedMps = velocityMps.Length();
         var stopM = Walk(moving: false, until: speed => speed <= pace * StoppedFraction);
 
-        var gripMps2 = (onFeet ? config.Person.FootGripMps2 : config.Person.SlidingGripMps2) * terrainCoefficient;
+        var gripMps2 = (onFeet ? config.Person.FootGripMps2 : config.PersonSlidingGripMps2) * terrainCoefficient;
         return new WalkRun(paceReachedMps, startM, stopM, pace * pace / (2f * gripMps2), crabMps);
 
         float Walk(bool moving, Func<float, bool> until)

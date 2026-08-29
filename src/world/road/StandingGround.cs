@@ -15,10 +15,9 @@ namespace TrafficSimulation.World.Road;
 /// nothing has to be given back).
 /// </para>
 /// <para>
-/// <b>It is what a ray used to be for.</b> A driver asked the whole static tree whether anything immovable
-/// stood on the line it was driving — ninety-odd thousand props, a descent whose every step is a cache
-/// miss, and an answer that could not change. Asked once per prop at load instead, the tick reads it out of
-/// the same book everything else is in, and a driver has one place to look rather than two.
+/// <b>The book is the driver's one place to look.</b> Asking the static tree instead would be a descent
+/// whose every step is a cache miss, per driver per tick, for an answer that cannot change — and it would
+/// leave a driver reading immovable ground out of one structure and everything else out of another.
 /// </para>
 /// <para>
 /// <b>Props and not buildings</b> — the stated bound of TER-4c. A prop is a circle and a lane is a band, so
@@ -46,15 +45,21 @@ internal sealed class StandingGround
 
     /// <summary>
     /// Everything immovable, into a book that has just been begun. <b>Nobody's</b>
-    /// (<see cref="LaneOccupancy.Nobody"/>): a prop is in no roster, so it excludes nothing and nothing
-    /// excludes it, and it is an <see cref="LaneUse.Obstruction"/> because that is exactly what it is —
-    /// something on the road that is not going anywhere and may be driven round.
+    /// (<see cref="LaneOccupancy.Nobody"/>), because a prop is in no roster — and under a use of its own
+    /// (<see cref="LaneUse.Furniture"/>), because <em>which</em> questions it answers is the whole of what
+    /// it is: a driver's grant is cut at it like anything else on the lane, and a walker asking what is
+    /// coming down that lane is asking about wheels.
     /// </summary>
+    /// <remarks>
+    /// Read as an <see cref="LaneUse.Obstruction"/> it was traffic, and what kept the walkers off that
+    /// answer was that the exclusion they asked with named the same integer a prop stands under — one
+    /// question's argument deciding another question's answer.
+    /// </remarks>
     public void LayInto(LaneOccupancy book)
     {
         for (var at = 0; at < _lane.Length; at++)
         {
-            book.Add(book.WayOfLane(_lane[at]), _fromM[at], _toM[at], 0f, LaneOccupancy.Nobody, LaneUse.Obstruction);
+            book.Add(book.WayOfLane(_lane[at]), _fromM[at], _toM[at], 0f, LaneOccupancy.Nobody, LaneUse.Furniture);
         }
     }
 

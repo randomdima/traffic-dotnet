@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
 using Xunit;
@@ -21,6 +22,21 @@ public class SolverGateTests
 {
     static SolverGateTests() => SolverProbe.WarmTheProcess(SimConfig.Shipped());
 
+    static readonly ConcurrentDictionary<(int BodyCount, bool Packed), SolverProbe.StepSample> Taken = new();
+
+    /// <summary>
+    /// One rig per <c>(bodyCount, packed)</c>, taken once and read by whoever asks. <b>Four rigs answer
+    /// eight questions here</b>, and the packed thousand is nine hundred steps of a churning contact set:
+    /// taken per test it was twenty-two seconds of the gate tier spent measuring the same world twice.
+    /// </summary>
+    /// <remarks>
+    /// Sharing the sample is what the tests mean anyway — the byte count and the contact count below are
+    /// two readings of one measurement, and a run in which they came off different worlds could report
+    /// zero bytes over a rig that solved nothing and call it a gate.
+    /// </remarks>
+    static SolverProbe.StepSample Sample(int bodyCount, bool packed) =>
+        Taken.GetOrAdd((bodyCount, packed), rig => SolverProbe.Sample(SimConfig.Shipped(), rig.BodyCount, rig.Packed));
+
     /// <summary>Rule 2 as the rule actually reads: nothing, and not nearly nothing.</summary>
     [Theory]
     [InlineData(1, false)]
@@ -29,7 +45,7 @@ public class SolverGateTests
     [InlineData(1_000, true)]
     public void AStepAllocatesNothing(int bodyCount, bool packed)
     {
-        var sample = SolverProbe.Sample(SimConfig.Shipped(), bodyCount, packed);
+        var sample = Sample(bodyCount, packed);
 
         Assert.Equal(0d, sample.BytesPerStep);
         Assert.Equal(0, sample.Gen0Collections);
@@ -42,21 +58,14 @@ public class SolverGateTests
     [Fact]
     public void ThePackedRowsActuallySolveContacts()
     {
-        var apart = SolverProbe.Sample(SimConfig.Shipped(), bodyCount: 1_000, packed: false);
-        var packed = SolverProbe.Sample(SimConfig.Shipped(), bodyCount: 1_000, packed: true);
+        var apart = Sample(bodyCount: 1_000, packed: false);
+        var packed = Sample(bodyCount: 1_000, packed: true);
 
         Assert.Equal(0, apart.ContactPoints);
         Assert.True(packed.ContactPoints > 0, "the packed rig solved no contact points, so it measured an empty world");
     }
 
     [Fact]
-    public void TheFigureIsFlatInTheSizeOfTheTown()
-    {
-        var config = SimConfig.Shipped();
-
-        var few = SolverProbe.AllocatedBytesPerStep(config, bodyCount: 1);
-        var many = SolverProbe.AllocatedBytesPerStep(config, bodyCount: 1_000);
-
-        Assert.Equal(few, many);
-    }
+    public void TheFigureIsFlatInTheSizeOfTheTown() =>
+        Assert.Equal(Sample(bodyCount: 1, packed: false).BytesPerStep, Sample(bodyCount: 1_000, packed: false).BytesPerStep);
 }

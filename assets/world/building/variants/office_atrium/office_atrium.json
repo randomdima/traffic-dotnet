@@ -1,5 +1,9 @@
 {
   "id": "office_atrium",
   "sprite": "office_atrium.png",
-  "footprintM": [17.00, 18.07]
+  "footprintM": [17.00, 18.07],
+  "partsM": [
+    { "atM": [0.0, -0.83], "sizeM": [16.65, 16.40] },
+    { "atM": [0.0, 0.0], "sizeM": [3.89, 18.07] }
+  ]
 }

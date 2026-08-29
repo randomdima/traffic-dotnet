@@ -24,6 +24,12 @@ namespace TrafficSimulation.Tests.Gates;
 /// adds bodies and reasons for them to be pressed together, and the tick a car is allowed to sink into
 /// a queue and stay there is the tick this stops being a town.
 /// </para>
+/// <para>
+/// <b>What it asserts is the claim the town itself keeps</b> (<see cref="TownWatch"/>) — the same one
+/// <c>--bench soak</c> prints and the panel draws on every map — so the gate and the instrument cannot
+/// disagree about what being stuck is. What is this gate's own is the length of the run and the fact that
+/// it is taken on every shipped map.
+/// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
 [Collection(Simulation.SolverCollection.Name)]
@@ -37,25 +43,17 @@ public class OverlapGateTests
     public void NoBodyInAStandingTownIsLeftInsideAnother(string map)
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Fresh(map), config);
+        using var world = new TownWorld(Towns.Of(map), config);
         var loop = new SimLoop<TownWorld>(world, config);
 
-        var bodies = world.People.Count + world.Cars.Count;
-        var overlapM = new float[bodies];
-        var stuckForTicks = new int[bodies];
-        var longestStuckTicks = 0;
-
+        var watch = new TownWatch(world);
         for (var tick = 0; tick < Ticks; tick++)
         {
             loop.Advance();
-            SoakProbe.SweepOverlaps(world, overlapM);
-            for (var body = 0; body < bodies; body++)
-            {
-                stuckForTicks[body] = overlapM[body] > SoakProbe.OverlapAllowanceM ? stuckForTicks[body] + 1 : 0;
-                longestStuckTicks = Math.Max(longestStuckTicks, stuckForTicks[body]);
-            }
+            watch.Saw(world);
         }
 
-        Assert.InRange(longestStuckTicks, 0, SoakProbe.StuckAfterTicks);
+        Assert.InRange(watch.LongestStuckTicks, 0, SoakProbe.StuckAfterTicks);
+        Assert.Equal(ClaimVerdict.Kept, watch.Verdict(TownWatch.NothingInsideAnything));
     }
 }

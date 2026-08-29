@@ -34,12 +34,30 @@ internal sealed class CellGrid
     int _width;
     int _height;
 
-    int[] _cellStart = [];
-    int[] _cellCount = [];
-    int[] _cellCursor = [];
-    int[] _cellStamp = [];
+    /// <summary>
+    /// One cell's four numbers, side by side rather than in four arrays of their own. <b>Every pass over
+    /// the grid wants two or three of them about the same cell</b> — the count pass its stamp and its
+    /// count, the prefix its count and where it starts, a query its stamp, start and count — and a cell
+    /// index is scattered by construction, so four arrays is four lines fetched for what fits in one.
+    /// </summary>
+    struct Cell
+    {
+        public int Stamp;
+        public int Start;
+        public int Count;
+        public int Cursor;
+    }
+
+    Cell[] _cell = [];
     int[] _touched = [];
     int[] _items = [];
+
+    /// <summary>
+    /// Each body's own block of cells, in the order the set was handed over — <b>worked out on the
+    /// counting pass and spent on the filling one</b>, because the two passes ask the same question of
+    /// the same box and a rebuild is the town's whole moving roster.
+    /// </summary>
+    CellBlock[] _block = [];
 
     Vector2[] _leastM = [];
     Vector2[] _mostM = [];
@@ -49,9 +67,6 @@ internal sealed class CellGrid
     int _entryCount;
 
     public int BodyCount { get; private set; }
-
-    /// <summary>How many cells the bodies actually reached, which is the figure a census quotes rather than the grid's size.</summary>
-    public int LiveCellCount => _touchedCount;
 
     public float CellSizeM => _cellM;
 
@@ -85,25 +100,28 @@ internal sealed class CellGrid
 
         Size(least, most, cellSizeM);
 
+        if (_block.Length < bodies.Length) _block = new CellBlock[Math.Max(bodies.Length, _block.Length * 2)];
+
         for (var slot = 0; slot < bodies.Length; slot++)
         {
             var body = bodies[slot];
             Span(body, out var fromX, out var fromY, out var toX, out var toY);
+            _block[slot] = new CellBlock(fromX, fromY, toX, toY);
             for (var y = fromY; y <= toY; y++)
             {
                 for (var x = fromX; x <= toX; x++)
                 {
-                    var cell = y * _width + x;
-                    if (_cellStamp[cell] != _generation)
+                    ref var cell = ref _cell[y * _width + x];
+                    if (cell.Stamp != _generation)
                     {
-                        _cellStamp[cell] = _generation;
-                        _cellCount[cell] = 0;
+                        cell.Stamp = _generation;
+                        cell.Count = 0;
                         if (_touchedCount == _touched.Length) Array.Resize(ref _touched, Math.Max(64, _touched.Length * 2));
 
-                        _touched[_touchedCount++] = cell;
+                        _touched[_touchedCount++] = y * _width + x;
                     }
 
-                    _cellCount[cell]++;
+                    cell.Count++;
                     _entryCount++;
                 }
             }
@@ -114,10 +132,10 @@ internal sealed class CellGrid
         var at = 0;
         for (var slot = 0; slot < _touchedCount; slot++)
         {
-            var cell = _touched[slot];
-            _cellStart[cell] = at;
-            _cellCursor[cell] = at;
-            at += _cellCount[cell];
+            ref var cell = ref _cell[_touched[slot]];
+            cell.Start = at;
+            cell.Cursor = at;
+            at += cell.Count;
         }
 
         // In body order, so a cell's items come out ascending and the pairs built from them are ordered
@@ -125,24 +143,27 @@ internal sealed class CellGrid
         for (var slot = 0; slot < bodies.Length; slot++)
         {
             var body = bodies[slot];
-            Span(body, out var fromX, out var fromY, out var toX, out var toY);
-            for (var y = fromY; y <= toY; y++)
+            ref readonly var block = ref _block[slot];
+            for (var y = block.FromY; y <= block.ToY; y++)
             {
-                for (var x = fromX; x <= toX; x++)
+                for (var x = block.FromX; x <= block.ToX; x++)
                 {
-                    _items[_cellCursor[y * _width + x]++] = body;
+                    _items[_cell[(y * _width) + x].Cursor++] = body;
                 }
             }
         }
     }
 
+    /// <summary>The block of cells one body's box covers, as the two passes of a rebuild both want it.</summary>
+    readonly record struct CellBlock(int FromX, int FromY, int ToX, int ToY);
+
     /// <summary>What one live cell holds, or nothing where no body reached it.</summary>
     public ReadOnlySpan<int> Items(int x, int y)
     {
-        var cell = y * _width + x;
-        if (_cellStamp[cell] != _generation) return ReadOnlySpan<int>.Empty;
+        ref readonly var cell = ref _cell[(y * _width) + x];
+        if (cell.Stamp != _generation) return ReadOnlySpan<int>.Empty;
 
-        return _items.AsSpan(_cellStart[cell], _cellCount[cell]);
+        return _items.AsSpan(cell.Start, cell.Count);
     }
 
     /// <summary>The cells an axis-aligned box could reach, or false where it lies off the grid entirely.</summary>
@@ -316,15 +337,12 @@ internal sealed class CellGrid
         _height = (int)MathF.Floor(spanM.Y * _inverseCellM) + 1;
 
         var cells = _width * _height;
-        if (_cellStamp.Length >= cells) return;
+        if (_cell.Length >= cells) return;
 
         // Half again, because the bounds are the set's own and a roster spreading by a metre would
         // otherwise lay four new arrays for one more column of cells — a steady state that allocates.
         var room = cells + cells / 2;
-        _cellStart = new int[room];
-        _cellCount = new int[room];
-        _cellCursor = new int[room];
-        _cellStamp = new int[room];
+        _cell = new Cell[room];
         _generation = 1;
     }
 
@@ -347,7 +365,7 @@ internal sealed class CellGrid
     {
         if (_generation == int.MaxValue)
         {
-            Array.Clear(_cellStamp);
+            Array.Clear(_cell);
             _generation = 0;
         }
 

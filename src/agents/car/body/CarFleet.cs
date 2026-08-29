@@ -28,9 +28,12 @@ internal sealed class CarFleet
 {
     readonly int _arcsPerCar;
 
-    public CarFleet(int capacity, int arcsPerCar)
+    readonly CarBuilds _builds;
+
+    public CarFleet(int capacity, int arcsPerCar, CarBuilds builds)
     {
         _arcsPerCar = arcsPerCar;
+        _builds = builds;
         Body = new BodyId[capacity];
         PositionM = new Vector2[capacity];
         HeadingRad = new float[capacity];
@@ -42,6 +45,9 @@ internal sealed class CarFleet
         Draw = new Rng[capacity];
         Driven = new bool[capacity];
         Broken = new bool[capacity];
+        Ambulance = new bool[capacity];
+        BlueLight = new bool[capacity];
+        AtWork = new bool[capacity];
         LaneChain = new int[capacity * PathAssembler.MostLanes];
         LaneStartM = new float[capacity * PathAssembler.MostLanes];
         LaneEndM = new float[capacity * PathAssembler.MostLanes];
@@ -51,19 +57,28 @@ internal sealed class CarFleet
         ToTheBoxM = new float[capacity];
         Array.Fill(ToTheBoxM, float.PositiveInfinity);
         BoxIsOurs = new bool[capacity];
+        CommittedToTheBox = new bool[capacity];
         SinceDecisionS = new float[capacity];
         Line = new DrivenLine[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
-        Crossing = new int[capacity];
-        Array.Fill(Crossing, NoMovement);
+        MovementWay = new int[capacity];
+        Array.Fill(MovementWay, NoWay);
+        LineWay = new int[capacity];
+        Array.Fill(LineWay, NoWay);
         ClaimWay = new int[capacity];
         Array.Fill(ClaimWay, NoWay);
+        TailWay = new int[capacity];
+        Array.Fill(TailWay, NoWay);
+        TurnsBackOn = new int[capacity];
+        Array.Fill(TurnsBackOn, NoLane);
         ClaimFromM = new float[capacity];
         ClaimToM = new float[capacity];
+        ClaimWasTaken = new bool[capacity];
         ReserveFromM = new float[capacity];
         ReserveToM = new float[capacity];
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
+        GrantCutBy = new Control.HeadwayKind[capacity];
         PlannedMps = new float[capacity];
         GroundCoefficient = new float[capacity];
         Command = new DriveCommand[capacity];
@@ -73,6 +88,7 @@ internal sealed class CarFleet
         RouteLanes = new int[capacity * RouteLanesPerCar];
         RouteCount = new int[capacity];
         RouteTaken = new int[capacity];
+        RouteRunsOut = new bool[capacity];
         DestinationM = new Vector2[capacity];
         HasDestination = new bool[capacity];
         Doing = new Maneuver[capacity];
@@ -89,13 +105,13 @@ internal sealed class CarFleet
         Reroutes = new byte[capacity];
         Recoveries = new byte[capacity];
         FuseJitter = new float[capacity];
+        BacksIntoBays = new bool[capacity];
         ClimbedFromM = new Vector2[capacity];
         ChangedAtM = new Vector2[capacity];
         LineIsReverse = new bool[capacity];
         InsideTheBox = new bool[capacity];
         LightAheadM = new float[capacity];
         Array.Fill(LightAheadM, float.PositiveInfinity);
-        WaitedS = new float[capacity];
         WheelSpinMps = new float[capacity * TyreModel.Wheels];
         TreadPhaseM = new float[capacity * TyreModel.Wheels];
         ScrubTravelM = new float[capacity * TyreModel.Wheels];
@@ -151,6 +167,37 @@ internal sealed class CarFleet
     /// </summary>
     public bool[] Broken { get; }
 
+    /// <summary>
+    /// <b>AMB-3: whether this car is an ambulance</b> — a fact about the car and never about what it is
+    /// doing. It is drawn from no catalogue and changes for no reason: an ambulance is one from the tick
+    /// the town is stood up, whether or not anybody has been run over yet.
+    /// </summary>
+    public bool[] Ambulance { get; }
+
+    /// <summary>
+    /// <b>And whether it is answering a call</b> (AMB-4). This is the whole of the difference a rescue makes
+    /// to the road: what carries <see cref="RightOfWay.Emergency"/>, what the lights and the painted bars
+    /// stop applying to, and what lets a driver cross the centreline without first waiting out its patience.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is never true of a car <see cref="Ambulance"/> is false of</b>, and it goes out the moment the
+    /// casualty is delivered: an ambulance driving home is ordinary traffic, and one that kept its priority
+    /// between calls would be a town where a whole lane belongs to a parked van.
+    /// </remarks>
+    public bool[] BlueLight { get; }
+
+    /// <summary>
+    /// <b>Whether this vehicle is out on the job it exists for</b> (CAR-14.6) — an evacuator from the tick
+    /// it takes a wreck until it is back in its own bay, both ways round.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the work and not the priority</b>, which is the whole reason it is a second fact: a truck
+    /// hauling a wreck home is ordinary traffic (EVA-4) and is still a truck working in the street. Nothing
+    /// on the road reads it — it buys no ground and orders nobody — and the only thing that does is the
+    /// amber bar.
+    /// </remarks>
+    public bool[] AtWork { get; }
+
     /// <summary>The run of lanes the line is laid over, nearest first. A car's current lane is the first of them.</summary>
     public int[] LaneChain { get; }
 
@@ -183,6 +230,18 @@ internal sealed class CarFleet
     public bool[] BoxIsOurs { get; }
 
     /// <summary>
+    /// <b>Whether this car is past the point it could stop short of that box</b> — going in whatever
+    /// anything says, and therefore holding the ground of its movement against everything, whatever right
+    /// of way anything else has (TER-5e).
+    /// </summary>
+    /// <remarks>
+    /// It is written where it is decided (<c>JunctionStopM</c>) and read where the movement's ground is laid
+    /// into the road's book, so that <em>committed</em> is one relation stated once rather than a stopping
+    /// distance worked out twice from two different speeds.
+    /// </remarks>
+    public bool[] CommittedToTheBox { get; }
+
+    /// <summary>
     /// How long since this driver last ran its procedure. <b>The decision's own elapsed time and not the
     /// loop's nominal interval</b>: an entry that declares itself unschedulable is asked on every tick,
     /// and handing it a whole interval each time would run every clock inside the catalogue at six times
@@ -193,18 +252,39 @@ internal sealed class CarFleet
     public DrivenLine[] Line { get; }
 
     /// <summary>
-    /// The way through a junction this car is crossing on, as the turn it is, or <see cref="NoMovement"/>.
-    /// <b>At most one</b>: the one behind is dropped as soon as the car is queueing for the next.
+    /// <b>The way of the movement this car is committed to making</b>, or <see cref="NoWay"/>. <b>At most
+    /// one</b>: the one behind is dropped as soon as the car is queueing for the next.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>It is the name of a reservation and not a permission.</b> What the car actually holds is ground —
-    /// the section of every other join at that junction its own line is driven over
-    /// (<see cref="World.Road.JunctionCrossings"/>) — laid into the road's book from this field every tick,
+    /// the runs of that way the others are driven over it at
+    /// (<see cref="World.Road.WayCrossings"/>) — laid into the road's book from this field every tick,
     /// exactly as <see cref="ClaimWay"/> is. So two cars crossing one junction without being driven over
     /// each other's ground take one each, and nothing about a junction is refused by anything other than
     /// what is standing on the metres wanted.
+    /// </para>
+    /// <para>
+    /// <b>A way and not a turn, because a junction is not the only movement of this shape.</b> A car backing
+    /// out of a bay is committed to the bay's own way out exactly as a car turning is committed to its join
+    /// — it is driven over the carriageway, it takes the ground where it is driven over it, and it gives it
+    /// back where the body is past it. One field says which, and the same three procedures serve both.
+    /// </para>
     /// </remarks>
-    public int[] Crossing { get; }
+    public int[] MovementWay { get; }
+
+    /// <summary>
+    /// <b>The way of the book this car's line <em>is</em></b>, or <see cref="NoWay"/> where the line is a
+    /// chain of lanes or geometry of the car's own.
+    /// </summary>
+    /// <remarks>
+    /// A bay's way out is the one line of this kind: it is not a lane, so it carries no chain, and it is not
+    /// a template, because the town laid it. What it buys is that a car driving it is a car on a way — its
+    /// reservation is laid along it, its grant is cut by the table, and nothing about it needs a second
+    /// mechanism. <b>Read through <see cref="LineWayOf"/></b>, which is what makes it impossible for it to
+    /// be stale.
+    /// </remarks>
+    public int[] LineWay { get; }
 
     /// <summary>
     /// <b>The stretch of road this car has claimed and is not on yet</b> — the way it is on, and the two
@@ -226,9 +306,48 @@ internal sealed class CarFleet
     /// </remarks>
     public int[] ClaimWay { get; }
 
+    /// <summary>
+    /// <b>The way this car's line finishes on past its last lane</b> — the way into the bay the leg is
+    /// aimed at — or <see cref="NoWay"/> where the line ends on the road. <b>Read through
+    /// <see cref="TailWayOf"/></b>, which is what makes it impossible for it to be stale.
+    /// </summary>
+    /// <remarks>
+    /// It is what puts the last dozen metres of a leg into the book like every other metre of it: the
+    /// reservation runs along it, the traffic on the lane it crosses is held off it by the town's own table
+    /// of crossings, and a driver working into a bay is a driver on a way. <b>Written where the line is
+    /// assembled and nowhere else</b>, so it cannot describe a line the car is not holding.
+    /// </remarks>
+    public int[] TailWay { get; }
+
+    /// <summary>
+    /// <b>The lane this leg comes back down after turning at a car park</b> (GEN-4l), or
+    /// <see cref="NoLane"/>. Written where the route is expanded, because it is the route that says the leg
+    /// has to come back the other way; read where the queue runs out, where it says the line ends at this
+    /// frontage rather than the road running on.
+    /// </summary>
+    /// <remarks>
+    /// It is not the bay — that is a booking and the registry's (GEN-4g). A leg can want to turn here and
+    /// have no bay to do it in yet, which is a car driving up to the frontage and asking again, and the two
+    /// facts have to be able to say so separately.
+    /// </remarks>
+    public int[] TurnsBackOn { get; }
+
     public float[] ClaimFromM { get; }
 
     public float[] ClaimToM { get; }
+
+    /// <summary>
+    /// <b>Whether the claim above was taken off this car since it last thought</b> (TER-5e) — a road an
+    /// officer closed across it, a rescue's, or a body that has been pushed onto the ground.
+    /// </summary>
+    /// <remarks>
+    /// <b>A claim is the one hold in the town that can be taken back</b>, because its holder has not reached
+    /// it and is not committed to it. Taking it and saying nothing left the car driving at ground that was no
+    /// longer its own, so the entry that took it is re-entered through its own <c>Sa</c> and either takes the
+    /// claim again or gives way to something else. Spent where it is read, so it survives exactly as long as
+    /// it takes the driver to notice.
+    /// </remarks>
+    public bool[] ClaimWasTaken { get; }
 
     /// <summary>
     /// <b>The stretch of its own line this car is committed to</b>, from its own tail to where its nose
@@ -251,6 +370,20 @@ internal sealed class CarFleet
     /// already inside ground somebody else has, which is a fact about a contact and not about a gap.
     /// </remarks>
     public float[] AuthorityM { get; }
+
+    /// <summary>
+    /// <b>What cut that grant</b> — the queue in front, a body going nowhere, somebody on foot in the lane,
+    /// ground somebody has claimed — or <see cref="Control.HeadwayKind.Nothing"/> where nothing did.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reason a body is being held is a fact about what is in front and not about the distance</b>: a
+    /// queue is waited behind and a wreck is driven round, and the two are the same number of metres. The
+    /// book worked it out to make the cut (<see cref="World.Road.LaneOccupancy.GrantedOn"/> hands the stretch
+    /// back), so anything that has to say <em>why</em> a car is held reads it rather than searching for the
+    /// answer again — the trace, the overlay, and the proving ground's own rule that the people pacing its
+    /// road are the instrument rather than the traffic.
+    /// </remarks>
+    public Control.HeadwayKind[] GrantCutBy { get; }
 
     /// <summary>
     /// What the speed profile would have asked for with the road to itself — every term but the grant. It
@@ -291,6 +424,20 @@ internal sealed class CarFleet
 
     /// <summary>How many of them have already been laid into the chain.</summary>
     public int[] RouteTaken { get; }
+
+    /// <summary>
+    /// Whether the queue stops short of where the car is going: <see cref="RouteLanesPerCar"/> lanes were
+    /// not enough for the route the search found, so the rest of it will be planned again from the last
+    /// lane in hand. <b>A route that ends at its destination answers no</b>, and so does one that ends at a
+    /// frontage it turns back on (<see cref="TurnsBackOn"/>), which is a leg with a manoeuvre in front of
+    /// it rather than a road.
+    /// </summary>
+    /// <remarks>
+    /// It is asked from outside the drive: what the interface draws past the end of a held route (CTL-1a)
+    /// is only drawn where there is a route past it, and the alternative — planning to find out — comes
+    /// back with the way round the block for every car already standing at its own destination.
+    /// </remarks>
+    public bool[] RouteRunsOut { get; }
 
     /// <summary>Where this car is going. A place in the town, and not a node: a destination always is.</summary>
     public Vector2[] DestinationM { get; }
@@ -360,6 +507,13 @@ internal sealed class CarFleet
     /// </summary>
     public float[] FuseJitter { get; }
 
+    /// <summary>
+    /// <b>Whether this driver backs into parking spaces</b> (GEN-4j) — drawn once when it joins the roster,
+    /// like the fuse jitter, because it is a habit and not a decision. A bay that lays only the other
+    /// standing overrules it (<see cref="World.Parking.BayWays.TheStandingOnOffer"/>).
+    /// </summary>
+    public bool[] BacksIntoBays { get; }
+
     /// <summary>Where the car stood when it started climbing the ladder, which is what road covered is measured from.</summary>
     public Vector2[] ClimbedFromM { get; }
 
@@ -386,18 +540,11 @@ internal sealed class CarFleet
     /// </summary>
     public float[] LightAheadM { get; }
 
-    /// <summary>
-    /// How long this car has been waiting for the gap it needs, which is what the give-way patience is
-    /// spent against. <b>It starts below zero</b>: the short random beat `P-2` takes before looking at
-    /// all is what stops two neighbouring bays taking the same gap.
-    /// </summary>
-    public float[] WaitedS { get; }
-
     public Span<int> RouteOf(int car) => RouteLanes.AsSpan(car * RouteLanesPerCar, RouteLanesPerCar);
 
     /// <summary>
     /// The next lane the route says to take, <b>without taking it</b> — which is what says whether the
-    /// leg is about to reverse direction, and so whether `P-11` is the movement being made.
+    /// road joins to it at all, and so whether the queue in hand is one this car may still drive.
     /// </summary>
     public int PeekNextRouteLane(int car) =>
         RouteTaken[car] >= RouteCount[car] ? NoLane : RouteLanes[(car * RouteLanesPerCar) + RouteTaken[car]];
@@ -410,10 +557,17 @@ internal sealed class CarFleet
         return RouteLanes[(car * RouteLanesPerCar) + RouteTaken[car]++];
     }
 
+    /// <summary>
+    /// The queue dropped, <b>and with it the turn at the end of it</b>: a leg comes back the other way
+    /// because the route it is holding says to (GEN-4l), so a route given up takes that with it. The bay
+    /// booked for the turn is the registry's and is given back by whoever gave up the route.
+    /// </summary>
     public void ClearRoute(int car)
     {
         RouteCount[car] = 0;
         RouteTaken[car] = 0;
+        RouteRunsOut[car] = false;
+        TurnsBackOn[car] = NoLane;
     }
 
     /// <summary>
@@ -482,48 +636,84 @@ internal sealed class CarFleet
 
     public Span<float> LaneEndsOf(int car) => LaneEndM.AsSpan(car * PathAssembler.MostLanes, PathAssembler.MostLanes);
 
+    /// <summary>
+    /// The way the line in hand <em>is</em>, or <see cref="NoWay"/>. <b>A line with no arcs is no way</b>,
+    /// whatever was last written — so a car whose line was taken away holds none, and nothing has to
+    /// remember to say so.
+    /// </summary>
+    public int LineWayOf(int car) => Line[car].ArcCount > 0 ? LineWay[car] : NoWay;
+
+    /// <summary>
+    /// The way the line in hand finishes on past its last lane, or <see cref="NoWay"/>. <b>A line with no
+    /// lanes has no tail</b>, whatever was last written — which is what makes a template laid over the top
+    /// of a route drop the tail with it, and nothing has to remember to.
+    /// </summary>
+    public int TailWayOf(int car) => Line[car].LaneCount > 0 ? TailWay[car] : NoWay;
+
     /// <summary>The lane the car is on, which is the first of its chain — or <see cref="NoLane"/> when it is on none.</summary>
     public int LaneOf(int car) => Line[car].LaneCount > 0 ? LaneChain[car * PathAssembler.MostLanes] : NoLane;
 
-    /// <param name="drivenFrontShare">
-    /// Which end this car drives through, as the share of the drive placed on the front axle. It is
-    /// the <em>variant's</em> — the fleet's own layouts — and the one per-variant figure this engine
-    /// reads, because unlike a footprint or a wheelbase it changes how a car behaves without changing
-    /// what it is drawn as.
+    /// <summary>
+    /// <b>The car this one is</b> — its own body, axles and what its tyres are worth (CAR-11). Every
+    /// decision taken for a car is taken against this and not against the nominal car the town is sized
+    /// for: read <c>in</c>, and the same instance for every car wearing the same look.
+    /// </summary>
+    public ref readonly CarBuild BuildOf(int car) => ref _builds.Of(Variant[car]);
+
+    /// <param name="variant">
+    /// Which look this car wears, and with it <b>which car it is</b>: the build it is driven by is this
+    /// variant's (<see cref="BuildOf"/>), so its weight, its axles and what its tyres are worth all come
+    /// from the same place its picture does.
     /// </param>
-    public int Add(BodyId body, Vector2 positionM, float headingRad, float massKg, byte variant, float drivenFrontShare, Rng draw)
+    /// <param name="backsIntoBays">
+    /// Whether this driver backs into parking spaces (GEN-4j). The spawner's, because it is what the pose
+    /// a car starts standing in was chosen against.
+    /// </param>
+    public int Add(
+        BodyId body, Vector2 positionM, float headingRad, byte variant, bool backsIntoBays, Rng draw)
     {
         if (Count == Capacity) throw new InvalidOperationException($"The roster was laid for {Capacity} cars and is full.");
 
         var car = Count++;
+        ref readonly var build = ref _builds.Of(variant);
         Body[car] = body;
         PositionM[car] = positionM;
         HeadingRad[car] = headingRad;
         VelocityMps[car] = Vector2.Zero;
         YawRateRadPerS[car] = 0f;
         AccelerationMps2[car] = Vector2.Zero;
-        MassKg[car] = massKg;
+        MassKg[car] = build.MassKg;
         Variant[car] = variant;
-        DrivenFrontShare[car] = drivenFrontShare;
+        DrivenFrontShare[car] = build.DrivenFrontShare;
         Draw[car] = draw;
         Driven[car] = false;
         Broken[car] = false;
+        Ambulance[car] = false;
+        BlueLight[car] = false;
+        AtWork[car] = false;
         ProgressM[car] = 0f;
         AlongMps[car] = 0f;
         OffLineM[car] = 0f;
         ToTheBoxM[car] = float.PositiveInfinity;
         BoxIsOurs[car] = false;
+        CommittedToTheBox[car] = false;
         SinceDecisionS[car] = 0f;
         Line[car] = default;
-        Crossing[car] = NoMovement;
+        MovementWay[car] = NoWay;
+        LineWay[car] = NoWay;
         ClaimWay[car] = NoWay;
+        ClaimWasTaken[car] = false;
+        TailWay[car] = NoWay;
+        TurnsBackOn[car] = NoLane;
         AuthorityM[car] = float.PositiveInfinity;
+        GrantCutBy[car] = Control.HeadwayKind.Nothing;
         PlannedMps[car] = 0f;
         GroundCoefficient[car] = 1f;
         Command[car] = DriveCommand.Parked;
         Hold[car] = Control.DrivingHold.None;
         RouteCount[car] = 0;
         RouteTaken[car] = 0;
+        RouteRunsOut[car] = false;
         HasDestination[car] = false;
         Doing[car] = Maneuver.None;
         Suspended[car] = Maneuver.None;
@@ -540,12 +730,12 @@ internal sealed class CarFleet
 
         // Drawn from the car's own stream, so the jitter is the town's seed and not the clock's.
         FuseJitter[car] = Draw[car].NextFloat(1f - FuseJitterShare, 1f + FuseJitterShare);
+        BacksIntoBays[car] = backsIntoBays;
         ClimbedFromM[car] = positionM;
         ChangedAtM[car] = positionM;
         LineIsReverse[car] = false;
         InsideTheBox[car] = false;
         LightAheadM[car] = float.PositiveInfinity;
-        WaitedS[car] = 0f;
         SlipThrottle[car] = 1f;
         DrivenSlipping[car] = false;
         for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)
@@ -571,10 +761,10 @@ internal sealed class CarFleet
     /// <summary>A car that is on no lane at all — parked, or shoved off the network and recovering.</summary>
     public const int NoLane = -1;
 
-    /// <summary>A car that has been given no way through a junction — which is every car not approaching or inside one.</summary>
-    public const int NoMovement = -1;
-
-    /// <summary>A car claiming no stretch of road — which is every car that is not crossing into a lane it was not sent down.</summary>
+    /// <summary>
+    /// No way of the book: a car committed to no movement, claiming no stretch, and whose line is a chain
+    /// of lanes or geometry of its own.
+    /// </summary>
     public const int NoWay = -1;
 
     ArcSeg[] LineArcs { get; }

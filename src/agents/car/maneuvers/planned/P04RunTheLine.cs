@@ -24,8 +24,14 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// <b>Queueing is not one of them.</b> A car held by the ground it was granted is running its line at the
 /// speed that ground affords, which is this entry and needs no other: the grant is a term of the profile
 /// like the corners and the stop points, and a car behind another is doing exactly what a car on an open
-/// road is doing with a shorter road to do it on. What the entry that used to be here decided is the one
-/// thing left over — that what is in front is not a queue at all, and the way past it is round it.
+/// road is doing with a shorter road to do it on. The one thing left for another entry to decide is that
+/// what is in front is not a queue at all, and the way past it is round it.
+/// </para>
+/// <para>
+/// <b>And neither is a crossing.</b> The pace over paint (CAR-7b) and the stop short of a body on it
+/// (TER-4c.1, TER-5e) are the standing rules', folded into that same minimum, so a car slowing for a zebra
+/// is running its line on the road the zebra left it. An entry named off the term that won there would
+/// impose nothing the profile was not already imposing.
 /// </para>
 /// </remarks>
 internal static class P04RunTheLine
@@ -54,18 +60,35 @@ internal static class P04RunTheLine
         // this car because a stopped car off its line spends the blocked clock.
         if (scene.Hold == DrivingHold.LostLine) return ManeuverOutcome.Running;
 
-        // The line stops where the bay's own template is staged from, so a car at rest on the end of it
-        // has finished driving and what is left of the leg is the plan's next step.
-        if (scene.OnTheFinalApproach
-            && scene.ToTheEndM <= scene.Config.Car.LengthM * 0.5f
-            && scene.AtRest)
+        // A place on the line this car was sent to — a casualty in the road (`P-18`) — <b>once it is near
+        // enough to be stopped for</b>, exactly as the box below is taken once it is within reserve
+        // distance. Handed over any earlier, the last hundred metres of a rescue would be driven by an
+        // entry that has no way past an obstruction: getting past what is in the way is this entry's
+        // (`E-4`), and it has to still be the entry in charge while there is road left to do it in.
+        if (scene.SceneIsNearEnoughToStopFor)
+        {
+            return ManeuverOutcome.To(Maneuver.AttendTheScene, ManeuverReason.RouteRanOut);
+        }
+
+        // The line leaves the road for the bay's own way, and past that point the leg is not driving any
+        // more: it is steering to a pose inside a four-metre box, which is the plan's next step and is
+        // asked on every tick for exactly that reason. The line itself runs on unbroken — what changes at
+        // the hand-over is who is holding it and how often they are asked.
+        //
+        // <b>Or it stops where that way begins</b>, which is a bay the car reverses into (GEN-4j): a route
+        // is driven forwards, so the line ends at the mouth of such a way and the hand-over is the car
+        // having come to rest at it rather than having reached a place along a line that runs on.
+        if (scene.OnTheFinalApproach && (scene.ToTheBayM <= 0f || scene.LineIsSpent))
         {
             return ManeuverOutcome.Done(ManeuverReason.RouteRanOut);
         }
 
-        if (scene.Hold == DrivingHold.Crossing)
+        // The line ends where the leg has to come back the other way and no bay was there to turn in
+        // (GEN-4l): what is past it is the car working itself round on the spot, and nothing else the road
+        // offers gets this leg any further.
+        if (scene.TurnsBackHere && scene.StoppedAtTheEnd)
         {
-            return ManeuverOutcome.To(Maneuver.PassACrossing, ManeuverReason.None);
+            return ManeuverOutcome.To(Maneuver.ShuntRound, ManeuverReason.RouteRanOut);
         }
 
         // A stop point is a place and `P-6` owns it — a red, a bar, a box that could not be claimed, or
@@ -88,9 +111,7 @@ internal static class P04RunTheLine
         // a stop at the boundary, and that is `P-6` above: it is what the profile is stopping for.
         if (scene.ToTheBoxM <= scene.Config.CarJunctionReserveM && scene.BoxIsOurs)
         {
-            return scene.RouteReversesHere
-                ? ManeuverOutcome.To(Maneuver.TurnAround, ManeuverReason.None)
-                : ManeuverOutcome.To(Maneuver.TakeTheJunction, ManeuverReason.BoxIsOurs);
+            return ManeuverOutcome.To(Maneuver.TakeTheJunction, ManeuverReason.BoxIsOurs);
         }
 
         return ManeuverOutcome.Running;

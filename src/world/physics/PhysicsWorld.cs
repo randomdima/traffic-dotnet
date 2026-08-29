@@ -83,7 +83,7 @@ internal sealed partial class PhysicsWorld
     float[] _inverseMass = new float[Room];
     float[] _inverseInertia = new float[Room];
     Vector2[] _extentM = new Vector2[Room];
-    ShapeKind[] _kind = new ShapeKind[Room];
+    float[] _cornerRadiusM = new float[Room];
     BodyFlags[] _flags = new BodyFlags[Room];
     ulong[] _category = new ulong[Room];
     ulong[] _mask = new ulong[Room];
@@ -122,12 +122,12 @@ internal sealed partial class PhysicsWorld
     public int ContactPointCount { get; private set; }
 
     /// <summary>
-    /// A person: a circle, rotation locked and gravity off.
+    /// A person: a shape with no core, which is a disc — rotation locked and gravity off.
     /// </summary>
     public BodyId AddPerson(Vector2 positionM)
     {
         var body = Add(
-            ShapeKind.Circle, positionM, 0f, new Vector2(_config.PersonDiameterM * 0.5f), CollisionLayer.Person,
+            positionM, 0f, Vector2.Zero, _config.PersonDiameterM * 0.5f, CollisionLayer.Person,
             BodyFlags.Enabled | BodyFlags.RotationLocked, _config.Person.MassKg);
 
         _dynamic[_dynamicCount++] = body.Index;
@@ -135,24 +135,45 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
-    /// A car: a box, free to turn — a car's heading is solver output, unlike a walker's, because a car
-    /// turns when its tyres turn it.
+    /// A car: a rounded box, free to turn — a car's heading is solver output, unlike a walker's, because
+    /// a car turns when its tyres turn it.
     /// </summary>
-    public BodyId AddCar(Vector2 positionM, float headingRad)
+    /// <remarks>
+    /// <b>The shape and the weight are the caller's</b> (CAR-11), because they are this car's own and not
+    /// the nominal car's: what makes a truck shunt a hatchback rather than the two trading the same
+    /// momentum. The figures are handed over rather than the car, because a solver knows nothing about a
+    /// fleet.
+    /// </remarks>
+    /// <param name="halfSizeM">The shape's outermost half-length and half-flank, rounding included (CAR-12b).</param>
+    /// <param name="cornerRadiusM">How much of each corner is rounded off. The core is <paramref name="halfSizeM"/> less this on both axes.</param>
+    public BodyId AddCar(Vector2 positionM, float headingRad, Vector2 halfSizeM, float cornerRadiusM, float massKg)
     {
         var body = Add(
-            ShapeKind.Box, positionM, headingRad, new Vector2(_config.Car.LengthM * 0.5f, _config.Car.WidthM * 0.5f),
-            CollisionLayer.Car, BodyFlags.Enabled, _config.Car.MassKg);
+            positionM, headingRad, halfSizeM - new Vector2(cornerRadiusM), cornerRadiusM,
+            CollisionLayer.Car, BodyFlags.Enabled, massKg);
 
         _dynamic[_dynamicCount++] = body.Index;
         return body;
     }
 
-    /// <summary>A prop: one static circle, which is the whole of its shape.</summary>
-    public BodyId AddStaticCircle(Vector2 centreM, float radiusM)
+    /// <summary>
+    /// The nominal car's box and the nominal car's weight, for a rig measuring the <em>solver</em> rather
+    /// than a fleet — the crash bench, the solver probe and their fixtures. A town never stands one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Square-cornered</b>, because the nominal car is a figure and not a picture: it has no art to be
+    /// fitted inside, and a rig that measured the solver against a shape nothing is drawn at would be
+    /// measuring an invention.
+    /// </remarks>
+    public BodyId AddNominalCar(Vector2 positionM, float headingRad) => AddCar(
+        positionM, headingRad, new Vector2(_config.Car.LengthM * 0.5f, _config.Car.WidthM * 0.5f),
+        cornerRadiusM: 0f, _config.Car.MassKg);
+
+    /// <summary>A prop: a static shape with no core, which is the disc its canopy is.</summary>
+    public BodyId AddStaticDisc(Vector2 centreM, float radiusM)
     {
         var body = Add(
-            ShapeKind.Circle, centreM, 0f, new Vector2(radiusM), CollisionLayer.Static,
+            centreM, 0f, Vector2.Zero, radiusM, CollisionLayer.Static,
             BodyFlags.Enabled | BodyFlags.Static | BodyFlags.RotationLocked, massKg: 0f);
 
         _static[_staticCount++] = body.Index;
@@ -160,11 +181,11 @@ internal sealed partial class PhysicsWorld
         return body;
     }
 
-    /// <summary>A building: one static box, turned the way the plan turned it.</summary>
+    /// <summary>One part of a building: a static box with square corners, turned the way the plan turned it.</summary>
     public BodyId AddStaticBox(Vector2 centreM, Vector2 sizeM, float headingRad)
     {
         var body = Add(
-            ShapeKind.Box, centreM, headingRad, sizeM * 0.5f, CollisionLayer.Static,
+            centreM, headingRad, sizeM * 0.5f, 0f, CollisionLayer.Static,
             BodyFlags.Enabled | BodyFlags.Static | BodyFlags.RotationLocked, massKg: 0f);
 
         _static[_staticCount++] = body.Index;
@@ -194,7 +215,7 @@ internal sealed partial class PhysicsWorld
         // Coming back out is the other case and does mark it (Release), because a released body stands
         // somewhere new and the grid would otherwise answer about where it went in.
         //
-        // What the rebuild also used to do was retake the census, so that is done here instead.
+        // The census a rebuild would have retaken is therefore retaken here.
         if ((_flags[index] & BodyFlags.Enabled) != 0) IntegratedBodyCount--;
 
         _flags[index] &= ~BodyFlags.Enabled;
@@ -216,6 +237,28 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
+    /// A body moved onto another layer — the only part of a filter that is ever a variable, and the whole
+    /// of how a body stops being a participant without leaving the world (PHY-5b).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The mask is derived here exactly as it is at <see cref="Add"/>, so a body that changes layer cannot
+    /// end up filtered by one reading of the table while everything around it is filtered by another.
+    /// </para>
+    /// <para>
+    /// Neither index is marked stale, for <see cref="Contain"/>'s reason: the grids hold body indices and
+    /// the filter is read off the body, so the entries left behind are rejected on the mask rather than
+    /// found. Nothing about where this body is has changed.
+    /// </para>
+    /// </remarks>
+    public void PutOnLayer(BodyId body, CollisionLayer layer)
+    {
+        var index = body.Index;
+        _category[index] = (ulong)layer;
+        _mask[index] = MaskOf(layer);
+    }
+
+    /// <summary>
     /// Lay the grid over the town's furniture, once all of it is standing. Call it after the last static
     /// body and never in a tick: the grid is built once and read for the rest of the run by every ray,
     /// every clearance query and every dynamic body's broad phase.
@@ -234,16 +277,23 @@ internal sealed partial class PhysicsWorld
 
     public Vector2 PositionOf(BodyId body) => _positionM[body.Index];
 
-    /// <summary>
-    /// Half the body's axis-aligned bounds as it now stands — <b>a box that holds the shape whichever way
-    /// it is turned</b>, and therefore the support a caller measuring room around it may lean on without
-    /// asking the shape itself.
-    /// </summary>
-    public Vector2 HalfExtentOf(BodyId body) => (_mostM[body.Index] - _leastM[body.Index]) * 0.5f;
-
     public Vector2 VelocityOf(BodyId body) => _velocityMps[body.Index];
 
     public float MassOf(BodyId body) => _massKg[body.Index];
+
+    /// <summary>
+    /// <b>What an impulse at a point on this body is actually worth</b> — the two inverses the response is
+    /// scaled by, published because a caller spending <see cref="ApplyImpulseAt"/> has no other way to know
+    /// how much velocity its impulse will buy.
+    /// </summary>
+    /// <remarks>
+    /// It is a property of a body and not a piece of the step (SOL-2). What reads it is a coupling deciding
+    /// how hard to pull: priced on the mass alone, an impulse spent at a point two metres off the centre
+    /// overshoots by whatever the yaw would have absorbed, and an overshooting coupling rings.
+    /// </remarks>
+    public float InverseMassOf(BodyId body) => _inverseMass[body.Index];
+
+    public float InverseInertiaOf(BodyId body) => _inverseInertia[body.Index];
 
     public float HeadingOf(BodyId body) => _headingRad[body.Index];
 
@@ -263,8 +313,6 @@ internal sealed partial class PhysicsWorld
     /// of a tick and a lookup by index is a load where a boxed field would be a cast.
     /// </summary>
     public void Tag(BodyId body, BodyTag tag) => _tag[body.Index] = tag.Packed;
-
-    public BodyTag TagOf(BodyId body) => BodyTag.Unpack(_tag[body.Index]);
 
     /// <summary>
     /// The one thing an agent actuates. An impulse of nothing is never applied.
@@ -325,13 +373,20 @@ internal sealed partial class PhysicsWorld
 
     static readonly ulong StaticsOnlyMask = (ulong)CollisionLayer.Static;
 
-    BodyId Add(ShapeKind kind, Vector2 positionM, float headingRad, Vector2 extentM, CollisionLayer layer, BodyFlags flags, float massKg)
+    /// <param name="extentM">
+    /// The half-extents of the shape's <em>core</em>, which <paramref name="cornerRadiusM"/> is rolled
+    /// around: the shape reaches <c>extentM + cornerRadiusM</c> along each of its own axes, and a core of
+    /// nothing is the disc a walker and a prop are (SOL-1).
+    /// </param>
+    BodyId Add(
+        Vector2 positionM, float headingRad, Vector2 extentM, float cornerRadiusM,
+        CollisionLayer layer, BodyFlags flags, float massKg)
     {
         if (_count == _positionM.Length) Grow();
 
         var index = _count++;
-        _kind[index] = kind;
         _extentM[index] = extentM;
+        _cornerRadiusM[index] = cornerRadiusM;
         _flags[index] = flags;
         _category[index] = (ulong)layer;
         _mask[index] = MaskOf(layer);
@@ -345,7 +400,7 @@ internal sealed partial class PhysicsWorld
         _inverseMass[index] = immovable || massKg <= 0f ? 0f : 1f / massKg;
         _inverseInertia[index] = immovable || (flags & BodyFlags.RotationLocked) != 0 || massKg <= 0f
             ? 0f
-            : 1f / (massKg * Shape.InertiaPerKg(kind, extentM));
+            : 1f / (massKg * Shape.InertiaPerKg(extentM, cornerRadiusM));
 
         Place(index, positionM, headingRad);
         _movingIndexStale = true;
@@ -363,7 +418,7 @@ internal sealed partial class PhysicsWorld
     /// <summary>The body's own axis-aligned bounds, which are what the broad phase is laid over.</summary>
     void Bound(int index)
     {
-        var half = Shape.HalfBoundsM(_kind[index], _rotation[index], _extentM[index]);
+        var half = Shape.HalfBoundsM(_rotation[index], _extentM[index], _cornerRadiusM[index]);
         _leastM[index] = _positionM[index] - half;
         _mostM[index] = _positionM[index] + half;
     }
@@ -380,7 +435,7 @@ internal sealed partial class PhysicsWorld
         Array.Resize(ref _inverseMass, room);
         Array.Resize(ref _inverseInertia, room);
         Array.Resize(ref _extentM, room);
-        Array.Resize(ref _kind, room);
+        Array.Resize(ref _cornerRadiusM, room);
         Array.Resize(ref _flags, room);
         Array.Resize(ref _category, room);
         Array.Resize(ref _mask, room);

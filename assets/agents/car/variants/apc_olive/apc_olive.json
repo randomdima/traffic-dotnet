@@ -3,10 +3,18 @@
   "sprite": "apc_olive.png",
   "wreck": { "sprite": "apc_olive_broken.png", "scale": [1.087, 1.19] },
   "footprintM": [3.79, 2],
-  "frontAxleM": 1.128,
-  "rearAxleM": -1.117,
-  "trackM": 1.044,
+  "collisionM": { "sizeM": [3.66, 1.77], "cornerRadiusM": 0.53 },
+  "massKg": 4200,
+  "frontAxleM": 1.02,
+  "rearAxleM": -1.00,
+  "trackM": 1.95,
   "drivetrain": 2,
-  "handling": { "maxSpeed": 0.68, "acceleration": 0.4, "braking": 0.85, "cornering": 0.68 },
-  "hullM": [[-1.864, -0.719], [-1.739, -0.896], [-0.646, -1], [1.343, -0.969], [1.885, -0.448], [1.895, 0.438], [1.333, 0.969], [-1.145, 0.969], [-1.728, 0.885], [-1.895, 0.448]]
+  "handling": { "maxSpeed": 0.62, "acceleration": 0.32, "braking": 0.7, "cornering": 0.55 },
+  "hullM": [[-1.864, -0.719], [-1.739, -0.896], [-0.646, -1], [1.343, -0.969], [1.885, -0.448], [1.895, 0.438], [1.333, 0.969], [-1.145, 0.969], [-1.728, 0.885], [-1.895, 0.448]],
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.692, -0.625], "sizeM": [0.052, 0.125] },
+    { "fitting": "rear", "atM": [-1.692, 0.625], "sizeM": [0.052, 0.125] },
+    { "fitting": "indicator", "atM": [1.603, -0.693], "sizeM": [0.062, 0.115] },
+    { "fitting": "indicator", "atM": [1.603, 0.693], "sizeM": [0.062, 0.115] }
+  ]
 }

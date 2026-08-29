@@ -6,9 +6,9 @@ the unmanaged boundary at the graphics driver and the window and nowhere else.
 
 Two rules decide everything else:
 
-- **The frame's managed→native crossing count is O(1) in the size of the town.** One command buffer per
-  swapchain image, recorded once; draw counts live in a buffer the CPU writes rather than in the calls.
-  A windowed frame is five crossings, an offscreen one three, on a town of twelve cars or five hundred.
+- **The frame's managed→native crossing count is O(1) in the size of the town.** A windowed frame is five
+  crossings, an offscreen one three, on a town of twelve cars or five hundred
+  ([runtime](src/runtime/docs/requirements.md#the-crossing-budget)).
 - **The steady state allocates nothing.** The roster is laid once as structure-of-arrays, transient
   working sets come from a pool or the stack, and the hot path holds no LINQ, iterator, closure, boxing
   or interface call the JIT cannot devirtualise. The one exception is the solver's step, which is
@@ -42,15 +42,29 @@ qq tests
 dotnet run --project traffic-dotnet.csproj -- --map Odesa
 ```
 
-`qq tests` runs the unit tier, which is two seconds; `unit town`, `perf`, `all` and `e2e` name the
-others, and what each is for is [docs/verification.md](docs/verification.md). A plain `dotnet test`
-runs every tier including the one an agent is paid to judge, and is four minutes.
+`qq tests` runs the unit tier; `unit town`, `perf`, `all` and `e2e` name the others, what each is for is
+[docs/verification.md](docs/verification.md), and what each costs is [CLAUDE.md](CLAUDE.md#verification).
+A plain `dotnet test` runs every tier including the one an agent is paid to judge.
 
-Without `--map` the game opens on its start menu and builds nothing until a map is picked. Other
+Without `--map` the game opens on its start menu and builds nothing until a map is picked. A windowed
+run opens fullscreen on the display the pointer is on and `F11` toggles it; `--display NAME|N` names
+that display instead, by the desktop's own name for it, and `--windowed` opens in a window, for a run
+to be looked at beside something else. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `drive`, `track`, `drunk`, `maneuvers`, `trips`, `crash`, `soak`, `tick`, `town`, `solver`,
-`signals`, `walk`). The list the menu reads is the list the command line reads.
+(`census`, `drive`, `track`, `drunk`, `fleet`, `exam`, `skidpad`, `crossings`, `maneuvers`, `trips`, `rescue`,
+`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `solver`, `signals`, `walk`); `--bench all` runs the lot, and
+the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
+list the command line reads; the probes are the command line's alone.
+
+**Every map says what it claims about itself and whether it is keeping it.** A windowed run draws it as a
+collapsible panel along the bottom — shut to a line of counts, opened by its title or by `--ui scenario` —
+and every headless run prints the same table: a row a claim, the figures behind each verdict, and a last
+line a script can read. **A broken claim is a failed run**, so `--bench exam`, `--bench crossings` and
+`--map Track --seconds 300` all exit non-zero when the town breaks something it claims. What is quoted
+beside the claims — the drunks' swerves, the laps a fleet got round — fails nothing: it is a fact about
+that town rather than a bound
+([verification](docs/verification.md#what-a-map-claims-about-itself)).
 
 `--sheet FILE.json` is the same picture asked for as a document: several staged frames, each captioned
 with the map, the framing, the moment and the seed, tiled into one sheet for review
@@ -70,25 +84,39 @@ with the map, the framing, the moment and the seed, tiled into one sheet for rev
 }
 ```
 
-`--lay-track` writes `towns/Track.town` and `towns/Drunk.town`, the only maps this build lays itself
-([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from)): a proving ground of **one closed lap
-cut into ten roads** — five shapes with a link between each pair. The shapes are a straight, a half turn, a
-snake, a long arc and a quarter turn. There is no light and no paint on it. Six cars drive it, two of each
-drivetrain and identical in everything else, and the two maps are the same lap with a different fifteen
-people on it:
+`--place-services` decides which of each shipped map's buildings are its hospitals, its police stations and
+its depots, and writes it into the map ([citygen](src/citygen/docs/requirements.md)): the buildings with
+somewhere for their vehicles to stand, laid out as far from one another as the town allows. It is a
+**workshop step and never a build one** — run it when a map arrives or when the shares those services are
+placed at change, and commit the towns it rewrites.
 
-- **`Track`** stands them **beside** the road — one at the end of each shape, the rest spread along the lap
-  — and each paces into the lane and back, so a car brakes to rest for a body in front of it and pulls away
-  again. `--bench track` prints what each shape costs each drivetrain: the speed it allows, the ground it
-  takes to slow down to it, the run back up to speed. `--ui track` shows the same figures on screen while
-  it happens.
-- **`Drunk`** stands them **in** the road, and each reels down its own lane and stands where it stopped
-  every few lurches — so a driver follows something slow, and then overtakes it (`E-4`), which is the only
-  place in this town anything ever does. `--bench drunk` prints the same table for that lap, which is what
-  it is read against, plus what getting round it cost: the swerves, the back-offs and the laps given up on.
+`--lamps` cuts the town's lamp sheet out of the fleet's own sprites — every lens a variant draws, in
+each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.png`.
+It is a **workshop step and never a build one**: run it when a variant's art or its lens rectangles
+change, and commit the picture. The line it prints per lens is the instrument for the one thing the
+arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
+and comes back undistinguished.
 
-The shapes are chosen against the car's own figures, so a change to those is a track to lay again — both of
-them, since the two are only comparable while they are the same road.
+**Six maps are laid to measure one thing**, and each claims that one thing and nothing else. **What each
+is and what it claims is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only which
+command reads which.
+
+| Map | Is | Read by |
+|---|---|---|
+| `Track` | one closed lap of five shapes, with fifteen people pacing beside the carriageway | `--bench track`, `--ui track` |
+| `Drunk` | the same lap with those fifteen reeling **in** it, which is the only place anything overtakes (`E-4`) | `--bench drunk` |
+| `Fleet` | the same lap again with one car of every look on it and nobody on foot | `--bench fleet` |
+| `Exam` | a six by six lattice of junctions, one staged crossing manoeuvre in each | `--bench exam`, `--map Exam` |
+| `Skidpad` | a hundred-metre grid of plain road: every look on full left lock, a row per pedal and gear, each drawing its own circle | `--bench skidpad`, `--ui turn-circles` |
+| `Zebras` | five isolated streets with a crossing apiece, one of them laid off square | `--bench crossings` |
+
+`--lay-maps` writes the first five, whose every shape is chosen against the car's own figures — so moving
+one of those figures is all five to lay again, always together, since a lap is only comparable with a lap
+laid from the same arithmetic. `Zebras` arrives as a file like every city does.
+
+The exam and the crossings map are asserted card by card and crossing by crossing in the town tier off the
+probe's own run ([JunctionExamTests](src/tests/world/JunctionExamTests.cs)), so the instrument and the gate
+cannot disagree about what a crossing is.
 
 ## Layout
 
@@ -97,8 +125,8 @@ src/        every line of C#, and nothing else — the nine slices below
   core/     the kernel: config, geometry, persistence, simulation — and nothing that knows about a town
   citygen/  the city plan as pure data: its structure, its cell vocabulary, its .town reader
   world/    terrain, road, foot, routing, physics, containment, statics, parking, town
-  agents/   car, person, trafficlight — body / control, and the car's maneuvers: one file per entry
-            of the closed catalogue (src/agents/car/maneuvers/docs/index.md)
+  agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the maneuvers:
+            one file per entry of the closed catalogue (src/agents/car/maneuvers/docs/index.md)
   runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders
   app/      screen, render, camera, hud, debug, playercontrol, shot, main — the shell
   bench/    the census and the probes

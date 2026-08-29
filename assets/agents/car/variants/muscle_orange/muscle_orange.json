@@ -3,10 +3,18 @@
   "sprite": "muscle_orange.png",
   "wreck": { "sprite": "muscle_orange_broken.png", "scale": [1, 1.007] },
   "footprintM": [4, 1.94],
-  "frontAxleM": 1.222,
-  "rearAxleM": -1.191,
-  "trackM": 1.019,
+  "collisionM": { "sizeM": [3.72, 1.81], "cornerRadiusM": 0.53 },
+  "massKg": 1650,
+  "frontAxleM": 1.05,
+  "rearAxleM": -1.09,
+  "trackM": 1.90,
   "drivetrain": 0,
   "handling": { "maxSpeed": 1.25, "acceleration": 1.4, "braking": 0.95, "cornering": 0.9 },
-  "hullM": [[-1.396, -0.949], [1.323, -0.949], [1.812, -0.855], [1.969, -0.334], [2, 0.125], [1.823, 0.845], [1.26, 0.949], [-1.281, 0.949], [-1.99, 0.772], [-2, -0.751]]
+  "hullM": [[-1.396, -0.949], [1.323, -0.949], [1.812, -0.855], [1.969, -0.334], [2, 0.125], [1.823, 0.845], [1.26, 0.949], [-1.281, 0.949], [-1.99, 0.772], [-2, -0.751]],
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.833, -0.532], "sizeM": [0.062, 0.334] },
+    { "fitting": "rear", "atM": [-1.833, 0.532], "sizeM": [0.062, 0.334] },
+    { "fitting": "indicator", "atM": [1.698, -0.772], "sizeM": [0.062, 0.104] },
+    { "fitting": "indicator", "atM": [1.698, 0.772], "sizeM": [0.062, 0.104] }
+  ]
 }

@@ -75,12 +75,114 @@ internal enum LaneUse : byte
     /// </para>
     /// <para>
     /// <b>What it is not is traffic.</b> A walker asking what is coming down a lane (PER-15) and a driver
-    /// asking what has come to rest in the mouth of its bay are both asking about cars, and neither is
+    /// asking what has come to rest on the road ahead are both asking about cars, and neither is
     /// answered by another person on the road — which is why the queries about traffic name
     /// <see cref="Traffic"/> rather than <see cref="Bodies"/>.
     /// </para>
     /// </remarks>
     OnFoot,
+
+    /// <summary>
+    /// <b>The town's own furniture, standing where it was laid</b> (<see cref="StandingGround"/>) — the
+    /// immovable third of TER-4c, and the one use whose stretch belongs to no body in either roster.
+    /// </summary>
+    /// <remarks>
+    /// <b>It cuts a grant and it is not traffic</b>, and both halves are the reason it is a use of its own
+    /// rather than an <see cref="Obstruction"/>. A driver must be held off a bollard exactly as off a
+    /// wreck, so it is in every question about where a body is or what ground is spoken for; whoever asks
+    /// what is <em>coming</em> down a lane — a walker at a kerb, a body pacing the road — is asking about
+    /// wheels, and a thing that has stood there since the town was laid is no answer to that.
+    /// </remarks>
+    Furniture,
+
+    /// <summary>
+    /// <b>Ground somebody with the right of way has asked for and not been given</b> — the band of a lane
+    /// a walker at a kerb was refused (TER-5e). It is nobody's road and nobody's body, and it is in no
+    /// question about either.
+    /// </summary>
+    /// <remarks>
+    /// <b>What it does is stop the traffic short of the paint</b>, which is what hands the ground back to
+    /// whoever was waiting for it (TER-4c.1) — and a stop is bounded by the road a car needs to make one,
+    /// so a car too close to stop keeps the paint and the wait lasts another moment. Read as a body
+    /// instead, the same fact cuts a grant at the kerb line: a driver that cannot stop there is one
+    /// braking as hard as it can for somebody who has not stepped off the pavement.
+    /// </remarks>
+    Awaited,
+}
+
+/// <summary>
+/// <b>How strong a claim on ground its holder has</b> (TER-5e) — carried by every stretch, and the whole
+/// of what says which of two bodies coming to one piece of the world gives it up.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>It orders road and never bodies.</b> What a greater right of way takes is ground nobody has
+/// committed to — a <see cref="LaneUse.Claimed"/> stretch — and never a body, nor the road a body is
+/// committed to being able to stop in. A right of way is a rule about who waits.
+/// </para>
+/// <para>
+/// <b>Ordinary traffic is the middle of it and what <see cref="LaneSlot"/> gives a stretch laid without
+/// one</b>, so nothing that is not a movement through a box is either given way to or taken from: two cars
+/// on one lane are held apart by the road each was granted, and neither gives way to the other.
+/// </para>
+/// <para>
+/// <b>The zero of it is the weakest movement a box admits and not the middle</b>, because the order has to
+/// run one way and a byte starts at nothing. Nothing reads the rank off a stretch that was never laid —
+/// every one of them comes out of <see cref="LaneOccupancy.Add"/>, which fills this — and the one place a
+/// rank decides anything reads a claim, which is always laid with the movement's own. <b>Asking at the zero
+/// is asking with no rank at all</b>, which is what a walker and a template do.
+/// </para>
+/// </remarks>
+internal enum RightOfWay : byte
+{
+    /// <summary>
+    /// The turn across the oncoming stream (TER-4a) — the weakest there is, no box admitting a movement
+    /// that reverses the direction of travel (TER-5f).
+    /// </summary>
+    TurningAcross,
+
+    /// <summary>Ordinary traffic: the near-side turn, and every stretch of way that is not a movement through a box.</summary>
+    Traffic,
+
+    /// <summary>Straight through, which turns out of nobody's way.</summary>
+    StraightOn,
+
+    /// <summary>A body on a crossing's paint, which is what the paint is for.</summary>
+    OnThePaint,
+
+    /// <summary>
+    /// <b>A road an officer has closed</b> (SRV-6). It outranks every ordinary movement and the paint, so
+    /// traffic is held short of the ground it is laid on — and it is <em>below</em>
+    /// <see cref="Emergency"/>, which is the whole of what "the other services are let through" means: a
+    /// vehicle answering a call is not refused by it and needs to know nothing about why.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a rank and not a use.</b> What an officer holds is a <see cref="LaneUse.Claimed"/> stretch
+    /// like any other — ground its holder has not reached and can give back — so nothing reading the book
+    /// learns a new word, and a closure cannot take a body or the road a body is committed to stopping in.
+    /// A soft reservation is exactly that and nothing more.
+    /// </remarks>
+    Closed,
+
+    /// <summary>
+    /// <b>An ambulance answering a call</b> (AMB-4). It outranks every ordinary movement and the paint
+    /// alike, which is the whole of what "every other agent gives way" means here: ground an ambulance
+    /// asks for stops being anybody else's to claim.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is still only a rank and takes only what a rank may take</b> — a claim, which its holder has
+    /// not reached and can give back. A body, and the road a body is committed to being able to stop in,
+    /// are no more an ambulance's than anybody's: a blue light buys the road and never the tyres, and a
+    /// rule that took those would be a licence to drive into somebody.
+    /// </remarks>
+    Emergency,
+
+    /// <summary>
+    /// <b>Ground its holder can no longer give back</b>: a body past the point it could stop short of it.
+    /// Nothing outranks it, because a right of way is a rule about who waits and not about who is driven
+    /// into.
+    /// </summary>
+    Committed,
 }
 
 /// <summary>
@@ -120,9 +222,15 @@ internal enum LaneRoster : byte
 /// <param name="AlongMps">How fast the occupant is going <em>along this way</em> — negative where it faces the other way.</param>
 /// <param name="Occupant">Whatever the caller names an occupant by, which for this town is the body's own index in <paramref name="Of"/>.</param>
 /// <param name="Of">Which of the town's two rosters <paramref name="Occupant"/> is an index into.</param>
+/// <param name="Right">
+/// <b>The right of way its holder has to it</b> (TER-5e), which is what decides between two bodies coming
+/// to one piece of the world. It belongs to the stretch and not to the body: one car is straight through
+/// on the lane it is leaving and a turn across the oncoming stream on the join it is entering, and those
+/// are two stretches of two ways.
+/// </param>
 internal readonly record struct LaneSlot(
     float FromM, float ToM, float StandsToM, float AlongMps, int Occupant, LaneUse Use,
-    LaneRoster Of = LaneRoster.Driving)
+    LaneRoster Of = LaneRoster.Driving, RightOfWay Right = RightOfWay.Traffic)
 {
     public static LaneSlot Nothing => new(
         float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity, 0f, LaneOccupancy.Nobody,
@@ -218,6 +326,13 @@ internal sealed partial class LaneOccupancy
     /// <summary>Which ways got a slot this tick, so a rebuild resets those heads and no others.</summary>
     readonly int[] _touched;
 
+    /// <summary>
+    /// Whether a way is already in <see cref="_touched"/>. <b>Asked of this and never of
+    /// <see cref="_head"/></b>: a way <see cref="Withdraw"/> empties has no head and has still been laid on,
+    /// and keyed on the head it would go into the list a second time the next time anybody laid on it.
+    /// </summary>
+    readonly bool[] _laidOn;
+
     int _slotCount;
     int _touchedCount;
     int _claimCount;
@@ -229,10 +344,27 @@ internal sealed partial class LaneOccupancy
     /// rosters and the town's own furniture, and the gates hold it clear of its own ceiling.
     /// </param>
     public LaneOccupancy(RoadGraph roads, int mostSlots)
-        : this(roads.LaneCount, roads.LaneCount + roads.TurnCount, mostSlots)
+        : this(roads, [], mostSlots)
+    {
+    }
+
+    /// <summary>
+    /// The road's book, and <b>the ways a slice above the road lays off it</b> — the two at every bay, which
+    /// `world/parking` measures and hands over as lengths. They are numbered after the joins, so
+    /// <see cref="WayOfTurn"/> names them too and nothing downstream can tell them from a join.
+    /// </summary>
+    /// <remarks>
+    /// <b>The road does not learn what they are</b>, and does not need to: a way is a length and a run of
+    /// metres, and which of the town's features laid it is that feature's own business. What the road owns
+    /// is the numbering, so that one table of crossings and one book can hold both.
+    /// </remarks>
+    public LaneOccupancy(RoadGraph roads, ReadOnlySpan<float> laidOffTheRoadM, int mostSlots)
+        : this(roads.LaneCount, roads.LaneCount + roads.TurnCount + laidOffTheRoadM.Length, mostSlots)
     {
         for (var lane = 0; lane < _laneCount; lane++) _lengthM[lane] = roads.LaneLengthM[lane];
         for (var turn = 0; turn < roads.TurnCount; turn++) _lengthM[_laneCount + turn] = roads.JoinLengthM(turn);
+
+        laidOffTheRoadM.CopyTo(_lengthM.AsSpan(_laneCount + roads.TurnCount));
     }
 
     /// <summary>
@@ -258,6 +390,7 @@ internal sealed partial class LaneOccupancy
         _next = new int[mostSlots];
         _slots = new LaneSlot[mostSlots];
         _touched = new int[mostSlots];
+        _laidOn = new bool[ways];
     }
 
     public int WayCount => _lengthM.Length;
@@ -278,8 +411,18 @@ internal sealed partial class LaneOccupancy
     /// <summary>A lane's own way number. The lanes are numbered first so that a lane and its way are the same integer.</summary>
     public int WayOfLane(int lane) => lane;
 
-    /// <summary>The way a junction's join is, named by the turn slot the graph gave it.</summary>
-    public int WayOfTurn(int turnSlot) => _laneCount + turnSlot;
+    /// <summary>The way a join is, named by the turn slot the graph gave it.</summary>
+    public int WayOfTurn(int turnSlot) => WayOfTurn(_laneCount, turnSlot);
+
+    /// <summary>
+    /// The same numbering, for a caller that knows how many lanes there are but holds no book — the town's
+    /// own table of crossings is laid in it (<see cref="WayCrossings"/>), and a second statement of where
+    /// the joins begin is a second statement that can disagree.
+    /// </summary>
+    public static int WayOfTurn(int laneCount, int turnSlot) => laneCount + turnSlot;
+
+    /// <summary>The trip back, for a caller holding a way it already knows is a join.</summary>
+    public static int TurnOfWay(int laneCount, int way) => way - laneCount;
 
     /// <summary>Whether a way is one of the town's lanes rather than a junction's join.</summary>
     public bool WayIsLane(int way) => way < _laneCount;
@@ -289,9 +432,13 @@ internal sealed partial class LaneOccupancy
     public int WayIndex(int way) => way < _laneCount ? way : way - _laneCount;
 
     /// <summary>
-    /// The ways somebody is on, in no order. <b>A reader that wants the whole book walks this and not the
-    /// town</b>: a town has ten thousand ways and a few hundred occupants.
+    /// The ways somebody is on, in no order and each of them once. <b>A reader that wants the whole book
+    /// walks this and not the town</b>: a town has ten thousand ways and a few hundred occupants.
     /// </summary>
+    /// <remarks>
+    /// A way everything laid on has since been withdrawn from is still named here and holds nothing, which
+    /// is what every reader of it does with a way anyway: it walks the stretches, and there are none.
+    /// </remarks>
     public ReadOnlySpan<int> OccupiedWays => _touched.AsSpan(0, _touchedCount);
 
     public float WayLengthM(int way) => _lengthM[way];
@@ -299,7 +446,11 @@ internal sealed partial class LaneOccupancy
     /// <summary>Everything laid last tick is dropped. Nothing survives a rebuild, which is the whole guarantee.</summary>
     public void Begin()
     {
-        for (var index = 0; index < _touchedCount; index++) _head[_touched[index]] = NoSlot;
+        for (var index = 0; index < _touchedCount; index++)
+        {
+            _head[_touched[index]] = NoSlot;
+            _laidOn[_touched[index]] = false;
+        }
 
         _touchedCount = 0;
         _slotCount = 0;
@@ -339,39 +490,102 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
+    /// <b>The far end of one occupant's stretch of one way brought back to where it was answered</b>
+    /// (TER-4c.1) — the ask laid, the answer taken off it, and the book left holding the second.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never behind the body</b> (<see cref="LaneSlot.StandsToM"/>). A grant is how far a nose may go and
+    /// goes to nought where a car is held at a bumper; the ground under the body itself is not a grant and is
+    /// not the asker's to give back, and cut away it is a car no reader of the book can see.
+    /// </para>
+    /// <para>
+    /// <b>The near edge does not move, so the order does not change</b> — the list is kept ascending by it
+    /// (<see cref="Add"/>), and a stretch whose far end has come in is still where it was. What is left with
+    /// no length at all is a way the answer never reached, and it goes out rather than staying as an interval
+    /// no query can tell from a point.
+    /// </para>
+    /// </remarks>
+    public void CutTo(
+        int way, int occupant, float toM, LaneUse use = LaneUse.Reserved,
+        LaneRoster of = LaneRoster.Driving)
+    {
+        var previous = NoSlot;
+        for (var at = _head[way]; at != NoSlot;)
+        {
+            var next = _next[at];
+            ref var slot = ref _slots[at];
+            if (slot.Occupant != occupant || slot.Use != use || slot.Of != of)
+            {
+                previous = at;
+                at = next;
+                continue;
+            }
+
+            var cutToM = MathF.Max(slot.StandsToM, MathF.Min(slot.ToM, toM));
+            if (cutToM <= slot.FromM)
+            {
+                if (previous == NoSlot) _head[way] = next;
+                else _next[previous] = next;
+            }
+            else
+            {
+                slot = slot with { ToM = cutToM };
+                previous = at;
+            }
+
+            at = next;
+        }
+    }
+
+    /// <summary>
     /// One occupant's stretch of one way, inserted in its place. <b>Returns whether it was laid</b>: past
     /// the bound it is not, and the caller's own geometry is what covers the gap.
     /// </summary>
     /// <remarks>Body and ground are the same edge here — a thing that has taken road beyond itself is <see cref="AddUnderWay"/>.</remarks>
     public bool Add(
         int way, float fromM, float toM, float alongMps, int occupant, LaneUse use,
-        LaneRoster of = LaneRoster.Driving) =>
-        Add(way, fromM, toM, toM, alongMps, occupant, use, of);
+        LaneRoster of = LaneRoster.Driving, RightOfWay right = RightOfWay.Traffic) =>
+        Add(way, fromM, toM, toM, alongMps, occupant, use, of, right);
 
     /// <summary>
     /// <b>A body under way, as the one stretch it is</b>: from its own tail, through where the body itself
     /// ends (<paramref name="standsToM"/>), to the far end of the ground it has taken.
     /// </summary>
+    /// <param name="use">
+    /// <b>What the body is to whoever finds it</b>, which is a name and not a second arithmetic: a driver on
+    /// its route is <see cref="LaneUse.Reserved"/> and a body that is not driving one is
+    /// <see cref="LaneUse.Obstruction"/>, and <em>both</em> are laid here because both are a body and the
+    /// ground it is committed to. What differs between them is how much of that ground there is — a wreck
+    /// reaches nowhere, and something shoved down a lane at speed reaches as far as it is going.
+    /// </param>
     public bool AddUnderWay(
         int way, float fromM, float standsToM, float toM, float alongMps, int occupant,
-        LaneRoster of = LaneRoster.Driving) =>
-        Add(way, fromM, toM, standsToM, alongMps, occupant, LaneUse.Reserved, of);
+        LaneUse use = LaneUse.Reserved, LaneRoster of = LaneRoster.Driving,
+        RightOfWay right = RightOfWay.Traffic) =>
+        Add(way, fromM, toM, standsToM, alongMps, occupant, use, of, right);
 
     bool Add(
         int way, float fromM, float toM, float standsToM, float alongMps, int occupant, LaneUse use,
-        LaneRoster of)
+        LaneRoster of, RightOfWay right)
     {
         if (_slotCount == _slots.Length) return false;
         if (toM < fromM) return false;
         if (toM <= 0f || fromM >= _lengthM[way]) return false;
 
         var slot = _slotCount++;
-        _slots[slot] = new LaneSlot(fromM, toM, Math.Clamp(standsToM, fromM, toM), alongMps, occupant, use, of);
+        _slots[slot] = new LaneSlot(
+            fromM, toM, Math.Clamp(standsToM, fromM, toM), alongMps, occupant, use, of, right);
         if (use == LaneUse.Claimed) _claimCount++;
+
+        if (!_laidOn[way])
+        {
+            _laidOn[way] = true;
+            _touched[_touchedCount++] = way;
+        }
 
         if (_head[way] == NoSlot)
         {
-            _touched[_touchedCount++] = way;
             _head[way] = slot;
             _next[slot] = NoSlot;
             return true;

@@ -9,9 +9,9 @@ namespace TrafficSimulation.Core.Geometry;
 /// <remarks>
 /// <para>
 /// <b>The answer is the whole-network scan's, exactly.</b> The grid decides which chains are looked at
-/// and nothing else: the survivors are put in ascending order and measured by the same arithmetic and
-/// the same strictly-nearer test the scan used, so a tie still goes to the lower id and a town routed
-/// through this one is routed the way it always was. What makes that safe is the stopping rule — the
+/// and nothing else: the survivors are measured by the same arithmetic the scan used, and a tie is
+/// settled on the id rather than on the order they were met in, so a town routed through this one is
+/// routed the way it always was whatever order the cells hand them back. What makes that safe is the stopping rule — the
 /// ring is grown until the best distance found <em>fits inside the ring already searched</em>, and a
 /// chain nearer than that has a piece inside that ring by construction.
 /// </para>
@@ -111,11 +111,13 @@ internal sealed class ChainIndex
         }
     }
 
-    /// <summary>The slots whose pieces reach the ring, each once, in ascending order.</summary>
+    /// <summary>The slots whose pieces reach the ring, each once, in whatever order the cells gave them.</summary>
     /// <remarks>
-    /// Ascending is the load-bearing part and is why they are sorted rather than measured as they are
-    /// met: the grid hands cells back row by row, and measuring in that order would give a tie to
-    /// whichever chain the grid happened to reach first instead of to the lower id.
+    /// <b>The order is not load-bearing and they are deliberately not sorted.</b> The grid hands cells
+    /// back row by row, so a tie would otherwise fall to whichever chain it reached first — which is why
+    /// <see cref="Measure"/> settles a tie on the id itself rather than on the order it was met in. Sorted
+    /// here instead, a point standing beside a busy corner paid an insertion sort of the whole ring, and
+    /// paid it again for every ring the search had to grow.
     /// </remarks>
     void Gather(Vector2 pointM, float radiusM)
     {
@@ -141,28 +143,6 @@ internal sealed class ChainIndex
                     _candidate[_candidateCount++] = slot;
                 }
             }
-        }
-
-        Order(_candidate.AsSpan(0, _candidateCount));
-    }
-
-    /// <summary>
-    /// An insertion sort, because that is what the list actually is — a point stands beside a handful of
-    /// lines — and because the order it leaves behind is the whole of what keeps a tie reproducible.
-    /// </summary>
-    static void Order(Span<int> slots)
-    {
-        for (var at = 1; at < slots.Length; at++)
-        {
-            var slot = slots[at];
-            var into = at - 1;
-            while (into >= 0 && slots[into] > slot)
-            {
-                slots[into + 1] = slots[into];
-                into--;
-            }
-
-            slots[into + 1] = slot;
         }
     }
 
@@ -191,8 +171,8 @@ internal sealed class ChainIndex
     }
 
     /// <summary>
-    /// One chain measured, kept only if it is <em>strictly</em> nearer than what stands — which over an
-    /// ascending walk is what leaves a tie with the lower id.
+    /// One chain measured, kept only if it is nearer than what stands — or exactly as near and named by a
+    /// lower id, <b>which is what makes the answer the walk's order rather than the grid's</b>.
     /// </summary>
     void Measure(int slot, Vector2 pointM, ref int best, ref float bestDistanceSq, ref float alongM)
     {
@@ -200,7 +180,7 @@ internal sealed class ChainIndex
         var lengthM = _lengthM[slot];
         var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
         var distanceSq = (Spline.SampleAt(arcs, atM).PositionM - pointM).LengthSquared();
-        if (distanceSq >= bestDistanceSq) return;
+        if (distanceSq > bestDistanceSq || (distanceSq == bestDistanceSq && _chainId[slot] >= best)) return;
 
         bestDistanceSq = distanceSq;
         alongM = atM;

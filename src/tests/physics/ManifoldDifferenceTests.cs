@@ -40,15 +40,26 @@ public class ManifoldDifferenceTests
     /// random offset, because a random offset over boxes this size is mostly <em>deep</em> overlap, which
     /// is not what the town does and not where a manifold has to be right to the millimetre.
     /// </summary>
-    [Fact]
-    public void TwoBoxesJustMeetingAgreeWithTheReference()
+    /// <remarks>
+    /// <b>Run twice, square-cornered and rounded</b> (CAR-12b): the reference carries a radius on a
+    /// polygon exactly as this engine now carries one on a box, and half a metre of it is over what the
+    /// most rounded car in the shipped fleet asks for. A rounded pair that only agreed where the radius
+    /// was zero would be a shape nothing had checked.
+    /// </remarks>
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(0.5f)]
+    public void TwoBoxesJustMeetingAgreeWithTheReference(float cornerM)
     {
         var draw = new Random(20260819);
+        var rounding = Rounding(cornerM);
         var agreed = 0;
         var touching = 0;
 
         for (var pose = 0; pose < 20_000; pose++)
         {
+            var cornerA = rounding();
+            var cornerB = rounding();
             var halfA = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
             var halfB = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
             var rotationA = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
@@ -60,16 +71,17 @@ public class ManifoldDifferenceTests
             // How far each box reaches along the line between them, so the pair is laid at a drawn depth
             // rather than at a drawn distance: a distance drawn off the circumradius would leave nine in
             // ten of them apart, and a run of poses that never met would agree about nothing.
-            var apartM = Reach(direction, rotationA, halfA) + Reach(direction, rotationB, halfB)
+            var apartM = Reach(direction, rotationA, halfA) + cornerA
+                         + Reach(direction, rotationB, halfB) + cornerB
                          - ((float)draw.NextDouble() * (DeepestM + MarginM) - MarginM);
             var betweenM = direction * apartM;
 
             var met = Shape.Collide(
-                ShapeKind.Box, Vector2.Zero, rotationA, halfA,
-                ShapeKind.Box, betweenM, rotationB, halfB, MarginM, out var manifold);
+                Vector2.Zero, rotationA, halfA, cornerA,
+                betweenM, rotationB, halfB, cornerB, MarginM, out var manifold);
 
-            var boxA = b2MakeBox(halfA.X, halfA.Y);
-            var boxB = b2MakeBox(halfB.X, halfB.Y);
+            var boxA = b2MakeRoundedBox(halfA.X, halfA.Y, cornerA);
+            var boxB = b2MakeRoundedBox(halfB.X, halfB.Y, cornerB);
             var reference = b2CollidePolygons(
                 ref boxA, At(Vector2.Zero, rotationA), ref boxB, At(betweenM, rotationB));
 
@@ -78,6 +90,17 @@ public class ManifoldDifferenceTests
 
         Assert.True(touching > 5_000, $"only {touching} of 20 000 box pairs touched, so the agreement says little");
         Assert.Equal(20_000, agreed);
+    }
+
+    /// <summary>
+    /// A corner radius up to <paramref name="cornerM"/>, drawn from <b>a stream of its own</b> so that the
+    /// square-cornered run is the same twenty thousand poses it was before a radius existed. Sharing the
+    /// pose stream would have made the two rows of every theory below two different experiments.
+    /// </summary>
+    static Func<float> Rounding(float cornerM)
+    {
+        var draw = new Random(4271);
+        return () => cornerM * (float)draw.NextDouble();
     }
 
     /// <summary>How far a box reaches from its own centre along one direction.</summary>
@@ -97,14 +120,19 @@ public class ManifoldDifferenceTests
     /// both answers are separating axes and neither is the wrong one. It is <b>the shallow regime that
     /// has to be right to the millimetre</b>, and the test above is where that is asserted.
     /// </remarks>
-    [Fact]
-    public void TwoBoxesAtAnyDepthAgreeWithTheReferenceOnWhetherTheyTouch()
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(0.5f)]
+    public void TwoBoxesAtAnyDepthAgreeWithTheReferenceOnWhetherTheyTouch(float cornerM)
     {
         var draw = new Random(1959);
+        var rounding = Rounding(cornerM);
         var touching = 0;
 
         for (var pose = 0; pose < 20_000; pose++)
         {
+            var cornerA = rounding();
+            var cornerB = rounding();
             var halfA = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
             var halfB = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
             var rotationA = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
@@ -112,11 +140,11 @@ public class ManifoldDifferenceTests
             var betweenM = new Vector2((float)draw.NextDouble() * 8f - 4f, (float)draw.NextDouble() * 8f - 4f);
 
             var met = Shape.Collide(
-                ShapeKind.Box, Vector2.Zero, rotationA, halfA,
-                ShapeKind.Box, betweenM, rotationB, halfB, MarginM, out _);
+                Vector2.Zero, rotationA, halfA, cornerA,
+                betweenM, rotationB, halfB, cornerB, MarginM, out _);
 
-            var boxA = b2MakeBox(halfA.X, halfA.Y);
-            var boxB = b2MakeBox(halfB.X, halfB.Y);
+            var boxA = b2MakeRoundedBox(halfA.X, halfA.Y, cornerA);
+            var boxB = b2MakeRoundedBox(halfB.X, halfB.Y, cornerB);
             var reference = b2CollidePolygons(
                 ref boxA, At(Vector2.Zero, rotationA), ref boxB, At(betweenM, rotationB));
 
@@ -135,26 +163,30 @@ public class ManifoldDifferenceTests
     /// </summary>
     const float DeepestM = 0.25f;
 
-    [Fact]
-    public void ABoxAndACircleMeetWhereTheReferenceSaysTheyMeet()
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(0.5f)]
+    public void ABoxAndADiscMeetWhereTheReferenceSaysTheyMeet(float cornerM)
     {
         var draw = new Random(1955);
+        var rounding = Rounding(cornerM);
         var agreed = 0;
         var touching = 0;
 
         for (var pose = 0; pose < 20_000; pose++)
         {
+            var corner = rounding();
             var half = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
             var radiusM = 0.2f + (float)draw.NextDouble() * 1.5f;
             var rotation = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
             var betweenM = new Vector2((float)draw.NextDouble() * 6f - 3f, (float)draw.NextDouble() * 6f - 3f);
 
-            // The box first, so the normal runs box to circle in both — b2CollidePolygonAndCircle's does.
+            // The box first, so the normal runs box to disc in both — b2CollidePolygonAndCircle's does.
             var met = Shape.Collide(
-                ShapeKind.Box, Vector2.Zero, rotation, half,
-                ShapeKind.Circle, betweenM, Shape.Rotation(0f), new Vector2(radiusM), MarginM, out var manifold);
+                Vector2.Zero, rotation, half, corner,
+                betweenM, Shape.Rotation(0f), Vector2.Zero, radiusM, MarginM, out var manifold);
 
-            var box = b2MakeBox(half.X, half.Y);
+            var box = b2MakeRoundedBox(half.X, half.Y, corner);
             var circle = new B2Circle(new B2Vec2(0f, 0f), radiusM);
             var reference = b2CollidePolygonAndCircle(
                 ref box, At(Vector2.Zero, rotation), in circle, At(betweenM, Shape.Rotation(0f)));
@@ -162,12 +194,12 @@ public class ManifoldDifferenceTests
             Same(pose, met, manifold, reference, ref agreed, ref touching);
         }
 
-        Assert.True(touching > 2_000, $"only {touching} of 20 000 box-circle pairs touched, so the agreement says little");
+        Assert.True(touching > 2_000, $"only {touching} of 20 000 box-disc pairs touched, so the agreement says little");
         Assert.Equal(20_000, agreed);
     }
 
     [Fact]
-    public void TwoCirclesMeetWhereTheReferenceSaysTheyMeet()
+    public void TwoDiscsMeetWhereTheReferenceSaysTheyMeet()
     {
         var draw = new Random(1972);
         var agreed = 0;
@@ -180,8 +212,8 @@ public class ManifoldDifferenceTests
             var betweenM = new Vector2((float)draw.NextDouble() * 5f - 2.5f, (float)draw.NextDouble() * 5f - 2.5f);
 
             var met = Shape.Collide(
-                ShapeKind.Circle, Vector2.Zero, Shape.Rotation(0f), new Vector2(first),
-                ShapeKind.Circle, betweenM, Shape.Rotation(0f), new Vector2(second), MarginM, out var manifold);
+                Vector2.Zero, Shape.Rotation(0f), Vector2.Zero, first,
+                betweenM, Shape.Rotation(0f), Vector2.Zero, second, MarginM, out var manifold);
 
             var circleA = new B2Circle(new B2Vec2(0f, 0f), first);
             var circleB = new B2Circle(new B2Vec2(0f, 0f), second);
@@ -191,8 +223,85 @@ public class ManifoldDifferenceTests
             Same(pose, met, manifold, reference, ref agreed, ref touching);
         }
 
-        Assert.True(touching > 2_000, $"only {touching} of 20 000 circle pairs touched, so the agreement says little");
+        Assert.True(touching > 2_000, $"only {touching} of 20 000 disc pairs touched, so the agreement says little");
         Assert.Equal(20_000, agreed);
+    }
+
+    /// <summary>
+    /// SOL-1: <b>the two closed forms are shortcuts and not shapes.</b> A disc is a rounded box with no
+    /// core, so the general path answers a disc pair and a disc-against-box pair on its own — and where it
+    /// does not agree with the shortcut that is actually taken, one of the two is wrong and neither the
+    /// reference tests above nor a town would say which.
+    /// </summary>
+    /// <remarks>
+    /// The core given to the general path is a hair rather than nothing, because <em>nothing</em> is what
+    /// selects the shortcut. That hair makes the general shape a tenth of a millimetre bigger, so a pair
+    /// sitting within a hair of the speculative distance may be met by one and missed by the other; those
+    /// are counted and left, and everything decided by more than that has to agree exactly.
+    /// </remarks>
+    [Fact]
+    public void TheDiscShortcutsAgreeWithTheGeneralShape()
+    {
+        var draw = new Random(2026);
+        var hair = new Vector2(1e-4f);
+        var checkedPairs = 0;
+        var onTheLine = 0;
+
+        for (var pose = 0; pose < 20_000; pose++)
+        {
+            var discA = 0.2f + (float)draw.NextDouble() * 1.5f;
+            var discB = 0.2f + (float)draw.NextDouble() * 1.5f;
+            var half = new Vector2(0.5f + (float)draw.NextDouble() * 2f, 0.5f + (float)draw.NextDouble() * 2f);
+            var corner = (float)draw.NextDouble() * 0.5f;
+            var rotation = Shape.Rotation((float)draw.NextDouble() * MathF.Tau - MathF.PI);
+            var betweenM = new Vector2((float)draw.NextDouble() * 6f - 3f, (float)draw.NextDouble() * 6f - 3f);
+
+            // Two discs, then a disc against a rounded box, each way round the shortcut can be entered.
+            checkedPairs += Alike(
+                pose, Shape.Collide(Vector2.Zero, rotation, Vector2.Zero, discA, betweenM, rotation, Vector2.Zero, discB, MarginM, out var shortcut),
+                shortcut,
+                Shape.Collide(Vector2.Zero, rotation, hair, discA, betweenM, rotation, hair, discB, MarginM, out var general),
+                general, ref onTheLine);
+
+            checkedPairs += Alike(
+                pose, Shape.Collide(Vector2.Zero, rotation, Vector2.Zero, discA, betweenM, rotation, half, corner, MarginM, out var shortcutBox),
+                shortcutBox,
+                Shape.Collide(Vector2.Zero, rotation, hair, discA, betweenM, rotation, half, corner, MarginM, out var generalBox),
+                generalBox, ref onTheLine);
+        }
+
+        Assert.Equal(40_000, checkedPairs + onTheLine);
+        Assert.True(onTheLine < 40, $"{onTheLine} of 40 000 pairs sat on the speculative distance, which is too many to be the hair");
+    }
+
+    /// <summary>
+    /// The same answer, or a pair standing on the speculative distance itself — where the hair of core the
+    /// general shape carries is enough to decide it, and which of the two answers is right is not a
+    /// question about the shapes.
+    /// </summary>
+    static int Alike(
+        int pose, bool metShortcut, in Manifold shortcut, bool metGeneral, in Manifold general, ref int onTheLine)
+    {
+        if (metShortcut != metGeneral)
+        {
+            var separationM = metShortcut ? Deepest(shortcut) : Deepest(general);
+            Assert.True(
+                MathF.Abs(separationM - MarginM) < 1e-3f,
+                $"pose {pose}: the shortcut {(metShortcut ? "met" : "missed")} at {separationM:F5} m and the " +
+                "general shape did not, nowhere near the speculative distance");
+
+            onTheLine++;
+            return 0;
+        }
+
+        if (!metShortcut) return 1;
+
+        Assert.Equal(Deepest(general), Deepest(shortcut), 2e-3f);
+        Assert.True(
+            Vector2.Dot(shortcut.Normal, general.Normal) > 0.999f,
+            $"pose {pose}: the shortcut's normal {shortcut.Normal} against the general shape's {general.Normal}");
+
+        return 1;
     }
 
     /// <summary>

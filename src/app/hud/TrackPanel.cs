@@ -38,11 +38,7 @@ internal sealed class TrackPanel
     /// <summary>The longest line any row comes to, which is what the panel is sized on.</summary>
     const int WidestLine = OffLineColumn + 6;
 
-    const float MarginPx = 12f;
     const float RowPitchPx = Theme.SmallTextPx + 4f;
-
-    /// <summary>Clear of the two boxes the run's own furniture keeps in this corner.</summary>
-    const float BelowTheHudPx = MarginPx + Theme.TextPx + 14f + 4f + Theme.SmallTextPx + 12f + 8f;
 
     /// <summary>What a section adds when it is open: the column heading, and one row per drivetrain.</summary>
     const int RowsPerSection = 1 + TrackMetrics.Drivetrains;
@@ -106,10 +102,15 @@ internal sealed class TrackPanel
         return true;
     }
 
-    public void Draw(ref ScreenDraw draw, Vector2 pointerPx, TrackMetrics metrics)
+    /// <param name="topY">
+    /// The bottom of the status panel, which shares this corner and changes height as its body opens.
+    /// <b>It is handed over rather than guessed at</b>: a figure copied from the panel above was a
+    /// figure that stopped being that panel's the first time it grew a row.
+    /// </param>
+    public void Draw(ref ScreenDraw draw, Vector2 pointerPx, float topY, TrackMetrics metrics)
     {
         var widthPx = GlyphSheet.WidthPx(WidestLine, Theme.SmallTextPx) + (Theme.PaddingPx * 2f);
-        Box = new Rect(new Vector2(MarginPx, BelowTheHudPx), new Vector2(widthPx, HeightFor(RowCount(metrics))));
+        Box = new Rect(new Vector2(Theme.MarginPx, topY), new Vector2(widthPx, HeightFor(RowCount(metrics))));
         Theme.Frame(ref draw, Box);
 
         Span<char> text = stackalloc char[80];

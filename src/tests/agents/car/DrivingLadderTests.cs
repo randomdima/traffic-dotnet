@@ -18,14 +18,14 @@ public class DrivingLadderTests
 
     /// <summary>
     /// <b>Waiting is the correct answer when the obstruction has priority</b>, and nothing below the top
-    /// rung may pre-empt it.
+    /// rung may pre-empt it: the car is handed the place it is already standing short of and waits there.
     /// </summary>
     [Fact]
-    public void TheFirstRungIsAYieldWhenSomebodyElseHasPriority()
+    public void TheFirstRungHoldsAtALineWhenSomebodyElseHasPriority()
     {
         var rung = 0;
         var state = Ordinary with { ObstructionHasPriority = true };
-        Assert.Equal(Maneuver.Yield, DrivingLadder.Next(state, ref rung));
+        Assert.Equal(Maneuver.HoldAtALine, DrivingLadder.Next(state, ref rung));
     }
 
     /// <summary>

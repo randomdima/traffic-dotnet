@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 using Xunit;
@@ -24,7 +25,7 @@ public class DrivingNetworkTests
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
         var roads = RoadGraph.Build(plan, config);
-        return (roads, DrivingNetwork.Build(roads, plan, config));
+        return (roads, DrivingNetwork.Build(roads, BayWays.WhereALegMayTurn(roads, BayWays.Build(plan, roads, config)), plan, config));
     }
 
     /// <summary>Every road still belongs to some run, exactly once, in one place along it.</summary>
@@ -49,19 +50,26 @@ public class DrivingNetworkTests
     }
 
     /// <summary>
-    /// <b>A node is a place a driver can go more than one way, and nothing else is a node.</b> Asked both
-    /// ways round, because each direction catches a different fault: a bend on the network is a decision
-    /// nobody makes, and a junction off it is a turn no route could ever plan.
+    /// <b>A node is a place a driver can go more than one way or a place a leg can be sent to, and nothing
+    /// else is a node.</b> Asked both ways round, because each direction catches a different fault: a bend
+    /// on the network is a decision nobody makes, and a junction off it is a turn no route could ever plan.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>The ends of a parking section are the second clause</b> (GEN-4h). Nothing is decided at one — a
+    /// driver arriving has one way on — and it is on the network anyway, because a leg aimed at a bay of
+    /// that car park is routed to it and a place the search cannot name is a place no route can end at.
+    /// </para>
+    /// <para>
     /// <b>The one bend that is a node is a ring's own anchor.</b> A closed run nothing splits — the band a
     /// car park is wrapped in, a circuit of the test track — would contract to nothing at all, so
     /// <see cref="RunNetwork"/> promotes one of its bends and the ring becomes two links leaving and
     /// returning to that one place. Exactly one, and only where the ring really has no choice on it.
+    /// </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ANetworkNodeIsExactlyAJunctionWithAChoiceAtIt(string map)
+    public void ANetworkNodeIsExactlyAJunctionWithAChoiceAtItOrAPlaceALegIsAimedAt(string map)
     {
         var (roads, network) = Of(map);
         var runs = network.Runs;
@@ -73,7 +81,7 @@ public class DrivingNetworkTests
         {
             var junction = runs.FineNodeOf(node);
             onNetwork[junction] = true;
-            if (roads.LanesOut(junction).Length != 2) continue;
+            if (roads.LanesOut(junction).Length != 2 || roads.IsAPlace(junction)) continue;
 
             Assert.False(
                 hasAChoice[ringOf[junction]],
@@ -86,7 +94,7 @@ public class DrivingNetworkTests
             var ways = roads.LanesOut(junction).Length;
             if (ways == 0) continue;
 
-            if (ways != 2)
+            if (ways != 2 || roads.IsAPlace(junction))
             {
                 Assert.True(onNetwork[junction], $"{map}: junction {junction} has {ways} ways on and is off the network");
                 continue;
@@ -151,7 +159,7 @@ public class DrivingNetworkTests
             var lanes = runs.PiecesOf(link);
             var stations = runs.StationsOf(link);
 
-            Assert.NotEmpty(lanes.ToArray());
+            Assert.False(lanes.IsEmpty, $"{map}: run {link} is made of no lanes");
             Assert.Equal(0f, stations[0], 4);
             for (var slot = 1; slot < lanes.Length; slot++)
             {
@@ -267,28 +275,18 @@ public class DrivingNetworkTests
 
     /// <summary>A lane a driver on this one can certainly get to: the first turn out, taken a few times over.</summary>
     /// <remarks>
-    /// <b>Never through a turn-around</b>, because the network prices one out of reach: turning a car
-    /// round is a manoeuvre this engine has not written, so a place reachable only that way is not
-    /// reachable, and a destination picked through one would be asking the search for a route it is
-    /// right to refuse.
+    /// <b>Every way out of a lane is one a car may drive</b> (TER-5f), so the walk needs no rule of its
+    /// own about which of them to decline: a lane with no turn out is a dead end, and the walk stops
+    /// there rather than turning the car round in the road.
     /// </remarks>
     static int Downstream(RoadGraph roads, int lane, int turns)
     {
         for (var turn = 0; turn < turns; turn++)
         {
             var onward = roads.TurnsFrom(lane);
-            var kinds = roads.TurnKindsFrom(lane);
-            var took = false;
-            for (var slot = 0; slot < onward.Length && !took; slot++)
-            {
-                var pick = (turn + slot) % onward.Length;
-                if (kinds[pick] == LaneTurn.TurnAround) continue;
+            if (onward.Length == 0) break;
 
-                lane = onward[pick];
-                took = true;
-            }
-
-            if (!took) break;
+            lane = onward[turn % onward.Length];
         }
 
         return lane;

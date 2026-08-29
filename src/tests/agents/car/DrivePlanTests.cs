@@ -65,7 +65,7 @@ public class DrivePlanTests
 
         Assert.Equal(9, plan.SubjectFor(0, Maneuver.ParkInTheBay));
         Assert.Equal(4, plan.SubjectFor(0, Maneuver.LeaveTheBay));
-        Assert.Equal(PlannedStep.NoSubject, plan.SubjectFor(0, Maneuver.TurnAround));
+        Assert.Equal(PlannedStep.NoSubject, plan.SubjectFor(0, Maneuver.StandParked));
     }
 
     /// <summary><b>Refused past the bound rather than grown.</b> The chain is a skeleton and a long one is a replan.</summary>

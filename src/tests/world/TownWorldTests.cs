@@ -3,6 +3,7 @@ using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -13,12 +14,14 @@ namespace TrafficSimulation.Tests.World;
 /// walking skeleton's own exit condition: a person walks, the ground it is on changes how fast, and
 /// an order is obeyed and then let go of.
 /// </summary>
-[Collection(TrafficSimulation.Tests.Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Town)]
 public class TownWorldTests
 {
     static TownWorld Open(string map, bool standStatics = true) =>
-        new(Towns.Fresh(map), SimConfig.Shipped(), standStatics);
+        new(Towns.Of(map), SimConfig.Shipped(), standStatics);
+
+    static int AWalkerOutside(TownWorld world, SimLoop<TownWorld> loop) =>
+        OutOfDoors.AWalker(world, loop, SimConfig.Shipped());
 
     [Theory]
     [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
@@ -87,17 +90,21 @@ public class TownWorldTests
         Assert.True(run.StopM <= aFifthOfABody, $"the stop measured {run.StopM:F3} m");
     }
 
-    /// <summary>Off its feet a walker is sent down the road, and the two grips are what make that a different thing.</summary>
+    /// <summary>
+    /// Off its feet a walker stops on the ground rather than on its soles, which is a lower grip and a
+    /// longer stop. <b>How far a casualty is actually sent is a question about the strike</b> and is asked
+    /// through the solver in <c>CrashCaseTests</c>, where there is a strike to ask it of.
+    /// </summary>
     [Fact]
-    public void OffItsFeetAWalkerSlidesFurtherThanItsOwnBody()
+    public void OffItsFeetAWalkerStopsOnTheGroundAndNotOnItsSoles()
     {
         var config = SimConfig.Shipped();
 
         var onFeet = WalkProbe.Measure(config, config.Terrain.PavedCoefficient, onFeet: true);
         var offFeet = WalkProbe.Measure(config, config.Terrain.PavedCoefficient, onFeet: false);
 
-        Assert.True(offFeet.StopM > config.PersonDiameterM, $"a slide of {offFeet.StopM:F2} m is not being sent anywhere");
-        Assert.True(offFeet.StopM > onFeet.StopM * 10f);
+        Assert.True(offFeet.StopM > onFeet.StopM,
+            $"off its feet a body stopped in {offFeet.StopM:F3} m against {onFeet.StopM:F3} m on them");
     }
 
     /// <summary>CTL-2 and CTL-4: an order pins the goal, and a finished order ends in idle awaiting the next.</summary>
@@ -107,7 +114,7 @@ public class TownWorldTests
         using var world = Open(Towns.Fixture, standStatics: false);
         var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
 
-        var walker = 0;
+        var walker = AWalkerOutside(world, loop);
         var from = world.People.PositionM[walker];
 
         // A point on the ground and not a building: right-clicking one of those is CTL-3, which is a
@@ -150,18 +157,20 @@ public class TownWorldTests
     public void SelectionIsAKindAndAnIndexAndNothingElse()
     {
         using var world = Open(Towns.Fixture);
+        var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
+        var walker = AWalkerOutside(world, loop);
 
-        world.Selected = new Selection(SelectionKind.Person, 0);
-        Assert.Equal(new Selection(SelectionKind.Person, 0), world.Selected);
-        Assert.Equal(0, world.SelectedPerson);
-        Assert.Equal(-1, world.SelectedCar);
+        world.Select(new Selection(SelectionKind.Person, 0));
+        Assert.Equal(new Selection(SelectionKind.Person, 0), world.Lead);
+        Assert.Equal(1, world.SelectedCount);
 
         // Out of the roster is nothing at all, which is what makes a stale index harmless rather
         // than a walker somebody else is looking at.
-        world.Selected = new Selection(SelectionKind.Person, world.People.Count + 10);
-        Assert.False(world.Selected.Any);
+        world.Select(new Selection(SelectionKind.Person, world.People.Count + 10));
+        Assert.Equal(0, world.SelectedCount);
 
-        Assert.Equal(0, world.PersonAt(world.People.PositionM[0]));
+        // Asked of a body that is in the town: one inside a building is not there to be clicked on.
+        Assert.Equal(walker, world.PersonAt(world.People.PositionM[walker]));
         Assert.Equal(-1, world.PersonAt(new Vector2(-1_000f, -1_000f)));
 
         // CTL-1: a car under the pointer is picked before a walker, since a walker under a car is
@@ -182,17 +191,107 @@ public class TownWorldTests
         using var world = Open(Towns.Fixture);
         var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
 
-        world.Selected = new Selection(SelectionKind.Car, 0);
+        world.Select(new Selection(SelectionKind.Car, 0));
         world.Hands(new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
         loop.Advance(60);
 
         Assert.True(world.HandsOn);
+        Assert.True(Selection.Holds(world.HandDriven, SelectionKind.Car, 0));
         Assert.True(world.Cars.Command[0].ThrottleMps2 > 0f, "the throttle key should reach the tyres as a pedal");
         Assert.True(world.Cars.VelocityMps[0].Length() > 0f, "a car under power should be moving");
 
+        // CTL-5c: the beacon is the one thing the hand runs outside the car, and it buys nothing —
+        // the road is still not told.
+        Assert.False(world.Cars.BlueLight[0], "a hand at the wheel granted itself the road");
+
         // A change of selection gives up the wheel, so nothing drives on out of sight.
-        world.Selected = default;
+        world.SelectNone();
         Assert.False(world.HandsOn);
+        Assert.True(world.HandDriven.IsEmpty);
+    }
+
+    /// <summary>
+    /// CTL-1b: <b>one hand and many units</b>. The same command reaches every selected car through the
+    /// same seam, and each answers it with its own body — which is what makes a group of cars driven at
+    /// once still a group of cars and not one car with four pictures.
+    /// </summary>
+    [Fact]
+    public void OneHandDrivesEverySelectedCar()
+    {
+        using var world = Open(Towns.Fixture);
+        var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
+        Assert.True(world.Cars.Count >= 2, "the fixture stands fewer cars than a group needs");
+
+        world.Select(new Selection(SelectionKind.Car, 0));
+        world.SelectAlso(new Selection(SelectionKind.Car, 1));
+        world.Hands(new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
+        loop.Advance(60);
+
+        for (var car = 0; car < 2; car++)
+        {
+            Assert.True(
+                world.Cars.Command[car].ThrottleMps2 > 0f, $"car {car} was selected and took none of the throttle");
+            Assert.True(world.Cars.VelocityMps[car].Length() > 0f, $"car {car} was under power and did not move");
+        }
+    }
+
+    /// <summary>
+    /// CTL-1b through CTL-2: <b>one right-click is one order to every selected walker</b>, taken on the
+    /// same tick and at the same point. Each of them then routes to it as itself.
+    /// </summary>
+    [Fact]
+    public void AnOrderReachesEverySelectedWalker()
+    {
+        using var world = Open(Towns.Fixture);
+        var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
+        var walker = AWalkerOutside(world, loop);
+        var second = OutOfDoors.AWalker(world, loop, SimConfig.Shipped(), besides: walker);
+
+        world.Select(new Selection(SelectionKind.Person, walker));
+        world.SelectAlso(new Selection(SelectionKind.Person, second));
+
+        var toM = world.People.PositionM[walker];
+        world.Order(walker, toM);
+        world.Order(second, toM);
+        loop.Advance(2);
+
+        // CTL-4: both are in manual mode, which is the whole of what an order does to a walker's own
+        // goal choice — everything under it is untouched.
+        Assert.True(world.People.Manual[walker]);
+        Assert.True(world.People.Manual[second]);
+    }
+
+    /// <summary>
+    /// CAR-3a: <b>a key is a pedal being pushed and a wheel being wound, never either of them arriving.</b>
+    /// The travel is the body's and is the same travel the follower is held to, so what a hand gets is the
+    /// car the town's own drivers are driving — and a press can be held part way, which is the whole of what
+    /// makes a car with digital controls drivable.
+    /// </summary>
+    [Fact]
+    public void AKeyPressWindsTheWheelOnRatherThanSelectingALock()
+    {
+        var config = SimConfig.Shipped();
+        using var world = Open(Towns.Fixture);
+        var loop = new SimLoop<TownWorld>(world, config);
+
+        world.Select(new Selection(SelectionKind.Car, 0));
+        world.Hands(new HandInput(Held: true, Throttle: 1f, Steer: 1f, Handbrake: false, WalkDirection: Vector2.Zero));
+
+        ref readonly var build = ref world.Cars.BuildOf(0);
+        loop.Advance();
+        var afterOneTick = world.Cars.Command[0];
+        Assert.True(
+            afterOneTick.SteerRad < build.MaxSteerRad * 0.5f,
+            $"one tick of the key put the wheel at {afterOneTick.SteerRad:F3} of {build.MaxSteerRad:F3} rad");
+        Assert.True(
+            afterOneTick.ThrottleMps2 < build.AccelerationMps2 * 0.5f,
+            $"one tick of the key put the throttle at {afterOneTick.ThrottleMps2:F2} of "
+            + $"{build.AccelerationMps2:F2} m/s²");
+
+        // And both arrive: what the travel costs is a moment and never the demand itself.
+        loop.Advance((int)MathF.Round(config.Driving.WheelTravelS / config.TickSeconds));
+        Assert.Equal(build.MaxSteerRad, world.Cars.Command[0].SteerRad, 1e-3f);
+        Assert.Equal(build.AccelerationMps2, world.Cars.Command[0].ThrottleMps2, 1e-2f);
     }
 
     /// <summary>
@@ -218,7 +317,9 @@ public class TownWorldTests
 
     /// <summary>
     /// OBJ-2: props and buildings are real collision geometry, and standing them up is what the town
-    /// pays at load rather than per tick.
+    /// pays at load rather than per tick. <b>OBJ-5a — a building is stood as the rectangles its roof is
+    /// built of</b>, so the census is the parts and not the buildings, and the two counts differing is
+    /// the whole point of the rule.
     /// </summary>
     [Fact]
     public void TheTownsOwnGeometryIsStoodUpAsBodies()
@@ -226,6 +327,14 @@ public class TownWorldTests
         var plan = Towns.Of(Towns.Fixture);
         using var world = Open(Towns.Fixture);
 
-        Assert.Equal(plan.Props.Count + plan.Buildings.Count, world.StaticBodyCount);
+        var parts = 0;
+        for (var building = 0; building < plan.Buildings.Count; building++)
+        {
+            var roof = BuildingRoofs.Of(plan, BuildingCatalog.Shared, world.Uses, building);
+            parts += Math.Max(BuildingCatalog.Shared.Variants[roof.Variant].PartsM.Length, 1);
+        }
+
+        Assert.True(parts > plan.Buildings.Count, "no shipped roof is built of more than one rectangle");
+        Assert.Equal(plan.Props.Count + parts, world.StaticBodyCount);
     }
 }

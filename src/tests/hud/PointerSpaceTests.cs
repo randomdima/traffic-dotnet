@@ -76,13 +76,14 @@ public class PointerSpaceTests
     {
         var uiPx = new Vector2(1800f, 1400f);
         var menu = new Menu();
-        menu.Lay(uiPx);
+        menu.Lay(uiPx, Chrome.GearAt(uiPx));
 
-        // The first page is the places, and its first row is the first place the catalogue lists.
+        // Row 0 is the group the places are under, and the row after it is the first place the
+        // catalogue lists.
         var places = MapCatalogue.On(MapKind.Place);
         Assert.NotEmpty(places);
 
-        var chosen = Click(menu, menu.RowMiddlePx(0));
+        var chosen = Click(menu, menu.RowMiddlePx(1));
 
         Assert.Equal(MenuAction.OpenMap, chosen.Action);
         Assert.Equal(places[0].Name, chosen.Name);
@@ -91,6 +92,5 @@ public class PointerSpaceTests
         Assert.Equal(MenuAction.None, Click(menu, new Vector2(4f, 4f)).Action);
     }
 
-    static MenuChoice Click(Menu menu, Vector2 atPx) =>
-        menu.Click(atPx, hasTown: false, new DebugSwitches(), new RunState());
+    static MenuChoice Click(Menu menu, Vector2 atPx) => menu.Click(atPx, new DebugSwitches());
 }

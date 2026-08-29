@@ -146,13 +146,13 @@ public class SplineTests
     }
 
     /// <summary>
-    /// A turn-around is two poses facing opposite ways a lane apart, and the join between them is
-    /// drawn — <b>and is a circle no car can hold</b>. At the shipped lane spacing it comes out at
-    /// 1.5 m of radius against a car's own tightest 3.9 m, which is why turning a car round is a
-    /// manoeuvre with a reverse in it and not a line to be followed.
+    /// Two poses facing opposite ways a lane apart get the one arc through both of them — <b>a circle no
+    /// car can hold</b>. At the shipped lane spacing it comes out at 1.5 m of radius against a car's own
+    /// tightest 3.9 m, which is the arithmetic behind there being no movement through a box that reverses
+    /// the direction of travel (TER-5f).
     /// </summary>
     [Fact]
-    public void ATurnAroundIsDrawnAndIsTighterThanACarCanHold()
+    public void TwoOpposingPosesGetASemicircleTighterThanACarCanHold()
     {
         Span<ArcSeg> join = stackalloc ArcSeg[2];
 

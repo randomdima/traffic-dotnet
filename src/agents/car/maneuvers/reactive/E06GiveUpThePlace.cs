@@ -19,8 +19,8 @@ internal static class E06GiveUpThePlace
 
     /// <summary><c>Sa</c>: there is a place to give up, and the town can find another to take.</summary>
     public static ManeuverStart Begin(in DriveScene scene, ManeuverDesk desk, int subject) =>
-        scene.BayReserved >= 0
-            ? ManeuverStart.Ask(DriveOrder.RetargetTheBay, scene.BayReserved)
+        scene.BayBooked >= 0
+            ? ManeuverStart.Ask(DriveOrder.RetargetTheBay, scene.BayBooked)
             : ManeuverStart.No;
 
     /// <summary>The place is changed and the leg goes on. The whole manoeuvre is the claim, so it is over as soon as it is taken up.</summary>

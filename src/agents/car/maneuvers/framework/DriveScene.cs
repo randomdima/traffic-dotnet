@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Road;
@@ -17,10 +18,9 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// the term that bound its speed can never disagree.
 /// </para>
 /// <para>
-/// <b>Two fields are conditional and say so</b>: <see cref="GapIsClear"/> takes a claim on the lane and is
-/// only asked while a car is waiting in the mouth of its bay, and <see cref="RouteReversesHere"/> is only
-/// meaningful on a route. Both read <c>true</c> and <c>false</c> respectively where they were not asked,
-/// which is the answer that makes the entry reading them do nothing.
+/// <b>One field is conditional and says so</b>: <see cref="RouteReversesHere"/> is only meaningful on a
+/// route, and reads <c>false</c> where it was not asked — the answer that makes the entry reading it do
+/// nothing.
 /// </para>
 /// </remarks>
 internal readonly record struct DriveScene
@@ -29,6 +29,13 @@ internal readonly record struct DriveScene
     public required SimConfig Config { get; init; }
 
     public required int Car { get; init; }
+
+    /// <summary>
+    /// <b>The car this scene is about</b> (CAR-11): its own body, brakes and turning circle. An entry that
+    /// asks how far this car needs to stop, or whether a gap will take it, is asking about the body it is
+    /// in and never about the nominal one the streets were drawn for.
+    /// </summary>
+    public required CarBuild Build { get; init; }
 
     /// <summary>Speed along the direction the line is being driven in — negative where the car is going the other way.</summary>
     public required float AlongMps { get; init; }
@@ -62,17 +69,49 @@ internal readonly record struct DriveScene
     /// <summary>The bay this car is standing in, or −1.</summary>
     public required int BayHeld { get; init; }
 
-    /// <summary>The bay this leg has reserved, or −1.</summary>
-    public required int BayReserved { get; init; }
+    /// <summary>The bay this leg has booked, or −1.</summary>
+    public required int BayBooked { get; init; }
 
-    /// <summary>Whether the line's last lane is the one the reserved bay is entered from, with the route run out on it.</summary>
+    /// <summary>Whether the line in hand finishes on the way into the bay this leg is aimed at.</summary>
     public required bool OnTheFinalApproach { get; init; }
+
+    /// <summary>
+    /// How far ahead of the rear axle that way begins — where the line leaves the road for the bay — or
+    /// infinity where the line finishes on the road. <b>Negative once the car is on it</b>, which is what
+    /// hands the last dozen metres of a leg over to the entry that is asked on every tick.
+    /// </summary>
+    public required float ToTheBayM { get; init; }
+
+    /// <summary>
+    /// <b>How far ahead of the rear axle the place this car has been sent to stands</b>, along the line it
+    /// is driving — `P-18`'s whole <c>Sa</c>, and infinity for every car that has not been sent anywhere.
+    /// <b>Negative once the car is past it</b>, exactly as <see cref="ToTheBayM"/> is.
+    /// </summary>
+    /// <remarks>
+    /// It is a place and never a body. The catalogue is not handed a town (<see cref="ManeuverDesk"/>), so
+    /// what a driver knows about a casualty in the road is the one thing a driver could see about it: where
+    /// it is on the line in front. Whether anybody is still there, and what the crew does when they arrive,
+    /// is the town's.
+    /// </remarks>
+    public required float ToTheSceneM { get; init; }
+
+    /// <summary>
+    /// <b>Whether this driver is answering a call</b> (AMB-4) — the blue light, as the one thing about it
+    /// the catalogue needs: an ambulance on a call does not wait out its patience before crossing the
+    /// centreline to get past something.
+    /// </summary>
+    public required bool Urgent { get; init; }
 
     /// <summary>The lane the car is on, or −1 where it is on none.</summary>
     public required int LaneOn { get; init; }
 
-    /// <summary>Whether the route's next lane is the reverse of the one under the car — `P-11`'s whole <c>Sa</c>.</summary>
-    public required bool RouteReversesHere { get; init; }
+    /// <summary>
+    /// <b>Whether this leg comes back the other way from the end of the line it is holding</b> (GEN-4l):
+    /// the route reverses at the stretch the line finishes on, and what is past its end is a turn rather
+    /// than a lane. Where a bay was booked to turn in the plan already holds the two steps that make it;
+    /// where none was, `P-19` is what is left.
+    /// </summary>
+    public required bool TurnsBackHere { get; init; }
 
     /// <summary>How long the car has been in the entry it is in. MAN-4's bound, for every entry that carries a time.</summary>
     public required float InManeuverS { get; init; }
@@ -93,16 +132,6 @@ internal readonly record struct DriveScene
     /// <b>the same patience as <see cref="BlockedS"/>, for the case where the car never stops</b>.
     /// </summary>
     public required float HeldBackS { get; init; }
-
-    /// <summary>How long it has been waiting for a gap. It starts below zero: the beat `P-2` takes before looking at all.</summary>
-    public required float WaitedS { get; init; }
-
-    /// <summary>
-    /// Whether the lane behind the bay is clear for long enough to back onto — asked as a <b>time</b> and
-    /// never a distance (§8 rule 8). Only asked while a car is in the mouth of its own bay; <c>true</c>
-    /// everywhere else, which is the answer that makes it do nothing.
-    /// </summary>
-    public required bool GapIsClear { get; init; }
 
     /// <summary>Whether the whole body — centre, nose and tail — stands on ground a car may drive on.</summary>
     public required bool OnDrivableGround { get; init; }
@@ -133,10 +162,51 @@ internal readonly record struct DriveScene
     public float ToTheEndM => Line.LengthM - ProgressM;
 
     /// <summary>
+    /// <b>The road this car needs to come to rest</b> from the speed it is doing, on the ground it is
+    /// standing on — the same arithmetic every reservation in the town is sized by, so an entry that hands
+    /// over "once it is near enough to stop for" means the same distance the road does.
+    /// </summary>
+    public float StoppingM
+    {
+        get
+        {
+            var mps = MathF.Max(0f, AlongMps);
+            return mps * mps / (2f * CarFollower.BrakingMps2(Config, Build, Context.GroundCoefficient));
+        }
+    }
+
+    /// <summary>
     /// The line has been driven to its end and the car has stopped there — the end condition every
     /// template shares, and the one place a manoeuvre driving geometry of its own is done.
     /// </summary>
     public bool LineIsSpent => ToTheEndM <= Config.Driving.StopSpeedMps && AtRest;
+
+    /// <summary>
+    /// <b>The car has stopped where its line runs out</b> — which is a car length short of the end rather
+    /// than on it, because what a driver stops at the end of a road is its nose. It is the end condition
+    /// for a line over the town's own lanes, where <see cref="LineIsSpent"/> is a template's.
+    /// </summary>
+    public bool StoppedAtTheEnd => AtRest && ToTheEndM <= Build.LengthM;
+
+    /// <summary>
+    /// <b>The place this car was sent to is near enough to be stopped for</b> — `P-18`'s hand-over, asked
+    /// the same way wherever it is asked from (AMB-5).
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a property of the scene rather than a test inside the entry that asks it</b>, because a
+    /// casualty lies where they were struck — very often a crossing on this town's geometry — and whatever
+    /// stretch of road that turns out to be, the entry driving over it has to ask the question in the same
+    /// words. Asked in one entry only, an ambulance passes its own casualty at four metres and goes round
+    /// the block to try again.
+    /// </remarks>
+    public bool SceneIsNearEnoughToStopFor =>
+        ToTheSceneM <= StoppingM + (Build.LengthM * SceneHandOverInCarLengths);
+
+    /// <summary>
+    /// How much slack over the stopping distance a scene is handed over at: two car lengths, which is the
+    /// room the entry needs to have come to rest in rather than a margin on the arithmetic.
+    /// </summary>
+    const float SceneHandOverInCarLengths = 2f;
 
     /// <summary>
     /// Whether the body is in somebody else's way where it stands: inside a junction box, or committed to
@@ -144,7 +214,7 @@ internal readonly record struct DriveScene
     /// — a car in that position is itself the obstruction, and patience is the wrong answer.
     /// </summary>
     public bool AcrossALane =>
-        InsideTheBox || (OnATemplate && ProgressM > Config.Car.LengthM * 0.5f);
+        InsideTheBox || (OnATemplate && ProgressM > Build.HalfLengthM);
 
     /// <summary>
     /// `E-3`'s own <c>Sa</c>: <b>there must be something to back away from</b>. Four states count — something
@@ -167,14 +237,14 @@ internal readonly record struct DriveScene
     /// </para>
     /// </remarks>
     public bool SomethingToBackAwayFrom =>
-        (NobodyEntitledIsInTheWay && Context.HeadwayM <= Config.Car.LengthM * 2f)
+        (NobodyEntitledIsInTheWay && Context.HeadwayM <= Build.LengthM * 2f)
         || (Hold is DrivingHold.Waiting && AcrossALane)
         || Hold is DrivingHold.LostLine
         || OnATemplate;
 
     /// <summary>
-    /// Whether waiting is the right answer for a car that is <b>stuck</b> — `E-1`'s whole scenario, and the
-    /// ladder's first rung.
+    /// Whether waiting is the right answer for a car that is <b>stuck</b> — the ladder's first rung, which
+    /// hands the car a place to hold at rather than a recovery (`TER-5e`: the ground is somebody else's).
     /// </summary>
     /// <remarks>
     /// <b>It is wider than <see cref="NobodyEntitledIsInTheWay"/>, and deliberately.</b> The rungs under
@@ -192,10 +262,10 @@ internal readonly record struct DriveScene
     /// <b>It is asked what it is and never how fast it is going.</b> A driver on the same road going the
     /// same way is entitled to be there however long he has stood — he is held by something, and what holds
     /// him is not this car's to drive round — and so is a body the index cannot name at all.
-    /// <b>Somebody in the lane is not</b> (`PER-12`): a walker is an agent like any other, and one on a
+    /// <b>Somebody in the lane is not</b> (`PER-1`): a walker is an agent like any other, and one on a
     /// carriageway with nothing painted under it is in the way of a road it was never entitled to. Paint is
-    /// where a walker's priority lives, and a car owes a crossing a stop short of it (`P-12`) long before
-    /// this question is reached.
+    /// where a walker's priority lives, and the grant a car is given already ends short of a crossing
+    /// somebody is on (TER-4c.1) long before this question is reached.
     /// </remarks>
     public bool NobodyEntitledIsInTheWay =>
         float.IsPositiveInfinity(LightAheadM)
@@ -247,13 +317,101 @@ internal readonly record struct DriveScene
     /// refuses that for the ground it would take — so there is no second rule here about closing speed, and
     /// naming one would make the first useless (SIM-7).
     /// </para>
+    /// <para>
+    /// <b>And never at a junction</b> (<see cref="OnACarriageway"/>) <b>nor at a crossing</b>
+    /// (<see cref="ClearOfThePaint"/>), whoever is asking — the two conditions outside the doors, because
+    /// both are about the road rather than about what is on it.
+    /// </para>
     /// </remarks>
     public bool WorthGoingRound =>
-        InTheWayIsAnObstruction
-        && NobodyEntitledIsInTheWay
-        && (Context.HeadwaySpeedMps <= Config.Driving.StopSpeedMps
-            ? AtRest && BlockedS >= Config.Ladder.ObstructionWaitS
-            : HeldBackS >= Config.Ladder.ObstructionWaitS && HeldBackBySomethingSlow);
+        OnACarriageway
+        && ClearOfThePaint
+        && (Urgent
+            ? WorthGettingPastOnACall
+            : InTheWayIsAnObstruction
+              && NobodyEntitledIsInTheWay
+              && (Context.HeadwaySpeedMps <= Config.Driving.StopSpeedMps
+                  ? AtRest && BlockedS >= Config.Ladder.ObstructionWaitS
+                  : HeldBackS >= Config.Ladder.ObstructionWaitS && HeldBackBySomethingSlow));
+
+    /// <summary>
+    /// <b>Whether there is no crossing between this car and where it could stop</b> — the paint's own half
+    /// of "`E-4` is a manoeuvre of open road", read off the same reach the pace and the stop are.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing else refuses this one.</b> A swerve is walked over the ground before the car commits to
+    /// it, which is what keeps it off a body it can see; but a walker on a crossing lays the band of the
+    /// lane it is <em>standing in</em> (TER-4c.1), so a body two lanes over leaves the shape a clear run and
+    /// the ground test says yes. What the driver would then be doing is overtaking a queue that is waiting
+    /// for a zebra and crossing paint the people on it are about to reach — so the refusal is here, once,
+    /// and it is the first gate rather than a second one (SIM-7). Being on the paint is included: the pace
+    /// is owed until the tail is off it (CAR-7b), and a car half over a crossing has nowhere to swerve to.
+    /// </remarks>
+    public bool ClearOfThePaint => float.IsPositiveInfinity(Context.CrossingAtM);
+
+    /// <summary>
+    /// <b>Whether this car is out on a carriageway rather than at a junction</b>: not standing in a box, and
+    /// not yet near enough to the next one to be negotiating it. <b>`E-4` is a manoeuvre of a road segment
+    /// and of nothing else.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A junction has no centreline to cross and no lane to give back.</b> What licenses a swerve at all
+    /// is CAR-6.2b, which licenses crossing the <em>centreline</em>; inside a box there is none, and the
+    /// ground on the other side of the car is not an oncoming lane but the other movements through the box,
+    /// each of them arbitrated on the assumption that a car crossing follows the join it claimed
+    /// (<see cref="World.Road.WayCrossings"/>). A car that swings off its join is not where the town says it
+    /// will be, and the pair of movements that read each other's ground read the wrong ground.
+    /// </para>
+    /// <para>
+    /// <b>And it is the one place the claim behind a swerve cannot be laid.</b>
+    /// <c>ManeuverDesk.ClaimTheSwerve</c> claims the stretch of the car's own <em>lane</em> the shape leaves
+    /// and returns to; inside a box the car is on no lane, so the claim is silently not made and the traffic
+    /// behind reads the ground the manoeuvre is swinging through as empty road.
+    /// </para>
+    /// <para>
+    /// <b>The bar is the same one `P-4` hands the junction over at</b> (<see cref="SimConfig.CarJunctionReserveM"/>),
+    /// and deliberately: a car near enough to have asked for the box is a car negotiating the box, and the
+    /// two are alternatives rather than things to be done at once. A second figure here would be a second
+    /// answer to "is this car at a junction yet".
+    /// </para>
+    /// </remarks>
+    public bool OnACarriageway => !InsideTheBox && ToTheBoxM > Config.CarJunctionReserveM;
+
+    /// <summary>
+    /// <b>The same question asked by a driver with a blue light on</b> (AMB-4): a queue counts, and there
+    /// is no patience to be spent first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Both halves are what "can overtake traffic if needed" means.</b> Ordinary traffic waits behind a
+    /// queue however long it stands, because the car at its head is held by something that is not this
+    /// driver's to drive round; an ambulance is exactly the case where that reasoning stops holding, since
+    /// what the queue is waiting for is a light or a turn this driver is not waiting for. And the
+    /// obstruction wait is a driver deciding whether the wrong side of the road is worth a few seconds,
+    /// which is a question a rescue has already answered.
+    /// </para>
+    /// <para>
+    /// <b>What it does not relax is the two things that keep a swerve safe.</b> Something the book cannot
+    /// name is still never driven round — a priority is a rule about who waits, not a licence to pass what
+    /// nobody can see — and the shape itself is still walked over the ground and the book before the car
+    /// commits to it (`E-4`), which is where a swerve into an occupied lane is actually refused.
+    /// </para>
+    /// <para>
+    /// <b>And it is still worth going round only what is slower</b>, on the same share as everybody else:
+    /// a pass that gains nothing costs the oncoming lane for nothing, blue light or no.
+    /// </para>
+    /// </remarks>
+    /// <remarks>
+    /// <b>And not on the last dozen metres of a leg</b> (<see cref="OnTheFinalApproach"/>). Past the point
+    /// the line leaves the road for a bay there is nothing left to gain by getting in front of anybody, and
+    /// a driver with no patience to spend swerves round the parked cars beside its own bay for as long as
+    /// they are there — which is a rescue that arrives at the hospital and never stops at it.
+    /// </remarks>
+    public bool WorthGettingPastOnACall =>
+        !OnTheFinalApproach
+        && Context.Ahead is not (HeadwayKind.Nothing or HeadwayKind.Unknown)
+        && Context.HeadwaySpeedMps < PlannedMps * Config.Driving.PassWorthShare;
 
     /// <summary>
     /// <b>Held below what this road affords by something this car is gaining on</b> — the state

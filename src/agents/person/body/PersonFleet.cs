@@ -4,7 +4,6 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Physics;
-using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.Person.Body;
 
@@ -37,8 +36,8 @@ internal sealed class PersonFleet
         StoodAtM = new Vector2[capacity];
         Walking = new bool[capacity];
         Manual = new bool[capacity];
-        Dead = new bool[capacity];
-        OffFeetForS = new float[capacity];
+        Wounded = new bool[capacity];
+        Reckless = new bool[capacity];
         MassKg = new float[capacity];
         RadiusM = new float[capacity];
         Variant = new byte[capacity];
@@ -51,13 +50,15 @@ internal sealed class PersonFleet
         WalkedAlongM = new float[capacity * WalkedPointsPerPerson];
         WalkedCount = new int[capacity];
         WalkedTaken = new int[capacity];
+        WalkedRunsOut = new bool[capacity];
         OnWay = new int[capacity];
         Array.Fill(OnWay, NoWay);
         OnWayM = new float[capacity];
         ReserveAheadM = new float[capacity];
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
-        HeldBy = new LaneUse[capacity];
+        StepsRound = new int[capacity];
+        Array.Fill(StepsRound, NoBody);
         GoalM = new Vector2[capacity];
         WaitingToCrossS = new float[capacity];
         WaitingForLane = new int[capacity];
@@ -73,6 +74,7 @@ internal sealed class PersonFleet
         TripCar = new int[capacity];
         Array.Fill(TripCar, NoCar);
         TimerS = new float[capacity];
+        ClosesTheRoadM = new float[capacity];
         Inside = new Contained[capacity];
     }
 
@@ -86,6 +88,9 @@ internal sealed class PersonFleet
 
     /// <summary>And when it is waiting for no lane of a crossing, which is nearly always.</summary>
     public const int NoLane = -1;
+
+    /// <summary>And when there is nothing in its way to be stepped round (PER-24).</summary>
+    public const int NoBody = -1;
 
     /// <summary>
     /// How much of a walked line a body carries at once. A bound on the work rather than a figure
@@ -156,12 +161,16 @@ internal sealed class PersonFleet
     public float[] AuthorityM { get; }
 
     /// <summary>
-    /// What the grant was cut at, which is only ever <see cref="LaneUse.Reserved"/> — the road another
-    /// walker has taken — or <see cref="LaneUse.Obstruction"/>, a body that is going nowhere. <b>The
-    /// difference is what tells waiting from being stuck</b>: a queue moves on its own and a body in the
-    /// way does not.
+    /// <b>The body in front that is going nowhere</b>, or <see cref="NoBody"/> — a walker standing about,
+    /// somebody knocked down, one shoved off its own line. It cuts no grant (PER-24): what the walker does
+    /// with it is aim past it, so this is written where the grant is taken and read by the follower.
     /// </summary>
-    public LaneUse[] HeldBy { get; }
+    /// <remarks>
+    /// <b>It is the nearest one on the ground this body asked for</b> and never a scan of the fleet, so a
+    /// walker steps round what its own reservation ran into and takes no notice of a body on the other side
+    /// of the street.
+    /// </remarks>
+    public int[] StepsRound { get; }
 
     /// <summary>
     /// How long this body has been waiting to get across a crossing — standing at its kerb, or stopped in
@@ -219,6 +228,17 @@ internal sealed class PersonFleet
     public float[] TimerS { get; }
 
     /// <summary>
+    /// <b>How much road this body closes</b> (SRV-6), either side of itself along the lane it is standing
+    /// beside — zero for everybody in the town but an officer working a scene.
+    /// </summary>
+    /// <remarks>
+    /// <b>A body closing the road is a body that holds more road than it stands on</b>, and stating it that
+    /// way is what keeps the road's book from ever learning what a policeman is: the book reads one float
+    /// and lays one claim, on the terms every other stretch is laid on (TER-5e).
+    /// </remarks>
+    public float[] ClosesTheRoadM { get; }
+
+    /// <summary>
     /// What this person is inside, or nothing (PHY-7). <b>Not drawn, not stepped, not picked and not in
     /// anybody's way</b> while it is anything — and the pose left behind is the container's, never the
     /// body's.
@@ -230,26 +250,60 @@ internal sealed class PersonFleet
     /// <summary>How many of them are behind the body.</summary>
     public int[] WalkedTaken { get; }
 
+    /// <summary>
+    /// Whether the line stops short of where the walker is going: <see cref="WalkedPointsPerPerson"/>
+    /// points were not enough for the route the search found, so the rest of it will be laid again from
+    /// where the body has got to. <b>A line that reaches its goal answers no.</b>
+    /// </summary>
+    /// <remarks>
+    /// The car's <c>RouteRunsOut</c> for walkers, and asked for by the same reader: the interface draws
+    /// past the end of a line only where there is a walk past it (CTL-1a).
+    /// </remarks>
+    public bool[] WalkedRunsOut { get; }
+
     public bool[] Walking { get; }
 
     /// <summary>CTL-4: an ordered walker idles awaiting the next order instead of drawing a new destination.</summary>
     public bool[] Manual { get; }
 
     /// <summary>
-    /// PER-12, and the whole of what a person's terminal state is (PHY-3): dead, and therefore taking
-    /// no further actions (AGT-5). <b>The body is never removed</b> (PHY-5) — it keeps its shape, stays
-    /// dynamic and can still be shoved down the road, which is what a corpse in a carriageway is for.
+    /// <b>PER-18: knocked down and lying where it fell</b> — taking no actions of its own, and waiting for
+    /// an ambulance. <b>Nobody in this town dies</b> (PHY-3), so this is the whole of what a contact can
+    /// make of a person and it is not a terminal state (AGT-5): a casualty is collected, treated and put
+    /// back on the pavement, which is the whole of what the rescue is for.
     /// </summary>
-    public bool[] Dead { get; }
+    /// <remarks>
+    /// <b>It is one fact and not two.</b> Going down and losing the ground under your feet are the same
+    /// moment and last the same time, so the impulse of the impact carries the body down the road and the
+    /// body stays there — which is what an impact is supposed to look like.
+    /// </remarks>
+    public bool[] Wounded { get; }
 
     /// <summary>
-    /// What is left of the 0.25 s stumble window after a vehicle struck this walker and it
-    /// survived. Above zero the walker is off its feet and the sliding grip applies — which is what
-    /// leaves the impulse of an impact visible after the impact is over. <b>Intent is never suspended
-    /// by it</b>: the body still declares whatever its manoeuvre asks, and only the friction that could
-    /// act on the declaration is reduced.
+    /// <b>CAR-13: this one does not keep the courtesies</b> — drawn once when the person is made and true
+    /// for the rest of the run. What it changes is what they do about a red and about somebody waiting at
+    /// a kerb, and it changes nothing at all until they take a wheel.
     /// </summary>
-    public float[] OffFeetForS { get; }
+    /// <remarks>
+    /// <b>It is a fact about the person and not about the car</b>, because it is the driver who does or
+    /// does not stop: the same hatchback is driven past a red by one owner and held at it by the next, and
+    /// a flag on the car would make it the paintwork's habit. The road reads it through whoever has the
+    /// wheel (<c>TownWorld.Crossings.cs</c>), so there is one copy of it and nothing to keep in step.
+    /// </remarks>
+    /// <seealso cref="DrawsReckless"/>
+    public bool[] Reckless { get; }
+
+    /// <summary>
+    /// <b>CAR-13's draw, on a stream that belongs to nothing else.</b> Off the person's own stream instead
+    /// it would spend a value, and every draw that person made afterwards — every destination, every dwell
+    /// — would come out different: adding a habit would have moved every walk in every town, and the
+    /// figures that moved with it would have been read as this habit's doing.
+    /// </summary>
+    public static bool DrawsReckless(ulong seed, ulong person, float share) =>
+        new Rng(seed, RecklessStream + person).NextFloat() < share;
+
+    /// <summary>The stream CAR-13 is drawn on, which belongs to nothing else.</summary>
+    const ulong RecklessStream = 0x5245434B;
 
     public float[] MassKg { get; }
 
@@ -266,7 +320,15 @@ internal sealed class PersonFleet
     /// <summary>The ground's own factor under this walker, sampled once a tick and read by everything that needs it.</summary>
     public float[] GroundCoefficient { get; }
 
-    public int Add(BodyId body, Vector2 positionM, float headingRad, float massKg, float radiusM, byte variant, Rng draw)
+    /// <summary>One more person on the roster, with everything about them at the value a new one holds.</summary>
+    /// <param name="reckless">
+    /// Whether this one keeps the driver's courtesies (CAR-13). <b>Drawn by the caller and on a stream of
+    /// its own</b>, never off <paramref name="draw"/>: a draw spent here would shift every later draw of
+    /// this person's, so adding the habit would silently move every walk in every town.
+    /// </param>
+    public int Add(
+        BodyId body, Vector2 positionM, float headingRad, float massKg, float radiusM, byte variant, Rng draw,
+        bool reckless)
     {
         if (Count == Capacity) throw new InvalidOperationException($"The roster was laid for {Capacity} walkers and is full.");
 
@@ -279,22 +341,23 @@ internal sealed class PersonFleet
         StoodAtM[person] = positionM;
         Walking[person] = false;
         Manual[person] = false;
-        Dead[person] = false;
-        OffFeetForS[person] = 0f;
+        Wounded[person] = false;
         MassKg[person] = massKg;
         RadiusM[person] = radiusM;
         Variant[person] = variant;
         Draw[person] = draw;
+        Reckless[person] = reckless;
         DistanceWalkedM[person] = 0f;
         GroundCoefficient[person] = 1f;
         GoalM[person] = positionM;
         WalkedCount[person] = 0;
         WalkedTaken[person] = 0;
+        WalkedRunsOut[person] = false;
         OnWay[person] = NoWay;
         OnWayM[person] = 0f;
         ReserveAheadM[person] = 0f;
         AuthorityM[person] = float.PositiveInfinity;
-        HeldBy[person] = LaneUse.Reserved;
+        StepsRound[person] = NoBody;
         WaitingToCrossS[person] = 0f;
         WaitingForLane[person] = NoLane;
         RefusedWay[person] = NoWay;
@@ -303,12 +366,20 @@ internal sealed class PersonFleet
         DestinationBuilding[person] = NoBuilding;
         TripCar[person] = NoCar;
         TimerS[person] = 0f;
+        ClosesTheRoadM[person] = 0f;
         Inside[person] = Contained.Nowhere;
         return person;
     }
 
-    /// <summary>Dead, or inside the stumble window: either way what acts on the body is the sliding grip and not a sole.</summary>
-    public bool IsOnItsFeet(int person) => !Dead[person] && OffFeetForS[person] <= 0f;
+    /// <summary>Which of the two grips acts on this body: a sole pressed into the ground, or a body along it.</summary>
+    public bool IsOnItsFeet(int person) => !Wounded[person];
+
+    /// <summary>
+    /// Whether this person takes actions at all. <b>A casualty is out of the roster's decisions</b> for as
+    /// long as it takes an ambulance to reach them, and back in it once they have been treated — which is
+    /// not the same as being terminal (PER-18), because nothing about it is permanent.
+    /// </summary>
+    public bool Acts(int person) => !Wounded[person];
 
     /// <summary>
     /// Whether the pavement's book is holding this walker where it stands: no ground granted past its own
@@ -347,9 +418,6 @@ internal sealed class PersonFleet
             ? WalkedCrossing[(person * WalkedPointsPerPerson) + WalkedTaken[person]]
             : -1;
 
-    /// <summary>How much of the walked line is still ahead of the body.</summary>
-    public int WalkedLeft(int person) => WalkedCount[person] - WalkedTaken[person];
-
     /// <summary>The next point of the line, or false where there is none left.</summary>
     public bool TakeNextWalkedPoint(int person, out Vector2 pointM)
     {
@@ -367,5 +435,6 @@ internal sealed class PersonFleet
     {
         WalkedCount[person] = 0;
         WalkedTaken[person] = 0;
+        WalkedRunsOut[person] = false;
     }
 }

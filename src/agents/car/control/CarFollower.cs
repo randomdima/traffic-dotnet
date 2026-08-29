@@ -85,10 +85,14 @@ internal enum HeadwayKind : byte
 /// own, or one the road has nothing to say about. <b>It is what makes a queue a queue</b>: no two grants
 /// overlap, so the car behind simply has less road to stop in.
 /// </param>
+/// <param name="GrantCutBy">
+/// What cut it, which is what says whether the car is <em>following</em> something or merely stopping short
+/// of it. <see cref="HeadwayKind.Nothing"/> where nothing did.
+/// </param>
 internal readonly record struct DriveContext(
     float HeadwayM, float HeadwaySpeedMps, float StopAtM, float GroundCoefficient,
     float CrossingStopM, float CrossingAtM, float CrossingPaceMps, HeadwayKind Ahead = HeadwayKind.Nothing,
-    float AuthorityM = float.PositiveInfinity)
+    float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing)
 {
     public DriveContext(float headwayM, float headwaySpeedMps, float stopAtM, float groundCoefficient)
         : this(
@@ -132,7 +136,7 @@ internal enum DrivingHold : byte
     /// <summary>A junction it has not been given, a bar or a red.</summary>
     Waiting,
 
-    /// <summary>A crossing ahead: the pace it is approached at, or somebody on the paint (`P-12`).</summary>
+    /// <summary>A crossing ahead: the pace it is approached at (CAR-7b), or somebody on the paint.</summary>
     Crossing,
 
     /// <summary>
@@ -162,6 +166,13 @@ internal readonly record struct DriveDecision(DriveCommand Command, DrivingHold 
 /// car that could not be pushed off it.
 /// </para>
 /// <para>
+/// <b>The line is a recommendation and this is the car's own answer to it</b> (CAR-10). What the town
+/// precomputed is where a car is <em>asked</em> to go; how far the wheel turns and how fast the car takes
+/// it are worked out here, every tick, from <see cref="CarBuild"/> — so the same line is driven by a
+/// hatchback and by a truck at different speeds, at different lock, and along slightly different ground
+/// (CAR-10a).
+/// </para>
+/// <para>
 /// <b>Progress is the rear axle projected onto the line</b> (CAR-4a), searched in a window around where
 /// the car last was, so a car that has been shoved sideways knows how far along it actually is rather
 /// than how far it has driven — and a line that doubles back past itself is not read backwards.
@@ -174,16 +185,21 @@ internal readonly record struct DriveDecision(DriveCommand Command, DrivingHold 
 internal static class CarFollower
 {
     /// <summary>The one point on a car that travels the way the car is pointing, and the point every line is drawn for.</summary>
-    public static Vector2 RearAxleM(SimConfig config, Vector2 positionM, float headingRad) =>
-        RearAxleM(config, positionM, Heading.Unit(headingRad));
+    public static Vector2 RearAxleM(in CarBuild car, Vector2 positionM, float headingRad) =>
+        RearAxleM(car, positionM, Heading.Unit(headingRad));
 
     /// <summary>The same point, for a caller that already holds the direction — which every tick of the driver does.</summary>
-    public static Vector2 RearAxleM(SimConfig config, Vector2 positionM, Vector2 forward) =>
-        positionM - forward * config.CarCentreAheadOfAxleM;
+    /// <remarks>
+    /// <b>Where the axle is under the body is this car's own</b> (CAR-11): a van carries its rear axle a
+    /// metre and a bit behind the middle of itself and a hatchback barely a metre, and a line driven for
+    /// the wrong point is a car that parks with its nose where its doors should be.
+    /// </remarks>
+    public static Vector2 RearAxleM(in CarBuild car, Vector2 positionM, Vector2 forward) =>
+        positionM - forward * car.CentreAheadOfAxleM;
 
     /// <summary>Where the car is along its line, searched in a window around where it last was.</summary>
-    public static float ProgressM(SimConfig config, ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float lastProgressM) =>
-        Spline.ProjectM(line, rearAxleM, lastProgressM, config.CarProjectionWindowM);
+    public static float ProgressM(in CarBuild car, ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float lastProgressM) =>
+        Spline.ProjectM(line, rearAxleM, lastProgressM, car.ProjectionWindowM);
 
     /// <summary>How far off its own line the car is, which is what says whether it is still on it at all.</summary>
     public static float OffLineM(ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float progressM) =>
@@ -191,19 +207,19 @@ internal static class CarFollower
 
     /// <summary>One tick of one driver: the line, what is on it, and what the body is doing, into one command.</summary>
     public static DriveDecision Step(
-        SimConfig config, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM, float lineLengthM,
-        in DriveContext context, float dtS)
+        SimConfig config, in CarBuild car, in CarPose pose, ReadOnlySpan<ArcSeg> line, float progressM,
+        float lineLengthM, in DriveContext context, float dtS)
     {
         var forward = pose.Forward;
         var alongMps = Vector2.Dot(pose.VelocityMps, forward);
-        var rearAxleM = RearAxleM(config, pose.PositionM, forward);
+        var rearAxleM = RearAxleM(car, pose.PositionM, forward);
 
-        var lookaheadM = LookaheadM(config, MathF.Abs(alongMps));
-        var steerRad = Steer(config, line, progressM, rearAxleM, forward, lookaheadM);
+        var lookaheadM = LookaheadM(car, MathF.Abs(alongMps), config.Driving.LookaheadS);
+        var steerRad = Steer(car, line, progressM, rearAxleM, forward, lookaheadM);
         var targetMps = TargetSpeedMps(
-            config, line, progressM, lineLengthM, steerRad, alongMps, lookaheadM, context, out var hold, out _);
+            config, car, line, progressM, lineLengthM, steerRad, alongMps, lookaheadM, context, out var hold, out _);
 
-        return new DriveDecision(Pedals(config, steerRad, targetMps, alongMps, dtS), hold, targetMps);
+        return new DriveDecision(Pedals(config, car, steerRad, targetMps, alongMps, dtS), hold, targetMps);
     }
 
     /// <summary>
@@ -212,17 +228,19 @@ internal static class CarFollower
     /// it cuts the corner.
     /// </summary>
     public static float Steer(
-        SimConfig config, ReadOnlySpan<ArcSeg> line, float progressM, Vector2 rearAxleM, Vector2 forward, float lookaheadM)
+        in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, Vector2 rearAxleM, Vector2 forward,
+        float lookaheadM)
     {
         var toLead = Spline.SampleAt(line, progressM + lookaheadM).PositionM - rearAxleM;
         var reachM = toLead.Length();
         if (reachM < 1e-3f) return 0f;
 
         // The circle through the axle, tangent to the heading, that passes through the lead point: its
-        // curvature is 2·sin α ⁄ reach, and the steering angle that holds it is what the wheelbase says.
+        // curvature is 2·sin α ⁄ reach, and the steering angle that holds it is what <em>this car's</em>
+        // wheelbase says — the same line asks a long car for more lock than a short one, and past the lock
+        // it is asking for a circle the car cannot hold at all (CAR-11).
         var curvature = 2f * Spline.Cross(forward, toLead) / (reachM * reachM);
-        var maxRad = config.Car.MaxSteeringDeg * MathF.PI / 180f;
-        return Math.Clamp(MathF.Atan(curvature * config.Car.WheelbaseM), -maxRad, maxRad);
+        return Math.Clamp(MathF.Atan(curvature * car.WheelbaseM), -car.MaxSteerRad, car.MaxSteerRad);
     }
 
     /// <summary>
@@ -236,12 +254,12 @@ internal static class CarFollower
     /// difference by braking harder than it planned. The ramp costs half of itself, which is the area a
     /// triangle of it has against the rectangle it is standing in.
     /// </remarks>
-    public static float LeadS(SimConfig config, float brakingMps2) =>
-        config.CarReactionS + (brakingMps2 / (2f * config.CarPedalRateMps3));
+    public static float LeadS(SimConfig config, in CarBuild car, float brakingMps2) =>
+        config.CarReactionS + (brakingMps2 / (2f * car.PedalRateMps3));
 
     /// <summary>How far ahead the wheel is aimed: a time, floored at the car's own length and ceilinged.</summary>
-    public static float LookaheadM(SimConfig config, float speedMps) =>
-        Math.Clamp(speedMps * config.Driving.LookaheadS, config.CarLookaheadFloorM, config.CarLookaheadCeilingM);
+    public static float LookaheadM(in CarBuild car, float speedMps, float lookaheadS) =>
+        Math.Clamp(speedMps * lookaheadS, car.LookaheadFloorM, car.LookaheadCeilingM);
 
     /// <summary>
     /// The least of everything that limits a car: the gear's cap, the corner it is in, the corner the
@@ -255,16 +273,17 @@ internal static class CarFollower
     /// before the next decision.
     /// </param>
     public static float TargetSpeedMps(
-        SimConfig config, ReadOnlySpan<ArcSeg> line, float progressM, float lineLengthM, float steerRad,
-        float alongMps, float lookaheadM, in DriveContext context, out DrivingHold hold, out float plannedMps)
+        SimConfig config, in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, float lineLengthM,
+        float steerRad, float alongMps, float lookaheadM, in DriveContext context, out DrivingHold hold,
+        out float plannedMps)
     {
         hold = DrivingHold.None;
-        var lateralMps2 = config.Tyre.GripMps2 * context.GroundCoefficient * config.Driving.GripMargin;
-        var brakingMps2 = BrakingMps2(config, context.GroundCoefficient);
-        var leadM = MathF.Abs(alongMps) * LeadS(config, brakingMps2);
+        var lateralMps2 = car.GripMps2 * context.GroundCoefficient * config.Driving.GripMargin;
+        var brakingMps2 = BrakingMps2(config, car, context.GroundCoefficient);
+        var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2);
 
-        var targetMps = config.Car.MaxSpeedMps;
-        Bind(ref targetMps, CornerMps(MathF.Tan(steerRad) / config.Car.WheelbaseM, lateralMps2), DrivingHold.Corner, ref hold);
+        var targetMps = car.MaxSpeedMps;
+        Bind(ref targetMps, CornerMps(MathF.Tan(steerRad) / car.WheelbaseM, lateralMps2), DrivingHold.Corner, ref hold);
 
         // Every corner within braking range, each read as the speed this car may be doing *here* and
         // still be down to that corner's own speed by the time it arrives at it. The line is walked a
@@ -297,7 +316,7 @@ internal static class CarFollower
         Bind(ref targetMps, ApproachMps(0f, lineLengthM - progressM - leadM, brakingMps2), DrivingHold.LineEnd, ref hold);
         Bind(ref targetMps, ApproachMps(0f, context.StopAtM - leadM, brakingMps2), DrivingHold.Waiting, ref hold);
 
-        // `P-12`: the stop short of the paint, and the pace to <em>arrive at</em> it at. Both are the
+        // CAR-7b: the stop short of the paint, and the pace to <em>arrive at</em> it at. Both are the
         // crossing's own term rather than the junction's, because what a driver owes somebody on the
         // paint is a stop point on this car's own line and not a claim on a box — and the pace is read
         // like a corner, so a car three streets from a zebra is not driving at zebra pace.
@@ -313,7 +332,7 @@ internal static class CarFollower
         // actually is, and a walker is in no such book at all.
         // Suppressing this wherever the index had a name for what was ahead cost 290 emergency stops in a
         // minute of Odesa.
-        var gapM = context.HeadwayM - config.Car.LengthM * 0.5f - leadM;
+        var gapM = context.HeadwayM - car.HalfLengthM - leadM;
         Bind(
             ref targetMps, ApproachMps(MathF.Max(0f, context.HeadwaySpeedMps), gapM, brakingMps2),
             DrivingHold.Headway, ref hold);
@@ -332,9 +351,17 @@ internal static class CarFollower
         // is measured from the gap it means to keep. The braking figure cancels out of the equilibrium
         // (the car in front was credited out of the same arithmetic), so what a queue settles at is the
         // standstill gap and a second of travel, and nothing else.
+        //
+        // <b>And a following time is kept from what is being followed, and from nothing else.</b> A grant cut
+        // at a wreck, at somebody on foot, at ground somebody has claimed or at a crossing point already ends
+        // the asker's own margin short of it (<c>LaneCredit.AtAPlaceM</c>) — none of them is a body to keep
+        // station behind, and a second of travel on top of that margin is a car holding a street shut at
+        // speed for something it needed only to stop short of.
+        var followingM = context.GrantCutBy == HeadwayKind.Queue
+            ? MathF.Abs(alongMps) * config.Driving.FollowingHeadwayS
+            : 0f;
         Bind(
-            ref targetMps,
-            ApproachMps(0f, context.AuthorityM - (MathF.Abs(alongMps) * config.Driving.FollowingHeadwayS), brakingMps2),
+            ref targetMps, ApproachMps(0f, context.AuthorityM - followingM, brakingMps2),
             DrivingHold.Reserved, ref hold);
 
         return MathF.Max(0f, targetMps);
@@ -353,8 +380,8 @@ internal static class CarFollower
     /// combined ask is over the budget and the car drifts. The proving ground's long arc is where it shows:
     /// <c>--bench track</c> reads a metre and a half off the line there against a tenth on every other shape.
     /// </remarks>
-    public static float BrakingMps2(SimConfig config, float groundCoefficient) =>
-        config.CarUtmostBrakingMps2(groundCoefficient) * config.Driving.BrakingMargin;
+    public static float BrakingMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
+        car.UtmostBrakingMps2(groundCoefficient) * config.Driving.BrakingMargin;
 
     static void Bind(ref float targetMps, float limitMps, DrivingHold limit, ref DrivingHold hold)
     {
@@ -392,19 +419,20 @@ internal static class CarFollower
     /// caller with no previous command, which is a foot starting from neither pedal.
     /// </param>
     public static DriveCommand Pedals(
-        SimConfig config, float steerRad, float targetMps, float alongMps, float dtS, float lastMps2 = 0f)
+        SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float dtS,
+        float lastMps2 = 0f)
     {
         if (targetMps <= config.Driving.StopSpeedMps && MathF.Abs(alongMps) <= config.Driving.StopSpeedMps)
         {
             return new DriveCommand(steerRad, 0f, 0f, Handbrake: true, Reverse: false);
         }
 
-        var travelMps2 = config.CarPedalRateMps3 * dtS;
+        var travelMps2 = car.PedalRateMps3 * dtS;
         var wantedMps2 = Math.Clamp((targetMps - alongMps) / dtS, lastMps2 - travelMps2, lastMps2 + travelMps2);
 
         return wantedMps2 >= 0f
-            ? new DriveCommand(steerRad, MathF.Min(wantedMps2, config.Car.AccelerationMps2), 0f, false, false)
-            : new DriveCommand(steerRad, 0f, MathF.Min(-wantedMps2, config.Car.BrakingMps2), false, false);
+            ? new DriveCommand(steerRad, MathF.Min(wantedMps2, car.AccelerationMps2), 0f, false, false)
+            : new DriveCommand(steerRad, 0f, MathF.Min(-wantedMps2, car.BrakingMps2), false, false);
     }
 
     /// <summary>Which way a command is leaning, throttle positive and brake negative — what the next tick's pedal travels from.</summary>

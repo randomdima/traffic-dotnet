@@ -1,13 +1,17 @@
 # The driving manoeuvre catalogue
 
 **A car does nothing that is not one of these.** `AGT-7` asks for a closed catalogue per agent type, and
-this is the car's: nineteen named, bounded procedures, each with a file of its own, a page of its own, and
+this is the car's: seventeen named, bounded procedures, each with a file of its own, a page of its own, and
 exactly one line in [`ManeuverCatalogue`](../framework/ManeuverCatalogue.cs). There is no "and otherwise"
 branch anywhere in the driver, because there is no such state here.
 
 **Following is not among them.** A driver is granted the road it will stop in and holds the speed that
 road affords ([`LaneOccupancy`](../../../../world/road/LaneOccupancy.cs)); a car behind another is running
 its line on a shorter road, which is `P-4` and needs no entry of its own.
+
+**Nor is slowing at a crossing.** The pace over paint (CAR-7b) and the stop short of somebody on it
+(`TER-4c.1`, `TER-5e`) are terms of the same speed profile, so a car at a zebra is `P-4` on the road the
+zebra left it.
 
 The pages below say **when an entry is the right thing to do, what it delivers, and the state either side
 of it**. How each one is written is its own file's XML docs; why any of it reads this way is
@@ -30,17 +34,16 @@ of it**. How each one is written is its own file's XML docs; why any of it reads
 | `P-4` | RunTheLine | there is road ahead and nothing else applies — **the default**, and queueing | [p04-run-the-line.md](p04-run-the-line.md) |
 | `P-6` | HoldAtALine | there is a place ahead the car may not pass | [p06-hold-at-a-line.md](p06-hold-at-a-line.md) |
 | `P-8` | TakeTheJunction | the box ahead is within reserve distance and is this car's | [p08-take-the-junction.md](p08-take-the-junction.md) |
-| `P-11` | TurnAround | the route reverses direction of travel | [p11-turn-around.md](p11-turn-around.md) |
-| `P-12` | PassACrossing | there is paint on the arm being approached | [p12-pass-a-crossing.md](p12-pass-a-crossing.md) |
-| `P-14` | ParkInTheBay | the route has run out at the staging place of the bay the leg holds | [p14-park-in-the-bay.md](p14-park-in-the-bay.md) |
+| `P-14` | ParkInTheBay | the leg's line has left the road for the way into the bay it holds | [p14-park-in-the-bay.md](p14-park-in-the-bay.md) |
 | `P-16` | SquareUpInTheBay | a park attempt failed and the retry needs a different pose | [p16-square-up-in-the-bay.md](p16-square-up-in-the-bay.md) |
 | `P-17` | StandParked | the car is in the bay and the leg is over | [p17-stand-parked.md](p17-stand-parked.md) |
+| `P-18` | AttendTheScene | there is a place on the line the car was sent to, near enough to be stopped for | [p18-attend-the-scene.md](p18-attend-the-scene.md) |
+| `P-19` | ShuntRound | the leg comes back the other way and the road runs out here | [p19-shunt-round.md](p19-shunt-round.md) |
 
 ### Reactive
 
 | | Entry | Fires on | Page |
 |---|---|---|---|
-| `E-1` | Yield | something with priority is in the way and the watchdog has noticed | [e01-yield.md](e01-yield.md) |
 | `E-2` | EmergencyStop | a hazard inside braking distance — **row 1, asked every tick** | [e02-emergency-stop.md](e02-emergency-stop.md) |
 | `E-3` | BackOff | jammed, with room behind and an attempt left | [e03-back-off.md](e03-back-off.md) |
 | `E-4` | GoRound | `P-4` has put up with something in the way for longer than a driver waits | [e04-go-round.md](e04-go-round.md) |
@@ -50,9 +53,27 @@ of it**. How each one is written is its own file's XML docs; why any of it reads
 | `E-9` | SettleForHere | nothing else worked and where the car stands is not an obstruction | [e09-settle-for-here.md](e09-settle-for-here.md) |
 | `E-10` | AbandonTheCar | nothing else is available — **the exit the ladder is finite by** | [e10-abandon-the-car.md](e10-abandon-the-car.md) |
 
-**The numbering has gaps and they stay.** `P-1`, `P-3`, `P-5`, `P-7`, `P-9`, `P-10`, `P-13`, `P-15` are
-the walker's or are retired, and `E-5` is retired. A retired number is never reused, so a code printed by a
-trace resolves to the same entry it always did.
+**The numbering has gaps and they stay.** `P-1`, `P-3`, `P-5`, `P-7`, `P-9`, `P-10`, `P-11`, `P-12`,
+`P-13`, `P-15` are the walker's or are retired, and `E-1` and `E-5` are retired. A retired number is never
+reused, so a code printed by a trace resolves to the same entry it always did.
+
+**`P-11` was the turn-around inside a junction, and what retired it is that no junction admits one**
+(`TER-5f`): the line between two opposing lanes is a semicircle no car can hold, so the movement was never
+drivable and the router priced it out of reach from the day it was written. Coming back the way you came is
+now a bay's (`GEN-4l`) or `P-19`'s — [decision-log.md](decision-log.md).
+
+**`P-12` was the crossing, and what retired it is that a car slows at one without being told to**: the
+pace is the car's own (CAR-7b) and the stop short of somebody on the paint is the ground it was granted
+(`TER-4c.1`, `TER-5e`), both of them terms of a profile taken every tick. The entry set no limits, drove no
+geometry and had no bound of its own — it named the term that had already won and handed the car back when
+the paint was behind it, which is `P-4` with a second name on it —
+[decision-log.md](decision-log.md).
+
+**`E-1` was the yield, and what retired it is that yielding is now ground rather than a manoeuvre**
+(`TER-5e`): a right of way is carried by the stretches in the town's own book, the body that gives way is
+stopped short by the same speed profile that stops it at everything else, and what a car does while it waits
+is `P-6`. An entry whose whole content was a name and a bound was a second way of saying what the road had
+already said — [decision-log.md](decision-log.md).
 
 ## The framework
 
@@ -66,8 +87,8 @@ Every `Sa` and every exit below is written in terms of these, and they are the f
 | **Pose** | position and heading, always read at the **rear axle** (CAR-4a) |
 | **Motion** | speed along the direction the line is driven in; at rest or not |
 | **Ground** | bay · lane · junction box · crossing · off drivable ground |
-| **Line relation** | on the line · how far off it · on a route or on a template of a manoeuvre's own |
-| **Holdings** | the junction claim, the bay held, the bay reserved |
+| **Line relation** | on the line · how far off it · on a route, on one of the town's own ways, or on a template of a manoeuvre's own |
+| **Holdings** | the movement it is committed to, the bay it stands in, the bay it has booked |
 | **Plan** | the remaining chain and the route cursor it is measured against |
 | **Counters** | time in the entry; attempts left on each bounded recovery |
 
@@ -146,7 +167,11 @@ car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No
   once that car has stopped, and **that is the whole of following**: the car behind has less road to stop
   in and holds the speed that road affords ([the catalogue's log](decision-log.md)). **The grant alone is
   read at a following time** rather than at the lead above, which is what settles a queue at the standstill
-  gap and a second of travel rather than at a tenth of one. **And it is cut by the ways this car is driven
+  gap and a second of travel rather than at a tenth of one — **and that time is kept from what is being
+  followed and from nothing else**: a grant cut at a wreck, at somebody on foot, at ground somebody has
+  claimed or at the place two movements meet already ends the asker's own margin short of it, and a second
+  of travel on top of that is a car holding a street shut at speed for something it needed only to stop
+  short of. **And it is cut by the ways this car is driven
   *over* as well as by the ways it is driving** (`TER-5c.1`), so the grant means one body to a piece of
   ground across a junction and not only along a lane. **What is asked for stops where a rule stops the
   car** (`TER-4c.1`) — a red, a bar, a zebra it must stop short of — the gap it keeps included, so a car
@@ -163,7 +188,11 @@ car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No
   cross it, and give back the box behind (`TER-5c`). Every tick, never on the clock — a red can change
   under an entry, and nothing here is a claim on the junction. **What another movement's ground costs you
   is looked up and never marked** (`TER-5c.1`): a car reserves the ways it is going to be on, and reads the
-  ways it is only driven over.
+  ways it is only driven over. **And what it costs you turns on the right of way each of you has there**
+  (`TER-5e`): ground held by a movement that gives way to yours is ground you are not cut at, and ground
+  held by a body past the point it could stop short is ground nobody's rank takes. A crossing already taken
+  is **given back** when something with the right of way over it asks for the same ground — while this car
+  can still stop short of the box, and never after.
 - **S-5** Hold a stop you have already made: the handbrake is pulled only at rest.
 - **S-6** Hard rules bind everywhere, including inside a recovery. Only lane legality and the no-idling
   rule may be suspended, and only where an entry's page says so.
@@ -178,7 +207,7 @@ continuously with the body exactly where it started.
 
 | Rung | Entry | Only when |
 |---|---|---|
-| 0 | `E-1` | the obstruction has priority |
+| 0 | `P-6` | the obstruction has priority — wait at the place the car was stopped short at |
 | 1′ | `P-2` | the car is still inside the bay it holds |
 | 1 | `E-3` | something to back away from, room behind, an attempt left |
 | 2 | `P-16` | at the bay this leg holds |
@@ -199,8 +228,8 @@ continuously with the body exactly where it started.
 Nothing else. If a fifth thing is needed, the seam is in the wrong place.
 
 **An entry nothing reaches is a finding**, and the last line of `--bench maneuvers` reports the set of
-them. That is the whole reason the enum names entries no code has yet: an unbuilt manoeuvre and an
-unreachable one are told apart by the instrument rather than by a list in a document that goes stale.
+them — which is why [`Maneuver`](../framework/Maneuver.cs) names every entry of `AGT-7`'s list and not
+only the ones with code behind them ([decision-log.md](decision-log.md)).
 
 ## Where the folders are, and why the namespace is flat
 

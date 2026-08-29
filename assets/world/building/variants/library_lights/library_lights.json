@@ -1,5 +1,9 @@
 {
   "id": "library_lights",
   "sprite": "library_lights.png",
-  "footprintM": [18.00, 18.02]
+  "footprintM": [18.00, 18.02],
+  "partsM": [
+    { "atM": [0.0, -0.87], "sizeM": [17.46, 16.27] },
+    { "atM": [-0.02, 0.0], "sizeM": [6.27, 18.02] }
+  ]
 }

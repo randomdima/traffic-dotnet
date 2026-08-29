@@ -21,7 +21,7 @@ because a red is what actually refuses a car a junction and it can change under 
 everything its own way through is driven over.
 
 **What is taken is ground and not a permission** (TER-5c;
-[`JunctionCrossings`](../../../../world/road/JunctionCrossings.cs) is the table and the rule is stated
+[`WayCrossings`](../../../../world/road/WayCrossings.cs) is the table and the rule is stated
 there). **This entry adds nothing on top of it** — what the car takes is a stretch of the way it is itself
 driving, in the same book as every other stretch of road, and it is refused by whatever is standing on the
 metres it wants. So two cars going straight on opposite arms take the junction together, and so does a

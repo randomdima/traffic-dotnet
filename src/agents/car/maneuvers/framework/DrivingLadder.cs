@@ -5,7 +5,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// about the pose or the holdings and none is about what the car was doing</b>: a rung that presumes an
 /// obstruction has to check for one, because a clock cannot tell "cannot go forward" from "waiting to".
 /// </summary>
-/// <param name="ObstructionHasPriority">Somebody who is entitled to be there is in the way, so waiting is the correct answer and nothing below applies.</param>
+/// <param name="ObstructionHasPriority">Somebody who is entitled to be there is in the way, so waiting is the correct answer and nothing below applies — the ground is theirs (TER-5e) and no recovery can be owed it.</param>
 /// <param name="SomethingToBackAwayFrom">One of the four states that count: something in the way, a boundary it may not cross, a template it can no longer follow, a line it has lost.</param>
 /// <param name="RoomBehindM">How much drivable ground the straight behind the car actually has, walked rather than assumed.</param>
 /// <param name="BackOffsLeft">Attempts left on the back-off's own count — two per jam.</param>
@@ -37,6 +37,13 @@ internal readonly record struct LadderState(
 /// </summary>
 /// <remarks>
 /// <para>
+/// <b>Rung 0 hands the car back a place to wait at rather than a manoeuvre of its own.</b> What is in the
+/// way has the right of way over this car (TER-5e), and the whole of what the wait needs is a name and a
+/// bound — `P-6` is both, and a car that has been stopped short of a box, a bar or a crossing is already
+/// standing at exactly the place that entry is about. Where there is no such place, the thing in front is
+/// traffic rather than a rule, and the rungs below are what that is for.
+/// </para>
+/// <para>
 /// <b>Rungs 2 and 3 are not a repeat of rung 1.</b> What a second back-off buys is the fuse between
 /// them: a jam that has had another watchdog's worth of time to change is a different jam, and deleting
 /// the rung was measured in the reference build and moved the wrong way. Rung 1′ is the unparking case
@@ -60,8 +67,9 @@ internal static class DrivingLadder
     /// </summary>
     public static Maneuver At(int rung, in LadderState state) => rung switch
     {
-        // 0 — if the obstruction has priority, waiting is correct and nothing below applies.
-        0 => state.ObstructionHasPriority ? Maneuver.Yield : Maneuver.None,
+        // 0 — where somebody else is entitled to the ground, waiting is correct and nothing below
+        // applies: hold at whatever place the car was stopped short at, and spend another fuse there.
+        0 => state.ObstructionHasPriority ? Maneuver.HoldAtALine : Maneuver.None,
 
         // 1′ — unparking only, and it comes before the back-off because a car still inside its bay has
         // somewhere lawful to stand and reversing further into it would leave the bay by the back.

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
@@ -20,7 +21,10 @@ public class FootGraphTests
 {
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
 
-    static FootGraph Of(string map) => FootGraph.Build(Towns.Of(map), SimConfig.Shipped());
+    /// <summary>One map's foot graph, built once and read by every claim about it.</summary>
+    static FootGraph Of(string map) => Built.GetOrAdd(map, at => FootGraph.Build(Towns.Of(at), SimConfig.Shipped()));
+
+    static readonly ConcurrentDictionary<string, FootGraph> Built = new();
 
     /// <summary>Every edge's own line stands on ground a person may stand on, sampled the whole way along it.</summary>
     [Theory]

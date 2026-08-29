@@ -3,10 +3,18 @@
   "sprite": "truck_brown.png",
   "wreck": { "sprite": "truck_brown_broken.png", "scale": [1.079, 1.051] },
   "footprintM": [3.56, 2],
-  "frontAxleM": 1.068,
-  "rearAxleM": -1.068,
-  "trackM": 0.971,
+  "collisionM": { "sizeM": [3.34, 1.68], "cornerRadiusM": 0.08 },
+  "massKg": 2000,
+  "frontAxleM": 1.06,
+  "rearAxleM": -1.06,
+  "trackM": 1.81,
   "drivetrain": 2,
   "handling": { "maxSpeed": 0.7, "acceleration": 0.43, "braking": 0.8, "cornering": 0.7 },
-  "hullM": [[-1.728, -0.708], [-1.404, -0.896], [0.652, -1], [1.623, -0.865], [1.77, -0.75], [1.78, 0.75], [1.415, 0.906], [0.548, 1], [-1.394, 0.896], [-1.717, 0.719]]
+  "hullM": [[-1.728, -0.708], [-1.404, -0.896], [0.652, -1], [1.623, -0.865], [1.77, -0.75], [1.78, 0.75], [1.415, 0.906], [0.548, 1], [-1.394, 0.896], [-1.717, 0.719]],
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.519, -0.724], "sizeM": [0.146, 0.073] },
+    { "fitting": "rear", "atM": [-1.519, 0.724], "sizeM": [0.146, 0.073] },
+    { "fitting": "indicator", "atM": [1.728, -0.724], "sizeM": [0.084, 0.094] },
+    { "fitting": "indicator", "atM": [1.728, 0.724], "sizeM": [0.084, 0.094] }
+  ]
 }

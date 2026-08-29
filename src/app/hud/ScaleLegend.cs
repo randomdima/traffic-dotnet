@@ -106,7 +106,7 @@ internal static class ScaleLegend
         {
             var written = new TextBuffer(text);
             if (mark == marks) Ladder.WriteDistance(ref written, marks * stepM);
-            else written.Add(mark * stepM, "F0");
+            else Ladder.WriteFigure(ref written, mark * stepM, alongsideM: marks * stepM);
 
             // Centred over its mark, except that the last figure carries the unit and would hang off
             // the frame: it is pulled back to the margin instead, since the legend has to be inside

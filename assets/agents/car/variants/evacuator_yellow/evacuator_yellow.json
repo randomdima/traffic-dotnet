@@ -1,0 +1,30 @@
+{
+  "id": "evacuator_yellow",
+  "sprite": "evacuator_yellow.png",
+  "wreck": { "sprite": "evacuator_yellow_broken.png", "scale": [1.088, 1.024] },
+  "beam": {
+    "extended": { "sprite": "evacuator_yellow_beam_extended.png", "sizeM": [2.967, 1.876], "hingeAtM": -0.923 },
+    "collapsed": { "sprite": "evacuator_yellow_beam_collapsed.png", "sizeM": [1.854, 1.044], "hingeAtM": -0.367 },
+    "reachM": 2.2,
+    "pivotM": [-1.15, 0.0]
+  },
+  "footprintM": [4.4, 2.19],
+  "collisionM": { "sizeM": [4.25, 1.79], "cornerRadiusM": 0.60 },
+  "massKg": 3800,
+  "frontAxleM": 1.48,
+  "rearAxleM": -1.30,
+  "trackM": 1.92,
+  "drivetrain": 2,
+  "handling": { "maxSpeed": 0.6, "acceleration": 0.5, "braking": 0.75, "cornering": 0.6 },
+  "hullM": [[-2.195, -0.777], [-2.091, -0.881], [-1.465, -0.965], [0.100, -0.933], [0.829, -1.090], [1.037, -1.069], [1.663, -0.933], [1.976, -0.798], [2.184, -0.516], [2.184, 0.516], [1.976, 0.798], [1.663, 0.933], [1.037, 1.069], [0.829, 1.090], [0.100, 0.944], [-1.465, 0.965], [-2.091, 0.881], [-2.195, 0.756]],
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.929, -0.782], "sizeM": [0.229, 0.167] },
+    { "fitting": "rear", "atM": [-1.929, 0.782], "sizeM": [0.229, 0.167] },
+    { "fitting": "indicator", "atM": [2.158, -0.490], "sizeM": [0.083, 0.083] },
+    { "fitting": "indicator", "atM": [2.158, 0.469], "sizeM": [0.083, 0.083] },
+    { "fitting": "beaconAmber", "atM": [0.407, -0.532], "sizeM": [0.271, 0.209] },
+    { "fitting": "beaconAmber", "atM": [0.407, -0.292], "sizeM": [0.271, 0.209] },
+    { "fitting": "beaconAmber", "atM": [0.407, 0.292], "sizeM": [0.271, 0.209] },
+    { "fitting": "beaconAmber", "atM": [0.407, 0.532], "sizeM": [0.271, 0.209] }
+  ]
+}

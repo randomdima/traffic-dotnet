@@ -1,5 +1,7 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -23,11 +25,45 @@ internal sealed partial class TownWorld
         var standingM = Cars.PositionM[car];
         var sweeping = WhereTheTemplateSweepEndsM(car, standingM, out var committedToM);
 
-        // A car standing in a bay is on no lane by construction — a bay stands off the kerb — and a town's
-        // parked cars are most of its fleet. Asking the road where each of them is, every tick, for an
-        // answer the reach test below would throw away, was the whole cost of this pass. One driving a
-        // template out of a bay is a sweep across the lane and is held like any other.
-        if (!sweeping && _parking.BayOf(car) >= 0) return;
+        // A car standing in a bay is on no lane by construction — a bay stands off the kerb — but it is on
+        // the bay's own two ways, at the end of the one in and the start of the one out. Both are known
+        // without asking the road anything, which is what keeps this off the town's hottest path: a town's
+        // parked cars are most of its fleet, and a <see cref="RoadGraph.NearestLane"/> apiece every tick,
+        // for an answer the reach test below would throw away, was the whole cost of this pass. One driving
+        // the town's own way out is not here at all — it is under way, and its ground is its reservation on
+        // that way (<see cref="AskForTheGround"/>).
+        var bay = sweeping ? ParkingRegistry.NoBay : _parking.BayOf(car);
+
+        // <b>And a body that has not moved lies where it lay</b> (<see cref="LyingBook"/>). The geometry
+        // below is the same arithmetic over the same numbers for as long as the car stands still, which
+        // for most of a town's fleet is the whole run.
+        // <b>A car on a bar lays nothing of its own</b> (EVA-5). The ground under it is covered by the
+        // reservation of the vehicle pulling it, which reaches back over the pair — one movement, one
+        // stretch (TER-5c.2). Laid twice, the trailer's own row cuts its hauler's grant and the tow stops
+        // dead at the first metre of road it is standing on.
+        var towed = _recovery.OnTheHookOf[car] >= 0;
+        var state = new LyingState(
+            standingM, committedToM, Cars.VelocityMps[car], bay, Cars.MovementWay[car], Cars.Variant[car],
+            sweeping, Cars.Driven[car], Cars.Broken[car], towed);
+        if (_lying.Holds(car, state))
+        {
+            LieWhereItLay(car);
+            return;
+        }
+
+        _lying.Begin(car, state);
+        if (towed)
+        {
+            _lying.End();
+            return;
+        }
+
+        if (bay >= 0)
+        {
+            LieInTheBay(car, bay);
+            _lying.End();
+            return;
+        }
 
         // Anything else is wherever it actually lies, which is a question for the road and not for a line
         // it is no longer on: a wreck, a car nobody is in, a body shoved off its own route, and the swerve
@@ -38,6 +74,87 @@ internal sealed partial class TownWorld
         // the other — and from each end the stretch is the whole sweep, so a way both ends are over is laid
         // once and identically (<see cref="LieOnTheWay"/>).
         if (sweeping) LieUnder(car, committedToM, standingM);
+
+        _lying.End();
+    }
+
+    /// <summary>
+    /// The stretches this body laid the last time its state changed, laid again — the same rows the
+    /// geometry would have arrived at, into a book that holds none of this car's ground yet.
+    /// </summary>
+    void LieWhereItLay(int car)
+    {
+        var rows = _lying.Of(car);
+        for (var at = 0; at < rows.Length; at++)
+        {
+            ref readonly var row = ref rows[at];
+            _occupancy.AddUnderWay(
+                row.Way, row.FromM, row.StandsToM, row.ToM, row.AlongMps, car, LaneUse.Obstruction);
+        }
+    }
+
+    /// <summary>
+    /// One stretch of a stationary body, into the book and into the record of what this body lays — the
+    /// one place the two are kept together, so a row that reaches the book and not the record is not a
+    /// thing that can be written.
+    /// </summary>
+    /// <remarks>
+    /// <b>Laid on the terms every other body is laid on</b> (<see cref="AskForTheGround"/>): three edges, the
+    /// middle one the body itself. What tells a wreck from a driver here is only how much of the third edge
+    /// there is, and for something standing still there is none — which is the whole of why this is not a
+    /// mechanism of its own.
+    /// </remarks>
+    void LieAt(int car, int way, float fromM, float standsToM, float toM, float alongMps)
+    {
+        _lying.Record(car, new LyingRow(way, fromM, standsToM, toM, alongMps));
+        _occupancy.AddUnderWay(way, fromM, standsToM, toM, alongMps, car, LaneUse.Obstruction);
+    }
+
+    /// <summary>
+    /// <b>A car standing in a bay, laid onto the bay's own two ways</b>: the far end of the way in, which is
+    /// the pose that way was drawn to, and the near end of the way out, which is the same pose read the
+    /// other way round.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is what makes an occupied bay a fact the town can read</b> rather than a flag somebody has to
+    /// remember to set: a car aiming at this bay drives the way in, and what stops it is the body standing
+    /// at the end of it — the same headway that stops it behind anything else. Nothing is released, because
+    /// this is laid from the car every tick like every other stretch in the book.
+    /// </para>
+    /// <para>
+    /// <b>It is as much of the bay as the bay has to itself</b> (<see cref="BayStandings"/>) — never less
+    /// than the tail of the body, which is all a way drawn to the axle has under it, and never more than the
+    /// ground no other way in the town is driven over. Everything of the car that is not behind the axle is
+    /// nose-deep in the bay, past the end of every way that reaches it, so the block is the bay's own depth
+    /// and not the body's outline.
+    /// </para>
+    /// <para>
+    /// <b>And so it holds none of the street.</b> A bay's mouth is half a metre off the carriageway's own
+    /// edge, so the metres of its way that the lane is driven over reach a body's width past the mouth
+    /// (<see cref="BayCrossings"/>) — laid from the mouth in regardless, a parked car cut the lane it was
+    /// parked beside and every neighbour's way in with it. A parked car cuts nobody's grant on the road,
+    /// which is exactly what a car off the carriageway should do.
+    /// </para>
+    /// </remarks>
+    void LieInTheBay(int car, int bay)
+    {
+        ref readonly var build = ref Cars.BuildOf(car);
+        for (var slot = 0; slot < _bayWays.WayCountOf(bay); slot++)
+        {
+            var way = _bayWays.WayOf(bay, slot);
+
+            // Which end of this body lies along the way is the standing's (GEN-4j), and how much of it
+            // there is is the body's own (CAR-11).
+            var bodyM = _bayWays.IsNoseIn(way) ? build.TailBehindAxleM : build.NoseAheadOfAxleM;
+            var (fromM, toM) = _bayWays.WhereABodyInTheBayStandsM(way, _standings.HoldsM(way, bodyM));
+
+            // <b>Its exact extent, with no margin and no ground ahead</b> — the one body in the town laid
+            // otherwise, because a bay is not a lane. What it holds is bounded to the ground no other way is
+            // driven over (<see cref="BayStandings"/>), which is what keeps a parked car off the street; a
+            // margin either side of that is a parked car cutting the lane it is parked beside.
+            LieAt(car, way, fromM, toM, toM, 0f);
+        }
     }
 
     /// <summary>
@@ -84,16 +201,22 @@ internal sealed partial class TownWorld
     /// </remarks>
     void LieUnder(int car, Vector2 atM, Vector2 sweptToM)
     {
-        var lane = _roads.NearestLane(atM, out var alongM);
-        if (lane < 0) return;
+        // Half of <em>this</em> car either way, which is what a body lying askew covers along a way at
+        // worst. It is the conservative reading of a pose the index deliberately does not carry the angle
+        // of, and it is the body's own half-length because a wreck of a truck lies over more of a lane
+        // than a wreck of a hatchback (CAR-11).
+        var halfM = Cars.BuildOf(car).HalfLengthM;
 
-        // Half a car either way, which is what a body lying askew covers along a way at worst. It is the
-        // conservative reading of a pose the index deliberately does not carry the angle of.
-        var halfM = _config.Car.LengthM * 0.5f;
-        LieOnTheWay(
-            car, _occupancy.WayOfLane(lane), _roads.ArcsOf(lane), alongM, atM, sweptToM,
-            _roads.LaneWidthM[lane], halfM);
-        LieInTheBox(car, lane, alongM, atM, sweptToM, halfM);
+        // <b>The same walk a driver on a template asks the book with</b> (<see cref="GroundUnder"/>): what a
+        // body is written onto and what a manoeuvre reads are one set of ways, or a car could stand
+        // somewhere the next car through cannot see it.
+        Span<WayUnder> under = stackalloc WayUnder[GroundUnder.MostWaysUnderAPlace(_roads)];
+        var count = GroundUnder.At(_roads, _occupancy, atM, Cars.BuildOf(car).FlankM, halfM, under);
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref under[index];
+            LieOnTheWay(car, way, atM, sweptToM, halfM);
+        }
     }
 
     /// <summary>
@@ -124,88 +247,39 @@ internal sealed partial class TownWorld
     /// would count one body as two.
     /// </para>
     /// </remarks>
-    void LieOnTheWay(
-        int car, int way, ReadOnlySpan<ArcSeg> arcs, float alongM, Vector2 atM, Vector2 sweptToM, float bandM,
-        float halfM)
+    void LieOnTheWay(int car, in WayUnder way, Vector2 atM, Vector2 sweptToM, float halfM)
     {
-        if (!RoadGraph.WithinTheBand(arcs, alongM, atM, bandM, _config.Car.WidthM * 0.5f, halfM, out var on))
-        {
-            return;
-        }
+        // <b>Except the one it is crossing on</b>, where the ground it holds is the crossing it is making
+        // (<see cref="LayTheMovement"/>). One body is one stretch of one way (TER-5c.2), and the two readings
+        // are of one piece of ground in two measures: a projection across the box, and the metres of the line
+        // the car was driving down it.
+        if (way.Way == Cars.MovementWay[car] && Cars.Driven[car] && !Cars.Broken[car]) return;
 
+        var arcs = LineOfWay(way.Way, out _);
+        var alongM = way.AlongM;
         var sweptM = (sweptToM - atM).Length();
         var farM = sweptM <= 0f ? alongM : Spline.ProjectM(arcs, sweptToM, alongM, sweptM);
+        var alongMps = Vector2.Dot(Cars.VelocityMps[car], way.AlongUnit);
         var fromM = MathF.Min(alongM, farM) - halfM;
-        var toM = MathF.Max(alongM, farM) + halfM;
-        if (_occupancy.AlreadyHolds(way, fromM, toM, car)) return;
+        var standsToM = MathF.Max(alongM, farM) + halfM;
 
-        _occupancy.Add(
-            way, fromM, toM, Vector2.Dot(Cars.VelocityMps[car], on.Direction), car, LaneUse.Obstruction);
+        // <b>And the ground it cannot stop short of, which is the third edge every other body carries</b>
+        // (<see cref="AskForTheGround"/>). A body that is not driving a route is not thereby a body that is
+        // not going anywhere: one shoved down a lane by a collision, one sliding on a wet corner, one under a
+        // hand is on its way somewhere at whatever speed it has, and holding only the metres under it hands
+        // the traffic behind the ground it is about to be on.
+        //
+        // <b>Where it is sweeping a template, that ground is the sweep and is already laid</b>
+        // (<see cref="WhereTheTemplateSweepEndsM"/>): the two are one answer to one question — what this body
+        // is committed to — read once off the line it is driving and once off the speed it is doing, and
+        // taking both is a car holding a swerve's worth of lane twice over.
+        var toM = sweptM > 0f
+            ? standsToM
+            : standsToM + StoppingM(
+                alongMps, CarFollower.BrakingMps2(_config, Cars.BuildOf(car), Cars.GroundCoefficient[car]));
+        if (_occupancy.AlreadyHolds(way.Way, fromM, toM, car)) return;
+
+        LieAt(car, way.Way, fromM, standsToM, toM, alongMps);
     }
 
-    /// <summary>
-    /// <b>A body standing in a junction, laid onto every one of that junction's joins it is lying under</b>
-    /// — which is the whole of what holds the traffic crossing the box off it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A body in a box is on no lane anybody drives.</b> Past a lane's own setback (TER-5d) the lane's
-    /// line runs on into the junction under a movement rather than under itself, and no driver's line is
-    /// laid over that stretch (<see cref="WaysAlong"/>) — so a stretch put there is one nothing walks. The
-    /// ground a car actually crosses a junction on is the join, and the join is a way of the road like any
-    /// other.
-    /// </para>
-    /// <para>
-    /// <b>What a car is crossing on cannot be what answers this.</b> It is given back the moment nobody is
-    /// driving it (<see cref="PlaceTheCrossing"/>), and a wreck, a car under a hand and a body
-    /// shoved into a box on no movement at all are none of them making anything — so what refuses the
-    /// traffic crossing them is the ground they are lying on, and there is nothing else left to say it.
-    /// </para>
-    /// <para>
-    /// <b>Both ends of the nearest lane are asked, and the setbacks are what say which of them can be
-    /// it</b> (TER-5d): past one the ground stops being the lane's, and a lane that hands nothing over at
-    /// that end still ends at a junction whose other arms are driven across it. A lane shorter than the
-    /// junctions either side of it answers to both, which is why this is two questions and not a choice.
-    /// </para>
-    /// </remarks>
-    void LieInTheBox(int car, int nearest, float alongM, Vector2 atM, Vector2 sweptToM, float halfM)
-    {
-        if (alongM <= _roads.JoinedAtM(nearest))
-        {
-            LieUnderTheJoins(car, _roads.LaneFromNode[nearest], atM, sweptToM, halfM);
-        }
-
-        if (alongM >= _roads.LaneLengthM[nearest] - _roads.LeftAtM(nearest))
-        {
-            LieUnderTheJoins(car, _roads.LaneToNode[nearest], atM, sweptToM, halfM);
-        }
-    }
-
-    /// <summary>
-    /// The joins of one junction, and this body laid onto each of them it is lying under — <b>except the one
-    /// it is crossing</b>, where the ground it holds is the crossing it is making
-    /// (<see cref="LayTheCrossing"/>). One body is one stretch of one way (TER-5c.2), and the two readings
-    /// are of one piece of ground in two measures: a projection across the box, and the metres of the line
-    /// the car was driving down it.
-    /// </summary>
-    void LieUnderTheJoins(int car, int node, Vector2 atM, Vector2 sweptToM, float halfM)
-    {
-        foreach (var arriving in _roads.LanesIn(node))
-        {
-            for (var turn = 0; turn < _roads.TurnsFrom(arriving).Length; turn++)
-            {
-                var slot = _roads.TurnSlotAt(arriving, turn);
-                if (slot == Cars.Crossing[car] && Cars.Driven[car] && !Cars.Broken[car]) continue;
-
-                var arcs = _roads.JoinArcs(slot);
-                if (arcs.Length == 0) continue;
-
-                var lengthM = _roads.JoinLengthM(slot);
-                LieOnTheWay(
-                    car, _occupancy.WayOfTurn(slot), arcs,
-                    Spline.ProjectM(arcs, atM, lengthM * 0.5f, lengthM), atM, sweptToM,
-                    _roads.LaneWidthM[arriving], halfM);
-            }
-        }
-    }
 }

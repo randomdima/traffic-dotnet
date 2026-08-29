@@ -1,5 +1,9 @@
 {
   "id": "firehouse",
   "sprite": "firehouse.png",
-  "footprintM": [17.00, 17.07]
+  "footprintM": [17.00, 17.07],
+  "partsM": [
+    { "atM": [-0.12, -0.55], "sizeM": [16.22, 15.15] },
+    { "atM": [-1.55, 0.21], "sizeM": [12.03, 16.64] }
+  ]
 }

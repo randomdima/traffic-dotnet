@@ -9,6 +9,11 @@ namespace TrafficSimulation.World.Road;
 /// Which turn joins one lane to the next, priced for the router. A fact about the road and never about
 /// the car on it, so it is filled once when the town is laid and read off thereafter.
 /// </summary>
+/// <remarks>
+/// <b>There is no movement here that reverses the direction of travel</b> (TER-5f): a pair of lanes that
+/// would face each other across a box is not joined at all, so no such turn is classified, laid, measured
+/// or priced. Where a route has to come back the way it went, it does it in a bay (GEN-4l).
+/// </remarks>
 internal enum LaneTurn : byte
 {
     Straight,
@@ -18,9 +23,6 @@ internal enum LaneTurn : byte
 
     /// <summary>The turn across the oncoming stream.</summary>
     FarSide,
-
-    /// <summary>Back the way it came. It sweeps the whole disc and therefore conflicts with everything.</summary>
-    TurnAround,
 }
 
 /// <summary>
@@ -64,15 +66,17 @@ internal sealed class RoadGraph
     readonly ChainIndex _nearest;
 
     RoadGraph(
-        int nodeCount, int[] laneRoad, float[] laneWidthM, int[] laneFromNode, int[] laneToNode, bool[] laneForward,
+        int junctionCount, Vector2[] nodeCentreM, int[] laneRoad, float[] laneWidthM, int[] laneFromNode,
+        int[] laneToNode, bool[] laneForward,
         float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs, int[] laneReverse,
         int[] nodeOutOffsets, int[] nodeOutLanes, int[] nodeInOffsets, int[] nodeInLanes,
         int[] turnOffsets, int[] turnToLane, LaneTurn[] turnKind, Joins joins,
-        JunctionCrossings crossings, float nearestCellM)
+        WayCrossings crossings, float nearestCellM)
     {
         _joins = joins;
         Crossings = crossings;
-        NodeCount = nodeCount;
+        JunctionCount = junctionCount;
+        NodeCentreM = nodeCentreM;
         LaneRoad = laneRoad;
         LaneWidthM = laneWidthM;
         LaneFromNode = laneFromNode;
@@ -95,7 +99,7 @@ internal sealed class RoadGraph
 
         _nearest = builder.Seal(nearestCellM);
 
-        for (var node = 0; node < nodeCount; node++)
+        for (var node = 0; node < NodeCount; node++)
         {
             var turns = 0;
             foreach (var lane in LanesIn(node)) turns += _turnOffsets[lane + 1] - _turnOffsets[lane];
@@ -104,8 +108,26 @@ internal sealed class RoadGraph
         }
     }
 
-    /// <summary>One per junction, and the plan's own index is the node's: nothing is renumbered.</summary>
-    public int NodeCount { get; }
+    /// <summary>
+    /// One per junction the plan named, then one per end of every parking section (GEN-4h). <b>The plan's
+    /// own index is the junction's</b>: nothing is renumbered, and the nodes cut into the roads afterwards
+    /// are numbered after all of them.
+    /// </summary>
+    public int NodeCount => NodeCentreM.Length;
+
+    /// <summary>How many of them the plan named. The rest are places on a road rather than intersections.</summary>
+    public int JunctionCount { get; }
+
+    /// <summary>Where each node stands: the junction's own centre, or the point on the road a cut was taken at.</summary>
+    public Vector2[] NodeCentreM { get; }
+
+    /// <summary>
+    /// Whether a node is a place a slice above asked for rather than an intersection — <b>the end of a
+    /// parking section</b>. It carries no signal, no bar and no corner, and the movement across it is a join
+    /// of no length; what it is for is that the frontage beyond it is a stretch of the network in its own
+    /// right, so a leg aimed into a car park is routed to a node like every other leg.
+    /// </summary>
+    public bool IsAPlace(int node) => node >= JunctionCount;
 
     public int LaneCount => LaneRoad.Length;
 
@@ -136,7 +158,10 @@ internal sealed class RoadGraph
     /// <summary>The length of the line as <em>driven</em>: an offset arc is shorter inside a bend than the centreline it was taken from.</summary>
     public float[] LaneLengthM { get; }
 
-    /// <summary>The other lane of the same stretch — the one a turn-around at either end arrives on.</summary>
+    /// <summary>
+    /// The other lane of the same stretch — the one a car that has turned in a bay comes back down
+    /// (GEN-4l), and the one no turn at either end of it ever leads to (TER-5f).
+    /// </summary>
     public int[] LaneReverse { get; }
 
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
@@ -165,6 +190,35 @@ internal sealed class RoadGraph
     /// <summary>The lane a turn arrives on, for a caller holding a slot rather than the pair it joins.</summary>
     public int TurnToLane(int slot) => _turnToLane[slot];
 
+    /// <summary>
+    /// The way a join is, in the numbering <see cref="Crossings"/> is laid in — the book's own
+    /// (<see cref="LaneOccupancy.WayOfTurn"/>), forwarded here because that is where the table is.
+    /// </summary>
+    public int WayOfTurn(int turnSlot) => LaneOccupancy.WayOfTurn(LaneCount, turnSlot);
+
+    /// <summary>And the trip back, for a caller holding a section's <see cref="CrossedSection.OnWay"/>.</summary>
+    public int TurnOfWay(int way) => LaneOccupancy.TurnOfWay(LaneCount, way);
+
+    /// <summary>
+    /// <b>The right of way a movement through a box has</b> (TER-5e) — a fact about the turn it makes, so it
+    /// is read off the road like the turn itself and is never worked out from the car making it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Straighter is stronger, and it is one order rather than a table of pairs.</b> A stream that turns
+    /// out of nobody's way is driven over by the turns that leave it (TER-4a); the near-side turn crosses
+    /// nothing of its own carriageway and is ordinary traffic; and the turn across the oncoming stream, the
+    /// last movement a box admits, gives way to both.
+    /// </remarks>
+    public RightOfWay RightOfWayOfTurn(int slot) => RightOfWayOf(_turnKind[slot]);
+
+    /// <summary>The same, for a caller holding the kind rather than the slot.</summary>
+    public static RightOfWay RightOfWayOf(LaneTurn turn) => turn switch
+    {
+        LaneTurn.Straight => RightOfWay.StraightOn,
+        LaneTurn.NearSide => RightOfWay.Traffic,
+        _ => RightOfWay.TurningAcross,
+    };
+
     /// <summary>Where a pair of lanes stands in it, or <see cref="NoTurn"/> where they are not joined at all.</summary>
     public int TurnSlot(int fromLane, int toLane)
     {
@@ -178,10 +232,17 @@ internal sealed class RoadGraph
 
     /// <summary>
     /// <b>The ground each way through a junction takes off the others</b> (TER-5c), laid once with the town
-    /// like the joins it is measured off. It is a property of the movement and never of the intersection: a
-    /// street bending through a box is driven over nothing and takes nothing.
+    /// like the joins it is measured off, and <b>indexed the way the book numbers ways</b>
+    /// (<see cref="LaneOccupancy.WayOfTurn"/>). It is a property of the movement and never of the
+    /// intersection: a street bending through a box is driven over nothing and takes nothing.
     /// </summary>
-    public JunctionCrossings Crossings { get; }
+    /// <remarks>
+    /// The lanes' own rows are empty, because a lane hands over clear of the box it ends at (TER-5d) and
+    /// nothing a junction admits is driven over one. They are in the table so that a way laid off a
+    /// junction — the line into a parking space, which sweeps the oncoming lane's metres — can name the
+    /// ground it takes in the same table and be read by the same walk.
+    /// </remarks>
+    public WayCrossings Crossings { get; }
 
     /// <summary>Which turn joins these two lanes, or <see langword="null"/> where they are not joined at all.</summary>
     public LaneTurn? TurnBetween(int fromLane, int toLane)
@@ -256,15 +317,22 @@ internal sealed class RoadGraph
     /// </remarks>
     /// <param name="reachM">How far past the band the body itself reaches — its own half-width or radius.</param>
     /// <param name="alongReachM">How far past a way's own end the body still lies on it — its own half-length or radius.</param>
-    /// <param name="on">Where <paramref name="alongM"/> falls on the line, wanted by most callers for its direction.</param>
+    /// <param name="alongUnit">
+    /// The way the line runs where <paramref name="alongM"/> falls on it. <b>Handed back rather than left
+    /// to the caller</b>: this test measures across the band and along it, so it has already turned that
+    /// angle into a direction, and a caller that asks <see cref="SplineSample.Direction"/> for it again
+    /// reduces the same angle a third time.
+    /// </param>
     public static bool WithinTheBand(
         ReadOnlySpan<ArcSeg> arcs, float alongM, Vector2 atM, float bandM, float reachM, float alongReachM,
-        out SplineSample on)
+        out Vector2 alongUnit)
     {
-        on = Spline.SampleAt(arcs, alongM);
+        var on = Spline.SampleAt(arcs, alongM);
+        alongUnit = on.Direction;
+
         var offsetM = atM - on.PositionM;
-        return MathF.Abs(Vector2.Dot(offsetM, on.Right)) <= (bandM * 0.5f) + reachM
-               && MathF.Abs(Vector2.Dot(offsetM, on.Direction)) <= alongReachM;
+        return MathF.Abs(Vector2.Dot(offsetM, Heading.RightOf(alongUnit))) <= (bandM * 0.5f) + reachM
+               && MathF.Abs(Vector2.Dot(offsetM, alongUnit)) <= alongReachM;
     }
 
     public static RoadGraph Build(CityPlan plan, SimConfig config)
@@ -272,6 +340,7 @@ internal sealed class RoadGraph
         var roads = plan.Roads;
         var junctions = plan.Junctions;
         var discs = RoadCuts.JunctionIndex(plan, paddingM: 0f);
+        var sections = ParkingSections.Lay(plan, config, junctions.Count);
 
         var laneRoad = new List<int>();
         var laneWidthM = new List<float>();
@@ -295,7 +364,8 @@ internal sealed class RoadGraph
 
             var lengthM = Spline.TotalLengthM(centreline);
             RoadCuts.Along(
-                plan, discs, centreline, lengthM, paddingM: 0f, roads.FromJunction[road], roads.ToJunction[road], cuts);
+                plan, discs, centreline, lengthM, paddingM: 0f, roads.FromJunction[road], roads.ToJunction[road], cuts,
+                sections.On(road), config.ParkingSectionShortestStretchM);
 
             // A road's own lane offset comes from the road's own declared width, because the
             // catalogue's figure is a default and everything derived from it follows the road's
@@ -332,19 +402,26 @@ internal sealed class RoadGraph
             }
         }
 
+        var nodeCount = junctions.Count + sections.NodeCount;
+        var nodeCentreM = new Vector2[nodeCount];
+        junctions.CentreM.CopyTo(nodeCentreM, 0);
+        sections.CentreM.CopyTo(nodeCentreM, junctions.Count);
+
         var arcOffsets = laneArcOffsets.ToArray();
         var arcs = laneArcs.ToArray();
         var laneLengths = laneLengthM.ToArray();
-        var (outOffsets, outLanes) = Adjacency(junctions.Count, laneFromNode);
-        var (inOffsets, inLanes) = Adjacency(junctions.Count, laneToNode);
+        var (outOffsets, outLanes) = Adjacency(nodeCount, laneFromNode);
+        var (inOffsets, inLanes) = Adjacency(nodeCount, laneToNode);
         var (turnOffsets, turnToLane, turnKind) = Turns(
             config, laneToNode, laneReverse, outOffsets, outLanes, arcOffsets, arcs);
 
         var joins = LayJoins(config, arcOffsets, arcs, laneLengths, turnOffsets, turnToLane, turnKind);
-        var crossings = LayCrossings(config, junctions.Count, inOffsets, inLanes, turnOffsets, turnToLane, joins);
+        var crossings = LayCrossings(
+            config, nodeCount, laneLengths.Length, inOffsets, inLanes, turnOffsets, turnToLane, joins);
 
         return new RoadGraph(
-            junctions.Count, [.. laneRoad], [.. laneWidthM], [.. laneFromNode], [.. laneToNode], [.. laneForward],
+            junctions.Count, nodeCentreM, [.. laneRoad], [.. laneWidthM], [.. laneFromNode], [.. laneToNode],
+            [.. laneForward],
             laneLengths, arcOffsets, arcs, [.. laneReverse],
             outOffsets, outLanes, inOffsets, inLanes, turnOffsets, turnToLane, turnKind, joins,
             crossings, config.NearestChainCellM);
@@ -395,43 +472,47 @@ internal sealed class RoadGraph
     /// arrives at, and the classification is the angle between the two lines where they meet — not the
     /// bearing of the roads, which says nothing about a street that bends through a junction.
     /// </summary>
+    /// <remarks>
+    /// <b>A lane leaving a node back the way this one came is not a successor at all</b> (TER-5f) — the
+    /// reverse of this lane, and anything else facing it within the straight tolerance. It is left out of
+    /// the table rather than classified and priced out of it, so nothing downstream carries a rule about a
+    /// movement no car makes: no join is drawn for it, no ground is measured against it, no rank is given
+    /// it, and the router cannot reach it. Coming back the way it went is a bay's (GEN-4l).
+    /// </remarks>
     static (int[] Offsets, int[] ToLane, LaneTurn[] Kind) Turns(
         SimConfig config, List<int> laneToNode, List<int> laneReverse, int[] outOffsets, int[] outLanes,
         int[] laneArcOffsets, ArcSeg[] laneArcs)
     {
         var laneCount = laneToNode.Count;
         var offsets = new int[laneCount + 1];
-        for (var lane = 0; lane < laneCount; lane++)
-        {
-            var node = laneToNode[lane];
-            offsets[lane + 1] = offsets[lane] + (outOffsets[node + 1] - outOffsets[node]);
-        }
-
-        var toLane = new int[offsets[laneCount]];
-        var kind = new LaneTurn[offsets[laneCount]];
+        var toLane = new List<int>();
+        var kind = new List<LaneTurn>();
         var straightRad = config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
 
         for (var lane = 0; lane < laneCount; lane++)
         {
             var arrivingRad = HeadingAt(laneArcOffsets, laneArcs, lane, atEnd: true);
-            var slot = offsets[lane];
-            foreach (var leaving in outLanes.AsSpan(outOffsets[laneToNode[lane]], outOffsets[laneToNode[lane] + 1] - outOffsets[laneToNode[lane]]))
+            var node = laneToNode[lane];
+            foreach (var leaving in outLanes.AsSpan(outOffsets[node], outOffsets[node + 1] - outOffsets[node]))
             {
+                if (leaving == laneReverse[lane]) continue;
+
                 var leavingRad = HeadingAt(laneArcOffsets, laneArcs, leaving, atEnd: false);
                 var turnRad = Spline.WrapRad(leavingRad - arrivingRad);
-                toLane[slot] = leaving;
-                kind[slot] = leaving == laneReverse[lane] || MathF.PI - MathF.Abs(turnRad) <= straightRad
-                    ? LaneTurn.TurnAround
-                    : MathF.Abs(turnRad) <= straightRad
-                        ? LaneTurn.Straight
-                        : MathF.Sign(turnRad) == MathF.Sign(config.RoadSideSign)
-                            ? LaneTurn.NearSide
-                            : LaneTurn.FarSide;
-                slot++;
+                if (MathF.PI - MathF.Abs(turnRad) <= straightRad) continue;
+
+                toLane.Add(leaving);
+                kind.Add(MathF.Abs(turnRad) <= straightRad
+                    ? LaneTurn.Straight
+                    : MathF.Sign(turnRad) == MathF.Sign(config.RoadSideSign)
+                        ? LaneTurn.NearSide
+                        : LaneTurn.FarSide);
             }
+
+            offsets[lane + 1] = toLane.Count;
         }
 
-        return (offsets, toLane, kind);
+        return (offsets, [.. toLane], [.. kind]);
     }
 
     static float HeadingAt(int[] laneArcOffsets, ArcSeg[] laneArcs, int lane, bool atEnd)
@@ -479,13 +560,10 @@ internal sealed class RoadGraph
     /// lane carries can never cross over each other.
     /// </para>
     /// <para>
-    /// <b>A turn-around is laid like any other and reaches no rung</b>: the line between two opposing
-    /// lanes is a semicircle at a lane's own spacing, so it takes the widest setback and is still tighter
-    /// than the lock. The router prices it out of reach for exactly that reason (`P-11`, M8) and the
-    /// overlay leaves it out of the picture; it is laid rather than skipped so that nothing downstream
-    /// has to hold a second rule about which turns have a line. <b>It is the one turn left out of its
-    /// lane end's setback</b> — asking for the widest and never reaching it, it would set every lane in
-    /// the town back as far as the town allows, and it keeps its own instead.
+    /// <b>Every turn in the table is laid and every one of them reaches a rung</b>, because the one that
+    /// never could is not in the table: a line between two opposing lanes is a semicircle at a lane's own
+    /// spacing, tighter than the lock at any setback, and asking for the widest would have set every lane
+    /// in the town back as far as the town allows. It is not a movement (TER-5f), so it is not a join.
     /// </para>
     /// </remarks>
     readonly record struct Joins(
@@ -494,6 +572,15 @@ internal sealed class RoadGraph
 
     /// <summary>How finely the ladder of setbacks is stepped before the widest one is taken.</summary>
     const int SetbackRungs = 8;
+
+    /// <summary>
+    /// How near two lane ends have to stand before the movement between them is no movement at all: the
+    /// millimetre a place cut into a road (GEN-4h) leaves between its two lanes, which is float noise off
+    /// two sub-chains of one curve and not a corner. Drawn rather than recognised, that noise is a biarc of
+    /// two arcs a millimetre long whose curvature is enormous, and every lane in every car park would then
+    /// set itself back a metre and a quarter to flatten a corner that is not there.
+    /// </summary>
+    const float SameEndM = 1e-3f;
 
     static Joins LayJoins(
         SimConfig config, int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneLengthM, int[] turnOffsets,
@@ -522,10 +609,6 @@ internal sealed class RoadGraph
             {
                 for (var slot = turnOffsets[lane]; slot < turnOffsets[lane + 1]; slot++)
                 {
-                    // The turn-around asks for the widest setback and reaches no rung whatever it is
-                    // given, so it is left out and keeps its own.
-                    if (turnKind[slot] == LaneTurn.TurnAround) continue;
-
                     var onto = turnToLane[slot];
                     var capM = CapM(config, laneLengthM, lane, onto);
                     if (leavingM[lane] >= capM && arrivingM[onto] >= capM) continue;
@@ -550,15 +633,14 @@ internal sealed class RoadGraph
             for (var slot = turnOffsets[lane]; slot < turnOffsets[lane + 1]; slot++)
             {
                 var onto = turnToLane[slot];
-                var aroundM = turnKind[slot] == LaneTurn.TurnAround
-                    ? CapM(config, laneLengthM, lane, onto)
-                    : 0f;
-                var leftM = MathF.Max(leavingM[lane], aroundM);
-                var joinedM = MathF.Max(arrivingM[onto], aroundM);
+                var leftM = leavingM[lane];
+                var joinedM = arrivingM[onto];
 
                 var from = Spline.SampleAt(ArcsOfBuilt(lane), laneLengthM[lane] - leftM);
                 var to = Spline.SampleAt(ArcsOfBuilt(onto), joinedM);
-                var laid = Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
+                var laid = TheSameEnd(from.PositionM, to.PositionM)
+                    ? 0
+                    : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
                 for (var arc = 0; arc < laid; arc++)
                 {
                     arcs.Add(drawn[arc]);
@@ -587,6 +669,8 @@ internal sealed class RoadGraph
     {
         var from = Spline.SampleAt(ArcsOf(lane), laneLengthM[lane] - leavingM);
         var to = Spline.SampleAt(ArcsOf(onto), arrivingM);
+        if (TheSameEnd(from.PositionM, to.PositionM)) return true;
+
         var laid = Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
 
         return laid == 0 || TightestRadiusM(drawn[..laid]) >= config.IntersectionCornerRadiusM;
@@ -609,9 +693,8 @@ internal sealed class RoadGraph
     /// <remarks>
     /// <para>
     /// <b>Only the pairs at one node are ever compared, and nothing is settled without measuring.</b> A
-    /// shared entry lane, a shared exit lane and a turn-around are all cheap to recognise and none of them
-    /// is this rule's business — the first two are held apart by the road each car was granted, and the
-    /// third takes a section of everything only because it really is driven over everything.
+    /// shared entry lane and a shared exit lane are cheap to recognise and neither is this rule's
+    /// business — they are held apart by the road each car was granted.
     /// </para>
     /// <para>
     /// <b>The measurement is between the two lines and not between their crossing points</b>: two
@@ -619,16 +702,17 @@ internal sealed class RoadGraph
     /// made, so the question is how near the lines come rather than whether they intersect.
     /// </para>
     /// </remarks>
-    static JunctionCrossings LayCrossings(
-        SimConfig config, int nodeCount, int[] inOffsets, int[] inLanes, int[] turnOffsets, int[] turnToLane,
-        Joins joins)
+    static WayCrossings LayCrossings(
+        SimConfig config, int nodeCount, int laneCount, int[] inOffsets, int[] inLanes, int[] turnOffsets,
+        int[] turnToLane, Joins joins)
     {
         var turnCount = turnToLane.Length;
+        var wayCount = LaneOccupancy.WayOfTurn(laneCount, turnCount);
         var clearanceM = config.JunctionCrossingClearanceM;
-        var found = new List<CrossedSection>[turnCount];
+        var found = new List<CrossedSection>[wayCount];
         var atTheNode = new List<int>();
-        var lineA = new Vector2[MostJoinSamples];
-        var lineB = new Vector2[MostJoinSamples];
+        var lineA = new Vector2[LineOverlap.MostSamples];
+        var lineB = new Vector2[LineOverlap.MostSamples];
 
         for (var node = 0; node < nodeCount; node++)
         {
@@ -647,132 +731,47 @@ internal sealed class RoadGraph
             }
         }
 
-        var offsets = new int[turnCount + 1];
-        for (var slot = 0; slot < turnCount; slot++) offsets[slot + 1] = offsets[slot] + (found[slot]?.Count ?? 0);
+        var offsets = new int[wayCount + 1];
+        for (var way = 0; way < wayCount; way++) offsets[way + 1] = offsets[way] + (found[way]?.Count ?? 0);
 
-        var sections = new CrossedSection[offsets[turnCount]];
+        var sections = new CrossedSection[offsets[wayCount]];
         var most = 0;
-        for (var slot = 0; slot < turnCount; slot++)
+        for (var way = 0; way < wayCount; way++)
         {
-            found[slot]?.CopyTo(sections, offsets[slot]);
-            most = Math.Max(most, offsets[slot + 1] - offsets[slot]);
+            found[way]?.CopyTo(sections, offsets[way]);
+            most = Math.Max(most, offsets[way + 1] - offsets[way]);
         }
 
-        return new JunctionCrossings(offsets, sections) { MostCrossedByOne = most };
+        return new WayCrossings(offsets, sections) { MostCrossedByOne = most };
 
-        // <b>Each of the pair takes a section of the other, and the two are measured apart.</b> A long
-        // join and a short one crossing it do not cover the same length of each other, and giving both the
-        // same interval would hand the short one the whole of the long one. Both intervals go into both
-        // entries: a car reads the far one to know what it takes and its own to know when it is past it.
+        // <b>Both intervals go into both entries</b>: a car reads the far one to know what it takes and its
+        // own to know when it is past it. The measurement itself is <see cref="LineOverlap"/>'s, which is
+        // also what the ways laid off a junction are measured with.
         void Measure(int a, int b)
         {
-            var countA = SampleJoin(a, lineA);
-            var countB = SampleJoin(b, lineB);
-            if (countA < 2 || countB < 2) return;
+            var alongA = SampleJoin(a, lineA, out var stepA);
+            var alongB = SampleJoin(b, lineB, out var stepB);
+            var sampledA = new SampledWay(alongA, 0f, stepA, joins.LengthM[a]);
+            var sampledB = new SampledWay(alongB, 0f, stepB, joins.LengthM[b]);
+            if (!LineOverlap.Measure(sampledA, sampledB, clearanceM, out var onA, out var onB)) return;
 
-            var alongA = lineA.AsSpan(0, countA);
-            var alongB = lineB.AsSpan(0, countB);
-
-            // Asked both ways round, and a pair either of them finds is kept: the samples fall a clearance
-            // apart, so one direction can come up empty at the margin where the other did not, and dropping
-            // the pair for it would be a crossing nothing refuses. What the missing end costs is only the
-            // knowing when the car is past it, so it is taken to be the whole join and given back at the
-            // far side like the ground it stands for.
-            var overA = Covered(alongA, alongB, joins.LengthM[b], out var onB);
-            if (!Covered(alongB, alongA, joins.LengthM[a], out var onA))
-            {
-                if (!overA) return;
-
-                onA = (0f, joins.LengthM[a]);
-            }
-            else if (!overA)
-            {
-                onB = (0f, joins.LengthM[b]);
-            }
-
-            (found[a] ??= []).Add(new CrossedSection(b, onB.FromM, onB.ToM, onA.FromM, onA.ToM));
-            (found[b] ??= []).Add(new CrossedSection(a, onA.FromM, onA.ToM, onB.FromM, onB.ToM));
+            var wayA = LaneOccupancy.WayOfTurn(laneCount, a);
+            var wayB = LaneOccupancy.WayOfTurn(laneCount, b);
+            (found[wayA] ??= []).Add(new CrossedSection(wayB, onB.FromM, onB.ToM, onA.FromM, onA.ToM));
+            (found[wayB] ??= []).Add(new CrossedSection(wayA, onA.FromM, onA.ToM, onB.FromM, onB.ToM));
         }
 
-        // Which metres of <paramref name="crossed"/> come within the clearance of <paramref name="over"/>,
-        // as the one interval spanning them: a pair of lines that touch twice is one movement driven over
-        // the ground between, and two sections with a gap in the middle would leave that ground free.
-        bool Covered(
-            ReadOnlySpan<Vector2> over, ReadOnlySpan<Vector2> crossed, float lengthM,
-            out (float FromM, float ToM) section)
-        {
-            var leastAt = -1;
-            var mostAt = -1;
-            for (var at = 0; at < crossed.Length; at++)
-            {
-                if (ToChainM(over, crossed[at]) > clearanceM) continue;
-
-                if (leastAt < 0) leastAt = at;
-                mostAt = at;
-            }
-
-            if (leastAt < 0)
-            {
-                section = default;
-                return false;
-            }
-
-            // The samples are the ends of the section and the body crossing has width, so it is opened out
-            // by a step either way: the true crossing lies between the last sample outside and the first in.
-            var stepM = lengthM / (crossed.Length - 1);
-            section = (MathF.Max(0f, (leastAt * stepM) - stepM), MathF.Min(lengthM, (mostAt * stepM) + stepM));
-            return true;
-        }
-
-        int SampleJoin(int slot, Vector2[] into)
+        ReadOnlySpan<Vector2> SampleJoin(int slot, Vector2[] into, out float stepM)
         {
             var lengthM = joins.LengthM[slot];
             var arcs = joins.Arcs.AsSpan(joins.ArcOffsets[slot], joins.ArcOffsets[slot + 1] - joins.ArcOffsets[slot]);
-            if (arcs.Length == 0) return 0;
-
-            // Stepped at the clearance itself: the sag of a chord that long across a join's own arc is
-            // centimetres, and the whole test has a metre in hand at the shipped figures.
-            var count = Math.Clamp((int)(lengthM / clearanceM) + 2, 2, MostJoinSamples);
-            for (var at = 0; at < count; at++)
-            {
-                into[at] = Spline.SampleAt(arcs, lengthM * at / (count - 1)).PositionM;
-            }
-
-            return count;
+            return into.AsSpan(0, LineOverlap.Sample(arcs, 0f, lengthM, lengthM, clearanceM, into, out stepM));
         }
     }
 
-    /// <summary>
-    /// How many points a join is measured as. <b>A bound on the work and not a figure behaviour reads</b>:
-    /// past it the step opens out, which reads a long join a few centimetres coarser.
-    /// </summary>
-    const int MostJoinSamples = 24;
-
-    /// <summary>
-    /// How far a point stands off a whole polyline — every piece of it measured, which for a chain this
-    /// short is cheaper than working out which piece to measure.
-    /// </summary>
-    static float ToChainM(ReadOnlySpan<Vector2> chain, Vector2 pointM)
-    {
-        var leastM = float.PositiveInfinity;
-        for (var at = 0; at + 1 < chain.Length; at++)
-        {
-            leastM = MathF.Min(leastM, ToSegmentM(chain[at], chain[at + 1], pointM));
-        }
-
-        return leastM;
-    }
-
-    /// <summary>How far a point stands off a straight between two others.</summary>
-    static float ToSegmentM(Vector2 fromM, Vector2 toM, Vector2 atM)
-    {
-        var run = toM - fromM;
-        var lengthSq = run.LengthSquared();
-        if (lengthSq < 1e-8f) return (atM - fromM).Length();
-
-        var along = Math.Clamp(Vector2.Dot(atM - fromM, run) / lengthSq, 0f, 1f);
-        return (atM - (fromM + (run * along))).Length();
-    }
+    /// <summary>Whether a lane ends where the next one starts, within <see cref="SameEndM"/>.</summary>
+    static bool TheSameEnd(Vector2 fromM, Vector2 toM) =>
+        (toM - fromM).LengthSquared() <= SameEndM * SameEndM;
 
     /// <summary>The tightest circle anywhere in a chain, which for a join is the whole question about it.</summary>
     static float TightestRadiusM(ReadOnlySpan<ArcSeg> arcs)

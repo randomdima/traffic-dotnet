@@ -67,9 +67,6 @@ internal static class SolverProbe
     /// </param>
     public readonly record struct StepSample(double BytesPerStep, int Gen0Collections, int ContactPoints);
 
-    public static double AllocatedBytesPerStep(SimConfig config, int bodyCount, bool packed = false) =>
-        Sample(config, bodyCount, packed).BytesPerStep;
-
     /// <param name="packed">
     /// Whether the bodies are laid close enough to grind against each other for the whole window, which
     /// is what turns the contact set over. Apart, they are spread far enough that the figure is the
@@ -87,7 +84,7 @@ internal static class SolverProbe
         for (var body = 0; body < bodyCount; body++)
         {
             homeM[body] = new Vector2(body % PerRow * acrossM, body / PerRow * downM);
-            fleet[body] = world.AddCar(homeM[body], 0f);
+            fleet[body] = world.AddNominalCar(homeM[body], 0f);
         }
 
         world.SettleStatics();

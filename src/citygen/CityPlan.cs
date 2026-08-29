@@ -53,7 +53,12 @@ internal sealed class CityPlan
     /// <summary>Kerb fillets, carried because they cannot be read back off any other shape.</summary>
     public required JunctionCornerArrays JunctionCorners { get; init; }
 
-    /// <summary>The pavement's inner corners, carried for the same reason.</summary>
+    /// <summary>
+    /// The pavement's inner corners as the map that arrived recorded them. <b>Nothing draws from this</b>
+    /// — a corner is a fact about the pair of shapes the walk is laid from, so the build solves them
+    /// itself (TER-3c.4). It is here because a shipped `.town` carries the field and the round trip over
+    /// every one of them is what holds the reader and the writer to each other.
+    /// </summary>
     public required PavementCornerArrays PavementCorners { get; init; }
 
     public required RoadArrays Roads { get; init; }
@@ -190,6 +195,9 @@ internal sealed class CityPlan
         public required Vector2[] SizeM { get; init; }
         public required float[] HeadingRad { get; init; }
         public required int[] Capacity { get; init; }
+
+        /// <summary>What each one is for (AMB-1, SRV-1). Authored with the building, so a map's services are the map's.</summary>
+        public required BuildingUse[] Use { get; init; }
 
         /// <summary>Count + 1 entries, over <see cref="EntryPointM"/>. Every building has at least one.</summary>
         public required int[] EntryOffsets { get; init; }

@@ -19,9 +19,6 @@ namespace TrafficSimulation.App.Debug;
 /// </remarks>
 internal sealed class DebugSwitches
 {
-    /// <summary>Frame and tick cost, ranked by phase, with the body and agent counts.</summary>
-    public bool FrameReadout;
-
     /// <summary>Everything about cars: their lines, what each was told, and where it must be stopped by.</summary>
     public bool CarLines;
 
@@ -55,6 +52,13 @@ internal sealed class DebugSwitches
 
     /// <summary>Every body's collision shape — the one the solver holds, not the one it is drawn at.</summary>
     public bool Collision;
+
+    /// <summary>
+    /// <b>The circle each car's steering says it is turning</b> (OBS-2j), against the one its tyres are
+    /// actually turning. It is a layer of the car's own and not part of <see cref="CarLines"/>: that one
+    /// draws what the world did to a driver, and this draws a prediction nothing in the town made.
+    /// </summary>
+    public bool TurnCircles;
 
     /// <summary>The measuring tool, which takes the mouse for as long as it is ticked.</summary>
     public bool Ruler;

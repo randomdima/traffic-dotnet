@@ -28,11 +28,13 @@ internal readonly ref struct InterfaceFrame
 
     public required Vector2 PointerPx { get; init; }
 
+    /// <summary>
+    /// The box a drag is laying over the town this frame, or an empty one (CTL-1b). It is the input
+    /// layer's gesture and the interface only draws it, which is what keeps picking in one slice (CTL-6).
+    /// </summary>
+    public Rect MarqueePx { get; init; }
+
     public string MapName { get; init; }
-
-    public ulong WorldSeed { get; init; }
-
-    public ulong AgentSeed { get; init; }
 
     public long Tick { get; init; }
 
@@ -51,6 +53,13 @@ internal readonly ref struct InterfaceFrame
     /// draws once a frame, so a panel that kept its own would be reading a fraction of the laps.
     /// </summary>
     public TrackMetrics? Track { get; init; }
+
+    /// <summary>
+    /// What this map claims about itself and how it is doing, as the run's own watches
+    /// (<see cref="Scenarios.For"/>). Empty before a town is standing, and the run's for the same reason
+    /// the figures above are: a claim is answered off every tick and not off the frames anybody drew.
+    /// </summary>
+    public ReadOnlySpan<ScenarioWatch> Scenario { get; init; }
 }
 
 /// <summary>Where a click landed once the interface has had it, so the town is not also clicked through a panel.</summary>
@@ -61,9 +70,6 @@ internal enum ClickTaken
 
     /// <summary>A panel took it — either it acted on it or it swallowed it, and either way the town does not see it.</summary>
     Yes,
-
-    /// <summary>The gear, which is the one piece of furniture that opens the menu.</summary>
-    Gear,
 }
 
 /// <summary>
@@ -78,13 +84,14 @@ internal enum ClickTaken
 /// </remarks>
 internal sealed class Interface
 {
-    /// <summary>The one panel: the map to open, the switches, the seeds, the pace and the legend are its pages.</summary>
+    /// <summary>The popup under the gear: which map to open and which layers to draw.</summary>
     public Menu Menu { get; } = new();
 
-    public Hud Hud { get; } = new();
+    /// <summary>The popup under the question mark: every key the player has.</summary>
+    public ControlsCard Controls { get; } = new();
 
-    /// <summary>What the frame and the tick cost, in collapsible sections. A switch rather than furniture.</summary>
-    public FrameReadout Readout { get; } = new();
+    /// <summary>The corner the run reads itself off: the rate, the map and the pace, over what they cost.</summary>
+    public StatusPanel Status { get; } = new();
 
     public DebugSwitches Switches { get; } = new();
 
@@ -95,18 +102,21 @@ internal sealed class Interface
     /// <summary>The proving ground's figures, one collapsible section per shape. A switch rather than furniture.</summary>
     public TrackPanel Track { get; } = new();
 
+    /// <summary>What the map claims about itself, along the bottom: shut to a line, open to a row a claim.</summary>
+    public ScenarioPanel Scenario { get; } = new();
+
     public RunState Run { get; } = new();
 
     /// <summary>
-    /// <c>--ui</c>, as the switches and pages it names. <b>One list, read by the shot path and by the
+    /// <c>--ui</c>, as the switches and popups it names. <b>One list, read by the shot path and by the
     /// windowed run alike</b> — a word that opened a layer in a picture and did nothing in the game
     /// would be two vocabularies, and the words are the switches' and the menu's own so that a script
     /// reads the same as what is on the screen.
     /// </summary>
     /// <remarks>
-    /// The words are matched <b>whole</b> rather than as substrings: <c>menu-run</c> is the menu over a
-    /// town and <c>menu</c> is the menu with none loaded, which a substring test cannot tell apart. A
-    /// word nobody offers is an error rather than a silent fallback.
+    /// The words are matched <b>whole</b> rather than as substrings: <c>menu-debug</c> is the debug page
+    /// and <c>menu</c> is the map page, which a substring test cannot tell apart. A word nobody offers
+    /// is an error rather than a silent fallback.
     /// </remarks>
     public void Apply(string[] wanted)
     {
@@ -122,30 +132,18 @@ internal sealed class Interface
                     break;
                 case "menu-scenarios":
                     Menu.Show();
-                    Menu.OpenAt(Menu.Scenarios);
+                    Menu.OpenAt(Menu.Maps);
+                    Menu.OpenGroup(Menu.Scenarios);
                     break;
-                case "menu-checks":
+                case "menu-debug":
                     Menu.Show();
-                    Menu.OpenAt(Menu.Checks);
+                    Menu.OpenAt(Menu.Debug);
                     break;
-                case "menu-layers":
-                    Menu.Show();
-                    Menu.OpenAt(Menu.Layers);
-                    break;
-                case "menu-seeds":
-                    Menu.Show();
-                    Menu.OpenAt(Menu.Seeds);
-                    break;
-                case "menu-pace":
-                    Menu.Show();
-                    Menu.OpenAt(Menu.Pace);
-                    break;
-                case "menu-controls":
-                    Menu.Show();
-                    Menu.OpenAt(Menu.Controls);
+                case "controls":
+                    Controls.Show();
                     break;
                 case "frame":
-                    Switches.Toggle(ref Switches.FrameReadout);
+                    Status.Show();
                     break;
                 case "car-lines":
                     Switches.Toggle(ref Switches.CarLines);
@@ -162,36 +160,96 @@ internal sealed class Interface
                 case "collision":
                     Switches.Toggle(ref Switches.Collision);
                     break;
+                case "turn-circles":
+                    Switches.Toggle(ref Switches.TurnCircles);
+                    break;
                 case "ruler":
                     Switches.Toggle(ref Switches.Ruler);
                     break;
                 case "track":
                     Switches.Toggle(ref Switches.TrackFigures);
                     break;
+                case "scenario":
+                    Scenario.Show();
+                    break;
                 default:
                     throw new ArgumentException(
-                        $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-checks, menu-layers, " +
-                        "menu-seeds, menu-pace, menu-controls, menu-run, frame, car-lines, walker-lines, nodes, " +
-                        "reservations, collision, ruler, track.");
+                        $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-run, " +
+                        "controls, frame, scenario, car-lines, walker-lines, nodes, reservations, collision, " +
+                        "turn-circles, ruler, track.");
             }
         }
     }
 
     /// <summary>
-    /// A click over a running town, offered to the interface before the town underneath it.
+    /// A click, offered to the interface before the town underneath it.
     /// <b>A panel that is drawn over the town takes the clicks that land on it</b> — a read-out whose
     /// figures could be clicked through was a read-out that selected whatever car was behind it.
     /// </summary>
-    public ClickTaken Click(Vector2 atPx)
+    /// <remarks>
+    /// <b>A click off an open popup shuts it, and is taken.</b> Dismissing a panel and selecting the car
+    /// that happened to be under the pointer are two different intentions, and one click is one of them.
+    /// </remarks>
+    /// <param name="primary">Whether it was the left button. Anything else is swallowed but acts on nothing.</param>
+    /// <param name="hasTown">
+    /// Whether there is anything behind the menu. With none there is nothing to shut it onto (GEN-1b), so
+    /// a click off it is dropped rather than closing it onto an empty screen.
+    /// </param>
+    public ClickTaken Click(Vector2 atPx, Vector2 uiPx, bool primary, bool hasTown, out MenuChoice choice)
     {
-        // The gear is the only piece of furniture a click acts on; everything else the interface
-        // offers is a page of the menu itself.
-        if (Hud.Gear.Contains(atPx)) return ClickTaken.Gear;
+        choice = MenuChoice.None;
 
-        if (Switches.FrameReadout && Readout.Click(atPx)) return ClickTaken.Yes;
+        var gear = Chrome.GearAt(uiPx);
+        var help = Chrome.HelpAt(uiPx);
+        if (gear.Contains(atPx))
+        {
+            if (primary)
+            {
+                Menu.Toggle();
+                Controls.Shut();
+            }
+
+            return ClickTaken.Yes;
+        }
+
+        if (help.Contains(atPx))
+        {
+            if (primary)
+            {
+                Controls.Toggle();
+                Menu.Shut();
+            }
+
+            return ClickTaken.Yes;
+        }
+
+        if (Menu.Open && Menu.Box.Contains(atPx))
+        {
+            if (primary) choice = Menu.Click(atPx, Switches);
+            return ClickTaken.Yes;
+        }
+
+        if (Controls.Open && Controls.Box.Contains(atPx)) return ClickTaken.Yes;
+
+        // Off an open popup: it shuts, and the town does not also see the click.
+        if (Controls.Open || (Menu.Open && hasTown))
+        {
+            Controls.Shut();
+            if (hasTown) Menu.Shut();
+            return ClickTaken.Yes;
+        }
+
+        if (!hasTown) return ClickTaken.Yes;
+
+        if (Status.Click(atPx)) return ClickTaken.Yes;
+
+        if (Scenario.Click(atPx)) return ClickTaken.Yes;
 
         return Switches.TrackFigures && Track.Click(atPx) ? ClickTaken.Yes : ClickTaken.No;
     }
+
+    /// <summary>Whether the pointer is over a panel that would rather have the wheel than the camera.</summary>
+    public bool WheelIsThePanels(Vector2 atPx) => Menu.Open && Menu.Box.Contains(atPx);
 
     /// <summary>The town has changed under everything that held a place in it.</summary>
     public void TownChanged()
@@ -199,7 +257,9 @@ internal sealed class Interface
         Overlay.TownChanged();
         Ruler.TownChanged();
         Track.TownChanged();
+        Scenario.TownChanged();
         Menu.Shut();
+        Controls.Shut();
     }
 
     /// <summary>Everything the interface draws this frame, and how many quads it came to.</summary>
@@ -214,54 +274,57 @@ internal sealed class Interface
         var ground = new ScreenDraw(under);
         underWritten = 0;
 
-        // GEN-1b: with no map loaded there is nothing to draw an interface over, and the menu is the
-        // whole of what is on screen. It is the same panel either way — only what is behind it changes.
-        if (frame.World is null)
-        {
-            Menu.Draw(
-                ref draw, frame.UiPx, frame.PointerPx, hasTown: false, Switches, Run, frame.WorldSeed,
-                frame.AgentSeed);
-            return draw.Written;
-        }
-
         var world = frame.World;
-        Overlay.Draw(
-            ref draw, ref ground, world, frame.Config, Switches, frame.Camera.CentreM,
-            frame.Camera.ViewSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
-
-        underWritten = ground.Written;
-
-        if (Switches.Ruler)
+        if (world is not null)
         {
-            Ruler.Draw(
-                ref draw, frame.Camera, frame.UiPx, frame.Camera.WorldAt(frame.PointerPx, frame.UiPx));
+            Overlay.Draw(
+                ref draw, ref ground, world, frame.Config, Switches, frame.Camera.CentreM,
+                frame.Camera.ViewSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
+
+            underWritten = ground.Written;
+
+            // Over the bodies and under every panel: the mark stands where the unit is, so it belongs with
+            // the town rather than with the furniture (CTL-1). Its path goes down first, so the brackets and
+            // the goal mark stand over the line rather than under it (CTL-1a).
+            SelectionPath.Draw(ref draw, world, frame.Config, frame.Camera.PixelsPerMetre);
+            SelectionMark.Draw(ref draw, world, frame.Config, frame.Camera.PixelsPerMetre);
+
+            // Over the marks and under the panels: the box is being drawn now and the brackets say what
+            // was picked out before it (CTL-1b).
+            Marquee.Draw(ref draw, frame.MarqueePx);
+
+            if (Switches.Ruler)
+            {
+                Ruler.Draw(
+                    ref draw, frame.Camera, frame.UiPx, frame.Camera.WorldAt(frame.PointerPx, frame.UiPx));
+            }
+
+            Status.Draw(
+                ref draw, frame.PointerPx, frame.MapName, Run, frame.Tick, frame.Frame, frame.Crossings, draw.Written,
+                world, Overlay.Relaid);
+
+            // The proving ground's own read-out, over the furniture it sits under and behind the popups.
+            if (Switches.TrackFigures && frame.Track is { } track)
+            {
+                Track.Draw(ref draw, frame.PointerPx, Status.Box.Bottom + Theme.GapPx, track);
+            }
+
+            // What the map claims about itself, along the bottom. It is furniture and has no switch: a
+            // town that has broken one of its own claims says so without being asked, and the rows behind
+            // that line are what the title opens.
+            Scenario.Draw(ref draw, frame.UiPx, frame.PointerPx, frame.MapName, frame.Scenario);
+
+            // The legend is furniture, has no switch, and is drawn from the moment a town is standing.
+            ScaleLegend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);
         }
 
-        Hud.Draw(
-            ref draw, frame.UiPx, frame.PointerPx, frame.MapName, frame.WorldSeed, frame.AgentSeed, world, Run,
-            frame.Tick);
+        // GEN-1b: with no map loaded there is nothing to draw an interface over, and the menu is the
+        // whole of what is on screen. It is the same popup either way — only what is behind it changes.
+        Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, world, Menu.Open, Controls.Open);
 
-        if (Switches.FrameReadout)
-        {
-            Readout.Draw(
-                ref draw, frame.UiPx, frame.PointerPx, frame.Frame, frame.Crossings, draw.Written, world,
-                Overlay.Relaid);
-        }
-
-        // The proving ground's own read-out, over the furniture it sits under and behind the menu.
-        if (Switches.TrackFigures && frame.Track is { } track) Track.Draw(ref draw, frame.PointerPx, track);
-
-        // The legend is furniture, has no switch, and is drawn from the moment a town is standing.
-        ScaleLegend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);
-
-        // Last of all, over the furniture as well as the layers: the menu takes the whole screen, and
-        // it takes it without the town behind it being torn down.
-        if (Menu.Open)
-        {
-            Menu.Draw(
-                ref draw, frame.UiPx, frame.PointerPx, hasTown: true, Switches, Run, frame.WorldSeed,
-                frame.AgentSeed);
-        }
+        // Last of all, over the furniture as well as the layers.
+        if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches);
+        if (Controls.Open) Controls.Draw(ref draw, frame.UiPx, Chrome.HelpAt(frame.UiPx));
 
         return draw.Written;
     }

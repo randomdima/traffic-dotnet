@@ -13,9 +13,9 @@ namespace TrafficSimulation.Tests.World;
 /// <summary>
 /// The catalogue in a running town: that every entry this engine has built is actually reached, that
 /// nothing stands still with no clock against it, and that a car <b>slows for a crossing and stops
-/// short of one somebody is on</b> (`P-12`).
+/// short of one somebody is on</b> (CAR-7b, TER-4c.1) — which no entry of the catalogue does, so what is
+/// asserted here is the profile these tests can only see through the bodies.
 /// </summary>
-[Collection(TrafficSimulation.Tests.Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Town)]
 public class ManeuverTests
 {
@@ -29,38 +29,47 @@ public class ManeuverTests
     /// </summary>
     const int MeasuredTicks = 7_200;
 
-    static TownWorld Open(string map) => new(Towns.Fresh(map), Config);
+    static TownWorld Open(string map) => new(Towns.Of(map), Config);
 
     /// <summary>
     /// <b>An entry nothing can reach is a finding.</b> These are the ones this engine has built, and a
     /// change that quietly stops naming one of them is a manoeuvre that has become unenterable —
     /// exactly the fault the trace exists for.
     /// </summary>
+    /// <remarks>
+    /// <b>The fixture first and the city after it, because reachability is the engine's property and not
+    /// the map's.</b> The fixture is a dozen junctions and a handful of cars: whether one of them is ever
+    /// refused a box in two minutes turns on the phase offsets, so an entry that is only reached there by a
+    /// single event is one a re-timed junction can silently take away. What the claim is about is that
+    /// something in the town still names each of them, and a town nothing reaches an entry in is the finding.
+    /// </remarks>
     [Fact]
-    public void EveryEntryThisEngineBuildsIsReachedOnTheFixtureMap()
+    public void EveryEntryThisEngineBuildsIsReached()
     {
-        using var world = Open(Towns.Fixture);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(MeasuredTicks);
+        using var fixture = Open(Towns.Fixture);
+        new SimLoop<TownWorld>(fixture, Config).Advance(MeasuredTicks);
+
+        using var city = Open("Odesa");
+        new SimLoop<TownWorld>(city, Config).Advance(MeasuredTicks);
 
         Maneuver[] built =
         [
             Maneuver.LeaveTheBay, Maneuver.RunTheLine, Maneuver.HoldAtALine,
-            Maneuver.TakeTheJunction, Maneuver.PassACrossing, Maneuver.ParkInTheBay, Maneuver.StandParked,
+            Maneuver.TakeTheJunction, Maneuver.ParkInTheBay, Maneuver.StandParked,
         ];
 
         foreach (var entry in built)
         {
             Assert.True(
-                world.Trace.EverEntered(entry),
-                $"{Maneuvers.Code(entry)} was never entered in a minute of the fixture map: nothing reaches it");
+                fixture.Trace.EverEntered(entry) || city.Trace.EverEntered(entry),
+                $"{Maneuvers.Code(entry)} was never entered in two minutes of either town: nothing reaches it");
         }
     }
 
     /// <summary>
     /// <b>There is no state a car can stand still in that nothing is running for.</b> The watchdog has
-    /// every driven car, the light has the ones queueing at one, and the give-way patience has the ones
-    /// waiting in their bays — so this counter is zero or the wiring has a hole in it.
+    /// every driven car and the light has the ones queueing at one — so this counter is zero or the wiring
+    /// has a hole in it.
     /// </summary>
     [Theory]
     [InlineData("Test")]
@@ -75,7 +84,7 @@ public class ManeuverTests
     }
 
     /// <summary>
-    /// `P-12` (1): <b>a car reduces its pace over a crossing whether or not anybody is visible.</b>
+    /// CAR-7b: <b>a car reduces its pace over a crossing whether or not anybody is visible.</b>
     /// Measured on the bodies rather than on the intent — what is asserted is the speed of cars whose
     /// own body is on the paint.
     /// </summary>
@@ -99,12 +108,11 @@ public class ManeuverTests
     [InlineData("River")]
     public void CarsCrossTheirZebrasAtCrossingPace(string map)
     {
-        var plan = Towns.Fresh(map);
+        var plan = Towns.Of(map);
         using var world = new TownWorld(plan, Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
 
-        var capMps = Config.CarCrossingPaceMps * 1.5f;
         var onThePaint = 0;
 
         // When each crossing last held its own kerbs. A phase that has just turned cannot bind a car that
@@ -135,9 +143,15 @@ public class ManeuverTests
                 onThePaint++;
                 var speedMps = world.Cars.VelocityMps[car].Length();
                 var context = world.Cars.Context[car];
+
+                // <b>The pace this car owes, and not the nominal car's</b> (CAR-11): a crossing is
+                // approached at a creep sized by the body doing the creeping, so a long car is allowed the
+                // fraction more it is longer by. The half again is what a body still clearing the paint has.
+                var capMps = world.Cars.BuildOf(car).CrossingPaceMps * 1.5f;
                 Assert.True(
                     speedMps <= capMps,
-                    $"{map}: car {car} crossed the paint at {speedMps:F1} m/s against a pace of {Config.CarCrossingPaceMps:F1} m/s " +
+                    $"{map}: car {car} crossed the paint at {speedMps:F1} m/s against a pace of " +
+                    $"{world.Cars.BuildOf(car).CrossingPaceMps:F1} m/s " +
                     $"— doing {Maneuvers.Code(world.Cars.Doing[car])}, held by {world.Cars.Hold[car]}, " +
                     $"crossing at {context.CrossingAtM:F1} m at {context.CrossingPaceMps:F1} m/s, " +
                     $"lanes {world.Cars.Line[car].LaneCount}");
@@ -148,13 +162,13 @@ public class ManeuverTests
     }
 
     /// <summary>
-    /// `P-12`'s yield, staged rather than waited for: a body standing on the paint in front of a car
+    /// The yield (TER-5e), staged rather than waited for: a body standing on the paint in front of a car
     /// is a stop point on that car's own line, and the driver holds short of it.
     /// </summary>
     [Fact]
     public void ACarSlowsForSomebodyStandingOnTheCrossing()
     {
-        var plan = Towns.Fresh(Towns.Fixture);
+        var plan = Towns.Of(Towns.Fixture);
         using var world = new TownWorld(plan, Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
@@ -172,15 +186,15 @@ public class ManeuverTests
         Assert.True(held > 0, "no car was ever limited by a crossing on a map that has five of them");
     }
 
-    /// <summary>
-    /// Which crossing's paint a point stands on, or −1. <b>The depth runs with the traffic and the span
-    /// across it</b>, which is the one thing about the crossing register that is easy to get backwards.
-    /// </summary>
     /// <summary>Whether this crossing is holding its own kerbs, which is the driver's exemption from the pace.</summary>
     static bool KerbsAreRed(TownWorld world, int crossing) =>
         world.Signals.CrossingIsLit(crossing)
         && world.Signals.ForCrossing(crossing, world.ElapsedS) != SignalColour.Green;
 
+    /// <summary>
+    /// Which crossing's paint a point stands on, or −1. <b>The depth runs with the traffic and the span
+    /// across it</b>, which is the one thing about the crossing register that is easy to get backwards.
+    /// </summary>
     static int CrossingUnder(TrafficSimulation.CityGen.CityPlan plan, Vector2 pointM)
     {
         var crossings = plan.Crosswalks;

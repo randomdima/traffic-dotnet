@@ -1,0 +1,7 @@
+{
+  "variants": [
+    "../ambulance_white/ambulance_white.json",
+    "../police_white/police_white.json",
+    "../evacuator_yellow/evacuator_yellow.json"
+  ]
+}

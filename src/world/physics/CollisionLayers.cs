@@ -14,6 +14,12 @@ internal enum CollisionLayer : ulong
 
     Person = 1UL << 1,
     Car = 1UL << 2,
+
+    /// <summary>
+    /// A body already lying in the road (PHY-5b): the town's traffic passes through it and it through the
+    /// traffic. The ground it fetched up against is all that is left holding it.
+    /// </summary>
+    Downed = 1UL << 3,
 }
 
 /// <summary>
@@ -36,7 +42,7 @@ internal enum CollisionLayer : ulong
 internal static class CollisionLayers
 {
     /// <summary>How many layers there are, which is how wide the matrix is.</summary>
-    public const int Count = 3;
+    public const int Count = 4;
 
     /// <summary>
     /// What each layer goes looking for, in layer order. This is the declaration and the masks are
@@ -47,6 +53,11 @@ internal static class CollisionLayers
         CollisionLayer.None,
         CollisionLayer.Static | CollisionLayer.Person | CollisionLayer.Car,
         CollisionLayer.Static | CollisionLayer.Person | CollisionLayer.Car,
+
+        // The one row that scans less than the whole town, and it is the closure that makes it mean
+        // anything: neither of the two rows above names Downed, so a casualty is in nobody's mask and
+        // nothing but the ground can reach it (PHY-5b).
+        CollisionLayer.Static,
     ];
 
     static readonly CollisionLayer[] Masks = Symmetrise(Scans);

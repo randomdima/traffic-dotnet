@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -20,7 +21,14 @@ public class JunctionCrossingTests
 
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
 
-    static RoadGraph GraphOf(string map) => RoadGraph.Build(Towns.Of(map), Config);
+    /// <summary>
+    /// <b>One map's road graph, built once and read by every claim about it.</b> It is a function of the plan
+    /// and the figures and nothing here writes to it, so seven claims over eight maps were fifty-six builds
+    /// of the same eight graphs.
+    /// </summary>
+    static RoadGraph GraphOf(string map) => Graphs.GetOrAdd(map, at => RoadGraph.Build(Towns.Of(at), Config));
+
+    static readonly ConcurrentDictionary<string, RoadGraph> Graphs = new();
 
     /// <summary>How finely a section is measured for itself — well under the step the table was built at.</summary>
     const float StepM = 0.1f;
@@ -37,17 +45,18 @@ public class JunctionCrossingTests
 
         for (var slot = 0; slot < roads.TurnCount; slot++)
         {
-            foreach (ref readonly var section in roads.Crossings.Of(slot))
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
             {
-                Assert.NotEqual(slot, section.OnTurn);
+                var crossed = roads.TurnOfWay(section.OnWay);
+                Assert.NotEqual(slot, crossed);
 
                 var back = false;
-                foreach (ref readonly var other in roads.Crossings.Of(section.OnTurn))
+                foreach (ref readonly var other in roads.Crossings.Of(section.OnWay))
                 {
-                    back |= other.OnTurn == slot;
+                    back |= roads.TurnOfWay(other.OnWay) == slot;
                 }
 
-                Assert.True(back, $"{map}: turn {slot} takes ground off {section.OnTurn} and not the other way round");
+                Assert.True(back, $"{map}: turn {slot} takes ground off {crossed} and not the other way round");
             }
         }
     }
@@ -63,9 +72,9 @@ public class JunctionCrossingTests
         for (var slot = 0; slot < roads.TurnCount; slot++)
         {
             var node = roads.LaneToNode[lanes[slot]];
-            foreach (ref readonly var section in roads.Crossings.Of(slot))
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
             {
-                Assert.Equal(node, roads.LaneToNode[lanes[section.OnTurn]]);
+                Assert.Equal(node, roads.LaneToNode[lanes[roads.TurnOfWay(section.OnWay)]]);
             }
         }
     }
@@ -90,13 +99,14 @@ public class JunctionCrossingTests
 
         for (var slot = 0; slot < roads.TurnCount; slot++)
         {
-            foreach (ref readonly var section in roads.Crossings.Of(slot))
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
             {
                 measured++;
-                var apartM = NearestOverTheSection(roads, slot, section.OnTurn, section.FromM, section.ToM);
+                var crossed = roads.TurnOfWay(section.OnWay);
+                var apartM = NearestOverTheSection(roads, slot, crossed, section.FromM, section.ToM);
                 Assert.True(
                     apartM <= reachM,
-                    $"{map}: turn {slot} takes {section.FromM:0.0}–{section.ToM:0.0} m of {section.OnTurn}, "
+                    $"{map}: turn {slot} takes {section.FromM:0.0}–{section.ToM:0.0} m of {crossed}, "
                     + $"whose far end stands {apartM:0.00} m off it");
             }
         }
@@ -170,7 +180,7 @@ public class JunctionCrossingTests
                 }
 
                 Assert.True(
-                    roads.Crossings.Of(slot).Length < atTheNode.Count - 1 || atTheNode.Count < 2,
+                    roads.Crossings.Of(roads.WayOfTurn(slot)).Length < atTheNode.Count - 1 || atTheNode.Count < 2,
                     $"{map}: movement {slot} is driven over every other one at its junction");
             }
         }
@@ -260,7 +270,7 @@ public class JunctionCrossingTests
 
         for (var slot = 0; slot < roads.TurnCount; slot++)
         {
-            foreach (ref readonly var run in roads.Crossings.OwnRuns(slot))
+            foreach (ref readonly var run in roads.Crossings.OwnRuns(roads.WayOfTurn(slot)))
             {
                 measured++;
                 for (var alongM = run.FromM; alongM <= run.ToM; alongM += StepM)
@@ -282,9 +292,9 @@ public class JunctionCrossingTests
     {
         var atM = Spline.SampleAt(roads.JoinArcs(slot), alongM).PositionM;
         var leastM = float.PositiveInfinity;
-        foreach (ref readonly var section in roads.Crossings.Of(slot))
+        foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
         {
-            var crossed = section.OnTurn;
+            var crossed = roads.TurnOfWay(section.OnWay);
             leastM = MathF.Min(leastM, ToChainM(roads.JoinArcs(crossed), roads.JoinLengthM(crossed), atM));
         }
 
@@ -293,9 +303,9 @@ public class JunctionCrossingTests
 
     static bool Takes(RoadGraph roads, int slot, int other)
     {
-        foreach (ref readonly var section in roads.Crossings.Of(slot))
+        foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
         {
-            if (section.OnTurn == other) return true;
+            if (section.OnWay == roads.WayOfTurn(other)) return true;
         }
 
         return false;

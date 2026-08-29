@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
@@ -21,7 +22,13 @@ public class JunctionClaimTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    const int Ticks = 3_600;
+    /// <summary>
+    /// Two minutes of the town. <b>A minute is not long enough to witness the exchange from both ends</b>
+    /// (<see cref="ACrossingIsTakenFromAMovementThatGivesWayToIt"/>): a fleet whose cars accelerate and
+    /// brake at their own rates (CAR-11) arrives at the junctions less regularly than one nominal car
+    /// repeated, so the rarer half of the right-of-way trade needs a longer watch to turn up at all.
+    /// </summary>
+    const int Ticks = 7_200;
 
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
 
@@ -49,6 +56,93 @@ public class JunctionClaimTests
     const float StepM = 0.25f;
 
     /// <summary>
+    /// <b>One run of one map, watched by every claim below at once.</b> Each of them holds the first tick
+    /// it was broken on, or null, beside the census that says the run had anything to say about it at all.
+    /// </summary>
+    /// <remarks>
+    /// A claim is recorded rather than thrown on, so one broken claim still lets the other five be answered
+    /// off the same minute — and the field is written once, on the first tick that broke it, so what a red
+    /// test carries is the earliest moment and not the last.
+    /// </remarks>
+    sealed class Watched(int cars)
+    {
+        /// <summary>Which cars held a way through as of the previous tick, so a grant can be told from a hold.</summary>
+        public readonly bool[] Holding = new bool[cars];
+
+        /// <summary>
+        /// <b>How many of them were ever seen driving a route</b>, which is what says the run had anything
+        /// to ask about a junction. It is not the size of the fleet: a map may stand cars that never drive
+        /// the network at all — the skidpad holds every one of its wheels over — and counting those would
+        /// read as a town whose junctions granted nothing.
+        /// </summary>
+        public int Drivers { get; private set; }
+
+        readonly bool[] _drove = new bool[cars];
+
+        public void Drove(int car)
+        {
+            if (_drove[car]) return;
+
+            _drove[car] = true;
+            Drivers++;
+        }
+
+        public string? Disagreed, Waved, PastARed, MissedTheNearEdge, KeptWhatItPassed, TookGroundItCrosses,
+            Overlapped, CutFromBehind;
+
+        public int Granted, Reaching, WalkedUp, Whole, Crossed, AsFarAsASection, HeldByAClaim;
+
+        /// <summary>How many crossings were given to a movement over the ground a weaker one was holding (TER-5e).</summary>
+        public int TakenFromAWeakerMovement;
+
+        /// <summary>And how many were taken straight back off one by a movement that outranks it, in the same walk.</summary>
+        public int GivenUpToAStrongerMovement;
+    }
+
+    static readonly ConcurrentDictionary<string, Watched> Runs = new();
+
+    /// <summary>
+    /// The run this map's claims are all read off, taken once. <b>Six claims over six maps was thirty-six
+    /// minutes of town for six minutes of question</b>, and every one of them was watching the same six
+    /// towns do the same thing.
+    /// </summary>
+    static Watched Of(string map) => Runs.GetOrAdd(map, Watch);
+
+    /// <summary>
+    /// A minute of the town, with the book re-laid before it is read each tick — which is what
+    /// <see cref="ACarReservesTheBoxFromItsNearEdge"/> needs and what the claims that only read the fleet
+    /// are indifferent to.
+    /// </summary>
+    static Watched Watch(string map)
+    {
+        using var world = new TownWorld(Towns.Of(map), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        var found = new Watched(world.Cars.Count);
+
+        for (var tick = 0; tick < Ticks; tick++)
+        {
+            loop.Advance(1);
+            world.RebuildProximityIndex();
+
+            for (var car = 0; car < world.Cars.Count; car++)
+            {
+                if (OnARoute(world, car)) found.Drove(car);
+            }
+
+            TheDriverIsToldWhatTheRegistryHolds(world, map, tick, found);
+            NothingIsWavedOntoGroundAnotherCarIsCrossing(world, map, tick, found);
+            NothingStoppedAtARedHoldsTheGroundBeyondIt(world, map, tick, found);
+            AReservationReachesIntoTheBox(world, map, found);
+            TheBoxEmptiesBehindTheBody(world, map, tick, found);
+            NoGroundIsTakenOnAWayOnlyDrivenOver(world, map, found);
+            NoGrantReachesGroundAnotherBodyHas(world, map, tick, found);
+            NoClaimCutsAGrantFromBehindTheNose(world, map, tick, found);
+        }
+
+        return found;
+    }
+
+    /// <summary>
     /// <b>A car holds a way through exactly while it is told it does.</b> The two are one fact read by two
     /// readers — the registry, which refuses the traffic crossing it, and the driver, whose catalogue entry
     /// turns on it — and a tick in which they disagree is either a junction shut against a car nobody is
@@ -56,20 +150,23 @@ public class JunctionClaimTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void AWayThroughIsHeldExactlyWhileTheDriverIsToldItIs(string map)
+    public void AWayThroughIsHeldExactlyWhileTheDriverIsToldItIs(string map) =>
+        Assert.Null(Of(map).Disagreed);
+
+    /// <summary>What <see cref="AWayThroughIsHeldExactlyWhileTheDriverIsToldItIs"/> watches for.</summary>
+    static void TheDriverIsToldWhatTheRegistryHolds(TownWorld world, string map, int tick, Watched found)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        if (found.Disagreed is not null) return;
 
-        for (var tick = 0; tick < Ticks; tick++)
+        for (var car = 0; car < world.Cars.Count; car++)
         {
-            loop.Advance(1);
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                if (!OnARoute(world, car)) continue;
+            if (!OnARoute(world, car)) continue;
+            if (MovementOf(world, car) != CarFleet.NoWay == world.Cars.BoxIsOurs[car]) continue;
 
-                Assert.Equal(world.Cars.Crossing[car] != CarFleet.NoMovement, world.Cars.BoxIsOurs[car]);
-            }
+            found.Disagreed =
+                $"{map}: at tick {tick} the registry has car {car} on movement "
+                + $"{MovementOf(world, car)} and the driver was told {world.Cars.BoxIsOurs[car]}";
+            return;
         }
     }
 
@@ -96,41 +193,132 @@ public class JunctionClaimTests
     [MemberData(nameof(Maps))]
     public void NothingOnTheApproachIsGivenGroundAnotherCarIsCrossingOn(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        var held = new bool[world.Cars.Count];
-        var granted = 0;
+        var run = Of(map);
 
-        for (var tick = 0; tick < Ticks; tick++)
+        Assert.Null(run.Waved);
+        Assert.Equal(run.Drivers > 0, run.Granted > 0);
+    }
+
+    /// <summary>
+    /// <b>And a movement <em>is</em> given ground a weaker one was holding</b> (TER-5e). The claim above is
+    /// the safety half and passes in a town where the ranks are never compared at all; this is the other
+    /// half, and it is what says the right of way is running rather than merely written down.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Counted over the shipped towns rather than one of them</b>, because the exchange is a coincidence
+    /// of two streams: a turn across the oncoming traffic and the traffic it crosses share one green phase,
+    /// and which pair of cars meets in it is a fact about a fleet whose cars arrive at their own speeds
+    /// (CAR-11).
+    /// </para>
+    /// <para>
+    /// <b>One direction of the trade is asserted and the other is only counted.</b> The takeback is the
+    /// behaviour; <see cref="Watched.GivenUpToAStrongerMovement"/> is the same event seen from the car that
+    /// lost the ground <em>in the same walk that granted it</em>, which is a reporting artefact of judging
+    /// a tick from its end. It stopped arising in the shipped towns when commitment began to be judged a
+    /// decision ahead (<c>TownWorld.JunctionStopM</c>): a car near enough to be traded against is now
+    /// generally committed already, so the pair no longer lands inside one walk.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void ACrossingIsTakenFromAMovementThatGivesWayToIt()
+    {
+        var taken = 0;
+        foreach (var map in Towns.Shipped) taken += Of(map).TakenFromAWeakerMovement;
+
+        Assert.True(taken > 0, "no car in the shipped towns took a crossing off a movement that gives way to it");
+    }
+
+    /// <summary>What <see cref="NothingOnTheApproachIsGivenGroundAnotherCarIsCrossingOn"/> watches for.</summary>
+    /// <remarks>
+    /// <b>"Already" is measured from before the walk that granted, not from the end of the tick it landed
+    /// in.</b> The town writes both halves of a tick's crossings in one walk, so the fleet read afterwards
+    /// carries movements that were nobody's at the moment the one being judged was handed over — and a
+    /// reading that took the end of the tick for the state of it would call the second grant of a pair a
+    /// wave into the first.
+    /// </remarks>
+    static void NothingIsWavedOntoGroundAnotherCarIsCrossing(TownWorld world, string map, int tick, Watched found)
+    {
+        var heldBefore = (bool[])found.Holding.Clone();
+        for (var car = 0; car < world.Cars.Count; car++)
         {
-            loop.Advance(1);
-            for (var car = 0; car < world.Cars.Count; car++)
+            var crossing = MovementOf(world, car);
+            var isNew = crossing >= 0 && !found.Holding[car];
+            found.Holding[car] = crossing >= 0;
+            if (!isNew || world.Cars.InsideTheBox[car]) continue;
+
+            found.Granted++;
+            var waved = WhoWasAlreadyCrossingIt(world, map, tick, car, crossing, heldBefore, found);
+            found.Waved ??= waved;
+        }
+    }
+
+    /// <summary>
+    /// The car that already held ground the one being waved in is about to be driven over, or nothing —
+    /// which is the ordinary answer and the reason this is asked only of the tick a grant is made on.
+    /// </summary>
+    static string? WhoWasAlreadyCrossingIt(
+        TownWorld world, string map, int tick, int car, int crossing, bool[] heldBefore, Watched found)
+    {
+        for (var other = 0; other < world.Cars.Count; other++)
+        {
+            var theirs = MovementOf(world, other);
+            if (other == car || theirs < 0 || theirs == crossing || world.Cars.InsideTheBox[other]) continue;
+
+            // A movement this one has the right of way over gives its ground up rather than being waited
+            // behind (TER-5e) — while its holder can still stop short of the box. Past that it is
+            // committed, and a right of way orders who waits and never who is driven into.
+            //
+            // <b>Asked without the town's own decision's lead</b> (CanStillStopShortOfTheBox): what makes
+            // taking the ground unsafe is the car being unable to stop, and the town commits a car a
+            // decision <em>before</em> that so the book carrying its rank is never behind the road. Asked
+            // with the lead in it, every grant landing inside that lead reads as a car driven into — a
+            // picture of the safety margin rather than of a town that has run out of one.
+            var weaker = RankOf(world, other, theirs) < RankOf(world, car, crossing)
+                         && CanStillStopShortOfTheBox(world, other);
+
+            // And the same rule read from the other end. A movement that outranks this one and was on
+            // nothing when the walk began was granted <em>after</em> this one in that same walk: the ground
+            // was taken off this car rather than handed to it over that one, and this car gives it back on
+            // its own next ask (TER-5e). Judged off the end of the tick the pair looks like a wave into a
+            // car that was crossing, and the car that was crossing had not been given anything yet.
+            var stronger = RankOf(world, other, theirs) > RankOf(world, car, crossing)
+                           && !heldBefore[other];
+
+            foreach (ref readonly var section in world.Roads.Crossings.Of(world.Roads.WayOfTurn(crossing)))
             {
-                var crossing = world.Cars.Crossing[car];
-                var isNew = crossing >= 0 && !held[car];
-                held[car] = crossing >= 0;
-                if (!isNew || world.Cars.InsideTheBox[car]) continue;
-
-                granted++;
-                for (var other = 0; other < world.Cars.Count; other++)
+                if (world.Roads.TurnOfWay(section.OnWay) != theirs) continue;
+                if (stronger)
                 {
-                    var theirs = world.Cars.Crossing[other];
-                    if (other == car || theirs < 0 || theirs == crossing || world.Cars.InsideTheBox[other]) continue;
-
-                    foreach (ref readonly var section in world.Roads.Crossings.Of(crossing))
-                    {
-                        Assert.True(
-                            section.OnTurn != theirs,
-                            $"{map}: car {car} was given {crossing} at tick {tick} while car {other} held "
-                            + $"{theirs}, and {crossing} is driven over "
-                            + $"{section.FromM:0.0}–{section.ToM:0.0} m of {theirs}");
-                    }
+                    found.GivenUpToAStrongerMovement++;
+                    break;
                 }
+
+                if (weaker)
+                {
+                    found.TakenFromAWeakerMovement++;
+                    break;
+                }
+
+                return $"{map}: car {car} was given {crossing} at tick {tick} while car {other} held "
+                       + $"{theirs} {world.Cars.ToTheBoxM[other]:0.0} m off a box it needs "
+                       + $"{StoppingM(world, other):0.0} m to stop short of, and {crossing} is driven over "
+                       + $"{section.FromM:0.0}–{section.ToM:0.0} m of {theirs}";
             }
         }
 
-        Assert.Equal(world.Cars.Count > 0, granted > 0);
+        return null;
     }
+
+    /// <summary>
+    /// <b>The rank this car actually holds its movement at</b> (TER-5e): the turn's own, and
+    /// <see cref="RightOfWay.Emergency"/> for anybody answering a call (AMB-4, EVA-4, SRV-6). <b>It is the
+    /// car's and not the turn's</b>, because a blue light is exactly a rank a movement does not otherwise
+    /// carry — read off the turn alone, every claim a rescue takes off ordinary traffic reads as a car
+    /// waved into a junction.
+    /// </summary>
+    static RightOfWay RankOf(TownWorld world, int car, int turn) =>
+        world.Cars.BlueLight[car] ? RightOfWay.Emergency : world.Roads.RightOfWayOfTurn(turn);
 
     /// <summary>
     /// <b>Nothing waiting at a red holds the ground beyond it.</b> A phase greens the arms that do not
@@ -144,33 +332,69 @@ public class JunctionClaimTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void NothingStoppedAtARedHoldsAWayThroughTheJunctionBeyondIt(string map)
+    public void NothingStoppedAtARedHoldsAWayThroughTheJunctionBeyondIt(string map) =>
+        Assert.Null(Of(map).PastARed);
+
+    /// <summary>What <see cref="NothingStoppedAtARedHoldsAWayThroughTheJunctionBeyondIt"/> watches for.</summary>
+    static void NothingStoppedAtARedHoldsTheGroundBeyondIt(TownWorld world, string map, int tick, Watched found)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        if (found.PastARed is not null) return;
 
-        for (var tick = 0; tick < Ticks; tick++)
+        for (var car = 0; car < world.Cars.Count; car++)
         {
-            loop.Advance(1);
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                if (!OnARoute(world, car) || world.Cars.InsideTheBox[car]) continue;
-                if (world.Cars.Crossing[car] == CarFleet.NoMovement) continue;
+            if (!OnARoute(world, car) || world.Cars.InsideTheBox[car]) continue;
+            if (MovementOf(world, car) == CarFleet.NoWay) continue;
 
-                // A car past the point it could have stopped at is not waiting at anything: it is going
-                // in, and the ground it is going over is its own until it is out the far side. At the rate
-                // the profile actually brakes at on the ground under this car, which is what the town
-                // sizes every other stretch of road by and what it asks this same question at.
-                var brakingMps2 = CarFollower.BrakingMps2(Config, world.Cars.GroundCoefficient[car]);
-                var alongMps = MathF.Max(0f, world.Cars.AlongMps[car]);
-                if (world.Cars.ToTheBoxM[car] <= alongMps * alongMps / (2f * brakingMps2)) continue;
+            // A car past the point it could have stopped at is not waiting at anything: it is going
+            // in, and the ground it is going over is its own until it is out the far side. At the rate
+            // the profile actually brakes at on the ground under this car, which is what the town
+            // sizes every other stretch of road by and what it asks this same question at.
+            if (CommittedAsTheTownReadsIt(world, car)) continue;
+            if (float.IsPositiveInfinity(world.Cars.LightAheadM[car])) continue;
 
-                Assert.True(
-                    float.IsPositiveInfinity(world.Cars.LightAheadM[car]),
-                    $"{map}: car {car} holds movement {world.Cars.Crossing[car]} with a light "
-                    + $"stopping it {world.Cars.LightAheadM[car]:0.00} m short of the box");
-            }
+            found.PastARed =
+                $"{map}: car {car} holds movement {MovementOf(world, car)} with a light "
+                + $"stopping it {world.Cars.LightAheadM[car]:0.00} m short of the box at tick {tick}";
+            return;
         }
+    }
+
+    /// <summary>
+    /// <b>Whether the town is treating this car as committed to the box</b> — the same reading
+    /// <see cref="CarFleet.CommittedToTheBox"/> is written from, recomputed here rather than read, so that
+    /// what is asserted does not come out of the arithmetic that produced it.
+    /// </summary>
+    /// <remarks>
+    /// It carries <b>a decision's lead</b>: the book that hands a car's rank to everybody else is laid
+    /// before this tick's drivers decide, so a car that will be past stopping by the time the ranks are
+    /// next compared counts as committed now.
+    /// </remarks>
+    static bool CommittedAsTheTownReadsIt(TownWorld world, int car)
+    {
+        var alongMps = MathF.Max(0f, world.Cars.AlongMps[car]);
+        return world.Cars.ToTheBoxM[car] - (alongMps * Config.CarReactionS) <= StoppingM(world, car);
+    }
+
+    /// <summary>
+    /// <b>And whether it can stop at all</b>, with no lead in it. <b>The two are different questions and
+    /// the lead between them is the whole of the difference</b>: what makes ground unsafe to take is a car
+    /// that <em>cannot</em> stop, and the town commits a car a decision before that on purpose. Read the
+    /// led answer where the question is what the town believes, and this one where it is what the road
+    /// allows.
+    /// </summary>
+    static bool CanStillStopShortOfTheBox(TownWorld world, int car) =>
+        world.Cars.ToTheBoxM[car] > StoppingM(world, car);
+
+    /// <summary>
+    /// How much road this car needs to come to rest, <b>at the rate the profile actually brakes at on the
+    /// ground under it</b> — which is what the town sizes every other stretch of road by.
+    /// </summary>
+    static float StoppingM(TownWorld world, int car)
+    {
+        var brakingMps2 = CarFollower.BrakingMps2(
+            Config, world.Cars.BuildOf(car), world.Cars.GroundCoefficient[car]);
+        var alongMps = MathF.Max(0f, world.Cars.AlongMps[car]);
+        return alongMps * alongMps / (2f * brakingMps2);
     }
 
     /// <summary>
@@ -195,39 +419,54 @@ public class JunctionClaimTests
     [MemberData(nameof(Maps))]
     public void ACarReservesTheBoxFromItsNearEdge(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        var run = Of(map);
 
-        var reaching = 0;
-        for (var tick = 0; tick < Ticks; tick++)
+        Assert.Null(run.MissedTheNearEdge);
+
+        // A town where nothing ever drove a route proves nothing here, and that is a fact about the town
+        // rather than a pass.
+        Assert.Equal(run.Drivers > 0, run.Reaching > 0);
+    }
+
+    /// <summary>What <see cref="ACarReservesTheBoxFromItsNearEdge"/> watches for.</summary>
+    static void AReservationReachesIntoTheBox(TownWorld world, string map, Watched found)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
         {
-            loop.Advance(1);
-            world.RebuildProximityIndex();
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                if (!OnARoute(world, car) || world.Cars.Line[car].LaneCount < 2) continue;
+            if (!OnARoute(world, car) || world.Cars.Line[car].LaneCount < 2) continue;
 
-                var chain = world.Cars.ChainOf(car);
-                var slot = world.Roads.TurnSlot(chain[0], chain[1]);
-                var boundaryM = world.Cars.LaneEndsOf(car)[0];
+            var chain = world.Cars.ChainOf(car);
+            var slot = world.Roads.TurnSlot(chain[0], chain[1]);
+            var boundaryM = world.Cars.LaneEndsOf(car)[0];
 
-                // A car that asked for no road at all holds a stretch of no length: where its ground would
-                // begin is a fact about the body and is filled for every car, driven or not.
-                if (world.Cars.ReserveToM[car] <= world.Cars.ReserveFromM[car]) continue;
-                if (slot < 0 || world.Cars.ReserveToM[car] <= boundaryM) continue;
-                if (world.Cars.ReserveFromM[car] >= world.Cars.LaneStartsOf(car)[1]) continue;
+            // A car that asked for no road at all holds a stretch of no length: where its ground would
+            // begin is a fact about the body and is filled for every car, driven or not.
+            if (world.Cars.ReserveToM[car] <= world.Cars.ReserveFromM[car]) continue;
 
-                reaching++;
-                Assert.True(
-                    Holds(world, slot, car, LaneUse.Reserved),
-                    $"{map}: car {car} reserves {world.Cars.ReserveFromM[car]:0.00}–"
-                    + $"{world.Cars.ReserveToM[car]:0.00} m past a boundary at {boundaryM:0.00} m, "
-                    + $"and join {slot} has none of it");
-            }
+            // <b>Asked of the road the car got and not of the road it asked for</b> (TER-4c.1): the book
+            // holds the answer, so a car whose ask reached the boundary and whose grant did not has nothing
+            // in the box and is owed nothing there.
+            if (slot < 0 || world.GroundEndsAtM(car) <= boundaryM) continue;
+            if (world.Cars.ReserveFromM[car] >= world.Cars.LaneStartsOf(car)[1]) continue;
+
+            // A place cut into a road (GEN-4h) is a boundary with no box behind it: its two lanes meet at
+            // a point, so the join between them has no metres and a reservation over it holds nothing —
+            // which is the whole of what "no ground is lost to a place" means.
+            if (world.Roads.JoinLengthM(slot) <= 0f) continue;
+
+            found.Reaching++;
+            if (found.MissedTheNearEdge is not null) continue;
+
+            // <b>The road or the claim beyond it, because the seam between them is not the question</b>
+            // (<c>ClaimWhatTheAnswerTook</c>). What reaches into the box is the union of the two, and which
+            // side of it a given metre falls on moves with the answer the car was given this tick.
+            if (Holds(world, slot, car, LaneUse.Reserved) || Holds(world, slot, car, LaneUse.Claimed)) continue;
+
+            found.MissedTheNearEdge =
+                $"{map}: car {car} reserves {world.Cars.ReserveFromM[car]:0.00}–"
+                + $"{world.GroundEndsAtM(car):0.00} m past a boundary at {boundaryM:0.00} m, "
+                + $"and join {slot} has none of it";
         }
-
-        // A town with no cars proves nothing here, and that is a fact about the town rather than a pass.
-        Assert.Equal(world.Cars.Count > 0, reaching > 0);
     }
 
     /// <summary>
@@ -255,98 +494,104 @@ public class JunctionClaimTests
     [MemberData(nameof(CrossedMaps))]
     public void GroundIsGivenBackAsTheCarWorksThroughTheBox(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        var run = Of(map);
 
-        var walkedUp = 0;
-        var whole = 0;
-        for (var tick = 0; tick < Ticks; tick++)
+        Assert.Null(run.KeptWhatItPassed);
+        Assert.True(
+            run.WalkedUp > 0 && run.Whole > 0,
+            $"{map}: {run.WalkedUp} runs walked up, {run.Whole} held whole");
+    }
+
+    /// <summary>What <see cref="GroundIsGivenBackAsTheCarWorksThroughTheBox"/> watches for.</summary>
+    static void TheBoxEmptiesBehindTheBody(TownWorld world, string map, int tick, Watched found)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
         {
-            loop.Advance(1);
-            world.RebuildProximityIndex();
-            for (var car = 0; car < world.Cars.Count; car++)
+            var crossing = MovementOf(world, car);
+            if (crossing < 0 || !world.Cars.InsideTheBox[car]) continue;
+
+            var tailM = TailOnTheCrossingM(world, car, crossing);
+            if (float.IsNegativeInfinity(tailM)) continue;
+
+            // The same figure the town gives ground back on: the share of the margin a body keeps around
+            // itself that its own reservation carries behind its tail. It is not the clearance the
+            // sections were drawn at — those answer a different question.
+            var pastM = tailM - world.Cars.BuildOf(car).TailMarginM;
+            foreach (ref readonly var run in world.Roads.Crossings.OwnRuns(world.Roads.WayOfTurn(crossing)))
             {
-                var crossing = world.Cars.Crossing[car];
-                if (crossing < 0 || !world.Cars.InsideTheBox[car]) continue;
+                if (run.ToM <= pastM) continue;
 
-                var tailM = TailOnTheCrossingM(world, car, crossing);
-                if (float.IsNegativeInfinity(tailM)) continue;
-
-                // The same figure the town gives ground back on: the share of the margin a body keeps around
-                // itself that its own reservation carries behind its tail. It is not the clearance the
-                // sections were drawn at — those answer a different question.
-                var pastM = tailM - Config.CarTailMarginM;
-                foreach (ref readonly var run in world.Roads.Crossings.OwnRuns(crossing))
+                if (found.KeptWhatItPassed is null
+                    && !HoldsAllOf(world, crossing, car, MathF.Max(run.FromM, pastM), run.ToM))
                 {
-                    if (run.ToM <= pastM) continue;
-
-                    Assert.True(
-                        HoldsAllOf(world, crossing, car, MathF.Max(run.FromM, pastM), run.ToM),
+                    found.KeptWhatItPassed =
                         $"{map}: car {car} at {tailM:0.00} m into {crossing} at tick {tick} has let go of "
-                        + $"{MathF.Max(run.FromM, pastM):0.0}–{run.ToM:0.0} m of its own join");
-
-                    if (pastM <= run.FromM + Tolerance)
-                    {
-                        whole++;
-                        continue;
-                    }
-
-                    walkedUp++;
-                    Assert.False(
-                        HoldsAllOf(world, crossing, car, run.FromM, pastM),
-                        $"{map}: car {car} at {tailM:0.00} m into {crossing} at tick {tick} still holds "
-                        + $"{run.FromM:0.0}–{pastM:0.0} m of its own join, which its body is off");
+                        + $"{MathF.Max(run.FromM, pastM):0.0}–{run.ToM:0.0} m of its own join";
                 }
+
+                if (pastM <= run.FromM + Tolerance)
+                {
+                    found.Whole++;
+                    continue;
+                }
+
+                found.WalkedUp++;
+                if (found.KeptWhatItPassed is not null || !HoldsAllOf(world, crossing, car, run.FromM, pastM)) continue;
+
+                found.KeptWhatItPassed =
+                    $"{map}: car {car} at {tailM:0.00} m into {crossing} at tick {tick} still holds "
+                    + $"{run.FromM:0.0}–{pastM:0.0} m of its own join, which its body is off";
             }
         }
-
-        Assert.True(walkedUp > 0 && whole > 0, $"{map}: {walkedUp} runs walked up, {whole} held whole");
     }
 
     /// <summary>Ground on a join is metres, and a tail is arithmetic on floats: a millimetre is not a finding.</summary>
     const float Tolerance = 1e-2f;
 
     /// <summary>
-    /// <b>A car reserves the ways it drives and no others</b> (TER-5c). A movement is driven over the other
-    /// ways through its junction, and the ground where two of them meet used to be written onto both — so a
-    /// car approaching a box took a fan of joins it was never going to be on, and the box belonged to
-    /// whoever aimed at it rather than to whoever was in it.
+    /// <b>A car reserves the ways it drives and no others</b> (TER-5c). A movement crosses the other ways
+    /// through its junction, and writing it onto the ground where two of them meet would give a car
+    /// approaching a box a fan of joins it is never going to be on — the box would belong to whoever aimed
+    /// at it rather than to whoever is in it.
     /// </summary>
     /// <remarks>
-    /// Asked of the joins a car is driven over and not of every way in the town, because that is where the
-    /// marking used to land: what is left on those joins is the traffic actually going down them, which a
+    /// Asked of the joins a car is driven over and not of every way in the town, because that is where such
+    /// a marking would land: what is left on those joins is the traffic actually going down them, which a
     /// body standing in the box (<c>LieInTheBox</c>) is and a car merely crossing it is not.
     /// </remarks>
     [Theory]
     [MemberData(nameof(CrossedMaps))]
     public void ACarTakesNoGroundOnAWayItIsOnlyDrivenOver(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        var run = Of(map);
 
-        var crossed = 0;
-        for (var tick = 0; tick < Ticks; tick++)
+        Assert.Null(run.TookGroundItCrosses);
+        Assert.True(run.Crossed > 0, $"{map}: no car ever held a movement that crosses another");
+    }
+
+    /// <summary>What <see cref="ACarTakesNoGroundOnAWayItIsOnlyDrivenOver"/> watches for.</summary>
+    static void NoGroundIsTakenOnAWayOnlyDrivenOver(TownWorld world, string map, Watched found)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
         {
-            loop.Advance(1);
-            world.RebuildProximityIndex();
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                var crossing = world.Cars.Crossing[car];
-                if (crossing < 0 || !OnARoute(world, car)) continue;
+            var crossing = MovementOf(world, car);
+            if (crossing < 0 || !OnARoute(world, car)) continue;
 
-                foreach (ref readonly var section in world.Roads.Crossings.Of(crossing))
+            foreach (ref readonly var section in world.Roads.Crossings.Of(world.Roads.WayOfTurn(crossing)))
+            {
+                var crossed = world.Roads.TurnOfWay(section.OnWay);
+                found.Crossed++;
+                if (found.TookGroundItCrosses is not null || !Holds(world, crossed, car, LaneUse.Claimed))
                 {
-                    crossed++;
-                    Assert.False(
-                        Holds(world, section.OnTurn, car, LaneUse.Claimed),
-                        $"{map}: car {car} crossing on {crossing} has claimed ground on join "
-                        + $"{section.OnTurn}, which it is driven over at {section.FromM:0.0}–"
-                        + $"{section.ToM:0.0} m and will never be on");
+                    continue;
                 }
+
+                found.TookGroundItCrosses =
+                    $"{map}: car {car} crossing on {crossing} has claimed ground on join "
+                    + $"{crossed}, which it is driven over at {section.FromM:0.0}–"
+                    + $"{section.ToM:0.0} m and will never be on";
             }
         }
-
-        Assert.True(crossed > 0, $"{map}: no car ever held a movement that crosses another");
     }
 
     /// <summary>
@@ -372,59 +617,122 @@ public class JunctionClaimTests
     [MemberData(nameof(CrossedMaps))]
     public void NoGrantReachesGroundAnotherBodyHasOnACrossingWay(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        var index = world.Occupancy;
+        var run = Of(map);
 
-        var reaching = 0;
+        Assert.Null(run.Overlapped);
+        Assert.True(
+            run.AsFarAsASection > 0,
+            $"{map}: no car was ever granted road as far as one of its own crossings");
+    }
+
+    /// <summary>What <see cref="NoGrantReachesGroundAnotherBodyHasOnACrossingWay"/> watches for.</summary>
+    static void NoGrantReachesGroundAnotherBodyHas(TownWorld world, string map, int tick, Watched found)
+    {
+        var index = world.Occupancy;
         Span<LaneSlot> mine = stackalloc LaneSlot[32];
         Span<LaneSlot> theirs = stackalloc LaneSlot[32];
-        for (var tick = 0; tick < Ticks; tick++)
+
+        foreach (var way in index.OccupiedWays)
         {
-            loop.Advance(1);
-            world.RebuildProximityIndex();
-            foreach (var way in index.OccupiedWays)
+            if (index.WayIsLane(way)) continue;
+
+            var count = index.CopyTo(way, mine);
+            for (var at = 0; at < count; at++)
             {
-                if (index.WayIsLane(way)) continue;
+                var asked = mine[at];
+                if (asked.Use != LaneUse.Reserved || asked.Of != LaneRoster.Driving) continue;
+                if (world.Cars.InsideTheBox[asked.Occupant]) continue;
 
-                var count = index.CopyTo(way, mine);
-                for (var at = 0; at < count; at++)
+                var grantedToM = GrantedToM(world, asked);
+                foreach (ref readonly var section in world.Roads.Crossings.Of(way))
                 {
-                    var asked = mine[at];
-                    if (asked.Use != LaneUse.Reserved || asked.Of != LaneRoster.Driving) continue;
-                    if (world.Cars.InsideTheBox[asked.Occupant]) continue;
-
-                    var grantedToM = GrantedToM(world, asked);
-                    foreach (ref readonly var section in world.Roads.Crossings.Of(index.WayIndex(way)))
+                    // Reaching a section's near edge is the grant being cut at it, which is the whole
+                    // point: what is asserted is that nothing was granted road *past* one.
+                    //
+                    // <b>From the body's own nose and not from the near edge of the ground it holds.</b> A
+                    // stretch begins a margin behind its owner's tail, so a section between that edge and
+                    // the nose is one the body is already standing over — a place it has arrived at rather
+                    // than road it was granted, and one the traffic crossing there is refused by this very
+                    // stretch. Asked from the near edge instead, the assertion is that a car half way
+                    // through a turn must brake for the corner it came in by.
+                    if (section.MineFromM < asked.StandsToM
+                        || section.MineFromM >= grantedToM - Tolerance)
                     {
-                        // Reaching a section's near edge is the grant being cut at it, which is the whole
-                        // point: what is asserted is that nothing was granted road *past* one.
-                        if (section.MineFromM < asked.FromM
-                            || section.MineFromM >= grantedToM - Tolerance)
-                        {
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        reaching++;
-                        var over = index.CopyTo(index.WayOfTurn(section.OnTurn), theirs);
-                        for (var other = 0; other < over; other++)
-                        {
-                            if (theirs[other].Occupant == asked.Occupant && theirs[other].Of == asked.Of) continue;
-                            if (theirs[other].ToM <= section.FromM || theirs[other].FromM >= section.ToM) continue;
+                    found.AsFarAsASection++;
+                    if (found.Overlapped is not null) continue;
 
-                            Assert.Fail(
-                                $"{map}: car {asked.Occupant} is granted to {grantedToM:0.00} m of way "
-                                + $"{way} at tick {tick}, past a section at {section.MineFromM:0.00} m that "
-                                + $"runs over {section.FromM:0.0}–{section.ToM:0.0} m of join "
-                                + $"{section.OnTurn}, which {theirs[other].Of} {theirs[other].Occupant} "
-                                + $"holds from {theirs[other].FromM:0.00} to {theirs[other].ToM:0.00} m");
-                        }
+                    var over = index.CopyTo(section.OnWay, theirs);
+                    for (var other = 0; other < over; other++)
+                    {
+                        if (theirs[other].Occupant == asked.Occupant && theirs[other].Of == asked.Of) continue;
+                        if (theirs[other].ToM <= section.FromM || theirs[other].FromM >= section.ToM) continue;
+
+                        // Ground held by a movement this one has the right of way over is ground given up
+                        // rather than driven through (TER-5e): it is a claim, which is a piece of the world
+                        // its holder has not reached and is not committed to. A body, and the road a body is
+                        // committed to being able to stop in, still cut the grant here as they always did.
+                        if (!LaneOccupancy.Binds(theirs[other], asked.Right)) continue;
+
+                        found.Overlapped =
+                            $"{map}: car {asked.Occupant} is granted to {grantedToM:0.00} m of way "
+                            + $"{way} at tick {tick}, past a section at {section.MineFromM:0.00} m that "
+                            + $"runs over {section.FromM:0.0}–{section.ToM:0.0} m of join "
+                            + $"{section.OnWay}, which {theirs[other].Of} {theirs[other].Occupant} "
+                            + $"holds from {theirs[other].FromM:0.00} to {theirs[other].ToM:0.00} m";
+                        break;
                     }
                 }
             }
         }
+    }
 
-        Assert.True(reaching > 0, $"{map}: no car was ever granted road as far as one of its own crossings");
+    /// <summary>
+    /// <b>A claim never cuts a grant behind the nose that asked for it</b> (TER-5e). A claim is ground its
+    /// holder has not reached, so it is a place to be stopped a margin short of and never a body to be
+    /// found already inside — and a car held at one is therefore held at most its own margin past it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the fault a car frozen on a junction it had all but crossed reports.</b> The car queueing
+    /// behind for the same movement claims the run through the body in front of it, since a claim is laid
+    /// from where its holder's own road was cut; read as a cut, that claim answers the leader from a car's
+    /// length behind its own nose, and a grant of minus seven metres is a car no clear road in front of it
+    /// can ever release. What it looked like on screen was `P-8` queueing with nothing there to queue behind.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NoClaimCutsAGrantBehindTheNoseThatAskedForIt(string map) => Assert.Null(Of(map).CutFromBehind);
+
+    /// <summary>
+    /// The census the claim above is vacuous without. <b>Asked of the city and not of every map</b>: a
+    /// circuit nothing turns off and a scenario laid for pedestrians hold no claim to be cut at.
+    /// </summary>
+    [Fact]
+    public void ACarInTheCityIsHeldAtAClaim() =>
+        Assert.True(Of("Odesa").HeldByAClaim > 0, "no car in the city was ever held by a claim");
+
+    /// <summary>What <see cref="NoClaimCutsAGrantBehindTheNoseThatAskedForIt"/> watches for.</summary>
+    static void NoClaimCutsAGrantFromBehindTheNose(TownWorld world, string map, int tick, Watched found)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (world.Cars.GrantCutBy[car] != HeadwayKind.Claimed) continue;
+
+            found.HeldByAClaim++;
+            if (found.CutFromBehind is not null) continue;
+
+            // The margin the asker keeps off a place is the whole of what a claim may take off it
+            // (<c>LaneCredit.AtAPlaceM</c>), so anything further back was answered from behind the nose.
+            var marginM = world.Cars.BuildOf(car).BodyMarginM;
+            if (world.Cars.AuthorityM[car] >= -marginM - Tolerance) continue;
+
+            found.CutFromBehind =
+                $"{map}: car {car} was cut to {world.Cars.AuthorityM[car]:0.00} m at tick {tick} by a "
+                + $"claim, against a margin of {marginM:0.00} m — held by {world.Cars.Hold[car]} "
+                + $"at {world.Cars.AlongMps[car]:0.00} m/s";
+        }
     }
 
     /// <summary>
@@ -440,7 +748,8 @@ public class JunctionClaimTests
     static float GrantedToM(TownWorld world, in LaneSlot asked)
     {
         var car = asked.Occupant;
-        var noseM = world.Cars.ReserveFromM[car] + Config.CarTailMarginM + Config.Car.LengthM;
+        var noseM = world.Cars.ReserveFromM[car] + world.Cars.BuildOf(car).TailMarginM
+                    + world.Cars.BuildOf(car).LengthM;
         var overshotM = world.Cars.ReserveToM[car] - (world.Cars.AuthorityM[car] + noseM);
 
         return asked.ToM - MathF.Max(0f, overshotM);
@@ -486,7 +795,8 @@ public class JunctionClaimTests
         if (ahead + 1 >= world.Cars.Line[car].LaneCount) return float.NegativeInfinity;
         if (world.Roads.TurnSlot(chain[ahead], chain[ahead + 1]) != crossing) return float.NegativeInfinity;
 
-        return progressM + Config.CarNoseAheadOfAxleM - Config.Car.LengthM - world.Cars.LaneEndsOf(car)[ahead];
+        ref readonly var build = ref world.Cars.BuildOf(car);
+        return progressM + build.NoseAheadOfAxleM - build.LengthM - world.Cars.LaneEndsOf(car)[ahead];
     }
 
     /// <summary>
@@ -499,7 +809,7 @@ public class JunctionClaimTests
     [MemberData(nameof(CrossedMaps))]
     public void ABodyStandingInAJunctionIsOnTheJoinsThatCrossIt(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
+        using var world = new TownWorld(Towns.Of(map), Config);
         var (slot, crossing, atM) = WhereTwoMovementsCross(world.Roads)!.Value;
         var car = ACarOffTheParking(world, map);
 
@@ -511,7 +821,7 @@ public class JunctionClaimTests
 
         // A wreck is making nothing, so the registry has nothing to say about it — which is the whole
         // reason the ground under it has to.
-        Assert.Equal(CarFleet.NoMovement, world.Cars.Crossing[car]);
+        Assert.Equal(CarFleet.NoWay, world.Cars.MovementWay[car]);
         Assert.True(Holds(world, slot, car), $"{map}: join {slot}, which it is lying on, does not have it");
         Assert.True(Holds(world, crossing, car), $"{map}: join {crossing}, which crosses that one, does not have it");
     }
@@ -540,7 +850,7 @@ public class JunctionClaimTests
     [MemberData(nameof(CrossedMaps))]
     public void NoBodyIsOnAJoinItStandsClearOf(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
+        using var world = new TownWorld(Towns.Of(map), Config);
         var (_, _, atM) = WhereTwoMovementsCross(world.Roads)!.Value;
         var car = ACarOffTheParking(world, map);
 
@@ -548,8 +858,8 @@ public class JunctionClaimTests
         world.Cars.Broken[car] = true;
         world.Cars.VelocityMps[car] = Vector2.Zero;
 
-        var acrossM = (WidestLaneM(world.Roads) * 0.5f) + (Config.Car.WidthM * 0.5f);
-        var endM = Config.Car.LengthM * 0.5f;
+        var acrossM = (WidestLaneM(world.Roads) * 0.5f) + world.Cars.BuildOf(car).FlankM;
+        var endM = world.Cars.BuildOf(car).HalfLengthM;
         var reachM = MathF.Sqrt((acrossM * acrossM) + (endM * endM)) + StepM;
         var overM = Config.IntersectionReachM;
         var lying = 0;
@@ -576,9 +886,9 @@ public class JunctionClaimTests
                         var apartM = ToChainM(
                             world.Roads.JoinArcs(join), world.Roads.JoinLengthM(join),
                             world.Cars.PositionM[car]);
+                        if (apartM <= reachM) continue;
 
-                        Assert.True(
-                            apartM <= reachM,
+                        Assert.Fail(
                             $"{map}: a body at {across:0.0},{down:0.0} m from {atM} lies on join {join} and "
                             + $"stands {apartM:0.00} m off its line, past the {reachM:0.00} m a body covers");
                     }
@@ -611,6 +921,19 @@ public class JunctionClaimTests
     /// <summary>Whether the car is one the road is driving down a route of its own, which is what writes both fields.</summary>
     static bool OnARoute(TownWorld world, int car) =>
         world.Cars.Driven[car] && !world.Cars.Broken[car] && world.Cars.Line[car].LaneCount > 0;
+
+    /// <summary>
+    /// The junction movement this car is committed to, as the turn it is, or <see cref="CarFleet.NoWay"/>
+    /// where it is making none. <b>A bay's way out is a movement of the same kind and is not this file's
+    /// subject</b>: the town holds one field for both, and the tests below are about the box.
+    /// </summary>
+    static int MovementOf(TownWorld world, int car)
+    {
+        var way = world.Cars.MovementWay[car];
+        return way == CarFleet.NoWay || world.Occupancy.WayIsLane(way) || world.BayWays.IsBayWay(way)
+            ? CarFleet.NoWay
+            : world.Roads.TurnOfWay(way);
+    }
 
     /// <summary>Whether this join's own way has a stretch of this car on it, of the kind asked for.</summary>
     static bool Holds(TownWorld world, int slot, int car, LaneUse use = LaneUse.Obstruction)
@@ -653,12 +976,13 @@ public class JunctionClaimTests
     {
         for (var slot = 0; slot < roads.TurnCount; slot++)
         {
-            foreach (ref readonly var section in roads.Crossings.Of(slot))
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
             {
-                var arcs = roads.JoinArcs(section.OnTurn);
+                var crossed = roads.TurnOfWay(section.OnWay);
+                var arcs = roads.JoinArcs(crossed);
                 if (arcs.Length == 0) continue;
 
-                return (section.OnTurn, slot, Spline.SampleAt(arcs, (section.FromM + section.ToM) * 0.5f).PositionM);
+                return (crossed, slot, Spline.SampleAt(arcs, (section.FromM + section.ToM) * 0.5f).PositionM);
             }
         }
 

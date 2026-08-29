@@ -85,36 +85,39 @@ internal sealed partial class DebugOverlay
     /// How thick that edge is: under the standard debug line, because it is a boundary between two pieces
     /// of one body's ground and not a thing in its own right.
     /// </summary>
-    const float BlockEdgeM = PathLineM * 0.7f;
+    const float BlockEdgeM = PathMarks.PathLineM * 0.7f;
 
     static void LaneIndex(
         ref ScreenDraw draw, TownWorld world, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         var index = world.Occupancy;
-        var roads = world.Roads;
-        var sagM = SagPx / pixelsPerMetre;
+        var sagM = PathMarks.SagPx / pixelsPerMetre;
 
         Span<LaneSlot> slots = stackalloc LaneSlot[MostDrawnSlotsOnAWay];
         foreach (var way in index.OccupiedWays)
         {
             // A join belongs to two lanes and takes the width of the one it arrives on, which is the
-            // ground the car crossing it is heading for.
-            var lane = index.WayIsLane(way) ? index.WayIndex(way) : roads.TurnToLane(index.WayIndex(way));
-            var arcs = index.WayIsLane(way) ? roads.ArcsOf(lane) : roads.JoinArcs(index.WayIndex(way));
+            // ground the car crossing it is heading for; a way at a bay takes the width of the lane it
+            // leaves. Which band a way is in is the town's to say (<see cref="TownWorld.LineOfWay"/>).
+            var arcs = world.LineOfWay(way, out var widthM);
             if (arcs.Length == 0) continue;
 
             var count = index.CopyTo(way, slots);
             for (var slot = 0; slot < count; slot++)
             {
+                // Ground somebody is only *waiting* for is not ground anybody has (TER-5e), and this layer
+                // is whose the road is. Drawn in the asker's own colour it reads as a band that walker
+                // holds, which is the one thing about a refusal that is not true; where the wait is is the
+                // pavement's book, below.
+                if (slots[slot].Use == LaneUse.Awaited) continue;
+
                 // Clamped to the way rather than skipped: a stretch that runs off the end of a lane is a
                 // car halfway into the junction, and the half of it that is on this way is worth seeing.
                 var fromM = MathF.Max(0f, slots[slot].FromM);
                 var toM = MathF.Min(index.WayLengthM(way), slots[slot].ToM);
                 if (toM <= fromM) continue;
 
-                Block(
-                    ref draw, arcs, fromM, toM, sagM, roads.LaneWidthM[lane], Colour(slots[slot]), viewCentreM,
-                    viewSpanM);
+                Block(ref draw, arcs, fromM, toM, sagM, widthM, Colour(slots[slot]), viewCentreM, viewSpanM);
             }
         }
     }
@@ -149,7 +152,7 @@ internal sealed partial class DebugOverlay
     {
         var index = world.Footfall;
         var walking = world.Walking;
-        var sagM = SagPx / pixelsPerMetre;
+        var sagM = PathMarks.SagPx / pixelsPerMetre;
 
         Span<LaneSlot> slots = stackalloc LaneSlot[MostDrawnSlotsOnAWay];
         foreach (var way in index.OccupiedWays)
@@ -181,6 +184,55 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
+    /// <b>The bays that are spoken for, drawn as the bays they are</b> — washed where a body is standing in
+    /// one, outlined where a leg has only booked it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the one hold in the town that is not a piece of road</b> (GEN-4g), which is why it is the one
+    /// thing on this layer that is not a stretch of a way. A bay's ways are drawn to the rear axle and stop
+    /// there, so the block the book lays for a parked car covers the ground behind that axle and none of
+    /// the two metres of car in front of it — the picture of a taken bay has to come off the register that
+    /// takes it. What the block beside it then says is the narrower thing it has always said: which metres of
+    /// the way the traffic is held off.
+    /// </para>
+    /// <para>
+    /// <b>Washed is a body and outlined is a booking</b>, and that is a difference in what is being claimed
+    /// rather than a shade on one claim: somebody is standing here, against somebody is on their way and
+    /// nobody else may take it. A booking is minutes of walking long and holds no ground at all, so drawn
+    /// filled it would be a picture of a car that is not there.
+    /// </para>
+    /// </remarks>
+    static void TakenBays(
+        ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM)
+    {
+        var parking = world.Parking;
+        var sizeM = new Vector2(config.ParkingSpaceLengthM, config.ParkingSpaceWidthM);
+
+        // Walked over the cars and not over the bays: what makes a bay worth drawing is a car, and a town
+        // has more bays than it has cars to put in them.
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            var standingIn = parking.BayOf(car);
+            var bay = standingIn >= 0 ? standingIn : parking.BookingOf(car);
+            if (bay < 0) continue;
+
+            var centreM = parking.CentreM(bay);
+            if (!OnScreen(centreM, viewCentreM, viewSpanM, config.ParkingSpaceLengthM)) continue;
+
+            var colour = Theme.AgentLine(car);
+            var headingRad = parking.HeadingRad(bay);
+            if (standingIn >= 0)
+            {
+                var alongM = Heading.Unit(headingRad) * (config.ParkingSpaceLengthM * 0.5f);
+                draw.BandM(centreM - alongM, centreM + alongM, 0f, config.ParkingSpaceWidthM, colour * Washed);
+            }
+
+            draw.BoxM(centreM, sizeM, headingRad, BlockEdgeM, colour * Edged);
+        }
+    }
+
+    /// <summary>
     /// One stretch, as the piece of lane it is: a run of quads down the way at the lane's full width,
     /// butted end to end so the block bends with the ground under it — and <b>a thin bar across either
     /// end of it</b>.
@@ -205,7 +257,7 @@ internal sealed partial class DebugOverlay
         var reachM = ((tailM - headM).Length() * 0.5f) + widthM;
         if (!OnScreen((headM + tailM) * 0.5f, viewCentreM, viewSpanM, reachM)) return;
 
-        Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour * Washed);
+        PathMarks.Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour * Washed);
         Cap(ref draw, arcs, fromM, widthM, colour * Edged);
         Cap(ref draw, arcs, toM, widthM, colour * Edged);
     }

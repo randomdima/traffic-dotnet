@@ -28,7 +28,7 @@ internal static class E09SettleForHere
         if (scene.RecoveriesUsed > 1) return ManeuverStart.No;
         if (!scene.OnDrivableGround || scene.AcrossALane) return ManeuverStart.No;
 
-        desk.GiveUpTheReservation(scene.Car);
+        desk.GiveUpTheBooking(scene.Car);
         return ManeuverStart.Yes;
     }
 

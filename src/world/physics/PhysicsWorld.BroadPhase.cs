@@ -129,8 +129,8 @@ internal sealed partial class PhysicsWorld
     void Narrow(int first, int second)
     {
         if (!Shape.Collide(
-                _kind[first], _positionM[first], _rotation[first], _extentM[first],
-                _kind[second], _positionM[second], _rotation[second], _extentM[second],
+                _positionM[first], _rotation[first], _extentM[first], _cornerRadiusM[first],
+                _positionM[second], _rotation[second], _extentM[second], _cornerRadiusM[second],
                 _config.SolverSpeculativeM, out var manifold))
         {
             return;

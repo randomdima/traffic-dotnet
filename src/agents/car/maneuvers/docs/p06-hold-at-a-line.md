@@ -20,16 +20,25 @@ out a light from a car that has stopped for no reason at all.
 
 **Guards.** None of its own.
 
-**Bounds.** A car queueing at a light spends neither the blocked clock nor the stuck one — it is doing
-exactly what the light asked. Everything else it might be holding for does spend the blocked clock, and
+**Bounds.** A car queueing at a light spends neither the blocked clock nor the stuck one while the red is
+there — it is doing exactly what the light asked. **The light holds those clocks and never rewinds them**:
+a red comes round every cycle, so a wait excused by handing the clock back is a wait excused for ever, and
+only road covered gives it back. Everything else it might be holding for does spend the blocked clock, and
 that is what reaches the ladder.
 
 **Exits.**
 
 | | Successor |
 |---|---|
+| the place this car was sent to is near enough to be stopped for | `P-18` |
 | at rest at the end of the leg's last lane | the plan's next step — `P-14` |
 | nothing left to hold at **and the car is moving again** | `P-4` |
+
+**Why this entry hands over to `P-18` at all.** The place a car is ordered to is regularly the far side of
+a bar it is already creeping up to, so the entry in charge when the place comes near enough is this one and
+not `P-4` — and a car that misses the hand-over drives past its own destination and comes back round the
+block, because nothing else stops it there. Nothing about the line is given up by handing over: this entry
+sets no limits, and `P-18`'s stop point is another term in the minimum the bar is already in.
 
 **Why the exit follows the body and not the line.** A car at rest at a junction is bound by the box one
 tick and by the queue in front the next, and neither means the thing it stopped for has gone. This entry

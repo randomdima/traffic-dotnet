@@ -1,18 +1,22 @@
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Tests.Bench;
+using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.World.Town;
 using Xunit;
 
 namespace TrafficSimulation.Tests.Hud;
 
 /// <summary>
-/// <b>OBS-2a — the list the menu reads is the list the command line reads</b>, guarded in both
+/// <b>OBS-2a — the map list the menu reads is the map list the command line reads</b>, guarded in both
 /// directions: every entry names something that exists, and everything that exists is an entry.
 /// </summary>
 /// <remarks>
-/// A check nobody can launch is a check nobody runs, and a map that opens one way and not the other
-/// is two lists pretending to be one. Both halves fail here rather than in a menu somebody is
-/// looking at.
+/// A map that opens one way and not the other is two lists pretending to be one, and a probe listed
+/// under a name nothing dispatches is a probe nobody can run. Both fail here rather than in a menu
+/// somebody is looking at.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 public class CatalogueTests
@@ -35,11 +39,11 @@ public class CatalogueTests
     }
 
     /// <summary>
-    /// The menu cuts the maps into places and scenarios and shows nothing else, so the two pages
-    /// between them have to hold every map — a map on neither page is a map the menu cannot open.
+    /// The menu cuts the maps into places and scenarios and shows nothing else, so the two groups
+    /// between them have to hold every map — a map in neither is a map the menu cannot open.
     /// </summary>
     [Fact]
-    public void EveryMapIsOnExactlyOneMenuPage()
+    public void EveryMapIsInExactlyOneMenuGroup()
     {
         var places = MapCatalogue.On(MapKind.Place);
         var scenarios = MapCatalogue.On(MapKind.Scenario);
@@ -83,6 +87,41 @@ public class CatalogueTests
         {
             Printable(check.Name);
             Printable(check.Description);
+        }
+
+        foreach (var line in ControlsCard.Strings) Printable(line);
+    }
+
+    /// <summary>
+    /// <b>And every word a scenario's own panel draws</b> — the claims, the readings and the figures behind
+    /// them, which are written by the watches rather than authored in the interface. They are printed to a
+    /// console as well, where a superscript is free, so the one place it costs anything is the one place
+    /// nothing checks it by eye.
+    /// </summary>
+    [Fact]
+    public void EveryWordAScenarioPanelDrawsIsPrintableAscii()
+    {
+        var config = SimConfig.Shipped();
+        foreach (var map in ProjectPaths.ShippedMaps())
+        {
+            using var world = new TownWorld(Towns.Of(map), config);
+            foreach (var watch in Scenarios.For(world, config))
+            {
+                Printable(watch.Name);
+                Printable(watch.Subject);
+
+                for (var claim = 0; claim < watch.Claims; claim++)
+                {
+                    Printable(watch.Asks(claim));
+                    Printable(Claims.Says(watch, claim));
+                }
+
+                for (var reading = 0; reading < watch.Readings; reading++)
+                {
+                    Printable(watch.Reading(reading));
+                    Printable(Claims.Reads(watch, reading));
+                }
+            }
         }
     }
 

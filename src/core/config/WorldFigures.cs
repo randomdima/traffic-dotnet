@@ -23,7 +23,6 @@ internal sealed class RoadFigures
     /// <summary>Half the walk, which is what stands a corner 4.83 m deep against the straight's 4 m.</summary>
     public float PavementCornerRadiusM { get; init; } = 2f;
 
-    public float BridgeDeckMarginM { get; init; } = 1.5f;
     public float EdgeLineWidthM { get; init; } = 0.3f;
 
     /// <summary>One painted line: a lane dash, a bay stroke. A zebra's bar is twice it and a stop bar is the plan's own.</summary>
@@ -39,22 +38,28 @@ internal sealed class RoadFigures
 
     public float ZebraStripePitchM { get; init; } = 1f;
     public float ParkingSpaceMarginInCarWidths { get; init; } = 0.5f;
-    public float LotClearanceFromJunctionInCarLengths { get; init; } = 2f;
-    public float LotClearanceFromLotInCarLengths { get; init; } = 3f;
-    public float MidBlockCrossingSpacingM { get; init; } = 70f;
-    public float MidBlockCrossingChance { get; init; } = 0.3f;
+
+    /// <summary>
+    /// How far before a bay a way in leaves its lane: where a car drops to manoeuvring pace, and the
+    /// run-in the entry template needs to hold its own radius. It is also how far beyond a car park's
+    /// frontage the road is cut for it, so the run-in stands inside the section's own stretch.
+    /// </summary>
+    public float ParkingStagedInCarLengths { get; init; } = 3f;
+
+    /// <summary>
+    /// How much straight a parking template ends on, so the rack is unwound before the car is at rest in
+    /// the bay: a quarter of a car length, measured at 1.1° out of square against 12° with none.
+    /// </summary>
+    public float ParkingStraightensUpInCarLengths { get; init; } = 0.25f;
+
+    /// <summary>The shortest stretch a cut laid for a car park may leave standing on either side of itself.</summary>
+    public float ParkingSectionShortestStretchInCarLengths { get; init; } = 2f;
 }
 
-/// <summary>A building as the plan sizes it and as a trip uses it.</summary>
+/// <summary>A building as a trip uses it.</summary>
 internal sealed class BuildingFigures
 {
-    public float FootprintMinInCarFootprints { get; init; } = 4f;
-    public float FootprintMaxInCarFootprints { get; init; } = 12f;
-    public int CapacityMin { get; init; } = 1;
-    public int CapacityMax { get; init; } = 3;
-    public float WalkablePaddingInPersonDiameters { get; init; } = 2f;
-
-    /// <summary>The one strip of ground somebody is meant to stand in, and not the padding above.</summary>
+    /// <summary>The one strip of ground somebody is meant to stand in.</summary>
     public float FrontGapM { get; init; } = 1f;
 
     public float DwellMinS { get; init; } = 0f;
@@ -65,14 +70,6 @@ internal sealed class BuildingFigures
 internal sealed class PropFigures
 {
     public float DiameterInCarWidths { get; init; } = 1f;
-    public float SizeJitterMin { get; init; } = 0.7f;
-    public float SizeJitterMax { get; init; } = 1.6f;
-
-    /// <summary>Load-bearing rather than tidy: a continuous range gives every prop its own collision shape.</summary>
-    public float RadiusRoundingM { get; init; } = 0.05f;
-
-    /// <summary>The four sizes a prop is laid at, as multiples of the prop diameter.</summary>
-    public static ReadOnlySpan<float> SizeBands => [0.35f, 0.6f, 1f, 1.35f];
 }
 
 /// <summary>The lights, and the heads that show them.</summary>
@@ -184,29 +181,39 @@ internal sealed class MarkFigures
     /// <summary>Below this the wheel is standing on the ground rather than crossing it, and standing on grass ploughs nothing.</summary>
     public float PloughCrawlMps { get; init; } = 0.2f;
 
-    /// <summary>How many marks the town remembers before the oldest is overwritten. Scenery only: nothing samples a mark and no agent sees one.</summary>
-    public int Capacity { get; init; } = 24000;
+    /// <summary>
+    /// What every wheel writes on a map laid to be driven in circles and read off the ground afterwards —
+    /// the skidpad, and nothing else this build ships. It is the same kind of figure as
+    /// <see cref="PloughFloor"/>: a floor under the intensity rather than a second way of marking, so a
+    /// wheel that is genuinely sliding still darkens above it and the slide is still visible in the track.
+    /// </summary>
+    /// <remarks>
+    /// Fainter than a slide on purpose. The track is there to be measured against a circle drawn over it,
+    /// and a track as black as a skid would be a picture of four wheels all sliding.
+    /// </remarks>
+    public float PadFloor { get; init; } = 0.5f;
+
+    /// <summary>
+    /// How many marks the town remembers before the oldest is overwritten. Scenery only: nothing samples a
+    /// mark and no agent sees one.
+    /// </summary>
+    /// <remarks>
+    /// <b>The skidpad is what sets it.</b> A town's traffic marks the road rarely and any figure would do
+    /// there; the pad has ninety-odd cars writing with every wheel at once, and a circle the ring wrapped
+    /// halfway round is a circle nobody can measure. This is a couple of turns of the whole pad.
+    /// </remarks>
+    public int Capacity { get; init; } = 80000;
 }
 
-/// <summary>How much town the generator lays down, and how coarsely it is spaced.</summary>
+/// <summary>How coarsely a town is spaced.</summary>
+/// <remarks>
+/// <b>The block is this project's unit of town distance</b>: how far somebody will walk rather than drive,
+/// what a blocked way is priced at, and how near its own building a service vehicle counts as home are all
+/// quoted in it, so moving this figure moves all of them together.
+/// </remarks>
 internal sealed class CityGenFigures
 {
-    public int AttemptBound { get; init; } = 16;
-    public int Buildings { get; init; } = 20;
-    public int Pedestrians { get; init; } = 10;
-    public int LotSpacesMin { get; init; } = 3;
-    public int LotSpacesMax { get; init; } = 8;
-    public int LotsMin { get; init; } = 3;
-    public int LotsMax { get; init; } = 24;
     public float BlockSpacingAlongMinM { get; init; } = 95f;
-    public float BlockSpacingAlongMaxM { get; init; } = 120f;
-    public float BlockSpacingAcrossMinM { get; init; } = 120f;
-    public float BlockSpacingAcrossMaxM { get; init; } = 135f;
-
-    /// <summary>A density, not a count.</summary>
-    public float WildScatterFill { get; init; } = 0.425f;
-
-    public float WildScatterTreeShare { get; init; } = 0.45f;
 }
 
 /// <summary>Tolerances the walkable and drivable graphs are built to.</summary>
@@ -215,5 +222,4 @@ internal sealed class NetworkFigures
     public float FootGraphStubPruneM { get; init; } = 2f;
     public float FootGraphNodeWeldM { get; init; } = 0.25f;
     public float SplineToleranceWalkedM { get; init; } = 0.1f;
-    public float SplineToleranceRoadM { get; init; } = 0.25f;
 }

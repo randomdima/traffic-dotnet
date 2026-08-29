@@ -49,7 +49,7 @@ internal static class Spline
     public static float TotalLengthM(ReadOnlySpan<ArcSeg> arcs)
     {
         var lengthM = 0f;
-        foreach (var arc in arcs) lengthM += arc.LengthM;
+        for (var index = 0; index < arcs.Length; index++) lengthM += arcs[index].LengthM;
 
         return lengthM;
     }
@@ -66,7 +66,7 @@ internal static class Spline
         var remainingM = MathF.Max(0f, distanceM);
         for (var index = 0; index < arcs.Length; index++)
         {
-            var arc = arcs[index];
+            ref readonly var arc = ref arcs[index];
             if (remainingM > arc.LengthM && index < arcs.Length - 1)
             {
                 remainingM -= arc.LengthM;
@@ -102,7 +102,7 @@ internal static class Spline
             cursor.Piece++;
         }
 
-        var arc = arcs[cursor.Piece];
+        ref readonly var arc = ref arcs[cursor.Piece];
         var alongM = MathF.Min(remainingM - cursor.PieceStartM, arc.LengthM);
         return new SplineSample(arc.PointAtM(alongM), arc.HeadingAtRad(alongM), arc.Curvature);
     }
@@ -140,7 +140,7 @@ internal static class Spline
         for (var index = 0; index < arcs.Length; index++)
         {
             var arc = arcs[index];
-            var right = Heading.RightOf(Heading.Unit(arc.HeadingRad));
+            var right = Heading.RightOf(arc.StartUnit);
             var shrink = 1f - arc.Curvature * offsetM;
             into[index] = new ArcSeg(
                 arc.StartM + right * offsetM,
@@ -171,8 +171,9 @@ internal static class Spline
 
         var written = 0;
         var startM = 0f;
-        foreach (var arc in arcs)
+        for (var index = 0; index < arcs.Length; index++)
         {
+            ref readonly var arc = ref arcs[index];
             var endM = startM + arc.LengthM;
             var takeFromM = MathF.Max(fromM, startM);
             var takeToM = MathF.Min(toM, endM);
@@ -195,8 +196,8 @@ internal static class Spline
     /// </summary>
     /// <remarks>
     /// The window is the whole reason this is not a search over the line: a route that doubles back
-    /// past itself has two nearest points, and a car half way round a turn-around is nearer to where it
-    /// started than to where it is going. What a caller wants is the nearest point to the progress it
+    /// past itself has two nearest points, and a car half way round a bay's own way is nearer to where
+    /// it started than to where it is going. What a caller wants is the nearest point to the progress it
     /// had, which is a local question.
     /// </remarks>
     public static float ProjectM(ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM)
@@ -338,10 +339,10 @@ internal static class Spline
     }
 
     /// <summary>
-    /// The single arc a pair of poses gets when no biarc joins them — exactly the pair a turn-around
-    /// is: two antiparallel tangents a lane apart, for which the equal-tangent construction has no
-    /// positive root. The one arc through both points is the semicircle between them, which is the
-    /// right answer and not a fallback in any sense but the arithmetic's.
+    /// The single arc a pair of poses gets when no biarc joins them — two antiparallel tangents a lane
+    /// apart, for which the equal-tangent construction has no positive root. The one arc through both
+    /// points is the semicircle between them, which is the right answer and not a fallback in any sense
+    /// but the arithmetic's.
     /// </summary>
     /// <remarks>
     /// At a lane's own spacing that circle is far tighter than the steering lock affords. Turning a car
@@ -384,9 +385,9 @@ internal static class Spline
         return angleRad;
     }
 
-    static float NearestOnArc(ArcSeg arc, Vector2 pointM)
+    static float NearestOnArc(in ArcSeg arc, Vector2 pointM)
     {
-        var along = Heading.Unit(arc.HeadingRad);
+        var along = arc.StartUnit;
         if (MathF.Abs(arc.Curvature) < StraightCurvature)
         {
             return Math.Clamp(Vector2.Dot(pointM - arc.StartM, along), 0f, arc.LengthM);

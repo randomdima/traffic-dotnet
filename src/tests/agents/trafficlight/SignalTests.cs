@@ -121,9 +121,20 @@ public class SignalTests
             }
         }
 
-        // The crossing scenario map lights nothing on purpose: its crossings are struck mid-block, so
-        // they are the give-way rule at the kerb and not a bundle (TLT-3).
-        Assert.Equal(plan.Junctions.Lit.Count(junction => junction), lit);
+        // Every junction the map lights that admits movements to conflict, and no other (TLT-3). The
+        // crossing scenario map lights nothing on purpose, and every town has places where a road is
+        // merely cut — a dead end, a mid-block crossing — whose crossings are the give-way rule at the
+        // kerb rather than a bundle (TER-5e).
+        var conflicting = 0;
+        for (var junction = 0; junction < roads.NodeCount; junction++)
+        {
+            if (junction < plan.Junctions.Count && plan.Junctions.Lit[junction] && roads.LanesIn(junction).Length >= 3)
+            {
+                conflicting++;
+            }
+        }
+
+        Assert.Equal(conflicting, lit);
     }
 
     /// <summary>

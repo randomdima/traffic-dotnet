@@ -34,9 +34,10 @@ internal sealed partial class TownWorld
             return;
         }
 
+        ref readonly var build = ref Cars.BuildOf(car);
         var ground = _wheels.GroundUnder(car);
         Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];
-        TyreModel.WheelPointsM(_config, pose, atM);
+        TyreModel.WheelPointsM(build, pose, atM);
         for (var wheel = 0; wheel < TyreModel.Wheels; wheel++)
         {
             var effect = _terrain.EffectAt(atM[wheel]);
@@ -45,9 +46,9 @@ internal sealed partial class TownWorld
         }
 
         var scrub = _wheels.ScrubOf(car);
-        var drivenFrontShare = Cars.DrivenFrontShare[car];
+        var drivenFrontShare = build.DrivenFrontShare;
         TyreModel.Step(
-            _config, pose, command, drivenFrontShare, ceilingMps2, atM, ground,
+            _config, build, pose, command, ceilingMps2, atM, ground,
             Cars.WheelSpinOf(car), _config.TickSeconds,
             _wheels.ImpulsesOf(car), scrub);
 
@@ -92,21 +93,43 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The most a driven axle of this car may be asked for. A car working its own pedals stops at what
-    /// the patch can transmit — past it the engine buys no acceleration and only lays rubber — and lifts
-    /// further while its tyres report a slide, which is the difference between a rear-driven car that
-    /// turns at speed and one that does not. A hand at the wheel gets none of it.
+    /// The most a driven axle of this car may be asked for: <b>what the ellipse has left along the roll
+    /// once the corner it is actually taking has been paid for</b> (CAR-3b). Past that the engine buys no
+    /// acceleration and only takes grip off the turn, which is the whole of why a rear-driven car under
+    /// power runs wide.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The corner is the one the body is in and not the one the profile planned</b>: the lateral
+    /// acceleration read back off the solver, lagged and capped exactly as the loads are, so a car shoved
+    /// sideways lifts for it the way it lifts for a bend it steered into.
+    /// </para>
+    /// <para>
+    /// <b>A hand at the wheel is held to the ellipse and to nothing else.</b> The remainder is a fact about
+    /// the rubber, so it binds whoever is at the pedals; the traction-control back-off below it —
+    /// <see cref="TyreFigures.TractionThrottleFraction"/> and the lift while the tyres report a slide — is a
+    /// self-driver keeping its own tyres out of trouble, and flooring it is still the player's to do.
+    /// </para>
+    /// <para>
+    /// <b>The patch here is the nominal one and not this car's</b>, which is the one figure in the tyre
+    /// path that is (the model itself spends <see cref="CarBuild.GripMps2"/>). It is deliberate and it is
+    /// the town that pays for it — see the car's decision log.
+    /// </para>
+    /// </remarks>
     float DriveCeilingMps2(int car)
     {
         Cars.SlipThrottle[car] = Cars.DrivenSlipping[car]
             ? MathF.Max(Cars.SlipThrottle[car] - (_config.TickSeconds / _config.Tyre.SlipBackOffS), _config.Tyre.MinSlipThrottleFraction)
             : MathF.Min(Cars.SlipThrottle[car] + (_config.TickSeconds / _config.Tyre.SlipRecoverS), 1f);
 
-        return Handed(Roster.AgentOfCar(car))
-            ? float.PositiveInfinity
-            : _config.Tyre.GripMps2 * _config.Tyre.LongAxisFactor * Cars.GroundCoefficient[car]
-                * _config.Tyre.TractionThrottleFraction * Cars.SlipThrottle[car];
+        var ground = Cars.GroundCoefficient[car];
+        var ellipseMps2 = TyreModel.DriveLeftMps2(
+            _config.Tyre.GripMps2 * _config.Tyre.LongAxisFactor * ground, _config.Tyre.GripMps2 * ground,
+            Cars.AccelerationMps2[car].Y);
+
+        return HandAtTheWheel(car)
+            ? ellipseMps2
+            : ellipseMps2 * _config.Tyre.TractionThrottleFraction * Cars.SlipThrottle[car];
     }
 
     /// <summary>The hardest the tyres could have pushed the body, which is where a manoeuvre stops and a collision begins.</summary>
@@ -157,12 +180,20 @@ internal sealed partial class TownWorld
 
         // A wheel neither sliding nor ploughing, with nothing banked and no stretch open, cannot write
         // and has nothing to close off: the whole of the rest of this is arithmetic over zeros, and it
-        // is what every parked car in the town would otherwise pay four times a tick.
-        if (scrub.SlideSpeedMps <= 0f && !scrub.Ploughing && Cars.ScrubTravelM[at] <= 0f && !Cars.Marking[at]) return;
+        // is what every parked car in the town would otherwise pay four times a tick. On a map that
+        // records everything there is no such wheel — a rolling one is exactly what it is there to show.
+        if (!_everyWheelWrites &&
+            scrub.SlideSpeedMps <= 0f && !scrub.Ploughing && Cars.ScrubTravelM[at] <= 0f && !Cars.Marking[at]) return;
 
         Cars.ScrubTravelM[at] = TyreModel.ScrubTravelM(_config, Cars.ScrubTravelM[at], scrub.SlideSpeedMps, _config.TickSeconds);
 
-        var intensity = TyreModel.GroundMarkIntensity(_config, surface, scrub, Cars.ScrubTravelM[at]);
+        // <b>A pad laid to be driven in circles records every wheel</b>, whatever it is doing: the mark is
+        // the practical circle, and a comparison against the drawn one cannot be made from the stretch of
+        // it where the tyre happened to be sliding. It is a floor and never a substitute — a wheel that is
+        // properly away still darkens over it, so the slide is still visible in what it wrote.
+        var intensity = MathF.Max(
+            TyreModel.GroundMarkIntensity(_config, surface, scrub, Cars.ScrubTravelM[at]),
+            _everyWheelWrites ? _config.Marks.PadFloor : 0f);
 
         if (intensity <= 0f)
         {

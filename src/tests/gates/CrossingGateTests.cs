@@ -54,7 +54,7 @@ public class CrossingGateTests
     public void ATickOfARealTownCrossesTheWallNoTimesAtAll()
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Fresh(Towns.Fixture), config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(60);
 
@@ -78,13 +78,14 @@ public class CrossingGateTests
     public void DrawingTheWholeInterfaceCrossesTheWallNoTimesAtAll()
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Fresh(Towns.Fixture), config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), config);
         var uiPx = new Vector2(1600f, 900f);
         var camera = new Camera2D(config, world.Plan.WorldSizeM, uiPx);
 
         var ui = new Interface();
         ui.Menu.Show();
-        ui.Switches.Toggle(ref ui.Switches.FrameReadout);
+        ui.Controls.Show();
+        ui.Status.Show();
         ui.Switches.Toggle(ref ui.Switches.CarLines);
         ui.Switches.Toggle(ref ui.Switches.WalkerLines);
         ui.Switches.Toggle(ref ui.Switches.Collision);
@@ -104,8 +105,6 @@ public class CrossingGateTests
             UiPx = uiPx,
             PointerPx = uiPx * 0.5f,
             MapName = world.Plan.Name,
-            WorldSeed = world.Plan.Seed,
-            AgentSeed = world.Plan.Seed,
         };
 
         // Once through first, so that anything laid lazily — the town's own graphs, which the nodes

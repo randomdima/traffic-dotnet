@@ -42,7 +42,9 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
         _config = config;
         _physics = new PhysicsWorld(config);
         People = new PersonFleet(people);
-        Cars = new CarFleet(cars, arcsPerCar: 1);
+        // <b>The rig stands the nominal car</b>: every figure `--bench crash` quotes is quoted against
+        // `SimConfig`'s own weight, so a rig that stood the fleet would be reporting a variant.
+        Cars = new CarFleet(cars, arcsPerCar: 1, CarBuilds.OfTheNominalCar(config, CarCatalog.Shared));
         _impulseNs = new Vector2[people];
         _wheelImpulses = new WheelImpulse[cars * TyreModel.Wheels];
         _wheelGround = new SurfaceUnderWheel[cars * TyreModel.Wheels];
@@ -65,9 +67,9 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     public int Judgements { get; private set; }
 
     /// <summary>
-    /// What the last contact did to each body, kept because <b>not every outcome is still visible when
-    /// a case is over</b>: the stumble window is a quarter of a second and a staged approach is longer
-    /// than that, so a rig that read the body's state would report every survivable hit as a miss.
+    /// What the last contact did to each body, kept because <b>what a case is about is the contact and
+    /// not the wreckage</b>: a body's state afterwards is the outcome plus everything the solver did with
+    /// it, and a rig that read the state would be reporting on the tick it happened to stop at.
     /// </summary>
     public DamageOutcome[] PersonOutcome { get; }
 
@@ -77,7 +79,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
 
     public int AgentCount => Roster.Count;
 
-    public bool IsTerminal(int agent) => Roster.IsCar(agent) ? Cars.Broken[Roster.CarIndex(agent)] : People.Dead[agent];
+    public bool IsTerminal(int agent) => Roster.IsCar(agent) && Cars.Broken[Roster.CarIndex(agent)];
 
     public bool DecidesEveryTick(int agent) => false;
 
@@ -102,16 +104,16 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
         var body = _physics.AddPerson(atM);
         var person = People.Add(
-            body, atM, 0f, _physics.MassOf(body), _config.PersonDiameterM * 0.5f, 0, new Rng(1, (ulong)People.Count));
+            body, atM, 0f, _physics.MassOf(body), _config.PersonDiameterM * 0.5f, 0, new Rng(1, (ulong)People.Count),
+            PersonFleet.DrawsReckless(1, (ulong)People.Count, _config.Driving.RecklessShare));
         _physics.Tag(body, new BodyTag(BodyKind.Person, person));
         return person;
     }
 
     public int AddCar(Vector2 atM, float headingRad)
     {
-        var body = _physics.AddCar(atM, headingRad);
-        var car = Cars.Add(
-            body, atM, headingRad, _physics.MassOf(body), 0, _config.Car.DrivenFrontShare, new Rng(2, (ulong)Cars.Count));
+        var body = _physics.AddNominalCar(atM, headingRad);
+        var car = Cars.Add(body, atM, headingRad, 0, false, new Rng(2, (ulong)Cars.Count));
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
 
         // Coasting, not parked: an unmanned car holds its handbrake, and a rig that let it would be
@@ -170,7 +172,6 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
         {
             People.PositionM[person] = _physics.PositionOf(People.Body[person]);
             People.VelocityMps[person] = _physics.VelocityOf(People.Body[person]);
-            if (People.OffFeetForS[person] > 0f) People.OffFeetForS[person] = MathF.Max(0f, People.OffFeetForS[person] - dtS);
         }
 
         for (var car = 0; car < Cars.Count; car++)
@@ -191,12 +192,12 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
 
     public void ResolveContacts() => Judgements += ContactArbiter.Resolve(_physics, _config, this);
 
-    /// <summary>The town's rule, in a rig: a terminal body takes no actions, and the ground still acts on it.</summary>
+    /// <summary>The town's rule, in a rig: a body that is down takes no actions, and the ground still acts on it.</summary>
     void Settle(float dtS)
     {
         for (var person = 0; person < People.Count; person++)
         {
-            if (!People.Dead[person]) continue;
+            if (!People.Wounded[person]) continue;
 
             var positionM = People.PositionM[person];
             _impulseNs[person] = WalkerFollower.Step(
@@ -210,10 +211,11 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
             var pose = new CarPose(
                 Cars.PositionM[car], Cars.HeadingRad[car], Cars.VelocityMps[car], Cars.YawRateRadPerS[car],
                 Cars.MassKg[car], Cars.AccelerationMps2[car]);
-            TyreModel.WheelPointsM(_config, pose, atM);
+            ref readonly var build = ref Cars.BuildOf(car);
+            TyreModel.WheelPointsM(build, pose, atM);
             TyreModel.Step(
-                _config, pose,
-                Cars.Command[car], Cars.DrivenFrontShare[car], float.PositiveInfinity, atM,
+                _config, build, pose,
+                Cars.Command[car], float.PositiveInfinity, atM,
                 _wheelGround.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels), Cars.WheelSpinOf(car), dtS,
                 _wheelImpulses.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels),
                 _wheelScrub.AsSpan(car * TyreModel.Wheels, TyreModel.Wheels));
@@ -222,7 +224,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
 
     public DamageSubject SubjectOf(BodyTag tag) => tag.Kind switch
     {
-        BodyKind.Person => DamageSubject.Person(People.MassKg[tag.Index], People.Dead[tag.Index]),
+        BodyKind.Person => DamageSubject.Person(People.MassKg[tag.Index], People.Wounded[tag.Index]),
         BodyKind.Car => DamageSubject.Car(Cars.MassKg[tag.Index], Cars.Broken[tag.Index]),
         _ => DamageSubject.Static,
     };
@@ -238,13 +240,11 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
     {
         switch (outcome)
         {
-            case DamageOutcome.Shaken:
-                People.OffFeetForS[tag.Index] = _config.Person.StumbleWindowS;
-                PersonOutcome[tag.Index] = outcome;
-                break;
-
-            case DamageOutcome.Dead:
-                People.Dead[tag.Index] = true;
+            case DamageOutcome.Wounded:
+                // PHY-5b, the town's own line: a body in the road leaves the traffic's layers on the tick
+                // it goes down. A rig that skipped it would stage the pair the town no longer has.
+                _physics.PutOnLayer(People.Body[tag.Index], CollisionLayer.Downed);
+                People.Wounded[tag.Index] = true;
                 People.Walking[tag.Index] = false;
                 PersonOutcome[tag.Index] = outcome;
                 break;
@@ -252,7 +252,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
             case DamageOutcome.Broken:
                 Cars.Broken[tag.Index] = true;
                 Cars.Driven[tag.Index] = false;
-                Cars.Command[tag.Index] = DriveCommand.Locked;
+                Cars.Command[tag.Index] = DriveCommand.LockedAt(Cars.Command[tag.Index].SteerRad);
                 CarOutcome[tag.Index] = outcome;
                 break;
         }

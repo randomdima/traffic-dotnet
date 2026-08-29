@@ -7,6 +7,173 @@ one is deleted, not annotated.
 Nothing here restates a rule. Rules are [requirements.md](requirements.md); how a thing works is the XML
 docs on the type that does it.
 
+## 2026-08-28 — what a claim costs is the run it needs, and the suite had stopped asking
+
+The town tier had grown to eighty-three seconds and no single test was to blame. Measured, five per cent
+of the cases held ninety per cent of the time, and the two shipped cities held two thirds of it on their
+own: fourteen hundred cases came to under two seconds between them while a sweep of one invariant over
+every shipped map came to forty-three. Nothing was slow — the same minute of the same town was being
+driven again for each question put to it, and the questions had multiplied.
+
+Four things now decide what a claim is allowed to cost, and they are
+[verification.md](verification.md)'s.
+
+- **Anything derived from a plan is built once.** The road graph, the ways at the bays, the pavement's
+  graph and the ground's triangles are functions of a plan and the figures, and a hundred cases were
+  rebuilding the same eight of each. It is the shape `Towns` already used for plans, carried on.
+- **One run answers every claim about it.** Where two claims want two different moments, both are taken
+  off the one run as it passes them — `WalkedLineTests` reads the shape of a line ten seconds in and the
+  arrivals a minute in, off one minute. It is `JunctionClaimTests`'s pattern, which was the only place
+  using it.
+- **A soak is driven only where there is traffic.** Minutes of driving go to the cities and the fixture;
+  a claim answered off a plan, a graph or a town at rest goes on being asked of every shipped map, which
+  is where a small map is worth its tenth of a second.
+- **A claim that something happened ends the run that shows it.** The tick count is the bound on how long
+  a town may honestly take, not a window to watch to the end of. A bound, a maximum or a count that must
+  stay zero has no such end and runs its length.
+
+**Two tests went, and for the same reason as each other.** `RecoveryEndToEndTests` swept a staged recovery
+over every shipped map and returned before asserting anything on seven of them — no city hitches a wreck
+inside the probe's four hundred seconds — so it spent thirty-nine seconds a run producing rows it threw
+away; what a city's recovery comes to is `--bench recovery`'s row and the claim under it. And
+`SimConfigTests` quoted eleven figures back at themselves, under two names that promised a document this
+project does not have: a test that repeats a number fails on the day the town is tuned and passes on
+every other, whatever the arithmetic between the numbers is doing.
+
+`qq tests all` is a minute and a quarter where it was two and a bit, and the tier table in
+[CLAUDE.md](../CLAUDE.md) is the measured figures again — it had been quoting numbers about a third of
+the truth, which is the way a table of costs stops being read.
+
+## 2026-08-28 — a map states what it claims, and the panel, the probe and the tier read one machine
+
+The maps laid to measure one thing each had a different way of saying how they had done. `Track` drew a
+table of figures nobody had to decide anything about; `Exam` printed a verdict a card, but only under
+`--bench`, and opening `--map Exam` staged nothing at all; `Zebras` did neither, and the claim its own
+name makes — a car crosses paint at a crossing pace — was asserted on two other maps and never on it. A
+run of any of them said what it *did* and never whether that was right, so the answer lived in whichever
+of the three readers happened to be looking.
+
+**A map now carries its claims and one watch answers them** (`VER-11`, `Bench.ScenarioWatch`). The panel
+along the bottom (`OBS-2i`), the table a headless run prints on its way out and the tier that asserts on
+that map read the same watch, and what differs between them is only how long the town has been watched.
+A broken claim is a failed run, and the exit code is that line.
+
+Three things fell out of it, and the second is the one worth having.
+
+- **The thresholds moved out of the tests and into the map's own watch.** What a corner affords, what a
+  slowing may differ from the plan by, how few passes a mean is worth taking over: they were consts in
+  `TrackFiguresTests`, which meant a player watching the lap and a suite asserting on it could not
+  possibly have disagreed — because only one of them was asking.
+- **The distinction between a claim and a reading became a thing the code carries.** It was already the
+  project's rule and was kept by hand: `--bench drunk` prints swerves nobody may assert on. A watch has
+  claims and readings as separate lists, a probe that gates nothing says so where it is listed, and the
+  drunks' lap now claims one thing and quotes the rest rather than claiming the pacing lap's answer of a
+  road nobody is driving.
+- **A claim nobody has answered is not a pass.** Every claim is `waiting`, `kept` or `BROKEN`, the last
+  line of a report carries all three counts, and the tier fails a claim its own run left waiting.
+
+**A scenario may stage what it is about.** The exam already did — thirty-six orders on the first tick —
+and the crossings map now does the same with its five walkers, because a body left to itself takes a
+crossing only by luck. What is claimed is what the town did with the order, never that it was given one,
+and the staging is the watch's rather than the probe's: opening the map in the game stages it exactly as
+`--bench` does, which is what makes the panel worth looking at.
+
+## 2026-08-28 — the town's clock runs five times, and every acceleration in it has to know that
+
+`Person.WalkSpeedMps` is 6.6 — about five times a real walk, because the town is watched at speed. The
+distances are real, so an acceleration in this town carries a factor of **twenty-five** that no figure
+states: `a = v²/2d`, and only `v` was scaled. `FootGripMps2` was authored that way and the sliding grip
+was not, so the two lived side by side at scales a factor of twenty-five apart.
+
+**It was the casualty band that made it visible.** `PER-23`'s tolerance is the work of sliding a body
+half a metre on the sliding grip, so an unscaled grip put the band at 2 m/s of closing speed — a third of
+the town's own walking pace. A pedestrian did not have to be struck by anything: reaching a parked car
+was ten times the energy needed, and the contact *was* the knock-down. The same figure had casualties
+skidding fifty metres from a strike that should carry them two.
+
+**The second grip is now a share of the first**, which is the only form in which the scaling cannot be
+applied to one and forgotten on the other. The band lands half again over walking pace, so it takes a
+vehicle actually carrying speed — and every strike at road pace is still far over it, which is what the
+rescue slice needs.
+
+The lesson generalises past this one figure: **a real-world number is not portable into this town unless
+its dimensions are checked against the pace.** Speeds scale by five, accelerations by twenty-five,
+energies by twenty-five, and distances not at all.
+
+## 2026-08-26 — nobody in this town dies, and the band that used to kill is where a body starts moving
+
+`PHY-3` had a person carrying two tolerances where every other kind of body carries one, so a pedestrian
+saw three bands and everything else saw two. The top band was death: terminal, permanent, and the one
+state in the town with no way out of it. It is gone. **A contact does one thing to a person — puts them
+in the road — and the rescue takes it from there** (`PER-18`).
+
+Three things fall out, and the third is the reason it was worth doing.
+
+- **The arithmetic lost its only special case.** One tolerance per kind of body, two bands per pairing,
+  and `DamageOutcome` is `None`, `Wounded`, `Broken`. The exhaustive table next to it lost a fifth of its
+  rows and none of its coverage.
+- **The stumble window went with it.** It existed to give the survivable band an end that death did not
+  have: a quarter of a second off your feet, then up and walking. With one band, going down and losing
+  your feet are the same event lasting the same time — the casualty is off its feet until a hospital has
+  had it — so a field, a figure and a rule (`PER-12a`) all described the same fact twice.
+- **The ambulances have something to do.** The two old bands were fixed speeds nobody derived, and at the
+  shipped figures almost nothing ever reached either: a slice with a hospital, a duty roster and a
+  stretcher ran on staged casualties alone. `PER-23` is now a distance a body is put down the road, which
+  a retune of the pace or the mass moves with it.
+
+`PER-12` and `PER-12a` are retired. Both numbers stay retired; the code that cited `PER-12` was citing it
+for the fact that a body in the road is an agent like any other, which is `PER-1` and always was.
+
+## 2026-08-26 — a building is stood as its picture and not as its plot
+
+`OBJ-5a`. The plot's box and the roof's quad were never the problem: measured over every building of
+every shipped map they differ by 19 mm, and by 116 mm on the four roofs that are fitted rather than
+matched. **The gap was inside the picture.** A roof is drawn as a rectangle and painted as an L, a U, a
+dome or a block with a porch, so twenty to sixty per cent of a building's perimeter carried more than
+0.3 m of empty box in front of the wall — five to six metres of it on the town hall, the hospital and the
+police station.
+
+Static geometry is the one place in this engine where more bodies are almost free: statics are never
+integrated, per-tick work is linear in the moving roster alone (`SOL-22`), and their grid is built once
+and never rebuilt (`SOL-21`). Odesa's twelve hundred buildings become about three thousand boxes on a
+static population of a hundred and thirty thousand. So the fix is more rectangles, not a new shape —
+which is also why this and the car's rounded corners are different answers to the same complaint.
+
+**Which roof a building wears moved down out of the renderer** into `world/statics/BuildingRoofs`. The
+parts are authored in the picture's axes, so whatever turns the picture has to turn the walls: the
+quarter turn for a swapped match, the half turn that puts the door on the right wall, and the scale a
+civic roof is fitted by. Two constructions of that answer would be a town whose walls and pictures agree
+until somebody edits one of them, and the disagreement is invisible until the collision layer is
+switched on.
+
+## 2026-08-24 — the suite is four minutes' worth of question asked in forty seconds
+
+Three findings, and none of them dropped a claim: `qq tests all` was 2 m 50 s and is 36 s, with the same
+number of assertions passing.
+
+**A town is ticked once per map and every claim about that minute is read off the one run.** The classes
+that watch a running town each stood their own `TownWorld` and drove it 3 600 ticks to watch one
+invariant — thirty-odd runs of the same six towns, of which Odesa and River were seventy per cent of the
+tier. They now keep a memoised run per map, exactly as [Towns](../src/tests/citygen/Towns.cs) already did
+for the plans underneath them, and each claim records the first tick it was broken on instead of throwing
+on it: one broken claim no longer costs the other five their answer. What still stands its own world is
+what is *about* the ticks rather than about the state they arrive at.
+
+**`SolverCollection` is for what the machine being busy could break, and nothing else.** It exists to
+serialise the gates' measurement windows, and eleven classes that merely assert about a town had kept the
+attribute from when the incumbent solver was unsafe across threads. Serialised, they were a 25-second
+single-file tail on the end of the town tier — half of it, on a sixteen-core machine, running one class at
+a time. The one non-measuring class still in it is the one that stands a world belonging to the incumbent
+package, whose worlds live in a static roster.
+
+**The gates are measured in Release.** Debug was the whole tier's configuration for the sake of one class:
+`CrossingGateTests` reads a `[Conditional("DEBUG")]` counter and measures nothing without it. Everything
+else there counts bytes through `GC.GetAllocatedBytesForCurrentThread`, which counts the same bytes in
+either configuration, so the tier is now two takes — Release for the gates, Debug for that one class —
+and 1 m 40 s became 25 s. A `Tier.Perf` note recorded an unexplained Release failure of the ground gate
+when the gates ran as their own group; it did not reproduce in eight runs across both routes, and the
+figure is taken off the configuration everything else here is measured in.
+
 ## 2026-08-20 — the code moved under `src/`, and the project file did not
 
 The root listed nine code folders, three data folders and two build folders as equals, so `bin/` and

@@ -3,6 +3,7 @@ using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 
@@ -24,8 +25,8 @@ internal sealed partial class TownWorld
     /// granted wherever it stands, and paint changes only which stretch of road it takes: on a crossing it
     /// is the band of the lane it stands in rather than the stretch of lane its body covers, because a
     /// body crossing may be anywhere along the depth of the paint before a driver reaches it. On bare
-    /// tarmac it is the body and nothing more — `P-12` is about paint, and a walker that steps into a lane
-    /// where nothing is painted is owed a driver who can stop and no ground beyond itself (`PER-12`).
+    /// tarmac it is the body and nothing more — a right of way is about paint (TER-5e), and a walker that steps into a lane
+    /// where nothing is painted is owed a driver who can stop and no ground beyond itself (`PER-1`).
     /// </para>
     /// <para>
     /// <b>The lane it is standing in, and the one in front of it once that one is granted</b> (`PER-15`,
@@ -54,7 +55,7 @@ internal sealed partial class TownWorld
         People.RefusedWay[person] = PersonFleet.NoWay;
 
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
-        if (People.Inside[person].Any || People.Dead[person]) return;
+        if (People.Inside[person].Any) return;
 
         if (!OnACrossing(person, out var edge, out var alongM))
         {
@@ -106,15 +107,33 @@ internal sealed partial class TownWorld
                     // network's metres (<see cref="WhereTheWalkRunsOut"/>).
                     People.RefusedWay[person] = _footfall.WayOfLane(edge);
                     People.RefusedAtM[person] = band.FromM;
+
+                    // <b>The ask itself, written where it was refused</b> (TER-5e): what the traffic owes
+                    // somebody waiting at an uncontrolled crossing is a stop short of the paint, and a
+                    // thing a driver must be held off that is in no book is a thing it cannot see (TER-4c).
+                    WriteTheBand(person, band, paintM, LaneUse.Awaited);
                     continue;
                 }
             }
 
-            _occupancy.Add(
-                _occupancy.WayOfLane(band.Lane), band.AlongLaneM - paintM, band.AlongLaneM + paintM, 0f,
-                person, LaneUse.OnFoot, LaneRoster.Walking);
+            WriteTheBand(person, band, paintM, LaneUse.OnFoot);
         }
     }
+
+    /// <summary>
+    /// One band of one lane, as this walker's — <b>the ground it is standing on, or the ground it asked for
+    /// and was refused</b>, which are one stretch written two ways (TER-5e).
+    /// </summary>
+    /// <remarks>
+    /// <b>A body on the paint has the right of way over the traffic under it</b>, whichever of the two it
+    /// is. What differs is that the one it is standing on cuts the road a driver is granted, and the one it
+    /// is waiting for stops that driver short of the paint instead — the ask is not a body, and a grant cut
+    /// at it would be a car braking as hard as it can for somebody still on the pavement.
+    /// </remarks>
+    void WriteTheBand(int person, CrossingBands.Band band, float paintM, LaneUse use) =>
+        _occupancy.Add(
+            _occupancy.WayOfLane(band.Lane), band.AlongLaneM - paintM, band.AlongLaneM + paintM, 0f, person,
+            use, LaneRoster.Walking, RightOfWay.OnThePaint);
 
     /// <summary>
     /// <b>The answer to the ask for the band in front</b> (TER-4c.1): granted where no car's road is over
@@ -128,9 +147,15 @@ internal sealed partial class TownWorld
     /// is the single place in the town where ground is taken that somebody else's road is over, so the cars
     /// give way to it — which is what a pedestrian's priority costs, spent by the clock and by nothing else.
     /// </remarks>
+    /// <remarks>
+    /// <b>And never past an ambulance answering a call</b> (AMB-4), which is the one road the escape does
+    /// not reach: a call lasts seconds, so what a body at the kerb is waiting out is going to pass, and a
+    /// crossing held open by a rescue is not the crossing that never clears this clock is for.
+    /// </remarks>
     bool MayStepOnto(int person, CrossingBands.Band band, float paintM) =>
         Kerb.BandIsFree(_occupancy, band, paintM)
-        || People.WaitingToCrossS[person] >= _config.Person.KerbPatienceS;
+        || (People.WaitingToCrossS[person] >= _config.Person.KerbPatienceS
+            && !Kerb.ARescueIsOver(_occupancy, band, paintM));
 
     /// <summary>
     /// How much of a lane a body on this crossing's paint is owed, measured along the way the traffic runs:
@@ -143,27 +168,71 @@ internal sealed partial class TownWorld
     /// <summary>
     /// A body standing on the carriageway with no paint under it, as the stretch of lane it covers. <b>Where
     /// it lies and not where it is going</b> — a walker off the network, one knocked over, one pacing a road
-    /// on purpose (`PER-12`) and one a hand is steering are the same fact to whoever is driving up behind.
+    /// on purpose (`PER-14`) and one a hand is steering are the same fact to whoever is driving up behind.
     /// </summary>
+    /// <remarks>
+    /// <b>Or the road it is holding closed, and never both</b> (SRV-6, TER-5c.2). A body holds one metre of
+    /// one way once: an officer standing beside the carriageway holds a stretch of it he is not on, and one
+    /// who has been shoved <em>into</em> it holds the ground under him like anybody else and stops holding
+    /// anything else — which is the honest answer, since a man knocked into a lane is not directing traffic.
+    /// </remarks>
     void StandInTheRoad(int person)
     {
         var positionM = People.PositionM[person];
-        if (!_terrain.At(positionM).Drivable) return;
-
         var lane = _roads.NearestLane(positionM, out var alongM);
         if (lane < 0) return;
 
         var radiusM = People.RadiusM[person];
-        if (!RoadGraph.WithinTheBand(
-                _roads.ArcsOf(lane), alongM, positionM, _roads.LaneWidthM[lane], radiusM, radiusM, out var on))
+        var alongUnit = Vector2.Zero;
+        var inTheLane = _terrain.At(positionM).Drivable
+                        && RoadGraph.WithinTheBand(
+                            _roads.ArcsOf(lane), alongM, positionM, _roads.LaneWidthM[lane], radiusM, radiusM,
+                            out alongUnit);
+
+        if (!inTheLane)
         {
+            CloseTheRoad(person, lane, alongM, positionM);
             return;
         }
 
         var claimM = radiusM * _config.Person.RoadClaimMargin;
         _occupancy.Add(
             _occupancy.WayOfLane(lane), alongM - claimM, alongM + claimM,
-            Vector2.Dot(People.VelocityMps[person], on.Direction), person, LaneUse.OnFoot, LaneRoster.Walking);
+            Vector2.Dot(People.VelocityMps[person], alongUnit), person, LaneUse.OnFoot, LaneRoster.Walking);
+    }
+
+    /// <summary>
+    /// <b>A stretch of lane closed by the body standing beside it</b> (SRV-6) — the officer's soft
+    /// reservation, laid the way every other stretch is: a claim, on one way, at one rank.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing reading it learns a new word.</b> It is a <see cref="LaneUse.Claimed"/> stretch and it is
+    /// refused by whoever <see cref="LaneOccupancy.Binds"/> says it refuses — every ordinary movement, and
+    /// not an ambulance or an evacuator answering a call (AMB-4, EVA-4). That is the whole of "the officer
+    /// gives way to the other services", and neither of them is told a policeman exists.
+    /// </para>
+    /// <para>
+    /// <b>The lane the body is standing beside and not the one it is standing on.</b> An officer works from
+    /// the far side of the kerb line, so the stretch is found by projecting him onto the nearest lane — and
+    /// only where that lane is actually within reach of him, since <see cref="RoadGraph.NearestLane"/>
+    /// answers with something for any point on the map.
+    /// </para>
+    /// </remarks>
+    void CloseTheRoad(int person, int lane, float alongM, Vector2 positionM)
+    {
+        var closedM = People.ClosesTheRoadM[person];
+        if (closedM <= 0f) return;
+
+        // <b>Only a lane he is actually standing beside.</b> The nearest lane to a point is an answer for
+        // every point in the town, so a closure that did not ask how near would let an officer shut a street
+        // he had wandered off.
+        var at = Spline.SampleAt(_roads.ArcsOf(lane), alongM);
+        if ((at.PositionM - positionM).Length() > _roads.LaneWidthM[lane] + People.RadiusM[person]) return;
+
+        _occupancy.Add(
+            _occupancy.WayOfLane(lane), alongM - closedM, alongM + closedM, 0f, person, LaneUse.Claimed,
+            LaneRoster.Walking, RightOfWay.Closed);
     }
 
     /// <summary>

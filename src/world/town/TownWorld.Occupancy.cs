@@ -1,4 +1,7 @@
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -50,7 +53,7 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// <para>
 /// <b>A body takes ground on the ways it drives and on no others</b> (TER-5c.1). Inside a junction two ways
 /// run over one piece of the world, and what settles that is a table filled once from the lines themselves
-/// (<see cref="JunctionCrossings"/>): a driver looks its own way up and reads the metres named there in the
+/// (<see cref="WayCrossings"/>): a driver looks its own way up and reads the metres named there in the
 /// crossed way's own book, so its grant is cut by ground it will never be on without its ever having
 /// written to it (<see cref="WhereTheGroundIsCrossed"/>). <b>A reservation is stated in one way's metres and
 /// means something about the whole town</b>, which is what makes one body to a piece of ground true across a
@@ -71,16 +74,21 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// How many ways one line may be cut into: every lane it is laid over and the join between each pair.
-    /// A bound on a stack span and not a figure behaviour reads.
+    /// How many ways one line may be cut into: every lane it is laid over, the join between each pair, and
+    /// the one way at a bay it may finish on. A bound on a stack span and not a figure behaviour reads.
     /// </summary>
-    const int MostWaysAlongALine = (PathAssembler.MostLanes * 2) - 1;
+    const int MostWaysAlongALine = (PathAssembler.MostLanes * 2) - 1 + 1;
 
     /// <summary>
     /// How many stretches a car under way may put in the index at once <em>on the road it is driving</em>:
     /// the ways its reservation runs over — which begins at its own tail, is a stopping distance long, and
     /// crosses a junction where one falls inside it — and the one way it can claim.
     /// </summary>
+    /// <remarks>
+    /// The bay a leg is on its way to is not one of them. It is a booking in the parking register and not a
+    /// piece of road (<see cref="ParkingRegistry"/>); what the car takes of the bay's own way in is its
+    /// reservation, and that is already counted here.
+    /// </remarks>
     const int MostSlotsPerDrivingCar = 8;
 
     /// <summary>
@@ -92,6 +100,19 @@ internal sealed partial class TownWorld
     const int LyingPassesPerCar = 2;
 
     /// <summary>
+    /// And how many one <em>stationary</em> body may lay, which is the ceiling on what
+    /// <see cref="LyingBook"/> keeps for it: the lying half of <see cref="MostSlotsPerCar"/>, or the ways
+    /// at the busiest bay where a bay has more of them than a junction has joins.
+    /// </summary>
+    static int MostLyingRowsPerCar(RoadGraph roads, BayWays bays)
+    {
+        var atABay = 0;
+        for (var bay = 0; bay < bays.BayCount; bay++) atABay = Math.Max(atABay, bays.WayCountOf(bay));
+
+        return Math.Max(LyingPassesPerCar * (1 + (2 * roads.MostTurnsAtANode)), atABay);
+    }
+
+    /// <summary>
     /// And how many any car may, which is the wider of the two shapes one can be in: a car under way, plus
     /// the runs of <em>its own</em> join the crossings on it take off it (<see cref="PlaceTheCrossing"/>);
     /// or a body standing still, laid where it lies and — where it is driving a template — at either end of
@@ -100,7 +121,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <para>
     /// <b>One over the runs, because the run the car's own road ends inside is the one that comes in two
-    /// pieces</b> (<see cref="LayTheCrossing"/>). A reservation is one interval, so it can split one run and
+    /// pieces</b> (<see cref="LayTheMovement"/>). A reservation is one interval, so it can split one run and
     /// no more.
     /// </para>
     /// <para>
@@ -109,9 +130,9 @@ internal sealed partial class TownWorld
     /// looking that way up (<see cref="WhereTheGroundIsCrossed"/>) rather than by writing a stretch onto it.
     /// </para>
     /// </remarks>
-    static int MostSlotsPerCar(RoadGraph roads) =>
+    static int MostSlotsPerCar(RoadGraph roads, WayCrossings crossings) =>
         Math.Max(
-            MostSlotsPerDrivingCar + roads.Crossings.MostOwnRuns + 1,
+            MostSlotsPerDrivingCar + crossings.MostOwnRuns + 1,
             LyingPassesPerCar * (1 + (2 * roads.MostTurnsAtANode)));
 
     /// <summary>
@@ -130,10 +151,13 @@ internal sealed partial class TownWorld
     /// reader this tick therefore sees the same book, whatever tick its own decision clock came round on.
     /// </summary>
     /// <remarks>
-    /// <b>Asked in one walk and granted in the next.</b> What a car is granted is its own stretch cut at the
-    /// near edge of the nearest one already spoken for, and that near edge is a fact about a body and its
-    /// speed rather than about who was served first — so every ask goes into the book before any of them is
-    /// answered, and no car has to be ordered against another to get the same answer either way round.
+    /// <b>Asked in one walk, granted in the next, and cut back to the answer in a third.</b> What a car is
+    /// granted is its own stretch cut at the near edge of the nearest one already spoken for, and that near
+    /// edge is a fact about a body rather than about who was served first — so every ask goes into the book
+    /// before any of them is answered, and no car has to be ordered against another to get the same answer
+    /// either way round. The cut is a walk of its own for the same reason
+    /// (<see cref="CutTheGroundToTheGrant"/>): it moves far edges, which is what a movement's crossing
+    /// question reads.
     /// </remarks>
     void RebuildLaneOccupancy()
     {
@@ -151,16 +175,32 @@ internal sealed partial class TownWorld
             PlaceWhatIsNotDriving(car);
             PlaceTheClaim(car);
 
-            // The ask before the crossing, because the crossing is only the ground the ask did not reach
-            // (<see cref="LayTheCrossing"/>) — laid the other way round it would be clipped against the
-            // stretch this car held a tick ago.
+            // The ask before the two claims that stand ahead of it, because each is only the ground the ask
+            // did not reach (<see cref="LayTheMovement"/>) — laid the other way round they would be clipped
+            // against the stretch this car held a tick ago.
             AskForTheGround(car, ways);
             PlaceTheCrossing(car);
+            KeepTheBooking(car);
         }
+
+        // <b>The walkers between the asks and the grants, because they are on both sides of one question</b>
+        // (TER-4c). What a body at a kerb may step onto is whether a driver's road is over the band, so the
+        // asks have to be laid before it; and a person in a lane cuts the road a driver is granted exactly as
+        // a car standing there would, so the band has to be in the book before the grants are taken. Laid
+        // after them, every band went into a book no driver read again until the next rebuild wiped it, and
+        // the only thing holding a car off somebody on the paint was the crossing's own stop.
+        for (var person = 0; person < People.Count; person++) PlaceTheWalkerOnTheRoad(person);
+
+        // And the claims answered against the whole book, before anything is granted off it: a claim a
+        // stronger movement has taken is ground its holder no longer has, so nothing granted below may be
+        // cut at it (TER-5e).
+        for (var car = 0; car < Cars.Count; car++) AnswerTheClaim(car);
 
         for (var car = 0; car < Cars.Count; car++) GrantTheGround(car, ways);
 
-        for (var person = 0; person < People.Count; person++) PlaceTheWalkerOnTheRoad(person);
+        // And the book left holding the answer rather than the question (TER-4c.1), which is what every
+        // reader after this rebuild — the junction gate above all — is entitled to find in it.
+        for (var car = 0; car < Cars.Count; car++) CutTheGroundToTheGrant(car, ways);
     }
 
     /// <summary>
@@ -176,13 +216,14 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool IsUnderWay(int car)
     {
-        if (!Cars.Driven[car] || Cars.Broken[car] || Cars.Line[car].LaneCount == 0) return false;
-        if (_hands.Held && _selected.Kind == SelectionKind.Car && _selected.Index == car) return false;
+        if (!Cars.Driven[car] || Cars.Broken[car]) return false;
+        if (Cars.Line[car].LaneCount == 0 && Cars.LineWayOf(car) == CarFleet.NoWay) return false;
+        if (HandAtTheWheel(car)) return false;
 
         // The same bar the road holds the car to before it calls the line lost. A car it still considers to
         // be on its line is a car going where that line goes, and reading one as an obstruction for having
         // taken a corner wide is how a driver ends up swerving round traffic.
-        return Cars.OffLineM[car] <= _config.CarOffPathM * OffLineTolerance;
+        return Cars.OffLineM[car] <= OffTheLineAllowanceM(car);
     }
 
     /// <summary>
@@ -205,6 +246,16 @@ internal sealed partial class TownWorld
     /// </remarks>
     int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into)
     {
+        // A line that <em>is</em> one of the town's ways — a bay's way out — is that way and no other, and
+        // its metres are the line's own: there is no chain under it and no setback to carry across.
+        var lineWay = Cars.LineWayOf(car);
+        if (lineWay != CarFleet.NoWay)
+        {
+            return Overlaps(fromLineM, toLineM, 0f, Cars.Line[car].LengthM, out var wayFromM, out var wayToM)
+                ? Written(into, new LineWay(lineWay, wayFromM, wayToM, wayFromM))
+                : 0;
+        }
+
         var lanes = Cars.Line[car].LaneCount;
         var chain = Cars.ChainOf(car);
         var starts = Cars.LaneStartsOf(car);
@@ -232,9 +283,13 @@ internal sealed partial class TownWorld
             // The join is the ground from there to `starts[index + 1]`, so a stretch ending anywhere inside
             // it still covers some of it; guarded on the far edge, a car approaching a junction lays
             // nothing on it until its own stretch reaches clear across.
+            // A place cut into a road (GEN-4h) joins its two lanes at a point: there is no ground between
+            // them and so nothing to write, and a slot spent on it is one the reservation has not got for
+            // the lane past it.
             if (leavingOn == RoadGraph.NoTurn || ends[index] >= toLineM) break;
 
-            if (written < into.Length && Overlaps(fromLineM, toLineM, ends[index], starts[index + 1], out fromM, out toM))
+            if (written < into.Length && starts[index + 1] > ends[index]
+                && Overlaps(fromLineM, toLineM, ends[index], starts[index + 1], out fromM, out toM))
             {
                 into[written++] = new LineWay(
                     _occupancy.WayOfTurn(leavingOn), fromM - ends[index], toM - ends[index], fromM);
@@ -243,7 +298,80 @@ internal sealed partial class TownWorld
             arrivedOn = leavingOn;
         }
 
+        // And the way the line finishes on, where it finishes on one: the line into a bay leaves its lane
+        // part-way along and runs to the pose the car is left in, so the last dozen metres of a leg are a
+        // way of the book like every metre before them (<see cref="CarFleet.TailWay"/>).
+        var tail = Cars.TailWayOf(car);
+        if (tail != CarFleet.NoWay && written < into.Length && lanes > 0
+            && Overlaps(fromLineM, toLineM, ends[lanes - 1], Cars.Line[car].LengthM, out var tailFromM, out var tailToM))
+        {
+            into[written++] = new LineWay(
+                tail, tailFromM - ends[lanes - 1], tailToM - ends[lanes - 1], tailFromM);
+        }
+
         return written;
+    }
+
+    /// <summary>
+    /// <b>The line any one of the book's ways is driven on, and how wide it is</b> — a lane's own arcs, a
+    /// junction's join, or the way at a bay. <b>The one place the three bands are told apart</b>, because
+    /// this is the only slice that may know all three: the book numbers them, the road drew two of them and
+    /// `world/parking` drew the third, and a reader holding a way number knows none of that.
+    /// </summary>
+    /// <remarks>
+    /// A way at a bay is drawn at the width of the lane it leaves, which is the road the car came off and
+    /// the only width a manoeuvre off the carriageway has any claim to.
+    /// </remarks>
+    public ReadOnlySpan<ArcSeg> LineOfWay(int way, out float widthM)
+    {
+        if (_bayWays.IsBayWay(way))
+        {
+            widthM = _roads.LaneWidthM[_bayWays.LaneOf(way)];
+            return _bayWays.ArcsOf(way);
+        }
+
+        var onLane = _occupancy.WayIsLane(way);
+        var lane = onLane ? _occupancy.WayIndex(way) : _roads.TurnToLane(_occupancy.WayIndex(way));
+        widthM = _roads.LaneWidthM[lane];
+        return onLane ? _roads.ArcsOf(lane) : _roads.JoinArcs(_occupancy.WayIndex(way));
+    }
+
+    /// <summary>
+    /// <b>The right of way whoever is on a way holds its ground with</b> (TER-5e) — the same three bands
+    /// <see cref="LineOfWay"/> tells apart, asked the other question.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only a movement through a box has one of its own.</b> A lane is not a movement — two cars on one
+    /// are held apart by the road each was granted and neither gives way to the other — and a way laid off
+    /// the road is a car joining the traffic rather than one crossing it, which is ordinary traffic too.
+    /// </remarks>
+    RightOfWay RightOfWayOn(int way) =>
+        _occupancy.WayIsLane(way) || _bayWays.IsBayWay(way)
+            ? RightOfWay.Traffic
+            : _roads.RightOfWayOfTurn(_occupancy.WayIndex(way));
+
+    /// <summary>
+    /// <b>The same question asked of a named car</b>, which is the one place a blue light gets into the
+    /// road (AMB-4): an ambulance answering a call holds every stretch it asks for with
+    /// <see cref="RightOfWay.Emergency"/>, whichever way it is on.
+    /// </summary>
+    /// <remarks>
+    /// <b>It replaces the movement's rank rather than adding to it</b>, and that is the point: a rescue
+    /// turning across the oncoming stream is not a turn that gives way, and one going straight on is not
+    /// merely ordinary traffic. What the rank still cannot take is a body or the road a body is committed
+    /// to (<see cref="LaneOccupancy.Binds"/>), so the priority is absolute over who waits and over nothing
+    /// else.
+    /// </remarks>
+    RightOfWay RightOfWayOf(int car, int way) =>
+        Cars.BlueLight[car] ? RightOfWay.Emergency : RightOfWayOn(way);
+
+    /// <summary>One way written into a caller's span, as the count of them it now holds.</summary>
+    static int Written(Span<LineWay> into, in LineWay way)
+    {
+        if (into.Length == 0) return 0;
+
+        into[0] = way;
+        return 1;
     }
 
     static bool Overlaps(float fromM, float toM, float leastM, float mostM, out float fromOut, out float toOut)
@@ -284,13 +412,13 @@ internal sealed partial class TownWorld
 
             if (!body.Found && _occupancy.AheadBody(way.Way, way.FromM, way.ToM, car, out body))
             {
-                bodyM = MathF.Max(0f, way.LineFromM + (body.FromM - way.FromM) - noseM);
+                bodyM = MathF.Max(0f, OnTheLineM(way, body.FromM) - noseM);
             }
 
             if (float.IsPositiveInfinity(claimM)
                 && _occupancy.AheadClaim(way.Way, way.FromM, way.ToM, car, out var claim))
             {
-                claimM = MathF.Max(0f, way.LineFromM + (claim.FromM - way.FromM) - noseM);
+                claimM = MathF.Max(0f, OnTheLineM(way, claim.FromM) - noseM);
             }
 
             if (body.Found && !float.IsPositiveInfinity(claimM)) break;

@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Core.Config;
@@ -20,6 +21,7 @@ public class DriveSceneTests
     {
         Config = Config,
         Car = 0,
+        Build = CarBuild.Nominal(Config, Config.Car.DrivenFrontShare),
         AlongMps = 0f,
         ProgressM = 20f,
         Line = new DrivenLine(4, 2, 400f),
@@ -31,15 +33,16 @@ public class DriveSceneTests
         InsideTheBox = false,
         LightAheadM = float.PositiveInfinity,
         BayHeld = -1,
-        BayReserved = -1,
+        BayBooked = -1,
         OnTheFinalApproach = false,
+        ToTheBayM = float.PositiveInfinity,
+        ToTheSceneM = float.PositiveInfinity,
+        Urgent = false,
         LaneOn = 3,
-        RouteReversesHere = false,
+        TurnsBackHere = false,
         InManeuverS = 1f,
         BlockedS = 10f,
         HeldBackS = 0f,
-        WaitedS = 0f,
-        GapIsClear = true,
         OnDrivableGround = true,
         BackOffsLeft = 2,
         PlannedMps = 20f,
@@ -100,5 +103,101 @@ public class DriveSceneTests
         Assert.True(BehindA(HeadwayKind.Walker).SomethingToBackAwayFrom);
         Assert.True((Stopped with { Hold = DrivingHold.LostLine }).SomethingToBackAwayFrom);
         Assert.True((Stopped with { Line = new DrivenLine(1, 0, 8f) }).SomethingToBackAwayFrom);
+    }
+
+    /// <summary>
+    /// AMB-4.4: <b>a driver with a blue light on goes round a queue, and spends no patience first.</b>
+    /// Ordinary traffic waits behind one however long it stands, because the car at its head is held by
+    /// something that is not this driver's to drive round — and an ambulance is the case where that
+    /// reasoning stops holding.
+    /// </summary>
+    [Fact]
+    public void ARescueGoesRoundAQueueWithoutWaitingItsPatienceOut()
+    {
+        var behindAQueue = BehindA(HeadwayKind.Queue) with { BlockedS = 0f, HeldBackS = 0f };
+
+        Assert.False(behindAQueue.WorthGoingRound);
+        Assert.True((behindAQueue with { Urgent = true }).WorthGoingRound);
+    }
+
+    /// <summary>
+    /// <b>What the blue light does not relax</b>: something the book cannot name is never driven round,
+    /// and nothing is worth passing that is not slower than the road affords.
+    /// </summary>
+    [Fact]
+    public void ARescueStillDoesNotPassWhatItCannotNameOrWhatIsNotSlower()
+    {
+        var urgent = BehindA(HeadwayKind.Obstruction) with { Urgent = true };
+
+        Assert.False((urgent with { Context = urgent.Context with { Ahead = HeadwayKind.Unknown } }).WorthGoingRound);
+        Assert.False(
+            (urgent with { Context = urgent.Context with { HeadwaySpeedMps = urgent.PlannedMps } }).WorthGoingRound);
+    }
+
+    /// <summary>
+    /// And not on the last dozen metres of a leg: past the point the line leaves the road for a bay there
+    /// is nothing to gain by getting in front of anybody, and a driver with no patience to spend would
+    /// swerve round the cars parked beside its own bay for as long as they were there.
+    /// </summary>
+    [Fact]
+    public void ARescueDoesNotOvertakeOnItsFinalApproach()
+    {
+        var urgent = BehindA(HeadwayKind.Obstruction) with { Urgent = true };
+
+        Assert.True(urgent.WorthGoingRound);
+        Assert.False((urgent with { OnTheFinalApproach = true }).WorthGoingRound);
+    }
+
+    /// <summary>
+    /// <b>Overtaking is a manoeuvre of a road segment and never of a junction</b> (`E-4`) — a car standing
+    /// in a box does not go round what is in front of it, and neither does one near enough to the next box
+    /// to be negotiating it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A junction has no centreline to cross</b> (CAR-6.2b) and no lane for the swerve's own claim to be
+    /// laid on, so what holds the traffic behind off the ground the shape swings through is not written at
+    /// all — and the movements through the box were each arbitrated on the town's own table (TER-5c), which
+    /// says where a crossing car goes only for as long as it follows the join it claimed.
+    /// </remarks>
+    [Fact]
+    public void NobodyGoesRoundAnythingAtAJunction()
+    {
+        var behind = BehindA(HeadwayKind.Obstruction);
+
+        Assert.True(behind.WorthGoingRound);
+        Assert.False((behind with { InsideTheBox = true }).WorthGoingRound);
+        Assert.False((behind with { ToTheBoxM = Config.CarJunctionReserveM }).WorthGoingRound);
+
+        // And the box being this car's to cross is no licence either: what it bought is the movement, which
+        // is a line through the junction and not the road beside it.
+        Assert.False((behind with { ToTheBoxM = 0f, BoxIsOurs = true }).WorthGoingRound);
+
+        // Clear of it by a metre and the segment is a segment again.
+        Assert.True((behind with { ToTheBoxM = Config.CarJunctionReserveM + 1f }).WorthGoingRound);
+    }
+
+    /// <summary>
+    /// <b>And a blue light does not buy a junction overtake</b> (AMB-4). What a call lifts is whose turn it
+    /// is; the ground beside a car in a box is other movements' and there is none of it to be given.
+    /// </summary>
+    [Fact]
+    public void ARescueDoesNotOvertakeAtAJunctionEither()
+    {
+        var urgent = BehindA(HeadwayKind.Obstruction) with { Urgent = true };
+
+        Assert.True(urgent.WorthGoingRound);
+        Assert.False((urgent with { InsideTheBox = true }).WorthGoingRound);
+        Assert.False((urgent with { ToTheBoxM = Config.CarJunctionReserveM }).WorthGoingRound);
+    }
+
+    /// <summary>
+    /// `P-18`'s <c>Sa</c> is a place on the line, and every other car in the town has none: infinity is
+    /// what says "this driver was not sent anywhere", and it must never read as a stop point.
+    /// </summary>
+    [Fact]
+    public void ACarThatWasNotSentAnywhereHasNoSceneAheadOfIt()
+    {
+        Assert.True(float.IsPositiveInfinity(Stopped.ToTheSceneM));
+        Assert.False(Stopped.Urgent);
     }
 }

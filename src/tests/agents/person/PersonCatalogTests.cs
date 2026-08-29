@@ -81,4 +81,27 @@ public class PersonCatalogTests
             Assert.Equal(0, sheet.Height % PersonCatalog.FacingRows);
         }
     }
+
+    /// <summary>
+    /// <b>The wrap cannot reach a uniform</b> (SRV-3a), which is the whole of what the second list is for:
+    /// a walker's look is an index rounded over the ordinary looks, so the boundary is asserted from both
+    /// sides, and each uniform is named by id rather than by position.
+    /// </summary>
+    [Fact]
+    public void TheWrapStaysInsideTheOrdinaryLooks()
+    {
+        var catalog = PersonCatalog.Shared;
+
+        Assert.True(catalog.Count > 0);
+        Assert.True(catalog.SheetCount > catalog.Count, "there are no uniforms past the walkers");
+
+        Assert.Equal("paramedic_red", catalog.Variants[catalog.Paramedic].Id);
+        Assert.Equal("police_navy", catalog.Variants[catalog.Police].Id);
+        Assert.Equal("recovery_yellow", catalog.Variants[catalog.Recovery].Id);
+
+        foreach (var uniform in new[] { catalog.Paramedic, catalog.Police, catalog.Recovery })
+        {
+            Assert.InRange(uniform, catalog.Count, catalog.SheetCount - 1);
+        }
+    }
 }

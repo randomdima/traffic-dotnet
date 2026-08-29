@@ -32,11 +32,29 @@ internal static class P06HoldAtALine
 
     public static ManeuverOutcome Tick(in DriveScene scene, ManeuverDesk desk, float sinceS, ref DriveLimits limits)
     {
+        // The place this car was sent to, on the same terms `P-4` hands it over on (AMB-5). A car creeping
+        // up to a bar is in this entry for the whole of the stretch a place can come near enough on — and
+        // the place a car is ordered to is regularly the far side of that bar. This entry sets no limits, so
+        // nothing about the line being held at is given up: `P-18`'s stop point is another term in the same
+        // minimum the bar is already in.
+        if (scene.SceneIsNearEnoughToStopFor)
+        {
+            return ManeuverOutcome.To(Maneuver.AttendTheScene, ManeuverReason.RouteRanOut);
+        }
+
         // The end of the line on the leg's own last lane is not a line to wait at — it is the place the
         // bay's template is staged from, and the plan's next step is what happens there.
-        if (scene.OnTheFinalApproach && scene.ToTheEndM <= scene.Config.Car.LengthM * 0.5f && scene.AtRest)
+        if (scene.OnTheFinalApproach && scene.ToTheEndM <= scene.Build.HalfLengthM && scene.AtRest)
         {
             return ManeuverOutcome.Done(ManeuverReason.RouteRanOut);
+        }
+
+        // <b>Nor is the end of a stretch this leg has to come back the other way from</b> (GEN-4l): the car
+        // stopped there because the road runs out, and what happens next is it turning itself round rather
+        // than waiting for something that is never going to move.
+        if (scene.TurnsBackHere && scene.StoppedAtTheEnd)
+        {
+            return ManeuverOutcome.To(Maneuver.ShuntRound, ManeuverReason.RouteRanOut);
         }
 
         // <b>The car gives itself back by moving off, not by the line disappearing.</b> A car at rest at a
@@ -57,5 +75,5 @@ internal static class P06HoldAtALine
     static bool HasSomethingToHoldAt(in DriveScene scene) =>
         !float.IsPositiveInfinity(scene.Context.StopAtM)
         || !float.IsPositiveInfinity(scene.LightAheadM)
-        || scene.ToTheEndM <= scene.Config.Car.LengthM;
+        || scene.ToTheEndM <= scene.Build.LengthM;
 }

@@ -39,13 +39,7 @@ internal sealed partial class TownWorld
     /// <summary>How many of those are worth a route search each, which is what actually costs something.</summary>
     const int BaysRoutedPerLeg = 2;
 
-    /// <summary>
-    /// The short random beat before looking at the lane at all, as a share of the give-way patience. A
-    /// stagger and not a wait — its whole job is that two neighbouring bays do not take one gap.
-    /// </summary>
-    const float BeatOfThePatience = 0.05f;
-
-    /// <summary>`P-11`'s patience, in dwells: well above one, so an ordinary turnover is always waited out.</summary>
+    /// <summary>`PER-11`'s patience, in dwells: well above one, so an ordinary turnover is always waited out.</summary>
     const float PlacePatienceInDwells = 3f;
 
     /// <summary>Room for the proximity index's answer at an exit search. More than a doorway ever holds.</summary>
@@ -69,7 +63,7 @@ internal sealed partial class TownWorld
     /// <summary>How many have walked in through a door — the figure a trip is finished by.</summary>
     public long BuildingsEntered { get; private set; }
 
-    /// <summary>And how many found it full when they got there, which is a real state and not a failure (`P-11`).</summary>
+    /// <summary>And how many found it full when they got there, which is a real state and not a failure (`PER-11`).</summary>
     public long DoorsFoundFull { get; private set; }
 
     /// <summary>How many trips were given up on — the honest other half of the count above.</summary>
@@ -106,7 +100,18 @@ internal sealed partial class TownWorld
                 TryAlight(person);
                 return;
 
+            // An ambulance crew, whose whole action set is the car's (AMB-3). It is named rather than left
+            // to fall through the switch: a stage nothing runs for is a state, and one nothing mentions is
+            // an oversight.
+            case TripStage.OnDuty:
+                return;
+
             case TripStage.Driving:
+                // CTL-8b: a car under orders is sat in between them. The order that has just been carried
+                // out is not the end of anything for whoever is at its wheel — they are waiting for the
+                // next one, which is what manual mode is (CTL-4).
+                if (SitsAtTheWheelOfAnOrderedCar(person)) return;
+
                 // A car that has stopped driving with somebody still in it — its leg ended somewhere
                 // this stage did not hear about — is got out of rather than sat in.
                 var inside = _containers.WhereIs(person);
@@ -165,6 +170,13 @@ internal sealed partial class TownWorld
 
             case TripStage.Driving:
             case TripStage.Alighting:
+                return;
+
+            // A crew out working (SRV-3): where it is going is its vehicle's errand and is re-aimed on that
+            // vehicle's own decision, so a leg that ran out here is not this body's to lay again and
+            // certainly not a trip to be drawn. Standing still is a real state for it — an officer holding
+            // a closure does nothing else for as long as the closure stands.
+            case TripStage.Attending:
                 return;
         }
 
@@ -276,7 +288,7 @@ internal sealed partial class TownWorld
 
             searched++;
             if (!RouteExistsToTheBay(fromLane, bay)) continue;
-            if (!_parking.TryReserve(bay, car)) continue;
+            if (!TakeTheBay(car, bay)) continue;
 
             People.TripCar[person] = car;
             People.Stage[person] = TripStage.WalkingToTheCar;
@@ -308,7 +320,7 @@ internal sealed partial class TownWorld
             if (farM >= bestM) continue;
 
             var bay = _parking.BayOf(car);
-            if (bay >= 0 && !_parking.CanBeLeft(bay)) continue;
+            if (bay >= 0 && !_parking.CanBeReached(bay)) continue;
             if (!IsWalkableTo(WayInOf(car))) continue;
 
             best = car;
@@ -318,33 +330,80 @@ internal sealed partial class TownWorld
         return best;
     }
 
-    /// <summary>Asked of the car's own state: nobody in it, not moving, not broken.</summary>
+    /// <summary>
+    /// Asked of the car's own state: nobody in it, no leg in hand, not moving, not broken — <b>and not a
+    /// vehicle the town stood on purpose</b> (SRV-3).
+    /// </summary>
+    /// <remarks>
+    /// <b>What keeps a service vehicle out of everybody else's trip is the building it stands on the
+    /// strength of, and not who happens to be sitting in it</b> (PER-4). Its crew get out to work now
+    /// (SRV-6, AMB-10), so an empty ambulance at a scene is a car nobody is in — and a passer-by who took
+    /// the wheel of one would be a rescue ended by somebody walking past it. A vehicle struck off its
+    /// building (EVA-7) is an ordinary car in service paint and is free to whoever reaches it.
+    /// </remarks>
+    /// <remarks>
+    /// <b>A leg in hand is what rules an ordered empty car out</b> (CTL-8d). Nobody sits in one, so
+    /// containment alone would offer it to the first passer-by, who would then set off in it and take it
+    /// away from the hand that sent it — and it is a car standing at a red rather than a car parked.
+    /// </remarks>
     bool CanBeBoarded(int car) =>
-        !Cars.Broken[car] && _containers.IsFree(car) &&
+        !Cars.Broken[car] && _containers.IsFree(car) && !Cars.Driven[car] && !IsAServiceVehicle(car) &&
         Cars.VelocityMps[car].LengthSquared() <= _config.Driving.StopSpeedMps * _config.Driving.StopSpeedMps;
 
     /// <summary>
     /// Where a walk to a car is aimed: the bay's own way in where it is parked in one, and the ground
-    /// off the driver's door where it is not — one at a kerb, one stopped in the road (GEN-4e).
+    /// off the driver's door where it is not — one at a kerb, one stopped in the road (GEN-4e). Which flank
+    /// of the bay that is is the standing the car came to rest in (GEN-4j).
     /// </summary>
     Vector2 WayInOf(int car)
     {
         var bay = _parking.BayOf(car);
-        if (bay >= 0) return _parking.WayInM(bay);
+        if (bay >= 0)
+        {
+            return _parking.WayInM(bay, BayTemplate.StandsNoseIn(_parking.HeadingRad(bay), Cars.HeadingRad[car]));
+        }
 
-        var headingRad = Cars.HeadingRad[car];
-        var forward = Heading.Unit(headingRad);
-        var door = new Vector2(-forward.Y, forward.X) * -_config.RoadSideSign;
-        return Cars.PositionM[car] + door * (_config.Car.WidthM * 0.5f + _config.PersonDiameterM);
+        return DriverDoorM(car);
     }
 
-    /// <summary>The lane a car would take when it sets off: its bay's own, or the one it is standing on.</summary>
+    /// <summary>
+    /// The ground off a car's driver door — the flank away from the way the traffic runs, a body's width
+    /// clear of the panels. It is where a driver is walked to, and where one is thrown when the car
+    /// breaks (PHY-6).
+    /// </summary>
+    Vector2 DriverDoorM(int car)
+    {
+        var forward = Heading.Unit(Cars.HeadingRad[car]);
+        var door = new Vector2(-forward.Y, forward.X) * -_config.RoadSideSign;
+        return Cars.PositionM[car] + door * (Cars.BuildOf(car).FlankM + _config.PersonDiameterM);
+    }
+
+    /// <summary>
+    /// The lane a car would take when it sets off: the first of its bay's own, or the one it is standing on.
+    /// </summary>
+    /// <remarks>
+    /// <b>A screen and not a commitment.</b> A bay is left on whichever of its ways points the way the leg
+    /// is going (`P-2`), and the route is planned from the lane the car actually lands on; what is being
+    /// asked here is only whether a bay is worth booking at all, and both lanes of a carriageway reach the
+    /// same network. It is the ways of the standing the car is <em>in</em> all the same, because a car
+    /// nose-first in its space has only the near lane to back onto (GEN-4j).
+    /// </remarks>
     int LaneACarWouldSetOffOn(int car)
     {
         var bay = _parking.BayOf(car);
-        if (bay >= 0) return _parking.LeaveLane(bay);
+        if (bay >= 0)
+        {
+            var noseIn = BayTemplate.StandsNoseIn(_parking.HeadingRad(bay), Cars.HeadingRad[car]);
+            for (var slot = 0; slot < _bayWays.WayCountOf(bay); slot++)
+            {
+                var way = _bayWays.WayOf(bay, slot);
+                if (!_bayWays.IsEntry(way) && _bayWays.IsNoseIn(way) == noseIn) return _bayWays.LaneOf(way);
+            }
 
-        var rearAxleM = CarFollower.RearAxleM(_config, Cars.PositionM[car], Cars.HeadingRad[car]);
+            return -1;
+        }
+
+        var rearAxleM = CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], Cars.HeadingRad[car]);
         return _roads.NearestLane(rearAxleM, out _);
     }
 
@@ -370,20 +429,49 @@ internal sealed partial class TownWorld
         return SearchTheDrivingNetwork(goalCount, goalPointM, out var goalSlot) > 0 && goalSlot >= 0;
     }
 
-    /// <summary>Where a drive leg ends, as the search takes it: the place on the lane the bay's own template is staged from.</summary>
+    /// <summary>
+    /// <b>Where a drive leg into a bay ends: the node the lane one of its ways in leaves arrives at</b>
+    /// (GEN-4h), which for a bay of a car park is one end of that car park's own section. <b>One goal per
+    /// lane the bay can be driven into off</b>, so which side of the street the leg approaches on is priced
+    /// by the search and not decided before it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The node and not the metre the way leaves at.</b> A route is a run of nodes and the last of them
+    /// has to be one the network has, or the leg is a route to somewhere plus a stretch of road the driver
+    /// worked out for itself. The way in is threaded onto the end of that route as the line is assembled
+    /// (<c>PathAssembler</c>), so the car turns off where the way leaves rather than driving on to the node —
+    /// what the node buys is that the search, the price and the reroute all name the same place.
+    /// <para>
+    /// <b>The bay itself is what the search steers by</b>, because the two lanes arrive at nodes at opposite
+    /// ends of the same section and neither of them is where the car is going.
+    /// </para>
+    /// </remarks>
     int BayGoals(int bay, Span<RouteGoal> into, out Vector2 goalPointM)
     {
         goalPointM = Vector2.Zero;
-        if (bay < 0 || !_parking.CanBeEntered(bay)) return 0;
+        if (bay < 0) return 0;
 
-        var lane = _parking.EnterLane(bay);
-        var alongM = _parking.EnterAlongM(bay);
-        var link = _driving.LinkOfLane(lane);
-        if (link == TravelGraph.NoLink) return 0;
+        var written = 0;
+        for (var slot = 0; slot < _bayWays.WayCountOf(bay) && written < into.Length; slot++)
+        {
+            var way = _bayWays.WayOf(bay, slot);
+            if (!_bayWays.IsEntry(way)) continue;
 
-        goalPointM = Spline.SampleAt(_roads.ArcsOf(lane), alongM).PositionM;
-        into[0] = new RouteGoal(link, _driving.PlaceOfM(lane, alongM));
-        return 1;
+            var lane = _bayWays.LaneOf(way);
+            var link = _driving.LinkOfLane(lane);
+            if (link == TravelGraph.NoLink) continue;
+
+            // One goal per lane and not per way: a lane that lays both standings is two ways in and one
+            // place to be routed to.
+            var seen = false;
+            for (var at = 0; at < written && !seen; at++) seen = into[at].Link == link;
+            if (seen) continue;
+
+            into[written++] = new RouteGoal(link, _driving.PlaceOfM(lane, _roads.LaneLengthM[lane]));
+        }
+
+        if (written > 0) goalPointM = _parking.CentreM(bay);
+        return written;
     }
 
     /// <summary>
@@ -523,7 +611,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>It is a fact about the map: nowhere to be, and no pavement to walk along.</b> A town with a
     /// walking network has somewhere for a walker with no trip to go — that is what a wander is — and its
-    /// walkers cross a carriageway on the paint (`P-12`). A map with no pavement at all has laid nothing
+    /// walkers cross a carriageway on the paint (TER-6). A map with no pavement at all has laid nothing
     /// for them but the road beside them.
     /// </remarks>
     bool PacesARoad(int person, out PacedStep step, out bool inTheRoad)

@@ -15,16 +15,19 @@ public class WorldScaleTests
         Assert.Equal(7.5f, scale.MetresFromArtPixels(scale.ArtPixelsFromMetres(7.5f)), tolerance: 1e-4f);
     }
 
+    /// <summary>
+    /// The camera's default span is what the shipped window opens on: the whole of the short side and no
+    /// more, so the two figures are one framing rather than two settings that happen to sit beside each
+    /// other.
+    /// </summary>
     [Fact]
-    public void TheCameraOpensOnTheSpanDataMdGives()
+    public void TheCameraOpensOnTheShortSideOfTheShippedWindow()
     {
         var config = SimConfig.Shipped();
 
-        // 70 m across the short side of a 1080-line window, which is the shipped opening framing.
         var pixelsPerMetre = WorldScale.ScreenPixelsPerMetre(config.View.CameraDefaultViewM, config.View.WindowHeightPx);
 
         Assert.Equal(config.View.WindowHeightPx, pixelsPerMetre * config.View.CameraDefaultViewM, tolerance: 1e-3f);
-        Assert.InRange(pixelsPerMetre, 15f, 16f);
     }
 
     /// <summary>

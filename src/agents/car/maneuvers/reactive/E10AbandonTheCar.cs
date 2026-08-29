@@ -19,7 +19,7 @@ internal static class E10AbandonTheCar
     /// <summary><c>Sa</c>: none, and there may never be one. This is the exit the whole catalogue is bounded by.</summary>
     public static ManeuverStart Begin(in DriveScene scene, ManeuverDesk desk, int subject)
     {
-        desk.GiveUpTheReservation(scene.Car);
+        desk.GiveUpTheBooking(scene.Car);
         return ManeuverStart.Yes;
     }
 

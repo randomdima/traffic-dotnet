@@ -15,9 +15,9 @@ namespace TrafficSimulation.App.Screen;
 /// camera does. One buffer, one draw, and the vertex shader picks the transform.
 /// </para>
 /// <para>
-/// <b>The colour is four floats, not four bytes</b>, for the reason the ground's tint is three: a
-/// panel is drawn over the town at partial alpha and a highlight is drawn brighter than white, and an
-/// eight-bit unorm clamps at exactly the case both of those are for.
+/// <b>The colour is four floats, not four bytes</b>: a panel is drawn over the town at partial alpha
+/// and a layer's wash at a good deal less, and both are laid out in the same units the theme states
+/// them in.
 /// </para>
 /// <para>
 /// <b><see cref="Taper"/> is the one thing the quad is not a rectangle for</b>, and it is what lets a

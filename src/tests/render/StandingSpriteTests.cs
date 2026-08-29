@@ -1,8 +1,10 @@
 using System.Numerics;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Statics;
+using TrafficSimulation.World.Town;
 using Xunit;
 
 namespace TrafficSimulation.Tests.Render;
@@ -21,8 +23,10 @@ public class StandingSpriteTests
 
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
 
-    static StandingSprites Lay(CityPlan plan) =>
-        StandingSprites.Lay(plan, Buildings, Props, 0, Buildings.Count, Aspects());
+    static StandingSprites Lay(CityPlan plan) => Lay(plan, BuildingUses.Of(plan));
+
+    static StandingSprites Lay(CityPlan plan, BuildingUses uses) =>
+        StandingSprites.Lay(plan, Buildings, uses, Props, 0, Buildings.Count, Aspects());
 
     static float[] Aspects()
     {
@@ -142,15 +146,23 @@ public class StandingSpriteTests
     /// catalogue — so the nearest match is a near match, and a map where it is not has been laid by
     /// something that does not know this art.
     /// </summary>
+    /// <remarks>
+    /// <b>Of the ordinary roofs, which are the ones chosen by matching.</b> A civic roof is named by the
+    /// building's use and then <em>fitted</em> to whatever plot that use landed on (AMB-1a, SRV-1a), so
+    /// its size is a fact about the plot rather than a match to it, and the test below is the one that
+    /// asks about it.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryRoofIsWithinHalfAMetreOfTheBoxItStandsOn(string map)
+    public void EveryOrdinaryRoofIsWithinHalfAMetreOfTheBoxItStandsOn(string map)
     {
         var plan = Towns.Of(map);
         var drawn = DrawnByPlace(plan, Lay(plan));
 
         for (var building = 0; building < plan.Buildings.Count; building++)
         {
+            if (plan.Buildings.Use[building] != BuildingUse.Ordinary) continue;
+
             var sizeM = plan.Buildings.SizeM[building];
             var roofM = drawn[plan.Buildings.CentreM[building]].HalfSizeM * 2f;
             var straight = Vector2.Abs(roofM - sizeM);
@@ -159,6 +171,77 @@ public class StandingSpriteTests
 
             Assert.True(error <= 0.5f, $"{map}: building {building} is {sizeM} and wears a {roofM} roof");
         }
+    }
+
+    /// <summary>
+    /// AMB-1a and SRV-1a: <b>the civic roofs go on the buildings whose use names them and on nothing
+    /// else</b>, and each is fitted inside the plot the draw landed it on rather than drawn at the size it
+    /// was painted.
+    /// </summary>
+    [Theory]
+    [InlineData("Test")]
+    [InlineData("Odesa")]
+    public void OnlyTheBuildingWhoseUseNamesACivicRoofWearsIt(string map)
+    {
+        var plan = Towns.Of(map);
+        using var world = new TownWorld(plan, SimConfig.Shipped());
+        var drawn = DrawnByPlace(plan, Lay(plan, world.Uses));
+        var civic = 0;
+
+        for (var building = 0; building < plan.Buildings.Count; building++)
+        {
+            var instance = drawn[plan.Buildings.CentreM[building]];
+            var wanted = world.Uses.Of(building) switch
+            {
+                BuildingUse.Hospital => Buildings.Hospital,
+                BuildingUse.PoliceStation => Buildings.PoliceStation,
+                BuildingUse.Depot => Buildings.RepairShop,
+                _ => -1,
+            };
+
+            if (wanted < 0)
+            {
+                Assert.NotEqual((uint)Buildings.Hospital, instance.Sheet);
+                Assert.NotEqual((uint)Buildings.PoliceStation, instance.Sheet);
+                Assert.NotEqual((uint)Buildings.RepairShop, instance.Sheet);
+                continue;
+            }
+
+            civic++;
+            Assert.Equal((uint)wanted, instance.Sheet);
+
+            // <b>The door is on the wall nearest the pavement and not merely on a wall facing it</b>
+            // (AMB-1a): of the four quarter turns the art could be laid at, this is the one whose +y points
+            // most nearly at the ways in. Asked only of a civic roof, since an ordinary one is turned by
+            // its own size and the door then picks between the two walls that leaves.
+            var towardsWays = Vector2.Zero;
+            for (var way = plan.Buildings.EntryOffsets[building];
+                 way < plan.Buildings.EntryOffsets[building + 1];
+                 way++)
+            {
+                towardsWays += plan.Buildings.EntryPointM[way] - plan.Buildings.CentreM[building];
+            }
+
+            if (towardsWays.LengthSquared() > 1e-4f)
+            {
+                var door = new Vector2(-MathF.Sin(instance.HeadingRad), MathF.Cos(instance.HeadingRad));
+                var quarter = new Vector2(-door.Y, door.X);
+                Assert.True(
+                    Vector2.Dot(door, towardsWays) >= MathF.Abs(Vector2.Dot(quarter, towardsWays)),
+                    $"{map}: building {building}'s door faces {door} and its ways in are {towardsWays}");
+            }
+
+            // Fitted inside the plot, on the art's own aspect: it touches one pair of walls and crosses
+            // neither.
+            var roofM = instance.HalfSizeM * 2f;
+            var sizeM = plan.Buildings.SizeM[building];
+            var fitM = Vector2.Min(sizeM - roofM, sizeM - new Vector2(roofM.Y, roofM.X));
+            Assert.True(
+                MathF.Max(fitM.X, fitM.Y) >= -1e-3f,
+                $"{map}: building {building} is {sizeM} and wears a {roofM} roof that hangs over it");
+        }
+
+        Assert.True(civic > 0, $"{map}: no building serves a use, so nothing here is being asked");
     }
 
     /// <summary>

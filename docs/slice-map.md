@@ -19,15 +19,22 @@ the same tier may depend on each other only in the one direction the tier's own 
 | **Plan** | `citygen/` — the plan, its cell vocabulary, its reader | core |
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking | core, citygen, and each other in one direction |
 | **Composition** | `world/town/` | Everything below it. **This is the seam, and it is the only thing allowed to be** |
-| **Agents** | `agents/` — car, person, trafficlight | core, citygen, world |
+| **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight | core, citygen, world |
 | **Machine** | `runtime/` — the window, the device, the swapchain | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
 | **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot | Everything |
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
-road, containment → physics. Inside `app/`, it is screen ← render ← hud, screen ← render ← debug, and
-hud → debug because the settings panel draws the switches the layers own. `app/shot/` sits under
+road, containment → physics. Inside `agents/`, it is `ambulance/` and `service/` → `world/statics/` and
+nothing else, and `evacuator/` → nothing at all: each is a roster of buildings and what stands at them, and
+the driving they ask for is the car's catalogue, reached from the composition seam like every other leg.
+**An errand's slice never depends on `agents/car/`**, which is why the arithmetic of a tow is `TowBar` in
+`agents/car/body/` beside the tyre model and not in the slice whose rules it serves: what happens to a car
+on a hook is a fact about a car. Inside `app/`, it is screen ← render ← hud, screen ← render ← debug, and
+hud → debug because the settings panel draws the switches the layers own and the selection's own path is
+drawn in the layers' path vocabulary (`PathMarks`), so one route lands on the same stones at the same
+weight whichever of them drew it. `app/shot/` sits under
 `app/main/` and over everything it photographs, so a picture has one staging path and the entry point
 only chooses it.
 

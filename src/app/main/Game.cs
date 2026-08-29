@@ -57,20 +57,27 @@ internal sealed class Game : IDisposable
 
     /// <summary>The proving ground's own instrument, on the proving ground and nowhere else.</summary>
     TrackMetrics? _track;
+
+    /// <summary>
+    /// What the town standing claims about itself, watched every tick (<see cref="Scenarios.For"/>). It is
+    /// the map's own claims and the two every town owes, and it is what the panel along the bottom draws
+    /// and what the run prints on its way out.
+    /// </summary>
+    ScenarioWatch[] _scenario = [];
     SimClock _clock;
-    CityGen.CityPlan? _plan;
     string _map = string.Empty;
-    ulong _agentSeed;
 
     long _crossingsPerFrame;
     long _frames;
 
-    public Game(SimConfig config, int width, int height, bool validate, float uiScale, PresentModeKHR presentMode)
+    public Game(
+        SimConfig config, int width, int height, bool validate, float uiScale, PresentModeKHR presentMode,
+        bool fullscreen, string? display)
     {
         _config = config;
         _looks = TownSprites.Load();
 
-        _window = AppWindow.Open("traffic-dotnet", width, height, uiScale);
+        _window = AppWindow.Open("traffic-dotnet", width, height, uiScale, fullscreen, display);
         _vk = Runtime.Vk.Open("traffic-dotnet", validate, _window.VkSurface);
         _vk.WantedPresentMode = presentMode;
         _renderer = TownRenderer.OnScreen(
@@ -81,9 +88,9 @@ internal sealed class Game : IDisposable
         _camera = new Camera2D(config, Vector2.One, _uiPx) { DevicePxPerUiPx = _window.UiScale };
         _clock = new SimClock(config.TickSeconds, config.Sim.SoakMaxTimeScale);
 
-        Console.WriteLine($"{_window.FramebufferSize.X}x{_window.FramebufferSize.Y} framebuffer at " +
-                          $"{_window.UiScale:F2}x desktop scale, so the interface is laid out on " +
-                          $"{_uiPx.X:F0}x{_uiPx.Y:F0} — --ui-scale N overrides it");
+        Console.WriteLine($"{_window.FramebufferSize.X}x{_window.FramebufferSize.Y} framebuffer on " +
+                          $"{_window.DisplayName} at {_window.UiScale:F2}x desktop scale, so the interface is " +
+                          $"laid out on {_uiPx.X:F0}x{_uiPx.Y:F0} — --ui-scale N overrides it");
     }
 
     /// <summary>Whether a town is standing. Everything the interface offers is different either side of it.</summary>
@@ -110,7 +117,7 @@ internal sealed class Game : IDisposable
             // read-out prints under the total is a partition of that total and not a second opinion
             // about it (FrameParts). Nothing is stamped unless the read-out is open.
             var startedAt = Stopwatch.GetTimestamp();
-            var parts = new FrameParts(_ui.Switches.FrameReadout);
+            var parts = new FrameParts(_ui.Status.Open);
 
             _window.PumpEvents();
             if (_window.TakeResized())
@@ -144,7 +151,10 @@ internal sealed class Game : IDisposable
             : $"{rate}, {_crossingsPerFrame} crossings in the last steady one");
         Budget();
 
-        return 0;
+        // What the town claimed about itself and whether it kept it — the panel's own table, printed on
+        // the way out so that a run nobody sat in front of (`--seconds`) is a run something can gate on.
+        // A broken claim is a failed run, which is the whole of what makes this more than a read-out.
+        return _world is not null && !ScenarioReport.Print(_map, _scenario, _world.ElapsedS) ? 1 : 0;
     }
 
     /// <summary>
@@ -161,9 +171,9 @@ internal sealed class Game : IDisposable
             $"{"",-9}frame {frame.FrameMs:F2} ms = cpu {frame.CpuMs:F2} + blocked {frame.BlockedMs:F2}, " +
             $"worst {frame.WorstMs:F2}");
 
-        // The partition is only taken while the read-out is on, so a run that did not ask for it is
-        // told that rather than shown a row of zeroes and a residual holding the whole frame.
-        if (!_ui.Switches.FrameReadout)
+        // The partition is only taken while the status panel is open, so a run that did not ask for it
+        // is told that rather than shown a row of zeroes and a residual holding the whole frame.
+        if (!_ui.Status.Open)
         {
             Console.WriteLine($"{"",-9}where the cpu went is not measured unless it is asked for: --ui frame");
             return;
@@ -176,8 +186,9 @@ internal sealed class Game : IDisposable
     }
 
     /// <summary>
-    /// The keys and the pointer, in the order the layers are offered them. The run keys work in any
-    /// scene, which is what makes a check opened from the menu keep the keys it was just using.
+    /// The keys and the pointer, in the order the layers are offered them. <b>The popups are not
+    /// modal</b>: the run keys and the camera work while one is up, because a settings panel that
+    /// stops the town is a panel nobody opens mid-run to look at the town.
     /// </summary>
     void ReadInput(float seconds)
     {
@@ -185,65 +196,46 @@ internal sealed class Game : IDisposable
 
         if (_window.TakePress(Key.Escape)) Escape();
 
-        // The menu is modal over a town: it covers the screen, so the keys that drive one are not
-        // offered while it is up.
-        if (!Running || _ui.Menu.Open)
+        if (Running)
         {
-            MenuInput();
+            if (_window.TakePress(Key.GraveAccent)) _ui.Run.ToggleFreeze();
+            if (_window.TakePress(Key.Number1)) _ui.Run.SetPace(1f);
+            if (_window.TakePress(Key.Number2)) _ui.Run.SetPace(2f);
+            if (_window.TakePress(Key.Number3)) _ui.Run.SetPace(3f);
+            if (_window.TakePress(Key.Pause)) _ui.Run.AgentsHeld = !_ui.Run.AgentsHeld;
+            if (_window.TakePress(Key.R)) _world!.ReleaseHands();
+
+            // CTL-7: the selected unit's own action, on a press rather than a hold — it is a lever being
+            // pulled once, and the only one anything in this town has is the evacuator's arm.
+            if (_window.TakePress(Key.E)) _world!.WorkTheAction();
+        }
+
+        // The wheel is the menu's while the pointer is over it: a page longer than the window scrolls,
+        // and a camera that zoomed behind it would be a town nobody asked to move. Taking it here is
+        // what leaves the camera nothing to zoom by, so one wheel serves both without a mode.
+        if (_ui.WheelIsThePanels(_window.PointerPx))
+        {
+            var scrolled = _window.TakeScroll();
+            if (scrolled != 0f) _ui.Menu.Scroll(scrolled);
+        }
+
+        if (Running)
+        {
+            _hands.DriveCamera(_window, _camera, _uiPx, seconds, _world!.HandsOn);
+            _world.Hands(_hands.ReadKeys(_window, _world));
+        }
+
+        if (!_window.TakeClick(out var button, out var atPx))
+        {
+            // A gesture ends on the way up rather than on an event, so the button is asked about every
+            // frame and not only on the frames a press arrived in (CTL-1b).
+            if (Running) _hands.Pointer(_window, _camera, _uiPx, _config, _world!);
             return;
         }
 
-        if (_window.TakePress(Key.GraveAccent)) _ui.Run.ToggleFreeze();
-        if (_window.TakePress(Key.Number1)) _ui.Run.SetPace(1f);
-        if (_window.TakePress(Key.Number2)) _ui.Run.SetPace(2f);
-        if (_window.TakePress(Key.Number3)) _ui.Run.SetPace(3f);
-        if (_window.TakePress(Key.Pause)) _ui.Run.AgentsHeld = !_ui.Run.AgentsHeld;
-        if (_window.TakePress(Key.R)) _world!.ReleaseHands();
-
-        _hands.DriveCamera(_window, _camera, _uiPx, seconds, _world!.HandsOn);
-        _world.Hands(_hands.ReadKeys(_window, _world));
-
-        if (!_window.TakeClick(out var button, out var atPx)) return;
-
         // The interface is offered the click before the town under it, so a panel drawn over a car is
         // not also a way of selecting that car.
-        switch (_ui.Click(atPx))
-        {
-            case ClickTaken.Gear:
-                _ui.Menu.Show();
-                return;
-            case ClickTaken.Yes:
-                return;
-        }
-
-        PlayerHands.Click(button, atPx, _camera, _uiPx, _world, _ui.Switches, _ui.Ruler);
-    }
-
-    /// <summary>
-    /// <b>OBS-2g — Escape opens and closes the menu, and the way out of the game is the
-    /// <c>Exit game</c> button on it.</b> Closing it leaves the town it was opened over exactly as it
-    /// was: a menu that could only be left by picking a map was a menu that cost a run to look at.
-    /// </summary>
-    /// <remarks>
-    /// With no map loaded there is nothing behind the menu to close it onto, so it is the way out of
-    /// the game — which is what OBS-2g means by a scene that carries no panel.
-    /// </remarks>
-    void Escape()
-    {
-        if (Running) _ui.Menu.Toggle();
-        else _window.Close();
-    }
-
-    void MenuInput()
-    {
-        // The wheel is the menu's while the menu is up: a page longer than the window scrolls, and a
-        // camera that zoomed behind it would be a town nobody asked to move.
-        var scrolled = _window.TakeScroll();
-        if (scrolled != 0f) _ui.Menu.Scroll(scrolled);
-
-        if (!_window.TakeClick(out var button, out var atPx) || button != MouseButton.Left) return;
-
-        var choice = _ui.Menu.Click(atPx, Running, _ui.Switches, _ui.Run);
+        var taken = _ui.Click(atPx, _uiPx, button == MouseButton.Left, Running, out var choice);
 
         // Unticking the box drops the tapes with it, which is one of the two ways OBS-2f says they go
         // — the other is a right-click, and the ruler handles that itself.
@@ -253,53 +245,42 @@ internal sealed class Game : IDisposable
         {
             case MenuAction.OpenMap:
                 Open(choice.Name);
-                break;
-            case MenuAction.RunCheck:
-                _ui.Menu.LastOutput = RunWatched(choice.Name);
-                break;
-            case MenuAction.ReRollSeeds:
-                // Off the clock, because a re-roll is the one place in this engine where the point
-                // is a town nobody has seen — a seed drawn from the run's own stream would give the
-                // same second town every time.
-                var seed = new Rng((ulong)Stopwatch.GetTimestamp(), 0);
-                Rebuild(((ulong)seed.NextUint() << 32) | seed.NextUint());
-                break;
-            case MenuAction.Close:
-                _ui.Menu.Shut();
-                break;
+                return;
             case MenuAction.Quit:
                 _window.Close();
-                break;
+                return;
         }
+
+        if (taken == ClickTaken.Yes) return;
+
+        _hands.Click(button, atPx, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler);
+
+        // A press and a release inside one frame is still a click, so the gesture is offered its way up
+        // in the frame it began in.
+        _hands.Pointer(_window, _camera, _uiPx, _config, _world!);
     }
 
     /// <summary>
-    /// A check, run the way somebody watching runs it: <b>it still prints</b>, and what it printed
-    /// is kept for the panel, because whoever opened it from a menu has no terminal behind them.
+    /// <b>OBS-2g — Escape opens and shuts the menu, and the way out of the game is the <c>Exit</c> tab
+    /// on it.</b> Shutting it leaves the town it was opened over exactly as it was: a menu that could
+    /// only be left by picking a map was a menu that cost a run to look at.
     /// </summary>
-    static string[] RunWatched(string name)
+    /// <remarks>
+    /// With no map loaded there is nothing behind the menu to shut it onto, so Escape is the way out of
+    /// the game — which is what OBS-2g means by a scene that carries no panel.
+    /// </remarks>
+    void Escape()
     {
-        if (!CheckCatalogue.TryFind(name, out var check)) return [$"No check named {name}."];
-
-        var was = Console.Out;
-        using var caught = new StringWriter();
-        try
+        if (!Running)
         {
-            Console.SetOut(caught);
-            check.Run(SimConfig.Load());
-        }
-        catch (Exception failure)
-        {
-            caught.WriteLine($"{failure.GetType().Name}: {failure.Message}");
-        }
-        finally
-        {
-            Console.SetOut(was);
+            _window.Close();
+            return;
         }
 
-        var printed = caught.ToString();
-        Console.Write(printed);
-        return printed.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        // One key for both popups, and it shuts whatever is up before it opens anything: two panels
+        // hanging off two corners at once is a screen with more chrome than town on it.
+        if (_ui.Controls.Open) _ui.Controls.Shut();
+        else _ui.Menu.Toggle();
     }
 
     /// <summary>
@@ -309,9 +290,7 @@ internal sealed class Game : IDisposable
     void Open(string map)
     {
         var plan = TownReader.ReadFile(ProjectPaths.TownFile(map));
-        _plan = plan;
         _map = plan.Name;
-        _agentSeed = plan.Seed;
 
         var mesh = GroundMesh.Build(plan, _config);
         var world = new TownWorld(plan, _config);
@@ -320,38 +299,21 @@ internal sealed class Game : IDisposable
         _renderer = TownRenderer.OnScreen(
             _vk, _window, mesh, ProjectPaths.GroundSurfaceFiles(), _looks.Sheets, TownSprites.CapacityFor(plan, _config));
         _looks.ReadAspects(_renderer);
-        _looks.Lay(plan);
+        _looks.Lay(plan, world.Uses);
 
         _world?.Dispose();
         _world = world;
         _loop = new SimLoop<TownWorld>(world, _config);
-        _track = TrackMetrics.Measures(world) ? new TrackMetrics(_config, world) : null;
+
+        // The watches are built with the town and not once it is running: one of them stages what its map
+        // is about — the exam's thirty-six orders, the crossings' five walkers — and a staging that began
+        // on the tenth tick would be measuring whatever the map did with the first nine.
+        _scenario = Scenarios.For(world, _config);
+        _track = Scenarios.FiguresIn(_scenario);
         _clock = new SimClock(_config.TickSeconds, _config.Sim.SoakMaxTimeScale);
         _camera = new Camera2D(_config, plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
         _ui.TownChanged();
-    }
-
-    /// <summary>
-    /// <b>Re-rolling the seed is the whole life cycle in one call.</b> The old town is removed before
-    /// it is freed — a town whose physics runs one more frame after its roster is gone is bodies
-    /// nobody is deciding for — and every rig that held a point in the old town is told it has gone.
-    /// </summary>
-    void Rebuild(ulong agentSeed)
-    {
-        if (_plan is null) return;
-
-        var was = _world;
-        _world = null;
-        _loop = null;
-        was?.Dispose();
-
-        _agentSeed = agentSeed;
-        var world = new TownWorld(_plan, _config, agentSeed: agentSeed);
-        _world = world;
-        _loop = new SimLoop<TownWorld>(world, _config);
-        _track = TrackMetrics.Measures(world) ? new TrackMetrics(_config, world) : null;
-        _clock.Resynchronise();
-        _ui.TownChanged();
+        _hands.TownChanged();
     }
 
     /// <summary>
@@ -369,19 +331,14 @@ internal sealed class Game : IDisposable
             _loop.World.HoldAgents = _ui.Run.AgentsHeld;
 
             var due = _clock.TicksDue();
-            if (_track is null)
+
+            // A tick at a time, because what the watches count is a tick's own: a peak speed, a lift onto
+            // the brakes and a body a tick deeper into another all happen inside one decision interval,
+            // and a frame is several ticks.
+            for (var tick = 0; tick < due; tick++)
             {
-                _loop.Advance(due);
-            }
-            else
-            {
-                // A tick at a time, because the figures are a tick's own: a peak speed and a lift onto
-                // the brakes both happen inside one decision interval, and a frame is several ticks.
-                for (var tick = 0; tick < due; tick++)
-                {
-                    _loop.Advance();
-                    _track.Saw(_loop.World);
-                }
+                _loop.Advance();
+                foreach (var watch in _scenario) watch.Saw(_loop.World);
             }
 
             parts.SimTicks = due;
@@ -457,13 +414,13 @@ internal sealed class Game : IDisposable
         Camera = _camera,
         UiPx = _uiPx,
         PointerPx = _window.PointerPx,
+        MarqueePx = _hands.MarqueePx(_window.PointerPx, _config.View.SelectionDragPx),
         MapName = _map,
-        WorldSeed = _plan?.Seed ?? 0,
-        AgentSeed = _agentSeed,
         Tick = _loop?.Tick ?? 0,
         Frame = _meter.Figures,
         Crossings = _crossingsPerFrame,
         Track = _track,
+        Scenario = _scenario,
     };
 
     public void Dispose()

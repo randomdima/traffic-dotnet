@@ -35,6 +35,12 @@ The price of the first rule is real and accepted: **a route can no longer turn r
 two-road junction is not a node, so the way back is taken at a junction with a choice at it, or at a dead
 end.
 
+**And no junction turns a route round at all** (TER-5f). The two lanes of one stretch have no turn between
+them, so the only links a route may put back to back that way are the two sides of a stretch a car can come
+back down some other way: a car park's frontage, where it parks and unparks (`GEN-4l`), and a dead end,
+where it works itself round (`P-19`). Both are priced well above three sides of any block, because turning
+round is what a driver does when there is no block to take.
+
 ## What the global tier may not know
 
 **The travel graph is a standalone abstract weighted directed graph and nothing more** — nodes, directed

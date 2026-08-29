@@ -81,21 +81,23 @@ internal sealed class Camera2D
 
         var before = WorldAt(pointerPx, uiPx);
         PixelsPerMetre = Math.Clamp(PixelsPerMetre * MathF.Pow(_config.View.CameraZoomPerNotch, notches),
-            MathF.Min(uiPx.X, uiPx.Y) / WholeTownSpanM, SingleAgentPixelsPerMetre);
+            MathF.Min(uiPx.X, uiPx.Y) / WholeTownSpanM, ZoomInStopPixelsPerMetre);
         CentreM += before - WorldAt(pointerPx, uiPx);
     }
 
     /// <summary>
-    /// The two ends of the zoom, and neither is a figure of its own: out until the whole town is on
-    /// screen — the town's own longer side — and in until a car's sprite is drawn at the one-to-one
-    /// scale its art was cut for.
+    /// The zoom-out end, and not a figure of its own: out until the whole town is on screen — the
+    /// town's own longer side.
     /// </summary>
     float WholeTownSpanM => MathF.Max(_worldSizeM.X, _worldSizeM.Y);
 
     /// <summary>
-    /// One art texel to one of the display's pixels, which is why this is the one figure the scale
-    /// factor divides: on a 2× desktop an interface pixel is two of the display's, so stopping at the
-    /// art's own 96 would let the zoom run to twice the resolution the sprites carry.
+    /// The zoom-in end: the art's own grid against the display's pixels, times how far past 1:1 the
+    /// zoom is allowed to magnify it. The scale factor divides it because the claim is about the
+    /// display's pixels and not the interface's — on a 2× desktop an interface pixel is two of the
+    /// display's, so stopping at the art's own 96 would let the zoom run to twice the resolution the
+    /// sprites carry.
     /// </summary>
-    float SingleAgentPixelsPerMetre => _config.View.CarSpritePixelsPerMetre / DevicePxPerUiPx;
+    float ZoomInStopPixelsPerMetre =>
+        _config.View.CarSpritePixelsPerMetre * _config.View.CameraMaxSpriteMagnification / DevicePxPerUiPx;
 }

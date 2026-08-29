@@ -6,7 +6,10 @@ using System.Runtime.InteropServices;
 using Silk.NET.Input;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using TrafficSimulation.Agents.Ambulance;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Body;
+using TrafficSimulation.Agents.Service;
 using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Hud;
@@ -18,6 +21,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
 using PresentModeKHR = Silk.NET.Vulkan.PresentModeKHR;
@@ -44,13 +48,15 @@ internal static class Program
 {
     static int Main(string[] args)
     {
-        var options = Options.Parse(args);
-
         // The only place the figures are read: everything below is handed the one instance rather
-        // than reaching for a singleton.
+        // than reaching for a singleton, and the words are parsed against it because the size a run
+        // opens at is a figure like any other.
         var config = SimConfig.Load();
+        var options = Options.Parse(args, config.View);
 
-        if (options.LayTrack) return LayTheTrack(config);
+        if (options.LayMaps) return LayTheMaps(config);
+        if (options.PlaceServices) return PlaceTheServices(config);
+        if (options.Lamps) return CutTheLamps();
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
@@ -64,7 +70,8 @@ internal static class Program
         // GEN-1b: with no map named, the game opens on the start menu and builds nothing until one
         // is picked. Naming one on the command line is the same choice made earlier.
         using var game = new Game(
-            config, options.Width, options.Height, options.Validate, options.UiScale, PresentMode(options.Present));
+            config, options.Width, options.Height, options.Validate, options.UiScale, PresentMode(options.Present),
+            fullscreen: !options.Windowed, options.Display);
 
         // --ui reaches the windowed run as it reaches a shot: a measured run of a town nobody is
         // sitting in front of is exactly the run that wants the read-out switched on from the start.
@@ -163,26 +170,102 @@ internal static class Program
     }
 
     /// <summary>
-    /// <b>The proving grounds, written out as maps like any other.</b> They are the only towns this build
-    /// lays itself (<see cref="TrackPlan"/>), and they are laid again from here rather than kept only as
-    /// files — the shapes on them are chosen against the car's own figures, so a figure that moves is a
-    /// track that has to be laid again.
+    /// <b>The maps this build lays itself, written out like any other.</b> The proving grounds
+    /// (<see cref="TrackPlan"/>), the driving exam (<see cref="ExamPlan"/>) and the skidpad
+    /// (<see cref="SkidpadPlan"/>) are laid again from here
+    /// rather than kept only as files — every shape on either of them is chosen against the car's own
+    /// figures, so a figure that moves is a map that has to be laid again.
     /// </summary>
     /// <remarks>
-    /// <b>Both crowds, always, and never one of them.</b> The two maps are the same lap and are read against
-    /// each other, so a run that laid one would leave the other measuring a road the build no longer has.
+    /// <b>Every one of them, always, and never one alone.</b> The three laps are the same road read against
+    /// each other and the exam's thirty-six cards are read against each other, so a run that laid one map
+    /// would leave the rest measuring a road this build no longer has.
     /// </remarks>
-    static int LayTheTrack(SimConfig config)
+    static int LayTheMaps(SimConfig config)
     {
-        foreach (var crowd in Enum.GetValues<TrackCrowd>())
+        foreach (var lap in Enum.GetValues<TrackLap>()) Written(TrackPlan.Lay(config, lap));
+
+        Written(ExamPlan.Lay(config));
+        Written(SkidpadPlan.Lay(config));
+        return 0;
+
+        static void Written(CityPlan plan)
         {
-            var path = ProjectPaths.TownFile(TrackPlan.NameOf(crowd));
-            var plan = TrackPlan.Lay(config, crowd);
+            var path = ProjectPaths.TownFile(plan.Name);
             TownWriter.WriteFile(plan, path);
 
             Console.WriteLine($"{plan.Name}: {path} written — {plan.WorldSizeM.X:F0}x{plan.WorldSizeM.Y:F0} m, " +
-                              $"{plan.Roads.Count} roads, {plan.Spawns.Count} spawns, " +
-                              $"{new FileInfo(path).Length / 1024} KiB");
+                              $"{plan.Roads.Count} roads, {plan.Junctions.Count} junctions, " +
+                              $"{plan.Spawns.Count} spawns, {new FileInfo(path).Length / 1024} KiB");
+        }
+    }
+
+    /// <summary>
+    /// <b>Writes each shipped map's service buildings into the map</b> (GEN-9): which of its buildings
+    /// is the hospital, which are the police stations and which are the depots, placed where a town
+    /// would put them and committed to the file.
+    /// </summary>
+    /// <remarks>
+    /// <b>A workshop step and never a build one</b>, on <see cref="CutTheLamps"/>'s terms: it is run when
+    /// a map arrives or when the shares those services are placed at move, and what ships is the file it
+    /// commits. Placing them at every load instead could only ever shuffle, because the sweep that finds a
+    /// building with parking outside it and puts the next service across town from the last is a second of
+    /// work nobody wants to pay for at every start.
+    /// <para>
+    /// <b>Every map, always.</b> The shares are read off one <c>SimConfig</c>, so a run that placed one
+    /// town's services would leave the rest of them standing at a share this build no longer asks for.
+    /// </para>
+    /// </remarks>
+    static int PlaceTheServices(SimConfig config)
+    {
+        foreach (var map in ProjectPaths.ShippedMaps())
+        {
+            var path = ProjectPaths.TownFile(map);
+            var plan = TownReader.ReadFile(path);
+            ServicePlacement.Place(
+                plan,
+                plan.Seed,
+                [
+                    HospitalRoster.Apron(plan, config),
+                    PoliceStationRoster.Apron(plan, config),
+                    DepotRoster.Apron(plan, config),
+                ]);
+
+            TownWriter.WriteFile(plan, path);
+
+            var uses = BuildingUses.Of(plan);
+            Console.WriteLine($"{plan.Name,-10}{plan.Buildings.Count,6} buildings — " +
+                              $"{uses.Hospitals.Count} hospital(s), {uses.PoliceStations.Count} station(s), " +
+                              $"{uses.Depots.Count} depot(s)");
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Cuts the town's lamp sheet out of the fleet's own sprites (CAR-14a) and writes it beside them.
+    /// <b>A workshop step and never a build one</b>: it is run when a variant's art or its lens
+    /// rectangles change, and what ships is the picture it commits.
+    /// </summary>
+    /// <remarks>
+    /// The distinctness it prints is the instrument for the one thing the arithmetic cannot answer: a
+    /// lens rectangle over bodywork nobody painted a lamp on cuts the paint that surrounds it, and that
+    /// is a sprite to finish rather than a number to adjust.
+    /// </remarks>
+    static int CutTheLamps()
+    {
+        var catalogue = CarCatalog.Shared;
+        var path = ProjectPaths.LampAtlasFile();
+        var cut = LampAtlasBake.Write(catalogue, path);
+
+        Console.WriteLine($"{path} written — {cut.Count} lenses over {catalogue.SheetCount} looks, " +
+                          $"{LampAtlas.Columns * LampAtlas.CellPx}x{catalogue.SheetCount * LampAtlas.CellPx} px " +
+                          $"at {LampAtlas.CellPx} px a cell");
+
+        foreach (var lamp in cut.OrderBy(lamp => lamp.Distinct))
+        {
+            Console.WriteLine($"{"",-9}{lamp.Variant,-18} {lamp.Fitting,-11} " +
+                              $"{lamp.WidthPx,3}x{lamp.HeightPx,-3} distinct {lamp.Distinct:F2}");
         }
 
         return 0;
@@ -195,11 +278,7 @@ internal static class Program
     /// </summary>
     static int RunBench(string name, string? map, SimConfig config)
     {
-        if (string.Equals(name, "all", StringComparison.Ordinal))
-        {
-            CheckCatalogue.RunAll(config);
-            return 0;
-        }
+        if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
         // The census is the one check that is about a particular town, so the command line's --map
         // reaches it; every other check builds the world it needs.
@@ -209,11 +288,7 @@ internal static class Program
             return 0;
         }
 
-        if (CheckCatalogue.TryFind(name, out var check))
-        {
-            check.Run(config);
-            return 0;
-        }
+        if (CheckCatalogue.TryFind(name, out var check)) return Kept(check.Run(config));
 
         Console.Error.Write($"Unknown check {name}. Takes all or one of: ");
         for (var at = 0; at < CheckCatalogue.Shipped.Length; at++)
@@ -225,6 +300,12 @@ internal static class Program
         Console.Error.WriteLine('.');
         return 1;
     }
+
+    /// <summary>
+    /// A check's own answer as the process's. <b>A broken claim is a failed run</b>, which is the whole of
+    /// what makes a probe something a script can gate on rather than a table somebody reads.
+    /// </summary>
+    static int Kept(bool everyClaim) => everyClaim ? 0 : 1;
 
     /// <summary>
     /// The dependency read-out: every row is a claim about the build, answered by the machine.
@@ -387,7 +468,8 @@ internal static class Program
     readonly record struct Options(
         bool Check, bool Validate, int Width, int Height, double Seconds, string? Bench, string? Map, float ViewM,
         string? Shot, Vector2? AtM, string Ui, float UiScale, string Present, List<Vector2> RulerPointsM,
-        bool LayTrack, string? Sheet, bool Caption, string? Title, string? Note)
+        bool LayMaps, bool PlaceServices, string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
+        bool Windowed, string? Display)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: it is one screen, it
@@ -402,8 +484,11 @@ internal static class Program
         /// sitting in front of; <c>--view</c> opens on a named span in metres; <c>--bench</c> runs one
         /// of this engine's checks; <c>--ui-scale</c> lays the interface out at a factor of its own
         /// instead of the desktop's; <c>--present</c> is how a finished frame reaches the glass, which
-        /// is what a frame rate from a windowed run means at all (<see cref="Swapchain"/>); and
-        /// <c>--check</c> is the dependency read-out.
+        /// is what a frame rate from a windowed run means at all (<see cref="Swapchain"/>);
+        /// <c>--windowed</c> opens in a window instead of fullscreen, for a run to be looked at beside
+        /// something else; <c>--display</c> names the screen to open on, by the desktop's own name for
+        /// it or by its index, since a desktop nobody can ask which screen is in front of the person
+        /// leaves the choice a guess; and <c>--check</c> is the dependency read-out.
         /// </summary>
         /// <remarks>
         /// <b>The review words are their own set</b> (<see cref="SheetRequest"/>): <c>--sheet</c> takes
@@ -412,16 +497,18 @@ internal static class Program
         /// <c>--shot</c>. Naming a title or a note implies the caption, since neither is drawn anywhere
         /// else.
         /// </remarks>
-        public static Options Parse(string[] args)
+        public static Options Parse(string[] args, ViewFigures view)
         {
             // No map by default, because GEN-1b says the game opens on a menu and builds nothing
             // until one is picked. Naming one is that choice made on the command line instead.
             // A zero ui scale is "ask the window", which is the desktop's own factor: naming one is
             // for the platform that reports 1 on a display nobody would call unscaled.
-            var options = new Options(Check: false, Validate: false, Width: 1600, Height: 900, Seconds: 0,
+            var options = new Options(Check: false, Validate: false,
+                Width: view.WindowWidthPx, Height: view.WindowHeightPx, Seconds: 0,
                 Bench: null, Map: null, ViewM: 0f, Shot: null, AtM: null, Ui: string.Empty, UiScale: 0f,
-                Present: "mailbox", RulerPointsM: [], LayTrack: false, Sheet: null, Caption: false, Title: null,
-                Note: null);
+                Present: "fifo", RulerPointsM: [], LayMaps: false, PlaceServices: false, Sheet: null,
+                Caption: false, Title: null,
+                Note: null, Lamps: false, Windowed: false, Display: null);
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -433,8 +520,21 @@ internal static class Program
                     case "--validate":
                         options = options with { Validate = true };
                         break;
-                    case "--lay-track":
-                        options = options with { LayTrack = true };
+                    case "--lay-maps":
+                        options = options with { LayMaps = true };
+                        break;
+                    case "--place-services":
+                        options = options with { PlaceServices = true };
+                        break;
+                    case "--lamps":
+                        options = options with { Lamps = true };
+                        break;
+                    case "--windowed":
+                        options = options with { Windowed = true };
+                        break;
+                    case "--display" when i + 1 < args.Length:
+                        options = options with { Display = args[i + 1] };
+                        i++;
                         break;
                     case "--size" when i + 2 < args.Length:
                         options = options with { Width = int.Parse(args[i + 1]), Height = int.Parse(args[i + 2]) };
@@ -505,7 +605,8 @@ internal static class Program
                                                     "--at X Y, --shot PATH, --sheet FILE.json|-, --caption, " +
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
-                                                    "--seconds N, --validate, --check, --bench NAME|all, --lay-track.");
+                                                    "--windowed, --display NAME|N, --seconds N, --validate, --check, " +
+                                                    "--bench NAME|all, --lay-maps, --place-services, --lamps.");
                 }
             }
 

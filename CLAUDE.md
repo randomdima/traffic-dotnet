@@ -98,6 +98,13 @@ dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json
 dotnet run --project traffic-dotnet.csproj -- --bench maneuvers --map Odesa
 ```
 
+**A map says whether it kept what it claims, and a broken claim fails the run.** Every run draws the
+claims in a panel along the bottom and prints the same table on its way out; `--bench <name>` exits
+non-zero when one of them is broken, and what is quoted beside them fails nothing
+([docs/verification.md](docs/verification.md#what-a-map-claims-about-itself)). **A new claim goes on the
+map's own watch in [bench/](src/bench/)** and is read from there by the panel, the probe and the tier — a
+second copy of it anywhere is two answers.
+
 **A picture to be looked at is asked for with its caption on** — `--caption`, or `--sheet` for several
 framings at once ([app/shot](src/app/shot/docs/requirements.md)). It carries the map, the framing, the
 scale bar, the tick and the seed, so a frame in `.tmp/` is still readable a week later and the same one
@@ -109,17 +116,18 @@ the `Tier` trait every test class carries ([tests/Tier.cs](src/tests/Tier.cs)); 
 
 | Ran | Costs | After |
 |---|---|---|
-| `qq tests` | 2 s | **every edit, no exceptions** |
+| `qq tests` | 4 s | **every edit, no exceptions** |
 | `qq tests --changed` | what it picks | **any edit worth more than the unit tier** — it reads the tree and names the tiers those paths can have moved |
-| `qq tests unit town` | 25 s | a change to behaviour, before saying it works |
-| `qq tests all` | 2 m 45 s | touching the tick, the solver, a submit path — or before a commit |
-| `qq tests e2e` | 28 s | changing anything that draws, to look at the frames |
+| `qq tests unit town` | 45 s | a change to behaviour, before saying it works |
+| `qq tests all` | 1 m 15 s | touching the tick, the solver, a submit path — or before a commit |
+| `qq tests e2e` | 1 m 35 s | changing anything that draws, to look at the frames |
 | `qq tests e2e --judge` | **money**, ~30 min | a milestone, or when asked for by name — never unprompted |
 | `qq tests --name=Kerb town` | — | one class or one case, while fixing it |
 
 **A test run is waited for, never backgrounded and polled.** A poll is a round trip that costs more than
-waiting does; `--changed` is how a run is made short. And **`qq tests all` is the commit's tier, not the
-edit loop's** — reaching for it because choosing was harder than waiting is three minutes an edit.
+waiting does; `--changed` is how a run is made short. And **`qq tests all` is still the commit's tier
+rather than the edit loop's** — it is two builds and every gate, and the tier that fits the change is
+always shorter than the one that covers everything.
 
 **Never open a windowed run to look at something `--shot` can answer** — it needs no window, no
 compositor and no desktop, and the image is the same recording against a different target.

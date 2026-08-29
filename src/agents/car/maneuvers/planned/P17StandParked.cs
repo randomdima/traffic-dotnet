@@ -21,7 +21,7 @@ internal static class P17StandParked
     /// <summary><c>Sa</c>: a bay to be in. The occupancy is taken here, which is what makes the bay no longer free.</summary>
     public static ManeuverStart Begin(in DriveScene scene, ManeuverDesk desk, int subject)
     {
-        var bay = subject >= 0 ? subject : desk.ReservationOf(scene.Car);
+        var bay = subject >= 0 ? subject : desk.BookingOf(scene.Car);
         if (bay < 0) return ManeuverStart.No;
 
         desk.OccupyTheBay(scene.Car, bay);

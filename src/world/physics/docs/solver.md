@@ -18,7 +18,7 @@ library and is wrong here; adding one back is a change to this document first.
 |---|---|
 | Joints, motors, springs | Nothing in the town is jointed. A car is one body |
 | Sensors, triggers, overlap events | The town asks its own indexes what is near what |
-| Shapes beyond the circle and the oriented box | OBJ-2 gives four bodies and two shapes |
+| Shapes beyond the rounded oriented box | OBJ-2's five bodies are all of them. Neither the radius nor the coreless disc is a second shape: same axes, same separating axis, same clip |
 | Restitution | A collision here is a crash, not a break shot |
 | Continuous collision / sweeping | A stated limit rather than a divergence |
 | Islands, sleeping | Every contact of every tick is run; a saving forgone, not a behaviour |
@@ -28,7 +28,12 @@ library and is wrong here; adding one back is a change to this document first.
 
 ## What it presents
 
-**SOL-1** Two shapes and no more — a circle and an oriented box, each dynamic or static.
+**SOL-1** **One shape and no more** — an oriented box with a corner radius, dynamic or static. The
+half-extents it is held at are its *core*'s, and it reaches `extent + radius` along each of its own axes.
+A radius of zero is the square-cornered box a building part is; **a core of zero is a disc**, which is
+what a person and a prop are, and is not a second kind of thing. The narrow phase is written once for
+that shape; the closed forms the coreless cases take are optimisations of it and are held to its own
+answer by a test.
 **SOL-2** A body's pose and motion are readable and writable by the town.
 **SOL-3** Two ways to actuate a body and no others: an impulse at the centre of mass, and one at a point.
 **SOL-4** A body can be taken out of the world and put back keeping its identity.

@@ -10,7 +10,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// <para>
 /// A switch on a contiguous enum is a jump table; the entries are static classes with no instances, so
 /// there is no allocation on a hand-over and no dispatch the JIT cannot see through. That is what makes
-/// a catalogue of twenty entries affordable in a steady state that allocates nothing.
+/// a catalogue of this size affordable in a steady state that allocates nothing.
 /// </para>
 /// <para>
 /// <b>The traits are declared by the entry and not worked out here.</b> The catalogue is what knows
@@ -32,12 +32,11 @@ internal static class ManeuverCatalogue
         Maneuver.RunTheLine => P04RunTheLine.Begin(scene, desk, subject),
         Maneuver.HoldAtALine => P06HoldAtALine.Begin(scene, desk, subject),
         Maneuver.TakeTheJunction => P08TakeTheJunction.Begin(scene, desk, subject),
-        Maneuver.TurnAround => P11TurnAround.Begin(scene, desk, subject),
-        Maneuver.PassACrossing => P12PassACrossing.Begin(scene, desk, subject),
         Maneuver.ParkInTheBay => P14ParkInTheBay.Begin(scene, desk, subject),
         Maneuver.SquareUpInTheBay => P16SquareUpInTheBay.Begin(scene, desk, subject),
         Maneuver.StandParked => P17StandParked.Begin(scene, desk, subject),
-        Maneuver.Yield => E01Yield.Begin(scene, desk, subject),
+        Maneuver.AttendTheScene => P18AttendTheScene.Begin(scene, desk, subject),
+        Maneuver.ShuntRound => P19ShuntRound.Begin(scene, desk, subject),
         Maneuver.EmergencyStop => E02EmergencyStop.Begin(scene, desk, subject),
         Maneuver.BackOff => E03BackOff.Begin(scene, desk, subject),
         Maneuver.GoRound => E04GoRound.Begin(scene, desk, subject),
@@ -61,12 +60,11 @@ internal static class ManeuverCatalogue
         Maneuver.RunTheLine => P04RunTheLine.Tick(scene, desk, sinceS, ref limits),
         Maneuver.HoldAtALine => P06HoldAtALine.Tick(scene, desk, sinceS, ref limits),
         Maneuver.TakeTheJunction => P08TakeTheJunction.Tick(scene, desk, sinceS, ref limits),
-        Maneuver.TurnAround => P11TurnAround.Tick(scene, desk, sinceS, ref limits),
-        Maneuver.PassACrossing => P12PassACrossing.Tick(scene, desk, sinceS, ref limits),
         Maneuver.ParkInTheBay => P14ParkInTheBay.Tick(scene, desk, sinceS, ref limits),
         Maneuver.SquareUpInTheBay => P16SquareUpInTheBay.Tick(scene, desk, sinceS, ref limits),
         Maneuver.StandParked => P17StandParked.Tick(scene, desk, sinceS, ref limits),
-        Maneuver.Yield => E01Yield.Tick(scene, desk, sinceS, ref limits),
+        Maneuver.AttendTheScene => P18AttendTheScene.Tick(scene, desk, sinceS, ref limits),
+        Maneuver.ShuntRound => P19ShuntRound.Tick(scene, desk, sinceS, ref limits),
         Maneuver.EmergencyStop => E02EmergencyStop.Tick(scene, desk, sinceS, ref limits),
         Maneuver.BackOff => E03BackOff.Tick(scene, desk, sinceS, ref limits),
         Maneuver.GoRound => E04GoRound.Tick(scene, desk, sinceS, ref limits),
@@ -90,12 +88,11 @@ internal static class ManeuverCatalogue
         Maneuver.RunTheLine => P04RunTheLine.ThinksEveryTick,
         Maneuver.HoldAtALine => P06HoldAtALine.ThinksEveryTick,
         Maneuver.TakeTheJunction => P08TakeTheJunction.ThinksEveryTick,
-        Maneuver.TurnAround => P11TurnAround.ThinksEveryTick,
-        Maneuver.PassACrossing => P12PassACrossing.ThinksEveryTick,
         Maneuver.ParkInTheBay => P14ParkInTheBay.ThinksEveryTick,
         Maneuver.SquareUpInTheBay => P16SquareUpInTheBay.ThinksEveryTick,
         Maneuver.StandParked => P17StandParked.ThinksEveryTick,
-        Maneuver.Yield => E01Yield.ThinksEveryTick,
+        Maneuver.AttendTheScene => P18AttendTheScene.ThinksEveryTick,
+        Maneuver.ShuntRound => P19ShuntRound.ThinksEveryTick,
         Maneuver.EmergencyStop => E02EmergencyStop.ThinksEveryTick,
         Maneuver.BackOff => E03BackOff.ThinksEveryTick,
         Maneuver.GoRound => E04GoRound.ThinksEveryTick,
@@ -118,12 +115,11 @@ internal static class ManeuverCatalogue
         Maneuver.RunTheLine => P04RunTheLine.Watched,
         Maneuver.HoldAtALine => P06HoldAtALine.Watched,
         Maneuver.TakeTheJunction => P08TakeTheJunction.Watched,
-        Maneuver.TurnAround => P11TurnAround.Watched,
-        Maneuver.PassACrossing => P12PassACrossing.Watched,
         Maneuver.ParkInTheBay => P14ParkInTheBay.Watched,
         Maneuver.SquareUpInTheBay => P16SquareUpInTheBay.Watched,
         Maneuver.StandParked => P17StandParked.Watched,
-        Maneuver.Yield => E01Yield.Watched,
+        Maneuver.AttendTheScene => P18AttendTheScene.Watched,
+        Maneuver.ShuntRound => P19ShuntRound.Watched,
         Maneuver.EmergencyStop => E02EmergencyStop.Watched,
         Maneuver.BackOff => E03BackOff.Watched,
         Maneuver.GoRound => E04GoRound.Watched,
@@ -145,12 +141,8 @@ internal static class ManeuverCatalogue
 
     /// <summary>
     /// The bound this entry's standing still is measured against, before the car's own jitter: the short
-    /// fuse where the body is across a lane, the blocked-road clock everywhere else — and the blocked
-    /// clock for `P-11` either way, because a turn-around is across a lane by construction and is the
-    /// longest single occupancy in the catalogue.
+    /// fuse where the body is across a lane, the blocked-road clock everywhere else.
     /// </summary>
-    public static float FuseS(Maneuver id, in DriveScene scene) =>
-        id != Maneuver.TurnAround && scene.AcrossALane
-            ? scene.Config.CarShortFuseS
-            : scene.Config.CarBlockedRoadS;
+    public static float FuseS(in DriveScene scene) =>
+        scene.AcrossALane ? scene.Config.CarShortFuseS : scene.Config.CarBlockedRoadS;
 }

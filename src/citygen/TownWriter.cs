@@ -239,6 +239,7 @@ internal static class TownWriter
             tape.V2(buildings.SizeM[i]);
             tape.F32(buildings.HeadingRad[i]);
             tape.U32((uint)buildings.Capacity[i]);
+            tape.U8((byte)buildings.Use[i]);
 
             var from = buildings.EntryOffsets[i];
             var to = buildings.EntryOffsets[i + 1];

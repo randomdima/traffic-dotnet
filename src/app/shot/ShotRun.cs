@@ -44,7 +44,7 @@ internal static class ShotRun
     {
         var ui = new Interface();
         var wanted = ask.Ui ?? [];
-        var onMenu = Array.Exists(wanted, name => name is "menu" or "menu-scenarios" or "menu-checks");
+        var onMenu = Array.Exists(wanted, name => name is "menu" or "menu-scenarios");
 
         // A frame of the town and nothing else, which is what a picture of the *ground* is judged as:
         // the panels are the interface's own subject and belong to the frames that are about it.
@@ -78,28 +78,22 @@ internal static class ShotRun
         // A shot of a town that has never ticked is a town of walkers standing on their spawns, which
         // is a picture of the plan rather than of the simulation. Seconds says how far in.
         var loop = new SimLoop<TownWorld>(world, config);
-        loop.Timed = ui.Switches.FrameReadout;
-        world.Timed = ui.Switches.FrameReadout;
+        loop.Timed = ui.Status.Open;
+        world.Timed = ui.Status.Open;
 
-        // The proving ground's figures are a tick's own, so on that map the run is advanced one at a
-        // time and watched — which is what makes a picture of the panel a picture of the same laps.
-        var track = TrackMetrics.Measures(world) ? new TrackMetrics(config, world) : null;
+        // What the map claims about itself is answered a tick at a time, so the run is advanced one at a
+        // time and watched — which is what makes a picture of either panel a picture of the same run.
+        var scenario = onMenu ? [] : Scenarios.For(world, config);
+        var track = Scenarios.FiguresIn(scenario);
         var ticks = (int)(ask.Seconds * config.Sim.TickRateHz);
-        if (track is null)
+        for (var tick = 0; tick < ticks; tick++)
         {
-            loop.Advance(ticks);
-        }
-        else
-        {
-            for (var tick = 0; tick < ticks; tick++)
-            {
-                loop.Advance();
-                track.Saw(world);
-            }
+            loop.Advance();
+            foreach (var watch in scenario) watch.Saw(world);
         }
 
         looks.ReadAspects(renderer);
-        if (!onMenu) looks.Lay(plan);
+        if (!onMenu) looks.Lay(plan, world.Uses);
         var sprites = onMenu ? 0 : looks.Fill(world, config, camera.CentreM, camera.ViewSpanM(uiPx), renderer.Sprites);
         renderer.SetSpriteCount(sprites);
 
@@ -114,14 +108,13 @@ internal static class ShotRun
             UiPx = uiPx,
             PointerPx = -Vector2.One,
             MapName = plan.Name,
-            WorldSeed = plan.Seed,
-            AgentSeed = plan.Seed,
             Tick = loop.Tick,
 
             // The phases and nothing else: there is no window to time on this path, so the read-out
             // says the frame was not measured rather than printing the zero it would come to.
             Frame = new FrameFigures { Phases = loop.Phases, Sub = world.Sub },
             Track = track,
+            Scenario = onMenu ? default : scenario,
         }, out under);
 
         renderer.SetOverlayCount(quads);

@@ -78,26 +78,6 @@ internal sealed class TravelGraph
         _turnPriceM.AsSpan(_turnOffsets[link], _turnOffsets[link + 1] - _turnOffsets[link]);
 
     /// <summary>
-    /// The node whose anchor is nearest a place. A whole-network scan, and deliberately so: what asks is
-    /// a body <em>standing still</em> choosing where to enter, which is a decision and not an inner loop.
-    /// </summary>
-    public int NearestNode(Vector2 pointM)
-    {
-        var best = -1;
-        var bestDistanceSq = float.MaxValue;
-        for (var node = 0; node < _nodeAnchorM.Length; node++)
-        {
-            var distanceSq = (_nodeAnchorM[node] - pointM).LengthSquared();
-            if (distanceSq >= bestDistanceSq) continue;
-
-            bestDistanceSq = distanceSq;
-            best = node;
-        }
-
-        return best;
-    }
-
-    /// <summary>
     /// Lays the graph a link at a time. Build-time only: it allocates freely, and nothing it produces is
     /// written to again.
     /// </summary>

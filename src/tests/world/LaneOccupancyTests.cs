@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
@@ -85,6 +87,40 @@ public class LaneOccupancyTests
     }
 
     /// <summary>
+    /// <b>A claim the asker is standing on is not a cut</b> (TER-5e). A claim is ground its holder has
+    /// <em>not reached</em>, so one whose near edge is behind the asker is ground the asker has — and a
+    /// grant answered at it is no longer a distance in front of the nose but a body's length of negative
+    /// road, which nothing can drive out of by stopping.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a body that is answered from behind and never a claim.</b> A stretch this asker overlaps is
+    /// a contact, and the grant is left free to say so — which is the whole of the difference between the
+    /// two halves of this case.
+    /// </remarks>
+    [Fact]
+    public void AClaimBehindTheAskerCutsNothingAndABodyBehindItStillDoes()
+    {
+        var index = Index(out var roads);
+        var way = index.WayOfLane(FirstLongLane(roads, 60f));
+        var asker = new LaneCredit(2f, LaneRoster.Driving, RightOfWay.Traffic);
+
+        // The car queueing behind for the same movement, claiming the run through the body in front of it.
+        index.Begin();
+        index.Add(way, 10f, 30f, 0f, occupant: 1, LaneUse.Claimed);
+
+        Assert.Equal(
+            float.PositiveInfinity, index.GrantedOn(way, 20f, 60f, occupant: 2, asker, out _));
+
+        // From behind its near edge the same claim is a place to be stopped a margin short of.
+        Assert.Equal(8f, index.GrantedOn(way, 5f, 60f, occupant: 2, asker, out _), 3);
+
+        // And a body reaching back past the asker is a contact, which the grant is left to report.
+        index.Begin();
+        index.Add(way, 10f, 30f, 0f, occupant: 1, LaneUse.Reserved);
+        Assert.Equal(10f, index.GrantedOn(way, 20f, 60f, occupant: 2, asker, out _), 3);
+    }
+
+    /// <summary>
     /// <b>A body on foot takes the road it stands on and is not traffic.</b> It cuts the grant of anybody
     /// driving through it, exactly as a car standing there would; what it is <em>not</em> is an answer to
     /// somebody asking what is coming down the lane, and it is not an obstruction either — that reading is
@@ -119,6 +155,99 @@ public class LaneOccupancyTests
         Assert.True(index.AnybodyOnFoot(way, 23f, 23f));
         Assert.True(index.AnybodyOnFoot(way, 18f, 21f));
         Assert.False(index.AnybodyOnFoot(way, 30f, 40f));
+    }
+
+    /// <summary>
+    /// <b>Ground somebody is waiting for is in the book and is in nothing else</b> (TER-5e). It is the ask a
+    /// walker at a kerb was refused: no grant is cut at it, nobody reads it as a body or as traffic, and the
+    /// one question it answers is the one a driver approaching that paint asks.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both halves are the point.</b> Out of the book, a right of way nobody can see is not one (TER-4c);
+    /// in it as a body, a car that could not stop at the kerb line brakes as hard as it can for somebody
+    /// still on the pavement.
+    /// </remarks>
+    [Fact]
+    public void GroundSomebodyIsWaitingForIsSeenAndCutsNothing()
+    {
+        var index = Index(out var roads);
+        var way = index.WayOfLane(FirstLongLane(roads, 60f));
+
+        index.Begin();
+        index.Add(way, 20f, 26f, 0f, occupant: 4, LaneUse.Awaited, LaneRoster.Walking, RightOfWay.OnThePaint);
+
+        Assert.True(index.AnybodyWaitingFor(way, 23f, 23f));
+        Assert.False(index.AnybodyWaitingFor(way, 30f, 40f));
+
+        var at = LaneOccupancy.FromTheStart;
+        Assert.False(index.NextSpokenFor(way, 0f, 60f, LaneOccupancy.Nobody, ref at, out _));
+        Assert.False(index.AheadBody(way, 0f, 60f, LaneOccupancy.Nobody, out _));
+        Assert.False(index.AnybodyOnFoot(way, 23f, 23f));
+        Assert.False(index.AnyTrafficOver(way, 20f, 26f));
+        Assert.False(index.SpokenForByAnother(way, 20f, 26f, LaneOccupancy.Nobody, out _));
+    }
+
+    /// <summary>
+    /// <b>A right of way takes a claim and never a body</b> (TER-5e): ground nobody has reached is given up
+    /// to the stronger movement, and ground somebody is standing on — or committed to being able to stop in —
+    /// refuses everything, whatever ranks the two of them carry.
+    /// </summary>
+    [Fact]
+    public void ARightOfWayTakesAClaimAndNeverABody()
+    {
+        var claim = new LaneSlot(0f, 6f, 6f, 0f, 1, LaneUse.Claimed, LaneRoster.Driving, RightOfWay.TurningAcross);
+        Assert.False(LaneOccupancy.Binds(claim, RightOfWay.StraightOn));
+        Assert.True(LaneOccupancy.Binds(claim, RightOfWay.TurningAcross));
+
+        // The same claim laid by a car that can no longer stop short of the box it is entering.
+        var committed = claim with { Right = RightOfWay.Committed };
+        Assert.True(LaneOccupancy.Binds(committed, RightOfWay.StraightOn));
+
+        // And a body, which is not a rank's to take at any strength.
+        Assert.True(LaneOccupancy.Binds(claim with { Use = LaneUse.Reserved }, RightOfWay.StraightOn));
+        Assert.True(LaneOccupancy.Binds(claim with { Use = LaneUse.Obstruction }, RightOfWay.StraightOn));
+        Assert.True(LaneOccupancy.Binds(claim with { Use = LaneUse.OnFoot }, RightOfWay.StraightOn));
+    }
+
+    /// <summary>
+    /// <b>And the same comparison read from the claim's own side</b> (TER-4c.1): what takes a claim away from
+    /// its holder is a rank above the one the holder is keeping it at, and nothing else — so a claim survives
+    /// the traffic driving over it and the very body a swerve took it to get round, and does not survive a
+    /// closed road or a rescue.
+    /// </summary>
+    [Fact]
+    public void OnlyAStrongerRankTakesAClaimFromItsHolder()
+    {
+        var mine = RightOfWay.Traffic;
+        var over = new LaneSlot(0f, 6f, 6f, 0f, 1, LaneUse.Reserved, LaneRoster.Driving, RightOfWay.Traffic);
+
+        Assert.False(LaneOccupancy.TakesAClaim(over, mine));
+        Assert.False(LaneOccupancy.TakesAClaim(over with { Use = LaneUse.Obstruction }, mine));
+        Assert.False(LaneOccupancy.TakesAClaim(over with { Use = LaneUse.OnFoot }, mine));
+        Assert.False(LaneOccupancy.TakesAClaim(over with { Use = LaneUse.Furniture }, mine));
+
+        Assert.True(LaneOccupancy.TakesAClaim(over with { Right = RightOfWay.Closed }, mine));
+        Assert.True(LaneOccupancy.TakesAClaim(over with { Right = RightOfWay.Emergency }, mine));
+
+        // And a rank the holder itself carries takes nothing: a rescue does not give its own road back.
+        Assert.False(LaneOccupancy.TakesAClaim(over with { Right = RightOfWay.Emergency }, RightOfWay.Emergency));
+    }
+
+    /// <summary>
+    /// <b>Straighter is stronger</b> (TER-5e), and the order is one scale rather than a table of pairs: the
+    /// stream that turns out of nobody's way, ordinary traffic, and the turn across the oncoming stream,
+    /// which is the last movement a box admits (TER-5f).
+    /// </summary>
+    [Fact]
+    public void AMovementsRightOfWayIsTheTurnItMakes()
+    {
+        Assert.True(RoadGraph.RightOfWayOf(LaneTurn.Straight) > RoadGraph.RightOfWayOf(LaneTurn.NearSide));
+        Assert.True(RoadGraph.RightOfWayOf(LaneTurn.NearSide) > RoadGraph.RightOfWayOf(LaneTurn.FarSide));
+
+        // Ordinary traffic is the middle of the scale and what a stretch laid without a rank is given, so
+        // nothing that is not a movement through a box is either given way to or taken from.
+        Assert.Equal(RightOfWay.Traffic, RoadGraph.RightOfWayOf(LaneTurn.NearSide));
+        Assert.Equal(RightOfWay.Traffic, LaneSlot.Nothing.Right);
     }
 
     /// <summary>
@@ -206,7 +335,11 @@ public class LaneOccupancyTests
         Assert.False(index.BehindBody(way, 60f, 20f, LaneOccupancy.Nobody, out _));
     }
 
-    /// <summary>A body the asker is already overlapping is a contact and not an empty road.</summary>
+    /// <summary>
+    /// A body the asker is already overlapping is a contact and not an empty road — <b>and one reaching
+    /// exactly as far as the asker's own near edge is the boundary of that and not the exception to it</b>,
+    /// which is the bar a walk of what is spoken for holds a stretch to as well.
+    /// </summary>
     [Fact]
     public void SomethingOverlappingTheAskerAnswersAtItsOwnNearEdge()
     {
@@ -218,6 +351,12 @@ public class LaneOccupancyTests
 
         Assert.True(index.AheadBody(way, 10f, 60f, LaneOccupancy.Nobody, out var found));
         Assert.Equal(8f, found.FromM);
+
+        Assert.True(index.AheadBody(way, 14f, 60f, LaneOccupancy.Nobody, out found));
+        Assert.Equal(8f, found.FromM);
+
+        var at = LaneOccupancy.FromTheStart;
+        Assert.True(index.NextSpokenFor(way, 14f, 60f, LaneOccupancy.Nobody, ref at, out _));
     }
 
     /// <summary><b>Nothing survives a rebuild</b>, which is the guarantee that makes the index need no release path.</summary>
@@ -252,6 +391,34 @@ public class LaneOccupancyTests
         Assert.Equal(2, index.SlotCount);
     }
 
+    /// <summary>
+    /// <b>A way is named once among the ways somebody is on, however often it is laid on and given back.</b>
+    /// A car gives its crossing back and the car behind takes the same join in the same walk, so a way the
+    /// withdrawal emptied is laid on again — and listed twice, every reader of the book counts what is on it
+    /// twice.
+    /// </summary>
+    [Fact]
+    public void AWayEmptiedAndLaidOnAgainIsNamedOnce()
+    {
+        var index = Index(out var roads);
+        var way = index.WayOfLane(FirstLongLane(roads, 60f));
+
+        index.Begin();
+        index.Add(way, 10f, 14f, 0f, occupant: 1, LaneUse.Claimed);
+        index.Withdraw(way, occupant: 1, LaneUse.Claimed);
+        Assert.Equal(0, index.ClaimCount);
+
+        index.Add(way, 30f, 34f, 0f, occupant: 2, LaneUse.Claimed);
+
+        var named = 0;
+        foreach (var listed in index.OccupiedWays)
+        {
+            if (listed == way) named++;
+        }
+
+        Assert.Equal(1, named);
+    }
+
     /// <summary>A lane and the join out of it are different ways, and nothing on one is on the other.</summary>
     [Fact]
     public void AJoinIsAWayOfItsOwn()
@@ -268,14 +435,22 @@ public class LaneOccupancyTests
         Assert.False(index.AheadBody(index.WayOfLane(lane), 0f, 60f, LaneOccupancy.Nobody, out _));
     }
 
+    /// <summary>
+    /// A lane long enough to hold the stretches these tests lay, whose first way out is a join with metres
+    /// of its own — a place cut into a road joins its two lanes at a point (GEN-4h), and a way of no length
+    /// is nothing to put a body on.
+    /// </summary>
     static int FirstLongLane(RoadGraph roads, float atLeastM)
     {
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            if (roads.LaneLengthM[lane] >= atLeastM && roads.TurnsFrom(lane).Length > 0) return lane;
+            if (roads.LaneLengthM[lane] < atLeastM || roads.TurnsFrom(lane).Length == 0) continue;
+            if (roads.JoinLengthM(roads.TurnSlotAt(lane, 0)) <= 0f) continue;
+
+            return lane;
         }
 
-        throw new InvalidOperationException($"the fixture town has no lane {atLeastM} m long with a way out of it");
+        throw new InvalidOperationException($"the fixture town has no lane {atLeastM} m long with a join out of it");
     }
 }
 
@@ -287,6 +462,35 @@ public class LaneOccupancyTests
 public class LaneOccupancyInATownTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
+
+    /// <summary>
+    /// <b>Somebody in a lane cuts the road a driver is granted</b> (TER-4c), which is a fact about the order
+    /// the book is laid in and not about the arithmetic: the walkers go in between the cars' asks and the
+    /// cars' grants, so a band is in the book before any grant is taken off it.
+    /// </summary>
+    /// <remarks>
+    /// Laid last instead, every band went into a book that was wiped before the next grant was taken and no
+    /// driver ever read one while deciding how much road it had. Nothing in the arithmetic said so — the
+    /// walkers were in the book, on the right ways, at the right metres, and one pass too late.
+    /// </remarks>
+    [Fact]
+    public void ADriverIsCutByTheWalkersInItsLane()
+    {
+        var world = new TownWorld(Towns.Of("Odesa"), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+
+        var cutByAWalker = 0;
+        for (var tick = 0; tick < TicksWatched; tick++)
+        {
+            loop.Advance();
+            for (var car = 0; car < world.Cars.Count; car++)
+            {
+                if (world.Cars.GrantCutBy[car] == HeadwayKind.Walker) cutByAWalker++;
+            }
+        }
+
+        Assert.True(cutByAWalker > 0, "no driver in a minute of a busy town was ever cut by somebody on foot");
+    }
 
     /// <summary>
     /// <b>Every driver on a route is in the book.</b> A car the index has not placed is a car nobody behind
@@ -307,23 +511,6 @@ public class LaneOccupancyInATownTests
         Assert.True(
             world.Occupancy.SlotCount >= onARoute,
             $"{onARoute} cars were on a route and the index held {world.Occupancy.SlotCount} stretches");
-    }
-
-    /// <summary>
-    /// <b>The index is never full.</b> Past its bound a stretch is dropped, and a dropped stretch is a car
-    /// its followers cannot name — which reads as an obstruction and is the one thing that must not happen
-    /// silently.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void TheIndexNeverReachesItsBound(string map)
-    {
-        var world = Run(map);
-        if (world.Cars.Count == 0) return;
-
-        Assert.True(
-            world.Occupancy.SlotCount < world.Occupancy.Capacity,
-            $"the index held {world.Occupancy.SlotCount} of {world.Occupancy.Capacity} stretches");
     }
 
     /// <summary>
@@ -368,6 +555,85 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>
+    /// <b>A body that is not driving a route still holds the ground it cannot stop short of</b> (TER-4c.1)
+    /// — an obstruction is a reservation that generally reaches nowhere, and not a stretch of a different
+    /// kind. Standing still it is the body and no more; shoved down a lane at speed it is the body and the
+    /// road that speed takes to shed, which is the ground the traffic behind must not be granted.
+    /// </summary>
+    /// <remarks>
+    /// <b>The two readings are one arithmetic and that is the point.</b> Held to its footprint whatever it
+    /// was doing, a car knocked down a lane by a collision handed the driver behind it the metres it was
+    /// about to be standing on — and the faster it was travelling, the more of them.
+    /// </remarks>
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(6f)]
+    [InlineData(14f)]
+    public void ABodyOffItsRouteHoldsTheRoadItsSpeedStillNeeds(float alongMps)
+    {
+        // The lap, whose fleet is on the road rather than in bays: a car a bay holds is laid at that bay's
+        // own extent instead (<c>LieInTheBay</c>), which is the one body this arithmetic is not asked of.
+        var world = new TownWorld(Towns.Of("Fleet"), Config);
+        new SimLoop<TownWorld>(world, Config).Advance(600);
+
+        // A lane long enough that the whole stretch lands inside it, so nothing under test is clipped at
+        // either end of the way (<see cref="LaneOccupancy.Add"/>).
+        var lane = 0;
+        for (var at = 0; at < world.Roads.LaneCount; at++)
+        {
+            if (world.Roads.LaneLengthM[at] > world.Roads.LaneLengthM[lane]) lane = at;
+        }
+
+        var arcs = world.Roads.ArcsOf(lane);
+        var midM = world.Roads.LaneLengthM[lane] * 0.5f;
+        var on = Spline.SampleAt(arcs, midM);
+
+        // A body the road is not driving: nobody in it and broken, which is also what keeps it off a
+        // template — a sweep is committed ground already laid, and taking both would count it twice.
+        // <b>And one no bay holds</b>: a car a bay has is laid at the bay's own exact extent instead
+        // (<c>LieInTheBay</c>), which is the one body in the town this arithmetic is not asked of.
+        var car = -1;
+        for (var at = 0; at < world.Cars.Count && car < 0; at++)
+        {
+            if (world.Parking.BayOf(at) < 0) car = at;
+        }
+
+        Assert.True(car >= 0, "every car in the town was held by a bay");
+
+        world.Cars.Driven[car] = false;
+        world.Cars.Broken[car] = true;
+        world.Cars.PositionM[car] = on.PositionM;
+        world.Cars.VelocityMps[car] = Heading.Unit(on.HeadingRad) * alongMps;
+        world.RebuildProximityIndex();
+
+        Span<LaneSlot> slots = stackalloc LaneSlot[32];
+        var count = world.Occupancy.CopyTo(world.Occupancy.WayOfLane(lane), slots);
+
+        var found = false;
+        for (var at = 0; at < count; at++)
+        {
+            if (slots[at].Occupant != car || slots[at].Use != LaneUse.Obstruction) continue;
+            if (slots[at].Of != LaneRoster.Driving) continue;
+
+            found = true;
+            var wantedM = MathF.Max(
+                0f,
+                alongMps * alongMps
+                / (2f * CarFollower.BrakingMps2(
+                    Config, world.Cars.BuildOf(car), world.Cars.GroundCoefficient[car])));
+
+            Assert.Equal(wantedM, slots[at].ToM - slots[at].StandsToM, 2);
+
+            // And the body itself is where it always was: what the speed buys is ground past the body and
+            // never a longer body (TER-5c.2).
+            Assert.Equal(
+                world.Cars.BuildOf(car).LengthM, slots[at].StandsToM - slots[at].FromM, 2);
+        }
+
+        Assert.True(found, $"a body left in lane {lane} was in nobody's book");
+    }
+
+    /// <summary>
     /// <b>A car driving a template of its own holds the ground that template has still to sweep</b>
     /// (TER-4c.1), and not merely the pose it is passing through. A recovery straight was walked before it
     /// was laid and then left open, so the road it was drawn through read free to everybody else: another
@@ -379,17 +645,28 @@ public class LaneOccupancyInATownTests
     /// that ends off the network is nobody's ground and holds nothing, so what is watched here is the ends
     /// that stand on a lane.
     /// <para>
+    /// <b>A line that is one of the town's own ways is not a template and is left out</b> (<c>CarFleet.LineWay</c>).
+    /// It holds its ground as a reservation on that way, and the traffic on the lane it crosses is cut by
+    /// looking the table up rather than by finding a stretch of its own lane taken — which is the rule a
+    /// body writes only the ways it will be on (TER-5c.1), and is exactly what the sweep could not do.
+    /// </para>
+    /// <para>
     /// <b>From the tick after the template is laid</b>, because the book is rebuilt from the bodies in phase
     /// 2 and a manoeuvre lays its line in phase 3. The tick a template is drawn on is the one the desk's own
     /// walk answered for, and it is the only tick in the life of the line that this does not.
+    /// </para>
+    /// <para>
+    /// <b>Asked of the drunks' lap and not of a city</b>, because the entries that lay a template <em>over a
+    /// lane</em> are the two reactive ones — the swerve and the back-off — and a city goes minutes at a time
+    /// without either. The drunks' lap exists to produce them and produces a dozen a minute; a city produces
+    /// them when it happens to jam, which is not a thing to hang a claim on.
     /// </para>
     /// </remarks>
     [Fact]
     public void ATemplateHoldsTheGroundItHasStillToSweep()
     {
-        var world = new TownWorld(Towns.Of("Odesa"), Config);
+        var world = new TownWorld(Towns.Of(TrackPlan.DrunkName), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
-        var halfWidthM = Config.Car.WidthM * 0.5f;
 
         // Where each car's template ended at the tick before, so that a line drawn since the rebuild this
         // reading is taken from is not asked about: the book is laid in phase 2 and a manoeuvre draws its
@@ -404,7 +681,8 @@ public class LaneOccupancyInATownTests
             for (var car = 0; car < world.Cars.Count; car++)
             {
                 var line = world.Cars.Line[car];
-                if (line.ArcCount == 0 || line.LaneCount > 0 || !world.Cars.Driven[car] || world.Cars.Broken[car])
+                if (line.ArcCount == 0 || line.LaneCount > 0 || !world.Cars.Driven[car] || world.Cars.Broken[car]
+                    || world.Cars.LineWayOf(car) != CarFleet.NoWay)
                 {
                     stood[car] = false;
                     continue;
@@ -413,10 +691,12 @@ public class LaneOccupancyInATownTests
                 // Where the body will be and not where the line ends: a template is drawn for the rear axle,
                 // and the axle at the end of one stands a metre and a half short of the middle of the car —
                 // which at the mouth of a lane is a different way of the town altogether.
+                ref readonly var build = ref world.Cars.BuildOf(car);
+                var halfWidthM = build.FlankM;
                 var at = Spline.SampleAt(world.Cars.LineArcsOf(car)[..line.ArcCount], line.LengthM);
                 var forward = Heading.Unit(at.HeadingRad);
                 var endM = at.PositionM
-                           + ((world.Cars.LineIsReverse[car] ? -forward : forward) * Config.CarCentreAheadOfAxleM);
+                           + ((world.Cars.LineIsReverse[car] ? -forward : forward) * build.CentreAheadOfAxleM);
 
                 var wasThere = stood[car] && (endM - endedAtM[car]).Length() <= 1e-3f;
                 endedAtM[car] = endM;
@@ -424,7 +704,7 @@ public class LaneOccupancyInATownTests
                 if (!wasThere) continue;
 
                 // And far enough off that the body where it stands cannot be what covers it.
-                if (line.LengthM - world.Cars.ProgressM[car] <= Config.Car.LengthM) continue;
+                if (line.LengthM - world.Cars.ProgressM[car] <= build.LengthM) continue;
 
                 var lane = world.Roads.NearestLane(endM, out var alongM);
                 if (lane < 0
@@ -504,13 +784,94 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>
+    /// <b>Two bodies are never granted one metre</b> (TER-4c.1). Ground is asked for, answered and then it is
+    /// the asker's, so the ground one body holds ends where the next body's begins and never inside it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the book and not the arithmetic that has to say so.</b> What a car is granted was worked out
+    /// correctly all along and written to <c>CarFleet.AuthorityM</c>; what went into the book was the ask,
+    /// which is bounded by the rules that stop the car and by nothing in front of it. Every reader of the
+    /// book after the rebuild — the junction gate above all — therefore read one car as holding road it had
+    /// been refused, and refused the crossing traffic by it
+    /// (<see cref="TownWorld.CutTheGroundToTheGrant"/>).
+    /// </para>
+    /// <para>
+    /// <b>Told at the widest overlap and not at the first</b>: a millimetre of float is not a finding, and
+    /// what says whether a mechanism is wrong or a number is loose is how far in the worst of them reaches.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NoTwoBodiesAreGrantedOneMetre(string map)
+    {
+        var world = Run(map);
+
+        var held = 0;
+        var worstM = 0f;
+        var told = string.Empty;
+        Span<LaneSlot> slots = stackalloc LaneSlot[64];
+        foreach (var way in world.Occupancy.OccupiedWays)
+        {
+            var count = world.Occupancy.CopyTo(way, slots);
+            for (var one = 0; one < count; one++)
+            {
+                if (slots[one].Use != LaneUse.Reserved) continue;
+
+                held++;
+                for (var other = one + 1; other < count; other++)
+                {
+                    if (slots[other].Use != LaneUse.Reserved) continue;
+                    if (slots[one].Occupant == slots[other].Occupant && slots[one].Of == slots[other].Of)
+                    {
+                        continue;
+                    }
+
+                    var overlapM = MathF.Min(slots[one].ToM, slots[other].ToM)
+                                   - MathF.Max(slots[one].FromM, slots[other].FromM);
+                    if (overlapM <= worstM) continue;
+
+                    worstM = overlapM;
+                    told = $"{slots[one].Of} {slots[one].Occupant} holds "
+                           + $"{slots[one].FromM:0.00}–{slots[one].ToM:0.00} m of way {way} and "
+                           + $"{slots[other].Of} {slots[other].Occupant} holds "
+                           + $"{slots[other].FromM:0.00}–{slots[other].ToM:0.00} m of it";
+                }
+            }
+        }
+
+        Assert.True(
+            worstM <= Tolerance, $"{map}: two bodies were granted {worstM:0.00} m of one way — {told}");
+
+        // The census, without which the claim above is kept by a book with nothing in it. A map nobody
+        // drives on has nothing to hold: a scenario laid to watch pedestrians is one.
+        var driving = 0;
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (world.Cars.Driven[car]) driving++;
+        }
+
+        Assert.True(held > 0 || driving == 0, $"{map}: {driving} cars are driving and not one holds any road");
+    }
+
+    /// <summary>
     /// <b>A car nothing is in front of is held by nobody.</b> Its own ask comes back to it whole, and a
     /// grant handed back as the length of that ask would read as the car queueing behind itself — which is
     /// a car alone on an empty street driving as though there were a jam on it.
     /// </summary>
     /// <remarks>
-    /// Asked of the proving ground, where a handful of cars are strung out round one long lap: a car with
-    /// nothing inside the longest reservation this town can write is a car nothing could have cut.
+    /// <para>
+    /// <b>Asked the other way round: a cut grant must have had something to be cut at.</b> Every body the
+    /// book holds is inside the longest reservation this town can write, so a car cut with nobody anywhere
+    /// near it was cut by its own ask. Asked as "clear ⇒ uncut" it needed a car with nothing at all inside
+    /// that reservation — which on the proving ground is a car three hundred metres clear of six cars and
+    /// fifteen people on one lap, and never happens.
+    /// </para>
+    /// <para>
+    /// <b>The people count</b> (TER-4c): somebody standing in a lane cuts the road a driver is granted
+    /// exactly as a car standing there would, so they are as much an answer to <em>what could have cut this</em>
+    /// as the traffic is.
+    /// </para>
     /// </remarks>
     [Fact]
     public void ACarWithTheRoadToItselfIsHeldByNobody()
@@ -518,7 +879,7 @@ public class LaneOccupancyInATownTests
         var world = new TownWorld(Towns.Of(TrackPlan.Name), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
-        var alone = 0;
+        var uncut = 0;
         for (var tick = 0; tick < TicksWatched; tick++)
         {
             loop.Advance();
@@ -526,29 +887,45 @@ public class LaneOccupancyInATownTests
             {
                 if (!world.Cars.Driven[car] || world.Cars.Line[car].LaneCount == 0) continue;
 
-                if (NearestOtherM(world, car) <= ClearOfEverybodyM) continue;
+                if (float.IsPositiveInfinity(world.Cars.AuthorityM[car]))
+                {
+                    uncut++;
+                    Assert.NotEqual(DrivingHold.Reserved, world.Cars.Hold[car]);
+                    continue;
+                }
 
-                alone++;
+                var nearestM = NearestOtherM(world, car);
                 Assert.True(
-                    float.IsPositiveInfinity(world.Cars.AuthorityM[car]),
-                    $"car {car} has the lap to itself and was cut to {world.Cars.AuthorityM[car]:0.0} m");
-
-                Assert.NotEqual(DrivingHold.Reserved, world.Cars.Hold[car]);
+                    nearestM <= ClearOfEverybodyM,
+                    $"car {car} was cut to {world.Cars.AuthorityM[car]:0.0} m with the nearest body "
+                    + $"{nearestM:0.0} m away, which is further than any reservation this town writes "
+                    + $"({ClearOfEverybodyM:0.0} m)");
             }
         }
 
-        Assert.True(alone > 0, "not one car on the proving ground ever had the road to itself");
+        Assert.True(uncut > 0, "not one car on the proving ground was ever granted its whole ask");
     }
 
-    /// <summary>How near the nearest other car is, which is what says whether anything could have cut this one.</summary>
+    /// <summary>
+    /// How near the nearest other body is, which is what says whether anything could have cut this one.
+    /// <b>The people as well as the cars</b>: somebody standing in a lane cuts the road a driver is granted
+    /// exactly as a car standing there would (TER-4c), and the proving ground has fifteen of them pacing
+    /// across it.
+    /// </summary>
     static float NearestOtherM(TownWorld world, int car)
     {
+        var atM = world.Cars.PositionM[car];
         var nearestM = float.PositiveInfinity;
         for (var other = 0; other < world.Cars.Count; other++)
         {
             if (other == car) continue;
 
-            nearestM = MathF.Min(nearestM, (world.Cars.PositionM[other] - world.Cars.PositionM[car]).Length());
+            nearestM = MathF.Min(nearestM, (world.Cars.PositionM[other] - atM).Length());
+        }
+
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            nearestM = MathF.Min(nearestM, (world.People.PositionM[person] - atM).Length());
         }
 
         return nearestM;
@@ -559,10 +936,29 @@ public class LaneOccupancyInATownTests
     /// cap, a stop from there, and the body and the margin it keeps at either end of itself. Nothing
     /// further away than this can have cut anybody.
     /// </summary>
-    static float ClearOfEverybodyM =>
-        (Config.Car.MaxSpeedMps * Config.CarReactionS)
-        + (Config.Car.MaxSpeedMps * Config.Car.MaxSpeedMps / (2f * CarFollower.BrakingMps2(Config, 1f)))
-        + Config.Car.LengthM + Config.CarBodyMarginM + Config.CarTailMarginM;
+    /// <remarks>
+    /// <b>Taken over the whole fleet and not off the nominal car</b> (CAR-11): the cars in a town are the
+    /// ones it is drawn with, and the bound has to hold for the fastest and the longest of them.
+    /// </remarks>
+    static float ClearOfEverybodyM
+    {
+        get
+        {
+            var builds = CarBuilds.OfTheFleet(Config, CarCatalog.Shared);
+            var mostM = 0f;
+            for (var variant = 0; variant < CarCatalog.Shared.SheetCount; variant++)
+            {
+                ref readonly var build = ref builds.Of(variant);
+                mostM = MathF.Max(
+                    mostM,
+                    (build.MaxSpeedMps * Config.CarReactionS)
+                    + (build.MaxSpeedMps * build.MaxSpeedMps / (2f * CarFollower.BrakingMps2(Config, build, 1f)))
+                    + build.LengthM + build.BodyMarginM + build.TailMarginM);
+            }
+
+            return mostM;
+        }
+    }
 
     /// <summary>
     /// <b>Nobody holds road it could not have driven over.</b> A reservation is the ground the car is
@@ -590,8 +986,9 @@ public class LaneOccupancyInATownTests
 
             // The road in front of the nose, less the margin the car keeps at either end of itself: what is
             // being asked about is the road it committed to and not the ground it stands in.
-            var noseM = world.Cars.ReserveFromM[car] + Config.CarTailMarginM + Config.Car.LengthM;
-            var wantedM = world.Cars.ReserveToM[car] - noseM - Config.CarBodyMarginM;
+            ref readonly var build = ref world.Cars.BuildOf(car);
+            var noseM = world.Cars.ReserveFromM[car] + build.TailMarginM + build.LengthM;
+            var wantedM = world.Cars.ReserveToM[car] - noseM - build.BodyMarginM;
             if (wantedM <= 0f) continue;
 
             asked++;
@@ -599,10 +996,10 @@ public class LaneOccupancyInATownTests
             // The speed at the rebuild and not the speed now: the book was laid at the top of this tick and
             // the body has been driven since, so a car that stood on the brakes in between reads back a tick
             // of braking slower than the ask was sized at.
-            var brakingMps2 = CarFollower.BrakingMps2(Config, world.Cars.GroundCoefficient[car]);
+            var brakingMps2 = CarFollower.BrakingMps2(Config, build, world.Cars.GroundCoefficient[car]);
             var reachableMps = world.Cars.AlongMps[car]
-                               + (Config.Car.BrakingMps2 * Config.TickSeconds)
-                               + (Config.Car.AccelerationMps2 * Config.CarReactionS);
+                               + (build.BrakingMps2 * Config.TickSeconds)
+                               + (build.AccelerationMps2 * Config.CarReactionS);
 
             var committedM = (reachableMps * Config.CarReactionS)
                              + (reachableMps * reachableMps / (2f * brakingMps2));
@@ -617,87 +1014,6 @@ public class LaneOccupancyInATownTests
         Assert.True(asked > 0 || driving == 0, $"{map}: {driving} cars are driving and not one asked for any road");
     }
 
-    /// <summary>
-    /// <b>Nobody is granted ground another car will still be standing on when it has stopped.</b> That is
-    /// the whole of what holds one car off the next, and it is the one property the arithmetic of the
-    /// grant exists to deliver.
-    /// </summary>
-    /// <remarks>
-    /// Asked of the ways rather than of the cars, because that is where two grants would meet — two cars on
-    /// one lane, and two cars meeting on the join between two. A grant that came out empty is skipped: a
-    /// car that cannot stop in what is left is a fact about a contact, and the profile is already braking
-    /// as hard as it can.
-    /// </remarks>
-    [Fact]
-    public void NobodyIsGrantedGroundSomebodyElseWillStopOn()
-    {
-        var world = Run("Odesa");
-        var index = world.Occupancy;
-
-        var granted = 0;
-        Span<LaneSlot> slots = stackalloc LaneSlot[64];
-        foreach (var way in index.OccupiedWays)
-        {
-            var count = index.CopyTo(way, slots);
-            for (var behind = 0; behind < count; behind++)
-            {
-                if (slots[behind].Use != LaneUse.Reserved) continue;
-
-                var grantedToM = GrantedToM(world, slots[behind]);
-                if (grantedToM <= slots[behind].FromM) continue;
-
-                granted++;
-                for (var ahead = behind + 1; ahead < count; ahead++)
-                {
-                    if (slots[ahead].Use != LaneUse.Reserved) continue;
-                    if (slots[ahead].Occupant == slots[behind].Occupant) continue;
-
-                    // <b>In front is a fact about the bodies and not about the near edges</b> (TER-5c.2):
-                    // every stretch begins a margin behind its owner and a stretch clipped at a way's start
-                    // begins further back still, so a slot later in the list can belong to a body this one
-                    // has already passed. Nobody is granted ground in front of them on its account.
-                    if (slots[ahead].StandsToM < slots[behind].StandsToM) continue;
-
-                    // Where that car's own tail comes to rest, which is the ground it is entitled to and
-                    // the first metre this one may not have. Against the grip the *asking* car has, which
-                    // is what a driver can actually see: how fast the one in front is going, and not what
-                    // it is standing on.
-                    var brakingMps2 = CarFollower.BrakingMps2(
-                        Config, world.Cars.GroundCoefficient[slots[behind].Occupant]);
-
-                    var restingM = slots[ahead].FromM
-                        + MathF.Max(0f, slots[ahead].AlongMps * slots[ahead].AlongMps / (2f * brakingMps2));
-
-                    Assert.True(
-                        grantedToM <= restingM + Tolerance,
-                        $"car {slots[behind].Occupant} was granted to {grantedToM:0.00} m of way {way}, "
-                        + $"where car {slots[ahead].Occupant} comes to rest at {restingM:0.00} m");
-                }
-            }
-        }
-
-        Assert.True(granted > 0, "no driver in a busy town was granted any ground at all");
-    }
-
-    /// <summary>
-    /// Where a grant actually ends on the way it was laid on. <b>What goes into the book is what the car
-    /// asked for</b> — the cut is taken off it afterwards, so a stretch drawn from the book has to be read
-    /// back through the grant the driver was given.
-    /// </summary>
-    /// <remarks>
-    /// Off the ask and never off the car's progress: the ask is what the index was laid from, and the body
-    /// has driven a tick further since. A third of a metre at town speed is enough to make the arithmetic
-    /// here disagree with the arithmetic that granted it.
-    /// </remarks>
-    static float GrantedToM(TownWorld world, in LaneSlot asked)
-    {
-        var car = asked.Occupant;
-        var noseM = world.Cars.ReserveFromM[car] + Config.CarTailMarginM + Config.Car.LengthM;
-        var overshotM = world.Cars.ReserveToM[car] - (world.Cars.AuthorityM[car] + noseM);
-
-        return asked.ToM - MathF.Max(0f, overshotM);
-    }
-
     /// <summary>Ground on a way is metres, and a grant is arithmetic on floats: a millimetre is not a finding.</summary>
     const float Tolerance = 1e-2f;
 
@@ -706,13 +1022,25 @@ public class LaneOccupancyInATownTests
 
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
 
-    static TownWorld Run(string map)
+    static readonly ConcurrentDictionary<string, TownWorld> Ran = new();
+
+    /// <summary>
+    /// <b>The town a minute in, taken once per map and read by every claim that asks about the same
+    /// moment.</b> Nothing here writes to the world it is handed — what these ask of is a finished state,
+    /// which is one run of the town however many questions are put to it.
+    /// </summary>
+    /// <remarks>
+    /// A claim that has to watch the ticks go by stands its own world (<see
+    /// cref="ATemplateHoldsTheGroundItHasStillToSweep"/>), because what it is about is the ticks and not
+    /// the state they arrive at.
+    /// </remarks>
+    static TownWorld Run(string map) => Ran.GetOrAdd(map, opened =>
     {
-        var world = new TownWorld(Towns.Of(map), Config);
+        var world = new TownWorld(Towns.Of(opened), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(TicksWatched);
         return world;
-    }
+    });
 
     /// <summary>A minute of town, which is long enough for every kind of hold to have happened on every map.</summary>
     const int TicksWatched = 3_600;

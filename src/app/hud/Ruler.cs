@@ -29,9 +29,6 @@ internal sealed class Ruler
     Vector2 _startedAtM;
     bool _started;
 
-    /// <summary>Whether a tape is half-laid, which is what makes the pointer part of the picture.</summary>
-    public bool Measuring => _started;
-
     /// <summary>A click while the switch is ticked: the first sets a tape's start, the second finishes it.</summary>
     public void Click(Vector2 pointM)
     {

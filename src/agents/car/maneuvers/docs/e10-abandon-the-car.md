@@ -10,11 +10,11 @@ may refuse; this one may not, because a car that every rung has refused would ot
 for the rest of the run.
 
 **`Sb` — the state it delivers.** The car stopped and held wherever it is, every claim released, the
-reserved bay back on the market, the leg over, and the driver out on foot.
+booked bay back on the market, the leg over, and the driver out on foot.
 
 **Line.** None.
 
-**Do.** Give up the reservation, hold, end the leg.
+**Do.** Give up the booking, hold, end the leg.
 
 **Guards.** None.
 

@@ -11,11 +11,10 @@ namespace TrafficSimulation.World.Road;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>This is what a ray down the template used to be.</b> A cast found a shape and could not say whose it
-/// was; what a car swinging out of a bay has to know is whether the ground it is about to occupy is inside
-/// somebody's road, which is a fact no geometry carries. The two also disagreed: a cast saw a body and
-/// missed the reservation in front of it, so a swerve was laid into ground a car three seconds away was
-/// already committed to.
+/// <b>The book and not the geometry.</b> A cast finds a shape and cannot say whose the ground is; what a
+/// car swinging out of a bay has to know is whether what it is about to occupy is inside somebody's road,
+/// which is a fact no geometry carries — a body is visible to a cast and the reservation in front of it is
+/// not, so a swerve read off shapes alone lands in ground a car three seconds away is committed to.
 /// </para>
 /// <para>
 /// <b>Walked at the body's own width and stepped rather than swept.</b> A template is a dozen metres of
@@ -41,33 +40,54 @@ internal static class GroundAhead
         RoadGraph roads, LaneOccupancy book, scoped ReadOnlySpan<ArcSeg> line, float fromM, float reachM,
         float halfWidthM, int car)
     {
+        Span<WayUnder> under = stackalloc WayUnder[GroundUnder.MostWaysUnderAPlace(roads)];
+
         // One cursor for the whole walk: the distances only ever go forwards, and a template is a chain of
         // arcs that would otherwise be counted from its head at every sample.
         var cursor = default(SplineCursor);
         for (var alongM = 0f; alongM < reachM; alongM += StepM)
         {
             var atM = Spline.SampleFrom(line, fromM + MathF.Min(alongM, reachM), ref cursor).PositionM;
-            if (TakenAt(roads, book, atM, halfWidthM, car, out _)) return alongM;
+            if (TakenAt(roads, book, atM, halfWidthM, car, under, out _)) return alongM;
         }
 
         return reachM;
     }
 
-    /// <summary>Whether the ground at one place is inside somebody else's stretch of the way it belongs to.</summary>
+    /// <summary>
+    /// Whether the ground at one place is inside somebody else's stretch of any way that place stands on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every way under it and not the nearest lane alone</b> (<see cref="GroundUnder"/>). A car crossing a
+    /// junction writes its road onto the <em>join</em> it is crossing on and onto no lane at all (TER-5c.1),
+    /// so a template asking only the lane nearest each of its samples is a manoeuvre that cannot see a single
+    /// car in the box it is swinging through.
+    /// </remarks>
     public static bool TakenAt(
         RoadGraph roads, LaneOccupancy book, Vector2 atM, float halfWidthM, int car, out LaneSlot found)
     {
+        Span<WayUnder> under = stackalloc WayUnder[GroundUnder.MostWaysUnderAPlace(roads)];
+        return TakenAt(roads, book, atM, halfWidthM, car, under, out found);
+    }
+
+    /// <summary>The same question asked with the caller's own room for the walk, which is what a sweep down a line wants.</summary>
+    public static bool TakenAt(
+        RoadGraph roads, LaneOccupancy book, Vector2 atM, float halfWidthM, int car, Span<WayUnder> under,
+        out LaneSlot found)
+    {
         found = LaneSlot.Nothing;
 
-        var lane = roads.NearestLane(atM, out var alongM);
-        if (lane < 0) return false;
-        if (!RoadGraph.WithinTheBand(
-                roads.ArcsOf(lane), alongM, atM, roads.LaneWidthM[lane], halfWidthM, halfWidthM, out _))
+        var count = GroundUnder.At(roads, book, atM, halfWidthM, halfWidthM, under);
+        for (var index = 0; index < count; index++)
         {
-            return false;
+            ref readonly var way = ref under[index];
+            if (book.SpokenForByAnother(
+                    way.Way, way.AlongM - halfWidthM, way.AlongM + halfWidthM, car, out found))
+            {
+                return true;
+            }
         }
 
-        return book.SpokenForByAnother(
-            book.WayOfLane(lane), alongM - halfWidthM, alongM + halfWidthM, car, out found);
+        return false;
     }
 }

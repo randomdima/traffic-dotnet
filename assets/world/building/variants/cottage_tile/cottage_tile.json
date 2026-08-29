@@ -1,5 +1,10 @@
 {
   "id": "cottage_tile",
   "sprite": "cottage_tile.png",
-  "footprintM": [12.00, 12.06]
+  "footprintM": [12.00, 12.06],
+  "partsM": [
+    { "atM": [0.13, -2.52], "sizeM": [11.73, 7.02] },
+    { "atM": [2.66, -0.47], "sizeM": [6.68, 11.12] },
+    { "atM": [2.57, 0.0], "sizeM": [3.08, 12.06] }
+  ]
 }

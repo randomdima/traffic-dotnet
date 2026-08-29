@@ -100,21 +100,64 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// The dashed lane centreline, down the middle of every carriageway and <b>stopping before a
-    /// junction</b> rather than running into it.
+    /// One side of a road's curve over one stretch of it, from <paramref name="outerM"/> inwards by
+    /// <paramref name="widthM"/> — the ground a kerb line stands on, drawn again where no kerb is.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A road runs through every junction on it and not only the two it ends at</b>, so what is dashed
-    /// is each stretch of the road that is outside them all, found by walking the curve rather than by
-    /// trimming its two ends — a road whose middle crosses a junction would otherwise be dashed straight
-    /// across it.
+    /// <b>It follows the road rather than the chord of it.</b> A car park is only offered where the kerb
+    /// stays close to its own chord (GEN-4b), but close is not on it, and a straight patch over a bend
+    /// leaves the line it was covering showing at both ends.
     /// </para>
     /// <para>
-    /// <b>Every run of marks is centred on the stretch it is on</b>, so a street
-    /// never begins with half a dash at one end.
+    /// <b>It reaches a chord's own sag past the line on both sides</b>, over ground that is the same
+    /// surface either way. Two strips of one curve struck at different phases stand a sag apart at worst,
+    /// and a hair of a line left showing still reads as the line — a kerb line is a hair wide to begin with.
     /// </para>
     /// </remarks>
+    void EdgeStrip(
+        ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float outerM, float widthM, Surface surface,
+        Vector3 tint, float[] periods)
+    {
+        if (toM <= fromM || widthM <= 0f || outerM == 0f) return;
+
+        var side = MathF.Sign(outerM);
+        var innerM = outerM - (side * (widthM + ChordSagM));
+        outerM += side * ChordSagM;
+        var previous = -1;
+        var walkedM = 0f;
+        foreach (var arc in arcs)
+        {
+            var startM = MathF.Max(fromM - walkedM, 0f);
+            var endM = MathF.Min(toM - walkedM, arc.LengthM);
+            walkedM += arc.LengthM;
+            if (endM <= startM) continue;
+
+            // Struck between the arc's own samples and not this stretch's. What is being covered is a
+            // chord between two of those, and a chord struck between any other pair of points leaves a
+            // sliver of the line showing along the outside of a bend.
+            var steps = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / StepM(arc.Curvature)));
+            var step = 0;
+            var distanceM = startM;
+            while (true)
+            {
+                var headingRad = arc.HeadingAtRad(distanceM);
+                var across = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad));
+                var centreM = arc.PointAtM(distanceM);
+
+                var inner = Vertex(centreM + across * innerM, surface, tint, periods);
+                Vertex(centreM + across * outerM, surface, tint, periods);
+                if (previous >= 0) Strip(previous, inner);
+                previous = inner;
+
+                if (distanceM >= endM) break;
+
+                while (step <= steps && arc.LengthM * step / steps <= distanceM) step++;
+                distanceM = step > steps ? endM : MathF.Min(arc.LengthM * step / steps, endM);
+            }
+        }
+    }
+
     void Disc(Vector2 centreM, float radiusM, Surface surface, Vector3 tint, float[] periods)
     {
         if (radiusM <= 0f) return;
@@ -219,9 +262,8 @@ internal sealed partial class GroundMesh
     /// </remarks>
     static float StepM(float curvature)
     {
-        const float ToleranceM = 0.02f;
         var radiusM = 1f / MathF.Max(MathF.Abs(curvature), 1e-6f);
-        return radiusM > 1e5f ? float.MaxValue : MathF.Max(0.5f, MathF.Sqrt(8f * ToleranceM * radiusM));
+        return radiusM > 1e5f ? float.MaxValue : MathF.Max(0.5f, MathF.Sqrt(8f * ChordSagM * radiusM));
     }
 
     static int Steps(float lengthM) => Math.Clamp((int)MathF.Ceiling(lengthM * 2f), 8, 96);

@@ -1,5 +1,10 @@
 {
   "id": "semi_blue",
   "sprite": "semi_blue.png",
-  "footprintM": [13.00, 12.64]
+  "footprintM": [13.00, 12.64],
+  "partsM": [
+    { "atM": [-0.14, -0.14], "sizeM": [11.6, 10.38] },
+    { "atM": [-0.02, 1.53], "sizeM": [12.51, 6.95] },
+    { "atM": [0.1, 0.49], "sizeM": [3.22, 11.65] }
+  ]
 }

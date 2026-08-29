@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.Tests.E2E;
@@ -195,7 +196,7 @@ internal static class VisualJudge
 internal sealed record JudgeVerdict(
     string Verdict,
     string? Summary,
-    ClaimVerdict[]? Claims,
+    JudgedClaim[]? Claims,
     string[]? Differences)
 {
     public bool Passed => string.Equals(Verdict, "PASS", StringComparison.OrdinalIgnoreCase);
@@ -205,14 +206,64 @@ internal sealed record JudgeVerdict(
     {
         var said = new StringBuilder(Summary ?? "the agent did not pass this scenario");
         foreach (var claim in Claims ?? [])
-            if (!string.Equals(claim.Verdict, "PASS", StringComparison.OrdinalIgnoreCase))
+            if (Stands(claim) != ClaimVerdict.Kept)
                 said.Append($"\n  claim {claim.N} {claim.Verdict}: {claim.Why}");
 
         return said.ToString();
     }
+
+    /// <summary>
+    /// <b>The judged frame as the same table a watched town prints</b> (<see cref="ScenarioReport"/>): a
+    /// row a claim, the verdict in the same three words, and one last line a script can read.
+    /// </summary>
+    /// <remarks>
+    /// <b>The two tiers answer in one vocabulary on purpose.</b> What a machine can count and what only a
+    /// reviewer can see are different questions about the same town, and a reader deciding whether this
+    /// build is good should not have to learn two ways of being told.
+    /// </remarks>
+    public string Table(VisualScenario scenario)
+    {
+        var kept = 0;
+        var broken = 0;
+        var unanswered = 0;
+        var table = new StringBuilder($"scenario — {scenario.Name}, {scenario.Map}, judged\n");
+        table.Append($"{"the picture",-18} {scenario.Subject}\n");
+
+        for (var claim = 0; claim < scenario.Expect.Length; claim++)
+        {
+            var answered = Answer(claim + 1);
+            var stands = answered is null ? ClaimVerdict.Waiting : Stands(answered);
+            switch (stands)
+            {
+                case ClaimVerdict.Kept: kept++; break;
+                case ClaimVerdict.Broken: broken++; break;
+                default: unanswered++; break;
+            }
+
+            table.Append($"  {ScenarioReport.Word(stands),-10}{scenario.Expect[claim]}\n");
+            if (stands != ClaimVerdict.Kept && answered?.Why is { Length: > 0 } why) table.Append($"{"",14}{why}\n");
+        }
+
+        table.Append(
+            $"scenario {scenario.Name} — {kept} claim(s) kept, {broken} broken, {unanswered} unanswered: "
+            + (Passed ? "PASSED" : "FAILED"));
+        return table.ToString();
+    }
+
+    JudgedClaim? Answer(int number) => Array.Find(Claims ?? [], claim => claim.N == number);
+
+    /// <summary>
+    /// The agent's word for one claim, as the vocabulary the rest of the project answers in.
+    /// <b>UNCLEAR is unanswered and never a pass</b>: a frame that cannot say is a frame that said nothing.
+    /// </summary>
+    static ClaimVerdict Stands(JudgedClaim claim) =>
+        string.Equals(claim.Verdict, "PASS", StringComparison.OrdinalIgnoreCase) ? ClaimVerdict.Kept
+        : string.Equals(claim.Verdict, "FAIL", StringComparison.OrdinalIgnoreCase) ? ClaimVerdict.Broken
+        : ClaimVerdict.Waiting;
 }
 
-internal sealed record ClaimVerdict(int N, string Verdict, string? Why);
+/// <summary>One claim as the agent answered it: which of the scenario's claims, its word, and why.</summary>
+internal sealed record JudgedClaim(int N, string Verdict, string? Why);
 
 /// <summary>The judge could not be reached or did not answer in the shape it was asked for. Its own
 /// exception type because it is not a verdict: the town was never judged.</summary>

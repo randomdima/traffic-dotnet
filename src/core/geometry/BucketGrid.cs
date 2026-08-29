@@ -74,11 +74,6 @@ internal sealed class BucketGrid
 
     public int Count => _count;
 
-    public int BucketCount => _width * _height;
-
-    /// <summary>The largest radius in the set, which is what every query is widened by.</summary>
-    public float MaxRadiusM => _maxRadiusM;
-
     /// <summary>
     /// Lay the index over the arrays as they stand. The arrays are kept by reference rather than
     /// copied — they are the roster's own, and an index that copied them would be a second truth.

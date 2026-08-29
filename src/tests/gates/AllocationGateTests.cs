@@ -81,7 +81,7 @@ public class AllocationGateTests
     public void ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(string map)
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Fresh(map), config);
+        using var world = new TownWorld(Towns.Of(map), config);
         new SimLoop<TownWorld>(world, config).Advance(120);
 
         Assert.Equal(0d, TownProbe.OwnBytesPerTick(world, config));
@@ -98,7 +98,7 @@ public class AllocationGateTests
     public void AWholeTickOfAWholeTownAllocatesNothing(string map)
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Fresh(map), config);
+        using var world = new TownWorld(Towns.Of(map), config);
         var loop = new SimLoop<TownWorld>(world, config);
 
         // Long enough for every array the tick leans on to have reached the size it stays at: a town
@@ -125,7 +125,7 @@ public class AllocationGateTests
     public void ArbitratingAWholeTownsContactsAllocatesNothing(string map)
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Fresh(map), config);
+        using var world = new TownWorld(Towns.Of(map), config);
         new SimLoop<TownWorld>(world, config).Advance(120);
 
         Assert.Equal(0d, TownProbe.ContactBytesPerTick(world, config, ticks: 600));
@@ -140,7 +140,7 @@ public class AllocationGateTests
     public void ATownWithTrafficInItActuallyProducesContacts()
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Fresh("Odesa"), config);
+        using var world = new TownWorld(Towns.Of("Odesa"), config);
         new SimLoop<TownWorld>(world, config).Advance(600);
 
         Assert.True(world.Touches > 0);

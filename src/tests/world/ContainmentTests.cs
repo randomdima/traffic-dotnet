@@ -66,7 +66,7 @@ public class ContainmentTests
     [Fact]
     public void SomebodyInsideIsNotInTheTown()
     {
-        using var world = new TownWorld(Towns.Fresh(Towns.Fixture), Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(3_600);
 
@@ -87,12 +87,16 @@ public class ContainmentTests
     /// OBJ-5 again, asked of the town rather than of the type: <b>no building ever holds more than its
     /// capacity</b>, however many people were walking to it at once.
     /// </summary>
+    /// <remarks>
+    /// The door is what refuses the one too many and <see cref="ABuildingAdmitsItsCapacityAndRefusesPastIt"/>
+    /// is what asks it that; what is added here is the crowd, so it is asked of the towns that have one.
+    /// </remarks>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryMapWorthASoak), MemberType = typeof(Towns))]
     public void NoBuildingEverHoldsMoreThanItsCapacity(string map)
     {
         var plan = Towns.Of(map);
-        using var world = new TownWorld(Towns.Fresh(map), Config);
+        using var world = new TownWorld(plan, Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
         for (var window = 0; window < 6; window++)

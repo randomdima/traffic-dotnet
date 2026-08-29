@@ -1,5 +1,9 @@
 {
   "id": "dep_store",
   "sprite": "dep_store.png",
-  "footprintM": [18.00, 17.96]
+  "footprintM": [18.00, 17.96],
+  "partsM": [
+    { "atM": [0.0, -0.79], "sizeM": [18.0, 16.23] },
+    { "atM": [-0.02, 0.0], "sizeM": [6.94, 17.96] }
+  ]
 }

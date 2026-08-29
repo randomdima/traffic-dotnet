@@ -1,7 +1,12 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Agents.Person.Body;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Statics;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.World.Town;
@@ -10,20 +15,48 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// The town's immovable geometry: every prop a static circle, every building a static box. A city's
-    /// ninety-odd thousand props are real collision geometry — a walker that could walk through a tree
-    /// is a walker the ground is not actually holding.
+    /// The town's immovable geometry: every prop a static circle, every building the static boxes its
+    /// roof is built of. A city's ninety-odd thousand props are real collision geometry — a walker that
+    /// could walk through a tree is a walker the ground is not actually holding.
     /// </summary>
+    /// <remarks>
+    /// <b>OBJ-5a — a building is collided as the rectangles its picture is drawn of and not as the box
+    /// it was drawn in.</b> An L, a courtyard and a cut corner are all the same defect otherwise: metres
+    /// of empty box that stop a car in the open, and a driver who cannot see why. Nothing here is priced
+    /// per tick — statics are never integrated and per-tick work is linear in the moving roster alone
+    /// (SOL-22) — so the two or three boxes a building costs are paid once, when the map is opened.
+    /// </remarks>
     void StandStatics()
     {
         for (var prop = 0; prop < _plan.Props.Count; prop++)
         {
-            _physics.AddStaticCircle(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop]);
+            _physics.AddStaticDisc(_plan.Props.CentreM[prop], _plan.Props.RadiusM[prop]);
         }
 
         for (var building = 0; building < _plan.Buildings.Count; building++)
         {
-            _physics.AddStaticBox(_plan.Buildings.CentreM[building], _plan.Buildings.SizeM[building], _plan.Buildings.HeadingRad[building]);
+            var centreM = _plan.Buildings.CentreM[building];
+            var roof = BuildingRoofs.Of(_plan, BuildingCatalog.Shared, _uses, building);
+            ref readonly var variant = ref BuildingCatalog.Shared.Variants[roof.Variant];
+
+            if (variant.PartsM.Length == 0)
+            {
+                _physics.AddStaticBox(centreM, roof.FootprintM, roof.HeadingRad);
+                continue;
+            }
+
+            // The parts are authored against the picture's own footprint, so a civic roof fitted to a
+            // smaller plot carries its walls in with it rather than standing them at the size they were
+            // painted.
+            var scale = roof.FootprintM / variant.FootprintM;
+            Heading.Frame(roof.HeadingRad, out var forward, out var right);
+
+            foreach (var part in variant.PartsM)
+            {
+                var atM = part.AtM * scale;
+                _physics.AddStaticBox(
+                    centreM + (forward * atM.X) + (right * atM.Y), part.SizeM * scale, roof.HeadingRad);
+            }
         }
 
         _physics.SettleStatics();
@@ -37,7 +70,16 @@ internal sealed partial class TownWorld
         {
             if (_plan.Spawns.Kind[spawn] == SpawnKindCar)
             {
-                StandCar(spawn, (byte)fleet++);
+                // Round the fleet and never past it: the service vehicles share the sheet list with it
+                // (<see cref="CarCatalog.Count"/>), and a town's traffic is drawn from the fleet alone.
+                // <b>Unless the map stands one look</b> (<see cref="ExamPlan.StandsOneLook"/>), where every
+                // card is one crossing compared against another and a fleet of different weights would be a
+                // second variable inside every comparison.
+                StandCar(
+                    spawn,
+                    ExamPlan.StandsOneLook(_plan.Name)
+                        ? (byte)CarCatalog.Shared.Plain
+                        : (byte)(fleet++ % CarCatalog.Shared.Count));
                 continue;
             }
 
@@ -45,13 +87,78 @@ internal sealed partial class TownWorld
 
             var positionM = _plan.Spawns.PositionM[spawn];
             var body = _physics.AddPerson(positionM);
+            // Round the walkers and never past them, as the fleet's own wrap does: the uniforms share
+            // the sheet list with them (<see cref="PersonCatalog.Count"/>), and nobody wears one who was
+            // not named to (SRV-3a).
             var person = People.Add(
                 body, positionM, _plan.Spawns.HeadingRad[spawn], _physics.MassOf(body), _config.PersonDiameterM * 0.5f,
-                (byte)variants, new Rng(_agentSeed, (ulong)spawn));
+                (byte)(variants % PersonCatalog.Shared.Count), new Rng(_agentSeed, (ulong)spawn),
+                PersonFleet.DrawsReckless(_agentSeed, (ulong)spawn, _config.Driving.RecklessShare));
             variants++;
+            if (People.Reckless[person]) RecklessDrivers++;
+
             _physics.Tag(body, new BodyTag(BodyKind.Person, person));
             _progress.Restart(person);
+            MoveIn(person, positionM);
         }
+    }
+
+    /// <summary>
+    /// <b>A person the map put down at a door starts inside it</b> (GEN-7), dwelling out the interval an
+    /// arrival dwells: the town's first tick is somebody's morning and not the moment they were all put
+    /// on the pavement.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It closes the loop rather than adding a stage to it.</b> A trip ends by walking through a door
+    /// and dwelling (PER-11), so a body that begins there begins in the state every later trip returns it
+    /// to, and everything after the first dwell is the ordinary round — out of the building, to a car if
+    /// the trip is worth one, to the destination, in. Started on the pavement instead, everybody's first
+    /// leg was a leg no rule of theirs had drawn.
+    /// </para>
+    /// <para>
+    /// <b>The dwell is drawn per person</b>, so a street's worth of doors does not open on the same tick;
+    /// and a door with no room behind it leaves the body standing outside it, which is the state
+    /// <see cref="TripStage.StandingBy"/> already names.
+    /// </para>
+    /// </remarks>
+    void MoveIn(int person, Vector2 positionM)
+    {
+        var building = BuildingWithADoorAt(positionM);
+        if (building < 0 || !_containers.TryAdmit(building, person)) return;
+
+        Contain(person);
+        People.Stage[person] = TripStage.Dwelling;
+        People.TimerS[person] = People.Draw[person].NextFloat(_config.Building.DwellMinS, _config.Building.DwellMaxS);
+    }
+
+    /// <summary>
+    /// The building whose way in this body is standing at, or −1 — the nearest one within touching reach
+    /// of the door, which on a street of terraces is the difference between somebody's own house and
+    /// their neighbour's. <b>Read off the pose the map left it in</b>, as the reeling and the pacing
+    /// walkers are (PER-16): a map says somebody lives here by standing them at the door, and nothing in
+    /// the format has to name it.
+    /// </summary>
+    int BuildingWithADoorAt(Vector2 positionM)
+    {
+        var buildings = _plan.Buildings;
+        var best = -1;
+        var bestM = _config.WayInTouchingReachM * _config.WayInTouchingReachM;
+        for (var building = 0; building < buildings.Count; building++)
+        {
+            var first = buildings.EntryOffsets[building];
+            var last = buildings.EntryOffsets[building + 1];
+            for (var entry = first; entry < last; entry++)
+            {
+                var farM = (buildings.EntryPointM[entry] - positionM).LengthSquared();
+                if (farM > bestM) continue;
+
+                best = building;
+                bestM = farM;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>
@@ -81,34 +188,110 @@ internal sealed partial class TownWorld
 
         for (var car = 0; car < Cars.Count; car++)
         {
-            if (Cars.Driven[car] || Cars.Broken[car]) continue;
+            // A car whose wheel is already held over has somebody deciding for it, which is the whole of
+            // what this rule exists to supply. Handing it a lane as well would lay a line nothing drives.
+            if (Cars.Driven[car] || Cars.Broken[car] || WheelIsHeldOver(car)) continue;
             if (TakeTheLaneUnderIt(car)) Cars.Driven[car] = true;
         }
     }
 
     /// <summary>
-    /// A car starts stopped in a parking space, in the pose the plan parked it in, with nobody in it —
-    /// an inert dynamic object that can be pushed and takes no action of its own, holding its handbrake.
+    /// <b>A map that drives its own cars by holding their wheels over</b>: every car on the skidpad is put
+    /// on the lock its column stands and the pedal its row asks for, and holds both for the whole run
+    /// (<see cref="CityGen.SkidpadPlan"/>).
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>It is the same substitution a hand at the wheel makes</b> (CTL-5) and is read through the same
+    /// seam: no manoeuvre is selected, no soft rule is consulted, and the hard envelope — the gear's cap,
+    /// the rack's travel, the friction ellipse — binds exactly as it does under anybody's hand. What the
+    /// pad measures is worth nothing if the car it measures is not the car the town drives.
+    /// </para>
+    /// <para>
+    /// <b>Laid once, because a held wheel is not a decision.</b> The command never changes, so there is
+    /// nothing here for the tick to do: the seam reads the same figures every frame and the pad costs the
+    /// loop an array lookup.
+    /// </para>
+    /// </remarks>
+    void HoldTheWheels()
+    {
+        if (!SkidpadPlan.HoldsItsCarsWheels(_plan.Name)) return;
+
+        // The pad's own cars and no others: a car this map never laid a square for is not one it has a
+        // pedal to hold, and it is left to the rule that drives an empty map.
+        _wheelHeld = new HandInput[Cars.Capacity];
+        for (var car = 0; car < Math.Min(Cars.Count, SkidpadPlan.Cars); car++)
+        {
+            _wheelHeld[car] = new HandInput(
+                Held: true, Throttle: SkidpadPlan.PedalOf(SkidpadPlan.RunOf(car)), Steer: SkidpadPlan.LockedLeft,
+                Handbrake: false, WalkDirection: Vector2.Zero);
+        }
+    }
+
+    /// <summary>
+    /// Whether the map is holding this car's wheel over rather than anybody in it deciding. <b>Public
+    /// because a picture of such a car has to say so</b>: nothing is choosing for it and it is not parked
+    /// either, and those are the two states everything that names a car's behaviour otherwise has.
+    /// </summary>
+    public bool WheelIsHeldOver(int car) => _wheelHeld is not null && _wheelHeld[car].Held;
+
+    /// <summary>
+    /// A car starts stopped in a parking space, in the pose that space stands its cars at, with nobody in
+    /// it — an inert dynamic object that can be pushed and takes no action of its own, holding its
+    /// handbrake.
+    /// </summary>
+    /// <remarks>
+    /// <para>
     /// Its bay is the registry's from the first tick, so a car is claimed out of a bay rather than found
     /// on a road: every metre this town's traffic covers is somebody's trip.
+    /// </para>
+    /// <para>
+    /// <b>And the pose is the bay's own and not the plan's</b> (GEN-4i), for a spawn that lands in one: the
+    /// bay's ways meet at the pose a car square in the middle of the space stands at, and a car standing off
+    /// the way it is about to drive is a car whose first move out of the car park is a recovery. <b>Which of
+    /// the two poses that is is the driver's habit</b> (GEN-4j), so a town starts with cars standing both
+    /// ways round wherever its bays lay both.
+    /// </para>
     /// </remarks>
     void StandCar(int spawn, byte variant)
     {
         var positionM = _plan.Spawns.PositionM[spawn];
         var headingRad = _plan.Spawns.HeadingRad[spawn];
-        var body = _physics.AddCar(positionM, headingRad);
-        // The nominal footprint, wheelbase and track, and this variant's own drivetrain. Which end a car
-        // drives through is the one per-variant figure that is not a dimension — the town's geometry is
-        // sized against the nominal car and would have to be re-sized to take any of the others — and the
-        // tyre model has always been documented as spending the variant's.
-        var car = Cars.Add(
-            body, positionM, headingRad, _physics.MassOf(body), variant,
-            CarCatalog.Shared.DrivenFrontShareOf(variant), new Rng(_agentSeed, (ulong)(spawn + 1) << 8));
+
+        // The habit before the pose, because the pose a car starts standing in is what its habit would have
+        // put it in — drawn from the car's own stream, which then goes on to the fleet as it stands.
+        var draw = new Rng(_agentSeed, (ulong)(spawn + 1) << 8);
+        var backsIn = draw.NextFloat() < _config.Driving.BacksIntoBaysShare;
+
+        // <b>A space that belongs to an apron is not the town's to spawn into</b> (GEN-4k), and neither is
+        // one another spawn has already been put in: the car is stood in the nearest free bay instead, and
+        // a car with nowhere near to stand is not stood at all rather than dropped on top of whatever has
+        // the place. It is the one thing an apron costs the plan, and it costs it a car at most.
+        var bay = BayUnder(positionM);
+        if (bay >= 0 && !_parking.IsFree(bay))
+        {
+            bay = FreeBayNear(positionM, _config.PersonWalkWorthM);
+            if (bay < 0) return;
+        }
+
+        if (bay >= 0)
+        {
+            headingRad = BayTemplate.StandingHeadingRad(
+                _parking.HeadingRad(bay), _bayWays.TheStandingOnOffer(bay, !backsIn));
+
+            positionM = _parking.CentreM(bay);
+        }
+
+        // <b>The body is this variant's own</b> (CAR-11): its footprint, its weight, its axles and what its
+        // tyres are worth. The town's geometry is still the nominal car's — the junctions, the lanes and
+        // the bays were sized against it and the road is the same road whoever turns up — but nothing a
+        // car decides for itself is taken from it any more.
+        ref readonly var build = ref _builds.Of(variant);
+        var body = _physics.AddCar(
+            positionM, headingRad, build.CollisionSizeM * 0.5f, build.CornerRadiusM, build.MassKg);
+        var car = Cars.Add(body, positionM, headingRad, variant, backsIn, draw);
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
 
-        var bay = BayUnder(positionM);
         if (bay >= 0) _parking.Occupy(bay, car);
     }
 

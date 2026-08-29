@@ -1,5 +1,10 @@
 {
   "id": "school_wings",
   "sprite": "school_wings.png",
-  "footprintM": [19.00, 18.46]
+  "footprintM": [19.00, 18.46],
+  "partsM": [
+    { "atM": [0.0, 0.24], "sizeM": [18.46, 17.64] },
+    { "atM": [-6.18, -2.38], "sizeM": [6.63, 13.54] },
+    { "atM": [6.21, -2.38], "sizeM": [6.57, 13.54] }
+  ]
 }

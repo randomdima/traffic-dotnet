@@ -43,43 +43,26 @@ internal sealed partial class DebugOverlay
     const int TownQuadCapacity = TownRenderer.OverlayCapacity * 3 / 4;
 
     /// <summary>
-    /// <b>Everything this overlay draws is drawn at a size in metres</b>, so it zooms with the town under
-    /// it exactly as a kerb or a car does. A mark every few metres and a short one: a run of small marks
-    /// close together says which way the line runs without burying the line itself.
+    /// How far apart the two directions of a stretch have to be laid before the picture may call them two
+    /// lines. Under it they are one stroke at any framing — which is what a pavement too narrow for a lane
+    /// either side of it actually is (<see cref="World.Foot.WalkingNetwork.LaneOffsetM"/>, and every
+    /// crossing in the town) — and the marks down it are ticks rather than chevrons.
     /// </summary>
-    const float MarkPitchM = 1.5f;
-
-    /// <summary>How long a mark is against the pitch it stands at, and how heavy against the line it sits on. Heavier than the line, because a mark drawn at the line's own width reads as a kink in it.</summary>
-    const float MarkSizeFraction = 0.24f;
-
-    const float MarkWidthFactor = 1.25f;
+    const float OneLineApartM = PathMarks.PathLineM;
 
     /// <summary>
-    /// Under this a mark on screen is a smudge and not a direction, so none is drawn. It is what keeps
-    /// the town layer inside <see cref="TownQuadCapacity"/> at a district framing, where a metric pitch
-    /// otherwise puts three marks on the ground for every one that can be read.
+    /// <b>A hairline, and the thinnest thing this overlay draws.</b> The collision layer is the one layer
+    /// whose whole reading is <em>where the edge falls against the picture underneath it</em> — how far a
+    /// shape sits inside the bodywork, or past it — and a stroke wide enough to see from across the town
+    /// is a stroke wide enough to hide a hand's width of that answer at the framing it is read at.
     /// </summary>
-    const float MarkVisiblePx = 2f;
+    const float CollisionLineM = 0.04f;
 
     /// <summary>
-    /// The pitch to walk a line at, or <see cref="float.PositiveInfinity"/> where the marks have shrunk
-    /// out of sight — which is a pitch no mark is ever reached at, and the loops need no second branch.
-    /// A metric pitch puts marks a few metres apart however far the camera is, and at a town-wide
-    /// framing that is tens of thousands of quads nobody can see.
+    /// It is held to this on screen, though, however far out the camera is: below about a pixel a thin
+    /// line stops being thin and starts being dotted, and a shape drawn in dashes is not a shape.
     /// </summary>
-    static float MarkPitchAt(float pixelsPerMetre) =>
-        MarkPitchM * MarkSizeFraction * pixelsPerMetre >= MarkVisiblePx ? MarkPitchM : float.PositiveInfinity;
-
-    /// <summary>
-    /// What a path is drawn at, whoever is drawing it: an agent's own route and the town's network under
-    /// it. <b>One width and one mark</b> — the layers are telling one another's picture apart by colour,
-    /// and a line that is also a little thicker reads as a different kind of line rather than as a
-    /// different owner of the same one.
-    /// </summary>
-    const float PathLineM = 0.09f;
-
-    /// <summary>A collision shape is not a path, and the one line here that is drawn heavier says so.</summary>
-    const float CollisionLineM = 0.2f;
+    const float CollisionLineFloorPx = 1.5f;
 
     /// <summary>
     /// A node stands on the ground its network joins over, so it is drawn at the size of that ground
@@ -97,28 +80,6 @@ internal sealed partial class DebugOverlay
     const int StretchesDrawn = 2;
 
     /// <summary>
-    /// The dot where two pieces of a route meet, and the dot where the drawing stops. Sized off the line
-    /// they sit on rather than off the body, because a car and a walker draw the same picture and only the
-    /// bodies differ.
-    /// </summary>
-    const float JoinDiscM = PathLineM * 1.5f;
-
-    const float EndDiscM = PathLineM * 2.2f;
-
-    /// <summary>
-    /// How far a chord drawn across a bend may bow off it, on screen — the one figure here that is not a
-    /// size on the ground, because it is a fidelity and not a mark. A quarter of a pixel is less than a
-    /// line this wide can show at any framing.
-    /// </summary>
-    /// <remarks>
-    /// It is a sag and not a step: a step chosen in pixels faceted a junction join at a close framing —
-    /// the drawn corner was <em>tighter</em> than the one the car drives — while chopping a straight lane
-    /// into a hundred quads that one quad draws. What each piece is stepped at is
-    /// <see cref="Spline.ChordForSagM"/>, off its own curvature.
-    /// </remarks>
-    const float SagPx = 0.25f;
-
-    /// <summary>
     /// Below this a body is a few pixels across and a label over it is a bar of unreadable text over
     /// the thing it names, so none is drawn. It is why a town-wide framing carries no labels at all.
     /// </summary>
@@ -130,9 +91,6 @@ internal sealed partial class DebugOverlay
     float _drawnPixelsPerMetre = -1f;
     Vector2 _drawnCentreM;
     Vector2 _drawnSpanM;
-
-    /// <summary>How many quads the town's own graphs came to, for the frame read-out that prices the instrument.</summary>
-    public int TownQuads => _townQuads;
 
     /// <summary>Whether the last frame had to lay the town's graphs again, which is the cost this cache exists to make rare.</summary>
     public bool Relaid { get; private set; }
@@ -174,6 +132,9 @@ internal sealed partial class DebugOverlay
         // so stay above both: a car's route running out of the front of its block is the picture the two make.
         if (switches.Reservations)
         {
+            // The bays first, because a bay is ground several stretches of way lie across and the stretches
+            // are the finer reading of the two.
+            TakenBays(ref ground, world, config, viewCentreM, viewSpanM);
             LaneIndex(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
             FootIndex(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
         }
@@ -182,105 +143,17 @@ internal sealed partial class DebugOverlay
 
         if (switches.CarLines) CarLines(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
 
-        if (switches.Collision) CollisionShapes(ref draw, world, config, viewCentreM, viewSpanM);
+        if (switches.Collision) CollisionShapes(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);
+
+        // Last, so the construction stands over the lines and the shapes: what it is read against is the
+        // track written on the ground under all of them, and a chevron through the arc reads as the arc.
+        if (switches.TurnCircles) TurnCircles(ref draw, world, viewCentreM, viewSpanM, pixelsPerMetre);
     }
 
-    /// <summary>
-    /// The walkers: the line each is actually holding, drawn ahead of it as chevrons, and the place
-    /// it is holding it to.
-    /// </summary>
-    /// <remarks>
-    /// The line runs from the body and not from where the leg started, so the picture answers "where is
-    /// it going". What is drawn is the walk that is left and not the point in hand: a picture of the aim
-    /// point alone says a walker is heading into a building whenever the pavement bends round one, and
-    /// the swerves and cut corners this layer exists to show are all in the run <em>after</em> it.
-    /// </remarks>
+    /// <summary>OBS-2b's cull, coarsely: whether a place is inside the view once the body standing there has been allowed its own reach.</summary>
     static bool OnScreen(Vector2 pointM, Vector2 viewCentreM, Vector2 viewSpanM, float reachM)
     {
         var offset = Vector2.Abs(pointM - viewCentreM);
         return offset.X <= viewSpanM.X * 0.5f + reachM && offset.Y <= viewSpanM.Y * 0.5f + reachM;
     }
-
-    /// <summary>
-    /// One stretch of a chain of arcs, as the run of quads that draws it: <b>every piece stepped at the
-    /// chord its own curvature affords</b>, so a straight is one quad however long it is and a junction
-    /// join gets the points its bend needs. Everything this overlay draws along the ground goes through
-    /// here, whatever width it is drawn at.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Stepped piece by piece and not by distance along the whole chain, because the chain a route is
-    /// made of is a straight lane and then a biarc through the box: a step taken from the curvature under
-    /// the last point would carry a straight's chord into the bend that follows it.
-    /// </para>
-    /// <para>
-    /// <b>Each piece is cut square to the line at both ends</b> (<see cref="ScreenDraw.BandM"/>), so the
-    /// pieces share their cuts and a band is one shape. Butted as rectangles they pivot about the
-    /// centreline instead, and a lane-wide band round a junction join comes out as a fan of blocks with a
-    /// notch outside every joint and a double-blended wedge inside it — the wider the band the worse, and
-    /// a reservation is drawn at the lane's own width.
-    /// </para>
-    /// </remarks>
-    static void Banded(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float widthM,
-        Vector4 colour)
-    {
-        if (arcs.Length == 0 || toM <= fromM) return;
-
-        var previousM = Spline.SampleAt(arcs, fromM).PositionM;
-        var pieceStartM = 0f;
-        foreach (var arc in arcs)
-        {
-            var lastM = MathF.Min(toM, pieceStartM + arc.LengthM);
-
-            // Never shorter than the line is wide: a chord that fine says nothing a quad can show, and a
-            // curvature out of a degenerate arc would otherwise ask for chords of no length at all.
-            var stepM = MathF.Max(PathLineM, Spline.ChordForSagM(arc.Curvature, sagM));
-            for (var atM = MathF.Max(fromM, pieceStartM); atM < lastM;)
-            {
-                var onwardM = MathF.Min(lastM, atM + stepM);
-                var onM = arc.PointAtM(onwardM - pieceStartM);
-                draw.BandM(previousM, onM, arc.Curvature * (onwardM - atM), widthM, colour);
-                previousM = onM;
-                atM = onwardM;
-            }
-
-            pieceStartM = pieceStartM + arc.LengthM;
-        }
-    }
-
-    /// <summary>
-    /// The marks down one stretch of a chain, at a pitch counted from <paramref name="anchorM"/> — a place
-    /// on the ground and not a place on a body, so the marks stand still while an agent moves through them
-    /// and two agents on one stretch put theirs on the same stones.
-    /// </summary>
-    /// <remarks>
-    /// A pass of its own and not a mark dropped as the line is walked: a mark stands where the metres say,
-    /// and where the chords drawing the line happen to fall is a question about the zoom.
-    /// </remarks>
-    static void Marks(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float anchorM, float pitchM,
-        Vector4 colour)
-    {
-        if (arcs.Length == 0) return;
-
-        for (var atM = fromM + FirstMarkM(fromM - anchorM, pitchM); atM <= toM; atM += pitchM)
-        {
-            var mark = Spline.SampleAt(arcs, atM);
-            draw.ChevronM(
-                mark.PositionM, mark.Direction, pitchM * MarkSizeFraction, PathLineM * MarkWidthFactor, colour);
-        }
-    }
-
-    /// <summary>One stretch of a chain as a path: the line it is, and the marks that say which way it runs.</summary>
-    static void Chained(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float anchorM, float pitchM,
-        float sagM, Vector4 colour)
-    {
-        Banded(ref draw, arcs, fromM, toM, sagM, PathLineM, colour);
-        Marks(ref draw, arcs, fromM, toM, anchorM, pitchM, colour);
-    }
-
-    /// <summary>How far into a run its first mark stands, given how far the run's start is past the anchor the pitch is counted from.</summary>
-    static float FirstMarkM(float sinceAnchorM, float pitchM) => pitchM - (sinceAnchorM % pitchM);
 }

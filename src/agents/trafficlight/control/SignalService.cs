@@ -70,9 +70,6 @@ internal sealed class SignalService
     public bool CrossingIsLit(int crossing) =>
         crossing >= 0 && crossing < _crossingAxis.Length && _crossingAxis[crossing] != NoAxis;
 
-    public int JunctionOfCrossing(int crossing) =>
-        crossing >= 0 && crossing < _crossingJunction.Length ? _crossingJunction[crossing] : CityPlan.NoRecord;
-
     /// <summary>
     /// What the traffic arriving on this lane is being shown. <b>An approach at an unlit junction is
     /// green</b> — there is no light to obey, and a driver that read a red there would stop for nothing.
@@ -100,7 +97,7 @@ internal sealed class SignalService
         var offsetS = new float[roads.NodeCount];
         for (var junction = 0; junction < roads.NodeCount && junction < junctions.Count; junction++)
         {
-            lit[junction] = junctions.Lit[junction];
+            lit[junction] = junctions.Lit[junction] && AdmitsConflictingMovements(roads, junction);
             offsetS[junction] = junctions.PhaseOffsetS[junction];
         }
 
@@ -143,6 +140,20 @@ internal sealed class SignalService
 
         return new SignalService(config, lit, offsetS, laneAxis, roads.LaneToNode, crossingAxis, crossingJunction);
     }
+
+    /// <summary>
+    /// <b>Whether an intersection admits movements that are driven over each other</b> — TLT-3's whole
+    /// condition, read off the shape of the junction rather than taken on trust from the map.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fewer than three arms admits none</b> (TER-5c): a dead end has one carriageway and an inline
+    /// junction is a place <em>on</em> a road (TER-5b), so the two arms are one street's two halves passing
+    /// a lane apart. What such a junction carries is a crossing, and a crossing with no conflicting traffic
+    /// to phase against is an uncontrolled one, where the walker has the right of way (TER-5e) and the
+    /// traffic gives way to whoever is standing at the kerb. Lit instead, a mid-block zebra holds a street
+    /// on a timer that nothing on it is waiting for.
+    /// </remarks>
+    static bool AdmitsConflictingMovements(RoadGraph roads, int junction) => roads.LanesIn(junction).Length >= 3;
 
     /// <summary>
     /// Which of the two axes a bearing is on: the reference's, or the other one. <b>Modulo a half turn</b>,

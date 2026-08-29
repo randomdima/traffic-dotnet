@@ -11,9 +11,9 @@ namespace TrafficSimulation.Tests;
 /// go on mirroring <c>src/</c> and the cost lives in a trait. A tier is not a place.
 /// </para>
 /// <para>
-/// The four are docs/verification.md's, and the whole point of naming them is that the cheap ones can
-/// be run on every edit: the unit tier is four hundred milliseconds and the untiered suite was four
-/// minutes. <c>qq tests</c> is what turns a tier into a filter and a build configuration.
+/// The four are docs/verification.md's, and the whole point of naming them is that the cheap ones can be
+/// run on every edit while the dear ones are asked for by name. <c>qq tests</c> is what turns a tier into
+/// a filter and a build configuration; what each one costs is CLAUDE.md's table and is not restated here.
 /// </para>
 /// </remarks>
 public static class Tier
@@ -23,7 +23,7 @@ public static class Tier
 
     /// <summary>
     /// Engine-free arithmetic, and the fixture town where a question needs a place to be asked of.
-    /// Milliseconds — nothing here reads a shipped city.
+    /// Nothing here reads a shipped city, which is what makes it the tier run after every edit.
     /// </summary>
     public const string Unit = "Unit";
 
@@ -35,23 +35,16 @@ public static class Tier
 
     /// <summary>
     /// The gates in <c>tests/gates/</c>: what is <em>measured</em> over a whole town rather than
-    /// asserted about a value. They are serialised, they want a quiet machine, and they are the two
-    /// minutes nobody spends after an edit that could not have moved them.
+    /// asserted about a value. They are serialised, they want a quiet machine, and they are not run
+    /// after an edit that could not have moved them.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>This tier is taken in Debug, and both reasons are worth knowing.</b> The counter
-    /// <c>CrossingGateTests</c> reads is <c>[Conditional("DEBUG")]</c>, so a Release run of it compares
-    /// zero to zero and passes having measured nothing at all.
-    /// </para>
-    /// <para>
-    /// And <see cref="Gates.AllocationGateTests.AskingTheGroundOfAWholeCityAllocatesNothing"/> fails off
-    /// a <em>Release</em> build whenever the gates are run as their own group — 856 bytes on a thread
-    /// that has by then allocated eight hundred megabytes — while passing in Debug, passing in Release
-    /// run alone, and passing in Release behind the whole suite. Until that is understood, Release is
-    /// the configuration that cannot say whether rule 2 holds, which is the reverse of what taking a
-    /// figure off a Release build is supposed to buy.
-    /// </para>
+    /// <b>Taken in Release but for one class</b>, which <c>qq tests</c> runs as a take of its own: the
+    /// counter <c>CrossingGateTests</c> reads is <c>[Conditional("DEBUG")]</c>, so a Release run of it
+    /// compares zero to zero and passes having measured nothing at all. Nothing else here needs the
+    /// configuration — allocation is counted by <c>GC.GetAllocatedBytesForCurrentThread</c>, which counts
+    /// the same bytes either way, and Release is four times faster at reaching the town the figure is
+    /// taken over.
     /// </remarks>
     public const string Perf = "Perf";
 

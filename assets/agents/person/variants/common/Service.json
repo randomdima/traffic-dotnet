@@ -1,0 +1,7 @@
+{
+  "variants": [
+    "../paramedic_red/paramedic_red.json",
+    "../police_navy/police_navy.json",
+    "../recovery_yellow/recovery_yellow.json"
+  ]
+}

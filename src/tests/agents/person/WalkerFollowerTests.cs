@@ -92,7 +92,7 @@ public class WalkerFollowerTests
             terrainCoefficient: 1f, onFeet: false, MassKg, Dt);
 
         Assert.Equal(Config.Person.WalkSpeedMps, offFeet.DesiredMps.Length(), 4);
-        Assert.Equal(Config.Person.SlidingGripMps2 * MassKg * Dt, offFeet.ImpulseNs.Length(), 3);
+        Assert.Equal(Config.PersonSlidingGripMps2 * MassKg * Dt, offFeet.ImpulseNs.Length(), 3);
     }
 
     [Fact]

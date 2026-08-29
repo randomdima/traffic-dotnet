@@ -83,6 +83,34 @@ something in its own lane.
 rather than as an offset that grows on a clock. A line that moves on a clock arrives whether or not the car
 did, and steers the car into the thing it was avoiding.
 
+## Only on a road segment, never at a junction
+
+**Overtaking is a manoeuvre of a carriageway.** A car may not begin one standing in a junction box, nor once
+the box ahead is near enough to have been asked for, nor where the pass would not be finished before
+reaching it. Three statements of one rule, and it holds for a car answering a call exactly as for anybody
+else — a blue light buys the road, and there is no road here to buy.
+
+**A junction has no centreline to cross.** What licenses the wrong side of the road at all is CAR-6.2b, which
+licenses crossing the **centreline**; a box has none. The ground beside a car in a junction is not an oncoming
+lane, it is the other movements through the box — and every one of them was arbitrated on the town's table of
+what is driven over what (`TER-5c`), which assumes a crossing car follows the join it claimed. A car that
+swings off its join is not where the town says it is, and both movements then read the wrong ground.
+
+**And it is the one place the swerve's own claim cannot be laid.** What holds the traffic behind off the
+ground the shape swings through is a claim on the stretch of the car's own **lane** it leaves and returns to;
+inside a box the car is on no lane, so that claim is silently never made and the ground reads as empty road.
+
+**Where the two halves are asked.** Whether the car is *at* a junction is a fact about where it stands and
+belongs with the rest of "is this wanted" ([`DriveScene.OnACarriageway`](../framework/DriveScene.cs)), so
+`P-4` and this entry read it from one place and cannot disagree. Whether the pass **fits** before the box is
+not known until it is measured, so it sits with the sight-distance bar in `Sa` — a refusal there is an
+ordinary exit back to `P-4`, exactly as the ground or the book refusing is.
+
+**The bar is the junction reserve distance** (`SimConfig.CarJunctionReserveM`) and not a figure of this
+entry's own — the same one `P-4` hands the junction over at. A car near enough to have asked for the box is a
+car negotiating the box, and overtaking and negotiating are alternatives rather than things done at once.
+**A second figure would be a second answer to "is this car at a junction yet"** (SIM-7).
+
 **A queue is not an obstruction**, and neither is anything unnamed. A driver stopped on this road is held by
 something further up, and that is not this car's to drive round; going round either is a head-on rather than
 an overtake. The test is the lane index's
@@ -90,12 +118,18 @@ an overtake. The test is the lane index's
 at an unlit junction for a minute is a queue, and a car with nobody in it is an obstruction however recently
 it stopped.
 
-**A body in the road is one** (`PER-12`), whether it is standing or walking. A walker is an agent like any
+**A body in the road is one** (`PER-1`), whether it is standing or walking. A walker is an agent like any
 other — paint is where a walker's priority lives, and a car owes a crossing its stop short of the band
-(`P-12`) long before this entry is reached. What keeps the swerve off the body is the same thing that keeps
+(`TER-4c.1`) long before this entry is reached. What keeps the swerve off the body is the same thing that keeps
 it off a wreck: the body holds a stretch of the book with a margin round it (`PER-15`), and a template over
 that stretch is refused by the ground test. **A second rule that refused the same movement would make the
 ground test useless** (SIM-7).
+
+**And never at a crossing**, which is the paint's half of "a manoeuvre of open road". A body on the paint
+lays the band of the lane it is standing in, so somebody two lanes over leaves this shape a clear run and
+the ground test above says yes — and what the car would then be doing is overtaking the queue that stopped
+for the zebra, across the paint the people on it are about to reach. **Nothing else refuses that**, which is
+why the refusal is here (`DriveScene.ClearOfThePaint`) and is not a second gate.
 
 **The oncoming lane is not claimed.** Crossing the centreline is licensed for exactly this and for nothing
 else (CAR-6.2b); a claim on ground the other stream is entitled to would be a car reserving the wrong side

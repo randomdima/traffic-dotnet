@@ -40,6 +40,21 @@ internal enum TripStage : byte
 
     /// <summary>CTL-2: the goal was pinned by a hand, so nothing here draws another when it is reached.</summary>
     UnderOrders,
+
+    /// <summary>
+    /// <b>A service vehicle's crew, in their seat</b> (SRV-3). It is a stage of its own because every other
+    /// stage inside a car ends by getting out of it and drawing a trip, and a crew's does not: what takes
+    /// this one out of its seat is the errand its vehicle is on, and what it does out there is
+    /// <see cref="Attending"/>.
+    /// </summary>
+    OnDuty,
+
+    /// <summary>
+    /// <b>And out of it, working</b> (SRV-3): a paramedic walking to a casualty, a recovery man at the arm,
+    /// an officer standing beside a closed road. <b>The walking is an ordinary walker's</b> — kerbs, lanes
+    /// and the book — and what says where it is going is the vehicle's own duty and never a trip.
+    /// </summary>
+    Attending,
 }
 
 /// <summary>The trip's own decisions, as pure functions of the figures — what a walker chooses, and never how it gets there.</summary>

@@ -1,5 +1,9 @@
 {
   "id": "house_slate",
   "sprite": "house_slate.png",
-  "footprintM": [11.00, 11.25]
+  "footprintM": [11.00, 11.25],
+  "partsM": [
+    { "atM": [0.0, -0.5], "sizeM": [11.0, 10.09] },
+    { "atM": [0.0, 0.0], "sizeM": [2.46, 11.25] }
+  ]
 }

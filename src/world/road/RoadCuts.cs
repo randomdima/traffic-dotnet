@@ -52,9 +52,20 @@ internal static class RoadCuts
     /// for a pavement strip, whose stretch ends where it meets the walked circle round the junction and
     /// not where the kerb does.
     /// </param>
+    /// <param name="alsoAt">
+    /// Places on the chain a slice above has asked for a node of its own — the ends of a parking section
+    /// (<see cref="ParkingSections"/>). <b>A cut and not a disc</b>: it takes no ground off the road, so the
+    /// two stretches it makes meet at a point and the movement between them is a join of no length.
+    /// </param>
+    /// <param name="shortestStretchM">
+    /// How much road one of those has to leave standing on either side of itself to be taken. A cut that
+    /// leaves less is dropped and the section keeps the node its road already ends at, because a stretch
+    /// too short to drive is worse than one node fewer.
+    /// </param>
     public static void Along(
         CityPlan plan, BucketGrid discs, ReadOnlySpan<ArcSeg> chain, float lengthM, float paddingM,
-        int fromJunction, int toJunction, List<RoadCut> into)
+        int fromJunction, int toJunction, List<RoadCut> into, ReadOnlySpan<SectionCut> alsoAt = default,
+        float shortestStretchM = 0f)
     {
         into.Clear();
 
@@ -94,6 +105,21 @@ internal static class RoadCuts
         into.Sort(static (left, right) => left.EnterM.CompareTo(right.EnterM));
         into.Insert(0, new RoadCut(fromJunction, 0f, EndCutM(plan, chain, fromJunction, paddingM, 0f, lengthM, forward: true)));
         into.Add(new RoadCut(toJunction, EndCutM(plan, chain, toJunction, paddingM, lengthM, lengthM, forward: false), lengthM));
+
+        // Taken in the order they stand, so a pair of them too close together drops the second and not
+        // whichever the loop happened to reach first. <b>Where a cut may stand is the asker's</b> — it is
+        // the only one that knows what it wanted the node for — so this is the backstop and not the rule:
+        // one that would leave a stretch too short to drive goes without.
+        foreach (var cut in alsoAt)
+        {
+            var slot = into.FindIndex(other => other.EnterM > cut.AlongM);
+            if (slot <= 0) continue;
+
+            if (cut.AlongM - into[slot - 1].ExitM < shortestStretchM) continue;
+            if (into[slot].EnterM - cut.AlongM < shortestStretchM) continue;
+
+            into.Insert(slot, new RoadCut(cut.Node, cut.AlongM, cut.AlongM));
+        }
     }
 
     /// <summary>

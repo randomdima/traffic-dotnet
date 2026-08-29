@@ -20,19 +20,53 @@ public class RoadGraphTests
 
     static RoadGraph GraphOf(string map) => RoadGraph.Build(Towns.Of(map), SimConfig.Shipped());
 
+    /// <summary>
+    /// Every lane runs between two nodes the graph has — a junction the plan named, or a place cut into a
+    /// road for the car park hanging off it (GEN-4h) — and the plan's own junctions are the first of them,
+    /// because nothing is renumbered.
+    /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryLaneRunsBetweenTwoJunctionsItNames(string map)
+    public void EveryLaneRunsBetweenTwoNodesItNames(string map)
     {
         var plan = Towns.Of(map);
         var graph = GraphOf(map);
 
         Assert.NotEqual(0, graph.LaneCount);
+        Assert.Equal(plan.Junctions.Count, graph.JunctionCount);
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            Assert.InRange(graph.LaneFromNode[lane], 0, plan.Junctions.Count - 1);
-            Assert.InRange(graph.LaneToNode[lane], 0, plan.Junctions.Count - 1);
+            Assert.InRange(graph.LaneFromNode[lane], 0, graph.NodeCount - 1);
+            Assert.InRange(graph.LaneToNode[lane], 0, graph.NodeCount - 1);
             Assert.True(graph.LaneLengthM[lane] > 0f, $"{map}: lane {lane} has no length");
+        }
+    }
+
+    /// <summary>
+    /// <b>A place is a cut and not a disc</b> (GEN-4h): the two lanes it makes of one meet at a point, so
+    /// the movement between them is a join of no length and no ground is lost to it. Every other node takes
+    /// its own bite, which is what a junction disc is.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void APlaceCutIntoARoadTakesNoGroundOffIt(string map)
+    {
+        var graph = GraphOf(map);
+
+        for (var lane = 0; lane < graph.LaneCount; lane++)
+        {
+            if (!graph.IsAPlace(graph.LaneToNode[lane])) continue;
+
+            foreach (var onward in graph.TurnsFrom(lane))
+            {
+                if (onward == graph.LaneReverse[lane]) continue;
+
+                var slot = graph.TurnSlot(lane, onward);
+                Assert.Equal(0f, graph.JoinLengthM(slot), 3);
+                Assert.True(
+                    (graph.EndOf(lane).PositionM - graph.StartOf(onward).PositionM).Length() < 1e-3f,
+                    $"{map}: lane {lane} ends away from lane {onward} at the place they share");
+            }
         }
     }
 
@@ -158,25 +192,30 @@ public class RoadGraphTests
     }
 
     /// <summary>
-    /// A turn is a fact about the road, and the four kinds are exhaustive: every lane leaving the node
-    /// a lane arrives at is joined to it by exactly one of them, and the one that goes back the way it
-    /// came is the turn-around.
+    /// A turn is a fact about the road, and the three kinds are exhaustive: every lane leaving the node a
+    /// lane arrives at is joined to it by exactly one of them — <b>except the one that goes back the way it
+    /// came</b>, which is no movement at all (TER-5f) and is not in the table.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryTurnIsClassifiedAndTheReverseIsTheTurnAround(string map)
+    public void EveryTurnIsClassifiedAndTheReverseIsNoTurnAtAll(string map)
     {
         var graph = GraphOf(map);
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var leaving = graph.LanesOut(graph.LaneToNode[lane]);
-            Assert.Equal(leaving.Length, graph.TurnsFrom(lane).Length);
-            Assert.Equal(LaneTurn.TurnAround, graph.TurnBetween(lane, graph.LaneReverse[lane]));
+            var reverse = graph.LaneReverse[lane];
+
+            // Every lane out of the node is a turn out of this one but the ones that face back: its own
+            // reverse always, and anything else within the straight tolerance of head-on.
+            Assert.InRange(graph.TurnsFrom(lane).Length, 0, leaving.Length - (leaving.Contains(reverse) ? 1 : 0));
+            Assert.Null(graph.TurnBetween(lane, reverse));
 
             foreach (var lane2 in graph.TurnsFrom(lane))
             {
                 Assert.Equal(graph.LaneToNode[lane], graph.LaneFromNode[lane2]);
+                Assert.NotEqual(reverse, lane2);
             }
         }
     }
@@ -188,8 +227,8 @@ public class RoadGraphTests
     /// anything reading the pair name it without naming a movement.
     /// </summary>
     /// <remarks>
-    /// The turn-around is left out: it is priced out of reach (`P-11`, M8) and keeps whatever setback its
-    /// own semicircle takes rather than dragging the lane's end back with it.
+    /// There is no movement through a box that reverses the direction of travel (TER-5f), so there is
+    /// nothing here to leave out: every turn in the table is one a setback helps.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -202,12 +241,9 @@ public class RoadGraphTests
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var turns = graph.TurnsFrom(lane);
-            var kinds = graph.TurnKindsFrom(lane);
             var leavesAtM = float.NaN;
             for (var turn = 0; turn < turns.Length; turn++)
             {
-                if (kinds[turn] == LaneTurn.TurnAround) continue;
-
                 var slot = graph.TurnSlotAt(lane, turn);
                 if (float.IsNaN(leavesAtM)) leavesAtM = graph.JoinFromM(slot);
                 if (float.IsNaN(arrivesAtM[turns[turn]])) arrivesAtM[turns[turn]] = graph.JoinToM(slot);
@@ -283,9 +319,8 @@ public class RoadGraphTests
     /// than about the line drawn through it.
     /// </summary>
     /// <remarks>
-    /// The turn-around is left out because it is the pair for which no setback ever helps: two opposing
-    /// lanes a lane's width apart are a semicircle at any setback, which is why the router prices it out
-    /// of reach (`P-11`, M8).
+    /// The pair no setback ever helps — two opposing lanes a lane's width apart, a semicircle however far
+    /// back it is taken — is not a movement and is not in the table (TER-5f).
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -297,11 +332,8 @@ public class RoadGraphTests
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var turns = graph.TurnsFrom(lane);
-            var kinds = graph.TurnKindsFrom(lane);
             for (var turn = 0; turn < turns.Length; turn++)
             {
-                if (kinds[turn] == LaneTurn.TurnAround) continue;
-
                 var slot = graph.TurnSlotAt(lane, turn);
                 var capM = MathF.Min(
                     config.IntersectionCornerRadiusM,

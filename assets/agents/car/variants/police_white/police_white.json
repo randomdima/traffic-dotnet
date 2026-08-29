@@ -1,0 +1,22 @@
+{
+  "id": "police_white",
+  "sprite": "police_white.png",
+  "wreck": { "sprite": "police_white_broken.png", "scale": [1.065, 1.000] },
+  "footprintM": [4.15, 2.16],
+  "collisionM": { "sizeM": [4.08, 1.75], "cornerRadiusM": 0.66 },
+  "massKg": 1750,
+  "frontAxleM": 1.20,
+  "rearAxleM": -1.15,
+  "trackM": 1.85,
+  "drivetrain": 2,
+  "handling": { "maxSpeed": 1.18, "acceleration": 1.22, "braking": 1.12, "cornering": 1.1 },
+  "hullM": [[-2.016, -0.74], [-1.703, -0.875], [0.682, -1.073], [1.766, -0.792], [2.068, -0.427], [2.068, 0.427], [1.724, 0.823], [0.672, 1.073], [-1.703, 0.875], [-2.016, 0.74]],
+  "lamps": [
+    { "fitting": "rear", "atM": [-2.012, -0.558], "sizeM": [0.083, 0.167] },
+    { "fitting": "rear", "atM": [-2.012, 0.558], "sizeM": [0.083, 0.188] },
+    { "fitting": "indicator", "atM": [1.700, -0.736], "sizeM": [0.083, 0.063] },
+    { "fitting": "indicator", "atM": [1.700, 0.736], "sizeM": [0.083, 0.063] },
+    { "fitting": "beaconRed", "atM": [0.031, -0.370], "sizeM": [0.167, 0.397] },
+    { "fitting": "beaconBlue", "atM": [0.031, 0.360], "sizeM": [0.167, 0.376] }
+  ]
+}

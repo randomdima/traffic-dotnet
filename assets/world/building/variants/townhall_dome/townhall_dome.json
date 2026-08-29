@@ -1,5 +1,10 @@
 {
   "id": "townhall_dome",
   "sprite": "townhall_dome.png",
-  "footprintM": [20.00, 18.88]
+  "footprintM": [20.00, 18.88],
+  "partsM": [
+    { "atM": [0.02, -2.26], "sizeM": [18.65, 14.1] },
+    { "atM": [0.02, 0.0], "sizeM": [7.98, 18.88] },
+    { "atM": [0.0, -0.6], "sizeM": [20.0, 5.51] }
+  ]
 }

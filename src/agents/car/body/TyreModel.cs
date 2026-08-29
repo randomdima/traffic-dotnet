@@ -38,9 +38,10 @@ internal static partial class TyreModel
     /// The whole of one car's tyres for one tick: an impulse and a place to spend it per wheel, what
     /// each wheel did to the ground under it, and the four rims wound on.
     /// </summary>
-    /// <param name="drivenFrontShare">
-    /// How much of the drive is placed on the front axle — this <em>variant's</em>, since which end a
-    /// car drives through is a fact about the car and not about the fleet.
+    /// <param name="car">
+    /// <b>The car whose tyres these are</b> (CAR-11): where its axles stand under it, how wide its track
+    /// is, what its rubber holds and which end its drive is placed on. Every one of them is the variant's,
+    /// because a tyre is a fact about a car and not about a fleet.
     /// </param>
     /// <param name="axleDriveCeilingMps2">
     /// The most a <em>driven axle</em> may be asked for, applied after the drive has been divided by the
@@ -57,17 +58,18 @@ internal static partial class TyreModel
     /// longitudinal slip — wheelspin one way, lock-up the other.
     /// </param>
     public static void Step(
-        SimConfig config, in CarPose pose, in DriveCommand command, float drivenFrontShare, float axleDriveCeilingMps2,
+        SimConfig config, in CarBuild car, in CarPose pose, in DriveCommand command, float axleDriveCeilingMps2,
         ReadOnlySpan<Vector2> atM, ReadOnlySpan<SurfaceUnderWheel> ground, Span<float> spinMps, float dtS,
         Span<WheelImpulse> into, Span<TyreScrub> scrub)
     {
         var forward = pose.Forward;
+        var drivenFrontShare = car.DrivenFrontShare;
 
         Span<float> loadFraction = stackalloc float[Wheels];
-        Loads(config, pose, loadFraction);
+        Loads(config, car, pose, loadFraction);
 
         Span<float> steerRad = stackalloc float[Wheels];
-        Ackermann(config, command.SteerRad, steerRad);
+        Ackermann(car, command.SteerRad, steerRad);
 
         // Drive is placed by layout and divided by the load of the axle it is placed on, so a light end
         // of the car spins its wheels rather than pushing the whole of it.
@@ -93,8 +95,10 @@ internal static partial class TyreModel
             // be turned into its stop; a wreck is locked as a block because nobody is deciding on it.
             var locked = command.LocksEveryWheel || (rear && command.Handbrake);
             var surface = ground[wheel];
-            var acrossGripMps2 = config.Tyre.GripMps2 * surface.Coefficient;
-            var alongGripMps2 = acrossGripMps2 * config.Tyre.LongAxisFactor;
+            // This car's own rubber on this wheel's own ground: what a variant is worth through a corner
+            // is the difference between a supercar and a truck on the same tarmac.
+            var acrossGripMps2 = car.GripMps2 * surface.Coefficient;
+            var alongGripMps2 = car.LongGripMps2 * surface.Coefficient;
             var loadKg = pose.MassKg * loadFraction[wheel];
 
             var alongMps = Vector2.Dot(velocityMps, wheelForward);
@@ -315,6 +319,23 @@ internal static partial class TyreModel
     /// </summary>
     static float SyncMassKg(SimConfig config, float loadKg) =>
         loadKg <= 0f ? 0f : 1f / ((1f / config.Tyre.WheelRotatingMassKg) + (1f / loadKg));
+
+    /// <summary>
+    /// <b>What the ellipse has left along the roll once the corner the car is taking has been paid for</b>
+    /// (CAR-3b): the most a driven axle may be asked for. Past it the engine buys no acceleration and only
+    /// takes grip off the turn, which is the whole of why a car under power runs wide.
+    /// </summary>
+    /// <param name="acrossMps2">
+    /// The lateral acceleration the body is <em>actually</em> carrying and not the one a profile planned —
+    /// so a car shoved sideways lifts for it the way it lifts for a bend it steered into.
+    /// </param>
+    public static float DriveLeftMps2(float longGripMps2, float acrossGripMps2, float acrossMps2)
+    {
+        if (acrossGripMps2 <= 0f) return 0f;
+
+        var spent = MathF.Abs(acrossMps2) / acrossGripMps2;
+        return longGripMps2 * MathF.Sqrt(MathF.Max(0f, 1f - (spent * spent)));
+    }
 
     /// <summary>
     /// How far the tread may outrun the road right now: the standing-start allowance, run down by the

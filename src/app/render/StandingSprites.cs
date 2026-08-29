@@ -61,8 +61,8 @@ internal sealed class StandingSprites
     public static int CapacityFor(CityPlan plan) => plan.Buildings.Count + plan.Props.Count;
 
     public static StandingSprites Lay(
-        CityPlan plan, BuildingCatalog buildings, PropCatalog props, int firstBuildingSheet, int firstPropSheet,
-        ReadOnlySpan<float> aspects)
+        CityPlan plan, BuildingCatalog buildings, BuildingUses uses, PropCatalog props, int firstBuildingSheet,
+        int firstPropSheet, ReadOnlySpan<float> aspects)
     {
         var columns = Math.Max(1, (int)MathF.Ceiling(plan.WorldSizeM.X / CellM));
         var rows = Math.Max(1, (int)MathF.Ceiling(plan.WorldSizeM.Y / CellM));
@@ -75,7 +75,7 @@ internal sealed class StandingSprites
         var written = 0;
         for (var building = 0; building < plan.Buildings.Count; building++)
         {
-            instances[written] = Roof(plan, buildings, firstBuildingSheet, building);
+            instances[written] = Roof(plan, buildings, uses, firstBuildingSheet, building);
             cellOf[written] = Cell(instances[written].CentreM, columns, rows);
             cells[cellOf[written]]++;
             written++;
@@ -143,43 +143,17 @@ internal sealed class StandingSprites
     }
 
     /// <summary>
-    /// One building's roof: the nearest authored footprint, turned so the art's door lands on the wall
-    /// the plan's ways in sit off.
+    /// One building's roof, drawn where <see cref="BuildingRoofs"/> says it stands. <b>The choice is not
+    /// made here</b>: the same answer stands this building's walls, and two constructions of it would be
+    /// two buildings.
     /// </summary>
-    static SpriteInstance Roof(CityPlan plan, BuildingCatalog catalogue, int firstSheet, int building)
+    static SpriteInstance Roof(
+        CityPlan plan, BuildingCatalog catalogue, BuildingUses uses, int firstSheet, int building)
     {
-        var centreM = plan.Buildings.CentreM[building];
-        var (variant, swapped) = catalogue.Match(plan.Buildings.SizeM[building]);
-        var footprintM = catalogue.Variants[variant].FootprintM;
-
-        // The art's own +y is its door. Laying the art across the building's axes is a quarter turn, and
-        // the remaining half turn is the only choice left — which of the two opposite walls the door is on.
-        var quarter = swapped ? MathF.PI * 0.5f : 0f;
-        var headingRad = plan.Buildings.HeadingRad[building] + quarter;
-        if (FacesAway(plan, building, centreM, headingRad)) headingRad += MathF.PI;
-
+        var roof = BuildingRoofs.Of(plan, catalogue, uses, building);
         return new SpriteInstance(
-            centreM, footprintM * 0.5f, Vector2.Zero, Vector2.One, PersonSprites.Plain,
-            (uint)(firstSheet + variant), headingRad);
-    }
-
-    /// <summary>
-    /// Whether the door would face the back of the building — the wall furthest from the ways in the
-    /// plan carries. A building with no way in (OBJ-4 says there is always one) keeps the plan's bearing.
-    /// </summary>
-    static bool FacesAway(CityPlan plan, int building, Vector2 centreM, float headingRad)
-    {
-        var from = plan.Buildings.EntryOffsets[building];
-        var to = plan.Buildings.EntryOffsets[building + 1];
-        if (from >= to) return false;
-
-        // The quad's own +y, which is where the art's door points once the instance is turned.
-        var door = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad));
-
-        var towardsWays = Vector2.Zero;
-        for (var way = from; way < to; way++) towardsWays += plan.Buildings.EntryPointM[way] - centreM;
-
-        return Vector2.Dot(door, towardsWays) < 0f;
+            plan.Buildings.CentreM[building], roof.FootprintM * 0.5f, Vector2.Zero, Vector2.One,
+            PersonSprites.Plain, (uint)(firstSheet + roof.Variant), roof.HeadingRad);
     }
 
     static SpriteInstance Look(

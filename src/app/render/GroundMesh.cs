@@ -3,6 +3,8 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
 
@@ -48,8 +50,8 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 /// </remarks>
 internal sealed partial class GroundMesh
 {
-    /// <summary>How finely a road's curve is asked whether it is inside a junction, laying the dashes.</summary>
-    const float JunctionStepM = 1f;
+    /// <summary>How far a drawn chord is allowed to bow off the arc it stands for.</summary>
+    const float ChordSagM = 0.02f;
 
     /// <summary>White: a surface drawn as itself.</summary>
     static readonly Vector3 Plain = Vector3.One;
@@ -111,6 +113,7 @@ internal sealed partial class GroundMesh
         var paint = Shade(2.6f, 2.6f, 2.5f);
         var kerbM = config.Road.PaintLineWidthM;
         var cornerM = config.Road.PavementCornerRadiusM;
+        var corners = PavementCorners.Solve(plan, config);
 
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
@@ -140,6 +143,17 @@ internal sealed partial class GroundMesh
                 mesh.RoundedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
                     plan.ParkingLots.HalfExtentM[lot] + new Vector2(walkM - inset), cornerM - inset,
                     Surface.Pavement, tint, periods);
+            }
+
+            // TER-3c.4: where two of the pieces above run into one another they leave a re-entrant spike
+            // of verge, and it is turned on an arc like any other corner. The fillet is the same piece a
+            // kerb fillet is — apex, arc, two tangent points — and it insets the same way: the arc is the
+            // union's own boundary here and draws in, the two straight sides are the neighbours' seen
+            // from inside and draw out to meet where those have drawn back to.
+            foreach (var corner in corners)
+            {
+                mesh.Fillet(corner.CornerM, corner.ArcCentreM, corner.RadiusM, corner.TangentAM, corner.TangentBM,
+                    inset, Surface.Pavement, tint, periods);
             }
         }
 
@@ -205,6 +219,24 @@ internal sealed partial class GroundMesh
             }
         }
 
+        // The kerb line stops where the kerb does. A car park hangs off the kerb it is laid along, so over
+        // its frontage the ground on the far side of that line is the lot's own tarmac and not a walk —
+        // and a line painted there is one every car entering the lot drives across. The pavement's edge
+        // line is untouched: the lot's wrap is part of the union that one is a rim on, so it already
+        // rounds the outside of the lot rather than running between the lot and the street.
+        // It is broken over the lot's mouth and not over its whole shadow, and it stops a line's width
+        // short of either end of that: the kerb line runs to the far face of the lot's outermost bay
+        // stroke, so the corner the two turn is painted exactly once. It is the same end-to-end rule the
+        // bay's own three strokes are laid by, with the kerb line as the fourth.
+        var frontages = RoadFrontages.Lay(plan, config);
+        foreach (var front in frontages.All)
+        {
+            if (!front.FrontsTheKerb) continue;
+
+            mesh.EdgeStrip(plan.Roads.SegmentsOf(front.Road), front.MouthFromM + kerbM, front.MouthToM - kerbM,
+                front.Side * plan.Roads.WidthM[front.Road] * 0.5f, kerbM, Surface.Tarmac, Plain, periods);
+        }
+
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh.LaneDashes(plan, config, paint, periods);
 
@@ -226,7 +258,7 @@ internal sealed partial class GroundMesh
                 Surface.Tarmac, paint, periods);
         }
 
-        mesh.BayStrokes(plan, config, paint, periods);
+        mesh.BayStrokes(plan, config, paint, periods, frontages);
 
         return mesh;
     }

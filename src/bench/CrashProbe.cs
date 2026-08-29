@@ -38,7 +38,8 @@ internal static class CrashProbe
     public static void Run(SimConfig config)
     {
         Console.WriteLine(
-            $"crash probe — person shakes at {config.Damage.PersonShakeKj:F0} kJ and dies at {config.Damage.PersonFatalKj:F0} kJ; " +
+            $"crash probe — a person goes down at {config.PersonCasualtyKj:F2} kJ, which is " +
+            $"{config.Damage.SlideToCasualtyM:F2} m of slide, and no harder outcome exists; " +
             $"a car breaks at {config.Damage.CarWreckKj:F0} kJ");
         Console.WriteLine($"{"case",-28}{"kJ",8}  {"expected",-34}{"read",-34}{"",6}");
 
@@ -57,16 +58,16 @@ internal static class CrashProbe
     /// <summary>Every staged case, run. The unit suite asserts on the same rows this prints.</summary>
     public static CrashRow[] Cases(SimConfig config) =>
     [
-        CarIntoPerson(config, "car nudges person", config.Damage.PersonShakeKj * 0.5f),
-        CarIntoPerson(config, "car shoves person", (config.Damage.PersonShakeKj + config.Damage.PersonFatalKj) * 0.5f),
-        CarIntoPerson(config, "car kills person", config.Damage.PersonFatalKj * 1.5f),
+        CarIntoPerson(config, "car brushes person", config.PersonCasualtyKj * 0.5f),
+        CarIntoPerson(config, "car knocks person down", config.PersonCasualtyKj * 1.5f),
+        CarIntoPerson(config, "car runs person over", config.Damage.CarWreckKj * 1.5f),
         PersonIntoParkedCar(config),
         CarIntoCar(config, "cars nudge", config.Damage.CarWreckKj * 0.5f),
         CarIntoCar(config, "cars crash", config.Damage.CarWreckKj * 1.5f),
         CarIntoWall(config),
         PersonIntoPerson(config),
         PersonIntoWall(config),
-        CarOverCorpse(config),
+        CarOverACasualty(config),
         CarIntoWreck(config),
         QueueRests(config),
         WreckIsPushed(config),
@@ -76,18 +77,23 @@ internal static class CrashProbe
     static float ClosingMps(float energyKj, float firstKg, float secondKg) =>
         MathF.Sqrt(2f * energyKj * 1000f / DamageResolver.ReducedMassKg(firstKg, secondKg));
 
-    /// <summary>How much clear air to leave between two bodies: four tenths of a second of approach, whatever the speed.</summary>
-    static float GapM(float closingMps) => MathF.Max(0.5f, closingMps * 0.4f);
+    /// <summary>
+    /// How much clear air to leave between two bodies: <b>three ticks of approach, whatever the speed</b>
+    /// — enough for the pair to be seen coming, and short enough that nothing is lost on the way.
+    /// </summary>
+    /// <remarks>
+    /// <b>The approach is drag and the drag is not the case.</b> A coasting car sheds about 1.35 m/s²
+    /// through its own tyres, so a staged run of four tenths of a second arrives a full 0.5 m/s down —
+    /// nothing at the speed that breaks a car, and the difference between two bands at the speed that
+    /// knocks somebody over (PER-23).
+    /// </remarks>
+    static float GapM(float closingMps) => MathF.Max(0.02f, closingMps * 0.05f);
 
     static void Advance(CrashSandbox rig, SimConfig config) => new SimLoop<CrashSandbox>(rig, config).Advance(Ticks);
 
     /// <summary>What the contact did, not what the body looks like afterwards — a stumble has worn off long before a case ends.</summary>
-    static string PersonReads(CrashSandbox rig, int person) => rig.PersonOutcome[person] switch
-    {
-        DamageOutcome.Dead => "dead",
-        DamageOutcome.Shaken => "shaken",
-        _ => "intact",
-    };
+    static string PersonReads(CrashSandbox rig, int person) =>
+        rig.PersonOutcome[person] == DamageOutcome.Wounded ? "wounded" : "intact";
 
     static string CarReads(CrashSandbox rig, int car) => rig.Cars.Broken[car] ? "broken" : "intact";
 
@@ -102,19 +108,23 @@ internal static class CrashProbe
         rig.Launch(new BodyTag(BodyKind.Car, car), new Vector2(closingMps, 0f));
         Advance(rig, config);
 
-        var expected = energyKj >= config.Damage.PersonFatalKj ? "dead"
-            : energyKj >= config.Damage.PersonShakeKj ? "shaken" : "intact";
-        return new CrashRow(name, energyKj, $"person {expected}, car intact", $"person {PersonReads(rig, person)}, car {CarReads(rig, car)}");
+        // The car's own tolerance is in this pairing too: one rule and no special case, so a car that
+        // meets a body at the energy that breaks it against anything else breaks against this as well.
+        var toThePerson = energyKj >= config.PersonCasualtyKj ? "wounded" : "intact";
+        var toTheCar = energyKj >= config.Damage.CarWreckKj ? "broken" : "intact";
+        return new CrashRow(
+            name, energyKj, $"person {toThePerson}, car {toTheCar}",
+            $"person {PersonReads(rig, person)}, car {CarReads(rig, car)}");
     }
 
     /// <summary>
-    /// PER-12's second sentence, which is a rule about the arithmetic and not about blame: <b>only the
+    /// PER-23's second sentence, which is a rule about the arithmetic and not about blame: <b>only the
     /// closing speed and the two masses count, never who was moving.</b> The car stands still here and
     /// the person arrives at it, and the outcome is the one the same energy gives the other way round.
     /// </summary>
     static CrashRow PersonIntoParkedCar(SimConfig config)
     {
-        var energyKj = config.Damage.PersonFatalKj * 1.5f;
+        var energyKj = config.PersonCasualtyKj * 1.5f;
         var closingMps = ClosingMps(energyKj, config.Car.MassKg, config.Person.MassKg);
         using var rig = new CrashSandbox(config);
         var car = rig.AddCar(Vector2.Zero, 0f);
@@ -125,7 +135,7 @@ internal static class CrashProbe
         Advance(rig, config);
 
         return new CrashRow(
-            "person shoved into car", energyKj, "person dead, car intact",
+            "person shoved into car", energyKj, "person wounded, car intact",
             $"person {PersonReads(rig, person)}, car {CarReads(rig, car)}");
     }
 
@@ -167,7 +177,7 @@ internal static class CrashProbe
     /// <summary>PHY-4a's first exemption: person against person is harmless <em>at any energy</em>, and this one is enormous.</summary>
     static CrashRow PersonIntoPerson(SimConfig config)
     {
-        var energyKj = config.Damage.PersonFatalKj * 10f;
+        var energyKj = config.Damage.CarWreckKj * 3f;
         var closingMps = ClosingMps(energyKj, config.Person.MassKg, config.Person.MassKg);
         using var rig = new CrashSandbox(config);
         var first = rig.AddPerson(Vector2.Zero);
@@ -184,7 +194,7 @@ internal static class CrashProbe
     /// <summary>PHY-4a's second exemption: a person against static geometry is harmless at any energy.</summary>
     static CrashRow PersonIntoWall(SimConfig config)
     {
-        var energyKj = config.Damage.PersonFatalKj * 10f;
+        var energyKj = config.Damage.CarWreckKj * 3f;
         var closingMps = ClosingMps(energyKj, config.Person.MassKg, float.PositiveInfinity);
         using var rig = new CrashSandbox(config);
         var person = rig.AddPerson(Vector2.Zero);
@@ -196,8 +206,12 @@ internal static class CrashProbe
         return new CrashRow("person into wall", energyKj, "intact", PersonReads(rig, person));
     }
 
-    /// <summary>PHY-5a: a car may drive over a dead person without breaking, at a speed that would break it on a live one.</summary>
-    static CrashRow CarOverCorpse(SimConfig config)
+    /// <summary>
+    /// PHY-5b: a car aimed at a body already in the road, at a speed that would break the car on one still
+    /// standing, and there is <b>no contact at all</b> — the pair never reaches the arithmetic PHY-5a is
+    /// about, and the body is left where it lay.
+    /// </summary>
+    static CrashRow CarOverACasualty(SimConfig config)
     {
         var energyKj = config.Damage.CarWreckKj * 1.5f;
         var closingMps = ClosingMps(energyKj, config.Car.MassKg, config.Person.MassKg);
@@ -206,14 +220,17 @@ internal static class CrashProbe
         var person = rig.AddPerson(
             new Vector2(config.Car.LengthM * 0.5f + GapM(closingMps) + config.PersonDiameterM * 0.5f, 0f));
 
-        // Already dead when the car arrives, by the same route a contact would have taken it there.
-        rig.Apply(new BodyTag(BodyKind.Person, person), DamageOutcome.Dead);
+        // Already down when the car arrives, by the same route a contact would have taken it there.
+        var lyingAtM = rig.People.PositionM[person];
+        rig.Apply(new BodyTag(BodyKind.Person, person), DamageOutcome.Wounded);
         rig.Launch(new BodyTag(BodyKind.Car, car), new Vector2(closingMps, 0f));
         Advance(rig, config);
 
+        var moved = (rig.People.PositionM[person] - lyingAtM).Length() > 0.01f;
         return new CrashRow(
-            "car over corpse", energyKj, "corpse dead, car intact",
-            $"corpse {PersonReads(rig, person)}, car {CarReads(rig, car)}");
+            "car over casualty", energyKj, "car intact, untouched, unmoved",
+            $"car {CarReads(rig, car)}, {(rig.Judgements == 0 ? "untouched" : "touched")}, " +
+            $"{(moved ? "shoved" : "unmoved")}");
     }
 
     /// <summary>PHY-5a again: a wreck cannot enter another terminal state, and contributes nothing to what hits it.</summary>

@@ -1,0 +1,6 @@
+{
+  "id": "recovery_yellow",
+  "sheet": "recovery_yellow.png",
+  "down": "recovery_yellow_down.png",
+  "heightM": 1.76
+}

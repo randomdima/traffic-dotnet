@@ -43,15 +43,17 @@ internal static class SignalProbe
             $"({MeasuredTicks / config.Sim.TickRateHz} s), sampled every tick");
         Console.WriteLine(
             $"{"map",-10}{"lit",5}{"heads",7}{"crossings",11}{"cars",6}{"conflicting greens",20}" +
-            $"{"crossing against a road",24}{"red bars crossed",18}{"kerb waits",12}{"begun on red",14}");
+            $"{"crossing against a road",24}{"reckless",10}{"red bars crossed",18}{"kerb waits",12}" +
+            $"{"begun on red",14}{"given way at a kerb",21}{"crossings given back",22}");
 
         foreach (var map in ProjectPaths.ShippedMaps())
         {
             var sample = Sample(map, config);
             Console.WriteLine(
                 $"{map,-10}{sample.LitJunctions,5}{sample.Heads,7}{sample.LitCrossings,11}{sample.Cars,6}" +
-                $"{sample.ConflictingGreens,20}{sample.CrossingAgainstTraffic,24}{sample.RedBarsCrossed,18}" +
-                $"{sample.KerbWaits,12}{sample.CrossingsBegunOnRed,14}");
+                $"{sample.ConflictingGreens,20}{sample.CrossingAgainstTraffic,24}{sample.RecklessDrivers,10}" +
+                $"{sample.RedBarsCrossed,18}{sample.KerbWaits,12}{sample.CrossingsBegunOnRed,14}" +
+                $"{sample.GivenWayAtAKerb,21}{sample.CrossingsGivenBack,22}");
 
             if (sample.RedBarsCrossed > 0)
             {
@@ -62,13 +64,16 @@ internal static class SignalProbe
         }
 
         Console.WriteLine(
-            "Every column but the counts must be zero. A town with no lit junction proves nothing here and says so " +
-            "in its own row.");
+            "The two conflict columns must be zero. Red bars crossed is not one of them and never was: a share of " +
+            "the town does not keep the rule (CAR-13), and a lit map crosses a handful of bars in a minute without " +
+            "them — a shunt over a line, a car committed when the phase turned. It is read beside the reckless " +
+            "column. A town with no lit junction proves nothing here and says so in its own row.");
     }
 
     public readonly record struct SignalSample(
         int LitJunctions, int Heads, int LitCrossings, int Cars, long ConflictingGreens, long CrossingAgainstTraffic,
-        long RedBarsCrossed, RedBarCrossing LastCrossing, long KerbWaits, long CrossingsBegunOnRed);
+        int RecklessDrivers, long RedBarsCrossed, RedBarCrossing LastCrossing, long KerbWaits,
+        long CrossingsBegunOnRed, long GivenWayAtAKerb, long CrossingsGivenBack);
 
     public static SignalSample Sample(string map, SimConfig config)
     {
@@ -97,6 +102,8 @@ internal static class SignalProbe
         var before = world.RedBarCrossings;
         var kerbWaitsBefore = world.KerbWaitsBegun;
         var onRedBefore = world.CrossingsBegunOnRed;
+        var gaveWayBefore = world.GaveWayAtAKerb;
+        var givenBackBefore = world.CrossingsGivenBack;
 
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
@@ -136,8 +143,9 @@ internal static class SignalProbe
 
         return new SignalSample(
             litJunctions, world.Heads.Count, litCrossings, world.Cars.Count, conflicting, againstTraffic,
-            world.RedBarCrossings - before, world.LastRedBarCrossing, world.KerbWaitsBegun - kerbWaitsBefore,
-            world.CrossingsBegunOnRed - onRedBefore);
+            world.RecklessDrivers, world.RedBarCrossings - before, world.LastRedBarCrossing,
+            world.KerbWaitsBegun - kerbWaitsBefore, world.CrossingsBegunOnRed - onRedBefore,
+            world.GaveWayAtAKerb - gaveWayBefore, world.CrossingsGivenBack - givenBackBefore);
     }
 
     /// <summary>The axis a crossing is painted across, read back the way the service assigned it.</summary>

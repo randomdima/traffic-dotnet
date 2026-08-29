@@ -26,12 +26,11 @@ public class DamageResolverTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    /// <summary>Nothing, a bump, a survivable hit for a person, a fatal one, and a wreck-making one.</summary>
+    /// <summary>Nothing, a brush too light to move a body, one that puts them in the road, and a wreck-making one.</summary>
     const float NoneKj = 0f;
 
-    const float BumpKj = 1f;
-    const float ShakeKj = 4f;
-    const float FatalKj = 9f;
+    const float BrushKj = 1f;
+    const float KnockKj = 10f;
     const float WreckKj = 30f;
 
     static Participant KindNamed(string name) => name switch
@@ -45,8 +44,7 @@ public class DamageResolverTests
     static DamageOutcome OutcomeNamed(string name) => name switch
     {
         "none" => DamageOutcome.None,
-        "shaken" => DamageOutcome.Shaken,
-        "dead" => DamageOutcome.Dead,
+        "wounded" => DamageOutcome.Wounded,
         "broken" => DamageOutcome.Broken,
         _ => throw new ArgumentOutOfRangeException(nameof(name), name, "Not an outcome this table knows."),
     };
@@ -68,16 +66,16 @@ public class DamageResolverTests
         _ => float.PositiveInfinity,
     };
 
-    static DamageSubject SubjectOf(Participant kind, bool terminal = false) => kind switch
+    static DamageSubject SubjectOf(Participant kind, bool spent = false) => kind switch
     {
-        Participant.Person => DamageSubject.Person(Config.Person.MassKg, terminal),
-        Participant.Car => DamageSubject.Car(Config.Car.MassKg, terminal),
+        Participant.Person => DamageSubject.Person(Config.Person.MassKg, spent),
+        Participant.Car => DamageSubject.Car(Config.Car.MassKg, spent),
         _ => DamageSubject.Static,
     };
 
-    static DamageVerdict Judge(Participant first, Participant second, float energyKj, bool firstIsTerminal = false) =>
+    static DamageVerdict Judge(Participant first, Participant second, float energyKj, bool firstIsSpent = false) =>
         DamageResolver.Resolve(
-            Config, SubjectOf(first, firstIsTerminal), SubjectOf(second),
+            Config, SubjectOf(first, firstIsSpent), SubjectOf(second),
             ClosingMps(energyKj, MassOf(first), MassOf(second)));
 
     /// <summary>
@@ -87,37 +85,32 @@ public class DamageResolverTests
     [Theory]
     // A person against a person is harmless at any energy (PHY-4a).
     [InlineData("person", "person", NoneKj, "none")]
-    [InlineData("person", "person", BumpKj, "none")]
-    [InlineData("person", "person", ShakeKj, "none")]
-    [InlineData("person", "person", FatalKj, "none")]
+    [InlineData("person", "person", BrushKj, "none")]
+    [InlineData("person", "person", KnockKj, "none")]
     [InlineData("person", "person", WreckKj, "none")]
     // A person against static geometry is harmless at any energy (PHY-4a).
     [InlineData("person", "static", NoneKj, "none")]
-    [InlineData("person", "static", BumpKj, "none")]
-    [InlineData("person", "static", ShakeKj, "none")]
-    [InlineData("person", "static", FatalKj, "none")]
+    [InlineData("person", "static", BrushKj, "none")]
+    [InlineData("person", "static", KnockKj, "none")]
     [InlineData("person", "static", WreckKj, "none")]
-    // A person against a car sees all three bands, which no other pairing does.
+    // A person against a car, and one band: down in the road is the whole of what a contact makes of
+    // somebody, so the energy that breaks a car does no more to them than the energy that moves them.
     [InlineData("person", "car", NoneKj, "none")]
-    [InlineData("person", "car", BumpKj, "none")]
-    [InlineData("person", "car", ShakeKj, "shaken")]
-    [InlineData("person", "car", FatalKj, "dead")]
-    [InlineData("person", "car", WreckKj, "dead")]
+    [InlineData("person", "car", BrushKj, "none")]
+    [InlineData("person", "car", KnockKj, "wounded")]
+    [InlineData("person", "car", WreckKj, "wounded")]
     // A car breaks at its own tolerance and against anything, which is the point of having one rule.
     [InlineData("car", "person", NoneKj, "none")]
-    [InlineData("car", "person", BumpKj, "none")]
-    [InlineData("car", "person", ShakeKj, "none")]
-    [InlineData("car", "person", FatalKj, "none")]
+    [InlineData("car", "person", BrushKj, "none")]
+    [InlineData("car", "person", KnockKj, "none")]
     [InlineData("car", "person", WreckKj, "broken")]
     [InlineData("car", "car", NoneKj, "none")]
-    [InlineData("car", "car", BumpKj, "none")]
-    [InlineData("car", "car", ShakeKj, "none")]
-    [InlineData("car", "car", FatalKj, "none")]
+    [InlineData("car", "car", BrushKj, "none")]
+    [InlineData("car", "car", KnockKj, "none")]
     [InlineData("car", "car", WreckKj, "broken")]
     [InlineData("car", "static", NoneKj, "none")]
-    [InlineData("car", "static", BumpKj, "none")]
-    [InlineData("car", "static", ShakeKj, "none")]
-    [InlineData("car", "static", FatalKj, "none")]
+    [InlineData("car", "static", BrushKj, "none")]
+    [InlineData("car", "static", KnockKj, "none")]
     [InlineData("car", "static", WreckKj, "broken")]
     // A static object is never affected by anything (PHY-2, PHY-4a).
     [InlineData("static", "person", WreckKj, "none")]
@@ -133,7 +126,7 @@ public class DamageResolverTests
     public void EveryKindAndOutcomeIsNamedExactlyOnce()
     {
         string[] kinds = ["static", "person", "car"];
-        string[] outcomes = ["none", "shaken", "dead", "broken"];
+        string[] outcomes = ["none", "wounded", "broken"];
 
         Assert.Equal(Enum.GetValues<Participant>(), Array.ConvertAll(kinds, KindNamed));
         Assert.Equal(Enum.GetValues<DamageOutcome>(), Array.ConvertAll(outcomes, OutcomeNamed));
@@ -141,16 +134,60 @@ public class DamageResolverTests
 
     /// <summary>
     /// The same contact may break one participant and not the other, and this is the pairing where it
-    /// is most visible: the pedestrian weighs a seventeenth of the car, so the speed that kills them
-    /// barely marks it.
+    /// is most visible: the pedestrian weighs a seventeenth of the car, so the speed that puts them in
+    /// the road barely marks it.
     /// </summary>
     [Fact]
     public void OneContactCanBreakOneParticipantAndNotTheOther()
     {
-        var verdict = Judge(Participant.Person, Participant.Car, FatalKj);
+        var verdict = Judge(Participant.Person, Participant.Car, KnockKj);
 
-        Assert.Equal(DamageOutcome.Dead, verdict.ToFirst);
+        Assert.Equal(DamageOutcome.Wounded, verdict.ToFirst);
         Assert.Equal(DamageOutcome.None, verdict.ToSecond);
+    }
+
+    /// <summary>
+    /// PER-23 as arithmetic: <b>the tolerance is the work of sliding a body the authored distance</b>, so a
+    /// person struck at exactly it has exactly that much ground left in them. The reduced mass is what
+    /// makes it a little under half a metre rather than exactly half — a car is heavy, not infinite.
+    /// </summary>
+    [Fact]
+    public void ThePersonsToleranceIsTheAuthoredSlide()
+    {
+        var closingMps = ClosingMps(Config.PersonCasualtyKj, Config.Person.MassKg, Config.Car.MassKg);
+        var carriedMps = closingMps * Config.Car.MassKg / (Config.Car.MassKg + Config.Person.MassKg);
+        var slideM = carriedMps * carriedMps / (2f * Config.PersonSlidingGripMps2);
+
+        Assert.Equal(10.23f, closingMps, 2);
+        Assert.Equal(Config.Damage.SlideToCasualtyM, slideM, 1);
+    }
+
+    /// <summary>
+    /// <b>The band sits above the town's own walking pace</b>, which is what makes a knock-down an impact
+    /// rather than a contact. Nothing in PER-23 asks who was carrying the closing speed, so a band under
+    /// <see cref="PersonFigures.WalkSpeedMps"/> is one a walker meets by arriving at a car that never moved.
+    /// </summary>
+    [Fact]
+    public void AWalkerArrivingAtAParkedCarAtItsOwnPaceStaysOnItsFeet()
+    {
+        var verdict = DamageResolver.Resolve(
+            Config, DamageSubject.Person(Config.Person.MassKg, down: false),
+            DamageSubject.Car(Config.Car.MassKg, broken: false), Config.Person.WalkSpeedMps);
+
+        Assert.Equal(DamageOutcome.None, verdict.ToFirst);
+        Assert.Equal(DamageOutcome.None, verdict.ToSecond);
+    }
+
+    /// <summary>
+    /// The table's bands are literals because <c>[InlineData]</c> may hold nothing else, so this is what
+    /// keeps them bands: a tolerance moved in the figures without them has cases on the wrong side of it.
+    /// </summary>
+    [Fact]
+    public void TheTableBandsStraddleTheShippedTolerances()
+    {
+        Assert.True(BrushKj < Config.PersonCasualtyKj);
+        Assert.True(KnockKj > Config.PersonCasualtyKj && KnockKj < Config.Damage.CarWreckKj);
+        Assert.True(WreckKj > Config.Damage.CarWreckKj);
     }
 
     /// <summary>Only the closing speed and the two masses are in the arithmetic, so which side is passed first cannot matter.</summary>
@@ -169,14 +206,14 @@ public class DamageResolverTests
         Assert.Equal(forward.EnergyKj, backward.EnergyKj);
     }
 
-    /// <summary>PHY-5a: a terminal body cannot enter another state, and contributes nothing to the other participant.</summary>
+    /// <summary>PHY-5a: a body already down cannot be put down again, and contributes nothing to the other participant.</summary>
     [Theory]
     [InlineData("person", "car")]
     [InlineData("car", "car")]
     [InlineData("car", "person")]
-    public void ATerminalBodyNeitherGainsAStateNorGivesOne(string terminal, string other)
+    public void ASpentBodyNeitherGainsAStateNorGivesOne(string spent, string other)
     {
-        var verdict = Judge(KindNamed(terminal), KindNamed(other), WreckKj, firstIsTerminal: true);
+        var verdict = Judge(KindNamed(spent), KindNamed(other), WreckKj, firstIsSpent: true);
 
         Assert.Equal(DamageOutcome.None, verdict.ToFirst);
         Assert.Equal(DamageOutcome.None, verdict.ToSecond);
@@ -213,20 +250,60 @@ public class DamageResolverTests
     }
 
     /// <summary>
-    /// The thresholds are read from the injected figures and are nowhere in the code: a town tuned to
-    /// different tolerances must give different outcomes at the same energy.
+    /// PHY-4b: <b>an unbreakable car is never broken and is never spent</b>. The first half is the
+    /// exemption; the second is what separates it from PHY-5a, and it is the half worth a case — whatever
+    /// runs into an evacuator is wrecked by exactly the energy that would have wrecked it against any
+    /// other car.
+    /// </summary>
+    [Fact]
+    public void AnUnbreakableCarTakesNoStateAndDeniesTheOtherSideNothing()
+    {
+        var closingMps = ClosingMps(WreckKj, Config.Car.MassKg, Config.Car.MassKg);
+        var ordinary = DamageSubject.Car(Config.Car.MassKg, broken: false);
+        var unbreakable = DamageSubject.Car(Config.Car.MassKg, broken: false, unbreakable: true);
+
+        var verdict = DamageResolver.Resolve(Config, unbreakable, ordinary, closingMps);
+
+        Assert.Equal(DamageOutcome.None, verdict.ToFirst);
+        Assert.Equal(DamageOutcome.Broken, verdict.ToSecond);
+        Assert.Equal(DamageResolver.Resolve(Config, ordinary, ordinary, closingMps).ToSecond, verdict.ToSecond);
+    }
+
+    /// <summary>
+    /// And a person is not made safe by what they were struck by: the arithmetic is the two masses and the
+    /// closing speed, and being unbreakable is an outcome the car does not take rather than energy it does
+    /// not carry.
+    /// </summary>
+    [Fact]
+    public void AnUnbreakableCarIsAsDangerousToAPersonAsAnyOther()
+    {
+        var closingMps = ClosingMps(KnockKj, Config.Person.MassKg, Config.Car.MassKg);
+        var person = DamageSubject.Person(Config.Person.MassKg, down: false);
+
+        var verdict = DamageResolver.Resolve(
+            Config, person, DamageSubject.Car(Config.Car.MassKg, broken: false, unbreakable: true), closingMps);
+
+        Assert.Equal(DamageOutcome.Wounded, verdict.ToFirst);
+        Assert.Equal(DamageOutcome.None, verdict.ToSecond);
+    }
+
+    /// <summary>
+    /// The thresholds are read from the injected figures and are nowhere in the code: a town whose bodies
+    /// slide further before they are counted as knocked over must give a different outcome at the same
+    /// energy the shipped one wounds at.
     /// </summary>
     [Fact]
     public void TheTolerancesComeFromTheFiguresAndNotFromTheResolver()
     {
-        var fragile = new SimConfig { Damage = new DamageFigures { PersonFatalKj = 0.5f, PersonShakeKj = 0.25f, CarWreckKj = 0.5f } };
-        var closingMps = ClosingMps(BumpKj, fragile.Person.MassKg, fragile.Car.MassKg);
+        var sturdy = new SimConfig { Damage = new DamageFigures { SlideToCasualtyM = 50f, CarWreckKj = 500f } };
+        var closingMps = ClosingMps(KnockKj, sturdy.Person.MassKg, sturdy.Car.MassKg);
 
         var verdict = DamageResolver.Resolve(
-            fragile, DamageSubject.Person(fragile.Person.MassKg, dead: false),
-            DamageSubject.Car(fragile.Car.MassKg, broken: false), closingMps);
+            sturdy, DamageSubject.Person(sturdy.Person.MassKg, down: false),
+            DamageSubject.Car(sturdy.Car.MassKg, broken: false), closingMps);
 
-        Assert.Equal(DamageOutcome.Dead, verdict.ToFirst);
-        Assert.Equal(DamageOutcome.Broken, verdict.ToSecond);
+        Assert.Equal(DamageOutcome.None, verdict.ToFirst);
+        Assert.Equal(DamageOutcome.None, verdict.ToSecond);
+        Assert.Equal(DamageOutcome.Wounded, Judge(Participant.Person, Participant.Car, KnockKj).ToFirst);
     }
 }

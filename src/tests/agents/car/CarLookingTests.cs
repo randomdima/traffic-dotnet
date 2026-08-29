@@ -103,6 +103,45 @@ public class CarLookingTests
         var clearM = GroundAhead.ClearM(roads, book, line, 0f, 30f, halfWidthM, Asking);
         Assert.InRange(clearM, 20f - halfWidthM - 1f, 20f);
     }
+
+    /// <summary>
+    /// <b>A car crossing a junction is on a join and on no lane at all</b> (TER-5c.1), so a template that
+    /// asked only the lane nearest each of its samples was a manoeuvre that could not see one car in the box
+    /// it was swinging through.
+    /// </summary>
+    [Fact]
+    public void GroundInsideAJunctionIsTakenByWhoeverIsCrossingIt()
+    {
+        var roads = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
+        var book = new LaneOccupancy(roads, mostSlots: 8);
+        book.Begin();
+
+        var (slot, arcs) = AJoin(roads);
+        var lengthM = roads.JoinLengthM(slot);
+        var acrossTheBoxM = Spline.SampleAt(arcs, lengthM * 0.5f).PositionM;
+
+        var halfWidthM = Config.Car.WidthM * 0.5f;
+        Assert.False(GroundAhead.TakenAt(roads, book, acrossTheBoxM, halfWidthM, Asking, out _));
+
+        book.Add(book.WayOfTurn(slot), (lengthM * 0.5f) - 2f, (lengthM * 0.5f) + 2f, 0f, Somebody, LaneUse.Reserved);
+
+        Assert.True(GroundAhead.TakenAt(roads, book, acrossTheBoxM, halfWidthM, Asking, out var found));
+        Assert.Equal(Somebody, found.Occupant);
+    }
+
+    /// <summary>A junction's join of the fixture town with enough length to stand a body in the middle of.</summary>
+    static (int Slot, ArcSeg[] Arcs) AJoin(RoadGraph roads)
+    {
+        for (var slot = 0; slot < roads.TurnCount; slot++)
+        {
+            var arcs = roads.JoinArcs(slot);
+            if (arcs.Length == 0 || roads.JoinLengthM(slot) < Config.Car.LengthM) continue;
+
+            return (slot, arcs.ToArray());
+        }
+
+        throw new InvalidOperationException($"{Towns.Fixture} has no join a car's length long");
+    }
 }
 
 /// <summary>
@@ -128,7 +167,7 @@ public class CarLookingInATownTests
     [Fact]
     public void ADriverSeesSomebodyOnFootAsSomebodyOnFoot()
     {
-        using var world = new TownWorld(Towns.Fresh("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of("Odesa"), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
         for (var tick = 0; tick < 3_600; tick++)

@@ -109,7 +109,8 @@ internal static class DriveProbe
 
                 var forward = new Vector2(MathF.Cos(cars.HeadingRad[car]), MathF.Sin(cars.HeadingRad[car]));
                 var alongMps = Math.Abs(Vector2.Dot(cars.VelocityMps[car], forward));
-                var rearAxleM = CarFollower.RearAxleM(config, cars.PositionM[car], cars.HeadingRad[car]);
+                var rearAxleM = CarFollower.RearAxleM(
+                    cars.BuildOf(car), cars.PositionM[car], cars.HeadingRad[car]);
 
                 // The driver's own reading and not a second one taken beside it: a probe that worked this
                 // out for itself would report its own arithmetic rather than the figure the car acted on.

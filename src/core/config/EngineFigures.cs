@@ -46,8 +46,10 @@ internal sealed class ViewFigures
     public float CameraDefaultViewM { get; init; } = 70f;
     public float CameraZoomPerNotch { get; init; } = 1.15f;
     public float CameraPanPxPerS { get; init; } = 300f;
-    public int WindowWidthPx { get; init; } = 1920;
-    public int WindowHeightPx { get; init; } = 1080;
+    /// <summary>The size a run opens at when <c>--size</c> names none: the window it restores to, and the frame a shot is taken at.</summary>
+    public int WindowWidthPx { get; init; } = 1600;
+
+    public int WindowHeightPx { get; init; } = 900;
     public float GroundPeriodGrassM { get; init; } = 12f;
     public float GroundPeriodTarmacM { get; init; } = 6f;
     public float GroundPeriodPavementM { get; init; } = 4f;
@@ -57,6 +59,51 @@ internal sealed class ViewFigures
     /// <summary>21 art pixels per metre blown back up ×3, which is the grid every asset was cut on.</summary>
     public float ArtPixelsPerMetre { get; init; } = 63f;
 
-    /// <summary>1:1 at the closest camera zoom, and a finer grid than the ground's on purpose.</summary>
+    /// <summary>The grid the car art was cut on, and a finer one than the ground's on purpose.</summary>
     public float CarSpritePixelsPerMetre { get; init; } = 96f;
+
+    /// <summary>
+    /// How far past 1:1 the zoom may run: at 1 it stops where one art texel is one display pixel, above
+    /// that the sprites are magnified and their texels become visible.
+    /// </summary>
+    public float CameraMaxSpriteMagnification { get; init; } = 6f;
+
+    /// <summary>
+    /// How many units one selection may hold (CTL-1b). A bound and not a preference: the set is one
+    /// array laid with the town, and a box drawn round a district has to stop somewhere.
+    /// </summary>
+    public int SelectionMaxUnits { get; init; } = 32;
+
+    /// <summary>How far the pointer travels with the button down before a click becomes a box (CTL-1b).</summary>
+    public float SelectionDragPx { get; init; } = 6f;
+}
+
+/// <summary>
+/// What a player's order to a car is measured against (CTL-8). <b>Nothing that drives itself reads any
+/// of it</b>: an ordered car runs the same manoeuvres on the same road, and what is here is only where
+/// the order says it has arrived and how far behind another car it is asked to sit.
+/// </summary>
+internal sealed class ControlFigures
+{
+    /// <summary>
+    /// How near the ordered place the car has to have come to rest before the order is finished (CTL-8a).
+    /// A car length and a half: near enough that a driver would say it had got there, and loose enough
+    /// that stopping short of it behind a queue that then cleared is not an order left running for ever.
+    /// </summary>
+    public float PlaceReachInCarLengths { get; init; } = 1.5f;
+
+    /// <summary>
+    /// How far back along the road an ordered car is aimed at the one it is following (CTL-8c) — the same
+    /// shape as a rescue's standoff, and for the same reason: a place on the road is the only place a
+    /// vehicle can be made to stand.
+    /// </summary>
+    public float FollowGapInCarLengths { get; init; } = 2f;
+
+    /// <summary>
+    /// And how far the followed car moves before the route after it is drawn again. <b>A bound on the
+    /// searching and not on the following</b>: the gap is held by the road the follower is granted
+    /// (S-2a) every tick, while re-planning is what costs a search, so a leader creeping forward in a
+    /// queue is not a route search a second.
+    /// </summary>
+    public float FollowRedrawInCarLengths { get; init; } = 3f;
 }

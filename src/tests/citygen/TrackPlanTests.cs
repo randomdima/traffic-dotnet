@@ -44,33 +44,34 @@ public class TrackPlanTests
     /// <summary>
     /// <b>The tracks on disk are the tracks this build lays.</b> Byte for byte, because the file is what
     /// every reader gets: the game opening it, the sweeps asking questions of it, and the probe measuring on
-    /// it. <b>Both crowds</b>, since either file going stale is a probe quoting a road the build no longer
-    /// has.
+    /// it. <b>Every one of the laps</b>, since any of the files going stale is a probe quoting a road the
+    /// build no longer has.
     /// </summary>
     /// <remarks>
-    /// A red here is not a bug in the track — it is <c>--lay-track</c> not having been run since a figure
+    /// A red here is not a bug in the track — it is <c>--lay-maps</c> not having been run since a figure
     /// the track is laid against moved.
     /// </remarks>
     [Theory]
-    [InlineData((int)TrackCrowd.Pacing)]
-    [InlineData((int)TrackCrowd.Drunk)]
-    public void TheTrackOnDiskIsTheTrackThisBuildLays(int crowd)
+    [InlineData((int)TrackLap.Pacing)]
+    [InlineData((int)TrackLap.Drunk)]
+    [InlineData((int)TrackLap.Fleet)]
+    public void TheTrackOnDiskIsTheTrackThisBuildLays(int lap)
     {
-        var onDisk = File.ReadAllBytes(ProjectPaths.TownFile(TrackPlan.NameOf((TrackCrowd)crowd)));
+        var onDisk = File.ReadAllBytes(ProjectPaths.TownFile(TrackPlan.NameOf((TrackLap)lap)));
 
-        Assert.Equal(onDisk, TownWriter.Write(TrackPlan.Lay(Config, (TrackCrowd)crowd)));
+        Assert.Equal(onDisk, TownWriter.Write(TrackPlan.Lay(Config, (TrackLap)lap)));
     }
 
     /// <summary>
-    /// <b>The two grounds differ in their people and in nothing else</b>, which is the whole reason their
-    /// tables are read against each other: the same lap, the same cars in the same poses, and fifteen bodies
-    /// either side of the kerb line.
+    /// <b>The measured lap and the drunk one differ in their people and in nothing else</b>, which is the
+    /// whole reason their tables are read against each other: the same lap, the same cars in the same poses,
+    /// and fifteen bodies either side of the kerb line.
     /// </summary>
     [Fact]
     public void TheTwoProvingGroundsAreTheSameLapWithDifferentPeopleOnIt()
     {
         var pacing = TrackPlan.Lay(Config);
-        var drunk = TrackPlan.Lay(Config, TrackCrowd.Drunk);
+        var drunk = TrackPlan.Lay(Config, TrackLap.Drunk);
 
         Assert.Equal(pacing.WorldSizeM, drunk.WorldSizeM);
         Assert.Equal(pacing.Roads.Segments, drunk.Roads.Segments);
@@ -87,16 +88,43 @@ public class TrackPlanTests
     }
 
     /// <summary>
+    /// <b>The fleet lap carries one car per look and not one fewer, and nobody at all on foot</b>. The count
+    /// is a plan's, which may not read the fleet's own file (a plan knows core and nothing else), so this is
+    /// where the two are held to each other: a look added to <c>Fleet.json</c> with no car to drive it fails
+    /// here rather than quietly going unmeasured.
+    /// </summary>
+    [Fact]
+    public void TheFleetLapCarriesOneCarOfEveryLookAndNobodyOnFoot()
+    {
+        Assert.Equal(CarCatalog.Shared.Count, TrackPlan.FleetCars);
+
+        var plan = TrackPlan.Lay(Config, TrackLap.Fleet);
+        var cars = 0;
+        var people = 0;
+        for (var spawn = 0; spawn < plan.Spawns.Count; spawn++)
+        {
+            if (plan.Spawns.Kind[spawn] == SpawnKindCar) cars++;
+            if (plan.Spawns.Kind[spawn] == SpawnKindPerson) people++;
+        }
+
+        Assert.Equal(TrackPlan.FleetCars, cars);
+
+        // <b>Nobody is on foot on this lap</b>, which is what makes every figure on it the car's: the other
+        // two carry people because what they measure is a driver stopping for what is in front of it.
+        Assert.Equal(0, people);
+    }
+
+    /// <summary>
     /// <b>Every drunk is put down in a carriageway and every pacer beside one</b> — which is the only thing
     /// that tells the two rules apart at run time, so a body on the wrong side of that line is a body
     /// following the wrong one.
     /// </summary>
     [Theory]
-    [InlineData((int)TrackCrowd.Pacing, false)]
-    [InlineData((int)TrackCrowd.Drunk, true)]
-    public void ThePeopleAreStoodWhereTheirOwnRuleWillFindThem(int crowd, bool inTheRoad)
+    [InlineData((int)TrackLap.Pacing, false)]
+    [InlineData((int)TrackLap.Drunk, true)]
+    public void ThePeopleAreStoodWhereTheirOwnRuleWillFindThem(int lap, bool inTheRoad)
     {
-        var plan = TrackPlan.Lay(Config, (TrackCrowd)crowd);
+        var plan = TrackPlan.Lay(Config, (TrackLap)lap);
         var roads = RoadGraph.Build(plan, Config);
 
         var people = 0;
@@ -241,10 +269,10 @@ public class TrackPlanTests
     }
 
     /// <summary>
-    /// <b>The cars on the lap differ in one figure and nothing else.</b> They are the nominal car's
-    /// footprint, wheelbase and mass throughout; what the fleet gives each of them is which wheels the
-    /// engine reaches, and the lap carries the same number of each — so the rear, front and all-wheel rows
-    /// of the probe are a comparison and not three anecdotes.
+    /// <b>The cars on the lap differ in one figure and nothing else</b> (CAR-11a). A town stands the fleet
+    /// as it is drawn, with every car its own body; the proving ground stands the nominal car and takes
+    /// nothing from a variant but which wheels the engine reaches, and the lap carries the same number of
+    /// each — so the rear, front and all-wheel rows of the probe are a comparison and not three anecdotes.
     /// </summary>
     [Fact]
     public void TheLapCarriesTheSameNumberOfEachDrivetrain()

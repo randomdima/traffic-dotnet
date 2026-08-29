@@ -6,12 +6,25 @@ namespace TrafficSimulation.Core.Geometry;
 /// One constant-curvature piece of a road's centreline. A chain of these is a road's whole shape; a
 /// straight is the same record at zero curvature. Curvature is signed and positive turns to the
 /// driver's right. Twenty bytes, laid out as the <c>.town</c> file lays them, so a run of them is read
-/// straight out of the town's bytes rather than field by field.
+/// straight out of the town's bytes rather than field by field, and the direction below.
 /// </summary>
 internal readonly record struct ArcSeg(Vector2 StartM, float HeadingRad, float LengthM, float Curvature)
 {
     /// <summary>Below this the arc's centre is further away than any town is wide, and it is a straight.</summary>
     const float StraightCurvature = 1e-6f;
+
+    /// <summary>
+    /// <b><see cref="HeadingRad"/> as the direction it is</b>, reduced once when the piece is made rather
+    /// than every time it is walked. A town's pieces are made once and projected onto by every scan of
+    /// every tick, and this angle is a constant of the piece — so the reduction belongs here and the
+    /// walks get it free (<see cref="Spline.ProjectM"/>, <see cref="PointAtM"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>It is <see cref="HeadingRad"/>'s and nothing else's</b>: <c>with { StartM = … }</c> carries it
+    /// across correctly because a piece moved is a piece pointing the same way, and no <c>with</c> may
+    /// change the heading without it.
+    /// </remarks>
+    public Vector2 StartUnit { get; private init; } = Heading.Unit(HeadingRad);
 
     public float HeadingAtRad(float distanceM) => HeadingRad + Curvature * distanceM;
 
@@ -27,9 +40,16 @@ internal readonly record struct ArcSeg(Vector2 StartM, float HeadingRad, float L
     /// the remainder by ten thousand — 10 cm of drift came out of a join drawn that way. The chord
     /// cancels nothing and needs no separate case for a straight.
     /// </remarks>
+    /// <remarks>
+    /// <b>A piece that turns through nothing is its own direction laid out</b>: the chord is the whole
+    /// distance and the half turn is zero, so <see cref="StartUnit"/> is the answer and the angle is
+    /// never reduced. Most of a town's pieces are straights and most of a tick's samples land on one.
+    /// </remarks>
     public Vector2 PointAtM(float distanceM)
     {
         var halfTurnRad = Curvature * distanceM * 0.5f;
+        if (halfTurnRad == 0f) return StartM + distanceM * StartUnit;
+
         var chordM = distanceM * Sinc(halfTurnRad);
         return StartM + chordM * Heading.Unit(HeadingRad + halfTurnRad);
     }

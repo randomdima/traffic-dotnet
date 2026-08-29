@@ -55,7 +55,15 @@ internal static class E04GoRound
         // something nearly as fast as this car: the pass straight is the ground the closing speed needs,
         // and a closing speed near zero asks for a road nobody has.
         var passM = PassM(scene);
-        if (passM > scene.Config.CarSightM) return ManeuverStart.No;
+        if (passM > scene.Build.SightM) return ManeuverStart.No;
+
+        // <b>And it has to be finished on the segment it was begun on.</b>
+        // <see cref="DriveScene.OnACarriageway"/> is what says this car is not <em>at</em> a junction, and
+        // it is a fact about where the car stands; this is the other half of the same rule, and the only
+        // half that can be asked here, because how much road the pass wants is not known until it is
+        // measured. A swerve that reaches into the box is a car crossing a junction on a line the town has
+        // no record of.
+        if (passM > scene.ToTheBoxM) return ManeuverStart.No;
         if (!desk.LayTheSwerve(scene.Car, passM, scene.AlongMps)) return ManeuverStart.No;
 
         // The stretch of this car's own lane the swerve leaves and comes back into, so the traffic behind
@@ -83,7 +91,7 @@ internal static class E04GoRound
     /// </summary>
     static float PassM(in DriveScene scene)
     {
-        var clearM = scene.Context.HeadwayM + scene.Config.Car.LengthM * PassClearanceInCarLengths;
+        var clearM = scene.Context.HeadwayM + scene.Build.LengthM * PassClearanceInCarLengths;
         var aheadMps = scene.Context.HeadwaySpeedMps;
         if (aheadMps <= scene.Config.Driving.StopSpeedMps) return clearM;
 

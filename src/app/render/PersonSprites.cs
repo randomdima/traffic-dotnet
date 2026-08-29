@@ -5,7 +5,8 @@ namespace TrafficSimulation.App.Render;
 
 /// <summary>
 /// The walkers, as instances for the second pipeline: one upright quad each, the facing row picked
-/// from the heading and the walk column stepped by the distance the body has actually covered.
+/// from the heading and the walk column stepped by the distance the body has actually covered — and
+/// one quad lying along the ground for everybody who is down.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,16 +21,15 @@ namespace TrafficSimulation.App.Render;
 /// What is used here is one cycle per the variant's own height — off shipped data rather than a number
 /// invented for the purpose.
 /// </para>
+/// <para>
+/// <b>A casualty is drawn the way a car is</b> (PER-18): its own sheet, one frame with the head along
+/// <c>+x</c>, turned to the heading it went down at and laid out at the length a standing body's height
+/// becomes. The blood is in the picture rather than in the tint, because what a body is doing is read
+/// off <em>which sheet</em> is sampled everywhere else in this town too.
+/// </para>
 /// </remarks>
 internal static class PersonSprites
 {
-    /// <summary>
-    /// A selected walker is drawn brighter, by the inverse of the factor an edge is drawn darker by —
-    /// the same relation the painted marks on the ground use, so there is one idea of "stands out" in
-    /// the whole picture rather than two.
-    /// </summary>
-    public static readonly Vector4 Highlight = new(1f / 0.58f, 1f / 0.58f, 1f / 0.62f, 1f);
-
     public static readonly Vector4 Plain = Vector4.One;
 
     /// <summary>
@@ -38,35 +38,56 @@ internal static class PersonSprites
     /// so a truncation is a bug in the laying and not a case to handle at sixty hertz.
     /// </summary>
     public static int Fill(
-        PersonFleet people, PersonCatalog catalog, ReadOnlySpan<float> frameAspects, Vector2 viewCentreM,
-        Vector2 viewSpanM, int selected, Span<SpriteInstance> into)
+        PersonFleet people, PersonCatalog catalog, ReadOnlySpan<float> frameAspects, int firstDownSheet,
+        Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
+        var cell = new Vector2(1f / PersonCatalog.WalkColumns, 1f / PersonCatalog.FacingRows);
 
         for (var person = 0; person < people.Count && written < into.Length; person++)
         {
             // PHY-7: somebody inside a building or a car is not rendered. Only the container is.
             if (people.Inside[person].Any) continue;
 
-            var variant = people.Variant[person] % catalog.Count;
+            // Over every look and not only the walkers': a uniform is a sheet slot like any other,
+            // and the one the crew was named is the one it has to be drawn in (SRV-3a).
+            var variant = people.Variant[person] % catalog.SheetCount;
             var heightM = catalog.Variants[variant].HeightM;
-            var halfSizeM = new Vector2(heightM * frameAspects[variant] * 0.5f, heightM * 0.5f);
+            var headingRad = people.HeadingRad[person];
+            var down = !people.IsOnItsFeet(person);
+
+            // Standing, the height is the quad's height and the art's own frame gives its width; down,
+            // that height is its length along the ground and the width follows the same picture.
+            var sheet = down ? firstDownSheet + variant : variant;
+            var aspect = frameAspects[sheet];
+            var halfSizeM = down
+                ? new Vector2(heightM, heightM / aspect) * 0.5f
+                : new Vector2(heightM * aspect, heightM) * 0.5f;
 
             var centreM = people.PositionM[person];
             var offset = centreM - viewCentreM;
-            if (MathF.Abs(offset.X) > halfView.X + halfSizeM.X || MathF.Abs(offset.Y) > halfView.Y + halfSizeM.Y) continue;
+            // A turned quad reaches its own half-diagonal whichever way it is pointing.
+            var reachM = down ? new Vector2(halfSizeM.Length()) : halfSizeM;
+            if (MathF.Abs(offset.X) > halfView.X + reachM.X || MathF.Abs(offset.Y) > halfView.Y + reachM.Y) continue;
 
-            var row = PersonCatalog.FacingRow(people.HeadingRad[person]);
+            if (down)
+            {
+                // One frame turned to the heading, on a car's terms: a body along the ground has a
+                // direction, and the picture is drawn with the head along +x.
+                into[written++] = new SpriteInstance(
+                    centreM, halfSizeM, Vector2.Zero, Vector2.One, Plain, (uint)sheet, headingRad);
+                continue;
+            }
+
+            var row = PersonCatalog.FacingRow(headingRad);
             // Standing shows the plant pose, which is the cycle's own first column: a walker that has
             // stopped must not be left mid-stride.
             var column = people.Walking[person] ? PersonCatalog.WalkColumn(people.DistanceWalkedM[person], heightM) : 0;
 
-            var cell = new Vector2(1f / PersonCatalog.WalkColumns, 1f / PersonCatalog.FacingRows);
             // Upright, always: the art draws every facing and none of it turns with the body.
             into[written++] = new SpriteInstance(
-                centreM, halfSizeM, new Vector2(column * cell.X, row * cell.Y), cell,
-                person == selected ? Highlight : Plain, (uint)variant, 0f);
+                centreM, halfSizeM, new Vector2(column * cell.X, row * cell.Y), cell, Plain, (uint)sheet, 0f);
         }
 
         return written;

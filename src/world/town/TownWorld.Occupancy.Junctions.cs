@@ -12,14 +12,15 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>The ground a car crossing a junction has committed to on its own join</b>, laid into the road's
     /// book from the car's own field — the runs of that join the other ways through the box are driven over
-    /// it at (<see cref="JunctionCrossings.OwnRuns"/>).
+    /// it at (<see cref="WayCrossings.OwnRuns"/>).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Its own join and nothing else</b> (TER-5c). A crossing used to write a stretch onto every join it
-    /// was driven over, so that the traffic on those joins met it in its own book; that is a car reserving
-    /// several ways at once, none of which it will ever be on, and a box washed over by whoever merely aimed
-    /// at it. What the runs are for is the same car coming the other way — it reads them where they lie
+    /// <b>Its own join and nothing else</b> (TER-5c). Writing a stretch onto every join it is driven over
+    /// would put it in front of the traffic on those joins in their own book, and it would also be a car
+    /// reserving several ways at once, none of which it will ever be on, and a box washed over by whoever
+    /// merely aimed at it. What the runs are for is the same car coming the other way — it reads them where
+    /// they lie
     /// (<see cref="WhereTheGroundIsCrossed"/>), which is the same fact asked from the other end.
     /// </para>
     /// <para>
@@ -36,16 +37,16 @@ internal sealed partial class TownWorld
     /// </remarks>
     void PlaceTheCrossing(int car)
     {
-        var crossing = Cars.Crossing[car];
-        if (crossing < 0) return;
+        var movementWay = Cars.MovementWay[car];
+        if (movementWay == CarFleet.NoWay) return;
 
         if (!Cars.Driven[car] || Cars.Broken[car])
         {
-            Cars.Crossing[car] = CarFleet.NoMovement;
+            Cars.MovementWay[car] = CarFleet.NoWay;
             return;
         }
 
-        LayTheCrossing(car, crossing);
+        LayTheMovement(car, movementWay);
     }
 
     /// <summary>
@@ -78,6 +79,14 @@ internal sealed partial class TownWorld
     /// added back on this one. Released at the bare tail instead, Odesa's soak wrecks cars.
     /// </para>
     /// <para>
+    /// <b>And it is claimed with the movement's own right of way</b> (TER-5e). A claim is ground this car
+    /// has not reached and is not committed to, so a movement with the greater right of way takes it back by
+    /// asking for it — which is what a car turning across the oncoming stream gives up to the traffic going
+    /// straight. <b>Once the car is past the point it could stop short of the box, the same claim is laid
+    /// as ground nothing takes</b> (<see cref="CarFleet.CommittedToTheBox"/>): it is going in, and a right
+    /// of way that took ground off a body already committed to it would be a rule about who is driven into.
+    /// </para>
+    /// <para>
     /// <b>A car whose line no longer takes this join claims the runs whole</b>, since there is no metre of
     /// its own to measure them against — which is the conservative way round for a body still holding a
     /// movement it has come off, and the whole of what such a body holds on that join
@@ -93,15 +102,15 @@ internal sealed partial class TownWorld
     /// every join it is actually in.
     /// </para>
     /// </remarks>
-    void LayTheCrossing(int car, int crossing)
+    void LayTheMovement(int car, int movementWay)
     {
-        var onto = TheSlotOnto(car, crossing);
+        // What the car's own road holds of this way, in that way's own metres.
+        var beginsM = WhereTheMovementBeginsM(car, movementWay);
+        var roadFromM = Cars.ReserveFromM[car] - beginsM;
+        var roadToM = Cars.ReserveToM[car] - beginsM;
+        var right = RightOnTheMovement(car, movementWay);
 
-        // What the car's own road holds of this join, in the join's own metres.
-        var roadFromM = PastOnTheCrossing(car, crossing);
-        var roadToM = onto < 0 ? float.NegativeInfinity : Cars.ReserveToM[car] - Cars.LaneEndsOf(car)[onto];
-
-        foreach (ref readonly var run in _roads.Crossings.OwnRuns(crossing))
+        foreach (ref readonly var run in _crossings.OwnRuns(movementWay))
         {
             if (run.ToM <= roadFromM) continue;
 
@@ -110,14 +119,59 @@ internal sealed partial class TownWorld
 
         void Claim(float fromM, float toM)
         {
-            if (toM > fromM) _occupancy.Add(_occupancy.WayOfTurn(crossing), fromM, toM, 0f, car, LaneUse.Claimed);
+            if (toM > fromM) _occupancy.Add(movementWay, fromM, toM, 0f, car, LaneUse.Claimed, right: right);
         }
     }
 
     /// <summary>
+    /// <b>The metres the answer took off the road, handed over to the claim that was carrying the rest of the
+    /// same runs</b> (<see cref="CutTheGroundToTheGrant"/>) — so that what a car holds of its own join is the
+    /// ground it is committed to whichever side of the seam each metre falls.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The seam moves and the union does not.</b> A reservation and the claim beyond it are laid as one
+    /// piece of ground with the join between them wherever the road happened to reach
+    /// (<see cref="LayTheMovement"/>), and every reader takes them as one set (<c>Spoken</c>). Cut without
+    /// this, the metres between the answer and the ask fell out of both, and a car sitting in a box was
+    /// sitting on ground a crossing movement was free to be granted.
+    /// </para>
+    /// <para>
+    /// <b>And they come back as a claim rather than as road, which is the honest name for them</b> (TER-5e):
+    /// they are metres this car has not reached. A car already committed to the box claims them with the rank
+    /// that says so and nothing takes them; a car still short of it can still stop, and a stronger movement
+    /// asking for the same ground is entitled to have them.
+    /// </para>
+    /// </remarks>
+    void ClaimWhatTheAnswerTook(int car, int movementWay, float roadWasToM, float roadIsToM)
+    {
+        var beginsM = WhereTheMovementBeginsM(car, movementWay);
+        var wasM = roadWasToM - beginsM;
+        var isM = roadIsToM - beginsM;
+        if (isM >= wasM) return;
+
+        var right = RightOnTheMovement(car, movementWay);
+        foreach (ref readonly var run in _crossings.OwnRuns(movementWay))
+        {
+            var fromM = MathF.Max(run.FromM, isM);
+            var toM = MathF.Min(run.ToM, wasM);
+            if (toM > fromM) _occupancy.Add(movementWay, fromM, toM, 0f, car, LaneUse.Claimed, right: right);
+        }
+    }
+
+    /// <summary>
+    /// The rank a car holds its own join's ground with, on either side of the seam between the road and the
+    /// claim: <b>the movement's own, until the car is past the point it could stop short of the box</b>
+    /// (<see cref="CarFleet.CommittedToTheBox"/>), and then a rank nothing takes — a right of way that took
+    /// ground off a body already committed to it would be a rule about who is driven into.
+    /// </summary>
+    RightOfWay RightOnTheMovement(int car, int movementWay) =>
+        Cars.CommittedToTheBox[car] ? RightOfWay.Committed : RightOfWayOf(car, movementWay);
+
+    /// <summary>
     /// <b>How far behind this car a crossing point has to fall before it is behind it</b>: where its own
-    /// ground begins on the join it is crossing, in that join's own metres, or negative infinity where its
-    /// line does not take that join at all.
+    /// ground begins on the way it is making its movement on, in that way's own metres, or negative
+    /// infinity where its line does not take that movement at all.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -130,27 +184,36 @@ internal sealed partial class TownWorld
     /// </para>
     /// <para>
     /// A car that is not under way has asked for no ground, so its stretch stands at its line's own origin
-    /// and every crossing point on the join is in front of it — which is what makes such a body claim the
-    /// runs whole (<see cref="LayTheCrossing"/>).
+    /// and every crossing point on the way is in front of it — which is what makes such a body claim the
+    /// runs whole (<see cref="LayTheMovement"/>).
     /// </para>
     /// </remarks>
-    float PastOnTheCrossing(int car, int crossing)
-    {
-        var onto = TheSlotOnto(car, crossing);
-        return onto < 0 ? float.NegativeInfinity : Cars.ReserveFromM[car] - Cars.LaneEndsOf(car)[onto];
-    }
+    float PastOnTheMovementM(int car, int movementWay) =>
+        Cars.ReserveFromM[car] - WhereTheMovementBeginsM(car, movementWay);
 
     /// <summary>
-    /// Which lane of this car's chain leads onto <paramref name="crossing"/>, or -1 where its line does not
-    /// take that join — <b>the one place the chain is asked which movement the car is on</b>, so the metre
-    /// the crossing is measured from cannot be worked out two ways.
+    /// <b>Where the way this car's movement is made on begins under the line's own metres</b>, and infinity
+    /// where the line does not take that movement at all — so a car holding one it has come off measures
+    /// everything from beyond the end of it and claims the runs whole.
     /// </summary>
-    int TheSlotOnto(int car, int crossing)
+    /// <remarks>
+    /// <b>The one place the two shapes of movement are told apart</b>, so the metre a crossing is measured
+    /// from cannot be worked out two ways. A join is threaded between two lanes of a chain and begins where
+    /// the arriving lane's own stretch of the line ends; a bay's way out <em>is</em> the line, and begins
+    /// where the line does.
+    /// </remarks>
+    float WhereTheMovementBeginsM(int car, int movementWay)
     {
+        if (movementWay == CarFleet.NoWay) return float.PositiveInfinity;
+        if (Cars.LineWayOf(car) == movementWay) return 0f;
+
         var ahead = LaneAheadSlot(car, Cars.ProgressM[car]);
-        if (ahead + 1 >= Cars.Line[car].LaneCount) return -1;
+        if (ahead + 1 >= Cars.Line[car].LaneCount) return float.PositiveInfinity;
 
         var chain = Cars.ChainOf(car);
-        return _roads.TurnSlot(chain[ahead], chain[ahead + 1]) == crossing ? ahead : -1;
+        var slot = _roads.TurnSlot(chain[ahead], chain[ahead + 1]);
+        return slot != RoadGraph.NoTurn && _occupancy.WayOfTurn(slot) == movementWay
+            ? Cars.LaneEndsOf(car)[ahead]
+            : float.PositiveInfinity;
     }
 }

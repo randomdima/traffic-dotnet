@@ -192,6 +192,7 @@ internal sealed class LaneFurniture
             var centreM = crossings.CentreM[crossing];
             var halfSpanM = crossings.SpanM[crossing] * 0.5f;
 
+            var already = found.Count;
             for (var lane = 0; lane < roads.LaneCount; lane++)
             {
                 // The lane's own line has to pass through the paint, which is a question about where the
@@ -205,11 +206,13 @@ internal sealed class LaneFurniture
 
                 // And it has to be the same piece of road rather than one passing beside it: the lane runs
                 // across the paint, so the two directions agree to a right angle.
-                if (MathF.Abs(Vector2.Dot(at.Direction, axis)) < RunsAcrossThePaint) continue;
+                if (!RunsAcross(at.Direction, axis)) continue;
                 if (alongM <= 0f || alongM >= lengthM) continue;
 
                 found.Add((lane, crossing, alongM));
             }
+
+            if (found.Count == already) OnTheNodeItself(roads, crossings, crossing, axis, found);
         }
 
         found.Sort((a, b) => a.Lane != b.Lane ? a.Lane.CompareTo(b.Lane) : a.AlongM.CompareTo(b.AlongM));
@@ -231,4 +234,44 @@ internal sealed class LaneFurniture
         first[roads.LaneCount] = slot;
         return (first, crossingOfSlot, alongOfSlot);
     }
+
+    /// <summary>
+    /// <b>The crossing an inline junction exists to carry</b> (TER-5b), laid across the lanes that meet at
+    /// the node rather than projected down one of them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is on the node itself and therefore past the end of every lane there</b> — the disc's own
+    /// reach further than the paint is wide — so the projection above finds nothing, and a crossing found
+    /// by nothing is paint no driver slows for and a walker no driver can see (TER-4c). What the node has
+    /// is one carriageway arriving and the same one leaving, and the paint is across both of them: the
+    /// arriving lane meets it at its own end and the leaving one at its own start.
+    /// </para>
+    /// <para>
+    /// <b>Only where the junction admits no turns.</b> Anywhere else a crossing is set back onto the arm it
+    /// approaches (TER-6) and is found where it lies; laid on the node regardless, one crossing at a
+    /// crossroads would be painted across every arm of it.
+    /// </para>
+    /// </remarks>
+    static void OnTheNodeItself(
+        RoadGraph roads, CityPlan.CrosswalkArrays crossings, int crossing, Vector2 axis,
+        List<(int Lane, int Crossing, float AlongM)> found)
+    {
+        var junction = crossings.Junction[crossing];
+        if (junction < 0 || junction >= roads.NodeCount || roads.LanesIn(junction).Length >= 3) return;
+
+        foreach (var lane in roads.LanesIn(junction))
+        {
+            if (RunsAcross(roads.EndOf(lane).Direction, axis)) found.Add((lane, crossing, roads.LaneLengthM[lane]));
+        }
+
+        foreach (var lane in roads.LanesOut(junction))
+        {
+            if (RunsAcross(roads.StartOf(lane).Direction, axis)) found.Add((lane, crossing, 0f));
+        }
+    }
+
+    /// <summary>Whether a lane running this way is one the paint is laid across, to a right angle.</summary>
+    static bool RunsAcross(Vector2 direction, Vector2 axis) =>
+        MathF.Abs(Vector2.Dot(direction, axis)) >= RunsAcrossThePaint;
 }

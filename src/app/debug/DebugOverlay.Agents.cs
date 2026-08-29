@@ -13,11 +13,21 @@ namespace TrafficSimulation.App.Debug;
 /// <summary>What is drawn over one agent: its name, its line, and the chevrons along it.</summary>
 internal sealed partial class DebugOverlay
 {
+    /// <summary>
+    /// The walkers: the line each is actually holding, drawn ahead of it as chevrons, and the place
+    /// it is holding it to.
+    /// </summary>
+    /// <remarks>
+    /// The line runs from the body and not from where the leg started, so the picture answers "where is
+    /// it going". What is drawn is the walk that is left and not the point in hand: a picture of the aim
+    /// point alone says a walker is heading into a building whenever the pavement bends round one, and
+    /// the swerves and cut corners this layer exists to show are all in the run <em>after</em> it.
+    /// </remarks>
     static void WalkerLines(
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        var pitchM = MarkPitchAt(pixelsPerMetre);
+        var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
         var people = world.People;
         for (var person = 0; person < people.Count; person++)
         {
@@ -29,7 +39,7 @@ internal sealed partial class DebugOverlay
             // A body held at a kerb is marked where it stands: standing still with a line ahead of it is
             // the one state this layer could otherwise not tell from walking. The body itself is not
             // ringed — the sprite is already there, and a mark on it says nothing.
-            if (people.HeldAtTheKerb[person]) draw.RingM(atM, people.RadiusM[person] * 1.6f, PathLineM, colour, segments: 12);
+            if (people.HeldAtTheKerb[person]) draw.RingM(atM, people.RadiusM[person] * 1.6f, PathMarks.PathLineM, colour, segments: 12);
 
             Label(ref draw, atM, WalkName(people, person), viewCentreM, viewSpanM, pixelsPerMetre);
 
@@ -52,15 +62,11 @@ internal sealed partial class DebugOverlay
             // one starting at the first point the body is not already standing on.
             while (at < count - 1 && (points[at] - atM).Length() <= people.RadiusM[person]) at++;
 
-            // Every point of the line carries how far along its own way it stands, so the marks are counted
-            // in the way's metres — the same count the town layer makes down the same pavement, and one
-            // that stands still while the body walks through it.
-            var alongsM = people.WalkedAlongOf(person);
             var crossing = crossings[at];
             var stretches = 1;
             var fromM = atM;
-            draw.DiscM(fromM, EndDiscM, colour);
-            Chevroned(ref draw, fromM, points[at], pitchM, alongsM[at] - (points[at] - atM).Length(), colour);
+            draw.DiscM(fromM, PathMarks.EndDiscM, colour);
+            PathMarks.Chevroned(ref draw, fromM, points[at], pitchM, colour);
             fromM = points[at];
             for (var point = at + 1; point < count; point++)
             {
@@ -68,18 +74,15 @@ internal sealed partial class DebugOverlay
                 {
                     if (++stretches > StretchesDrawn) break;
 
-                    draw.DiscM(fromM, JoinDiscM, colour);
+                    draw.DiscM(fromM, PathMarks.JoinDiscM, colour);
                     crossing = crossings[point];
                 }
 
-                // Measured back from the point the leg lands on, so a leg that carries the body onto a new
-                // way is counted in that way's metres and not in the one behind it.
-                Chevroned(
-                    ref draw, fromM, points[point], pitchM, alongsM[point] - (points[point] - fromM).Length(), colour);
+                PathMarks.Chevroned(ref draw, fromM, points[point], pitchM, colour);
                 fromM = points[point];
             }
 
-            draw.DiscM(fromM, EndDiscM, colour);
+            draw.DiscM(fromM, PathMarks.EndDiscM, colour);
         }
     }
 
@@ -90,7 +93,7 @@ internal sealed partial class DebugOverlay
     /// </summary>
     static ReadOnlySpan<char> WalkName(Agents.Person.Body.PersonFleet people, int person)
     {
-        if (people.Dead[person]) return "dead";
+        if (people.Wounded[person]) return "wounded, waiting for an ambulance";
         if (people.HeldAtTheKerb[person]) return "held at the kerb";
 
         // What the trip is doing outranks what the body is doing, because a body standing still is the
@@ -123,33 +126,6 @@ internal sealed partial class DebugOverlay
         if (taken > 0 && taken <= line.Length && line[taken - 1] >= 0) return "on the crossing";
 
         return people.Stage[person] == Agents.Person.Control.TripStage.WalkingToTheCar ? "walking to a car" : "walking";
-    }
-
-    /// <summary>
-    /// One run of the line, with chevrons down it rather than an arrowhead on the end: they say which way
-    /// it runs along its whole length, which is what tells a walker on its line from a walker beside it.
-    /// </summary>
-    /// <param name="sinceAnchorM">
-    /// How far this run's start stands past the mark the pitch is counted from — the start of the piece
-    /// being drawn, which is a place on the ground and not a place on a body. <b>The marks stand still
-    /// while the agent walks through them</b>, and two bodies on one stretch put their marks in the same
-    /// places rather than each carrying its own comb along.
-    /// </param>
-    static void Chevroned(
-        ref ScreenDraw draw, Vector2 fromM, Vector2 toM, float pitchM, float sinceAnchorM, Vector4 colour)
-    {
-        draw.LineM(fromM, toM, PathLineM, colour);
-
-        var alongM = toM - fromM;
-        var lengthM = alongM.Length();
-        if (lengthM <= 1e-3f) return;
-
-        for (var at = FirstMarkM(sinceAnchorM, pitchM); at < lengthM; at += pitchM)
-        {
-            draw.ChevronM(
-                fromM + (alongM / lengthM * at), alongM, pitchM * MarkSizeFraction, PathLineM * MarkWidthFactor,
-                colour);
-        }
     }
 
     /// <summary>
@@ -186,15 +162,37 @@ internal sealed partial class DebugOverlay
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        var pitchM = MarkPitchAt(pixelsPerMetre);
+        var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
         var cars = world.Cars;
+
+        // One buffer for the whole sweep: what a held wheel is asking for is written into it per car and
+        // read straight into the label, so nothing here allocates and nothing grows down the stack.
+        Span<char> wheel = stackalloc char[WheelWordsRoom];
+
         for (var car = 0; car < cars.Count; car++)
         {
+            // Every figure below is the car's own (CAR-11), so a layer drawn over a truck is drawn at the
+            // truck's dimensions and reports what the truck was told.
+            ref readonly var build = ref cars.BuildOf(car);
             var atM = cars.PositionM[car];
-            if (!OnScreen(atM, viewCentreM, viewSpanM, config.Car.LengthM)) continue;
+            if (!OnScreen(atM, viewCentreM, viewSpanM, build.LengthM)) continue;
 
             var colour = Theme.AgentLine(car);
-            Label(ref draw, atM, CarName(cars, car), viewCentreM, viewSpanM, pixelsPerMetre);
+
+            // <b>A car whose wheel is held over is named by the command and not by the catalogue.</b> It is
+            // in no manoeuvre and holds no line — a hand at the wheel substitutes the whole behaviour
+            // (CTL-5) — so the words its own controller uses would call it parked, which is the one thing a
+            // car circling on full lock is not. What it is doing is what it was told to do.
+            if (world.WheelIsHeldOver(car))
+            {
+                var words = new TextBuffer(wheel);
+                WheelWords(cars.Command[car], build, ref words);
+                Label(ref draw, atM, words.Written, viewCentreM, viewSpanM, pixelsPerMetre);
+            }
+            else
+            {
+                Label(ref draw, atM, CarName(cars, car), viewCentreM, viewSpanM, pixelsPerMetre);
+            }
 
             var line = cars.LineOf(car);
             if (line.Length == 0) continue;
@@ -206,23 +204,24 @@ internal sealed partial class DebugOverlay
             // one line — what tells this car's route from the next car's is the colour it is drawn in.
             var totalM = cars.Line[car].LengthM;
             var progressM = Math.Clamp(cars.ProgressM[car], 0f, totalM);
-            var underTheCarM = MathF.Min(progressM + config.CarCentreAheadOfAxleM, totalM);
+            var underTheCarM = MathF.Min(progressM + build.CentreAheadOfAxleM, totalM);
 
             // The piece being driven and the piece it leads onto: the rest of this lane and the junction
             // off the end of it, or the junction being crossed and the lane it lands on. Both are the one
             // chain the assembler wove, so they are drawn as one run of line and the dot between them is
-            // where the car changes what it is doing. Each piece counts its marks from its own start,
-            // which is a place on the road — so the marks stand still while the car drives through them
-            // and every car on the lane puts its own on the same stones.
-            var joinM = PieceEndM(cars, world.Roads, car, underTheCarM, totalM, out var anchorM);
-            var untilM = PieceEndM(cars, world.Roads, car, joinM, totalM, out var beyondAnchorM);
-            var sagM = SagPx / pixelsPerMetre;
-            Chained(ref draw, line, underTheCarM, joinM, anchorM, pitchM, sagM, colour);
-            Chained(ref draw, line, joinM, untilM, beyondAnchorM, pitchM, sagM, colour);
+            // where the car changes what it is doing.
+            var joinM = PieceEndM(cars, car, underTheCarM, totalM);
+            var untilM = PieceEndM(cars, car, joinM, totalM);
+            var sagM = PathMarks.SagPx / pixelsPerMetre;
+            PathMarks.Chained(ref draw, line, underTheCarM, joinM, pitchM, bothWays: false, sagM, colour);
+            PathMarks.Chained(ref draw, line, joinM, untilM, pitchM, bothWays: false, sagM, colour);
 
-            draw.DiscM(Spline.SampleAt(line, underTheCarM).PositionM, EndDiscM, colour);
-            draw.DiscM(Spline.SampleAt(line, untilM).PositionM, EndDiscM, colour);
-            if (joinM > underTheCarM && joinM < untilM) draw.DiscM(Spline.SampleAt(line, joinM).PositionM, JoinDiscM, colour);
+            draw.DiscM(Spline.SampleAt(line, underTheCarM).PositionM, PathMarks.EndDiscM, colour);
+            draw.DiscM(Spline.SampleAt(line, untilM).PositionM, PathMarks.EndDiscM, colour);
+            if (joinM > underTheCarM && joinM < untilM)
+            {
+                draw.DiscM(Spline.SampleAt(line, joinM).PositionM, PathMarks.JoinDiscM, colour);
+            }
 
             // What the book has in front of the car, and where the car must be stopped by — both the
             // follower's own figures rather than this layer's arithmetic.
@@ -230,9 +229,9 @@ internal sealed partial class DebugOverlay
             if (float.IsFinite(context.HeadwayM))
             {
                 // From the nose, which is where the reading is measured from.
-                var seenM = progressM + config.CarNoseAheadOfAxleM + context.HeadwayM;
+                var seenM = progressM + build.NoseAheadOfAxleM + context.HeadwayM;
                 draw.RingM(
-                    Spline.SampleAt(line, seenM).PositionM, config.Car.WidthM * 0.5f, PathLineM, Theme.HeldLine,
+                    Spline.SampleAt(line, seenM).PositionM, build.FlankM, PathMarks.PathLineM, Theme.HeldLine,
                     segments: 10);
             }
 
@@ -240,8 +239,8 @@ internal sealed partial class DebugOverlay
             {
                 var stopAt = Spline.SampleAt(line, progressM + context.StopAtM);
                 draw.LineM(
-                    stopAt.PositionM - stopAt.Right * config.Car.WidthM * 0.6f,
-                    stopAt.PositionM + stopAt.Right * config.Car.WidthM * 0.6f, PathLineM * 2f, Theme.HeldLine);
+                    stopAt.PositionM - stopAt.Right * build.WidthM * 0.6f,
+                    stopAt.PositionM + stopAt.Right * build.WidthM * 0.6f, PathMarks.PathLineM * 2f, Theme.HeldLine);
             }
 
         }
@@ -253,40 +252,20 @@ internal sealed partial class DebugOverlay
     /// a bay template, a recovery straight — and there are no lanes under it at all.
     /// </summary>
     /// <remarks>
-    /// <para>
     /// <b>The boundaries are the assembler's own</b> (<see cref="Agents.Car.Body.CarFleet.LaneStartsOf"/>),
     /// which is what keeps this a section of the car's route rather than a second opinion about where a
     /// lane ends. Ascending along the line, the first boundary past the car is the end of what it is
-    /// driving now.
-    /// </para>
-    /// <para>
-    /// <paramref name="anchorM"/> is where the piece's <em>own</em> metres begin under the line's, which
-    /// is what the marks are counted from. A lane the line was assembled into through a junction begins
-    /// a setback short of where the line picks it up (<see cref="RoadGraph.JoinedAtM"/>), so the anchor
-    /// is that much behind the cut — and the marks then fall on the same stones the town layer draws them
-    /// on, whichever car is driving and wherever its own line happens to have started.
-    /// </para>
+    /// driving now. Between one lane's end and the next one's start is the join across the box.
     /// </remarks>
-    static float PieceEndM(
-        Agents.Car.Body.CarFleet cars, RoadGraph roads, int car, float atM, float totalM, out float anchorM)
+    static float PieceEndM(Agents.Car.Body.CarFleet cars, int car, float atM, float totalM)
     {
-        anchorM = 0f;
         var lanes = cars.Line[car].LaneCount;
-        if (lanes == 0) return totalM;
-
-        var chain = cars.ChainOf(car);
         var starts = cars.LaneStartsOf(car);
         var ends = cars.LaneEndsOf(car);
         for (var slot = 0; slot < lanes; slot++)
         {
-            // Between the last lane's end and this one's start is the join across the box, whose own
-            // metres begin where the lane before it left off.
             if (starts[slot] > atM) return starts[slot];
-
-            anchorM = starts[slot] - (slot == 0 ? 0f : roads.JoinedAtM(chain[slot]));
             if (ends[slot] > atM) return ends[slot];
-
-            anchorM = ends[slot];
         }
 
         return totalM;
@@ -298,6 +277,53 @@ internal sealed partial class DebugOverlay
     /// </summary>
     static ReadOnlySpan<char> CarName(Agents.Car.Body.CarFleet cars, int car) =>
         Agents.Car.Control.DrivingWords.CarName(cars, car);
+
+    /// <summary>
+    /// <b>What a held wheel is asking for, in the terms it was asked in</b>: how much of this car's own
+    /// lock is wound on and which way, and how much of its own pedal is down and in which gear. It is read
+    /// off the command rather than off whatever set it, so it says the same thing about a car on the
+    /// skidpad and about one under a player's hand.
+    /// </summary>
+    /// <remarks>
+    /// <b>Shares of the car's own figures and not the figures themselves</b> (CAR-11): "half the pedal" is
+    /// the same instruction to a supercar and to a truck, and the m/s² each of them makes of it is the
+    /// difference the pad is being read for rather than something to write over the body.
+    /// </remarks>
+    static void WheelWords(in DriveCommand command, in CarBuild build, ref TextBuffer into)
+    {
+        var lock100 = build.MaxSteerRad > 0f ? MathF.Abs(command.SteerRad) / build.MaxSteerRad * 100f : 0f;
+        if (lock100 >= OnItsStopPercent) into.Add("full lock ");
+        else
+        {
+            into.Add(lock100, "F0");
+            into.Add("% lock ");
+        }
+
+        into.Add(command.SteerRad < 0f ? "left, " : "right, ");
+
+        var pedalMps2 = command.ThrottleMps2 > 0f ? command.ThrottleMps2 : -command.BrakeMps2;
+        if (pedalMps2 == 0f)
+        {
+            into.Add("coasting ");
+        }
+        else if (pedalMps2 < 0f)
+        {
+            into.Add("braking ");
+        }
+        else
+        {
+            into.Add(pedalMps2 / build.AccelerationMps2 * 100f, "F0");
+            into.Add("% pedal ");
+        }
+
+        into.Add(command.Reverse ? "astern" : "ahead");
+    }
+
+    /// <summary>Where the rack counts as arrived, so a wheel a hair off its stop still reads as full lock.</summary>
+    const float OnItsStopPercent = 99f;
+
+    /// <summary>Room for the longest of those lines — "100% lock right, 100% pedal astern" and a little over.</summary>
+    const int WheelWordsRoom = 48;
 
     /// <summary>
     /// The one thing a layer writes rather than draws: what the body under it is doing. Text carries

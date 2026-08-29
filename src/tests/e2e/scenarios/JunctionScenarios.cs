@@ -98,8 +98,9 @@ internal static class JunctionScenarios
             Group: "wider",
             Map: "Zebras",
             Subject: "The scenario map's skewed crossing — paint deliberately laid off square to its "
-                     + "street. This is the one case in the set that can fail while every square "
-                     + "crossing passes, which is why the fixture exists.",
+                     + "street, with the body this map paces over it and the walking layer on. This is "
+                     + "the one case in the set that can fail while every square crossing passes, which "
+                     + "is why the fixture exists.",
             FrameWidthM: 42.7f, FinestFeatureM: 0.15f,
             AtM: new Vector2(500f, 301f), Seconds: 45, Ui: ["walker-lines"],
             Expect:
@@ -111,12 +112,14 @@ internal static class JunctionScenarios
                 "The crossing spans the whole carriageway, kerb to kerb, even though it is skewed.",
                 "The pavement runs on through the crossing on both banks rather than stopping at it.",
                 "No dash of the centreline is drawn over the crossing's paint.",
+                "One person is on or beside the crossing, and the line drawn ahead of them runs across "
+                + "the road over the paint rather than off down the carriageway.",
             ],
             Expected: "zebra-skewed.png",
             ExpectedNote: "The reference was taken by a one-off script in the other build and its "
                           + "framing was never written down: it is a closer view of a skewed crossing "
-                          + "somewhere on this map, with a walker on it. This frame is on the paint "
-                          + "and carries no walker, so a claim about a walker's line is UNCLEAR here "
-                          + "rather than failed."),
+                          + "somewhere on this map, with a walker on it. Compare what is drawn — the "
+                          + "paint, the pavement, the line the walker is holding — and never where it "
+                          + "is."),
     ];
 }

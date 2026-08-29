@@ -1,16 +1,19 @@
 # The debug layers — requirements
 
-What a debug session can be opened for, and what it may cost. **This slice owns the switches and the
-read-out as well as the layers** — the panel that draws a switch is [app/hud](../../hud/docs/requirements.md)'s,
-and it reads them from here rather than the layers reaching back into the panel. What everything is
-drawn with is [app/screen](../../screen/docs/requirements.md).
+What a debug session can be opened for, and what it may cost. **This slice owns the switches as well as
+the layers** — the panel that draws a switch is [app/hud](../../hud/docs/requirements.md)'s, and it reads
+them from here rather than the layers reaching back into the panel. The frame read-out is not one of these:
+it is furniture in the corner and is [app/hud](../../hud/docs/requirements.md)'s. What everything is drawn
+with is [app/screen](../../screen/docs/requirements.md).
 
 **OBS-2b** **The debug overlay is instrumentation and is priced as such**: it is **off by default**, what
 it costs to draw is measured on the same footing as what it measures, and **nothing is drawn about a body
-that is not on screen**.
+that is not on screen**. It binds the frame read-out too, which is furniture and cannot be switched off:
+what it costs to gather is not paid while its body is shut
+([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
 **OBS-2c** **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
-anything a second one owns.** **A layer covers one kind of body entirely** — its geometry and its
+anything a second one owns.** Eight of them. **A layer covers one kind of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
 to the *town* rather than to a body is not switched with a body at all**.
 
@@ -29,6 +32,24 @@ the route past the second piece belongs to the nodes layer or to no layer at all
 **A car and a walker are the same picture**: one chevronned line at one weight, a dot where two pieces
 meet, a dot where the drawing stops. Nothing about a body is drawn a second time in a second style —
 a junction a car holds is the ground of the join its route already runs through.
+
+**The marks down a line stand on a comb laid over the town, not over the line.** One falls wherever the
+distance from the world origin along the line's own bearing is a whole number of pitches, so **nothing
+about where a line begins, or how much of it is being drawn, moves a single mark**. Marks placed from a
+line's own start are a picture of where the lines were cut: two lanes of one carriageway drift against
+each other by whatever their ends happen to differ by, an agent's own line disagrees with the network
+layer under it, and a reader comparing two streets is reading the cuts rather than the ground. The
+bearing is the one the run sets off on, so a run that bends walks off its comb as it turns — the price of
+the rule, paid over the metres of a junction join and not over the straights anybody is comparing across.
+
+**A mark says direction only where the ground has one.** Where the two directions of a stretch are laid
+on one line — the ground had no room for a lane either side, which is every crossing and every pavement
+too narrow for two ([`WalkingNetwork.LaneOffsetM`](../../../world/foot/WalkingNetwork.cs)) — the mark is
+a bar square across the line instead of a chevron. Chevronned, the ground carries two combs of opposing
+arrows on the same stones, which reads as a fault in the picture rather than as a stretch walked both
+ways. **And ground a body covers backwards takes a shade of its own network's colour**, never a colour of
+its own: the way out of a bay and the way in converge on the one rear axle, so over the last metres they
+are a stroke apart, and in one colour they read as a single line whose chevrons cross.
 
 **The pieces are the agent's own geometry, cut at the agent's own boundaries**: the layer reads the line
 and the lane spans the assembler wrote ([`CarFleet.LaneStartsOf`](../../../agents/car/body/CarFleet.cs)),
@@ -52,6 +73,14 @@ standing on one street, which is a stronger claim than the picture has any busin
 reservation are the same body's, held for the same reason, and what differs is only where one stops. So the
 edge is a thin bar square across the way at either end of every stretch, in the same colour drawn up rather
 than down.
+
+**And the one hold that is not a stretch of way is drawn as what it is.** A bay a car is standing in or has
+booked is a place in a register (`GEN-4g`) and not ground in either book, and a bay's own two ways are drawn
+to the rear axle and stop there — so a block on one of them can only ever cover the ground behind that axle,
+with the car's whole nose past the end of it. The bay is drawn as the bay, in that body's colour like
+everything else here: **washed where a body is standing in it, outlined where a leg has only booked it**.
+Those two are different claims — somebody is standing here, against somebody is on their way and nobody else
+may take it — and not two shades of one.
 
 **The blocks are a layer of their own and belong to neither kind of body** (OBS-2c). A reservation is a
 fact about the *ground*: what cuts a driver's grant is as often a walker standing in the lane as another
@@ -79,6 +108,21 @@ into a label instead.
 run of pavement it calls the same routing code the agents use. A second copy of a shape eventually
 disagrees with the first — and when it does, the layer is the thing that lies about the town.
 
+**OBS-2j** **The one layer that computes rather than reads is the turn circle, and it says so.** Every
+other mark here is read off whatever produced it; **there is no producer for this one** — nothing in the
+simulation ever works out a centre of rotation, because a car turns by four contact patches spending four
+impulses. So the layer works the geometry out itself, from the axles under **that** body and the angle its
+own front wheels are actually at, and draws **the construction and not only the answer**: the centre where
+the rear axle's line crosses a front wheel's, a spoke to each of the patches that fixed it, and the arc of
+**the nearest rear wheel** — the wheel whose track is on the ground beside it, since the reading is a drawn
+circle laid over a written one and two circles half a track apart cannot be compared by eye. Where the
+wheels are straight there is no centre to draw and nothing is drawn.
+
+**It is a prediction and the only one this overlay makes**, which is what makes it worth a switch of its
+own rather than a mark on the car layer: that one draws what the world did to a driver, and the daylight
+between this circle and the tracks under it is the whole of what the skidpad exists to show
+([citygen](../../../citygen/docs/requirements.md#where-a-town-comes-from)).
+
 ## Two performance rules this layer taught
 
 - **A cull that admits a body is not a cull that admits its whole line.** Find the visible stretch of a
@@ -87,10 +131,3 @@ disagrees with the first — and when it does, the layer is the thing that lies 
   the town is laid; re-emitting them every tick for the bodies' sake was the most expensive thing in the
   frame at a district framing. Draw them when the zoom changes, when the window leaves the stretch that
   was drawn, or when a switch does.
-
-## The frame read-out
-
-The frame and tick cost with a per-row ranking, plus body and agent counts. **It ranks the tick by phase
-and must account for the frame** — a read-out whose rows do not sum to the thing they are rows of is a
-read-out nobody can act on. It is a per-run instrument and not a per-frame one: a figure that changes
-sixty times a second cannot be read.

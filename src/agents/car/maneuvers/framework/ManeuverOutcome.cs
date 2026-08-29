@@ -49,9 +49,6 @@ internal enum ManeuverReason : byte
     /// <summary>The box ahead is this car's to enter.</summary>
     BoxIsOurs,
 
-    /// <summary>The car is over the paint and off it.</summary>
-    PaintIsBehind,
-
     /// <summary>The route has nothing left in it and the bay's own template takes over.</summary>
     RouteRanOut,
 

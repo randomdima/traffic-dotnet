@@ -59,7 +59,7 @@ public class Camera2DTests
 
     /// <summary>
     /// Both ends of the zoom are the town's own figures rather than numbers of their own: out until
-    /// the whole town is on screen, in until a car is drawn at the scale its art was cut for.
+    /// the whole town is on screen, in until a car's art is magnified as far as it is allowed to be.
     /// </summary>
     [Fact]
     public void TheZoomStopsAtTheWholeTownAndAtOneCar()
@@ -71,14 +71,15 @@ public class Camera2DTests
         Assert.True(camera.ViewSpanM(UiPx).Y <= MathF.Max(TownM.X, TownM.Y) + 1f);
 
         camera.Zoom(100f, UiPx * 0.5f, UiPx);
-        Assert.Equal(config.View.CarSpritePixelsPerMetre, camera.PixelsPerMetre, tolerance: 1e-3f);
+        Assert.Equal(config.View.CarSpritePixelsPerMetre * config.View.CameraMaxSpriteMagnification,
+            camera.PixelsPerMetre, tolerance: 1e-3f);
     }
 
     /// <summary>
     /// <b>The zoom-in stop is the one figure here that is about the display and not about the
-    /// interface</b>: it says one art texel to one of the display's pixels, so on a 2× desktop — where
-    /// an interface pixel is two of them — it stops at half the interface figure and the art is still
-    /// drawn at the resolution it was cut on.
+    /// interface</b>: it is measured in the display's own pixels, so on a 2× desktop — where an
+    /// interface pixel is two of them — it stops at half the interface figure and the art is magnified
+    /// no further than it is on a 1× one.
     /// </summary>
     [Fact]
     public void TheZoomInStopFollowsTheDisplaysPixelsAndNotTheInterfaces()
@@ -88,7 +89,8 @@ public class Camera2DTests
 
         camera.Zoom(100f, UiPx * 0.5f, UiPx);
 
-        Assert.Equal(config.View.CarSpritePixelsPerMetre * 0.5f, camera.PixelsPerMetre, tolerance: 1e-3f);
+        Assert.Equal(config.View.CarSpritePixelsPerMetre * config.View.CameraMaxSpriteMagnification * 0.5f,
+            camera.PixelsPerMetre, tolerance: 1e-3f);
     }
 
     /// <summary>Arrows pan in screen pixels a second, so a pan covers the same distance on screen at any zoom.</summary>

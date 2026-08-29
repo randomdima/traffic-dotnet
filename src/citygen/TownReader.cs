@@ -24,7 +24,7 @@ internal static class TownReader
     /// <summary>"TFSNTOWN", little-endian.</summary>
     public const ulong Magic = 0x4E574F544E534654;
 
-    public const uint Version = 2;
+    public const uint Version = 3;
 
     /// <summary>What the file writes where a record points at nothing — a crossing struck mid-block belongs to no junction.</summary>
     const uint NoIndex = 0xFFFFFFFF;
@@ -353,11 +353,12 @@ internal static class TownReader
 
     static CityPlan.BuildingArrays ReadBuildings(ref ByteCursor cursor)
     {
-        var count = cursor.Count("buildings", bytesEach: 28);
+        var count = cursor.Count("buildings", bytesEach: 29);
         var centreM = new Vector2[count];
         var sizeM = new Vector2[count];
         var headingRad = new float[count];
         var capacity = new int[count];
+        var use = new BuildingUse[count];
         var offsets = new int[count + 1];
         var entryPointM = new List<Vector2>(count);
         for (var i = 0; i < count; i++)
@@ -366,6 +367,13 @@ internal static class TownReader
             sizeM[i] = cursor.V2();
             headingRad[i] = cursor.F32();
             capacity[i] = (int)cursor.U32();
+
+            // Bounded against the plan's own list, as a cell byte is: a use nothing has a roof or an apron
+            // for is refused here rather than indexed out of a table when the map is stood up.
+            var kind = cursor.U8();
+            if (kind >= BuildingUseKinds.Count) throw new FormatException($"A building is of use {kind}, which the plan has no name for.");
+
+            use[i] = (BuildingUse)kind;
             offsets[i] = entryPointM.Count;
             var entries = cursor.Count("building entry points", bytesEach: 8);
             for (var entry = 0; entry < entries; entry++) entryPointM.Add(cursor.V2());
@@ -374,7 +382,7 @@ internal static class TownReader
         offsets[count] = entryPointM.Count;
         return new CityPlan.BuildingArrays
         {
-            CentreM = centreM, SizeM = sizeM, HeadingRad = headingRad, Capacity = capacity,
+            CentreM = centreM, SizeM = sizeM, HeadingRad = headingRad, Capacity = capacity, Use = use,
             EntryOffsets = offsets, EntryPointM = entryPointM.ToArray(),
         };
     }

@@ -25,6 +25,12 @@ internal interface IFineGraph
     int Reverse(int edge);
 
     ReadOnlySpan<int> EdgesOut(int node);
+
+    /// <summary>
+    /// Whether a node survives the contraction however few ways on it offers — <b>a place a body may be
+    /// sent to</b>, which is a node whether or not a decision is taken there.
+    /// </summary>
+    bool AlwaysANode(int node);
 }
 
 /// <summary>What one turn between two fine edges costs, whether it falls inside a run or between two.</summary>
@@ -40,11 +46,13 @@ internal interface IEdgeTurnPricer
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A node is a place a body can go more than one way, and nothing else is a node.</b> A line, however
-/// it bends, produces no nodes: a plan cuts a street wherever it wants a junction disc, and a body
-/// arriving at one of those has exactly one way on, so no decision can be made there. Everything between
-/// two decisions is therefore one link — which is what stops the search asking a question at every bend
-/// in the town, and what makes a turn price mean something when it is asked.
+/// <b>A node is a place a body can go more than one way, or a place it can be sent to, and nothing else is
+/// a node.</b> A line, however it bends, produces no nodes: a plan cuts a street wherever it wants a
+/// junction disc, and a body arriving at one of those has exactly one way on, so no decision can be made
+/// there. Everything between two decisions is therefore one link — which is what stops the search asking a
+/// question at every bend in the town, and what makes a turn price mean something when it is asked. The
+/// second clause is <see cref="IFineGraph.AlwaysANode"/>, and it is the ends of a parking section: nothing
+/// is decided at one, but a leg has to be able to name it.
 /// </para>
 /// <para>
 /// <b>A closed run with no split anywhere on it would contract to nothing</b> — the band a car park is
@@ -125,7 +133,10 @@ internal sealed class RunNetwork
         where TPricer : IEdgeTurnPricer
     {
         var decision = new bool[fine.NodeCount];
-        for (var node = 0; node < fine.NodeCount; node++) decision[node] = fine.EdgesOut(node).Length != 2;
+        for (var node = 0; node < fine.NodeCount; node++)
+        {
+            decision[node] = fine.EdgesOut(node).Length != 2 || fine.AlwaysANode(node);
+        }
 
         var travelNodeOf = new int[fine.NodeCount];
         Array.Fill(travelNodeOf, -1);

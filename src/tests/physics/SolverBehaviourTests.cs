@@ -26,7 +26,7 @@ public class SolverBehaviourTests
     public void NothingFalls()
     {
         var world = new PhysicsWorld(Config);
-        var car = world.AddCar(new Vector2(10f, 10f), 0.4f);
+        var car = world.AddNominalCar(new Vector2(10f, 10f), 0.4f);
 
         Advance(world, 600);
 
@@ -42,7 +42,7 @@ public class SolverBehaviourTests
     public void AnImpulseOffTheCentreSpinsACarAndNeverAWalker()
     {
         var world = new PhysicsWorld(Config);
-        var car = world.AddCar(Vector2.Zero, 0f);
+        var car = world.AddNominalCar(Vector2.Zero, 0f);
         var walker = world.AddPerson(new Vector2(50f, 0f));
 
         var atCarM = new Vector2(Config.Car.LengthM * 0.5f, Config.Car.WidthM * 0.5f);
@@ -66,8 +66,8 @@ public class SolverBehaviourTests
     public void AnOverlapIsPushedOutAndTheBodiesDoNotKeepMoving()
     {
         var world = new PhysicsWorld(Config);
-        var first = world.AddCar(Vector2.Zero, 0f);
-        var second = world.AddCar(new Vector2(Config.Car.LengthM - 0.5f, 0f), 0f);
+        var first = world.AddNominalCar(Vector2.Zero, 0f);
+        var second = world.AddNominalCar(new Vector2(Config.Car.LengthM - 0.5f, 0f), 0f);
 
         Advance(world, 120);
 
@@ -85,7 +85,7 @@ public class SolverBehaviourTests
     public void NothingBounces()
     {
         var world = new PhysicsWorld(Config);
-        var car = world.AddCar(Vector2.Zero, 0f);
+        var car = world.AddNominalCar(Vector2.Zero, 0f);
         world.AddStaticBox(new Vector2(20f, 0f), new Vector2(2f, 20f), 0f);
         world.SettleStatics();
 
@@ -105,8 +105,8 @@ public class SolverBehaviourTests
     public void ATouchIsReportedOnceHoweverLongItLasts()
     {
         var world = new PhysicsWorld(Config);
-        world.AddCar(Vector2.Zero, 0f);
-        world.AddCar(new Vector2(Config.Car.LengthM, 0f), 0f);
+        world.AddNominalCar(Vector2.Zero, 0f);
+        world.AddNominalCar(new Vector2(Config.Car.LengthM, 0f), 0f);
 
         var began = 0;
         for (var step = 0; step < 300; step++)
@@ -149,10 +149,10 @@ public class SolverBehaviourTests
     public void TheWorldCountsWhatItCarries()
     {
         var world = new PhysicsWorld(Config);
-        for (var prop = 0; prop < 40; prop++) world.AddStaticCircle(new Vector2(prop * 5f, 30f), 0.5f);
+        for (var prop = 0; prop < 40; prop++) world.AddStaticDisc(new Vector2(prop * 5f, 30f), 0.5f);
 
         var walker = world.AddPerson(Vector2.Zero);
-        world.AddCar(new Vector2(20f, 0f), 0f);
+        world.AddNominalCar(new Vector2(20f, 0f), 0f);
         world.SettleStatics();
         world.Step(StepSeconds);
 
@@ -171,9 +171,9 @@ public class SolverBehaviourTests
     public void TheStaticQueryFindsWhatStandsInTheBox()
     {
         var world = new PhysicsWorld(Config);
-        world.AddStaticCircle(new Vector2(10f, 10f), 0.6f);
+        world.AddStaticDisc(new Vector2(10f, 10f), 0.6f);
         world.AddStaticBox(new Vector2(40f, 0f), new Vector2(6f, 3f), 0.5f);
-        world.AddCar(new Vector2(70f, 0f), 0f);
+        world.AddNominalCar(new Vector2(70f, 0f), 0f);
         world.SettleStatics();
 
         Assert.True(world.StaticInBox(new Vector2(9f, 9f), new Vector2(11f, 11f)));
@@ -189,9 +189,9 @@ public class SolverBehaviourTests
     public void OverlapIsHowDeepTheBodyIs()
     {
         var world = new PhysicsWorld(Config);
-        var first = world.AddCar(Vector2.Zero, 0f);
-        var apart = world.AddCar(new Vector2(60f, 0f), 0f);
-        world.AddCar(new Vector2(Config.Car.LengthM - 0.4f, 0f), 0f);
+        var first = world.AddNominalCar(Vector2.Zero, 0f);
+        var apart = world.AddNominalCar(new Vector2(60f, 0f), 0f);
+        world.AddNominalCar(new Vector2(Config.Car.LengthM - 0.4f, 0f), 0f);
 
         world.Step(StepSeconds);
 
@@ -219,10 +219,10 @@ public class SolverBehaviourTests
             var fleet = new BodyId[24];
             for (var car = 0; car < fleet.Length; car++)
             {
-                fleet[car] = world.AddCar(new Vector2(car % 6 * 3.6f, car / 6 * 2.2f), car * 0.13f);
+                fleet[car] = world.AddNominalCar(new Vector2(car % 6 * 3.6f, car / 6 * 2.2f), car * 0.13f);
             }
 
-            for (var prop = 0; prop < 30; prop++) world.AddStaticCircle(new Vector2(prop * 1.7f, 6f), 0.5f);
+            for (var prop = 0; prop < 30; prop++) world.AddStaticDisc(new Vector2(prop * 1.7f, 6f), 0.5f);
 
             world.SettleStatics();
             for (var step = 0; step < 240; step++)
@@ -244,6 +244,39 @@ public class SolverBehaviourTests
 
             return read;
         }
+    }
+
+    /// <summary>
+    /// <c>PHY-5b</c>: a body put on the downed layer is driven through, walked through and cast through,
+    /// and the only thing left that can stop it is the town's furniture.
+    /// </summary>
+    [Fact]
+    public void ADownedBodyIsPassedThroughByEverythingButTheGround()
+    {
+        var world = new PhysicsWorld(Config);
+        var walker = world.AddPerson(new Vector2(10f, 0f));
+        world.Tag(walker, new BodyTag(BodyKind.Person, 3));
+        var car = world.AddNominalCar(Vector2.Zero, 0f);
+        world.AddStaticBox(new Vector2(10f, 4f), new Vector2(4f, 1f), 0f);
+        world.SettleStatics();
+
+        world.PutOnLayer(walker, CollisionLayer.Downed);
+
+        // A driver looking down the road no longer finds it, which is the same filter said as a query.
+        Assert.False(world.CastRay(Vector2.Zero, new Vector2(20f, 0f), BodyId.None, statics: false, out _));
+
+        // Driven over: the car keeps the speed it arrived with and the body is left where it lay.
+        world.ApplyCentralImpulse(car, new Vector2(Config.Car.MassKg * 8f, 0f));
+        Advance(world, 120);
+
+        Assert.True(world.PositionOf(car).X > 12f, "a car was stopped by a body it should have passed over");
+        Assert.Equal(new Vector2(10f, 0f), world.PositionOf(walker));
+
+        // And the wall still holds it: the one thing the downed layer keeps scanning.
+        world.ApplyCentralImpulse(walker, new Vector2(0f, Config.Person.MassKg * 6f));
+        Advance(world, 120);
+
+        Assert.True(world.PositionOf(walker).Y < 3.5f, "a body in the road slid through a building");
     }
 
     static void Advance(PhysicsWorld world, int steps)

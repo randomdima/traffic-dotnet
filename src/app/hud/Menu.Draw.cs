@@ -4,18 +4,12 @@ using TrafficSimulation.App.Screen;
 
 namespace TrafficSimulation.App.Hud;
 
-/// <summary>Drawing one page: the list, the switches, the seeds, the pace and the legend.</summary>
+/// <summary>Drawing one page: the two groups of maps, or the debug switches.</summary>
 internal sealed partial class Menu
 {
-    public void Draw(
-        ref ScreenDraw draw, Vector2 uiPx, Vector2 pointerPx, bool hasTown, DebugSwitches switches, RunState run,
-        ulong worldSeed, ulong agentSeed)
+    public void Draw(ref ScreenDraw draw, Vector2 uiPx, Rect anchor, Vector2 pointerPx, DebugSwitches switches)
     {
-        if (_laidFor != uiPx || _laidWithTown != hasTown) Lay(uiPx, hasTown);
-
-        // Over a town the screen behind is dimmed, because the panel does not cover it and a click
-        // that got past it would reach a town nobody is looking at.
-        if (hasTown) draw.Rect(Vector2.Zero, uiPx, Theme.Scrim);
+        if (_laidFor != uiPx || _laidAt != anchor) Lay(uiPx, anchor);
 
         Theme.Frame(ref draw, Box);
         draw.Text(
@@ -25,39 +19,52 @@ internal sealed partial class Menu
 
         for (var tab = 0; tab < _tabs.Length; tab++)
         {
+            // The way out is a button standing in the tab strip rather than a page: it is the one
+            // thing on the menu that does not come back.
+            if (tab == ExitTab)
+            {
+                Theme.Button(ref draw, _tabs[tab], pointerPx, TabNames[tab], Theme.Danger);
+                continue;
+            }
+
             var picked = tab == Page;
             Theme.Face(ref draw, _tabs[tab], pointerPx, picked ? Theme.RowPicked : Theme.RowRest, picked);
             draw.TextFitted(
-                _tabs[tab].AtPx + new Vector2(Theme.InsetPx, (Theme.RowPx - Theme.TextPx) * 0.5f), PageNames[tab],
+                _tabs[tab].AtPx + new Vector2(Theme.InsetPx, (Theme.RowPx - Theme.TextPx) * 0.5f), TabNames[tab],
                 Theme.TextPx, picked ? Theme.Text : Theme.Dim, Theme.FitWidthPx(_tabs[tab]));
         }
 
-        if (IsList(Page)) DrawList(ref draw, pointerPx);
-        else if (NeedsTown(Page) && !hasTown) Line(ref draw, _lines[0], NoTown, Theme.TextPx, Theme.Dim);
-        else if (Page == Layers) DrawSwitches(ref draw, pointerPx, switches);
-        else if (Page == Seeds) DrawSeeds(ref draw, pointerPx, worldSeed, agentSeed);
-        else if (Page == Pace) DrawPace(ref draw, pointerPx, run);
-        else DrawLegend(ref draw);
-
-        if (hasTown) Theme.Button(ref draw, _close, pointerPx, "Close  (Esc)");
-        Theme.Button(ref draw, _quit, pointerPx, "Exit game", Theme.Danger);
-
-        if (Page == Checks && LastOutput.Length > 0) Output(ref draw, uiPx);
+        if (Page == Maps) DrawMaps(ref draw, pointerPx);
+        else DrawSwitches(ref draw, pointerPx, switches);
     }
 
-    void DrawList(ref ScreenDraw draw, Vector2 pointerPx)
+    void DrawMaps(ref ScreenDraw draw, Vector2 pointerPx)
     {
-        // The two lines are centred on the row together, so a row's name sits the same distance from
-        // its top edge as the line under it does from its bottom.
+        // The two lines of a map row are centred on it together, so a row's name sits the same distance
+        // from its top edge as the line under it does from its bottom.
         var firstLinePx = (Theme.TallRowPx - (Theme.TextPx + Theme.GapPx * 0.5f + Theme.SmallTextPx)) * 0.5f;
+        Span<char> text = stackalloc char[32];
 
         for (var slot = 0; slot < _shownRows && _firstRow + slot < _rowCount; slot++)
         {
             var box = _rows[slot];
             var row = _firstRow + slot;
-            Theme.Face(ref draw, box, pointerPx);
-
+            var group = _rowGroup[row];
             var fitPx = Theme.FitWidthPx(box);
+
+            if (group >= 0)
+            {
+                Theme.Face(ref draw, box, pointerPx, Theme.RowRest);
+                var line = new TextBuffer(text);
+                line.Add(_groupOpen[group] ? "- " : "+ ");
+                line.Add(_rowNames[row]);
+                draw.TextFitted(
+                    box.AtPx + new Vector2(Theme.InsetPx, (Theme.RowPx - Theme.TextPx) * 0.5f), line.Written,
+                    Theme.TextPx, Theme.Heading, fitPx);
+                continue;
+            }
+
+            Theme.Face(ref draw, box, pointerPx);
             draw.TextFitted(
                 box.AtPx + new Vector2(Theme.InsetPx, firstLinePx), _rowNames[row], Theme.TextPx, Theme.Text, fitPx);
             draw.TextFitted(
@@ -71,7 +78,7 @@ internal sealed partial class Menu
     /// <summary>How far down the page the rows on screen are, as a bar beside them.</summary>
     void ScrollBar(ref ScreenDraw draw)
     {
-        var trackPx = _shownRows * RowPitchPx - Theme.GapPx;
+        var trackPx = _rows[_shownRows - 1].Bottom - _rows[0].AtPx.Y;
         var atX = _rows[0].Right + Theme.GapPx;
         var atY = _rows[0].AtPx.Y;
         draw.RoundedRect(new Vector2(atX, atY), new Vector2(ScrollBarPx, trackPx), ScrollBarPx * 0.5f, Theme.RowRest);
@@ -84,108 +91,11 @@ internal sealed partial class Menu
 
     void DrawSwitches(ref ScreenDraw draw, Vector2 pointerPx, DebugSwitches switches)
     {
-        Check(ref draw, _lines[0], pointerPx, "Frame read-out", switches.FrameReadout);
-        Check(ref draw, _lines[1], pointerPx, "Car lines", switches.CarLines);
-        Check(ref draw, _lines[2], pointerPx, "Walker lines", switches.WalkerLines);
-        Check(ref draw, _lines[3], pointerPx, "Nodes and links", switches.Nodes);
-        Check(ref draw, _lines[4], pointerPx, "Lane reservations", switches.Reservations);
-        Check(ref draw, _lines[5], pointerPx, "Collision", switches.Collision);
-        Check(ref draw, _lines[6], pointerPx, "Ruler", switches.Ruler);
-        Check(ref draw, _lines[7], pointerPx, "Track figures", switches.TrackFigures);
-    }
-
-    void DrawSeeds(ref ScreenDraw draw, Vector2 pointerPx, ulong worldSeed, ulong agentSeed)
-    {
-        Span<char> text = stackalloc char[48];
-        var line = new TextBuffer(text);
-        line.Add("World seed   ");
-        line.Add(worldSeed);
-        Line(ref draw, _lines[0], line.Written, Theme.TextPx, Theme.Text);
-
-        line.Clear();
-        line.Add("Agent seed   ");
-        line.Add(agentSeed);
-        Line(ref draw, _lines[1], line.Written, Theme.TextPx, Theme.Text);
-
-        Line(
-            ref draw, _lines[2], "The world seed is the town file's own and changes with the map.", Theme.SmallTextPx,
-            Theme.Dim);
-        Theme.Button(ref draw, _lines[3], pointerPx, "Re-roll the agent seed and rebuild");
-    }
-
-    void DrawPace(ref ScreenDraw draw, Vector2 pointerPx, RunState run)
-    {
-        Span<char> text = stackalloc char[48];
-        var line = new TextBuffer(text);
-        line.Add("Pace   ");
-        line.Add(run.TimeScale, "F1");
-        line.Add(run.Frozen ? "x   (frozen)" : "x");
-        Line(ref draw, _lines[0], line.Written, Theme.TextPx, Theme.Text);
-
-        Check(ref draw, _lines[1], pointerPx, "Agents held  (Pause)", run.AgentsHeld);
-        Line(ref draw, _lines[2], "1 / 2 / 3   set the pace, capped at 3x", Theme.SmallTextPx, Theme.Dim);
-        Line(ref draw, _lines[3], "`           freeze and unfreeze", Theme.SmallTextPx, Theme.Dim);
-
-        // Two lines of one sentence, at the legend's pitch rather than at a row's: a wrap set a row
-        // apart reads as two statements.
-        var atPx = _lines[5].AtPx
-            + new Vector2(Theme.InsetPx, (Theme.RowPx - Theme.SmallTextPx * 2f - Theme.GapPx) * 0.5f);
-        var fitPx = Theme.FitWidthPx(_lines[5]);
-        draw.TextFitted(
-            atPx, "A pace above 4x integrates the physics coarsely and manufactures", Theme.SmallTextPx, Theme.Dim,
-            fitPx);
-        draw.TextFitted(
-            atPx + new Vector2(0f, LegendPitchPx), "collisions the model never had, so the cap is kept.",
-            Theme.SmallTextPx, Theme.Dim, fitPx);
-    }
-
-    /// <summary>
-    /// <b>Every control the player has</b>, which is the claim the reference frame makes of this
-    /// page: the camera, the selection, the orders, the drive keys, the handbrake, the pace and
-    /// freeze keys, the lane-graph key, fullscreen, and Escape itself.
-    /// </summary>
-    void DrawLegend(ref ScreenDraw draw)
-    {
-        for (var row = 0; row * 2 + 1 < ControlLegend.Length; row++)
+        for (var line = 0; line < MostLines; line++)
         {
-            var atPx = _legend.AtPx + new Vector2(Theme.InsetPx, row * LegendPitchPx);
-            draw.TextFitted(atPx, ControlLegend[row * 2], Theme.SmallTextPx, Theme.Heading, LegendKeyWidthPx);
-            draw.TextFitted(
-                atPx + new Vector2(LegendKeyWidthPx, 0f), ControlLegend[row * 2 + 1], Theme.SmallTextPx, Theme.Text,
-                _legend.SizePx.X - Theme.InsetPx - LegendKeyWidthPx);
+            Check(ref draw, _lines[line], pointerPx, Lines[line], Switch(switches, line));
         }
     }
-
-    /// <summary>
-    /// The last check's own printing, beside the menu rather than over it — the corner overlay a
-    /// watched check owes somebody who has no terminal.
-    /// </summary>
-    void Output(ref ScreenDraw draw, Vector2 uiPx)
-    {
-        var widthPx = MathF.Min(680f, Box.AtPx.X - Theme.PaddingPx * 2f);
-        if (widthPx < 200f) return;
-
-        var pitchPx = Theme.SmallTextPx + Theme.GapPx * 0.5f;
-        var lines = Math.Min(LastOutput.Length, (int)((uiPx.Y - Theme.PaddingPx * 6f) / pitchPx));
-        var box = new Rect(
-            new Vector2(Theme.PaddingPx, Theme.PaddingPx * 3f),
-            new Vector2(widthPx, lines * pitchPx + Theme.PaddingPx * 2f));
-        Theme.Frame(ref draw, box);
-
-        var first = Math.Max(0, LastOutput.Length - lines);
-        for (var line = 0; line < lines; line++)
-        {
-            draw.TextFitted(
-                box.AtPx + new Vector2(Theme.PaddingPx, Theme.PaddingPx + line * pitchPx), LastOutput[first + line],
-                Theme.SmallTextPx, Theme.Text, widthPx - Theme.PaddingPx * 2f);
-        }
-    }
-
-    /// <summary>A row that says something rather than doing it: no face under it, and the same inset as one that does.</summary>
-    static void Line(ref ScreenDraw draw, Rect box, scoped ReadOnlySpan<char> text, float textPx, Vector4 colour) =>
-        draw.TextFitted(
-            box.AtPx + new Vector2(Theme.InsetPx, (box.SizePx.Y - textPx) * 0.5f), text, textPx, colour,
-            Theme.FitWidthPx(box));
 
     static void Check(ref ScreenDraw draw, Rect box, Vector2 pointerPx, scoped ReadOnlySpan<char> name, bool on)
     {

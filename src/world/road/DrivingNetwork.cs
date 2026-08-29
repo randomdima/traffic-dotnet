@@ -13,9 +13,9 @@ namespace TrafficSimulation.World.Road;
 /// <remarks>
 /// <para>
 /// <b>Turn prices are the substance of this graph.</b> A near-side turn is nearly free, a turn across the
-/// oncoming stream costs a gap that has to be waited for, and a turn-around is the longest single junction
-/// occupancy there is — so a driver takes three sides of a block over one whenever the block is there to
-/// take. A planner blind to this hands drivers routes made of the most expensive manoeuvres available and
+/// oncoming stream costs a gap that has to be waited for, and turning at a car park costs the whole of
+/// parking and unparking — so a driver takes three sides of a block over either of them whenever the block
+/// is there to take. A planner blind to this hands drivers routes made of the most expensive manoeuvres available and
 /// the town then jams at the junctions. The prices are quoted in a <b>nominal</b> car length and never in
 /// the length of whichever car is asking: the network is laid once for a whole town, and what a turn price
 /// expresses is a preference between routes.
@@ -66,37 +66,6 @@ internal sealed class DrivingNetwork
     }
 
     /// <summary>
-    /// Where a driver standing still joins it: the lane it is nearest that it is also <em>pointing
-    /// along</em>, and only then the nearest centreline of any kind. The nearest line to a car standing
-    /// near a centreline is as likely to be the oncoming lane as its own.
-    /// </summary>
-    public RouteEntry EntryNear(Vector2 pointM, Vector2 forward)
-    {
-        var best = -1;
-        var bestAlongM = 0f;
-        var bestDistanceSq = float.MaxValue;
-        var bestPointing = false;
-
-        for (var lane = 0; lane < _roads.LaneCount; lane++)
-        {
-            var arcs = _roads.ArcsOf(lane);
-            var alongM = Spline.ProjectM(arcs, pointM, _roads.LaneLengthM[lane] * 0.5f, _roads.LaneLengthM[lane]);
-            var on = Spline.SampleAt(arcs, alongM);
-            var pointing = Vector2.Dot(on.Direction, forward) > 0f;
-            var distanceSq = (on.PositionM - pointM).LengthSquared();
-            if (bestPointing && !pointing) continue;
-            if (pointing == bestPointing && distanceSq >= bestDistanceSq) continue;
-
-            bestPointing = pointing;
-            bestDistanceSq = distanceSq;
-            bestAlongM = alongM;
-            best = lane;
-        }
-
-        return best < 0 ? new RouteEntry(TravelGraph.NoLink, 0f, 0f) : EntryOnLane(best, bestAlongM);
-    }
-
-    /// <summary>
     /// A destination as the search takes it: <b>a place on a link</b>. Both directions of the stretch the
     /// place stands on are offered, because either may be the one that reaches it first and only the
     /// search can compare them.
@@ -119,9 +88,15 @@ internal sealed class DrivingNetwork
         return count;
     }
 
-    public static DrivingNetwork Build(RoadGraph roads, CityPlan plan, SimConfig config)
+    /// <param name="turnsAtALot">
+    /// One flag per lane: <b>whether a leg may come back down the other side of this stretch</b> by parking
+    /// in a bay off it and leaving the other way (GEN-4l). It is handed in as data rather than read off the
+    /// car parks, which hang off the road and are above it (<see cref="Parking.BayWays.WhereALegMayTurn"/>).
+    /// </param>
+    public static DrivingNetwork Build(
+        RoadGraph roads, ReadOnlySpan<bool> turnsAtALot, CityPlan plan, SimConfig config)
     {
-        var runs = RunNetwork.Contract(new Fine(roads, plan.Junctions.CentreM), new Pricer(roads, config));
+        var runs = RunNetwork.Contract(new Fine(roads), new Pricer(roads, turnsAtALot.ToArray(), config));
 
         var linkOfLane = new int[roads.LaneCount];
         var slotOfLane = new int[roads.LaneCount];
@@ -140,13 +115,20 @@ internal sealed class DrivingNetwork
     }
 
     /// <summary>The road graph read as the fine graph a contraction consumes: junctions as nodes, directed lanes as edges.</summary>
-    readonly struct Fine(RoadGraph roads, Vector2[] junctionCentreM) : IFineGraph
+    readonly struct Fine(RoadGraph roads) : IFineGraph
     {
         public int NodeCount => roads.NodeCount;
 
         public int EdgeCount => roads.LaneCount;
 
-        public Vector2 AnchorM(int node) => junctionCentreM[node];
+        public Vector2 AnchorM(int node) => roads.NodeCentreM[node];
+
+        /// <summary>
+        /// <b>The ends of a parking section are kept whatever their degree</b> (GEN-4h). A place on a road
+        /// offers one way on and would contract into the run through it, and a leg aimed at a bay would then
+        /// have nowhere to be routed to but a metre inside a link.
+        /// </summary>
+        public bool AlwaysANode(int node) => roads.IsAPlace(node);
 
         public int FromNode(int edge) => roads.LaneFromNode[edge];
 
@@ -159,22 +141,36 @@ internal sealed class DrivingNetwork
         public ReadOnlySpan<int> EdgesOut(int node) => roads.LanesOut(node);
     }
 
-    /// <summary>The three turn prices, in nominal car lengths, over the classification the road graph filled once.</summary>
+    /// <summary>
+    /// The turn prices, in nominal car lengths, over the classification the road graph filled once — and
+    /// <b>the one movement that is not a turn at all</b>: coming back down the other side of a car park's
+    /// frontage, which the driver makes by parking and unparking (GEN-4l).
+    /// </summary>
     /// <remarks>
-    /// A turn-around is priced out of reach rather than at its nominal twenty car lengths, and it is the
-    /// one departure this graph makes: the line between two opposing lanes is a 1.5 m semicircle no car
-    /// can hold, because turning round is a manoeuvre with a reverse in it and that entry is unbuilt. A
-    /// route through one is a route the driver cannot drive, and a car handed one leaves its lane rather
-    /// than declining it. It comes out the day the catalogue lands.
+    /// <b>A pair of lanes the road did not join is refused and never free.</b> No box admits a movement that
+    /// reverses the direction of travel (TER-5f), so the two lanes of one stretch have no turn between them
+    /// anywhere: priced at nothing, every junction in the town would offer a free turn-around, which is the
+    /// one way this graph could hand a driver a route with no ground under it. A stretch some bay is worked
+    /// off both ways is the exception, and it is priced rather than free because what happens there is a
+    /// whole park and a whole unpark with the traffic given way to twice.
     /// </remarks>
-    readonly struct Pricer(RoadGraph roads, SimConfig config) : IEdgeTurnPricer
+    readonly struct Pricer(RoadGraph roads, bool[] turnsAtALot, SimConfig config) : IEdgeTurnPricer
     {
         public float PriceM(int fromEdge, int toEdge) => roads.TurnBetween(fromEdge, toEdge) switch
         {
             LaneTurn.NearSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceNearSideCarLengths,
             LaneTurn.FarSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceAcrossOncomingCarLengths,
-            LaneTurn.TurnAround => float.PositiveInfinity,
-            _ => 0f,
+            LaneTurn.Straight => 0f,
+            _ => TurnsAtTheLotM(fromEdge, toEdge),
         };
+
+        /// <summary>
+        /// What the pair costs where the road has no turn between them: the park and the unpark where they
+        /// are the two sides of a stretch a bay is worked off both ways, and out of reach everywhere else.
+        /// </summary>
+        float TurnsAtTheLotM(int fromEdge, int toEdge) =>
+            roads.LaneReverse[fromEdge] == toEdge && turnsAtALot[fromEdge]
+                ? config.Driving.NominalCarLengthM * config.Driving.TurnPriceComingBackCarLengths
+                : float.PositiveInfinity;
     }
 }

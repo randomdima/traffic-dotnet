@@ -81,15 +81,21 @@ Units, the two seeds, the tick and the decision clock are [core](../src/core/doc
 
 **OBJ-2** Five kinds, two shapes:
 
-| Object | Footprint | Kind | Contains |
-|---|---|---|---|
-| Prop | small circle | static | — |
-| Traffic light | small circle | static | — |
-| Building | large rectangle | static | 0..capacity persons |
-| Person | small circle | dynamic | — |
-| Car | medium rectangle | dynamic | 0..1 driver |
+**One shape**, an oriented box with its corners rounded, and the five kinds are what they set it to:
 
-**A car collides as its footprint box, turned.** A per-variant hull is not what the town is laid against.
+| Object | Shape | Kind | Contains |
+|---|---|---|---|
+| Prop | small disc — a radius with no box | static | — |
+| Traffic light | small disc | static | — |
+| Building | one or more square-cornered rectangles | static | 0..capacity persons |
+| Person | small disc | dynamic | — |
+| Car | one rounded rectangle | dynamic | 0..1 driver |
+
+**A disc is not a second shape**: it is the same rounded box with nothing in the middle of it, and the
+solver holds one shape and one narrow phase for all five (`SOL-1`).
+
+**A car collides as a shape fitted inside its picture** and not as the footprint that picture was drawn
+in (`CAR-12b`). A per-variant hull is still not what the town is laid against.
 
 **OBJ-3** Props differ only in size, sprite and **kind**; one static circular prop type with variants
 satisfies every kind of filler, and **a prop's kind decides where it may stand**.
@@ -98,6 +104,11 @@ satisfies every kind of filler, and **a prop's kind decides where it may stand**
 ([world/containment](../src/world/containment/docs/requirements.md)).
 
 **OBJ-5** Building capacity scales with footprint.
+
+**OBJ-5a** **A building is collided as the rectangles its roof is drawn of and not as the box that roof
+was drawn in.** An L, a courtyard, a cut corner and a porch are all one defect otherwise — metres of
+empty box that stop a car in the open — and the parts are the picture's own, so what is drawn and what
+is stood are one answer and cannot drift apart.
 
 **Props and buildings are solid** — a car hits a tree — and anything static and numerous is priced
 against **the queries it joins**, not against what it draws.
@@ -116,7 +127,9 @@ Both concerns are required.
 **AGT-4** An agent whose soft rules conflict with its situation follows that agent type's recovery rule
 (PER-8, CAR-9, CAR-9a) rather than freezing indefinitely.†
 
-**AGT-5** An agent in a terminal state — dead person, broken car — performs no further actions.
+**AGT-5** An agent in a terminal state — a broken car, and nothing else — performs no further actions. A
+person knocked down takes no actions either, and is **not** terminal: an ambulance is coming for them
+(PER-18), and a state something else can end is not one an agent is in for good.
 
 **AGT-7** Everything an agent does is a **named manoeuvre from a closed catalogue** per agent type, every
 failure exit names its successor, and every entry is bounded by time, distance or attempts. **A situation

@@ -25,6 +25,12 @@ namespace TrafficSimulation.Tests.Physics;
 /// of it. It is the answer this test was written to settle — the wall's own page had the opposite
 /// written down, from a reading of a newer upstream than the one this town was tuned against.
 /// </remarks>
+/// <remarks>
+/// <b>The only class here that stands a world of the package's own</b>, and the reason it is serialised:
+/// the incumbent keeps its worlds in a static roster behind an id pool, so two of them being made at once
+/// is the shared state this project's own solver was written to be free of. Nothing else in the suite
+/// makes one — the rest of the difference tests call the collision arithmetic with no world in the room.
+/// </remarks>
 [Collection(Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Unit)]
 public class CastDifferenceTests
@@ -49,7 +55,7 @@ public class CastDifferenceTests
             if (shape % 2 == 0)
             {
                 var radiusM = 0.4f + (float)draw.NextDouble() * 2f;
-                mine.AddStaticCircle(centreM, radiusM);
+                mine.AddStaticDisc(centreM, radiusM);
                 Circle(world, centreM, radiusM);
             }
             else
@@ -99,7 +105,7 @@ public class CastDifferenceTests
         // in front of it to report instead.
         mine.AddStaticBox(Vector2.Zero, new Vector2(6f, 4f), 0.3f);
         Box(world, Vector2.Zero, new Vector2(6f, 4f), 0.3f);
-        mine.AddStaticCircle(new Vector2(30f, 0f), 3f);
+        mine.AddStaticDisc(new Vector2(30f, 0f), 3f);
         Circle(world, new Vector2(30f, 0f), 3f);
         mine.SettleStatics();
 
@@ -119,8 +125,8 @@ public class CastDifferenceTests
     public void TheExcludedBodyIsNeverWhatACastMeets()
     {
         var mine = new PhysicsWorld(SimConfig.Shipped());
-        mine.AddCar(Vector2.Zero, 0f);
-        var ahead = mine.AddCar(new Vector2(20f, 0f), 0f);
+        mine.AddNominalCar(Vector2.Zero, 0f);
+        var ahead = mine.AddNominalCar(new Vector2(20f, 0f), 0f);
         mine.SettleStatics();
 
         Assert.True(mine.CastRay(new Vector2(5f, 0f), new Vector2(40f, 0f), BodyId.None, statics: false, out var hit));

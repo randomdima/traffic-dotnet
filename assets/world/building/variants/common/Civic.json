@@ -1,0 +1,7 @@
+{
+  "variants": [
+    "../hospital/hospital.json",
+    "../police_station/police_station.json",
+    "../repair_shop/repair_shop.json"
+  ]
+}

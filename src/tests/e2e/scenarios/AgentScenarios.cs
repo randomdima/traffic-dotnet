@@ -96,6 +96,72 @@ internal static class AgentScenarios
                           + "what traffic looks like, not where it is."),
 
         new(
+            Name: "car-lamps",
+            Group: "core",
+            Map: "Test",
+            Subject: "A taxi held at the crossroads' painted bar with its lamps lit (CAR-14). What the "
+                     + "lamps SAY is arithmetic and is tested as such; what no number can answer is "
+                     + "whether they read as lamps on a car — sections of it that light — from the "
+                     + "height a street is watched at.",
+            FrameWidthM: 10f, FinestFeatureM: 0.04f, // a lens's own edge, which is what "on the corner" is judged on
+            AtM: new Vector2(268f, 155.8f), Seconds: 29, Ui: ["none"],
+            Expect:
+            [
+                "Two red lamps are lit, one at each corner of the same end of the car.",
+                "An amber lamp is lit at one corner of the other end.",
+                "Each lit lamp is a small bright patch with light spilling a little around it, sitting "
+                + "on the corner of the bodywork rather than floating over the middle of a panel.",
+                "Every lamp, lit or not, lies on the car's own bodywork — none hangs off its outline "
+                + "onto the road beside or beyond it.",
+                "The two red lamps are the same distance in from their nearest corner as one another.",
+                "No lamp washes the whole car out: the bodywork's own colour still reads under and "
+                + "around them.",
+            ]),
+
+        new(
+            Name: "service-lamps",
+            Group: "core",
+            Map: "Odesa",
+            Subject: "Ambulances standing on their hospital's apron, none of them out on a call "
+                     + "(CAR-14a, AMB-4b). Their art is painted with a two-section lamp bar across "
+                     + "the roof; what no number can answer is whether that bar reads as unlit glass "
+                     + "rather than as a beacon that is on.",
+            FrameWidthM: 16f, FinestFeatureM: 0.05f, // one end of a beacon bar
+            AtM: new Vector2(1489f, 1035f), Seconds: 45, Ui: ["none"],
+            Expect:
+            [
+                "No lamp on any of these cars is lit: nothing on them glows or spills light onto the "
+                + "bodywork or the ground.",
+                "Each roof bar still reads as two lensed sections either side of a dark centre — "
+                + "darkened glass, not a black gap in the roof.",
+                "The corner lamps at each end of each car are dark in the same way.",
+            ]),
+
+        new(
+            Name: "tow-arm",
+            Group: "core",
+            Map: "Test",
+            Subject: "The evacuator standing in its own bay at the depot, with nothing on the arm, so "
+                     + "the arm is drawn in over its own deck (EVA-5). The arm is the one part of any "
+                     + "vehicle here drawn as a picture of its own, and what no number can answer is "
+                     + "whether it reads as one machine with its gear stowed rather than as two things "
+                     + "parked on top of each other.",
+            FrameWidthM: 14f, FinestFeatureM: 0.08f, // the fork at the far end of the arm
+            AtM: new Vector2(305.1f, 180.4f), Seconds: 10, Ui: ["none"],
+            Expect:
+            [
+                "One recovery truck reads as a single vehicle: a cab, a flat deck behind it, and gear "
+                + "folded down onto that deck rather than a second machine standing on it.",
+                "The stowed gear is in line with the truck's own long axis, not skewed across it, and "
+                + "it reaches about as far back as the truck's own tail and no further.",
+                "It sits on the deck rather than floating clear of the bodywork, and the end nearest "
+                + "the tail is wider than the part in front of it.",
+                "The truck's four wheels are visible at the corners of its body, none of them hidden "
+                + "under the stowed gear's own picture.",
+                "Nothing on the truck is lit: no lamp glows or spills light onto the bodywork or ground.",
+            ]),
+
+        new(
             Name: "pedestrians",
             Group: "core",
             Map: "Test",

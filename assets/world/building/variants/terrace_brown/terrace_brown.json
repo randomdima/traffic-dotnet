@@ -1,5 +1,8 @@
 {
   "id": "terrace_brown",
   "sprite": "terrace_brown.png",
-  "footprintM": [14.00, 14.03]
+  "footprintM": [14.00, 14.03],
+  "partsM": [
+    { "atM": [0.02, -0.26], "sizeM": [13.51, 12.87] }
+  ]
 }

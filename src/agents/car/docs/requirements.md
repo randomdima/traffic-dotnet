@@ -17,6 +17,19 @@ an agent.
 **CAR-3** Actions: set steering angle; select gear, forward or reverse; set longitudinal acceleration
 between the braking and drive bounds; handbrake.
 
+**CAR-3a** **Neither control arrives in the tick it is asked for.** The pedal travels and so does the
+wheel: what a driver sets is what it is *asking* for, and what the body carries out is as far towards it as
+the rack and the linkage got in a tick. Both rates are the car's own, and **both bind a hand at the wheel
+exactly as they bind a follower** — a rack is a fact about the car and not about who is turning it. A wheel
+that arrived instantly would let any driver select full lock at speed, which is a circle the tyres cannot
+hold and a front axle saturated for the whole of the corner.
+
+**CAR-3b** **The throttle is bounded by what the patch has left, not by what the engine has.** A driven
+axle may be asked for the ellipse's remainder along the roll once the corner the car is *actually* taking
+has been paid for; past that, throttle buys no acceleration and only takes grip off the turn. This binds
+whoever is at the pedals. What does not is the self-driver's own lift while its tyres report a slide, which
+is a driver keeping out of trouble rather than a fact about rubber — flooring it stays the player's to do.
+
 **CAR-4** Steering changes heading **only as a function of travel and steering angle** — a stationary car
 does not rotate.
 
@@ -27,6 +40,65 @@ the car is pointing, and every pose that meets a line is measured to it. The mid
 and the tightest circle it can hold is `√(R² + d²)`. A template drawn through the middle of the car at
 the car's own minimum radius is therefore not merely hard to follow but **impossible**, and the car rides
 it `atan(d/R)` out of square all the way in.
+
+## The line is a recommendation, and the car is its own
+
+**CAR-10** A driven line is a **route the car is asked to follow and never a rail it is placed on**. What
+the town precomputes — the lanes of a route, the way in and out of a bay — exists so that a driver does not
+search the road network for every metre it covers; how that line is actually driven is the car's own, tick
+by tick: what speed to hold, when to turn the wheel and how far, when to wait and when to go. Nothing above
+the tyres moves a body.
+
+**CAR-10a** A car therefore **deviates from its line and is expected to**. What binds it is the ground it
+may be on (CAR-6.2), the road it was granted (S-2a) and the paint it owes (CAR-7b) — never the metres of
+the line itself. A car far enough off its line that it is no longer driving it is a recovery (CAR-9) and
+not a correction applied to the body.
+
+**CAR-10b** Where the town's own geometry does not suit the car that turns up, **the car lays its own** —
+a bay's way whose start is not where this car's axle stands is replaced by the same shape drawn from the
+pose it is actually in. A car is never shuffled onto a line to make a precomputed one fit.
+
+**CAR-11** A car is driven by **its own body**: its footprint and mass, where its axles sit under it, how
+wide its track is, what its tyres hold, and what its gearing and brakes are worth. Every one of those is
+the variant's, and every decision taken for that car — the wheel, the pedals, the road it asks for, the
+gap it keeps, the shape it draws to park — is taken against them. **A fleet whose cars differ only in
+their pictures is a fleet of one car.**
+
+**CAR-11a** The **town's geometry is the nominal car's**: lane widths, junction radii, bays and the ways
+laid into and out of them are sized against `SimConfig`'s own figures and are the same for whoever turns
+up. The proving ground stands that car too — its cars differ in drive layout and in nothing else — because
+a lap whose cars differ in every figure measures nothing.
+
+**CAR-11b** A car **takes a bay its body fits in**. A space is painted for the nominal car with a margin
+either side; a body longer or wider than that is one parked across the aisle behind it, and the bay is
+refused before a line into it is laid.
+
+**CAR-12** A car's **tyres stand outside its bodywork**. Its track is the width of the panels over its
+axles — measured off its own picture, mirrors ignored — so each wheel centre stands on a flank and at least
+`Tyre.ShowsPastTheBodyworkShare` of every tyre's width is outside the body drawn over it. This is geometry
+and not decoration: those same offsets are where the four patches take the ground and where the impulses
+are spent, so a track authored to hide the wheels is a car cornering on a narrower base than it looks like
+it has. **What a car collides with is still its bodywork**: the rubber standing proud of the box is drawn
+and driven on, and is not a second hull. **And the silhouette that is measured is the bodywork alone** — a
+sheet carries no fragment standing off the body it was cut from, because such a fragment is both a bright
+fleck beside the car on screen and a false flank for a track to be authored against.
+
+**CAR-12a** A car is **drawn at the footprint it is simulated at** — its own, never the nominal car's. The
+picture is what says where the panels end, so a body stretched to another car's size is one whose tyres,
+mirrors and overhangs are all in the wrong place.
+
+**CAR-12b** A car is **collided as a rounded box fitted inside the picture of it** — the largest one that
+lies within the bodywork — and never as the footprint that picture was drawn in. A footprint is a
+rectangle art is drawn into: its corners are empty, and its width is set by whatever reaches furthest,
+which on a police car is the mirrors. Collided at the footprint a car is stopped by a car it visibly is
+not touching, half a car's width of it. The fit is measured off the art and authored beside it, it is
+**inside the panels and so inside the mirrors and the tyres**, and it takes about a twentieth off the
+length and a tenth off the width. A variant that names no fit is collided at its footprint with square
+corners, and so is the nominal car, which is a figure rather than a picture and has nothing to be fitted
+inside.
+
+**A car is still drawn, driven, parked and measured at its footprint** (CAR-11, CAR-12a). What the fit
+changes is one thing: the shape the solver is handed.
 
 ## Soft rules
 
@@ -48,12 +120,38 @@ leave to legal ground.
 agents.
 
 **CAR-6.5** Reverse **only as part of a manoeuvre** that owns it — entering or leaving a bay, squaring up
-in one, making a turn-around.
+in one, backing off, working round on the spot.
 
 **CAR-7** Yielding to another agent that blocks the path is legitimate idling and is the normal way cars
 resolve conflicts.
 
 **CAR-7a** A car must yield to any agent already inside the intersection or on a crossing it is taking.
+
+**CAR-7b** A car **crosses paint at a crossing pace**, which is the car's own figure: arrived at like a
+corner rather than held to from three streets away, and kept until the **tail** is off the paint rather
+than the nose. It is owed on every line that crosses a crossing — a template of a manoeuvre's own as much
+as a route — and it is lifted only where the crossing's own signal is holding the kerbs, read off the
+pedestrian side of the table so that what a driver may do and what the people on the kerb were told cannot
+disagree. **The stop short of a crossing somebody is on is not here**: it is the ground (TER-4c.1,
+TER-5e), and stating it again would be a second gate on a movement that has already been refused (SIM-7).
+
+**CAR-13** **A small share of people do not keep the courtesies**, and which ones is drawn once when the
+person is made and holds for the rest of the run. It is a fact about the **person and not the car** — the
+same car is driven past a red by one owner and held at it by the next — so it changes nothing until they
+take a wheel, and the share is `SimConfig.Driving`.
+
+**CAR-13.1** Exactly two of the soft rules are dropped: **CAR-6.3**, the red, and the stop owed at an
+uncontrolled crossing to somebody **waiting** on the kerb (TER-4c.1). Nothing else is, and the list is
+closed — a driver who does not keep the rules is not thereby exempt from them.
+
+**CAR-13.2** **A body is never one of them.** Somebody already on the paint, a wreck, a queue, the ground
+another movement has committed to and the hazard the profile brakes for all bind a reckless driver exactly
+as they bind anybody else. What the habit removes is a courtesy owed to whoever has not started; what
+follows from it is a matter for the geometry and the tyres, and never a licence.
+
+**CAR-13.3** **A red they cross is a violation**, which is the whole of how this differs from AMB-4.2. An
+ambulance is exempt from the rule and cannot be in breach of it; a reckless driver is in breach and is
+counted, so the count and `TownWorld.RecklessDrivers` are read together and neither means anything alone.
 
 ## Recovery
 
@@ -73,9 +171,16 @@ One impulse per wheel, spent from a friction **ellipse**: side grip and rolling 
 quantities drawn from **one budget**, so a wheel already using its grip to turn has less left to brake
 with. Each patch is weighed by the load its corner carries as the car pitches and rolls, so weight
 transfer is a fact about the model rather than a fudge. Front wheels are **Ackermann**-steered; drive
-force is placed by layout and divided by the **driven axle's** load; the handbrake locks the **rear**
-wheels only, so the back drags while the front pair keeps rolling and steering. **An unmanned car holds
-its handbrake.**
+force is placed by layout and divided by the **driven axle's** load, and bounded by what the ellipse has
+left (CAR-3b); the handbrake locks the **rear** wheels only, so the back drags while the front pair keeps
+rolling and steering. **An unmanned car holds its handbrake.**
+
+**Which end the drive is placed on is the whole of what a layout is**, and it needs no rule of its own: a
+front-driven car spends the steered axle's grip to accelerate, so the throttle takes from the corner
+directly and the car limits itself; a rear-driven one spends the other axle's, accelerates freely, and runs
+wide because the *front* pair runs out of grip at the speed it reaches. Neither is a defect and neither is
+corrected. What answers them is a driver — the profile's own corner speed for one that drives itself, and
+a wheel and a pedal that can be held part way (CAR-3a) for a hand.
 
 **The budget is split between the two axes on slip velocities, not on force demands.** A split on demands
 weighs a lateral ask by the corner's load and a longitudinal one by the rim — two orders of magnitude
@@ -89,6 +194,69 @@ boundary treated as a **ceiling, never a target**, or a wheel resyncing gets the
 **All four wheels read one snapshot of the body's motion taken at the start of the tick.** An impulse
 applies immediately, so reading the live velocity per wheel makes the order the wheels are stepped in
 break the axle pair's cancellation.
+
+## What a car shows
+
+**CAR-14** A car **says what it is doing with its lamps**, and every lamp is a fact the car already
+holds: the pedal, the gear, the line in front of it and the priority it carries. **No lamp is state of
+its own** — there is nothing to set, nothing to clear and nothing that can disagree with the car it is
+bolted to.
+
+**CAR-14a** A lamp is a **section of the car's own picture**, and the variant's file says which one: every
+lens is measured off the art it is drawn on, so a lamp lights the panel an artist drew a lens on and
+nothing arithmetic put somewhere near it. **A lit lamp is that section cut from that sprite and driven
+emissive**, at the resolution the sprite is drawn at — it therefore wears the shape, the bezel and the
+pixel grid the artist gave it, and cannot overhang an outline it was cut from the inside of. **An unlit
+lamp is drawn by nobody**: the dull lens is the car's own picture and is already on screen. A variant
+that draws no lens for a fitting cannot show it.
+
+**CAR-14b** Where the art **already draws a lamp**, the lens is a section of that lamp and not a shape
+beside it: a front cluster's indicator is the end of it nearest the flank, so what flashes is the part
+of the light a car actually indicates with. A block painted onto bodywork is what a variant gets **only
+where the art draws no lamp there at all** — it is a lens invented for a car that has none, and beside a
+lamp the artist did draw it reads as a sticker on the paint.
+
+**CAR-14.1** The **indicator names the side the line ahead bends to**, over the stretch of it a driver
+would be announcing. One rule covers a junction turn, a bay being pulled out of and a way round an
+obstruction, because all three are already written down as the geometry the car is about to drive; a
+street's own bend is under the threshold and says nothing. A line laid the way the rear axle travels
+(`E-3`, the bay templates) bends the body the other way round, and is read in the body's frame. It is
+the **front corner pair** that flashes.
+
+**CAR-14.2** The **brake lamps are the pedal**: what the driver is asking of the brakes, never what the
+tyres are doing about it. A car standing on its handbrake with nobody's foot down shows none.
+
+**CAR-14.3** The **reversing lamps are the gear**, on the same rear cluster the brake lamps are — which
+is the one lamp the art gives a car back there. **The pedal outranks the gear on it**: a car braking as
+it backs out of a bay shows red, because what the driver behind has to read first is that it is stopping.
+
+**CAR-14.4** The **coloured beacon is the priority the car is carrying (AMB-4) and never the vehicle** — an
+ambulance not on a call and a police car on its beat (SRV-5) show nothing, and a car that is granted the
+road shows it for as long as it holds it. **A hand at the wheel runs it too** (CTL-5c), and that one is
+the picture alone. **The bar is never dark while it is on**, so a car everybody owes the road to is lit in
+every frame it is in: a bar of two colours swaps them end for end rather than blinking, and a bar of one —
+the amber a works vehicle carries (CAR-14.6) — burns its two ends in turn, each blinking against its own
+dull glass. **A vehicle whose art draws a second bar runs it against the first**: the two carry opposite
+colours at every instant, so the end a driver behind is looking at is changing whichever bar is in front
+of them.
+
+**CAR-14.5** A car **nothing is driving shows nothing lit**, on CAR-1: a lamp is something a car is doing,
+and what a parked one shows is its own dull glass. **A hand at the wheel is one of the things that drives
+one** (CTL-5c) — a car taken over from a stand shows its lamps from the tick it is taken, because standing
+down is what it was doing until then. **A wreck shows nothing at all** — the lenses were
+measured off the car it was and not the crumpled picture it now wears.
+
+**CAR-14.6** An **amber bar is the work and never the priority**. It is up for as long as the vehicle is
+out on the job it exists for — an evacuator from the tick it takes a wreck until it is back in its own bay,
+both ways round and through the standing still between them — and it is up whether or not the town is
+giving that truck the road (EVA-4). **It grants nothing**: no movement gives way to it and no rule of the
+road reads it. What it says is that there is a truck working in this street.
+
+Where the numbers are: `SimConfig.Lamps` — how much of the line is read for a turn and how far that
+stretch must bend, the rates the flashing ones flash at, and how far the light around a lit one spills.
+**Neither where a lamp is nor what it looks like is a number here**: where is the variant's own file,
+beside the picture it was measured off, and what is the town's one lamp sheet, cut from those same
+pictures (CAR-14a).
 
 ## Marks
 

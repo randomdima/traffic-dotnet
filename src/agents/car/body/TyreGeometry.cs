@@ -11,21 +11,25 @@ internal static partial class TyreModel
     /// where their impulses are spent. Taken once and handed to both, since the two are the same four
     /// points and the body cannot move between them.
     /// </summary>
-    public static void WheelPointsM(SimConfig config, in CarPose pose, Span<Vector2> into)
+    public static void WheelPointsM(in CarBuild car, in CarPose pose, Span<Vector2> into)
     {
         var forward = pose.Forward;
         var right = pose.Right;
         for (var wheel = 0; wheel < Wheels; wheel++)
         {
-            var atBody = WheelAtM(config, wheel);
+            var atBody = WheelAtM(car, wheel);
             into[wheel] = pose.PositionM + (forward * atBody.X) + (right * atBody.Y);
         }
     }
 
-    /// <summary>Where a wheel stands in the body's own frame: <c>+x</c> forward, <c>+y</c> the driver's side.</summary>
-    public static Vector2 WheelAtM(SimConfig config, int wheel) => new(
-        wheel < 2 ? config.Car.WheelbaseM * 0.5f : -config.Car.WheelbaseM * 0.5f,
-        wheel % 2 == 0 ? config.CarTrackM * 0.5f : -config.CarTrackM * 0.5f);
+    /// <summary>
+    /// Where a wheel stands in the body's own frame: <c>+x</c> forward, <c>+y</c> the driver's side.
+    /// <b>The car's own axles under its own body</b> (CAR-11) — a pickup carries its rear axle further back
+    /// under a longer body than a hatchback does, and the four patches are where its picture puts them.
+    /// </summary>
+    public static Vector2 WheelAtM(in CarBuild car, int wheel) => new(
+        wheel < 2 ? car.WheelbaseM - car.CentreAheadOfAxleM : -car.CentreAheadOfAxleM,
+        wheel % 2 == 0 ? car.HalfTrackM : -car.HalfTrackM);
 
     /// <summary>
     /// What each corner carries as the car pitches and rolls: a quarter each at rest, moved front to
@@ -36,12 +40,12 @@ internal static partial class TyreModel
     /// weight all the same — <c>a·h/(base·g)</c> is the share of it that moves, which is the whole
     /// reason there is a centre-of-gravity height at all.
     /// </remarks>
-    public static void Loads(SimConfig config, in CarPose pose, Span<float> into)
+    public static void Loads(SimConfig config, in CarBuild car, in CarPose pose, Span<float> into)
     {
         var weight = config.Tyre.StandardGravityMps2;
         var floor = config.Tyre.MinCornerLoadFraction;
-        var alongShare = pose.AccelerationMps2.X * config.Car.CgHeightM / (config.Car.WheelbaseM * weight);
-        var acrossShare = pose.AccelerationMps2.Y * config.Car.CgHeightM / (config.CarTrackM * weight);
+        var alongShare = pose.AccelerationMps2.X * car.CgHeightM / (car.WheelbaseM * weight);
+        var acrossShare = pose.AccelerationMps2.Y * car.CgHeightM / (car.HalfTrackM * 2f * weight);
 
         // The floor is what keeps a shunted car on four tyres. The acceleration a transfer is read from
         // is already capped at what the tyres could plausibly have caused, but that cap is still enough
@@ -61,7 +65,7 @@ internal static partial class TyreModel
     /// The two front wheels turned for the same circle: the inner one turns further than the outer,
     /// because they are turning about one centre at two radii.
     /// </summary>
-    public static void Ackermann(SimConfig config, float steerRad, Span<float> into)
+    public static void Ackermann(in CarBuild car, float steerRad, Span<float> into)
     {
         into[2] = 0f;
         into[3] = 0f;
@@ -72,10 +76,9 @@ internal static partial class TyreModel
             return;
         }
 
-        var radiusM = MathF.Abs(config.Car.WheelbaseM / MathF.Tan(steerRad));
-        var halfTrackM = config.CarTrackM * 0.5f;
-        var innerRad = MathF.Atan(config.Car.WheelbaseM / MathF.Max(0.01f, radiusM - halfTrackM));
-        var outerRad = MathF.Atan(config.Car.WheelbaseM / (radiusM + halfTrackM));
+        var radiusM = MathF.Abs(car.WheelbaseM / MathF.Tan(steerRad));
+        var innerRad = MathF.Atan(car.WheelbaseM / MathF.Max(0.01f, radiusM - car.HalfTrackM));
+        var outerRad = MathF.Atan(car.WheelbaseM / (radiusM + car.HalfTrackM));
 
         // Turning to the driver's right puts the right-hand wheels on the inside of the circle.
         var sign = MathF.Sign(steerRad);

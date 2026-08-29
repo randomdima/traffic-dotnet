@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Core.Config;
@@ -95,15 +96,20 @@ public class FootOccupancyTests
     }
 
     /// <summary>
-    /// <b>Nobody is granted ground somebody else will still be standing on once they have stopped</b> —
-    /// the same property the road's book is for, asked of the pavement's, and the whole of what holds one
-    /// walker off the next.
+    /// <b>Nobody is granted ground somebody else under way will still be standing on once they have
+    /// stopped</b> — the same property the road's book is for, asked of the pavement's, and the whole of
+    /// what holds one walker off the next.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Asked of the ways rather than of the walkers, because that is where two grants would meet. A grant
     /// that came out empty is skipped: a body already inside somebody else is a contact, and standing still
     /// is all the walker can do about it.
+    /// </para>
+    /// <para>
+    /// <b>And of the bodies under way alone</b> (PER-24). A body going nowhere is ground a walk is granted
+    /// straight through on purpose: what a walker does about one is step round it, and the grant it is
+    /// cut at is the one thing that would stop it doing so.
     /// </para>
     /// <para>
     /// <b>Of the walkers standing on the way</b>, and not of the ones whose ask merely reaches it. A walk
@@ -143,20 +149,28 @@ public class FootOccupancyTests
                 {
                     if (slots[ahead].Occupant == slots[behind].Occupant) continue;
 
+                    // <b>Of the bodies under way, which is what a walker is held off</b> (PER-24). A body
+                    // going nowhere is ground a walk is granted straight through, because what a walker
+                    // does about one is step round it — asked about here, the claim would be that nobody
+                    // may be granted the ground it is the whole point of the rule to grant.
+                    if (slots[ahead].Use != LaneUse.Reserved) continue;
+
                     // <b>In front is a fact about the bodies and not about the near edges</b> (TER-5c.2):
                     // every stretch begins a margin behind its owner and a stretch clipped at a way's start
                     // begins further back still, so a slot later in the list can belong to a body this one
                     // has already walked past.
-                    if (slots[ahead].StandsToM < slots[behind].StandsToM) continue;
+                    //
+                    // <b>And level is not in front either</b> (<see cref="LaneOccupancy.GrantedOn"/>). The
+                    // end of a way clamps every body past it onto one metre, so a pair there have the same
+                    // front and neither is ahead of the other — asked about, each would have to be held off
+                    // ground the other is standing on, and the pair never move again.
+                    if (slots[ahead].StandsToM <= slots[behind].StandsToM) continue;
 
-                    // Where that body comes to rest: where it lies if it is going nowhere, and its own
-                    // stopping distance past its back if it is under way — worked out against the grip the
-                    // *asking* walker has, since what the ground is doing under somebody else is not
-                    // something a body can see.
+                    // Where that body comes to rest: its own stopping distance past its back, worked out
+                    // against the grip the *asking* walker has, since what the ground is doing under
+                    // somebody else is not something a body can see.
                     var gripMps2 = Config.Person.FootGripMps2 * world.People.GroundCoefficient[slots[behind].Occupant];
-                    var restingM = slots[ahead].Use == LaneUse.Reserved
-                        ? MathF.Max(0f, slots[ahead].AlongMps * slots[ahead].AlongMps / (2f * gripMps2))
-                        : 0f;
+                    var restingM = MathF.Max(0f, slots[ahead].AlongMps * slots[ahead].AlongMps / (2f * gripMps2));
 
                     Assert.True(
                         grantedToM <= slots[ahead].FromM + restingM + ToleranceM,
@@ -175,27 +189,8 @@ public class FootOccupancyTests
     /// costs a tick and changes nothing, which no test of the arithmetic above would notice.
     /// </summary>
     [Fact]
-    public void SomebodyInABusyTownIsHeldBehindSomebodyElse()
-    {
-        var world = new TownWorld(Towns.Of("Odesa"), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        var heldTicks = 0;
-        for (var tick = 0; tick < Ticks; tick++)
-        {
-            loop.Advance(1);
-            for (var person = 0; person < world.People.Count; person++)
-            {
-                if (world.People.Walking[person] && !world.People.HeldAtTheKerb[person]
-                    && world.People.AuthorityM[person] <= 0f)
-                {
-                    heldTicks++;
-                }
-            }
-        }
-
-        Assert.True(heldTicks > 0, "nobody in a minute of a busy town waited behind anybody");
-    }
+    public void SomebodyInABusyTownIsHeldBehindSomebodyElse() =>
+        Assert.True(Of("Odesa").Held > 0, "nobody in a minute of a busy town waited behind anybody");
 
     /// <summary>
     /// Where a grant ends, <b>in the metres of the way the body is standing on</b>. What goes into the book
@@ -249,11 +244,45 @@ public class FootOccupancyTests
 
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
 
-    static TownWorld Run(string map)
+    /// <summary>A minute of one map: the state it arrives at, and the one census that can only be taken on the way.</summary>
+    sealed class Minute
     {
-        var world = new TownWorld(Towns.Of(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(Ticks);
-        return world;
+        public required TownWorld World { get; init; }
+
+        /// <summary>
+        /// How many walker-ticks of it were spent held behind somebody else — a body walking, not waiting at
+        /// a kerb, and granted nothing. It is a count over the run and not a state at the end of it, which is
+        /// why it is taken here rather than read off <see cref="World"/>.
+        /// </summary>
+        public int Held;
     }
+
+    static readonly ConcurrentDictionary<string, Minute> Ran = new();
+
+    /// <summary>
+    /// <b>The town a minute in, taken once per map and read by every claim that asks about the same
+    /// moment.</b> Nothing here writes to the world it is handed, and five questions about one minute are
+    /// one run of the town.
+    /// </summary>
+    static Minute Of(string map) => Ran.GetOrAdd(map, opened =>
+    {
+        var minute = new Minute { World = new TownWorld(Towns.Of(opened), Config) };
+        var loop = new SimLoop<TownWorld>(minute.World, Config);
+        for (var tick = 0; tick < Ticks; tick++)
+        {
+            loop.Advance(1);
+            for (var person = 0; person < minute.World.People.Count; person++)
+            {
+                if (minute.World.People.Walking[person] && !minute.World.People.HeldAtTheKerb[person]
+                    && minute.World.People.AuthorityM[person] <= 0f)
+                {
+                    minute.Held++;
+                }
+            }
+        }
+
+        return minute;
+    });
+
+    static TownWorld Run(string map) => Of(map).World;
 }

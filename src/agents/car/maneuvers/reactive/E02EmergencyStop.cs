@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 
@@ -39,13 +40,13 @@ internal static class E02EmergencyStop
     /// the reading carries.
     /// </summary>
     public static bool IsAHazard(in DriveScene scene) =>
-        IsAHazard(scene.Config, scene.AlongMps, scene.Context);
+        IsAHazard(scene.Config, scene.Build, scene.AlongMps, scene.Context);
 
     /// <summary>
     /// The same question from the sensing half of the tick, which holds the two readings but not a scene:
     /// row 1 is asked before any procedure runs and on every tick, so it may not wait for one to be built.
     /// </summary>
-    public static bool IsAHazard(SimConfig config, float alongMps, in DriveContext context)
+    public static bool IsAHazard(SimConfig config, in CarBuild car, float alongMps, in DriveContext context)
     {
         if (alongMps <= config.Driving.StopSpeedMps || float.IsPositiveInfinity(context.HeadwayM))
         {
@@ -55,7 +56,7 @@ internal static class E02EmergencyStop
         var closingMps = alongMps - MathF.Max(0f, context.HeadwaySpeedMps);
         if (closingMps <= config.Driving.StopSpeedMps) return false;
 
-        var gapM = context.HeadwayM - config.Car.LengthM * 0.5f;
+        var gapM = context.HeadwayM - car.HalfLengthM;
         if (gapM <= 0f) return true;
 
         // <b>What is left when the margin the profile kept back is spent</b>, and never a figure of this
@@ -63,7 +64,7 @@ internal static class E02EmergencyStop
         // below it is an entry that fires on the profile's own ordinary braking and takes the pedal off it:
         // read at <c>GripMargin</c> it stood at three quarters of what the profile was already planning
         // with, and `E-2` was 16 % of every car-tick on the proving ground.
-        return closingMps * closingMps / (2f * gapM) > config.CarUtmostBrakingMps2(context.GroundCoefficient);
+        return closingMps * closingMps / (2f * gapM) > car.UtmostBrakingMps2(context.GroundCoefficient);
     }
 
     /// <summary><c>Sa</c>: none. Row 1 of the arbitration binds everywhere, including inside a recovery.</summary>

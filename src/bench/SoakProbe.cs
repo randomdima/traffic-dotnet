@@ -49,7 +49,23 @@ internal static class SoakProbe
     /// </summary>
     public const int StuckAfterTicks = 60;
 
-    public static void Run(SimConfig config)
+    /// <summary>
+    /// How far past its grant a body may go without it being a body entering ground it was refused: a
+    /// centimetre, the same figure the overlap is read at, because both are asking whether a body is where it
+    /// was told it could be.
+    /// </summary>
+    public const float PastTheGrantAllowanceM = 0.01f;
+
+    /// <summary>
+    /// How long a body may go on getting <em>deeper</em> into ground it was refused before it is driving on
+    /// rather than stopping. <b>Longer than any stop from town speed</b>: a car whose grant is taken from
+    /// under it brakes as hard as its tyres allow and still travels while it does, so the ticks it spends
+    /// arriving at rest are the mechanism working and not a body ignoring it. A body still going deeper two
+    /// and a half seconds later has not been braking.
+    /// </summary>
+    public const int PastAfterTicks = 150;
+
+    public static bool Run(SimConfig config)
     {
         // Nothing here is a time, so a cold process would not make a figure wrong — it would make sixty
         // seconds of four towns take several minutes of somebody's, which is its own kind of untrue.
@@ -58,104 +74,71 @@ internal static class SoakProbe
             $"soak probe — {WarmupTicks} warm-up ticks, {MeasuredTicks} measured ({MeasuredTicks / config.Sim.TickRateHz} s), " +
             $"{config.Solver.VelocityIterations} velocity and {config.Solver.PositionIterations} position iterations");
         Console.WriteLine(
-            $"{"map",-10}{"walkers",9}{"cars",6}{"dead",6}{"wrecked",9}{"walks done",12}{"gave up",9}" +
-            $"{"drives done",13}{"touches",9}{"peak mm",10}{"peak body",12}{"stuck ticks",13}{"stuck body",12}");
+            $"{"map",-10}{"walkers",9}{"cars",6}{"down",6}{"wrecked",9}{"walks done",12}{"gave up",9}" +
+            $"{"drives done",13}{"touches",9}{"peak mm",10}{"peak body",12}{"stuck ticks",13}{"stuck body",12}" +
+            $"{"past mm",10}{"drove on",10}{"drove body",12}");
 
-        foreach (var map in ProjectPaths.ShippedMaps())
+        var maps = ProjectPaths.ShippedMaps();
+        var watched = new TownWatch[maps.Length];
+        for (var map = 0; map < maps.Length; map++)
         {
-            var sample = Sample(map, config);
+            var sample = watched[map] = Sample(maps[map], config);
             Console.WriteLine(
-                $"{map,-10}{sample.Walkers,9}{sample.Cars,6}{sample.Dead,6}{sample.Wrecked,9}{sample.WalksDone,12}" +
+                $"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Down,6}{sample.Wrecked,9}{sample.WalksDone,12}" +
                 $"{sample.WalksGivenUp,9}{sample.DrivesDone,13}{sample.Touches,9}" +
-                $"{sample.DeepestOverlapM * 1_000f,10:F1}{sample.DeepestBody,12}" +
-                $"{sample.LongestStuckTicks,13}{sample.StuckBody,12}");
+                $"{sample.DeepestOverlapM * 1_000f,10:F1}{Named(sample, sample.DeepestBody),12}" +
+                $"{sample.LongestStuckTicks,13}{Named(sample, sample.StuckBody),12}" +
+                $"{sample.FurthestPastTheGrantM * 1_000f,10:F0}{sample.LongestPastTicks,10}" +
+                $"{Named(sample, sample.PastBody),12}");
         }
 
         Console.WriteLine(
             $"PHY-1 is kept while no one body stays more than {OverlapAllowanceM * 1_000f:F0} mm inside another for " +
             $"{StuckAfterTicks} ticks: a peak is one tick's approach, and a long run of them is a body nothing pushed back out.");
+        Console.WriteLine(
+            $"TER-4c.1 is kept while nobody goes on getting deeper into ground the book refused it for " +
+            $"{PastAfterTicks} ticks: the ticks a body spends arriving at rest are the stop, and a body still " +
+            "going deeper after them never braked.");
+
+        // The same soak said as claims, one map at a time, which is what a caller reads to decide whether
+        // the town kept PHY-1 rather than reading the millimetres itself.
+        var kept = true;
+        for (var map = 0; map < maps.Length; map++)
+        {
+            kept &= ScenarioReport.Print(maps[map], [watched[map]], MeasuredTicks / config.Sim.TickRateHz);
+        }
+
+        return kept;
     }
 
-    /// <param name="LongestStuckTicks">
-    /// The longest any single body stayed deeper than the allowance — the figure that separates a solver
-    /// recovering from an approach from a body left inside another one.
-    /// </param>
-    /// <param name="StuckBody">Which body that was, so the finding has somewhere to be looked at.</param>
-    /// <param name="DrivesDone">
-    /// How many cars came to rest in the bay they were driven to, which is what a drive leg ending
-    /// looks like now that a car's destination is its driver's (CAR-8).
-    /// </param>
-    /// <param name="WalksDone">
-    /// How many walks and drives ended where they were going. <b>The other half of the casualty
-    /// columns</b>: a town where nothing arrives anywhere overlaps by nothing at all and kills nobody,
-    /// and would pass every column to the right of these while modelling none of it.
-    /// </param>
-    public readonly record struct SoakSample(
-        int Walkers, int Cars, int Dead, int Wrecked, long WalksDone, long WalksGivenUp, long DrivesDone, long Touches,
-        float DeepestOverlapM, string DeepestBody, int LongestStuckTicks, string StuckBody);
-
-    public static SoakSample Sample(string map, SimConfig config)
+    /// <summary>
+    /// One town soaked and watched. <b>The arithmetic is <see cref="TownWatch"/>'s</b> — the same watch a
+    /// run of the game keeps against the map on screen — so this table and that panel cannot disagree
+    /// about how deep anything got or how long it stayed there.
+    /// </summary>
+    public static TownWatch Sample(string map, SimConfig config)
     {
         using var world = new TownWorld(TownReader.ReadFile(ProjectPaths.TownFile(map)), config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 
-        var walksBefore = world.WalkArrivals;
-        var gaveUpBefore = world.WalksGivenUp;
-        var drivesBefore = world.BaysParkedIn;
-        var bodies = world.People.Count + world.Cars.Count;
-        var overlapM = new float[bodies];
-        var stuckForTicks = new int[bodies];
-        var deepestM = 0f;
-        var deepestBody = -1;
-        var longestStuckTicks = 0;
-        var stuckBody = -1;
-
+        // The warm-up is not the measurement: what a town does while its people are still walking to their
+        // first car is not what it does once it is running.
+        var watch = new TownWatch(world);
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
             loop.Advance();
-            SweepOverlaps(world, overlapM);
-            for (var body = 0; body < bodies; body++)
-            {
-                // Which body it was and not only how deep: a walker a car swept and a car that drove into
-                // another are the same millimetres and different findings.
-                if (overlapM[body] > deepestM)
-                {
-                    deepestM = overlapM[body];
-                    deepestBody = body;
-                }
-
-                stuckForTicks[body] = overlapM[body] > OverlapAllowanceM ? stuckForTicks[body] + 1 : 0;
-                if (stuckForTicks[body] <= longestStuckTicks) continue;
-
-                longestStuckTicks = stuckForTicks[body];
-                stuckBody = body;
-            }
+            watch.Saw(world);
         }
 
-        var dead = 0;
-        for (var person = 0; person < world.People.Count; person++)
-        {
-            if (world.People.Dead[person]) dead++;
-        }
-
-        var wrecked = 0;
-        for (var car = 0; car < world.Cars.Count; car++)
-        {
-            if (world.Cars.Broken[car]) wrecked++;
-        }
-
-        return new SoakSample(
-            world.People.Count, world.Cars.Count, dead, wrecked, world.WalkArrivals - walksBefore,
-            world.WalksGivenUp - gaveUpBefore, world.BaysParkedIn - drivesBefore, world.Touches, deepestM,
-            Named(world, deepestBody), longestStuckTicks, Named(world, stuckBody));
+        return watch;
     }
 
     /// <summary>What a body's place in the sweep is called, which is the roster it falls in and its own index there.</summary>
-    static string Named(TownWorld world, int body) =>
+    static string Named(TownWatch watch, int body) =>
         body < 0 ? "—"
-        : body < world.People.Count ? $"walker {body}"
-        : $"car {body - world.People.Count}";
+        : body < watch.Walkers ? $"walker {body}"
+        : $"car {body - watch.Walkers}";
 
     /// <summary>
     /// How deep every dynamic body is into anything, this instant — walkers first, then cars, in the
@@ -175,6 +158,38 @@ internal static class SoakProbe
         {
             into[world.People.Count + car] = physics.OverlapOf(world.Cars.Body[car]);
         }
+    }
+
+    /// <summary>
+    /// <b>How far past the ground it was granted every dynamic body is</b>, this instant — walkers first,
+    /// then cars, in the roster's own order, and zero for a body still inside what the book gave it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the town's own answer read back, not a second measurement of it.</b> A grant is what is left
+    /// of a body's ask once everything already spoken for has been taken out of it, expressed from that
+    /// body's own nose — so it goes negative exactly when the nose is past the place the book stopped it, and
+    /// the figure is that overshoot. Measured any other way this would be a second arithmetic free to
+    /// disagree with the one the drivers are actually held to.
+    /// </para>
+    /// <para>
+    /// <b>A body nothing cut is left out</b> rather than counted as clear: an infinite grant is an empty road,
+    /// a parked car or a wreck, and none of them is a body that was refused anything.
+    /// </para>
+    /// </remarks>
+    public static void SweepPastTheGrant(TownWorld world, Span<float> into)
+    {
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            into[person] = PastM(world.People.AuthorityM[person]);
+        }
+
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            into[world.People.Count + car] = PastM(world.Cars.AuthorityM[car]);
+        }
+
+        static float PastM(float grantedM) => float.IsFinite(grantedM) ? MathF.Max(0f, -grantedM) : 0f;
     }
 
     /// <summary>The deepest anything is into anything, this instant. A report on the unluckiest body, and useful only beside the rest.</summary>

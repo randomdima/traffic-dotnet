@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
@@ -13,7 +14,6 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// The trip: what a person decides about one (PER-17, PER-10a) and whether a whole one completes on a
 /// town (VER-8).
 /// </summary>
-[Collection(TrafficSimulation.Tests.Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Town)]
 public class TripTests
 {
@@ -45,7 +45,7 @@ public class TripTests
     [Fact]
     public void AWholeTripCompletesUnattendedAndRepeatedly()
     {
-        using var world = new TownWorld(Towns.Fresh(Towns.Fixture), Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         // Twice the probe's own window, because a whole drive leg on this map no longer fits in one:
         // the ground gained a rolling resistance with the tyre model, and a fifth of a car's
@@ -69,12 +69,18 @@ public class TripTests
     /// no building to go to, no bay to be claimed out of and nobody to claim one — has no trips for CAR-1
     /// to be about, and its cars are put on the road by the map itself rather than by anybody's leg. A
     /// proving ground is the only such map, and what it is for is the traffic it makes.
+    /// <para>
+    /// <b>A service vehicle is the one car this is not said of</b> (AMB-3, SRV-3): it starts parked like
+    /// the rest, and with its crew already aboard, which is what makes it a car that acts without CAR-1
+    /// needing an exception written into it. That it is never free is also what keeps it out of everybody
+    /// else's trip (PER-4), so both halves are asserted here rather than assumed.
+    /// </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
     public void EveryCarStartsParkedWithNobodyInIt(string map)
     {
-        var plan = Towns.Fresh(map);
+        var plan = Towns.Of(map);
         if (plan.Buildings.Count == 0 && plan.ParkingLots.SpaceCount == 0) return;
 
         using var world = new TownWorld(plan, Config);
@@ -82,7 +88,7 @@ public class TripTests
         for (var car = 0; car < world.Cars.Count; car++)
         {
             Assert.False(world.Cars.Driven[car], $"{map}: car {car} is driving before anybody has got into it");
-            Assert.True(world.Containment.IsFree(car));
+            Assert.Equal(CarCatalog.Shared.IsService(world.Cars.Variant[car]), !world.Containment.IsFree(car));
             Assert.True(
                 world.Parking.BayOf(car) >= 0,
                 $"{map}: car {car} did not stand up in a bay the registry knows about");
@@ -96,13 +102,14 @@ public class TripTests
     [Fact]
     public void AContextOrderToABuildingIsWalkedToAndEntered()
     {
-        using var world = new TownWorld(Towns.Fresh(Towns.Fixture), Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(1);
 
-        // The building nearest the first walker, so the order is one it can actually carry out.
+        // The building nearest a walker that is out on the pavement, so the order is one it can actually
+        // carry out: an order to somebody indoors is taken up when the door puts them down (CTL-2).
         var plan = Towns.Of(Towns.Fixture);
-        var walker = 0;
+        var walker = OutOfDoors.AWalker(world, loop, Config);
         var nearest = 0;
         var nearestM = float.MaxValue;
         for (var building = 0; building < plan.Buildings.Count; building++)

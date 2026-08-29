@@ -28,6 +28,9 @@ public class PathAssemblerTests
     /// <summary>A hundredth of a radian — half a degree — which is the same arithmetic seen as an angle.</summary>
     const float KinkToleranceRad = 0.01f;
 
+    /// <summary>The millimetre the walk over an assembled line steps in, and so the shortest stretch of one it can see.</summary>
+    const float WalkedStepM = 1e-3f;
+
     /// <summary>
     /// <b>Every turn a car may take is a line a car may drive over.</b> A join that leaves the paved
     /// ground is a car driven onto the pavement while following its own line perfectly, which no
@@ -54,10 +57,6 @@ public class PathAssemblerTests
         {
             foreach (var onto in graph.TurnsFrom(lane))
             {
-                // A turn-around's line is a semicircle a car cannot hold, and turning a car round is a
-                // manoeuvre and not a line (P-11, M8). It is excluded here rather than passed silently.
-                if (graph.TurnBetween(lane, onto) == LaneTurn.TurnAround) continue;
-
                 pair[0] = lane;
                 pair[1] = onto;
                 var line = PathAssembler.Assemble(graph, pair, arcs, starts, ends);
@@ -129,7 +128,7 @@ public class PathAssemblerTests
     /// </summary>
     /// <remarks>
     /// The town measures its furniture against lanes and a driver meets all of it on one assembled line, so
-    /// this conversion stands under `P-8`'s bar and `P-12`'s paint alike. Checked by sampling both — the
+    /// this conversion stands under `P-8`'s bar and a crossing's paint alike. Checked by sampling both — the
     /// arithmetic can only agree by describing one point.
     /// </remarks>
     [Theory]
@@ -217,12 +216,17 @@ public class PathAssemblerTests
                 var acrossM = MathF.Abs(graph.JoinLengthM(slot) - (starts[1] - ends[0]));
                 Assert.True(acrossM < 0.01f, $"{map}: lane {lane} onto {turns[turn]} crosses {acrossM:F3} m more than its join is long");
 
+                // A place cut into a road (GEN-4h) has its two lanes meeting at a point, so the movement
+                // between them is a join of no length — and one drawn a rounding off a point is the same
+                // thing wearing float noise. There is no stretch to walk in either case.
+                if (graph.JoinLengthM(slot) < WalkedStepM) continue;
+
                 var join = graph.JoinArcs(slot);
                 var laid = 0;
                 var atM = 0f;
                 for (var arc = 0; arc < line.ArcCount; arc++)
                 {
-                    if (atM >= ends[0] - 1e-3f && atM < starts[1] - 1e-3f)
+                    if (atM >= ends[0] - WalkedStepM && atM < starts[1] - WalkedStepM)
                     {
                         Assert.True(laid < join.Length, $"{map}: lane {lane} onto {turns[turn]} crosses on more arcs than the town laid");
                         Assert.Equal(join[laid++], arcs[arc]);

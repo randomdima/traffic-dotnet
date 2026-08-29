@@ -43,11 +43,13 @@ internal sealed unsafe class Swapchain : RenderTarget
     /// every driver has.
     /// </summary>
     /// <remarks>
-    /// Mailbox by default, because FIFO cannot be measured: it blocks the loop on the display, so a
-    /// windowed run reports the refresh rate and nothing about this build (120 fps on Test and 120 on
-    /// Odesa, two towns fifty times apart). Mailbox paces and tears the same but does not block the
-    /// thread that filled the buffer. It costs frames nobody sees, which is what <c>--present fifo</c>
-    /// is for.
+    /// FIFO by default: a run is looked at rather than raced, and a loop that draws frames the display
+    /// never shows spends a whole core to no end. What it costs the read-out is the frame figure, which
+    /// under FIFO is the refresh rate whatever the town costs (120 fps on Test and 120 on Odesa, two
+    /// towns fifty times apart) — the cpu figure is the one that answers for this build, since the wait
+    /// on the display is counted apart from it. <c>--present mailbox</c> is for the frame figure itself:
+    /// it paces and tears the same but does not block the thread that filled the buffer, at the price of
+    /// frames nobody sees.
     /// </remarks>
     public static Swapchain Create(Vk vk, Extent2D wanted)
     {

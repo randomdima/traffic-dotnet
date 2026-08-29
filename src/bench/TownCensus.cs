@@ -1,9 +1,14 @@
 using System.Diagnostics;
+using TrafficSimulation.Agents.Ambulance;
+using TrafficSimulation.Agents.Service;
+using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.World.Foot;
+using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.Bench;
@@ -87,13 +92,15 @@ internal static class TownCensus
                           $"{Mean(plan.Roads.WidthM):F2} m wide");
         Console.WriteLine($"  junctions      {plan.Junctions.Count,7}  {lit} lit, {plan.JunctionCorners.Count} kerb corners, " +
                           $"reach {Mean(plan.Junctions.RadiusM):F2} m");
-        Console.WriteLine($"  pavement       {plan.PavementCorners.Count,7}  inner corners");
+        Console.WriteLine($"  pavement       {PavementCorners.Solve(plan, config).Count,7}  inner corners solved, " +
+                          $"{plan.PavementCorners.Count} carried by the map");
         Console.WriteLine($"  bridges        {plan.Bridges.Count,7}  paved areas {plan.PavedAreas.Count}");
         Console.WriteLine($"  crossings      {plan.Crosswalks.Count,7}  {Mean(plan.Crosswalks.SpanM):F2} m across the road, " +
                           $"{Mean(plan.Crosswalks.DepthM):F2} m deep");
         Console.WriteLine($"  stop bars      {plan.StopLines.Count,7}  {Mean(plan.StopLines.SpanM):F2} m across the lane, " +
                           $"{Mean(plan.StopLines.ThicknessM):F2} m thick");
-        Console.WriteLine($"  parking lots   {plan.ParkingLots.Count,7}  {plan.ParkingLots.SpaceCount} spaces");
+        Console.WriteLine($"  parking lots   {plan.ParkingLots.Count,7}  {plan.ParkingLots.SpaceCount} spaces, " +
+                          $"{Fronting(plan, config)} of them front a kerb the line is broken over");
         Console.WriteLine($"  buildings      {plan.Buildings.Count,7}  capacity {capacity}, {plan.Buildings.EntryPointM.Length} ways in");
         Console.WriteLine($"  props          {plan.Props.Count,7}  {propsByKind[0]} tree, {propsByKind[1]} scatter, {propsByKind[2]} furniture");
         Console.WriteLine($"  water          {plan.Water.Count,7}  outlines, {plan.Water.PointM.Length} points");
@@ -101,21 +108,52 @@ internal static class TownCensus
 
         Console.WriteLine("the roster the plan asks for");
         Console.WriteLine($"  {people} people, {cars} cars");
+
+        // What the map's service buildings lay on top of its own spawns: a crewed car for every bay of
+        // every apron and one at each depot (AMB-2, SRV-2). They are what the town has room for — a
+        // building with fewer bays near it than the apron asks for stands fewer, and one with none stands
+        // none. Where the shares this build would place them at differ from what the file declares, the
+        // map is due another `--place-services`.
+        var uses = BuildingUses.Of(plan);
+        var apron = (uses.Hospitals.Count + uses.PoliceStations.Count) * config.Service.ApronBays;
+        Console.WriteLine(
+            $"  plus an apron of {config.Service.ApronBays} cars — a driver and a hand apiece (SRV-3) — at " +
+            $"each of the map's own hospitals ({uses.Hospitals.Count} of {HospitalRoster.CountIn(plan, config)} " +
+            $"this build would place) and police stations ({uses.PoliceStations.Count} of " +
+            $"{PoliceStationRoster.CountIn(plan, config)}), and one at each of its depots " +
+            $"({uses.Depots.Count} of {DepotRoster.CountIn(plan, config)}) — {apron} bays held off the town");
         Console.WriteLine();
 
         Networks(plan, config);
     }
 
     /// <summary>
+    /// How many car parks stand against the carriageway itself rather than behind a walk, which is the
+    /// count of kerb lines <see cref="RoadFrontages"/> breaks. A town where it is far below the lot count
+    /// is a town whose lots were laid off the kerb they were meant to hang off (GEN-4b).
+    /// </summary>
+    static int Fronting(CityPlan plan, SimConfig config)
+    {
+        var fronting = 0;
+        foreach (var front in RoadFrontages.Lay(plan, config).All)
+        {
+            if (front.FrontsTheKerb) fronting++;
+        }
+
+        return fronting;
+    }
+
+    /// <summary>
     /// What the town contracts to. <b>The interesting figure is the second column</b>: how many of the
     /// plan's junctions are places a driver actually chooses at, because everything else is a bend the
-    /// search must never be asked a question at.
+    /// search must never be asked a question at — plus the ends of the parking sections (GEN-4h), which
+    /// are on the network for the opposite reason, being nodes nothing is decided at.
     /// </summary>
     static void Networks(CityPlan plan, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
         var roads = RoadGraph.Build(plan, config);
-        var driving = DrivingNetwork.Build(roads, plan, config);
+        var driving = DrivingNetwork.Build(roads, BayWays.WhereALegMayTurn(roads, BayWays.Build(plan, roads, config)), plan, config);
         var elapsed = Stopwatch.GetElapsedTime(started);
 
         var runs = driving.Runs;
@@ -129,8 +167,27 @@ internal static class TownCensus
             mostPieces = Math.Max(mostPieces, runs.PiecesOf(link).Length);
         }
 
+        // What the town actually lights, which is not what the map asks for: a bundle wants movements to
+        // conflict (TLT-3), so a place where a road is merely cut carries an uncontrolled crossing and the
+        // walker's right of way is the whole of what governs it (TER-5e).
+        var signals = SignalService.Build(plan, roads, config);
+        var bundles = 0;
+        for (var junction = 0; junction < signals.JunctionCount; junction++)
+        {
+            if (signals.Lit(junction)) bundles++;
+        }
+
+        var uncontrolled = 0;
+        for (var crossing = 0; crossing < signals.CrossingCount; crossing++)
+        {
+            if (!signals.CrossingIsLit(crossing)) uncontrolled++;
+        }
+
         Console.WriteLine("the networks");
-        Console.WriteLine($"  driving        {roads.LaneCount,7}  lanes over {plan.Junctions.Count} junctions, laid in {elapsed.TotalMilliseconds:F0} ms");
+        Console.WriteLine($"  signals        {bundles,7}  bundles of the {plan.Junctions.Count} junctions, " +
+                          $"{uncontrolled} of {signals.CrossingCount} crossings uncontrolled");
+        Console.WriteLine($"  driving        {roads.LaneCount,7}  lanes over {plan.Junctions.Count} junctions and " +
+                          $"{roads.NodeCount - roads.JunctionCount} places cut for car parks, laid in {elapsed.TotalMilliseconds:F0} ms");
         Console.WriteLine($"  contracted to  {runs.LinkCount,7}  runs over {runs.Graph.NodeCount} nodes; " +
                           $"mean {(runs.LinkCount == 0 ? 0f : totalM / runs.LinkCount):F0} m, longest {longestM:F0} m, most lanes in one {mostPieces}");
         Joins(roads, config);
@@ -192,10 +249,6 @@ internal static class TownCensus
             var kinds = roads.TurnKindsFrom(lane);
             for (var turn = 0; turn < kinds.Length; turn++)
             {
-                // A turn-around is laid like any other and no car may be routed through one, so counting
-                // it here would price the town's junctions by a manoeuvre nothing drives (P-11, M8).
-                if (kinds[turn] == LaneTurn.TurnAround) continue;
-
                 var slot = roads.TurnSlotAt(lane, turn);
                 var atM = roads.JoinFromM(slot);
                 turns++;

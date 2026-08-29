@@ -1,5 +1,159 @@
 # The driving manoeuvre catalogue — decision log
 
+## 2026-08-29 — the two ways the watchdog was never reached
+
+Five minutes of Odesa left ninety-six of a hundred and seventy-six drivers standing where they had stopped,
+and every one of them read `blocked 0.0 s` or a clock well short of its fuse. The jam was not the ladder
+failing to answer: the ladder was never asked.
+
+**A light was rewinding the clock rather than holding it.** The one wait that spends nothing is a light,
+because a light changes on its own — but the test is "a red within a queue's length ahead", and a red is
+there again every cycle. Zeroing the clock on it excused not the wait but the standing: a car within ninety
+metres of a signal never accumulated the thirty seconds its fuse is measured in, however many greens went by
+with it exactly where it was. The clock is held now and given back only by road covered, which is what the
+rule always said — a car queueing at a light is doing what the light asked, and a car that has not moved
+since that light went green is not queueing at it.
+
+**And an entry that took the next step and got itself back was reading as an entry getting on with
+something.** The watchdog only fires on `Running`, so that an entry naming its own successor is left to name
+it. A leg whose chain has run out hands `P-4` to a car already running it — `Enter` returns early on
+`doing == next`, so nothing is traced, nothing is reset and nothing moves — and that hand-over was reported
+as a success every tick for as long as the car stood there. One car stood two hundred and ten seconds with a
+two-hundred-and-ten-second blocked clock beside it and never climbed a rung. **The fuse is the car's and not
+the entry's**, so a hand-over that changed nothing spends it exactly as standing still does.
+
+Together they took the drivers left standing at the end of five minutes of Odesa from ninety-six of a
+hundred and seventy-six to fifty-eight, the cars abandoned from thirty-one to nineteen, and what the town
+cost its people from eight down and six wrecked to seven and four. Over ten minutes, where a town has
+settled and most legs have finished, the same pair take it from a hundred and twenty-seven to twenty-eight.
+`--bench stuck` is what says so: it is the reading `--bench drive`'s `stuck` column counts, said as *which
+body, in what state, beside whom*.
+
+## 2026-08-29 — `P-12` is retired: slowing at a crossing is what the reservation already does
+
+The entry set no limits, drove no line, laid no claim and had no bound of its own. Its own page said so —
+"this entry sets no limits: the pace over paint and the stop short of a body on it are the standing rules'."
+Both of those are terms of the speed profile taken every tick: the pace off the crossing the book found
+ahead, and the stop off the grant, which ends at the first place a rule stops the asker (`TER-4c.1`) and at
+the ground somebody on the paint is holding with the crossing's own right of way (`TER-5e`). A driver that
+cannot take the zebra slows because it was granted less road; one that can drives on. Nothing was left for
+an entry to impose.
+
+What it did do was **name the term that had already won**, which is `DrivingHold.Crossing` — a read-out the
+probe prints and the trace does not need a second copy of. And naming it cost something: while it was in
+charge the car could not be handed to `P-8`, to `P-6` or to `E-4`, so a crossing on the arm being approached
+kept a car out of the entry for the box it was entering. The one refusal that suppression was worth — no
+swerving round somebody on the paint — is already made by the ground the shape is laid over
+(`Person.RoadClaimMargin`), and a second gate on a movement the first one refuses is what `SIM-7` is about.
+
+The pace was the one thing here that is not emergent, so it is a rule now rather than a page: **CAR-7b**, in
+the car's own requirements, beside the yield it is measured with.
+
+Two things the entry had been hiding came out with it, and both are worth more than it was.
+
+**`P-6` could not reach `P-18`, and the exam said so.** The place a car is ordered to is regularly the far
+side of a bar it is already creeping up to, so the entry in charge when the place came near enough was
+`P-6` — which had no hand-over — and the car drove past its own destination and off round the block. It was
+`P-12` holding cars through the last stretch that had been reaching `P-18` for it, on two of the exam's
+thirty-six cards. The hand-over is `P-6`'s now as well, which is what "the entries that can be in charge
+when the place comes up are not going to stay at two" was always going to mean.
+
+**And nothing but `P-12` was keeping a swerve off a crossing.** A body on the paint lays the band of the
+lane it is *standing in*, so a walker two lanes over leaves `E-4`'s shape a clear run and the ground test
+says yes — the car overtakes the queue that stopped for the zebra and crosses the paint the people on it
+are about to reach. That refusal is `DriveScene.ClearOfThePaint` now, beside the one that keeps `E-4` off a
+junction, and it is the first gate rather than a second one: nothing else was making it.
+
+`P-12` is retired and its number is never reused, so a trace printed a month ago still resolves.
+
+## 2026-08-28 — a following time is kept from what is being followed
+
+`S-2a` reads the grant at a following time rather than at the reaction lead, which is what settles a queue
+at the standstill gap and a second of travel. The term was subtracted from every grant, whatever had cut it
+— so a car whose road ran out at a wreck, at somebody on foot, at ground somebody had claimed or at the
+place two movements meet held a second of travel clear of it *as well as* the margin the book had already
+taken off. At town speed that is a dozen metres of street shut for something the car needed only to stop
+short of; on the proving ground it is a lap's straight that no longer reached the gear's own cap, with
+fifteen people pacing across the road two hundred metres away.
+
+What cut a grant is now carried with it (`CarFleet.GrantCutBy`), because the book worked it out to make the
+cut and anything asking *why* a car is held should read it rather than search for the answer again. The
+following time is kept where the cut was a queue and nowhere else. The proving ground's straight is back
+over its threshold, and Odesa's measured minute came back under its own baseline — 78 touches against 83
+before any of this work, having gone to 99 while the term was unconditional.
+
+## 2026-08-27 — the turn-around in a junction is gone, and coming back the other way is a manoeuvre
+
+`P-11` swept the whole box on a line the router had priced out of reach since the day it was laid: the
+join between two opposing lanes is a 1.5 m semicircle and no car in the fleet can hold one. An entry no
+route may be given and no car can drive is not a manoeuvre a catalogue should carry, so the *movement* is
+gone from the road as well as the entry from the list — no turn is classified between a lane and the one
+running back down its own stretch, no join is drawn for it, no ground is measured against it, and no rank
+is given it (`TER-5f`). Two rules got shorter for it and one table lost a quarter of its rows.
+
+**What replaces it is what a driver actually does.** Where the leg has to come back the way it came it
+parks in a bay and unparks the other way (`GEN-4l`) — the town's own two ways at that bay, held and
+measured like every other — and where the road runs out with no bay to do it in, it works itself round on
+the spot (`P-19`) on the room `TER-5a` already promised at a dead end. Both are priced in the router well
+above three sides of a block, because turning round is what a driver does when there is no block to take.
+
+**The price was set at twenty car lengths first and it was wrong.** At that figure routes preferred a turn
+to a loop, legs stacked up at frontages whose bays were all taken, and a town the size of Odesa gave up
+four hundred places in six minutes where it had given up eighteen. The number is a preference between
+routes and it has to read as *last resort*, which is a hundred.
+
+## 2026-08-27 — overtaking belongs to a road segment, and a junction is not one
+
+Nothing refused a swerve at a junction. A signalled approach showing anything but green refused it in
+passing, because `NobodyEntitledIsInTheWay` reads `LightAheadM` — but on a green, at an unlit junction, or
+already inside the box, a car with a wreck in front of it swung out and went round, across ground that
+belongs to the other movements through the box.
+
+Three things are wrong with that and only one of them is manners. **A junction has no centreline**: what
+licenses the wrong side of the road at all is `CAR-6.2b`, and a box has none to cross — the ground beside the
+car is other movements' joins. **Those movements were arbitrated on the town's own table** (`TER-5c`), which
+says where a crossing car will be only for as long as it follows the join it claimed; a car that swings off
+its join is not where the town says it is, and the pair that read each other's ground both read the wrong
+ground. And **the swerve's own claim cannot be laid there**: `ManeuverDesk.ClaimTheSwerve` claims a stretch
+of the car's own *lane*, and inside a box `LaneOf` is −1, so the claim was silently never made and the
+traffic behind read the ground the shape was swinging through as empty road.
+
+So `E-4` is a manoeuvre of a carriageway. The rule is in two halves because the two facts are known at
+different moments. Whether the car is *at* a junction is a fact about where it stands, so it sits with the
+rest of "is this wanted" (`DriveScene.OnACarriageway`) and `P-4` and `E-4` read it from one place — which is
+what keeps the pair from handing a car to and fro. Whether the pass **fits** before the box is not known
+until it is measured, so it sits beside the sight-distance bar in `Sa`, where a refusal is an ordinary exit
+back to `P-4`.
+
+**The bar is `SimConfig.CarJunctionReserveM`, which is the one `P-4` hands the junction over at.** A car near
+enough to have asked for the box is a car negotiating the box, and overtaking and negotiating are
+alternatives rather than things done at once; a figure of this entry's own would be a second answer to "is
+this car at a junction yet" (SIM-7).
+
+**It holds for a blue light too.** What a call lifts is whose turn it is (`AMB-4`) and there is no turn here
+to take — the road beside the car is not road anybody can be given.
+
+**It costs nothing and buys a little.** `E-4` is still entered — 12 swerves on Odesa's measured minute, 4 on
+Drunk's — and no map is worse on any figure. Drunk, which has people reeling down the carriageway and so the
+most overtaking of anywhere, drops from 11 touches to 7.
+
+## 2026-08-25 — `E-1` is retired: yielding is ground, and waiting at a place is `P-6`
+
+The yield's whole content was a name and a bound. It drove no line, laid no claim, imposed nothing on the
+profile and did nothing on a tick — "the wait is already what the speed profile is doing" was its own page's
+description of it. Once a right of way is a rank carried by the stretches in the town's own book
+(`TER-5e`), the *reason* a car is waiting is stated where the ground is, and the entry was a second place
+saying it.
+
+What it did buy was rung 0: a car the watchdog has called stuck, whose obstruction has priority, must not be
+handed a recovery, and the fuse it spent there is the second helping of patience a lawful wait deserves.
+That is now `P-6`, and it is a better fit than the entry it replaces — a car giving way has been **stopped
+short of a place**, which is exactly what that entry is about, and it carries its own watchdog so the ladder
+still ends where it always did. Where there is no such place to hold at, the thing in front is traffic
+rather than a rule, and the rungs below are what that is for.
+
+`E-1` is retired and its number is never reused, so a trace printed a month ago still resolves.
+
 ## 2026-08-23 — `E-3` backs away from obstructions and from being one, and never from traffic
 
 The back-off's `Sa` asked how *near* the thing in front was and not what it was: anything inside two car
@@ -86,7 +240,7 @@ a mean of means and answered for no pass that ever happened; it is worked out pe
 
 ## 2026-08-23 — a walker in the road is an agent and not a rule
 
-`E-4` could not act on somebody standing in a lane, and `E-1` treated one as exercising a priority. The
+`E-4` could not act on somebody standing in a lane, and the yield treated one as exercising a priority. The
 reason given was that the ground a swerve takes is the oncoming lane — but that is a fact about the
 *ground*, and the ground is already asked: `E-4` walks its template and asks the book whose every point
 under it is, and a body on a carriageway is a stretch of that book with a margin round it (`PER-15`). The
@@ -94,7 +248,7 @@ rule was a second thing refusing a movement the first one already refuses, which
 says makes the first useless.
 
 So `HeadwayKind.Walker` is something to get past. **Paint is where a walker's priority lives** — a car owes
-a crossing its stop short of the band (`P-12`) long before this question is reached — and a body on bare
+a crossing its stop short of the band (`TER-4c.1`) long before this question is reached — and a body on bare
 carriageway is in the way of a road it was never entitled to.
 
 ## 2026-08-23 — `E-4` becomes an overtake, and stops being rationed
@@ -186,7 +340,7 @@ The conversion is [`PathAssembler.OnTheLineM`](../../../../world/road/PathAssemb
 code that laid the mapping, and the call sites ask for it rather than reconstructing it. Measured against
 the guess over the same minute: **red bars crossed 1 → 0**, which is River's one long-standing crossing
 and it was this all along. On Odesa `P-8` entered 555 → 605 and `P-6` 320 → 355 — cars stopping at bars
-instead of drifting to the mouth of the box — while `E-2` fell 188 → 166 and `E-1` 12 → 6, which is the
+instead of drifting to the mouth of the box — while `E-2` fell 188 → 166 and the yield 12 → 6, which is the
 same thing seen from the other end. `P-12` entered 191 → 135 for the same reason and not against it: a
 crossing three metres late is a crossing a car is told it is still approaching after it has driven over
 it. The one figure that moved the wrong way is the `P-4`↔`P-6` churn, 49 → 60 in the worst spot, which
@@ -301,7 +455,7 @@ changed shape around it:
   gone round either**, because a reading that cannot say what is in the way cannot license crossing the
   centreline to pass it.
 - **What gets a car out from behind a queue that never moves is the blocked-road clock**, thirty seconds,
-  and not the obstruction wait, which is three. `E-1` is the rung it reaches first and is itself bounded
+  and not the obstruction wait, which is three. Rung 0 is the rung it reaches first and is itself bounded
   by that clock, so the ladder still ends where it always did.
 - **The claim is the second half.** Reading who is *on* the road cannot see a car about to back onto it,
   so `P-2` and `E-4` mark the stretch they are about to occupy before they occupy it — the same argument a
@@ -351,8 +505,8 @@ The hysteresis is gone and the flicker with it, because the two halves are now a
 
 - **Entered on the term that bound the profile.** A car's speed is the minimum of everything that limits
   it, and the term that won is the least ambiguous reading there is of what the car is actually doing.
-- **Exited on the fact that entry is about.** `P-12` gives the car back when the paint is behind the body,
-  `P-8` when the box is behind it — not when some other term won the minimum.
+- **Exited on the fact that entry is about.** `P-8` gives the car back when the box is behind it, `P-6`
+  when the body moves off — not when some other term won the minimum.
 
 Measured over a run of the shipped maps, the worst back-and-forth pair went from **103 swaps in one spot
 to 20**, over 325 800 car-ticks. One entry needed a second half to the test and it is worth knowing:
@@ -388,16 +542,14 @@ rather than a sequence of implicit hand-overs:
 An entry that succeeds without naming a successor is asking for the next step, and an empty chain answers
 `P-4` — which re-derives from the pose the car actually reached, which is what MAN-3 asks for anyway.
 
-## 2026-08-20 — `P-11` and `E-4` are built, and the town decides whether they are reachable
+## 2026-08-20 — `E-4` is built, and the town decides whether it is reachable
 
-Both had been named in the enum and had nothing behind them. Both are now laid as geometry — the
-counter-swing and the swerve, in `RoadTemplates` — and both ask **the terrain** whether the shape fits
-rather than a table of junction sizes beside a table of car radii. That is the only way to have one
-answer to the question, and it makes "is a turn-around possible here" a fact about a town rather than
-about a car.
+It had been named in the enum with nothing behind it. It is now laid as geometry — the swerve, in
+`RoadTemplates` — and it asks **the terrain** whether the shape fits rather than a table of street widths
+beside a table of car radii. That is the only way to have one answer to the question, and it makes "is
+there room to go round here" a fact about a town rather than about a car.
 
-On the shipped maps `E-4` is reachable and `P-11` is not: a six-metre crossroads cannot hold the shape at
-this car's turning radius. That is the honest outcome and it is reported by `--bench maneuvers` rather
+On the shipped maps `E-4` is reachable. Which entries are not is reported by `--bench maneuvers` rather
 than written down here, where it would be stale the week a wider town is exported.
 
 ## 2026-08-19 — the catalogue names what is not built yet

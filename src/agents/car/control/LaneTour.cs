@@ -17,12 +17,13 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// </para>
 /// <para>
 /// The prices are the router's own — half a car length for a near-side turn, four across the oncoming
-/// stream, twenty for a turn-around — so a toured town and a routed one prefer the same roads. They are
-/// a preference between routes and never a time.
+/// stream — so a toured town and a routed one prefer the same roads. They are a preference between routes
+/// and never a time.
 /// </para>
 /// <para>
-/// <b>A turn-around is drawn only where there is nothing else</b> — which is a dead end, and is the one
-/// place the manoeuvre is not a last resort but the only way out (TER-5a).
+/// <b>A tour turns nowhere a route could not</b> (TER-5f): the graph offers it no way back down the
+/// stretch it is on, so a car with nothing told it stays out of the streets it could only leave by
+/// turning at a car park — which is a leg's manoeuvre and not a thing to wander into.
 /// </para>
 /// </remarks>
 internal static class LaneTour
@@ -33,34 +34,30 @@ internal static class LaneTour
         var kinds = graph.TurnKindsFrom(lane);
         if (turns.Length == 0) return CarFleetNoLane;
 
-        var wayOut = false;
-        for (var turn = 0; turn < turns.Length; turn++) wayOut |= kinds[turn] != LaneTurn.TurnAround;
-
         var total = 0f;
-        for (var turn = 0; turn < turns.Length; turn++) total += Weight(graph, config, turns[turn], kinds[turn], wayOut);
+        for (var turn = 0; turn < turns.Length; turn++) total += Weight(graph, config, turns[turn], kinds[turn]);
         if (total <= 0f) return turns[draw.NextInt(turns.Length)];
 
         var drawn = draw.NextFloat(0f, total);
         for (var turn = 0; turn < turns.Length; turn++)
         {
-            drawn -= Weight(graph, config, turns[turn], kinds[turn], wayOut);
+            drawn -= Weight(graph, config, turns[turn], kinds[turn]);
             if (drawn <= 0f) return turns[turn];
         }
 
         return turns[^1];
     }
 
-    /// <summary>The cheaper the turn, the likelier it is drawn — and a turn-around costs what the router says it costs.</summary>
-    static float Weight(RoadGraph graph, SimConfig config, int lane, LaneTurn turn, bool wayOut)
+    /// <summary>The cheaper the turn, the likelier it is drawn — at the prices the router quotes.</summary>
+    static float Weight(RoadGraph graph, SimConfig config, int lane, LaneTurn turn)
     {
-        // A lane into a dead end is a lane whose only way back out is a turn-around, which is a
-        // manoeuvre this engine cannot yet make. Declining it keeps the fleet on roads it can actually
-        // drive; it is not a rule — a dead end is a real place and a real driver goes down it.
-        if (turn != LaneTurn.TurnAround && graph.LanesOut(graph.LaneToNode[lane]).Length <= 1) return 0f;
+        // A lane with no turn out of it is a dead end, and the way back out of one is a park and an unpark
+        // in a bay of its own. Declining it keeps a car nobody is routing on roads it can drive off again;
+        // it is not a rule — a dead end is a real place and a real driver goes down it.
+        if (graph.TurnsFrom(lane).Length == 0) return 0f;
 
         return turn switch
         {
-            LaneTurn.TurnAround => wayOut ? 0f : 1f,
             LaneTurn.Straight => 1f,
             LaneTurn.NearSide => 1f / (1f + config.Driving.TurnPriceNearSideCarLengths),
             _ => 1f / (1f + config.Driving.TurnPriceAcrossOncomingCarLengths),

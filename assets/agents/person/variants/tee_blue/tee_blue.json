@@ -1,5 +1,6 @@
 {
   "id": "tee_blue",
   "sheet": "tee_blue.png",
+  "down": "tee_blue_down.png",
   "heightM": 1.82
 }

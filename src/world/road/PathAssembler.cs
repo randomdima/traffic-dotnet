@@ -57,19 +57,29 @@ internal static class PathAssembler
     /// <remarks>
     /// <b>A lane the next one does not follow ends the line.</b> A route is a chain of turns and every
     /// pair of lanes in it meets at a node, so this is not a case that arises from a route — but a line
-    /// laid over a pair the town has no join for would have to invent one, and inventing geometry here
-    /// is the whole of what this no longer does. The car is handed the shorter line and asks for another
-    /// when it runs out, which is what it already does with every route that runs out.
+    /// laid over a pair the town has no join for would have to invent one, and inventing geometry is the
+    /// one thing this may not do. The car is handed the shorter line and asks for another when it runs
+    /// out, which is what it already does with every route that runs out.
     /// </remarks>
     /// <param name="lastLaneToM">
     /// How far along the final lane the line stops, where something past the road is going to take the
-    /// car off it — a parking template staged part-way down a lane is the one case. The line ends there
+    /// car off it — the place a way at a parking bay leaves its lane is the one case. The line ends there
     /// rather than at the lane's own end, so the profile brakes for the manoeuvre and not for the kerb
     /// beyond it.
     /// </param>
+    /// <param name="tail">
+    /// A way to finish on that is not one of the graph's lanes — <b>the line into a parking bay</b>, which
+    /// leaves its lane at <paramref name="lastLaneToM"/> and carries the car to the bay's own pose.
+    /// <para>
+    /// <b>Arcs and not a way number</b>: what the assembler needs is geometry that begins where the last
+    /// lane's stops, and which of the town's features drew it is that feature's business. Threaded here
+    /// rather than driven as a line of its own, the whole of a leg is one chain the follower reads without
+    /// knowing which piece it is on — which is the same reason the joins through a junction are threaded.
+    /// </para>
+    /// </param>
     public static DrivenLine Assemble(
         RoadGraph graph, ReadOnlySpan<int> lanes, Span<ArcSeg> into, Span<float> laneStartM,
-        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity)
+        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity, ReadOnlySpan<ArcSeg> tail = default)
     {
         var written = 0;
         var lengthM = 0f;
@@ -107,6 +117,14 @@ internal static class PathAssembler
             }
 
             arrivedOn = leavingOn;
+        }
+
+        // Only ever off the end of a whole chain: a line cut short above never reached the lane the tail
+        // leaves, so there is nothing for it to be threaded onto.
+        foreach (var arc in tail)
+        {
+            into[written++] = arc;
+            lengthM += arc.LengthM;
         }
 
         return new DrivenLine(written, lanes.Length, lengthM);

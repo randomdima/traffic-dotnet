@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
@@ -11,15 +12,65 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// The walked line: that a walk is a route over the pavement's own network laid as points, that those
 /// points keep to ground a body may stand on, and that a carriageway is only ever crossed on the paint.
 /// </summary>
-[Collection(TrafficSimulation.Tests.Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Town)]
 public class WalkedLineTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    static TownWorld Open(string map) => new(Towns.Fresh(map), Config);
-
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
+
+    /// <summary>
+    /// <b>One run of one map, read by every claim below.</b> Each of them holds what it was broken by, or
+    /// null, beside the census that says the run had anything to say about it at all.
+    /// </summary>
+    /// <remarks>
+    /// A claim is recorded rather than thrown on, so one broken claim still lets the other three be
+    /// answered off the same run — and the field is written once, on the first line that broke it.
+    /// </remarks>
+    sealed class Watched
+    {
+        public string? OffWalkableGround, DoubledBack, OffThePaint;
+        public int Lines, Legs, FootEdges, People;
+        public long Arrivals;
+    }
+
+    static readonly ConcurrentDictionary<string, Watched> Runs = new();
+
+    /// <summary>The run all four claims are read off, taken once per map.</summary>
+    static Watched Of(string map) => Runs.GetOrAdd(map, Watch);
+
+    /// <summary>
+    /// <b>A minute of the town, walked once instead of four times.</b> The three claims about the shape of a
+    /// line are read where they have always been read — ten seconds in, with every walker mid-walk — and the
+    /// run then goes on to the minute the fourth needs, which is how long it takes a walk to finish.
+    /// </summary>
+    /// <remarks>
+    /// <b>The moment is the reason this is a watch and not a shared world.</b> Read at the end of the minute
+    /// instead, the shape claims say nothing on a map whose walkers have all arrived by then: Zebras lays one
+    /// walker a street and every one of them is standing still at sixty seconds, so the census that guards
+    /// this against passing vacuously is the thing that would have to be given up to share a single moment.
+    /// </remarks>
+    static Watched Watch(string map)
+    {
+        using var world = new TownWorld(Towns.Of(map), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(TicksLaid);
+
+        var found = new Watched { FootEdges = world.Foot.EdgeCount, People = world.People.Count };
+        EveryPointIsOnWalkableGround(world, map, found);
+        NoWalkDoublesBack(world, map, found);
+        NoWalkCrossesOffThePaint(world, map, found);
+
+        loop.Advance(TicksWalked - TicksLaid);
+        found.Arrivals = world.WalkArrivals;
+        return found;
+    }
+
+    /// <summary>Ten seconds: long enough for every walker to be on a line, short enough that none has left it.</summary>
+    const int TicksLaid = 600;
+
+    /// <summary>A minute: long enough for a line to be laid, walked and finished on every map that lays one.</summary>
+    const int TicksWalked = 3_600;
 
     /// <summary>
     /// <b>Every point of every walked line stands on ground a body may stand on.</b> The network is
@@ -30,27 +81,32 @@ public class WalkedLineTests
     [MemberData(nameof(Maps))]
     public void EveryPointOfEveryWalkIsOnWalkableGround(string map)
     {
-        using var world = Open(map);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(600);
+        var found = Of(map);
 
-        var lines = 0;
+        Assert.Null(found.OffWalkableGround);
+
+        // A walked line is a route over the pavement's own network, so a map with no pavement lays none:
+        // the proving ground is roads and cars and the people beside them walk straight at where they are
+        // going. Everywhere there is a network, one walker not walking is the failure this counts.
+        Assert.True(found.Lines > 0 || found.FootEdges == 0, $"{map} lays no walked line at all");
+    }
+
+    /// <summary>What <see cref="EveryPointOfEveryWalkIsOnWalkableGround"/> watches for.</summary>
+    static void EveryPointIsOnWalkableGround(TownWorld world, string map, Watched found)
+    {
         for (var person = 0; person < world.People.Count; person++)
         {
             var line = world.People.WalkedLineOf(person);
             for (var point = 0; point < world.People.WalkedCount[person]; point++)
             {
-                Assert.True(world.Terrain.At(line[point]).Walkable,
-                    $"{map}: walker {person} is sent to {line[point]}, which is {world.Terrain.GroundAt(line[point])}");
+                if (world.Terrain.At(line[point]).Walkable) continue;
+
+                found.OffWalkableGround ??=
+                    $"{map}: walker {person} is sent to {line[point]}, which is {world.Terrain.GroundAt(line[point])}";
             }
 
-            if (world.People.WalkedCount[person] > 0) lines++;
+            if (world.People.WalkedCount[person] > 0) found.Lines++;
         }
-
-        // A walked line is a route over the pavement's own network, so a map with no pavement lays none:
-        // the proving ground is roads and cars and the people beside them walk straight at where they are
-        // going. Everywhere there is a network, one walker not walking is the failure this counts.
-        Assert.True(lines > 0 || world.Foot.EdgeCount == 0, $"{map} lays no walked line at all");
     }
 
     /// <summary>
@@ -68,11 +124,15 @@ public class WalkedLineTests
     [MemberData(nameof(Maps))]
     public void AWalkNeverDoublesBackOnItself(string map)
     {
-        using var world = Open(map);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(600);
+        var found = Of(map);
 
-        var legs = 0;
+        Assert.Null(found.DoubledBack);
+        Assert.True(found.Legs > 0 || found.FootEdges == 0, $"{map} lays no walked line long enough to have a leg");
+    }
+
+    /// <summary>What <see cref="AWalkNeverDoublesBackOnItself"/> watches for.</summary>
+    static void NoWalkDoublesBack(TownWorld world, string map, Watched found)
+    {
         for (var person = 0; person < world.People.Count; person++)
         {
             var count = world.People.WalkedCount[person];
@@ -83,12 +143,11 @@ public class WalkedLineTests
             for (var point = 1; point < count; point++)
             {
                 // Along one way the points are that way's own metres, and they only ever grow.
-                if (ways[point] == ways[point - 1])
+                if (ways[point] == ways[point - 1] && alongsM[point] < alongsM[point - 1] - ToleranceM)
                 {
-                    Assert.True(
-                        alongsM[point] >= alongsM[point - 1] - ToleranceM,
+                    found.DoubledBack ??=
                         $"{map}: walker {person} is sent from {alongsM[point - 1]:F2} m back to "
-                        + $"{alongsM[point]:F2} m along way {ways[point]}");
+                        + $"{alongsM[point]:F2} m along way {ways[point]}";
                 }
 
                 if (point < 2) continue;
@@ -99,17 +158,17 @@ public class WalkedLineTests
                 var on = line[point] - line[point - 1];
                 if (back.LengthSquared() < 1e-4f || on.LengthSquared() < 1e-4f) continue;
 
-                legs++;
+                found.Legs++;
                 var turnDeg = MathF.Acos(
                     Math.Clamp(Vector2.Dot(Vector2.Normalize(back), Vector2.Normalize(on)), -1f, 1f)) * 180f / MathF.PI;
-                Assert.True(
-                    turnDeg < HairpinDeg,
-                    $"{map}: walker {person} turns {turnDeg:F0}° between its points {point - 1} and {point}, on "
-                    + $"ways {ways[point - 1]} and {ways[point]}");
+                if (turnDeg >= HairpinDeg)
+                {
+                    found.DoubledBack ??=
+                        $"{map}: walker {person} turns {turnDeg:F0}° between its points {point - 1} and {point}, on "
+                        + $"ways {ways[point - 1]} and {ways[point]}";
+                }
             }
         }
-
-        Assert.True(legs > 0 || world.Foot.EdgeCount == 0, $"{map} lays no walked line long enough to have a leg");
     }
 
     /// <summary>A centimetre: the arc arithmetic's, not the walk's.</summary>
@@ -134,14 +193,12 @@ public class WalkedLineTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void NoWalkCrossesACarriagewayOffThePaint(string map)
-    {
-        var plan = Towns.Of(map);
-        using var world = Open(map);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(600);
+    public void NoWalkCrossesACarriagewayOffThePaint(string map) => Assert.Null(Of(map).OffThePaint);
 
-        var strideM = plan.CellSizeM * 0.25f;
+    /// <summary>What <see cref="NoWalkCrossesACarriagewayOffThePaint"/> watches for.</summary>
+    static void NoWalkCrossesOffThePaint(TownWorld world, string map, Watched found)
+    {
+        var strideM = world.Plan.CellSizeM * 0.25f;
         for (var person = 0; person < world.People.Count; person++)
         {
             var line = world.People.WalkedLineOf(person);
@@ -156,8 +213,10 @@ public class WalkedLineTests
                 {
                     var atM = Vector2.Lerp(fromM, toM, step / (float)steps);
                     var ground = world.Terrain.At(atM);
-                    Assert.True(ground.Walkable || !ground.Drivable,
-                        $"{map}: walker {person}'s line runs over {world.Terrain.GroundAt(atM)} at {atM}");
+                    if (ground.Walkable || !ground.Drivable) continue;
+
+                    found.OffThePaint ??=
+                        $"{map}: walker {person}'s line runs over {world.Terrain.GroundAt(atM)} at {atM}";
                 }
             }
         }
@@ -171,12 +230,9 @@ public class WalkedLineTests
     [MemberData(nameof(Maps))]
     public void WalkersReachWhereTheyWereGoing(string map)
     {
-        using var world = Open(map);
-        if (world.People.Count == 0) return;
+        var found = Of(map);
+        if (found.People == 0) return;
 
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(3_600);
-
-        Assert.True(world.WalkArrivals > 0, $"{map}: no walker finished a walk in a minute");
+        Assert.True(found.Arrivals > 0, $"{map}: no walker finished a walk in a minute");
     }
 }

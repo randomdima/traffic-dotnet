@@ -47,6 +47,8 @@ internal sealed partial class TownWorld
             }
         }
 
+        HaulOnTheBars(dtS);
+
         // The solver's step, kept apart from the impulse and read-back loops around it: two different
         // measurements (TickParts).
         if (Timed) Sub.Begin();
@@ -96,7 +98,6 @@ internal sealed partial class TownWorld
             People.PositionM[person] = now;
             People.VelocityMps[person] = _physics.VelocityOf(People.Body[person]);
             People.DistanceWalkedM[person] += (now - was).Length();
-            if (People.OffFeetForS[person] > 0f) People.OffFeetForS[person] = MathF.Max(0f, People.OffFeetForS[person] - dtS);
         }
     }
 
@@ -115,20 +116,21 @@ internal sealed partial class TownWorld
     public long Touches { get; private set; }
 
     /// <summary>
-    /// A terminal body performs no actions and is never handed a tick, but friction is the ground's and
-    /// not the body's: a corpse sliding down the road and a wreck shunted out of a junction are both
-    /// slowed by what they are lying on, and this is the one place that happens.
+    /// A body that declares nothing is still on ground that acts on it: a casualty sliding down the road
+    /// and a wreck shunted out of a junction are both slowed by what they are lying on, and this is the
+    /// one place that happens.
     /// </summary>
     /// <remarks>
-    /// It also overwrites what the agent wrote on the tick it died: the impulse arrays are read whole
-    /// every tick, so a walker killed mid-stride whose last declaration stayed there would be shoved
-    /// along by it for the rest of the run.
+    /// It also overwrites what the agent wrote on the tick it went down: the impulse arrays are read whole
+    /// every tick, so a walker run over mid-stride whose last declaration stayed there would be shoved
+    /// along by it for the whole rescue. The aim is the body's own position, which is what keeps a
+    /// casualty from turning to face where it had been going.
     /// </remarks>
     void Settle(float dtS)
     {
         for (var person = 0; person < People.Count; person++)
         {
-            if (!People.Dead[person]) continue;
+            if (!People.Wounded[person] || People.Inside[person].Any) continue;
 
             var positionM = People.PositionM[person];
             _impulseNs[person] = WalkerFollower.Step(
@@ -138,14 +140,120 @@ internal sealed partial class TownWorld
 
         for (var car = 0; car < Cars.Count; car++)
         {
-            if (Cars.Broken[car]) Tyres(car, PoseOf(car));
+            if (!Cars.Broken[car]) continue;
+
+            // <b>A wreck on a hook is not a wreck being dragged</b> (EVA-5). Its front is up on the bar and
+            // its back pair is rolling, so the locked block PHY-5 describes is exactly the wrong model for
+            // it: run as one, a towed car scrubs four locked tyres against the tow and the pair crawls.
+            if (_recovery.OnTheHookOf[car] >= 0) TrailerWheels(car);
+            else Tyres(car, PoseOf(car));
         }
+    }
+
+    /// <summary>
+    /// <b>The two wheels a towed car is left standing on</b> (EVA-5), stepped where every other wheel in the
+    /// town is stepped and spending their impulses through the same array — so nothing downstream has to
+    /// know that this body's four are two.
+    /// </summary>
+    /// <remarks>
+    /// <b>Which two they are is the tow's own fact</b>: the pair at the far end from the fork, so a car
+    /// caught by the tail rolls on the pair it steers with. The lifted pair is cleared rather than left —
+    /// the impulses are read whole every tick, so the two a wreck was skidding on when the arm took hold
+    /// would go on being spent for the length of the tow.
+    /// </remarks>
+    void TrailerWheels(int car)
+    {
+        var down = TowBar.PairOnTheGround(_recovery.HeldByTheTail[car]);
+        var up = TowBar.PairInTheAir(_recovery.HeldByTheTail[car]);
+        var impulses = _wheels.ImpulsesOf(car);
+        impulses.Slice(up, TowBar.Wheels).Clear();
+        _wheels.ScrubOf(car).Clear();
+
+        var pose = PoseOf(car);
+        ref readonly var build = ref Cars.BuildOf(car);
+        var ground = _wheels.GroundUnder(car);
+        Span<Vector2> atM = stackalloc Vector2[TowBar.Wheels];
+        TowBar.AxleM(build, pose, down, atM);
+        for (var wheel = 0; wheel < TowBar.Wheels; wheel++)
+        {
+            var effect = _terrain.EffectAt(atM[wheel]);
+            ground[down + wheel] = new SurfaceUnderWheel(
+                effect.Coefficient, effect.DragMps2, _config.Marks.PowerM2S3 * effect.MarkFactor, effect.Ploughs);
+        }
+
+        TowBar.Step(
+            build, pose, atM, ground.Slice(down, TowBar.Wheels), _config.Evacuator.OnTheTrailerAxleShare,
+            _config.TickSeconds, impulses.Slice(down, TowBar.Wheels));
+
+        // The tread turns with the road under it, because these two wheels are rolling: a towed car whose
+        // tyres stood still would be a car being skidded along on locked wheels, which is the picture of
+        // the thing this model exists to stop being.
+        var alongMps = Vector2.Dot(pose.VelocityMps, pose.Forward);
+        for (var wheel = 0; wheel < TowBar.Wheels; wheel++)
+        {
+            Cars.WheelSpinMps[(car * TyreModel.Wheels) + down + wheel] = alongMps;
+            RollTread(car, down + wheel);
+        }
+    }
+
+    /// <summary>
+    /// <b>Every tow bar in the town, spent as the pair of impulses it is</b> (EVA-5): the same actuation the
+    /// tyres use, at two more points, in the same phase and before the same step. A town with nothing on a
+    /// hook pays one branch for the whole of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is applied after the wheels and before the step, and that order is the whole of the coupling's
+    /// stability.</b> The bar answers the motion the tyres have just asked for rather than the motion of the
+    /// tick before, so an evacuator pulling away hauls its load on the tick it pulls away — one tick late,
+    /// the tractor leaves and the bar spends the next tick catching the wreck up, which is a tow that
+    /// visibly surges.
+    /// </remarks>
+    void HaulOnTheBars(float dtS)
+    {
+        if (_onTheBar == 0) return;
+
+        for (var car = 0; car < Cars.Count; car++)
+        {
+            var towed = _recovery.Towing[car];
+            if (towed < 0) continue;
+
+            var tractor = PoseOf(car);
+            var trailer = PoseOf(towed);
+            var hookM = TowBar.HookM(Cars.BuildOf(car), tractor);
+            var eyeM = TowBar.EyeM(
+                Cars.BuildOf(towed), trailer, Cars.BuildOf(car).TowReachM, _recovery.HeldByTheTail[towed]);
+
+            var pullNs = TowBar.PullNs(
+                TheEndOfTheBar(Cars.Body[car], tractor, hookM), TheEndOfTheBar(Cars.Body[towed], trailer, eyeM),
+                _config.Evacuator.HitchSettleS, _config.Evacuator.HitchMostMps2, _config.Evacuator.HitchSideShare,
+                trailer.MassKg, dtS);
+
+            _physics.ApplyImpulseAt(Cars.Body[towed], pullNs, eyeM);
+            _physics.ApplyImpulseAt(Cars.Body[car], -pullNs, hookM);
+        }
+    }
+
+    /// <summary>
+    /// One end of a tow bar, gathered off the body it is bolted to: where it is, how fast that point is
+    /// moving — the body's own motion plus what its yaw carries that point round by — and what an impulse
+    /// there is worth against that body's mass and inertia.
+    /// </summary>
+    HookEnd TheEndOfTheBar(BodyId body, in CarPose pose, Vector2 atM)
+    {
+        var armM = atM - pose.PositionM;
+        return new HookEnd(
+            atM,
+            pose.VelocityMps + (pose.YawRateRadPerS * new Vector2(-armM.Y, armM.X)),
+            armM,
+            _physics.InverseMassOf(body),
+            _physics.InverseInertiaOf(body));
     }
 
     public DamageSubject SubjectOf(BodyTag tag) => tag.Kind switch
     {
-        BodyKind.Person => DamageSubject.Person(People.MassKg[tag.Index], People.Dead[tag.Index]),
-        BodyKind.Car => DamageSubject.Car(Cars.MassKg[tag.Index], Cars.Broken[tag.Index]),
+        BodyKind.Person => DamageSubject.Person(People.MassKg[tag.Index], People.Wounded[tag.Index]),
+        BodyKind.Car => DamageSubject.Car(
+            Cars.MassKg[tag.Index], Cars.Broken[tag.Index], CarCatalog.Shared.UnbreakableOf(Cars.Variant[tag.Index])),
         _ => DamageSubject.Static,
     };
 
@@ -160,16 +268,11 @@ internal sealed partial class TownWorld
     {
         switch (outcome)
         {
-            case DamageOutcome.Shaken:
-                // Knocked about, every faculty kept, off its feet for the stumble window — which leaves
-                // the impulse of the impact visible after the impact is over. Running clear of the car
-                // that hit it belongs to the manoeuvre catalogue and is unbuilt.
-                People.OffFeetForS[tag.Index] = _config.Person.StumbleWindowS;
-                break;
-
-            case DamageOutcome.Dead:
-                People.Dead[tag.Index] = true;
-                People.Walking[tag.Index] = false;
+            case DamageOutcome.Wounded:
+                // Off its feet and down in the road from this moment (PER-18), taking no actions until an
+                // ambulance has been and got it — so the impulse of the impact carries it and it stays where
+                // that leaves it.
+                RaiseTheCall(tag.Index);
                 break;
 
             case DamageOutcome.Broken:
@@ -180,7 +283,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// A car in its terminal state: never driven again, on no lane, holding no junction, and with all
-    /// four wheels locked so what is left of it skids rather than rolls.
+    /// four wheels locked <b>where the crash left them pointing</b> so what is left of it skids rather
+    /// than rolls (PHY-5).
     /// </summary>
     /// <remarks>
     /// Letting the junction go is the load-bearing line. A wreck that kept its reservation would hold a
@@ -189,19 +293,36 @@ internal sealed partial class TownWorld
     /// </remarks>
     void Wreck(int car)
     {
+        if (Cars.Broken[car]) return;
+
+        // EVA-1: the wreck is a recovery from the tick it becomes one, raised where it happens so that
+        // nothing has to search the fleet for one.
+        RaiseTheRecovery(car);
+
+        // CTL-4: a terminal unit takes no orders, so it holds none either — a wreck the interface still
+        // called the player's would read as a car waiting to be told what to do next.
+        _carOrders.Release(car);
         Cars.Broken[car] = true;
         Cars.Driven[car] = false;
-        Cars.Command[car] = DriveCommand.Locked;
+        Cars.Command[car] = DriveCommand.LockedAt(Cars.Command[car].SteerRad);
         Cars.Hold[car] = DrivingHold.None;
         Cars.Line[car] = default;
         LeaveTheCatalogue(car);
         RestTheLadder(car);
         DropTheMovement(car);
 
-        // The driver is unaffected and gets out at once (`E-10`): a broken car cannot be driven again.
-        // The bay it was going to is given back on the way, since nothing will arrive there now.
-        _parking.GiveUpReservation(car);
-        var driver = _containers.DriverOf(car);
-        if (driver >= 0) People.Stage[driver] = TripStage.Alighting;
+        // An ambulance's stretcher is emptied into the road before anything else: a casualty inside a
+        // wreck is a person nothing will ever come for again (AMB-7).
+        if (Cars.Ambulance[car]) SpillTheAmbulance(car);
+
+        // SRV-4: an evacuator breaks like anything else, and a broken one drops what it was pulling where
+        // it stands. The truck is a call now and the wreck behind it is a call again, which is the state
+        // EVA-8 already puts a haul in that could not get through.
+        if (IsAnEvacuator(car)) LoseTheEvacuator(car);
+
+        // PHY-6: the driver goes down on the road beside their own door. The bay they were going to is
+        // given back on the way, since nothing will arrive there now.
+        GiveUpTheBay(car);
+        ThrowTheDriverClear(car);
     }
 }

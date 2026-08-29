@@ -9,18 +9,18 @@ namespace TrafficSimulation.App.Render;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The rotation is the car's and is zero for everything else.</b> A person's sprite does not turn
-/// with the body: the sheet draws all eight facings and every one of them is drawn upright, so heading
-/// is shown by <em>which cell</em> is sampled. A car's art is one frame with its nose along <c>+x</c>,
-/// so its heading is the quad's own rotation — one float, whose sine and cosine are taken in the shader
-/// where the quad is built anyway.
+/// <b>The rotation belongs to whatever the art draws one frame of</b>, and is zero for everything else.
+/// A walker on its feet does not turn with the body: the sheet draws all eight facings and every one of
+/// them is drawn upright, so heading is shown by <em>which cell</em> is sampled. A car's art is one frame
+/// with its nose along <c>+x</c>, and so is a body lying in the road (PER-18), so for those the heading
+/// is the quad's own rotation — one float, whose sine and cosine are taken in the shader where the quad
+/// is built anyway.
 /// </para>
 /// <para>
-/// <b>The tint's colour is three floats for the reason the ground's is</b>: a highlight is the sprite
-/// drawn brighter, and an eight-bit unorm tint clamps at white — which is exactly the case a highlight
-/// has to survive. <b>Its fourth is an opacity</b>, and everything the town draws but a mark leaves it
-/// at one: a mark is the same quad laid at whatever strength the tyre that made it earned, and a
-/// picture cannot carry a per-instance strength.
+/// <b>The tint is a colour and an opacity</b>, and everything the town draws but a mark leaves both
+/// alone: a mark is the same quad laid at whatever strength the tyre that made it earned, and a picture
+/// cannot carry a per-instance strength. <b>Nothing here says "selected"</b> — that is a shape drawn
+/// over the picture rather than a colour laid into it (<see cref="Hud.SelectionMark"/>).
 /// </para>
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]

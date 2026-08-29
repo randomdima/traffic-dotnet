@@ -69,10 +69,6 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
         Rect(atPx + new Vector2(sizePx.X - widthPx, widthPx), new Vector2(widthPx, sizePx.Y - widthPx * 2f), colour);
     }
 
-    /// <summary>A bar between two points on screen — the ruler's tape, and a leader line to a label.</summary>
-    public void LinePx(Vector2 fromPx, Vector2 toPx, float widthPx, Vector4 colour) =>
-        Bar(fromPx, toPx, widthPx, colour, screen: true);
-
     /// <summary>
     /// One line of text, its top-left at <paramref name="atPx"/>, and how wide it came out — so a
     /// caller laying a column can put the next thing after it without measuring twice.
@@ -116,10 +112,6 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
         Text(atPx, text[..(fits - 3)], heightPx, colour);
         return Text(atPx + new Vector2((fits - 3) * advance, 0f), "...", heightPx, colour) + (fits - 3) * advance;
     }
-
-    /// <summary>The same line, ending at <paramref name="rightPx"/> rather than starting at a corner.</summary>
-    public float TextRightOf(Vector2 rightPx, scoped ReadOnlySpan<char> text, float heightPx, Vector4 colour) =>
-        Text(rightPx - new Vector2(GlyphSheet.WidthPx(text.Length, heightPx), 0f), text, heightPx, colour);
 
     /// <summary>A line in the town's own metres, which is where a debug mark drawn where it happens belongs.</summary>
     public void LineM(Vector2 fromM, Vector2 toM, float widthM, Vector4 colour) =>
@@ -170,7 +162,52 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
         }
     }
 
-    /// <summary>A rotated box's outline in metres — the shape the solver holds for a car or a building.</summary>
+    /// <summary>
+    /// A rotated box's outline with its corners rounded off — the shape the solver holds for a car
+    /// (CAR-12b). <paramref name="sizeM"/> is what the shape reaches, rounding included, so a radius of
+    /// zero draws the same outline <see cref="BoxM"/> does.
+    /// </summary>
+    public void RoundedBoxM(
+        Vector2 centreM, Vector2 sizeM, float headingRad, float cornerRadiusM, float widthM, Vector4 colour,
+        int segmentsPerCorner = 3)
+    {
+        if (cornerRadiusM <= 0f)
+        {
+            BoxM(centreM, sizeM, headingRad, widthM, colour);
+            return;
+        }
+
+        var forward = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
+        var left = new Vector2(-forward.Y, forward.X);
+        var core = (sizeM * 0.5f) - new Vector2(cornerRadiusM);
+
+        // Four quarter turns, one about each corner of the core the radius is rolled around, walked in
+        // order. Consecutive arcs end and start on the same flat, so joining every point to the last one
+        // draws the flats as well without their being a case of their own.
+        var step = MathF.PI * 0.5f / segmentsPerCorner;
+        var first = Vector2.Zero;
+        var previous = Vector2.Zero;
+        for (var corner = 0; corner < 4; corner++)
+        {
+            var alongSign = corner is 0 or 3 ? 1f : -1f;
+            var acrossSign = corner is 0 or 1 ? 1f : -1f;
+            var pivot = centreM + (forward * (core.X * alongSign)) + (left * (core.Y * acrossSign));
+
+            for (var segment = 0; segment <= segmentsPerCorner; segment++)
+            {
+                var at = headingRad + (corner * MathF.PI * 0.5f) + (segment * step);
+                var next = pivot + (new Vector2(MathF.Cos(at), MathF.Sin(at)) * cornerRadiusM);
+                if (corner == 0 && segment == 0) first = next;
+                else LineM(previous, next, widthM, colour);
+
+                previous = next;
+            }
+        }
+
+        LineM(previous, first, widthM, colour);
+    }
+
+    /// <summary>A rotated box's outline in metres — the shape the solver holds for a building's part.</summary>
     public void BoxM(Vector2 centreM, Vector2 sizeM, float headingRad, float widthM, Vector4 colour)
     {
         var along = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad)) * sizeM.X * 0.5f;
@@ -198,6 +235,20 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
         var across = new Vector2(-along.Y, along.X) * 0.75f;
         LineM(atM - along + across, atM, widthM, colour);
         LineM(atM - along - across, atM, widthM, colour);
+    }
+
+    /// <summary>
+    /// A bar square across a line, where a chevron would be a claim the line cannot make: the ground under
+    /// it is travelled both ways. One stroke, and it says where the mark falls without saying which way
+    /// anything goes.
+    /// </summary>
+    public void TickM(Vector2 atM, Vector2 direction, float sizeM, float widthM, Vector4 colour)
+    {
+        if (direction.LengthSquared() <= 0f) return;
+
+        var along = Vector2.Normalize(direction) * sizeM;
+        var across = new Vector2(-along.Y, along.X) * 0.75f;
+        LineM(atM - across, atM + across, widthM, colour);
     }
 
     void Bar(Vector2 from, Vector2 to, float width, Vector4 colour, bool screen)

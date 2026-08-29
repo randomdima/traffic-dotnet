@@ -1,5 +1,47 @@
 # The machine — decision log
 
+## 2026-08-29 — the frame is paced by the display
+
+`--present` defaults to FIFO rather than mailbox, so a run draws at the refresh rate and no faster.
+Mailbox costs a whole core drawing frames the display throws away, and a run of the town is looked at
+rather than raced.
+
+**It was mailbox because a frame rate under FIFO says nothing** — the read-out is the refresh rate
+whatever the town costs, 120 fps on Test and 120 on Odesa. That argument stopped holding once the
+wait on the presenter was measured apart from the frame (`FrameParts.BlockedMs`): the cpu figure is
+what this build costs, and it is the same figure under either mode. `--present mailbox` is still
+there for the frame figure itself.
+
+## 2026-08-27 — the window opens fullscreen
+
+A run of the town is looked at, not compared against the editor beside it, and the frame rate a
+windowed run reports is only about the whole display anyway. So `AppWindow.Open` goes fullscreen and
+`--windowed` is the way back — the reverse of what it was, because the run that wants to sit beside
+something else is the rarer one.
+
+**It opens windowed and moves**, rather than asking for fullscreen up front, because neither half of
+that is choosable at creation: the platform places a new window where it likes, and Silk's
+`WindowState.Fullscreen` always takes the *primary* display whatever the window was on. The display
+wanted is the one the pointer is on — the pointer is where the run was started from, and it is the
+only thing on the desktop that says so.
+
+**A Wayland session cannot answer that**, since a client is told where the cursor is only while it is
+over one of its own surfaces, and nothing else it may ask names the display in front of the person.
+
+**Letting the desktop place the window instead does not work either**, and it was measured rather than
+assumed: GLFW sets `PPosition` on every window before it is mapped — its own comment calls it a hack,
+against window managers that ignore the position of unmapped windows otherwise — so the window is
+always born at the origin and the compositor's placement never runs. Dodging Silk's own
+`SetWindowPos` changes nothing; the window still opens at `0,0`. The display containing that corner
+is then whatever is arranged there, and where the displays neither overlap it nor share an origin the
+search ends at the *primary*, which is the screen nobody was looking at.
+
+So `--display NAME|N` names it outright, and the display a run took is printed with the framebuffer at
+startup, because a wrong one is otherwise a thing to describe rather than a thing to read.
+
+Nothing about the checks moved with it: a picture still needs no window (`--shot`), so no test, gate
+or probe passes through this path at all.
+
 ## 2026-08-17 — raw Vulkan, and why that is not a preference for the metal
 
 A low-level API earns its place here by being **quiet**, not by being low-level.

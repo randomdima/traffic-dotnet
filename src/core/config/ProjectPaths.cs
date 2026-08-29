@@ -50,6 +50,14 @@ internal static class ProjectPaths
     public static string TreadFile() =>
         Path.Combine(Assets, "agents", "car", "variants", "common", "tire_tread.png");
 
+    /// <summary>
+    /// Every lit lamp in the town, in one sheet: a row a variant, two columns a lens, each cell that
+    /// variant's own bodywork cut out and driven emissive (CAR-14a). Cut by <c>--lamps</c> and committed
+    /// beside the sprites it came from; an unlit lamp is not here, because it is the sprite itself.
+    /// </summary>
+    public static string LampAtlasFile() =>
+        Path.Combine(Assets, "agents", "car", "variants", "common", "lamp_atlas.png");
+
     /// <summary>The map list is the <c>towns/</c> folder itself, so a map cannot be shipped and unlisted.</summary>
     public static string[] ShippedMaps()
     {

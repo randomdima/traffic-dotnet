@@ -38,13 +38,14 @@ internal sealed partial class ManeuverDesk
     readonly RoadGraph _roads;
     readonly LaneOccupancy _occupancy;
     readonly ParkingRegistry _parking;
+    readonly BayWays _bayWays;
 
     /// <summary>Where a candidate's arcs are drawn while it is still a candidate, so a refusal writes over nothing.</summary>
     readonly ArcSeg[] _candidate = new ArcSeg[MostCandidateArcs];
 
     public ManeuverDesk(
         SimConfig config, CarFleet cars, TerrainGrid terrain, RoadGraph roads, LaneOccupancy occupancy,
-        ParkingRegistry parking)
+        ParkingRegistry parking, BayWays bayWays)
     {
         _config = config;
         _cars = cars;
@@ -52,6 +53,7 @@ internal sealed partial class ManeuverDesk
         _roads = roads;
         _occupancy = occupancy;
         _parking = parking;
+        _bayWays = bayWays;
     }
 
     /// <summary>The longest template in the catalogue is the swerve, at five pieces.</summary>
@@ -71,16 +73,105 @@ internal sealed partial class ManeuverDesk
     /// <summary>The bay this car stands in, and the one its leg holds — both −1 where there is none.</summary>
     public int BayOf(int car) => _parking.BayOf(car);
 
-    public int ReservationOf(int car) => _parking.ReservationOf(car);
+    /// <summary>The bay this leg is on its way to, or <see cref="ParkingRegistry.NoBay"/>.</summary>
+    public int BookingOf(int car) => _parking.BookingOf(car);
 
-    /// <summary>`P-2`'s success: the bay is the town's again the moment the car is out of it.</summary>
-    public void VacateTheBay(int car) => _parking.Vacate(car);
+    /// <summary>The bay this leg is turning in (GEN-4l), or <see cref="ParkingRegistry.NoBay"/>.</summary>
+    public int TurnOf(int car) => _parking.TurnOf(car);
+
+    /// <summary>
+    /// <b>The heading of the lane this leg comes back down</b> (`P-19`), read where the car is standing —
+    /// what a car turning on the spot is working round to. False where this leg is not coming back at all.
+    /// </summary>
+    public bool TheWayBack(int car, out float headingRad)
+    {
+        headingRad = 0f;
+        var back = _cars.TurnsBackOn[car];
+        if (back < 0) return false;
+
+        ref readonly var build = ref _cars.BuildOf(car);
+        var axleM = CarFollower.RearAxleM(build, _cars.PositionM[car], Heading.Unit(_cars.HeadingRad[car]));
+        var arcs = _roads.ArcsOf(back);
+        var lengthM = _roads.LaneLengthM[back];
+        var at = Spline.SampleAt(arcs, Spline.ProjectM(arcs, axleM, lengthM * 0.5f, lengthM));
+        headingRad = MathF.Atan2(at.Direction.Y, at.Direction.X);
+        return true;
+    }
+
+    /// <summary>
+    /// And whether the body is round far enough to be driving it: within the tolerance a turn through a
+    /// junction is called straight at, which is the angle the road itself is read to.
+    /// </summary>
+    public bool PointsTheWayBack(int car) =>
+        TheWayBack(car, out var headingRad)
+        && MathF.Abs(Spline.WrapRad(headingRad - _cars.HeadingRad[car]))
+        <= _config.Road.TurnStraightToleranceDeg * MathF.PI / 180f;
+
+    /// <summary>
+    /// <b>And whether it is on that lane as well as pointing along it</b> — the last thing a turn on the
+    /// spot owes whoever it hands to. A car left standing off the line it is about to be given is a car
+    /// the follower calls lost the moment it is handed one.
+    /// </summary>
+    public bool IsOnTheWayBack(int car) =>
+        PointsTheWayBack(car) && OffTheWayBackM(car) <= _config.CarOffPathM;
+
+    /// <summary>How far the axle stands off the line of the lane this leg comes back down, or infinity where there is none.</summary>
+    float OffTheWayBackM(int car)
+    {
+        var back = _cars.TurnsBackOn[car];
+        if (back < 0) return float.PositiveInfinity;
+
+        ref readonly var build = ref _cars.BuildOf(car);
+        var axleM = CarFollower.RearAxleM(build, _cars.PositionM[car], Heading.Unit(_cars.HeadingRad[car]));
+        var arcs = _roads.ArcsOf(back);
+        var lengthM = _roads.LaneLengthM[back];
+        var at = Spline.SampleAt(arcs, Spline.ProjectM(arcs, axleM, lengthM * 0.5f, lengthM));
+        return (at.PositionM - axleM).Length();
+    }
+
+    /// <summary>
+    /// <b>Whether the way this leg's line finishes at is one the car reverses into</b> (GEN-4j). A route is
+    /// driven forwards, so such a way is not threaded onto the line: the line stops where it begins and the
+    /// shape is laid again from the pose the car came to rest in, in the gear it is drawn for.
+    /// </summary>
+    public bool ReversesIntoTheBay(int car) =>
+        _cars.TailWayOf(car) is var way and not CarFleet.NoWay && _bayWays.IsDrivenInReverse(way);
+
+    /// <summary>
+    /// <b>The bay a manoeuvre of this leg has in hand</b>: the one the car is standing in, then the one it
+    /// is turning in, then the place it is booked into. They are in the order a leg meets them, so an entry
+    /// that asks gets the bay it is working on now rather than the one at the end of the leg.
+    /// </summary>
+    public int BayInHand(int car) =>
+        BayOf(car) is var standing and >= 0 ? standing
+        : TurnOf(car) is var turning and >= 0 ? turning
+        : BookingOf(car);
+
+    /// <summary>
+    /// `P-2`'s success: the bay is the town's again the moment the car is out of it — <b>the standing and
+    /// the turn alike</b>, since a car that has driven out of a bay it turned in (GEN-4l) is a car with no
+    /// further use for it.
+    /// </summary>
+    public void VacateTheBay(int car)
+    {
+        _parking.Vacate(car);
+        _parking.LeaveTheTurn(car);
+    }
 
     /// <summary>`P-17`'s success: the bay is this car's until something else drives it away.</summary>
     public void OccupyTheBay(int car, int bay) => _parking.Occupy(bay, car);
 
-    /// <summary>`E-9` and `E-10`: a place held by a car that has stopped driving is a place removed from the town.</summary>
-    public void GiveUpTheReservation(int car) => _parking.GiveUpReservation(car);
+    /// <summary>
+    /// `E-9` and `E-10`: a place held by a car that has stopped driving towards it is a place removed from
+    /// the town.
+    /// </summary>
+    public void GiveUpTheBooking(int car) => _parking.Release(car);
+
+    /// <summary>
+    /// <b>A bay booked for a leg</b> — the register's, because a booking is held over ground the car has no
+    /// line to yet and is the one hold in the town that is not a piece of road (<see cref="ParkingRegistry"/>).
+    /// </summary>
+    public bool BookTheBay(int car, int bay) => _parking.Book(car, bay);
 
     /// <summary>
     /// The attempt counts, spent as an entry takes up. <b>Each is spent by the entry that has it</b> and
@@ -93,59 +184,6 @@ internal sealed partial class ManeuverDesk
     public void SpendAReroute(int car) => _cars.Reroutes[car]++;
 
     public void SpendARecovery(int car) => _cars.Recoveries[car]++;
-
-    /// <summary>
-    /// The beat before the first look at the lane. <b>Two cars in neighbouring bays that start waiting on
-    /// the same tick would otherwise take the same gap</b>, so the wait starts below zero by a share of
-    /// the patience drawn from the car's own stream.
-    /// </summary>
-    public void BeginTheWait(int car) =>
-        _cars.WaitedS[car] = -_cars.Draw[car].NextFloat(0f, _config.Ladder.GiveWayPatienceLeavingBayS * BeatOfThePatience);
-
-    /// <summary>A fifth of the patience: long enough to break a row of bays apart, short enough not to be the wait.</summary>
-    const float BeatOfThePatience = 0.2f;
-
-    public void SpendTheWait(int car, float sinceS) => _cars.WaitedS[car] += sinceS;
-
-    /// <summary>
-    /// `P-2`'s question, asked of the lane the car is about to back onto: <b>how long before anything on
-    /// it reaches the pose this car will occupy</b> — a time, never a distance, exactly as a walker asks
-    /// at a kerb (§8 rule 8). Anything already in the mouth of the bay answers zero.
-    /// </summary>
-    /// <remarks>
-    /// A row of parked cars must never hold a bay shut, and a car at town speed a street away must be
-    /// waited for; a distance answers both wrongly. Past the give-way patience the gap is taken anyway —
-    /// a car waiting out a jam is one more car in it — and the patience is jittered by the beat, so a row
-    /// of cars that began waiting together does not all give up together either.
-    /// </remarks>
-    public bool GapIsClear(int car)
-    {
-        if (_cars.WaitedS[car] < 0f) return false;
-
-        var lengthM = _cars.Line[car].LengthM;
-        var endM = Spline.SampleAt(_cars.LineOf(car), lengthM).PositionM;
-        var lane = _roads.NearestLane(endM, out var mouthM);
-        if (lane < 0) return true;
-
-        // The ground the car will be standing on when it is out. It is claimed before it is looked at, so
-        // that two cars in neighbouring bays which each found the lane clear on the same tick do not both
-        // back onto it — the argument a car crossing a junction takes its sections on, over a stretch of lane.
-        var halfM = _config.Car.LengthM * 0.5f;
-        var way = _occupancy.WayOfLane(lane);
-        if (!Claim(car, way, mouthM - halfM, mouthM + halfM)) return false;
-        if (_cars.WaitedS[car] >= _config.Ladder.GiveWayPatienceLeavingBayS) return true;
-
-        if (!_occupancy.BehindBody(way, mouthM - halfM, mouthM - _config.CarSightM, car, out var behind)) return true;
-
-        // Anything already in the mouth of the bay answers zero, whatever it is doing; anything else is
-        // asked as a time and never a distance (§8 rule 8), because a row of parked cars must never hold a
-        // bay shut and a car at town speed a street away must be waited for.
-        var gapM = mouthM - halfM - behind.ToM;
-        if (gapM <= 0f) return false;
-        if (behind.AlongMps <= _config.Driving.StopSpeedMps) return true;
-
-        return gapM / behind.AlongMps >= lengthM / MathF.Max(0.1f, _config.Car.ReverseMaxMps);
-    }
 
     /// <summary>
     /// <b>The stretch of lane a manoeuvre is about to put a body on</b>, taken if nobody else has taken
@@ -185,17 +223,20 @@ internal sealed partial class ManeuverDesk
         Claim(car, _occupancy.WayOfLane(lane), fromM, fromM + passM);
     }
 
-    /// <summary>Whether a body standing here, pointing this way, is on ground a car may drive on — centre, nose and tail.</summary>
-    public bool BodyStandsOnDrivableGround(Vector2 centreM, Vector2 forward)
+    /// <summary>
+    /// Whether a body of this length standing here, pointing this way, is on ground a car may drive on —
+    /// centre, nose and tail. <b>The length is the body's own</b> (CAR-11): a truck's nose reaches over a
+    /// kerb a hatchback's stops short of.
+    /// </summary>
+    public bool BodyStandsOnDrivableGround(Vector2 centreM, Vector2 forward, float halfLengthM)
     {
-        var halfM = _config.Car.LengthM * 0.5f;
         return _terrain.At(centreM).Drivable
-               && _terrain.At(centreM + forward * halfM).Drivable
-               && _terrain.At(centreM - forward * halfM).Drivable;
+               && _terrain.At(centreM + forward * halfLengthM).Drivable
+               && _terrain.At(centreM - forward * halfLengthM).Drivable;
     }
 
     public bool StandsOnDrivableGround(int car) =>
-        BodyStandsOnDrivableGround(_cars.PositionM[car], ForwardOf(car));
+        BodyStandsOnDrivableGround(_cars.PositionM[car], ForwardOf(car), _cars.BuildOf(car).HalfLengthM);
 
     /// <summary>
     /// How much ground a straight along the car's own axis actually has, <b>walked before committing and
@@ -204,17 +245,19 @@ internal sealed partial class ManeuverDesk
     /// </summary>
     public float RoomAlongTheAxisM(int car, bool backwards)
     {
+        ref readonly var build = ref _cars.BuildOf(car);
         var forward = ForwardOf(car);
         var travel = backwards ? -forward : forward;
-        var stepM = _config.Car.LengthM * GroundStepInCarLengths;
+        var stepM = build.LengthM * GroundStepInCarLengths;
         var roomM = 0f;
         while (roomM + stepM <= _config.Car.ReverseBoundM
-               && BodyStandsOnDrivableGround(_cars.PositionM[car] + travel * (roomM + stepM), forward))
+               && BodyStandsOnDrivableGround(
+                   _cars.PositionM[car] + travel * (roomM + stepM), forward, build.HalfLengthM))
         {
             roomM += stepM;
         }
 
-        return roomM >= _config.Car.LengthM * 0.5f ? roomM : 0f;
+        return roomM >= build.HalfLengthM ? roomM : 0f;
     }
 
     /// <summary>
@@ -228,17 +271,22 @@ internal sealed partial class ManeuverDesk
         reachM = 0f;
         backwards = false;
 
+        ref readonly var build = ref _cars.BuildOf(car);
         var forward = ForwardOf(car);
-        var stepM = _config.Car.LengthM * GroundStepInCarLengths;
-        for (var outM = stepM; outM <= _config.Car.LengthM * SearchInCarLengths; outM += stepM)
+        var stepM = build.LengthM * GroundStepInCarLengths;
+        for (var outM = stepM; outM <= build.LengthM * SearchInCarLengths; outM += stepM)
         {
-            if (BodyStandsOnDrivableGround(_cars.PositionM[car] + forward * outM, forward))
+            if (BodyStandsOnDrivableGround(_cars.PositionM[car] + forward * outM, forward, build.HalfLengthM))
             {
                 reachM = outM;
                 return true;
             }
 
-            if (!BodyStandsOnDrivableGround(_cars.PositionM[car] - forward * outM, forward)) continue;
+            if (!BodyStandsOnDrivableGround(
+                    _cars.PositionM[car] - forward * outM, forward, build.HalfLengthM))
+            {
+                continue;
+            }
 
             reachM = outM;
             backwards = true;
@@ -250,21 +298,22 @@ internal sealed partial class ManeuverDesk
 
     /// <summary>
     /// Whether the ground under a candidate template will hold a car all the way along it. <b>The shape
-    /// is the car's and the room is the town's</b>: whether a junction is wide enough for a turn-around
-    /// or a lane wide enough for a swerve is a fact about a town, and asking the terrain is the only way
-    /// to have one answer to it rather than a table of junction sizes beside a table of car radii.
+    /// is the car's and the room is the town's</b>: whether a lane is wide enough for a swerve or a bay
+    /// reachable from the pose a car is in is a fact about a town, and asking the terrain is the only way
+    /// to have one answer to it rather than a table of street widths beside a table of car radii.
     /// </summary>
-    public bool GroundAdmits(ReadOnlySpan<ArcSeg> line, float lengthM)
+    public bool GroundAdmits(int car, ReadOnlySpan<ArcSeg> line, float lengthM)
     {
-        var stepM = _config.Car.LengthM * GroundStepInCarLengths;
+        ref readonly var build = ref _cars.BuildOf(car);
+        var stepM = build.LengthM * GroundStepInCarLengths;
         for (var alongM = 0f; alongM <= lengthM; alongM += stepM)
         {
             var pose = Spline.SampleAt(line, alongM);
 
-            // The template is the rear axle's, so the body standing on it is centred half a wheelbase
-            // ahead of the line (CAR-4a).
-            var centreM = pose.PositionM + pose.Direction * _config.Car.WheelbaseM * 0.5f;
-            if (!BodyStandsOnDrivableGround(centreM, pose.Direction)) return false;
+            // The template is the rear axle's, so the body standing on it is centred this car's own
+            // axle-to-middle ahead of the line (CAR-4a).
+            var centreM = pose.PositionM + pose.Direction * build.CentreAheadOfAxleM;
+            if (!BodyStandsOnDrivableGround(centreM, pose.Direction, build.HalfLengthM)) return false;
         }
 
         return true;

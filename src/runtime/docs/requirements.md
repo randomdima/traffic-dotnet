@@ -6,9 +6,7 @@ this is the layer that gets it there.
 
 ## The crossing budget
 
-**The frame's managed→native crossing count is O(1) in the size of the town.** The boundary is not
-forbidden — a window has to be opened and a buffer has to reach a GPU — it is **counted, bounded and
-constant**.
+**How rule 1 is arranged** ([goals.md](../../../docs/goals.md)):
 
 - **One command buffer per swapchain image, recorded once.** Draw counts live in a buffer the CPU writes
   rather than in the calls themselves, so a windowed frame is five crossings — acquire, wait, reset,

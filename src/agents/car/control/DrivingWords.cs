@@ -31,11 +31,10 @@ internal static class DrivingWords
                 cars.Limits[car].HoldStill
                     ? "P-2 waiting for a gap"
                     : "P-2 backing out of a bay",
-            Maneuver.TurnAround => "P-11 turning around",
+            Maneuver.ShuntRound => "P-19 turning round",
             Maneuver.ParkInTheBay => "P-14 parking",
             Maneuver.SquareUpInTheBay => "P-16 squaring up",
             Maneuver.StandParked => "P-17 parked",
-            Maneuver.Yield => "E-1 yielding",
             Maneuver.EmergencyStop => "E-2 stopping hard",
             Maneuver.BackOff => "E-3 backing off",
             Maneuver.GoRound => "E-4 going round",

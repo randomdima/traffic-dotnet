@@ -16,7 +16,6 @@ namespace TrafficSimulation.Tests.Hud;
 /// its own header, that the rows it writes are the rows it was sized for, and that it takes the clicks that
 /// land on it rather than letting them through to the track it is drawn over.
 /// </summary>
-[Collection(Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Unit)]
 public class TrackPanelTests
 {
@@ -27,7 +26,7 @@ public class TrackPanelTests
     static int Draw(TrackPanel panel, TrackMetrics metrics, Vector2 pointerPx)
     {
         var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
-        panel.Draw(ref draw, pointerPx, metrics);
+        panel.Draw(ref draw, pointerPx, topY: 120f, metrics);
         return draw.Written;
     }
 

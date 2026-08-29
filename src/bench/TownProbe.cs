@@ -13,21 +13,29 @@ namespace TrafficSimulation.Bench;
 /// thing the rules are actually about.
 /// </summary>
 /// <remarks>
-/// <b>Rule 2 wants zero and every column here is this engine's own code</b>, which is what changed when
-/// the solver stopped being a package: the several hundred bytes a step used to allocate were the one
-/// figure this engine could only report and never fix. The two shares are still printed apart, because
-/// what allocates and what does not is the thing a gate has to be able to name.
+/// <b>Rule 2 wants zero and every column here is this engine's own code</b>, so every byte on this table
+/// is a byte this project can go and remove — nothing here is a package's allocation that could only ever
+/// be reported. The two shares are printed apart, because what allocates and what does not is the thing a
+/// gate has to be able to name.
 /// </remarks>
 internal static class TownProbe
 {
     public const int WarmupTicks = 600;
 
-    public const int MeasuredTicks = 900;
+    /// <summary>
+    /// How long a timing window runs for, rather than how many ticks it runs — a cheap map and a full
+    /// one would otherwise be averaged over spans three orders of magnitude apart, and the short end is
+    /// a third of a second of a town whose own workload moves by more than that between windows.
+    /// </summary>
+    public const double WindowS = 60d;
+
+    /// <summary>The two allocation windows, which count bytes rather than time and need no wall clock.</summary>
+    public const int AllocationTicks = 900;
 
     public static void Run(SimConfig config)
     {
-        Console.WriteLine($"town probe — {WarmupTicks} warm-up ticks, {MeasuredTicks} measured, {config.Solver.VelocityIterations} solver iterations");
-        Console.WriteLine($"{"map",-10}{"walkers",9}{"cars",6}{"statics",9}{"in book",9}{"stand ms",10}{"B/tick",10}{"ours B",9}{"solver B",10}{"µs/tick",10}{"gen0",7}");
+        Console.WriteLine($"town probe — {WarmupTicks} warm-up ticks, {WindowS:F0} s measured per window, {config.Solver.VelocityIterations} solver iterations");
+        Console.WriteLine($"{"map",-10}{"walkers",9}{"cars",6}{"statics",9}{"in book",9}{"stand ms",10}{"B/tick",10}{"ours B",9}{"solver B",10}{"µs/tick",10}{"gen0",7}{"ticks",10}");
 
         // The capacity a big world grows outlives the world that grew it, and so does the compiler's
         // opinion of the tick: nothing is measured until a town has been stood up and run
@@ -41,7 +49,7 @@ internal static class TownProbe
             var sample = Sample(maps[map], config);
             samples[map] = sample;
             Console.WriteLine($"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Statics,9}{sample.InTheBook,9}{sample.StandMs,10:F0}{sample.BytesPerTick,10:F1}" +
-                              $"{sample.OwnBytesPerTick,9:F1}{sample.SolverBytesPerTick,10:F1}{sample.MicrosecondsPerTick,10:F1}{sample.Gen0Collections,7}");
+                              $"{sample.OwnBytesPerTick,9:F1}{sample.SolverBytesPerTick,10:F1}{sample.MicrosecondsPerTick,10:F1}{sample.Gen0Collections,7}{sample.MeasuredTicks,10}");
         }
 
         Console.WriteLine("Rule 2 is two claims and both now hold on the same row: nothing allocated, flat in the size " +
@@ -104,7 +112,7 @@ internal static class TownProbe
     /// </summary>
     public readonly record struct TownSample(
         int Walkers, int Cars, int Statics, int InTheBook, double StandMs, double BytesPerTick, double OwnBytesPerTick,
-        double MicrosecondsPerTick, int Gen0Collections, PhaseTimes Phases, TickParts Sub)
+        double MicrosecondsPerTick, int Gen0Collections, long MeasuredTicks, PhaseTimes Phases, TickParts Sub)
     {
         public double SolverBytesPerTick => BytesPerTick - OwnBytesPerTick;
     }
@@ -123,7 +131,7 @@ internal static class TownProbe
         var gen0 = GC.CollectionCount(0);
         var before = GC.GetAllocatedBytesForCurrentThread();
         started = Stopwatch.GetTimestamp();
-        loop.Advance(MeasuredTicks);
+        var measured = AdvanceFor(loop, WindowS);
         var elapsed = Stopwatch.GetElapsedTime(started);
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
@@ -132,7 +140,7 @@ internal static class TownProbe
         // reported rather than hidden inside the figure it inflates.
         loop.Timed = true;
         world.Timed = true;
-        loop.Advance(MeasuredTicks);
+        AdvanceFor(loop, WindowS);
         var phases = loop.Phases;
         var sub = world.Sub;
 
@@ -142,9 +150,30 @@ internal static class TownProbe
         world.Timed = false;
 
         return new TownSample(
-            world.People.Count, world.Cars.Count, world.StaticBodyCount, world.StandingSlots, standMs, allocated / (double)MeasuredTicks,
-            OwnBytesPerTick(world, config), elapsed.TotalMicroseconds / MeasuredTicks, GC.CollectionCount(0) - gen0,
-            phases, sub);
+            world.People.Count, world.Cars.Count, world.StaticBodyCount, world.StandingSlots, standMs, allocated / (double)measured,
+            OwnBytesPerTick(world, config), elapsed.TotalMicroseconds / measured, GC.CollectionCount(0) - gen0,
+            measured, phases, sub);
+    }
+
+    /// <summary>
+    /// One window: ticks until the wall clock has passed <paramref name="seconds"/>, as the count of
+    /// them run. The clock is read once a block rather than once a tick, so the window's own cost stays
+    /// under the tick it is measuring.
+    /// </summary>
+    static long AdvanceFor(SimLoop<TownWorld> loop, double seconds)
+    {
+        const int block = 60;
+
+        var started = Stopwatch.GetTimestamp();
+        var ticks = 0L;
+        do
+        {
+            loop.Advance(block);
+            ticks += block;
+        }
+        while (Stopwatch.GetElapsedTime(started).TotalSeconds < seconds);
+
+        return ticks;
     }
 
     /// <summary>
@@ -190,11 +219,11 @@ internal static class TownProbe
     /// </summary>
     public static double OwnBytesPerTick(TownWorld world, SimConfig config)
     {
-        Decide(world, config, MeasuredTicks / 10);
+        Decide(world, config, AllocationTicks / 10);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
-        Decide(world, config, MeasuredTicks);
-        return (GC.GetAllocatedBytesForCurrentThread() - before) / (double)MeasuredTicks;
+        Decide(world, config, AllocationTicks);
+        return (GC.GetAllocatedBytesForCurrentThread() - before) / (double)AllocationTicks;
 
         static void Decide(TownWorld town, SimConfig figures, int ticks)
         {

@@ -1,5 +1,6 @@
 {
   "id": "coat_brown",
   "sheet": "coat_brown.png",
+  "down": "coat_brown_down.png",
   "heightM": 1.84
 }

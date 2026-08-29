@@ -137,55 +137,9 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
-    /// Which bodies that <em>move</em> stand inside an axis-aligned box, <paramref name="ignore"/> apart.
-    /// Returns how many were written, or <see cref="TooMany"/> where more than <paramref name="into"/>
-    /// holds are in there — a caller asking "and no others" has its answer either way.
-    /// </summary>
-    /// <remarks>
-    /// <b>This is what a driver asks before it casts anything.</b> A box over the ground a car's rays
-    /// could reach costs one walk of the moving grid's cells; the rays cost three chains of a hundred-odd
-    /// points and a descent apiece. Where the box is empty there is nothing for a ray to find and the
-    /// question is answered without asking it, and where it holds one body the driver already knows about,
-    /// that body's own pose is a better answer than a ray would give it anyway.
-    /// </remarks>
-    public int DynamicsInBox(Vector2 leastM, Vector2 mostM, BodyId ignore, Span<BodyId> into)
-    {
-        EnsureIndex();
-
-        if (!_dynamicGrid.TryRange(leastM, mostM, out var fromX, out var fromY, out var toX, out var toY)) return 0;
-
-        var found = 0;
-        for (var y = fromY; y <= toY; y++)
-        {
-            for (var x = fromX; x <= toX; x++)
-            {
-                foreach (var body in _dynamicGrid.Items(x, y))
-                {
-                    if (body == ignore.Index || Apart(body, leastM, mostM)) continue;
-
-                    // A body is written into every cell its box touches, so a box spanning several cells
-                    // meets the same one more than once.
-                    var seen = false;
-                    for (var slot = 0; slot < found; slot++) seen |= into[slot].Index == body;
-                    if (seen) continue;
-
-                    if (found == into.Length) return TooMany;
-
-                    into[found++] = new BodyId(body + 1);
-                }
-            }
-        }
-
-        return found;
-    }
-
-    /// <summary>More bodies in the box than the caller left room for, which is not a count and is never a "no".</summary>
-    public const int TooMany = -1;
-
-    /// <summary>
-    /// Whether any of the town's furniture stands inside an axis-aligned box. Asked when a driven line is
-    /// laid and never in a tick: it is what buys a car's rays the right to skip the static grid for as
-    /// long as that line lasts.
+    /// Whether any of the town's furniture stands inside an axis-aligned box. Asked when somewhere to put
+    /// a body down is being chosen and never in a tick, so it walks the static grid rather than keeping an
+    /// answer anything has to maintain.
     /// </summary>
     public bool StaticInBox(Vector2 leastM, Vector2 mostM)
     {

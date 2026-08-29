@@ -31,7 +31,16 @@ internal readonly record struct DriveCommand(float SteerRad, float ThrottleMps2,
     /// <em>is</em>, every wheel asked to cancel the whole of what it carries. What it actually gets is
     /// still the ellipse's, which is why this leaves a skid and not a stop.
     /// </summary>
-    public static DriveCommand Locked => new(0f, 0f, float.PositiveInfinity, true, false);
+    /// <remarks>
+    /// <b>The wheels lock where they were pointing</b> (PHY-5): a car is wrecked mid-corner with its rack
+    /// wound over, and nothing afterwards is turning it back. The angle is therefore carried rather than
+    /// zeroed — it is what the four patches skid along and what the four tyres are drawn at, and a wreck
+    /// whose wheels snapped straight on the tick it broke is one the crash visibly tidied up.
+    /// </remarks>
+    public static DriveCommand LockedAt(float steerRad) => new(steerRad, 0f, float.PositiveInfinity, true, false);
+
+    /// <summary>The same, for a wreck whose wheels were straight — and the shape of the state in a test.</summary>
+    public static DriveCommand Locked => LockedAt(0f);
 
     public float GearSign => Reverse ? -1f : 1f;
 

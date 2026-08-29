@@ -1,5 +1,9 @@
 {
   "id": "house_timber",
   "sprite": "house_timber.png",
-  "footprintM": [13.00, 12.37]
+  "footprintM": [13.00, 12.37],
+  "partsM": [
+    { "atM": [0.17, -0.05], "sizeM": [11.75, 9.93] },
+    { "atM": [-2.31, 1.67], "sizeM": [7.65, 7.17] }
+  ]
 }

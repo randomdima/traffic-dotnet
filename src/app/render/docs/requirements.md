@@ -45,6 +45,12 @@ A body is drawn from a sheet indexed by what the simulation already knows — a 
 row, a signal's lit lamp, a car variant — so the picture reads state rather than being told it. **The lit
 frames of a signal head are made from the dark one offline**, not drawn separately.
 
+**A state a body cannot come back from the same tick gets its own picture**, and there are two: a wrecked
+car and a body lying in the road (`PER-18`). Both are one frame with the head or the nose along `+x` and
+both are turned to their own heading, which is what separates them from a walker on its feet — that is
+drawn upright from a sheet of eight facings, because a standing body looks the same whichever way the
+camera is held.
+
 ## A shot needs no window
 
 An offscreen frame is the same recording against a different target, and it is what every render check is

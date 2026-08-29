@@ -1,7 +1,7 @@
 namespace TrafficSimulation.Agents.Car.Maneuvers;
 
 /// <summary>
-/// <b>AGT-7's closed catalogue</b>: everything a driver does is one of these, and there is no twentieth.
+/// <b>AGT-7's closed catalogue</b>: everything a driver does is one of these, and there is no other.
 /// A <c>P-</c> entry is planned and chained; an <c>E-</c> entry is never planned — it is triggered by
 /// something the plan did not predict, suspends the planned one, runs, and hands control back.
 /// </summary>
@@ -13,9 +13,9 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// <see cref="ManeuverCatalogue"/> — never a branch in the middle of a controller.
 /// </para>
 /// <para>
-/// <b>The numbering has gaps and they stay</b> (`P-1`, `P-3`, `P-5`, `P-7`, `P-9`, `P-10`, `P-13`, `P-15`
-/// are the walker's or are retired, and `E-5` is retired): a retired number is never reused, so the codes
-/// this enum prints are the brief's own and a reader can look any of them up.
+/// <b>The numbering has gaps and they stay</b> (`P-1`, `P-3`, `P-5`, `P-7`, `P-9`, `P-10`, `P-12`, `P-13`,
+/// `P-15` are the walker's or are retired, and `E-1` and `E-5` are retired): a retired number is never
+/// reused, so the codes this enum prints are the brief's own and a reader can look any of them up.
 /// </para>
 /// <para>
 /// The whole catalogue is named here rather than only the part that is built, because
@@ -40,12 +40,6 @@ internal enum Maneuver : byte
     /// <summary>`P-8` — take the junction. One entry for all three movements, named on entry with the junction.</summary>
     TakeTheJunction,
 
-    /// <summary>`P-11` — turn around inside a junction, which is the only place the route may reverse direction.</summary>
-    TurnAround,
-
-    /// <summary>`P-12` — pass a crossing, which is where the yield to somebody on the paint is discharged.</summary>
-    PassACrossing,
-
     /// <summary>`P-14` — park in the bay, on the template the leg chose.</summary>
     ParkInTheBay,
 
@@ -55,8 +49,11 @@ internal enum Maneuver : byte
     /// <summary>`P-17` — stand parked: the handbrake held, the bay marked occupied, the driver handed back its trip.</summary>
     StandParked,
 
-    /// <summary>`E-1` — yield. Another agent has priority, and waiting for it is legitimate idling.</summary>
-    Yield,
+    /// <summary>`P-19` — shunt round: come back the other way where no bay is laid to turn in, which is a dead end.</summary>
+    ShuntRound,
+
+    /// <summary>`P-18` — attend the scene: come to rest beside a place the car was sent to, and stand there while the crew works.</summary>
+    AttendTheScene,
 
     /// <summary>`E-2` — emergency stop. Frequent use of this is a planning failure and not a safety feature.</summary>
     EmergencyStop,
@@ -93,7 +90,7 @@ internal static class Maneuvers
     /// A reactive entry suspends a planned one rather than replacing it, so this is what decides whether
     /// the director hands the car back to what it was doing (§1.6) or takes the next step of the plan.
     /// </summary>
-    public static bool IsReactive(Maneuver maneuver) => maneuver >= Maneuver.Yield;
+    public static bool IsReactive(Maneuver maneuver) => maneuver >= Maneuver.EmergencyStop;
 
     /// <summary>
     /// The three entries that end a drive leg. <b>Terminal is a property of the entry and not of the
@@ -111,12 +108,11 @@ internal static class Maneuvers
         Maneuver.RunTheLine => "P-4",
         Maneuver.HoldAtALine => "P-6",
         Maneuver.TakeTheJunction => "P-8",
-        Maneuver.TurnAround => "P-11",
-        Maneuver.PassACrossing => "P-12",
         Maneuver.ParkInTheBay => "P-14",
         Maneuver.SquareUpInTheBay => "P-16",
         Maneuver.StandParked => "P-17",
-        Maneuver.Yield => "E-1",
+        Maneuver.AttendTheScene => "P-18",
+        Maneuver.ShuntRound => "P-19",
         Maneuver.EmergencyStop => "E-2",
         Maneuver.BackOff => "E-3",
         Maneuver.GoRound => "E-4",

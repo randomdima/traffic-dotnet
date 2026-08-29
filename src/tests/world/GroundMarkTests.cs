@@ -10,7 +10,6 @@ namespace TrafficSimulation.Tests.World;
 /// What the traffic writes on the ground, in a running town rather than in arithmetic: that a town
 /// standing still writes nothing, and that one being driven writes something.
 /// </summary>
-[Collection(TrafficSimulation.Tests.Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Town)]
 public class GroundMarkTests
 {
@@ -24,7 +23,7 @@ public class GroundMarkTests
     [Fact]
     public void ATownNobodyHasDrivenYetHasNothingWrittenOnIt()
     {
-        using var world = new TownWorld(Towns.Fresh(Towns.Fixture), Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         new SimLoop<TownWorld>(world, Config).Advance(60);
 
         Assert.Equal(0, world.Marks.Count);
@@ -38,8 +37,12 @@ public class GroundMarkTests
     [Fact]
     public void ADrivenTownWritesOnTheGround()
     {
-        using var world = new TownWorld(Towns.Fresh("Odesa"), Config);
-        new SimLoop<TownWorld>(world, Config).Advance(3_600);
+        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+
+        // The minute is how long a city may take to write its first mark, not how long this watches for:
+        // the claim is that something reaches the ground, so the tick it does is the end of the question.
+        for (var tick = 0; tick < 3_600 && world.Marks.Count == 0; tick++) loop.Advance(1);
 
         Assert.True(world.Marks.Count > 0, "a minute of a city left the road as it found it");
     }

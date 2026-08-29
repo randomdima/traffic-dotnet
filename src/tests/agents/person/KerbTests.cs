@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
@@ -15,7 +16,6 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// whether it is anybody's</b>, against a book laid by hand over a real map's crossings; the signal half
 /// is checked on a running town.
 /// </summary>
-[Collection(TrafficSimulation.Tests.Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Town)]
 public class KerbTests
 {
@@ -75,6 +75,12 @@ public class KerbTests
                 LaneUse.OnFoot, LaneRoster.Walking);
 
         public bool IsClear => Kerb.TheBandItStepsIntoIsFree(Book, Under, HalfDepthM);
+
+        /// <summary>How much of a lane a body on this paint takes, either side of it — the town's own figure.</summary>
+        public float ClaimM => (HalfDepthM + Config.PersonDiameterM) * Config.Person.RoadClaimMargin;
+
+        /// <summary>The same question asked at that claim, which is what the town asks it at.</summary>
+        public bool IsClearOfTheBand => Kerb.TheBandItStepsIntoIsFree(Book, Under, ClaimM);
     }
 
     /// <summary>How far short of the paint a stretch has to end to be clear of its band, with room to spare.</summary>
@@ -170,18 +176,42 @@ public class KerbTests
     [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
     public void NoWalkerBeginsACrossingOnARed(string map)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
+        using var world = new TownWorld(Towns.Of(map), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(3_600);
 
         Assert.Equal(0, world.CrossingsBegunOnRed);
     }
 
+    /// <summary>
+    /// <b>A car that has stopped for a crossing holds none of it</b> (TER-5e, TER-4c.1) — <b>and "it" is the
+    /// band a body on the paint holds, not the paintwork</b>. This is what makes the pedestrian's right of
+    /// way something the traffic can actually hand over: stopped at the paint, a car is standing on the very
+    /// ground it stopped to give up, whoever it gave way to is refused by it for as long as it stands there,
+    /// and every crossing in the town is back to being forced on the patience clock.
+    /// </summary>
+    /// <remarks>
+    /// The two figures are measured off different things — the stand-off is car widths, the band is the
+    /// paint's depth and a body's own margin — so where a car comes to rest is a claim about the shipped
+    /// numbers, asked here rather than reasoned about.
+    /// </remarks>
+    [Fact]
+    public void ACarStoppedForACrossingLeavesTheBandFree()
+    {
+        var at = ACrossing();
+
+        // Where the crossing rule brings a car to rest, measured the way the band is: from the paint's
+        // own centre on the lane.
+        at.PutACarOn(at.First, at.ClaimM + Config.CarCrossingStandOffM);
+
+        Assert.True(at.IsClearOfTheBand);
+    }
+
     /// <summary>And the rule is running rather than merely present: walkers do stand at kerbs and ask.</summary>
     [Fact]
     public void WalkersStandAtKerbsAndAsk()
     {
-        using var world = new TownWorld(Towns.Fresh(Towns.Fixture), Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(3_600);
 

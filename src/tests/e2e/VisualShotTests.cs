@@ -3,6 +3,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using TrafficSimulation.App.Shot;
 using TrafficSimulation.Core.Config;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace TrafficSimulation.Tests.E2E;
 
@@ -32,7 +33,7 @@ namespace TrafficSimulation.Tests.E2E;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.E2E)]
-public class VisualShotTests
+public class VisualShotTests(ITestOutputHelper output)
 {
     static readonly SimConfig Config = SimConfig.Load();
 
@@ -51,13 +52,16 @@ public class VisualShotTests
     [MemberData(nameof(Core))]
     public void ACoreScenarioPhotographsAndSaysWhatItMustShow(string name) => Photograph(name);
 
+    /// <summary>What every case does, whichever group it is in.</summary>
+    void Photograph(string name) => Photograph(name, output);
+
     /// <summary>What the fixture cannot answer: a whole city, the skewed crossing, the debug layers
     /// and the interface.</summary>
     [Theory]
     [MemberData(nameof(Wider))]
     public void AWiderScenarioPhotographsAndSaysWhatItMustShow(string name) => Photograph(name);
 
-    static void Photograph(string name)
+    static void Photograph(string name, ITestOutputHelper output)
     {
         var scenario = VisualScenarios.ByName(name);
         var (widthPx, heightPx) = scenario.SizeFor();
@@ -121,6 +125,11 @@ public class VisualShotTests
         if (!VisualJudge.Enabled) return;
 
         var verdict = VisualJudge.Judge(scenario, brief);
+
+        // The claims as the same table a watched town prints, green or red: what was judged and how it
+        // came out is a reading, and a run that only says so when it fails cannot be read at all.
+        output.WriteLine(verdict.Table(scenario));
+
         Assert.True(verdict.Passed, $"{name} — the agent did not pass it:\n{verdict.Complaint()}\n"
                                     + $"Its reasoning is beside the frames, in .tmp/e2e/{name}.verdict.md");
     }

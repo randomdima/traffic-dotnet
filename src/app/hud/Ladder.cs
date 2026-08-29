@@ -32,24 +32,34 @@ internal static class Ladder
     /// </summary>
     public static void WriteDistance(ref TextBuffer into, float metres)
     {
+        WriteFigure(ref into, metres, alongsideM: metres);
+
         var magnitude = MathF.Abs(metres);
+        into.Add(magnitude < 1f ? " cm" : magnitude >= 1000f ? " km" : " m");
+    }
+
+    /// <summary>
+    /// The bare number, in whatever unit <see cref="WriteDistance"/> would give
+    /// <paramref name="alongsideM"/> — the marks of a bar whose last figure is the one carrying the
+    /// unit, so that a 40 cm bar is graduated 0, 20, 40 cm and not 0, 0, 40 cm.
+    /// </summary>
+    public static void WriteFigure(ref TextBuffer into, float metres, float alongsideM)
+    {
+        var magnitude = MathF.Abs(alongsideM);
         if (magnitude < 1f)
         {
             into.Add(metres * 100f, "F0");
-            into.Add(" cm");
             return;
         }
 
         if (magnitude >= 1000f)
         {
             into.Add(metres / 1000f, magnitude >= 10000f ? "F1" : "F2");
-            into.Add(" km");
             return;
         }
 
         // A tenth is what tells 4.7 m from 4.8 m on a tape; on a legend's own round step there is no
         // tenth to tell, and "5.0 m" over a mark standing at five metres reads as a measurement.
         into.Add(metres, magnitude < 10f && metres != MathF.Truncate(metres) ? "F1" : "F0");
-        into.Add(" m");
     }
 }

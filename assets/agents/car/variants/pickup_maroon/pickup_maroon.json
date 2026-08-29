@@ -3,10 +3,18 @@
   "sprite": "pickup_maroon.png",
   "wreck": { "sprite": "pickup_maroon_broken.png", "scale": [1.101, 1.055] },
   "footprintM": [4, 1.96],
-  "frontAxleM": 1.149,
-  "rearAxleM": -1.285,
-  "trackM": 1.003,
+  "collisionM": { "sizeM": [3.79, 1.66], "cornerRadiusM": 0.32 },
+  "massKg": 2050,
+  "frontAxleM": 1.15,
+  "rearAxleM": -1.20,
+  "trackM": 1.89,
   "drivetrain": 2,
-  "handling": { "maxSpeed": 0.86, "acceleration": 0.66, "braking": 0.9, "cornering": 0.8 },
-  "hullM": [[-1.521, -0.928], [1.469, -0.928], [1.823, -0.855], [1.99, -0.438], [2, 0.448], [1.823, 0.855], [1.49, 0.928], [-1.51, 0.938], [-1.99, 0.782], [-2, -0.771]]
+  "handling": { "maxSpeed": 0.86, "acceleration": 0.66, "braking": 0.85, "cornering": 0.75 },
+  "hullM": [[-1.521, -0.928], [1.469, -0.928], [1.823, -0.855], [1.99, -0.438], [2, 0.448], [1.823, 0.855], [1.49, 0.928], [-1.51, 0.938], [-1.99, 0.782], [-2, -0.771]],
+  "lamps": [
+    { "fitting": "rear", "atM": [-1.828, -0.745], "sizeM": [0.073, 0.094] },
+    { "fitting": "rear", "atM": [-1.828, 0.745], "sizeM": [0.073, 0.094] },
+    { "fitting": "indicator", "atM": [1.750, -0.725], "sizeM": [0.062, 0.094] },
+    { "fitting": "indicator", "atM": [1.750, 0.725], "sizeM": [0.062, 0.094] }
+  ]
 }

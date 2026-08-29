@@ -105,6 +105,9 @@ internal sealed partial class FootGraph : IFineGraph
     public ReadOnlySpan<int> EdgesOut(int node) =>
         _nodeOutEdges.AsSpan(_nodeOutOffsets[node], _nodeOutOffsets[node + 1] - _nodeOutOffsets[node]);
 
+    /// <summary>A walk is aimed at a place on the pavement and never at a node of it, so none of them is kept for its own sake.</summary>
+    public bool AlwaysANode(int node) => false;
+
     /// <summary>How wide the ground this stretch runs down is, which is what a lane is a quarter of.</summary>
     public float BandM(int edge) => _edgeBandM[edge];
 

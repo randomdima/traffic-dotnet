@@ -6,25 +6,39 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// <b>Who the lap's fifteen people are</b>, which is the one thing that differs between the two proving
-/// grounds it lays. The road, the shapes and the cars are the same on both, so a figure that moves between
-/// them is a fact about the people and about nothing else.
+/// <b>Which proving ground is laid.</b> The road and its shapes are the same on every one of them and
+/// exactly one other thing differs, so a figure that moves between two of these tables is a fact about
+/// that one thing and about nothing else.
 /// </summary>
-internal enum TrackCrowd
+internal enum TrackLap
 {
     /// <summary>
-    /// <b>Beside the road, pacing across it</b>: out into the lane at a car that can still stop, a stand
-    /// until that car has, and back. Each of them is a stop for the shape behind it to be measured by.
+    /// The lap as it is measured. Fifteen people <b>beside the road, pacing across it</b>: out into the
+    /// lane at a car that can still stop, a stand until that car has, and back. Each of them is a stop for
+    /// the shape behind it to be measured by, and the cars are six nominal ones (CAR-11a).
     /// </summary>
     Pacing,
 
     /// <summary>
-    /// <b>In the road, reeling down it.</b> A body put down on the carriageway with nowhere to be lurches
-    /// along the way the traffic runs, thrown anywhere across the width of it, and stands where it is every
-    /// few lurches — so what a driver meets is a slow thing to be followed that becomes, when it stops, a
-    /// thing to be got past.
+    /// The same six cars, with the same fifteen people <b>in the road rather than beside it, reeling down
+    /// it.</b> A body put down on the carriageway with nowhere to be lurches along the way the traffic
+    /// runs, thrown anywhere across the width of it, and stands where it is every few lurches — so what a
+    /// driver meets is a slow thing to be followed that becomes, when it stops, a thing to be got past.
     /// </summary>
     Drunk,
+
+    /// <summary>
+    /// <b>The whole fleet driving instead of six of one car</b> — one of every look, at its own weight, its
+    /// own footprint, its own axles and its own handling. What the measured lap deliberately holds still
+    /// (CAR-11a) is the whole of what this one varies, so this table answers whether a car anybody may be
+    /// handed can drive the road, and never which drive layout is worth what.
+    /// </summary>
+    /// <remarks>
+    /// <b>And nobody is on foot here.</b> The other two laps carry fifteen people because what they measure
+    /// is a driver stopping for what is in front of it; what this one measures is the car, and a body in
+    /// the road would only be a second thing setting its speed. The lap is the cars and the road.
+    /// </remarks>
+    Fleet,
 }
 
 /// <summary>
@@ -48,10 +62,12 @@ internal enum TrackCrowd
 /// in.
 /// </para>
 /// <para>
-/// <b>It lays two maps and not one</b> (<see cref="TrackCrowd"/>). The lap, the shapes and the six cars are
-/// the same on both; what differs is where the fifteen people are put down, and therefore what a driver
-/// meets on the road. <c>Track</c> stands them beside it and <c>Drunk</c> stands them in it, so the second
-/// table is read against the first and every difference between the two is about the people.
+/// <b>It lays three maps and not one</b> (<see cref="TrackLap"/>), and each of the other two differs from
+/// <c>Track</c> in exactly one thing so that its table can be read against <c>Track</c>'s. <c>Drunk</c>
+/// moves the fifteen people from beside the road into it. <c>Fleet</c> takes them off the lap altogether
+/// and puts <em>the whole fleet</em> on it instead of six of the nominal car — so what that table answers
+/// is whether every car anybody may be handed can drive this road, with nothing but the road and the other
+/// cars deciding its speed.
 /// </para>
 /// <para>
 /// <b>People pace the road all the way round it, one of them at the end of every shape.</b> There is no
@@ -76,14 +92,31 @@ internal static class TrackPlan
     public const string Name = "Track";
 
     /// <summary>
-    /// And the same lap with <see cref="TrackCrowd.Drunk"/> on it, which is a map of its own because the
+    /// And the same lap with <see cref="TrackLap.Drunk"/> on it, which is a map of its own because the
     /// two are read against each other: one figure differs, so a difference between the two tables is a
     /// difference about what is in the road.
     /// </summary>
     public const string DrunkName = "Drunk";
 
-    /// <summary>Which map each crowd lays, so the name and the people it stands for are decided in one place.</summary>
-    public static string NameOf(TrackCrowd crowd) => crowd == TrackCrowd.Drunk ? DrunkName : Name;
+    /// <summary>And the same lap again with the whole fleet on it (<see cref="TrackLap.Fleet"/>).</summary>
+    public const string FleetName = "Fleet";
+
+    /// <summary>Which map each lap lays, so the name and what it stands for are decided in one place.</summary>
+    public static string NameOf(TrackLap lap) => lap switch
+    {
+        TrackLap.Drunk => DrunkName,
+        TrackLap.Fleet => FleetName,
+        _ => Name,
+    };
+
+    /// <summary>
+    /// Whether the cars on this map are the nominal one (CAR-11a) rather than the fleet as it ships. It is
+    /// the whole of what <see cref="TrackLap.Fleet"/> changes, and it is stated here because the map's name
+    /// is all a town has to go on when it stands its cars up.
+    /// </summary>
+    public static bool StandsTheNominalCar(string name) =>
+        string.Equals(name, Name, StringComparison.Ordinal)
+        || string.Equals(name, DrunkName, StringComparison.Ordinal);
 
     /// <summary>
     /// The road each shape is, which is also its place in <see cref="Sections"/>. <b>A shape is even and
@@ -200,10 +233,25 @@ internal static class TrackPlan
     const float PadM = 6f;
 
     /// <summary>
-    /// How many cars the lap carries. <b>Two of each drivetrain</b>, in the order the fleet ships them, so
-    /// the rear, front and all-wheel answers are each a pair rather than one car's day.
+    /// How many cars the measured lap carries. <b>Two of each drivetrain</b>, in the order the fleet ships
+    /// them, so the rear, front and all-wheel answers are each a pair rather than one car's day.
     /// </summary>
     public const int Cars = 6;
+
+    /// <summary>
+    /// And how many the fleet lap carries: <b>one of every look the fleet ships</b>, since a car takes its
+    /// variant off its own place in the order the spawns are laid in.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a count and not the catalogue</b>, which a plan may not read: a plan knows core and nothing
+    /// else, and the fleet is a file the agents' slice owns. <c>TrackPlanTests</c> is what holds the two to
+    /// each other, so a look added to <c>Fleet.json</c> without a car to drive it fails the suite rather
+    /// than quietly leaving that look unmeasured.
+    /// </remarks>
+    public const int FleetCars = 16;
+
+    /// <summary>How many cars stand on each lap.</summary>
+    public static int CarsOn(TrackLap lap) => lap == TrackLap.Fleet ? FleetCars : Cars;
 
     /// <summary>
     /// And how many people. They are laid after the cars, so a car's spawn index is its own place in the
@@ -271,7 +319,7 @@ internal static class TrackPlan
             MathF.Ceiling((spanM.Y + (2f * edgeM)) / CellSizeM) * CellSizeM);
     }
 
-    public static CityPlan Lay(SimConfig config, TrackCrowd crowd = TrackCrowd.Pacing)
+    public static CityPlan Lay(SimConfig config, TrackLap which = TrackLap.Pacing)
     {
         var worldSizeM = WorldSizeM(config);
         var gridWidth = (int)MathF.Round(worldSizeM.X / CellSizeM);
@@ -291,7 +339,7 @@ internal static class TrackPlan
             offsets.Add(segments.Count);
         }
 
-        var painter = new Painter(cells, laneDirs, gridWidth, gridHeight, config.RoadSideSign);
+        var painter = new GroundPainter(cells, laneDirs, gridWidth, gridHeight, CellSizeM, config.RoadSideSign);
         for (var road = 0; road < Roads; road++)
         {
             painter.Road(CollectionsMarshal.AsSpan(segments)[offsets[road]..offsets[road + 1]], widthM);
@@ -299,17 +347,29 @@ internal static class TrackPlan
 
         // After the roads, and only over ground no road took: a pad is where somebody stands, and a road
         // that gave way to one would be a hole in the lap. There is none under a drunk — it is put down in
-        // the carriageway, and paving the place it started would be paving a piece of the lap.
-        var standing = crowd == TrackCrowd.Drunk ? ReelingFrom(lap, config) : PacedFrom(lap, config);
-        if (crowd == TrackCrowd.Pacing)
+        // the carriageway, and paving the place it started would be paving a piece of the lap — and none at
+        // all on the fleet lap, which carries nobody on foot.
+        var standing = which switch
+        {
+            TrackLap.Drunk => ReelingFrom(lap, config),
+            TrackLap.Fleet => [],
+            _ => PacedFrom(lap, config),
+        };
+
+        if (which == TrackLap.Pacing)
         {
             foreach (var pacer in standing) painter.Pad(pacer.StandM, PadM);
         }
 
         return new CityPlan
         {
-            Seed = crowd == TrackCrowd.Drunk ? 0x7261636B_64726E6BUL : 0x7261636B_74726B32UL,
-            Name = NameOf(crowd),
+            Seed = which switch
+            {
+                TrackLap.Drunk => 0x7261636B_64726E6BUL,
+                TrackLap.Fleet => 0x7261636B_666C7431UL,
+                _ => 0x7261636B_74726B32UL,
+            },
+            Name = NameOf(which),
             WorldSizeM = worldSizeM,
             CellSizeM = CellSizeM,
 
@@ -360,10 +420,10 @@ internal static class TrackPlan
             },
             Buildings = new CityPlan.BuildingArrays
             {
-                CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], EntryOffsets = [0], EntryPointM = [],
+                CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], Use = [], EntryOffsets = [0], EntryPointM = [],
             },
             Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], Kind = [] },
-            Spawns = Spawns(lap, standing, config),
+            Spawns = Spawns(lap, standing, config, CarsOn(which)),
             Water = new CityPlan.WaterArrays { OutlineOffsets = [0], PointM = [] },
         };
     }
@@ -658,22 +718,23 @@ internal static class TrackPlan
     /// what drives it is the rule that a map with nowhere to be on it drives its own.
     /// </summary>
     /// <remarks>
-    /// <b>The cars come first, and their order is the fleet's order</b> — the fleet ships rear, front and
-    /// all-wheel drive in its first three entries, so six cars are two of each, and which end a car drives
-    /// through is the only thing that differs between them. Everything else about a car here is the nominal
-    /// one.
+    /// <b>The cars come first, and their order is the fleet's order</b> — a car takes its look off its own
+    /// place in the spawns, so the measured lap's six are two of each drivetrain out of the first three
+    /// entries the fleet ships, and the fleet lap's <see cref="FleetCars"/> are one of every look there is.
+    /// What differs between the six is drive layout alone; what differs between the sixteen is everything a
+    /// variant states.
     /// </remarks>
-    static CityPlan.SpawnArrays Spawns(List<ArcSeg>[] lap, Paced[] standing, SimConfig config)
+    static CityPlan.SpawnArrays Spawns(List<ArcSeg>[] lap, Paced[] standing, SimConfig config, int cars)
     {
         var lapM = 0f;
         for (var road = 0; road < Roads; road++) lapM += Spline.TotalLengthM(CollectionsMarshal.AsSpan(lap[road]));
 
-        var kind = new byte[Cars + standing.Length];
+        var kind = new byte[cars + standing.Length];
         var positionM = new Vector2[kind.Length];
         var headingRad = new float[kind.Length];
-        for (var car = 0; car < Cars; car++)
+        for (var car = 0; car < cars; car++)
         {
-            var on = Standing(lap, ((car + 0.5f) * lapM / Cars) % lapM);
+            var on = Standing(lap, ((car + 0.5f) * lapM / cars) % lapM);
             var right = Heading.RightOf(on.Direction);
 
             kind[car] = SpawnKindCar;
@@ -683,9 +744,9 @@ internal static class TrackPlan
 
         for (var person = 0; person < standing.Length; person++)
         {
-            kind[Cars + person] = SpawnKindPerson;
-            positionM[Cars + person] = standing[person].StandM;
-            headingRad[Cars + person] = standing[person].FacingRad;
+            kind[cars + person] = SpawnKindPerson;
+            positionM[cars + person] = standing[person].StandM;
+            headingRad[cars + person] = standing[person].FacingRad;
         }
 
         return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad };
@@ -727,61 +788,4 @@ internal static class TrackPlan
         return filled;
     }
 
-    /// <summary>
-    /// The cells under a road: carriageway out to half its width, and the direction of travel on it —
-    /// <b>each half of the road carrying the way traffic goes on it</b>, which is the only thing "the
-    /// lane's direction" can mean where two of them share a centreline.
-    /// </summary>
-    readonly struct Painter(Ground[] cells, sbyte[] laneDirs, int gridWidth, int gridHeight, float roadSideSign)
-    {
-        public void Road(ReadOnlySpan<ArcSeg> chain, float widthM)
-        {
-            var halfM = widthM * 0.5f;
-            var lengthM = Spline.TotalLengthM(chain);
-            for (var atM = 0f; atM <= lengthM; atM += PaintStepM)
-            {
-                var on = Spline.SampleAt(chain, MathF.Min(atM, lengthM));
-                for (var acrossM = -halfM; acrossM <= halfM; acrossM += PaintStepM)
-                {
-                    var cell = CellAt(on.PositionM + (on.Right * acrossM));
-                    if (cell < 0) continue;
-
-                    cells[cell] = Ground.Road;
-                    var alongTheLane = acrossM * roadSideSign >= 0f ? on.Direction : -on.Direction;
-                    laneDirs[cell * 2] = Quantised(alongTheLane.X);
-                    laneDirs[(cell * 2) + 1] = Quantised(alongTheLane.Y);
-                }
-            }
-        }
-
-        /// <summary>
-        /// A square of paving to stand on, laid <b>only over ground nothing else took</b>: the roads are
-        /// painted first, and a pad that overwrote one would be a hole in the lap where somebody is
-        /// standing.
-        /// </summary>
-        public void Pad(Vector2 centreM, float sideM)
-        {
-            var halfM = sideM * 0.5f;
-            for (var alongM = -halfM; alongM <= halfM; alongM += PaintStepM)
-            {
-                for (var acrossM = -halfM; acrossM <= halfM; acrossM += PaintStepM)
-                {
-                    var cell = CellAt(centreM + new Vector2(alongM, acrossM));
-                    if (cell < 0 || cells[cell] != Ground.Grass) continue;
-
-                    cells[cell] = Ground.Sidewalk;
-                }
-            }
-        }
-
-        /// <summary>To 1/127 of a unit vector, which is what the format carries and what the reader expands.</summary>
-        static sbyte Quantised(float component) => (sbyte)Math.Clamp(MathF.Round(component * 127f), -127f, 127f);
-
-        int CellAt(Vector2 pointM)
-        {
-            var x = (int)MathF.Floor(pointM.X / CellSizeM);
-            var y = (int)MathF.Floor(pointM.Y / CellSizeM);
-            return x < 0 || y < 0 || x >= gridWidth || y >= gridHeight ? -1 : (y * gridWidth) + x;
-        }
-    }
 }

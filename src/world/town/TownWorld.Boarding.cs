@@ -121,6 +121,11 @@ internal sealed partial class TownWorld
         People.TripCar[person] = PersonFleet.NoCar;
         Place(person, spotM, MathF.Atan2(spotM.Y - Cars.PositionM[car].Y, spotM.X - Cars.PositionM[car].X));
 
+        // CTL-8b: the car was ordered somewhere it could not be driven, so the rest of that order is a
+        // walk. It is taken up here because here is the first moment there is a body in the town to give
+        // one to — the order was given while this person was inside the car.
+        if (WalkTheRestOfTheOrder(car, person)) return;
+
         // A leg that has landed the person further from the door than they would ever have walked drops
         // the destination rather than handing over the walk; standing by draws a whole fresh trip.
         var building = People.DestinationBuilding[person];
@@ -268,23 +273,6 @@ internal sealed partial class TownWorld
         return -1;
     }
 
-    /// <summary>
-    /// An order to a car: the goal a driver would have picked is a bay, so this pins which bay — the
-    /// nearest free one to the point, re-planned from where the car is.
-    /// </summary>
-    /// <remarks>
-    /// A car with nobody in it takes no order: that would be an order to something that takes no actions
-    /// at all. Taking its wheel is how one of those is moved.
-    /// </remarks>
-    public bool OrderCar(int car, Vector2 toM)
-    {
-        if (car < 0 || car >= Cars.Count || Cars.Broken[car] || _containers.IsFree(car)) return false;
-        if (!RetargetTheBay(car, toM, ParkingRegistry.NoBay)) return false;
-
-        Cars.ClearRoute(car);
-        return true;
-    }
-
     /// <summary>`E-9`: the trip failed. Every claim is released and a fresh one is drawn from where the body actually is.</summary>
     void GiveUpTheTrip(int person)
     {
@@ -307,7 +295,23 @@ internal sealed partial class TownWorld
         var car = People.TripCar[person];
         if (car < 0) return;
 
-        _parking.GiveUpReservation(car);
+        GiveUpTheBay(car);
         People.TripCar[person] = PersonFleet.NoCar;
+    }
+
+    /// <summary>
+    /// <b>Whether whoever has this wheel is one of the drivers that does not keep the courtesies</b>
+    /// (CAR-13). Two array reads, asked at the two places the courtesy would otherwise be paid.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is asked of the driver rather than mirrored onto the car</b>, unlike the blue light, because
+    /// the light is the errand's and this is the person's: a car changes hands and the habit does not go
+    /// with it. A flag on the car would have to be written on boarding, cleared on alighting, cleared again
+    /// on a wreck and on an abandonment — four places to disagree about one fact, for one array read saved.
+    /// </remarks>
+    bool RecklessAtTheWheel(int car)
+    {
+        var driver = _containers.DriverOf(car);
+        return driver >= 0 && People.Reckless[driver];
     }
 }

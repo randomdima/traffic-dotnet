@@ -1,20 +1,19 @@
 using System.Numerics;
-using TrafficSimulation.Core.Config;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.Agents.Car.Control;
 
 /// <summary>
-/// The two templates a car drives <em>on the road</em> rather than into a bay: the <b>swerve</b> that
-/// takes it round something standing in its lane (`E-4`), and the <b>counter-swing</b> that turns it
-/// round inside a junction (`P-11`). <see cref="BayTemplate"/> lays the other two.
+/// The one template a car drives <em>on the road</em> rather than into a bay: the <b>swerve</b> that
+/// takes it round something standing in its lane (`E-4`). <see cref="BayTemplate"/> lays the ones that go
+/// into a bay, which is where a car that has to come back the other way turns (GEN-4l).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Both are drawn for the rear axle</b> and both end on a stated line rather than at a stated point:
-/// a swerve ends back on the line it left, a turn-around ends on the opposite lane's line. Where along
-/// that line the shape happens to finish is whatever the arcs need, and the manoeuvre hands back to
-/// `P-4`, which takes the lane under the car and picks the route up from there.
+/// <b>It is drawn for the rear axle</b> and ends on a stated line rather than at a stated point: the line
+/// it left. Where along that line the shape happens to finish is whatever the arcs need, and the
+/// manoeuvre hands back to `P-4`, which takes the lane under the car and picks the route up from there.
 /// </para>
 /// <para>
 /// <b>The lateral part of a swerve is a function of distance and never of time</b> (§8 rule 2). It is
@@ -26,9 +25,6 @@ internal static class RoadTemplates
 {
     /// <summary>Out, along, and back: four arcs and the straight between the two S-bends.</summary>
     public const int MostSwerveArcs = 5;
-
-    /// <summary>The counter-swing is two arcs and nothing else — there is no straight in a turn-around.</summary>
-    public const int MostTurnAroundArcs = 2;
 
     /// <summary>
     /// <b>The swerve</b>: an S out to <paramref name="offsetM"/> beside the line, a run past what is
@@ -82,51 +78,6 @@ internal static class RoadTemplates
         if (passM > 1e-3f) Bend(ref written, ref atM, ref atRad, ref lengthM, passM, alongCurvature, into);
         Bend(ref written, ref atM, ref atRad, ref lengthM, arcM, back, into);
         Bend(ref written, ref atM, ref atRad, ref lengthM, arcM, outward, into);
-
-        return new BayLine(written, lengthM, atM, atRad);
-    }
-
-    /// <summary>
-    /// <b>The counter-swing</b>: the car turns first <em>away</em> from the lane it is heading for, by an
-    /// angle, and then sweeps back through it. A plain half-circle needs a junction as wide as twice the
-    /// turning radius; the counter-swing lands the same lane separation on minimum-radius arcs, and pays
-    /// for it by reaching further along the arm.
-    /// </summary>
-    /// <remarks>
-    /// <b>The reach along the arm is the constraint to check, not the lateral one.</b> Whether the shape
-    /// fits is a question about the ground it is drawn over and is asked of the terrain, arc by arc, by
-    /// whoever lays it — a junction wide enough is a fact about a town and not about a car.
-    /// </remarks>
-    /// <param name="ontoM">A point on the lane the car is turning onto, and <paramref name="ontoDirection"/> the way it runs.</param>
-    public static BayLine TryLayTurnAround(
-        SimConfig config, Vector2 fromAxleM, float fromHeadingRad, Vector2 ontoM, Vector2 ontoDirection,
-        Span<ArcSeg> into)
-    {
-        var radiusM = config.ParkingTemplateRadiusM;
-        var from = Heading.Unit(fromHeadingRad);
-
-        // A turn-around reverses the direction of travel, so a lane running any other way is not one this
-        // shape ends on and the caller has picked the wrong one.
-        if (Vector2.Dot(from, ontoDirection) > -0.5f) return default;
-
-        // The separation is measured across the line being left, not between two arbitrary points: what
-        // the shape has to deliver is a lateral distance, and where along the arm it delivers it is free.
-        var across = new Vector2(-from.Y, from.X);
-        var offsetM = Vector2.Dot(ontoM - fromAxleM, across);
-        var side = MathF.Sign(offsetM);
-        var separationM = MathF.Abs(offsetM);
-        if (side == 0 || separationM > 2f * radiusM) return default;
-
-        // Both arcs are at the same radius; the counter-swing's angle is what fits the separation.
-        var swingRad = MathF.Acos(Math.Clamp(separationM / (2f * radiusM), -1f, 1f));
-
-        var written = 0;
-        var atM = fromAxleM;
-        var atRad = fromHeadingRad;
-        var lengthM = 0f;
-
-        Bend(ref written, ref atM, ref atRad, ref lengthM, swingRad * radiusM, -side / radiusM, into);
-        Bend(ref written, ref atM, ref atRad, ref lengthM, (MathF.PI + swingRad) * radiusM, side / radiusM, into);
 
         return new BayLine(written, lengthM, atM, atRad);
     }

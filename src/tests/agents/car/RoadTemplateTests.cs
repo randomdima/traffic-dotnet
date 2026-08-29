@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -7,15 +8,17 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.Car;
 
 /// <summary>
-/// The two templates a car drives on the road: `E-4`'s swerve and `P-11`'s counter-swing. Both are
-/// asserted on the property that makes them usable at all — <b>where they end and which way the car is
-/// pointing when they do</b> — because a template that ends anywhere else hands `P-4` a car it has to
-/// recover rather than drive.
+/// The one template a car drives on the road: `E-4`'s swerve. It is asserted on the property that makes
+/// it usable at all — <b>where it ends and which way the car is pointing when it does</b> — because a
+/// template that ends anywhere else hands `P-4` a car it has to recover rather than drive.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 public class RoadTemplateTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
+
+    /// <summary>The shape is asked of the nominal car, whose circle the town's own figures are quoted for.</summary>
+    static readonly CarBuild Car = CarBuild.Nominal(Config, Config.Car.DrivenFrontShare);
 
     static readonly ArcSeg[] Into = new ArcSeg[RoadTemplates.MostSwerveArcs];
 
@@ -114,59 +117,6 @@ public class RoadTemplateTests
 
         Assert.True(beside < Config.LaneOffsetM, $"the swerve ended {beside:F2} m off the lane it was laid beside");
         Assert.True(across > Config.LaneOffsetM * 2f, $"a flat swerve ended only {across:F2} m off, so this proves nothing");
-    }
-
-    /// <summary>
-    /// <b>The counter-swing ends antiparallel, at the lane separation it was given.</b> That is the whole
-    /// contract: `P-4` takes the lane under the car afterwards, and a shape that ended anywhere but on the
-    /// opposite lane's line would have it take the wrong one.
-    /// </summary>
-    [Fact]
-    public void TheTurnAroundEndsOnTheOppositeLane()
-    {
-        var separationM = Config.LaneOffsetM * 2f;
-        var line = RoadTemplates.TryLayTurnAround(
-            Config, Vector2.Zero, 0f, new Vector2(0f, separationM), -Vector2.UnitX, Into);
-
-        Assert.True(line.Any);
-        Assert.Equal(separationM, line.EndM.Y, ToleranceM);
-        Assert.Equal(MathF.PI, MathF.Abs(WrappedRad(line.EndHeadingRad)), 1e-2f);
-    }
-
-    /// <summary>
-    /// The counter-swing pays for a narrow separation by reaching further along the arm, which is
-    /// <b>the constraint worth checking</b> — and it is why the caller asks the terrain whether the shape
-    /// fits rather than measuring the road's width.
-    /// </summary>
-    [Fact]
-    public void TheNarrowerTheLanesTheFurtherAlongTheArmItReaches()
-    {
-        var near = RoadTemplates.TryLayTurnAround(
-            Config, Vector2.Zero, 0f, new Vector2(0f, Config.LaneOffsetM * 2f), -Vector2.UnitX, Into);
-        var wide = RoadTemplates.TryLayTurnAround(
-            Config, Vector2.Zero, 0f, new Vector2(0f, Config.ParkingTemplateRadiusM * 2f), -Vector2.UnitX, Into);
-
-        Assert.True(near.Any && wide.Any);
-        Assert.True(
-            near.EndM.X > wide.EndM.X,
-            $"the narrow turn reached {near.EndM.X:F1} m along the arm against the wide one's {wide.EndM.X:F1} m");
-    }
-
-    /// <summary>A lane running any other way is not one this shape ends on, and the caller has picked the wrong one.</summary>
-    [Fact]
-    public void TheTurnAroundRefusesALaneThatIsNotTheOppositeOne()
-    {
-        Assert.False(RoadTemplates.TryLayTurnAround(
-            Config, Vector2.Zero, 0f, new Vector2(0f, 3f), Vector2.UnitX, Into).Any);
-    }
-
-    /// <summary>Wider than the two arcs can span is refused, exactly as the swerve is.</summary>
-    [Fact]
-    public void TheTurnAroundIsRefusedPastWhatTwoArcsCanSpan()
-    {
-        var tooFarM = Config.ParkingTemplateRadiusM * 2f + 1f;
-        Assert.False(RoadTemplates.TryLayTurnAround(
-            Config, Vector2.Zero, 0f, new Vector2(0f, tooFarM), -Vector2.UnitX, Into).Any);
     }
 
     static float WrappedRad(float rad) => MathF.Atan2(MathF.Sin(rad), MathF.Cos(rad));

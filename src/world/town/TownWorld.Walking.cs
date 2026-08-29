@@ -1,9 +1,11 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.World.Foot;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
@@ -26,14 +28,15 @@ internal sealed partial class TownWorld
     bool AtTheKerb(int agent, Vector2 positionM)
     {
         var crossing = People.CrossingAhead(agent);
-        if (!People.Walking[agent] || crossing < 0)
-        {
-            People.HeldAtTheKerb[agent] = false;
-            People.WaitingToCrossS[agent] = 0f;
-            return false;
-        }
 
-        if (_terrain.At(positionM).Drivable)
+        // <b>Whether the patience runs is decided by where the body is standing and never by what is left of
+        // its line.</b> A walk laid onto a crossing is spent as the body walks it, so a body part way over
+        // has no crossing point left <em>ahead</em> of it — and cleared on that, the one clock that gets it
+        // the rest of the way over (<see cref="MayStepOnto"/>) was reset every tick it stood there. What
+        // it was refused is the band in front, which is traffic and is exactly what the clock is for; a
+        // pavement is where a body that has stopped crossing stands, and there the clock is nobody's.
+        var inTheRoad = _terrain.At(positionM).Drivable;
+        if (!People.Walking[agent] || crossing < 0 || inTheRoad)
         {
             People.HeldAtTheKerb[agent] = false;
 
@@ -41,7 +44,8 @@ internal sealed partial class TownWorld
             // (<see cref="PersonFleet.WaitingForLane"/>), which the book does. Handed back the tick the
             // traffic gave way instead, the patience buys one tick of ground and the wait begins again —
             // a body stuttering at a lane's edge for as long as the street is busy.
-            if (People.AuthorityM[agent] <= 0f) People.WaitingToCrossS[agent] += _config.TickSeconds;
+            if (!inTheRoad) People.WaitingToCrossS[agent] = 0f;
+            else if (People.AuthorityM[agent] <= 0f) People.WaitingToCrossS[agent] += _config.TickSeconds;
 
             return false;
         }
@@ -88,6 +92,92 @@ internal sealed partial class TownWorld
         var backM = kerbM - People.DestinationM[agent];
         var lengthM = backM.Length();
         return lengthM > 1e-3f ? kerbM + (backM / lengthM * _config.Person.RedWaitSetbackM) : kerbM;
+    }
+
+    /// <summary>
+    /// <b>Where a walker aims to get past the body in its way</b> (PER-24), which is the aim it already had
+    /// wherever nothing is. The book found the obstruction when it took the grant
+    /// (<see cref="GrantThePavement"/>); what is decided here is the side and whether the step is one this
+    /// body may take.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The right, and the pavement is not the bound on it.</b> A walker's own lane line runs a body's
+    /// width from the edge of its band, so nearly every step round somebody standing on that line ends up
+    /// off the walk — on the verge, the frontage or the channel — and a step held to the band would be a
+    /// walker turning left at almost every body it met. What answers is the ground and not the network.
+    /// </para>
+    /// <para>
+    /// <b>Neither side is a body that stands where it is</b> (<paramref name="walledIn"/>), which is the
+    /// answer a walker had before there was a step at all: it stops short of what is in front of it and the
+    /// clock that gives up on a leg draws it a line round. Walking on instead would be a walker shoving a
+    /// casualty down the street, which is a body the ambulance then has to catch.
+    /// </para>
+    /// </remarks>
+    /// <param name="walledIn">Whether a body is in the way and there is nowhere to step to get past it.</param>
+    Vector2 StepRoundAim(int agent, Vector2 positionM, Vector2 aimM, out bool walledIn)
+    {
+        walledIn = false;
+
+        var body = People.StepsRound[agent];
+        if (body == PersonFleet.NoBody) return aimM;
+
+        var bodyM = People.PositionM[body];
+        var clearanceM = People.RadiusM[agent] + People.RadiusM[body] + _config.PersonShoulderRoomM;
+        if (!StepAround.IsInTheWay(positionM, aimM, bodyM, clearanceM)) return aimM;
+
+        var fromTheCarriageway = _terrain.At(positionM).Drivable;
+
+        var rightM = StepAround.PassM(positionM, aimM, bodyM, clearanceM, onTheRight: true);
+        if (IsGroundToStepOnto(rightM, fromTheCarriageway))
+        {
+            StepsRound++;
+            return rightM;
+        }
+
+        var leftM = StepAround.PassM(positionM, aimM, bodyM, clearanceM, onTheRight: false);
+        if (IsGroundToStepOnto(leftM, fromTheCarriageway))
+        {
+            StepsRound++;
+            StepsRoundToTheLeft++;
+            return leftM;
+        }
+
+        walledIn = true;
+        return aimM;
+    }
+
+    /// <summary>
+    /// Whether a step (PER-24) may land here. <b>Ground the traffic is not on is a walker's to step onto</b>,
+    /// walk or no walk — grass, a verge, a frontage, a bay, the far side of the pavement — because what
+    /// PER-7.2 is about is the traffic and not the network, and a step held inside a pavement band is a step
+    /// almost never taken.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A carriageway is grazed and never entered.</b> The bound is how far past the kerb line the middle
+    /// of the body may be (<see cref="SimConfig.PersonRoadGrazeM"/>): at the channel, with the body over the
+    /// kerb, which is what a person does to get round something on a narrow pavement — and never far enough
+    /// to be standing in a lane, which is a walker in the traffic rather than beside it.
+    /// </para>
+    /// <para>
+    /// <b>The terrain says what nobody can stand on and the lane's band says where the traffic is</b>
+    /// (<see cref="StepAround.IsClearOfTheTraffic"/>): water and its like are refused here, and how far a
+    /// step reaches past a kerb is geometry, because the ground grid is a metre to the cell and a kerb line
+    /// is not on it.
+    /// </para>
+    /// <para>
+    /// <b>Already on the carriageway, it is where the walk is</b>: a body half way over a crossing is on the
+    /// road by the whole design of a zebra (PER-15), and the graze would refuse it every step it takes on
+    /// the paint.
+    /// </para>
+    /// </remarks>
+    bool IsGroundToStepOnto(Vector2 atM, bool fromTheCarriageway)
+    {
+        var ground = _terrain.At(atM);
+        if (!ground.Walkable && !ground.Drivable) return false;
+
+        return fromTheCarriageway || StepAround.IsClearOfTheTraffic(_roads, atM, _config.PersonRoadGrazeM);
     }
 
     /// <summary>
@@ -180,8 +270,13 @@ internal sealed partial class TownWorld
         if (reachTheGoal && complete && written < into.Length)
         {
             // A player's order is exempt from the cap on what a trip may hand somebody: that cap is a
-            // rule about the routes this town draws for itself.
-            var capM = people.Manual[person] ? float.PositiveInfinity : _config.PersonOffNetworkHopM;
+            // rule about the routes this town draws for itself. <b>So is a crew out working</b> (SRV-3):
+            // what a paramedic is walking at is a body lying in a carriageway, which the pavement's own
+            // network has no point anywhere near, and a walk that stopped at the kerb would be a rescue
+            // that never reaches anybody knocked into the middle of a road.
+            var capM = people.Manual[person] || people.Stage[person] == TripStage.Attending
+                ? float.PositiveInfinity
+                : _config.PersonOffNetworkHopM;
             var fromM = written > 0 ? into[written - 1] : people.PositionM[person];
             if ((people.GoalM[person] - fromM).Length() <= capM)
             {
@@ -197,6 +292,10 @@ internal sealed partial class TownWorld
 
         people.WalkedCount[person] = written;
         people.WalkedTaken[person] = 0;
+
+        // Either the goal is on the end of the line or the line stopped for want of room, since a walk the
+        // network could not reach at all wrote nothing at all.
+        people.WalkedRunsOut[person] = written > 0 && !complete;
         people.DestinationM[person] = people.TakeNextWalkedPoint(person, out var firstM) ? firstM : people.GoalM[person];
     }
 }

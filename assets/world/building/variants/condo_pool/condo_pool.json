@@ -1,5 +1,10 @@
 {
   "id": "condo_pool",
   "sprite": "condo_pool.png",
-  "footprintM": [19.00, 18.92]
+  "footprintM": [19.00, 18.92],
+  "partsM": [
+    { "atM": [-0.21, -1.05], "sizeM": [18.57, 16.66] },
+    { "atM": [3.5, -0.43], "sizeM": [11.84, 16.47] },
+    { "atM": [0.14, 0.0], "sizeM": [4.37, 18.92] }
+  ]
 }

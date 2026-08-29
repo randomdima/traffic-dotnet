@@ -58,7 +58,13 @@ internal sealed partial class PhysicsWorld
                 if (body == ignore) continue;
                 if ((_flags[body] & BodyFlags.Enabled) == 0) continue;
                 if ((_category[body] & LookingMask) == 0 || (_mask[body] & (ulong)LookingAs) == 0) continue;
-                if (!Shape.CastSegment(fromM, travelM, _kind[body], _positionM[body], _rotation[body], _extentM[body], out var met)) continue;
+                if (!Shape.CastSegment(
+                        fromM, travelM, _positionM[body], _rotation[body], _extentM[body],
+                        _cornerRadiusM[body], out var met))
+                {
+                    continue;
+                }
+
                 if (met >= nearest) continue;
 
                 nearest = met;

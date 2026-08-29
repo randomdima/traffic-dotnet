@@ -1,3 +1,4 @@
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Terrain;
@@ -120,10 +121,11 @@ public class MapConformanceTests
 
         if (plan.Buildings.Count == 0)
         {
-            // What a scenario carries is the thing it was laid for: paint to be watched crossing, or
-            // road that is a shape rather than a line. A scenario of neither is a bare grid.
+            // What a scenario carries is the thing it was laid for: paint to be watched crossing, road
+            // that is a shape rather than a line, or a fleet standing on it where the road is only
+            // somewhere to do the thing. A scenario of none of the three is a bare grid.
             Assert.True(
-                plan.Crosswalks.Count > 0 || Bends(plan),
+                plan.Crosswalks.Count > 0 || Bends(plan) || StandsAFleet(plan),
                 $"{map} is a scenario with nothing on it to watch");
             return;
         }
@@ -135,6 +137,25 @@ public class MapConformanceTests
             Assert.True(plan.Buildings.Capacity[building] > 0, $"{map}: building {building} holds nobody");
         }
     }
+
+    /// <summary>
+    /// Whether the map stands a whole fleet of cars, which is what a map <em>about the cars</em> carries —
+    /// the skidpad, where the road is plain on purpose and every question is about what is standing on it.
+    /// A town would never put this many cars in one place with nowhere for any of them to go.
+    /// </summary>
+    static bool StandsAFleet(CityPlan plan)
+    {
+        var cars = 0;
+        foreach (var kind in plan.Spawns.Kind)
+        {
+            if (kind == SpawnKindCar) cars++;
+        }
+
+        return cars >= CarCatalog.Shared.Count;
+    }
+
+    /// <summary>The spawn kind the format carries for a car.</summary>
+    const byte SpawnKindCar = 1;
 
     /// <summary>Whether any road on the map is a curve, which is what a map about the shape of roads carries.</summary>
     static bool Bends(CityPlan plan)

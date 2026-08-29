@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -11,69 +12,112 @@ internal readonly record struct BayLine(int ArcCount, float LengthM, Vector2 End
 }
 
 /// <summary>
-/// The two parking templates, as geometry and nothing else: <b>forward-in</b>, which puts a car in a
-/// bay, and the <b>reverse-out</b> that is its mirror, which is how a car nose-in in a bay gets back
-/// onto the lane.
+/// <b>The one parking shape</b>: the line between a pose on the lane and the pose in the bay, in the
+/// direction the rear axle travels. One end of it is the lane and the other is the bay, and which gear
+/// the car is in while it drives it is the caller's (GEN-4f).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Both are drawn for the rear axle</b>, like every other line in this engine, and both are one
-/// shape: a straight run, a fillet arc at the car's own turning circle, and a run into the bay. The
-/// reverse-out is that shape with its ends swapped and its straight into the bay spent — the turn is
-/// what rotates the car, and a car that backs straight out is a car standing across the lane it backed
-/// into.
+/// <b>There is one shape because there is one line.</b> A way in that is not the way out is two shapes to
+/// solve, two landings to check against the lane and two answers that can disagree about whether a bay is
+/// usable at all; the same line travelled the other way is a shape that lands on the lane by construction
+/// — it started there — and a bay that can be driven into can by definition be driven out of.
 /// </para>
 /// <para>
-/// <b>Which lane a bay is entered from is decided by the arithmetic and not by preference.</b> The
-/// fillet covers the car's turning radius of the depth between the lane and the bay, so a bay whose
-/// near lane stands closer than that radius cannot be driven into from it at all — which is what
-/// <i>forward-in and always from the far lane</i> means, and it is why this returns a
-/// refusal rather than a tighter arc.
+/// <b>Which way round the car ends up standing is a different shape, not a different traversal</b>
+/// (GEN-4j). Nose-first, the axle comes up the lane and turns in; backed in, the car has driven past the
+/// bay first and the axle travels back down the lane before it turns. Both are this shape — the second is
+/// asked for with the lane's direction reversed and the bay's axle at the deep end of the space — and each
+/// of the two is driven forwards one way round and in reverse the other.
 /// </para>
 /// <para>
-/// <b>The lane is treated as straight over the template's own length.</b> A template is a dozen metres
-/// of a road whose bends are laid at a hundred and more, and the alternative is solving a pose against
-/// an arc chain to place a manoeuvre that ends in a four-metre-wide bay.
+/// <b>It is drawn for the rear axle</b>, like every other line in this engine, and it is four pieces: a
+/// straight along the lane, a swing away from the bay, the turn into it, and the straight that ends in the
+/// bay. The swing is the piece a driver makes without thinking and the arithmetic cannot do without: a
+/// quarter turn of radius <c>R</c> moves the axle <c>R</c> sideways, so a bay standing nearer its lane than
+/// that is one no single arc reaches — swinging <c>φ</c> the other way first brings the sideways travel down
+/// to <c>R(2cos φ − 1)</c>, which is what lets a car turn into a bay off the lane beside it rather than only
+/// off the far one.
+/// </para>
+/// <para>
+/// <b>The lane is treated as straight over the template's own length.</b> A template is a dozen metres of a
+/// road whose bends are laid at a hundred and more, and the alternative is solving a pose against an arc
+/// chain to place a manoeuvre that ends in a four-metre-wide bay.
 /// </para>
 /// </remarks>
 internal static class BayTemplate
 {
-    /// <summary>A straight, a fillet and a run in: the most arcs either template ever takes.</summary>
-    public const int MostArcs = 3;
+    /// <summary>A straight, a swing, the turn and the run in: the most arcs the shape ever takes.</summary>
+    public const int MostArcs = 4;
 
     /// <summary>
-    /// How square to the lane a bay has to stand before these templates describe it. Below it the bay
-    /// is parallel to the kerb, which is a different manoeuvre and not one this engine lays.
+    /// How square to the lane a bay has to stand before this template describes it. Below it the bay is
+    /// parallel to the kerb, which is a different manoeuvre and not one this engine lays.
     /// </summary>
     const float SquareEnoughRad = 30f * MathF.PI / 180f;
 
-    /// <summary>
-    /// The pose a car in a bay stands at: the plan's own space pose, read at the rear axle because
-    /// that is the point every line is drawn for.
-    /// </summary>
-    public static Vector2 RearAxleOfBayM(SimConfig config, Vector2 bayCentreM, float bayHeadingRad) =>
-        bayCentreM - Heading.Unit(bayHeadingRad) * config.Car.WheelbaseM * 0.5f;
+    /// <summary>Below these a piece is not worth writing: a millimetre of straight, and a hundredth of a degree of turn.</summary>
+    const float ShortestPieceM = 1e-3f;
+
+    const float ShortestTurnRad = 1e-4f;
 
     /// <summary>
-    /// <b>Forward-in</b>: from where the car actually stands on its approach lane, into the bay's own
-    /// pose. Straight run-in → fillet at the template radius → the run into the bay.
+    /// Whether a turn of this size is the shape here rather than a slide along a kerb — asked by whoever
+    /// lays a bay's own ways as well, so the bar is stated once.
+    /// </summary>
+    public static bool SquareEnough(float turnRad) =>
+        MathF.Abs(turnRad) >= SquareEnoughRad && MathF.Abs(turnRad) <= MathF.PI - SquareEnoughRad;
+
+    /// <summary>
+    /// <b>Where the rear axle of a car standing in a bay is</b>: square in it and in the middle of it
+    /// (GEN-4i), read back from the middle of the body, because the axle is the point every line is drawn
+    /// for.
     /// </summary>
     /// <remarks>
-    /// It refuses rather than approximates. A negative run-in is a car already past the turn-in point,
-    /// and a negative run into the bay is a bay nearer the lane than the car can turn — both are
-    /// answered by driving round and coming back, never by a line no car can hold.
+    /// <b>The body stands in the same place either way round and the axle does not</b> (GEN-4j). Nose in,
+    /// the axle is the wheelbase's half behind the middle of the space; backed in, it is that far past it,
+    /// at the deep end — which is why a way to a backed-in car runs a metre further into the bay than a way
+    /// to one that drove in.
     /// </remarks>
-    public static BayLine TryLayEntry(
-        SimConfig config, Vector2 fromAxleM, float fromHeadingRad, Vector2 bayCentreM, float bayHeadingRad,
-        Span<ArcSeg> into)
-    {
-        var radiusM = config.ParkingTemplateRadiusM;
-        var from = Heading.Unit(fromHeadingRad);
-        var bay = Heading.Unit(bayHeadingRad);
-        var toAxleM = RearAxleOfBayM(config, bayCentreM, bayHeadingRad);
+    public static Vector2 RearAxleOfBayM(in CarBuild car, Vector2 bayCentreM, float bayHeadingRad, bool noseIn) =>
+        bayCentreM + Heading.Unit(bayHeadingRad) * (noseIn ? -car.CentreAheadOfAxleM : car.CentreAheadOfAxleM);
 
-        var turnRad = SignedTurnRad(from, bay);
-        if (MathF.Abs(turnRad) < SquareEnoughRad || MathF.Abs(turnRad) > MathF.PI - SquareEnoughRad) return default;
+    /// <summary>Which way the car itself points standing in a bay: into it, or back out of it.</summary>
+    public static float StandingHeadingRad(float bayHeadingRad, bool noseIn) =>
+        noseIn ? bayHeadingRad : bayHeadingRad + MathF.PI;
+
+    /// <summary>And the same read off a car that is already standing there.</summary>
+    public static bool StandsNoseIn(float bayHeadingRad, float carHeadingRad) =>
+        Vector2.Dot(Heading.Unit(bayHeadingRad), Heading.Unit(carHeadingRad)) >= 0f;
+
+    /// <summary>
+    /// <b>The shape between two poses</b>, given in the direction the rear axle travels — which forwards is
+    /// the way the car points and reversing is the way it does not.
+    /// </summary>
+    /// <remarks>
+    /// It refuses rather than approximates. A negative run-in is a car already past the place the turn
+    /// starts, and a swing past a quarter turn is a car aiming away from the road rather than lining up on
+    /// the bay; both are answered by driving round and coming back, never by a line no car can hold.
+    /// </remarks>
+    /// <param name="fromTravelRad">The way the axle is travelling where the shape starts.</param>
+    /// <param name="toTravelRad">And where it ends — for a way into a bay, the bay's own bearing.</param>
+    /// <param name="runsOnBeforeTurningM">
+    /// How much of the shape is the straight it opens with, which is ground it covers without leaving the
+    /// line it started on. Whoever wants the shape and not the approach to it lays again from that far on.
+    /// </param>
+    public static BayLine TryLay(
+        SimConfig config, in CarBuild car, Vector2 fromAxleM, float fromTravelRad, Vector2 toAxleM,
+        float toTravelRad, Span<ArcSeg> into, out float runsOnBeforeTurningM)
+    {
+        runsOnBeforeTurningM = 0f;
+
+        // <b>This car's own circle</b> (CAR-11): a van needs more street to swing into a space than a
+        // hatchback does, and a shape drawn at the nominal car's radius is one the van cannot hold —
+        // which is a car that ends up across the aisle rather than in the bay.
+        var radiusM = car.ParkingTemplateRadiusM;
+        var from = Heading.Unit(fromTravelRad);
+        var turnRad = SignedTurnRad(from, Heading.Unit(toTravelRad));
+        if (!SquareEnough(turnRad)) return default;
 
         // The basis the template is solved in: along the approach, and to the side the turn goes.
         var side = Rotate(from, turnRad >= 0f ? MathF.PI * 0.5f : -MathF.PI * 0.5f);
@@ -83,89 +127,76 @@ internal static class BayTemplate
 
         // Cosine is even, so the turn's own sign is nothing to it and both come off the one reduction.
         var (sin, cos) = MathF.SinCos(MathF.Abs(turnRad));
-        var runIntoBayM = (acrossM - radiusM * (1f - cos)) / sin;
-        var runInM = alongM - radiusM * sin - runIntoBayM * cos;
-        if (runIntoBayM < 0f || runInM < 0f) return default;
 
-        return Lay(fromAxleM, fromHeadingRad, runInM, radiusM, turnRad, runIntoBayM, into);
+        // <b>Every template ends on a straight</b>, because one that ends on an arc ends with the car still
+        // turning and parks it out of square — so the straight is what the shape is solved around and not
+        // what is left over once the arcs have had their way.
+        var settlesM = car.ParkingStraightensUpM;
+        var runOutM = (acrossM - (radiusM * (1f - cos))) / sin;
+        var swingRad = 0f;
+
+        if (runOutM < settlesM)
+        {
+            // Not enough width for one arc and the straight after it, so the swing away buys the rest:
+            // R(2cos φ − 1 − cos θ) is what the pair of arcs travels sideways, and this is that read for φ.
+            var cosSwing = (((acrossM - (settlesM * sin)) / radiusM) + 1f + cos) * 0.5f;
+            if (cosSwing < 0f) return default;
+
+            swingRad = MathF.Acos(MathF.Min(cosSwing, 1f));
+            runOutM = settlesM;
+        }
+
+        var runInM = alongM - (radiusM * ((2f * MathF.Sin(swingRad)) + sin)) - (runOutM * cos);
+        if (runInM < 0f) return default;
+
+        runsOnBeforeTurningM = runInM;
+        return Lay(fromAxleM, fromTravelRad, runInM, radiusM, swingRad, turnRad, runOutM, into);
     }
 
-    /// <summary>
-    /// <b>Reverse-out</b>: from the bay's own pose, backwards, to where the turn meets the lane. The
-    /// chain is laid <em>in the direction the rear axle travels</em>, which while reversing is the way
-    /// the car's nose is not pointing — so the follower steers against it and the gear is reverse.
-    /// </summary>
-    /// <param name="laneAtM">A point on the lane being backed onto, and <paramref name="laneDirection"/> the way it runs.</param>
-    /// <param name="overshootM">
-    /// How far past the lane's own line the turn ends, where the bay stands nearer to it than the
-    /// template radius. It is what a car backing out of a tight bay does — a foot into the other half
-    /// of the road, straightened out by the first metres of driving — and it is capped, not ignored.
-    /// </param>
-    public static BayLine TryLayExit(
-        SimConfig config, Vector2 fromAxleM, float fromHeadingRad, Vector2 laneAtM, Vector2 laneDirection,
-        float overshootM, Span<ArcSeg> into)
-    {
-        var radiusM = config.ParkingTemplateRadiusM;
-        var backwards = -Heading.Unit(fromHeadingRad);
-
-        // Reversing, the car ends up heading along the lane, so the rear axle ends up travelling
-        // against it: the template's own end direction is the lane's reversed.
-        var endTravel = -laneDirection;
-        var turnRad = SignedTurnRad(backwards, endTravel);
-        if (MathF.Abs(turnRad) < SquareEnoughRad || MathF.Abs(turnRad) > MathF.PI - SquareEnoughRad) return default;
-
-        // Where the turn has to end is the lane's own line, so the run back is what puts the end of the
-        // arc on it — the arc's own sideways reach counted in, since a bay off square to its kerb
-        // spends some of the turn going along the lane rather than across it.
-        var side = Rotate(backwards, turnRad >= 0f ? MathF.PI * 0.5f : -MathF.PI * 0.5f);
-        var normal = new Vector2(-laneDirection.Y, laneDirection.X);
-        if (Vector2.Dot(fromAxleM - laneAtM, normal) < 0f) normal = -normal;
-
-        var towardsLane = Vector2.Dot(backwards, normal);
-        if (towardsLane > -1e-3f) return default;
-
-        var depthM = Vector2.Dot(fromAxleM - laneAtM, normal);
-        var (sin, cos) = MathF.SinCos(MathF.Abs(turnRad));
-        var runOutM =
-            -(depthM + radiusM * (1f - cos) * Vector2.Dot(side, normal)) / towardsLane - radiusM * sin;
-        if (runOutM < -overshootM) return default;
-
-        return Lay(fromAxleM, MathF.Atan2(backwards.Y, backwards.X), MathF.Max(0f, runOutM), radiusM, turnRad, 0f, into);
-    }
-
-    /// <summary>The three pieces, in the order they are travelled, skipping the ones with no length in them.</summary>
+    /// <summary>The four pieces, in the order they are travelled, skipping the ones with nothing in them.</summary>
     static BayLine Lay(
-        Vector2 fromM, float headingRad, float runInM, float radiusM, float turnRad, float runOutM, Span<ArcSeg> into)
+        Vector2 fromM, float travelRad, float runInM, float radiusM, float swingRad, float turnRad,
+        float runOutM, Span<ArcSeg> into)
     {
         var written = 0;
         var atM = fromM;
-        var atRad = headingRad;
+        var atRad = travelRad;
         var lengthM = 0f;
 
-        if (runInM > 1e-3f)
-        {
-            into[written] = new ArcSeg(atM, atRad, runInM, 0f);
-            atM = into[written].EndM;
-            lengthM += runInM;
-            written++;
-        }
+        written = Straight(runInM, into, written, ref atM, ref atRad, ref lengthM);
 
-        var arcM = MathF.Abs(turnRad) * radiusM;
-        into[written] = new ArcSeg(atM, atRad, arcM, MathF.Sign(turnRad) / radiusM);
-        atM = into[written].EndM;
-        atRad += turnRad;
-        lengthM += arcM;
-        written++;
+        var sign = turnRad >= 0f ? 1f : -1f;
+        written = Turn(-sign * swingRad, radiusM, into, written, ref atM, ref atRad, ref lengthM);
+        written = Turn(sign * (MathF.Abs(turnRad) + swingRad), radiusM, into, written, ref atM, ref atRad, ref lengthM);
 
-        if (runOutM > 1e-3f)
-        {
-            into[written] = new ArcSeg(atM, atRad, runOutM, 0f);
-            atM = into[written].EndM;
-            lengthM += runOutM;
-            written++;
-        }
+        written = Straight(runOutM, into, written, ref atM, ref atRad, ref lengthM);
 
         return new BayLine(written, lengthM, atM, atRad);
+    }
+
+    static int Straight(
+        float runM, Span<ArcSeg> into, int written, ref Vector2 atM, ref float atRad, ref float lengthM)
+    {
+        if (runM <= ShortestPieceM) return written;
+
+        into[written] = new ArcSeg(atM, atRad, runM, 0f);
+        atM = into[written].EndM;
+        lengthM += runM;
+        return written + 1;
+    }
+
+    static int Turn(
+        float byRad, float radiusM, Span<ArcSeg> into, int written, ref Vector2 atM, ref float atRad,
+        ref float lengthM)
+    {
+        if (MathF.Abs(byRad) <= ShortestTurnRad) return written;
+
+        var runM = MathF.Abs(byRad) * radiusM;
+        into[written] = new ArcSeg(atM, atRad, runM, (byRad >= 0f ? 1f : -1f) / radiusM);
+        atM = into[written].EndM;
+        atRad += byRad;
+        lengthM += runM;
+        return written + 1;
     }
 
     /// <summary>The turn from one direction to another, in (−π, π].</summary>

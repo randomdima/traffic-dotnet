@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Person.Body;
@@ -12,7 +13,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// `P-12` as it is actually arrived at: <b>a body crossing the road writes itself into the road's book,
+/// The yield as it is actually arrived at (TER-4c.1, TER-5e): <b>a body crossing the road writes itself into the road's book,
 /// and the drivers read it there</b>. What is asked of a running town is that the writing happens, that
 /// the book has room for it, and that it binds somebody.
 /// </summary>
@@ -29,38 +30,63 @@ public class CrossingTrafficTests
     /// notice.
     /// </summary>
     [Fact]
-    public void ABodyOnThePaintIsInTheRoadsBook()
-    {
-        var (onThePaint, _, _) = Watch(Towns.Fixture);
-
-        Assert.True(onThePaint > 0, "nobody in a minute of the fixture town was on a crossing");
-    }
+    public void ABodyOnThePaintIsInTheRoadsBook() =>
+        Assert.True(Of(Towns.Fixture).OnThePaint > 0, "nobody in a minute of the fixture town was on a crossing");
 
     /// <summary>
-    /// <b>The book is never full.</b> Past its bound a stretch is dropped — and unlike a car's, a dropped
-    /// stretch here is a body on a crossing that no driver can see, since the question it answers has no
-    /// geometry behind it any more.
+    /// <b>The road's book is never full</b>, for either of the two kinds of thing written into it. Past its
+    /// bound a stretch is dropped: a dropped car is one its followers cannot name, which reads as an
+    /// obstruction, and a dropped body on a crossing is one no driver can see at all, since the question it
+    /// answers has no geometry behind it any more.
     /// </summary>
+    /// <remarks>
+    /// Taken at the fullest the book ever got over the run and not at the last tick, which is the same claim
+    /// asked where it can actually fail.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
     public void TheBookNeverReachesItsBound(string map)
     {
-        var (_, mostSlots, _) = Watch(map);
-        using var world = new TownWorld(Towns.Fresh(map), Config);
+        var run = Of(map);
 
         Assert.True(
-            mostSlots < world.Occupancy.Capacity,
-            $"{map}: the road's book held {mostSlots} of {world.Occupancy.Capacity} stretches");
+            run.MostSlots < run.Capacity,
+            $"{map}: the road's book held {run.MostSlots} of {run.Capacity} stretches");
     }
 
     /// <summary>And the reading binds: somewhere in a busy town a driver is held by paint.</summary>
     [Fact]
-    public void ADriverIsHeldByACrossing()
-    {
-        var (_, _, heldByPaint) = Watch("Odesa");
+    public void ADriverIsHeldByACrossing() =>
+        Assert.True(Of("Odesa").HeldByPaint > 0, "no driver in a minute of Odesa was held by a crossing");
 
-        Assert.True(heldByPaint > 0, "no driver in a minute of Odesa was held by a crossing");
-    }
+    /// <summary>
+    /// <b>A walker refused the band it asked for is in the road's book too</b> (TER-5e). It is not a body
+    /// and it cuts nobody's road; what it is there for is that the traffic can see somebody waiting, which
+    /// is the whole of what a right of way at an uncontrolled crossing is spent on — <b>and a thing a driver
+    /// must be held off that is in no book is a thing the driver cannot see</b> (TER-4c).
+    /// </summary>
+    [Fact]
+    public void SomebodyWaitingForALaneIsInTheRoadsBook() =>
+        Assert.True(
+            Of("Odesa").Waiting > 0,
+            "nobody in a minute of Odesa was written into the road's book as waiting for a lane");
+
+    /// <summary>
+    /// <b>And the traffic gives way to them where nothing else governs the crossing</b> (TER-5e): a driver
+    /// approaching an uncontrolled zebra with somebody at its kerb is stopped short of the paint, and a body
+    /// stopped short holds none of what is beyond it (TER-4c.1) — so the band the walker was refused is the
+    /// walker's on the next tick.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the map with the most uncontrolled crossings on it. A town whose every junction is lit
+    /// proves nothing here: the signal has already decided whose turn it is, and a second gate on top of it
+    /// would be the duplicate SIM-7 is about.
+    /// </remarks>
+    [Fact]
+    public void TheTrafficGivesWayAtAnUncontrolledCrossing() =>
+        Assert.True(
+            Of("Odesa").GaveWay > 0,
+            "no driver in a minute of Odesa gave way to somebody standing at an uncontrolled crossing");
 
     /// <summary>
     /// <b>A car writes into the road's book and into no other</b> (TER-5c.1). A zebra is a walk laid over a
@@ -70,25 +96,25 @@ public class CrossingTrafficTests
     /// rather than ground with a lane under it.
     /// </summary>
     [Fact]
-    public void NoCarIsEverInThePavementsBook()
+    public void NoCarIsEverInThePavementsBook() => Assert.Null(Of("Odesa").CarInTheWalksBook);
+
+    /// <summary>What <see cref="NoCarIsEverInThePavementsBook"/> watches for.</summary>
+    static void NothingButWalkersIsInTheWalksBook(TownWorld world, Watched found)
     {
-        using var world = new TownWorld(Towns.Fresh("Odesa"), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        if (found.CarInTheWalksBook is not null) return;
 
         Span<LaneSlot> slots = stackalloc LaneSlot[64];
-        for (var tick = 0; tick < Ticks; tick++)
+        foreach (var way in world.Footfall.OccupiedWays)
         {
-            loop.Advance(1);
-            foreach (var way in world.Footfall.OccupiedWays)
+            var count = world.Footfall.CopyTo(way, slots);
+            for (var at = 0; at < count; at++)
             {
-                var count = world.Footfall.CopyTo(way, slots);
-                for (var at = 0; at < count; at++)
-                {
-                    Assert.True(
-                        slots[at].Of == LaneRoster.Walking,
-                        $"car {slots[at].Occupant} holds {slots[at].FromM:0.00}–{slots[at].ToM:0.00} m of "
-                        + $"walking way {way}");
-                }
+                if (slots[at].Of == LaneRoster.Walking) continue;
+
+                found.CarInTheWalksBook =
+                    $"car {slots[at].Occupant} holds {slots[at].FromM:0.00}–{slots[at].ToM:0.00} m of "
+                    + $"walking way {way}";
+                return;
             }
         }
     }
@@ -102,32 +128,35 @@ public class CrossingTrafficTests
     [Fact]
     public void ABodyRefusedALaneIsGrantedNoFurtherThanItsEdge()
     {
-        using var world = new TownWorld(Towns.Fresh("Odesa"), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        var run = Of("Odesa");
 
-        var refused = 0;
-        for (var tick = 0; tick < Ticks; tick++)
+        Assert.Null(run.GrantedPastTheEdge);
+        Assert.True(run.Refused > 0, "nobody in a minute of Odesa was refused a lane of a crossing it was on");
+    }
+
+    /// <summary>What <see cref="ABodyRefusedALaneIsGrantedNoFurtherThanItsEdge"/> watches for.</summary>
+    static void ARefusedBodyIsGrantedNoFurtherThanTheEdge(TownWorld world, Watched found)
+    {
+        for (var person = 0; person < world.People.Count; person++)
         {
-            loop.Advance(1);
-            for (var person = 0; person < world.People.Count; person++)
+            // The way the refusal was made on and the way the body is standing on, which are the same
+            // way for anybody already on the paint and the only case a grant is measured in.
+            var way = world.People.RefusedWay[person];
+            if (way == PersonFleet.NoWay || way != world.People.OnWay[person]) continue;
+
+            found.Refused++;
+            var grantedToM = world.People.OnWayM[person] + world.People.AuthorityM[person]
+                             + Config.PersonStandstillGapM + world.People.RadiusM[person];
+            if (found.GrantedPastTheEdge is not null
+                || grantedToM <= world.People.RefusedAtM[person] + ToleranceM)
             {
-                // The way the refusal was made on and the way the body is standing on, which are the same
-                // way for anybody already on the paint and the only case a grant is measured in.
-                var way = world.People.RefusedWay[person];
-                if (way == PersonFleet.NoWay || way != world.People.OnWay[person]) continue;
-
-                refused++;
-                var grantedToM = world.People.OnWayM[person] + world.People.AuthorityM[person]
-                                 + Config.PersonStandstillGapM + world.People.RadiusM[person];
-
-                Assert.True(
-                    grantedToM <= world.People.RefusedAtM[person] + ToleranceM,
-                    $"walker {person} was refused a lane and granted to {grantedToM:0.00} m of way {way}, "
-                    + $"where that lane's band begins at {world.People.RefusedAtM[person]:0.00} m");
+                continue;
             }
-        }
 
-        Assert.True(refused > 0, "nobody in a minute of Odesa was refused a lane of a crossing it was on");
+            found.GrantedPastTheEdge =
+                $"walker {person} was refused a lane and granted to {grantedToM:0.00} m of way {way}, "
+                + $"where that lane's band begins at {world.People.RefusedAtM[person]:0.00} m";
+        }
     }
 
     /// <summary>
@@ -137,38 +166,30 @@ public class CrossingTrafficTests
     /// been given and nobody would ever finish crossing.
     /// </summary>
     [Fact]
-    public void ABodyRefusedALaneWalksIntoItOnceItIsGranted()
+    public void ABodyRefusedALaneWalksIntoItOnceItIsGranted() =>
+        Assert.True(
+            Of("Odesa").GotIn > 0,
+            "nobody in a minute of Odesa got into a lane of a crossing they were refused");
+
+    /// <summary>What <see cref="ABodyRefusedALaneWalksIntoItOnceItIsGranted"/> watches for.</summary>
+    static void ARefusedBodyWalksInOnceItIsGranted(TownWorld world, Watched found)
     {
-        using var world = new TownWorld(Towns.Fresh("Odesa"), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        var wayRefusedOn = new int[world.People.Count];
-        var metreRefusedAt = new float[world.People.Count];
-        Array.Fill(wayRefusedOn, PersonFleet.NoWay);
-
-        var gotIn = 0;
-        for (var tick = 0; tick < Ticks; tick++)
+        for (var person = 0; person < world.People.Count; person++)
         {
-            loop.Advance(1);
-            for (var person = 0; person < world.People.Count; person++)
+            var way = world.People.OnWay[person];
+            if (way != PersonFleet.NoWay && way == found.WayRefusedOn[person]
+                && world.People.OnWayM[person] > found.MetreRefusedAt[person])
             {
-                var way = world.People.OnWay[person];
-                if (way != PersonFleet.NoWay && way == wayRefusedOn[person]
-                    && world.People.OnWayM[person] > metreRefusedAt[person])
-                {
-                    gotIn++;
-                    wayRefusedOn[person] = PersonFleet.NoWay;
-                    continue;
-                }
-
-                if (world.People.RefusedWay[person] == PersonFleet.NoWay) continue;
-
-                wayRefusedOn[person] = world.People.RefusedWay[person];
-                metreRefusedAt[person] = world.People.RefusedAtM[person];
+                found.GotIn++;
+                found.WayRefusedOn[person] = PersonFleet.NoWay;
+                continue;
             }
-        }
 
-        Assert.True(gotIn > 0, "nobody in a minute of Odesa got into a lane of a crossing they were refused");
+            if (world.People.RefusedWay[person] == PersonFleet.NoWay) continue;
+
+            found.WayRefusedOn[person] = world.People.RefusedWay[person];
+            found.MetreRefusedAt[person] = world.People.RefusedAtM[person];
+        }
     }
 
     /// <summary>Ground on a way is metres and a grant is arithmetic on floats: a millimetre is not a finding.</summary>
@@ -186,43 +207,40 @@ public class CrossingTrafficTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ABodyHoldsTheLaneItIsStandingIn(string map)
-    {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+    public void ABodyHoldsTheLaneItIsStandingIn(string map) => Assert.Null(Of(map).HeldALaneItIsNotIn);
 
-        var held = new int[world.People.Count];
-        var standingIn = new int[world.People.Count];
+    /// <summary>What <see cref="ABodyHoldsTheLaneItIsStandingIn"/> watches for.</summary>
+    static void ABodyHoldsNoLaneItIsNotStandingIn(TownWorld world, string map, Watched found)
+    {
+        if (found.HeldALaneItIsNotIn is not null) return;
+
+        Array.Clear(found.Held);
+        Array.Clear(found.StandingIn);
         Span<LaneSlot> slots = stackalloc LaneSlot[64];
 
-        for (var tick = 0; tick < Ticks; tick++)
+        foreach (var way in world.Occupancy.OccupiedWays)
         {
-            loop.Advance(1);
-            Array.Clear(held);
-            Array.Clear(standingIn);
+            if (!world.Occupancy.WayIsLane(way)) continue;
 
-            foreach (var way in world.Occupancy.OccupiedWays)
+            var lane = world.Occupancy.WayIndex(way);
+            var count = world.Occupancy.CopyTo(way, slots);
+            for (var at = 0; at < count; at++)
             {
-                if (!world.Occupancy.WayIsLane(way)) continue;
+                if (slots[at].Use != LaneUse.OnFoot) continue;
 
-                var lane = world.Occupancy.WayIndex(way);
-                var count = world.Occupancy.CopyTo(way, slots);
-                for (var at = 0; at < count; at++)
-                {
-                    if (slots[at].Use != LaneUse.OnFoot) continue;
-
-                    held[slots[at].Occupant]++;
-                    if (IsStandingInTheLane(world, slots[at], lane)) standingIn[slots[at].Occupant]++;
-                }
+                found.Held[slots[at].Occupant]++;
+                if (IsStandingInTheLane(world, slots[at], lane)) found.StandingIn[slots[at].Occupant]++;
             }
+        }
 
-            for (var person = 0; person < held.Length; person++)
-            {
-                Assert.True(
-                    held[person] <= standingIn[person] + 1,
-                    $"{map}: walker {person} holds {held[person]} lanes and is standing in "
-                    + $"{standingIn[person]} of them, {LanesHeld(world, person)}");
-            }
+        for (var person = 0; person < found.Held.Length; person++)
+        {
+            if (found.Held[person] <= found.StandingIn[person] + 1) continue;
+
+            found.HeldALaneItIsNotIn =
+                $"{map}: walker {person} holds {found.Held[person]} lanes and is standing in "
+                + $"{found.StandingIn[person]} of them, {LanesHeld(world, person)}";
+            return;
         }
     }
 
@@ -276,33 +294,68 @@ public class CrossingTrafficTests
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
 
     /// <summary>
-    /// A run, watched tick by tick: how many walker-ticks were spent on paint the road knew about, the
-    /// fullest the road's book ever got, and how many car-ticks a crossing was the term that bound.
+    /// <b>One run of one map, watched by every claim in this class at once</b> — the counts a claim needs a
+    /// census of, and the first tick each of the others was broken on, or null.
     /// </summary>
-    static (int OnThePaint, int MostSlots, int HeldByPaint) Watch(string map)
+    sealed class Watched(int people)
     {
-        using var world = new TownWorld(Towns.Fresh(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
+        /// <summary>Walker-ticks spent on paint the road knew about, the fullest the book got, and car-ticks a crossing bound.</summary>
+        public int OnThePaint, MostSlots, HeldByPaint;
 
-        var onThePaint = 0;
-        var mostSlots = 0;
-        var heldByPaint = 0;
+        /// <summary>How big the book is, read off the world the run was taken on rather than off a second one.</summary>
+        public int Capacity;
+
+        public int Refused, GotIn;
+
+        /// <summary>Walker-ticks whose ask for a band was written into the road's book, and the town's own give-way count.</summary>
+        public int Waiting;
+        public long GaveWay;
+        public string? CarInTheWalksBook, GrantedPastTheEdge, HeldALaneItIsNotIn;
+
+        /// <summary>Per-tick working sets, and the refusal one claim carries between ticks.</summary>
+        public readonly int[] Held = new int[people];
+        public readonly int[] StandingIn = new int[people];
+        public readonly int[] WayRefusedOn = new int[people];
+        public readonly float[] MetreRefusedAt = new float[people];
+    }
+
+    static readonly ConcurrentDictionary<string, Watched> Runs = new();
+
+    /// <summary>The run this map's claims are all read off, taken once.</summary>
+    static Watched Of(string map) => Runs.GetOrAdd(map, Watch);
+
+    /// <summary>A minute of the town, watched tick by tick by every claim above.</summary>
+    static Watched Watch(string map)
+    {
+        using var world = new TownWorld(Towns.Of(map), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        var found = new Watched(world.People.Count) { Capacity = world.Occupancy.Capacity };
+        Array.Fill(found.WayRefusedOn, PersonFleet.NoWay);
+
         for (var tick = 0; tick < Ticks; tick++)
         {
             loop.Advance(1);
-            mostSlots = Math.Max(mostSlots, world.Occupancy.SlotCount);
+            found.MostSlots = Math.Max(found.MostSlots, world.Occupancy.SlotCount);
 
             foreach (var way in world.Occupancy.OccupiedWays)
             {
-                if (world.Occupancy.AnybodyOnFoot(way, 0f, world.Occupancy.WayLengthM(way))) onThePaint++;
+                var lengthM = world.Occupancy.WayLengthM(way);
+                if (world.Occupancy.AnybodyOnFoot(way, 0f, lengthM)) found.OnThePaint++;
+                if (world.Occupancy.AnybodyWaitingFor(way, 0f, lengthM)) found.Waiting++;
             }
 
             for (var car = 0; car < world.Cars.Count; car++)
             {
-                if (world.Cars.Hold[car] == DrivingHold.Crossing) heldByPaint++;
+                if (world.Cars.Hold[car] == DrivingHold.Crossing) found.HeldByPaint++;
             }
+
+            NothingButWalkersIsInTheWalksBook(world, found);
+            ARefusedBodyIsGrantedNoFurtherThanTheEdge(world, found);
+            ARefusedBodyWalksInOnceItIsGranted(world, found);
+            ABodyHoldsNoLaneItIsNotStandingIn(world, map, found);
         }
 
-        return (onThePaint, mostSlots, heldByPaint);
+        found.GaveWay = world.GaveWayAtAKerb;
+        return found;
     }
 }

@@ -5,17 +5,19 @@ Code: [P16SquareUpInTheBay.cs](../planned/P16SquareUpInTheBay.cs) · [catalogue]
 **Scenario.** A park attempt did not deliver its `Sb` — the car is in or beside the bay at the wrong angle,
 or jammed on the way in — and MAN-6 forbids trying again from the pose the failed attempt ended in.
 
-**`Sa` — the state it starts in.** At the bay this leg holds (or standing in one), that bay can be left,
-and the reverse-out template can be laid from where the car is.
+**`Sa` — the state it starts in.** At the bay this leg holds (or standing in one), that bay has a way, and
+the template out to where that way leaves its lane can be laid from where the car is.
 
 **`Sb` — the state it delivers.** The car back at the mouth of the bay **on a different axis from the one
 it failed on**, pointing along the lane, ready for `P-14` to lay a fresh way in.
 
-**Line.** Two templates in sequence, and this entry drives the first: the reverse-out that turns the car,
-then `P-14`'s forward-in that turns it back.
+**Line.** Two templates in sequence, and this entry drives the first: the same shape laid out to the place
+on the lane the bay's own way leaves, then `P-14`'s that turns it back in. **Each is driven in the gear its
+standing gives it** (`GEN-4j`) — out in reverse where the car is nose-first, out under power where it
+backed in — so a square-up is the same shape either way round and never the same gear.
 
-**Do.** Back out on the exit template. When it is spent, hand to `P-14`, which lays its own way in from
-the new pose.
+**Do.** Drive out on that template. When it is spent, hand to `P-14`, which lays its own way in from the
+new pose.
 
 **Guards.** The line stays a template.
 
@@ -40,4 +42,4 @@ line, not a straight down it.
 
 **Why it is not scheduled.** Steering to a pose.
 
-**Refs.** MAN-6, CAR-4a, CAR-6.5.
+**Refs.** MAN-6, CAR-4a, CAR-6.5, GEN-4j.

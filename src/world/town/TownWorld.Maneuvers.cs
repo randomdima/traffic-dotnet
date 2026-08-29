@@ -3,6 +3,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Parking;
 
 namespace TrafficSimulation.World.Town;
 
@@ -53,6 +54,13 @@ internal sealed partial class TownWorld
 
     public long SwervesTaken { get; private set; }
 
+    /// <summary>
+    /// How many legs have booked a bay to come back the other way from (GEN-4l) — <b>the instrument for
+    /// whether a town's car parks are where its routes need to turn</b>, since a route that has to turn and
+    /// a frontage with a free bay to turn in are two different facts about a map.
+    /// </summary>
+    public long TurnsAtALotBegun { get; private set; }
+
     public long PlacesGivenUp { get; private set; }
 
     public long ReroutesTaken { get; private set; }
@@ -71,6 +79,13 @@ internal sealed partial class TownWorld
     /// and cannot be, because past the next junction it is a prediction about other agents; those entries
     /// are reached from `P-4`'s own exits as the road produces them.
     /// </summary>
+    /// <remarks>
+    /// <b>A turn at a car park is the one thing that goes in the middle of it</b> (GEN-4l), and it is two
+    /// steps of the same entries the ends of a leg are made of: park in the bay this leg turns in, leave it
+    /// the other way, and go on running the route from there. It is in the skeleton rather than reached
+    /// from `P-4`'s exits because the route is what says the leg has to come back the other way, which is
+    /// known when the chain is drawn and not when the road produces it.
+    /// </remarks>
     void PlanTheLeg(int car)
     {
         _drivePlans.Clear(car);
@@ -83,7 +98,15 @@ internal sealed partial class TownWorld
 
         _drivePlans.Add(car, Maneuver.RunTheLine);
 
-        var going = _parking.ReservationOf(car);
+        var turningIn = Cars.TurnsBackOn[car] >= 0 ? _parking.TurnOf(car) : ParkingRegistry.NoBay;
+        if (turningIn >= 0)
+        {
+            _drivePlans.Add(car, Maneuver.ParkInTheBay, turningIn);
+            _drivePlans.Add(car, Maneuver.LeaveTheBay, turningIn);
+            _drivePlans.Add(car, Maneuver.RunTheLine);
+        }
+
+        var going = BayAimedAt(car);
         if (going < 0) return;
 
         _drivePlans.Add(car, Maneuver.ParkInTheBay, going);
@@ -199,7 +222,7 @@ internal sealed partial class TownWorld
         // really does hold and run and hold again.
         var atM = Cars.PositionM[car];
         var inOneSpot = Cars.Was[car] == next
-                        && (atM - Cars.ChangedAtM[car]).Length() < _config.Car.LengthM
+                        && (atM - Cars.ChangedAtM[car]).Length() < Cars.BuildOf(car).LengthM
                         && Cars.InManeuverS[car] < ShuttleWindowS;
 
         _trace.Changed(doing, next, inOneSpot);
@@ -296,7 +319,7 @@ internal sealed partial class TownWorld
     {
         // A car with nobody in it takes no action, and a hand at the wheel suspends every manoeuvre —
         // neither is a car for the catalogue to have opinions about.
-        if (!Cars.Driven[car] || Cars.Broken[car] || Handed(Roster.AgentOfCar(car)))
+        if (!Cars.Driven[car] || Cars.Broken[car] || HandAtTheWheel(car))
         {
             Cars.BlockedS[car] = 0f;
             return;
@@ -317,6 +340,17 @@ internal sealed partial class TownWorld
             Cars.ClimbedFromM[car] = atM;
         }
 
+        // <b>Ground taken back from under the entry in charge is that entry asked again</b> (TER-5e). A claim
+        // is the one hold something stronger may take, and the entry that took it is the only thing that
+        // knows what it was for — so it is re-entered through its own `Sa`, which either takes the claim
+        // again or refuses and hands on. Nothing here stops the car: what holds it is the ground the
+        // stronger movement is now standing on, cut off its grant like everything else (SIM-7).
+        if (Cars.ClaimWasTaken[car])
+        {
+            Cars.ClaimWasTaken[car] = false;
+            GoTo(car, Cars.Doing[car], Cars.About[car]);
+        }
+
         var scene = SceneOf(car);
         var limits = DriveLimits.None;
         var outcome = ManeuverCatalogue.Tick(Cars.Doing[car], scene, _desk, elapsedS, ref limits);
@@ -324,9 +358,13 @@ internal sealed partial class TownWorld
 
         // The bar for moving is a rate — the same one the speed profile calls a stop. A per-tick distance
         // is a speed in disguise.
+        //
+        // <b>A light holds the clock and never rewinds it.</b> Only road covered gives the clock back: a
+        // light is red again every cycle, so a wait excused by rewinding is a wait excused for ever, and a
+        // car that stood through a dozen greens without moving a metre never reached the watchdog at all.
         var moving = Cars.VelocityMps[car].Length() > _config.Driving.StopSpeedMps;
-        if (moving || WaitingForAReasonItCanSee(car)) Cars.BlockedS[car] = 0f;
-        else Cars.BlockedS[car] += elapsedS;
+        if (moving) Cars.BlockedS[car] = 0f;
+        else if (!WaitingForAReasonItCanSee(car)) Cars.BlockedS[car] += elapsedS;
 
         // And the patience of a car that never stops: a body reeling down the lane in front is got past on
         // the same wait as one standing in it, and a car crawling behind it spends no blocked clock at all.
@@ -335,14 +373,28 @@ internal sealed partial class TownWorld
 
         // The watchdog runs in every phase, not only while touring. Entries with no watchdog are how two
         // cars nose to nose hold each other for a whole run.
-        if (outcome.Kind == ManeuverOutcomeKind.Running
-            && ManeuverCatalogue.Watched(Cars.Doing[car])
-            && Cars.BlockedS[car] >= ManeuverCatalogue.FuseS(Cars.Doing[car], scene) * Cars.FuseJitter[car])
+        var pastTheFuse = ManeuverCatalogue.Watched(Cars.Doing[car])
+                          && Cars.BlockedS[car] >= ManeuverCatalogue.FuseS(scene) * Cars.FuseJitter[car];
+        if (outcome.Kind == ManeuverOutcomeKind.Running && pastTheFuse)
         {
             outcome = ManeuverOutcome.Escalate(ManeuverReason.Bounded);
         }
 
+        var entry = Cars.Doing[car];
         Apply(car, outcome);
+
+        // <b>And an entry that took the next step and got itself back is not a step taken.</b> A leg whose
+        // chain has run out hands `P-4` to a car already running it, every tick, and reports a success each
+        // time — so a body at rest at the end of a line it has run out of stands there while the guard above
+        // reads that stream of successes as an entry getting on with something. <b>The fuse is the car's and
+        // not the entry's</b>, and a hand-over that changed nothing spends it exactly as standing still does.
+        if (pastTheFuse
+            && outcome.Kind == ManeuverOutcomeKind.Succeeded
+            && outcome.Next == Maneuver.None
+            && Cars.Doing[car] == entry)
+        {
+            Escalate(car);
+        }
     }
 
     /// <summary>What the entry named, done. Every arm of this is one row of §1.2's exits and there is no other.</summary>
@@ -417,7 +469,7 @@ internal sealed partial class TownWorld
     {
         var scene = SceneOf(car);
         var bay = _parking.BayOf(car);
-        var reserved = _parking.ReservationOf(car);
+        var reserved = BayTheLineEndsIn(car);
         var jammed = scene.SomethingToBackAwayFrom;
 
         return new LadderState(
@@ -426,9 +478,10 @@ internal sealed partial class TownWorld
             RoomBehindM: jammed ? _desk.RoomAlongTheAxisM(car, !scene.Reverse) : 0f,
             BackOffsLeft: scene.BackOffsLeft,
             InItsOwnBay: bay >= 0 && Cars.Doing[car] == Maneuver.LeaveTheBay
-                         && Cars.ProgressM[car] <= _config.Car.LengthM * 0.5f,
+                         && Cars.ProgressM[car] <= Cars.BuildOf(car).HalfLengthM,
             AtItsOwnBay: reserved >= 0
-                         && (_parking.CentreM(reserved) - Cars.PositionM[car]).Length() <= _config.Car.LengthM * 2f,
+                         && (_parking.CentreM(reserved) - Cars.PositionM[car]).Length()
+                         <= Cars.BuildOf(car).LengthM * 2f,
             HoldsAPlace: reserved >= 0,
             OnARoute: scene.OnARoute,
             ReroutesLeft: scene.ReroutesLeft,
@@ -448,6 +501,7 @@ internal sealed partial class TownWorld
     {
         Config = _config,
         Car = car,
+        Build = Cars.BuildOf(car),
         AlongMps = Cars.AlongMps[car],
         ProgressM = Cars.ProgressM[car],
         Line = Cars.Line[car],
@@ -459,15 +513,16 @@ internal sealed partial class TownWorld
         InsideTheBox = Cars.InsideTheBox[car],
         LightAheadM = Cars.LightAheadM[car],
         BayHeld = _parking.BayOf(car),
-        BayReserved = _parking.ReservationOf(car),
+        BayBooked = BayAimedAt(car),
         OnTheFinalApproach = IsOnTheFinalApproach(car),
+        ToTheBayM = ToTheWayIntoTheBayM(car),
+        ToTheSceneM = ToTheSceneM(car),
+        Urgent = Cars.BlueLight[car],
         LaneOn = Cars.LaneOf(car),
-        RouteReversesHere = RouteReversesHere(car),
+        TurnsBackHere = TurnsBackAtTheEndOfTheLine(car),
         InManeuverS = Cars.InManeuverS[car],
         BlockedS = Cars.BlockedS[car],
         HeldBackS = Cars.HeldBackS[car],
-        WaitedS = Cars.WaitedS[car],
-        GapIsClear = !IsWaitingInTheMouth(car) || _desk.GapIsClear(car),
         OnDrivableGround = _desk.StandsOnDrivableGround(car),
         BackOffsLeft = _config.Ladder.BackOffAttemptsPerJam - Cars.BackOffs[car],
         PlannedMps = Cars.PlannedMps[car],
@@ -476,54 +531,50 @@ internal sealed partial class TownWorld
     };
 
     /// <summary>
-    /// The one window in which the gap question is worth its cost: a car on its way out of a bay whose
-    /// body has not yet crossed the mouth. Everywhere else the answer is <c>true</c>, which is what makes
-    /// the entry reading it do nothing.
+    /// <b>Whether the leg comes back the other way from the end of the line in hand</b> (GEN-4l): the
+    /// stretch the line finishes on is the one it turns off, which is the lane whose reverse the route asked
+    /// for. A car already round the turn asks the same question of the lane it is now on and answers no.
     /// </summary>
-    bool IsWaitingInTheMouth(int car) =>
-        Cars.Doing[car] == Maneuver.LeaveTheBay
-        && Cars.Line[car].LaneCount == 0
-        && Cars.ProgressM[car] < _config.Car.LengthM * 0.5f;
-
-    /// <summary>
-    /// Whether the next lane this leg takes is the reverse of the one under the car — the route reversing
-    /// direction of travel, which is `P-11`'s whole scenario and the only movement a junction is the only
-    /// place for.
-    /// </summary>
-    bool RouteReversesHere(int car)
+    bool TurnsBackAtTheEndOfTheLine(int car)
     {
         var lanes = Cars.Line[car].LaneCount;
-        if (lanes == 0) return false;
+        if (Cars.TurnsBackOn[car] < 0) return false;
 
-        var chain = Cars.ChainOf(car);
-        var ahead = LaneAheadSlot(car, Cars.ProgressM[car]);
-        var next = ahead + 1 < lanes ? chain[ahead + 1] : Cars.PeekNextRouteLane(car);
-        return next >= 0 && _roads.LaneReverse[chain[ahead]] == next;
+        // <b>A car under geometry of its own is already at the turn</b>: the lanes are behind it and what
+        // it is driving is a leg of the turn itself, so the route's own word for it is the whole answer.
+        // The route is what clears that word, and a leg that has come round is a leg that has replanned.
+        return lanes == 0 || _roads.LaneReverse[Cars.ChainOf(car)[lanes - 1]] == Cars.TurnsBackOn[car];
     }
 
     /// <summary>
-    /// <b>Whether anything at all is timing this car</b> — motion, the watchdog's own clock, a light that
-    /// will change, or the give-way patience it is spending in its bay. It asserts nothing; what it is
-    /// for is the trace, where a standing car nothing is running for is a fault no other counter can show.
+    /// <b>Whether anything at all is timing this car</b> — motion, the watchdog's own clock, or a light
+    /// that will change. It asserts nothing; what it is for is the trace, where a standing car nothing is
+    /// running for is a fault no other counter can show.
     /// </summary>
     bool IsClocked(int car) =>
         Cars.VelocityMps[car].Length() > _config.Driving.StopSpeedMps
         || WaitingForAReasonItCanSee(car)
-        || (Cars.Driven[car] && !Cars.Broken[car] && !Handed(Roster.AgentOfCar(car)));
+        || (Cars.Driven[car] && !Cars.Broken[car] && !HandAtTheWheel(car));
 
     /// <summary>
-    /// The two waits that spend no clock at all: <b>a light</b>, which will change on its own, and the
-    /// <b>gap a car waits for in the bay it still holds</b>, which is bounded by give-way patience and is
-    /// the one piece of road that car is entitled to occupy.
+    /// The one wait that spends no clock: <b>a light</b>, which will change on its own.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Everything else that stands still spends the clock, including a lawful yield: waiting for a
     /// junction somebody else is in is correct right up until it has been correct for half a minute, and
-    /// after that it is a jam rather than traffic (`E-1`).
+    /// after that it is a jam rather than traffic. <b>A car waiting to leave a bay is one of
+    /// those</b> — its way out is a movement across the street like a junction's, and a bay it cannot get
+    /// out of for half a minute is a place to give up rather than a wait to be excused.
+    /// </para>
+    /// <para>
+    /// <b>It buys the wait and not the standing</b> (<see cref="DecideDriver"/>): the clock is held while
+    /// the red is there and given back only by road covered. A light asks for a wait it will end itself,
+    /// and a car that is still where it was when that light went green is not waiting for it.
+    /// </para>
     /// </remarks>
     bool WaitingForAReasonItCanSee(int car) =>
-        Cars.LightAheadM[car] <= _config.Car.LengthM * QueueLengthInCars
-        || (Cars.Doing[car] == Maneuver.LeaveTheBay && Cars.Limits[car].HoldStill);
+        Cars.LightAheadM[car] <= Cars.BuildOf(car).LengthM * QueueLengthInCars;
 
     /// <summary>
     /// How long a queue at a light reaches back, in cars. <b>The test is "a red ahead, within a queue's

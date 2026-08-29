@@ -27,9 +27,6 @@ internal sealed class SimClock(float tickSeconds, float maxTimeScale)
         set => _timeScale = Math.Clamp(value, 0f, maxTimeScale);
     }
 
-    /// <summary>Where the render stands between the last tick and the next, for interpolation. 0 on the tick itself.</summary>
-    public float Alpha => (float)(_accumulator / _tickSeconds);
-
     /// <summary>Ticks owed since the last call. The caller runs exactly this many and no more.</summary>
     public int TicksDue()
     {

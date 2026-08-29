@@ -41,6 +41,25 @@ internal sealed class Containers
     readonly int[] _buildingOccupants;
     readonly int[] _buildingClaims;
     readonly int[] _carDriver;
+
+    /// <summary>
+    /// <b>The one seat that is not the wheel</b> (AMB-6): the stretcher an ambulance carries a casualty on.
+    /// It is a second array rather than a count because CAR-2 is about the driver and nothing else, and a
+    /// register that could not say which of two occupants was driving would answer neither question.
+    /// </summary>
+    readonly int[] _carPassenger;
+
+    /// <summary>
+    /// <b>The seats that are neither the wheel nor the stretcher</b> (SRV-3): a service vehicle's crew,
+    /// laid <see cref="CrewSeats"/> to a car so that a hand who has got out has a seat to come back to and
+    /// nobody else can take it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A stride over the whole fleet and not a list per car.</b> Two ints on every car in the town costs
+    /// nothing and buys the property every other roster here has: a car's index means the same thing in this
+    /// array as it does everywhere else, and no crew changes size while the town is running.
+    /// </remarks>
+    readonly int[] _carCrew;
     readonly Contained[] _personIsIn;
 
     /// <param name="personIsIn">
@@ -55,15 +74,22 @@ internal sealed class Containers
         _buildingClaims = new int[buildingCapacity.Length];
         _carDriver = new int[cars];
         Array.Fill(_carDriver, NoDriver);
+        _carPassenger = new int[cars];
+        Array.Fill(_carPassenger, NoDriver);
+        _carCrew = new int[cars * CrewSeats];
+        Array.Fill(_carCrew, NoDriver);
         _personIsIn = personIsIn;
         Array.Fill(_personIsIn, Contained.Nowhere);
     }
 
     public const int NoDriver = -1;
 
-    public int BuildingCount => _buildingCapacity.Length;
-
-    public int CapacityOf(int building) => _buildingCapacity[building];
+    /// <summary>
+    /// <b>How many a vehicle carries besides its driver and its stretcher</b>. One hand is what every errand
+    /// in this town needs — somebody to get out and do the work — and the seat beside it is what says the
+    /// figure is a figure rather than a special case.
+    /// </summary>
+    public const int CrewSeats = 2;
 
     public int OccupantsOf(int building) => _buildingOccupants[building];
 
@@ -113,7 +139,100 @@ internal sealed class Containers
     public void Alight(int car, int person)
     {
         if (_carDriver[car] == person) _carDriver[car] = NoDriver;
+        LeaveTheCrew(car, person);
         _personIsIn[person] = Contained.Nowhere;
+    }
+
+    /// <summary>
+    /// <b>A crew seat taken</b> (SRV-3), on the same atomic terms the wheel is: refused where every seat is
+    /// full, so two hands cannot be handed one.
+    /// </summary>
+    public bool TryTakeACrewSeat(int car, int person)
+    {
+        var first = car * CrewSeats;
+        for (var seat = first; seat < first + CrewSeats; seat++)
+        {
+            if (_carCrew[seat] != NoDriver) continue;
+
+            _carCrew[seat] = person;
+            _personIsIn[person] = new Contained(ContainerKind.Car, car);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>The seat given up. Silent where this person was never in one, which is what makes <see cref="Alight"/> one call.</summary>
+    void LeaveTheCrew(int car, int person)
+    {
+        var first = car * CrewSeats;
+        for (var seat = first; seat < first + CrewSeats; seat++)
+        {
+            if (_carCrew[seat] != person) continue;
+
+            _carCrew[seat] = NoDriver;
+            return;
+        }
+    }
+
+    /// <summary>One of this vehicle's crew, or <see cref="NoDriver"/> — the whole of how a hand is found again.</summary>
+    public int CrewOf(int car, int seat) => _carCrew[(car * CrewSeats) + seat];
+
+    /// <summary>Whether anybody at all is aboard: the driver, the crew, or the stretcher.</summary>
+    public bool AnybodyAboard(int car)
+    {
+        if (_carDriver[car] != NoDriver || _carPassenger[car] != NoDriver) return true;
+
+        var first = car * CrewSeats;
+        for (var seat = first; seat < first + CrewSeats; seat++)
+        {
+            if (_carCrew[seat] != NoDriver) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// <b>A casualty put aboard</b> (AMB-6). Refused where the stretcher already carries somebody, and it
+    /// is the same atomic question <see cref="TryBoard"/> asks of the wheel.
+    /// </summary>
+    public bool TryLoad(int car, int person)
+    {
+        if (_carPassenger[car] != NoDriver) return false;
+
+        _carPassenger[car] = person;
+        _personIsIn[person] = new Contained(ContainerKind.Car, car);
+        return true;
+    }
+
+    /// <summary>And taken off it — at a hospital's door, or wherever the car it was in stopped being one.</summary>
+    public void Unload(int car, int person)
+    {
+        if (_carPassenger[car] == person) _carPassenger[car] = NoDriver;
+        _personIsIn[person] = Contained.Nowhere;
+    }
+
+    /// <summary>Who is on the stretcher, or <see cref="NoDriver"/>.</summary>
+    public int PassengerOf(int car) => _carPassenger[car];
+
+    /// <summary>
+    /// <b>The stretcher through the door</b> (AMB-8): out of the car and into the building in one
+    /// question, refused where the building is full (OBJ-5).
+    /// </summary>
+    /// <remarks>
+    /// <b>It is one call because it has to be atomic.</b> Taken off the car first and then refused at the
+    /// door, the casualty is inside nothing at all while still having no body in the world — which is a
+    /// person the town has lost. Capacity is checked here like everywhere else, at the moment of asking.
+    /// </remarks>
+    public bool TryTransfer(int car, int person, int building)
+    {
+        if (_carPassenger[car] != person) return false;
+        if (_buildingOccupants[building] >= _buildingCapacity[building]) return false;
+
+        _carPassenger[car] = NoDriver;
+        _buildingOccupants[building]++;
+        _personIsIn[person] = new Contained(ContainerKind.Building, building);
+        return true;
     }
 
     /// <summary>Who is driving, or <see cref="NoDriver"/> — which is the whole of CAR-1's question about a car.</summary>

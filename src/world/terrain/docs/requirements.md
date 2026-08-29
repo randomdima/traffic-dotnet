@@ -69,12 +69,13 @@ it wraps turns a right angle of its own, **the walk turns it on half its own wid
 full width the band reads pinched, because a walker rounding a corner has further to go across it, and
 square takes a bite of verge.
 
-**TER-3c.4** It turns its inner corners too. Where two bands run into one another they leave a re-entrant
-spike of verge, rounded on an arc tangent to both edges at half the walk and bounded by how far the
-fillet would reach in. **A corner is a fact about the pair of shapes and nothing else**, so it is solved
-against the finished ground rather than enumerated per kind of neighbour or per map — a pair the
-generator has never put together before is rounded the day it first appears. These are the corners the
-plan must carry a list of, because they cannot be read back off another shape a width bigger.
+**TER-3c.4** It turns its inner corners too. Where two pieces of it run into one another they leave a
+re-entrant spike of verge, rounded on an arc tangent to both edges at half the walk and bounded by how far
+the fillet would reach in. **A corner is a fact about the pair of shapes and nothing else**, so it is
+solved against the finished ground rather than enumerated per kind of neighbour or per map — a pair the
+generator has never put together before is rounded the first time it appears, and a map recording no
+corners of its own is rounded exactly as one that does. **The build solves them**, from the pieces it
+lays the pavement out of, and reads no list of them from anywhere.
 
 ## Water and bridges
 
