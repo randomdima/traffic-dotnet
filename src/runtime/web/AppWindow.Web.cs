@@ -151,10 +151,11 @@ internal sealed class AppWindow : IDisposable
     public void ToggleFullscreen() => WebGpu.Fullscreen();
 
     /// <summary>
-    /// The way out of the game (OBS-2g). A page is not closed by anything in here — a tab belongs to
-    /// the person looking at it — so what this does is stop the run: the next
-    /// <see cref="TrafficSimulation.App.Main.Game.Step"/> returns without drawing, the browser is not
-    /// asked for another frame, and the boot says so under the canvas.
+    /// The way out of the game (OBS-2g). It stops the run — the next
+    /// <see cref="TrafficSimulation.App.Main.Game.Step"/> returns without drawing and the browser is
+    /// not asked for another frame — and the boot then asks the page to close the tab
+    /// (<see cref="WebGpu.Shut"/>), which a browser grants only to a page it opened itself. Where it
+    /// is refused the run has still stopped, and the banner is what says so.
     /// </summary>
     public void Close() => _closing = true;
 

@@ -119,6 +119,13 @@ has no brotli to unpack one with (which is the same fact that keeps the towns on
 does not negotiate encodings serves the raw copies**, and the figure in WEB-6 is a claim about a host
 that does.
 
+**WEB-8 — the page says what it is doing while it does it.** The opening is a card in front of the
+canvas ([`loading.js`](../wwwroot/loading.js)): the name, what this is, a bar and the stage it is in.
+**A stage that can be counted fills the bar** — a batch knows how many files it asked for — and a stage
+that cannot sweeps it, because a bar sitting at nought while the runtime comes down reads as a page
+that has stopped. **`say` writes there while it is up and into the banner under the canvas once it is
+gone**, so an empty line is the boot saying the town is standing and the card is what it takes away.
+
 **WEB-5 — the query string is the command line.** `?map=Test&ui=nodes,paths` is `--map Test --ui
 nodes,paths`. The words are the desktop's, and the ones a page cannot answer are not offered.
 
@@ -151,4 +158,12 @@ dropped the time it could not simulate, and the read-out draws the line in the s
 at a number of its own.
 
 **WebGPU is asked for and may be refused.** No adapter, no device, a browser without the API at all —
-each of them is a sentence under the canvas rather than a page that draws nothing.
+each of them is a sentence in front of the canvas rather than a page that draws nothing.
+
+**And what can be refused before the download is refused before the download.**
+[`main.js`](../wwwroot/main.js) asks four questions — WebAssembly, WebAssembly SIMD, the WebGPU API,
+and an adapter it will actually hand out — and only then imports the runtime, which is why that import
+is dynamic. A reader on a browser that cannot run this is told so in milliseconds against no download
+at all, and told which browsers can. **The refusal inside the run stays where it is**: `WebGpu.Start`
+can still fail on a device that was there a moment ago, and the two are not one check in two places —
+one is about the browser and one is about the device it gave out.

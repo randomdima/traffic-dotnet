@@ -17,6 +17,8 @@
 // writes — the same shape as the desktop's one-command-buffer-per-image recording, for the same
 // reason: a town that gains five hundred walkers must change a number and not a recording.
 
+import * as opening from './loading.js'
+
 const SLOT = { ground: 0, indices: 1, sprites: 2, overlay: 3, underlay: 4, camera: 5, table: 6 };
 const TEXTURE = { pages: 0, glyphs: 1, tread: 2, surfaces: 3 };
 
@@ -416,9 +418,34 @@ function fullscreen() {
     else state.canvas.requestFullscreen();
 }
 
-/// A line under the canvas: what the desktop puts on stdout, where a page can be read. An empty line
-/// takes the banner away, which is what the first frame does.
+/// The tab, closed — the way out of the game, all the way out (OBS-2g).
+///
+/// **A browser grants this only to a page it opened itself**, so a tab somebody typed a link into is
+/// one `close` is ignored on, with a line in the console and nothing else. There is no way around that
+/// and nothing here pretends otherwise: the run has stopped either way, and where the tab stays the
+/// banner under the canvas is what says so.
+function shut() {
+    window.close();
+}
+
+/// What the desktop puts on stdout, where a page can be read. **Two places, and which one is decided
+/// by whether the town is up yet**: it is the opening's own line while the opening is in front of the
+/// canvas (loading.js), and a banner under the canvas once the town is behind it. An empty line is the
+/// boot saying it has finished — it takes the opening away, and takes the banner away after that.
 function say(line) {
+    if (opening.isOpen()) {
+        if (line === '') {
+            opening.opened();
+        } else {
+            // A new stage, and nothing counted yet: the bar sweeps until something says how much of
+            // this one there is (`warm`), and a bar left full from the last stage would be a lie.
+            opening.stage(line);
+            opening.progress(0, 0);
+        }
+
+        return;
+    }
+
     const banner = document.getElementById('banner');
     if (!banner) return;
 
@@ -463,13 +490,14 @@ async function warm(list, saying) {
     let next = 0;
     let done = 0;
 
+    say(saying);
+    opening.progress(0, paths.length);
+
     const worker = async () => {
         while (next < paths.length) {
             const path = paths[next++];
             held.set(path, await file(path));
-
-            // Often enough to watch, seldom enough that saying so is not the slow part.
-            if (++done % 16 === 0 || done === paths.length) say(`${saying} ${done} of ${paths.length}…`);
+            opening.progress(++done, paths.length);
         }
     };
 
@@ -557,8 +585,8 @@ function texels(path) {
 }
 
 export const town = {
-    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, say, warm, grab, park,
-    take, picture, texels,
+    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say, warm, grab,
+    park, take, picture, texels,
     ticker: step => {
         const next = () => {
             if (step()) requestAnimationFrame(next);

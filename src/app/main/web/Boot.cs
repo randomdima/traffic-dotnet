@@ -76,10 +76,13 @@ try
         await Task.Delay(200);
     }
 
-    // <b>Exit has to be visible, and on this machine nothing else makes it so.</b> A window that
-    // closes is its own announcement; a canvas holds its last frame for as long as the tab is open,
-    // so a town shut down and a town wedged look exactly alike. The banner is the difference.
-    Say("the town has been shut down — reload the page to open it again.");
+    // Exit means the tab, where the browser allows it — which is only on a page it opened itself.
+    WebGpu.Shut();
+
+    // <b>And where it does not, Exit has to be visible, because nothing else makes it so.</b> A window
+    // that closes is its own announcement; a canvas holds its last frame for as long as the tab is
+    // open, so a town shut down and a town wedged look exactly alike. The banner is the difference.
+    Say("the town has been shut down — close this tab, or reload the page to open it again.");
 }
 catch (Exception trouble)
 {

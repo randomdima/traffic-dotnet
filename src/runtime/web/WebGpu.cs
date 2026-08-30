@@ -105,7 +105,22 @@ internal static partial class WebGpu
         FullscreenJs();
     }
 
-    /// <summary>A line under the canvas: what the desktop puts on stdout, where a page can be read.</summary>
+    /// <summary>
+    /// The tab, closed. <b>A browser grants this only to a page it opened itself</b>, so a tab somebody
+    /// followed a link into stays open and the banner is what says the run has stopped
+    /// (<see cref="AppWindow.Close"/>).
+    /// </summary>
+    public static void Shut()
+    {
+        Count();
+        ShutJs();
+    }
+
+    /// <summary>
+    /// What the desktop puts on stdout, where a page can be read (WEB-8): the opening card's own line
+    /// while the opening is up, and a banner under the canvas once the town is behind it. An empty
+    /// line is this run saying it has finished opening, and it is what takes the card away.
+    /// </summary>
     public static void Say(string line)
     {
         Count();
@@ -242,6 +257,9 @@ internal static partial class WebGpu
 
     [JSImport("town.fullscreen", "town.js")]
     static partial void FullscreenJs();
+
+    [JSImport("town.shut", "town.js")]
+    static partial void ShutJs();
 
     [JSImport("town.say", "town.js")]
     static partial void SayJs(string line);

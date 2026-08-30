@@ -2,6 +2,24 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-08-30 — four questions before the runtime, and a card while it comes
+
+Everything the page could refuse, it refused *after* downloading four megabytes of engine: a browser
+without WebGPU spent the whole wait to be told the wait had been pointless. All four questions —
+WebAssembly, WebAssembly SIMD, the WebGPU API, an adapter it will actually hand out — are answerable in
+milliseconds against nothing, so they are asked first and the runtime import became dynamic to let
+them be. A static import is fetched before the first line of the file runs, which is the whole reason
+that import reads the way it does.
+
+**The refusal inside the run stays where it is.** `WebGpu.Start` still fails on a device that was there
+a moment ago, and that is not the same question as whether this browser has the API — one is about the
+browser, the other about what it gave out. Two checks, not one check in two places.
+
+**And the bar sweeps when it cannot count.** The runtime is fetched by the loader itself, so the page
+does not know how much of it there is; a bar sitting at nought for it reads as a page that has stopped.
+Bytes are counted off a `fetch` wrapper for that stage alone and the bar sweeps, and the batches — which
+do know how many files they asked for — fill it.
+
 ## 2026-08-30 — the menu stands on six files, and a batch is asked for at once
 
 Deployed to a static host, the page took about a minute to put a menu up. Neither the size of the
