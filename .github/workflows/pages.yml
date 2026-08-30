@@ -40,7 +40,12 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       # The AOT toolchain. The runner's SDK carries the manifest and not the packs.
+      #
+      # **From anywhere but the repository.** A workload install resolves against the directory it is
+      # run in, and this one holds two projects — the desktop head and the browser one — so run from
+      # the root it refuses to pick between them and installs nothing.
       - run: dotnet workload install wasm-tools
+        working-directory: ${{ runner.temp }}
 
       - run: dotnet publish traffic-dotnet.web.csproj -c Release
 
