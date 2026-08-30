@@ -27,6 +27,14 @@ internal static class Data
     /// <summary>Where the files came from, relative to the page: what the project file lists into <c>manifest.txt</c>.</summary>
     const string Manifest = "manifest.txt";
 
+    /// <summary>
+    /// What the build compresses and this unpacks — the towns, and nothing else. A <c>.town</c> is
+    /// better than half zero bytes because its lane index is laid out for reading rather than for
+    /// sending, so nine of them are twenty-three megabytes fetched raw and two and a half gzipped.
+    /// The art is already compressed and is fetched as it lies.
+    /// </summary>
+    const string Squeezed = ".gz";
+
     /// <summary>Every file the manifest names, into the file system, and how many that was.</summary>
     public static async Task<int> Fetch(Action<string> say)
     {
@@ -40,9 +48,16 @@ internal static class Data
         {
             var path = paths[at].Replace('\\', '/');
             var content = await http.GetByteArrayAsync(path);
+            bytes += content.Length;
+
+            if (path.EndsWith(Squeezed, StringComparison.Ordinal))
+            {
+                path = path[..^Squeezed.Length];
+                content = Inflate(content);
+            }
+
             Directory.CreateDirectory(Path.GetDirectoryName("/" + path)!);
             File.WriteAllBytes("/" + path, content);
-            bytes += content.Length;
 
             // Often enough to watch, seldom enough that saying so is not the slow part.
             if (at % 25 == 0 || at == paths.Length - 1)
@@ -52,5 +67,15 @@ internal static class Data
         }
 
         return paths.Length;
+    }
+
+    /// <summary>The bytes a gzip stream holds. Once each, at boot, so nothing here is a hot path.</summary>
+    static byte[] Inflate(byte[] squeezed)
+    {
+        using var source = new MemoryStream(squeezed);
+        using var gzip = new System.IO.Compression.GZipStream(source, System.IO.Compression.CompressionMode.Decompress);
+        using var whole = new MemoryStream(squeezed.Length * 4);
+        gzip.CopyTo(whole);
+        return whole.ToArray();
     }
 }
