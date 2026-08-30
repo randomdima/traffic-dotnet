@@ -157,6 +157,12 @@ internal sealed partial class TownWorld
         if (!IsUnderWay(car)) return;
 
         var brakingMps2 = CarFollower.BrakingMps2(_config, build, Cars.GroundCoefficient[car]);
+
+        // <b>Bounded by the pedal, because a car may not hold road it could not have driven over</b>
+        // (<c>LaneOccupancyInATownTests</c>): the ground asked for is the ground reachable in a reaction
+        // time, and a car that reserved for its planned speed from a standstill would be holding street it
+        // had no way of reaching. That makes the stretch a function of the engine figure, which is why
+        // honest pedals (CAR-45) shortened it across the fleet.
         var reachableMps = MathF.Min(
             Cars.PlannedMps[car], Cars.AlongMps[car] + (build.AccelerationMps2 * _config.CarReactionS));
         var committedM = (reachableMps * _config.CarReactionS) + StoppingM(reachableMps, brakingMps2)

@@ -57,6 +57,8 @@ internal sealed class PersonFleet
         ReserveAheadM = new float[capacity];
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
+        HeldBy = new int[capacity];
+        Array.Fill(HeldBy, NoBody);
         StepsRound = new int[capacity];
         Array.Fill(StepsRound, NoBody);
         GoalM = new Vector2[capacity];
@@ -159,6 +161,13 @@ internal sealed class PersonFleet
     /// speed: it walks while there is ground granted for it to walk into and stands while there is not.
     /// </remarks>
     public float[] AuthorityM { get; }
+
+    /// <summary>
+    /// <b>Whose stretch the grant was cut at</b>, or <see cref="NoBody"/> where nothing cut it — the
+    /// driving side's <c>GrantCutBy</c> for walkers, and read for the same reason: the distance says a body
+    /// is being held and only this says by whom, which is the whole of what tells a queue from a jam.
+    /// </summary>
+    public int[] HeldBy { get; }
 
     /// <summary>
     /// <b>The body in front that is going nowhere</b>, or <see cref="NoBody"/> — a walker standing about,
@@ -357,6 +366,7 @@ internal sealed class PersonFleet
         OnWayM[person] = 0f;
         ReserveAheadM[person] = 0f;
         AuthorityM[person] = float.PositiveInfinity;
+        HeldBy[person] = NoBody;
         StepsRound[person] = NoBody;
         WaitingToCrossS[person] = 0f;
         WaitingForLane[person] = NoLane;
@@ -382,17 +392,29 @@ internal sealed class PersonFleet
     public bool Acts(int person) => !Wounded[person];
 
     /// <summary>
-    /// Whether the pavement's book is holding this walker where it stands: no ground granted past its own
-    /// front, so there is nowhere for the next stride to go. <b>The grant is a permission and not a
-    /// speed</b> (PER-3, PER-13) — there is ground to walk into or there is not.
+    /// Whether the pavement's book is holding this walker where it stands: less ground granted in front of
+    /// it than it needs to come to rest in. <b>The grant is a permission and not a speed</b> (PER-3,
+    /// PER-13) — there is ground to walk into or there is not.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>The bar is what the body is carrying and not what its pace is worth</b>, which is what makes the
+    /// permission honest at both ends. Read against zero, a walker with a centimetre of grant walks on at
+    /// full pace and comes to rest a whole stopping distance <em>inside</em> the gap it keeps: the queue
+    /// closes up to one stop short of the standing gap and moves off in lock step, which is a heap and not
+    /// a queue. Read against the pace instead, a body at rest is refused a stride it could take, and two
+    /// bodies each a little inside the other's gap stand for ever — the creep is the only thing that gets
+    /// a pair out of that, and it costs nothing to leave it there.
+    /// </para>
+    /// <para>
     /// The kerb is asked first and answers for itself (PER-15): a walker waiting out a red stands where the
     /// kerb put it rather than where the pavement in front of it ran out, and it may still walk back to the
     /// stand-off while it waits.
+    /// </para>
     /// </remarks>
-    public bool IsHeldByTheBook(int person) =>
-        Walking[person] && !HeldAtTheKerb[person] && AuthorityM[person] <= 0f;
+    /// <param name="stopsInM">What this body needs to come to rest in from the speed it is doing — nothing at rest.</param>
+    public bool IsHeldByTheBook(int person, float stopsInM) =>
+        Walking[person] && !HeldAtTheKerb[person] && AuthorityM[person] <= stopsInM;
 
     public Span<Vector2> WalkedLineOf(int person) =>
         WalkedLineM.AsSpan(person * WalkedPointsPerPerson, WalkedPointsPerPerson);

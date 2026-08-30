@@ -93,24 +93,24 @@ public class CarControlsTests
     {
         var acrossMps2 = Car.GripMps2;
 
-        Assert.Equal(Car.LongGripMps2, TyreModel.DriveLeftMps2(Car.LongGripMps2, acrossMps2, 0f), 1e-3f);
-        Assert.Equal(0f, TyreModel.DriveLeftMps2(Car.LongGripMps2, acrossMps2, acrossMps2), 1e-3f);
+        Assert.Equal(Car.GripMps2, TyreModel.DriveLeftMps2(Car.GripMps2, 0f), 1e-3f);
+        Assert.Equal(0f, TyreModel.DriveLeftMps2(Car.GripMps2, acrossMps2), 1e-3f);
 
-        // The ellipse and not a straight line: half the side grip spent leaves √(3)/2 of the roll and not a
+        // The circle and not a straight line: half the side grip spent leaves √(3)/2 of the roll and not a
         // half of it, which is the difference between a car that lifts for a bend and one that gives up.
         Assert.Equal(
-            Car.LongGripMps2 * MathF.Sqrt(0.75f),
-            TyreModel.DriveLeftMps2(Car.LongGripMps2, acrossMps2, acrossMps2 * 0.5f),
+            Car.GripMps2 * MathF.Sqrt(0.75f),
+            TyreModel.DriveLeftMps2(Car.GripMps2, acrossMps2 * 0.5f),
             1e-3f);
 
         // Which way round the corner goes is not a thing the tyres have an opinion about.
         Assert.Equal(
-            TyreModel.DriveLeftMps2(Car.LongGripMps2, acrossMps2, acrossMps2 * 0.5f),
-            TyreModel.DriveLeftMps2(Car.LongGripMps2, acrossMps2, acrossMps2 * -0.5f),
+            TyreModel.DriveLeftMps2(Car.GripMps2, acrossMps2 * 0.5f),
+            TyreModel.DriveLeftMps2(Car.GripMps2, acrossMps2 * -0.5f),
             1e-6f);
 
         // And a corner past what the tyres hold — a car being shoved sideways — leaves nothing rather than
         // the root of a negative.
-        Assert.Equal(0f, TyreModel.DriveLeftMps2(Car.LongGripMps2, acrossMps2, acrossMps2 * 3f));
+        Assert.Equal(0f, TyreModel.DriveLeftMps2(Car.GripMps2, acrossMps2 * 3f));
     }
 }

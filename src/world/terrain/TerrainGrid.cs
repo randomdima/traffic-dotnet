@@ -39,13 +39,20 @@ internal readonly record struct GroundEffect(float Coefficient, float DragMps2, 
 internal sealed class TerrainGrid
 {
     readonly CityPlan _plan;
-    readonly GroundCatalog _catalog;
+    GroundCatalog _catalog;
 
     public TerrainGrid(CityPlan plan, SimConfig config)
     {
         _plan = plan;
         _catalog = new GroundCatalog(config);
     }
+
+    /// <summary>
+    /// What each ground is worth, read again from the figures as they stand now. <b>The grid itself does
+    /// not move</b> — the cells are the plan's and a figure cannot relay a town — so this is the whole of
+    /// what a changed figure does to the ground under a wheel.
+    /// </summary>
+    public void FiguresChanged(SimConfig config) => _catalog = new GroundCatalog(config);
 
     public float CellSizeM => _plan.CellSizeM;
 

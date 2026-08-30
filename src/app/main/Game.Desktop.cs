@@ -30,5 +30,8 @@ internal sealed partial class Game
 
     private partial long Crossings() => Runtime.Vk.Crossings;
 
+    /// <summary>The plan is on the disk this run started from, so a map picked is a map opened.</summary>
+    private partial void PickMap(string map) => Open(map);
+
     partial void Shutdown() => _vk.Dispose();
 }

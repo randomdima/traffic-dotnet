@@ -42,7 +42,7 @@ internal static class ShotRun
     /// </summary>
     public static ShotReport Take(ShotRequest ask, SimConfig config)
     {
-        var ui = new Interface();
+        var ui = new Interface(config.Trim);
         var wanted = ask.Ui ?? [];
         var onMenu = Array.Exists(wanted, name => name is "menu" or "menu-scenarios");
 

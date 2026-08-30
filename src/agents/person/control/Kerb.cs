@@ -68,9 +68,9 @@ internal static class Kerb
         if (TheBandItStepsIntoIsFree(roads, ahead, claimM)) return true;
 
         // <b>Every other agent gives way to a rescue, and a body at a kerb is one of them</b> (AMB-4). The
-        // patience is PER-15's escape from a crossing that never clears, and an ambulance's road is the one
-        // thing it does not escape: a call lasts seconds, so what is being waited out is going to pass.
-        return waitedS >= config.Person.KerbPatienceS && !ARescueIsOver(roads, ahead, claimM);
+        // patience is PER-15's escape from a crossing that never clears, and the road of a rescue that is
+        // coming through is the one thing it does not escape (<see cref="ARescueIsOver"/>).
+        return waitedS >= config.Person.KerbPatienceS && !ARescueIsOver(config, roads, ahead, claimM);
     }
 
     /// <summary>
@@ -103,11 +103,33 @@ internal static class Kerb
     public static bool BandIsFree(LaneOccupancy roads, CrossingBands.Band band, float claimM) =>
         !roads.AnyTrafficOver(roads.WayOfLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM);
 
-    /// <summary>Whether the lane this body is about to step into is inside an ambulance's road (AMB-4).</summary>
+    /// <summary>
+    /// Whether the lane this body is about to step into is inside the road of <b>a rescue that is coming
+    /// through it</b> (AMB-4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A rescue that is not moving is not one</b>, and that is the whole of what makes this an exception
+    /// rather than a way of shutting a crossing for good. The exemption is worth what its own justification
+    /// is worth — a call lasts seconds, so what is being waited out is going to pass — and an ambulance
+    /// sitting over the paint is not passing: it is a stopped car, which is what the walker taking the band
+    /// would have made of it anyway. Left unbounded, PER-15's escape never fires at that crossing at all,
+    /// and a body halfway over stands in a live carriageway for as long as the ambulance stands in it.
+    /// </para>
+    /// <para>
+    /// <b>The bar is the walker's own pace</b> (<see cref="SimConfig.PersonWalkSpeedMps"/>), which is the
+    /// relation rather than a figure: a rescue closing slower than this body can walk is one the body is off
+    /// the band well before, so standing aside for it buys the rescue nothing and costs the crossing
+    /// everything.
+    /// </para>
+    /// </remarks>
     public static bool ARescueIsOver(
-        LaneOccupancy roads, ReadOnlySpan<CrossingBands.Band> ahead, float claimM) =>
-        ahead.Length > 0 && ARescueIsOver(roads, ahead[0], claimM);
+        SimConfig config, LaneOccupancy roads, ReadOnlySpan<CrossingBands.Band> ahead, float claimM) =>
+        ahead.Length > 0 && ARescueIsOver(config, roads, ahead[0], claimM);
 
-    public static bool ARescueIsOver(LaneOccupancy roads, CrossingBands.Band band, float claimM) =>
-        roads.AnyRescueOver(roads.WayOfLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM);
+    public static bool ARescueIsOver(
+        SimConfig config, LaneOccupancy roads, CrossingBands.Band band, float claimM) =>
+        roads.AnyRescueOver(
+            roads.WayOfLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM,
+            config.PersonWalkSpeedMps);
 }

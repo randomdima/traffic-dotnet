@@ -12,14 +12,71 @@ internal sealed class CarFigures
     public float LengthM { get; init; } = 4.0f;
     public float WidthM { get; init; } = 2.0f;
     public float MassKg { get; init; } = 1400f;
-    public float MaxSpeedMps { get; init; } = 75f;
+    /// <summary>
+    /// <b>The cap a car is governed at, and not a top speed it would reach.</b> 144 km/h: a road vehicle's
+    /// limiter, which a variant scales to its own. It is an authored primitive because there is nothing here
+    /// for it to be derived from — resistance in this model is the rolling kind, proportional to the load and
+    /// flat in the speed (<see cref="SimConfig.PavedDragMps2"/>), so thrust exceeds drag at every speed and a
+    /// terminal velocity does not exist. Deriving one needs an aerodynamic term this build does not have.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is load-bearing and not decoration.</b> A car's sight distance is its own stopping distance from
+    /// this figure (<see cref="Agents.Car.Body.CarBuild.SightM"/>), which is also the ceiling on any
+    /// manoeuvre's geometry, so a cap set where no road vehicle goes buys every car a lookahead measured in
+    /// blocks and a manoeuvre allowed to reach across the town.
+    /// </remarks>
+    public float MaxSpeedMps { get; init; } = 40f;
 
-    /// <summary>Deliberately off the forward cap's scale: it is only ever used for the parking templates.</summary>
+    /// <summary>
+    /// Deliberately off the forward cap's scale: it is what a car may be driven backwards at, by a hand at
+    /// the wheel or by a driver of its own, and no variant states one of its own.
+    /// </summary>
     public float ReverseMaxMps { get; init; } = 8f;
 
-    public float AccelerationMps2 { get; init; } = 11.7f;
-    public float BrakingMps2 { get; init; } = 27f;
+    /// <summary>
+    /// <b>How far past its own driven tyres a car's engine reaches</b>, in multiples of what that axle can
+    /// put down at the static load (<see cref="Agents.Car.Body.CarBuild.DrivenTractionMps2"/>, CAR-45). One,
+    /// which is to say the nominal car's whole pedal is exactly the demand its rubber answers, and a variant
+    /// that wants to light its wheels up asks for more than one of them.
+    /// </summary>
+    /// <remarks>
+    /// Authored as a headroom rather than as an acceleration, for the reason
+    /// <see cref="BrakePedalInTyreGrips"/> is: a figure in m/s² stays where it was put when the grip beneath
+    /// it moves, and a pedal three times past what any tyre can take is a car whose engine figure describes
+    /// nothing that ever happens to it — every metre per second it gains is the rubber's.
+    /// </remarks>
+    public float DrivePedalInDrivenGrips { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How far past its own tyres a car's brakes reach</b>, in multiples of what the rubber holds along
+    /// the roll (<see cref="SimConfig.CarBrakingMps2"/>). Three, which is to say the pedal can lock a wheel
+    /// at any load a body can put on one — that is what brakes are for, and it is why <b>what stops a car
+    /// is the rubber and never the pedal</b>.
+    /// </summary>
+    /// <remarks>
+    /// Authored as a headroom rather than as a deceleration so that it <em>tracks</em>: a figure in m/s²
+    /// stays where it was put when the grip beneath it moves, and a pedal that has quietly stopped
+    /// out-reaching the tyres is a car braked by its brakes.
+    /// </remarks>
+    public float BrakePedalInTyreGrips { get; init; } = 3f;
+
     public float CgHeightM { get; init; } = 0.55f;
+
+    /// <summary>
+    /// <b>How much of the nominal car stands on its front axle at rest.</b> An even split, because where
+    /// the mass sits along a wheelbase is a fact about <em>a body</em> and this body is the one nobody
+    /// drives — half is the only figure that is wrong for every car by the same amount rather than wrong
+    /// for most of them by a guess.
+    /// </summary>
+    /// <remarks>
+    /// It is <b>the balance</b>, and everything a car does under power or into a corner is downstream of
+    /// it: the driven axle can put down what it is carrying and no more, and the lighter end lets go
+    /// first. <b>It belongs to the car and not to the tyre</b>, and it is a variant's to state
+    /// (<c>frontWeightShare</c>) — no dial moves the fleet's, because a distribution is not one figure
+    /// nineteen bodies share.
+    /// </remarks>
+    public float StaticFrontShare { get; init; } = 0.5f;
+
     public float MaxSteeringDeg { get; init; } = 35.42f;
 
     /// <summary>The nominal figure the junctions are sized against, and nobody's actual wheelbase.</summary>
@@ -47,17 +104,24 @@ internal sealed class CarFigures
 /// <summary>The contact patch: what a wheel can put down, how the load moves onto it, and what it draws.</summary>
 internal sealed class TyreFigures
 {
-    /// <summary>What decides how hard a car can corner, stop and skid before the rubber lets go.</summary>
-    public float GripMps2 { get; init; } = 11.4f;
-
     /// <summary>
-    /// What the patch puts down along the roll against what it puts down across it — <b>and so the one
-    /// figure that moves a car's stopping distance without moving the speed it takes a corner at</b>.
-    /// Braking, driving traction and the load that moves under either are all this same budget, and the
-    /// pedal's own cap (<see cref="CarFigures.BrakingMps2"/>) stands well above it: what stops a car is
-    /// the rubber and never the brakes.
+    /// <b>The coefficient of friction between this town's rubber and its tarmac.</b> Dimensionless, and the
+    /// raw term: what a car may pull in m/s² is this times gravity (<see cref="SimConfig.TyreGripMps2"/>)
+    /// and is derived from it, never the other way about.
     /// </summary>
-    public float LongAxisFactor { get; init; } = 1.643f;
+    /// <remarks>
+    /// <para>
+    /// A road tyre on dry asphalt. Every variant states its own against it (<c>tyreFriction</c>).
+    /// </para>
+    /// <para>
+    /// <b>One coefficient — at any load, and whichever way the car is pointing.</b> Coulomb, so a patch is
+    /// worth what it is carrying and a transfer costs the car nothing overall. Both of the refinements that
+    /// would change that are real and both are worth about a per cent here: a carcass peaks a few per cent
+    /// higher along the roll than across it, and μ falls as the patch is pressed harder. A town watched from
+    /// above shows neither, and each of them is somewhere a fudge can be parked and called physics.
+    /// </para>
+    /// </remarks>
+    public float Friction { get; init; } = 0.968f;
 
     /// <summary>
     /// A town seen from above is given no gravity, but a tyre's load is a weight all the same: this
@@ -66,7 +130,10 @@ internal sealed class TyreFigures
     /// </summary>
     public float StandardGravityMps2 { get; init; } = 9.81f;
 
-    /// <summary>One tyre as it is drawn and as it marks the ground, along its roll and across it.</summary>
+    /// <summary>
+    /// The nominal tyre as it is drawn and as it marks the ground, along its roll and across it. <b>Every
+    /// variant states its own against it</b> (<c>wheelM</c>), because a tyre is bolted to a car.
+    /// </summary>
     public float WheelLengthM { get; init; } = 0.62f;
 
     public float WheelWidthM { get; init; } = 0.22f;
@@ -97,9 +164,10 @@ internal sealed class TyreFigures
     public float TreadScrollFactor { get; init; } = -0.225f;
 
     /// <summary>
-    /// One wheel's rotating inertia as the straight-line mass it behaves like (J/r²). It sets how
+    /// The nominal wheel's rotating inertia as the straight-line mass it behaves like (J/r²). It sets how
     /// violently a wheel spins up or locks — against a corner carrying ≈ 350 kg, an engine asking for
-    /// more than the patch can transmit lights the tyre up over a fraction of a second.
+    /// more than the patch can transmit lights the tyre up over a fraction of a second. <b>A variant may
+    /// state its own</b> (<c>wheelRotatingMassKg</c>).
     /// </summary>
     public float WheelRotatingMassKg { get; init; } = 25f;
 
@@ -113,19 +181,9 @@ internal sealed class TyreFigures
     public float WheelSpinFadeMps { get; init; } = 12f;
 
     /// <summary>
-    /// Ceiling on the acceleration the load transfer is read from, in multiples of grip: the tyres
-    /// cannot push the body harder than this, so anything beyond it is a collision — and a collision
-    /// must not unload all four wheels for a tick.
+    /// How long the load takes to arrive where the tyres are putting it — long enough that one noisy tick
+    /// cannot flick the grip about, which is the whole of what a suspension is in this model.
     /// </summary>
-    public float LoadTransferInGrips { get; init; } = 2f;
-
-    /// <summary>
-    /// Least a corner may be left carrying. At zero a wheel is not merely light: its whole budget is
-    /// zero and it contributes nothing until the load comes back, which is a car that spins after a nudge.
-    /// </summary>
-    public float MinCornerLoadFraction { get; init; } = 0.05f;
-
-    /// <summary>Long enough that one noisy tick cannot flick the grip about.</summary>
     public float LoadSettleS { get; init; } = 0.08f;
 
     /// <summary>
@@ -430,23 +488,34 @@ internal sealed class LadderFigures
 /// <summary>A walker: its pace, its footing, and how it keeps out of the way.</summary>
 internal sealed class PersonFigures
 {
-    /// <summary>A run, roughly five times a real walk: the town is watched at speed.</summary>
-    public float WalkSpeedMps { get; init; } = 6.6f;
+    /// <summary>How fast a person actually walks, and how fast they can pivot on the spot. Two facts about people.</summary>
+    public float RealWalkSpeedMps { get; init; } = 1.32f;
+
+    public float RealPivotDegPerS { get; init; } = 270f;
 
     /// <summary>
-    /// <b>Scaled with the pace, because a body moving five times a real walk turns five times a real
-    /// turn</b> — a person's quick pivot is about 270°/s, and this is five of them. It is what lets a
-    /// walker turn nearly on the spot, and so what decides how much ground the pavement has to give up at
-    /// every corner to be a line the feet can hold (<see cref="SimConfig.WalkerTightestTurnM"/>).
+    /// <b>How much faster than life this town is watched</b> — the one design decision in the person model,
+    /// and the figure every other pace here is a real one multiplied by
+    /// (<see cref="SimConfig.PersonWalkSpeedMps"/>, <see cref="SimConfig.PersonTurnRateDegPerS"/>).
     /// </summary>
-    public float TurnRateDegPerS { get; init; } = 1350f;
+    /// <remarks>
+    /// <b>It was an unstated factor before it was a figure, and that is what it is for.</b> Distances in
+    /// this town are real and its pace is not, so every acceleration in the person model carries the
+    /// <em>square</em> of this — and a grip authored at real scale beside a pace that is not put the
+    /// casualty band below walking speed, where touching a parked car is a fatal contact. Written down, the
+    /// two are impossible to author out of step.
+    /// </remarks>
+    public float PaceScale { get; init; } = 5f;
+
     public float MassKg { get; init; } = 80f;
 
     /// <summary>
-    /// The relation, not the number: whatever the walk speed is, the grip is what keeps a start and a
-    /// stop inside a fifth of the body's own diameter.
+    /// <b>How much of its own diameter a body is allowed to take getting under way or coming to rest</b>,
+    /// which is what the foot grip is (<see cref="SimConfig.PersonFootGripMps2"/>). A fifth: a walker stops
+    /// well inside its own footprint, which is what makes a crowd on a pavement stop like people and not
+    /// like traffic.
     /// </summary>
-    public float FootGripMps2 { get; init; } = 110f;
+    public float StopsWithinDiameters { get; init; } = 0.2f;
 
     /// <summary>
     /// The grip a body along the ground has rather than a sole pressed into it — what a casualty slides to
@@ -857,13 +926,20 @@ internal sealed class EvacuatorFigures
     public float HitchSettleS { get; init; } = 0.12f;
 
     /// <summary>
-    /// The most the bar may be worth, as an acceleration on the pair's reduced mass. <b>A ceiling and never
-    /// a target</b>, on the tyre model's own terms: what the coupling spends is the lesser of what the
-    /// drift asks for and this. Four <em>g</em> is more than a coupling ever needs to hold a steady tow and
-    /// little enough that a shunt cannot throw either body across the street — and, sideways, little enough
-    /// that the reaction at the hook cannot spin the vehicle doing the pulling off its own line.
+    /// The most the bar may be worth, in <em>g</em> on the pair's reduced mass
+    /// (<see cref="SimConfig.EvacuatorHitchMostMps2"/>). <b>A ceiling and never a target</b>, on the tyre
+    /// model's own terms: what the coupling spends is the lesser of what the drift asks for and this. Two
+    /// and a half <em>g</em> is more than a coupling ever needs to hold a steady tow — comfortably over
+    /// what the tyres at either end of the bar can put through it — and little enough that a shunt cannot
+    /// throw either body across the street, or the reaction at the hook spin the vehicle doing the pulling
+    /// off its own line.
     /// </summary>
-    public float HitchMostMps2 { get; init; } = 25f;
+    /// <remarks>
+    /// <b>In grips rather than in m/s², because every figure it is measured against is.</b> It stands
+    /// against what the tyres hold, so a coupling authored as a bare deceleration is one that stops
+    /// out-reaching them the moment the rubber changes.
+    /// </remarks>
+    public float HitchMostInGrips { get; init; } = 2.548f;
 
     /// <summary>
     /// <b>And what share of that the bar may spend sideways</b> — a small one, and the figure that keeps a

@@ -30,6 +30,27 @@ internal sealed partial class SimConfig
     public float CarCentreAheadOfAxleM => Car.WheelbaseM * 0.5f;
 
     /// <summary>
+    /// <b>What the nominal car's tyres hold, as an acceleration</b>: the coefficient times a weight.
+    /// Derived, and derived here once — nothing authors a grip in m/s², because a grip in m/s² is a
+    /// coefficient and a gravity that somebody has already multiplied together.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same figure along the roll and across it, at any load.</b> A stop and a corner are worth the
+    /// same here, which is Coulomb and is what a town watched from above can tell apart: the refinements
+    /// that would separate them are each worth about a per cent, and a per cent of difference is a place to
+    /// hide a fudge rather than a thing anybody sees. What the loads still decide is which <em>wheel</em>
+    /// runs out first, not what the four hold between them.
+    /// </remarks>
+    public float TyreGripMps2 => Tyre.Friction * Tyre.StandardGravityMps2;
+
+    /// <summary>What each ground costs a wheel simply going round, off its own coefficient and a weight.</summary>
+    public float GrassDragMps2 => Terrain.GrassResistance * Tyre.StandardGravityMps2;
+
+    public float PavedDragMps2 => Terrain.PavedResistance * Tyre.StandardGravityMps2;
+
+    public float WaterDragMps2 => Terrain.WaterResistance * Tyre.StandardGravityMps2;
+
+    /// <summary>
     /// The radius the parking templates are built at: the car's own turning circle with a margin, so the
     /// steering is not sitting on its stop for the whole arc.
     /// </summary>
@@ -41,7 +62,27 @@ internal sealed partial class SimConfig
     /// because the profile's corner term reads the arcs of a template exactly as it reads the arcs of a road.
     /// </summary>
     public float CarCorneringRadiusM(float atMps, float groundCoefficient) =>
-        atMps * atMps / (Tyre.GripMps2 * groundCoefficient * Driving.GripMargin);
+        atMps * atMps / (TyreGripMps2 * groundCoefficient * Driving.GripMargin);
+
+    /// <summary>A run rather than a walk, because the town is watched at <see cref="PersonFigures.PaceScale"/> of life.</summary>
+    public float PersonWalkSpeedMps => Person.RealWalkSpeedMps * Person.PaceScale;
+
+    /// <summary>
+    /// And the pivot at the same scale, because a body moving five times a real walk turns five times a
+    /// real turn. It is what lets a walker turn nearly on the spot, and so what decides how much ground the
+    /// pavement has to give up at every corner to be a line the feet can hold
+    /// (<see cref="WalkerTightestTurnM"/>).
+    /// </summary>
+    public float PersonTurnRateDegPerS => Person.RealPivotDegPerS * Person.PaceScale;
+
+    /// <summary>
+    /// <b>What the feet hold</b>: whatever stops a body inside
+    /// <see cref="PersonFigures.StopsWithinDiameters"/> of its own diameter at the pace it is going.
+    /// <b>The relation is the figure</b> — move the pace or the body and this follows, which is the whole
+    /// reason it is not a number somebody chose.
+    /// </summary>
+    public float PersonFootGripMps2 =>
+        PersonWalkSpeedMps * PersonWalkSpeedMps / (2f * PersonDiameterM * Person.StopsWithinDiameters);
 
     public float PropDiameterM => Car.WidthM * Prop.DiameterInCarWidths;
 
@@ -50,12 +91,12 @@ internal sealed partial class SimConfig
     public float PersonExitSearchRadiusM => PropDiameterM * Person.ExitSearchRadiusInPropDiameters;
 
     /// <summary>What a casualty slides to a stop on, at the same scale as everything else the pace decides.</summary>
-    public float PersonSlidingGripMps2 => Person.FootGripMps2 * Person.SlidingGripInFootGrips;
+    public float PersonSlidingGripMps2 => PersonFootGripMps2 * Person.SlidingGripInFootGrips;
 
     /// <summary>
     /// <b>What a contact has to carry to leave somebody down in the road</b> (PER-23): the work of sliding
     /// a body <see cref="DamageFigures.SlideToCasualtyM"/> along the ground, which is its mass times the
-    /// grip it slides on times that distance — 3.96 kJ, or a car meeting a standing body at 10 m/s.
+    /// grip it slides on times that distance — 3.92 kJ, or a car meeting a standing body at 10 m/s.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -89,10 +130,13 @@ internal sealed partial class SimConfig
     /// shipped figures. <b>A line laid tighter than this is a line nothing can walk</b>: a body aiming at
     /// the far side of it turns as hard as it can and goes round rather than across.
     /// </summary>
-    public float WalkerTightestTurnM => Person.WalkSpeedMps / (Person.TurnRateDegPerS * MathF.PI / 180f);
+    public float WalkerTightestTurnM => PersonWalkSpeedMps / (PersonTurnRateDegPerS * MathF.PI / 180f);
 
 
     public float WalkingLaneOffsetM => Road.PavementWidthM * Person.LaneOffsetFraction;
+
+    /// <summary>Half the walk, which is what stands a corner 4.83 m deep against the straight's 4 m.</summary>
+    public float PavementCornerRadiusM => Road.PavementWidthM * 0.5f;
 
     /// <summary>
     /// The clear ground between one walker's reserved stretch and the next one's, which is what a queue on
@@ -253,10 +297,27 @@ internal sealed partial class SimConfig
     public float CarReactionS => Sim.AgentDecisionIntervalS;
 
     /// <summary>
-    /// How fast the commanded acceleration may change: the whole travel of the pedal, from full brake to
-    /// full throttle, over the time that travel takes — 129 m/s³ at the shipped figures.
+    /// <b>What the brake pedal may ask for</b>, which stands well clear of what the tyres will hold
+    /// (<see cref="CarFigures.BrakePedalInTyreGrips"/>). It is a ceiling and never a stopping figure: every
+    /// stop in this town is taken off <see cref="TyreGripMps2"/>, and this only has to be high enough
+    /// never to be the thing in the way.
     /// </summary>
-    public float CarPedalRateMps3 => (Car.AccelerationMps2 + Car.BrakingMps2) / Driving.PedalTravelS;
+    public float CarBrakingMps2 => TyreGripMps2 * Car.BrakePedalInTyreGrips;
+
+    /// <summary>
+    /// <b>What the throttle may ask the nominal car for</b>, which is what its driven axle puts down
+    /// (<see cref="CarFigures.DrivePedalInDrivenGrips"/>, CAR-45). The nominal car drives one axle and stands
+    /// evenly on two (<see cref="CarFigures.StaticFrontShare"/>), so half its grip is the whole of its pedal;
+    /// a variant's own is <see cref="Agents.Car.Body.CarBuild.AccelerationMps2"/>, off its own layout.
+    /// </summary>
+    public float CarAccelerationMps2 =>
+        TyreGripMps2 * (1f - Car.StaticFrontShare) * Car.DrivePedalInDrivenGrips;
+
+    /// <summary>
+    /// How fast the commanded acceleration may change: the whole travel of the pedal, from full brake to
+    /// full throttle, over the time that travel takes.
+    /// </summary>
+    public float CarPedalRateMps3 => (CarAccelerationMps2 + CarBrakingMps2) / Driving.PedalTravelS;
 
     /// <summary>
     /// <b>How far ahead a car has to be able to see</b>: its stopping distance from its top speed, against
@@ -267,7 +328,7 @@ internal sealed partial class SimConfig
     /// </summary>
     public float CarSightM =>
         Car.MaxSpeedMps * Car.MaxSpeedMps
-        / (2f * MathF.Min(Car.BrakingMps2, Tyre.GripMps2 * Tyre.LongAxisFactor) * Driving.GripMargin);
+        / (2f * MathF.Min(CarBrakingMps2, TyreGripMps2) * Driving.GripMargin);
 
     public float CarCrossingPaceMps => Car.LengthM * Driving.CrossingPaceInCarLengthsPerS;
 
@@ -329,6 +390,9 @@ internal sealed partial class SimConfig
 
     /// <summary>How long one leg of a recovery may run before it is written off (EVA-8).</summary>
     public float EvacuatorGiveUpS => CarBlockedRoadS * Evacuator.GiveUpInBlockedClocks;
+
+    /// <summary>The ceiling on what the tow bar may spend, as an acceleration on the pair's reduced mass (EVA-5).</summary>
+    public float EvacuatorHitchMostMps2 => Evacuator.HitchMostInGrips * Tyre.StandardGravityMps2;
 
     /// <summary>How near an ordered place a car has to have stopped before that order is finished (CTL-8a).</summary>
     public float OrderedPlaceReachM => Car.LengthM * Control.PlaceReachInCarLengths;

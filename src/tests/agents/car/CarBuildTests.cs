@@ -65,8 +65,12 @@ public class CarBuildTests
         var evacuator = Of("evacuator_yellow");
 
         Assert.True(supercar.MaxSpeedMps > evacuator.MaxSpeedMps * 2f);
-        Assert.True(supercar.AccelerationMps2 > evacuator.AccelerationMps2 * 3f);
         Assert.True(supercar.GripMps2 > evacuator.GripMps2);
+
+        // The pedals are a multiple of what each one's own driven axle holds (CAR-45), so the spread
+        // between them is the rubber's and the layout's rather than a figure either file states: both
+        // drive all four wheels, and the supercar's lead is its compound and the engine it hangs on it.
+        Assert.True(supercar.AccelerationMps2 > evacuator.AccelerationMps2 * 2.5f);
 
         // And the derived figures follow: what a car can see is its own stopping distance from its own top
         // speed, so the fast one plans further ahead than the slow one.
@@ -88,6 +92,30 @@ public class CarBuildTests
         Assert.True(van.WheelbaseM > sports.WheelbaseM);
         Assert.True(van.TurningRadiusM > sports.TurningRadiusM);
         Assert.True(van.ParkingTemplateRadiusM > van.TurningRadiusM, "and the template keeps the steering off its stop");
+    }
+
+    /// <summary>
+    /// <b>No lock a file can state turns a circle inside out.</b> A circle is <c>wheelbase/tan(lock)</c>,
+    /// which is not linear in the lock: at a right angle it is nothing, and past one the tangent changes
+    /// sign and hands the whole parking geometry a <em>negative</em> radius.
+    /// </summary>
+    /// <remarks>
+    /// Held well past anything the fleet authors — every shipped lock is under 32° — because what a bound
+    /// is for is the figure nobody has written yet.
+    /// </remarks>
+    [Fact]
+    public void NoLockAFileCanStateTurnsACircleInsideOut()
+    {
+        foreach (var lockDeg in new[] { 3.5f, 17.7f, 35.42f, 70.8f, 89.9f, 90f, 106f, 354.2f })
+        {
+            var figures = new SimConfig { Car = new CarFigures { MaxSteeringDeg = lockDeg } };
+            var car = CarBuild.Nominal(figures, figures.Car.DrivenFrontShare);
+
+            Assert.True(
+                car.TurningRadiusM > 0f && float.IsFinite(car.TurningRadiusM),
+                $"a lock of {lockDeg:0.##} deg turns a circle of {car.TurningRadiusM:0.00} m");
+            Assert.True(car.ParkingTemplateRadiusM > car.TurningRadiusM);
+        }
     }
 
     /// <summary>
@@ -126,10 +154,83 @@ public class CarBuildTests
             Assert.Equal(Figures.Car.MassKg, build.MassKg);
             Assert.Equal(Figures.Car.WheelbaseM, build.WheelbaseM);
             Assert.Equal(Figures.Car.MaxSpeedMps, build.MaxSpeedMps);
-            Assert.Equal(Catalogue.Variants[variant].DrivenFrontShare, build.DrivenFrontShare);
+            Assert.Equal(
+                Catalogue.Variants[variant].DrivenFrontShare(Figures.Car.StaticFrontShare),
+                build.DrivenFrontShare);
             if (build.DrivenFrontShare != Figures.Car.DrivenFrontShare) layouts++;
         }
 
         Assert.True(layouts > 0, "the fleet varies its drive layouts and the lab keeps that much");
+    }
+
+    static CarBuild Of(string id, SimConfig figures)
+    {
+        for (var variant = 0; variant < Catalogue.SheetCount; variant++)
+        {
+            if (Catalogue.Variants[variant].Id == id) return CarBuild.Of(figures, Catalogue.Variants[variant]);
+        }
+
+        throw new InvalidDataException($"no variant is called '{id}'");
+    }
+
+    /// <summary>
+    /// <b>The road's trim scales what the variant resolved to, and a car's own figures have no trim at
+    /// all</b> (<see cref="TrimFigures"/>). A truck states its own compound, so scaling the nominal
+    /// coefficient would leave it exactly where it was — and it states its own lock, height and mass,
+    /// which are its and which nothing on a panel may speak for.
+    /// </summary>
+    [Fact]
+    public void TheRoadsTrimScalesThisCarAndItsOwnFiguresAreUntouched()
+    {
+        var shipped = Of("truck_brown");
+        var figures = SimConfig.Shipped();
+        figures.Trim.Friction = 2f;
+
+        var trimmed = Of("truck_brown", figures);
+        Assert.Equal(shipped.GripMps2 * 2f, trimmed.GripMps2, 3);
+
+        // This truck's own body is what its file says it is, whatever the panel is doing to the road.
+        Assert.Equal(shipped.CgHeightM, trimmed.CgHeightM, 3);
+        Assert.Equal(shipped.MassKg, trimmed.MassKg, 3);
+        Assert.Equal(shipped.TurningRadiusM, trimmed.TurningRadiusM, 3);
+        Assert.Equal(shipped.MaxSpeedMps, trimmed.MaxSpeedMps, 3);
+    }
+
+    /// <summary>
+    /// <b>Figures flow one way</b>: what is authored is the lock at the road wheel, and the circle a maker
+    /// quotes is worked out from it. The two must agree, or the figure a reader checks against a spec sheet
+    /// is not the figure the car is driven by.
+    /// </summary>
+    [Fact]
+    public void TheQuotedCircleIsTheAuthoredLockReadBack()
+    {
+        for (var variant = 0; variant < Catalogue.SheetCount; variant++)
+        {
+            var build = CarBuild.Of(Figures, Catalogue.Variants[variant]);
+            var lockRad = Catalogue.Variants[variant].MaxSteeringDeg ?? Figures.Car.MaxSteeringDeg;
+
+            Assert.Equal(lockRad * MathF.PI / 180f, build.MaxSteerRad, 4);
+            Assert.Equal(build.WheelbaseM / MathF.Tan(build.MaxSteerRad), build.TurningRadiusM, 3);
+
+            // 9 to 14 m kerb to kerb is where a road vehicle of these sizes actually sits.
+            Assert.InRange(build.TurningCircleM, 9f, 14f);
+        }
+    }
+
+    /// <summary>
+    /// And every trim is one on a run nobody has touched, so a shipped build is the build this suite has
+    /// always measured — <b>a multiply by one is exact</b>, so the figures compare bit for bit.
+    /// </summary>
+    [Fact]
+    public void AnUntouchedRunResolvesExactlyTheShippedCar()
+    {
+        Assert.True(SimConfig.Shipped().Trim.Untouched);
+
+        for (var variant = 0; variant < Catalogue.SheetCount; variant++)
+        {
+            var build = CarBuild.Of(Figures, Catalogue.Variants[variant]);
+            var again = CarBuild.Of(SimConfig.Shipped(), Catalogue.Variants[variant]);
+            Assert.Equal(build, again);
+        }
     }
 }

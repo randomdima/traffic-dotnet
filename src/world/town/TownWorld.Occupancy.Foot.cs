@@ -148,14 +148,16 @@ internal sealed partial class TownWorld
     /// give way to it — which is what a pedestrian's priority costs, spent by the clock and by nothing else.
     /// </remarks>
     /// <remarks>
-    /// <b>And never past an ambulance answering a call</b> (AMB-4), which is the one road the escape does
-    /// not reach: a call lasts seconds, so what a body at the kerb is waiting out is going to pass, and a
-    /// crossing held open by a rescue is not the crossing that never clears this clock is for.
+    /// <b>And never past an ambulance coming through</b> (AMB-4, <see cref="Kerb.ARescueIsOver"/>), which is
+    /// the one road the escape does not reach: a call that is moving lasts seconds, so what a body at the
+    /// kerb is waiting out is going to pass, and a crossing held open by a rescue on its way through is not
+    /// the crossing that never clears this clock is for. <b>A rescue that has stopped over the paint is
+    /// not that</b> — it is the crossing that never clears — so the escape reaches it like anything else.
     /// </remarks>
     bool MayStepOnto(int person, CrossingBands.Band band, float paintM) =>
         Kerb.BandIsFree(_occupancy, band, paintM)
         || (People.WaitingToCrossS[person] >= _config.Person.KerbPatienceS
-            && !Kerb.ARescueIsOver(_occupancy, band, paintM));
+            && !Kerb.ARescueIsOver(_config, _occupancy, band, paintM));
 
     /// <summary>
     /// How much of a lane a body on this crossing's paint is owed, measured along the way the traffic runs:

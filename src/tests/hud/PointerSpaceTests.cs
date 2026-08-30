@@ -2,6 +2,7 @@ using System.Numerics;
 using Silk.NET.Maths;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Hud;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 using Xunit;
 
@@ -92,5 +93,5 @@ public class PointerSpaceTests
         Assert.Equal(MenuAction.None, Click(menu, new Vector2(4f, 4f)).Action);
     }
 
-    static MenuChoice Click(Menu menu, Vector2 atPx) => menu.Click(atPx, new DebugSwitches());
+    static MenuChoice Click(Menu menu, Vector2 atPx) => menu.Click(atPx, new DebugSwitches(), new TrimFigures());
 }

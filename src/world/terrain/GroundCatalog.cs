@@ -58,11 +58,13 @@ internal readonly struct GroundCatalog
         var paved = config.Terrain.PavedCoefficient;
         var water = config.Terrain.WaterCoefficient;
 
-        var grassDrag = config.Terrain.GrassDragMps2;
-        var pavedDrag = config.Terrain.PavedDragMps2;
-        var waterDrag = config.Terrain.WaterDragMps2;
+        // The table is built once with the town, so the trim is spent here and every wheel afterwards
+        // reads a figure that has already had it (TrimFigures).
+        var dragTrim = config.Trim.RollingResistance;
+        var grassDrag = config.GrassDragMps2 * dragTrim;
+        var pavedDrag = config.PavedDragMps2 * dragTrim;
+        var waterDrag = config.WaterDragMps2 * dragTrim;
 
-        var grassMark = config.Terrain.GrassMarkFactor;
         var pavedMark = config.Terrain.PavedMarkFactor;
 
         _effects = new GroundEffect[RuleTable.Length];
@@ -70,7 +72,9 @@ internal readonly struct GroundCatalog
         {
             var (coefficient, drag, mark) = (Ground)ground switch
             {
-                Ground.Grass => (grass, grassDrag, grassMark),
+                // Grass takes the bar itself: a wheel ploughing turf is not a slide being scored, and the
+                // one per cent it used to be shaded by was a factor nobody could see and anybody could tune.
+                Ground.Grass => (grass, grassDrag, 1f),
                 Ground.Water => (water, waterDrag, WaterMarkFactor),
                 _ => (paved, pavedDrag, pavedMark),
             };

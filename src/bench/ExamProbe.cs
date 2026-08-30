@@ -397,8 +397,8 @@ internal sealed class ExamDrive
     float StepsOutInFrontOfM(int car)
     {
         var speedMps = _world.Cars.VelocityMps[car].Length();
-        var overS = (2f * _lattice.KerbOffsetM / _config.Person.WalkSpeedMps) + _config.Sim.AgentDecisionIntervalS;
-        return (speedMps * overS) + (speedMps * speedMps / (2f * _config.Car.BrakingMps2));
+        var overS = (2f * _lattice.KerbOffsetM / _config.PersonWalkSpeedMps) + _config.Sim.AgentDecisionIntervalS;
+        return (speedMps * overS) + (speedMps * speedMps / (2f * _config.CarBrakingMps2));
     }
 
     void SendOver(int card, int walker)

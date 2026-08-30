@@ -2,6 +2,18 @@
 
 Why the panels read as they do. What they must be is [requirements.md](requirements.md).
 
+## A figure takes hold under the hand, not on release
+
+The figures page moved its trim while a slider was dragged but only stood the town up again when the
+button came up, on the argument that rebuilding a fleet sixty times a second is work nobody asked for.
+**That made every drag a guess followed by a wait** — the one gesture the page exists for is *turn this
+and watch* — and the work it was avoiding is sixteen `CarBuild.Resolve` calls and a ground catalogue, on
+the frames a hand is actually moving something.
+
+So the change is reported as it happens. **A pointer resting on a track is not a move**: the trim is read
+back after its clamp, so a drag pinned against either stop rebuilds once rather than every frame it is
+held there, and letting go of a figure already at its value reports nothing at all.
+
 ## The menu is a popup off the gear, not a panel over the town
 
 It was a seven-tab panel filling the middle of the screen, dimming the town behind it and taking every

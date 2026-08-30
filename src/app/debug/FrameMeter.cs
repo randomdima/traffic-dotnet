@@ -19,12 +19,19 @@ internal readonly record struct FrameFigures
     public double CpuMs { get; init; }
 
     /// <summary>
-    /// The share spent blocked on the presentation engine — waiting for an image to draw into and for
-    /// the frame before last to be done with. Under FIFO it is the whole of the pacing and it is the
-    /// compositor's number rather than this build's.
+    /// The share spent waiting for the presenter rather than working — under FIFO the whole of the
+    /// pacing, and the compositor's number rather than this build's.
     /// </summary>
+    /// <remarks>
+    /// <b>Where in the frame that wait falls is the machine's business.</b> On the desktop it is inside
+    /// the submit — an image to draw into, and the frame before last to be done with — and the renderer
+    /// times it. In a page there is nothing to block on: the wait is the browser choosing when to ask
+    /// for the next frame, so it falls between one and the next and is timed there. Both end up here,
+    /// and <see cref="FrameMs"/> holds both, which is why the rate is the display's on either.
+    /// </remarks>
     public double BlockedMs { get; init; }
 
+    /// <summary>The rate the town is drawn at, which is <see cref="FrameMs"/> and not <see cref="CpuMs"/>.</summary>
     public double Fps { get; init; }
 
     /// <summary>The worst single frame in the window — the figure the mean is there to hide and this one is there to keep.</summary>
@@ -101,6 +108,21 @@ internal sealed class FrameMeter
     /// </summary>
     const double WindowMs = 500d;
 
+    /// <summary>
+    /// The longest a frame may take and still be one. <b>Past this nothing was being drawn</b> — a
+    /// browser stops asking a hidden tab for frames, and a map is read inside the frame that asked for
+    /// it — and a gap of seconds averaged into a window half a second long prices the whole town off
+    /// one of them. Such a frame is dropped exactly as the first one is, and for the same reason.
+    /// </summary>
+    /// <remarks>
+    /// <b>A second, and not a tighter figure.</b> The bound is there to tell a page nobody is looking at
+    /// from a town that is running badly, and a town at two frames a second is still running badly
+    /// rather than not running: it wants reporting, not hiding. What must never happen is the opposite
+    /// mistake — a gap called a stall and quietly dropped out of the frame it was most of, which leaves
+    /// the read-out quoting the rate this build could draw at instead of the rate it did.
+    /// </remarks>
+    public const double LongestFrameMs = 1000d;
+
     FrameParts _sum;
     int _frames;
     double _worstMs;
@@ -123,8 +145,9 @@ internal sealed class FrameMeter
     public bool Frame(in FrameParts parts, in PhaseTimes phases, in TickParts sub)
     {
         // Never the first frame: it carries the swapchain's own first submit and the town's first
-        // fill, and a window holding it would price those into the steady state.
-        if (!_steady)
+        // fill, and a window holding it would price those into the steady state. Never a frame that
+        // was not drawn either, for the reason on LongestFrameMs.
+        if (!_steady || parts.WholeMs > LongestFrameMs)
         {
             _steady = true;
             return false;

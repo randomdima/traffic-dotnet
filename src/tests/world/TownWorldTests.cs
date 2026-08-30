@@ -67,8 +67,8 @@ public class TownWorldTests
         var paved = WalkProbe.Measure(config, config.Terrain.PavedCoefficient, onFeet: true);
         var grass = WalkProbe.Measure(config, config.Terrain.GrassCoefficient, onFeet: true);
 
-        Assert.Equal(config.Person.WalkSpeedMps * config.Terrain.PavedCoefficient, paved.PaceMps, 1);
-        Assert.Equal(config.Person.WalkSpeedMps * config.Terrain.GrassCoefficient, grass.PaceMps, 1);
+        Assert.Equal(config.PersonWalkSpeedMps * config.Terrain.PavedCoefficient, paved.PaceMps, 1);
+        Assert.Equal(config.PersonWalkSpeedMps * config.Terrain.GrassCoefficient, grass.PaceMps, 1);
         Assert.Equal(config.Terrain.GrassCoefficient / config.Terrain.PavedCoefficient, grass.PaceMps / paved.PaceMps, 2);
     }
 
@@ -336,5 +336,42 @@ public class TownWorldTests
 
         Assert.True(parts > plan.Buildings.Count, "no shipped roof is built of more than one rectangle");
         Assert.Equal(plan.Props.Count + parts, world.StaticBodyCount);
+    }
+
+    /// <summary>
+    /// <b>A figure turned reaches the town that is standing</b> (<see cref="TrimFigures"/>): every look is
+    /// built again and the cars on the road take it, without the map being laid a second time. What the
+    /// panel is for is watching one thing change while everything else holds still, and a town torn down
+    /// and stood up again is a different town with the same name.
+    /// </summary>
+    [Fact]
+    public void AFigureTurnedReachesTheStandingTownWithoutRelayingIt()
+    {
+        var figures = SimConfig.Shipped();
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), figures);
+        var loop = new SimLoop<TownWorld>(world, figures);
+        loop.Advance(120);
+
+        Assert.True(world.Cars.Count > 0, "the fixture town stands cars");
+        var car = 0;
+        var wasGrip = world.Cars.BuildOf(car).GripMps2;
+        var wasMass = world.Cars.MassKg[car];
+        var wasAt = world.Cars.PositionM[car];
+        var bodies = world.StaticBodyCount;
+
+        figures.Trim.Friction = 2f;
+        world.FiguresChanged();
+
+        Assert.Equal(wasGrip * 2f, world.Cars.BuildOf(car).GripMps2, 3);
+
+        // And what the car itself is came through untouched, because no dial speaks for a body.
+        Assert.Equal(wasMass, world.Cars.MassKg[car], 3);
+
+        // And the town itself did not move: the same bodies, in the same places, mid-whatever they were in.
+        Assert.Equal(wasAt, world.Cars.PositionM[car]);
+        Assert.Equal(bodies, world.StaticBodyCount);
+
+        loop.Advance(60);
+        Assert.Equal(180, loop.Tick);
     }
 }

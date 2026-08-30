@@ -46,4 +46,11 @@ internal sealed partial class SimConfig
     public SimFigures Sim { get; init; } = new();
     public ViewFigures View { get; init; } = new();
     public ControlFigures Control { get; init; } = new();
+
+    /// <summary>
+    /// <b>The one group a running session may move</b>, and only ever as a share of what is authored above
+    /// it. Every trim is 1 unless a debug panel has been opened, so this changes nothing about a shipped
+    /// run — see <see cref="TrimFigures"/>.
+    /// </summary>
+    public TrimFigures Trim { get; init; } = new();
 }

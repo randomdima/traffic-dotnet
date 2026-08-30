@@ -48,6 +48,15 @@ internal static class StuckProbe
 
     const int Reported = 12;
 
+    /// <summary>The smallest gathering worth the name: four abreast is a heap and never a queue.</summary>
+    const int CrowdOf = 4;
+
+    /// <summary>
+    /// How often the crowds are counted — a second at the shipped tick rate, which is often enough to
+    /// catch one that forms and clears and rare enough that counting them pair by pair costs nothing.
+    /// </summary>
+    const int CrowdEvery = 60;
+
     public static void Run(SimConfig config) => Run("Odesa", config);
 
     public static void Run(string map, SimConfig config)
@@ -64,6 +73,17 @@ internal static class StuckProbe
         var personStillFromM = new Vector2[people.Count];
         var personStillTicks = new int[people.Count];
         var personWorstTicks = new int[people.Count];
+        var crowd = new int[people.Count];
+        var crowdSize = new int[people.Count];
+        var inACrowdTicks = new int[people.Count];
+        var heldTicks = new int[people.Count];
+        var worstHeldTicks = new int[people.Count];
+        var insideTicks = new int[people.Count];
+        var longestHold = 0;
+        var longestHoldSays = new List<string>();
+        var biggestCrowd = 0;
+        var biggestCrowdTick = 0;
+        var biggestCrowdSays = new List<string>();
 
         for (var car = 0; car < cars.Count; car++) carStillFromM[car] = cars.PositionM[car];
         for (var person = 0; person < people.Count; person++) personStillFromM[person] = people.PositionM[person];
@@ -96,7 +116,65 @@ internal static class StuckProbe
                 Step(
                     people.PositionM[person], ref personStillFromM[person], ref personStillTicks[person],
                     ref personWorstTicks[person]);
+
+                // <b>The walking side's own stuck, and the one the metres cannot say</b>: a body the book is
+                // holding takes no decision at all (PER-13), so nothing runs out for it and the only thing
+                // that ever lets it go is whoever is in front of it moving.
+                if (!people.IsHeldByTheBook(person, world.StopsInM(person)))
+                {
+                    heldTicks[person] = 0;
+                    continue;
+                }
+
+                heldTicks[person]++;
+                if (heldTicks[person] > worstHeldTicks[person]) worstHeldTicks[person] = heldTicks[person];
+
+                // <b>And standing inside the gap it keeps behind somebody</b>, which is the other half of the
+                // same fault: a grant below nothing cut at another body is one that has come to rest past
+                // the near edge of the ground the book gave that body, and a pavement's worth of those is a
+                // queue closed up into a heap. <b>Cut at a body and not at a place</b> — a walker held at the
+                // edge of a lane the road refused it is standing exactly where it should be.
+                if (people.AuthorityM[person] < 0f && people.HeldBy[person] != PersonFleet.NoBody)
+                {
+                    insideTicks[person]++;
+                }
             }
+
+            if (tick % CrowdEvery != 0) continue;
+
+            // <b>Said while the hold is still on</b>, for the reason the heap is: the chain a body was at the
+            // back of has unwound by the end of the run, and the head of it — the only body a fix is written
+            // from — is by then walking somewhere else.
+            for (var person = 0; person < people.Count; person++)
+            {
+                if (heldTicks[person] <= longestHold) continue;
+
+                longestHold = heldTicks[person];
+                longestHoldSays.Clear();
+                SayTheHold(people, person, longestHold / config.Sim.TickRateHz, longestHoldSays);
+            }
+
+            GatherCrowds(people, TouchingM(config), crowd, crowdSize);
+            var head = PersonFleet.NoBody;
+            for (var person = 0; person < people.Count; person++)
+            {
+                var size = crowdSize[RootOf(crowd, person)];
+                if (size < CrowdOf) continue;
+
+                inACrowdTicks[person] += CrowdEvery;
+                if (size <= biggestCrowd) continue;
+
+                biggestCrowd = size;
+                biggestCrowdTick = tick;
+                head = RootOf(crowd, person);
+            }
+
+            // Said where it stands, because a heap seen at the end of the run is whichever one happened to
+            // be standing then: the worst of them formed and cleared while nobody was looking.
+            if (head == PersonFleet.NoBody) continue;
+
+            biggestCrowdSays.Clear();
+            SayTheCrowd(people, crowd, head, biggestCrowdSays);
         }
 
         var seconds = MeasuredTicks / config.Sim.TickRateHz;
@@ -134,6 +212,8 @@ internal static class StuckProbe
 
         ReportCars(world, config, carStillTicks, carWorstTicks);
         ReportPeople(world, config, personStillTicks, personWorstTicks);
+        ReportCrowds(world, config, inACrowdTicks, crowd, crowdSize, biggestCrowd, biggestCrowdTick, biggestCrowdSays);
+        ReportHolds(world, config, heldTicks, worstHeldTicks, insideTicks, longestHoldSays);
     }
 
     /// <summary>One tick of one body: still while it has not left the spot the run of stillness began at.</summary>
@@ -294,6 +374,239 @@ internal static class StuckProbe
                 $"{world.Terrain.At(people.PositionM[person]).Walkable}");
             Neighbours(world, people.PositionM[person]);
         }
+    }
+
+    /// <summary>
+    /// <b>How near two walkers stand when they are in the same heap</b>: well inside the gap a pavement
+    /// queue stands at (PER-13, <see cref="SimConfig.PersonStandstillGapM"/>) — half of it, so that a queue
+    /// keeping the distance it is supposed to is never counted as a heap and a pair standing at half of it
+    /// always is.
+    /// </summary>
+    static float TouchingM(SimConfig config) =>
+        config.PersonDiameterM + (config.PersonStandstillGapM * 0.5f);
+
+    /// <summary>
+    /// <b>The heaps the walkers are standing in</b>, gathered by nothing but who is touching whom.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the reading <see cref="Step"/> cannot take.</b> A body in a heap is shoved about by the
+    /// bodies round it, so it never holds one spot and never counts as still; what stands where it is, is
+    /// the crowd, and the only thing that says so is how many are in it.
+    /// </remarks>
+    static void GatherCrowds(PersonFleet people, float touchingM, int[] crowd, int[] size)
+    {
+        for (var person = 0; person < people.Count; person++)
+        {
+            crowd[person] = person;
+            size[person] = 0;
+        }
+
+        var touchingSqM = touchingM * touchingM;
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (!InTheStreet(people, person)) continue;
+
+            for (var other = person + 1; other < people.Count; other++)
+            {
+                if (!InTheStreet(people, other)) continue;
+                if ((people.PositionM[person] - people.PositionM[other]).LengthSquared() > touchingSqM) continue;
+
+                var one = RootOf(crowd, person);
+                var two = RootOf(crowd, other);
+                if (one != two) crowd[one] = two;
+            }
+        }
+
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (InTheStreet(people, person)) size[RootOf(crowd, person)]++;
+        }
+    }
+
+    static int RootOf(int[] crowd, int person)
+    {
+        while (crowd[person] != person) person = crowd[person] = crowd[crowd[person]];
+
+        return person;
+    }
+
+    /// <summary>A body anybody can walk into: on the roster, out of doors, and out of a car.</summary>
+    static bool InTheStreet(PersonFleet people, int person) =>
+        people.Acts(person) && people.Inside[person].Kind == ContainerKind.None;
+
+    /// <summary>
+    /// One heap, member by member: where each of them stands in it and what each says it is doing.
+    /// </summary>
+    static void SayTheCrowd(PersonFleet people, int[] crowd, int head, List<string> into)
+    {
+        var atM = people.PositionM[head];
+        into.Add($"at ({atM.X:F1}, {atM.Y:F1})");
+        for (var person = 0; person < people.Count && into.Count <= Reported; person++)
+        {
+            if (!InTheStreet(people, person) || RootOf(crowd, person) != head) continue;
+
+            into.Add(
+                $"    walker {person} {(people.PositionM[person] - atM).Length():F1} m in — " +
+                $"{people.Stage[person]}, walking {people.Walking[person]}, line " +
+                $"{people.WalkedTaken[person]}/{people.WalkedCount[person]}, grant " +
+                $"{people.AuthorityM[person]:F2} m at {people.OnWayM[person]:F1} m of way {people.OnWay[person]}, " +
+                $"held by {people.HeldBy[person]}, steps round " +
+                $"{people.StepsRound[person]}, kerb {people.HeldAtTheKerb[person]}, building " +
+                $"{people.DestinationBuilding[person]}, goal ({people.GoalM[person].X:F1}, {people.GoalM[person].Y:F1})");
+        }
+    }
+
+    static void ReportCrowds(
+        TownWorld world, SimConfig config, int[] inACrowdTicks, int[] crowd, int[] size, int biggest,
+        int biggestTick, List<string> biggestSays)
+    {
+        var people = world.People;
+        Console.WriteLine();
+        Console.WriteLine(
+            $"crowds — a heap is {CrowdOf}+ walkers within {TouchingM(config):F2} m of one another, counted every " +
+            $"{CrowdEvery / config.Sim.TickRateHz:F0} s");
+
+        var ever = 0;
+        var worst = 0;
+        var spentTicks = 0L;
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (inACrowdTicks[person] > 0) ever++;
+            if (inACrowdTicks[person] > worst) worst = inACrowdTicks[person];
+            spentTicks += inACrowdTicks[person];
+        }
+
+        Console.WriteLine(
+            $"         {ever} of {people.Count} were in one at some point; the town spent " +
+            $"{100f * spentTicks / (people.Count * (float)MeasuredTicks):F1}% of its walking on foot in one, and " +
+            $"the worst-off spent {100f * worst / MeasuredTicks:F0}% of the run in one");
+
+        Console.WriteLine();
+        Console.WriteLine($"  the biggest was {biggest}, {biggestTick / config.Sim.TickRateHz:F0} s in — as it stood");
+        foreach (var says in biggestSays) Console.WriteLine(says);
+
+        GatherCrowds(people, TouchingM(config), crowd, size);
+        var standing = new List<int>();
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (size[person] >= CrowdOf) standing.Add(person);
+        }
+
+        standing.Sort((a, b) => size[b].CompareTo(size[a]));
+        var says2 = new List<string>();
+        foreach (var head in standing.Take(3))
+        {
+            says2.Clear();
+            SayTheCrowd(people, crowd, head, says2);
+            Console.WriteLine();
+            Console.WriteLine($"  a crowd of {size[head]} standing at the end of the run — {says2[0]}");
+            for (var line = 1; line < says2.Count; line++) Console.WriteLine(says2[line]);
+        }
+    }
+
+    /// <summary>
+    /// <b>One hold, followed up the chain to whoever is at the head of it</b>: everybody behind a hold is
+    /// held by the hold in front, so the head is the only body a fix can be written from.
+    /// </summary>
+    static void SayTheHold(PersonFleet people, int person, float heldS, List<string> into)
+    {
+        var chain = new List<int>();
+        var at = person;
+        while (at != PersonFleet.NoBody && !chain.Contains(at))
+        {
+            chain.Add(at);
+            at = people.HeldBy[at];
+        }
+
+        var root = chain[^1];
+        into.Add(
+            $"  the longest was walker {person}, {heldS:F0} s so far — behind {chain.Count - 1} " +
+            $"{(at == PersonFleet.NoBody ? "as far as" : "round to")} walker {root}");
+        into.Add(
+            $"    the head is {people.Stage[root]}, walking {people.Walking[root]}, grant " +
+            $"{people.AuthorityM[root]:F2} m at {people.OnWayM[root]:F1} m of way {people.OnWay[root]}, " +
+            $"steps round {people.StepsRound[root]}, kerb {people.HeldAtTheKerb[root]} for " +
+            $"{people.WaitingToCrossS[root]:F1} s, refused way {people.RefusedWay[root]}, crossing ahead " +
+            $"{people.CrossingAhead(root)}, line {people.WalkedTaken[root]}/{people.WalkedCount[root]}, " +
+            $"runs out {people.WalkedRunsOut[root]}, at ({people.PositionM[root].X:F1}, {people.PositionM[root].Y:F1})");
+    }
+
+    /// <summary>
+    /// <b>How long the pavement's book held anybody where they stood, and who was holding whom</b>.
+    /// </summary>
+    /// <remarks>
+    /// <b>A walker held by the book takes no decision at all</b> (PER-13): waiting behind a body that is
+    /// under way is not being stuck, so the clock that gives a leg up is frozen while it is true. That makes
+    /// the length of a hold the whole of the walking side's safety margin — and a hold that comes round on
+    /// itself is one no length of clock behind it could ever have cleared, because the two of them are each
+    /// waiting for the other to move.
+    /// </remarks>
+    static void ReportHolds(
+        TownWorld world, SimConfig config, int[] heldTicks, int[] worstHeldTicks, int[] insideTicks,
+        List<string> longestSays)
+    {
+        var people = world.People;
+        var held = 0;
+        var ever = 0;
+        var longest = 0;
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (heldTicks[person] >= StillTicks) held++;
+            if (worstHeldTicks[person] >= StillTicks) ever++;
+            if (worstHeldTicks[person] > longest) longest = worstHeldTicks[person];
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            $"holds — {held} walkers the book was still holding at the end of the run, {ever} held for longer " +
+            $"than {StillTicks / config.Sim.TickRateHz} s at a stretch, of {people.Count}");
+        Console.WriteLine(
+            $"        the longest anybody was held without a decision was " +
+            $"{longest / (float)config.Sim.TickRateHz:F0} s of the {MeasuredTicks / config.Sim.TickRateHz} s run");
+
+        var insideTotal = 0L;
+        var worstInside = 0;
+        for (var person = 0; person < people.Count; person++)
+        {
+            insideTotal += insideTicks[person];
+            if (insideTicks[person] > worstInside) worstInside = insideTicks[person];
+        }
+
+        Console.WriteLine(
+            $"        walkers stood inside the gap they keep for {100f * insideTotal / (people.Count * (float)MeasuredTicks):F2}% " +
+            $"of the run, and the worst-off for {100f * worstInside / MeasuredTicks:F0}% of it");
+
+        // <b>The head of the chain and never the body reporting it</b>: everybody behind a hold is held by
+        // the hold in front, so the only one a fix is written from is whoever is at the front of it.
+        Console.WriteLine();
+        foreach (var says in longestSays) Console.WriteLine(says);
+
+        Console.WriteLine();
+        var rings = 0;
+        var ring = new List<int>();
+        for (var person = 0; person < people.Count; person++)
+        {
+            ring.Clear();
+            var at = person;
+            while (at != PersonFleet.NoBody && !ring.Contains(at))
+            {
+                ring.Add(at);
+                at = people.HeldBy[at];
+            }
+
+            // <b>Counted once, from the lowest-numbered body in it.</b> Every walker queueing behind a ring
+            // runs into the same ring, and every member of one finds it from where it stands.
+            if (at == PersonFleet.NoBody || ring.IndexOf(at) != 0 || ring.Any(body => body < person)) continue;
+
+            rings++;
+            if (rings > 6) continue;
+
+            Console.WriteLine(
+                $"    ring of {ring.Count}: " + string.Join(
+                    " -> ", ring.Select(body => $"{body} (way {people.OnWay[body]}, grant {people.AuthorityM[body]:F2} m)")));
+        }
+
+        Console.WriteLine($"    {rings} ring(s) of walkers each held by the next");
     }
 
     /// <summary>

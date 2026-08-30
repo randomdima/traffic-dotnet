@@ -9,7 +9,10 @@
   "rearAxleM": -1.09,
   "trackM": 1.90,
   "drivetrain": 0,
-  "handling": { "maxSpeed": 1.25, "acceleration": 1.4, "braking": 0.95, "cornering": 0.9 },
+  "maxSteeringDeg": 26.57,
+  "tyreFriction": 1.13,
+  "cgHeightM": 0.5,
+  "handling": { "maxSpeed": 1.25, "acceleration": 1.5, "braking": 0.95 },
   "hullM": [[-1.396, -0.949], [1.323, -0.949], [1.812, -0.855], [1.969, -0.334], [2, 0.125], [1.823, 0.845], [1.26, 0.949], [-1.281, 0.949], [-1.99, 0.772], [-2, -0.751]],
   "lamps": [
     { "fitting": "rear", "atM": [-1.833, -0.532], "sizeM": [0.062, 0.334] },

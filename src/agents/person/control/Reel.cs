@@ -110,7 +110,7 @@ internal static class Reel
         }
 
         var acrossM = MathF.Max(0f, (roads.LaneWidthM[lane] * 0.5f) - radiusM);
-        var strideM = MathF.Min(config.Person.WalkSpeedMps * config.Person.LurchS, ChordM(at.Curvature, acrossM));
+        var strideM = MathF.Min(config.PersonWalkSpeedMps * config.Person.LurchS, ChordM(at.Curvature, acrossM));
         var claimM = radiusM * config.Person.RoadClaimMargin;
 
         // A body and not a reservation: a car that has stopped, a wreck, somebody else reeling down the same

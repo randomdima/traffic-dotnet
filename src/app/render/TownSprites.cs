@@ -293,8 +293,6 @@ internal static class CarSprites
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
-        var halfSizeM = new Vector2(config.Tyre.WheelLengthM, config.Tyre.WheelWidthM) * 0.5f;
-        var pitches = pitchM > 0f ? config.Tyre.WheelLengthM / pitchM : 1f;
         Span<float> steerRad = stackalloc float[TyreModel.Wheels];
 
         for (var car = 0; car < cars.Count && written + TyreModel.Wheels <= into.Length; car++)
@@ -302,8 +300,11 @@ internal static class CarSprites
             var centreM = cars.PositionM[car];
             ref readonly var build = ref cars.BuildOf(car);
 
-            // The tyres stand outside the bodywork (CAR-12), so the cull reaches past the box to them.
-            var reachM = new Vector2(build.LengthM, build.WidthM).Length() * 0.5f + config.Tyre.WheelLengthM;
+            // This car's own tyre, which stands outside the bodywork (CAR-12), so the cull reaches past
+            // the box to it.
+            var halfSizeM = new Vector2(build.WheelLengthM, build.WheelWidthM) * 0.5f;
+            var pitches = pitchM > 0f ? build.WheelLengthM / pitchM : 1f;
+            var reachM = new Vector2(build.LengthM, build.WidthM).Length() * 0.5f + build.WheelLengthM;
             var offset = centreM - viewCentreM;
             if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 

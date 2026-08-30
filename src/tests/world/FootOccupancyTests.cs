@@ -169,7 +169,7 @@ public class FootOccupancyTests
                     // Where that body comes to rest: its own stopping distance past its back, worked out
                     // against the grip the *asking* walker has, since what the ground is doing under
                     // somebody else is not something a body can see.
-                    var gripMps2 = Config.Person.FootGripMps2 * world.People.GroundCoefficient[slots[behind].Occupant];
+                    var gripMps2 = Config.PersonFootGripMps2 * world.People.GroundCoefficient[slots[behind].Occupant];
                     var restingM = MathF.Max(0f, slots[ahead].AlongMps * slots[ahead].AlongMps / (2f * gripMps2));
 
                     Assert.True(

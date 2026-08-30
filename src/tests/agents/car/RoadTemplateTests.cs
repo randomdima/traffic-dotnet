@@ -89,7 +89,7 @@ public class RoadTemplateTests
         Assert.True(atLock.Any && atSpeed.Any);
         Assert.True(atSpeed.LengthM > atLock.LengthM);
         Assert.True(
-            CarFollower.CornerMps(fast[0].Curvature, Config.Tyre.GripMps2 * Config.Driving.GripMargin) >= 20f,
+            CarFollower.CornerMps(fast[0].Curvature, Config.TyreGripMps2 * Config.Driving.GripMargin) >= 20f,
             "a swerve laid for 20 m/s is one the corner term does not slow the car below 20 m/s to drive");
     }
 

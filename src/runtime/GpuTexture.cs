@@ -1,12 +1,16 @@
+using System.Runtime.InteropServices;
 using Silk.NET.Vulkan;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using Image = Silk.NET.Vulkan.Image;
+
+// The library is named here and in nothing the browser's head compiles: this is the desktop's decoder,
+// and what it hands over becomes Texel — the town's own four bytes — on the way out of Upload.
+using Decoded = SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>;
 
 namespace TrafficSimulation.Runtime;
 
 /// <summary>One layer's texels, top row first, written into memory the upload already owns.</summary>
-internal delegate void LayerFill(int layer, Span<Rgba32> into);
+internal delegate void LayerFill(int layer, Span<Texel> into);
 
 /// <summary>
 /// One ground surface on the GPU, with its own mip chain, decoded at startup: there is no bake step to
@@ -79,10 +83,10 @@ internal sealed unsafe class GpuTexture : IDisposable
         Vk.Check(vk.Api.CreateImage(vk.Device, &info, null, out var image), "vkCreateImage");
         var memory = Bind(vk, image);
 
-        using var staging = vk.CreateBuffer((ulong)(width * height * sizeof(Rgba32)), BufferUsageFlags.TransferSrcBit, hostVisible: true);
+        using var staging = vk.CreateBuffer((ulong)(width * height * sizeof(Texel)), BufferUsageFlags.TransferSrcBit, hostVisible: true);
         for (var layer = 0; layer < layers; layer++)
         {
-            fill(layer, staging.Span<Rgba32>());
+            fill(layer, staging.Span<Texel>());
             var at = layer;
             vk.OneShot(commands =>
             {
@@ -129,7 +133,7 @@ internal sealed unsafe class GpuTexture : IDisposable
     /// </param>
     public static GpuTexture Load(Vk vk, string path, bool repeats = true, bool mipped = true)
     {
-        using var decoded = SixLabors.ImageSharp.Image.Load<Rgba32>(path);
+        using var decoded = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(path);
         return Upload(vk, decoded, repeats, mipped);
     }
 
@@ -141,7 +145,7 @@ internal sealed unsafe class GpuTexture : IDisposable
     {
         using var stream = typeof(GpuTexture).Assembly.GetManifestResourceStream(resource)
                            ?? throw new InvalidOperationException($"No embedded resource {resource}: did the project file include it?");
-        using var decoded = SixLabors.ImageSharp.Image.Load<Rgba32>(stream);
+        using var decoded = SixLabors.ImageSharp.Image.Load<SixLabors.ImageSharp.PixelFormats.Rgba32>(stream);
         return Upload(vk, decoded, repeats, mipped);
     }
 
@@ -151,17 +155,19 @@ internal sealed unsafe class GpuTexture : IDisposable
     /// </summary>
     public static GpuTexture FromPixels(Vk vk, ReadOnlySpan<byte> rgba, int width, int height, bool repeats = false, bool mipped = false)
     {
-        using var decoded = SixLabors.ImageSharp.Image.LoadPixelData<Rgba32>(rgba, width, height);
+        using var decoded = SixLabors.ImageSharp.Image.LoadPixelData<SixLabors.ImageSharp.PixelFormats.Rgba32>(rgba, width, height);
         return Upload(vk, decoded, repeats, mipped);
     }
 
-    static GpuTexture Upload(Vk vk, SixLabors.ImageSharp.Image<Rgba32> decoded, bool repeats, bool mipped)
+    static GpuTexture Upload(Vk vk, Decoded decoded, bool repeats, bool mipped)
     {
         var width = decoded.Width;
         var height = decoded.Height;
 
-        var top = new Rgba32[width * height];
-        decoded.CopyPixelDataTo(top);
+        // The one crossing between the library's pixel and the town's. Both are four bytes in this
+        // order, so it is a copy and never a conversion.
+        var top = new Texel[width * height];
+        decoded.CopyPixelDataTo(MemoryMarshal.AsBytes(top.AsSpan()));
 
         var chain = mipped
             ? MipChain.Build(top, width, height)
@@ -169,8 +175,8 @@ internal sealed unsafe class GpuTexture : IDisposable
         var totalPixels = 0;
         foreach (var level in chain) totalPixels += level.Pixels.Length;
 
-        using var staging = vk.CreateBuffer((ulong)(totalPixels * sizeof(Rgba32)), BufferUsageFlags.TransferSrcBit, hostVisible: true);
-        var into = staging.Span<Rgba32>();
+        using var staging = vk.CreateBuffer((ulong)(totalPixels * sizeof(Texel)), BufferUsageFlags.TransferSrcBit, hostVisible: true);
+        var into = staging.Span<Texel>();
         var at = 0;
         foreach (var level in chain)
         {
@@ -209,7 +215,7 @@ internal sealed unsafe class GpuTexture : IDisposable
                 ImageExtent = new Extent3D((uint)chain[level].Width, (uint)chain[level].Height, 1),
             };
 
-            offset += (ulong)(chain[level].Pixels.Length * sizeof(Rgba32));
+            offset += (ulong)(chain[level].Pixels.Length * sizeof(Texel));
         }
 
         vk.OneShot(commands =>

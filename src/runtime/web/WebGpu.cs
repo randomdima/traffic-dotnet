@@ -122,11 +122,68 @@ internal static partial class WebGpu
         TickerJs(step);
     }
 
-    /// <summary>Where the page was served from, which is what a path in the manifest is relative to.</summary>
-    public static string Origin()
+    /// <summary>
+    /// One file the page was served, parked on the far side, answering how many bytes it came to. The
+    /// path is relative to the page, which is what a path in the manifest is written against.
+    /// </summary>
+    public static Task<int> Grab(string path)
     {
         Count();
-        return OriginJs();
+        return GrabJs(path);
+    }
+
+    /// <summary>
+    /// The bytes the last <see cref="Grab"/> parked, into memory this side made at the length it
+    /// answered. <b>Two calls and not one</b>: a <see cref="JSType.MemoryView"/> is a window onto this
+    /// heap handed out, and there is no shape that hands one back.
+    /// </summary>
+    public static void Take(Span<byte> into)
+    {
+        Count();
+        TakeJs(into);
+    }
+
+    /// <summary>
+    /// Bytes out of this run's own memory, parked on the far side exactly as a fetched file is — the
+    /// glyph sheet, which ships inside the assembly and so is never grabbed.
+    /// </summary>
+    public static void Park(Span<byte> file)
+    {
+        Count();
+        ParkJs(file);
+    }
+
+    /// <summary>
+    /// The parked file, decoded by the browser and kept on its side under <paramref name="path"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the half of a decode that has to wait</b>, and it is called where waiting is allowed:
+    /// <c>createImageBitmap</c> is a promise, and the atlas that wants the texels is filled from inside
+    /// a frame. What is kept is a bitmap and not a page of texels — the browser stores that as it
+    /// pleases, and this heap holds none of it until <see cref="Texels"/> asks for one sheet.
+    /// </para>
+    /// <para>
+    /// <b>It reads what was parked rather than taking the bytes</b>, so the art costs no copy at all:
+    /// <see cref="Grab"/> has already put the file on that side, and <see cref="Take"/> leaves it there.
+    /// A view cannot cross on a call that returns a promise in any case — the heap moves under it while
+    /// the promise is outstanding, which is the same rule that made <see cref="Take"/> a second call.
+    /// </para>
+    /// </remarks>
+    public static Task Picture(string path)
+    {
+        Count();
+        return PictureJs(path);
+    }
+
+    /// <summary>
+    /// The texels of a picture <see cref="Picture"/> decoded, parked on the far side, answering how many
+    /// bytes they came to. Synchronous, which is the whole reason the decode was done in two parts.
+    /// </summary>
+    public static int Texels(string path)
+    {
+        Count();
+        return TexelsJs(path);
     }
 
     [Conditional("DEBUG")]
@@ -171,8 +228,20 @@ internal static partial class WebGpu
     [JSImport("town.say", "town.js")]
     static partial void SayJs(string line);
 
-    [JSImport("town.origin", "town.js")]
-    private static partial string OriginJs();
+    [JSImport("town.grab", "town.js")]
+    private static partial Task<int> GrabJs(string path);
+
+    [JSImport("town.take", "town.js")]
+    static partial void TakeJs([JSMarshalAs<JSType.MemoryView>] Span<byte> into);
+
+    [JSImport("town.park", "town.js")]
+    static partial void ParkJs([JSMarshalAs<JSType.MemoryView>] Span<byte> file);
+
+    [JSImport("town.picture", "town.js")]
+    private static partial Task PictureJs(string path);
+
+    [JSImport("town.texels", "town.js")]
+    private static partial int TexelsJs(string path);
 
     [JSImport("town.ticker", "town.js")]
     static partial void TickerJs([JSMarshalAs<JSType.Function<JSType.Boolean>>] Func<bool> step);

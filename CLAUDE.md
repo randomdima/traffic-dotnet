@@ -27,6 +27,13 @@ and this page names slices the short way. `assets/`, `towns/` and [docs/](docs/i
   `src/agents/car/body/` reads. `towns/` is input rather than an asset and belongs to no slice.
 - **Numbers.** On `SimConfig`, authored in the nested groups and derived on the root. **A literal in
   behaviour code is a defect.**
+- **Figures flow one way, and only one.** What is *authored* is a raw physical or geometric term — a
+  coefficient of friction, a mass in kg, a length in m, an angle at the road wheel, gravity. What is
+  *derived* is everything a reader would rather look up: a grip in m/s², a turning circle, a stopping
+  distance, a top speed. **Never author a derived observable and back-solve a primitive out of it** — no
+  friction coefficient computed from a turning circle, no steering lock computed from a quoted circle, no
+  mass computed from an acceleration. A derived figure may be printed, drawn, claimed and compared against
+  a spec sheet; it may never be an input. This is strict.
 
 **Nothing grows past being readable.** A document that has to cover eight things is eight documents and
 an index, and the same is true of a type. A slice's `docs/` gets an `index.md` only once it holds more

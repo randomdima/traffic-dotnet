@@ -75,17 +75,39 @@ internal sealed partial class LaneOccupancy
         AnythingOver(way, fromM, toM, Nobody, LaneRoster.Driving, TrafficSpoken, out _);
 
     /// <summary>
-    /// <b>Whether an ambulance answering a call has this stretch</b> (AMB-4) — the one question about the
-    /// road a walker's patience does not get to override.
+    /// <b>Whether an ambulance answering a call is coming through this stretch</b> (AMB-4) — the one
+    /// question about the road a walker's patience does not get to override.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>It is the rank and not the vehicle.</b> Whoever holds ground with
     /// <see cref="RightOfWay.Emergency"/> is the thing being got out of the way of; an ambulance driving
     /// home holds its road at <see cref="RightOfWay.Traffic"/> like anybody else, and a walker's escape from
     /// a crossing that never clears applies to it exactly as it applies to a bus.
+    /// </para>
+    /// <para>
+    /// <b>And it is the ones actually coming through</b> (<paramref name="comingThroughMps"/>), because the
+    /// stretch of a rescue that has stopped is not a rescue to be got out of the way of — it is a stopped
+    /// car, which is what anybody taking the ground would have made of it in any case. <b>Stopped is a pace
+    /// and never zero</b>: a car held in a queue creeps at fractions of a millimetre a second, and read
+    /// against zero that is a rescue coming through for as long as it sits there. Every stretch over the
+    /// ground is walked rather than the first one taken, so a rescue standing on a piece of road cannot
+    /// hide one that is coming through it.
+    /// </para>
     /// </remarks>
-    public bool AnyRescueOver(int way, float fromM, float toM) =>
-        AnythingOver(way, fromM, toM, Nobody, LaneRoster.Driving, TrafficSpoken, RightOfWay.Emergency, out _);
+    /// <param name="comingThroughMps">How fast a rescue has to be going to be worth standing aside for.</param>
+    public bool AnyRescueOver(int way, float fromM, float toM, float comingThroughMps)
+    {
+        var at = FromTheStart;
+        while (NextOver(
+                   way, fromM, toM, Nobody, LaneRoster.Driving, TrafficSpoken, RightOfWay.Emergency, ref at,
+                   out var rescue))
+        {
+            if (rescue.AlongMps >= comingThroughMps) return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// <b>Whether this stretch of ground is somebody else's</b>, whoever they are and whatever they are

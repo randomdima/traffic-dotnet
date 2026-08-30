@@ -36,25 +36,36 @@ internal static partial class TyreModel
     /// back by what the pedals are doing and side to side by what the corner is doing.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A town seen from above has no down and the solver is given no gravity, but a tyre's load is a
     /// weight all the same — <c>a·h/(base·g)</c> is the share of it that moves, which is the whole
     /// reason there is a centre-of-gravity height at all.
+    /// </para>
+    /// <para>
+    /// <b>The acceleration is the one the patches themselves caused</b> and not the body's, which is what
+    /// the relation above is derived from: a force at the ground acting through a height. It is also why
+    /// nothing here needs a ceiling — a tyre cannot push harder than it grips, so the transfer is bounded
+    /// by the same coefficient it goes on to weigh. A collision is not a manoeuvre and moves no load.
+    /// </para>
+    /// <para>
+    /// <b>What it moves is measured from where <em>this body</em> stands at rest</b>
+    /// (<see cref="CarBuild.FrontWeightShare"/>, CAR-11), and that is the variant's own figure rather than
+    /// a half: the axle a car carries its weight on is the axle that can put power down and the light one
+    /// is the end that lets go. Across the car it <em>is</em> a half, and nothing here can make it anything
+    /// else — no body in this fleet is heavier on one flank than the other.
+    /// </para>
     /// </remarks>
     public static void Loads(SimConfig config, in CarBuild car, in CarPose pose, Span<float> into)
     {
         var weight = config.Tyre.StandardGravityMps2;
-        var floor = config.Tyre.MinCornerLoadFraction;
         var alongShare = pose.AccelerationMps2.X * car.CgHeightM / (car.WheelbaseM * weight);
         var acrossShare = pose.AccelerationMps2.Y * car.CgHeightM / (car.HalfTrackM * 2f * weight);
 
-        // The floor is what keeps a shunted car on four tyres. The acceleration a transfer is read from
-        // is already capped at what the tyres could plausibly have caused, but that cap is still enough
-        // to empty an axle on this geometry — and a corner carrying nothing has a budget of nothing, so
-        // it delivers no impulse at all until the load comes back, which is a car that spins after being
-        // nudged. A twentieth of the mass is little enough to read as a wheel gone light and enough that
-        // it is still a wheel.
-        var front = Math.Clamp(0.5f - alongShare, floor, 1f - floor);
-        var toTheSide = Math.Clamp(0.5f - acrossShare, floor, 1f - floor);
+        // Nought and one, because that is what a load is: a wheel asked for more transfer than it stands
+        // on lifts, and a lifted wheel carries nothing rather than pulling the car down. There is no
+        // figure here to choose — a share below nothing is a wheel holding the road on from underneath.
+        var front = Math.Clamp(car.FrontWeightShare - alongShare, 0f, 1f);
+        var toTheSide = Math.Clamp(0.5f - acrossShare, 0f, 1f);
         into[0] = front * toTheSide;
         into[1] = front * (1f - toTheSide);
         into[2] = (1f - front) * toTheSide;

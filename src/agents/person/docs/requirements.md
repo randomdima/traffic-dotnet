@@ -63,6 +63,16 @@ nobody, and asked as though each were in front of the other, neither may ever mo
 distance to, so what a short grant does is stop it where it stands; the pace it walks at when it walks is
 unchanged.
 
+**Short is measured against the stop and never against nothing.** A walker leaves at its full pace whatever
+it has been granted, so the ground it is committing to when it takes a stride is the stride itself and the
+stop after it. Read against nothing, a body with a centimetre of grant sets off at that pace and comes to
+rest a whole stopping distance *inside* the gap it keeps — where the grant is now below nothing and stays
+there, because feet have no reverse — and a queue built of those closes up to one stop short of the
+standing gap and moves off in lock step. That is a heap and not a queue. **The bar a walker walks against
+is therefore what it needs to come to rest from the speed it is doing**, which is nothing at rest: a pair
+already inside one another's gap must still be able to creep out of it, and the creep is the only thing
+that ever gets them out.
+
 **The two directions of a stretch are two lanes and never one.** Somebody coming the other way is on
 other ground, so a walk is never held up by one — that is a fact about the shape of the network (PER-7.2)
 and not a test anybody runs.
@@ -164,6 +174,14 @@ for as long as the street is busy. It is the single place in the town where grou
 else's road is over, and the cars give way to it. **It is the escape and no longer the ordinary way across**:
 where the crossing is uncontrolled the traffic gives way before the patience is spent, and what the clock is
 left for is a crossing that never clears.
+
+**The one road the escape does not reach is a rescue coming through** (`AMB-4`), and *coming through* is
+the whole of it. What the exemption is worth is its own justification — a call lasts seconds, so what is
+being waited out is going to pass — and a rescue standing still over the paint is not passing. It is a
+stopped car, which is what the walker taking the band would have made of it in any case; left unbounded,
+the escape never fires at that crossing at all and a body halfway over stands in a live carriageway for as
+long as the ambulance stands in it. **The bar is the walker's own pace**: a rescue closing slower than this
+body can walk is one the body is off the band well before.
 
 **A red is not a gap question and no amount of clear road answers it** (PER-7.3): the signal is asked
 first and refuses outright, and the ground is asked second. **Past the patience the walker goes anyway** —

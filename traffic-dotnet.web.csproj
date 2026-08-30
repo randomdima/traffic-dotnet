@@ -13,6 +13,10 @@
     <RootNamespace>TrafficSimulation</RootNamespace>
     <AssemblyName>traffic-dotnet-web</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Nothing in this engine reads a clock a zone applies to: the sim's time is its own tick count
+         and the only wall clock is a stopwatch. Left on, the whole tz database is linked into
+         dotnet.native.wasm — 244 KB of it, 54 KB on the wire, to answer a question nobody asks. -->
+    <InvariantTimezone>true</InvariantTimezone>
     <BaseOutputPath>bin/web/</BaseOutputPath>
     <BaseIntermediateOutputPath>obj/web/</BaseIntermediateOutputPath>
 
@@ -31,7 +35,11 @@
   <PropertyGroup>
     <!-- The desktop's machine, which has no meaning in a page: the device, the window, the swapchain,
          the renderer built against them, and the two entries that drive them. Everything else under
-         src/ is shared, and there is no #if anywhere in it. -->
+         src/ is shared, and there is no #if anywhere in it.
+
+         The last two are not the machine but the codec. Texels.cs is the desktop's half of the decode
+         and src/app/render/web/Texels.Web.cs is the browser's; LampAtlasBake writes a WebP, which is a
+         workshop step no page runs (WEB-3) and the one thing left that would need an encoder. -->
     <DesktopOnly>
       src/runtime/Vk.cs;
       src/runtime/Swapchain.cs;
@@ -45,6 +53,8 @@
       src/app/render/TownRenderer.Recording.cs;
       src/app/main/Game.Desktop.cs;
       src/app/main/Program.cs;
+      src/app/render/Texels.cs;
+      src/agents/car/body/LampAtlasBake.cs;
       src/app/shot/**
     </DesktopOnly>
     <DefaultItemExcludes>
@@ -58,8 +68,13 @@
          the same question on both machines, and the answer is already written down. No native code
          comes with them — nothing here ever opens an input context. -->
     <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
   </ItemGroup>
+
+  <!-- No image codec, and that is this head's largest single saving. A browser decodes PNG and WebP in
+       code already in the process, so the page's half of the decode is createImageBitmap
+       (src/app/render/web/Texels.Web.cs) and a size is read off the file's own header on both machines
+       (src/core/config/ImageHeader.cs). The desktop keeps ImageSharp because it *writes* pictures: a
+       shot is a PNG and the lamp atlas is a WebP, and nothing in a page writes either. -->
 
   <ItemGroup>
     <!-- The figures are applied over SimConfig by name at run time, and a trimmer takes a setter
@@ -97,49 +112,60 @@
   </Target>
 
   <!-- What the page fetches before the first frame, listed by the build so that a file added to
-       assets/ is a file the browser gets without anybody remembering to say so. The art is not
-       copied: it is linked, because a build that copied thirty megabytes would be a build nobody ran
-       twice.
+       assets/ is a file the browser gets without anybody remembering to say so.
 
-       The towns are the exception, and they are gzipped rather than linked. A .town is better than
-       half zero bytes — it holds a lane index laid out for reading and not for sending — so nine of
-       them are twenty-three megabytes on the wire and two and a half compressed. That is worth a
-       real file per town, and Data unpacks them on the way in. -->
+       **Everything is a real file, because the output of a publish is the thing that gets deployed.**
+       A static host is handed this folder and nothing else — no server of ours runs beside it, and a
+       symlink into a working copy is a folder that only serves on the machine it was built on. The art
+       was linked while it was thirty megabytes of PNG; at 2.8 MB of WebP that reason is gone.
+
+       The towns are squeezed rather than copied whole. A .town is better than half zero bytes — it
+       holds a lane index laid out for reading and not for sending — so the nine of them are
+       twenty-three megabytes raw and 3.3 compressed, and Data unpacks them on the way in.
+
+       A town line in the manifest is a map the page may ask for and not a file it fetches at boot:
+       what the browser downloads before the first frame is the art and the one map it opens (WEB-4). -->
   <ItemGroup>
     <TownArt Include="assets/**" />
     <TownPlan Include="towns/*.town" />
   </ItemGroup>
 
-  <Target Name="ListTheTownData" AfterTargets="Build" DependsOnTargets="SqueezeTheTowns">
+  <Target Name="ListTheTownData" AfterTargets="Build" DependsOnTargets="SqueezeTheTowns;ForgetTheOldLinks">
     <WriteLinesToFile File="$(OutDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
                       Lines="@(TownArt->'%(Identity)');@(TownPlan->'%(Identity).gz')" />
-    <Exec Command="ln -sfn '$(MSBuildProjectDirectory)/assets' '$(OutDir)wwwroot/assets'" />
+    <Copy SourceFiles="@(TownArt)" DestinationFolder="$(OutDir)wwwroot/assets/%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')"
+          DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="PublishTheTownData" AfterTargets="Publish" DependsOnTargets="SqueezeTheTowns">
+  <Target Name="PublishTheTownData" AfterTargets="Publish" DependsOnTargets="SqueezeTheTowns;ForgetTheOldLinks">
     <WriteLinesToFile File="$(PublishDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
                       Lines="@(TownArt->'%(Identity)');@(TownPlan->'%(Identity).gz')" />
-    <Exec Command="ln -sfn '$(MSBuildProjectDirectory)/assets' '$(PublishDir)wwwroot/assets'" />
-    <!-- Never a copy into a link: an earlier build of this project linked wwwroot/towns at the source
-         folder, and the gzips would land in the tree beside the towns they were made from. Unlinked
-         without a trailing slash, which takes the link and never what is behind it. -->
-    <Exec Command="test -L '$(PublishDir)wwwroot/towns' &amp;&amp; rm -f '$(PublishDir)wwwroot/towns' || true" />
+    <Copy SourceFiles="@(TownArt)" DestinationFolder="$(PublishDir)wwwroot/assets/%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')"
           DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
-  <!-- Compressed into the intermediate folder and copied from there, so a town is squeezed once per
-       edit rather than once per build and once per publish. -->
+  <!-- **Never a copy into a link.** Earlier builds of this project linked wwwroot/assets and
+       wwwroot/towns at the source folders, and a tree carrying one of those from before would take the
+       copies above straight into assets/ and towns/ themselves. Unlinked without a trailing slash,
+       which takes the link and never what is behind it. -->
+  <Target Name="ForgetTheOldLinks">
+    <Exec Command="for stale in '$(OutDir)wwwroot' '$(PublishDir)wwwroot'; do for name in assets towns; do test -L &quot;$stale/$name&quot; &amp;&amp; rm -f &quot;$stale/$name&quot;; done; done; true" />
+  </Target>
+
+  <!-- Gzip and not brotli, which would be a quarter smaller: the browser's runtime carries zlib and no
+       brotli at all, so BrotliStream throws on this platform and the page has nothing to unpack one
+       with. The only brotli a page can read is one the server marks Content-Encoding and the browser
+       unwraps before the fetch resolves, which is what _framework already relies on and is a fact
+       about the host rather than about this build. -->
   <Target Name="SqueezeTheTowns" Inputs="@(TownPlan)"
           Outputs="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')">
     <MakeDir Directories="$(IntermediateOutputPath)towns" />
     <Exec Command="gzip -9 -c '%(TownPlan.Identity)' &gt; '$(IntermediateOutputPath)towns/%(TownPlan.Filename)%(TownPlan.Extension).gz'" />
   </Target>
 
-  <Target Name="LayTheSqueezedTowns" AfterTargets="ListTheTownData">
-    <Exec Command="test -L '$(OutDir)wwwroot/towns' &amp;&amp; rm -f '$(OutDir)wwwroot/towns' || true" />
-    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')"
-          DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
-  </Target>
 
 </Project>

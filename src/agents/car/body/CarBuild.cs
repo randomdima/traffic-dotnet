@@ -76,22 +76,59 @@ internal readonly record struct CarBuild
 
     public required float CgHeightM { get; init; }
 
+    /// <summary>
+    /// <b>How much of this body stands on its front axle at rest</b> (CAR-11), before the pedals move any
+    /// of it. It is the balance every other figure is spent against: the loaded axle is the one that can
+    /// put power down and hold a corner, and the light end is the one that lets go.
+    /// </summary>
+    public required float FrontWeightShare { get; init; }
+
     public required float DrivenFrontShare { get; init; }
 
     public required float MaxSpeedMps { get; init; }
 
     public required float ReverseMaxMps { get; init; }
 
+    /// <summary>
+    /// What the pedal may ask for, which is <see cref="DrivenTractionMps2"/> times the headroom this car's
+    /// engine has over its own rubber (CAR-45). What it actually pulls away at is the smaller of the two.
+    /// </summary>
     public required float AccelerationMps2 { get; init; }
+
+    /// <summary>
+    /// <b>The most this car can pull away at</b>: what its driven axle puts down at the static load, which
+    /// is what a car that has not transferred anything yet stands on (CAR-45).
+    /// </summary>
+    /// <remarks>
+    /// Off the same division the model makes — drive is placed by layout and divided by the load of the axle
+    /// it is placed on (<see cref="TyreModel"/>) — so the driven end of a car carrying half its weight puts
+    /// down half its grip, and an axle asked for more than this slides instead of pushing. Where both axles
+    /// are driven it is the worse of the two, since either sliding is the car sliding.
+    /// </remarks>
+    public required float DrivenTractionMps2 { get; init; }
 
     /// <summary>What the pedal may ask for. What actually stops the car is <see cref="UtmostBrakingMps2"/>.</summary>
     public required float BrakingMps2 { get; init; }
 
-    /// <summary>What this car's tyres hold across the roll on clean ground — the one figure a corner is taken on.</summary>
+    /// <summary>
+    /// What this car's tyres hold on clean ground — the one figure a corner is taken on and a stop is spent
+    /// from, since the coefficient does not know which way the body is pointing.
+    /// </summary>
     public required float GripMps2 { get; init; }
 
-    /// <summary>And along it, which is what a stop is spent from.</summary>
-    public required float LongGripMps2 { get; init; }
+    /// <summary>
+    /// <b>One of this car's tyres</b>, along its roll and across it — what the wheel is drawn at and how
+    /// wide a mark it leaves. This body's own, because a tyre is bolted to a car and not to a town.
+    /// </summary>
+    public required float WheelLengthM { get; init; }
+
+    public required float WheelWidthM { get; init; }
+
+    /// <summary>
+    /// And one of them as the straight-line mass it behaves like (J/r²), which is what decides how
+    /// violently it spins up or locks against the corner it is carrying.
+    /// </summary>
+    public required float WheelRotatingMassKg { get; init; }
 
     public required float MaxSteerRad { get; init; }
 
@@ -101,6 +138,20 @@ internal readonly record struct CarBuild
     public required float SteerRateRadPerS { get; init; }
 
     public required float TurningRadiusM { get; init; }
+
+    /// <summary>
+    /// <b>The circle this body turns kerb to kerb</b>, which is the figure a maker quotes and the one a
+    /// person can measure off a car. It is a read-out and nothing decides on it: what is authored is the
+    /// lock at the road wheel, and this is that lock met with this body's wheelbase and track.
+    /// </summary>
+    public float TurningCircleM
+    {
+        get
+        {
+            var outerM = TurningRadiusM + HalfTrackM;
+            return 2f * MathF.Sqrt((outerM * outerM) + (WheelbaseM * WheelbaseM));
+        }
+    }
 
     /// <summary>The radius this car's own parking templates are drawn at: its circle, with the steering off its stop.</summary>
     public required float ParkingTemplateRadiusM { get; init; }
@@ -138,7 +189,7 @@ internal readonly record struct CarBuild
 
     /// <summary>What it may be braking at at all on this ground: the pedal's cap, or what the patch puts down.</summary>
     public float UtmostBrakingMps2(float groundCoefficient) =>
-        MathF.Min(BrakingMps2, LongGripMps2 * groundCoefficient);
+        MathF.Min(BrakingMps2, GripMps2 * groundCoefficient);
 
     /// <summary>
     /// Where the wheel is after a tick of winding it from <paramref name="fromRad"/> towards
@@ -162,10 +213,19 @@ internal readonly record struct CarBuild
     /// One variant as the car it is: its own dimensions and mass, and the nominal figures scaled by what
     /// its file says it is worth against them.
     /// </summary>
-    public static CarBuild Of(SimConfig config, in CarVariant variant) => Resolve(
-        config, variant.FootprintM.X, variant.FootprintM.Y, variant.CollisionSizeM, variant.CornerRadiusM,
-        variant.MassKg, variant.WheelbaseM, variant.HalfTrackM, -variant.RearAxleM, variant.DrivenFrontShare,
-        variant.Handling, variant.Beam?.PivotM.X ?? 0f, variant.Beam?.ReachM ?? 0f);
+    public static CarBuild Of(SimConfig config, in CarVariant variant)
+    {
+        // The balance is settled before the layout, because a car that drives all four wheels places its
+        // drive by the load it will be spent against rather than evenly.
+        var frontWeightShare = Math.Clamp(variant.FrontWeightShare ?? config.Car.StaticFrontShare, 0f, 1f);
+        return Resolve(
+            config, variant.FootprintM.X, variant.FootprintM.Y, variant.CollisionSizeM, variant.CornerRadiusM,
+            variant.MassKg, variant.WheelbaseM, variant.HalfTrackM, -variant.RearAxleM,
+            variant.DrivenFrontShare(frontWeightShare),
+            variant.Handling, variant.Beam?.PivotM.X ?? 0f, variant.Beam?.ReachM ?? 0f,
+            variant.MaxSteeringDeg, variant.TyreFriction, variant.CgHeightM, frontWeightShare,
+            variant.WheelM, variant.WheelRotatingMassKg);
+    }
 
     /// <summary>
     /// <b>The nominal car, with one variant's drive layout on it</b> — the proving ground's car and nobody
@@ -177,20 +237,50 @@ internal readonly record struct CarBuild
         config, config.Car.LengthM, config.Car.WidthM,
         new Vector2(config.Car.LengthM, config.Car.WidthM), cornerRadiusM: 0f, config.Car.MassKg,
         config.Car.WheelbaseM, config.CarTrackM * 0.5f, config.CarCentreAheadOfAxleM, drivenFrontShare,
-        CarHandling.Nominal, towHingeAheadOfCentreM: 0f, towReachM: 0f);
+        CarHandling.Nominal, towHingeAheadOfCentreM: 0f, towReachM: 0f, maxSteeringDeg: null, tyreFriction: null,
+        cgHeightM: null, Math.Clamp(config.Car.StaticFrontShare, 0f, 1f), wheelM: null, wheelRotatingMassKg: null);
+
+    /// <summary>
+    /// <b>Where a steering angle stops describing a circle.</b> At a right angle the front wheels point
+    /// across the car, <c>wheelbase/tan</c> is nothing, and past it the tangent changes sign and the radius
+    /// comes back <em>negative</em> — a turning circle on the wrong side of a car that is no longer turning.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a figure anybody chose but the bound the arithmetic has</b>, held a degree off so a radius
+    /// stays a length rather than a point. Nothing in the fleet is near it — every authored lock is under
+    /// 32° — and the only thing that reaches it is the panel's own
+    /// <see cref="TrimFigures.SteeringLock"/>, which runs to ten times shipped and used to take the whole
+    /// parking geometry negative somewhere above two and a half.
+    /// </remarks>
+    const float MostSteerRad = 89f * MathF.PI / 180f;
 
     static CarBuild Resolve(
         SimConfig config, float lengthM, float widthM, Vector2 collisionSizeM, float cornerRadiusM, float massKg,
         float wheelbaseM, float halfTrackM, float centreAheadOfAxleM, float drivenFrontShare,
-        in CarHandling handling, float towHingeAheadOfCentreM, float towReachM)
+        in CarHandling handling, float towHingeAheadOfCentreM, float towReachM, float? maxSteeringDeg,
+        float? tyreFriction, float? cgHeightM, float frontShare, Vector2? wheelM,
+        float? wheelRotatingMassKg)
     {
-        var maxSteerRad = config.Car.MaxSteeringDeg * MathF.PI / 180f;
+        // Everything a reader would look up is worked out from a raw term and never the other way about:
+        // the lock is the angle at the road wheel and the circle is what it comes to, the friction is a
+        // coefficient and the grip is what it is worth.
+        //
+        // The one trim spent here is the road's (TrimFigures): the coefficient between rubber and tarmac is
+        // a fact about a surface every body in the town stands on, so a panel may move it and every look
+        // keeps its own compound underneath. What this car *is* — its lock, its height, its mass, its
+        // engine — is its own file's and has no dial over it.
+        var maxSteerRad = MathF.Min(
+            (maxSteeringDeg ?? config.Car.MaxSteeringDeg) * MathF.PI / 180f, MostSteerRad);
         var turningRadiusM = wheelbaseM / MathF.Tan(maxSteerRad);
-        var brakingMps2 = config.Car.BrakingMps2 * handling.Braking;
-        var gripMps2 = config.Tyre.GripMps2 * handling.Cornering;
-        var longGripMps2 = gripMps2 * config.Tyre.LongAxisFactor;
+        var brakingMps2 = config.CarBrakingMps2 * handling.Braking;
+        var friction = (tyreFriction ?? config.Tyre.Friction) * config.Trim.Friction;
+        var gripMps2 = friction * config.Tyre.StandardGravityMps2;
         var maxSpeedMps = config.Car.MaxSpeedMps * handling.MaxSpeed;
-        var accelerationMps2 = config.Car.AccelerationMps2 * handling.Acceleration;
+
+        // The engine is authored as a headroom over the rubber and not as an acceleration, so that a pedal
+        // stays a demand a tyre can be measured against when the compound underneath it moves (CAR-45).
+        var drivenTractionMps2 = DrivenTraction(gripMps2, frontShare, drivenFrontShare);
+        var accelerationMps2 = drivenTractionMps2 * config.Car.DrivePedalInDrivenGrips * handling.Acceleration;
 
         return new CarBuild
         {
@@ -205,14 +295,21 @@ internal readonly record struct CarBuild
             TowHingeAheadOfCentreM = towHingeAheadOfCentreM,
             TowReachM = towReachM,
             TowGripFromTheMiddleM = (lengthM * 0.5f) - config.Evacuator.TowGripInsideTheEndM,
-            CgHeightM = config.Car.CgHeightM,
+            CgHeightM = cgHeightM ?? config.Car.CgHeightM,
+
+            // A share is a share, and a car standing on more than all of itself is not a body the loads
+            // can split.
+            FrontWeightShare = frontShare,
             DrivenFrontShare = drivenFrontShare,
             MaxSpeedMps = maxSpeedMps,
             ReverseMaxMps = config.Car.ReverseMaxMps,
             AccelerationMps2 = accelerationMps2,
+            DrivenTractionMps2 = drivenTractionMps2,
             BrakingMps2 = brakingMps2,
             GripMps2 = gripMps2,
-            LongGripMps2 = longGripMps2,
+            WheelLengthM = wheelM?.X ?? config.Tyre.WheelLengthM,
+            WheelWidthM = wheelM?.Y ?? config.Tyre.WheelWidthM,
+            WheelRotatingMassKg = wheelRotatingMassKg ?? config.Tyre.WheelRotatingMassKg,
             MaxSteerRad = maxSteerRad,
             PedalRateMps3 = (accelerationMps2 + brakingMps2) / config.Driving.PedalTravelS,
             SteerRateRadPerS = 2f * maxSteerRad / config.Driving.WheelTravelS,
@@ -220,7 +317,7 @@ internal readonly record struct CarBuild
             ParkingTemplateRadiusM = turningRadiusM * config.Car.ParkingTemplateArcMargin,
             ParkingStraightensUpM = lengthM * config.Road.ParkingStraightensUpInCarLengths,
             SightM = maxSpeedMps * maxSpeedMps
-                / (2f * MathF.Min(brakingMps2, longGripMps2) * config.Driving.GripMargin),
+                / (2f * MathF.Min(brakingMps2, gripMps2) * config.Driving.GripMargin),
             LookaheadFloorM = lengthM * config.Driving.LookaheadFloorInCarLengths,
             LookaheadCeilingM = lengthM * config.Driving.LookaheadCeilingInCarLengths,
             ProjectionWindowM = lengthM * config.Driving.ProjectionWindowInCarLengths,
@@ -230,6 +327,24 @@ internal readonly record struct CarBuild
             CrossingPaceMps = lengthM * config.Driving.CrossingPaceInCarLengthsPerS,
             CrossingStandOffM = widthM * config.Driving.CrossingStandOffInCarWidths,
         };
+    }
+
+    /// <summary>
+    /// <see cref="DrivenTractionMps2"/>: the pedal at which the driven axle's quotient — the drive it is
+    /// placed by layout, over the load it stands on — first reaches what the patch holds.
+    /// </summary>
+    static float DrivenTraction(float gripMps2, float frontWeightShare, float drivenFrontShare)
+    {
+        var mostMps2 = float.PositiveInfinity;
+        if (drivenFrontShare > 0f) mostMps2 = gripMps2 * frontWeightShare / drivenFrontShare;
+        if (drivenFrontShare < 1f)
+        {
+            mostMps2 = MathF.Min(mostMps2, gripMps2 * (1f - frontWeightShare) / (1f - drivenFrontShare));
+        }
+
+        // A car nothing drives has no pedal at all, and a car standing on nothing at the driven end has no
+        // pedal it can use: either way the figure is a zero rather than an infinity for a caller to trip on.
+        return float.IsFinite(mostMps2) ? mostMps2 : 0f;
     }
 }
 
@@ -241,34 +356,53 @@ internal readonly record struct CarBuild
 internal sealed class CarBuilds
 {
     readonly CarBuild[] _byVariant;
+    readonly CarCatalog _catalogue;
 
-    CarBuilds(CarBuild[] byVariant) => _byVariant = byVariant;
+    /// <summary>Whether these are the nominal car's, which is what a rebuild has to know to make them again.</summary>
+    readonly bool _nominal;
+
+    CarBuilds(CarCatalog catalogue, bool nominal)
+    {
+        _catalogue = catalogue;
+        _nominal = nominal;
+        _byVariant = new CarBuild[catalogue.SheetCount];
+    }
 
     /// <summary>Each look as the car it is drawn as.</summary>
-    public static CarBuilds OfTheFleet(SimConfig config, CarCatalog catalogue)
-    {
-        var builds = new CarBuild[catalogue.SheetCount];
-        for (var variant = 0; variant < builds.Length; variant++)
-        {
-            builds[variant] = CarBuild.Of(config, catalogue.Variants[variant]);
-        }
-
-        return new CarBuilds(builds);
-    }
+    public static CarBuilds OfTheFleet(SimConfig config, CarCatalog catalogue) => Made(config, catalogue, nominal: false);
 
     /// <summary>
     /// And each of them as the nominal car driving through its own variant's end, which is the proving
     /// ground's fleet (CAR-11a) and no town's.
     /// </summary>
-    public static CarBuilds OfTheNominalCar(SimConfig config, CarCatalog catalogue)
-    {
-        var builds = new CarBuild[catalogue.SheetCount];
-        for (var variant = 0; variant < builds.Length; variant++)
-        {
-            builds[variant] = CarBuild.Nominal(config, catalogue.Variants[variant].DrivenFrontShare);
-        }
+    public static CarBuilds OfTheNominalCar(SimConfig config, CarCatalog catalogue) =>
+        Made(config, catalogue, nominal: true);
 
-        return new CarBuilds(builds);
+    static CarBuilds Made(SimConfig config, CarCatalog catalogue, bool nominal)
+    {
+        var builds = new CarBuilds(catalogue, nominal);
+        builds.Resolve(config);
+        return builds;
+    }
+
+    /// <summary>
+    /// <b>Every look made again from the figures as they stand now</b>, into the same array — so a fleet
+    /// already holding this is holding the new figures rather than a stale copy.
+    /// </summary>
+    /// <remarks>
+    /// It is the figures panel's and nothing else calls it: what a variant is worth does not change while
+    /// a town is running unless somebody is turning it. Allocation-free by construction, which is what
+    /// lets it be called on a town rather than only on the way to standing one up.
+    /// </remarks>
+    public void Resolve(SimConfig config)
+    {
+        for (var variant = 0; variant < _byVariant.Length; variant++)
+        {
+            _byVariant[variant] = _nominal
+                // The nominal car's own balance, because the layout is all this borrows from the variant.
+                ? CarBuild.Nominal(config, _catalogue.Variants[variant].DrivenFrontShare(config.Car.StaticFrontShare))
+                : CarBuild.Of(config, _catalogue.Variants[variant]);
+        }
     }
 
     public ref readonly CarBuild Of(int variant) => ref _byVariant[variant % _byVariant.Length];

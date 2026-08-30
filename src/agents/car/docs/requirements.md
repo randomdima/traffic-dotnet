@@ -25,10 +25,28 @@ that arrived instantly would let any driver select full lock at speed, which is 
 hold and a front axle saturated for the whole of the corner.
 
 **CAR-3b** **The throttle is bounded by what the patch has left, not by what the engine has.** A driven
-axle may be asked for the ellipse's remainder along the roll once the corner the car is *actually* taking
+axle may be asked for the friction circle's remainder along the roll once the corner the car is *actually* taking
 has been paid for; past that, throttle buys no acceleration and only takes grip off the turn. This binds
 whoever is at the pedals. What does not is the self-driver's own lift while its tyres report a slide, which
 is a driver keeping out of trouble rather than a fact about rubber — flooring it stays the player's to do.
+
+**CAR-3e** **One coefficient of friction, at every load and in every direction.** A patch is worth what it
+is carrying and nothing else, so a stop and a corner of the same car are worth the same and a transfer costs
+the four wheels nothing between them. What the loads decide is **which wheel runs out first** — a rear gone
+light under the brakes, an inside wheel gone light in a corner — and never what the car holds in total.
+**Any figure that separates a stop from a corner is a fudge**: the mechanisms that would separate them
+honestly are each worth about a per cent from the height a town is watched at.
+
+**CAR-45** **A car's pedal is authored against what its own driven tyres can put down, and never as an
+acceleration.** What the engine asks for is a multiple of what the driven axle holds at the **static** load —
+the load a car pulling away stands on, before it has transferred anything — so a variant states how far past
+its rubber its engine reaches and the acceleration is what that comes to. Under one, nothing it does spins a
+wheel; over one, the pedal lights the driven axle up somewhere short of the floor, which is a fact about that
+car worth authoring. What a figure in m/s² cannot be is **an input**: above the traction limit it buys no
+acceleration whatever (CAR-3b), so a pedal authored past every tyre in the fleet describes nothing that ever
+happens to the car, and every metre per second it gains is the compound's. It also cannot be recovered by
+moving the compound — a friction coefficient solved backwards out of a wanted acceleration is the one thing
+this project's figures may never be.
 
 **CAR-4** Steering changes heading **only as a function of travel and steering angle** — a stationary car
 does not rotate.

@@ -15,6 +15,9 @@ namespace TrafficSimulation.App.Main;
 /// </remarks>
 internal sealed partial class Game
 {
+    /// <summary>The map the menu was clicked on and this run has not been handed the plan for yet.</summary>
+    string? _wanted;
+
     private partial AppWindow Boot(
         int width, int height, bool validate, float uiScale, Pacing pacing, bool fullscreen, string? display) =>
         new AppWindow(uiScale);
@@ -23,6 +26,23 @@ internal sealed partial class Game
         TownRenderer.OnScreen(mesh, ProjectPaths.GroundSurfaceFiles(), _looks.Sheets, spriteCapacity);
 
     private partial long Crossings() => WebGpu.Crossings;
+
+    /// <summary>
+    /// The name, written down. A page has to fetch a plan before it can read one and this is called
+    /// from inside a frame, so opening it here would be the loop waiting on the network.
+    /// </summary>
+    private partial void PickMap(string map) => _wanted = map;
+
+    /// <summary>
+    /// The map a click asked for, once. <b>The boot loop is what drains it</b>: that is the only place
+    /// in a browser run where waiting for the plan to arrive is allowed (<see cref="Data.Town"/>).
+    /// </summary>
+    public string? TakeWanted()
+    {
+        var wanted = _wanted;
+        _wanted = null;
+        return wanted;
+    }
 
     /// <summary>The device belongs to the page and outlives the run, so there is nothing to give back.</summary>
     partial void Shutdown()

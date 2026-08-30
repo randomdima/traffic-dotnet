@@ -75,7 +75,7 @@ internal sealed class FleetWatch : LapWatch
             config, world, "the fleet lap", "one of every look the fleet ships, on the one lap, nobody on foot",
             TheClaims, TheReadings)
     {
-        _crawlingMps2 = config.Car.AccelerationMps2 * OfTheNominalPedal;
+        _crawlingMps2 = config.CarAccelerationMps2 * OfTheNominalPedal;
         _offLineAllowedM = config.CarOffPathM * 2f;
     }
 

@@ -42,14 +42,14 @@ internal static class WalkerFollower
     {
         var toAim = aimM - positionM;
         var heading = toAim.LengthSquared() > 1e-8f
-            ? TurnToward(headingRad, MathF.Atan2(toAim.Y, toAim.X), config.Person.TurnRateDegPerS * MathF.PI / 180f * dtS)
+            ? TurnToward(headingRad, MathF.Atan2(toAim.Y, toAim.X), config.PersonTurnRateDegPerS * MathF.PI / 180f * dtS)
             : headingRad;
 
         var desired = moving
-            ? Heading.Unit(heading) * config.Person.WalkSpeedMps * terrainCoefficient
+            ? Heading.Unit(heading) * config.PersonWalkSpeedMps * terrainCoefficient
             : Vector2.Zero;
 
-        var gripMps2 = (onFeet ? config.Person.FootGripMps2 : config.PersonSlidingGripMps2) * terrainCoefficient;
+        var gripMps2 = (onFeet ? config.PersonFootGripMps2 : config.PersonSlidingGripMps2) * terrainCoefficient;
         var wanted = (desired - velocityMps) * massKg;
         var affordable = gripMps2 * massKg * dtS;
         var wantedLength = wanted.Length();

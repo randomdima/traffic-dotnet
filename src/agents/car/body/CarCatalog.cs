@@ -1,5 +1,4 @@
 using System.Numerics;
-using SixLabors.ImageSharp;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.Agents.Car.Body;
@@ -12,13 +11,13 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// A variant that states none of them is the nominal car's engine in its own body, which is why every one
 /// of them defaults to one rather than to a figure.
 /// </remarks>
-internal readonly record struct CarHandling(float MaxSpeed, float Acceleration, float Braking, float Cornering)
+internal readonly record struct CarHandling(float MaxSpeed, float Acceleration, float Braking)
 {
-    public static CarHandling Nominal => new(1f, 1f, 1f, 1f);
+    public static CarHandling Nominal => new(1f, 1f, 1f);
 
     internal static CarHandling Of(HandlingFile? file) => file is null
         ? Nominal
-        : new CarHandling(file.MaxSpeed ?? 1f, file.Acceleration ?? 1f, file.Braking ?? 1f, file.Cornering ?? 1f);
+        : new CarHandling(file.MaxSpeed ?? 1f, file.Acceleration ?? 1f, file.Braking ?? 1f);
 }
 
 /// <summary>One of an arm's two pictures (EVA-5) and the quad it is drawn on.</summary>
@@ -59,16 +58,38 @@ internal readonly record struct CarTowBeam(CarTowArm Extended, CarTowArm Collaps
 /// its mirrors set.
 /// </param>
 /// <param name="CornerRadiusM">And how much of that shape's corners is rounded off.</param>
+/// <param name="MaxSteeringDeg">
+/// How far its front wheels turn at the stop, or nothing where its file names none and it gets the nominal
+/// car's lock.
+/// </param>
+/// <param name="TyreFriction">What its rubber holds across the roll, or nothing for the nominal tyre.</param>
+/// <param name="CgHeightM">And how high it carries its weight, or nothing for the nominal car's.</param>
+/// <param name="FrontWeightShare">And how much of it stands on the front axle, or nothing for an even split.</param>
+/// <param name="WheelM">
+/// The size of one of its tyres, along the roll and across it, or nothing for the nominal tyre. It is what
+/// the wheel is drawn at and how wide a mark it leaves.
+/// </param>
+/// <param name="WheelRotatingMassKg">And what one of them behaves like as a straight-line mass (J/r²).</param>
 internal readonly record struct CarVariant(
     string Id, string SpritePath, string WreckSpritePath, Vector2 WreckScale, CarTowBeam? Beam, Vector2 FootprintM,
     Vector2 CollisionSizeM, float CornerRadiusM, float MassKg, float FrontAxleM, float RearAxleM, float HalfTrackM,
-    int Drivetrain, bool Unbreakable, CarHandling Handling, CarLens[] Lenses)
+    int Drivetrain, float? MaxSteeringDeg, float? TyreFriction, float? CgHeightM, float? FrontWeightShare,
+    Vector2? WheelM, float? WheelRotatingMassKg,
+    bool Unbreakable, CarHandling Handling, CarLens[] Lenses)
 {
     public float WheelbaseM => FrontAxleM - RearAxleM;
 
     /// <summary>How far the drive is placed on the front axle, in the terms the tyre model spends it in.</summary>
-    /// <remarks>The shipped fleet writes 0 for rear, 1 for front and 2 for all four; nothing else appears in it.</remarks>
-    public float DrivenFrontShare => Drivetrain switch { 0 => 0f, 2 => 0.5f, _ => 1f };
+    /// <remarks>
+    /// The shipped fleet writes 0 for rear, 1 for front and 2 for all four; nothing else appears in it.
+    /// <b>All four is the load's own split and never an even one.</b> A differential handing half the torque
+    /// to an axle carrying a third of the car would break that axle away at a third of the grip the other
+    /// three wheels still had, so an even split makes a car driving every wheel worse the further its
+    /// balance is from the middle — which is backwards. Placed by load, a car that drives all four puts down
+    /// the whole of what it stands on whatever its balance, which is the thing driving all four is for.
+    /// </remarks>
+    public float DrivenFrontShare(float frontWeightShare) =>
+        Drivetrain switch { 0 => 0f, 2 => frontWeightShare, _ => 1f };
 }
 
 /// <summary>
@@ -252,7 +273,9 @@ internal sealed class CarCatalog
                 : null,
             variant.FootprintM, variant.CollisionM?.SizeM ?? variant.FootprintM,
             variant.CollisionM?.CornerRadiusM ?? 0f, variant.MassKg, variant.FrontAxleM,
-            variant.RearAxleM, variant.TrackM * 0.5f, variant.Drivetrain, variant.Unbreakable,
+            variant.RearAxleM, variant.TrackM * 0.5f, variant.Drivetrain, variant.MaxSteeringDeg,
+            variant.TyreFriction, variant.CgHeightM, variant.FrontWeightShare,
+            variant.WheelM, variant.WheelRotatingMassKg, variant.Unbreakable,
             CarHandling.Of(variant.Handling), Lenses(variant, path, sprite));
     }
 
@@ -271,8 +294,8 @@ internal sealed class CarCatalog
                 $"{path}: draws {variant.Lamps.Length} lenses, and a car may draw {CarLamps.MostLenses}.");
         }
 
-        var artPx = Image.Identify(sprite).Size;
-        var perM = new Vector2(artPx.Width / variant.FootprintM.X, artPx.Height / variant.FootprintM.Y);
+        var artPx = ImageHeader.Measure(sprite);
+        var perM = new Vector2(artPx.WidthPx / variant.FootprintM.X, artPx.HeightPx / variant.FootprintM.Y);
         var halfM = variant.FootprintM * 0.5f;
         var lenses = new CarLens[variant.Lamps.Length];
         for (var lamp = 0; lamp < lenses.Length; lamp++)

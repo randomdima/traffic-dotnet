@@ -105,9 +105,17 @@ public class AllocationGateTests
         // still growing its capacities is not the steady state the rule is about. <b>It is the worst
         // moment a map ever reaches and not its first minute</b> — the contact arrays are sized by the
         // most contacts the solver has ever had at once, and the proving ground with the drunks on it does
-        // not have its worst pile-up in the first ten seconds. Ten times the window that is measured, so
-        // a leak still shows in it at a tenth of the rate.
-        loop.Advance(6000);
+        // not have its worst pile-up in the first ten seconds. Forty times the window that is measured,
+        // so a leak still shows in it at a fortieth of the rate.
+        //
+        // <b>It is a figure about the maps and it moves when they do</b>, which makes it the fragile part
+        // of this gate: it went from a hundred seconds to four hundred when the cars stopped claiming an
+        // acceleration none of them had (CAR-45) and started planning against a governed speed rather than
+        // 270 km/h, because both changes moved when a map reaches its worst pile-up rather than whether it
+        // does. **A failure here of a few hundred bytes is this and not a leak** — a leak allocates every
+        // tick and grows with the window, so the two are told apart by lengthening the warm-up rather than
+        // by reading the figure. What would retire the chase is pre-sizing the arrays that grow.
+        loop.Advance(24000);
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         loop.Advance(600);

@@ -41,7 +41,7 @@ internal sealed partial class DebugOverlay
             // ringed — the sprite is already there, and a mark on it says nothing.
             if (people.HeldAtTheKerb[person]) draw.RingM(atM, people.RadiusM[person] * 1.6f, PathMarks.PathLineM, colour, segments: 12);
 
-            Label(ref draw, atM, WalkName(people, person), viewCentreM, viewSpanM, pixelsPerMetre);
+            Label(ref draw, atM, WalkName(people, person, world.StopsInM(person)), viewCentreM, viewSpanM, pixelsPerMetre);
 
             if (!people.Walking[person]) continue;
 
@@ -91,7 +91,7 @@ internal sealed partial class DebugOverlay
     /// walker's catalogue is unbuilt, and a label naming one of its entries would claim behaviour that
     /// is not there.
     /// </summary>
-    static ReadOnlySpan<char> WalkName(Agents.Person.Body.PersonFleet people, int person)
+    static ReadOnlySpan<char> WalkName(Agents.Person.Body.PersonFleet people, int person, float stopsInM)
     {
         if (people.Wounded[person]) return "wounded, waiting for an ambulance";
         if (people.HeldAtTheKerb[person]) return "held at the kerb";
@@ -114,7 +114,7 @@ internal sealed partial class DebugOverlay
         // else's, which is the other state this layer could not otherwise tell from walking. The lane it
         // was refused is worth naming apart from the pavement it is queueing on — one is traffic and the
         // other is a crowd, and they look identical from here.
-        if (people.IsHeldByTheBook(person))
+        if (people.IsHeldByTheBook(person, stopsInM))
         {
             return people.RefusedWay[person] == Agents.Person.Body.PersonFleet.NoWay
                 ? "waiting behind somebody"

@@ -161,9 +161,10 @@ out, the frame — against the desktop's five, and the counter that says so is
 `--lamps` and `--place-services` are how a run is measured and they stay on the desktop, which has a file
 system and a process that can exit.
 
-**The page downloads every map before the first frame**, because a town is opened from inside the loop
-and a loop cannot wait on a fetch. That is about 50 MB, and fetching a town when it is picked is the
-improvement to make ([decision log](src/app/web/docs/decision-log.md)).
+**The page downloads the art before the first frame and a map when that map is picked.** A frame cannot
+wait on a fetch, so the menu's click writes a name down and the boot's own loop — the one place a
+browser run may wait — fetches the plan and stands the town up
+([decision log](src/app/web/docs/decision-log.md)).
 
 ## Layout
 

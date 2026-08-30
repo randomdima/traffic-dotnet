@@ -36,12 +36,19 @@ try
         config, width: 0, height: 0, validate: false, options.UiScale, Pacing.Fifo,
         fullscreen: false, display: null);
 
-    game.Switch(options.Ui);
-    if (options.Map is { } map)
+    // A map, fetched and then stood up. The plan is not in the file system until this has run, which
+    // is why the menu's click only writes the name down (Game.Web.cs) and this is what acts on it.
+    async Task Open(string map)
     {
+        Say($"fetching {map}…");
+        await Data.Town(map);
         Say($"standing {map} up…");
         game.Start(map);
+        Say(string.Empty);
     }
+
+    game.Switch(options.Ui);
+    if (options.Map is { } map) await Open(map);
 
     Say(string.Empty);
 
@@ -55,7 +62,21 @@ try
     // pending, an infinite delay schedules nothing, and an animation callback the browser holds is
     // not something it counts — so the page would tear the device down between the first frame and
     // the second, and report it as a device lost for no reason anybody could see.
-    while (!game.Closed) await Task.Delay(1000);
+    //
+    // Short enough that Exit is answered while the hand is still on the mouse. It costs a wake-up
+    // five times a second against a callback sixty, and it is what the run is waited on with — and
+    // what a map picked on the menu is fetched from, because this is the only place in the run where
+    // waiting for it is allowed.
+    while (!game.Closed)
+    {
+        if (game.TakeWanted() is { } picked) await Open(picked);
+        await Task.Delay(200);
+    }
+
+    // <b>Exit has to be visible, and on this machine nothing else makes it so.</b> A window that
+    // closes is its own announcement; a canvas holds its last frame for as long as the tab is open,
+    // so a town shut down and a town wedged look exactly alike. The banner is the difference.
+    Say("the town has been shut down — reload the page to open it again.");
 }
 catch (Exception trouble)
 {

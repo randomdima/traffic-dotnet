@@ -7,6 +7,35 @@ one is deleted, not annotated.
 Nothing here restates a rule. Rules are [requirements.md](requirements.md); how a thing works is the XML
 docs on the type that does it.
 
+## 2026-08-29 — six more figures were relations, and four of them said so themselves
+
+**Swept every authored group for numbers that were really arithmetic.** Six came out, and the tell was
+usually the figure's own doc comment: a comment that explains what a constant is *half of*, or *five times*,
+or *whatever keeps* something inside something else, is a comment standing in for a derivation nobody wrote.
+
+- **The person model's pace scale.** `WalkSpeedMps` 6.6 and `TurnRateDegPerS` 1350 were both "five times a
+  real one" in prose and neither said so in a figure. Now `Person.RealWalkSpeedMps` 1.32, `RealPivotDegPerS`
+  270 and **`PaceScale` 5** are authored and both paces derive. The scale was already load-bearing and
+  unstated — every acceleration in the person model carries its *square*, which is the trap that once put
+  the casualty band under walking speed.
+- **`FootGripMps2` 110** was documented as "the relation, not the number: whatever the walk speed is, the
+  grip is what keeps a stop inside a fifth of the body's own diameter" — and then authored as a number
+  anyway, with a test checking it had not drifted. The fifth is now `Person.StopsWithinDiameters` and the
+  grip is derived: 108.9 m/s², a per cent off what had been hand-held.
+- **`PavementCornerRadiusM` 2** was "half the walk" beside a 4 m walk.
+- **`Car.BrakingMps2` 27** was a deceleration whose entire purpose was to stand clear of the tyres. Now
+  `Car.BrakePedalInTyreGrips` 3 — a pedal that can lock a wheel at any load, which is what brakes are — so
+  it **tracks the rubber** instead of sitting where it was put. It had already gone stale once: the grip
+  moved under it this morning and it did not follow.
+- **`Evacuator.HitchMostMps2` 25** was described as "four *g*" and was 2.55 of them. In grips the prose
+  cannot drift from the figure again; the figure is kept and the prose corrected, because the number is
+  what the tow was measured with and the sentence is what nobody checked.
+
+**Three were left authored on purpose.** `Tyre.TreadPitchM` is the shipped picture's own period and belongs
+to the art. `View.ArtPixelsPerMetre`
+63 is 21 × 3, but both halves are facts about a sprite sheet rather than terms in a model.
+`Driving.WheelTravelS` 0.641 is suspiciously precise and states no relation, so it is flagged and not guessed at.
+
 ## 2026-08-28 — what a claim costs is the run it needs, and the suite had stopped asking
 
 The town tier had grown to eighty-three seconds and no single test was to blame. Measured, five per cent

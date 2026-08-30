@@ -144,7 +144,7 @@ internal static class PavementCorners
         var sin = MathF.Sin(halfWedgeRad);
         var boundedM = sin >= 1f ? float.MaxValue : walkM * 0.5f * sin / (1f - sin);
 
-        return MathF.Min(config.Road.PavementCornerRadiusM, boundedM);
+        return MathF.Min(config.PavementCornerRadiusM, boundedM);
     }
 
     /// <summary>
@@ -332,7 +332,7 @@ internal static class PavementCorners
         for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
         {
             var halfM = plan.ParkingLots.HalfExtentM[lot] + new Vector2(walkM);
-            var radiusM = MathF.Min(config.Road.PavementCornerRadiusM, MathF.Min(halfM.X, halfM.Y));
+            var radiusM = MathF.Min(config.PavementCornerRadiusM, MathF.Min(halfM.X, halfM.Y));
             pieces.Add(Piece.Wrap(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot], halfM, radiusM));
         }
 

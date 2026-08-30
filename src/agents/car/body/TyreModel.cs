@@ -96,9 +96,10 @@ internal static partial class TyreModel
             var locked = command.LocksEveryWheel || (rear && command.Handbrake);
             var surface = ground[wheel];
             // This car's own rubber on this wheel's own ground: what a variant is worth through a corner
-            // is the difference between a supercar and a truck on the same tarmac.
-            var acrossGripMps2 = car.GripMps2 * surface.Coefficient;
-            var alongGripMps2 = car.LongGripMps2 * surface.Coefficient;
+            // is the difference between a supercar and a truck on the same tarmac. One coefficient at any
+            // load, so what a corner can hold is simply what it is carrying — the loads are where a light
+            // inside wheel or a rear gone light under the brakes gets its answer.
+            var gripMps2 = car.GripMps2 * surface.Coefficient;
             var loadKg = pose.MassKg * loadFraction[wheel];
 
             var alongMps = Vector2.Dot(velocityMps, wheelForward);
@@ -135,35 +136,34 @@ internal static partial class TyreModel
                 // Guard 1: whatever daylight is already open between the tread and the road, less the
                 // hair of it this model puts there itself (see the class remarks).
                 var carriedMps = spin - alongMps;
-                carriedMps = MathF.Sign(carriedMps) * MathF.Max(MathF.Abs(carriedMps) - (alongGripMps2 * dtS), 0f);
+                carriedMps = MathF.Sign(carriedMps) * MathF.Max(MathF.Abs(carriedMps) - (gripMps2 * dtS), 0f);
 
                 // A gripping wheel transmits the pedals exactly as asked, at the corner's mass. Closing
                 // the daylight is the rim's business, and the rim is a fraction of the car's mass, so a
                 // spun-up or locked-up wheel is wound back over a few ticks rather than snatching.
                 alongSlipAskMps = carriedMps + pedalMps;
-                wantAlongNs = pedalMps * loadKg + (spin - alongMps) * SyncMassKg(config, loadKg);
+                wantAlongNs = pedalMps * loadKg + (spin - alongMps) * SyncMassKg(car, loadKg);
             }
 
-            // The friction ellipse: each axis' slip measured against what that axis can absorb in a
-            // tick. Past the ellipse the tyre slides and gets the boundary in the direction it is
-            // losing grip; inside it, it holds and is handed what it asked for.
+            // The friction circle: each axis' slip measured against what the patch can absorb in a tick,
+            // which is the same budget either way round. Past the circle the tyre slides and gets the
+            // boundary in the direction it is losing grip; inside it, it holds and is handed what it asked for.
             var askedAlongNs = wantAlongNs;
-            var acrossBudgetNs = acrossGripMps2 * loadKg * dtS;
-            var alongBudgetNs = alongGripMps2 * loadKg * dtS;
+            var budgetNs = gripMps2 * loadKg * dtS;
             var tyreNs = Vector2.Zero;
             var sliding = false;
-            if (acrossBudgetNs > 0f && alongBudgetNs > 0f)
+            if (budgetNs > 0f)
             {
-                var alongShare = alongSlipAskMps / (alongGripMps2 * dtS);
-                var acrossShare = acrossSlipAskMps / (acrossGripMps2 * dtS);
+                var alongShare = alongSlipAskMps / (gripMps2 * dtS);
+                var acrossShare = acrossSlipAskMps / (gripMps2 * dtS);
                 var demand = MathF.Sqrt(alongShare * alongShare + acrossShare * acrossShare);
                 sliding = demand > 1f;
                 if (sliding)
                 {
                     // Guard 3: a tyre asked for less than it could give does not start pushing harder
                     // because the other axis has saturated, which is the normal state of a corner.
-                    wantAlongNs = NoLargerThan(alongBudgetNs * alongShare / demand, wantAlongNs);
-                    wantAcrossNs = NoLargerThan(acrossBudgetNs * acrossShare / demand, wantAcrossNs);
+                    wantAlongNs = NoLargerThan(budgetNs * alongShare / demand, wantAlongNs);
+                    wantAcrossNs = NoLargerThan(budgetNs * acrossShare / demand, wantAcrossNs);
                 }
 
                 tyreNs = wheelForward * wantAlongNs + wheelRight * wantAcrossNs;
@@ -183,7 +183,7 @@ internal static partial class TyreModel
             if (!locked && loadKg > 0f)
             {
                 spinMps[wheel] = Rim(
-                    config, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg,
+                    car, spin, alongMps, alongAfterMps, wantAlongNs, askedAlongNs, sliding, loadKg,
                     (rear ? rearDriveMps2 : frontDriveMps2), command.BrakeMps2, spinAllowanceMps, dtS);
             }
 
@@ -202,10 +202,10 @@ internal static partial class TyreModel
     /// wind it back up, which is the difference between a locked wheel and a merely braked one.
     /// </summary>
     static float Rim(
-        SimConfig config, float spinMps, float alongMps, float alongAfterMps, float wantAlongNs, float askedAlongNs,
+        in CarBuild car, float spinMps, float alongMps, float alongAfterMps, float wantAlongNs, float askedAlongNs,
         bool sliding, float loadKg, float driveMps2, float brakeMps2, float spinAllowanceMps, float dtS)
     {
-        var rotatingKg = config.Tyre.WheelRotatingMassKg;
+        var rotatingKg = car.WheelRotatingMassKg;
         var pedalledMps = spinMps + (driveMps2 * loadKg / rotatingKg * dtS);
         var freeMps = pedalledMps - (wantAlongNs / rotatingKg);
 
@@ -317,11 +317,11 @@ internal static partial class TyreModel
     /// inertias in series, which is nearly all rim, so resynchronising costs the car little and the
     /// wheel everything.
     /// </summary>
-    static float SyncMassKg(SimConfig config, float loadKg) =>
-        loadKg <= 0f ? 0f : 1f / ((1f / config.Tyre.WheelRotatingMassKg) + (1f / loadKg));
+    static float SyncMassKg(in CarBuild car, float loadKg) =>
+        loadKg <= 0f ? 0f : 1f / ((1f / car.WheelRotatingMassKg) + (1f / loadKg));
 
     /// <summary>
-    /// <b>What the ellipse has left along the roll once the corner the car is taking has been paid for</b>
+    /// <b>What the circle has left along the roll once the corner the car is taking has been paid for</b>
     /// (CAR-3b): the most a driven axle may be asked for. Past it the engine buys no acceleration and only
     /// takes grip off the turn, which is the whole of why a car under power runs wide.
     /// </summary>
@@ -329,12 +329,12 @@ internal static partial class TyreModel
     /// The lateral acceleration the body is <em>actually</em> carrying and not the one a profile planned —
     /// so a car shoved sideways lifts for it the way it lifts for a bend it steered into.
     /// </param>
-    public static float DriveLeftMps2(float longGripMps2, float acrossGripMps2, float acrossMps2)
+    public static float DriveLeftMps2(float gripMps2, float acrossMps2)
     {
-        if (acrossGripMps2 <= 0f) return 0f;
+        if (gripMps2 <= 0f) return 0f;
 
-        var spent = MathF.Abs(acrossMps2) / acrossGripMps2;
-        return longGripMps2 * MathF.Sqrt(MathF.Max(0f, 1f - (spent * spent)));
+        var spent = MathF.Abs(acrossMps2) / gripMps2;
+        return gripMps2 * MathF.Sqrt(MathF.Max(0f, 1f - (spent * spent)));
     }
 
     /// <summary>

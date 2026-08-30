@@ -128,7 +128,7 @@ internal static class TrackProbe
         // The lap's cars are the nominal one (CAR-11a), so the figures this table is read against are its.
         var nominal = CarBuild.Nominal(config, config.Car.DrivenFrontShare);
         var plannedMps2 = CarFollower.BrakingMps2(config, nominal, groundCoefficient: 1f);
-        var lateralMps2 = config.Tyre.GripMps2 * config.Driving.GripMargin;
+        var lateralMps2 = config.TyreGripMps2 * config.Driving.GripMargin;
         var watch = Measure(config, lap);
         var metrics = watch.Metrics;
 

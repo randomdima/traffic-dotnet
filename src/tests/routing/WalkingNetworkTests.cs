@@ -633,7 +633,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
 
     /// <summary>The tightest circle the feet can hold at walking pace: the speed over the turn rate, and a corner tighter than it is a corner nothing can walk.</summary>
     static float TightestFeetM =>
-        SimConfig.Shipped().Person.WalkSpeedMps / (SimConfig.Shipped().Person.TurnRateDegPerS * MathF.PI / 180f);
+        SimConfig.Shipped().PersonWalkSpeedMps / (SimConfig.Shipped().PersonTurnRateDegPerS * MathF.PI / 180f);
 
     static bool Tighter(ReadOnlySpan<ArcSeg> join)
     {

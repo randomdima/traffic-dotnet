@@ -37,7 +37,7 @@ internal static class WalkProbe
     {
         var bodyM = config.PersonDiameterM;
         Console.WriteLine($"walk probe — one walker, no town, a {bodyM:F2} m body at {config.Person.MassKg:F0} kg, " +
-                          $"{config.Person.WalkSpeedMps:F2} m/s on grip {config.Person.FootGripMps2:F0} m/s²");
+                          $"{config.PersonWalkSpeedMps:F2} m/s on grip {config.PersonFootGripMps2:F0} m/s²");
         Console.WriteLine($"{"ground",-10}{"coefficient",12}{"pace m/s",10}{"start m",10}{"stop m",9}{"v²/2a m",10}{"of a body",11}{"crab m/s",10}");
 
         foreach (var (name, coefficient) in (ReadOnlySpan<(string, float)>)
@@ -80,7 +80,7 @@ internal static class WalkProbe
         var body = physics.AddPerson(Vector2.Zero);
         var massKg = physics.MassOf(body);
         var dt = config.TickSeconds;
-        var pace = config.Person.WalkSpeedMps * terrainCoefficient;
+        var pace = config.PersonWalkSpeedMps * terrainCoefficient;
 
         var positionM = Vector2.Zero;
         var velocityMps = Vector2.Zero;
@@ -91,7 +91,7 @@ internal static class WalkProbe
         var paceReachedMps = velocityMps.Length();
         var stopM = Walk(moving: false, until: speed => speed <= pace * StoppedFraction);
 
-        var gripMps2 = (onFeet ? config.Person.FootGripMps2 : config.PersonSlidingGripMps2) * terrainCoefficient;
+        var gripMps2 = (onFeet ? config.PersonFootGripMps2 : config.PersonSlidingGripMps2) * terrainCoefficient;
         return new WalkRun(paceReachedMps, startM, stopM, pace * pace / (2f * gripMps2), crabMps);
 
         float Walk(bool moving, Func<float, bool> until)

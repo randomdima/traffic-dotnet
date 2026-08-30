@@ -158,7 +158,10 @@ public class DamageResolverTests
         var carriedMps = closingMps * Config.Car.MassKg / (Config.Car.MassKg + Config.Person.MassKg);
         var slideM = carriedMps * carriedMps / (2f * Config.PersonSlidingGripMps2);
 
-        Assert.Equal(10.23f, closingMps, 2);
+        // A band and not a fingerprint: what has to hold is that a casualty costs a car meeting a standing
+        // body at about the speed this town's traffic runs at, and the digits of it move whenever a raw
+        // term under the sliding grip does.
+        Assert.InRange(closingMps, 9.5f, 11f);
         Assert.Equal(Config.Damage.SlideToCasualtyM, slideM, 1);
     }
 
@@ -172,7 +175,7 @@ public class DamageResolverTests
     {
         var verdict = DamageResolver.Resolve(
             Config, DamageSubject.Person(Config.Person.MassKg, down: false),
-            DamageSubject.Car(Config.Car.MassKg, broken: false), Config.Person.WalkSpeedMps);
+            DamageSubject.Car(Config.Car.MassKg, broken: false), Config.PersonWalkSpeedMps);
 
         Assert.Equal(DamageOutcome.None, verdict.ToFirst);
         Assert.Equal(DamageOutcome.None, verdict.ToSecond);

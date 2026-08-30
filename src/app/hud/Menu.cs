@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.App.Hud;
 
@@ -50,12 +51,21 @@ internal sealed partial class Menu
     public const int Maps = 0;
 
     public const int Debug = 1;
-    const int Pages = 2;
 
-    /// <summary>The third tab, which is a button rather than a page: it leaves the game.</summary>
-    public const int ExitTab = 2;
+    /// <summary>
+    /// <b>The figures, as a share of what the build ships</b> — the page a session turns a constant on and
+    /// watches the town answer (<see cref="TrimFigures"/>). It is a page rather than a scenario's own panel
+    /// because what is on it is the <em>road</em>, which every map has: the skidpad is where it is read, and
+    /// every other map is where it is felt. A car's own figures are not here and have no dial.
+    /// </summary>
+    public const int Figures = 2;
 
-    static readonly string[] TabNames = ["Maps", "Debug", "Exit"];
+    const int Pages = 3;
+
+    /// <summary>The last tab, which is a button rather than a page: it leaves the game.</summary>
+    public const int ExitTab = 3;
+
+    static readonly string[] TabNames = ["Maps", "Debug", "Figures", "Exit"];
 
     /// <summary>The two collapsible groups the map page is cut into, and which kind of map each holds.</summary>
     public const int MainMaps = 0;
@@ -100,6 +110,16 @@ internal sealed partial class Menu
 
     public Vector2 LineMiddlePx(int line) => Middle(_lines[line]);
 
+    /// <summary>And of one trim's track, which is where a click puts that figure back at what it ships.</summary>
+    public Vector2 TrimMiddlePx(int trim) => Middle(_trims[trim]);
+
+    /// <summary>Where along a trim's track a share falls, for a caller pointing at one rather than clicking blind.</summary>
+    public Vector2 TrimAtPx(int trim, float share)
+    {
+        var box = _trims[trim];
+        return new Vector2(box.AtPx.X + (TrackInsetPx + (WhereOnTheTrack(share) * TrackWidthPx(box))), Middle(box).Y);
+    }
+
     static Vector2 Middle(Rect box) => box.AtPx + box.SizePx * 0.5f;
 
     /// <summary>How many rows the map page laid, group headers and all.</summary>
@@ -115,7 +135,7 @@ internal sealed partial class Menu
     }
 
     /// <summary>A click on the menu. Everything it can do is here, so nothing outside it has to know its layout.</summary>
-    public MenuChoice Click(Vector2 pointPx, DebugSwitches switches)
+    public MenuChoice Click(Vector2 pointPx, DebugSwitches switches, TrimFigures trims)
     {
         for (var tab = 0; tab < _tabs.Length; tab++)
         {
@@ -129,6 +149,7 @@ internal sealed partial class Menu
         }
 
         if (Page == Maps) return ClickedRow(pointPx);
+        if (Page == Figures) return ClickedTrim(pointPx, trims);
 
         for (var line = 0; line < MostLines; line++)
         {
@@ -140,6 +161,95 @@ internal sealed partial class Menu
 
         return MenuChoice.None;
     }
+
+    /// <summary>
+    /// A press on the figures page: the row it landed in is taken hold of and moved to where the pointer
+    /// is, and it stays held until the button comes up (<see cref="Drag"/>). The row past the last trim
+    /// is the one that puts every figure back where the build shipped it.
+    /// </summary>
+    MenuChoice ClickedTrim(Vector2 pointPx, TrimFigures trims)
+    {
+        for (var trim = 0; trim < _trims.Length; trim++)
+        {
+            if (!_trims[trim].Contains(pointPx)) continue;
+
+            if (trim == ResetRow)
+            {
+                trims.Reset();
+                _figuresMoved = true;
+                return MenuChoice.None;
+            }
+
+            _held = trim;
+            Move(trim, ShareAt(pointPx.X, _trims[trim]), trims);
+            return MenuChoice.None;
+        }
+
+        return MenuChoice.None;
+    }
+
+    /// <summary>
+    /// The pointer while a button is down, offered every frame. <b>A trim follows it and takes effect as it
+    /// goes</b>, so the town answers under the hand that is moving it — which is the whole of what makes the
+    /// page an instrument rather than a form to be submitted.
+    /// </summary>
+    public void Drag(Vector2 pointPx, bool held, TrimFigures trims)
+    {
+        if (_held < 0) return;
+
+        if (held)
+        {
+            Move(_held, ShareAt(pointPx.X, _trims[_held]), trims);
+            return;
+        }
+
+        _held = -1;
+    }
+
+    /// <summary>
+    /// One trim to where the pointer put it. <b>A pointer resting on a track is not a figure moving</b>: the
+    /// value is read back after the clamp, so a drag held against either stop stands the town up once rather
+    /// than every frame it is held there.
+    /// </summary>
+    void Move(int trim, float toShare, TrimFigures trims)
+    {
+        var wasShare = trims.Of(trim);
+        trims.Set(trim, toShare);
+        _figuresMoved |= trims.Of(trim) != wasShare;
+    }
+
+    /// <summary>
+    /// Whether a figure has moved since this was last asked, which is what stands the town up again. Taken
+    /// rather than read, because it is an edge and not a state.
+    /// </summary>
+    public bool TakeFiguresMoved()
+    {
+        if (!_figuresMoved) return false;
+
+        _figuresMoved = false;
+        return true;
+    }
+
+    /// <summary>The row under the trims, which is not one: it puts every figure back where the build shipped it.</summary>
+    public const int ResetRow = TrimFigures.Count;
+
+    /// <summary>How much of a trim row is chrome either side of the track it is dragged along.</summary>
+    const float TrackInsetPx = Theme.InsetPx;
+
+    static float TrackWidthPx(Rect box) => MathF.Max(1f, box.SizePx.X - (TrackInsetPx * 2f));
+
+    /// <summary>
+    /// <b>The track is a decade either side of shipped and is laid out logarithmically</b>, so 100% is the
+    /// middle of it and halving reads as far from the centre as doubling. A linear track would put shipped
+    /// a tenth of the way along and give nine tenths of the travel to figures nobody wants.
+    /// </summary>
+    static readonly float Decades = MathF.Log(TrimFigures.Most / TrimFigures.Least);
+
+    static float WhereOnTheTrack(float share) =>
+        MathF.Log(Math.Clamp(share, TrimFigures.Least, TrimFigures.Most) / TrimFigures.Least) / Decades;
+
+    static float ShareAt(float atX, Rect box) => TrimFigures.Least * MathF.Exp(
+        Decades * Math.Clamp((atX - box.AtPx.X - TrackInsetPx) / TrackWidthPx(box), 0f, 1f));
 
     /// <summary>
     /// The switch a row of the debug page stands for. <b>One place, so the row that is drawn and the

@@ -128,7 +128,7 @@ public class ReelTests
         Assert.Equal(Lurch.Taken, Lurched(Middle(TrackPlan.Turn180), book, ref draw, out var roundTheHairpinM));
 
         Assert.Equal(
-            Config.Person.WalkSpeedMps * Config.Person.LurchS, downTheStraightM, 0.5f);
+            Config.PersonWalkSpeedMps * Config.Person.LurchS, downTheStraightM, 0.5f);
 
         Assert.True(
             roundTheHairpinM < downTheStraightM,
@@ -144,7 +144,7 @@ public class ReelTests
     public void ALurchIsRefusedWhereSomethingIsStandingInTheWay()
     {
         var (atM, along, lane) = OnTheStraight();
-        var strideM = Config.Person.WalkSpeedMps * Config.Person.LurchS;
+        var strideM = Config.PersonWalkSpeedMps * Config.Person.LurchS;
         var draw = new Rng(13, 17);
 
         var book = AnEmptyBook();

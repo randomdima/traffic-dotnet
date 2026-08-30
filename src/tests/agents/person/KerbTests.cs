@@ -68,6 +68,14 @@ public class KerbTests
                 Book.WayOfLane(band.Lane), band.AlongLaneM - endingShortOfM - Config.Car.LengthM,
                 band.AlongLaneM - endingShortOfM, 0f, occupant: 0, use);
 
+        /// <summary>An ambulance answering a call, with its own road over one of the lanes (AMB-4).</summary>
+        public void PutARescueOn(CrossingBands.Band band, float atMps) =>
+            Book.Add(
+                Book.WayOfLane(band.Lane), band.AlongLaneM - Config.Car.LengthM, band.AlongLaneM + Config.Car.LengthM,
+                atMps, occupant: 0, LaneUse.Reserved, LaneRoster.Driving, RightOfWay.Emergency);
+
+        public bool ARescueIsComingThrough => Kerb.ARescueIsOver(Config, Book, Under, ClaimM);
+
         /// <summary>Somebody already over the paint on one of the lanes.</summary>
         public void PutAWalkerOn(CrossingBands.Band band) =>
             Book.Add(
@@ -166,6 +174,63 @@ public class KerbTests
         at.PutAWalkerOn(at.First);
 
         Assert.True(at.IsClear);
+    }
+
+    /// <summary>
+    /// <b>A rescue coming through is the one road the patience does not escape</b> (`AMB-4`, PER-15): past
+    /// the wait a walker takes the band it was refused, and an ambulance answering a call is what it takes
+    /// it from.
+    /// </summary>
+    [Fact]
+    public void ARescueComingThroughHoldsTheCrossingPastThePatience()
+    {
+        var at = ACrossing();
+        at.PutARescueOn(at.First, Config.PersonWalkSpeedMps * 2f);
+
+        Assert.True(at.ARescueIsComingThrough);
+    }
+
+    /// <summary>
+    /// <b>And a rescue that has stopped over the paint is not one.</b> What the exemption is worth is its
+    /// own justification — a call lasts seconds, so what is being waited out is going to pass — and an
+    /// ambulance standing on the band is not passing: unbounded, it is a crossing that never clears, which
+    /// is the one thing the patience exists for.
+    /// </summary>
+    [Fact]
+    public void ARescueStandingOnThePaintDoesNotHoldItForEver()
+    {
+        var at = ACrossing();
+        at.PutARescueOn(at.First, atMps: 0f);
+
+        Assert.False(at.ARescueIsComingThrough);
+    }
+
+    /// <summary>
+    /// <b>Stopped is a pace and never zero.</b> A car held in a queue creeps at fractions of a millimetre a
+    /// second, and read against zero that is a rescue coming through for as long as it sits there — which is
+    /// how one ambulance held a crossing shut for the length of a run.
+    /// </summary>
+    [Fact]
+    public void ARescueCreepingIsNotComingThrough()
+    {
+        var at = ACrossing();
+        at.PutARescueOn(at.First, atMps: 4e-4f);
+
+        Assert.False(at.ARescueIsComingThrough);
+    }
+
+    /// <summary>
+    /// <b>And a rescue standing on the band cannot hide one moving through it</b>: every stretch over the
+    /// ground is asked rather than the first one found.
+    /// </summary>
+    [Fact]
+    public void AStoppedRescueDoesNotHideOneComingThrough()
+    {
+        var at = ACrossing();
+        at.PutARescueOn(at.First, atMps: 0f);
+        at.PutARescueOn(at.First, Config.PersonWalkSpeedMps * 2f);
+
+        Assert.True(at.ARescueIsComingThrough);
     }
 
     /// <summary>

@@ -82,7 +82,7 @@ internal static class StepOut
         var clearM = step.AlongM - taken.ToM;
         if (clearM <= config.PersonDiameterM) return false;
 
-        var acrossS = (step.RoadM - fromM).Length() / MathF.Max(0.1f, config.Person.WalkSpeedMps);
+        var acrossS = (step.RoadM - fromM).Length() / MathF.Max(0.1f, config.PersonWalkSpeedMps);
         return clearM > taken.AlongMps * acrossS;
     }
 

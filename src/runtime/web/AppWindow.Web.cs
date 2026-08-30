@@ -42,11 +42,20 @@ internal sealed class AppWindow : IDisposable
     const int Height = 7;
     const int Scale = 8;
     const int Resized = 9;
-    const int Closing = 10;
+    const int Axes = 10;
 
     readonly byte[] _keys = new byte[(Keys * 2) + 8];
-    readonly double[] _axes = new double[11];
+    readonly double[] _axes = new double[Axes];
     readonly float _wantedUiScale;
+
+    /// <summary>
+    /// <b>Not an axis, and this is the whole reason it is a field.</b> Every axis is what the page saw,
+    /// so a pump overwrites the lot of them from the page's own copy — and the page has no opinion
+    /// about whether the run is over, so an axis holding that would be set by the menu and cleared by
+    /// the very next frame. A latch here is set once and by nothing else, which is what makes the way
+    /// out of the game work at all.
+    /// </summary>
+    bool _closing;
 
     public AppWindow(float wantedUiScale)
     {
@@ -57,7 +66,7 @@ internal sealed class AppWindow : IDisposable
         PumpEvents();
     }
 
-    public bool IsClosing => _axes[Closing] != 0;
+    public bool IsClosing => _closing;
 
     public Vector2D<int> FramebufferSize => new((int)_axes[Width], (int)_axes[Height]);
 
@@ -141,8 +150,13 @@ internal sealed class AppWindow : IDisposable
 
     public void ToggleFullscreen() => WebGpu.Fullscreen();
 
-    /// <summary>A page is closed by the person looking at it and by nothing in here.</summary>
-    public void Close() => _axes[Closing] = 1;
+    /// <summary>
+    /// The way out of the game (OBS-2g). A page is not closed by anything in here — a tab belongs to
+    /// the person looking at it — so what this does is stop the run: the next
+    /// <see cref="TrafficSimulation.App.Main.Game.Step"/> returns without drawing, the browser is not
+    /// asked for another frame, and the boot says so under the canvas.
+    /// </summary>
+    public void Close() => _closing = true;
 
     public void Dispose() => Close();
 

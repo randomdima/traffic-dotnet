@@ -1,6 +1,7 @@
 using System.Numerics;
 using SixLabors.ImageSharp.PixelFormats;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using Xunit;
 
@@ -44,6 +45,69 @@ public class CarCatalogTests
         Assert.True(Catalogue.IsService(Catalogue.Police));
         Assert.True(Catalogue.IsService(Catalogue.Evacuator));
     }
+
+    /// <summary>
+    /// <b>CAR-45 — every variant's pedal is a multiple of what its own driven tyres put down.</b> The
+    /// multiple is the whole of what a variant authors; what is checked here is that the figure the build
+    /// hands out is that multiple of <em>this</em> arithmetic, worked out where the rule states it rather
+    /// than where the code does — drive placed by layout, over the load of the axle it is placed on
+    /// (<see cref="TyreModel"/>), at the static load a car pulling away stands on.
+    /// </summary>
+    [Fact]
+    public void EveryVariantsPedalIsAMultipleOfWhatItsDrivenTyresHold()
+    {
+        for (var entry = 0; entry < Catalogue.SheetCount; entry++)
+        {
+            var variant = Catalogue.Variants[entry];
+            var build = CarBuild.Of(Figures, variant);
+            Assert.Equal(TractionLimitMps2(build), build.DrivenTractionMps2, 1e-3f);
+            Assert.Equal(
+                TractionLimitMps2(build) * Figures.Car.DrivePedalInDrivenGrips * variant.Handling.Acceleration,
+                build.AccelerationMps2,
+                1e-3f);
+        }
+    }
+
+    /// <summary>
+    /// <b>CAR-45 — and no variant's engine reaches so far past its rubber that the figure stops describing
+    /// the car.</b> A pedal the tyres answer at every opening is a car with no wheelspin in it at all; a
+    /// pedal several times past them is an engine figure nothing that happens to the car is downstream of,
+    /// since the whole of the excess buys no acceleration (CAR-3b) and every metre per second is the
+    /// compound's. The band is wide because where a look sits in it is that look's character.
+    /// </summary>
+    [Fact]
+    public void NoVariantsEngineOutrunsItsOwnTyresByMoreThanHalf()
+    {
+        for (var entry = 0; entry < Catalogue.SheetCount; entry++)
+        {
+            var build = CarBuild.Of(Figures, Catalogue.Variants[entry]);
+            var reach = build.AccelerationMps2 / build.DrivenTractionMps2;
+            Assert.InRange(reach, 0.5f, 1.5f);
+        }
+    }
+
+    /// <summary>
+    /// The most a car can accelerate before a driven wheel breaks away: what the patch holds, against the
+    /// share of the drive its axle carries divided by the share of the car's weight standing on it.
+    /// </summary>
+    static float TractionLimitMps2(in CarBuild build)
+    {
+        var limitMps2 = float.PositiveInfinity;
+        if (build.DrivenFrontShare > 0f)
+        {
+            limitMps2 = build.GripMps2 * build.FrontWeightShare / build.DrivenFrontShare;
+        }
+
+        if (build.DrivenFrontShare < 1f)
+        {
+            limitMps2 = MathF.Min(
+                limitMps2, build.GripMps2 * (1f - build.FrontWeightShare) / (1f - build.DrivenFrontShare));
+        }
+
+        return limitMps2;
+    }
+
+    static readonly SimConfig Figures = SimConfig.Shipped();
 
     /// <summary>
     /// <b>Every variant's wheel centres stand under its own bodywork.</b> The axles and the track are

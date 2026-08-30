@@ -27,13 +27,13 @@ public class WalkerFollowerTests
             Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM: new Vector2(100f, 0f), moving: true,
             terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
 
-        Assert.Equal(Config.Person.FootGripMps2 * MassKg * Dt, step.ImpulseNs.Length(), 3);
+        Assert.Equal(Config.PersonFootGripMps2 * MassKg * Dt, step.ImpulseNs.Length(), 3);
     }
 
     [Fact]
     public void AWalkerAlreadyAtItsPaceIsAskedForNothing()
     {
-        var atPace = new Vector2(Config.Person.WalkSpeedMps, 0f);
+        var atPace = new Vector2(Config.PersonWalkSpeedMps, 0f);
         var step = WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.Zero, atPace, aimM: new Vector2(100f, 0f), moving: true,
             terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
@@ -46,7 +46,7 @@ public class WalkerFollowerTests
     [Fact]
     public void StandingIsDeclaredAsZeroVelocityAndNotAsNoDeclaration()
     {
-        var moving = new Vector2(Config.Person.WalkSpeedMps, 0f);
+        var moving = new Vector2(Config.PersonWalkSpeedMps, 0f);
         var step = WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.Zero, moving, aimM: new Vector2(100f, 0f), moving: false,
             terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
@@ -66,7 +66,7 @@ public class WalkerFollowerTests
             Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM: new Vector2(100f, 0f), moving: true,
             coefficient, onFeet: true, MassKg, Dt);
 
-        Assert.Equal(Config.Person.WalkSpeedMps * coefficient, step.DesiredMps.Length(), 4);
+        Assert.Equal(Config.PersonWalkSpeedMps * coefficient, step.DesiredMps.Length(), 4);
     }
 
     /// <summary>And the same factor scales the grip: one factor, both figures.</summary>
@@ -77,7 +77,7 @@ public class WalkerFollowerTests
             Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM: new Vector2(100f, 0f), moving: true,
             Config.Terrain.GrassCoefficient, onFeet: true, MassKg, Dt);
 
-        Assert.Equal(Config.Person.FootGripMps2 * Config.Terrain.GrassCoefficient * MassKg * Dt, onGrass.ImpulseNs.Length(), 3);
+        Assert.Equal(Config.PersonFootGripMps2 * Config.Terrain.GrassCoefficient * MassKg * Dt, onGrass.ImpulseNs.Length(), 3);
     }
 
     /// <summary>
@@ -91,14 +91,14 @@ public class WalkerFollowerTests
             Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM: new Vector2(100f, 0f), moving: true,
             terrainCoefficient: 1f, onFeet: false, MassKg, Dt);
 
-        Assert.Equal(Config.Person.WalkSpeedMps, offFeet.DesiredMps.Length(), 4);
+        Assert.Equal(Config.PersonWalkSpeedMps, offFeet.DesiredMps.Length(), 4);
         Assert.Equal(Config.PersonSlidingGripMps2 * MassKg * Dt, offFeet.ImpulseNs.Length(), 3);
     }
 
     [Fact]
     public void TheHeadingTurnsNoFasterThanTheTurnRate()
     {
-        var mostRad = Config.Person.TurnRateDegPerS * MathF.PI / 180f * Dt;
+        var mostRad = Config.PersonTurnRateDegPerS * MathF.PI / 180f * Dt;
         var step = WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM: new Vector2(-100f, 0f), moving: true,
             terrainCoefficient: 1f, onFeet: true, MassKg, Dt);

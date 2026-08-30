@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 
 namespace TrafficSimulation.App.Render;
@@ -21,8 +20,11 @@ namespace TrafficSimulation.App.Render;
 /// <b>What a browser has not got.</b> There is no mapped memory to write straight into, so the
 /// instance buffers are ordinary managed arrays and a frame copies them across — one
 /// <c>writeBuffer</c> a stream, from a window onto the heap they already live in. There is no fence
-/// either, so <see cref="BlockedMs"/> is nothing: what a frame waits for is the animation callback,
-/// and that wait is the browser's rather than this engine's.
+/// either, so <see cref="BlockedMs"/> is nothing — <b>this renderer never waits for anything</b>. What
+/// a frame here waits for is the animation callback, which happens between one frame and the next
+/// rather than inside either, and is measured where the frame is: <c>Game.Step</c> counts what a frame
+/// waited before it began and adds it to the same figure. Reporting it from here would be reporting it
+/// twice, and it would be subtracted out of a submit it was never part of.
 /// </para>
 /// </remarks>
 internal sealed class TownRenderer : IDisposable
@@ -96,8 +98,7 @@ internal sealed class TownRenderer : IDisposable
         for (var surface = 0; surface < Surfaces; surface++)
         {
             var path = surfaceTextures[Math.Min(surface, surfaceTextures.Count - 1)];
-            using var decoded = Image.Load<Rgba32>(path);
-            Picture(FirstSurfaceTexture + surface, decoded, mipped: true);
+            Picture(FirstSurfaceTexture + surface, path, mipped: true);
         }
 
         WebGpu.Rebuild(_indexCount);
@@ -179,8 +180,8 @@ internal sealed class TownRenderer : IDisposable
     /// </summary>
     void Pages()
     {
-        var page = new byte[SheetAtlas.PagePx * SheetAtlas.PagePx * Marshal.SizeOf<Rgba32>()];
-        var texels = MemoryMarshal.Cast<byte, Rgba32>(page.AsSpan());
+        var page = new byte[SheetAtlas.PagePx * SheetAtlas.PagePx * Marshal.SizeOf<Texel>()];
+        var texels = MemoryMarshal.Cast<byte, Texel>(page.AsSpan());
         for (var at = 0; at < _atlas.Pages; at++)
         {
             _atlas.FillPage(at, texels);
@@ -188,13 +189,21 @@ internal sealed class TownRenderer : IDisposable
         }
     }
 
+    /// <summary>
+    /// The typeface. <b>Its bytes are in the assembly and its bitmap was made at boot</b>, under the
+    /// resource's own name rather than a path (<see cref="Main.Data"/>) — so the size is read off the
+    /// header here, which is the one thing the page's decoder is not asked for.
+    /// </summary>
     void Glyphs()
     {
         using var stream = typeof(TownRenderer).Assembly.GetManifestResourceStream(GlyphSheet.Resource)
                            ?? throw new InvalidOperationException(
                                $"No embedded resource {GlyphSheet.Resource}: did the project file include it?");
-        using var decoded = Image.Load<Rgba32>(stream);
-        Picture(GlyphTexture, decoded, mipped: false);
+
+        Span<byte> head = stackalloc byte[32];
+        var read = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
+        var (widthPx, heightPx) = ImageHeader.Measure(head[..read], GlyphSheet.Resource);
+        Picture(GlyphTexture, GlyphSheet.Resource, widthPx, heightPx, mipped: false);
     }
 
     /// <summary>
@@ -205,16 +214,20 @@ internal sealed class TownRenderer : IDisposable
     {
         if (_atlas.TileSheet < 0)
         {
-            using var nothing = new Image<Rgba32>(1, 1);
-            Picture(TileTexture, nothing, mipped: false);
+            Upload(TileTexture, new Texel[1], 1, 1, mipped: false);
             return;
         }
 
         var tile = sheets[_atlas.TileSheet];
-        using var decoded = tile.Path is { } path
-            ? Image.Load<Rgba32>(path)
-            : Image.LoadPixelData<Rgba32>(tile.Rgba!, tile.WidthPx, tile.HeightPx);
-        Picture(TileTexture, decoded, tile.Mipped);
+        if (tile.Path is { } path)
+        {
+            Picture(TileTexture, path, tile.Mipped);
+            return;
+        }
+
+        Upload(
+            TileTexture, MemoryMarshal.Cast<byte, Texel>(tile.Rgba!).ToArray(),
+            tile.WidthPx, tile.HeightPx, tile.Mipped);
     }
 
     /// <summary>
@@ -228,15 +241,25 @@ internal sealed class TownRenderer : IDisposable
         return bytes;
     }
 
-    /// <summary>One picture and, where it is mipped, every level of it — box-filtered here, as the desktop's are.</summary>
-    static void Picture(int slot, Image<Rgba32> decoded, bool mipped)
+    /// <summary>One picture from a file: its size off the header, its texels off the page's decoder.</summary>
+    static void Picture(int slot, string path, bool mipped)
     {
-        var top = new Rgba32[decoded.Width * decoded.Height];
-        decoded.CopyPixelDataTo(top);
+        var (widthPx, heightPx) = ImageHeader.Measure(path);
+        Picture(slot, path, widthPx, heightPx, mipped);
+    }
 
-        var chain = mipped
-            ? MipChain.Build(top, decoded.Width, decoded.Height)
-            : [(top, decoded.Width, decoded.Height)];
+    /// <summary>The same, where the size has already been read — the typeface, whose file is a resource.</summary>
+    static void Picture(int slot, string named, int widthPx, int heightPx, bool mipped)
+    {
+        var top = new Texel[widthPx * heightPx];
+        Texels.Decode(named, top);
+        Upload(slot, top, widthPx, heightPx, mipped);
+    }
+
+    /// <summary>Texels in hand and, where it is mipped, every level under them — box-filtered here, as the desktop's are.</summary>
+    static void Upload(int slot, Texel[] top, int widthPx, int heightPx, bool mipped)
+    {
+        var chain = mipped ? MipChain.Build(top, widthPx, heightPx) : [(top, widthPx, heightPx)];
         for (var level = 0; level < chain.Count; level++)
         {
             var (pixels, width, height) = chain[level];

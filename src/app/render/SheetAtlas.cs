@@ -1,7 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using TrafficSimulation.Core.Config;
+using TrafficSimulation.Runtime;
 
 namespace TrafficSimulation.App.Render;
 
@@ -154,7 +154,7 @@ internal sealed class SheetAtlas
     /// One page's texels, top row first. Everything the packer put on that page is decoded here and
     /// nowhere else, so a page's memory is live for exactly as long as its upload.
     /// </summary>
-    public void FillPage(int page, Span<Rgba32> into)
+    public void FillPage(int page, Span<Texel> into)
     {
         into.Clear();
         for (var sheet = 0; sheet < _sources.Count; sheet++)
@@ -168,30 +168,24 @@ internal sealed class SheetAtlas
     }
 
     /// <summary>The sheet's own texels, for a caller that wants the picture rather than the page.</summary>
-    public static Rgba32[] Decode(SheetSource source, int width, int height)
+    public static Texel[] Decode(SheetSource source, int width, int height)
     {
-        var pixels = new Rgba32[width * height];
+        var pixels = new Texel[width * height];
         if (source.Rgba is { } raw)
         {
-            MemoryMarshal.Cast<byte, Rgba32>(raw).CopyTo(pixels);
+            MemoryMarshal.Cast<byte, Texel>(raw).CopyTo(pixels);
             return pixels;
         }
 
-        using var decoded = Image.Load<Rgba32>(source.Path!);
-        decoded.CopyPixelDataTo(pixels);
+        Texels.Decode(source.Path!, pixels);
         return pixels;
     }
 
-    static (int Width, int Height) Measure(SheetSource source)
-    {
-        if (source.Path is not { } path) return (source.WidthPx, source.HeightPx);
-
-        var info = Image.Identify(path);
-        return (info.Width, info.Height);
-    }
+    static (int Width, int Height) Measure(SheetSource source) =>
+        source.Path is { } path ? ImageHeader.Measure(path) : (source.WidthPx, source.HeightPx);
 
     /// <summary>The sheet into its rectangle, and its own edge into the gutter around it.</summary>
-    static void Blit(Rgba32[] pixels, Rect rect, Span<Rgba32> into)
+    static void Blit(Texel[] pixels, Rect rect, Span<Texel> into)
     {
         for (var row = 0; row < rect.Height; row++)
         {

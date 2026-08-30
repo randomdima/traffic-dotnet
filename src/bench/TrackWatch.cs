@@ -85,10 +85,22 @@ internal sealed class TrackWatch : LapWatch
     const float OfWhatItPlanned = 0.25f;
 
     /// <summary>What a straight is worth: the car reaches this much of the fastest corner's speed down one.</summary>
-    const float OverTheFastestCorner = 2f;
+    /// <remarks>
+    /// <b>A fifth over, and not double.</b> Doubling is what a car capped at 270 km/h did on a lap whose
+    /// fastest corner it took at 111, and both of those figures were the same defect — a top speed nothing
+    /// derived and a pedal authored past every tyre in the fleet (CAR-45). A road car governed at 144 km/h
+    /// that holds its fastest corner at 96 cannot double it and never could; a claim that asked it to would
+    /// be unsatisfiable rather than strict, since twice the corner is already past the cap.
+    /// </remarks>
+    const float OverTheFastestCorner = 1.2f;
 
-    /// <summary>And how much of the gear's own cap it reaches on it — under this the straight is measuring the road rather than the car.</summary>
-    const float OfTheGearsOwnCap = 0.9f;
+    /// <summary>
+    /// And how much of the gear's own cap it reaches on it — under this the straight is measuring the road
+    /// rather than the car. <b>Four fifths</b>, which is what 500 m of straight is worth to a car that has to
+    /// stop at the end of it; the arithmetic says a nominal car needs 214 m of the 500 to reach the whole cap
+    /// and be stopped again, so what holds it to four fifths is the profile rather than the road.
+    /// </summary>
+    const float OfTheGearsOwnCap = 0.8f;
 
     /// <summary>Everything either lap can claim, by the constants above. Which of them a lap makes is <see cref="AsksOf"/>.</summary>
     static readonly string[] TheClaims =
@@ -133,7 +145,7 @@ internal sealed class TrackWatch : LapWatch
 
         // The lap's cars are the nominal one (CAR-11a), so the figures the claims are read against are its.
         var nominal = CarBuild.Nominal(config, config.Car.DrivenFrontShare);
-        _lateralMps2 = config.Tyre.GripMps2 * config.Driving.GripMargin;
+        _lateralMps2 = config.TyreGripMps2 * config.Driving.GripMargin;
         _plannedMps2 = CarFollower.BrakingMps2(config, nominal, groundCoefficient: 1f);
         _offLineAllowedM = config.CarOffPathM * 2f;
         _capMps = config.Car.MaxSpeedMps;

@@ -25,7 +25,7 @@ public class PavementCornerTests
         {
             Assert.Equal(1f, corner.NormalA.Length(), tolerance: 1e-3f);
             Assert.Equal(1f, corner.NormalB.Length(), tolerance: 1e-3f);
-            Assert.InRange(corner.RadiusM, 1e-3f, config.Road.PavementCornerRadiusM);
+            Assert.InRange(corner.RadiusM, 1e-3f, config.PavementCornerRadiusM);
 
             // Both edges face out of the same wedge, so the bisector the arc's centre stands on is a
             // direction and not a division by nothing.

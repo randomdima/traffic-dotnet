@@ -76,7 +76,7 @@ public class CarFollowerTests
     [InlineData(40f)]
     public void ACornerIsTakenAtWhatTheTyresAffordOnIt(float radiusM)
     {
-        var lateralMps2 = Figures.Tyre.GripMps2 * Figures.Driving.GripMargin;
+        var lateralMps2 = Figures.TyreGripMps2 * Figures.Driving.GripMargin;
         ReadOnlySpan<ArcSeg> bend = [new ArcSeg(Vector2.Zero, 0f, radiusM * 2f, 1f / radiusM)];
 
         var targetMps = Target(bend, 1f, 5f, DriveContext.Clear, out var hold);
@@ -137,7 +137,14 @@ public class CarFollowerTests
         var behindACar = Target(Straight, 10f, leaderMps, Granted(gapM, leaderMps), out _);
 
         Assert.True(behindACar > behindAWreck);
-        Assert.True(behindACar >= leaderMps, "and never asked to go slower than the thing it is following");
+
+        // <b>To the last bit of the arithmetic and not to the last bit of the float.</b> The grip cancels
+        // between what the leader reserved and what the follower inverts, so the answer is the leader's own
+        // speed — but the two sides reach it by different routes and the cancellation is exact in algebra
+        // rather than in single precision.
+        Assert.True(
+            behindACar >= leaderMps - (leaderMps * 1e-5f),
+            $"and never asked to go slower than the thing it is following: {behindACar:F6} of {leaderMps:F6}");
     }
 
     /// <summary>
@@ -239,8 +246,8 @@ public class CarFollowerTests
         var command = CarFollower.Pedals(Figures, Car, 0.1f, targetMps, alongMps, Figures.TickSeconds, lastMps2);
 
         Assert.True(command.ThrottleMps2 == 0f || command.BrakeMps2 == 0f);
-        Assert.InRange(command.ThrottleMps2, 0f, Figures.Car.AccelerationMps2);
-        Assert.InRange(command.BrakeMps2, 0f, Figures.Car.BrakingMps2);
+        Assert.InRange(command.ThrottleMps2, 0f, Figures.CarAccelerationMps2);
+        Assert.InRange(command.BrakeMps2, 0f, Figures.CarBrakingMps2);
         Assert.Equal(0.1f, command.SteerRad);
     }
 
@@ -256,15 +263,15 @@ public class CarFollowerTests
 
         // Flat out, then asked for a standstill: what arrives this tick is one tick of pedal travel.
         var first = CarFollower.Pedals(
-            Figures, Car, 0f, 0f, 30f, Figures.TickSeconds, Figures.Car.AccelerationMps2);
+            Figures, Car, 0f, 0f, 30f, Figures.TickSeconds, Figures.CarAccelerationMps2);
 
-        Assert.Equal(Figures.Car.AccelerationMps2 - travelMps2, CarFollower.PedalMps2(first), 1e-3f);
+        Assert.Equal(Figures.CarAccelerationMps2 - travelMps2, CarFollower.PedalMps2(first), 1e-3f);
 
         // And the tick after that, from where it got to — so the whole travel is a pedal-travel long.
         var second = CarFollower.Pedals(
             Figures, Car, 0f, 0f, 30f, Figures.TickSeconds, CarFollower.PedalMps2(first));
 
-        Assert.Equal(Figures.Car.AccelerationMps2 - (2f * travelMps2), CarFollower.PedalMps2(second), 1e-3f);
+        Assert.Equal(Figures.CarAccelerationMps2 - (2f * travelMps2), CarFollower.PedalMps2(second), 1e-3f);
     }
 
     /// <summary>
@@ -275,7 +282,7 @@ public class CarFollowerTests
     public void EveryDistanceIsMeasuredAReactionLeadAhead()
     {
         var stopAtM = 40f;
-        var withoutLead = CarFollower.ApproachMps(0f, stopAtM, Figures.Car.BrakingMps2 * Figures.Driving.GripMargin);
+        var withoutLead = CarFollower.ApproachMps(0f, stopAtM, Figures.CarBrakingMps2 * Figures.Driving.GripMargin);
         var asked = Target(Straight, 0f, 20f, DriveContext.Clear with { StopAtM = stopAtM }, out _);
 
         Assert.True(asked < withoutLead);

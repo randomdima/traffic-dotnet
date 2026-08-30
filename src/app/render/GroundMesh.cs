@@ -112,7 +112,7 @@ internal sealed partial class GroundMesh
         var edge = Shade(0.58f, 0.58f, 0.62f);
         var paint = Shade(2.6f, 2.6f, 2.5f);
         var kerbM = config.Road.PaintLineWidthM;
-        var cornerM = config.Road.PavementCornerRadiusM;
+        var cornerM = config.PavementCornerRadiusM;
         var corners = PavementCorners.Solve(plan, config);
 
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);

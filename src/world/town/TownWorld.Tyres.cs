@@ -93,16 +93,16 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The most a driven axle of this car may be asked for: <b>what the ellipse has left along the roll
+    /// The most a driven axle of this car may be asked for: <b>what the friction circle has left along the roll
     /// once the corner it is actually taking has been paid for</b> (CAR-3b). Past that the engine buys no
     /// acceleration and only takes grip off the turn, which is the whole of why a rear-driven car under
     /// power runs wide.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The corner is the one the body is in and not the one the profile planned</b>: the lateral
-    /// acceleration read back off the solver, lagged and capped exactly as the loads are, so a car shoved
-    /// sideways lifts for it the way it lifts for a bend it steered into.
+    /// <b>The corner is the one the tyres are actually turning and not the one the profile planned</b>: the
+    /// lateral acceleration the patches themselves put down, lagged exactly as the loads are, so what the
+    /// throttle has left is measured against the corner the rubber is paying for.
     /// </para>
     /// <para>
     /// <b>A hand at the wheel is held to the ellipse and to nothing else.</b> The remainder is a fact about
@@ -111,9 +111,15 @@ internal sealed partial class TownWorld
     /// self-driver keeping its own tyres out of trouble, and flooring it is still the player's to do.
     /// </para>
     /// <para>
-    /// <b>The patch here is the nominal one and not this car's</b>, which is the one figure in the tyre
-    /// path that is (the model itself spends <see cref="CarBuild.GripMps2"/>). It is deliberate and it is
-    /// the town that pays for it — see the car's decision log.
+    /// <b>A hand's ellipse is its own car's and a self-driver's is still the nominal patch</b>, which is
+    /// the one figure left in the tyre path that is not the car's. For a hand the two have to agree or the
+    /// ceiling is a second gate on what the model already refuses (SIM-7), and a disagreeing one: a look
+    /// grippier than nominal has its throttle shut off at a lateral its own rubber is still holding, gets
+    /// it back the moment the car slows for want of it, and hunts between the two for as long as the pedal
+    /// is held. The self-driver keeps the nominal patch until <c>CrossingOnTheTemplate</c> stops reading
+    /// the crossings of the lane the car is standing over — a grippier car reaches the paint sooner than
+    /// that lookup can answer for. That is a <c>world/road</c> fix and the car's decision log has it; a
+    /// hand reads no crossings, so nothing about it waits on that.
     /// </para>
     /// </remarks>
     float DriveCeilingMps2(int car)
@@ -123,23 +129,14 @@ internal sealed partial class TownWorld
             : MathF.Min(Cars.SlipThrottle[car] + (_config.TickSeconds / _config.Tyre.SlipRecoverS), 1f);
 
         var ground = Cars.GroundCoefficient[car];
-        var ellipseMps2 = TyreModel.DriveLeftMps2(
-            _config.Tyre.GripMps2 * _config.Tyre.LongAxisFactor * ground, _config.Tyre.GripMps2 * ground,
-            Cars.AccelerationMps2[car].Y);
+        var acrossMps2 = Cars.AccelerationMps2[car].Y;
+        if (HandAtTheWheel(car))
+        {
+            return TyreModel.DriveLeftMps2(Cars.BuildOf(car).GripMps2 * ground, acrossMps2);
+        }
 
-        return HandAtTheWheel(car)
-            ? ellipseMps2
-            : ellipseMps2 * _config.Tyre.TractionThrottleFraction * Cars.SlipThrottle[car];
-    }
-
-    /// <summary>The hardest the tyres could have pushed the body, which is where a manoeuvre stops and a collision begins.</summary>
-    float LoadTransferCapMps2 =>
-        _config.Tyre.GripMps2 * _config.Tyre.LongAxisFactor * _config.Tyre.LoadTransferInGrips;
-
-    static Vector2 Limit(Vector2 v, float most)
-    {
-        var length = v.Length();
-        return length <= most || length <= 0f ? v : v / length * most;
+        var leftMps2 = TyreModel.DriveLeftMps2(_config.TyreGripMps2 * ground, acrossMps2);
+        return leftMps2 * _config.Tyre.TractionThrottleFraction * Cars.SlipThrottle[car];
     }
 
     /// <summary>Whether the engine is turning this wheel at all, which is what makes a slide worth lifting for.</summary>
@@ -197,7 +194,7 @@ internal sealed partial class TownWorld
 
         if (intensity <= 0f)
         {
-            if (Cars.Marking[at]) Marks.Mark(Cars.MarkFromM[at], atM, _config.Tyre.WheelWidthM, Cars.MarkIntensity[at], surface.Ploughs);
+            if (Cars.Marking[at]) Marks.Mark(Cars.MarkFromM[at], atM, Cars.BuildOf(car).WheelWidthM, Cars.MarkIntensity[at], surface.Ploughs);
             Cars.Marking[at] = false;
             return;
         }
@@ -208,7 +205,7 @@ internal sealed partial class TownWorld
         }
         else if (Vector2.DistanceSquared(Cars.MarkFromM[at], atM) >= _config.Marks.SpacingM * _config.Marks.SpacingM)
         {
-            Marks.Mark(Cars.MarkFromM[at], atM, _config.Tyre.WheelWidthM, intensity, surface.Ploughs);
+            Marks.Mark(Cars.MarkFromM[at], atM, Cars.BuildOf(car).WheelWidthM, intensity, surface.Ploughs);
             Cars.MarkFromM[at] = atM;
         }
 

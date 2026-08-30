@@ -82,7 +82,7 @@ public class CrossingGateTests
         var uiPx = new Vector2(1600f, 900f);
         var camera = new Camera2D(config, world.Plan.WorldSizeM, uiPx);
 
-        var ui = new Interface();
+        var ui = new Interface(config.Trim);
         ui.Menu.Show();
         ui.Controls.Show();
         ui.Status.Show();

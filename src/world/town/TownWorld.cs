@@ -671,7 +671,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             ? WaitAimM(agent)
             : StepRoundAim(agent, positionM, People.DestinationM[agent], out walledIn);
 
-        var moving = People.Walking[agent] && !People.IsHeldByTheBook(agent) && !walledIn &&
+        var moving = People.Walking[agent] && !People.IsHeldByTheBook(agent, StopsInM(agent)) && !walledIn &&
                      (!atTheKerb || (aimM - positionM).Length() > People.RadiusM[agent]);
 
         var step = WalkerFollower.Step(
@@ -737,7 +737,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // is under way and the ground it holds is ground it is about to give back. A body going nowhere
         // stopped being one of these when it stopped cutting the grant (PER-24) — nothing waits behind one
         // any more, so nothing has to be given a leg up out from behind one either.
-        if (People.IsHeldByTheBook(agent)) return;
+        if (People.IsHeldByTheBook(agent, StopsInM(agent))) return;
 
         // Nor is a beat stood on purpose. It is the walking side's own idle — between two goals, and in the
         // road while a body paces one — and a clock that gave a leg up while it ran would end the stand

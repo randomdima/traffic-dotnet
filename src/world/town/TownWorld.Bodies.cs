@@ -55,36 +55,35 @@ internal sealed partial class TownWorld
         _physics.Step(dtS);
         if (Timed) Sub.Mark(ref Sub.SolverTicks);
 
-        // Both are the same on every car in the town and neither moves inside a tick — and the second is
-        // an exponential, which is not a thing to take once a car.
-        var loadCapMps2 = LoadTransferCapMps2;
+        // The same on every car in the town and it does not move inside a tick — and it is an exponential,
+        // which is not a thing to take once a car.
         var settled = 1f - MathF.Exp(-dtS / _config.Tyre.LoadSettleS);
         for (var car = 0; car < Cars.Count; car++)
         {
-            var was = Cars.VelocityMps[car];
-            var now = _physics.VelocityOf(Cars.Body[car]);
             Cars.PositionM[car] = _physics.PositionOf(Cars.Body[car]);
             Cars.HeadingRad[car] = _physics.HeadingOf(Cars.Body[car]);
-            Cars.VelocityMps[car] = now;
+            Cars.VelocityMps[car] = _physics.VelocityOf(Cars.Body[car]);
             Cars.YawRateRadPerS[car] = _physics.YawRateOf(Cars.Body[car]);
 
-            // In the body's own frame, because that is the frame the loads move in: what the car did,
-            // not what the pedals asked for, which is the difference between a fact and a fudge — so a
-            // kerb pitches the car exactly the way a hard brake does, with no separate path.
-            var changeMps = (now - was) / dtS;
+            // What the four patches spent this tick and nothing else — the impulses are still the ones
+            // applied above, since they are not cleared until this car's next tyre step. It is bounded by
+            // construction: a tyre cannot push harder than it grips, so a transfer read off one cannot
+            // run away and nothing has to cap it.
+            var wheels = _wheels.ImpulsesOf(car);
+            var spentNs = Vector2.Zero;
+            for (var wheel = 0; wheel < TyreModel.Wheels; wheel++) spentNs += wheels[wheel].ImpulseNs;
+            var heldMps2 = spentNs / (Cars.MassKg[car] * dtS);
 
             // The direction off the body rather than off the angle: the step reduced this heading a line
             // ago and kept the pair, so turning the angle back into a direction here would be the town's
             // cars' worth of sincos a tick for something already in hand.
             var forward = _physics.RotationOf(Cars.Body[car]);
-            var measuredMps2 = new Vector2(
-                Vector2.Dot(changeMps, forward), Vector2.Dot(changeMps, Heading.RightOf(forward)));
+            var alongAndAcrossMps2 = new Vector2(
+                Vector2.Dot(heldMps2, forward), Vector2.Dot(heldMps2, Heading.RightOf(forward)));
 
-            // Capped at what the tyres could plausibly have caused, because anything beyond that is a
-            // collision and a collision must not be read as a manoeuvre; then lagged, because a car
-            // settles onto its springs over a moment rather than snapping.
+            // Lagged, because a car settles onto its springs over a moment rather than snapping.
             Cars.AccelerationMps2[car] = Vector2.Lerp(
-                Cars.AccelerationMps2[car], Limit(measuredMps2, loadCapMps2), settled);
+                Cars.AccelerationMps2[car], alongAndAcrossMps2, settled);
         }
 
         for (var person = 0; person < People.Count; person++)
@@ -225,7 +224,7 @@ internal sealed partial class TownWorld
 
             var pullNs = TowBar.PullNs(
                 TheEndOfTheBar(Cars.Body[car], tractor, hookM), TheEndOfTheBar(Cars.Body[towed], trailer, eyeM),
-                _config.Evacuator.HitchSettleS, _config.Evacuator.HitchMostMps2, _config.Evacuator.HitchSideShare,
+                _config.Evacuator.HitchSettleS, _config.EvacuatorHitchMostMps2, _config.Evacuator.HitchSideShare,
                 trailer.MassKg, dtS);
 
             _physics.ApplyImpulseAt(Cars.Body[towed], pullNs, eyeM);

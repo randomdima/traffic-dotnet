@@ -184,10 +184,24 @@ internal sealed partial class TownWorld
     float WantsAheadM(int person)
     {
         var gripMps2 = FootGripMps2(person);
-        var paceM = StoppingM(_config.Person.WalkSpeedMps * People.GroundCoefficient[person], gripMps2);
+        var paceM = StoppingM(_config.PersonWalkSpeedMps * People.GroundCoefficient[person], gripMps2);
 
-        return MathF.Max(
-            StoppingM(AlongItsWalkMps(person), gripMps2), paceM + _config.PersonStandstillGapM);
+        return MathF.Max(StopsInM(person), paceM + _config.PersonStandstillGapM);
+    }
+
+    /// <summary>
+    /// <b>What this body needs to come to rest in from the speed it is actually doing</b> — nothing at rest,
+    /// and the pace's own stopping distance at the pace. It is the floor under the ask above and the bar the
+    /// grant is read against (<see cref="PersonFleet.IsHeldByTheBook"/>), which are the same distance said
+    /// once.
+    /// </summary>
+    public float StopsInM(int person)
+    {
+        var alongMps = AlongItsWalkMps(person);
+
+        // The stride this tick as well as the stop after it: nothing asks again until the next tick, so the
+        // ground this body is committing to is what it covers before the question is put again.
+        return StoppingM(alongMps, FootGripMps2(person)) + MathF.Max(0f, alongMps * _config.TickSeconds);
     }
 
     /// <summary>
@@ -239,6 +253,7 @@ internal sealed partial class TownWorld
     void GrantThePavement(int person, Span<LineWay> ways)
     {
         People.StepsRound[person] = PersonFleet.NoBody;
+        People.HeldBy[person] = PersonFleet.NoBody;
         if (People.OnWay[person] == PersonFleet.NoWay) return;
 
         var grantedToM = ReserveToM(person);
@@ -260,8 +275,12 @@ internal sealed partial class TownWorld
             var cutM = OnTheLineM(
                 way,
                 _footfall.GrantedOn(
-                    way.Way, fromM, way.ToM, person, asker, out _, LaneOccupancy.UnderWay));
-            if (cutM < grantedToM) grantedToM = cutM;
+                    way.Way, fromM, way.ToM, person, asker, out var heldBy, LaneOccupancy.UnderWay));
+            if (cutM < grantedToM)
+            {
+                grantedToM = cutM;
+                People.HeldBy[person] = heldBy.Found ? heldBy.Occupant : PersonFleet.NoBody;
+            }
 
             // The one the walk runs into rather than the one it is granted up to: the nearest is what the
             // feet have to get past, and a second body behind it is next tick's question.
@@ -516,5 +535,5 @@ internal sealed partial class TownWorld
         Vector2.Dot(People.VelocityMps[person], Heading.Unit(People.HeadingRad[person]));
 
     /// <summary>What the feet can put down on the ground this walker is standing on (TER-2, PER-3).</summary>
-    float FootGripMps2(int person) => _config.Person.FootGripMps2 * People.GroundCoefficient[person];
+    float FootGripMps2(int person) => _config.PersonFootGripMps2 * People.GroundCoefficient[person];
 }

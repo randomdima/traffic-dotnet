@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Core.Config;
 using Xunit;
 
 namespace TrafficSimulation.Tests.Hud;
@@ -21,7 +22,7 @@ public class InterfaceClickTests
     /// <summary>An interface over a standing town, with the menu laid where a draw would have laid it.</summary>
     static Interface Running()
     {
-        var ui = new Interface();
+        var ui = new Interface(new TrimFigures());
         ui.Menu.Lay(Window, Chrome.GearAt(Window));
         return ui;
     }

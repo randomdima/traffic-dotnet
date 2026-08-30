@@ -63,9 +63,15 @@ internal sealed class TowBeamFile
 }
 
 /// <summary>
-/// How this car differs from the nominal one, as multipliers on the shared figures — <b>the file's shape,
-/// where every one of the four is optional</b>. <see cref="CarHandling"/> is what the model reads.
+/// How this car's engine, brakes and gearing differ from the nominal one's, as multipliers on the shared
+/// figures — <b>the file's shape, where every one of the three is optional</b>. <see cref="CarHandling"/>
+/// is what the model reads.
 /// </summary>
+/// <remarks>
+/// <b>What its tyres are worth is not here.</b> A coefficient of friction is a raw term and is stated as
+/// one (<see cref="CarVariantFile.TyreFriction"/>); a multiplier on somebody else's grip would be a figure
+/// nobody could check against a tyre.
+/// </remarks>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 internal sealed class HandlingFile
 {
@@ -74,8 +80,6 @@ internal sealed class HandlingFile
     public float? Acceleration { get; init; }
 
     public float? Braking { get; init; }
-
-    public float? Cornering { get; init; }
 }
 
 /// <summary>
@@ -149,6 +153,73 @@ internal sealed class CarVariantFile
     public required float TrackM { get; init; }
 
     public required int Drivetrain { get; init; }
+
+    /// <summary>
+    /// <b>How far this one's front wheels turn at the stop</b>, at the road wheel and not at the steering
+    /// wheel. The raw term: the circle it turns is derived from it against this body's own wheelbase and
+    /// track (<see cref="Agents.Car.Body.CarBuild.TurningCircleM"/>) and is a read-out, never an input.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is why a truck is not a hatchback with a heavier file.</b> Every body here is drawn on a
+    /// short wheelbase — a picture at 96 px to the metre puts the arches where the art has them — so at
+    /// one lock the whole fleet would turn inside four metres whatever it weighed. A variant that names
+    /// none gets the nominal car's lock.
+    /// </remarks>
+    public float? MaxSteeringDeg { get; init; }
+
+    /// <summary>
+    /// <b>What this one's rubber holds on dry tarmac</b> — a coefficient of friction, and the raw term. What
+    /// it may pull in m/s² is this times a weight and is worked out from it. Absent is the nominal tyre
+    /// (<see cref="TyreFigures.Friction"/>).
+    /// </summary>
+    /// <remarks>
+    /// One coefficient, whichever way this car is pointing and at whatever load: what varies between a
+    /// supercar's rubber and a truck's is the compound. <b>It is what this car holds in total</b>, and what
+    /// its own proportions decide is which wheel gives up first, never how much the four are worth.
+    /// </remarks>
+    public float? TyreFriction { get; init; }
+
+    /// <summary>
+    /// <b>The size of one of this one's tyres</b>, along its roll and across it. It is what the wheel is
+    /// drawn at and the width of the mark it leaves, and it is what this body's <see cref="TrackM"/> was
+    /// authored against (CAR-12, <see cref="TyreFigures.ShowsPastTheBodyworkShare"/>). Absent is the
+    /// nominal tyre (<see cref="TyreFigures.WheelLengthM"/>).
+    /// </summary>
+    /// <remarks>
+    /// A tyre belongs to the car it is bolted to and not to the town: a van's is not a coupé's, and the
+    /// fleet running one size was the nominal car's figure standing where every body's own should be.
+    /// <b>The tread pattern is not sized from here</b> — that is one picture the whole fleet shares, and
+    /// its pitch is a fact about the sheet (<see cref="TyreFigures.TreadPitchM"/>).
+    /// </remarks>
+    public Vector2? WheelM { get; init; }
+
+    /// <summary>
+    /// <b>One of this one's wheels as the straight-line mass it behaves like</b> (J/r²) — what decides how
+    /// violently it spins up or locks against the corner it is carrying. Absent is the nominal wheel
+    /// (<see cref="TyreFigures.WheelRotatingMassKg"/>).
+    /// </summary>
+    public float? WheelRotatingMassKg { get; init; }
+
+    /// <summary>
+    /// How high this one carries its weight, which is <b>the whole of what makes a tall body handle like
+    /// one</b>: the share of the load that leaves an axle under braking and a flank under cornering is
+    /// <c>a·h/(base·g)</c>, so a van's is half again a coupe's on the same tyres. Absent is the nominal
+    /// car's.
+    /// </summary>
+    public float? CgHeightM { get; init; }
+
+    /// <summary>
+    /// <b>How much of this one stands on its front axle at rest</b>, which is where the engine is and what
+    /// is over it: a transverse front-engined hatchback carries about 0.63, a front-mid sports car about
+    /// 0.52, a mid-engined supercar about 0.43, and a box body on a rear deck less still.
+    /// </summary>
+    /// <remarks>
+    /// <b>It decides more about how wide a body runs than its grip or its lock does.</b> The axle carrying
+    /// the weight is the one that can put power down and hold a corner, and the light end is the one that
+    /// lets go first — so the same car at 0.62 and at 0.38 turns two circles that are not the same shape,
+    /// in opposite directions in each gear. Absent is the even split, which is nobody's actual car.
+    /// </remarks>
+    public float? FrontWeightShare { get; init; }
 
     /// <summary>Whether this one is built not to break (PHY-4b). Absent is the ordinary car, which breaks.</summary>
     public bool Unbreakable { get; init; }

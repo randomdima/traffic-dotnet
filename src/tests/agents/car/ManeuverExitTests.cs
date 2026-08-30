@@ -307,13 +307,13 @@ public class ManeuverExitTests
     {
         var scene = Running with
         {
-            AlongMps = Config.Person.WalkSpeedMps,
+            AlongMps = Config.PersonWalkSpeedMps,
             PlannedMps = 30f,
             Hold = DrivingHold.Headway,
             Context = DriveContext.Clear with
             {
                 HeadwayM = Config.Car.LengthM * 2f,
-                HeadwaySpeedMps = Config.Person.WalkSpeedMps,
+                HeadwaySpeedMps = Config.PersonWalkSpeedMps,
                 Ahead = HeadwayKind.Walker,
             },
         };
@@ -507,7 +507,7 @@ public class ManeuverExitTests
         Context = DriveContext.Clear with
         {
             HeadwayM = Config.Car.LengthM * 2f,
-            HeadwaySpeedMps = Config.Person.WalkSpeedMps,
+            HeadwaySpeedMps = Config.PersonWalkSpeedMps,
             Ahead = HeadwayKind.Walker,
         },
     };

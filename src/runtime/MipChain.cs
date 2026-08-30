@@ -1,5 +1,3 @@
-using SixLabors.ImageSharp.PixelFormats;
-
 namespace TrafficSimulation.Runtime;
 
 /// <summary>
@@ -15,15 +13,15 @@ namespace TrafficSimulation.Runtime;
 internal static class MipChain
 {
     /// <summary>Each level the box average of the one above it, down to a single texel.</summary>
-    public static List<(Rgba32[] Pixels, int Width, int Height)> Build(Rgba32[] top, int width, int height)
+    public static List<(Texel[] Pixels, int Width, int Height)> Build(Texel[] top, int width, int height)
     {
-        var chain = new List<(Rgba32[] Pixels, int Width, int Height)> { (top, width, height) };
+        var chain = new List<(Texel[] Pixels, int Width, int Height)> { (top, width, height) };
         while (width > 1 || height > 1)
         {
             var (source, sourceWidth, sourceHeight) = chain[^1];
             var nextWidth = Math.Max(1, sourceWidth / 2);
             var nextHeight = Math.Max(1, sourceHeight / 2);
-            var next = new Rgba32[nextWidth * nextHeight];
+            var next = new Texel[nextWidth * nextHeight];
 
             for (var y = 0; y < nextHeight; y++)
             {
@@ -47,7 +45,7 @@ internal static class MipChain
         return chain;
     }
 
-    static Rgba32 Average(Rgba32 a, Rgba32 b, Rgba32 c, Rgba32 d) => new(
+    static Texel Average(Texel a, Texel b, Texel c, Texel d) => new(
         (byte)((a.R + b.R + c.R + d.R) / 4),
         (byte)((a.G + b.G + c.G + d.G) / 4),
         (byte)((a.B + b.B + c.B + d.B) / 4),

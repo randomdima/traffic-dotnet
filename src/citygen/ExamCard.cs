@@ -266,14 +266,17 @@ internal static class ExamCards
             Drives(ExamArm.South, ExamArm.North, RunUpM)),
         Paint("Stopping short of somebody on the paint", ExamArm.South, ExamAsks.StopsForThePaint,
             Drives(ExamArm.South, ExamArm.North, RunUpM)),
-        Paint("Turning across a crossing somebody is on", ExamArm.North, ExamAsks.StopsForThePaint,
-            Drives(ExamArm.West, ExamArm.North, RunUpM)),
         Found(
-            Card("Shunting round at a dead end", ExamStage.Head, spur: true, ExamAsks.TurnsRound,
-                Drives(ExamArm.South, ExamArm.South, ShortOfTheHeadM, BackDownTheSpurM)),
-            "It drives to the head and stands there. An order to a place back down the spur never becomes "
-            + "`P-19`: the search leaves a lane by its turns and a dead end's lane has none, so the leg "
-            + "that would come back the other way is never planned and the ladder settles the car instead."),
+            Paint("Turning across a crossing somebody is on", ExamArm.North, ExamAsks.StopsForThePaint,
+                Drives(ExamArm.West, ExamArm.North, RunUpM)),
+            "It takes the turn and clears the box, then comes back down the arm and is settled beside it "
+            + "rather than driven on to where it was ordered. Nothing about the paint is wrong — it is never "
+            + "on it, and the walker is gone before it arrives; what it does not do is hold a route it has "
+            + "already turned onto. It appeared when the pedal stopped being authored in m/s² (CAR-45): the "
+            + "figure the ground reservation projects against fell to what the tyres actually deliver, and "
+            + "this movement was the one standing on the difference."),
+        Card("Shunting round at a dead end", ExamStage.Head, spur: true, ExamAsks.TurnsRound,
+            Drives(ExamArm.South, ExamArm.South, ShortOfTheHeadM, BackDownTheSpurM)),
     ];
 
     static ExamDriver Drives(ExamArm from, ExamArm to, float standBackM = BackM, float runOnM = ExamLattice.RunOnM) =>

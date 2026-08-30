@@ -180,7 +180,9 @@ public class SelectionPathTests
         var held = world.Cars.RouteOf(car)[world.Cars.RouteTaken[car]..world.Cars.RouteCount[car]];
         Assert.True(held.Length >= 2, "the car holds too little route to ask about the rest of it");
 
-        var stopped = held.Length / 2;
+        // Never the last lane it holds: there is nothing beyond the end of a route to plan, so a car
+        // holding only two lanes has to be asked about the first of them rather than the middle.
+        var stopped = Math.Min(held.Length / 2, held.Length - 2);
         var rest = world.RouteBeyond(slot: 0, car, held[stopped]);
         Assert.False(rest.IsEmpty, "nothing was planned past the lane the route was cut at");
 

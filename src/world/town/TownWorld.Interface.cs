@@ -203,6 +203,39 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
+    /// <b>A figure has been turned under the town</b> (<see cref="TrimFigures"/>): every look is built
+    /// again, the ground is worth what it is now worth, and the cars standing on it take the weight their
+    /// new build gives them. Nothing else moves — the plan, the roads, the bodies, where each of them is
+    /// and what it was in the middle of are all left exactly as they were.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A build is read <c>in</c> from the array it lives in</b>, so refilling that array is the whole of
+    /// what most of a figure does: the tyres, the templates and the follower all reach for it every tick
+    /// and get the new one on the next. The two that do not are the weight, which the solver holds its own
+    /// copy of, and the ground, which is a table built once with the town.
+    /// </para>
+    /// <para>
+    /// <b>What it deliberately does not do is re-plan.</b> A car halfway round a line drawn for the car it
+    /// used to be keeps that line until its manoeuvre ends, which is a second or two of a body driving to
+    /// a plan slightly wider or tighter than it needs — and watching it settle out is worth more than
+    /// tearing the town down to avoid it.
+    /// </para>
+    /// </remarks>
+    public void FiguresChanged()
+    {
+        _builds.Resolve(_config);
+        _terrain.FiguresChanged(_config);
+
+        for (var car = 0; car < Cars.Count; car++)
+        {
+            ref readonly var build = ref _builds.Of(Cars.Variant[car]);
+            Cars.MassKg[car] = build.MassKg;
+            _physics.Reweigh(Cars.Body[car], build.MassKg);
+        }
+    }
+
+    /// <summary>
     /// <b>Every selected unit's own action, worked once</b> (CTL-7), and whether any of them had one to
     /// work. It is a lever and not a pedal: what a press reaches is the vehicle's own machinery, which
     /// the town's own crews reach through the same call and no other (<see cref="WorkTheArm"/>).

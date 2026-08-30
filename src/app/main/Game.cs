@@ -71,6 +71,12 @@ internal sealed partial class Game : IDisposable
     /// <summary>What the frame before this one took, which is the step the hands are read over.</summary>
     TimeSpan _lastFrame;
 
+    /// <summary>
+    /// When the frame before this one finished, so that what the next one waited to begin can be
+    /// measured. Zero before the first has ended.
+    /// </summary>
+    long _frameClosedAt;
+
     public Game(
         SimConfig config, int width, int height, bool validate, float uiScale, Pacing pacing,
         bool fullscreen, string? display)
@@ -102,6 +108,14 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>Crossings of the wall between managed code and the machine, since the process started. Zero where the counter is compiled out.</summary>
     private partial long Crossings();
+
+    /// <summary>
+    /// A map the menu was clicked on. <b>Not necessarily an open</b>: a desktop run has the plan on
+    /// disk and opens it where it stands, and a page has to fetch it first — and a frame cannot wait
+    /// on a fetch, so the browser's half only writes the name down and the boot's own <c>await</c>
+    /// picks it up (<see cref="Main.Data.Town"/>).
+    /// </summary>
+    private partial void PickMap(string map);
 
     /// <summary>The machine, let go of after the renderer and before the window.</summary>
     partial void Shutdown();
@@ -167,6 +181,24 @@ internal sealed partial class Game : IDisposable
         if (_window.IsClosing) return false;
 
         var startedAt = Stopwatch.GetTimestamp();
+
+        // What this frame waited before it was allowed to begin. On the desktop it is the loop's own
+        // turnaround and near enough nothing, because the wait for the display happens inside the
+        // submit and the renderer reports it there. In a page it is the entire wait for the animation
+        // callback — a browser paces a frame by choosing when to ask for the next one — and measuring
+        // it here is what makes the two machines quote the same frame.
+        var waitedMs = _frameClosedAt != 0
+            ? Stopwatch.GetElapsedTime(_frameClosedAt, startedAt).TotalMilliseconds
+            : 0d;
+
+        // Past the longest a frame may be, nothing was drawn: a browser stops asking a hidden tab for
+        // frames at all. <b>The figure is not touched</b> — a wait shortened to make the arithmetic
+        // tidy leaves the read-out quoting the rate this build could draw at rather than the rate it
+        // did, which is the mistake this whole measurement exists to avoid — and the meter drops the
+        // frame instead. What is done here is the one thing only the loop can: the clock forgets the
+        // time it was never asked to simulate.
+        if (waitedMs > FrameMeter.LongestFrameMs) _clock.Resynchronise();
+
         var parts = new FrameParts(_ui.Status.Open);
 
         _window.PumpEvents();
@@ -182,13 +214,20 @@ internal sealed partial class Game : IDisposable
 
         parts.Mark(ref parts.PumpMs);
 
-        ReadInput((float)_lastFrame.TotalSeconds);
+        // Never over more than a frame: the span carrying a stall is the one after it, and a pan
+        // stepped over forty-five seconds of a tab nobody was looking at throws the camera off the map.
+        ReadInput(MathF.Min((float)_lastFrame.TotalSeconds, (float)(FrameMeter.LongestFrameMs / 1000d)));
         parts.Mark(ref parts.InputMs);
 
         Advance(ref parts);
         Draw(ref parts);
 
-        _lastFrame = Stopwatch.GetElapsedTime(startedAt);
+        // The frame is what it cost plus what it waited to start, so a rate taken off it is the rate
+        // the town is drawn at rather than the rate this build could draw it at. The hands are read
+        // over the same span for the same reason: a pan is metres of real time, not of work.
+        _frameClosedAt = Stopwatch.GetTimestamp();
+        parts.BlockedMs += waitedMs;
+        _lastFrame = Stopwatch.GetElapsedTime(startedAt, _frameClosedAt) + TimeSpan.FromMilliseconds(waitedMs);
         parts.WholeMs = _lastFrame.TotalMilliseconds;
         Measure(in parts);
         return !_window.IsClosing;
@@ -289,7 +328,7 @@ internal sealed partial class Game : IDisposable
         switch (choice.Action)
         {
             case MenuAction.OpenMap:
-                Open(choice.Name);
+                PickMap(choice.Name);
                 return;
             case MenuAction.Quit:
                 _window.Close();

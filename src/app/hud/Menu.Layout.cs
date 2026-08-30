@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.App.Hud;
 
@@ -22,6 +23,12 @@ internal sealed partial class Menu
     /// <summary>What the content column is never shorter than, which is the debug page laid whole.</summary>
     static readonly float LeastContentHeightPx = MostLines * LinePitchPx - Theme.GapPx;
 
+    /// <summary>And the figures page, which is one row a trim and the one under them that resets the lot.</summary>
+    static readonly float FiguresHeightPx = (TrimFigures.Count + 1) * TrimPitchPx - Theme.GapPx;
+
+    /// <summary>A trim row carries its name and its share on two lines, as a map row carries its own.</summary>
+    const float TrimPitchPx = Theme.TallRowPx + Theme.GapPx;
+
     static float WidestPx(string[] of, float textPx)
     {
         var widthPx = 0f;
@@ -30,9 +37,17 @@ internal sealed partial class Menu
         return widthPx;
     }
 
-    readonly Rect[] _tabs = new Rect[3];
+    readonly Rect[] _tabs = new Rect[4];
     readonly Rect[] _rows = new Rect[MostRows];
     readonly Rect[] _lines = new Rect[MostLines];
+
+    /// <summary>One track a trim, and the reset row under them.</summary>
+    readonly Rect[] _trims = new Rect[TrimFigures.Count + 1];
+
+    /// <summary>Which trim the pointer has hold of, or -1 while nothing is being dragged.</summary>
+    int _held = -1;
+
+    bool _figuresMoved;
     readonly string[] _rowNames = new string[MostRows];
     readonly string[] _rowDescriptions = new string[MostRows];
 
@@ -109,10 +124,14 @@ internal sealed partial class Menu
         // so that the other page would fit without the panel changing height, reads as a list that was
         // cut short rather than as a page that ended.
         _shownRows = Page == Maps ? Fitting(_firstRow, roomPx) : 0;
-        var contentHeightPx = MathF.Min(
-            roomPx, Page == Maps ? HeightOf(_firstRow, _shownRows) : LeastContentHeightPx);
+        var contentHeightPx = MathF.Min(roomPx, Page switch
+        {
+            Maps => HeightOf(_firstRow, _shownRows),
+            Figures => FiguresHeightPx,
+            _ => LeastContentHeightPx,
+        });
 
-        // The width is both pages' at once, so tabbing moves nothing sideways: what one page needs is
+        // The width is every page's at once, so tabbing moves nothing sideways: what one page needs is
         // what the panel is, and the bar the map page loses its rows' width to is counted in it.
         var contentWidthPx = MathF.Min(
             WidestContentPx() + Theme.InsetPx * 2f + ScrollBarPx + Theme.GapPx,
@@ -123,7 +142,7 @@ internal sealed partial class Menu
         Box = new Rect(atPx, new Vector2(widthPx, ChromeHeightPx + contentHeightPx));
 
         var contentX = atPx.X + Theme.PaddingPx;
-        var tabWidthPx = (contentWidthPx - Theme.GapPx * 2f) / 3f;
+        var tabWidthPx = (contentWidthPx - (Theme.GapPx * (_tabs.Length - 1))) / _tabs.Length;
         for (var tab = 0; tab < _tabs.Length; tab++)
         {
             _tabs[tab] = new Rect(
@@ -148,6 +167,12 @@ internal sealed partial class Menu
         {
             _lines[line] = new Rect(
                 new Vector2(contentX, contentTopY + line * LinePitchPx), new Vector2(contentWidthPx, Theme.RowPx));
+        }
+
+        for (var trim = 0; trim < _trims.Length; trim++)
+        {
+            _trims[trim] = new Rect(
+                new Vector2(contentX, contentTopY + trim * TrimPitchPx), new Vector2(contentWidthPx, Theme.TallRowPx));
         }
     }
 
@@ -202,8 +227,13 @@ internal sealed partial class Menu
             wantedPx = MathF.Max(wantedPx, RowWidthPx(map.Name, map.Description));
         }
 
-        return MathF.Max(wantedPx, WidestPx(Lines, Theme.TextPx));
+        return MathF.Max(
+            wantedPx,
+            MathF.Max(WidestPx(Lines, Theme.TextPx), WidestPx(TrimFigures.Names, Theme.TextPx) + TrimShareRoomPx));
     }
+
+    /// <summary>The room a trim's own share is drawn in, kept off the end of its name so the two never meet.</summary>
+    static readonly float TrimShareRoomPx = GlyphSheet.WidthPx("1000%".Length, Theme.TextPx) + Theme.InsetPx * 2f;
 
     static float RowWidthPx(string name, string description) => MathF.Max(
         GlyphSheet.WidthPx(name.Length, Theme.TextPx), GlyphSheet.WidthPx(description.Length, Theme.SmallTextPx));

@@ -11,7 +11,7 @@ namespace TrafficSimulation.Bench;
 
 /// <summary>
 /// <b>The circle a car is asked to turn against the one it turns</b>, claimed of the skidpad
-/// (<see cref="SkidpadPlan"/>): every look the fleet ships, on full left lock, under four pedals — and for
+/// (<see cref="SkidpadPlan"/>): every look the fleet ships, on full left lock, under six pedals — and for
 /// each of them the arc its own axles ask for beside the arc its own tyres describe.
 /// </summary>
 /// <remarks>
@@ -21,13 +21,13 @@ namespace TrafficSimulation.Bench;
 /// table are one claim about one car rather than two that have to be kept in step.
 /// </para>
 /// <para>
-/// <b>The comparison itself is quoted and never gated.</b> A turn circle is a geometric fact only while
-/// the tyres are keeping up with the wheel, and the lightest pedal this pad stands is half — under which
-/// every car on it is being asked for more than its rubber holds, so how far it runs wide of its own axles
-/// is a reading about this fleet's tyres rather than a bound anything should hold. Gating it would be
-/// tuning the pad until the instrument could no longer report the thing it was laid to find. <b>What is
-/// gated is what a pad of cars on one lock owes whatever the tyres do</b>: that each of them turns, that it
-/// turns the way its wheel is pointed, and that it stays in its own square.
+/// <b>The comparison itself is quoted and never gated.</b> A turn circle is a geometric fact only while the
+/// tyres are keeping up with the wheel, and on the two heavier pedals every car on the pad is being asked
+/// for more than its rubber holds — so how far it runs wide of its own axles is a reading about this
+/// fleet's tyres rather than a bound anything should hold. Gating it would be tuning the pad until the
+/// instrument could no longer report the thing it was laid to find. <b>What is gated is what a pad of cars
+/// on one lock owes whatever the tyres do</b>: that each of them turns, that it turns the way its wheel is
+/// pointed, and that it stays in its own square.
 /// </para>
 /// <para>
 /// <b>A car is only sampled once its rack has arrived.</b> The wheel travels at the car's own rate
@@ -46,12 +46,13 @@ internal sealed class SkidpadWatch : ScenarioWatch
     const int WhatTheGeometryIsWorth = 2;
     const int WhatTheGripAllowsInstead = 3;
     const int WhatWasASpinAndNotACircle = 4;
+    const int WhatALighterPedalWillNotMove = 5;
 
     static readonly string[] TheClaims =
     [
-        "every car is turning, under every pedal the pad stands",
+        "every look turns on a whole pedal, in both gears",
         "every car goes round the way its wheel is turned",
-        "nothing on the pad leaves the hundred metres it was given",
+        "nothing on the pad leaves the square it was given",
     ];
 
     static readonly string[] TheReadings =
@@ -61,7 +62,17 @@ internal sealed class SkidpadWatch : ScenarioWatch
         "what the geometry is worth before anything slides",
         "what the tyres could have held at that speed",
         "how much of it was a spin and not a circle",
+        "what a lighter pedal will not move",
     ];
+
+    /// <summary>
+    /// <b>The gate is the whole pedal and the lighter rows are read rather than gated.</b> A car on full
+    /// lock is four patches scrubbing, and whether a third of a given look's throttle is enough to push
+    /// them round is a fact about that look's engine against its own tyres — the pad is here to report it,
+    /// not to be tuned until every row moves. What every vehicle owes is that it gets round at all when
+    /// it is asked for everything it has.
+    /// </summary>
+    static bool AWholePedal(int run) => MathF.Abs(SkidpadPlan.PedalOf(run)) >= 1f;
 
     /// <summary>
     /// <b>How far inside its own geometry a car has to be before it is not on a circle at all.</b> Four
@@ -150,7 +161,7 @@ internal sealed class SkidpadWatch : ScenarioWatch
 
     public SkidpadWatch(SimConfig config, TownWorld world)
         : base(
-            "the skidpad", "every look on full left lock, four pedals, the arc asked for against the arc turned",
+            "the skidpad", "every look on full left lock, six pedals, the arc asked for against the arc turned",
             TheClaims, TheReadings)
     {
         _tickS = config.TickSeconds;
@@ -257,7 +268,7 @@ internal sealed class SkidpadWatch : ScenarioWatch
 
     public override ClaimVerdict Verdict(int claim) => claim switch
     {
-        EveryCarIsTurning => _turned.Length > 0 && TurningCars() == _turned.Length
+        EveryCarIsTurning => OnAWholePedal(out var turning, out var of) && turning == of
             ? ClaimVerdict.Kept
             : ClaimVerdict.Waiting,
 
@@ -275,14 +286,15 @@ internal sealed class SkidpadWatch : ScenarioWatch
         switch (claim)
         {
             case EveryCarIsTurning:
-                into.Add(TurningCars());
+                OnAWholePedal(out var turning, out var ofThem);
+                into.Add(turning);
                 into.Add(" of ");
-                into.Add(_turned.Length);
+                into.Add(ofThem);
                 into.Add(" cars have described an arc on their own lock");
 
                 // The square a missing one stands in is the whole of what such a figure is worth: one car
-                // short is a look that will not turn, and a row short is a pedal nothing turns under.
-                var still = FirstStill();
+                // short is a look that will not turn on everything it has.
+                var still = FirstStill(onAWholePedal: true);
                 if (still < 0) break;
 
                 into.Add(", none yet from the ");
@@ -425,6 +437,29 @@ internal sealed class SkidpadWatch : ScenarioWatch
                 into.Add((float)(100d * inside / arcs), "F0");
                 into.Add("% of the arcs measured");
                 break;
+
+            // A look whose engine cannot push its own tyres round on a part pedal, which is a fact about
+            // that look and never a claim: the pad reports it and the gate above stays on the whole pedal.
+            case WhatALighterPedalWillNotMove:
+                var stalled = 0;
+                for (var car = 0; car < _turned.Length; car++)
+                {
+                    if (_turned[car].Samples == 0 && !AWholePedal(SkidpadPlan.RunOf(car))) stalled++;
+                }
+
+                if (stalled == 0)
+                {
+                    into.Add("every look gets round on every pedal the pad stands");
+                    break;
+                }
+
+                var first = FirstStill(onAWholePedal: false);
+                into.Add(stalled);
+                into.Add(" of the part-pedal squares never turned, the first the ");
+                into.Add(LookOf(first));
+                into.Add(" ");
+                into.Add(SkidpadPlan.RunName(SkidpadPlan.RunOf(first)));
+                break;
         }
     }
 
@@ -533,12 +568,28 @@ internal sealed class SkidpadWatch : ScenarioWatch
         return turning;
     }
 
-    /// <summary>The first car that has not described an arc yet, or −1 once every one of them has.</summary>
-    int FirstStill()
+    /// <summary>How many of the cars on a whole pedal have described an arc, and how many of them there are.</summary>
+    bool OnAWholePedal(out int turning, out int of)
+    {
+        turning = 0;
+        of = 0;
+        for (var car = 0; car < _turned.Length; car++)
+        {
+            if (!AWholePedal(SkidpadPlan.RunOf(car))) continue;
+
+            of++;
+            if (_turned[car].Samples > 0) turning++;
+        }
+
+        return of > 0;
+    }
+
+    /// <summary>The first car on a pedal of this weight that has not described an arc, or −1.</summary>
+    int FirstStill(bool onAWholePedal)
     {
         for (var car = 0; car < _turned.Length; car++)
         {
-            if (_turned[car].Samples == 0) return car;
+            if (_turned[car].Samples == 0 && AWholePedal(SkidpadPlan.RunOf(car)) == onAWholePedal) return car;
         }
 
         return -1;

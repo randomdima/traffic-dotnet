@@ -20,9 +20,6 @@ internal sealed class RoadFigures
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
     public float PavementWidthM { get; init; } = 4f;
 
-    /// <summary>Half the walk, which is what stands a corner 4.83 m deep against the straight's 4 m.</summary>
-    public float PavementCornerRadiusM { get; init; } = 2f;
-
     public float EdgeLineWidthM { get; init; } = 0.3f;
 
     /// <summary>One painted line: a lane dash, a bay stroke. A zebra's bar is twice it and a stop bar is the plan's own.</summary>
@@ -106,25 +103,24 @@ internal sealed class TerrainFigures
     public float WaterCoefficient { get; init; } = 0.15f;
 
     /// <summary>
-    /// Resistance to travel over a surface, spent outside the traction budget so it costs nothing a tyre
-    /// would have used for cornering — terrain slows by friction, never by a speed multiplier. Tarmac's is
-    /// a feel figure rather than a physical one: a real coastdown is ≈ 0.23 m/s² and a car that coasts the
-    /// length of the town reads as floating. Grass is deep turf at ≈ 0.29 g — enough that a lawn is
-    /// somewhere a car struggles, not so much that it strands one there.
+    /// Resistance to travel over a surface, <b>as a coefficient</b> — the raw term, dimensionless, against
+    /// which the deceleration a wheel actually feels is derived (<see cref="SimConfig.GrassDragMps2"/> and
+    /// its pair). It is spent outside the traction budget so it costs nothing a tyre would have used for
+    /// cornering: terrain slows by friction, never by a speed multiplier. Tarmac's is a feel figure rather
+    /// than a physical one — a real coastdown is ≈ 0.023 and a car that coasts the length of the town reads
+    /// as floating. Grass is deep turf, enough that a lawn is somewhere a car struggles and not so much
+    /// that it strands one there.
     /// </summary>
-    public float GrassDragMps2 { get; init; } = 2.86f;
+    public float GrassResistance { get; init; } = 0.2915f;
 
-    public float PavedDragMps2 { get; init; } = 1.2f;
-    public float WaterDragMps2 { get; init; } = 3.4f;
+    public float PavedResistance { get; init; } = 0.1223f;
+    public float WaterResistance { get; init; } = 0.3466f;
 
     /// <summary>
-    /// How easily a surface takes a permanent mark, as a factor on <see cref="MarkFigures.PowerM2S3"/>.
-    /// Tarmac is slightly softer than the bar's own figure, so a slide that just clears it shows as a
-    /// scuff. Grass records the wheel <em>ploughing</em> it rather than a slide at all, and its factor
-    /// tracks the road figure and the grass drag both — move either and this moves to match.
+    /// How easily tarmac takes a permanent mark, as a factor on <see cref="MarkFigures.PowerM2S3"/>. Softer
+    /// than the bar's own figure, so a slide that only just clears it still shows as a scuff. Grass has no
+    /// factor: it records the wheel <em>ploughing</em> it rather than a slide at all, and takes the bar.
     /// </summary>
-    public float GrassMarkFactor { get; init; } = 1.01f;
-
     public float PavedMarkFactor { get; init; } = 0.8f;
 }
 

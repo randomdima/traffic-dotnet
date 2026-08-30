@@ -282,6 +282,27 @@ internal sealed partial class PhysicsWorld
     public float MassOf(BodyId body) => _massKg[body.Index];
 
     /// <summary>
+    /// <b>What a standing body weighs, changed under it.</b> A body's shape, place and motion are left
+    /// exactly as they are; only what it takes to push it and to turn it moves.
+    /// </summary>
+    /// <remarks>
+    /// It exists for the figures panel and nothing in the simulation calls it: a car's weight is its
+    /// variant's and does not change while it is being driven. An immovable body has no weight to change
+    /// and is left alone.
+    /// </remarks>
+    public void Reweigh(BodyId body, float massKg)
+    {
+        var index = body.Index;
+        if ((_flags[index] & BodyFlags.Static) != 0 || massKg <= 0f) return;
+
+        _massKg[index] = massKg;
+        _inverseMass[index] = 1f / massKg;
+        _inverseInertia[index] = (_flags[index] & BodyFlags.RotationLocked) != 0
+            ? 0f
+            : 1f / (massKg * Shape.InertiaPerKg(_extentM[index], _cornerRadiusM[index]));
+    }
+
+    /// <summary>
     /// <b>What an impulse at a point on this body is actually worth</b> — the two inverses the response is
     /// scaled by, published because a caller spending <see cref="ApplyImpulseAt"/> has no other way to know
     /// how much velocity its impulse will buy.

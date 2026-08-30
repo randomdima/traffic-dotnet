@@ -35,18 +35,40 @@ public class SimConfigTests
     }
 
     /// <summary>
-    /// The relation that matters more than the number: whatever the walk
-    /// speed is set to, the foot grip is whatever stops a body inside a fifth of its own diameter.
+    /// <b>The pace scale carries through the whole person model, and the square of it through every
+    /// acceleration.</b> Distances in this town are real and its pace is not, so a walker's grip is not a
+    /// figure that can be authored beside a pace that has moved: watching the town twice as fast is a body
+    /// that stops in the same ground, which is four times the grip.
     /// </summary>
+    /// <remarks>
+    /// <b>What it is really protecting is the casualty band</b>, which is the one place the factor has
+    /// bitten. The band comes off the sliding grip and the walk comes off the pace, so a grip left at real
+    /// scale beside a pace that is not puts the band <em>below</em> walking speed — where somebody becomes a
+    /// casualty by arriving at a parked car. Asked at two scales, because one is a number and two is a
+    /// relation.
+    /// </remarks>
     [Fact]
-    public void AWalkerStopsInsideAFifthOfItsOwnDiameter()
+    public void ThePersonModelCarriesItsPaceScaleThroughEveryAcceleration()
     {
         var config = SimConfig.Shipped();
+        var faster = new SimConfig { Person = new PersonFigures { PaceScale = config.Person.PaceScale * 2f } };
 
-        var stoppingDistanceM = config.Person.WalkSpeedMps * config.Person.WalkSpeedMps / (2f * config.Person.FootGripMps2);
+        Assert.Equal(config.PersonWalkSpeedMps * 2f, faster.PersonWalkSpeedMps, 1e-3f);
+        Assert.Equal(config.PersonTurnRateDegPerS * 2f, faster.PersonTurnRateDegPerS, 1e-3f);
+        Assert.Equal(config.PersonFootGripMps2 * 4f, faster.PersonFootGripMps2, 1e-2f);
 
-        Assert.True(stoppingDistanceM <= config.PersonDiameterM / 5f,
-            $"a walker takes {stoppingDistanceM:F2} m to stop, against a {config.PersonDiameterM:F2} m body");
+        foreach (var figures in new[] { config, faster })
+        {
+            var stoppingM = figures.PersonWalkSpeedMps * figures.PersonWalkSpeedMps / (2f * figures.PersonFootGripMps2);
+            Assert.Equal(figures.PersonDiameterM * figures.Person.StopsWithinDiameters, stoppingM, 1e-3f);
+
+            // The speed a body has to be met at to be put down, which must stay clear of the speed this
+            // town walks at — nothing about a contact says who was carrying the closing speed (PER-23).
+            var bandMps = MathF.Sqrt(2f * figures.PersonCasualtyKj * 1000f / figures.Person.MassKg);
+            Assert.True(
+                bandMps > figures.PersonWalkSpeedMps,
+                $"a casualty is made at {bandMps:F1} m/s and this town walks at {figures.PersonWalkSpeedMps:F1}");
+        }
     }
 
     /// <summary>

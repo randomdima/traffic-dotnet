@@ -121,7 +121,7 @@ public class TowBarTests
         var eyeM = TowBar.EyeM(Nominal, towed, Evacuator.TowReachM, byTheTail: false);
         var pullNs = TowBar.PullNs(
             EndAt(hookM, Vector2.Zero, tractor, 3200f), EndAt(eyeM, Vector2.Zero, towed, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.Evacuator.HitchMostMps2, Config.Evacuator.HitchSideShare,
+            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
             Config.Car.MassKg, Config.TickSeconds);
 
         // The moment of that impulse about the wreck's own middle, against the way it is skewed.
@@ -143,7 +143,7 @@ public class TowBarTests
         var pullNs = TowBar.PullNs(
             EndAt(new Vector2(3f, 7f), movingMps, pose, 3200f),
             EndAt(new Vector2(3f, 7f), movingMps, pose, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.Evacuator.HitchMostMps2, Config.Evacuator.HitchSideShare,
+            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
             Config.Car.MassKg, Config.TickSeconds);
 
         Assert.Equal(0f, pullNs.Length(), 3);
@@ -163,7 +163,7 @@ public class TowBarTests
 
         var pullNs = TowBar.PullNs(
             EndAt(hookM, Vector2.Zero, pose, 3200f), EndAt(eyeM, Vector2.Zero, pose, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.Evacuator.HitchMostMps2, Config.Evacuator.HitchSideShare,
+            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
             Config.Car.MassKg, Config.TickSeconds);
 
         Assert.True(pullNs.X > 0f, $"the bar pushed the eye away from the hook ({pullNs.X:F1} Ns)");
@@ -181,10 +181,10 @@ public class TowBarTests
         var pullNs = TowBar.PullNs(
             EndAt(new Vector2(40f, 0f), Vector2.Zero, pose, 3200f),
             EndAt(Vector2.Zero, Vector2.Zero, pose, Config.Car.MassKg),
-            Config.Evacuator.HitchSettleS, Config.Evacuator.HitchMostMps2, Config.Evacuator.HitchSideShare,
+            Config.Evacuator.HitchSettleS, Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare,
             Config.Car.MassKg, Config.TickSeconds);
 
-        var mostNs = Config.Evacuator.HitchMostMps2 * Config.Car.MassKg * Config.TickSeconds;
+        var mostNs = Config.EvacuatorHitchMostMps2 * Config.Car.MassKg * Config.TickSeconds;
         Assert.True(pullNs.Length() <= mostNs + 1e-3f, $"the bar spent {pullNs.Length():F0} Ns of {mostNs:F0}");
     }
 
@@ -200,7 +200,7 @@ public class TowBarTests
 
         var alongNs = TowBar.PullNs(
             EndAt(new Vector2(40f, 0f), Vector2.Zero, pose, 3200f), eye, Config.Evacuator.HitchSettleS,
-            Config.Evacuator.HitchMostMps2, Config.Evacuator.HitchSideShare, Config.Car.MassKg, Config.TickSeconds);
+            Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare, Config.Car.MassKg, Config.TickSeconds);
 
         // The same impossible correction offered across the arm rather than along it. The arm's own
         // direction is the line between the two points, so a stretch is always "along" — what is measured
@@ -208,7 +208,7 @@ public class TowBarTests
         var acrossNs = TowBar.PullNs(
             EndAt(new Vector2(4f, 0f), Vector2.Zero, pose, 3200f),
             EndAt(Vector2.Zero, new Vector2(0f, 40f), pose, Config.Car.MassKg), Config.Evacuator.HitchSettleS,
-            Config.Evacuator.HitchMostMps2, Config.Evacuator.HitchSideShare, Config.Car.MassKg, Config.TickSeconds);
+            Config.EvacuatorHitchMostMps2, Config.Evacuator.HitchSideShare, Config.Car.MassKg, Config.TickSeconds);
 
         Assert.True(
             MathF.Abs(acrossNs.Y) < alongNs.Length() * 0.5f,

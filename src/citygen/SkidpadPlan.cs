@@ -17,7 +17,7 @@ namespace TrafficSimulation.CityGen;
 internal readonly record struct SkidpadRun(string Name, float Pedal);
 
 /// <summary>
-/// <b>The skidpad</b>: nothing but road, with a car every hundred metres — a column for every look the
+/// <b>The skidpad</b>: nothing but road, with a car every <see cref="PitchM"/> — a column for every look the
 /// fleet ships and a row for every way of driving a circle — each of them with its wheel on the left stop
 /// and its pedal held where its row says.
 /// </summary>
@@ -31,10 +31,9 @@ internal readonly record struct SkidpadRun(string Name, float Pedal);
 /// instrument.
 /// </para>
 /// <para>
-/// <b>A hundred metres a car, which is a figure and not a margin.</b> The widest circle anything here
-/// turns is a few car lengths across, so the pitch is what keeps every square a private one: nothing
-/// reaches its neighbour, nothing queues, and a car that has left its own square has failed rather than
-/// merely wandered.
+/// <b>A square a car, which is a figure and not a margin.</b> The widest circle anything here turns is a
+/// fraction of the pitch, so it is what keeps every square a private one: nothing reaches its neighbour,
+/// nothing queues, and a car that has left its own square has failed rather than merely wandered.
 /// </para>
 /// <para>
 /// <b>A road a row, laid a whole pitch wide</b>, so the map is road edge to edge and the rows of the grid
@@ -64,23 +63,27 @@ internal static class SkidpadPlan
     /// two ahead of it are the ones a reader already has an expectation about.
     /// </summary>
     /// <remarks>
-    /// <b>Two pedals each way and the same lock throughout.</b> The pair is what the comparison is: half
-    /// the pedal against all of it, in each gear, on one lock — so what differs between two rows is the
-    /// throttle and nothing else, and what differs between the two pairs is the gear.
+    /// <b>Three pedals each way and the same lock throughout</b> — all of it, two thirds, a third — so what
+    /// differs between two rows of a gear is the throttle and nothing else, and what differs between the two
+    /// halves of the table is the gear.
     /// <para>
-    /// <b>Nothing lighter than half.</b> A tenth of the pedal is up against four patches scrubbing on full
-    /// lock and most of the fleet never gets round at all under it — a row of cars sitting still is a row
-    /// that measures nothing and takes as long to watch as one that moves.
+    /// <b>A third is the lightest, and it is the row the pad is read from.</b> The heavier two are a car
+    /// being asked for more than its rubber holds, where the circle turned is a fact about the tyres; a
+    /// third of the pedal is the one a car of this size should be able to hold its own geometry under, so a
+    /// look that runs wide down here is a look whose figures are wrong. Nothing lighter, because a car that
+    /// never gets round at all measures nothing and takes as long to watch as one that does.
     /// </para>
     /// </remarks>
     public static ReadOnlySpan<SkidpadRun> Runs => Table;
 
     static readonly SkidpadRun[] Table =
     [
-        new("astern, full pedal", -1f),
-        new("astern, half pedal", -0.5f),
-        new("ahead, full pedal", 1f),
-        new("ahead, half pedal", 0.5f),
+        new("astern, 100%", -1f),
+        new("astern, 66%", -0.66f),
+        new("astern, 33%", -0.33f),
+        new("ahead, 100%", 1f),
+        new("ahead, 66%", 0.66f),
+        new("ahead, 33%", 0.33f),
     ];
 
     /// <summary>
@@ -120,7 +123,13 @@ internal static class SkidpadPlan
     /// The square each car has to itself. Wide enough that the widest circle on the map is a fraction of
     /// it, so nothing here is ever about two cars.
     /// </summary>
-    public const float PitchM = 100f;
+    /// <remarks>
+    /// <b>It is sized against the circles the fleet actually turns and has to be resized when they move.</b>
+    /// A hundred metres was enough while every look turned inside three; once each carried its own quoted
+    /// turning circle the widest of them ran a car past its own edge, which the pad reports as a broken
+    /// claim rather than letting two squares meet.
+    /// </remarks>
+    public const float PitchM = 150f;
 
     /// <summary>
     /// <b>Four metres a cell, where every other map this build lays uses one.</b> A cell is a

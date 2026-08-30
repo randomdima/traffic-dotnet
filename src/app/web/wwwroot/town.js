@@ -42,8 +42,13 @@ const BUTTONS = KEY_COUNT * 2;
 
 const AXIS = {
     pointerX: 0, pointerY: 1, scroll: 2, clickX: 3, clickY: 4, clickButton: 5,
-    width: 6, height: 7, scale: 8, resized: 9, closing: 10,
+    width: 6, height: 7, scale: 8, resized: 9,
 };
+
+/// How many of them there are, which is the length the run's own array is made at. **Whether the
+/// run is over is not one of them**: an axis is something the page saw, a pump copies the page's
+/// copy over the run's, and the page has no opinion about that one.
+const AXIS_COUNT = 10;
 
 const state = {
     device: null,
@@ -59,7 +64,7 @@ const state = {
     indirect: null,
     counts: new Uint32Array(INDIRECT_BYTES / 4),
     keys: new Uint8Array(BUTTONS + 8),
-    axes: new Float64Array(11),
+    axes: new Float64Array(AXIS_COUNT),
     indexCount: 0,
 };
 
@@ -421,11 +426,89 @@ function say(line) {
     banner.style.display = line === '' ? 'none' : 'block';
 }
 
+/// One file, parked here until something on this side is asked to do with it.
+///
+/// **Two crossings and not one, and the reason is rule 3.** A MemoryView is a window onto the
+/// WebAssembly heap handed *out*, and there is no shape that hands one back — so the fetch answers a
+/// length, the run makes an array at it, and `take` copies into that.
+///
+/// **It is filled by `grab` or by `park` and read by `take` or by `picture`**, and it stands until the
+/// next one fills it. That is what lets a sheet be written into the run's file system and decoded by
+/// the browser without the bytes moving twice: one fetch, one park, two readers.
+let parked = null;
+
+/// One file the page was served. **A path is relative to the page**: `fetch` resolves it against
+/// `document.baseURI`, which is what a path in the manifest is written against, so a page served from
+/// anywhere under a host reads its own files.
+async function grab(path) {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText} — ${path}`);
+
+    parked = new Uint8Array(await response.arrayBuffer());
+    return parked.byteLength;
+}
+
+/// Bytes out of the run's own memory, for the one picture that was never fetched: the glyph sheet ships
+/// inside the assembly. Copied, because the view it arrives as does not outlive this call.
+function park(view) {
+    parked = bytes(view).slice();
+}
+
+/// The parked bytes into the run's own memory.
+function take(into) {
+    bytes(into).set(parked);
+}
+
+/// Every sheet the run has had decoded, by the path it was fetched from.
+///
+/// **This is the browser's image codec standing in for a library the page would otherwise ship**, and
+/// it is split in two because only half of it can wait. `createImageBitmap` is a promise and the atlas
+/// is packed from inside `Game.Start`, which a frame reaches and which cannot await; `drawImage` and
+/// `getImageData` are synchronous. So `picture` is called at boot, where waiting is allowed, and
+/// `texels` is called where the packer stands.
+///
+/// **What is kept is a bitmap, not a page of texels.** The browser stores an ImageBitmap as it pleases
+/// — often on the GPU — and the run's own heap holds nothing until one sheet is asked for.
+///
+/// **They are kept for the run and not dropped after the atlas is built**, because the art is every
+/// town's: picking a second map on the menu packs the atlas again out of the same sheets, and a bitmap
+/// closed after the first one would be a decode that had to happen inside a frame.
+const pictures = new Map();
+
+/// The parked file, decoded and kept under `path`.
+///
+/// **The bytes are taken before the first await**, because `parked` is one slot and the next `grab` is
+/// entitled to overwrite it the moment this yields.
+///
+/// **Both options are load-bearing.** Left to itself the browser premultiplies alpha and may put the
+/// display's colour profile through the texels, and this town's art is alpha-cut sprites drawn at their
+/// own texel grid: either one is a sheet that no longer matches what the desktop draws.
+async function picture(path) {
+    const file = parked;
+    pictures.set(path, await createImageBitmap(new Blob([file]), {
+        premultiplyAlpha: 'none',
+        colorSpaceConversion: 'none',
+    }));
+}
+
+/// The texels of a picture already decoded, parked for `take` exactly as a fetched file is.
+///
+/// The canvas is made at the picture's size and thrown away with it: it is one sheet at a time, and the
+/// atlas above is careful never to hold more than a page's worth at once.
+function texels(path) {
+    const bitmap = pictures.get(path);
+    if (!bitmap) throw new Error(`no picture decoded for ${path} — the boot did not fetch it`);
+
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' });
+    context.drawImage(bitmap, 0, 0);
+    parked = new Uint8Array(context.getImageData(0, 0, bitmap.width, bitmap.height).data.buffer);
+    return parked.byteLength;
+}
+
 export const town = {
-    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, say,
-    // What a path in the manifest is relative to. A page can be served from anywhere under a host,
-    // and the runtime's own fetch resolves nothing on its own.
-    origin: () => document.baseURI,
+    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, say, grab, park, take,
+    picture, texels,
     ticker: step => {
         const next = () => {
             if (step()) requestAnimationFrame(next);

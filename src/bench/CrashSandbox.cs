@@ -51,7 +51,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
         Array.Fill(
             _wheelGround,
             new SurfaceUnderWheel(
-                config.Terrain.PavedCoefficient, config.Terrain.PavedDragMps2,
+                config.Terrain.PavedCoefficient, config.PavedDragMps2,
                 config.Marks.PowerM2S3 * config.Terrain.PavedMarkFactor, Ploughs: false));
         _wheelScrub = new TyreScrub[cars * TyreModel.Wheels];
         _velocityIntoTickMps = new Vector2[people + cars];
