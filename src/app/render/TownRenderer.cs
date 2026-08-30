@@ -39,15 +39,33 @@ internal readonly record struct CameraView(Vector2 CentreM, Vector2 ClipPerM, Ve
 /// </remarks>
 internal sealed unsafe partial class TownRenderer : IDisposable
 {
-    /// <summary>Each shader's array is fixed-size, so every slot is written whether or not anything uses it.</summary>
-    const int SurfaceSlots = 8;
+    /// <summary>
+    /// The five the ground is painted with, each its own binding. They are different sizes, wrap-
+    /// seamless and mipped, so one array texture over them would force a common size and resample the
+    /// ground the whole town stands on; the fragment stage switches over them instead.
+    /// </summary>
+    const int Surfaces = 5;
 
     /// <summary>
     /// Every walker's look, <em>two</em> per car — the car and the wreck it becomes — one per roof and
-    /// one per prop look, with room over the shipped art's hundred and forty-six. The descriptor array
-    /// in the shader is unsized, so this is the only place the number lives.
+    /// one per prop look, with room over the shipped art's hundred and forty-six. It is the length of
+    /// the shader's uniform array of places, so this is the only place the number lives.
     /// </summary>
     const int SheetSlots = 192;
+
+    /// <summary>
+    /// The one set's bindings, in the order the shaders declare them. <b>The shaders and this list are
+    /// the same list</b>: a binding added here is a binding added there, and nothing else knows the
+    /// numbers.
+    /// </summary>
+    const int CameraBinding = 0;
+
+    const int SheetTableBinding = 1;
+    const int SheetPagesBinding = 2;
+    const int GlyphBinding = 3;
+    const int TileBinding = 4;
+    const int FirstSurfaceBinding = 5;
+    const int Bindings = FirstSurfaceBinding + Surfaces;
 
     /// <summary>
     /// How many interface and debug quads a frame may write. The busiest frame is the debug layers
@@ -80,7 +98,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     readonly AppWindow? _window;
     readonly Extent2D _offscreenSize;
     readonly GpuTexture[] _textures;
-    readonly GpuTexture[] _sheets;
+    readonly SheetAtlas _atlas;
+    readonly GpuTexture _sheetPages;
+    readonly GpuTexture? _tile;
+    readonly GpuBuffer _sheetTable;
     readonly GpuTexture _glyphs;
     readonly GpuBuffer _vertices;
     readonly GpuBuffer _indices;
@@ -127,18 +148,23 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _textures = new GpuTexture[surfaceTextures.Count];
         for (var texture = 0; texture < _textures.Length; texture++) _textures[texture] = GpuTexture.Load(vk, surfaceTextures[texture]);
 
-        _sheets = new GpuTexture[Math.Max(1, sheetTextures.Count)];
-        for (var sheet = 0; sheet < sheetTextures.Count; sheet++)
+        if (sheetTextures.Count > SheetSlots) throw new InvalidOperationException(
+            $"{sheetTextures.Count} sheets, and the sprite shader's table holds {SheetSlots}.");
+
+        // Every sheet onto the layers of one array texture, and the one that tiles onto a binding of
+        // its own. What a sheet was is then a row of the table the vertex shader reads.
+        _atlas = SheetAtlas.Pack(sheetTextures);
+        _sheetPages = GpuTexture.Layered(vk, SheetAtlas.PagePx, SheetAtlas.PagePx, _atlas.Pages, _atlas.FillPage);
+        if (_atlas.TileSheet >= 0)
         {
-            var source = sheetTextures[sheet];
-            _sheets[sheet] = source.Path is { } path
-                ? GpuTexture.Load(vk, path, source.Repeats, source.Mipped)
-                : GpuTexture.FromPixels(vk, source.Rgba!, source.WidthPx, source.HeightPx, source.Repeats, source.Mipped);
+            var tile = sheetTextures[_atlas.TileSheet];
+            _tile = tile.Path is { } path
+                ? GpuTexture.Load(vk, path, tile.Repeats, tile.Mipped)
+                : GpuTexture.FromPixels(vk, tile.Rgba!, tile.WidthPx, tile.HeightPx, tile.Repeats, tile.Mipped);
         }
 
-        // A renderer with no sheets still has to fill every slot of the shader's array, so the ground
-        // stands in for the sprites nobody asked for.
-        for (var sheet = sheetTextures.Count; sheet < _sheets.Length; sheet++) _sheets[sheet] = _textures[0];
+        _sheetTable = vk.CreateBuffer((ulong)(SheetSlots * sizeof(SheetPlace)), BufferUsageFlags.UniformBufferBit, hostVisible: true);
+        _atlas.Places.CopyTo(_sheetTable.Span<SheetPlace>());
 
         var vertices = mesh.Vertices;
         var indices = mesh.Indices;
@@ -241,10 +267,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// draws, and this layer knows only how big the image is.
     /// </summary>
     public float SheetFrameAspect(int sheet, int columns, int rows) =>
-        (_sheets[sheet].Width / (float)columns) / (_sheets[sheet].Height / (float)rows);
+        (_atlas.Places[sheet].WidthPx / columns) / (_atlas.Places[sheet].HeightPx / rows);
 
     /// <summary>The whole image's width over its height, for the sheets that are one picture rather than a grid — a roof, a prop look.</summary>
-    public float SheetAspect(int sheet) => _sheets[sheet].Width / (float)_sheets[sheet].Height;
+    public float SheetAspect(int sheet) => _atlas.Places[sheet].WidthPx / _atlas.Places[sheet].HeightPx;
 
     /// <summary>How many triangles the town's standing ground came to.</summary>
     public int TriangleCount => (int)(_indexCount / 3);
@@ -407,13 +433,10 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _underlay.Dispose();
         _underlayIndirect.Dispose();
         _glyphs.Dispose();
+        _sheetTable.Dispose();
+        _sheetPages.Dispose();
+        _tile?.Dispose();
         foreach (var texture in _textures) texture.Dispose();
-
-        // The stand-in slots are the ground's own textures, already disposed above.
-        for (var sheet = 0; sheet < _sheets.Length; sheet++)
-        {
-            if (Array.IndexOf(_textures, _sheets[sheet]) < 0) _sheets[sheet].Dispose();
-        }
     }
 
 }

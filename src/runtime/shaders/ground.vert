@@ -6,7 +6,7 @@
 
 // The camera lives in a buffer the CPU writes into rather than in a push constant, because a push
 // constant is recorded into the command buffer and this engine records its command buffers once.
-layout(set = 0, binding = 1) uniform Camera {
+layout(set = 0, binding = 0) uniform Camera {
     vec2 centreM;
     vec2 clipPerM;
 } camera;

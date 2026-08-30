@@ -5,6 +5,9 @@ using Image = Silk.NET.Vulkan.Image;
 
 namespace TrafficSimulation.Runtime;
 
+/// <summary>One layer's texels, top row first, written into memory the upload already owns.</summary>
+internal delegate void LayerFill(int layer, Span<Rgba32> into);
+
 /// <summary>
 /// One ground surface on the GPU, with its own mip chain, decoded at startup: there is no bake step to
 /// forget. The chain is box-filtered here rather than blitted by the driver, so how sharp the ground
@@ -14,7 +17,9 @@ internal sealed unsafe class GpuTexture : IDisposable
 {
     readonly Vk _vk;
 
-    GpuTexture(Vk vk, Image image, DeviceMemory memory, ImageView view, Sampler sampler, int width, int height, int levels)
+    GpuTexture(
+        Vk vk, Image image, DeviceMemory memory, ImageView view, Sampler sampler,
+        int width, int height, int levels, int layers = 1)
     {
         _vk = vk;
         Handle = image;
@@ -24,6 +29,7 @@ internal sealed unsafe class GpuTexture : IDisposable
         Width = width;
         Height = height;
         Levels = levels;
+        Layers = layers;
     }
 
     public Image Handle { get; }
@@ -39,6 +45,74 @@ internal sealed unsafe class GpuTexture : IDisposable
     public int Height { get; }
 
     public int Levels { get; }
+
+    /// <summary>How many array layers the view carries. One for everything but the sheet atlas.</summary>
+    public int Layers { get; }
+
+    /// <summary>
+    /// An array texture, filled a layer at a time: the sheet atlas, whose pages are its layers.
+    /// </summary>
+    /// <remarks>
+    /// Clamped and un-mipped, because a page is sheets side by side — the packer's gutter is what
+    /// makes clamping true at a sheet's own edge, and a mip level would average two sheets together.
+    /// The staging buffer is one layer's worth and is reused, so a fifty-megapixel atlas never has
+    /// more than one page of it in memory at a time.
+    /// </remarks>
+    public static GpuTexture Layered(Vk vk, int width, int height, int layers, LayerFill fill)
+    {
+        var info = new ImageCreateInfo
+        {
+            SType = StructureType.ImageCreateInfo,
+            ImageType = ImageType.Type2D,
+            Format = Format.R8G8B8A8Unorm,
+            Extent = new Extent3D((uint)width, (uint)height, 1),
+            MipLevels = 1,
+            ArrayLayers = (uint)layers,
+            Samples = SampleCountFlags.Count1Bit,
+            Tiling = ImageTiling.Optimal,
+            Usage = ImageUsageFlags.TransferDstBit | ImageUsageFlags.SampledBit,
+            SharingMode = SharingMode.Exclusive,
+            InitialLayout = ImageLayout.Undefined,
+        };
+
+        Vk.Count();
+        Vk.Check(vk.Api.CreateImage(vk.Device, &info, null, out var image), "vkCreateImage");
+        var memory = Bind(vk, image);
+
+        using var staging = vk.CreateBuffer((ulong)(width * height * sizeof(Rgba32)), BufferUsageFlags.TransferSrcBit, hostVisible: true);
+        for (var layer = 0; layer < layers; layer++)
+        {
+            fill(layer, staging.Span<Rgba32>());
+            var at = layer;
+            vk.OneShot(commands =>
+            {
+                var region = new BufferImageCopy
+                {
+                    ImageSubresource = new ImageSubresourceLayers(ImageAspectFlags.ColorBit, 0, (uint)at, 1),
+                    ImageExtent = new Extent3D((uint)width, (uint)height, 1),
+                };
+
+                Transition(vk, commands, image, 1, ImageLayout.Undefined, ImageLayout.TransferDstOptimal, at);
+                Vk.Count();
+                vk.Api.CmdCopyBufferToImage(commands, staging.Handle, image, ImageLayout.TransferDstOptimal, 1, &region);
+                Transition(vk, commands, image, 1, ImageLayout.TransferDstOptimal, ImageLayout.ShaderReadOnlyOptimal, at);
+            });
+        }
+
+        var viewInfo = new ImageViewCreateInfo
+        {
+            SType = StructureType.ImageViewCreateInfo,
+            Image = image,
+            ViewType = ImageViewType.Type2DArray,
+            Format = Format.R8G8B8A8Unorm,
+            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, 1, 0, (uint)layers),
+        };
+
+        Vk.Count();
+        Vk.Check(vk.Api.CreateImageView(vk.Device, &viewInfo, null, out var view), "vkCreateImageView");
+
+        return new GpuTexture(vk, image, memory, view, Clamped(vk), width, height, 1, layers);
+    }
 
     /// <summary>
     /// One image on the GPU.
@@ -122,20 +196,7 @@ internal sealed unsafe class GpuTexture : IDisposable
 
         Vk.Count();
         Vk.Check(vk.Api.CreateImage(vk.Device, &info, null, out var image), "vkCreateImage");
-
-        Vk.Count();
-        vk.Api.GetImageMemoryRequirements(vk.Device, image, out var requirements);
-        var allocate = new MemoryAllocateInfo
-        {
-            SType = StructureType.MemoryAllocateInfo,
-            AllocationSize = requirements.Size,
-            MemoryTypeIndex = vk.MemoryTypeIndex(requirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
-        };
-
-        Vk.Count();
-        Vk.Check(vk.Api.AllocateMemory(vk.Device, &allocate, null, out var memory), "vkAllocateMemory");
-        Vk.Count();
-        Vk.Check(vk.Api.BindImageMemory(vk.Device, image, memory, 0), "vkBindImageMemory");
+        var memory = Bind(vk, image);
 
         var regions = new BufferImageCopy[chain.Count];
         ulong offset = 0;
@@ -247,7 +308,46 @@ internal sealed unsafe class GpuTexture : IDisposable
         (byte)((a.B + b.B + c.B + d.B) / 4),
         (byte)((a.A + b.A + c.A + d.A) / 4));
 
-    static void Transition(Vk vk, CommandBuffer commands, Image image, int levels, ImageLayout from, ImageLayout to)
+    /// <summary>The memory under an image, allocated device-local and bound.</summary>
+    static DeviceMemory Bind(Vk vk, Image image)
+    {
+        Vk.Count();
+        vk.Api.GetImageMemoryRequirements(vk.Device, image, out var requirements);
+        var allocate = new MemoryAllocateInfo
+        {
+            SType = StructureType.MemoryAllocateInfo,
+            AllocationSize = requirements.Size,
+            MemoryTypeIndex = vk.MemoryTypeIndex(requirements.MemoryTypeBits, MemoryPropertyFlags.DeviceLocalBit),
+        };
+
+        Vk.Count();
+        Vk.Check(vk.Api.AllocateMemory(vk.Device, &allocate, null, out var memory), "vkAllocateMemory");
+        Vk.Count();
+        Vk.Check(vk.Api.BindImageMemory(vk.Device, image, memory, 0), "vkBindImageMemory");
+        return memory;
+    }
+
+    static Sampler Clamped(Vk vk)
+    {
+        var info = new SamplerCreateInfo
+        {
+            SType = StructureType.SamplerCreateInfo,
+            MagFilter = Filter.Linear,
+            MinFilter = Filter.Linear,
+            MipmapMode = SamplerMipmapMode.Linear,
+            AddressModeU = SamplerAddressMode.ClampToEdge,
+            AddressModeV = SamplerAddressMode.ClampToEdge,
+            AddressModeW = SamplerAddressMode.ClampToEdge,
+            MaxLod = 1,
+        };
+
+        Vk.Count();
+        Vk.Check(vk.Api.CreateSampler(vk.Device, &info, null, out var sampler), "vkCreateSampler");
+        return sampler;
+    }
+
+    static void Transition(
+        Vk vk, CommandBuffer commands, Image image, int levels, ImageLayout from, ImageLayout to, int layer = 0)
     {
         var barrier = new ImageMemoryBarrier2
         {
@@ -259,7 +359,7 @@ internal sealed unsafe class GpuTexture : IDisposable
             OldLayout = from,
             NewLayout = to,
             Image = image,
-            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, (uint)levels, 0, 1),
+            SubresourceRange = new ImageSubresourceRange(ImageAspectFlags.ColorBit, 0, (uint)levels, (uint)layer, 1),
         };
 
         var dependency = new DependencyInfo

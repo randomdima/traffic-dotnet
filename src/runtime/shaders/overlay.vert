@@ -4,7 +4,7 @@
 // transforms. A panel, a glyph, a tape and a debug line are all this one instance — which is what
 // keeps the whole interface inside a recording that was written once.
 
-layout(set = 0, binding = 1) uniform Camera {
+layout(set = 0, binding = 0) uniform Camera {
     vec2 centreM;
     vec2 clipPerM;
     vec2 uiPx;

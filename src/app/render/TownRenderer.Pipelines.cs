@@ -30,43 +30,27 @@ internal sealed unsafe partial class TownRenderer
         _overlayVertexShader = _vk.LoadShader("overlay.vert");
         _overlayFragmentShader = _vk.LoadShader("overlay.frag");
 
-        // One set for the whole frame: all three pipelines read the same camera and each reaches its
-        // own images through descriptor indexing, so nothing is bound twice in a recording.
-        var bindings = stackalloc DescriptorSetLayoutBinding[4];
-        bindings[0] = new DescriptorSetLayoutBinding
+        // One set for the whole frame: all three pipelines read the same camera and every picture the
+        // town is drawn with is bound here once, so nothing is bound twice in a recording. Two
+        // uniform blocks the vertex stage reads, then the atlas, the glyphs, the tile and the five
+        // surfaces — and not one of them is an array a shader indexes at run time.
+        var bindings = stackalloc DescriptorSetLayoutBinding[Bindings];
+        for (var binding = 0; binding < Bindings; binding++)
         {
-            Binding = 0,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = SurfaceSlots,
-            StageFlags = ShaderStageFlags.FragmentBit,
-        };
-        bindings[1] = new DescriptorSetLayoutBinding
-        {
-            Binding = 1,
-            DescriptorType = DescriptorType.UniformBuffer,
-            DescriptorCount = 1,
-            StageFlags = ShaderStageFlags.VertexBit,
-        };
-        bindings[2] = new DescriptorSetLayoutBinding
-        {
-            Binding = 2,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = SheetSlots,
-            StageFlags = ShaderStageFlags.FragmentBit,
-        };
-
-        bindings[3] = new DescriptorSetLayoutBinding
-        {
-            Binding = 3,
-            DescriptorType = DescriptorType.CombinedImageSampler,
-            DescriptorCount = 1,
-            StageFlags = ShaderStageFlags.FragmentBit,
-        };
+            var uniform = binding <= SheetTableBinding;
+            bindings[binding] = new DescriptorSetLayoutBinding
+            {
+                Binding = (uint)binding,
+                DescriptorType = uniform ? DescriptorType.UniformBuffer : DescriptorType.CombinedImageSampler,
+                DescriptorCount = 1,
+                StageFlags = uniform ? ShaderStageFlags.VertexBit : ShaderStageFlags.FragmentBit,
+            };
+        }
 
         var setInfo = new DescriptorSetLayoutCreateInfo
         {
             SType = StructureType.DescriptorSetLayoutCreateInfo,
-            BindingCount = 4,
+            BindingCount = (uint)Bindings,
             PBindings = bindings,
         };
 

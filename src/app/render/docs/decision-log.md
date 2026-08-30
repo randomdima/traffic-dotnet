@@ -2,6 +2,39 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-08-30 — a sheet is a rectangle of a page, not a descriptor
+
+Every picture the town draws with used to be a texture of its own, reached out of an unsized array of
+samplers by a number in the instance and `nonuniformEXT`. It read well and it cost the town nothing that
+could be seen. It is gone anyway, for two reasons that arrived together.
+
+The first is that **descriptor indexing is a Vulkan extension and nothing else has it**. Neither WebGPU
+nor WebGL2 can index an array of samplers at run time — WGSL has no such thing at all — so a browser
+could not have drawn this town without a second answer to "which picture", and a second answer is two
+grammars for the same question and two shaders that disagree within a month.
+
+The second is that it was never free. The bodies are one instanced draw over mixed looks, so a wave
+routinely spans quads drawn from different sheets, and a divergent descriptor index is what a driver
+scalarises. An array **layer** is a coordinate: no divergence, no waterfall, one descriptor.
+
+So [SheetAtlas](../SheetAtlas.cs) packs the lot into the layers of one array texture and the instance's
+sheet number now indexes a table of *places* — a uniform block the vertex stage reads, which is a legal
+dynamic index everywhere. Nothing above the renderer moved: `TownSprites` and the rest still write a
+sheet number and a coordinate inside that sheet, and the transform to the page happens in the shader.
+
+**The five ground surfaces were not atlased.** They are different sizes, wrap-seamless and mipped, and an
+array texture forces one size — which would have resampled the ground the whole town stands on to fix a
+problem the ground does not have. Five bindings and a `switch` keep every texel and cost a branch that is
+uniform over a triangle. **The tread was not atlased either**, for the opposite reason: it is a tile, its
+coordinates run outside the unit square by however many pitches a wheel lays, and a page neither repeats
+nor carries mips. It has a binding of its own, and a second tiling sheet is refused at load rather than
+drawn wrongly.
+
+What it cost: the pages are three of 4096 square where the sheets were about 156 MB of textures, so the
+GPU holds around 200 MB instead — the price of packing pictures of thirty different shapes into
+rectangles. Two thousand square was tried first and took **seventeen** pages, because a building is
+around 1200 across and a 2048 page holds one of those with a wasted strip beside it.
+
 ## 2026-08-26 — a casualty is art, not a tint
 
 A body in the road (`PER-18`) needed a picture, and the cheap answer was sitting right there: the instance

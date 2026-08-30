@@ -25,8 +25,8 @@ internal sealed unsafe partial class TownRenderer
         CreateOverlayPipeline();
 
         var sizes = stackalloc DescriptorPoolSize[2];
-        sizes[0] = new DescriptorPoolSize(DescriptorType.CombinedImageSampler, (uint)((SurfaceSlots + SheetSlots + 1) * images));
-        sizes[1] = new DescriptorPoolSize(DescriptorType.UniformBuffer, (uint)images);
+        sizes[0] = new DescriptorPoolSize(DescriptorType.CombinedImageSampler, (uint)((Bindings - SheetPagesBinding) * images));
+        sizes[1] = new DescriptorPoolSize(DescriptorType.UniformBuffer, (uint)(SheetPagesBinding * images));
         var poolInfo = new DescriptorPoolCreateInfo
         {
             SType = StructureType.DescriptorPoolCreateInfo,
@@ -62,67 +62,60 @@ internal sealed unsafe partial class TownRenderer
         _rendered = new Semaphore[images];
         _acquired = new Semaphore[images];
 
-        var surfaces = stackalloc DescriptorImageInfo[SurfaceSlots];
-        for (var slot = 0; slot < SurfaceSlots; slot++)
+        // The pictures, in binding order: the atlas, the glyphs, the tile and the five surfaces. A town
+        // with no tiling sheet binds the ground in that slot, which nothing then samples.
+        const int firstPicture = SheetPagesBinding;
+        var pictures = stackalloc DescriptorImageInfo[Bindings - firstPicture];
+        pictures[SheetPagesBinding - firstPicture] = Picture(_sheetPages);
+        pictures[GlyphBinding - firstPicture] = Picture(_glyphs);
+        pictures[TileBinding - firstPicture] = Picture(_tile ?? _textures[0]);
+        for (var surface = 0; surface < Surfaces; surface++)
         {
-            var texture = _textures[Math.Min(slot, _textures.Length - 1)];
-            surfaces[slot] = new DescriptorImageInfo(texture.Sampler, texture.View, ImageLayout.ShaderReadOnlyOptimal);
+            pictures[FirstSurfaceBinding - firstPicture + surface] =
+                Picture(_textures[Math.Min(surface, _textures.Length - 1)]);
         }
 
-        var sheets = stackalloc DescriptorImageInfo[SheetSlots];
-        for (var slot = 0; slot < SheetSlots; slot++)
-        {
-            var sheet = _sheets[Math.Min(slot, _sheets.Length - 1)];
-            sheets[slot] = new DescriptorImageInfo(sheet.Sampler, sheet.View, ImageLayout.ShaderReadOnlyOptimal);
-        }
+        var table = new DescriptorBufferInfo(_sheetTable.Handle, 0, _sheetTable.SizeBytes);
 
-        var glyphs = new DescriptorImageInfo(_glyphs.Sampler, _glyphs.View, ImageLayout.ShaderReadOnlyOptimal);
-
-        var writes = stackalloc WriteDescriptorSet[4];
+        var writes = stackalloc WriteDescriptorSet[Bindings];
         for (var image = 0; image < images; image++)
         {
             _cameras[image] = _vk.CreateBuffer((ulong)sizeof(CameraView), BufferUsageFlags.UniformBufferBit, hostVisible: true);
 
             var camera = new DescriptorBufferInfo(_cameras[image].Handle, 0, (ulong)sizeof(CameraView));
-            writes[0] = new WriteDescriptorSet
+            writes[CameraBinding] = new WriteDescriptorSet
             {
                 SType = StructureType.WriteDescriptorSet,
                 DstSet = _sets[image],
-                DstBinding = 0,
-                DescriptorCount = SurfaceSlots,
-                DescriptorType = DescriptorType.CombinedImageSampler,
-                PImageInfo = surfaces,
-            };
-            writes[1] = new WriteDescriptorSet
-            {
-                SType = StructureType.WriteDescriptorSet,
-                DstSet = _sets[image],
-                DstBinding = 1,
+                DstBinding = CameraBinding,
                 DescriptorCount = 1,
                 DescriptorType = DescriptorType.UniformBuffer,
                 PBufferInfo = &camera,
             };
-            writes[2] = new WriteDescriptorSet
+            writes[SheetTableBinding] = new WriteDescriptorSet
             {
                 SType = StructureType.WriteDescriptorSet,
                 DstSet = _sets[image],
-                DstBinding = 2,
-                DescriptorCount = SheetSlots,
-                DescriptorType = DescriptorType.CombinedImageSampler,
-                PImageInfo = sheets,
-            };
-            writes[3] = new WriteDescriptorSet
-            {
-                SType = StructureType.WriteDescriptorSet,
-                DstSet = _sets[image],
-                DstBinding = 3,
+                DstBinding = SheetTableBinding,
                 DescriptorCount = 1,
-                DescriptorType = DescriptorType.CombinedImageSampler,
-                PImageInfo = &glyphs,
+                DescriptorType = DescriptorType.UniformBuffer,
+                PBufferInfo = &table,
             };
+            for (var binding = firstPicture; binding < Bindings; binding++)
+            {
+                writes[binding] = new WriteDescriptorSet
+                {
+                    SType = StructureType.WriteDescriptorSet,
+                    DstSet = _sets[image],
+                    DstBinding = (uint)binding,
+                    DescriptorCount = 1,
+                    DescriptorType = DescriptorType.CombinedImageSampler,
+                    PImageInfo = pictures + binding - firstPicture,
+                };
+            }
 
             Vk.Count();
-            api.UpdateDescriptorSets(_vk.Device, 4, writes, 0, null);
+            api.UpdateDescriptorSets(_vk.Device, Bindings, writes, 0, null);
 
             var fenceInfo = new FenceCreateInfo { SType = StructureType.FenceCreateInfo, Flags = FenceCreateFlags.SignaledBit };
             Vk.Count();
@@ -243,6 +236,9 @@ internal sealed unsafe partial class TownRenderer
         Vk.Count();
         Vk.Check(api.EndCommandBuffer(commands), "vkEndCommandBuffer");
     }
+
+    static DescriptorImageInfo Picture(GpuTexture texture) =>
+        new(texture.Sampler, texture.View, ImageLayout.ShaderReadOnlyOptimal);
 
     void Barrier(CommandBuffer commands, Image image, ImageLayout from, ImageLayout to)
     {
