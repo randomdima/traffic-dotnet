@@ -47,10 +47,15 @@ try
 
     // The loop, handed back to the browser: it calls this between paints, and a run that held on to
     // the thread instead would be a page that never painted at all.
-    WebGpu.Ticker(game.Step);
+    var step = game.Step;
+    WebGpu.Ticker(step);
 
-    // Main returns and the runtime stays up, which is what keeps the town standing between callbacks.
-    await Task.Delay(Timeout.Infinite);
+    // And Main never returns, which is the whole of what keeps the town standing between those
+    // callbacks. <b>A timer and not an infinite wait</b>: the runtime shuts down when nothing is
+    // pending, an infinite delay schedules nothing, and an animation callback the browser holds is
+    // not something it counts — so the page would tear the device down between the first frame and
+    // the second, and report it as a device lost for no reason anybody could see.
+    while (!game.Closed) await Task.Delay(1000);
 }
 catch (Exception trouble)
 {

@@ -46,6 +46,15 @@ another there.
 **WEB-5 — the query string is the command line.** `?map=Test&ui=nodes,paths` is `--map Test --ui
 nodes,paths`. The words are the desktop's, and the ones a page cannot answer are not offered.
 
+## How it is checked
+
+**`qq web --shot FILE` is the browser head's `--shot`**: it publishes, serves, drives a browser to the
+page, lets the town run, photographs it and puts everything away. The picture is the check, exactly as
+it is for the desktop, and what the page said about itself on the way is printed beside it.
+
+**It opens a window and cannot not**, for the reason in the [decision log](decision-log.md): headless
+Chromium runs every part of this but the presentation of a WebGPU canvas.
+
 ## What a page cannot promise
 
 **The frame is paced by the compositor.** [`Pacing`](../../../runtime/Pacing.cs) is a want on both

@@ -42,6 +42,23 @@ perfectly until whichever frame followed an allocation that crossed a page bound
 from inside `writeBuffer`. The views are arguments now, made fresh by the interop layer on each call
 and dead when it returns. It costs nothing on this side: the managed array is not copied either way.
 
+## 2026-08-30 — a picture of the page needs a window, and this is why
+
+`qq web --shot` opens a real browser window, which sits badly beside a project whose whole visual
+tier is taken with no window, no compositor and no desktop. It is not laziness, and the finding is
+worth keeping because it costs an afternoon to rediscover.
+
+**Headless Chromium runs all of this correctly except the last step.** It has WebGPU, it hands out an
+adapter, the WGSL compiles, the atlas uploads, the town stands up, the bundle records and the draws
+submit — every one of those was watched happening. What it cannot do is present to a WebGPU canvas:
+the first frame that reaches `getCurrentTexture` loses the device, with no validation error and no
+exception, and the page goes white. Rendering the same frame into an offscreen texture instead, in
+the same headless browser, works.
+
+So the shot is taken through the DevTools protocol against a window that is opened, photographed and
+closed. The tool says so, and so does this, because "why not headless" is the first question anybody
+will have.
+
 ## 2026-08-30 — the files go into the file system, not through a provider
 
 Everything above the machine reads `assets/` and `towns/` by walking up from where the binary landed.

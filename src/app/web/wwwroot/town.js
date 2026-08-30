@@ -288,6 +288,16 @@ function rebuild(indexCount) {
     state.bundle = pass.finish();
 }
 
+/// Everything the device is holding for a town that is being taken down. The recording goes with it,
+/// so a frame between this and the next rebuild draws nothing rather than reading a destroyed buffer.
+function release() {
+    state.bundle = null;
+    for (const slot in state.buffers) state.buffers[slot].destroy();
+    for (const slot in state.textures) state.textures[slot].destroy();
+    state.buffers = {};
+    state.textures = {};
+}
+
 /// The whole frame: the memory the simulation just wrote, then the recording that reads it.
 function frame(camera, sprites, overlay, underlay, spriteCount, overlayCount, underlayCount) {
     if (!state.bundle) return;
@@ -412,7 +422,7 @@ function say(line) {
 }
 
 export const town = {
-    start, reserve, buffer, texture, rebuild, frame, pump, fullscreen, say,
+    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, say,
     // What a path in the manifest is relative to. A page can be served from anywhere under a host,
     // and the runtime's own fetch resolves nothing on its own.
     origin: () => document.baseURI,

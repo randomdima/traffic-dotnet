@@ -149,6 +149,10 @@ is `--map Odesa --ui nodes`. Without a map it opens on the start menu, exactly a
 shipped — and says so under the canvas when it has not got one. **Build it Release**: `RunAOTCompilation`
 is on there and off in Debug, and the interpreter is about ten times off a 60 Hz loop.
 
+**`qq web` publishes it, `qq web --serve` serves it, and `qq web --shot FILE` takes its picture** —
+the browser head's answer to `--shot`, which drives a real browser because headless Chromium runs all
+of this except presenting a WebGPU canvas ([decision log](src/app/web/docs/decision-log.md)).
+
 **A frame crosses the wall three times** whatever the town holds — the animation callback in, the input
 out, the frame — against the desktop's five, and the counter that says so is
 [`WebGpu.Crossings`](src/runtime/web/WebGpu.cs). Rule 1 is the same rule.

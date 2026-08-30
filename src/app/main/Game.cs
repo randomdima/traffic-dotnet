@@ -106,6 +106,9 @@ internal sealed partial class Game : IDisposable
     /// <summary>The machine, let go of after the renderer and before the window.</summary>
     partial void Shutdown();
 
+    /// <summary>Whether the run is over — the window shut, or the page's own way of saying so.</summary>
+    public bool Closed => _window.IsClosing;
+
     /// <summary>Whether a town is standing. Everything the interface offers is different either side of it.</summary>
     bool Running => _world is not null;
 

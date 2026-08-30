@@ -76,6 +76,13 @@ internal static partial class WebGpu
         RebuildJs(indexCount);
     }
 
+    /// <summary>Everything the device holds for a town being taken down, and the recording that read it.</summary>
+    public static void Release()
+    {
+        Count();
+        ReleaseJs();
+    }
+
     /// <summary>The whole frame: the memory the simulation just wrote, and the counts that say how much of it to read.</summary>
     public static void Frame(
         Span<byte> camera, Span<byte> sprites, Span<byte> overlay, Span<byte> underlay,
@@ -141,6 +148,9 @@ internal static partial class WebGpu
 
     [JSImport("town.rebuild", "town.js")]
     static partial void RebuildJs(int indexCount);
+
+    [JSImport("town.release", "town.js")]
+    static partial void ReleaseJs();
 
     [JSImport("town.frame", "town.js")]
     static partial void FrameJs(

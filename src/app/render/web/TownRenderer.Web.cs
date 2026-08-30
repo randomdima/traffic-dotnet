@@ -166,10 +166,12 @@ internal sealed class TownRenderer : IDisposable
     {
     }
 
-    /// <summary>The device owns everything and the page owns the device: what is here is memory the collector will have.</summary>
-    public void Dispose()
-    {
-    }
+    /// <summary>
+    /// The buffers and the pictures, given back. <b>It matters here more than it looks</b>: opening a
+    /// map builds the next renderer and disposes this one, and an atlas is two hundred megabytes on
+    /// the device — holding two of them at once is how a page loses its adapter outright.
+    /// </summary>
+    public void Dispose() => WebGpu.Release();
 
     /// <summary>
     /// The atlas, a page at a time. The page's memory is one buffer reused, so a fifty-megapixel
