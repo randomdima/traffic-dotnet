@@ -168,7 +168,13 @@ internal sealed unsafe class Swapchain : RenderTarget
     /// <summary>The wanted mode where the surface offers it, and FIFO — which every surface offers — where it does not.</summary>
     static PresentModeKHR PickPresentMode(Vk vk)
     {
-        var wanted = vk.WantedPresentMode;
+        var wanted = vk.WantedPacing switch
+        {
+            Pacing.Mailbox => PresentModeKHR.MailboxKhr,
+            Pacing.Immediate => PresentModeKHR.ImmediateKhr,
+            _ => PresentModeKHR.FifoKhr,
+        };
+
         if (wanted == PresentModeKHR.FifoKhr) return wanted;
 
         uint count = 0;

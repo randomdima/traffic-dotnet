@@ -13,7 +13,6 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
-using PresentModeKHR = Silk.NET.Vulkan.PresentModeKHR;
 
 namespace TrafficSimulation.App.Main;
 
@@ -35,14 +34,13 @@ namespace TrafficSimulation.App.Main;
 /// the same plan stands up the same number of bodies.
 /// </para>
 /// </remarks>
-internal sealed class Game : IDisposable
+internal sealed partial class Game : IDisposable
 {
     readonly SimConfig _config;
     readonly AppWindow _window;
-    readonly Runtime.Vk _vk;
     readonly TownSprites _looks;
 
-    readonly Hud.Interface _ui = new();
+    readonly Hud.Interface _ui;
     readonly PlayerHands _hands = new();
     readonly FrameMeter _meter = new();
 
@@ -70,18 +68,21 @@ internal sealed class Game : IDisposable
     long _crossingsPerFrame;
     long _frames;
 
+    /// <summary>What the frame before this one took, which is the step the hands are read over.</summary>
+    TimeSpan _lastFrame;
+
     public Game(
-        SimConfig config, int width, int height, bool validate, float uiScale, PresentModeKHR presentMode,
+        SimConfig config, int width, int height, bool validate, float uiScale, Pacing pacing,
         bool fullscreen, string? display)
     {
         _config = config;
+        _ui = new Hud.Interface(config.Trim);
         _looks = TownSprites.Load();
 
-        _window = AppWindow.Open("traffic-dotnet", width, height, uiScale, fullscreen, display);
-        _vk = Runtime.Vk.Open("traffic-dotnet", validate, _window.VkSurface);
-        _vk.WantedPresentMode = presentMode;
-        _renderer = TownRenderer.OnScreen(
-            _vk, _window, GroundMesh.Nothing(), ProjectPaths.GroundSurfaceFiles(), _looks.Sheets, spriteCapacity: 1);
+        // The window and the machine under it are the one thing that is not the same on both, so they
+        // are the one thing this root does not do itself (Game.Desktop.cs, Game.Web.cs).
+        _window = Boot(width, height, validate, uiScale, pacing, fullscreen, display);
+        _renderer = NewRenderer(GroundMesh.Nothing(), spriteCapacity: 1);
         _looks.ReadAspects(_renderer);
 
         _uiPx = _window.UiPx;
@@ -92,6 +93,18 @@ internal sealed class Game : IDisposable
                           $"{_window.DisplayName} at {_window.UiScale:F2}x desktop scale, so the interface is " +
                           $"laid out on {_uiPx.X:F0}x{_uiPx.Y:F0} — --ui-scale N overrides it");
     }
+
+    /// <summary>The window, and the machine that draws into it. Answered by whichever half of this class the build compiled.</summary>
+    private partial AppWindow Boot(int width, int height, bool validate, float uiScale, Pacing pacing, bool fullscreen, string? display);
+
+    /// <summary>A renderer for the town about to stand, laid for the ground and the bodies it will hold.</summary>
+    private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity);
+
+    /// <summary>Crossings of the wall between managed code and the machine, since the process started. Zero where the counter is compiled out.</summary>
+    private partial long Crossings();
+
+    /// <summary>The machine, let go of after the renderer and before the window.</summary>
+    partial void Shutdown();
 
     /// <summary>Whether a town is standing. Everything the interface offers is different either side of it.</summary>
     bool Running => _world is not null;
@@ -109,44 +122,15 @@ internal sealed class Game : IDisposable
         var deadline = seconds > 0
             ? Stopwatch.GetTimestamp() + (long)(seconds * Stopwatch.Frequency)
             : long.MaxValue;
-        var lastFrame = TimeSpan.Zero;
 
-        while (!_window.IsClosing && Stopwatch.GetTimestamp() < deadline)
+        while (Step() && Stopwatch.GetTimestamp() < deadline)
         {
-            // The frame is measured end to end and its parts are marked off inside it, so what the
-            // read-out prints under the total is a partition of that total and not a second opinion
-            // about it (FrameParts). Nothing is stamped unless the read-out is open.
-            var startedAt = Stopwatch.GetTimestamp();
-            var parts = new FrameParts(_ui.Status.Open);
-
-            _window.PumpEvents();
-            if (_window.TakeResized())
-            {
-                _renderer.Recreate();
-
-                // The scale is read again with the size: a window dragged onto a second display is
-                // the one way it changes without the process restarting.
-                _uiPx = _window.UiPx;
-                _camera.DevicePxPerUiPx = _window.UiScale;
-            }
-
-            parts.Mark(ref parts.PumpMs);
-
-            ReadInput((float)lastFrame.TotalSeconds);
-            parts.Mark(ref parts.InputMs);
-
-            Advance(ref parts);
-            Draw(ref parts);
-
-            lastFrame = Stopwatch.GetElapsedTime(startedAt);
-            parts.WholeMs = lastFrame.TotalMilliseconds;
-            Measure(in parts);
         }
 
         // The last window's rate rather than the run's: the run's would carry the startup frames the
         // meter drops on purpose, and the read-out this quotes never showed a figure that included them.
         var rate = $"{_frames} frames, {_meter.Figures.Fps:F0} fps in the last window";
-        Console.WriteLine(Runtime.Vk.Crossings == 0
+        Console.WriteLine(Crossings() == 0
             ? $"{rate}; the crossing counter is compiled out of a Release build, which is the point of it"
             : $"{rate}, {_crossingsPerFrame} crossings in the last steady one");
         Budget();
@@ -155,6 +139,49 @@ internal sealed class Game : IDisposable
         // the way out so that a run nobody sat in front of (`--seconds`) is a run something can gate on.
         // A broken claim is a failed run, which is the whole of what makes this more than a read-out.
         return _world is not null && !ScenarioReport.Print(_map, _scenario, _world.ElapsedS) ? 1 : 0;
+    }
+
+    /// <summary>
+    /// One frame, and whether there is to be another. <b>This and not <see cref="Run"/> is the loop
+    /// body</b>: a desktop run drives it from a <c>while</c>, and a browser cannot — a page that
+    /// blocked its thread would be a page that never painted — so there it is what the animation
+    /// callback calls.
+    /// </summary>
+    /// <remarks>
+    /// The frame is measured end to end and its parts are marked off inside it, so what the read-out
+    /// prints under the total is a partition of that total and not a second opinion about it
+    /// (<see cref="FrameParts"/>). Nothing is stamped unless the read-out is open.
+    /// </remarks>
+    public bool Step()
+    {
+        if (_window.IsClosing) return false;
+
+        var startedAt = Stopwatch.GetTimestamp();
+        var parts = new FrameParts(_ui.Status.Open);
+
+        _window.PumpEvents();
+        if (_window.TakeResized())
+        {
+            _renderer.Recreate();
+
+            // The scale is read again with the size: a window dragged onto a second display is the one
+            // way it changes without the process restarting.
+            _uiPx = _window.UiPx;
+            _camera.DevicePxPerUiPx = _window.UiScale;
+        }
+
+        parts.Mark(ref parts.PumpMs);
+
+        ReadInput((float)_lastFrame.TotalSeconds);
+        parts.Mark(ref parts.InputMs);
+
+        Advance(ref parts);
+        Draw(ref parts);
+
+        _lastFrame = Stopwatch.GetElapsedTime(startedAt);
+        parts.WholeMs = _lastFrame.TotalMilliseconds;
+        Measure(in parts);
+        return !_window.IsClosing;
     }
 
     /// <summary>
@@ -209,6 +236,14 @@ internal sealed class Game : IDisposable
             // pulled once, and the only one anything in this town has is the evacuator's arm.
             if (_window.TakePress(Key.E)) _world!.WorkTheAction();
         }
+
+        // A figure being dragged follows the pointer and takes effect as it goes — <b>on the town that is
+        // standing</b>, which is the whole point of the panel: the marks stay on the road, the cars stay
+        // where they are, and what changed is the only thing that changed. Standing the fleet up again is
+        // sixteen builds and a ground catalogue, so it is cheap enough to spend on the frames a hand is
+        // actually moving something.
+        _ui.Menu.Drag(_window.PointerPx, _window.IsMouseDown(MouseButton.Left), _ui.Trims);
+        if (_ui.Menu.TakeFiguresMoved()) _world?.FiguresChanged();
 
         // The wheel is the menu's while the pointer is over it: a page longer than the window scrolls,
         // and a camera that zoomed behind it would be a town nobody asked to move. Taking it here is
@@ -296,8 +331,7 @@ internal sealed class Game : IDisposable
         var world = new TownWorld(plan, _config);
 
         _renderer.Dispose();
-        _renderer = TownRenderer.OnScreen(
-            _vk, _window, mesh, ProjectPaths.GroundSurfaceFiles(), _looks.Sheets, TownSprites.CapacityFor(plan, _config));
+        _renderer = NewRenderer(mesh, TownSprites.CapacityFor(plan, _config));
         _looks.ReadAspects(_renderer);
         _looks.Lay(plan, world.Uses);
 
@@ -389,7 +423,7 @@ internal sealed class Game : IDisposable
         parts.Mark(ref parts.InterfaceMs);
 
         var (centreM, clipPerM) = _camera.ForShader(_uiPx);
-        var before = Runtime.Vk.Crossings;
+        var before = Crossings();
         _renderer.Frame(new CameraView(centreM, clipPerM, _uiPx));
         parts.Mark(ref parts.SubmitMs);
 
@@ -402,7 +436,7 @@ internal sealed class Game : IDisposable
 
         // Measured around one steady frame and never around the first: that one carries the
         // swapchain's own calls, and a figure that included them would not be the frame's.
-        if (_frames >= 1) _crossingsPerFrame = Runtime.Vk.Crossings - before;
+        if (_frames >= 1) _crossingsPerFrame = Crossings() - before;
         _frames++;
     }
 
@@ -427,7 +461,7 @@ internal sealed class Game : IDisposable
     {
         _world?.Dispose();
         _renderer.Dispose();
-        _vk.Dispose();
+        Shutdown();
         _window.Dispose();
     }
 }

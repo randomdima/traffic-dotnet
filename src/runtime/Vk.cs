@@ -81,7 +81,7 @@ internal sealed unsafe partial class Vk : IDisposable
     /// the wait is measured apart from it (<c>FrameParts.BlockedMs</c>).
     /// <see cref="Swapchain"/> carries the argument for each mode.
     /// </remarks>
-    public PresentModeKHR WantedPresentMode { get; set; } = PresentModeKHR.FifoKhr;
+    public Pacing WantedPacing { get; set; } = Pacing.Fifo;
 
     /// <summary>
     /// Opens the loader, creates an instance, picks a physical device preferring a discrete GPU, and

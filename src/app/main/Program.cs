@@ -24,7 +24,6 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
 using TrafficSimulation.World.Town;
-using PresentModeKHR = Silk.NET.Vulkan.PresentModeKHR;
 
 namespace TrafficSimulation.App.Main;
 
@@ -83,12 +82,12 @@ internal static class Program
     static string[] Wanted(string ui) =>
         ui.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-    /// <summary>What <c>--present</c> names, as the mode itself. A word nobody offers is an error rather than a silent fallback.</summary>
-    static PresentModeKHR PresentMode(string named) => named switch
+    /// <summary>What <c>--present</c> names, as the pacing itself. A word nobody offers is an error rather than a silent fallback.</summary>
+    static Pacing PresentMode(string named) => named switch
     {
-        "fifo" => PresentModeKHR.FifoKhr,
-        "mailbox" => PresentModeKHR.MailboxKhr,
-        "immediate" => PresentModeKHR.ImmediateKhr,
+        "fifo" => Pacing.Fifo,
+        "mailbox" => Pacing.Mailbox,
+        "immediate" => Pacing.Immediate,
         _ => throw new ArgumentException($"Unknown present mode {named}. Takes fifo, mailbox or immediate."),
     };
 
