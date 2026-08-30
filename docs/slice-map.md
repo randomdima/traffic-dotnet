@@ -20,9 +20,9 @@ the same tier may depend on each other only in the one direction the tier's own 
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking | core, citygen, and each other in one direction |
 | **Composition** | `world/town/` | Everything below it. **This is the seam, and it is the only thing allowed to be** |
 | **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight | core, citygen, world |
-| **Machine** | `runtime/` — the window, the device, the swapchain | core. **Not the shell, not an agent, not a town** |
+| **Machine** | `runtime/` — the window, the device, the swapchain, and `runtime/web/` — the canvas and WebGPU | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
-| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot | Everything |
+| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, web | Everything |
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
@@ -37,6 +37,13 @@ drawn in the layers' path vocabulary (`PathMarks`), so one route lands on the sa
 weight whichever of them drew it. `app/shot/` sits under
 `app/main/` and over everything it photographs, so a picture has one staging path and the entry point
 only chooses it.
+
+**A folder named `web/` is a second answer and never a second question.** `runtime/web/`,
+`app/render/web/` and `app/main/web/` hold the browser's half of something the desktop already has, at
+the same tier and with the same name, and the two project files pick which half is compiled
+([app/web](../src/app/web/docs/requirements.md)). A `web/` folder therefore depends on exactly what the
+slice it sits in may depend on, and `app/web/` itself — the page, the module that drives WebGPU, and the
+boot — sits under `app/main/` on the same footing as `app/shot/`.
 
 **`tests/` mirrors the tree it tests**, folder for folder: a test for `app/screen/` is
 `tests/screen/`, and both sit under `src/`.

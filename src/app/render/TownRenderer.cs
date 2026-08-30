@@ -1,4 +1,3 @@
-
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -14,16 +13,6 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 using Vk = TrafficSimulation.Runtime.Vk;
 
 namespace TrafficSimulation.App.Render;
-
-/// <summary>What the vertex shader is told about the view. Written into mapped memory, never pushed.</summary>
-/// <remarks>
-/// The screen's size is here rather than in a push constant for the same reason the camera is: a value
-/// pushed per frame would be recorded per frame. It is the window in interface pixels and not the
-/// framebuffer — on a scaled desktop those differ by <see cref="AppWindow.UiScale"/>, and that division
-/// is what makes a panel the size it was designed to be on a display of any density.
-/// </remarks>
-[StructLayout(LayoutKind.Sequential)]
-internal readonly record struct CameraView(Vector2 CentreM, Vector2 ClipPerM, Vector2 UiPx);
 
 /// <summary>
 /// The town's ground on screen: one pipeline, <b>one command buffer per swapchain image recorded

@@ -115,6 +115,13 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     public void Switch(string[] wanted) => _ui.Apply(wanted);
 
+    /// <summary>
+    /// A town stood up before the first frame, for a run that is handed its loop rather than owning
+    /// one. <b>The same thing the menu does when a map is picked</b>, and the same thing
+    /// <see cref="Run"/> does with <c>--map</c>.
+    /// </summary>
+    public void Start(string map) => Open(map);
+
     public int Run(string? openMap, double seconds)
     {
         if (openMap is not null) Open(openMap);
@@ -453,6 +460,7 @@ internal sealed partial class Game : IDisposable
         Tick = _loop?.Tick ?? 0,
         Frame = _meter.Figures,
         Crossings = _crossingsPerFrame,
+        Counting = Crossings() > 0,
         Track = _track,
         Scenario = _scenario,
     };

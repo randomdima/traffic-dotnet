@@ -164,7 +164,7 @@ internal sealed unsafe class GpuTexture : IDisposable
         decoded.CopyPixelDataTo(top);
 
         var chain = mipped
-            ? MipChain(top, width, height)
+            ? MipChain.Build(top, width, height)
             : [(top, width, height)];
         var totalPixels = 0;
         foreach (var level in chain) totalPixels += level.Pixels.Length;
@@ -268,45 +268,6 @@ internal sealed unsafe class GpuTexture : IDisposable
         Vk.Count();
         _vk.Api.FreeMemory(_vk.Device, Memory, null);
     }
-
-    /// <summary>Each level the box average of the one above it, down to a single texel.</summary>
-    static List<(Rgba32[] Pixels, int Width, int Height)> MipChain(Rgba32[] top, int width, int height)
-    {
-        var chain = new List<(Rgba32[] Pixels, int Width, int Height)> { (top, width, height) };
-        while (width > 1 || height > 1)
-        {
-            var (source, sourceWidth, sourceHeight) = chain[^1];
-            var nextWidth = Math.Max(1, sourceWidth / 2);
-            var nextHeight = Math.Max(1, sourceHeight / 2);
-            var next = new Rgba32[nextWidth * nextHeight];
-
-            for (var y = 0; y < nextHeight; y++)
-            {
-                for (var x = 0; x < nextWidth; x++)
-                {
-                    var x0 = Math.Min(x * 2, sourceWidth - 1);
-                    var x1 = Math.Min(x * 2 + 1, sourceWidth - 1);
-                    var y0 = Math.Min(y * 2, sourceHeight - 1);
-                    var y1 = Math.Min(y * 2 + 1, sourceHeight - 1);
-                    next[y * nextWidth + x] = Average(
-                        source[y0 * sourceWidth + x0], source[y0 * sourceWidth + x1],
-                        source[y1 * sourceWidth + x0], source[y1 * sourceWidth + x1]);
-                }
-            }
-
-            chain.Add((next, nextWidth, nextHeight));
-            width = nextWidth;
-            height = nextHeight;
-        }
-
-        return chain;
-    }
-
-    static Rgba32 Average(Rgba32 a, Rgba32 b, Rgba32 c, Rgba32 d) => new(
-        (byte)((a.R + b.R + c.R + d.R) / 4),
-        (byte)((a.G + b.G + c.G + d.G) / 4),
-        (byte)((a.B + b.B + c.B + d.B) / 4),
-        (byte)((a.A + b.A + c.A + d.A) / 4));
 
     /// <summary>The memory under an image, allocated device-local and bound.</summary>
     static DeviceMemory Bind(Vk vk, Image image)

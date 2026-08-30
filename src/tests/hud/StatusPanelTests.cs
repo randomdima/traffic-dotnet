@@ -44,7 +44,7 @@ public class StatusPanelTests
     {
         var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
         panel.Draw(
-            ref draw, pointerPx, "Test", new RunState(), tick: 1234, frame, crossings: 5, quads: 311, world,
+            ref draw, pointerPx, "Test", new RunState(), tick: 1234, frame, crossings: 5, counting: true, quads: 311, world,
             relaid: false);
         return draw.Written;
     }
@@ -102,7 +102,7 @@ public class StatusPanelTests
         held.AgentsHeld = true;
         var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
         panel.Draw(
-            ref draw, -Vector2.One, "Zebras", held, tick: 999999, Measured(), crossings: 5, quads: 311, world,
+            ref draw, -Vector2.One, "Zebras", held, tick: 999999, Measured(), crossings: 5, counting: true, quads: 311, world,
             relaid: false);
         Assert.Equal(widthPx, panel.Box.SizePx.X);
     }
@@ -266,7 +266,7 @@ public class StatusPanelTests
     {
         var draw = new ScreenDraw(quads);
         panel.Draw(
-            ref draw, new Vector2(20f, 20f), "Test", run, tick: 1234, figures, crossings: 5, quads: 311, world,
+            ref draw, new Vector2(20f, 20f), "Test", run, tick: 1234, figures, crossings: 5, counting: true, quads: 311, world,
             relaid: true);
     }
 

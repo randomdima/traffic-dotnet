@@ -15,8 +15,10 @@
          measurement of its own, never the default. -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
-    <!-- The engine's sources are src/, minus the two projects of their own that live beside them. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);assets/**;towns/**;src/tests/**;src/tools/**;bin/**;obj/**</DefaultItemExcludes>
+    <!-- The engine's sources are src/, minus the two projects of their own that live beside them and
+         the browser's half of the machine: a folder named web/ under src/ is the other head's
+         (traffic-dotnet.web.csproj), and this one compiles none of it. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);assets/**;towns/**;src/tests/**;src/tools/**;src/**/web/**;bin/**;obj/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- The unit suite reads types that are internal because nothing outside this assembly is meant to

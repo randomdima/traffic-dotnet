@@ -41,6 +41,7 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [app/shot/](../src/app/shot/) — the picture taken for review | [requirements](../src/app/shot/docs/requirements.md) | [log](../src/app/shot/docs/decision-log.md) |
 | [app/playercontrol/](../src/app/playercontrol/) — the player's hands | [requirements](../src/app/playercontrol/docs/requirements.md) | — |
 | [runtime/](../src/runtime/) — the machine | [requirements](../src/runtime/docs/requirements.md) | [log](../src/runtime/docs/decision-log.md) |
+| [app/web/](../src/app/web/) — the town in a browser | [requirements](../src/app/web/docs/requirements.md) | [log](../src/app/web/docs/decision-log.md) |
 
 **Slices with no document own no rule.** `world/foot/` and `world/statics/` are implementations of rules
 stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src/world/routing/docs/requirements.md),
@@ -58,6 +59,7 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `PUR-1…4`, `TEC-1…3`, `SIM-5` | Purpose, non-goals, technology | [requirements.md](requirements.md#purpose-and-scope) |
 | `SIM-1`, `SIM-2`, `SIM-6`, `SIM-7` | Hard vs soft, body state, ban vs price, one mechanism | [requirements.md](requirements.md#the-two-rule-classes) |
 | `SIM-3`, `SIM-4`, `AGT-6` | Units, the two seeds, where randomness comes from | [core](../src/core/docs/requirements.md) |
+| `WEB-1…5` | The browser head: what is halved, the crossing budget, what a page does not carry | [app/web](../src/app/web/docs/requirements.md) |
 | `OBJ-1…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
 | `AGT-1…5`, `AGT-7` | What an agent is; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
 | `VER-1…11` | What must be demonstrated | [verification.md](verification.md) |

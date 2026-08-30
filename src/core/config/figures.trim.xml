@@ -1,0 +1,41 @@
+<!--
+  The figures, kept whole through a trimmed build.
+
+  Every number this engine runs on is a property on SimConfig or on one of the groups hanging off it,
+  and assets/shared/config/SimConfig.json is applied over them by name, at run time, through reflection
+  (SharedFiguresReader). A trimmer sees a setter nothing calls and takes it, and the run then fails with
+  "car.parkedHandbrake is not a figure this engine holds" against a file that is perfectly correct — the
+  figure is there, and its setter is not.
+
+  Only the browser head is trimmed, so only that project file reads this. It is the whole of what the
+  reflection in this slice costs, and it is here rather than in the project file because what must be
+  kept is a fact about these types.
+-->
+<linker>
+  <assembly fullname="traffic-dotnet-web">
+    <type fullname="TrafficSimulation.Core.Config.SimConfig" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.SolverFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.SimFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.ViewFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.ControlFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.TrimFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.RoadFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.BuildingFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.PropFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.SignalFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.TerrainFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.MarkFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.CityGenFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.CarFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.PersonFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.TyreFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.AmbulanceFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.DamageFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.DrivingFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.EvacuatorFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.LadderFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.LampFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.NetworkFigures" preserve="all" />
+    <type fullname="TrafficSimulation.Core.Config.ServiceFigures" preserve="all" />
+  </assembly>
+</linker>

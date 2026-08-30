@@ -48,6 +48,13 @@ internal readonly ref struct InterfaceFrame
     public long Crossings { get; init; }
 
     /// <summary>
+    /// Whether the crossing counter is compiled in at all. Zero crossings a frame means two different
+    /// things — a Release build, where the counter is not there, and a run before its first steady
+    /// frame — and the panel says which.
+    /// </summary>
+    public bool Counting { get; init; }
+
+    /// <summary>
     /// What the proving ground's own instrument has seen so far, or <see langword="null"/> on every other
     /// map. <b>It is the run's and not the panel's</b> — the figures are gathered every tick and a panel
     /// draws once a frame, so a panel that kept its own would be reading a fraction of the laps.
@@ -82,8 +89,15 @@ internal enum ClickTaken
 /// in an indirect buffer and nothing else. It is also why the shot path and the windowed game share
 /// it: a reference frame taken through a different drawing path would be a picture of that path.
 /// </remarks>
-internal sealed class Interface
+internal sealed class Interface(TrimFigures trims)
 {
+    /// <summary>
+    /// <b>The figures the panel turns, which are the run's own and never a copy.</b> A trim is read where
+    /// a car is built and where the ground is catalogued, so a panel holding a second set would move a
+    /// slider and nothing else.
+    /// </summary>
+    public TrimFigures Trims { get; } = trims;
+
     /// <summary>The popup under the gear: which map to open and which layers to draw.</summary>
     public Menu Menu { get; } = new();
 
@@ -139,6 +153,10 @@ internal sealed class Interface
                     Menu.Show();
                     Menu.OpenAt(Menu.Debug);
                     break;
+                case "menu-figures":
+                    Menu.Show();
+                    Menu.OpenAt(Menu.Figures);
+                    break;
                 case "controls":
                     Controls.Show();
                     break;
@@ -174,9 +192,9 @@ internal sealed class Interface
                     break;
                 default:
                     throw new ArgumentException(
-                        $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-run, " +
-                        "controls, frame, scenario, car-lines, walker-lines, nodes, reservations, collision, " +
-                        "turn-circles, ruler, track.");
+                        $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
+                        "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, reservations, " +
+                        "collision, turn-circles, ruler, track.");
             }
         }
     }
@@ -225,7 +243,7 @@ internal sealed class Interface
 
         if (Menu.Open && Menu.Box.Contains(atPx))
         {
-            if (primary) choice = Menu.Click(atPx, Switches);
+            if (primary) choice = Menu.Click(atPx, Switches, Trims);
             return ClickTaken.Yes;
         }
 
@@ -300,8 +318,8 @@ internal sealed class Interface
             }
 
             Status.Draw(
-                ref draw, frame.PointerPx, frame.MapName, Run, frame.Tick, frame.Frame, frame.Crossings, draw.Written,
-                world, Overlay.Relaid);
+                ref draw, frame.PointerPx, frame.MapName, Run, frame.Tick, frame.Frame, frame.Crossings,
+                frame.Counting, draw.Written, world, Overlay.Relaid);
 
             // The proving ground's own read-out, over the furniture it sits under and behind the popups.
             if (Switches.TrackFigures && frame.Track is { } track)
@@ -323,7 +341,7 @@ internal sealed class Interface
         Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, world, Menu.Open, Controls.Open);
 
         // Last of all, over the furniture as well as the layers.
-        if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches);
+        if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches, Trims);
         if (Controls.Open) Controls.Draw(ref draw, frame.UiPx, Chrome.HelpAt(frame.UiPx));
 
         return draw.Written;

@@ -57,6 +57,17 @@ entries: `--check` prints the dependency read-out, `--shot` takes a picture with
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 
+**A figure can be turned while the town runs.** The menu's `Figures` page (`--ui menu-figures`) carries a
+track a figure — **each naming the raw term it moves and never what that term comes to**: the coefficient of
+friction between rubber and tarmac, and the ground's own resistance to a wheel going round. **Only what the
+whole town stands on is here.** A steering lock, a mass, a centre of gravity or an engine belongs to one car
+and is stated in that car's own file, where nineteen bodies keep nineteen answers; a dial over them is one
+figure pretending to speak for all of them. Each is a share of what the build ships, a decade either side, with shipped at
+the middle of the track. **Dragging one changes it under the town that is standing, as the hand moves** —
+every look is built again and the ground is worth what it is now worth, while the marks stay on the road
+and every body stays where it was — which is what makes the skidpad a rig rather than a read-out. Nothing is authored by it: every trim is 100% unless the page has been opened, and the shipped
+run is the run this suite measures.
+
 **Every map says what it claims about itself and whether it is keeping it.** A windowed run draws it as a
 collapsible panel along the bottom — shut to a line of counts, opened by its title or by `--ui scenario` —
 and every headless run prints the same table: a row a claim, the figures behind each verdict, and a last
@@ -107,7 +118,7 @@ command reads which.
 | `Drunk` | the same lap with those fifteen reeling **in** it, which is the only place anything overtakes (`E-4`) | `--bench drunk` |
 | `Fleet` | the same lap again with one car of every look on it and nobody on foot | `--bench fleet` |
 | `Exam` | a six by six lattice of junctions, one staged crossing manoeuvre in each | `--bench exam`, `--map Exam` |
-| `Skidpad` | a hundred-metre grid of plain road: every look on full left lock, a row per pedal and gear, each drawing its own circle | `--bench skidpad`, `--ui turn-circles` |
+| `Skidpad` | a grid of plain road, a square a car: every look on full left lock, a row per pedal and gear — three pedals each way — each drawing its own circle beside the one its axles ask for | `--bench skidpad`, `--ui turn-circles`, `--ui menu-figures` |
 | `Zebras` | five isolated streets with a crossing apiece, one of them laid off square | `--bench crossings` |
 
 `--lay-maps` writes the first five, whose every shape is chosen against the car's own figures — so moving
@@ -118,6 +129,38 @@ The exam and the crossings map are asserted card by card and crossing by crossin
 probe's own run ([JunctionExamTests](src/tests/world/JunctionExamTests.cs)), so the instrument and the gate
 cannot disagree about what a crossing is.
 
+## The same town, in a browser
+
+There is a second head. `traffic-dotnet.web.csproj` compiles the same `src/` against WebGPU and a canvas
+instead of Vulkan and a window, and the town it draws is the same code drawing it — no `#if` anywhere in
+the shared half, and the machine's two halves named file by file in
+[app/web](src/app/web/docs/requirements.md).
+
+```
+dotnet workload install wasm-tools wasm-experimental
+dotnet publish traffic-dotnet.web.csproj -c Release
+cd bin/web/Release/net10.0/publish/wwwroot && python3 -m http.server 8080
+```
+
+Then `http://localhost:8080/?map=Test` — **the query string is the command line**, so `?map=Odesa&ui=nodes`
+is `--map Odesa --ui nodes`. Without a map it opens on the start menu, exactly as the desktop does.
+
+**It wants a browser with WebGPU** — Chrome or Edge 137+ on Linux, Safari 26, a Firefox where it has
+shipped — and says so under the canvas when it has not got one. **Build it Release**: `RunAOTCompilation`
+is on there and off in Debug, and the interpreter is about ten times off a 60 Hz loop.
+
+**A frame crosses the wall three times** whatever the town holds — the animation callback in, the input
+out, the frame — against the desktop's five, and the counter that says so is
+[`WebGpu.Crossings`](src/runtime/web/WebGpu.cs). Rule 1 is the same rule.
+
+**The page carries the visual layers and none of the instruments.** `--shot`, `--sheet`, `--bench`,
+`--lamps` and `--place-services` are how a run is measured and they stay on the desktop, which has a file
+system and a process that can exit.
+
+**The page downloads every map before the first frame**, because a town is opened from inside the loop
+and a loop cannot wait on a fetch. That is about 50 MB, and fetching a town when it is picked is the
+improvement to make ([decision log](src/app/web/docs/decision-log.md)).
+
 ## Layout
 
 ```
@@ -127,8 +170,8 @@ src/        every line of C#, and nothing else — the nine slices below
   world/    terrain, road, foot, routing, physics, containment, statics, parking, town
   agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the maneuvers:
             one file per entry of the closed catalogue (src/agents/car/maneuvers/docs/index.md)
-  runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders
-  app/      screen, render, camera, hud, debug, playercontrol, shot, main — the shell
+  runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/, the browser's half
+  app/      screen, render, camera, hud, debug, playercontrol, shot, web, main — the shell
   bench/    the census and the probes
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not
@@ -150,7 +193,7 @@ what is written by a person never share a folder.
 ## Where a figure lives
 
 Every number the simulation runs on is on `SimConfig`, and its shape says which kind it is: the nested
-groups — `config.Car.LengthM`, `config.Tyre.GripMps2`, `config.Signals.CycleS` — are **authored**, and
+groups — `config.Car.LengthM`, `config.Tyre.Friction`, `config.Signals.CycleS` — are **authored**, and
 they are the only figures `assets/shared/config/SimConfig.json` may override. Everything on the root is
 **derived** from them (`SimConfig.Derived.cs`), which is why moving one authored ratio moves the whole
 town and why the override file refuses a derived key.

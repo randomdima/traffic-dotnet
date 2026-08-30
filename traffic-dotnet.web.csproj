@@ -1,0 +1,108 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!-- The same engine, on the browser's machine. It compiles src/ exactly as traffic-dotnet.csproj
+       does, minus the files that speak Vulkan and plus the ones under src/**/web/, and the town it
+       draws is the same code drawing it. What differs between the two heads is named in
+       src/app/web/docs/requirements.md and nowhere else. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>TrafficSimulation</RootNamespace>
+    <AssemblyName>traffic-dotnet-web</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <BaseOutputPath>bin/web/</BaseOutputPath>
+    <BaseIntermediateOutputPath>obj/web/</BaseIntermediateOutputPath>
+
+    <!-- The interpreter is around ten times off the pace and this engine is a 60 Hz loop over five
+         hundred bodies, so the browser build is compiled ahead of time or it is not worth looking at.
+         It costs minutes on the clock, which is why it is a Release property and not a Debug one. -->
+    <RunAOTCompilation Condition="'$(Configuration)' == 'Release'">true</RunAOTCompilation>
+    <WasmEnableSIMD>true</WasmEnableSIMD>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- The desktop's machine, which has no meaning in a page: the device, the window, the swapchain,
+         the renderer built against them, and the two entries that drive them. Everything else under
+         src/ is shared, and there is no #if anywhere in it. -->
+    <DesktopOnly>
+      src/runtime/Vk.cs;
+      src/runtime/Swapchain.cs;
+      src/runtime/GpuBuffer.cs;
+      src/runtime/GpuTexture.cs;
+      src/runtime/OffscreenTarget.cs;
+      src/runtime/RenderTarget.cs;
+      src/runtime/AppWindow.cs;
+      src/app/render/TownRenderer.cs;
+      src/app/render/TownRenderer.Pipelines.cs;
+      src/app/render/TownRenderer.Recording.cs;
+      src/app/main/Game.Desktop.cs;
+      src/app/main/Program.cs;
+      src/app/shot/**
+    </DesktopOnly>
+    <DefaultItemExcludes>
+      $(DefaultItemExcludes);assets/**;towns/**;raw_assets/**;docs/**;.tmp/**;
+      src/tests/**;src/tools/**;bin/**;obj/**;$(DesktopOnly)
+    </DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Silk.NET.Input for its two enums and nothing else: what a key and a mouse button are called is
+         the same question on both machines, and the answer is already written down. No native code
+         comes with them — nothing here ever opens an input context. -->
+    <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The figures are applied over SimConfig by name at run time, and a trimmer takes a setter
+         nothing calls. This is the whole of what that costs; the reason is in the file. -->
+    <TrimmerRootDescriptor Include="src/core/config/figures.trim.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WGSL rather than SPIR-V, and shipped inside the assembly for the same reason: a page with no
+         shader to find cannot be a page that half-loads. The browser takes no SPIR-V, so glslc has
+         nothing to do here. -->
+    <EmbeddedResource Include="src/runtime/shaders/town.wgsl" LogicalName="Shaders/town.wgsl" />
+    <EmbeddedResource Include="src/runtime/glyphs/glyphs.png" LogicalName="Glyphs/glyphs.png" />
+  </ItemGroup>
+
+  <!-- The page itself, which lives with the slice it belongs to rather than in a folder at the root. -->
+  <ItemGroup>
+    <WebShell Include="src/app/web/wwwroot/**" />
+  </ItemGroup>
+
+  <Target Name="LayTheWebShell" AfterTargets="Build">
+    <Copy SourceFiles="@(WebShell)" DestinationFolder="$(OutDir)wwwroot/%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="PublishTheWebShell" AfterTargets="Publish">
+    <Copy SourceFiles="@(WebShell)" DestinationFolder="$(PublishDir)wwwroot/%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- What the page fetches before the first frame, listed by the build so that a file added to
+       assets/ is a file the browser gets without anybody remembering to say so. The art and the towns
+       are not copied: they are linked, because a build that copied fifty megabytes would be a build
+       nobody ran twice. -->
+  <ItemGroup>
+    <TownData Include="assets/**;towns/**" />
+  </ItemGroup>
+
+  <Target Name="ListTheTownData" AfterTargets="Build">
+    <WriteLinesToFile File="$(OutDir)wwwroot/manifest.txt" Lines="@(TownData->'%(Identity)')"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Exec Command="ln -sfn '$(MSBuildProjectDirectory)/assets' '$(OutDir)wwwroot/assets'" />
+    <Exec Command="ln -sfn '$(MSBuildProjectDirectory)/towns' '$(OutDir)wwwroot/towns'" />
+  </Target>
+
+  <Target Name="PublishTheTownData" AfterTargets="Publish">
+    <WriteLinesToFile File="$(PublishDir)wwwroot/manifest.txt" Lines="@(TownData->'%(Identity)')"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Exec Command="ln -sfn '$(MSBuildProjectDirectory)/assets' '$(PublishDir)wwwroot/assets'" />
+    <Exec Command="ln -sfn '$(MSBuildProjectDirectory)/towns' '$(PublishDir)wwwroot/towns'" />
+  </Target>
+
+</Project>

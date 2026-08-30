@@ -168,7 +168,7 @@ internal sealed class StatusPanel
 
     public void Draw(
         ref ScreenDraw draw, Vector2 pointerPx, string mapName, RunState run, long tick, in FrameFigures frame,
-        long crossings, int quads, TownWorld world, bool relaid)
+        long crossings, bool counting, int quads, TownWorld world, bool relaid)
     {
         var widthPx = Open
             ? GlyphSheet.WidthPx(WidestLine, Theme.SmallTextPx) + Theme.PaddingPx * 2f
@@ -190,7 +190,7 @@ internal sealed class StatusPanel
         Count(ref draw, ref row, text, "  tick", tick);
         FrameSection(ref draw, ref row, pointerPx, text, frame);
         TickSection(ref draw, ref row, pointerPx, text, frame);
-        TownSection(ref draw, ref row, pointerPx, text, world, crossings, quads, relaid);
+        TownSection(ref draw, ref row, pointerPx, text, world, crossings, counting, quads, relaid);
         Rows = row;
     }
 
@@ -334,7 +334,7 @@ internal sealed class StatusPanel
     /// </remarks>
     void TownSection(
         ref ScreenDraw draw, ref int row, Vector2 pointerPx, scoped Span<char> text, TownWorld world, long crossings,
-        int quads, bool relaid)
+        bool counting, int quads, bool relaid)
     {
         var head = new TextBuffer(text);
         Name(ref head, Town, "town");
@@ -362,7 +362,7 @@ internal sealed class StatusPanel
             // Zero means two different things, and saying which is the whole point of the counter:
             // in a Release build it is compiled out, and before the first steady frame there simply
             // is no figure yet.
-            line.Add(Runtime.Vk.Crossings == 0 ? "compiled out of Release" : "not yet measured");
+            line.Add(counting ? "not yet measured" : "compiled out of Release");
         }
 
         Write(ref draw, ref row, line.Written);
