@@ -1,7 +1,7 @@
 {
   "id": "apc_olive",
-  "sprite": "apc_olive.png",
-  "wreck": { "sprite": "apc_olive_broken.png", "scale": [1.087, 1.19] },
+  "sprite": "apc_olive.webp",
+  "wreck": { "sprite": "apc_olive_broken.webp", "scale": [1.087, 1.19] },
   "footprintM": [3.79, 2],
   "collisionM": { "sizeM": [3.66, 1.77], "cornerRadiusM": 0.53 },
   "massKg": 4200,

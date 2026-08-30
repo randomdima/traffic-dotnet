@@ -1,6 +1,6 @@
 {
   "id": "tenement_row",
-  "sprite": "tenement_row.png",
+  "sprite": "tenement_row.webp",
   "footprintM": [20.00, 17.95],
   "partsM": [
     { "atM": [0.0, -0.73], "sizeM": [20.0, 16.49] }

@@ -1,6 +1,6 @@
 {
   "id": "corner_shop",
-  "sprite": "corner_shop.png",
+  "sprite": "corner_shop.webp",
   "footprintM": [10.00, 10.87],
   "partsM": [
     { "atM": [0.02, -0.3], "sizeM": [9.6, 10.27] },

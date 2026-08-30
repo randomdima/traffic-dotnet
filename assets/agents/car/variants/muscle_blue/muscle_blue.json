@@ -1,7 +1,7 @@
 {
   "id": "muscle_blue",
-  "sprite": "muscle_blue.png",
-  "wreck": { "sprite": "muscle_blue_broken.png", "scale": [1, 0.969] },
+  "sprite": "muscle_blue.webp",
+  "wreck": { "sprite": "muscle_blue_broken.webp", "scale": [1, 0.969] },
   "footprintM": [3.89, 2],
   "collisionM": { "sizeM": [3.76, 1.77], "cornerRadiusM": 0.68 },
   "massKg": 1600,

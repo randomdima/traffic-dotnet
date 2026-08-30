@@ -6,7 +6,7 @@ namespace TrafficSimulation.Core.Geometry;
 /// </summary>
 internal readonly struct WorldScale(float artPixelsPerMetre)
 {
-    /// <summary>Fixed for the life of the town: the grid the art was cut on (21 px/m, blown up ×3).</summary>
+    /// <summary>Fixed for the life of the town: the grid the art was cut on.</summary>
     public float ArtPixelsPerMetre { get; } = artPixelsPerMetre;
 
     public float MetresFromArtPixels(float pixels) => pixels / ArtPixelsPerMetre;

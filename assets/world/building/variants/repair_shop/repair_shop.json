@@ -1,6 +1,6 @@
 {
   "id": "repair_shop",
-  "sprite": "repair_shop.png",
+  "sprite": "repair_shop.webp",
   "footprintM": [18.00, 16.63],
   "partsM": [
     { "atM": [0.0, -0.37], "sizeM": [18.0, 15.88] }

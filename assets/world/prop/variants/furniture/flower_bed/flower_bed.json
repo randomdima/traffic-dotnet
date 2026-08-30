@@ -1,6 +1,6 @@
 {
   "id": "flower_bed",
   "kind": 2,
-  "sprite": "flower_bed.png",
+  "sprite": "flower_bed.webp",
   "diameterM": 1.30
 }

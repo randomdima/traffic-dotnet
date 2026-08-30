@@ -1,6 +1,6 @@
 {
   "id": "house_slate",
-  "sprite": "house_slate.png",
+  "sprite": "house_slate.webp",
   "footprintM": [11.00, 11.25],
   "partsM": [
     { "atM": [0.0, -0.5], "sizeM": [11.0, 10.09] },

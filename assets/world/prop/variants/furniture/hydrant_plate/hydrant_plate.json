@@ -1,6 +1,6 @@
 {
   "id": "hydrant_plate",
   "kind": 2,
-  "sprite": "hydrant_plate.png",
+  "sprite": "hydrant_plate.webp",
   "diameterM": 0.70
 }

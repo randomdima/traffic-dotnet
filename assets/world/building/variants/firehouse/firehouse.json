@@ -1,6 +1,6 @@
 {
   "id": "firehouse",
-  "sprite": "firehouse.png",
+  "sprite": "firehouse.webp",
   "footprintM": [17.00, 17.07],
   "partsM": [
     { "atM": [-0.12, -0.55], "sizeM": [16.22, 15.15] },

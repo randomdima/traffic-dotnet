@@ -1,6 +1,6 @@
 {
   "id": "recycling_bin",
   "kind": 2,
-  "sprite": "recycling_bin.png",
+  "sprite": "recycling_bin.webp",
   "diameterM": 1.20
 }

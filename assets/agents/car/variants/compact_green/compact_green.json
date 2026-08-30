@@ -1,7 +1,7 @@
 {
   "id": "compact_green",
-  "sprite": "compact_green.png",
-  "wreck": { "sprite": "compact_green_broken.png", "scale": [1.039, 0.993] },
+  "sprite": "compact_green.webp",
+  "wreck": { "sprite": "compact_green_broken.webp", "scale": [1.039, 0.993] },
   "footprintM": [3.4, 1.96],
   "collisionM": { "sizeM": [3.35, 1.77], "cornerRadiusM": 0.56 },
   "massKg": 1050,

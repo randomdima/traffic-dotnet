@@ -1,7 +1,7 @@
 {
   "id": "pickup_maroon",
-  "sprite": "pickup_maroon.png",
-  "wreck": { "sprite": "pickup_maroon_broken.png", "scale": [1.101, 1.055] },
+  "sprite": "pickup_maroon.webp",
+  "wreck": { "sprite": "pickup_maroon_broken.webp", "scale": [1.101, 1.055] },
   "footprintM": [4, 1.96],
   "collisionM": { "sizeM": [3.79, 1.66], "cornerRadiusM": 0.32 },
   "massKg": 2050,

@@ -1,6 +1,6 @@
 {
   "id": "warehouse_saw",
-  "sprite": "warehouse_saw.png",
+  "sprite": "warehouse_saw.webp",
   "footprintM": [19.00, 18.96],
   "partsM": [
     { "atM": [0.0, -0.67], "sizeM": [19.0, 17.37] },

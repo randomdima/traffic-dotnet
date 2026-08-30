@@ -1,6 +1,6 @@
 {
   "id": "drinking_fountain",
   "kind": 2,
-  "sprite": "drinking_fountain.png",
+  "sprite": "drinking_fountain.webp",
   "diameterM": 2.00
 }

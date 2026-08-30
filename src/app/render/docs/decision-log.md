@@ -2,6 +2,30 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-08-30 — the art was never pixel art, and was stored as though it were
+
+`ArtPixelsPerMetre` read *"21 art pixels per metre blown back up ×3"*, which said the sheets carried
+21 px/m of information stored at 63. **They did not.** Tested for the ×3 block structure and it is not
+there; the sheets hold between 96,000 and 263,000 distinct colours each, at about 1.2 bytes a pixel.
+This is continuous-tone art that PNG cannot compress, and the grid in that comment was a claim the
+files never kept. Both halves of it were costing something: 26 MB of art for a town drawn at 13 px/m,
+and a format chosen for flat colour holding an image that has none.
+
+So the grid moved to 31.5 px/m and the storage to WebP. **31.5 and not the 21 the comment claimed**:
+the default view is 70 m over the short side and the zoom runs well past it, and 21 would have gone
+soft long before the zoom ran out. **The fleet did not move at all** — `CAR-12` measures a 9 mm tyre
+overhang off the silhouette in the picture, which at 48 px/m is under half a texel, and the cars are a
+sixth of the art and the thing most closely looked at.
+
+**The suite is what found both of those.** Halving everything was tried first, and the unit tier came
+back naming exactly what could not be resampled: `CarSpriteTests` that the tyres no longer showed past
+the bodywork and that the sheets had picked up loose pixels, `PersonCatalogTests` that a walk sheet was
+no longer a whole number of cells, `CarSpriteTests` again that the tread's aspect had moved off
+`TreadPitchM`. Each of those is a relation between a picture and a figure, and none of them is
+something a person looking at a frame would have caught.
+
+26.0 MB of art to 2.7, and the atlas from three 4096 pages to one.
+
 ## 2026-08-30 — a sheet is a rectangle of a page, not a descriptor
 
 Every picture the town draws with used to be a texture of its own, reached out of an unsized array of

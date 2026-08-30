@@ -1,7 +1,7 @@
 {
   "id": "sports_pink",
-  "sprite": "sports_pink.png",
-  "wreck": { "sprite": "sports_pink_broken.png", "scale": [1, 1.11] },
+  "sprite": "sports_pink.webp",
+  "wreck": { "sprite": "sports_pink_broken.webp", "scale": [1, 1.11] },
   "footprintM": [3.8, 1.92],
   "collisionM": { "sizeM": [3.72, 1.75], "cornerRadiusM": 0.56 },
   "massKg": 1250,

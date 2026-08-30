@@ -1,7 +1,7 @@
 {
   "id": "hatch_teal",
-  "sprite": "hatch_teal.png",
-  "wreck": { "sprite": "hatch_teal_broken.png", "scale": [1.004, 1] },
+  "sprite": "hatch_teal.webp",
+  "wreck": { "sprite": "hatch_teal_broken.webp", "scale": [1.004, 1] },
   "footprintM": [3.7, 1.92],
   "collisionM": { "sizeM": [3.54, 1.74], "cornerRadiusM": 0.48 },
   "massKg": 1150,

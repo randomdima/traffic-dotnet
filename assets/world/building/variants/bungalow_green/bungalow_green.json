@@ -1,6 +1,6 @@
 {
   "id": "bungalow_green",
-  "sprite": "bungalow_green.png",
+  "sprite": "bungalow_green.webp",
   "footprintM": [13.00, 13.10],
   "partsM": [
     { "atM": [0.05, -0.66], "sizeM": [12.75, 11.78] },

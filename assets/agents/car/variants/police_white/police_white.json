@@ -1,7 +1,7 @@
 {
   "id": "police_white",
-  "sprite": "police_white.png",
-  "wreck": { "sprite": "police_white_broken.png", "scale": [1.065, 1.000] },
+  "sprite": "police_white.webp",
+  "wreck": { "sprite": "police_white_broken.webp", "scale": [1.065, 1.000] },
   "footprintM": [4.15, 2.16],
   "collisionM": { "sizeM": [4.08, 1.75], "cornerRadiusM": 0.66 },
   "massKg": 1750,

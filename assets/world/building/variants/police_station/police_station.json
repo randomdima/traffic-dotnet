@@ -1,6 +1,6 @@
 {
   "id": "police_station",
-  "sprite": "police_station.png",
+  "sprite": "police_station.webp",
   "footprintM": [18.00, 16.68],
   "partsM": [
     { "atM": [-0.29, -0.03], "sizeM": [17.0, 9.98] },

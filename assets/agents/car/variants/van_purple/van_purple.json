@@ -1,7 +1,7 @@
 {
   "id": "van_purple",
-  "sprite": "van_purple.png",
-  "wreck": { "sprite": "van_purple_broken.png", "scale": [1, 1.058] },
+  "sprite": "van_purple.webp",
+  "wreck": { "sprite": "van_purple_broken.webp", "scale": [1, 1.058] },
   "footprintM": [3.83, 2],
   "collisionM": { "sizeM": [3.51, 1.77], "cornerRadiusM": 0.12 },
   "massKg": 1900,

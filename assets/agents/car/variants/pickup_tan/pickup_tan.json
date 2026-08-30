@@ -1,7 +1,7 @@
 {
   "id": "pickup_tan",
-  "sprite": "pickup_tan.png",
-  "wreck": { "sprite": "pickup_tan_broken.png", "scale": [1.013, 1.235] },
+  "sprite": "pickup_tan.webp",
+  "wreck": { "sprite": "pickup_tan_broken.webp", "scale": [1.013, 1.235] },
   "footprintM": [4, 1.94],
   "collisionM": { "sizeM": [3.77, 1.73], "cornerRadiusM": 0.35 },
   "massKg": 2100,

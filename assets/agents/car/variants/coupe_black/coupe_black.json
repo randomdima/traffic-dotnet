@@ -1,7 +1,7 @@
 {
   "id": "coupe_black",
-  "sprite": "coupe_black.png",
-  "wreck": { "sprite": "coupe_black_broken.png", "scale": [0.997, 1] },
+  "sprite": "coupe_black.webp",
+  "wreck": { "sprite": "coupe_black_broken.webp", "scale": [0.997, 1] },
   "footprintM": [3.9, 1.85],
   "collisionM": { "sizeM": [3.64, 1.60], "cornerRadiusM": 0.32 },
   "massKg": 1350,

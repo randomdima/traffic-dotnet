@@ -52,9 +52,9 @@ internal readonly record struct SheetPlace(
 internal sealed class SheetAtlas
 {
     /// <summary>
-    /// A page a side, which is a page of 64 MB. <b>Four thousand and not two</b>: the buildings are
-    /// around 1200 square, and two thousand holds one of those across and wastes the strip beside it,
-    /// which cost seventeen pages where this costs three.
+    /// A page a side, which is a page of 64 MB. <b>Four thousand and not two</b>: the whole town's art
+    /// is eleven million texels, which is one page of this and four of two thousand — a size that holds
+    /// the largest building across without wasting the strip beside it.
     /// </summary>
     public const int PagePx = 4096;
 

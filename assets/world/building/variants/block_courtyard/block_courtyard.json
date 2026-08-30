@@ -1,6 +1,6 @@
 {
   "id": "block_courtyard",
-  "sprite": "block_courtyard.png",
+  "sprite": "block_courtyard.webp",
   "footprintM": [18.00, 18.09],
   "partsM": [
     { "atM": [0.02, -0.44], "sizeM": [17.7, 17.2] }

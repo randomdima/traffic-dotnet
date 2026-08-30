@@ -1,7 +1,7 @@
 {
   "id": "super_cyan",
-  "sprite": "super_cyan.png",
-  "wreck": { "sprite": "super_cyan_broken.png", "scale": [1, 1.147] },
+  "sprite": "super_cyan.webp",
+  "wreck": { "sprite": "super_cyan_broken.webp", "scale": [1, 1.147] },
   "footprintM": [3.8, 1.82],
   "collisionM": { "sizeM": [3.74, 1.58], "cornerRadiusM": 0.50 },
   "massKg": 1550,

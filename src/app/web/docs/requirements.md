@@ -43,6 +43,21 @@ loop and a loop cannot wait on a fetch, so [`Data`](../../main/web/Data.cs) writ
 story**: no provider threaded through fifteen call sites, and no path that means one thing here and
 another there.
 
+**WEB-6 — a page is the size of its town, and the town is the size of what it draws.** What a browser
+fetches before the first frame is **under ten megabytes**, of which the .NET runtime — ahead-of-time
+compiled, served brotli — is about four. The art is most of the rest and **how a sheet is stored is
+[app/render](../../render/docs/requirements.md#how-a-sheet-is-stored)'s rule**, not a thing done to
+the browser build: both heads read the same sheets.
+
+What is this slice's is the one thing only a page pays for. **A town is fetched compressed**: a
+`.town` is better than half zero bytes, because its lane index is laid out for reading rather than for
+sending, and the nine of them are 23 MB raw against 3.3 gzipped. The build squeezes them and
+[`Data`](../../main/web/Data.cs) inflates on the way into the file system.
+
+**And the published folder holds one runtime.** Nothing sweeps up a hashed assembly when the next
+publish replaces it, so `_framework` is cleared before a publish and only brotli is emitted — the two
+together are the difference between 12 MB on disk and 93.
+
 **WEB-5 — the query string is the command line.** `?map=Test&ui=nodes,paths` is `--map Test --ui
 nodes,paths`. The words are the desktop's, and the ones a page cannot answer are not offered.
 

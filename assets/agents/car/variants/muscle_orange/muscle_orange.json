@@ -1,7 +1,7 @@
 {
   "id": "muscle_orange",
-  "sprite": "muscle_orange.png",
-  "wreck": { "sprite": "muscle_orange_broken.png", "scale": [1, 1.007] },
+  "sprite": "muscle_orange.webp",
+  "wreck": { "sprite": "muscle_orange_broken.webp", "scale": [1, 1.007] },
   "footprintM": [4, 1.94],
   "collisionM": { "sizeM": [3.72, 1.81], "cornerRadiusM": 0.53 },
   "massKg": 1650,

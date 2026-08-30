@@ -56,10 +56,20 @@ internal sealed class ViewFigures
     public float GroundPeriodDeckM { get; init; } = 8f;
     public float GroundPeriodWaterM { get; init; } = 18f;
 
-    /// <summary>21 art pixels per metre blown back up ×3, which is the grid every asset was cut on.</summary>
-    public float ArtPixelsPerMetre { get; init; } = 63f;
+    /// <summary>
+    /// The grid the ground, the buildings and the props are cut on. <b>The default view is 70 m over
+    /// the short side, so a metre is about 13 screen pixels</b> and this is two and a half times what
+    /// a standing town shows; the headroom is the zoom's, and it stops at one texel to one pixel.
+    /// </summary>
+    /// <remarks>Moved with <c>qq art --fix --art=…</c>, which is what puts the sheets on it.</remarks>
+    public float ArtPixelsPerMetre { get; init; } = 31.5f;
 
-    /// <summary>The grid the car art was cut on, and a finer one than the ground's on purpose.</summary>
+    /// <summary>
+    /// The grid the car art was cut on, and a finer one than the ground's on purpose. <b>Three times
+    /// the ground's rather than one and a half</b>: CAR-12 asks that a variant's tyres show past its own
+    /// bodywork by a few millimetres, measured off the silhouette in the picture, and a texel here is
+    /// 10 mm of car. Coarser and there is nowhere to draw the thing the rule is about.
+    /// </summary>
     public float CarSpritePixelsPerMetre { get; init; } = 96f;
 
     /// <summary>

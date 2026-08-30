@@ -51,6 +51,28 @@ both are turned to their own heading, which is what separates them from a walker
 drawn upright from a sheet of eight facings, because a standing body looks the same whichever way the
 camera is held.
 
+## How a sheet is stored
+
+**A sheet is cut on a grid, and stored at that grid and no finer.** The grids are `ArtPixelsPerMetre`
+for the ground, the buildings and the props and `CarSpritePixelsPerMetre` for the cars, both on
+`ViewFigures`. **The zoom stops where one art texel is one display pixel**, so a texel past the grid
+can never reach the screen: it is downloaded, decoded, packed into the atlas and uploaded to be
+minified. `qq art` is what measures a sheet against its own grid, and moving a grid is moving that
+figure and re-cutting every sheet to it.
+
+**The fleet's grid is three times the ground's and not one and a half.** `CAR-12` asks that a
+variant's tyres show past its own bodywork by a few millimetres, measured off the silhouette in the
+picture rather than against another number in the same file — at 96 px/m a texel is 10 mm of car and
+that rule has somewhere to live.
+
+**A sheet is stored as WebP.** The art is continuous-tone rather than palettised and PNG holds it at
+around four times the size. **Lossily wherever the sheet can take it and losslessly where it cannot**,
+decided per sheet by measuring the error over its opaque pixels — a building's flat wall costs chroma
+subsampling nothing and a walker cut into sixty-four small frames a great deal, so one quality across
+a town is the wrong instrument. **The alpha is lossless in every case**: a sprite's edge is its
+silhouette, and a soft one shows at every zoom where a softened colour does not. Nothing decodes by
+name — ImageSharp reads a file by its header — so the two heads take either without being told which.
+
 ## A shot needs no window
 
 An offscreen frame is the same recording against a different target, and it is what every render check is

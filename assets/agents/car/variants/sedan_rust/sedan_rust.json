@@ -1,7 +1,7 @@
 {
   "id": "sedan_rust",
-  "sprite": "sedan_rust.png",
-  "wreck": { "sprite": "sedan_rust_broken.png", "scale": [0.997, 1.041] },
+  "sprite": "sedan_rust.webp",
+  "wreck": { "sprite": "sedan_rust_broken.webp", "scale": [0.997, 1.041] },
   "footprintM": [3.95, 1.86],
   "collisionM": { "sizeM": [3.58, 1.71], "cornerRadiusM": 0.33 },
   "massKg": 1450,

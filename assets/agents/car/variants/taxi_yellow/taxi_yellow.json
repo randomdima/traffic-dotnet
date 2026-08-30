@@ -1,7 +1,7 @@
 {
   "id": "taxi_yellow",
-  "sprite": "taxi_yellow.png",
-  "wreck": { "sprite": "taxi_yellow_broken.png", "scale": [1.018, 1] },
+  "sprite": "taxi_yellow.webp",
+  "wreck": { "sprite": "taxi_yellow_broken.webp", "scale": [1.018, 1] },
   "footprintM": [3.87, 2],
   "collisionM": { "sizeM": [3.71, 1.83], "cornerRadiusM": 0.36 },
   "massKg": 1450,

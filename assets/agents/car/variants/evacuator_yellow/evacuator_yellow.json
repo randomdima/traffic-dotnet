@@ -1,10 +1,10 @@
 {
   "id": "evacuator_yellow",
-  "sprite": "evacuator_yellow.png",
-  "wreck": { "sprite": "evacuator_yellow_broken.png", "scale": [1.088, 1.024] },
+  "sprite": "evacuator_yellow.webp",
+  "wreck": { "sprite": "evacuator_yellow_broken.webp", "scale": [1.088, 1.024] },
   "beam": {
-    "extended": { "sprite": "evacuator_yellow_beam_extended.png", "sizeM": [2.967, 1.876], "hingeAtM": -0.923 },
-    "collapsed": { "sprite": "evacuator_yellow_beam_collapsed.png", "sizeM": [1.854, 1.044], "hingeAtM": -0.367 },
+    "extended": { "sprite": "evacuator_yellow_beam_extended.webp", "sizeM": [2.967, 1.876], "hingeAtM": -0.923 },
+    "collapsed": { "sprite": "evacuator_yellow_beam_collapsed.webp", "sizeM": [1.854, 1.044], "hingeAtM": -0.367 },
     "reachM": 2.2,
     "pivotM": [-1.15, 0.0]
   },

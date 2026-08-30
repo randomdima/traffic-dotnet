@@ -1,6 +1,6 @@
 {
   "id": "cottage_tile",
-  "sprite": "cottage_tile.png",
+  "sprite": "cottage_tile.webp",
   "footprintM": [12.00, 12.06],
   "partsM": [
     { "atM": [0.13, -2.52], "sizeM": [11.73, 7.02] },

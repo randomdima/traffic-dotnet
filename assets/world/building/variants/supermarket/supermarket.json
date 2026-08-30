@@ -1,6 +1,6 @@
 {
   "id": "supermarket",
-  "sprite": "supermarket.png",
+  "sprite": "supermarket.webp",
   "footprintM": [19.00, 19.48],
   "partsM": [
     { "atM": [0.0, -0.6], "sizeM": [19.0, 18.13] },

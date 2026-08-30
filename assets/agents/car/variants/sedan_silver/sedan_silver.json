@@ -1,7 +1,7 @@
 {
   "id": "sedan_silver",
-  "sprite": "sedan_silver.png",
-  "wreck": { "sprite": "sedan_silver_broken.png", "scale": [1.026, 1] },
+  "sprite": "sedan_silver.webp",
+  "wreck": { "sprite": "sedan_silver_broken.webp", "scale": [1.026, 1] },
   "footprintM": [3.95, 1.86],
   "collisionM": { "sizeM": [3.71, 1.66], "cornerRadiusM": 0.23 },
   "massKg": 1400,

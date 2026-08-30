@@ -1,6 +1,6 @@
 {
   "id": "semi_blue",
-  "sprite": "semi_blue.png",
+  "sprite": "semi_blue.webp",
   "footprintM": [13.00, 12.64],
   "partsM": [
     { "atM": [-0.14, -0.14], "sizeM": [11.6, 10.38] },

@@ -1,5 +1,6 @@
 using System.Numerics;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Webp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace TrafficSimulation.Agents.Car.Body;
@@ -108,7 +109,10 @@ internal static class LampAtlasBake
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        atlas.SaveAsPng(path);
+
+        // Lossless, unlike the sprites it was cut from. The distinctness beside each line is measured
+        // off these very pixels, so a lossy sheet would be an instrument reading its own compression.
+        atlas.Save(path, new WebpEncoder { FileFormat = WebpFileFormatType.Lossless });
         return cut;
     }
 

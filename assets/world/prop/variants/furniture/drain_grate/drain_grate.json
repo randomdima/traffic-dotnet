@@ -1,6 +1,6 @@
 {
   "id": "drain_grate",
   "kind": 2,
-  "sprite": "drain_grate.png",
+  "sprite": "drain_grate.webp",
   "diameterM": 0.70
 }

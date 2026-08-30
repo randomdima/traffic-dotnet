@@ -1,7 +1,7 @@
 {
   "id": "truck_brown",
-  "sprite": "truck_brown.png",
-  "wreck": { "sprite": "truck_brown_broken.png", "scale": [1.079, 1.051] },
+  "sprite": "truck_brown.webp",
+  "wreck": { "sprite": "truck_brown_broken.webp", "scale": [1.079, 1.051] },
   "footprintM": [3.56, 2],
   "collisionM": { "sizeM": [3.34, 1.68], "cornerRadiusM": 0.08 },
   "massKg": 2000,
