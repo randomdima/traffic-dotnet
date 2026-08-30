@@ -17,7 +17,9 @@ Say("fetching the town…");
 
 try
 {
-    var fetched = await Data.Fetch(Say);
+    // What the menu stands on, and no more than that: the sheets are fetched when a map is picked
+    // (Data.Art), because nothing drawn before one is picked is a sprite.
+    var fetched = await Data.Boot(Say);
     Say($"starting on {fetched} files…");
 
     var wgsl = Shader("Shaders/town.wgsl");
@@ -31,15 +33,16 @@ try
     Say("reading the figures…");
     var config = SimConfig.Load();
 
-    Say("laying the town's art…");
     using var game = new Game(
         config, width: 0, height: 0, validate: false, options.UiScale, Pacing.Fifo,
         fullscreen: false, display: null);
 
-    // A map, fetched and then stood up. The plan is not in the file system until this has run, which
-    // is why the menu's click only writes the name down (Game.Web.cs) and this is what acts on it.
+    // A map, fetched and then stood up. Neither the art nor the plan is in the file system until this
+    // has run, which is why the menu's click only writes the name down (Game.Web.cs) and this is what
+    // acts on it — the one place in a browser run where waiting for a fetch is allowed.
     async Task Open(string map)
     {
+        await Data.Art(Say);
         Say($"fetching {map}…");
         await Data.Town(map);
         Say($"standing {map} up…");

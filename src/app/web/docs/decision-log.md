@@ -2,6 +2,37 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-08-30 — the menu stands on six files, and a batch is asked for at once
+
+Deployed to a static host, the page took about a minute to put a menu up. Neither the size of the
+runtime nor the size of the art accounted for it: the framework is 13 MB raw and the host gzips it to
+3.1, and the art is 4.2 MB. **What accounted for it was three hundred and nineteen round trips, taken
+one after the next.** At 185 ms each that is a minute of waiting on a connection that was idle for
+almost all of it.
+
+Two things were wrong and they are separate.
+
+**The batch.** `Data` fetched a file, awaited it, wrote it, fetched the next. `WebGpu.Warm` now hands
+the whole list over in one call and the page keeps thirty-two in flight, counting them off in the
+banner from the far side — where the counting has to be done, because the caller is awaiting the one
+call and cannot say anything while it does. Above it nothing changed: `grab` reads a warmed file where
+it would have fetched one, so every reader of the file system, and the whole decode split, is untouched.
+
+**The menu was waiting for the town.** `Game`'s constructor read the catalogues, and the renderer it
+built for the menu packed every sheet in the town into an atlas — so a page could not draw a list of
+map names until it had fetched, decoded and packed all of the art it was not going to draw. The
+catalogues are read at the first `Open` now, and the menu's renderer is laid for no sheets at all,
+which the atlas, the tile binding and the shader table already allowed for. So the boot fetches the
+figures and the five ground surfaces — six files — and the rest arrives behind the click that asked for
+a town.
+
+**This is a saving on the desktop too**, where it was invisible: the atlas was packed twice, once for
+a menu that drew none of it and once for the town.
+
+`_looks` became nullable, which is the one cost. It is set with `_world` in `Open` and the frame
+reaches it behind the same guard, so the two invariants are one invariant and the pattern in `Draw`
+binds both.
+
 ## 2026-08-30 — a map picked is a name written down, not a town opened
 
 The page fetched all nine maps at boot: 3.4 MB of the 10 it downloaded, to open one of them. The

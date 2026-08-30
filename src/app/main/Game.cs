@@ -38,7 +38,14 @@ internal sealed partial class Game : IDisposable
 {
     readonly SimConfig _config;
     readonly AppWindow _window;
-    readonly TownSprites _looks;
+
+    /// <summary>
+    /// Every look the town is drawn in. <b>Read when the first map is opened and not before</b>: the
+    /// catalogues are every variant file in <c>assets/</c> and the header of every sheet they name, and
+    /// the menu draws none of them. Set with <see cref="_world"/> in <see cref="Open"/>, which is why
+    /// the frame reaches it behind the same guard.
+    /// </summary>
+    TownSprites? _looks;
 
     readonly Hud.Interface _ui;
     readonly PlayerHands _hands = new();
@@ -46,6 +53,14 @@ internal sealed partial class Game : IDisposable
 
     TownRenderer _renderer;
     Camera2D _camera;
+
+    /// <summary>
+    /// The sheets the next renderer is laid for. <b>Empty until a town is opened</b>: the menu is
+    /// glyphs and quads over a ground and draws no sprite at all, so packing the whole atlas to show
+    /// one is work done twice on a desktop — and on a page it is every one of the town's sheets
+    /// fetched before anything can be clicked (<see cref="Main.Data.Art"/>).
+    /// </summary>
+    IReadOnlyList<SheetSource> _sheets = [];
 
     /// <summary>The window in interface pixels: what the camera frames and what the panels are laid out in.</summary>
     Vector2 _uiPx;
@@ -83,13 +98,11 @@ internal sealed partial class Game : IDisposable
     {
         _config = config;
         _ui = new Hud.Interface(config.Trim);
-        _looks = TownSprites.Load();
 
         // The window and the machine under it are the one thing that is not the same on both, so they
         // are the one thing this root does not do itself (Game.Desktop.cs, Game.Web.cs).
         _window = Boot(width, height, validate, uiScale, pacing, fullscreen, display);
         _renderer = NewRenderer(GroundMesh.Nothing(), spriteCapacity: 1);
-        _looks.ReadAspects(_renderer);
 
         _uiPx = _window.UiPx;
         _camera = new Camera2D(config, Vector2.One, _uiPx) { DevicePxPerUiPx = _window.UiScale };
@@ -379,7 +392,10 @@ internal sealed partial class Game : IDisposable
         var mesh = GroundMesh.Build(plan, _config);
         var world = new TownWorld(plan, _config);
 
+        _looks ??= TownSprites.Load();
+
         _renderer.Dispose();
+        _sheets = _looks.Sheets;
         _renderer = NewRenderer(mesh, TownSprites.CapacityFor(plan, _config));
         _looks.ReadAspects(_renderer);
         _looks.Lay(plan, world.Uses);
@@ -458,9 +474,9 @@ internal sealed partial class Game : IDisposable
     void Draw(ref FrameParts parts)
     {
         var sprites = 0;
-        if (_world is not null)
+        if (_looks is { } looks && _world is not null)
         {
-            sprites = _looks.Fill(
+            sprites = looks.Fill(
                 _world, _config, _camera.CentreM, _camera.ViewSpanM(_uiPx), _renderer.Sprites);
         }
 

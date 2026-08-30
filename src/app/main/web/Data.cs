@@ -16,9 +16,16 @@ namespace TrafficSimulation.App.Main;
 /// there.
 /// </para>
 /// <para>
-/// <b>The art before the first frame; a map when it is picked.</b> The art is every town's, so all of
-/// it is fetched at boot. A map is one town's and the nine of them are two and a half megabytes, so
-/// what <see cref="Fetch"/> lays for a map is its <em>name</em> — an empty file, which is what
+/// <b>What the menu needs, and then what a town needs.</b> <see cref="Boot"/> fetches the papers — the
+/// catalogues, the figures, the ground the menu is drawn over — and that is the whole of what stands
+/// between a page opening and a menu on it. <see cref="Art"/> fetches the sheets, and it is called
+/// when the first map is picked, because a menu draws glyphs and quads and not one sprite. It is the
+/// difference between a page that waits on three hundred files and a page that waits on a hundred and
+/// fifty small ones.
+/// </para>
+/// <para>
+/// <b>And a map is fetched when it is picked.</b> The nine of them are three and a half megabytes, so
+/// what <see cref="Boot"/> lays for a map is its <em>name</em> — an empty file, which is what
 /// <see cref="Core.Config.ProjectPaths.ShippedMaps"/> reads the menu's list off — and the bytes arrive
 /// in <see cref="Town"/> when something asks to open it. That is the whole reason
 /// <see cref="Game.Start"/> is reached from the boot's own <c>await</c> and never from inside a frame:
@@ -45,62 +52,101 @@ internal static class Data
     /// </remarks>
     const string Squeezed = ".gz";
 
-    /// <summary>The folder the plans are laid in, which is the name the readers above look for.</summary>
+    /// <summary>The two folders everything is laid under, which are the names the readers above look for.</summary>
     const string Towns = "towns";
+
+    const string Assets = "assets";
 
     /// <summary>Each map the page may open, against the file it is fetched from.</summary>
     static readonly Dictionary<string, string> Plans = [];
 
+    /// <summary>Everything <see cref="Boot"/> passed over, waiting for the first map to be picked.</summary>
+    static readonly List<string> Waiting = [];
+
     /// <summary>
-    /// Every file the manifest names that is not a map, into the file system, and how many that was.
-    /// The maps are laid out by name alone and fetched by <see cref="Town"/>.
+    /// The few files the menu is drawn from — the figures and the five ground surfaces — and the name
+    /// of every map. <b>This is the whole of what stands between a page opening and a menu on it</b>:
+    /// half a dozen files, so the wait is one round trip and not three hundred. Everything else is
+    /// <see cref="Art"/>'s, and a map's own bytes are <see cref="Town"/>'s.
     /// </summary>
-    public static async Task<int> Fetch(Action<string> say)
+    public static async Task<int> Boot(Action<string> say)
     {
         var manifest = Encoding.UTF8.GetString(await Read(Manifest));
         var paths = manifest.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+        // Both folders, and before anything asks ProjectPaths a question: it finds the root by walking
+        // up for a folder holding the two of them, and in a page neither exists until this makes it.
         Directory.CreateDirectory("/" + Towns);
+        Directory.CreateDirectory("/" + Assets);
 
-        var art = new List<string>(paths.Length);
+        var menu = new HashSet<string>(Core.Config.ProjectPaths.GroundSurfaceFiles(), StringComparer.Ordinal)
+        {
+            Core.Config.ProjectPaths.SharedFiguresFile,
+        };
+
+        var papers = new List<string>(menu.Count);
+        Waiting.Clear();
         foreach (var line in paths)
         {
             var path = line.Replace('\\', '/');
-            if (!path.StartsWith(Towns + "/", StringComparison.Ordinal))
+            if (path.StartsWith(Towns + "/", StringComparison.Ordinal))
             {
-                art.Add(path);
+                // The name is the listing: a map with no bytes yet still appears on the menu, and
+                // asking for it is what fetches it.
+                var plan = path[..^Squeezed.Length];
+                Plans[Path.GetFileNameWithoutExtension(plan)] = path;
+                if (!File.Exists("/" + plan)) File.WriteAllBytes("/" + plan, []);
                 continue;
             }
 
-            // The name is the listing: a map with no bytes yet still appears on the menu, and asking
-            // for it is what fetches it.
-            var plan = path[..^Squeezed.Length];
-            Plans[Path.GetFileNameWithoutExtension(plan)] = path;
-            if (!File.Exists("/" + plan)) File.WriteAllBytes("/" + plan, []);
+            if (menu.Contains("/" + path)) papers.Add(path);
+            else Waiting.Add(path);
         }
 
+        await Lay(papers, "reading what the menu draws…", say);
+        await Glyphs();
+        return papers.Count;
+    }
+
+    /// <summary>
+    /// Everything the town itself is read and drawn from — the catalogues, the variant files and the
+    /// sheets — into the file system and decoded, once. <b>Called when a map is picked and not at
+    /// boot</b>: nothing the menu draws is a sprite and nothing it reads is a catalogue, and three
+    /// hundred round trips before the first click is what a page opening slowly is made of.
+    /// </summary>
+    public static async Task Art(Action<string> say)
+    {
+        if (Waiting.Count == 0) return;
+
+        await Lay(Waiting, "laying the town's art…", say);
+        Waiting.Clear();
+    }
+
+    /// <summary>
+    /// A batch of files into the file system, and every picture among them decoded. <b>The batch is
+    /// asked for in one call and read out in order</b>: the round trips overlap, and what is read out
+    /// here is already in the page's hands (<see cref="Runtime.WebGpu.Warm"/>).
+    /// </summary>
+    static async Task Lay(List<string> batch, string saying, Action<string> say)
+    {
+        say(saying);
+        await Runtime.WebGpu.Warm(string.Join('\n', batch), saying);
+
         var bytes = 0L;
-        for (var at = 0; at < art.Count; at++)
+        foreach (var path in batch)
         {
-            var content = await Read(art[at]);
+            var content = await Read(path);
             bytes += content.Length;
 
-            Directory.CreateDirectory(Path.GetDirectoryName("/" + art[at])!);
-            File.WriteAllBytes("/" + art[at], content);
+            Directory.CreateDirectory(Path.GetDirectoryName("/" + path)!);
+            File.WriteAllBytes("/" + path, content);
 
             // The very bytes the fetch parked, decoded where they already are. It is why the picture
             // is made here rather than by a second pass that would have to fetch all of it again.
-            if (IsPicture(art[at])) await Runtime.WebGpu.Picture("/" + art[at]);
-
-            // Often enough to watch, seldom enough that saying so is not the slow part.
-            if (at % 25 == 0 || at == art.Count - 1)
-            {
-                say($"fetching the town… {at + 1} of {art.Count} files, {bytes / (1024 * 1024)} MB");
-            }
+            if (IsPicture(path)) await Runtime.WebGpu.Picture("/" + path);
         }
 
-        await Glyphs();
-        return art.Count;
+        say($"{saying} {batch.Count} files, {bytes / (1024 * 1024)} MB");
     }
 
     /// <summary>

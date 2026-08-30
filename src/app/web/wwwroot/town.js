@@ -437,15 +437,65 @@ function say(line) {
 /// the browser without the bytes moving twice: one fetch, one park, two readers.
 let parked = null;
 
-/// One file the page was served. **A path is relative to the page**: `fetch` resolves it against
-/// `document.baseURI`, which is what a path in the manifest is written against, so a page served from
-/// anywhere under a host reads its own files.
+/// A batch of files already in flight, by the path they were asked for. Emptied as `grab` reads them,
+/// so nothing here is held twice or held after it has been taken.
+const held = new Map();
+
+/// How many of a batch are in flight at once. The files are small and a host multiplexes, but an
+/// unbounded burst is one the browser queues on its own terms — and a run that reported progress
+/// against it would count three hundred files finishing all at the end.
+const AT_ONCE = 32;
+
+/// A whole batch of files, fetched at once rather than one after the next.
+///
+/// **This is what a page's opening actually costs.** A fetch is a round trip before it is any bytes at
+/// all, and the art is three hundred and twenty small files: asked for in a row that is a minute of
+/// latency against a second of download. Asked for together it is the latency of the slowest one.
+///
+/// The paths arrive as one string because the wall is crossed once for the batch, and `grab` is
+/// unchanged above them: a file that was warmed is read out of `held`, and one that was not is fetched
+/// where it stands.
+///
+/// **The counting is done here and not by the caller**, because the caller is awaiting this one call
+/// and cannot say anything while it does.
+async function warm(list, saying) {
+    const paths = list.split('\n').filter(path => path !== '' && !held.has(path));
+    let next = 0;
+    let done = 0;
+
+    const worker = async () => {
+        while (next < paths.length) {
+            const path = paths[next++];
+            held.set(path, await file(path));
+
+            // Often enough to watch, seldom enough that saying so is not the slow part.
+            if (++done % 16 === 0 || done === paths.length) say(`${saying} ${done} of ${paths.length}…`);
+        }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(AT_ONCE, paths.length) }, worker));
+}
+
+/// One file the page was served, out of the batch if it is in one. **A path is relative to the page**:
+/// `fetch` resolves it against `document.baseURI`, which is what a path in the manifest is written
+/// against, so a page served from anywhere under a host reads its own files.
 async function grab(path) {
+    const batched = held.get(path);
+    if (batched !== undefined) {
+        held.delete(path);
+        parked = batched;
+        return parked.byteLength;
+    }
+
+    parked = await file(path);
+    return parked.byteLength;
+}
+
+async function file(path) {
     const response = await fetch(path);
     if (!response.ok) throw new Error(`${response.status} ${response.statusText} — ${path}`);
 
-    parked = new Uint8Array(await response.arrayBuffer());
-    return parked.byteLength;
+    return new Uint8Array(await response.arrayBuffer());
 }
 
 /// Bytes out of the run's own memory, for the one picture that was never fetched: the glyph sheet ships
@@ -464,8 +514,8 @@ function take(into) {
 /// **This is the browser's image codec standing in for a library the page would otherwise ship**, and
 /// it is split in two because only half of it can wait. `createImageBitmap` is a promise and the atlas
 /// is packed from inside `Game.Start`, which a frame reaches and which cannot await; `drawImage` and
-/// `getImageData` are synchronous. So `picture` is called at boot, where waiting is allowed, and
-/// `texels` is called where the packer stands.
+/// `getImageData` are synchronous. So `picture` is called as the sheet is fetched, where waiting is
+/// allowed, and `texels` is called where the packer stands.
 ///
 /// **What is kept is a bitmap, not a page of texels.** The browser stores an ImageBitmap as it pleases
 /// — often on the GPU — and the run's own heap holds nothing until one sheet is asked for.
@@ -497,7 +547,7 @@ async function picture(path) {
 /// atlas above is careful never to hold more than a page's worth at once.
 function texels(path) {
     const bitmap = pictures.get(path);
-    if (!bitmap) throw new Error(`no picture decoded for ${path} — the boot did not fetch it`);
+    if (!bitmap) throw new Error(`no picture decoded for ${path} — nothing fetched it`);
 
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const context = canvas.getContext('2d', { willReadFrequently: true, colorSpace: 'srgb' });
@@ -507,8 +557,8 @@ function texels(path) {
 }
 
 export const town = {
-    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, say, grab, park, take,
-    picture, texels,
+    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, say, warm, grab, park,
+    take, picture, texels,
     ticker: step => {
         const next = () => {
             if (step()) requestAnimationFrame(next);

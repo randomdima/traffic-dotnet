@@ -23,7 +23,7 @@ internal sealed partial class Game
         new AppWindow(uiScale);
 
     private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity) =>
-        TownRenderer.OnScreen(mesh, ProjectPaths.GroundSurfaceFiles(), _looks.Sheets, spriteCapacity);
+        TownRenderer.OnScreen(mesh, ProjectPaths.GroundSurfaceFiles(), _sheets, spriteCapacity);
 
     private partial long Crossings() => WebGpu.Crossings;
 

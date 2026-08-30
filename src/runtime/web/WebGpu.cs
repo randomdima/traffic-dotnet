@@ -123,6 +123,24 @@ internal static partial class WebGpu
     }
 
     /// <summary>
+    /// A whole batch of files, in flight at once and held on the far side until <see cref="Grab"/>
+    /// reads each one out. The paths are one string, newline apart, and <paramref name="saying"/> is
+    /// what the banner counts them off under.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is what a page's opening costs, and it is latency and not bytes.</b> A fetch is a round
+    /// trip before it is a byte, and the town's art is three hundred small files: asked for one after
+    /// the next that is a minute of waiting against a second of downloading. Nothing above this changes
+    /// — <see cref="Grab"/> reads a warmed file where it would have fetched one — and nothing here is
+    /// on a frame's path, so the batch may cross the wall as slowly as it likes.
+    /// </remarks>
+    public static Task Warm(string paths, string saying)
+    {
+        Count();
+        return WarmJs(paths, saying);
+    }
+
+    /// <summary>
     /// One file the page was served, parked on the far side, answering how many bytes it came to. The
     /// path is relative to the page, which is what a path in the manifest is written against.
     /// </summary>
@@ -227,6 +245,9 @@ internal static partial class WebGpu
 
     [JSImport("town.say", "town.js")]
     static partial void SayJs(string line);
+
+    [JSImport("town.warm", "town.js")]
+    private static partial Task WarmJs(string paths, string saying);
 
     [JSImport("town.grab", "town.js")]
     private static partial Task<int> GrabJs(string path);

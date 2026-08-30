@@ -26,7 +26,7 @@ internal sealed partial class Game
     }
 
     private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity) => TownRenderer.OnScreen(
-        _vk, _window, mesh, ProjectPaths.GroundSurfaceFiles(), _looks.Sheets, spriteCapacity);
+        _vk, _window, mesh, ProjectPaths.GroundSurfaceFiles(), _sheets, spriteCapacity);
 
     private partial long Crossings() => Runtime.Vk.Crossings;
 

@@ -49,17 +49,32 @@ every reader above is untouched (<see cref="ProjectPaths"/> finds them exactly a
 binary). **There is no second asset story**: no provider threaded through fifteen call sites, and no
 path that means one thing here and another there.
 
-The art is every town's, so all of it is fetched at boot. **A plan is one town's, so it is fetched when
-that town is picked**, and the fetch happens in the one place a browser run may wait — the boot's own
-loop, which drains the name the menu wrote down (`Game.PickMap`). What `Data` lays for a map at boot is
-its *name*: an empty file, because [`ProjectPaths.ShippedMaps`](../../../core/config/ProjectPaths.cs)
-reads the folder and a map with no file would be a map the menu could not offer. It is never read in
-that state — the fetch stands between the click and the open.
+**Nothing is fetched before the menu but what the menu draws.** Six files stand between the page
+opening and a menu on it — the figures and the five ground surfaces — and everything else is fetched
+when the first map is picked: the catalogues, every variant file, every sheet, and that map's plan.
+This is why [`Game`](../../main/Game.cs) reads its catalogues at the first `Open` and not in its
+constructor, and why the renderer the menu draws through is laid for no sheets at all.
+
+**A map is fetched when it is picked**, and the fetch happens in the one place a browser run may wait —
+the boot's own loop, which drains the name the menu wrote down (`Game.PickMap`). What `Data` lays for a
+map at boot is its *name*: an empty file, because
+[`ProjectPaths.ShippedMaps`](../../../core/config/ProjectPaths.cs) reads the folder and a map with no
+file would be a map the menu could not offer. It is never read in that state — the fetch stands between
+the click and the open.
+
+**A batch is asked for at once, because what a page waits on is round trips and not bytes.** The town's
+art is three hundred small files: asked for one after the next that is a minute of latency against two
+seconds of downloading, and it was the whole of why the page opened slowly. `Data` hands the batch to
+the page in one call (`WebGpu.Warm`), which holds thirty-two in flight and counts them off in the
+banner, and every reader above it is unchanged — a warmed file is read where it would have been
+fetched.
 
 **WEB-6 — a page is the size of its town, and the town is the size of what it draws.** What a browser
 fetches before the first frame is **under six megabytes** for the fixture map and never over eight for
 the heaviest: the .NET runtime ahead-of-time compiled and served brotli, 2.8 MB of art, 40 KB of page,
-and one map. **How a sheet is stored is
+and one map. **What it fetches before the menu is six files**, which is the figure that decides how
+long a page looks broken for — the rest arrives behind the click that asked for a town. **How a sheet
+is stored is
 [app/render](../../render/docs/requirements.md#how-a-sheet-is-stored)'s rule**, not a thing done to
 the browser build: both heads read the same sheets.
 
@@ -69,9 +84,10 @@ what it weighs — so [`Texels.Web.cs`](../../render/web/Texels.Web.cs) is `crea
 [`ImageHeader`](../../../core/config/ImageHeader.cs) reads a size off the file's own header on both
 machines. **The decode is split because only half of it can wait**: making a bitmap is a promise and the
 atlas is packed from inside `Game.Start`, which a frame reaches; drawing one to a canvas and reading its
-texels back is synchronous. So [`Data`](../../main/web/Data.cs) makes every bitmap at boot, where
-waiting is allowed, and the packer reads one sheet out where it stands. **A sheet the boot did not
-decode is a fault and not a fetch** — there is no way back to a promise from inside a frame.
+texels back is synchronous. So [`Data`](../../main/web/Data.cs) makes every bitmap on the way in, where
+waiting is allowed, and the packer reads one sheet out where it stands. **A sheet the fetch did not
+decode is a fault and not a second fetch** — there is no way back to a promise from inside a frame,
+which is why the art is laid before the plan it is going to be drawn on is even read.
 
 **The desktop keeps its decoder** and is the second opinion the header reader is checked against over
 every picture the town ships ([tests/config](../../../tests/config/ImageHeaderTests.cs)). It also still
