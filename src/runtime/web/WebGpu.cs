@@ -148,25 +148,25 @@ internal static partial class WebGpu
     }
 
     /// <summary>
-    /// A whole batch of files, in flight at once and held on the far side until <see cref="Grab"/>
-    /// reads each one out. The paths are one string, newline apart, and <paramref name="saying"/> is
-    /// what the banner counts them off under.
+    /// Files asked for before anything waits on them, held on the far side until <see cref="Grab"/>
+    /// reads each one out. The paths are one string, newline apart, and nothing is awaited: this
+    /// returns when the fetches have been started and not when they arrive.
     /// </summary>
     /// <remarks>
-    /// <b>This is what a page's opening costs, and it is latency and not bytes.</b> A fetch is a round
-    /// trip before it is a byte, and the town's art is three hundred small files: asked for one after
-    /// the next that is a minute of waiting against a second of downloading. Nothing above this changes
-    /// — <see cref="Grab"/> reads a warmed file where it would have fetched one — and nothing here is
-    /// on a frame's path, so the batch may cross the wall as slowly as it likes.
+    /// <b>It is what puts one download beside another (WEB-9).</b> A page fetching in the order it happens to
+    /// read waits for the sum of what it asked for; the plan of a map is wanted while the art is being
+    /// decoded, and the art itself is wanted while the runtime is still coming down (<c>main.js</c>).
+    /// Nothing above this changes — <see cref="Grab"/> reads a prefetched file where it would have
+    /// fetched one — and <b>a prefetch that fails costs an ordinary fetch and nothing else</b>.
     /// </remarks>
-    public static Task Warm(string paths, string saying)
+    public static void Prefetch(string paths)
     {
         Count();
-        return WarmJs(paths, saying);
+        PrefetchJs(paths);
     }
 
     /// <summary>
-    /// One archive of files, held on the far side exactly as a <see cref="Warm"/>ed batch is, answering
+    /// One archive of files, held on the far side exactly as a <see cref="Prefetch"/>ed file is, answering
     /// the paths it held — newline apart, because a list crosses the wall as one string.
     /// </summary>
     /// <remarks>
@@ -236,7 +236,24 @@ internal static partial class WebGpu
     }
 
     /// <summary>
-    /// The texels of a picture <see cref="Picture"/> decoded, parked on the far side, answering how many
+    /// Every sheet of a batch, decoded at once out of the files the fetch is holding, and kept on that
+    /// side under the names given — which are the run's own, as <see cref="Texels"/> asks for them.
+    /// </summary>
+    /// <remarks>
+    /// <b>One at a time they are four times slower.</b> A loop awaiting each decode in turn is one
+    /// decode at a time, and a browser decodes on threads a page has not got: the town's sheets are
+    /// 216 ms in a row against 57 ms asked for together. It is the same half of the split
+    /// <see cref="Picture"/> is — the half that can wait — and it is called where waiting is allowed.
+    /// </remarks>
+    public static Task Decode(string names, string saying)
+    {
+        Count();
+        return DecodeJs(names, saying);
+    }
+
+    /// <summary>
+    /// The texels of a picture <see cref="Picture"/> or <see cref="Decode"/> made, parked on the far
+    /// side, answering how many
     /// bytes they came to. Synchronous, which is the whole reason the decode was done in two parts.
     /// </summary>
     public static int Texels(string path)
@@ -293,8 +310,8 @@ internal static partial class WebGpu
     [JSImport("town.say", "town.js")]
     static partial void SayJs(string line);
 
-    [JSImport("town.warm", "town.js")]
-    private static partial Task WarmJs(string paths, string saying);
+    [JSImport("town.prefetch", "town.js")]
+    static partial void PrefetchJs(string paths);
 
     [JSImport("town.unpack", "town.js")]
     private static partial Task<string> UnpackJs(string path);
@@ -310,6 +327,9 @@ internal static partial class WebGpu
 
     [JSImport("town.picture", "town.js")]
     private static partial Task PictureJs(string path);
+
+    [JSImport("town.decode", "town.js")]
+    private static partial Task DecodeJs(string names, string saying);
 
     [JSImport("town.texels", "town.js")]
     private static partial int TexelsJs(string path);

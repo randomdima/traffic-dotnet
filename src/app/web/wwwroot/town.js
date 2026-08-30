@@ -70,6 +70,20 @@ const state = {
     indexCount: 0,
 };
 
+/// The adapter, asked for once and answered to everybody who asks.
+///
+/// **The page asks before it downloads the engine and the run asks when it starts, and those are the
+/// same question.** A second `requestAdapter` is tens of milliseconds spent being told what the first
+/// one already said, so the promise is kept rather than the answer — `null` is an answer too, and the
+/// two callers say different things about it.
+export function adapter() {
+    if (!navigator.gpu) return Promise.resolve(null);
+
+    return asked ??= navigator.gpu.requestAdapter().catch(() => null);
+}
+
+let asked = null;
+
 /// The device, the canvas and the shaders. Answers the reason it could not, or "" — a page that cannot
 /// have a device says so in words rather than drawing nothing.
 async function start(wgsl) {
@@ -77,10 +91,10 @@ async function start(wgsl) {
         return 'This browser has no WebGPU. It wants Chrome or Edge 113+, Safari 26+, or a Firefox where it has shipped.';
     }
 
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) return 'No WebGPU adapter: the browser has the API but no device it will hand out.';
+    const found = await adapter();
+    if (!found) return 'No WebGPU adapter: the browser has the API but no device it will hand out.';
 
-    state.device = await adapter.requestDevice();
+    state.device = await found.requestDevice();
     state.device.addEventListener('uncapturederror', e => console.error('WebGPU:', e.error.message));
     state.device.lost.then(info => console.error('WebGPU device lost:', info.message));
 
@@ -438,7 +452,7 @@ function say(line) {
             opening.opened();
         } else {
             // A new stage, and nothing counted yet: the bar sweeps until something says how much of
-            // this one there is (`warm`), and a bar left full from the last stage would be a lie.
+            // this one there is (`decode`), and a bar left full from the last stage would be a lie.
             opening.stage(line);
             opening.progress(0, 0);
         }
@@ -464,48 +478,31 @@ function say(line) {
 /// the browser without the bytes moving twice: one fetch, one park, two readers.
 let parked = null;
 
-/// A batch of files already in flight, by the path they were asked for. Emptied as `grab` reads them,
-/// so nothing here is held twice or held after it has been taken.
+/// A file already in flight or already here, by the path it was asked for: either the bytes or the
+/// promise of them. Emptied as `grab` reads them, so nothing here is held twice or held after it has
+/// been taken.
 const held = new Map();
 
-/// How many of a batch are in flight at once. The files are small and a host multiplexes, but an
-/// unbounded burst is one the browser queues on its own terms — and a run that reported progress
-/// against it would count three hundred files finishing all at the end.
-const AT_ONCE = 32;
-
-/// A whole batch of files, fetched at once rather than one after the next.
+/// Files asked for before anything wants them.
 ///
-/// **This is what a page's opening actually costs.** A fetch is a round trip before it is any bytes at
-/// all, and the art is three hundred and twenty small files: asked for in a row that is a minute of
-/// latency against a second of download. Asked for together it is the latency of the slowest one.
+/// **This is what puts the town beside the engine on the wire.** The art and the runtime are about
+/// three megabytes each and neither needs the other, so asked for in turn a page waits for the sum of
+/// them — and the art was not asked for until the runtime had started and a map had been picked.
+/// Started here, the two come down together.
 ///
-/// The paths arrive as one string because the wall is crossed once for the batch, and `grab` is
-/// unchanged above them: a file that was warmed is read out of `held`, and one that was not is fetched
-/// where it stands.
+/// **Nothing above it changes**: `grab` reads a prefetched file where it would have fetched one, and
+/// **a prefetch that fails costs an ordinary fetch and nothing else** — a name that is wrong here is
+/// slow rather than broken.
 ///
-/// **The counting is done here and not by the caller**, because the caller is awaiting this one call
-/// and cannot say anything while it does.
-async function warm(list, saying) {
-    const paths = list.split('\n').filter(path => path !== '' && !held.has(path));
-    let next = 0;
-    let done = 0;
-
-    say(saying);
-    opening.progress(0, paths.length);
-
-    const worker = async () => {
-        while (next < paths.length) {
-            const path = paths[next++];
-            held.set(path, await file(path));
-            opening.progress(++done, paths.length);
-        }
-    };
-
-    await Promise.all(Array.from({ length: Math.min(AT_ONCE, paths.length) }, worker));
+/// The paths are one string, newline apart, because that is how a list crosses the wall (`unpack`).
+export function prefetch(list) {
+    for (const path of list.split('\n')) {
+        if (path !== '' && !held.has(path)) held.set(path, file(path));
+    }
 }
 
-/// The whole of the town's art in one response, held exactly as a warmed batch is, answering the paths
-/// it turned out to hold — newline apart, which is how a list crosses the wall.
+/// The whole of the town's art in one response, held exactly as a prefetched file is, answering the
+/// paths it turned out to hold — newline apart, which is how a list crosses the wall.
 ///
 /// **One round trip and not three hundred.** That is the whole reason it exists: the files are small,
 /// so what was being waited on was latency and never bytes.
@@ -517,12 +514,15 @@ async function warm(list, saying) {
 ///
 /// **Every file is a view onto the one buffer and not a copy of itself.** The archive stands until the
 /// last of it has been read out, which costs its own size once instead of twice.
+///
+/// **It is grabbed and not fetched**, which is what lets the page start it before the runtime that asks
+/// for it: an archive already prefetched is read out of `held`, and one that is not is fetched where it
+/// stands. A `fetch` of its own here would be a second copy of three megabytes.
 async function unpack(path) {
-    const response = await fetch(path);
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText} — ${path}`);
-
+    await grab(path);
     const bytes = new Uint8Array(
-        await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+        await new Response(new Blob([parked]).stream().pipeThrough(new DecompressionStream('gzip')))
+            .arrayBuffer());
 
     const names = [];
     for (let at = 0; at + TAR_BLOCK <= bytes.length;) {
@@ -561,10 +561,15 @@ function field(header, at, width) {
 /// against, so a page served from anywhere under a host reads its own files.
 async function grab(path) {
     const batched = held.get(path);
+    held.delete(path);
     if (batched !== undefined) {
-        held.delete(path);
-        parked = batched;
-        return parked.byteLength;
+        try {
+            // Bytes or the promise of them, and awaiting the first of those costs a microtask.
+            parked = await batched;
+            return parked.byteLength;
+        } catch {
+            // A prefetch that did not arrive is a file that has not been fetched yet, and no more.
+        }
     }
 
     parked = await file(path);
@@ -594,7 +599,7 @@ function take(into) {
 /// **This is the browser's image codec standing in for a library the page would otherwise ship**, and
 /// it is split in two because only half of it can wait. `createImageBitmap` is a promise and the atlas
 /// is packed from inside `Game.Start`, which a frame reaches and which cannot await; `drawImage` and
-/// `getImageData` are synchronous. So `picture` is called as the sheet is fetched, where waiting is
+/// `getImageData` are synchronous. So `decode` is called where the art is fetched, where waiting is
 /// allowed, and `texels` is called where the packer stands.
 ///
 /// **What is kept is a bitmap, not a page of texels.** The browser stores an ImageBitmap as it pleases
@@ -605,20 +610,53 @@ function take(into) {
 /// closed after the first one would be a decode that had to happen inside a frame.
 const pictures = new Map();
 
-/// The parked file, decoded and kept under `path`.
+/// The parked file, decoded and kept under `path`: the one sheet that arrives on its own, which is the
+/// typeface out of the assembly. **The art is a batch and goes through `decode`.**
 ///
 /// **The bytes are taken before the first await**, because `parked` is one slot and the next `grab` is
 /// entitled to overwrite it the moment this yields.
-///
-/// **Both options are load-bearing.** Left to itself the browser premultiplies alpha and may put the
-/// display's colour profile through the texels, and this town's art is alpha-cut sprites drawn at their
-/// own texel grid: either one is a sheet that no longer matches what the desktop draws.
 async function picture(path) {
     const file = parked;
-    pictures.set(path, await createImageBitmap(new Blob([file]), {
+    pictures.set(path, await made(file));
+}
+
+/// Every sheet of a batch, decoded at once out of the files the fetch is holding.
+///
+/// **Serially they are four times slower.** The town's hundred and seventy-four sheets are 216 ms
+/// decoded one after the next and 57 ms asked for together, because a browser decodes on threads this
+/// page has not got — and one after the next is what a loop awaiting each one in turn comes to.
+/// They are all kept for the run in any case (`pictures`), so asking for them all at once costs no
+/// more memory than asking in tens would.
+///
+/// **The names are the run's own and not the fetch's**, because it is the run that asks for a sheet's
+/// texels back: what a page fetched as `assets/…` the file system holds at `/assets/…`, and the one
+/// leading slash is the whole of the difference (src/app/main/web/Data.cs).
+async function decode(list, saying) {
+    const names = list.split('\n').filter(name => name !== '');
+    let done = 0;
+
+    say(saying);
+    opening.progress(0, names.length);
+
+    await Promise.all(names.map(async name => {
+        const file = held.get(name.replace(/^\//, ''));
+        if (file === undefined) throw new Error(`no bytes fetched for ${name}`);
+
+        pictures.set(name, await made(await file));
+        opening.progress(++done, names.length);
+    }));
+}
+
+/// One bitmap out of one file's bytes.
+///
+/// **Both options are load-bearing.** Left to itself the browser premultiplies alpha and may put the
+/// display's colour profile through the texels, and this town's art is alpha-cut sprites drawn at
+/// their own texel grid: either one is a sheet that no longer matches what the desktop draws.
+function made(file) {
+    return createImageBitmap(new Blob([file]), {
         premultiplyAlpha: 'none',
         colorSpaceConversion: 'none',
-    }));
+    });
 }
 
 /// The texels of a picture already decoded, parked for `take` exactly as a fetched file is.
@@ -638,7 +676,7 @@ function texels(path) {
 
 export const town = {
     start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say,
-    progress: opening.progress, warm, unpack, grab, park, take, picture, texels,
+    progress: opening.progress, prefetch, unpack, grab, park, take, picture, decode, texels,
     ticker: step => {
         const next = () => {
             if (step()) requestAnimationFrame(next);

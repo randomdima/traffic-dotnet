@@ -79,6 +79,18 @@ internal static class Data
         Directory.CreateDirectory("/" + Towns);
         Directory.CreateDirectory("/" + Assets);
 
+        // Asked for by name and not read off a listing: what the menu draws is a fact about this code
+        // and not about what the build happened to ship. **It is one file** — the typeface ships inside
+        // the assembly and the menu's renderer takes stand-ins for the ground it does not draw
+        // (Render.TownRenderer.Ground), so the figures are the whole of it.
+        var papers = new List<string> { Page(Core.Config.ProjectPaths.SharedFiguresFile) };
+
+        // **Both in one wave.** The listing and the figures do not need each other, and a page that
+        // asks for the second only once the first has arrived spends two round trips on 229 bytes.
+        // The listing is usually already here — the page starts it before the runtime (main.js) — and
+        // a prefetch of something already in flight is nothing at all.
+        Runtime.WebGpu.Prefetch($"{Manifest}\n{papers[0]}");
+
         var manifest = Encoding.UTF8.GetString(await Read(Manifest));
         foreach (var line in manifest.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -100,12 +112,6 @@ internal static class Data
             if (!File.Exists("/" + plan)) File.WriteAllBytes("/" + plan, []);
         }
 
-        // Asked for by name and not read off a listing: what the menu draws is a fact about this code
-        // and not about what the build happened to ship. **It is one file** — the typeface ships inside
-        // the assembly and the menu's renderer takes stand-ins for the ground it does not draw
-        // (Render.TownRenderer.Ground), so the figures are the whole of it.
-        var papers = new List<string> { Page(Core.Config.ProjectPaths.SharedFiguresFile) };
-
         const string saying = "reading what the menu draws…";
         say(saying);
         await Lay(papers, saying, say);
@@ -119,9 +125,17 @@ internal static class Data
     /// boot</b>: nothing the menu draws is a sprite and nothing it reads is a catalogue.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>One round trip for all of it.</b> The build packs <c>assets/</c> into a single archive and the
     /// browser unpacks it (<see cref="Runtime.WebGpu.Unpack"/>), which is what turned ten waves of
-    /// latency into one — the files are small, so what was being waited on was never the bytes.
+    /// latency into one — the files are small, so what was being waited on was never the bytes. The
+    /// archive is usually here before this is called: the page starts fetching it beside the runtime.
+    /// </para>
+    /// <para>
+    /// <b>And the sheets are decoded as one batch</b> (<see cref="Runtime.WebGpu.Decode"/>), because
+    /// a loop awaiting one decode at a time is one decode at a time and the browser will do them all
+    /// at once.
+    /// </para>
     /// </remarks>
     public static async Task Art(Action<string> say)
     {
@@ -132,14 +146,81 @@ internal static class Data
         var listed = await Runtime.WebGpu.Unpack(Pack);
         var batch = listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+        var sheets = new StringBuilder();
+        foreach (var path in batch)
+        {
+            if (IsPicture(path)) sheets.Append('/').Append(path).Append('\n');
+        }
+
+        await Runtime.WebGpu.Decode(sheets.ToString(), "decoding the town's art…");
         await Lay(batch, saying, say);
         _laid = true;
     }
 
     /// <summary>
-    /// A batch of files into the file system, and every picture among them decoded. <b>What is read out
-    /// here is already in the page's hands</b> — warmed or unpacked — so nothing in this loop waits on
-    /// the network.
+    /// The bytes of a map, asked for before anything waits on them (WEB-9). <b>The plan comes down
+    /// while the art is being decoded</b>: one is the wire and the other is the processor, and taken
+    /// in turn they are the sum of the two.
+    /// </summary>
+    public static void Expect(string map)
+    {
+        if (Plans.TryGetValue(map, out var from) && !Laid(from)) Runtime.WebGpu.Prefetch(from);
+    }
+
+    /// <summary>
+    /// The art, asked for while nothing is waiting for it (WEB-9), and only where nothing asked for it
+    /// sooner: a run that named a map starts the archive before the runtime does (<c>main.js</c>), and
+    /// a run that did not is showing a menu that draws none of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The menu waits for nothing, and that includes an unawaited fetch.</b> Three megabytes on the
+    /// same wire as the two small files a menu stands on is a menu that comes up later, so the archive
+    /// is not asked for until there is something to look at.
+    /// </remarks>
+    public static void ExpectArt()
+    {
+        if (!_laid) Runtime.WebGpu.Prefetch(Pack);
+    }
+
+    /// <summary>
+    /// Every other map the menu can be clicked on, fetched while nothing at all is waiting for it
+    /// (WEB-9). <b>It is called once the run is drawing</b> — a town standing or a menu up — so what a
+    /// page spends before its first frame is unchanged and what it spends after it is the wire being
+    /// used while it would otherwise be idle.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is not the boot fetching all nine again</b>, which is the thing the decision log refuses:
+    /// that was 3.4 MB standing between a reader and a menu. This is the same 3.4 MB behind a page that
+    /// is already being looked at, and the one it opened is not among it.
+    /// </para>
+    /// <para>
+    /// <b>Seven of the nine are small and two are not</b> — Odesa and River are 2.9 MB of the 3.4 — so
+    /// what this trades is a town's worth of bytes nobody may ask for against a pick that opens with no
+    /// wait in it at all. A plan already in the file system is skipped, and so is one already in flight.
+    /// </para>
+    /// </remarks>
+    public static void ExpectEvery()
+    {
+        var wanted = new StringBuilder();
+        foreach (var from in Plans.Values)
+        {
+            if (!Laid(from)) wanted.Append(from).Append('\n');
+        }
+
+        if (wanted.Length > 0) Runtime.WebGpu.Prefetch(wanted.ToString());
+    }
+
+    /// <summary>
+    /// Whether a map's plan is in the file system already, which is the one state it is not fetched in.
+    /// <b>A map laid at boot is the empty file its name was written as</b> (<see cref="Boot"/>), so the
+    /// length and not the existence is the question.
+    /// </summary>
+    static bool Laid(string from) => new FileInfo("/" + from[..^Squeezed.Length]).Length > 0;
+
+    /// <summary>
+    /// A batch of files into the file system. <b>What is read out here is already in the page's
+    /// hands</b> — prefetched or unpacked — so nothing in this loop waits on the network.
     /// </summary>
     static async Task Lay(IReadOnlyList<string> batch, string saying, Action<string> say)
     {
@@ -153,12 +234,7 @@ internal static class Data
             Directory.CreateDirectory(Path.GetDirectoryName("/" + path)!);
             File.WriteAllBytes("/" + path, content);
 
-            // The very bytes the fetch parked, decoded where they already are. It is why the picture
-            // is made here rather than by a second pass that would have to fetch all of it again.
-            if (IsPicture(path)) await Runtime.WebGpu.Picture("/" + path);
-
-            // The decode is the slow half now that the fetch is one request, and it is the half the
-            // bar has to be drawn against. Often enough to watch, seldom enough to be free.
+            // Often enough to watch, seldom enough to be free.
             if (at % 16 == 0 || at == batch.Count - 1) Runtime.WebGpu.Progress(at + 1, batch.Count);
         }
 
@@ -192,9 +268,9 @@ internal static class Data
     }
 
     /// <summary>
-    /// Whether a file the manifest names is one the browser is to decode. <b>By extension and not by
+    /// Whether a file the archive holds is one the browser is to decode. <b>By extension and not by
     /// header</b>: the alternative is reading the first bytes of three hundred files to learn what the
-    /// build already knew when it listed them.
+    /// build already knew when it packed them.
     /// </summary>
     static bool IsPicture(string path) =>
         path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) ||
@@ -209,10 +285,9 @@ internal static class Data
         if (!Plans.TryGetValue(map, out var from)) throw new FileNotFoundException(
             $"The manifest names no map '{map}'.");
 
-        var plan = "/" + from[..^Squeezed.Length];
-        if (new FileInfo(plan).Length > 0) return;
+        if (Laid(from)) return;
 
-        File.WriteAllBytes(plan, Inflate(await Read(from)));
+        File.WriteAllBytes("/" + from[..^Squeezed.Length], Inflate(await Read(from)));
     }
 
     /// <summary>

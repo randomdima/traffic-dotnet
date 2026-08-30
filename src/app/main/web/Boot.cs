@@ -17,13 +17,17 @@ Say("fetching the town…");
 
 try
 {
+    // **The device is asked for while the files come down**, because neither needs the other: the
+    // browser answers a promise for it while the wire is busy with the listing and the figures, and
+    // the adapter behind it was already asked for before the runtime was downloaded (main.js).
+    var device = WebGpu.Start(Shader("Shaders/town.wgsl"));
+
     // What the menu stands on, and no more than that: the sheets are fetched when a map is picked
     // (Data.Art), because nothing drawn before one is picked is a sprite.
     var fetched = await Data.Boot(Say);
     Say($"starting on {fetched} files…");
 
-    var wgsl = Shader("Shaders/town.wgsl");
-    var trouble = await WebGpu.Start(wgsl);
+    var trouble = await device;
     if (trouble.Length > 0)
     {
         Say(trouble);
@@ -42,6 +46,9 @@ try
     // acts on it — the one place in a browser run where waiting for a fetch is allowed.
     async Task Open(string map)
     {
+        // The plan is asked for first and read last: it comes down the wire while the art is being
+        // decoded on the processor, and neither of them is waiting on the other.
+        Data.Expect(map);
         await Data.Art(Say);
         Say($"fetching {map}…");
         await Data.Town(map);
@@ -59,6 +66,14 @@ try
     // the thread instead would be a page that never painted at all.
     var step = game.Step;
     WebGpu.Ticker(step);
+
+    // **And now that something is being looked at, the rest of it.** Deliberately after the callback
+    // has been handed over rather than before it: what a page fetches before its first frame is what
+    // WEB-6 puts a figure on, and this is the wire being used while the reader decides what to click.
+    // The art is here for a run that opened on the menu — one that named a map fetched it long ago and
+    // has laid it — and the plans are here for both.
+    Data.ExpectArt();
+    Data.ExpectEvery();
 
     // And Main never returns, which is the whole of what keeps the town standing between those
     // callbacks. <b>A timer and not an infinite wait</b>: the runtime shuts down when nothing is

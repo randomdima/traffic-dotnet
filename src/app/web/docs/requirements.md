@@ -49,7 +49,7 @@ every reader above is untouched (<see cref="ProjectPaths"/> finds them exactly a
 binary). **There is no second asset story**: no provider threaded through fifteen call sites, and no
 path that means one thing here and another there.
 
-**Nothing is fetched before the menu but what the menu draws.** **One file** stands between the page
+**Nothing is *waited on* before the menu but what the menu draws.** **One file** stands between the page
 opening and a menu on it — the figures — and everything else is fetched when the first map is picked:
 the catalogues, every variant file, every sheet, and that map's plan. Three things make it one rather
 than three hundred: [`Game`](../../main/Game.cs) reads its catalogues at the first `Open` and not in
@@ -57,9 +57,11 @@ its constructor, the renderer the menu draws through is laid for no sheets, and 
 the ground it does not draw ([`TownRenderer.Ground`](../../render/web/TownRenderer.Web.cs)) — on the
 desktop those pictures are already on the disk, and in a page every one of them is a round trip.
 
-**A map is fetched when it is picked**, and the fetch happens in the one place a browser run may wait —
-the boot's own loop, which drains the name the menu wrote down (`Game.PickMap`). What `Data` lays for a
-map at boot is its *name*: an empty file, because
+**A map is *opened* when it is picked**, and the opening happens in the one place a browser run may wait
+— the boot's own loop, which drains the name the menu wrote down (`Game.PickMap`). The bytes are
+usually already here by then and the wait is nothing (WEB-9); what stands between the click and the
+open is that read, wherever the plan came from. What `Data` lays for a map at boot is its *name*: an
+empty file, because
 [`ProjectPaths.ShippedMaps`](../../../core/config/ProjectPaths.cs) reads the folder and a map with no
 file would be a map the menu could not offer. It is never read in that state — the fetch stands between
 the click and the open.
@@ -69,9 +71,45 @@ files asked for one after the next is a minute of latency against two seconds of
 was the whole of why the page opened slowly. So the build packs `assets/` into a single archive and
 the browser unpacks it ([`WebGpu.Unpack`](../../../runtime/web/WebGpu.cs)): **a plain tar, gzipped**,
 because the format is somebody else's and `DecompressionStream` is the one decompressor a page has
-that its .NET runtime does not. `WebGpu.Warm` is the same idea for a handful of loose files — a batch
-asked for in one call, thirty-two in flight — and above either of them nothing changed: a file that
-arrived in a batch is read where it would have been fetched.
+that its .NET runtime does not.
+
+**WEB-9 — nothing waits for something it does not need.** A page that fetches in the order it happens
+to read waits for the sum of what it asked for, and three of those waits were for files nobody needed
+yet. So a file is asked for at the first moment it is *known about* rather than the first moment it is
+wanted ([`WebGpu.Prefetch`](../../../runtime/web/WebGpu.cs)), and above it nothing changed — `grab`
+reads a prefetched file exactly where it would have fetched one, and **a prefetch that fails costs an
+ordinary fetch and nothing else**. Three of them, and each is a different pairing:
+
+| Started | While | Because |
+|---|---|---|
+| the map list ([`main.js`](../wwwroot/main.js)) | the runtime is downloading | the menu is drawn from it, so it is wanted as early as it can be had |
+| the art, where a map was named ([`main.js`](../wwwroot/main.js)) | the runtime is downloading | both are about three megabytes and neither needs the other |
+| the map list and the figures ([`Data.Boot`](../../main/web/Data.cs)) | each other | two round trips were being spent on 229 bytes |
+| the plan of the map picked ([`Data.Expect`](../../main/web/Data.cs)) | the art is being decoded | one is the wire and the other is the processor |
+| the art, where none was named, and every other plan ([`Data.ExpectArt`](../../main/web/Data.cs), [`ExpectEvery`](../../main/web/Data.cs)) | the reader is deciding what to click | nothing is waiting on the wire once a page is being looked at |
+
+**The menu waits for nothing, and that includes a fetch nobody is awaiting.** A run that named a map
+has the town as its destination and starts the art beside the engine; a run that did not is going to
+show a menu, which stands on two small files — so the art is not put on the same wire as them at all,
+and is asked for once there is something to look at. Three megabytes sharing a link with 229 bytes is
+a menu that comes up later, and how long a page looks broken for is the figure that matters most about
+it. **And none of it starts until the browser has answered the four questions**, because a page that
+cannot draw this spends no bytes at all ([`main.js`](../wwwroot/main.js)).
+
+**The other plans are the one that waits for the first frame**, and that is the line between this and
+the thing the [decision log](decision-log.md) refuses: 3.4 MB standing between a reader and a menu is a
+page that opens slowly, and the same 3.4 MB behind a page already being looked at is a wire that would
+otherwise be idle. So they are asked for after the animation callback has been handed over, never
+before it, and the map already open is not among them.
+
+**The sheets are decoded as one batch and not one at a time** ([`WebGpu.Decode`](../../../runtime/web/WebGpu.cs)).
+A loop awaiting one decode in turn is one decode at a time, and a browser decodes on threads a page
+has not got: the town's 174 sheets are 216 ms in a row against 57 ms asked for together. They are all
+kept for the run in any case, so asking for them at once costs no memory that asking in tens would not.
+
+**And the adapter is asked for once.** The page asks before it downloads the engine and the run asks
+when it starts, and those are the same question — so [`town.js`](../wwwroot/town.js) owns the promise
+and both read it.
 
 **And the chain to the runtime is told to the browser rather than discovered by it.** Left alone it
 learns of `town.js` from parsing `main.js` and of the runtime from running it, which is four round
@@ -83,8 +121,10 @@ not preloaded** — a browser that cannot run this page should not spend them to
 fetches before the first frame is **under six megabytes** for the fixture map and never over eight for
 the heaviest: the .NET runtime ahead-of-time compiled and served brotli, 2.8 MB of art, 40 KB of page,
 and one map. **What it fetches before the menu is one file**, which is the figure that decides how
-long a page looks broken for — the rest arrives behind the click that asked for a town, in one archive
-rather than three hundred fetches. **How a sheet is stored is
+long a page looks broken for — the rest arrives beside the engine, in one archive rather than three
+hundred fetches. **What it fetches after that first frame is not counted here**: the other eight plans
+come down while the reader is deciding what to click (WEB-9), and a figure about what a page waits on
+is not a figure about what a page has spent. **How a sheet is stored is
 [app/render](../../render/docs/requirements.md#how-a-sheet-is-stored)'s rule**, not a thing done to
 the browser build: both heads read the same sheets.
 
@@ -134,7 +174,9 @@ canvas ([`loading.js`](../wwwroot/loading.js)): the name, what this is, a bar an
 **A stage that can be counted fills the bar** — a batch knows how many files it asked for — and a stage
 that cannot sweeps it, because a bar sitting at nought while the runtime comes down reads as a page
 that has stopped. **`say` writes there while it is up and into the banner under the canvas once it is
-gone**, so an empty line is the boot saying the town is standing and the card is what it takes away.
+gone**, so an empty line is the boot saying the town is standing and the card is what it takes away —
+and **what the opening cost is said on the way out**, because it is the one figure a picture cannot
+carry and the one every change to the boot is judged on.
 
 **WEB-5 — the query string is the command line.** `?map=Test&ui=nodes,paths` is `--map Test --ui
 nodes,paths`. The words are the desktop's, and the ones a page cannot answer are not offered.
@@ -147,6 +189,11 @@ it is for the desktop, and what the page said about itself on the way is printed
 
 **It opens a window and cannot not**, for the reason in the [decision log](decision-log.md): headless
 Chromium runs every part of this but the presentation of a WebGPU canvas.
+
+**`qq web --debug` is the same page in ten seconds**, and it is the loop the boot is worked on in: a
+plain build lays the identical tree (WEB-7), so everything a page fetches, unpacks, decodes and stands
+up is there to be watched. **What it does not reproduce is the frame rate** — nothing is compiled ahead
+of time in it — so a read-out in one of those pictures is measuring the interpreter.
 
 ## What a page cannot promise
 

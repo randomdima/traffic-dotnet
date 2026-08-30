@@ -7,8 +7,18 @@
 // megabytes of engine to be told the engine cannot start. Everything checked here is checked in
 // milliseconds and against no download at all.
 
-import { town } from './town.js'
+import { adapter, prefetch, town } from './town.js'
 import { counting, detail, stage, trouble } from './loading.js'
+
+/// What every run asks for whatever else it does, started before the engine that will ask for it: the
+/// map list the menu is drawn from, and the whole of the town's art (WEB-9).
+///
+/// **The names are the build's** (traffic-dotnet.web.csproj) and they are read by
+/// src/app/main/web/Data.cs, which is the only thing that opens them. A name that is wrong here is a
+/// prefetch that does not arrive and an ordinary fetch in its place, so this is slow rather than broken.
+const LISTING = 'manifest.txt';
+
+const ART = 'assets.tar.gz';
 
 const refused = missing();
 if (refused) {
@@ -17,9 +27,10 @@ if (refused) {
     // **Both at once.** Asking for an adapter takes tens of milliseconds and importing the runtime
     // takes a round trip, and neither needs the other's answer. Importing it is not yet downloading
     // the engine — that begins at `create` below — so a machine that turns out to have no device has
-    // spent a module and not nine megabytes.
+    // spent a module and not nine megabytes. The adapter is asked for through town.js because the run
+    // is going to want the same one.
     stage('asking for a graphics device…');
-    const asked = navigator.gpu.requestAdapter().catch(() => null);
+    const asked = adapter();
     const engine = import('./_framework/dotnet.js');
 
     if (await asked === null) {
@@ -28,11 +39,27 @@ if (refused) {
             'That is usually a driver the browser has blocklisted, or hardware acceleration switched ' +
             'off. On Linux it is often behind chrome://flags/#enable-unsafe-webgpu.');
     } else {
+        // **Nothing is prefetched until the browser has proved it can draw**, which is the same rule
+        // that makes the import above dynamic: a page that cannot run this spends the four questions
+        // and no bytes at all.
+        const args = arguments_();
+        const wanted = args.includes('--map');
+        prefetch(LISTING);
+
+        // **The art comes down beside the engine when a town was asked for**: they are about three
+        // megabytes each, neither needs the other, and asked for in turn a page waits for the sum.
+        //
+        // **When one was not, nothing is asked for here at all.** The menu is the destination then,
+        // and it stands on two small files — so the art is not put on the same wire as them, even
+        // unawaited: it is asked for once the menu is drawn and the run has a frame in it
+        // (src/app/main/web/Boot.cs). A menu waits for nothing.
+        if (wanted) prefetch(ART);
+
         stage('starting the engine…');
         const stop = counting();
 
         const { dotnet } = await engine;
-        const { setModuleImports, runMain } = await dotnet.withApplicationArguments(...arguments_()).create();
+        const { setModuleImports, runMain } = await dotnet.withApplicationArguments(...args).create();
 
         stop();
         detail('');

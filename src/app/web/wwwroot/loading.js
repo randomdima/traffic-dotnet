@@ -40,8 +40,15 @@ export function detail(line) {
 
 /// The opening, taken away. Called on the first empty `say`, which is the boot saying the town is
 /// standing — or the menu is up and waiting to be clicked.
+///
+/// **What it cost is said on the way out**, because it is the one figure this head cannot take with
+/// `--shot` and the one every change to the boot is judged on: the console is where a driven browser
+/// reads it (`qq web`), and it is measured from the navigation rather than from anything here.
 export function opened() {
-    card()?.remove();
+    if (!card()) return;
+
+    card().remove();
+    console.log(`the page opened in ${(performance.now() / 1000).toFixed(1)} s`);
 }
 
 /// What this page cannot do, said in place of the bar and left there. **The reader is told what to do

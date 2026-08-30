@@ -59,7 +59,7 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `PUR-1…4`, `TEC-1…3`, `SIM-5` | Purpose, non-goals, technology | [requirements.md](requirements.md#purpose-and-scope) |
 | `SIM-1`, `SIM-2`, `SIM-6`, `SIM-7` | Hard vs soft, body state, ban vs price, one mechanism | [requirements.md](requirements.md#the-two-rule-classes) |
 | `SIM-3`, `SIM-4`, `AGT-6` | Units, the two seeds, where randomness comes from | [core](../src/core/docs/requirements.md) |
-| `WEB-1…7` | The browser head: what is halved, the crossing budget, what a page does not carry, what it weighs, and what a publish must hold | [app/web](../src/app/web/docs/requirements.md) |
+| `WEB-1…9` | The browser head: what is halved, the crossing budget, what a page does not carry, what it weighs, what a publish must hold, and what nothing waits for | [app/web](../src/app/web/docs/requirements.md) |
 | `OBJ-1…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
 | `AGT-1…5`, `AGT-7` | What an agent is; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
 | `VER-1…11` | What must be demonstrated | [verification.md](verification.md) |

@@ -2,6 +2,58 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-08-30 — nothing waits for what it does not need yet
+
+Everything the page fetched, it fetched in the order it happened to read, and the order it happened to
+read was one thing at a time. Measured against the published page on a host with no latency at all —
+where only the sequencing shows — the art was not asked for until 237 ms, which was after the last byte
+of the runtime; the plan of the map not until 544, which was after the art had been decoded; and the
+two files the menu stands on cost a round trip each, one after the other, for 229 bytes between them.
+On a host with a real round trip every one of those is a wait behind something that was already
+finished.
+
+**The art and the engine are the pairing that matters**: about three megabytes each and neither needs
+the other, so asked for in turn a page waits for the sum. `main.js` starts the archive before the
+runtime it will be asked for by, and `grab` reads it out of `held` exactly as it reads an unpacked
+file — `unpack` grabs rather than fetches now, which is what stopped it downloading the archive a
+second time when the prefetch was first tried.
+
+**It is conditional on a map having been named**, and that is not a hedge. A run that named one has the
+town as its destination; a run that did not is going to put a menu up, and **a menu waits for nothing**
+— not even for a fetch nobody is awaiting, because three megabytes on the same link as the 229 bytes it
+stands on is a menu that comes up later. So the art starts beside the engine where a town was asked
+for, and where one was not it is asked for after the first frame, with everything else that can wait.
+**Nothing at all starts before the four questions are answered**, which is the same rule that made the
+runtime import dynamic.
+
+The other two are cheaper and follow the same shape: the listing and the figures go out together
+because neither reads the other, and the plan of a picked map goes out before the art is decoded
+because one is the wire and the other is the processor.
+
+**The decode was the other half of it.** `Data` awaited one `createImageBitmap` per file, which is one
+decode at a time on a page that has no threads to spare — 216 ms for the town's 174 sheets against
+57 ms for the same set asked for together. It is one call across the wall now, and the browser does
+them as it pleases. Nothing above it moved: the split between making a bitmap and reading its texels
+out is exactly where it was, because that split is about what a frame can wait for.
+
+**And the other eight plans come down once the page is being looked at.** That reads like the boot
+fetching all nine again, which is refused below, and the difference is the whole of why it is allowed:
+that was 3.4 MB standing between a reader and a menu, and this is the same 3.4 MB behind a picture that
+is already drawing. It is asked for *after* the animation callback has been handed over — before it
+would put the bytes inside the figure WEB-6 quotes, which is about what a page waits on. Seven of the
+nine are under 210 KB and Odesa and River are 2.9 MB of the total, so what it trades is a town's worth
+of bytes nobody may ask for against a second pick that opens with no wait in it at all.
+
+**Two things went while this was being done.** `WebGpu.Warm` had had no caller since the art became one
+archive, and it is what the prefetch replaced rather than joined. And the adapter was being asked for
+twice — once by the page before it downloaded the engine and once by the run when it started — which
+is the same question asked of the same browser, so `town.js` owns the promise and both read it.
+
+**What was measured and thrown away.** `EventSourceSupport`, `MetadataUpdaterSupport` and
+`DebuggerSupport` were switched off and the published framework did not move: 2.707 MB of brotli
+before, and the same after allowing for the code added here. They are not in the project file, because
+a knob that buys nothing is a knob somebody has to read.
+
 ## 2026-08-30 — four questions before the runtime, and a card while it comes
 
 Everything the page could refuse, it refused *after* downloading four megabytes of engine: a browser
@@ -28,7 +80,7 @@ a time — ten waves of latency for four megabytes that download in two seconds.
 lines read it, gzipped because a fifth of the archive is catalogues and the WebP is incompressible. The
 browser undoes the gzip with `DecompressionStream`, which is the one decompressor a page has that its
 .NET runtime does not — the same fact that keeps the towns on gzip rather than brotli. Above the fetch
-nothing changed: an unpacked file is held exactly as a warmed one is, and `grab` reads it out.
+nothing changed: an unpacked file is held exactly as a prefetched one is, and `grab` reads it out.
 
 Two smaller things came with it.
 
@@ -46,7 +98,7 @@ that cannot run this page should not spend them to be told so.
 second copy of the program nothing reads, and dropping it takes about a third off the smaller
 assemblies. It was measured rather than assumed: the town stands and draws with it on.
 
-## 2026-08-30 — the menu stands on what it draws, and a batch is asked for at once
+## 2026-08-30 — the menu stands on what it draws
 
 Deployed to a static host, the page took about a minute to put a menu up. Neither the size of the
 runtime nor the size of the art accounted for it: the framework is 13 MB raw and the host gzips it to
@@ -54,13 +106,9 @@ runtime nor the size of the art accounted for it: the framework is 13 MB raw and
 one after the next.** At 185 ms each that is a minute of waiting on a connection that was idle for
 almost all of it.
 
-Two things were wrong and they are separate.
-
-**The batch.** `Data` fetched a file, awaited it, wrote it, fetched the next. `WebGpu.Warm` now hands
-the whole list over in one call and the page keeps thirty-two in flight, counting them off in the
-banner from the far side — where the counting has to be done, because the caller is awaiting the one
-call and cannot say anything while it does. Above it nothing changed: `grab` reads a warmed file where
-it would have fetched one, so every reader of the file system, and the whole decode split, is untouched.
+Two things were wrong and they are separate. The first was that `Data` fetched a file, awaited it,
+wrote it, and fetched the next — three hundred times; that is the archive's entry above, which is where
+it ended up.
 
 **The menu was waiting for the town.** `Game`'s constructor read the catalogues, and the renderer it
 built for the menu packed every sheet in the town into an atlas — so a page could not draw a list of

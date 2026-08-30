@@ -12,9 +12,11 @@ namespace TrafficSimulation.Runtime;
 /// <remarks>
 /// <para>
 /// <b>Input is read out of memory rather than asked for.</b> The page's listeners write into two arrays
-/// this class owns, which <c>town.js</c> holds a window onto for the life of the run, so a frame that
-/// asks after twenty keys and the pointer crosses the wall no times at all. What a browser calls a
-/// press is edge-triggered here exactly as the desktop's is: asking clears it, so a key that means
+/// of its own and a frame copies both across whole (<see cref="PumpEvents"/>), so a frame that asks
+/// after twenty keys and the pointer crosses the wall once and not once a question — and the window
+/// onto this heap that the copy is made through is an argument of that one call, because a view kept
+/// across frames is one that fails on whichever frame the town grows its memory. What a browser calls
+/// a press is edge-triggered here exactly as the desktop's is: asking clears it, so a key that means
 /// "toggle" cannot toggle sixty times a second while it is held.
 /// </para>
 /// <para>
