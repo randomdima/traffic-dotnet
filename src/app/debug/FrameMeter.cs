@@ -34,6 +34,20 @@ internal readonly record struct FrameFigures
     /// <summary>The rate the town is drawn at, which is <see cref="FrameMs"/> and not <see cref="CpuMs"/>.</summary>
     public double Fps { get; init; }
 
+    /// <summary>
+    /// The rate <see cref="CpuMs"/> alone would allow — <b>what this build could draw at if nothing
+    /// paced it</b>, against <see cref="Fps"/>, which is what it is drawing at.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a ceiling on this build's own work and not a promise about the machine.</b> What it
+    /// leaves out is everything <see cref="BlockedMs"/> holds: the display's interval under FIFO, the
+    /// compositor's choice of when to ask a page for the next frame, and whatever the GPU is still
+    /// doing while this thread is not. A run that is paced draws at <see cref="Fps"/> and the distance
+    /// between the two is the headroom — which is the figure that says whether a town costing more
+    /// would still be drawn at the same rate.
+    /// </remarks>
+    public double CeilingFps { get; init; }
+
     /// <summary>The worst single frame in the window — the figure the mean is there to hide and this one is there to keep.</summary>
     public double WorstMs { get; init; }
 
@@ -165,13 +179,19 @@ internal sealed class FrameMeter
         var per = 1d / _frames;
         var meanMs = _sum.WholeMs * per;
         var meanBlockedMs = _sum.BlockedMs * per;
+        var cpuMs = Math.Max(0d, meanMs - meanBlockedMs);
         var ticked = phases.Ticks > 0;
         Figures = new FrameFigures
         {
             FrameMs = meanMs,
-            CpuMs = Math.Max(0d, meanMs - meanBlockedMs),
+            CpuMs = cpuMs,
             BlockedMs = meanBlockedMs,
+
+            // The two rates are the same arithmetic over the two halves of the frame, and they are
+            // taken here rather than derived on the figures so that milliseconds become a rate in one
+            // place.
             Fps = meanMs > 0d ? 1000d / meanMs : 0d,
+            CeilingFps = cpuMs > 0d ? 1000d / cpuMs : 0d,
             WorstMs = _worstMs,
             PumpMs = _sum.PumpMs * per,
             InputMs = _sum.InputMs * per,

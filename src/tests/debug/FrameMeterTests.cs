@@ -91,6 +91,38 @@ public class FrameMeterTests
     }
 
     /// <summary>
+    /// <b>The two rates are the two halves of that split.</b> A frame of 16 ms with 14 of them waiting
+    /// is 62.5 a second drawn and 500 a second of work — the second being the headroom, and the whole
+    /// reason both are on the header rather than one.
+    /// </summary>
+    [Fact]
+    public void TheCeilingIsTheRateTheWorkAloneWouldAllow()
+    {
+        var meter = new FrameMeter();
+        meter.Frame(Frame(16d, blockedMs: 14d), OverTicks(1), default);
+
+        meter.Frame(Frame(16d, blockedMs: 14d), OverTicks(1), default);
+
+        Assert.Equal(1000d / 16d, meter.Figures.Fps, 6);
+        Assert.Equal(1000d / 2d, meter.Figures.CeilingFps, 6);
+    }
+
+    /// <summary>
+    /// <b>A run nothing paces has run out of headroom, and says so by quoting one figure twice.</b>
+    /// There is no wait to take off the frame, so the rate it draws at is the rate its work allows.
+    /// </summary>
+    [Fact]
+    public void AnUnpacedRunDrawsAtItsOwnCeiling()
+    {
+        var meter = new FrameMeter();
+        meter.Frame(Frame(8d), OverTicks(1), default);
+
+        meter.Frame(Frame(8d), OverTicks(1), default);
+
+        Assert.Equal(meter.Figures.Fps, meter.Figures.CeilingFps, 6);
+    }
+
+    /// <summary>
     /// <b>The claim the panel exists to make: the rows add up to the frame.</b> A read-out whose parts
     /// summed to something other than its total could not be used to decide which row was worth going
     /// and fixing, which is the only thing anybody opens it for.

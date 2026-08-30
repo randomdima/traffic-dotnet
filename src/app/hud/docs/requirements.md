@@ -68,6 +68,12 @@ own time went under it**.
 - **It is priced on the same footing as what it measures** (`OBS-2b`). The title is a rate the frame loop
   measures anyway; **nothing else is stamped while the body is shut**, so a run that did not ask for the
   partition takes no timestamps at all. The body starts shut.
+- **It quotes two rates and says which is whose.** What the town is drawn at is the display's figure
+  under FIFO and moves not at all with the size of the town; beside it is the rate this build's own
+  work would allow, and **the distance between them is the headroom** — the one thing on the panel that
+  answers whether a town costing twice as much would still be drawn at the same rate. The second is a
+  ceiling on the work and not a promise about the machine: what it leaves out is exactly what the
+  blocked row holds.
 - **It ranks the tick by phase and must account for the frame.** A read-out whose rows do not sum to the
   thing they are rows of is a read-out nobody can act on: the row somebody is about to go and optimise
   might be three percent of the frame, and until the rows close there is no way to know it from thirty.

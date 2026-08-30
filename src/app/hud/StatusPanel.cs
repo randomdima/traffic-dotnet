@@ -55,11 +55,17 @@ internal sealed class StatusPanel
     const int ValueColumn = 15;
 
     /// <summary>
-    /// The longest line any row of the <em>body</em> comes to: the overlay row's own account of itself,
-    /// which is what the open panel is sized on. Narrower and it is the text that is cut, which reads
-    /// as a read-out with a word missing rather than as a panel that is too small.
+    /// The longest line any row of the <em>body</em> comes to, which is what the open panel is sized on.
+    /// Narrower and it is the text that is cut, which reads as a read-out with a word missing rather
+    /// than as a panel that is too small.
     /// </summary>
-    const int WidestLine = ValueColumn + 26;
+    /// <remarks>
+    /// <b>It is the frame header, and it is budgeted for the widest figures rather than the usual
+    /// ones</b>: a stalled frame is six characters of milliseconds, and both of its rates are four
+    /// digits wide on a small town nothing is pacing — <c>999.99 ms   1234 fps  5678 max</c>. The
+    /// overlay row's own account of itself is a character behind it.
+    /// </remarks>
+    const int WidestLine = ValueColumn + 31;
 
     /// <summary>
     /// What the title is sized on, in characters: the marker, a three-figure rate, the longest map name
@@ -249,10 +255,19 @@ internal sealed class StatusPanel
     /// broken down into the six things the shell does in a frame and the residual none of them claimed.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Only <c>cpu</c> and its rows are this build's.</b> Under FIFO the blocked row is the whole of
-    /// the pacing and the rate on the header is the display's refresh rate, which moves not at all with
-    /// the size of the town — so a frame figure quoted from this panel is the cpu row and never the
-    /// header.
+    /// the pacing and the <c>fps</c> on the header is the display's refresh rate, which moves not at all
+    /// with the size of the town — so a frame figure quoted from this panel is the cpu row and never
+    /// the milliseconds on the header.
+    /// </para>
+    /// <para>
+    /// <b>Which is why the header carries both rates.</b> <c>fps</c> is what the town is being drawn at
+    /// and <c>max</c> is what <c>cpu</c> alone would allow
+    /// (<see cref="Debug.FrameFigures.CeilingFps"/>), so the two together say how much of the frame is
+    /// this build's and how much is the display's — a paced run reads 109 and 769, and one that has run
+    /// out of headroom reads the same figure twice.
+    /// </para>
     /// </remarks>
     void FrameSection(
         ref ScreenDraw draw, ref int row, Vector2 pointerPx, scoped Span<char> text, in FrameFigures frame)
@@ -272,6 +287,13 @@ internal sealed class StatusPanel
         head.Add(" ms   ");
         head.Add(frame.Fps, "F0");
         head.Add(" fps");
+        if (frame.CeilingFps > 0d)
+        {
+            head.Add("  ");
+            head.Add(frame.CeilingFps, "F0");
+            head.Add(" max");
+        }
+
         Header(ref draw, ref row, pointerPx, Frame, head.Written);
         if (!_open[Frame]) return;
 
