@@ -49,11 +49,13 @@ every reader above is untouched (<see cref="ProjectPaths"/> finds them exactly a
 binary). **There is no second asset story**: no provider threaded through fifteen call sites, and no
 path that means one thing here and another there.
 
-**Nothing is fetched before the menu but what the menu draws.** Six files stand between the page
-opening and a menu on it — the figures and the five ground surfaces — and everything else is fetched
-when the first map is picked: the catalogues, every variant file, every sheet, and that map's plan.
-This is why [`Game`](../../main/Game.cs) reads its catalogues at the first `Open` and not in its
-constructor, and why the renderer the menu draws through is laid for no sheets at all.
+**Nothing is fetched before the menu but what the menu draws.** **One file** stands between the page
+opening and a menu on it — the figures — and everything else is fetched when the first map is picked:
+the catalogues, every variant file, every sheet, and that map's plan. Three things make it one rather
+than three hundred: [`Game`](../../main/Game.cs) reads its catalogues at the first `Open` and not in
+its constructor, the renderer the menu draws through is laid for no sheets, and it takes stand-ins for
+the ground it does not draw ([`TownRenderer.Ground`](../../render/web/TownRenderer.Web.cs)) — on the
+desktop those pictures are already on the disk, and in a page every one of them is a round trip.
 
 **A map is fetched when it is picked**, and the fetch happens in the one place a browser run may wait —
 the boot's own loop, which drains the name the menu wrote down (`Game.PickMap`). What `Data` lays for a
@@ -62,19 +64,27 @@ map at boot is its *name*: an empty file, because
 file would be a map the menu could not offer. It is never read in that state — the fetch stands between
 the click and the open.
 
-**A batch is asked for at once, because what a page waits on is round trips and not bytes.** The town's
-art is three hundred small files: asked for one after the next that is a minute of latency against two
-seconds of downloading, and it was the whole of why the page opened slowly. `Data` hands the batch to
-the page in one call (`WebGpu.Warm`), which holds thirty-two in flight and counts them off in the
-banner, and every reader above it is unchanged — a warmed file is read where it would have been
-fetched.
+**What a page waits on is round trips and not bytes, and the art is one of them.** Three hundred small
+files asked for one after the next is a minute of latency against two seconds of downloading, and it
+was the whole of why the page opened slowly. So the build packs `assets/` into a single archive and
+the browser unpacks it ([`WebGpu.Unpack`](../../../runtime/web/WebGpu.cs)): **a plain tar, gzipped**,
+because the format is somebody else's and `DecompressionStream` is the one decompressor a page has
+that its .NET runtime does not. `WebGpu.Warm` is the same idea for a handful of loose files — a batch
+asked for in one call, thirty-two in flight — and above either of them nothing changed: a file that
+arrived in a batch is read where it would have been fetched.
+
+**And the chain to the runtime is told to the browser rather than discovered by it.** Left alone it
+learns of `town.js` from parsing `main.js` and of the runtime from running it, which is four round
+trips before the engine is asked for; the `modulepreload` links in
+[`index.html`](../wwwroot/index.html) make them one wave. **The nine megabytes behind `dotnet.js` are
+not preloaded** — a browser that cannot run this page should not spend them to find that out.
 
 **WEB-6 — a page is the size of its town, and the town is the size of what it draws.** What a browser
 fetches before the first frame is **under six megabytes** for the fixture map and never over eight for
 the heaviest: the .NET runtime ahead-of-time compiled and served brotli, 2.8 MB of art, 40 KB of page,
-and one map. **What it fetches before the menu is six files**, which is the figure that decides how
-long a page looks broken for — the rest arrives behind the click that asked for a town. **How a sheet
-is stored is
+and one map. **What it fetches before the menu is one file**, which is the figure that decides how
+long a page looks broken for — the rest arrives behind the click that asked for a town, in one archive
+rather than three hundred fetches. **How a sheet is stored is
 [app/render](../../render/docs/requirements.md#how-a-sheet-is-stored)'s rule**, not a thing done to
 the browser build: both heads read the same sheets.
 
@@ -108,7 +118,7 @@ together are the difference between 21 MB on disk and 93.
 **WEB-7 — what `dotnet publish` writes is the whole of what gets deployed.** The target is a stateless
 static host: the folder is handed over and nothing of ours runs beside it. So **every file in it is a
 real file** — no symlink into a working copy, which is a page that only serves on the machine it was
-built on — and everything the page will ask for is prepared by the build: the art copied, the towns
+built on — and everything the page will ask for is prepared by the build: the art packed, the towns
 squeezed, the manifest written from the same item lists. `dotnet build` lays the identical tree beside
 the binary, so what is served in development is what is deployed.
 

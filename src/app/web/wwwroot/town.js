@@ -504,6 +504,58 @@ async function warm(list, saying) {
     await Promise.all(Array.from({ length: Math.min(AT_ONCE, paths.length) }, worker));
 }
 
+/// The whole of the town's art in one response, held exactly as a warmed batch is, answering the paths
+/// it turned out to hold — newline apart, which is how a list crosses the wall.
+///
+/// **One round trip and not three hundred.** That is the whole reason it exists: the files are small,
+/// so what was being waited on was latency and never bytes.
+///
+/// **A plain tar, because the format is somebody else's.** Thirty lines read it, nothing here had to be
+/// invented, and `tar tvf` says what a published archive holds. The gzip around it is undone by
+/// `DecompressionStream` — the one decompressor a page has that its .NET runtime does not, which is the
+/// same fact that keeps the towns on gzip rather than brotli.
+///
+/// **Every file is a view onto the one buffer and not a copy of itself.** The archive stands until the
+/// last of it has been read out, which costs its own size once instead of twice.
+async function unpack(path) {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText} — ${path}`);
+
+    const bytes = new Uint8Array(
+        await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+
+    const names = [];
+    for (let at = 0; at + TAR_BLOCK <= bytes.length;) {
+        const header = bytes.subarray(at, at + TAR_BLOCK);
+        if (header[0] === 0) break; // the run of zero blocks an archive ends with
+
+        const name = field(header, 0, 100);
+        const prefix = field(header, 345, 155);
+        const size = parseInt(field(header, 124, 12), 8) || 0;
+        const regular = header[156] === 0x30 || header[156] === 0;
+        at += TAR_BLOCK;
+
+        if (regular) {
+            const whole = prefix === '' ? name : `${prefix}/${name}`;
+            held.set(whole, bytes.subarray(at, at + size));
+            names.push(whole);
+        }
+
+        at += Math.ceil(size / TAR_BLOCK) * TAR_BLOCK;
+    }
+
+    return names.join('\n');
+}
+
+const TAR_BLOCK = 512;
+
+/// One header field: fixed width, and everything from the first NUL on is padding.
+function field(header, at, width) {
+    const raw = header.subarray(at, at + width);
+    const end = raw.indexOf(0);
+    return new TextDecoder().decode(end < 0 ? raw : raw.subarray(0, end)).trim();
+}
+
 /// One file the page was served, out of the batch if it is in one. **A path is relative to the page**:
 /// `fetch` resolves it against `document.baseURI`, which is what a path in the manifest is written
 /// against, so a page served from anywhere under a host reads its own files.
@@ -585,8 +637,8 @@ function texels(path) {
 }
 
 export const town = {
-    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say, warm, grab,
-    park, take, picture, texels,
+    start, reserve, buffer, texture, rebuild, release, frame, pump, fullscreen, shut, say,
+    progress: opening.progress, warm, unpack, grab, park, take, picture, texels,
     ticker: step => {
         const next = () => {
             if (step()) requestAnimationFrame(next);

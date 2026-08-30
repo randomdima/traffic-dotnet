@@ -35,8 +35,11 @@ namespace TrafficSimulation.App.Main;
 /// </remarks>
 internal static class Data
 {
-    /// <summary>Where the files came from, relative to the page: what the project file lists into <c>manifest.txt</c>.</summary>
+    /// <summary>The maps the page may ask for, against the files they are fetched from. Nothing else is in it: the art carries its own index.</summary>
     const string Manifest = "manifest.txt";
+
+    /// <summary>Every file under <c>assets/</c>, in one archive the build wrote (<see cref="Art"/>).</summary>
+    const string Pack = "assets.tar.gz";
 
     /// <summary>
     /// What the build compresses and this unpacks — the towns, and nothing else. A <c>.town</c> is
@@ -60,8 +63,8 @@ internal static class Data
     /// <summary>Each map the page may open, against the file it is fetched from.</summary>
     static readonly Dictionary<string, string> Plans = [];
 
-    /// <summary>Everything <see cref="Boot"/> passed over, waiting for the first map to be picked.</summary>
-    static readonly List<string> Waiting = [];
+    /// <summary>Whether the archive has been unpacked, so a second map picked is not a second fetch.</summary>
+    static bool _laid;
 
     /// <summary>
     /// The few files the menu is drawn from — the figures and the five ground surfaces — and the name
@@ -71,39 +74,41 @@ internal static class Data
     /// </summary>
     public static async Task<int> Boot(Action<string> say)
     {
-        var manifest = Encoding.UTF8.GetString(await Read(Manifest));
-        var paths = manifest.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
         // Both folders, and before anything asks ProjectPaths a question: it finds the root by walking
         // up for a folder holding the two of them, and in a page neither exists until this makes it.
         Directory.CreateDirectory("/" + Towns);
         Directory.CreateDirectory("/" + Assets);
 
-        var menu = new HashSet<string>(Core.Config.ProjectPaths.GroundSurfaceFiles(), StringComparer.Ordinal)
+        var manifest = Encoding.UTF8.GetString(await Read(Manifest));
+        foreach (var line in manifest.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            Core.Config.ProjectPaths.SharedFiguresFile,
-        };
-
-        var papers = new List<string>(menu.Count);
-        Waiting.Clear();
-        foreach (var line in paths)
-        {
+            // **A line that is not a map is not a map.** The manifest listed the art too until the art
+            // became one archive, and a reader whose browser still holds that copy is a reader this
+            // has to survive — every one of those lines through the reading below is a path with three
+            // characters off the end of it.
             var path = line.Replace('\\', '/');
-            if (path.StartsWith(Towns + "/", StringComparison.Ordinal))
+            if (!path.StartsWith(Towns + "/", StringComparison.Ordinal) ||
+                !path.EndsWith(Squeezed, StringComparison.Ordinal))
             {
-                // The name is the listing: a map with no bytes yet still appears on the menu, and
-                // asking for it is what fetches it.
-                var plan = path[..^Squeezed.Length];
-                Plans[Path.GetFileNameWithoutExtension(plan)] = path;
-                if (!File.Exists("/" + plan)) File.WriteAllBytes("/" + plan, []);
                 continue;
             }
 
-            if (menu.Contains("/" + path)) papers.Add(path);
-            else Waiting.Add(path);
+            // The name is the listing: a map with no bytes yet still appears on the menu, and asking
+            // for it is what fetches it.
+            var plan = path[..^Squeezed.Length];
+            Plans[Path.GetFileNameWithoutExtension(plan)] = path;
+            if (!File.Exists("/" + plan)) File.WriteAllBytes("/" + plan, []);
         }
 
-        await Lay(papers, "reading what the menu draws…", say);
+        // Asked for by name and not read off a listing: what the menu draws is a fact about this code
+        // and not about what the build happened to ship. **It is one file** — the typeface ships inside
+        // the assembly and the menu's renderer takes stand-ins for the ground it does not draw
+        // (Render.TownRenderer.Ground), so the figures are the whole of it.
+        var papers = new List<string> { Page(Core.Config.ProjectPaths.SharedFiguresFile) };
+
+        const string saying = "reading what the menu draws…";
+        say(saying);
+        await Lay(papers, saying, say);
         await Glyphs();
         return papers.Count;
     }
@@ -111,30 +116,37 @@ internal static class Data
     /// <summary>
     /// Everything the town itself is read and drawn from — the catalogues, the variant files and the
     /// sheets — into the file system and decoded, once. <b>Called when a map is picked and not at
-    /// boot</b>: nothing the menu draws is a sprite and nothing it reads is a catalogue, and three
-    /// hundred round trips before the first click is what a page opening slowly is made of.
+    /// boot</b>: nothing the menu draws is a sprite and nothing it reads is a catalogue.
     /// </summary>
+    /// <remarks>
+    /// <b>One round trip for all of it.</b> The build packs <c>assets/</c> into a single archive and the
+    /// browser unpacks it (<see cref="Runtime.WebGpu.Unpack"/>), which is what turned ten waves of
+    /// latency into one — the files are small, so what was being waited on was never the bytes.
+    /// </remarks>
     public static async Task Art(Action<string> say)
     {
-        if (Waiting.Count == 0) return;
+        if (_laid) return;
 
-        await Lay(Waiting, "laying the town's art…", say);
-        Waiting.Clear();
+        const string saying = "laying the town's art…";
+        say(saying);
+        var listed = await Runtime.WebGpu.Unpack(Pack);
+        var batch = listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        await Lay(batch, saying, say);
+        _laid = true;
     }
 
     /// <summary>
-    /// A batch of files into the file system, and every picture among them decoded. <b>The batch is
-    /// asked for in one call and read out in order</b>: the round trips overlap, and what is read out
-    /// here is already in the page's hands (<see cref="Runtime.WebGpu.Warm"/>).
+    /// A batch of files into the file system, and every picture among them decoded. <b>What is read out
+    /// here is already in the page's hands</b> — warmed or unpacked — so nothing in this loop waits on
+    /// the network.
     /// </summary>
-    static async Task Lay(List<string> batch, string saying, Action<string> say)
+    static async Task Lay(IReadOnlyList<string> batch, string saying, Action<string> say)
     {
-        say(saying);
-        await Runtime.WebGpu.Warm(string.Join('\n', batch), saying);
-
         var bytes = 0L;
-        foreach (var path in batch)
+        for (var at = 0; at < batch.Count; at++)
         {
+            var path = batch[at];
             var content = await Read(path);
             bytes += content.Length;
 
@@ -144,10 +156,21 @@ internal static class Data
             // The very bytes the fetch parked, decoded where they already are. It is why the picture
             // is made here rather than by a second pass that would have to fetch all of it again.
             if (IsPicture(path)) await Runtime.WebGpu.Picture("/" + path);
+
+            // The decode is the slow half now that the fetch is one request, and it is the half the
+            // bar has to be drawn against. Often enough to watch, seldom enough to be free.
+            if (at % 16 == 0 || at == batch.Count - 1) Runtime.WebGpu.Progress(at + 1, batch.Count);
         }
 
         say($"{saying} {batch.Count} files, {bytes / (1024 * 1024)} MB");
     }
+
+    /// <summary>
+    /// A path the page can fetch, from one the readers above use. <b>They differ by a slash</b>: in a
+    /// page the file system's root is where <c>assets/</c> and <c>towns/</c> sit, and a path relative to
+    /// the page has no leading one.
+    /// </summary>
+    static string Page(string rooted) => rooted.TrimStart('/');
 
     /// <summary>
     /// The typeface, decoded under the resource's own name rather than a path.

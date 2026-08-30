@@ -10,26 +10,43 @@
 import { town } from './town.js'
 import { counting, detail, stage, trouble } from './loading.js'
 
-const refused = await unsupported();
+const refused = missing();
 if (refused) {
     trouble(refused.what, refused.because);
 } else {
-    stage('starting the engine…');
-    const stop = counting();
+    // **Both at once.** Asking for an adapter takes tens of milliseconds and importing the runtime
+    // takes a round trip, and neither needs the other's answer. Importing it is not yet downloading
+    // the engine — that begins at `create` below — so a machine that turns out to have no device has
+    // spent a module and not nine megabytes.
+    stage('asking for a graphics device…');
+    const asked = navigator.gpu.requestAdapter().catch(() => null);
+    const engine = import('./_framework/dotnet.js');
 
-    const { dotnet } = await import('./_framework/dotnet.js');
-    const { setModuleImports, runMain } = await dotnet.withApplicationArguments(...arguments_()).create();
+    if (await asked === null) {
+        trouble(
+            'This browser has WebGPU but no device it will hand out.',
+            'That is usually a driver the browser has blocklisted, or hardware acceleration switched ' +
+            'off. On Linux it is often behind chrome://flags/#enable-unsafe-webgpu.');
+    } else {
+        stage('starting the engine…');
+        const stop = counting();
 
-    stop();
-    detail('');
-    setModuleImports('town.js', { town });
+        const { dotnet } = await engine;
+        const { setModuleImports, runMain } = await dotnet.withApplicationArguments(...arguments_()).create();
 
-    await runMain();
+        stop();
+        detail('');
+        setModuleImports('town.js', { town });
+
+        await runMain();
+    }
 }
 
-/// What this browser is missing, or nothing. **Ordered so the reader is told the first thing that is
-/// true**, since a browser old enough to want the second answer usually wants the first as well.
-async function unsupported() {
+/// What this browser is missing, or nothing. **Every question here is answered against no download at
+/// all**, and they are ordered so the reader is told the first thing that is true — a browser old
+/// enough to want the second answer usually wants the first as well. The device is asked for above,
+/// because that one is a promise and can be waited on beside something else.
+function missing() {
     if (typeof WebAssembly !== 'object' || typeof WebAssembly.instantiate !== 'function') {
         return {
             what: 'This browser has no WebAssembly.',
@@ -55,18 +72,6 @@ async function unsupported() {
             what: 'This browser has no WebGPU.',
             because: 'The town is drawn with it and there is no fallback. Chrome or Edge 113 and later ' +
                 'have it everywhere; Safari from 26; Firefox from 141 on Windows and 145 elsewhere.',
-        };
-    }
-
-    // Having the API is not having a device. A machine with no usable adapter answers null here, which
-    // is the same refusal the run would reach after the download rather than before it.
-    stage('asking for a graphics device…');
-    const adapter = await navigator.gpu.requestAdapter().catch(() => null);
-    if (!adapter) {
-        return {
-            what: 'This browser has WebGPU but no device it will hand out.',
-            because: 'That is usually a driver the browser has blocklisted, or hardware acceleration ' +
-                'switched off. On Linux it is often behind chrome://flags/#enable-unsafe-webgpu.',
         };
     }
 

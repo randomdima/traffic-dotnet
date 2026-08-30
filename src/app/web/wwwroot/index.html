@@ -5,8 +5,15 @@
   <title>traffic-dotnet</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preload" id="webassembly" />
-  <script type="importmap"></script>
+  <!-- **The chain to the runtime, told to the browser rather than discovered by it.** Left to itself it
+       learns of town.js and loading.js only after parsing main.js, and of the runtime only after running
+       it — four round trips before the engine is asked for. These are all small; the nine megabytes
+       behind dotnet.js are not preloaded, because a browser that cannot run this page should not spend
+       them to find out (main.js). -->
+  <link rel="modulepreload" href="main.js">
+  <link rel="modulepreload" href="town.js">
+  <link rel="modulepreload" href="loading.js">
+  <link rel="modulepreload" href="_framework/dotnet.js">
   <script type='module' src="main.js"></script>
   <style>
     html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }

@@ -106,6 +106,16 @@ internal static partial class WebGpu
     }
 
     /// <summary>
+    /// How far through a countable stage the opening is (WEB-8). A total of zero is a stage nothing can
+    /// count, and the bar sweeps rather than filling.
+    /// </summary>
+    public static void Progress(int done, int total)
+    {
+        Count();
+        ProgressJs(done, total);
+    }
+
+    /// <summary>
     /// The tab, closed. <b>A browser grants this only to a page it opened itself</b>, so a tab somebody
     /// followed a link into stays open and the banner is what says the run has stopped
     /// (<see cref="AppWindow.Close"/>).
@@ -153,6 +163,22 @@ internal static partial class WebGpu
     {
         Count();
         return WarmJs(paths, saying);
+    }
+
+    /// <summary>
+    /// One archive of files, held on the far side exactly as a <see cref="Warm"/>ed batch is, answering
+    /// the paths it held — newline apart, because a list crosses the wall as one string.
+    /// </summary>
+    /// <remarks>
+    /// <b>One round trip and not three hundred</b>, which is the whole of what it is for: the town's art
+    /// is small files, so what a page waited on was latency and not bytes. The archive is a plain tar
+    /// and the browser undoes the gzip, which is the one decompressor a page has that this runtime does
+    /// not — the same fact that keeps the towns on gzip rather than brotli.
+    /// </remarks>
+    public static Task<string> Unpack(string path)
+    {
+        Count();
+        return UnpackJs(path);
     }
 
     /// <summary>
@@ -258,6 +284,9 @@ internal static partial class WebGpu
     [JSImport("town.fullscreen", "town.js")]
     static partial void FullscreenJs();
 
+    [JSImport("town.progress", "town.js")]
+    static partial void ProgressJs(int done, int total);
+
     [JSImport("town.shut", "town.js")]
     static partial void ShutJs();
 
@@ -266,6 +295,9 @@ internal static partial class WebGpu
 
     [JSImport("town.warm", "town.js")]
     private static partial Task WarmJs(string paths, string saying);
+
+    [JSImport("town.unpack", "town.js")]
+    private static partial Task<string> UnpackJs(string path);
 
     [JSImport("town.grab", "town.js")]
     private static partial Task<int> GrabJs(string path);

@@ -95,11 +95,7 @@ internal sealed class TownRenderer : IDisposable
         Pages();
         Glyphs();
         Tile(sheetTextures);
-        for (var surface = 0; surface < Surfaces; surface++)
-        {
-            var path = surfaceTextures[Math.Min(surface, surfaceTextures.Count - 1)];
-            Picture(FirstSurfaceTexture + surface, path, mipped: true);
-        }
+        Ground(surfaceTextures);
 
         WebGpu.Rebuild(_indexCount);
     }
@@ -204,6 +200,30 @@ internal sealed class TownRenderer : IDisposable
         var read = stream.ReadAtLeast(head, head.Length, throwOnEndOfStream: false);
         var (widthPx, heightPx) = ImageHeader.Measure(head[..read], GlyphSheet.Resource);
         Picture(GlyphTexture, GlyphSheet.Resource, widthPx, heightPx, mipped: false);
+    }
+
+    /// <summary>
+    /// What the ground is drawn from, or stand-ins where there is no ground — the five bindings the
+    /// shader declares must be filled whether or not anything samples them.
+    /// </summary>
+    /// <remarks>
+    /// <b>The menu's renderer takes the stand-ins</b>, and it is what lets a page open on one file: the
+    /// surfaces are the only pictures a town-less run would otherwise have to fetch, and it draws no
+    /// ground to put them on (<see cref="Main.Data.Boot"/>).
+    /// </remarks>
+    void Ground(IReadOnlyList<string> surfaceTextures)
+    {
+        for (var surface = 0; surface < Surfaces; surface++)
+        {
+            if (surfaceTextures.Count == 0)
+            {
+                Upload(FirstSurfaceTexture + surface, new Texel[1], 1, 1, mipped: false);
+                continue;
+            }
+
+            Picture(FirstSurfaceTexture + surface, surfaceTextures[Math.Min(surface, surfaceTextures.Count - 1)],
+                mipped: true);
+        }
     }
 
     /// <summary>

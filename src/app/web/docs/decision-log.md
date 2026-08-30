@@ -20,7 +20,33 @@ does not know how much of it there is; a bar sitting at nought for it reads as a
 Bytes are counted off a `fetch` wrapper for that stage alone and the bar sweeps, and the batches — which
 do know how many files they asked for — fill it.
 
-## 2026-08-30 — the menu stands on six files, and a batch is asked for at once
+## 2026-08-30 — the art is one archive, and the runtime is not discovered
+
+The menu came up on six files and the town still cost three hundred and thirteen fetches, thirty-two at
+a time — ten waves of latency for four megabytes that download in two seconds. So the build packs
+`assets/` and the page unpacks it: **a plain tar**, because the format is somebody else's and thirty
+lines read it, gzipped because a fifth of the archive is catalogues and the WebP is incompressible. The
+browser undoes the gzip with `DecompressionStream`, which is the one decompressor a page has that its
+.NET runtime does not — the same fact that keeps the towns on gzip rather than brotli. Above the fetch
+nothing changed: an unpacked file is held exactly as a warmed one is, and `grab` reads it out.
+
+Two smaller things came with it.
+
+**The menu's six files became one.** Five of them were the ground surfaces, and the menu draws no
+ground — so the renderer it draws through takes 1×1 stand-ins for those bindings, exactly as it already
+did for the tile sampler. Only the figures are left. On the desktop the pictures are on the disk and
+this is worth nothing; in a page every one of them was a round trip.
+
+**And the chain to the runtime is preloaded.** The browser learned of `town.js` by parsing `main.js`
+and of the runtime by running it — four round trips before the engine was asked for. `modulepreload`
+makes them one wave. The nine megabytes behind `dotnet.js` are deliberately *not* preloaded: a browser
+that cannot run this page should not spend them to be told so.
+
+`WasmStripILAfterAOT` is on as well. Ahead-of-time compiled, the bytecode beside the native code is a
+second copy of the program nothing reads, and dropping it takes about a third off the smaller
+assemblies. It was measured rather than assumed: the town stands and draws with it on.
+
+## 2026-08-30 — the menu stands on what it draws, and a batch is asked for at once
 
 Deployed to a static host, the page took about a minute to put a menu up. Neither the size of the
 runtime nor the size of the art accounted for it: the framework is 13 MB raw and the host gzips it to
@@ -40,9 +66,8 @@ it would have fetched one, so every reader of the file system, and the whole dec
 built for the menu packed every sheet in the town into an atlas — so a page could not draw a list of
 map names until it had fetched, decoded and packed all of the art it was not going to draw. The
 catalogues are read at the first `Open` now, and the menu's renderer is laid for no sheets at all,
-which the atlas, the tile binding and the shader table already allowed for. So the boot fetches the
-figures and the five ground surfaces — six files — and the rest arrives behind the click that asked for
-a town.
+which the atlas, the tile binding and the shader table already allowed for. So the boot fetches what
+the menu draws and the rest arrives behind the click that asked for a town.
 
 **This is a saving on the desktop too**, where it was invisible: the atlas was packed twice, once for
 a menu that drew none of it and once for the town.

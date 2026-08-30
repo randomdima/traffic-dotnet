@@ -26,6 +26,11 @@
     <RunAOTCompilation Condition="'$(Configuration)' == 'Release'">true</RunAOTCompilation>
     <WasmEnableSIMD>true</WasmEnableSIMD>
 
+    <!-- And the IL thrown away behind it. Ahead-of-time compiled, every method the run reaches is
+         already native, and the bytecode beside it is a second copy of the same program that only an
+         interpreter would read. It is the assemblies this shrinks and not the native module. -->
+    <WasmStripILAfterAOT Condition="'$(Configuration)' == 'Release'">true</WasmStripILAfterAOT>
+
     <!-- Brotli and not also gzip. Every browser that has WebGPU has had brotli for years, so the
          gzip copy is a second encoding of the same fourteen megabytes that nothing ever asks for. -->
     <EnableDefaultCompressionFormats>false</EnableDefaultCompressionFormats>
@@ -111,41 +116,77 @@
     <Copy SourceFiles="@(WebShell)" DestinationFolder="$(PublishDir)wwwroot/%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
 
-  <!-- What the page fetches before the first frame, listed by the build so that a file added to
-       assets/ is a file the browser gets without anybody remembering to say so.
+  <!-- What the page fetches, prepared by the build so that a file added to assets/ is a file the
+       browser gets without anybody remembering to say so.
 
        **Everything is a real file, because the output of a publish is the thing that gets deployed.**
        A static host is handed this folder and nothing else — no server of ours runs beside it, and a
-       symlink into a working copy is a folder that only serves on the machine it was built on. The art
-       was linked while it was thirty megabytes of PNG; at 2.8 MB of WebP that reason is gone.
+       symlink into a working copy is a folder that only serves on the machine it was built on.
 
-       The towns are squeezed rather than copied whole. A .town is better than half zero bytes — it
-       holds a lane index laid out for reading and not for sending — so the nine of them are
-       twenty-three megabytes raw and 3.3 compressed, and Data unpacks them on the way in.
+       **The art is one archive and not three hundred files**, because what a page waits on is round
+       trips. Three hundred and thirteen of them, thirty-two at a time, is ten waves of latency before a
+       town can stand; one is one. It is a plain tar so that the format is somebody else's and the page
+       reads it in thirty lines (town.js), and gzipped because the archive is a fifth JSON — the WebP is
+       incompressible and the catalogues are not. The browser inflates it with `DecompressionStream`,
+       which is the one decompressor a page has that its .NET runtime does not (WEB-4).
 
-       A town line in the manifest is a map the page may ask for and not a file it fetches at boot:
-       what the browser downloads before the first frame is the art and the one map it opens (WEB-4). -->
+       The towns are squeezed the same way but stay one file each: a `.town` is better than half zero
+       bytes — it holds a lane index laid out for reading and not for sending — so the nine of them are
+       twenty-three megabytes raw and 3.3 compressed, and a run fetches the one it opens.
+
+       The manifest is the map list and nothing else now: what the browser may ask for, against the file
+       it would be fetched from. The archive carries its own index, so the art needs no line here. -->
   <ItemGroup>
     <TownArt Include="assets/**" />
     <TownPlan Include="towns/*.town" />
+
+    <!-- The figures, loose beside the archive as well as inside it. They are the one thing a page reads
+         before it has any reason to want the art, so a run that only ever shows the menu fetches this
+         and nothing else. **Naming the folder is the build's business and naming the file is not** —
+         where the figures are read from is ProjectPaths.SharedFiguresFile's to say, and a move that
+         left this behind is a 404 on the first boot rather than something subtle. -->
+    <TownPapers Include="assets/shared/config/**" />
   </ItemGroup>
 
-  <Target Name="ListTheTownData" AfterTargets="Build" DependsOnTargets="SqueezeTheTowns;ForgetTheOldLinks">
+  <!-- **Named inside a target and not beside one.** IntermediateOutputPath is the SDK's, and the SDK's
+       targets are imported after this file's body: a property that spells it out here would evaluate to
+       nothing and put the archive in the root of the working copy. -->
+  <Target Name="NameTheArtPack">
+    <PropertyGroup>
+      <ArtPack>$(IntermediateOutputPath)assets.tar.gz</ArtPack>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="ListTheTownData" AfterTargets="Build"
+          DependsOnTargets="NameTheArtPack;SqueezeTheTowns;PackTheArt;ForgetTheOldLinks">
     <WriteLinesToFile File="$(OutDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownArt->'%(Identity)');@(TownPlan->'%(Identity).gz')" />
-    <Copy SourceFiles="@(TownArt)" DestinationFolder="$(OutDir)wwwroot/assets/%(RecursiveDir)"
+                      Lines="@(TownPlan->'%(Identity).gz')" />
+    <RemoveDir Directories="$(OutDir)wwwroot/assets" />
+    <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(OutDir)wwwroot" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(OutDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')"
           DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="PublishTheTownData" AfterTargets="Publish" DependsOnTargets="SqueezeTheTowns;ForgetTheOldLinks">
+  <Target Name="PublishTheTownData" AfterTargets="Publish"
+          DependsOnTargets="NameTheArtPack;SqueezeTheTowns;PackTheArt;ForgetTheOldLinks">
     <WriteLinesToFile File="$(PublishDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownArt->'%(Identity)');@(TownPlan->'%(Identity).gz')" />
-    <Copy SourceFiles="@(TownArt)" DestinationFolder="$(PublishDir)wwwroot/assets/%(RecursiveDir)"
+                      Lines="@(TownPlan->'%(Identity).gz')" />
+    <RemoveDir Directories="$(PublishDir)wwwroot/assets" />
+    <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(PublishDir)wwwroot" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(PublishDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')"
           DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Sorted, so that the same tree packs to the same bytes and a publish that changed nothing does not
+       hand every reader a new archive to download. -->
+  <Target Name="PackTheArt" DependsOnTargets="NameTheArtPack" Inputs="@(TownArt)" Outputs="$(ArtPack)">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf - assets | gzip -9 &gt; '$(ArtPack)'" />
   </Target>
 
   <!-- **Never a copy into a link.** Earlier builds of this project linked wwwroot/assets and
