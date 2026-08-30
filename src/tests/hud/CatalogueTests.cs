@@ -93,13 +93,13 @@ public class CatalogueTests
     }
 
     /// <summary>
-    /// <b>And every word a scenario's own panel draws</b> — the claims, the readings and the figures behind
-    /// them, which are written by the watches rather than authored in the interface. They are printed to a
-    /// console as well, where a superscript is free, so the one place it costs anything is the one place
-    /// nothing checks it by eye.
+    /// <b>And every word the status panel's claims section draws</b> — the claims, the readings and the
+    /// figures behind them, which are written by the watches rather than authored in the interface. They
+    /// are printed to a console as well, where a superscript is free, so the one place it costs anything is
+    /// the one place nothing checks it by eye.
     /// </summary>
     [Fact]
-    public void EveryWordAScenarioPanelDrawsIsPrintableAscii()
+    public void EveryWordAClaimDrawsIsPrintableAscii()
     {
         var config = SimConfig.Shipped();
         foreach (var map in ProjectPaths.ShippedMaps())

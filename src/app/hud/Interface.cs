@@ -116,9 +116,6 @@ internal sealed class Interface(TrimFigures trims)
     /// <summary>The proving ground's figures, one collapsible section per shape. A switch rather than furniture.</summary>
     public TrackPanel Track { get; } = new();
 
-    /// <summary>What the map claims about itself, along the bottom: shut to a line, open to a row a claim.</summary>
-    public ScenarioPanel Scenario { get; } = new();
-
     public RunState Run { get; } = new();
 
     /// <summary>
@@ -188,7 +185,7 @@ internal sealed class Interface(TrimFigures trims)
                     Switches.Toggle(ref Switches.TrackFigures);
                     break;
                 case "scenario":
-                    Scenario.Show();
+                    Status.ShowSection(StatusPanel.Claims);
                     break;
                 default:
                     throw new ArgumentException(
@@ -261,8 +258,6 @@ internal sealed class Interface(TrimFigures trims)
 
         if (Status.Click(atPx)) return ClickTaken.Yes;
 
-        if (Scenario.Click(atPx)) return ClickTaken.Yes;
-
         return Switches.TrackFigures && Track.Click(atPx) ? ClickTaken.Yes : ClickTaken.No;
     }
 
@@ -275,7 +270,6 @@ internal sealed class Interface(TrimFigures trims)
         Overlay.TownChanged();
         Ruler.TownChanged();
         Track.TownChanged();
-        Scenario.TownChanged();
         Menu.Shut();
         Controls.Shut();
     }
@@ -293,6 +287,13 @@ internal sealed class Interface(TrimFigures trims)
         underWritten = 0;
 
         var world = frame.World;
+
+        // Which watches this map's results may be read off, which is none of them on a place. Every town
+        // is watched whichever map it is, so that a headless run has the two claims every town owes; what
+        // a place has not got is anybody to show them to. A run somebody opened to play in is not a test,
+        // and a laboratory read-out over a city is a read-out with no question behind it.
+        var claimed = MapCatalogue.IsScenario(frame.MapName) ? frame.Scenario : default;
+
         if (world is not null)
         {
             Overlay.Draw(
@@ -317,9 +318,13 @@ internal sealed class Interface(TrimFigures trims)
                     ref draw, frame.Camera, frame.UiPx, frame.Camera.WorldAt(frame.PointerPx, frame.UiPx));
             }
 
+            // What the selected unit is doing, standing at the unit rather than in a corner (CTL-1). Over
+            // the brackets it is laid against and under every panel.
+            UnitLabel.Draw(ref draw, frame.UiPx, world, frame.Config, frame.Camera, claimed);
+
             Status.Draw(
                 ref draw, frame.PointerPx, frame.MapName, Run, frame.Tick, frame.Frame, frame.Crossings,
-                frame.Counting, draw.Written, world, Overlay.Relaid);
+                frame.Counting, draw.Written, world, Overlay.Relaid, claimed);
 
             // The proving ground's own read-out, over the furniture it sits under and behind the popups.
             if (Switches.TrackFigures && frame.Track is { } track)
@@ -327,18 +332,13 @@ internal sealed class Interface(TrimFigures trims)
                 Track.Draw(ref draw, frame.PointerPx, Status.Box.Bottom + Theme.GapPx, track);
             }
 
-            // What the map claims about itself, along the bottom. It is furniture and has no switch: a
-            // town that has broken one of its own claims says so without being asked, and the rows behind
-            // that line are what the title opens.
-            Scenario.Draw(ref draw, frame.UiPx, frame.PointerPx, frame.MapName, frame.Scenario);
-
             // The legend is furniture, has no switch, and is drawn from the moment a town is standing.
             ScaleLegend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);
         }
 
         // GEN-1b: with no map loaded there is nothing to draw an interface over, and the menu is the
         // whole of what is on screen. It is the same popup either way — only what is behind it changes.
-        Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, world, Menu.Open, Controls.Open);
+        Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, Menu.Open, Controls.Open);
 
         // Last of all, over the furniture as well as the layers.
         if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches, Trims);

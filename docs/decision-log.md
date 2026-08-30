@@ -82,9 +82,9 @@ name makes — a car crosses paint at a crossing pace — was asserted on two ot
 run of any of them said what it *did* and never whether that was right, so the answer lived in whichever
 of the three readers happened to be looking.
 
-**A map now carries its claims and one watch answers them** (`VER-11`, `Bench.ScenarioWatch`). The panel
-along the bottom (`OBS-2i`), the table a headless run prints on its way out and the tier that asserts on
-that map read the same watch, and what differs between them is only how long the town has been watched.
+**A map now carries its claims and one watch answers them** (`VER-11`, `Bench.ScenarioWatch`). The status
+panel's claims section (`OBS-2i`), the table a headless run prints on its way out and the tier that asserts
+on that map read the same watch, and what differs between them is only how long the town has been watched.
 A broken claim is a failed run, and the exit code is that line.
 
 Three things fell out of it, and the second is the one worth having.

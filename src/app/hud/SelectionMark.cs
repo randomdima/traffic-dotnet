@@ -51,30 +51,46 @@ internal static class SelectionMark
     static void One(
         ref ScreenDraw draw, TownWorld world, SimConfig config, Selection selection, float pixelsPerMetre)
     {
-        Vector2 centreM;
-        Vector2 sizeM;
-        float headingRad;
+        if (!BoxOf(world, config, selection, out var centreM, out var sizeM, out var headingRad)) return;
+
+        Brackets(ref draw, centreM, sizeM, headingRad, pixelsPerMetre, Theme.SelectionMark);
+    }
+
+    /// <summary>
+    /// The box a selected unit is drawn at — the car's own build (CAR-12a), the walker's own variant
+    /// height — so nothing drawn against a unit can drift from what is on screen underneath it. The label
+    /// beside the unit is laid against this same box (<see cref="UnitLabel"/>).
+    /// </summary>
+    /// <returns>
+    /// Whether the unit is on the picture at all. <b>PHY-7: somebody inside a building or a car is not
+    /// drawn</b>, and there is nothing on screen to wrap or to stand a label beside — the container is
+    /// what a reader can see and what a click would have picked.
+    /// </returns>
+    public static bool BoxOf(
+        TownWorld world, SimConfig config, Selection selection, out Vector2 centreM, out Vector2 sizeM,
+        out float headingRad)
+    {
         if (selection.Kind == SelectionKind.Car)
         {
             ref readonly var build = ref world.Cars.BuildOf(selection.Index);
             centreM = world.Cars.PositionM[selection.Index];
             sizeM = new Vector2(build.LengthM, build.WidthM);
             headingRad = world.Cars.HeadingRad[selection.Index];
+            return true;
         }
-        else
+
+        var person = selection.Index;
+        centreM = world.People.PositionM[person];
+        headingRad = 0f;
+        if (world.People.Inside[person].Any)
         {
-            var person = selection.Index;
-            // PHY-7: somebody inside a building or a car is not drawn, and there is nothing on screen to
-            // wrap. The container is what a reader can see and what a click would have picked.
-            if (world.People.Inside[person].Any) return;
-
-            var variant = world.People.Variant[person] % PersonCatalog.Shared.SheetCount;
-            centreM = world.People.PositionM[person];
-            sizeM = new Vector2(config.PersonDiameterM, PersonCatalog.Shared.Variants[variant].HeightM);
-            headingRad = 0f;
+            sizeM = default;
+            return false;
         }
 
-        Brackets(ref draw, centreM, sizeM, headingRad, pixelsPerMetre, Theme.SelectionMark);
+        var variant = world.People.Variant[person] % PersonCatalog.Shared.SheetCount;
+        sizeM = new Vector2(config.PersonDiameterM, PersonCatalog.Shared.Variants[variant].HeightM);
+        return true;
     }
 
     /// <summary>

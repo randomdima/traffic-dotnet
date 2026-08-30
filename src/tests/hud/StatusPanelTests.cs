@@ -3,6 +3,7 @@ using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
@@ -40,12 +41,14 @@ public class StatusPanelTests
         Sub = new TickParts { WalkerTicks = 6, CarTicks = 4, SolverTicks = 15 },
     };
 
-    static int Draw(StatusPanel panel, TownWorld world, Vector2 pointerPx, in FrameFigures frame)
+    static int Draw(
+        StatusPanel panel, TownWorld world, Vector2 pointerPx, in FrameFigures frame,
+        ReadOnlySpan<ScenarioWatch> claims = default)
     {
         var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
         panel.Draw(
             ref draw, pointerPx, "Test", new RunState(), tick: 1234, frame, crossings: 5, counting: true, quads: 311, world,
-            relaid: false);
+            relaid: false, claims);
         return draw.Written;
     }
 
@@ -103,7 +106,7 @@ public class StatusPanelTests
         var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
         panel.Draw(
             ref draw, -Vector2.One, "Zebras", held, tick: 999999, Measured(), crossings: 5, counting: true, quads: 311, world,
-            relaid: false);
+            relaid: false, claims: default);
         Assert.Equal(widthPx, panel.Box.SizePx.X);
     }
 
@@ -262,12 +265,14 @@ public class StatusPanelTests
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
     }
 
-    static void Fill(StatusPanel panel, TownWorld world, OverlayQuad[] quads, RunState run, in FrameFigures figures)
+    static void Fill(
+        StatusPanel panel, TownWorld world, OverlayQuad[] quads, RunState run, in FrameFigures figures,
+        ReadOnlySpan<ScenarioWatch> claims = default)
     {
         var draw = new ScreenDraw(quads);
         panel.Draw(
             ref draw, new Vector2(20f, 20f), "Test", run, tick: 1234, figures, crossings: 5, counting: true, quads: 311, world,
-            relaid: true);
+            relaid: true, claims);
     }
 
     static StatusPanel Opened()

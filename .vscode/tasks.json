@@ -14,6 +14,61 @@
       ],
       "group": "build",
       "problemMatcher": "$msCompile"
+    },
+    {
+      // The configuration a breakpoint is worth setting in: optimisations off, and the
+      // managed->native crossing counter compiled in rather than out.
+      "label": "build debug",
+      "type": "process",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "${workspaceFolder}/traffic-dotnet.csproj",
+        "-c",
+        "Debug",
+        "-consoleLoggerParameters:NoSummary;ForceNoAlign"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    },
+    {
+      // Publishes the browser head ahead-of-time compiled and serves it from
+      // bin/web/Release/net10.0/publish/wwwroot.
+      //
+      // **It costs about ten minutes, and the alternative costs more.** `qq web --debug` lays the same
+      // tree in ten seconds, but the ahead-of-time step happens on publish and never on build, so what
+      // it lays is the IL interpreter: measured on this machine, the fetch, the unpack, the decode and
+      // the laying are 1.8 s either way and then standing one town up is twenty seconds against this
+      // page's tenth of one. A page nobody can bear to open is not a shorter loop.
+      //
+      // --timeout=0 lifts qq's own ten-second cap, which a server is meant to outlive. The task goes
+      // on serving after the debug session ends; stop it from the terminal panel, or answer
+      // "Restart" when the next launch finds it still running.
+      "label": "serve web (release)",
+      "type": "process",
+      "command": "${userHome}/.local/bin/qq",
+      "args": ["web", "--serve", "--timeout=0"],
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" },
+      // The launch waits on the "serving …" line, which is why web.py flushes it.
+      "problemMatcher": {
+        "owner": "web",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*)\\((\\d+),(\\d+)\\): (error|warning) (\\w+): (.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^=== ",
+          "endsPattern": "^serving "
+        }
+      }
     }
   ]
 }

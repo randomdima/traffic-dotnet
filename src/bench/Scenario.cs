@@ -77,6 +77,15 @@ internal abstract class ScenarioWatch(string name, string subject, string[] clai
     public abstract void Reads(int reading, ref TextBuffer into);
 
     /// <summary>
+    /// <b>What this watch has to say about one unit</b>, or nothing at all. A claim is about the town and
+    /// a note is about a body: the claims panel draws the first and the label standing beside the selected
+    /// unit draws the second (CTL-1), so a finding that names one car is read where that car is rather
+    /// than in a corner of the screen the car is not in.
+    /// </summary>
+    /// <returns>Whether anything was written into <paramref name="into"/>.</returns>
+    public virtual bool Notes(SelectionKind kind, int index, ref TextBuffer into) => false;
+
+    /// <summary>
     /// One tick of the town, counted. <b>Nothing here judges anything</b>: every verdict above is worked
     /// out from the counters when it is asked for, so a panel drawn every frame and a table printed once
     /// are reading the same run rather than two summaries of it.

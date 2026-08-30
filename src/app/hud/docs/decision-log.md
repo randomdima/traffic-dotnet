@@ -37,6 +37,36 @@ under it. The switch went with the merge, because a thing that is always drawn d
 the switch was really protecting is the *stamping*, and that is now bound to whether the body is open —
 so the price OBS-2b asks for is still paid, and it is paid by the state a player can see.
 
+## The claims went into the status panel, and what names a body went to the body
+
+The claims were a panel of their own along the bottom of the screen, drawn on every map. Two things were
+wrong with it. **It was drawn over cities**, where every claim reads `waiting` and the town has no
+question behind it — a laboratory read-out standing over a run somebody opened to play in. And it shared
+the bottom-left corner with the line saying what the selected unit was doing, so picking a car drew one
+box over the other.
+
+So the claims became the status panel's last section, on scenario maps only, and the count of what is
+broken went onto the panel's own always-on title — a broken claim two collapses deep is a broken claim
+nobody sees, which is the whole of what the bottom panel was buying with the space it took. The corner
+it left is not reused: the middle of the view is the town's, and one fewer box on it is the point.
+
+**And what a watch had to say about one body went to that body.** The claims table named the unluckiest
+car in the town — `deepest 8 mm car 7` — which is a finding somebody then had to go and find. A claim is
+a statement about the town; the same two sweeps read at one body are now on the label standing beside the
+selected unit, where the eye already is.
+
+## The selected unit's state left the corner and stands at the unit
+
+It was one line in the bottom-left, which is as far from the unit it describes as a 1600-pixel window
+allows. Picking a car out and then reading about it in the opposite corner is two places to look, and
+with several cars on screen the line does not say which of them it is about — it says `car 21`, and
+finding car 21 is exactly the thing the reader was doing when they clicked.
+
+It now stands beside the box the brackets wrap and follows it, flipping to the other side rather than
+being pinned into a margin over the unit, and drawing nothing at all for a unit that is not on the picture
+— inside a building, or behind the camera. A label clamped onto a window edge points at an edge the unit
+is nowhere near, which is worse than no label.
+
 ## The checks left the menu
 
 OBS-2a used to bind the probe list as well as the map list: every check the build ships had to be

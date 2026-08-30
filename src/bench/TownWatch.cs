@@ -217,6 +217,45 @@ internal sealed class TownWatch : ScenarioWatch
     }
 
     /// <summary>
+    /// <b>What this town has against one body, this instant</b> — how deep inside something it is and how
+    /// far past the ground it was granted, each with the run of ticks it has held that for.
+    /// </summary>
+    /// <remarks>
+    /// It is the same two sweeps the claims above are answered from, read at one body instead of over all
+    /// of them. <b>A body that is inside nothing and where it was told to be has nothing said about it</b>:
+    /// the label beside a unit is the unit's own state, and a line reading "0 mm" on every car in the town
+    /// is a line nobody reads.
+    /// </remarks>
+    public override bool Notes(SelectionKind kind, int index, ref TextBuffer into)
+    {
+        var body = kind == SelectionKind.Person ? index : _walkers + index;
+        if (body < 0 || body >= _overlapM.Length) return false;
+
+        var wrote = false;
+        if (_overlapM[body] > SoakProbe.OverlapAllowanceM)
+        {
+            into.Add(_overlapM[body] * 1_000f, "F0");
+            into.Add(" mm inside something, ");
+            into.Add(_stuckForTicks[body]);
+            into.Add(" of ");
+            into.Add(SoakProbe.StuckAfterTicks);
+            into.Add(" ticks");
+            wrote = true;
+        }
+
+        if (_pastM[body] <= SoakProbe.PastTheGrantAllowanceM) return wrote;
+
+        if (wrote) into.Add("   ");
+        into.Add(_pastM[body] * 1_000f, "F0");
+        into.Add(" mm past its grant, ");
+        into.Add(_pastForTicks[body]);
+        into.Add(" of ");
+        into.Add(SoakProbe.PastAfterTicks);
+        into.Add(" ticks");
+        return true;
+    }
+
+    /// <summary>
     /// One tick. <b>The overlap is swept every tick and the rest is read off the town's own counters</b>:
     /// how long one body has been inside another is the whole of what tells a solver recovering from a
     /// body nothing pushed back out, and a sweep taken every other tick would count half of it.

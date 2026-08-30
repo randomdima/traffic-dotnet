@@ -192,8 +192,14 @@ Chromium runs every part of this but the presentation of a WebGPU canvas.
 
 **`qq web --debug` is the same page in ten seconds**, and it is the loop the boot is worked on in: a
 plain build lays the identical tree (WEB-7), so everything a page fetches, unpacks, decodes and stands
-up is there to be watched. **What it does not reproduce is the frame rate** — nothing is compiled ahead
-of time in it — so a read-out in one of those pictures is measuring the interpreter.
+up is there to be watched. **What it does not reproduce is any clock at all** — nothing is compiled
+ahead of time in it, and the ahead-of-time step happens on publish and never on build, so `-c Release`
+is the same interpreter and not a third option. A read-out in one of those pictures is measuring the
+interpreter, and so is the load: the wire and the browser's own work are faithful to a tenth of a
+second — the fetch, the unpack, the decode and the laying are under two seconds either way — but
+standing a town up is managed arithmetic, and it is twenty seconds against a published page's tenth of
+one. **A boot figure is read off a publish** (WEB-6); what `--debug` answers is what happened and in
+what order, which is what its console prints the elapsed second of each stage for.
 
 ## What a page cannot promise
 

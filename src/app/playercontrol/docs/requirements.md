@@ -7,7 +7,19 @@ town.
 **CTL-1 — Selection.** Left-click selects a single unit, person or car; left-click elsewhere reselects or
 deselects. The selection is **marked on the town by a shape and never by a change to the unit's own
 picture** — corner brackets standing outside its box, laid in the frame that box is drawn in — and **its
-behaviour state shows in the interface**.
+behaviour state is read where the unit is**.
+
+- **The state stands beside the unit and follows it**, clear of the box the brackets wrap, on the other
+  side of it where there is no room, and never off the window. A read-out in a corner is a second place to
+  look: the eye is on the unit that was just picked out, and what the line is about has to be in no doubt
+  however many are on screen.
+- **What the run's own watches have against that one body is on the same label** — how deep inside
+  something it is, how far past the ground it was granted (`OBS-2i`, `Bench.ScenarioWatch`). A claim is a
+  statement about the town and belongs on the panel that holds claims; a finding that names one car
+  belongs at that car.
+- **Nothing off the picture is labelled.** A unit inside a building or a car is not drawn (`PHY-7`) and
+  wears no brackets either, and a unit the camera has left behind would put its label against an edge it
+  is nowhere near.
 
 **CTL-1b — One unit or many.** A selection holds **a set of units and not one**, and everything the
 interface does to a selection it does to every unit in it: the brackets, the paths, the orders, the keys

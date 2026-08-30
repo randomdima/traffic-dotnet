@@ -1,4 +1,16 @@
-<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+<Project>
+
+  <!-- **Named before the SDK is imported, and that is why the imports are spelled out.** The folder
+       NuGet restores into is MSBuildProjectExtensionsPath, which Microsoft.Common.props derives from
+       BaseIntermediateOutputPath and then freezes; an Sdk= attribute imports that file above the
+       project body, so the same property set below would be read too late. Both heads would then
+       restore into obj/ and overwrite one project.assets.json with the other's, and whichever built
+       last would be told its own target framework is missing. -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj/web/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk.WebAssembly" />
 
   <!-- The same engine, on the browser's machine. It compiles src/ exactly as traffic-dotnet.csproj
        does, minus the files that speak Vulkan and plus the ones under src/**/web/, and the town it
@@ -18,7 +30,6 @@
          dotnet.native.wasm — 244 KB of it, 54 KB on the wire, to answer a question nobody asks. -->
     <InvariantTimezone>true</InvariantTimezone>
     <BaseOutputPath>bin/web/</BaseOutputPath>
-    <BaseIntermediateOutputPath>obj/web/</BaseIntermediateOutputPath>
 
     <!-- The interpreter is around ten times off the pace and this engine is a 60 Hz loop over five
          hundred bodies, so the browser build is compiled ahead of time or it is not worth looking at.
@@ -208,5 +219,8 @@
     <Exec Command="gzip -9 -c '%(TownPlan.Identity)' &gt; '$(IntermediateOutputPath)towns/%(TownPlan.Filename)%(TownPlan.Extension).gz'" />
   </Target>
 
+  <!-- The other half of the Sdk= attribute this file does without. It stays last, so the SDK's own
+       targets are still imported after the body — which is what NameTheArtPack relies on. -->
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk.WebAssembly" />
 
 </Project>

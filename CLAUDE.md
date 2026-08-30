@@ -105,9 +105,9 @@ dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json
 dotnet run --project traffic-dotnet.csproj -- --bench maneuvers --map Odesa
 ```
 
-**A map says whether it kept what it claims, and a broken claim fails the run.** Every run draws the
-claims in a panel along the bottom and prints the same table on its way out; `--bench <name>` exits
-non-zero when one of them is broken, and what is quoted beside them fails nothing
+**A map says whether it kept what it claims, and a broken claim fails the run.** A scenario run draws the
+claims in the status panel's last section and every run prints the same table on its way out; `--bench
+<name>` exits non-zero when one of them is broken, and what is quoted beside them fails nothing
 ([docs/verification.md](docs/verification.md#what-a-map-claims-about-itself)). **A new claim goes on the
 map's own watch in [bench/](src/bench/)** and is read from there by the panel, the probe and the tier — a
 second copy of it anywhere is two answers.

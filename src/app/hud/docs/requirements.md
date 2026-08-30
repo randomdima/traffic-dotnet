@@ -34,20 +34,24 @@ bottom-right corner.
   nothing and cannot be pointed at the wrong camera.
 
 **OBS-2i** **What the map on screen claims about itself, and whether it is keeping it, is on screen while
-it runs**: one collapsible panel along the bottom, a row a claim, the figures behind each verdict beside
+it runs**: the last section of the status panel, a row a claim with the figures behind its verdict under
 it.
 
-- It is **furniture and not instrumentation** — a town that has broken one of its own claims says so
-  without being asked — and it is **shut to its title**, which carries the counts: a scenario is read at
-  two depths, and which claim is broken and on what figures is a panel of rows nobody wants over the map
-  until they ask for it. `--ui scenario` opens it, and a click on the title does.
+- **It is there on a scenario map and on no other.** A place is a town somebody plays, and a laboratory
+  read-out over a city is a read-out with no question behind it — so on a place the section is not drawn,
+  is not counted in the panel's height and takes no clicks. Which a map is, is the catalogue's answer and
+  not the panel's.
+- **A broken claim is on the line that is always on screen.** The panel is shut by default and so is
+  everything under it, so a count of what is broken goes on the title itself: a town that has broken one
+  of its own claims says so without being asked. Which claim, and on what figures, is what the panel and
+  then the section open to — a scenario is read at two depths. `--ui scenario` opens both.
 - It draws **the run's own watches** (`Bench.ScenarioWatch`) and does no arithmetic of its own, so the
-  panel, the table a headless run prints and the tier that asserts on the map are three readings of one
+  section, the table a headless run prints and the tier that asserts on the map are three readings of one
   machine ([verification](../../../../docs/verification.md#what-a-map-claims-about-itself)).
 - **A claim and a reading are drawn differently and neither is invented here**: a claim carries a verdict
   in the three words the report uses, and a reading carries a figure and no verdict at all.
-- **A map with nothing to claim draws nothing**, and takes no clicks: the panel is what a scenario says,
-  not a box the interface keeps for one.
+- **Nothing here is about one body.** A claim is a statement about the town; what a watch has to say about
+  one unit is drawn beside that unit (`CTL-1`), where the eye already is.
 
 **OBS-2f** A distance between two places is measurable **without a rebuild**:
 
@@ -83,8 +87,9 @@ own time went under it**.
   body count is the state of the town rather than a measurement of it.
 - **Each state is one width, and the shut bar is the width of its own line.** A bar sized on the body it
   hides reached a third of the way across the town to say four words. Both widths are budgets rather than
-  measurements: a panel that grew a character when the rate went from 9 to 10 fps, or narrowed as a
-  section collapsed, is a panel that moves while it is being read.
+  measurements: a panel that grew a character when the rate went from 9 to 10 fps, narrowed as a section
+  collapsed, or widened the moment a claim broke, is a panel that moves while it is being read. **A
+  scenario map is budgeted for its claims in both states**, whether or not any of them is broken or open.
 - **Sections collapse because the panel is read at two depths.** Watching a run wants the frame, its rate
   and its worst; chasing a row wants ten more lines under it.
 

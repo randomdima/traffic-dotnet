@@ -135,14 +135,14 @@ fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 `Bench.ScenarioWatch`, one watch per question and one per town. What each map claims is its own
 ([citygen](../src/citygen/docs/requirements.md#the-maps)); what follows is how a claim is read.
 
-**One machine and three readers.** The same watch answers the panel along the bottom of a windowed run
-(`OBS-2i`), the table a headless one prints on its way out, and the tier that asserts on that map. A
+**One machine and three readers.** The same watch answers the status panel's claims section on a windowed
+run (`OBS-2i`), the table a headless one prints on its way out, and the tier that asserts on that map. A
 second implementation of any of them would be a second answer, and a panel disagreeing with an exit code
 is not something anybody could settle by looking at the town.
 
 | Read | Where |
 |---|---|
-| A player watching | the panel, shut to a line of counts, opened by its title or by `--ui scenario` |
+| A player watching | the status panel's last section, on a scenario map only — a broken claim counted on its always-on title, the rows opened by `--ui scenario` |
 | A script | `--bench <name>`, or `--map NAME --seconds N`: the table, and **a broken claim is a failed run** |
 | The suite | the town tier, asserting the same claims off the same watch |
 

@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Bench;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
@@ -48,6 +49,14 @@ namespace TrafficSimulation.App.Hud;
 /// its rate and its worst; chasing a row wants ten more lines under it, and a panel that always
 /// showed all of them covered a quarter of the town with figures nobody was reading.
 /// </para>
+/// <para>
+/// <b>OBS-2i — what the map claims about itself is the last section</b>, and it is there on a scenario
+/// map and on no other: a place is a town somebody plays and has no test results to read. What it draws
+/// is the run's own watches (<see cref="ScenarioWatch"/>) and none of its own arithmetic, and nothing on
+/// it is about one body — a finding that names a car is drawn beside that car (<see cref="UnitLabel"/>).
+/// A broken claim is on the title whether or not any of it is open, because a town that has broken one
+/// of its own claims has to say so without being asked.
+/// </para>
 /// </remarks>
 internal sealed class StatusPanel
 {
@@ -80,6 +89,27 @@ internal sealed class StatusPanel
     /// </remarks>
     const int TitleLine = 24;
 
+    /// <summary>
+    /// What a scenario map's title is sized on instead: the same line with room for the one thing it has
+    /// to add, which is how many of the map's own claims the town on screen has broken. <b>It is the wider
+    /// budget on every scenario map and not only on a broken run</b>, so the bar does not grow the moment
+    /// something goes wrong.
+    /// </summary>
+    const int ScenarioTitleLine = TitleLine + 11;
+
+    /// <summary>
+    /// The longest line the claims section comes to: two spaces, the verdict word in its column, and the
+    /// longest claim any watch this build ships states. <b>A scenario map's open panel is budgeted for it
+    /// whether or not that section is open</b>, because a panel that narrowed as a section collapsed is a
+    /// panel that moves while it is being read.
+    /// </summary>
+    const int ClaimsLine = 2 + VerdictColumn + 74;
+
+    /// <summary>Where a claim's verdict word ends and the claim itself begins, and where the figures under it are indented to.</summary>
+    const int VerdictColumn = 9;
+
+    const int FiguresIndent = 4;
+
     const float RowPitchPx = Theme.SmallTextPx + 4f;
 
     /// <summary>The band the title occupies, which is the whole of the panel while the body is shut.</summary>
@@ -88,7 +118,15 @@ internal sealed class StatusPanel
     public const int Frame = 0;
     public const int Tick = 1;
     public const int Town = 2;
-    const int Sections = 3;
+
+    /// <summary>
+    /// What the map claims about itself, which is <b>the one section that is not always there</b>: a place
+    /// is a town somebody plays and has nothing to claim, so on a place map the section is not drawn, is
+    /// not counted and takes no clicks.
+    /// </summary>
+    public const int Claims = 3;
+
+    const int Sections = 4;
 
     /// <summary>
     /// What each section adds when it is open. <b>The one thing here that has to be kept in step with
@@ -106,9 +144,9 @@ internal sealed class StatusPanel
     /// <summary>
     /// Which sections are open. <b>The frame and the tick open by default and the counts do not</b>:
     /// the first two are what the body is opened for, and the third answers a question somebody asks
-    /// once.
+    /// once. The claims open with them, because a map that has any is a map opened to read them.
     /// </summary>
-    readonly bool[] _open = [true, true, false];
+    readonly bool[] _open = [true, true, false, true];
 
     readonly Rect[] _headers = new Rect[Sections];
 
@@ -145,6 +183,13 @@ internal sealed class StatusPanel
 
     public void Show() => Open = true;
 
+    /// <summary>Open the panel on one named section, whatever the others are doing — which is what <c>--ui</c> asks for.</summary>
+    public void ShowSection(int section)
+    {
+        Open = true;
+        _open[section] = true;
+    }
+
     /// <summary>
     /// A click on the panel: the title opens and shuts the body, a header toggles its section, and
     /// anywhere else on the panel is taken and dropped. Returns whether the panel took it.
@@ -172,21 +217,34 @@ internal sealed class StatusPanel
         return true;
     }
 
+    /// <param name="claims">
+    /// The run's own watches, or empty on a map that claims nothing. <b>Whether a map's claims belong on
+    /// screen is decided where the map is known</b> and not here: this panel draws what it is handed.
+    /// </param>
     public void Draw(
         ref ScreenDraw draw, Vector2 pointerPx, string mapName, RunState run, long tick, in FrameFigures frame,
-        long crossings, bool counting, int quads, TownWorld world, bool relaid)
+        long crossings, bool counting, int quads, TownWorld world, bool relaid,
+        ReadOnlySpan<ScenarioWatch> claims)
     {
+        // A map with claims is budgeted for them in both states, so neither bar moves when one is broken
+        // or when the section under it is collapsed.
         var widthPx = Open
-            ? GlyphSheet.WidthPx(WidestLine, Theme.SmallTextPx) + Theme.PaddingPx * 2f
-            : GlyphSheet.WidthPx(TitleLine, Theme.TextPx) + Theme.PaddingPx * 1.2f;
-        Box = new Rect(new Vector2(Theme.MarginPx), new Vector2(widthPx, HeightFor(Open ? RowCount(frame) : 0)));
+            ? GlyphSheet.WidthPx(claims.IsEmpty ? WidestLine : ClaimsLine, Theme.SmallTextPx) + Theme.PaddingPx * 2f
+            : GlyphSheet.WidthPx(claims.IsEmpty ? TitleLine : ScenarioTitleLine, Theme.TextPx) + Theme.PaddingPx * 1.2f;
+        Box = new Rect(
+            new Vector2(Theme.MarginPx), new Vector2(widthPx, HeightFor(Open ? RowCount(frame, claims) : 0)));
         Theme.Frame(ref draw, Box);
 
-        Span<char> text = stackalloc char[80];
-        Title(ref draw, pointerPx, text, mapName, run, frame);
+        Span<char> text = stackalloc char[200];
+        Title(ref draw, pointerPx, text, mapName, run, frame, claims);
 
         Rows = 0;
-        if (!Open) return;
+        if (!Open)
+        {
+            // Nothing below the title was laid this frame, so nothing below it may take a click either.
+            Array.Clear(_headers);
+            return;
+        }
 
         Theme.Separator(
             ref draw, Box.AtPx + new Vector2(Theme.PaddingPx * 0.6f, Theme.GapPx + TitleRowPx + Theme.GapPx),
@@ -197,6 +255,7 @@ internal sealed class StatusPanel
         FrameSection(ref draw, ref row, pointerPx, text, frame);
         TickSection(ref draw, ref row, pointerPx, text, frame);
         TownSection(ref draw, ref row, pointerPx, text, world, crossings, counting, quads, relaid);
+        ClaimsSection(ref draw, ref row, pointerPx, text, claims);
         Rows = row;
     }
 
@@ -205,9 +264,15 @@ internal sealed class StatusPanel
     /// it is, and at what pace. Frozen and held are named in the pace's place rather than beside it —
     /// they are what the pace <em>is</em> while either holds.
     /// </summary>
+    /// <remarks>
+    /// <b>And whether the map has broken one of its own claims</b>, which is the one thing here that is not
+    /// about the run's cost. It goes on the line that is always on screen because the panel and the section
+    /// under it are both shut by default, and a broken claim two collapses deep is a broken claim nobody
+    /// sees (OBS-2i).
+    /// </remarks>
     void Title(
         ref ScreenDraw draw, Vector2 pointerPx, scoped Span<char> text, string mapName, RunState run,
-        in FrameFigures frame)
+        in FrameFigures frame, ReadOnlySpan<ScenarioWatch> claims)
     {
         _title = new Rect(
             Box.AtPx + new Vector2(Theme.EdgePx, Theme.GapPx),
@@ -231,9 +296,17 @@ internal sealed class StatusPanel
             line.Add('x');
         }
 
+        var broken = Counted(claims, ClaimVerdict.Broken);
+        if (broken > 0)
+        {
+            line.Add("  ");
+            line.Add(broken);
+            line.Add(" broken");
+        }
+
         draw.TextFitted(
             _title.AtPx + new Vector2(Theme.PaddingPx * 0.6f, (TitleRowPx - Theme.TextPx) * 0.5f), line.Written,
-            Theme.TextPx, Theme.Heading, _title.SizePx.X - Theme.PaddingPx);
+            Theme.TextPx, broken > 0 ? Theme.Broken : Theme.Heading, _title.SizePx.X - Theme.PaddingPx);
     }
 
     /// <summary>
@@ -241,12 +314,27 @@ internal sealed class StatusPanel
     /// fact</b>, because the frame it is drawn into is the frame it is laid out in: a panel sized from
     /// what it wrote last time is a panel one frame behind every collapse.
     /// </summary>
-    int RowCount(in FrameFigures frame)
+    int RowCount(in FrameFigures frame, ReadOnlySpan<ScenarioWatch> claims)
     {
-        var rows = RunRows + Sections;
+        // Every section writes a header, and the claims one is not there at all on a map with none.
+        var rows = RunRows + Sections - (claims.IsEmpty ? 1 : 0);
         if (_open[Frame] && frame.FrameMs > 0d) rows += FrameRows;
         if (_open[Tick]) rows += TickRows;
         if (_open[Town]) rows += TownRows;
+        if (_open[Claims]) rows += ClaimRows(claims);
+        return rows;
+    }
+
+    /// <summary>
+    /// What the claims come to when they are showing: a heading a watch, and <b>two rows a claim</b> —
+    /// what is claimed, and the figures the verdict was reached on under it. One row would be a hundred
+    /// characters wide, which is a panel across a third of the town.
+    /// </summary>
+    static int ClaimRows(ReadOnlySpan<ScenarioWatch> claims)
+    {
+        var rows = 0;
+        foreach (var watch in claims) rows += 1 + (2 * (watch.Claims + watch.Readings));
+
         return rows;
     }
 
@@ -398,10 +486,113 @@ internal sealed class StatusPanel
     }
 
     /// <summary>
+    /// <b>OBS-2i — what the map on screen claims about itself, and whether it is keeping it.</b> A heading
+    /// a watch, and under it a row a claim with the figures behind its verdict indented under that.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It draws the run's own watches and does no arithmetic of its own</b>, so this section, the table
+    /// a headless run prints (<see cref="ScenarioReport"/>) and the tier that asserts on the map are three
+    /// readings of one machine. The verdict is the same word the report uses.
+    /// </para>
+    /// <para>
+    /// <b>A claim and a reading are drawn differently and neither is invented here</b>: a claim carries a
+    /// verdict, and a reading carries a figure and no verdict at all, because nothing quoted fails a run.
+    /// </para>
+    /// </remarks>
+    void ClaimsSection(
+        ref ScreenDraw draw, ref int row, Vector2 pointerPx, scoped Span<char> text,
+        ReadOnlySpan<ScenarioWatch> claims)
+    {
+        if (claims.IsEmpty)
+        {
+            // Nothing was laid, so nothing may be pressed: a header left standing from the last map would
+            // swallow a click on the row that took its place.
+            _headers[Claims] = default;
+            return;
+        }
+
+        var broken = Counted(claims, ClaimVerdict.Broken);
+        var head = new TextBuffer(text);
+        Name(ref head, Claims, "claims");
+        head.Add(Counted(claims, ClaimVerdict.Kept));
+        head.Add(" kept, ");
+        head.Add(broken);
+        head.Add(" broken, ");
+        head.Add(Counted(claims, ClaimVerdict.Waiting));
+        head.Add(" waiting");
+        Header(ref draw, ref row, pointerPx, Claims, head.Written, broken > 0 ? Theme.Broken : Theme.Heading);
+        if (!_open[Claims]) return;
+
+        foreach (var watch in claims)
+        {
+            var line = new TextBuffer(text);
+            line.Add("  ");
+            line.Add(watch.Subject);
+            WriteFitted(ref draw, ref row, line.Written, Theme.Heading);
+
+            for (var claim = 0; claim < watch.Claims; claim++)
+            {
+                var verdict = watch.Verdict(claim);
+                line.Clear();
+                line.Add("  ");
+                line.Add(ScenarioReport.Word(verdict));
+                line.PadTo(2 + VerdictColumn);
+                line.Add(watch.Asks(claim));
+                WriteFitted(ref draw, ref row, line.Written, Colour(verdict));
+
+                line.Clear();
+                line.PadTo(FiguresIndent);
+                watch.Says(claim, ref line);
+                WriteFitted(ref draw, ref row, line.Written, Theme.Dim);
+            }
+
+            for (var reading = 0; reading < watch.Readings; reading++)
+            {
+                line.Clear();
+                line.Add("  quoted");
+                line.PadTo(2 + VerdictColumn);
+                line.Add(watch.Reading(reading));
+                WriteFitted(ref draw, ref row, line.Written, Theme.Dim);
+
+                line.Clear();
+                line.PadTo(FiguresIndent);
+                watch.Reads(reading, ref line);
+                WriteFitted(ref draw, ref row, line.Written, Theme.Dim);
+            }
+        }
+    }
+
+    static Vector4 Colour(ClaimVerdict verdict) => verdict switch
+    {
+        ClaimVerdict.Kept => Theme.Text,
+        ClaimVerdict.Broken => Theme.Broken,
+        _ => Theme.Dim,
+    };
+
+    static int Counted(ReadOnlySpan<ScenarioWatch> claims, ClaimVerdict wanted)
+    {
+        var count = 0;
+        foreach (var watch in claims)
+        {
+            count += wanted switch
+            {
+                ClaimVerdict.Kept => watch.Kept,
+                ClaimVerdict.Broken => watch.Broken,
+                _ => watch.Unanswered,
+            };
+        }
+
+        return count;
+    }
+
+    /// <summary>
     /// A section's own row: the figure that section adds up to, marked with whether what adds up to it
     /// is showing. It is the only pressable thing on the panel below the title.
     /// </summary>
-    void Header(ref ScreenDraw draw, ref int row, Vector2 pointerPx, int section, scoped ReadOnlySpan<char> text)
+    void Header(
+        ref ScreenDraw draw, ref int row, Vector2 pointerPx, int section, scoped ReadOnlySpan<char> text,
+        Vector4? colour = null)
     {
         var atPx = RowAtPx(row) + new Vector2(Theme.PaddingPx * 0.4f, 0f);
         var box = new Rect(
@@ -411,7 +602,7 @@ internal sealed class StatusPanel
 
         if (box.Contains(pointerPx)) draw.RoundedRect(box.AtPx, box.SizePx, Theme.RowRadiusPx, Theme.RowHover);
 
-        draw.Text(atPx, text, Theme.SmallTextPx, Theme.Heading);
+        draw.TextFitted(atPx, text, Theme.SmallTextPx, colour ?? Theme.Heading, box.SizePx.X - Theme.PaddingPx);
         row++;
     }
 
@@ -458,6 +649,18 @@ internal sealed class StatusPanel
     void Write(ref ScreenDraw draw, ref int row, scoped ReadOnlySpan<char> text)
     {
         draw.Text(RowAtPx(row) + new Vector2(Theme.PaddingPx * 0.6f, 0f), text, Theme.SmallTextPx, Theme.Text);
+        row++;
+    }
+
+    /// <summary>
+    /// The same row kept inside the panel. <b>What a watch writes is the watch's own prose</b> and is not
+    /// budgeted here, so a claim longer than the panel is cut at its edge rather than drawn through it.
+    /// </summary>
+    void WriteFitted(ref ScreenDraw draw, ref int row, scoped ReadOnlySpan<char> text, Vector4 colour)
+    {
+        draw.TextFitted(
+            RowAtPx(row) + new Vector2(Theme.PaddingPx * 0.6f, 0f), text, Theme.SmallTextPx, colour,
+            Box.SizePx.X - Theme.PaddingPx);
         row++;
     }
 

@@ -77,7 +77,7 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the priority a tow carries only outbound, the arm and the two wheels under what it pulls | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
 | `OBS-1`, `OBS-1a` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
-| `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i` | The status panel, the menu, the legend, the ruler, the scenario panel | [app/hud](../src/app/hud/docs/requirements.md) |
+| `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i` | The status panel and its claims, the menu, the legend, the ruler | [app/hud](../src/app/hud/docs/requirements.md) |
 | `OBS-2b…2d`, `OBS-2h`, `OBS-2j` | The debug layers, the read-out and the turn circle | [app/debug](../src/app/debug/docs/requirements.md) |
 | `CTL-1…8d` | Selection, orders, a car's four of them, hand driving, the unit's own action | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |

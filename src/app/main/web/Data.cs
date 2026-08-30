@@ -113,7 +113,6 @@ internal static class Data
         }
 
         const string saying = "reading what the menu draws…";
-        say(saying);
         await Lay(papers, saying, say);
         await Glyphs();
         return papers.Count;
@@ -142,7 +141,7 @@ internal static class Data
         if (_laid) return;
 
         const string saying = "laying the town's art…";
-        say(saying);
+        say("unpacking the town's art…");
         var listed = await Runtime.WebGpu.Unpack(Pack);
         var batch = listed.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -224,6 +223,12 @@ internal static class Data
     /// </summary>
     static async Task Lay(IReadOnlyList<string> batch, string saying, Action<string> say)
     {
+        // **The words and the count are one stage or they are a lie.** The bar this fills is the whole
+        // archive and the one before it was the sheets alone, so a stage that only counted left the
+        // decode's sentence standing over a different number — 305 of 319 under "decoding", where 319
+        // is every file and 174 is every picture.
+        say(saying);
+
         var bytes = 0L;
         for (var at = 0; at < batch.Count; at++)
         {

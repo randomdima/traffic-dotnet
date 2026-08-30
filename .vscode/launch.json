@@ -28,6 +28,62 @@
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "stopAtEntry": false
+    },
+    {
+      // The one entry with a debugger on it. **Windowed, and that is not a preference**: a
+      // breakpoint hit inside a fullscreen window leaves a desktop with the screen held by a
+      // process that has stopped, and nothing to click back to. It sits on the far display for the
+      // same reason — the editor stays visible while the town is halted.
+      //
+      // Nothing timed is true here: Debug is unoptimised and the frame figures in the read-out are
+      // a picture of that. Anything about pace is a Release entry above.
+      "name": "Debug (windowed, Test)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build debug",
+      "program": "${workspaceFolder}/bin/Debug/net10.0/traffic-dotnet",
+      "args": ["--map", "Test", "--windowed", "--display", "HDMI-1"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      // The browser head, on this machine. The task publishes the page ahead-of-time compiled and
+      // serves it on 8730; this opens a Chromium of its own at it, and the page's console arrives in
+      // the Debug Console.
+      //
+      // **The published page and never the Debug one**, whatever the ten minutes cost: a built page is
+      // the IL interpreter, which stands a town up in twenty seconds against this one's tenth of a
+      // second, and the JS debugger attached here doubles that again. `qq web --debug --shot` is where
+      // an interpreted page is still worth having, because nothing waits on it.
+      //
+      // The query string is the command line (WEB-5), so the map and --ui are spelled there:
+      // ?map=Odesa, ?map=Test&ui=frame.
+      //
+      // **Both WebGPU flags are needed on a desktop Linux**, whatever the release notes say: drop
+      // either and the page comes back with no adapter. The rest are the dialogs a browser nobody
+      // is sitting at would otherwise wait on. Same set as `qq web` drives, and the same reasons.
+      //
+      // Chromium is named outright because the adapter looks for google-chrome and chromium, and
+      // what Fedora installs is chromium-browser. A profile of its own, so a `qq web --shot` run
+      // and this one are never two browsers on one profile directory.
+      "name": "Web (Release, local)",
+      "type": "chrome",
+      "request": "launch",
+      "preLaunchTask": "serve web (release)",
+      "url": "http://localhost:8730/?map=Test",
+      "webRoot": "${workspaceFolder}/src/app/web/wwwroot",
+      "runtimeExecutable": "/usr/bin/chromium-browser",
+      "runtimeArgs": [
+        "--enable-unsafe-webgpu",
+        "--enable-features=Vulkan",
+        "--test-type",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-fre",
+        "--disable-search-engine-choice-screen"
+      ],
+      "userDataDir": "${workspaceFolder}/.tmp/web-profile-code"
     }
   ]
 }

@@ -68,8 +68,10 @@ every look is built again and the ground is worth what it is now worth, while th
 and every body stays where it was — which is what makes the skidpad a rig rather than a read-out. Nothing is authored by it: every trim is 100% unless the page has been opened, and the shipped
 run is the run this suite measures.
 
-**Every map says what it claims about itself and whether it is keeping it.** A windowed run draws it as a
-collapsible panel along the bottom — shut to a line of counts, opened by its title or by `--ui scenario` —
+**Every map says what it claims about itself and whether it is keeping it.** A windowed run on a scenario
+map draws it as the last section of the status panel — a broken claim counted on the panel's own always-on
+title, the rows behind it opened by `--ui scenario` or by clicking down to them; a place map has nothing to
+claim and shows none of it —
 and every headless run prints the same table: a row a claim, the figures behind each verdict, and a last
 line a script can read. **A broken claim is a failed run**, so `--bench exam`, `--bench crossings` and
 `--map Track --seconds 300` all exit non-zero when the town breaks something it claims. What is quoted

@@ -74,6 +74,13 @@ internal static class MapCatalogue
         return new MapEntry(name, MapKind.Scenario, "Shipped but undescribed: add it to MapCatalogue");
     }
 
+    /// <summary>
+    /// Whether this map is a laboratory rather than a place, which is what decides whether a run has any
+    /// test results to put on screen at all. A shipped map nothing describes reads as a scenario, exactly
+    /// as <see cref="Describe"/> reads it.
+    /// </summary>
+    public static bool IsScenario(string name) => Describe(name).Kind == MapKind.Scenario;
+
     /// <summary>The catalogue's own rows, for the test that guards it against the folder in both directions.</summary>
     public static ReadOnlySpan<MapEntry> Catalogued => Known;
 }
