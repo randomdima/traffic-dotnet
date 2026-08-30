@@ -1,0 +1,59 @@
+name: Pages
+
+# The browser head, published by the same csproj `qq web` publishes, and handed to GitHub Pages as a
+# folder of real files. Nothing of ours runs beside it: every path the page fetches is relative to
+# `document.baseURI`, so the project subpath the site is served under needs no configuration here.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and a queued one is not cancelled: the publish is the expensive half and a
+# cancelled run has already paid for it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # `RunAOTCompilation` is on in Release, which is minutes of Emscripten and the whole reason the
+    # page keeps up with a 60 Hz loop.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # The AOT toolchain. The runner's SDK carries the manifest and not the packs.
+      - run: dotnet workload install wasm-tools
+
+      - run: dotnet publish traffic-dotnet.web.csproj -c Release
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: bin/web/Release/net10.0/publish/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
