@@ -129,6 +129,14 @@ handed the shared one they would compare a town to itself and pass whatever the 
 **Ask a whole city the shallow questions only**; detailed geometry is asked of named places on the
 fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 
+**A laboratory map is asked what it was laid to answer and nothing else.** A city's own questions — bays,
+pavements, crossings, stations, the beat — go to the cities and the fixture map (`Towns.EveryTown`),
+because a map laid to measure one thing holds whatever that question needed and no more: asked about
+parking, a proving ground answers over an empty set and reads like coverage. **What each of those maps is
+for, it claims itself** and its own tier reads that claim. What stays on `Towns.EveryShippedMap` is what is
+about the shipped set rather than about a town: that every file reads back as it was written, that every
+map conforms and draws, that every one of them is watched against something, and the two gates.
+
 ## What a map claims about itself
 
 **A map laid to measure one thing states what it claims, and the claims are answered while it runs** —

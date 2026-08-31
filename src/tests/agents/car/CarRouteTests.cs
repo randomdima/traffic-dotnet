@@ -21,7 +21,7 @@ public class CarRouteTests
 
     static TownWorld Open(string map) => new(Towns.Of(map), Config);
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     static readonly ConcurrentDictionary<string, TownWorld> Ran = new();
 

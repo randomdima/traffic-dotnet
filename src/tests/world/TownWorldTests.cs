@@ -24,7 +24,7 @@ public class TownWorldTests
         OutOfDoors.AWalker(world, loop, SimConfig.Shipped());
 
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryShippedTownStandsUpAndTicks(string map)
     {
         using var world = Open(map);

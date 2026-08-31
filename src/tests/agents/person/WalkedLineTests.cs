@@ -17,7 +17,7 @@ public class WalkedLineTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// <b>One run of one map, read by every claim below.</b> Each of them holds what it was broken by, or

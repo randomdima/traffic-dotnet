@@ -32,7 +32,7 @@ public class RescueTests
     /// service variant, with a crew inside it — and no ordinary car is any of those things.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryAmbulanceStandsAtItsHospitalWithACrewAboard(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
@@ -130,7 +130,7 @@ public class RescueTests
     /// is in and this one always has its crew in it.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void NobodyEverBoardsAnAmbulance(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);

@@ -2,6 +2,24 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-08-30 — the callback is handed over before any town is opened
+
+**The page now opens on a town it was not asked for** — the idle ring behind the start menu (GEN-1b) —
+and the obvious way to do that was the way a named map was already done: open it, then hand the browser
+the animation callback. That is exactly backwards for this head. A desktop run has its plan and its art
+on the disk it started from, so opening before the first frame costs nothing; a page has neither, so it
+would have shown a blank canvas through a plan and three megabytes of archive before drawing anything at
+all — and how long a page looks broken for is the figure that matters most about it.
+
+**So the order is the other one, for a named map too.** `WebGpu.Ticker` is handed `Game.Step` as soon as
+the engine is running, and the town — the ring, or the one the query string named — is opened after it
+from the boot's own `await`, which is where a browser run is allowed to wait. The menu is drawn from what
+`Data.Boot` already fetched, so what stands between the page opening and something to look at is
+unchanged, and what used to stand in front of a named map's first frame now happens behind a menu the
+reader can already use. **The only thing given up is that `?map=Odesa` no longer has its town in the
+first frame** — it has a menu in the first frame and the town a moment later, which is the trade this
+head makes everywhere else too.
+
 ## 2026-08-30 — nothing waits for what it does not need yet
 
 Everything the page fetched, it fetched in the order it happened to read, and the order it happened to

@@ -57,9 +57,10 @@ public class ScenarioTests
     }
 
     /// <summary>
-    /// <b>A map laid to measure one thing is watched against that thing.</b> The fixture map is the
-    /// exception and says so: it is where every detailed check is staged rather than a map with a question
-    /// of its own, so what it keeps is what every town keeps.
+    /// <b>A map laid to measure one thing is watched against that thing.</b> Two maps are the exception and
+    /// say so: the fixture map is where every detailed check is staged rather than a map with a question of
+    /// its own, and the idle ring is laid to be looked at and measures nothing at all — so what either of
+    /// them keeps is what every town keeps.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -69,7 +70,7 @@ public class ScenarioTests
         var ownClaims = Array.Exists(watching, watch => watch is not TownWatch);
 
         var kind = MapCatalogue.Describe(map).Kind;
-        if (kind == MapKind.Place || map == Towns.Fixture)
+        if (kind == MapKind.Place || map == Towns.Fixture || map == IdlePlan.Name)
         {
             Assert.False(ownClaims, $"{map} is not laid to measure one thing but carries claims of its own");
             return;

@@ -46,7 +46,8 @@ dotnet run --project traffic-dotnet.csproj -- --map Odesa
 [docs/verification.md](docs/verification.md), and what each costs is [CLAUDE.md](CLAUDE.md#verification).
 A plain `dotnet test` runs every tier including the one an agent is paid to judge.
 
-Without `--map` the game opens on its start menu and builds nothing until a map is picked. A windowed
+Without `--map` the game opens on its start menu with the idle ring running behind it, and builds no city
+until a map is picked — the same start in Debug and in Release, and on either head. A windowed
 run opens fullscreen on the display the pointer is on and `F11` toggles it; `--display NAME|N` names
 that display instead, by the desktop's own name for it, and `--windowed` opens in a window, for a run
 to be looked at beside something else. Other
@@ -110,7 +111,8 @@ change, and commit the picture. The line it prints per lens is the instrument fo
 arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
 and comes back undistinguished.
 
-**Six maps are laid to measure one thing**, and each claims that one thing and nothing else. **What each
+**Six maps are laid to measure one thing**, and each claims that one thing and nothing else; a seventh is
+laid to be looked at and claims nothing of its own. **What each
 is and what it claims is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only which
 command reads which.
 
@@ -122,10 +124,11 @@ command reads which.
 | `Exam` | a six by six lattice of junctions, one staged crossing manoeuvre in each | `--bench exam`, `--map Exam` |
 | `Skidpad` | a grid of plain road, a square a car: every look on full left lock, a row per pedal and gear — three pedals each way — each drawing its own circle beside the one its axles ask for | `--bench skidpad`, `--ui turn-circles`, `--ui menu-figures` |
 | `Zebras` | five isolated streets with a crossing apiece, one of them laid off square | `--bench crossings` |
+| `Idle` | one loop of road and nothing else — a square with rounded corners, an armoured car between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
 
-`--lay-maps` writes the first five, whose every shape is chosen against the car's own figures — so moving
-one of those figures is all five to lay again, always together, since a lap is only comparable with a lap
-laid from the same arithmetic. `Zebras` arrives as a file like every city does.
+`--lay-maps` writes all of those but `Zebras`, whose every shape is chosen against the car's own figures —
+so moving one of those figures is all of them to lay again, always together, since a lap is only comparable
+with a lap laid from the same arithmetic. `Zebras` arrives as a file like every city does.
 
 The exam and the crossings map are asserted card by card and crossing by crossing in the town tier off the
 probe's own run ([JunctionExamTests](src/tests/world/JunctionExamTests.cs)), so the instrument and the gate
@@ -144,8 +147,10 @@ dotnet publish traffic-dotnet.web.csproj -c Release
 cd bin/web/Release/net10.0/publish/wwwroot && python3 -m http.server 8080
 ```
 
-Then `http://localhost:8080/?map=Test` — **the query string is the command line**, so `?map=Odesa&ui=nodes`
-is `--map Odesa --ui nodes`. Without a map it opens on the start menu, exactly as the desktop does.
+Then `http://localhost:8080/` — **the query string is the command line**, so `?map=Odesa&ui=nodes`
+is `--map Odesa --ui nodes`. Without a map it opens on the start menu over the idle ring, exactly as the
+desktop does; the page differs only in the order, since it shows the menu the moment the engine runs and
+fetches the town behind it.
 
 **It wants a browser with WebGPU** — Chrome or Edge 137+ on Linux, Safari 26, a Firefox where it has
 shipped — and says so under the canvas when it has not got one. **Build it Release**: `RunAOTCompilation`

@@ -76,6 +76,11 @@ internal sealed partial class TownWorld
             ? CarFleet.NoWay
             : _occupancy.WayOfTurn(movement);
 
+        // CAR-14.1 reads its indicator off this same classification, so what the car announces and what it
+        // gives way to are one answer about one movement rather than two readings of the geometry.
+        Cars.TurningAtTheBox[car] = movement != RoadGraph.NoTurn
+            && _roads.RightOfWayOfTurn(movement) != RightOfWay.StraightOn;
+
         if (Cars.MovementWay[car] != movementWay) DropTheMovement(car);
 
         if (movementWay == CarFleet.NoWay) return float.PositiveInfinity;

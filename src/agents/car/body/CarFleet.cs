@@ -56,6 +56,7 @@ internal sealed class CarFleet
         OffLineM = new float[capacity];
         ToTheBoxM = new float[capacity];
         Array.Fill(ToTheBoxM, float.PositiveInfinity);
+        TurningAtTheBox = new bool[capacity];
         BoxIsOurs = new bool[capacity];
         CommittedToTheBox = new bool[capacity];
         SinceDecisionS = new float[capacity];
@@ -80,6 +81,10 @@ internal sealed class CarFleet
         Array.Fill(AuthorityM, float.PositiveInfinity);
         GrantCutBy = new Control.HeadwayKind[capacity];
         PlannedMps = new float[capacity];
+        PaceMps = new float[capacity];
+        Array.Fill(PaceMps, float.PositiveInfinity);
+        FollowingShare = new float[capacity];
+        Array.Fill(FollowingShare, 1f);
         GroundCoefficient = new float[capacity];
         Command = new DriveCommand[capacity];
         Hold = new Control.DrivingHold[capacity];
@@ -226,6 +231,14 @@ internal sealed class CarFleet
     /// lane is already the one leading out.
     /// </summary>
     public float[] ToTheBoxM { get; }
+
+    /// <summary>
+    /// <b>Whether the movement into that box is a turn rather than straight on</b> — which is the whole of
+    /// what an indicator has to say (CAR-14.1). It is the road's own classification of the pair of lanes the
+    /// line joins, handed over as the fact rather than as the type, because the fleet knows nothing of the
+    /// graph the turn is read off.
+    /// </summary>
+    public bool[] TurningAtTheBox { get; }
 
     public bool[] BoxIsOurs { get; }
 
@@ -392,6 +405,26 @@ internal sealed class CarFleet
     /// it is anywhere near it.
     /// </summary>
     public float[] PlannedMps { get; }
+
+    /// <summary>
+    /// <b>A pace this car is held under whatever else it could do</b>, or <c>+∞</c> for a car held to
+    /// nothing but its own build. It is a ceiling somebody put on the car rather than one the road, the
+    /// corner or the traffic put on it — an escort held to the pace of what it is escorting is the only
+    /// thing that sets one.
+    /// </summary>
+    public float[] PaceMps { get; }
+
+    /// <summary>
+    /// <b>How much of the ordinary following interval this driver keeps</b>, or 1 for a car that keeps all
+    /// of it — which is every car in every town but the escort of a convoy, whose whole point is running
+    /// closer to what it is escorting than traffic would.
+    /// </summary>
+    /// <remarks>
+    /// It scales the <em>following</em> term of the grant and nothing else, so a car keeping half the gap
+    /// still has every stopping distance, every corner and every stop line it had: what it gives up is the
+    /// second of travel a driver leaves on top of the road it needs.
+    /// </remarks>
+    public float[] FollowingShare { get; }
 
     public float[] GroundCoefficient { get; }
 
@@ -695,6 +728,7 @@ internal sealed class CarFleet
         AlongMps[car] = 0f;
         OffLineM[car] = 0f;
         ToTheBoxM[car] = float.PositiveInfinity;
+        TurningAtTheBox[car] = false;
         BoxIsOurs[car] = false;
         CommittedToTheBox[car] = false;
         SinceDecisionS[car] = 0f;
@@ -708,6 +742,8 @@ internal sealed class CarFleet
         AuthorityM[car] = float.PositiveInfinity;
         GrantCutBy[car] = Control.HeadwayKind.Nothing;
         PlannedMps[car] = 0f;
+        PaceMps[car] = float.PositiveInfinity;
+        FollowingShare[car] = 1f;
         GroundCoefficient[car] = 1f;
         Command[car] = DriveCommand.Parked;
         Hold[car] = Control.DrivingHold.None;

@@ -38,6 +38,10 @@ public class LampSpriteTests
         fleet.BlueLight[0] = true;
         fleet.LineArcsOf(0)[0] = new ArcSeg(Vector2.Zero, 0f, 100f, 0.05f);
         fleet.Line[0] = new DrivenLine(1, 1, 100f);
+
+        // The turn the bend is for, since an indicator answers a junction and not a curve (CAR-14.1).
+        fleet.ToTheBoxM[0] = 30f;
+        fleet.TurningAtTheBox[0] = true;
         fleet.FuseJitter[0] = 1f;
         return fleet;
     }

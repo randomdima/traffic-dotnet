@@ -44,7 +44,7 @@ try
     // A map, fetched and then stood up. Neither the art nor the plan is in the file system until this
     // has run, which is why the menu's click only writes the name down (Game.Web.cs) and this is what
     // acts on it — the one place in a browser run where waiting for a fetch is allowed.
-    async Task Open(string map)
+    async Task Open(string map, bool behindTheMenu = false)
     {
         // The plan is asked for first and read last: it comes down the wire while the art is being
         // decoded on the processor, and neither of them is waiting on the other.
@@ -53,26 +53,35 @@ try
         Say($"fetching {map}…");
         await Data.Town(map);
         Say($"standing {map} up…");
-        game.Start(map);
+        game.Start(map, behindTheMenu);
         Say(string.Empty);
     }
 
     game.Switch(options.Ui);
-    if (options.Map is { } map) await Open(map);
-
     Say(string.Empty);
 
     // The loop, handed back to the browser: it calls this between paints, and a run that held on to
     // the thread instead would be a page that never painted at all.
+    //
+    // **It is handed over before any town is opened, which is the whole of what a page does
+    // differently here.** The menu stands on the files Data.Boot already fetched, so the reader has it
+    // the moment the engine is running; a page that awaited three megabytes of art and a plan first
+    // would show a blank canvas for the whole of that wait (WEB-6, WEB-9) — and a desktop run, whose
+    // plan is on the disk it started from, opens the two together.
     var step = game.Step;
     WebGpu.Ticker(step);
 
-    // **And now that something is being looked at, the rest of it.** Deliberately after the callback
-    // has been handed over rather than before it: what a page fetches before its first frame is what
-    // WEB-6 puts a figure on, and this is the wire being used while the reader decides what to click.
-    // The art is here for a run that opened on the menu — one that named a map fetched it long ago and
-    // has laid it — and the plans are here for both.
+    // **And now that something is being looked at, the town behind it.** GEN-1b: a page that named no
+    // map opens on the menu with the idle ring standing behind it, and one that named a map opens on
+    // that map — both after the first frame, because neither is what the menu is drawn from. The art
+    // is asked for a moment before the open awaits it, since a run that named a map started it beside
+    // the engine (main.js) and one that did not has been showing a menu that draws none of it.
     Data.ExpectArt();
+    await Open(options.Map ?? Game.IdleMap, behindTheMenu: options.Map is null);
+
+    // And the rest of the plans, while the reader decides what to click: what a page spends after its
+    // first frame is not what WEB-6 puts a figure on, and this is the wire being used while it would
+    // otherwise be idle.
     Data.ExpectEvery();
 
     // And Main never returns, which is the whole of what keeps the town standing between those

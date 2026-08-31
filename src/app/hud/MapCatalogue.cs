@@ -48,6 +48,7 @@ internal static class MapCatalogue
         new("Drunk", MapKind.Scenario, "The same lap with the fifteen reeling down the road instead of pacing across it"),
         new("Fleet", MapKind.Scenario, "The same lap with the whole fleet on it: one of every look, each at its own figures"),
         new("Skidpad", MapKind.Scenario, "Nothing but road: every look, six pedals, each on full lock and drawing its own circle"),
+        new("Idle", MapKind.Scenario, "One loop of road and nothing else: an escorted armoured car, and one sports car the other way"),
     ];
 
     /// <summary>The shipped maps in menu order, places first — read off the folder and described from the catalogue.</summary>

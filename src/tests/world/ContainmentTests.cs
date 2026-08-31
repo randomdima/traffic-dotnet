@@ -92,7 +92,7 @@ public class ContainmentTests
     /// is what asks it that; what is added here is the crowd, so it is asked of the towns that have one.
     /// </remarks>
     [Theory]
-    [MemberData(nameof(Towns.EveryMapWorthASoak), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void NoBuildingEverHoldsMoreThanItsCapacity(string map)
     {
         var plan = Towns.Of(map);

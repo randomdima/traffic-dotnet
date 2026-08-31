@@ -19,7 +19,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// </summary>
 /// <remarks>
 /// <b>What the claims themselves come to is not asked here.</b> That is the watch's own question and is
-/// answered by the tier that runs the map (<c>TrackFiguresTests</c>, <c>JunctionExamTests</c>); this is
+/// answered by the tier that runs the map (<c>JunctionExamTests</c>); this is
 /// about the read-out, which is why a stub watch and the fixture map will do.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]

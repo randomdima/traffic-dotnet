@@ -46,6 +46,40 @@ internal static class GlyphSheet
     public static float WidthPx(int characters, float heightPx) => characters * AdvancePx(heightPx);
 
     /// <summary>
+    /// <b>A line of text broken across as many lines as it takes to keep inside <paramref name="widthPx"/></b>,
+    /// as the ranges of it each line covers. It is here rather than in whichever panel wants it because what
+    /// decides where a break falls is the face: fixed-pitch, so how many characters fit is arithmetic and
+    /// not a measurement of the string.
+    /// </summary>
+    /// <remarks>
+    /// <b>It breaks at a space and never inside a word</b>, except for a word longer than the whole line,
+    /// which is cut — a line that overflows silently is worse than a word that plainly did not fit. The
+    /// spaces broken at are dropped, and a text that needs more lines than <paramref name="into"/> holds is
+    /// truncated to it.
+    /// </remarks>
+    public static int WrapLines(ReadOnlySpan<char> text, float widthPx, float heightPx, Span<Range> into)
+    {
+        var fitting = Math.Max(1, (int)(widthPx / AdvancePx(heightPx)));
+        var lines = 0;
+        var at = 0;
+        while (at < text.Length && lines < into.Length)
+        {
+            if (text.Length - at <= fitting)
+            {
+                into[lines++] = new Range(at, text.Length);
+                return lines;
+            }
+
+            var cut = text[at..(at + fitting + 1)].LastIndexOf(' ');
+            var end = cut > 0 ? at + cut : at + fitting;
+            into[lines++] = new Range(at, end);
+            at = cut > 0 ? end + 1 : end;
+        }
+
+        return lines;
+    }
+
+    /// <summary>
     /// The middle of the solid cell rather than its corner: the sampler filters linearly and clamps,
     /// so a rectangle drawn off the middle of a cell that is opaque throughout cannot pick up the
     /// transparent one beside it however the quad is scaled.

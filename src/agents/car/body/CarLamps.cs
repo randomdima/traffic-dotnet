@@ -99,10 +99,12 @@ internal enum CarLamp : byte
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The indicator is read off the line and never off the manoeuvre.</b> A car's intent is already
-/// written down as the geometry it is about to drive, so the side it will turn to is the side that
-/// geometry bends to — which covers a junction turn, a bay being pulled out of and a way round an
-/// obstruction with one rule, and needs no entry of the catalogue to announce itself.
+/// <b>The indicator answers a junction, and its side is read off the line</b> (CAR-14.1). What it is for
+/// is telling the traffic at a junction which way out of it this car is taking, so it is asked only within
+/// reach of one (<see cref="LampFigures.JunctionAheadM"/>) and only where the movement into it is a turn
+/// rather than straight on (<see cref="CarFleet.TurningAtTheBox"/>). <b>Which</b> side is still the
+/// geometry's and never the manoeuvre's: a car's intent is already written down as the line it is about to
+/// drive, so no entry of the catalogue has to announce itself.
 /// </para>
 /// <para>
 /// This is kept beside the body it is a fact about rather than in the renderer that draws it, on the
@@ -146,9 +148,15 @@ internal static class CarLamps
         if (cars.BlueLight[car] || handAtTheWheel) set |= CarLampSet.Beacon;
         if (cars.AtWork[car]) set |= CarLampSet.Works;
 
-        // A reverse line is laid in the direction the rear axle travels, which is the way the car is
-        // *not* pointing: the bend that takes the tail to the line's left takes the nose to the body's
-        // right, and a lamp is bolted to the body.
+        // CAR-14.1: an indicator answers a junction. A car with none in front of it, or one whose way
+        // through the one in front is straight on, is announcing nothing — a constant-radius road is a road
+        // and not a turn, and every car on one indicating its way round is the defect this gate exists for.
+        if (!cars.TurningAtTheBox[car] || cars.ToTheBoxM[car] > config.Lamps.JunctionAheadM) return set;
+
+        // Which side is still the line's own bend and never the wheel: on the approach the steering is
+        // straight and the junction is thirty metres off. A reverse line is laid in the direction the rear
+        // axle travels, which is the way the car is *not* pointing — the bend that takes the tail to the
+        // line's left takes the nose to the body's right, and a lamp is bolted to the body.
         var turnRad = TurnAheadRad(cars.LineOf(car), cars.ProgressM[car], config.Lamps.TurnAheadM);
         if (cars.LineIsReverse[car]) turnRad = -turnRad;
 

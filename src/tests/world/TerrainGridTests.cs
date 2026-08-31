@@ -19,7 +19,7 @@ public class TerrainGridTests
     /// <summary>TER-7's own tolerance: half a cell, which on every shipped map is 0.5 m.</summary>
     const float HalfACell = 0.5f;
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     static TerrainGrid GridOf(string map) => new(Towns.Of(map), SimConfig.Shipped());
 

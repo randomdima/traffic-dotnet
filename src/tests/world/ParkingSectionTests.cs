@@ -27,7 +27,7 @@ public class ParkingSectionTests
     /// </summary>
     const float AttainedBoundM = 0.01f;
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// <b>A lot hangs off a kerb</b> (GEN-4b), which is the claim the frontage is read against: it stands

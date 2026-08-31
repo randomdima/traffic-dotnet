@@ -19,10 +19,24 @@ public class InterfaceClickTests
 
     static Vector2 Middle(Rect box) => box.AtPx + box.SizePx * 0.5f;
 
-    /// <summary>An interface over a standing town, with the menu laid where a draw would have laid it.</summary>
+    /// <summary>
+    /// An interface over a town somebody picked, with the menu laid where a draw would have laid it. <b>The
+    /// map is opened first</b>: until one is, the menu is the one the game starts on and answers to none of
+    /// the rules below (GEN-1b).
+    /// </summary>
     static Interface Running()
     {
         var ui = new Interface(new TrimFigures());
+        ui.TownChanged();
+        ui.Menu.Lay(Window, Chrome.GearAt(Window));
+        return ui;
+    }
+
+    /// <summary>And the interface a run opens on: the start menu, over the idle ring nobody picked.</summary>
+    static Interface AtTheStart()
+    {
+        var ui = new Interface(new TrimFigures());
+        ui.TownChanged(behindTheMenu: true);
         ui.Menu.Lay(Window, Chrome.GearAt(Window));
         return ui;
     }
@@ -92,17 +106,76 @@ public class InterfaceClickTests
     }
 
     /// <summary>
-    /// <b>GEN-1b: with no town there is nothing to shut the menu onto</b>, so a click off it is dropped
-    /// rather than leaving an empty screen with no way back to the map list.
+    /// <b>GEN-1b: the start menu cannot be shut</b> — not by a click off it, not by the gear it does not
+    /// hang from, and not by anything else. What is behind it is a ring nobody chose, so shutting it would
+    /// leave a screen with no way back to the map list.
     /// </summary>
     [Fact]
-    public void WithNoTownTheMenuCannotBeClickedAway()
+    public void TheStartMenuCannotBeClickedAway()
+    {
+        var ui = AtTheStart();
+
+        Assert.Equal(ClickTaken.Yes, Click(ui, new Vector2(40f, 600f)));
+        Assert.True(ui.Menu.Open);
+
+        Assert.Equal(ClickTaken.Yes, Click(ui, Middle(Chrome.GearAt(Window))));
+        Assert.True(ui.Menu.Open);
+
+        ui.Menu.Shut();
+        ui.Menu.Toggle();
+        Assert.True(ui.Menu.Open);
+    }
+
+    /// <summary>
+    /// And it stands in the middle of the window rather than under the gear, because it is the whole of
+    /// what is on screen rather than a popup beside a town.
+    /// </summary>
+    [Fact]
+    public void TheStartMenuStandsInTheMiddleOfTheWindow()
+    {
+        var start = AtTheStart();
+
+        Assert.Equal(Window.X * 0.5f, Middle(start.Menu.Box).X, 0.5f);
+        Assert.Equal(Window.Y * 0.5f, Middle(start.Menu.Box).Y, 0.5f);
+    }
+
+    /// <summary>
+    /// <b>And the map it opens is laid out of it.</b> Picking a map moves nothing the layout was keyed on —
+    /// same window, same button — so the panel kept the narrow centred rectangles it was laid with and the
+    /// gear's popup was the start menu for the rest of the run.
+    /// </summary>
+    [Fact]
+    public void AMapPickedLeavesThePopupAndNotTheStartMenu()
+    {
+        var ui = AtTheStart();
+        var startPx = ui.Menu.Box.SizePx.X;
+
+        ui.TownChanged();
+        ui.Menu.Show();
+
+        Assert.False(ui.Menu.AtTheStart);
+        Assert.NotEqual(startPx, ui.Menu.Box.SizePx.X);
+        Assert.Equal(Chrome.GearAt(Window).Right, ui.Menu.Box.Right, 3);
+        Assert.Equal(Chrome.GearAt(Window).Bottom + Theme.GapPx, ui.Menu.Box.AtPx.Y, 3);
+    }
+
+    /// <summary>
+    /// <b>GEN-1b: a map picked shuts the menu onto it, and the idle ring the game opens on does not.</b>
+    /// A run that stood its own town up and then dropped the reader into it would be the game making the
+    /// choice the menu is there to offer.
+    /// </summary>
+    [Fact]
+    public void AMapPickedShutsTheMenuAndTheOneBehindItDoesNot()
     {
         var ui = Running();
         ui.Menu.Show();
+        ui.TownChanged();
+        Assert.False(ui.Menu.Open);
+        Assert.False(ui.Menu.AtTheStart);
 
-        Assert.Equal(ClickTaken.Yes, Click(ui, new Vector2(40f, 600f), hasTown: false));
+        ui.TownChanged(behindTheMenu: true);
         Assert.True(ui.Menu.Open);
+        Assert.True(ui.Menu.AtTheStart);
     }
 
     /// <summary>

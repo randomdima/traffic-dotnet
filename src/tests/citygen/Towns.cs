@@ -53,25 +53,30 @@ internal static class Towns
     }
 
     /// <summary>
-    /// <b>The maps a soak is worth driving</b>: the cities, and the fixture the staged runs happen on.
+    /// <b>The towns a city's own questions are asked of</b>: the cities, and the fixture map every detailed
+    /// check is staged on.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A soak asks after a state that turns up rarely, and what makes one turn up is traffic.</b> The
-    /// six maps behind the scenario submenu are laid to put one behaviour under a microscope — five
-    /// streets with a walker apiece, a lap with six cars on it — so a ten-minute run over one of them
-    /// witnesses nothing the first ten seconds did not, and the claim passes vacuously having cost the
-    /// whole of the run.
+    /// <b>A laboratory map is not asked them.</b> A map laid to measure one thing holds whatever that
+    /// question needed and nothing else — no bay, no pavement, no station, no crossing and, on the idle
+    /// ring, nobody on foot at all — so asking it about parking, walking or the police is asking about
+    /// ground nobody laid, and what comes back is a pass over an empty set that reads like coverage.
+    /// <b>What each of those maps is for, it claims itself</b> (<see cref="Bench.Scenarios"/>), and that is
+    /// where it is answered.
     /// </para>
     /// <para>
-    /// <b>It is the length that is being rationed and never the coverage.</b> A structural claim — one
-    /// answered off a plan, a graph or a town at rest — goes on being asked of <see cref="EveryShippedMap"/>,
-    /// where a small map costs a tenth of a second and is the one that catches the odd shape. What is cut
-    /// here is only the sweep of <em>minutes of driving</em>, which was two thirds of the town tier and
-    /// spent almost all of it on maps with nothing to see.
+    /// <b>It is also the set a soak is worth driving.</b> A soak asks after a state that turns up rarely
+    /// and what makes one turn up is traffic, so ten minutes of a lap with six cars on it witnesses nothing
+    /// the first ten seconds did not.
+    /// </para>
+    /// <para>
+    /// <b>What stays on <see cref="EveryShippedMap"/> is what is about the shipped set itself</b>: that
+    /// every file reads back as it was written, that every map conforms, that every one of them is watched
+    /// against something, and the two gates this whole project answers to.
     /// </para>
     /// </remarks>
-    public static TheoryData<string> EveryMapWorthASoak()
+    public static TheoryData<string> EveryTown()
     {
         var maps = new TheoryData<string>();
         foreach (var map in Shipped)

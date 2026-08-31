@@ -14,7 +14,7 @@ namespace TrafficSimulation.Tests.CityGen;
 [Trait(Tier.Key, Tier.Town)]
 public class JunctionCornerGeometryTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// The arc centre stands in the block, the ground inside the arc is walkable and the ground outside it

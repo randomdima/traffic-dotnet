@@ -17,7 +17,7 @@ public class HospitalRosterTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// <b>The count has to be answerable before the town is stood up</b>: the fleets are laid for an

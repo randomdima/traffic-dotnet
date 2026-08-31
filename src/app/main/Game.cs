@@ -28,8 +28,9 @@ namespace TrafficSimulation.App.Main;
 /// buffers, submit.
 /// </para>
 /// <para>
-/// <b>GEN-1b — nothing is built until a map is picked</b>, so the window and the device come up first
-/// and the town comes up second. The renderer is rebuilt when the <em>map</em> changes, because its
+/// <b>GEN-1b — no city is built until it is picked</b>, so the window and the device come up first and
+/// the town comes up second: what a run that named none opens on is the menu, with the idle ring
+/// (<see cref="IdleMap"/>) standing behind it. The renderer is rebuilt when the <em>map</em> changes, because its
 /// ground mesh and its instance capacity are the town's; re-rolling the agent seed keeps it, since
 /// the same plan stands up the same number of bodies.
 /// </para>
@@ -82,6 +83,12 @@ internal sealed partial class Game : IDisposable
 
     long _crossingsPerFrame;
     long _frames;
+
+    /// <summary>
+    /// What <see cref="FrameTheTown"/> left the camera at, while it is still there. It is how a window
+    /// resize tells a framing this run chose from one a reader has moved since.
+    /// </summary>
+    (Vector2 CentreM, float PixelsPerMetre)? _framedAt;
 
     /// <summary>What the frame before this one took, which is the step the hands are read over.</summary>
     TimeSpan _lastFrame;
@@ -150,11 +157,21 @@ internal sealed partial class Game : IDisposable
     /// one. <b>The same thing the menu does when a map is picked</b>, and the same thing
     /// <see cref="Run"/> does with <c>--map</c>.
     /// </summary>
-    public void Start(string map) => Open(map);
+    /// <param name="behindTheMenu">Whether the menu stays up over it, which is what the idle map is opened as (GEN-1b).</param>
+    public void Start(string map, bool behindTheMenu = false) => Open(map, behindTheMenu);
+
+    /// <summary>
+    /// <b>The map a run opens on when it was handed none</b> (GEN-1b): the ring is what the menu stands
+    /// over until a reader picks something, and it is the same map on either head and in either
+    /// configuration.
+    /// </summary>
+    public static string IdleMap => IdlePlan.Name;
 
     public int Run(string? openMap, double seconds)
     {
-        if (openMap is not null) Open(openMap);
+        // GEN-1b: a run that named a map opens on it, and one that named none opens on the menu with the
+        // idle ring standing behind it.
+        Open(openMap ?? IdleMap, behindTheMenu: openMap is null);
 
         var deadline = seconds > 0
             ? Stopwatch.GetTimestamp() + (long)(seconds * Stopwatch.Frequency)
@@ -223,6 +240,24 @@ internal sealed partial class Game : IDisposable
             // way it changes without the process restarting.
             _uiPx = _window.UiPx;
             _camera.DevicePxPerUiPx = _window.UiScale;
+
+            // <b>A town standing behind the menu is framed against the window and not once</b> (OBS-1b):
+            // a canvas that settles its size a moment after the town stood up, or a window dragged wider,
+            // would otherwise leave what the reader opened on half off the screen. <b>The moment anybody
+            // moves the camera themselves, or shuts the menu the framing was for, it is theirs</b>
+            // (OBS-1a) — so the follow stops at the first frame this is no longer where it was left.
+            if (_framedAt is { } framed && _world is not null)
+            {
+                if (framed == (_camera.CentreM, _camera.PixelsPerMetre) && _ui.Menu.Open)
+                {
+                    _camera.SetSpan(_config.View.CameraDefaultViewM, _uiPx);
+                    FrameTheTown(_world, _world.Plan.WorldSizeM);
+                }
+                else
+                {
+                    _framedAt = null;
+                }
+            }
         }
 
         parts.Mark(ref parts.PumpMs);
@@ -279,13 +314,19 @@ internal sealed partial class Game : IDisposable
     /// modal</b>: the run keys and the camera work while one is up, because a settings panel that
     /// stops the town is a panel nobody opens mid-run to look at the town.
     /// </summary>
+    /// <remarks>
+    /// <b>The start menu is not one of those popups</b> (GEN-1b): the ring behind it is a picture rather
+    /// than a town somebody is playing, so nothing here is offered it — a camera dragged at the start menu
+    /// would take the road out from under the panel standing in the middle of it.
+    /// </remarks>
     void ReadInput(float seconds)
     {
         if (_window.TakePress(Key.F11)) _window.ToggleFullscreen();
 
         if (_window.TakePress(Key.Escape)) Escape();
 
-        if (Running)
+        var playing = Running && !_ui.Menu.AtTheStart;
+        if (playing)
         {
             if (_window.TakePress(Key.GraveAccent)) _ui.Run.ToggleFreeze();
             if (_window.TakePress(Key.Number1)) _ui.Run.SetPace(1f);
@@ -316,7 +357,7 @@ internal sealed partial class Game : IDisposable
             if (scrolled != 0f) _ui.Menu.Scroll(scrolled);
         }
 
-        if (Running)
+        if (playing)
         {
             _hands.DriveCamera(_window, _camera, _uiPx, seconds, _world!.HandsOn);
             _world.Hands(_hands.ReadKeys(_window, _world));
@@ -326,13 +367,13 @@ internal sealed partial class Game : IDisposable
         {
             // A gesture ends on the way up rather than on an event, so the button is asked about every
             // frame and not only on the frames a press arrived in (CTL-1b).
-            if (Running) _hands.Pointer(_window, _camera, _uiPx, _config, _world!);
+            if (playing) _hands.Pointer(_window, _camera, _uiPx, _config, _world!);
             return;
         }
 
         // The interface is offered the click before the town under it, so a panel drawn over a car is
         // not also a way of selecting that car.
-        var taken = _ui.Click(atPx, _uiPx, button == MouseButton.Left, Running, out var choice);
+        var taken = _ui.Click(atPx, _uiPx, button == MouseButton.Left, playing, out var choice);
 
         // Unticking the box drops the tapes with it, which is one of the two ways OBS-2f says they go
         // — the other is a right-click, and the ruler handles that itself.
@@ -363,16 +404,12 @@ internal sealed partial class Game : IDisposable
     /// only be left by picking a map was a menu that cost a run to look at.
     /// </summary>
     /// <remarks>
-    /// With no map loaded there is nothing behind the menu to shut it onto, so Escape is the way out of
-    /// the game — which is what OBS-2g means by a scene that carries no panel.
+    /// <b>The start menu is the exception, and it is not a scene with no panel</b> (GEN-1b): it cannot be
+    /// shut, so Escape has nothing to do at it and the way out of the game is the tab that says so.
     /// </remarks>
     void Escape()
     {
-        if (!Running)
-        {
-            _window.Close();
-            return;
-        }
+        if (_ui.Menu.AtTheStart) return;
 
         // One key for both popups, and it shuts whatever is up before it opens anything: two panels
         // hanging off two corners at once is a screen with more chrome than town on it.
@@ -384,7 +421,11 @@ internal sealed partial class Game : IDisposable
     /// A map picked: the plan is read, the ground laid, the town stood up and the renderer rebuilt
     /// for it. The window, the device and the interface all outlive this.
     /// </summary>
-    void Open(string map)
+    /// <param name="behindTheMenu">
+    /// Whether the menu stays up over the town that has just stood (GEN-1b). It is what the idle map is
+    /// opened as and nothing else is: a map somebody clicked is a map they asked to look at.
+    /// </param>
+    void Open(string map, bool behindTheMenu = false)
     {
         var plan = TownReader.ReadFile(ProjectPaths.TownFile(map));
         _map = plan.Name;
@@ -411,8 +452,26 @@ internal sealed partial class Game : IDisposable
         _track = Scenarios.FiguresIn(_scenario);
         _clock = new SimClock(_config.TickSeconds, _config.Sim.SoakMaxTimeScale);
         _camera = new Camera2D(_config, plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
-        _ui.TownChanged();
+        FrameTheTown(world, plan.WorldSizeM);
+        _ui.TownChanged(behindTheMenu);
         _hands.TownChanged();
+    }
+
+    /// <summary>
+    /// <b>Where a run opens looking</b> (OBS-1b): the middle of the town or the nearest road to it. What it
+    /// left the camera at is kept, so a resize can tell this framing from one the reader has since moved.
+    /// </summary>
+    /// <remarks>
+    /// <b>The town the start menu stands over is framed the same way as any other</b> (GEN-1b). The panel
+    /// is in the middle of the screen and the middle of the ring is the field inside it, so the menu sits
+    /// in the hole and the road is on screen all the way round; a town shoved aside to clear a panel that
+    /// is no longer in a corner would be half off the window instead.
+    /// </remarks>
+    void FrameTheTown(TownWorld world, Vector2 worldSizeM)
+    {
+        var viewM = _camera.ViewSpanM(_uiPx);
+        _camera.LookAt(Opening.LooksAtM(world.Terrain, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
+        _framedAt = (_camera.CentreM, _camera.PixelsPerMetre);
     }
 
     /// <summary>

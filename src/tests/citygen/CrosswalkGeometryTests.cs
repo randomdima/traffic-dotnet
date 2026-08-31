@@ -15,7 +15,7 @@ namespace TrafficSimulation.Tests.CityGen;
 [Trait(Tier.Key, Tier.Town)]
 public class CrosswalkGeometryTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// <b>The axis runs along the road, not across it</b> — a walker crosses square to the axis, over the

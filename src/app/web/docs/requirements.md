@@ -57,6 +57,13 @@ its constructor, the renderer the menu draws through is laid for no sheets, and 
 the ground it does not draw ([`TownRenderer.Ground`](../../render/web/TownRenderer.Web.cs)) — on the
 desktop those pictures are already on the disk, and in a page every one of them is a round trip.
 
+**No town is opened before the first frame, the one a page opens on included.** The animation callback is
+handed to the browser as soon as the engine is running, so what a reader has within a round trip is the
+menu — and the idle ring the menu stands over (GEN-1b), or the map the query string named, is fetched and
+stood up behind it. A page that awaited a plan and three megabytes of art before its first frame would
+show a blank canvas for the whole of that wait, which is the one thing this head cannot afford; the
+desktop, whose files are on the disk it started from, opens the two together.
+
 **A map is *opened* when it is picked**, and the opening happens in the one place a browser run may wait
 — the boot's own loop, which drains the name the menu wrote down (`Game.PickMap`). The bytes are
 usually already here by then and the wait is nothing (WEB-9); what stands between the click and the
@@ -86,12 +93,13 @@ ordinary fetch and nothing else**. Three of them, and each is a different pairin
 | the art, where a map was named ([`main.js`](../wwwroot/main.js)) | the runtime is downloading | both are about three megabytes and neither needs the other |
 | the map list and the figures ([`Data.Boot`](../../main/web/Data.cs)) | each other | two round trips were being spent on 229 bytes |
 | the plan of the map picked ([`Data.Expect`](../../main/web/Data.cs)) | the art is being decoded | one is the wire and the other is the processor |
-| the art, where none was named, and every other plan ([`Data.ExpectArt`](../../main/web/Data.cs), [`ExpectEvery`](../../main/web/Data.cs)) | the reader is deciding what to click | nothing is waiting on the wire once a page is being looked at |
+| the art, where none was named, and every other plan ([`Data.ExpectArt`](../../main/web/Data.cs), [`ExpectEvery`](../../main/web/Data.cs)) | the menu is already up | nothing is waiting on the wire once a page is being looked at |
 
 **The menu waits for nothing, and that includes a fetch nobody is awaiting.** A run that named a map
-has the town as its destination and starts the art beside the engine; a run that did not is going to
-show a menu, which stands on two small files — so the art is not put on the same wire as them at all,
-and is asked for once there is something to look at. Three megabytes sharing a link with 229 bytes is
+has that town as its destination and starts the art beside the engine; a run that did not is going to
+show a menu first — which stands on two small files — so the art is not put on the same wire as them at
+all, and is asked for once there is something to look at, which is also when the idle ring behind the
+menu begins coming down. Three megabytes sharing a link with 229 bytes is
 a menu that comes up later, and how long a page looks broken for is the figure that matters most about
 it. **And none of it starts until the browser has answered the four questions**, because a page that
 cannot draw this spends no bytes at all ([`main.js`](../wwwroot/main.js)).

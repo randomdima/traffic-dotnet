@@ -1,6 +1,8 @@
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
+using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Containment;
@@ -13,13 +15,20 @@ namespace TrafficSimulation.Tests.Agents.Service;
 /// What every shipped map stands (SRV-2, SRV-3): an apron of police cars at each of its stations and an
 /// evacuator at each of its depots, parked, wearing a service variant and with a crew aboard.
 /// </summary>
+/// <remarks>
+/// <b>A service vehicle is one with a building</b> and never one recognised by its paint. What makes a car
+/// a patrol is its station (<c>TownWorld.Beat</c>) and what makes one a recovery is its depot
+/// (<c>TownWorld.Recovery</c>); the paint is what that car then wears, and is asserted here rather than
+/// used to find it — a map may dress its own cars in a look (<see cref="CityGen.IdlePlan"/>), and a look
+/// is not a duty.
+/// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 public class ServiceVehicleTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryServiceVehicleStandsAtItsBuildingWithACrewAboard(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
@@ -29,9 +38,20 @@ public class ServiceVehicleTests
         for (var car = 0; car < world.Cars.Count; car++)
         {
             var variant = world.Cars.Variant[car];
-            if (variant == CarCatalog.Shared.Police) police++;
-            else if (variant == CarCatalog.Shared.Evacuator) evacuators++;
-            else continue;
+            if (world.Beat.Station[car] != PatrolDuty.NoBuilding)
+            {
+                police++;
+                Assert.Equal(CarCatalog.Shared.Police, variant);
+            }
+            else if (world.Recovery.Depot[car] != RecoveryDuty.NoBuilding)
+            {
+                evacuators++;
+                Assert.Equal(CarCatalog.Shared.Evacuator, variant);
+            }
+            else
+            {
+                continue;
+            }
 
             Assert.False(world.Cars.Ambulance[car], $"{map}: a service vehicle was stood as an ambulance");
             Assert.False(world.Cars.Driven[car], $"{map}: a service vehicle is driving before it was given anything to do");
@@ -65,7 +85,7 @@ public class ServiceVehicleTests
     /// about the wrap a spawned walker's look comes off.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryCrewWearsItsOwnUniformAndNobodyElseWearsOne(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
@@ -118,17 +138,17 @@ public class ServiceVehicleTests
     /// the building it belongs to.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void NoServiceVehicleStandsFurtherFromItsBuildingThanAWalk(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
 
         for (var car = 0; car < world.Cars.Count; car++)
         {
-            var variant = world.Cars.Variant[car];
-            if (variant != CarCatalog.Shared.Police && variant != CarCatalog.Shared.Evacuator) continue;
+            var patrol = world.Beat.Station[car] != PatrolDuty.NoBuilding;
+            if (!patrol && world.Recovery.Depot[car] == RecoveryDuty.NoBuilding) continue;
 
-            var roster = variant == CarCatalog.Shared.Police ? world.PoliceStations : world.Depots;
+            var roster = patrol ? world.PoliceStations : world.Depots;
             var standingM = world.Parking.CentreM(world.Parking.BayOf(car));
 
             var near = false;

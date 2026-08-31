@@ -17,7 +17,7 @@ public class ServiceRosterTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     [Theory]
     [MemberData(nameof(Maps))]

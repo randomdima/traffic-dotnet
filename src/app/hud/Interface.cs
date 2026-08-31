@@ -137,20 +137,28 @@ internal sealed class Interface(TrimFigures trims)
             {
                 case "none":
                     break;
+                // `menu` is the panel a run opens on and `menu-run` the popup under the gear: the same rows
+                // laid two ways (GEN-1b), and two pictures rather than one.
                 case "menu":
+                    Menu.StandAtTheStart();
+                    break;
                 case "menu-run":
                     Menu.Show();
                     break;
+                // The popup with the scenarios opened, which is the one panel where that group starts
+                // shut: the start menu opens on both, so asking it for them would be asking for `menu`.
                 case "menu-scenarios":
+                    Menu.ShutOntoTheTown();
                     Menu.Show();
-                    Menu.OpenAt(Menu.Maps);
                     Menu.OpenGroup(Menu.Scenarios);
                     break;
                 case "menu-debug":
+                    Menu.ShutOntoTheTown();
                     Menu.Show();
                     Menu.OpenAt(Menu.Debug);
                     break;
                 case "menu-figures":
+                    Menu.ShutOntoTheTown();
                     Menu.Show();
                     Menu.OpenAt(Menu.Figures);
                     break;
@@ -207,12 +215,21 @@ internal sealed class Interface(TrimFigures trims)
     /// </remarks>
     /// <param name="primary">Whether it was the left button. Anything else is swallowed but acts on nothing.</param>
     /// <param name="hasTown">
-    /// Whether there is anything behind the menu. With none there is nothing to shut it onto (GEN-1b), so
-    /// a click off it is dropped rather than closing it onto an empty screen.
+    /// Whether there is a town behind the menu that somebody asked for. The idle ring is not one (GEN-1b),
+    /// so while the start menu is up there is nothing to shut it onto and nothing behind it to click on:
+    /// every click off the panel is taken and acts on nothing.
     /// </param>
     public ClickTaken Click(Vector2 atPx, Vector2 uiPx, bool primary, bool hasTown, out MenuChoice choice)
     {
         choice = MenuChoice.None;
+
+        // The start menu owns the screen: the buttons it would hang off are not drawn, and a click
+        // anywhere but on the panel is swallowed rather than dismissing it.
+        if (Menu.AtTheStart)
+        {
+            if (primary && Menu.Box.Contains(atPx)) choice = Menu.Click(atPx, Switches, Trims);
+            return ClickTaken.Yes;
+        }
 
         var gear = Chrome.GearAt(uiPx);
         var help = Chrome.HelpAt(uiPx);
@@ -265,12 +282,19 @@ internal sealed class Interface(TrimFigures trims)
     public bool WheelIsThePanels(Vector2 atPx) => Menu.Open && Menu.Box.Contains(atPx);
 
     /// <summary>The town has changed under everything that held a place in it.</summary>
-    public void TownChanged()
+    /// <param name="behindTheMenu">
+    /// Whether the town was stood up <em>behind</em> the menu rather than picked on it (GEN-1b). <b>A menu
+    /// shut onto a town nobody asked for would be the game choosing for the reader</b>: the idle map is
+    /// what the menu is drawn over, and the menu is still what a run opens on.
+    /// </param>
+    public void TownChanged(bool behindTheMenu = false)
     {
         Overlay.TownChanged();
         Ruler.TownChanged();
         Track.TownChanged();
-        Menu.Shut();
+        if (behindTheMenu) Menu.StandAtTheStart();
+        else Menu.ShutOntoTheTown();
+
         Controls.Shut();
     }
 
@@ -322,23 +346,30 @@ internal sealed class Interface(TrimFigures trims)
             // the brackets it is laid against and under every panel.
             UnitLabel.Draw(ref draw, frame.UiPx, world, frame.Config, frame.Camera, claimed);
 
-            Status.Draw(
-                ref draw, frame.PointerPx, frame.MapName, Run, frame.Tick, frame.Frame, frame.Crossings,
-                frame.Counting, draw.Written, world, Overlay.Relaid, claimed);
-
-            // The proving ground's own read-out, over the furniture it sits under and behind the popups.
-            if (Switches.TrackFigures && frame.Track is { } track)
+            // GEN-1b: <b>the read-out and the legend say what a run is, and the start menu is not one.</b>
+            // The ring behind the panel is a picture rather than a town somebody opened, and a frame rate
+            // and a scale bar over it are answers to questions nobody has asked yet.
+            if (!Menu.AtTheStart)
             {
-                Track.Draw(ref draw, frame.PointerPx, Status.Box.Bottom + Theme.GapPx, track);
-            }
+                Status.Draw(
+                    ref draw, frame.PointerPx, frame.MapName, Run, frame.Tick, frame.Frame, frame.Crossings,
+                    frame.Counting, draw.Written, world, Overlay.Relaid, claimed);
 
-            // The legend is furniture, has no switch, and is drawn from the moment a town is standing.
-            ScaleLegend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);
+                // The proving ground's own read-out, over the furniture it sits under and behind the popups.
+                if (Switches.TrackFigures && frame.Track is { } track)
+                {
+                    Track.Draw(ref draw, frame.PointerPx, Status.Box.Bottom + Theme.GapPx, track);
+                }
+
+                // The legend is furniture, has no switch, and is drawn from the moment a town is standing.
+                ScaleLegend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);
+            }
         }
 
-        // GEN-1b: with no map loaded there is nothing to draw an interface over, and the menu is the
-        // whole of what is on screen. It is the same popup either way — only what is behind it changes.
-        Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, Menu.Open, Controls.Open);
+        // GEN-1b: the start menu is the whole of what is on screen, so the two corner buttons are not
+        // drawn under it — a gear that opens what is already open and cannot shut it is a button that
+        // teaches nothing, and the legend behind it is about keys no town is listening for yet.
+        if (!Menu.AtTheStart) Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, Menu.Open, Controls.Open);
 
         // Last of all, over the furniture as well as the layers.
         if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches, Trims);

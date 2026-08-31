@@ -37,18 +37,24 @@ public class PatrolTests
     /// </summary>
     const int SoakTicks = 7_200;
 
-    /// <summary>SRV-5 and SRV-2: every police car belongs to a station and starts on that station's apron.</summary>
+    /// <summary>
+    /// SRV-5 and SRV-2: every police car belongs to a station and starts on that station's apron.
+    /// <b>A police car is one with a station and not one recognised by its paint</b> — a map may dress its
+    /// own cars in a look (<see cref="CityGen.IdlePlan"/>), and a look is not a duty — so the paint is
+    /// asserted of the patrol rather than used to find it.
+    /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryPoliceCarStandsByOnItsOwnStationsApron(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
 
         for (var car = 0; car < world.Cars.Count; car++)
         {
-            if (world.Cars.Variant[car] != CarCatalog.Shared.Police) continue;
-
             var station = world.Beat.Station[car];
+            if (station == PatrolDuty.NoBuilding) continue;
+
+            Assert.Equal(CarCatalog.Shared.Police, world.Cars.Variant[car]);
             Assert.True(world.PoliceStations.Holds(station), $"{map}: a police car belongs to no station");
             Assert.Equal(PatrolStage.Standing, world.Beat.Stage[car]);
 
@@ -78,7 +84,7 @@ public class PatrolTests
     /// </para>
     /// </remarks>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryHeldBayStartsWithTheVehicleItIsHeldFor(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
@@ -114,7 +120,7 @@ public class PatrolTests
     /// a bay is held for may be standing in it or on its way to it, however long the town runs.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryMapWorthASoak), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void NoOtherCarEverTakesABayHeldForAServiceVehicle(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
@@ -151,7 +157,7 @@ public class PatrolTests
     /// the bays were taken nearest-first and landed on both kerbs.
     /// </remarks>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryApronStandsAlongOneKerb(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
@@ -203,7 +209,7 @@ public class PatrolTests
             loop.Advance(1);
             for (var car = 0; car < world.Cars.Count; car++)
             {
-                if (world.Cars.Variant[car] != CarCatalog.Shared.Police) continue;
+                if (world.Beat.Station[car] == PatrolDuty.NoBuilding) continue;
 
                 // <b>Either half of finishing counts</b>: the drive home, and standing by at the end of it.
                 // A car whose station has no apron to come back to is home the moment its places run out,

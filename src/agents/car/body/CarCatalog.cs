@@ -125,6 +125,8 @@ internal sealed class CarCatalog
         Police = IndexOf("police_white");
         Evacuator = IndexOf("evacuator_yellow");
         Plain = InTheFleet("sedan_silver");
+        Armoured = InTheFleet("apc_olive");
+        Sports = InTheFleet("sports_red");
 
         // The beams get a run of sheet slots of their own, because they are a picture only a look or two in
         // the catalogue has: a slot per look would lay an empty sheet for every car in the town.
@@ -218,11 +220,19 @@ internal sealed class CarCatalog
     public int Evacuator { get; }
 
     /// <summary>
-    /// <b>The one look a map that stands a single make of car dresses its whole fleet in</b>, which is an
-    /// ordinary car and never a service vehicle's picture: a police look is what a police car <em>is</em>
-    /// (SRV-2, SRV-5), so a map of them would be a map of cars that each belong to a station.
+    /// <b>The one look a map that stands a single make of car dresses its whole fleet in</b>, where what
+    /// the map wants is for its cars to differ in nothing at all.
     /// </summary>
     public int Plain { get; }
+
+    /// <summary>
+    /// And the heaviest look the fleet ships, for a map that wants one car plainly worth escorting.
+    /// <b>Named rather than drawn</b>, like every other look a map asks for by what it is.
+    /// </summary>
+    public int Armoured { get; }
+
+    /// <summary>And the quickest, for a map that wants one car plainly worth watching go past.</summary>
+    public int Sports { get; }
 
     /// <summary>
     /// The fleet, read once. <b>It is data and not a service</b> — immutable, on disk, and the same for

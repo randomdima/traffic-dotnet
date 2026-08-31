@@ -238,7 +238,7 @@ public class KerbTests
     /// own soak invariant, counted where it happens rather than sampled.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void NoWalkerBeginsACrossingOnARed(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);

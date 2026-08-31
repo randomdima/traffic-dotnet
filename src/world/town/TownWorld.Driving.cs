@@ -65,6 +65,11 @@ internal sealed partial class TownWorld
         // clocks still run: `E-9` and `E-10` end a leg from exactly this state, and a recovery that could
         // not find a lane is left in it until the ladder gets there. It has nothing to drive, so the body
         // holds — but it is decided about like any other car.
+        // Off a route there is no movement into a box: a way out of a bay and a template round an
+        // obstruction are laid over ground the graph has no turn for. Left as it was, the last junction this
+        // car approached would still be what its indicator is announcing.
+        if (Cars.Line[car].LaneCount == 0) Cars.TurningAtTheBox[car] = false;
+
         if (Cars.Line[car].ArcCount == 0) Hold(car, pose, DrivingHold.None);
         else if (Cars.Line[car].LaneCount > 0) DriveTheRoute(car, pose);
         else if (Cars.LineWayOf(car) != CarFleet.NoWay) DriveTheWay(car, pose);
@@ -107,6 +112,7 @@ internal sealed partial class TownWorld
             Cars.InsideTheBox[car] = false;
             Cars.LightAheadM[car] = float.PositiveInfinity;
             Cars.ToTheBoxM[car] = float.PositiveInfinity;
+            Cars.TurningAtTheBox[car] = false;
             Cars.BoxIsOurs[car] = false;
             Hold(car, pose, DrivingHold.LostLine);
             if (MathF.Abs(alongMps) <= _config.Driving.StopSpeedMps) Reacquire(car, rearAxleM);
@@ -170,7 +176,7 @@ internal sealed partial class TownWorld
         var context = new DriveContext(
             seen.DistanceM, seen.AlongMps, junctionStopM, Cars.GroundCoefficient[car],
             crossingStopM, crossingAtM, crossingPaceMps, kind, Cars.AuthorityM[car] - coveredM,
-            Cars.GrantCutBy[car]);
+            Cars.GrantCutBy[car], Cars.FollowingShare[car]);
 
         Cars.Context[car] = context;
         Drive(
@@ -393,6 +399,12 @@ internal sealed partial class TownWorld
         // bars and the wait at a kerb — so without a pace of its own it reaches the gear's cap on the
         // first straight it meets and arrives as a second casualty.
         if (Cars.BlueLight[car]) targetMps = MathF.Min(targetMps, _config.Ambulance.CallPaceMps);
+
+        // And a pace somebody put on this car, which is neither the road's nor the build's: an escort held
+        // under the pace of what it is escorting keeps station by being caught rather than by being told to
+        // (<c>IdlePlan.EscortPaceShare</c>). It is folded in with the profile's own terms and not instead of
+        // them, so a corner, a queue and a stop line all still outrank it.
+        targetMps = MathF.Min(targetMps, Cars.PaceMps[car]);
 
         var limits = CarryTheStopPoint(car, coveredM);
         targetMps = UnderTheLimits(build, limits, targetMps, alongMps, context, ref hold);

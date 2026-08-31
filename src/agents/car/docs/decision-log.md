@@ -5,6 +5,27 @@
 chained, why an entry is entered on one thing and left on another. What is here is the body and the
 tyres.
 
+## 2026-08-31 — the indicator was reading a bend, and a bend is not a turn
+
+**A car indicated its way round every corner of every circuit.** CAR-14.1 read the indicator off the line's
+own bend over the next twenty-five metres, which on the idle ring — twenty-four metres of radius, held for
+ever — is fifty-eight degrees on every metre of it. Under the old rule that was correct behaviour, which is
+what made it worth changing rather than tuning: a road of constant radius offers nowhere else to go, so a
+car announcing a turn on one is announcing something nobody can act on.
+
+**What was tried first was subtracting the bend behind from the bend ahead.** It kills the circuit, and it
+also kills the second half of every junction turn — a car deep in a left-hander stops indicating, which is
+exactly when the traffic waiting to come out of the side road is reading it.
+
+**So the indicator is now gated on the junction rather than measured against it.** It is shown only within
+reach of a junction whose movement the road classifies as a turn (`LaneTurn`, already computed for right of
+way in `TownWorld.JunctionStopM`) — so what a car announces and what it gives way to are one answer. Which
+*side* is still the line's own bend, so no manoeuvre has to declare itself.
+
+**What this loses is the bay exit and the way round an obstruction**, both of which used to indicate off
+their template's bend and now have no junction in front of them to answer. That is the cost of the rule
+being about junctions, and it is named here rather than left to be discovered.
+
 ## 2026-08-30 — the engine was authored in m/s², and no car in the fleet could reach a third of its own pedal
 
 **Read one look at a time, the pad said the same thing sixteen times.** Only three squares of the lightest

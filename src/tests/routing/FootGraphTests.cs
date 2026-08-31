@@ -19,7 +19,7 @@ namespace TrafficSimulation.Tests.Routing;
 [Trait(Tier.Key, Tier.Town)]
 public class FootGraphTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>One map's foot graph, built once and read by every claim about it.</summary>
     static FootGraph Of(string map) => Built.GetOrAdd(map, at => FootGraph.Build(Towns.Of(at), SimConfig.Shipped()));

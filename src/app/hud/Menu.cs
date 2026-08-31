@@ -30,10 +30,12 @@ internal enum MenuAction : byte
 /// renderer are replaced by <em>opening a map</em> and by nothing else.
 /// </para>
 /// <para>
-/// <b>GEN-1b is a fact about the state and not about a second panel</b>: at start no map is loaded, so
-/// the menu is what is on the screen and there is nothing behind it. It is the same popup in the same
-/// corner either way — only what is behind it changes, and with nothing behind it there is nothing to
-/// shut it onto, so it stays up until a map is picked.
+/// <b>GEN-1b is a fact about the state and not about a second panel</b>: at start no city is loaded, so
+/// what is behind the menu is the idle ring the game opens on — or, for the moment a page is still
+/// fetching that, nothing at all. It is the same panel with the same rows, laid <em>in the middle of the
+/// window</em> and a size larger (<see cref="AtTheStart"/>), and it cannot be shut: the ring is what a
+/// reader looks at while deciding rather than a town they chose, so there is nothing to shut it onto and
+/// the only two ways past it are picking a map and the exit tab.
 /// </para>
 /// <para>
 /// <b>OBS-2a — the map list it reads is the map list the command line reads</b>
@@ -89,6 +91,69 @@ internal sealed partial class Menu
     const float LeastContentPx = 460f;
 
     /// <summary>
+    /// <b>The start menu has no tab strip</b> (<see cref="AtTheStart"/>): it carries one page, and a strip
+    /// of one tab is a row of chrome that says nothing. The way out keeps its place as the last thing
+    /// across the top, which there is the title's own line.
+    /// </summary>
+    static bool AtTheStartTab(int tab) => tab == ExitTab;
+
+    /// <summary>
+    /// What the start menu writes a map's name in. <b>One size up</b>, because it is read across a room
+    /// from a screen nothing else is on rather than glanced at beside a running town — and it is the
+    /// theme's own heading size rather than a sixth figure of this panel's. <b>The line under it is not</b>:
+    /// it is a sentence rather than a label, it wraps, and a sentence a size up is a panel that covers the
+    /// picture it is standing on.
+    /// </summary>
+    static float NamePx(bool atTheStart) => atTheStart ? Theme.HeadingPx : Theme.TextPx;
+
+    /// <summary>
+    /// How much of the window's short side the start menu is laid across. <b>It is the field inside the
+    /// idle ring that this figure is really about</b>: the ring is laid to the opening view across the
+    /// short side (`OBS-1b`), so the grass in the middle of it is a fixed share of that side too, and a
+    /// panel measured against a wide window's width would stand across the road instead of in the field.
+    /// </summary>
+    /// <remarks>
+    /// <b>The field is a rounded square and not a disc</b> (<c>IdlePlan.CornerShare</c>), which is what
+    /// makes this a width rather than a diagonal: the panel is laid against the straight sides, and only a
+    /// panel grown to nearly the whole field reaches the corners at all. This is the width that leaves the
+    /// collapsed list inside it once its descriptions have wrapped and grown the rows.
+    /// </remarks>
+    const float StartWidthShare = 0.45f;
+
+    /// <summary>
+    /// And how much of it the panel is tall. <b>The start menu is one size whatever is open in it</b>: it
+    /// stands in the field inside the ring, and a panel that grew as a group opened would grow out across
+    /// the road — so the height is the field's and never the list's, and a list longer than it scrolls.
+    /// </summary>
+    /// <remarks>
+    /// It is a share of the <em>short</em> side like the width, and for the same reason: the field is
+    /// square and is a fixed share of the side the opening view is a figure across (`OBS-1b`). A little
+    /// under half leaves the panel's top and bottom edges inside the straight sides of the loop.
+    /// </remarks>
+    const float StartHeightShare = 0.5f;
+
+    /// <summary>
+    /// And how far down the window the popup under the gear may reach, as a share of the window's height.
+    /// <b>A popup is furniture beside a town and not a panel over it</b>: one that runs from the corner
+    /// button to the bottom edge is the full-screen menu it replaced, drawn over the very town every row on
+    /// it is a question about. A page longer than this scrolls, as it already does on a short window.
+    /// </summary>
+    const float PopupHeightShare = 0.5f;
+
+    /// <summary>The most lines a description is broken across before what is left of it is dropped.</summary>
+    const int MostDescriptionLines = 3;
+
+    /// <summary>The way out, as wide as its own word and no wider — it stands on the title's line.</summary>
+    static readonly float ExitWidthPx =
+        GlyphSheet.WidthPx(TabNames[ExitTab].Length, Theme.TextPx) + (Theme.InsetPx * 2f);
+
+    /// <summary>What the panel calls itself, which is the widest thing on a page of few short rows.</summary>
+    const string Title = "traffic-dotnet";
+
+    /// <summary>The mark ahead of an open group's name, which is also the room a shut one's takes.</summary>
+    const string GroupMark = "- ";
+
+    /// <summary>
     /// Every fixed line the debug page draws, so the panel is wide enough for all of them at once.
     /// </summary>
     /// <remarks>
@@ -124,6 +189,9 @@ internal sealed partial class Menu
 
     /// <summary>How many rows the map page laid, group headers and all.</summary>
     public int RowCount => _rowCount;
+
+    /// <summary>And how tall one of them came out, which is what a wrapped description is read off.</summary>
+    public float RowHeightPx(int row) => HeightOfRow(row);
 
     /// <summary>The wheel over a page longer than the window, in notches.</summary>
     public void Scroll(float notches)

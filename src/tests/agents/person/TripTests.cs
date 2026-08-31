@@ -77,7 +77,7 @@ public class TripTests
     /// </para>
     /// </remarks>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryCarStartsParkedWithNobodyInIt(string map)
     {
         var plan = Towns.Of(map);

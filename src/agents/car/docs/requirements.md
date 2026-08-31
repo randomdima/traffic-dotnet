@@ -234,12 +234,21 @@ of the light a car actually indicates with. A block painted onto bodywork is wha
 where the art draws no lamp there at all** — it is a lens invented for a car that has none, and beside a
 lamp the artist did draw it reads as a sticker on the paint.
 
-**CAR-14.1** The **indicator names the side the line ahead bends to**, over the stretch of it a driver
-would be announcing. One rule covers a junction turn, a bay being pulled out of and a way round an
-obstruction, because all three are already written down as the geometry the car is about to drive; a
-street's own bend is under the threshold and says nothing. A line laid the way the rear axle travels
-(`E-3`, the bay templates) bends the body the other way round, and is read in the body's frame. It is
-the **front corner pair** that flashes.
+**CAR-14.1** The **indicator announces the turn a car is about to make at the junction in front of it**,
+and nothing else. It is shown only while a junction is **within reach** of the car and only where the
+movement its own line takes through that junction is a **turn rather than straight on** — the road's own
+classification of the pair of lanes the line joins (`TownWorld.JunctionStopM`, `CarFleet.TurningAtTheBox`),
+so what a car announces and what it gives way to are one answer about one movement.
+
+**A bend is not a turn.** A road of constant radius bends past any threshold for ever, and a car announcing
+that all the way round a circuit is announcing something nobody can act on: there is nowhere else for it to
+go. The same is true of a car going straight on through a crossroads, and of a car on a way or a template
+with no junction ahead of it at all.
+
+**Which side is still read off the geometry** and never off the manoeuvre: the side the line bends to over
+the stretch of it a driver would be announcing, so no entry of the catalogue has to declare itself. A line
+laid the way the rear axle travels (`E-3`, the bay templates) bends the body the other way round, and is
+read in the body's frame. It is the **front corner pair** that flashes.
 
 **CAR-14.2** The **brake lamps are the pedal**: what the driver is asking of the brakes, never what the
 tyres are doing about it. A car standing on its handbrake with nobody's foot down shows none.

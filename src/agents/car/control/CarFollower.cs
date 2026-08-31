@@ -89,10 +89,16 @@ internal enum HeadwayKind : byte
 /// What cut it, which is what says whether the car is <em>following</em> something or merely stopping short
 /// of it. <see cref="HeadwayKind.Nothing"/> where nothing did.
 /// </param>
+/// <param name="FollowingShare">
+/// How much of the ordinary following interval this driver keeps (<see cref="CarFleet.FollowingShare"/>).
+/// <b>One for every car in every town</b>: it is the escort of a convoy, and nothing else, that keeps a
+/// gap other traffic would not.
+/// </param>
 internal readonly record struct DriveContext(
     float HeadwayM, float HeadwaySpeedMps, float StopAtM, float GroundCoefficient,
     float CrossingStopM, float CrossingAtM, float CrossingPaceMps, HeadwayKind Ahead = HeadwayKind.Nothing,
-    float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing)
+    float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
+    float FollowingShare = 1f)
 {
     public DriveContext(float headwayM, float headwaySpeedMps, float stopAtM, float groundCoefficient)
         : this(
@@ -358,7 +364,7 @@ internal static class CarFollower
         // station behind, and a second of travel on top of that margin is a car holding a street shut at
         // speed for something it needed only to stop short of.
         var followingM = context.GrantCutBy == HeadwayKind.Queue
-            ? MathF.Abs(alongMps) * config.Driving.FollowingHeadwayS
+            ? MathF.Abs(alongMps) * config.Driving.FollowingHeadwayS * context.FollowingShare
             : 0f;
         Bind(
             ref targetMps, ApproachMps(0f, context.AuthorityM - followingM, brakingMps2),

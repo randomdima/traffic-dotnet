@@ -19,7 +19,7 @@ public class JunctionCrossingTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// <b>One map's road graph, built once and read by every claim about it.</b> It is a function of the plan

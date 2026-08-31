@@ -13,13 +13,16 @@ its town and its pace, in one line that is never not on screen.
 entry names something that exists, and everything that exists appears in the list.
 
 The maps are cut into two collapsible groups — the places, and the scenarios laid to put one behaviour
-under a microscope. **The places are open and the scenarios are not**: a menu of two cities should not
-read as a menu of two cities and a laboratory, and a mis-click on the row under a city should not lose
-somebody's game.
+under a microscope. **Which of them a menu opens on is a property of which menu it is.** The popup under
+the gear opens on the places alone: a menu of two cities should not read as a menu of two cities and a
+laboratory, and a mis-click on the row under a city should not lose somebody's game. **The start menu opens
+on both** (`GEN-1b`) — nothing is running behind it, so a mis-click costs nobody a game, and reading the
+whole catalogue is what somebody is at it for.
 
 **OBS-2g** **Escape opens and shuts the settings popup, and the way out of the game is the button inside
 it.** A scene with no such panel keeps Escape as its own way out. The popup holds which map to open and
-the debug switches, and nothing else.
+the debug switches, and nothing else. **The start menu is the exception and not such a scene** (`GEN-1b`):
+it cannot be shut, so Escape does nothing at it and the way out is the tab that says so.
 
 **OBS-2e** **How big the town is, is on screen at all times**: a graduated scale legend in the
 bottom-right corner.
@@ -116,9 +119,20 @@ There are two buttons in the top-right corner and a popup under each: the gear o
 question mark opens the control legend. Both obey the same three rules.
 
 - **A popup opens under its own button and is aligned to that button's trailing edge**, so what was
-  pressed and what appeared are visibly the same thing. One site decides that for both.
+  pressed and what appeared are visibly the same thing. One site decides that for both. **It reaches no
+  further than half way down the window**: one running from the corner button to the bottom edge is the
+  full-screen panel it replaced, over the very town its rows are questions about. A page longer than that
+  **scrolls**, and the ceiling never cuts into what the switch page needs whole, since those rows are laid
+  at a pitch rather than scrolled.
 - **The button that opens it shuts it**, and so does a click anywhere off the panel, and so does Escape.
   There is no close button inside a popup: a panel with two ways to shut it teaches neither.
+- **The start menu obeys none of these three** (`GEN-1b`, `Menu.AtTheStart`). It is the same panel and the
+  same rows, but it is the screen rather than furniture beside a town: it stands in the middle of the
+  window at **one size whatever is open in it**, it carries one page and so no tab strip — the way out
+  stands on the title's own line — its map names are written a size larger and their descriptions wrap, it
+  opens on both groups, it cannot be shut, and the two corner buttons and the read-out are not drawn under
+  it. **The popup is as tall as its page and this one is as tall as the field it stands in**, which is why
+  it is the one panel here that can be showing fewer rows than it has room to draw.
 - **A popup is not a mode.** The town keeps its keys and its camera while one is up; only the wheel is
   taken, and only while the pointer is over the panel. A click off an open popup shuts it and is **taken**
   — dismissing a panel and selecting the car that happened to be under the pointer are two intentions, and

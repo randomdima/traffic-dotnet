@@ -35,7 +35,7 @@ namespace TrafficSimulation.App.Main;
 /// <para>
 /// <b>The game itself is <see cref="Game"/></b>, which is the composition root — this only chooses
 /// between it, the offscreen shot, the dependency read-out and the checks. With no map named the game
-/// opens on its start menu and builds nothing (GEN-1b).
+/// opens on its start menu, over the idle ring and no city (GEN-1b).
 /// </para>
 /// <para>
 /// The loop <see cref="Game"/> runs is this engine's own and never <c>IWindow.Run</c>'s: the brief
@@ -66,8 +66,8 @@ internal static class Program
             throw new ArgumentException(
                 "--caption, --title and --note are about a picture: take one with --shot PATH or --sheet FILE.");
 
-        // GEN-1b: with no map named, the game opens on the start menu and builds nothing until one
-        // is picked. Naming one on the command line is the same choice made earlier.
+        // GEN-1b: with no map named, the game opens on the start menu with the idle ring behind it and
+        // no city until one is picked. Naming one on the command line is that choice made earlier.
         using var game = new Game(
             config, options.Width, options.Height, options.Validate, options.UiScale, PresentMode(options.Present),
             fullscreen: !options.Windowed, options.Display);
@@ -170,8 +170,8 @@ internal static class Program
 
     /// <summary>
     /// <b>The maps this build lays itself, written out like any other.</b> The proving grounds
-    /// (<see cref="TrackPlan"/>), the driving exam (<see cref="ExamPlan"/>) and the skidpad
-    /// (<see cref="SkidpadPlan"/>) are laid again from here
+    /// (<see cref="TrackPlan"/>), the driving exam (<see cref="ExamPlan"/>), the skidpad
+    /// (<see cref="SkidpadPlan"/>) and the idle ring (<see cref="IdlePlan"/>) are laid again from here
     /// rather than kept only as files — every shape on either of them is chosen against the car's own
     /// figures, so a figure that moves is a map that has to be laid again.
     /// </summary>
@@ -186,6 +186,7 @@ internal static class Program
 
         Written(ExamPlan.Lay(config));
         Written(SkidpadPlan.Lay(config));
+        Written(IdlePlan.Lay(config));
         return 0;
 
         static void Written(CityPlan plan)
@@ -498,8 +499,9 @@ internal static class Program
         /// </remarks>
         public static Options Parse(string[] args, ViewFigures view)
         {
-            // No map by default, because GEN-1b says the game opens on a menu and builds nothing
-            // until one is picked. Naming one is that choice made on the command line instead.
+            // No map by default, because GEN-1b says the game opens on a menu and builds no city until
+            // one is picked — what stands behind that menu is the game's own (<see cref="Game.IdleMap"/>),
+            // and naming a map here is that choice made on the command line instead.
             // A zero ui scale is "ask the window", which is the desktop's own factor: naming one is
             // for the platform that reports 1 on a display nobody would call unscaled.
             var options = new Options(Check: false, Validate: false,

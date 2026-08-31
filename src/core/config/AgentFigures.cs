@@ -234,13 +234,20 @@ internal sealed class LampFigures
     public float LeastGlowM { get; init; } = 0.18f;
 
     /// <summary>
-    /// How much of the line ahead is read for the turn a car is about to make, and how far that stretch
-    /// has to bend before the car says so. Together they are what an indicator <em>means</em>: 20° inside
-    /// 25 m is a junction turn or a bay being pulled out of, and a street's own bend is not.
+    /// How much of the line ahead is read for the side the turn goes to, and how far that stretch has to
+    /// bend before the car says so.
     /// </summary>
     public float TurnAheadM { get; init; } = 25f;
 
     public float TurnDeg { get; init; } = 20f;
+
+    /// <summary>
+    /// How near the junction a car has to be before it announces the turn it is taking there (CAR-14.1).
+    /// <b>The distance somebody behind is still able to act on it</b> — far enough out that the car behind
+    /// has read it before either of them is slowing for the junction, and near enough that what is being
+    /// announced is plainly the junction in front rather than one two streets away.
+    /// </summary>
+    public float JunctionAheadM { get; init; } = 50f;
 
     /// <summary>What the pedal has to be asking for before the brake lamps are on. Any real pressure, and nothing from the tyres.</summary>
     public float BrakeMps2 { get; init; } = 0.2f;

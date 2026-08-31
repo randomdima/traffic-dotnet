@@ -1020,7 +1020,7 @@ public class LaneOccupancyInATownTests
     /// <summary>The bar the road itself holds a car to before it calls the line lost, which is what the index places by.</summary>
     const float OnItsLineTolerance = 2f;
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     static readonly ConcurrentDictionary<string, TownWorld> Ran = new();
 

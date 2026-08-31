@@ -11,16 +11,26 @@ internal sealed partial class Menu
     public void Draw(
         ref ScreenDraw draw, Vector2 uiPx, Rect anchor, Vector2 pointerPx, DebugSwitches switches, TrimFigures trims)
     {
-        if (_laidFor != uiPx || _laidAt != anchor) Lay(uiPx, anchor);
+        if (!LaidFor(uiPx, anchor)) Lay(uiPx, anchor);
 
         Theme.Frame(ref draw, Box);
+
+        // The title sits on the middle of its own band, which on the start menu is as tall as the way out
+        // standing at the end of it and on the popup is the title's own line.
+        var titlePx = (TitleHeightPx(AtTheStart) - Theme.HeadingPx) * 0.5f;
         draw.Text(
-            Box.AtPx + new Vector2(Theme.PaddingPx, Theme.PaddingPx), "traffic-dotnet", Theme.HeadingPx, Theme.Heading);
+            Box.AtPx + new Vector2(Theme.PaddingPx, Theme.PaddingPx + titlePx), Title, Theme.HeadingPx,
+            Theme.Heading);
+
         Theme.Separator(
-            ref draw, Box.AtPx + new Vector2(Theme.PaddingPx, RuleTopPx), Box.SizePx.X - Theme.PaddingPx * 2f);
+            ref draw, Box.AtPx + new Vector2(Theme.PaddingPx, RuleTopPx(AtTheStart)),
+            Box.SizePx.X - Theme.PaddingPx * 2f);
 
         for (var tab = 0; tab < _tabs.Length; tab++)
         {
+            // A tab this layout does not carry was laid as no rectangle at all.
+            if (_tabs[tab].SizePx.X <= 0f) continue;
+
             // The way out is a button standing in the tab strip rather than a page: it is the one
             // thing on the menu that does not come back.
             if (tab == ExitTab)
@@ -46,9 +56,9 @@ internal sealed partial class Menu
 
     void DrawMaps(ref ScreenDraw draw, Vector2 pointerPx)
     {
-        // The two lines of a map row are centred on it together, so a row's name sits the same distance
-        // from its top edge as the line under it does from its bottom.
-        var firstLinePx = (Theme.TallRowPx - (Theme.TextPx + Theme.GapPx * 0.5f + Theme.SmallTextPx)) * 0.5f;
+        // The lines of a map row are centred on it together, so a row's name sits the same distance from
+        // its top edge as the last line under it does from its bottom.
+        var namePx = NamePx(AtTheStart);
         Span<char> text = stackalloc char[32];
 
         for (var slot = 0; slot < _shownRows && _firstRow + slot < _rowCount; slot++)
@@ -62,20 +72,32 @@ internal sealed partial class Menu
             {
                 Theme.Face(ref draw, box, pointerPx, Theme.RowRest);
                 var line = new TextBuffer(text);
-                line.Add(_groupOpen[group] ? "- " : "+ ");
+                line.Add(_groupOpen[group] ? GroupMark : "+ ");
                 line.Add(_rowNames[row]);
                 draw.TextFitted(
-                    box.AtPx + new Vector2(Theme.InsetPx, (Theme.RowPx - Theme.TextPx) * 0.5f), line.Written,
-                    Theme.TextPx, Theme.Heading, fitPx);
+                    box.AtPx + new Vector2(Theme.InsetPx, (Theme.RowPx - namePx) * 0.5f), line.Written,
+                    namePx, Theme.Heading, fitPx);
                 continue;
             }
 
             Theme.Face(ref draw, box, pointerPx);
+
+            var lines = _rowLines[row];
+            var downPx = (box.SizePx.Y - TextHeightPx(namePx, lines)) * 0.5f;
             draw.TextFitted(
-                box.AtPx + new Vector2(Theme.InsetPx, firstLinePx), _rowNames[row], Theme.TextPx, Theme.Text, fitPx);
-            draw.TextFitted(
-                box.AtPx + new Vector2(Theme.InsetPx, firstLinePx + Theme.TextPx + Theme.GapPx * 0.5f),
-                _rowDescriptions[row], Theme.SmallTextPx, Theme.Dim, fitPx);
+                box.AtPx + new Vector2(Theme.InsetPx, downPx), _rowNames[row], namePx, Theme.Text, fitPx);
+
+            downPx += namePx;
+            var description = _rowDescriptions[row].AsSpan();
+            foreach (var line in LinesOf(row)[..lines])
+            {
+                downPx += Theme.GapPx * 0.5f;
+                draw.TextFitted(
+                    box.AtPx + new Vector2(Theme.InsetPx, downPx), description[line], Theme.SmallTextPx,
+                    Theme.Dim, fitPx);
+
+                downPx += Theme.SmallTextPx;
+            }
         }
 
         if (Scrolls) ScrollBar(ref draw);

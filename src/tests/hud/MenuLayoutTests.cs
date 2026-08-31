@@ -24,9 +24,23 @@ public class MenuLayoutTests
 
     static Rect Gear(Vector2 uiPx) => Chrome.GearAt(uiPx);
 
+    /// <summary>
+    /// The popup under the gear, which is what the menu is once a map has been picked. <b>The start menu
+    /// is laid by other rules</b> (GEN-1b) and is staged by <see cref="AtTheStart"/>.
+    /// </summary>
     static Menu Laid(Vector2 uiPx)
     {
         var menu = new Menu();
+        menu.ShutOntoTheTown();
+        menu.Show();
+        menu.Lay(uiPx, Gear(uiPx));
+        return menu;
+    }
+
+    static Menu AtTheStart(Vector2 uiPx)
+    {
+        var menu = new Menu();
+        menu.StandAtTheStart();
         menu.Lay(uiPx, Gear(uiPx));
         return menu;
     }
@@ -47,6 +61,121 @@ public class MenuLayoutTests
         Assert.Equal(gear.Right, menu.Box.Right, 3);
         Assert.Equal(gear.Bottom + Theme.GapPx, menu.Box.AtPx.Y, 3);
         Assert.True(menu.Box.Bottom <= Window.Y, $"the panel reaches {menu.Box.Bottom} of {Window.Y}");
+    }
+
+    /// <summary>
+    /// <b>GEN-1b — the start menu hangs off nothing and is laid to the window rather than to its rows.</b>
+    /// It stands in the middle, and it is laid narrower than the popup under the gear even though its names
+    /// are written larger: the popup is as wide as the longest description in the catalogue, and this one
+    /// is a share of the window with those descriptions wrapped into it.
+    /// </summary>
+    [Fact]
+    public void TheStartMenuStandsInTheMiddleAndIsLaidToTheWindow()
+    {
+        var start = AtTheStart(Window);
+        var popup = Laid(Window);
+
+        Assert.Equal(Window.X * 0.5f, start.Box.AtPx.X + (start.Box.SizePx.X * 0.5f), 3);
+        Assert.Equal(Window.Y * 0.5f, start.Box.AtPx.Y + (start.Box.SizePx.Y * 0.5f), 3);
+        Assert.True(
+            start.Box.SizePx.X < popup.Box.SizePx.X,
+            $"the start menu is {start.Box.SizePx.X} wide against the popup's {popup.Box.SizePx.X}");
+        Assert.True(start.Box.AtPx.Y >= 0f && start.Box.Bottom <= Window.Y, "the start menu is off the window");
+    }
+
+    /// <summary>
+    /// <b>A description too long for the width it is laid at is broken across lines and never cut</b>, and
+    /// the row grows by exactly the lines it came to — so the popup, which is laid wide enough for the
+    /// longest of them, breaks none and keeps the row height the theme ships.
+    /// </summary>
+    [Fact]
+    public void ADescriptionWrapsToTheStartMenuAndNotToThePopup()
+    {
+        var start = AtTheStart(Window);
+        var popup = Laid(Window);
+
+        // The first map's row, which is the one under the first group header.
+        Assert.True(
+            start.RowHeightPx(1) > popup.RowHeightPx(1),
+            $"a wrapped row is {start.RowHeightPx(1)} against the popup's unwrapped {popup.RowHeightPx(1)}");
+
+        Assert.Equal(Theme.TallRowPx, popup.RowHeightPx(1), 3);
+    }
+
+    /// <summary>
+    /// <b>And it is one size and one place whatever is open in it.</b> What it has to stay inside is the
+    /// field in the middle of the idle ring, so its height is the field's and not the list's: a group shut
+    /// takes rows off the list and does not move an edge of the panel, and a list too long for it scrolls.
+    /// </summary>
+    [Fact]
+    public void TheStartMenuIsOneSizeWhateverIsOpenInIt()
+    {
+        var menu = AtTheStart(Window);
+        var box = menu.Box;
+        var rows = menu.RowCount;
+
+        // Row 0 is the first group's own header, and clicking a header shuts the group under it.
+        Click(menu, menu.RowMiddlePx(0));
+        menu.Lay(Window, Gear(Window));
+
+        Assert.True(menu.RowCount < rows, $"shutting a group left {menu.RowCount} rows of {rows}");
+        Assert.Equal(box.AtPx.X, menu.Box.AtPx.X, 3);
+        Assert.Equal(box.AtPx.Y, menu.Box.AtPx.Y, 3);
+        Assert.Equal(box.SizePx.X, menu.Box.SizePx.X, 3);
+        Assert.Equal(box.SizePx.Y, menu.Box.SizePx.Y, 3);
+        Assert.True(menu.Box.Bottom <= Window.Y, $"the panel grew to {menu.Box.Bottom} of {Window.Y}");
+    }
+
+    /// <summary>
+    /// <b>And the popup reaches no further than half way down the window however much is open in it.</b>
+    /// It is furniture beside a town, and one running from the gear to the bottom edge is the full-screen
+    /// panel it replaced — over the very town its rows are questions about.
+    /// </summary>
+    [Fact]
+    public void ThePopupReachesNoFurtherThanHalfWayDownTheWindow()
+    {
+        var menu = Laid(Window);
+        var shutPx = menu.Box.SizePx.Y;
+
+        menu.OpenGroup(Menu.Scenarios);
+        menu.Lay(Window, Gear(Window));
+
+        Assert.True(menu.Box.SizePx.Y > shutPx, "opening a group grew the popup by nothing at all");
+        Assert.True(
+            menu.Box.Bottom <= Window.Y * 0.5f, $"the popup reaches {menu.Box.Bottom} of {Window.Y}");
+    }
+
+    /// <summary>
+    /// <b>The start menu opens on the whole catalogue and the popup on the places alone</b> (OBS-2a).
+    /// Nothing is running behind the start menu, so the mis-click the popup's shut group is protecting
+    /// against costs nobody a game there, and what a reader is at it for is reading the list.
+    /// </summary>
+    [Fact]
+    public void TheStartMenuOpensBothGroupsAndThePopupOnlyThePlaces()
+    {
+        var start = AtTheStart(Window);
+        var popup = Laid(Window);
+
+        Assert.True(start.IsGroupOpen(Menu.MainMaps) && start.IsGroupOpen(Menu.Scenarios), "a group is shut");
+        Assert.True(popup.IsGroupOpen(Menu.MainMaps), "the popup's places are shut");
+        Assert.False(popup.IsGroupOpen(Menu.Scenarios), "the popup's scenarios are open");
+    }
+
+    /// <summary>
+    /// And it carries the map list and the way out and nothing else: the debug switches and the trim
+    /// figures are things to do to a town that is running, and no town is.
+    /// </summary>
+    [Fact]
+    public void TheStartMenuCarriesTheMapListAndTheWayOut()
+    {
+        var start = AtTheStart(Window);
+
+        Assert.Equal(Menu.Maps, start.Page);
+        Assert.Equal(MenuAction.Quit, Click(start, start.TabMiddlePx(Menu.ExitTab)).Action);
+
+        // The pages it does not carry were laid as no rectangle, so nothing lands on them.
+        Assert.Equal(MenuAction.None, Click(start, start.TabMiddlePx(Menu.Debug)).Action);
+        Assert.Equal(Menu.Maps, start.Page);
     }
 
     /// <summary>
@@ -130,7 +259,7 @@ public class MenuLayoutTests
     public void APageTallerThanTheWindowScrollsInsteadOfGrowingPastIt()
     {
         var shortWindow = new Vector2(1400f, 320f);
-        var menu = new Menu();
+        var menu = Laid(shortWindow);
         menu.OpenGroup(Menu.Scenarios);
         menu.Lay(shortWindow, Gear(shortWindow));
 

@@ -30,7 +30,7 @@ public class JunctionClaimTests
     /// </summary>
     const int Ticks = 7_200;
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// Every shipped map that has a junction two movements are driven across each other in. <b>A map

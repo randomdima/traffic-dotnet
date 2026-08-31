@@ -244,9 +244,9 @@ internal static class TrackPlan
     /// </summary>
     /// <remarks>
     /// <b>It is a count and not the catalogue</b>, which a plan may not read: a plan knows core and nothing
-    /// else, and the fleet is a file the agents' slice owns. <c>TrackPlanTests</c> is what holds the two to
-    /// each other, so a look added to <c>Fleet.json</c> without a car to drive it fails the suite rather
-    /// than quietly leaving that look unmeasured.
+    /// else, and the fleet is a file the agents' slice owns. <b>The lap's own table is what reports it</b>:
+    /// a look added to <c>Fleet.json</c> without a car to drive it turns up as a row nothing drove rather
+    /// than as a look quietly going unmeasured.
     /// </remarks>
     public const int FleetCars = 16;
 

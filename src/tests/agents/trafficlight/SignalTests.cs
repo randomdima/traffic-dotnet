@@ -20,7 +20,7 @@ public class SignalTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>A whole cycle, finely enough that no phase edge is stepped over.</summary>
     static IEnumerable<float> WholeCycle()

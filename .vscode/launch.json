@@ -6,7 +6,7 @@
       // The fixture town, because it opens in a fraction of the time a city does.
       // The display is named because no desktop will say which screen is in front of the person.
       // Other entries: --check, --ui, --shot <path>, --bench <name>, --windowed.
-      "name": "Release (no debug, Test)",
+      "name": "Test map (Release)",
       "type": "coreclr",
       "request": "launch",
       "noDebug": true,
@@ -18,31 +18,15 @@
       "stopAtEntry": false
     },
     {
-      "name": "Release (no debug, Odesa)",
+      // No --map: GEN-1b says a run handed none opens on the start menu, in the middle of the screen, with
+      // the idle ring turning behind it. This is the entry that starts the game rather than a town.
+      "name": "Release",
       "type": "coreclr",
       "request": "launch",
       "noDebug": true,
       "preLaunchTask": "build release",
       "program": "${workspaceFolder}/bin/Release/net10.0/traffic-dotnet",
-      "args": ["--map", "Odesa", "--display", "HDMI-1"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "stopAtEntry": false
-    },
-    {
-      // The one entry with a debugger on it. **Windowed, and that is not a preference**: a
-      // breakpoint hit inside a fullscreen window leaves a desktop with the screen held by a
-      // process that has stopped, and nothing to click back to. It sits on the far display for the
-      // same reason — the editor stays visible while the town is halted.
-      //
-      // Nothing timed is true here: Debug is unoptimised and the frame figures in the read-out are
-      // a picture of that. Anything about pace is a Release entry above.
-      "name": "Debug (windowed, Test)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "build debug",
-      "program": "${workspaceFolder}/bin/Debug/net10.0/traffic-dotnet",
-      "args": ["--map", "Test", "--windowed", "--display", "HDMI-1"],
+      "args": ["--display", "HDMI-1"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "stopAtEntry": false
@@ -57,8 +41,9 @@
       // second, and the JS debugger attached here doubles that again. `qq web --debug --shot` is where
       // an interpreted page is still worth having, because nothing waits on it.
       //
-      // The query string is the command line (WEB-5), so the map and --ui are spelled there:
-      // ?map=Odesa, ?map=Test&ui=frame.
+      // No query string, for the reason the Release entry above names: the page opens on the start menu.
+      // The query string is the command line (WEB-5), so a map and --ui are spelled there when one is
+      // wanted: ?map=Odesa, ?map=Test&ui=frame.
       //
       // **Both WebGPU flags are needed on a desktop Linux**, whatever the release notes say: drop
       // either and the page comes back with no adapter. The rest are the dialogs a browser nobody
@@ -67,11 +52,11 @@
       // Chromium is named outright because the adapter looks for google-chrome and chromium, and
       // what Fedora installs is chromium-browser. A profile of its own, so a `qq web --shot` run
       // and this one are never two browsers on one profile directory.
-      "name": "Web (Release, local)",
+      "name": "Web (Release)",
       "type": "chrome",
       "request": "launch",
       "preLaunchTask": "serve web (release)",
-      "url": "http://localhost:8730/?map=Test",
+      "url": "http://localhost:8730/",
       "webRoot": "${workspaceFolder}/src/app/web/wwwroot",
       "runtimeExecutable": "/usr/bin/chromium-browser",
       "runtimeArgs": [

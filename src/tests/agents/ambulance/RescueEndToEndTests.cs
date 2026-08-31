@@ -81,5 +81,5 @@ public class RescueEndToEndTests
             + $"{Config.AmbulanceGiveUpS:F1} s");
     }
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 }

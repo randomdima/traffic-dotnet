@@ -44,21 +44,21 @@ internal static class ShotRun
     {
         var ui = new Interface(config.Trim);
         var wanted = ask.Ui ?? [];
-        var onMenu = Array.Exists(wanted, name => name is "menu" or "menu-scenarios");
-
         // A frame of the town and nothing else, which is what a picture of the *ground* is judged as:
         // the panels are the interface's own subject and belong to the frames that are about it.
         var bare = Array.IndexOf(wanted, "none") >= 0;
 
-        ui.Menu.Shut();
+        // A shot is a picture of a town somebody asked for unless a switch says otherwise, so the menu
+        // starts as the popup under the gear rather than as the panel a run opens on.
+        ui.Menu.ShutOntoTheTown();
         ui.Apply(wanted);
         foreach (var pointM in ask.RulerPointsM ?? []) ui.Ruler.Click(pointM);
 
         var plan = TownReader.ReadFile(ProjectPaths.TownFile(ask.Map));
 
-        // GEN-1b in a picture: the menu is shown over no town at all, because nothing has been built
-        // yet. A menu photographed over a city would be a picture of the wrong claim.
-        var mesh = onMenu ? GroundMesh.Nothing() : GroundMesh.Build(plan, config);
+        // GEN-1b in a picture: the start menu stands over the idle ring, so a picture of it is a picture of
+        // the map that was asked for with the panel on top. Which map that is, is the request's.
+        var mesh = GroundMesh.Build(plan, config);
         var looks = TownSprites.Load();
         using var world = new TownWorld(plan, config);
 
@@ -73,7 +73,11 @@ internal static class ShotRun
         var uiPx = new Vector2(ask.WidthPx, ask.HeightPx) / uiScale;
         var camera = new Camera2D(config, plan.WorldSizeM, uiPx) { DevicePxPerUiPx = uiScale };
         if (ask.ViewM > 0f) camera.SetSpan(ask.ViewM, uiPx);
-        if (ask.AtM is { } atM) camera.LookAt(atM);
+
+        // Where a run opens looking (OBS-1b), so an unframed picture is the frame the game opens on
+        // rather than a second answer about the same map.
+        camera.LookAt(
+            ask.AtM ?? Opening.LooksAtM(world.Terrain, plan.WorldSizeM, camera.ViewSpanM(uiPx).Y * 0.5f));
 
         // A shot of a town that has never ticked is a town of walkers standing on their spawns, which
         // is a picture of the plan rather than of the simulation. Seconds says how far in.
@@ -83,7 +87,7 @@ internal static class ShotRun
 
         // What the map claims about itself is answered a tick at a time, so the run is advanced one at a
         // time and watched — which is what makes a picture of either panel a picture of the same run.
-        var scenario = onMenu ? [] : Scenarios.For(world, config);
+        var scenario = Scenarios.For(world, config);
         var track = Scenarios.FiguresIn(scenario);
         var ticks = (int)(ask.Seconds * config.Sim.TickRateHz);
         for (var tick = 0; tick < ticks; tick++)
@@ -93,8 +97,8 @@ internal static class ShotRun
         }
 
         looks.ReadAspects(renderer);
-        if (!onMenu) looks.Lay(plan, world.Uses);
-        var sprites = onMenu ? 0 : looks.Fill(world, config, camera.CentreM, camera.ViewSpanM(uiPx), renderer.Sprites);
+        looks.Lay(plan, world.Uses);
+        var sprites = looks.Fill(world, config, camera.CentreM, camera.ViewSpanM(uiPx), renderer.Sprites);
         renderer.SetSpriteCount(sprites);
 
         // The pointer is put outside the frame, so nothing is drawn hovered: a shot with a row lit
@@ -102,7 +106,7 @@ internal static class ShotRun
         var under = 0;
         var quads = bare ? 0 : ui.Draw(renderer.Overlay, renderer.Underlay, new InterfaceFrame
         {
-            World = onMenu ? null : world,
+            World = world,
             Config = config,
             Camera = camera,
             UiPx = uiPx,
@@ -114,7 +118,7 @@ internal static class ShotRun
             // says the frame was not measured rather than printing the zero it would come to.
             Frame = new FrameFigures { Phases = loop.Phases, Sub = world.Sub },
             Track = track,
-            Scenario = onMenu ? default : scenario,
+            Scenario = scenario,
         }, out under);
 
         renderer.SetOverlayCount(quads);

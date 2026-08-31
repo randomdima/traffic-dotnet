@@ -291,7 +291,7 @@ public class CrossingTrafficTests
         return text.ToString();
     }
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// <b>One run of one map, watched by every claim in this class at once</b> — the counts a claim needs a

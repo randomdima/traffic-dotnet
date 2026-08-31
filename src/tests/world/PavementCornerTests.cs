@@ -13,7 +13,7 @@ namespace TrafficSimulation.Tests.World;
 [Trait(Tier.Key, Tier.Town)]
 public class PavementCornerTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     [Theory]
     [MemberData(nameof(Maps))]

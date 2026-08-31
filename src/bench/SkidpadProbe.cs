@@ -98,7 +98,7 @@ internal static class SkidpadProbe
     public static SkidpadWatch Measure(SimConfig config)
     {
         // The map on disk and not the plan in hand: what is measured is the town every other reader gets,
-        // and `SkidpadPlanTests` is what says the two are the same pad.
+        // and the pad is laid from those same figures, so the two cannot drift apart.
         using var world = new TownWorld(TownReader.ReadFile(ProjectPaths.TownFile(SkidpadPlan.Name)), config);
         var loop = new SimLoop<TownWorld>(world, config);
         var watch = new SkidpadWatch(config, world);

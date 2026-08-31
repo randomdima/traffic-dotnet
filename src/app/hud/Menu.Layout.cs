@@ -13,12 +13,50 @@ internal sealed partial class Menu
     /// <summary>A group's own header, which is a row that says what is under it rather than one that opens a town.</summary>
     const float GroupPitchPx = Theme.RowPx + Theme.GapPx;
 
-    static readonly float RuleTopPx = Theme.PaddingPx + Theme.HeadingPx + Theme.GapPx;
-    static readonly float TabsTopPx = RuleTopPx + Theme.EdgePx + Theme.GapPx;
-    static readonly float ContentTopPx = TabsTopPx + Theme.RowPx + Theme.GapPx;
+    /// <summary>
+    /// The room the start menu lays its rows in: <b>a share of the window's short side less the panel's own
+    /// chrome</b> (<see cref="StartHeightShare"/>), and never what the rows came to. It is one size because
+    /// what it has to stay inside is the field in the middle of the idle ring; a list longer than it
+    /// scrolls, as the popup's does when a window is short.
+    /// </summary>
+    static float StartRoomPx(Vector2 uiPx) => MathF.Max(
+        LinePitchPx,
+        MathF.Min(MathF.Min(uiPx.X, uiPx.Y) * StartHeightShare, uiPx.Y - (Theme.MarginPx * 2f))
+        - ChromeHeightPx(atTheStart: true));
+
+    /// <summary>
+    /// And the room the popup lays its rows in, off <b>how far down the window it may reach</b>
+    /// (<see cref="PopupHeightShare"/>) rather than off how many rows it has. <b>It never reaches less far
+    /// than its own fixed page needs</b> — the switches are laid at a pitch rather than scrolled, so a
+    /// ceiling cutting into them would draw them outside the panel — and never past the window's margin.
+    /// </summary>
+    static float PopupRoomPx(Vector2 uiPx, Rect anchor)
+    {
+        var underTheButtonPx = anchor.Bottom + Theme.GapPx + ChromeHeightPx(atTheStart: false);
+        var reachesPx = MathF.Min(
+            uiPx.Y - Theme.MarginPx,
+            MathF.Max(uiPx.Y * PopupHeightShare, underTheButtonPx + LeastContentHeightPx));
+
+        return MathF.Max(LinePitchPx, reachesPx - underTheButtonPx);
+    }
+
+    /// <summary>
+    /// The title's own band. <b>On the start menu it is as tall as the button standing in it</b>, which is
+    /// the way out: with no tab strip under it that button has nowhere else to be, and the last thing
+    /// across the top of the panel is what it already was.
+    /// </summary>
+    static float TitleHeightPx(bool atTheStart) => atTheStart ? Theme.RowPx : Theme.HeadingPx;
+
+    static float RuleTopPx(bool atTheStart) => Theme.PaddingPx + TitleHeightPx(atTheStart) + Theme.GapPx;
+
+    static float TabsTopPx(bool atTheStart) => RuleTopPx(atTheStart) + Theme.EdgePx + Theme.GapPx;
+
+    /// <summary>Where the rows start: under the tab strip, or straight under the rule where there is none.</summary>
+    static float ContentTopPx(bool atTheStart) =>
+        TabsTopPx(atTheStart) + (atTheStart ? 0f : Theme.RowPx + Theme.GapPx);
 
     /// <summary>The panel's height less its content: the title, the tab strip and the paddings between them.</summary>
-    static readonly float ChromeHeightPx = ContentTopPx + Theme.PaddingPx;
+    static float ChromeHeightPx(bool atTheStart) => ContentTopPx(atTheStart) + Theme.PaddingPx;
 
     /// <summary>What the content column is never shorter than, which is the debug page laid whole.</summary>
     static readonly float LeastContentHeightPx = MostLines * LinePitchPx - Theme.GapPx;
@@ -55,13 +93,33 @@ internal sealed partial class Menu
     readonly int[] _rowGroup = new int[MostRows];
 
     /// <summary>
-    /// Which groups are open. <b>The main maps are and the scenarios are not</b>: a menu of two cities
-    /// should not read as a menu of two cities and a laboratory.
+    /// How a row's description falls across the width it is laid at, and how many lines that came to.
+    /// <b>Broken once, where the width is decided</b>, so what the row was measured for and what is drawn
+    /// in it are the same break rather than two.
+    /// </summary>
+    readonly Range[] _rowLine = new Range[MostRows * MostDescriptionLines];
+
+    readonly int[] _rowLines = new int[MostRows];
+
+    /// <summary>
+    /// Which groups are open, which is <b>a property of which menu this is</b> rather than of the list.
+    /// The popup under the gear opens on the places alone — a menu of two cities should not read as a menu
+    /// of two cities and a laboratory, and a mis-click on the row under a city there loses a running game.
+    /// <b>The start menu opens on both</b>: nothing is running behind it, so a mis-click costs nothing and
+    /// what a reader is there to do is read the whole catalogue.
     /// </summary>
     readonly bool[] _groupOpen = [true, false];
 
     Vector2 _laidFor;
     Rect _laidAt;
+
+    /// <summary>
+    /// And which of the two layouts the rectangles above are, since a map picked changes that without
+    /// moving the window or the button: a panel laid once as the start menu and then drawn as the popup is
+    /// the narrow centred one standing under the gear for the rest of the run.
+    /// </summary>
+    bool _laidAtTheStart = true;
+
     int _rowCount;
 
     /// <summary>How many rows the window has room for, and which one is at the top of them.</summary>
@@ -72,14 +130,74 @@ internal sealed partial class Menu
     /// <summary>Whether the menu is on the screen. Shutting it does not touch the town it was opened over.</summary>
     public bool Open { get; private set; } = true;
 
+    /// <summary>
+    /// <b>Whether this is the menu a run opens on</b> (GEN-1b), which is a different thing from the popup
+    /// under the gear even though it is the same panel: it stands in the middle of the screen, it is laid
+    /// wider, and <b>it cannot be shut</b> — the idle ring behind it is not a town anybody chose, so there
+    /// is nothing to shut it onto. The way past it is picking a map, and the way out is the exit tab.
+    /// </summary>
+    /// <remarks>
+    /// <b>It starts true and is cleared once</b>, by the first map somebody picks: a page whose town is
+    /// still coming down the wire has the menu up over nothing at all (WEB-9), and that is the start menu
+    /// as much as the one standing over the ring is.
+    /// </remarks>
+    public bool AtTheStart { get; private set; } = true;
+
     /// <summary>Which page is showing. Nothing here is a mode: the pages are one popup cut two ways.</summary>
     public int Page { get; private set; }
 
     public void Show() => Open = true;
 
-    public void Shut() => Open = false;
+    /// <summary>The menu as the way into the game rather than as the popup under the gear.</summary>
+    public void StandAtTheStart()
+    {
+        AtTheStart = true;
+        Open = true;
+        OpenAt(Maps);
+        OpenTheGroups(atTheStart: true);
+        Relay();
+    }
 
-    public void Toggle() => Open = !Open;
+    /// <summary>The groups each of the two menus opens on (<see cref="_groupOpen"/>).</summary>
+    void OpenTheGroups(bool atTheStart)
+    {
+        for (var group = 0; group < Groups; group++) _groupOpen[group] = atTheStart || group == MainMaps;
+    }
+
+    public void Shut()
+    {
+        if (AtTheStart) return;
+
+        Open = false;
+    }
+
+    public void Toggle()
+    {
+        if (AtTheStart) return;
+
+        Open = !Open;
+    }
+
+    /// <summary>A map picked: the menu is the gear's popup again, and shuts onto the town that was asked for.</summary>
+    public void ShutOntoTheTown()
+    {
+        AtTheStart = false;
+        Open = false;
+        OpenTheGroups(atTheStart: false);
+        Relay();
+    }
+
+    /// <summary>
+    /// The rectangles again for the layout the panel is now in, where it has ever been laid. <b>A map picked
+    /// changes the layout without moving the window or the button</b>, so nothing else would ask for it:
+    /// the popup that opens next would be the start menu's own narrow panel, centred, under the gear.
+    /// </summary>
+    void Relay()
+    {
+        if (_laidFor == default) return;
+
+        Lay(_laidFor, _laidAt);
+    }
 
     /// <summary>Which page is showing. What a shot script asks for, and what a tab does for a player.</summary>
     public void OpenAt(int page)
@@ -102,59 +220,85 @@ internal sealed partial class Menu
 
     /// <param name="anchor">
     /// The gear the popup hangs under: it opens below that button and is aligned to its trailing edge,
-    /// so the thing that opened it is the thing it appears to come out of.
+    /// so the thing that opened it is the thing it appears to come out of. <b>The start menu hangs off
+    /// nothing</b> (<see cref="AtTheStart"/>) — it is the whole of what is on screen, so it stands in the
+    /// middle of the window at a size of its own (<see cref="StartRoomPx"/>).
     /// </param>
     public void Lay(Vector2 uiPx, Rect anchor)
     {
         _laidFor = uiPx;
         _laidAt = anchor;
+        _laidAtTheStart = AtTheStart;
 
         FillRows();
+
+        // **The width is settled before the heights**, because on the start menu a description wraps to it
+        // and a row is as tall as the lines that wrap came to. The popup's own width is what its widest row
+        // wants, which is a measurement of the rows and not of the panel.
+        var contentWidthPx = MathF.Min(
+            WidestContentPx(uiPx) + Theme.InsetPx * 2f + ScrollBarPx + Theme.GapPx,
+            MathF.Max(LeastContentPx, uiPx.X - Theme.MarginPx * 2f - Theme.PaddingPx * 2f));
+
+        // The bar's room comes off the rows on every start-menu lay, scrolling or not: a description that
+        // rewrapped the moment the list grew past the window is a panel that changes shape as it is read.
+        WrapDescriptions(contentWidthPx - ScrollBarPx - Theme.GapPx);
 
         // **The rows answer to the window rather than the window to them.** A list of maps on a short
         // display grew the panel straight off the bottom of the screen, which is a menu hiding the
         // thing it was written to expose; what does not fit scrolls.
-        var topY = anchor.Bottom + Theme.GapPx;
-        var roomPx = MathF.Max(LinePitchPx, uiPx.Y - Theme.MarginPx - topY - ChromeHeightPx);
+        var roomPx = AtTheStart ? StartRoomPx(uiPx) : PopupRoomPx(uiPx, anchor);
 
         _firstRow = Math.Clamp(_firstRow, 0, Math.Max(0, _rowCount - 1));
         while (_firstRow > 0 && HeightFrom(_firstRow - 1) <= roomPx) _firstRow--;
 
-        // **Each page is as tall as its own content.** A band of empty panel under the last map, kept
-        // so that the other page would fit without the panel changing height, reads as a list that was
-        // cut short rather than as a page that ended.
+        // **The popup is as tall as its own page and the start menu is one size.** A band of empty panel
+        // under the popup's last map, kept so that the other page would fit without the panel changing
+        // height, reads as a list cut short rather than as a page that ended — where the start menu is
+        // standing in a hole it has to keep inside, so there the height is the hole's and the list scrolls.
         _shownRows = Page == Maps ? Fitting(_firstRow, roomPx) : 0;
-        var contentHeightPx = MathF.Min(roomPx, Page switch
-        {
-            Maps => HeightOf(_firstRow, _shownRows),
-            Figures => FiguresHeightPx,
-            _ => LeastContentHeightPx,
-        });
+        var contentHeightPx = AtTheStart
+            ? roomPx
+            : MathF.Min(roomPx, Page switch
+            {
+                Maps => HeightOf(_firstRow, _shownRows),
+                Figures => FiguresHeightPx,
+                _ => LeastContentHeightPx,
+            });
 
-        // The width is every page's at once, so tabbing moves nothing sideways: what one page needs is
-        // what the panel is, and the bar the map page loses its rows' width to is counted in it.
-        var contentWidthPx = MathF.Min(
-            WidestContentPx() + Theme.InsetPx * 2f + ScrollBarPx + Theme.GapPx,
-            MathF.Max(LeastContentPx, uiPx.X - Theme.MarginPx * 2f - Theme.PaddingPx * 2f));
+        var sizePx = new Vector2(
+            Theme.PaddingPx * 2f + contentWidthPx, ChromeHeightPx(AtTheStart) + contentHeightPx);
 
-        var widthPx = Theme.PaddingPx * 2f + contentWidthPx;
-        var atPx = Theme.PopupAt(anchor, uiPx, widthPx);
-        Box = new Rect(atPx, new Vector2(widthPx, ChromeHeightPx + contentHeightPx));
+        // Centred on every lay, which is where it already stood: the start menu is one size, so opening a
+        // group moves neither its edges nor the row the pointer is resting on.
+        var atPx = AtTheStart ? (uiPx - sizePx) * 0.5f : Theme.PopupAt(anchor, uiPx, sizePx.X);
+        Box = new Rect(atPx, sizePx);
 
+        // A tab the layout does not carry is laid as no rectangle at all, so it takes no click and draws
+        // nothing. <b>The start menu carries only the way out</b>, and it stands on the title's own line,
+        // at the end of it, which is where it already was when there was a strip to be the end of.
         var contentX = atPx.X + Theme.PaddingPx;
         var tabWidthPx = (contentWidthPx - (Theme.GapPx * (_tabs.Length - 1))) / _tabs.Length;
         for (var tab = 0; tab < _tabs.Length; tab++)
         {
-            _tabs[tab] = new Rect(
-                new Vector2(contentX + tab * (tabWidthPx + Theme.GapPx), atPx.Y + TabsTopPx),
-                new Vector2(tabWidthPx, Theme.RowPx));
+            if (AtTheStart && !AtTheStartTab(tab))
+            {
+                _tabs[tab] = default;
+                continue;
+            }
+
+            var atPxOfTab = AtTheStart
+                ? new Vector2(contentX + contentWidthPx - ExitWidthPx, atPx.Y + Theme.PaddingPx)
+                : new Vector2(contentX + tab * (tabWidthPx + Theme.GapPx), atPx.Y + TabsTopPx(false));
+
+            _tabs[tab] = new Rect(atPxOfTab, new Vector2(AtTheStart ? ExitWidthPx : tabWidthPx, Theme.RowPx));
         }
 
-        var contentTopY = atPx.Y + ContentTopPx;
+        var contentTopY = atPx.Y + ContentTopPx(AtTheStart);
 
         // The bar takes its room off the rows, and only on a page that has one: a row ending short of
-        // the panel edge on one page and flush with the tabs on another is two paddings.
-        var rowWidthPx = Scrolls ? contentWidthPx - ScrollBarPx - Theme.GapPx : contentWidthPx;
+        // the panel edge on one page and flush with the tabs on another is two paddings. The start menu
+        // gives it up on every lay, since that is the width its descriptions were broken to.
+        var rowWidthPx = Scrolls || AtTheStart ? contentWidthPx - ScrollBarPx - Theme.GapPx : contentWidthPx;
         var downPx = 0f;
         for (var slot = 0; slot < _shownRows; slot++)
         {
@@ -176,8 +320,43 @@ internal sealed partial class Menu
         }
     }
 
-    /// <summary>A group header is one row of chrome and a map is a row carrying the line that says what it is.</summary>
-    float HeightOfRow(int row) => _rowGroup[row] < 0 ? Theme.TallRowPx : Theme.RowPx;
+    /// <summary>
+    /// A group header is one row of chrome, and a map is its name over however many lines what it is came
+    /// to (<see cref="WrapDescriptions"/>) — which on the popup is always the one it is laid wide enough
+    /// for, and on the start menu is as many as the width it is laid at takes.
+    /// </summary>
+    float HeightOfRow(int row) =>
+        _rowGroup[row] >= 0 ? Theme.RowPx : RowChromePx + TextHeightPx(NamePx(AtTheStart), _rowLines[row]);
+
+    /// <summary>A name and the lines under it, without the room the row keeps clear above and below them.</summary>
+    static float TextHeightPx(float namePx, int lines) =>
+        namePx + (lines * (Theme.GapPx * 0.5f + Theme.SmallTextPx));
+
+    /// <summary>
+    /// What a two-line row keeps clear of its own edges, taken from the row height the theme already
+    /// ships: a row that grows a line grows by that line and by nothing else.
+    /// </summary>
+    static readonly float RowChromePx = Theme.TallRowPx - TextHeightPx(Theme.TextPx, 1);
+
+    /// <summary>
+    /// Each map's description broken to the width the rows are laid at. <b>The popup is laid wide enough
+    /// for the longest of them</b> and so never breaks one; the start menu is laid to a share of the
+    /// window and breaks nearly all of them.
+    /// </summary>
+    void WrapDescriptions(float rowWidthPx)
+    {
+        var intoPx = rowWidthPx - (Theme.InsetPx * 2f);
+        for (var row = 0; row < _rowCount; row++)
+        {
+            _rowLines[row] = _rowGroup[row] >= 0
+                ? 0
+                : GlyphSheet.WrapLines(
+                    _rowDescriptions[row], intoPx, Theme.SmallTextPx, LinesOf(row));
+        }
+    }
+
+    /// <summary>Where one row's broken description is kept, which is its own run of the flat array.</summary>
+    Span<Range> LinesOf(int row) => _rowLine.AsSpan(row * MostDescriptionLines, MostDescriptionLines);
 
     /// <summary>What the rows from <paramref name="first"/> to the end of the list come to, gaps and all.</summary>
     float HeightFrom(int first) => HeightOf(first, _rowCount - first);
@@ -219,12 +398,29 @@ internal sealed partial class Menu
     /// What the widest thing on either page needs, since the panel is one width for both — a
     /// description cut off mid-word is the one thing every claim about this frame forbids.
     /// </summary>
-    static float WidestContentPx()
+    /// <remarks>
+    /// <b>The start menu is not measured against its rows at all</b> (<see cref="AtTheStart"/>): it is laid
+    /// to a share of the window and the descriptions wrap to that, because what it has to keep inside is
+    /// the picture behind it rather than the longest sentence in the catalogue. What it is still measured
+    /// against is its own furniture — the title, and the way out standing on the title's line.
+    /// </remarks>
+    float WidestContentPx(Vector2 uiPx)
     {
+        if (AtTheStart)
+        {
+            var furniturePx = GlyphSheet.WidthPx(Title.Length, Theme.HeadingPx) + Theme.GapPx + ExitWidthPx;
+            return MathF.Max(furniturePx, MathF.Min(uiPx.X, uiPx.Y) * StartWidthShare);
+        }
+
         var wantedPx = LeastContentPx;
         foreach (var map in MapCatalogue.Shipped())
         {
-            wantedPx = MathF.Max(wantedPx, RowWidthPx(map.Name, map.Description));
+            wantedPx = MathF.Max(wantedPx, RowWidthPx(map.Name, map.Description, atTheStart: false));
+        }
+
+        foreach (var group in GroupNames)
+        {
+            wantedPx = MathF.Max(wantedPx, GlyphSheet.WidthPx(group.Length + GroupMark.Length, Theme.TextPx));
         }
 
         return MathF.Max(
@@ -235,8 +431,17 @@ internal sealed partial class Menu
     /// <summary>The room a trim's own share is drawn in, kept off the end of its name so the two never meet.</summary>
     static readonly float TrimShareRoomPx = GlyphSheet.WidthPx("1000%".Length, Theme.TextPx) + Theme.InsetPx * 2f;
 
-    static float RowWidthPx(string name, string description) => MathF.Max(
-        GlyphSheet.WidthPx(name.Length, Theme.TextPx), GlyphSheet.WidthPx(description.Length, Theme.SmallTextPx));
+    /// <summary>
+    /// What a row wants to be laid at so that nothing in it breaks. <b>The popup's own question</b>: the
+    /// start menu is laid to a share of the window instead and its descriptions wrap to that.
+    /// </summary>
+    static float RowWidthPx(string name, string description, bool atTheStart) => MathF.Max(
+        GlyphSheet.WidthPx(name.Length, NamePx(atTheStart)),
+        GlyphSheet.WidthPx(description.Length, Theme.SmallTextPx));
+
+    /// <summary>Whether what was laid is still the layout that would be laid now.</summary>
+    public bool LaidFor(Vector2 uiPx, Rect anchor) =>
+        _laidFor == uiPx && _laidAt == anchor && _laidAtTheStart == AtTheStart;
 
     /// <summary>Whether the page showing has more rows than the window has room for.</summary>
     bool Scrolls => _shownRows < _rowCount;

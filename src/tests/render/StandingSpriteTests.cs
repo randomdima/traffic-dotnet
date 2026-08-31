@@ -21,7 +21,7 @@ public class StandingSpriteTests
     static readonly BuildingCatalog Buildings = BuildingCatalog.Load();
     static readonly PropCatalog Props = PropCatalog.Load();
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     static StandingSprites Lay(CityPlan plan) => Lay(plan, BuildingUses.Of(plan));
 

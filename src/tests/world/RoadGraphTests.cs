@@ -16,7 +16,7 @@ namespace TrafficSimulation.Tests.World;
 [Trait(Tier.Key, Tier.Town)]
 public class RoadGraphTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     static RoadGraph GraphOf(string map) => RoadGraph.Build(Towns.Of(map), SimConfig.Shipped());
 

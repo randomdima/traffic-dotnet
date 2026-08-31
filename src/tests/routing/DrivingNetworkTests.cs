@@ -18,7 +18,7 @@ namespace TrafficSimulation.Tests.Routing;
 [Trait(Tier.Key, Tier.Town)]
 public class DrivingNetworkTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     static (RoadGraph Roads, DrivingNetwork Network) Of(string map)
     {

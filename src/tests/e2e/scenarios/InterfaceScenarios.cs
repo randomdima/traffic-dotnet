@@ -73,31 +73,35 @@ internal static class InterfaceScenarios
         new(
             Name: "start-menu",
             Group: "wider",
-            Map: "Test",
+            Map: "Idle",
             Subject: "The start menu, which is what the game opens on: no city is built until one is "
-                     + "picked (GEN-1b). The map list is the one list — the same one the command line "
-                     + "and the in-game picker read (OBS-2a).",
-            // No ground in any of these claims: the frame is the interface at its own scale.
+                     + "picked, and what the panel stands over is the idle ring (GEN-1b). The map list "
+                     + "is the one list — the same one the command line and the in-game picker read "
+                     + "(OBS-2a).",
             FrameWidthM: 0f, FinestFeatureM: 0f,
-            AtM: null, Seconds: 0, Ui: ["menu"],
+            AtM: null, Seconds: 30, Ui: ["menu"],
             Expect:
             [
-                "The game shows a menu rather than a town: nothing has been built yet.",
-                "The menu hangs under the menu button in the top-right corner, aligned to that "
-                + "button's outer edge, rather than standing in the middle of the screen.",
-                "It carries three tabs: two pages and, last, a red button that leaves the game.",
-                "Every place the build ships is a row, each with a name and a one-line description of "
-                + "what it is.",
-                "The scenarios are behind a second collapsible group that is shut, with only its "
-                + "heading showing — a menu of two cities should not read as a menu of two cities and "
-                + "a laboratory.",
-                "There is no close button on the panel.",
+                "The panel stands in the middle of the screen rather than hanging off a button in a "
+                + "corner, and there are no corner buttons drawn at all.",
+                "It sits inside the ring of road, on the grass in the middle of it: the loop is a "
+                + "square with rounded corners, it is unbroken all the way round, and none of the "
+                + "panel's four corners reaches it.",
+                "There is no tab strip. The panel's name is across the top and a red button that "
+                + "leaves the game stands at the end of that same line.",
+                "Every place the build ships is a row carrying its name, written large, over a "
+                + "description of what it is that runs onto a second line rather than being cut.",
+                "Both groups are open — the places and the scenarios under them — and the list is "
+                + "longer than the panel, so it carries a scroll bar down its right-hand edge.",
+                "There is no close button on the panel, and no frame-rate read-out or scale bar over "
+                + "the ring behind it.",
                 "Nothing on the menu is clipped, overlapping or unreadable.",
             ],
             Expected: "start-menu.png",
-            ExpectedNote: "The reference is the older menu, which filled the middle of the screen and "
-                          + "cut its pages seven ways. Judge the claims against this frame; where it "
-                          + "hangs and how many tabs it has are the change itself."),
+            ExpectedNote: "The reference is the older menu, which hung under the corner button over an "
+                          + "empty screen and cut its pages four ways. Judge the claims against this "
+                          + "frame; where it stands, what is behind it and how many tabs it has are "
+                          + "the change itself."),
 
         new(
             Name: "controls-card",

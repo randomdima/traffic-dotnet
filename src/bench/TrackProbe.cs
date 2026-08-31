@@ -210,7 +210,7 @@ internal static class TrackProbe
     public static LapWatch Measure(SimConfig config, TrackLap lap = TrackLap.Pacing)
     {
         // The map on disk and not the plan in hand: what is measured is the town every other reader gets,
-        // and `TrackPlanTests` is what says the two are the same track.
+        // and the lap is laid from those same figures, so the two cannot drift apart.
         using var world = new TownWorld(
             TownReader.ReadFile(ProjectPaths.TownFile(TrackPlan.NameOf(lap))), config);
         var loop = new SimLoop<TownWorld>(world, config);

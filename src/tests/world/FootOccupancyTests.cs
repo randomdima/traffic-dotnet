@@ -242,7 +242,7 @@ public class FootOccupancyTests
     /// <summary>A minute of a town, sampled every tick of it.</summary>
     const int Ticks = 3_600;
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>A minute of one map: the state it arrives at, and the one census that can only be taken on the way.</summary>
     sealed class Minute

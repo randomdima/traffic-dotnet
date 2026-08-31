@@ -70,16 +70,7 @@ internal sealed partial class TownWorld
         {
             if (_plan.Spawns.Kind[spawn] == SpawnKindCar)
             {
-                // Round the fleet and never past it: the service vehicles share the sheet list with it
-                // (<see cref="CarCatalog.Count"/>), and a town's traffic is drawn from the fleet alone.
-                // <b>Unless the map stands one look</b> (<see cref="ExamPlan.StandsOneLook"/>), where every
-                // card is one crossing compared against another and a fleet of different weights would be a
-                // second variable inside every comparison.
-                StandCar(
-                    spawn,
-                    ExamPlan.StandsOneLook(_plan.Name)
-                        ? (byte)CarCatalog.Shared.Plain
-                        : (byte)(fleet++ % CarCatalog.Shared.Count));
+                StandCar(spawn, LookOf(fleet++));
                 continue;
             }
 
@@ -101,6 +92,77 @@ internal sealed partial class TownWorld
             _progress.Restart(person);
             MoveIn(person, positionM);
         }
+
+        if (IdlePlan.StandsConvoys(_plan.Name)) StandTheEscort();
+    }
+
+    /// <summary>
+    /// <b>The escort, as an escort</b>: its beacons up, its pace held under the pace the car between them
+    /// keeps on the ring (<see cref="IdlePlan.EscortPaceShare"/>), and the three of them following at half
+    /// the interval traffic keeps (<see cref="IdlePlan.ConvoyFollowingShare"/>). Nothing else on the idle
+    /// map is arranged — they drive under the standing rules like any other traffic, and what makes them
+    /// one convoy is that the leading car can no longer run away from what it is leading.
+    /// </summary>
+    /// <remarks>
+    /// <b>The pace is the escorted car's own and not a figure of the map's.</b> It is what that build's
+    /// grip affords on the ring's tightest corner, or its gear's cap where the corner is wide enough for
+    /// that to bind first — so a heavier charge, a different look or a rounder loop all move the convoy
+    /// together rather than leaving a number behind that used to be true.
+    /// </remarks>
+    void StandTheEscort()
+    {
+        if (Cars.Count < IdlePlan.ConvoyCars) return;
+
+        ref readonly var escorted = ref Cars.BuildOf(IdlePlan.Escorted);
+        var paceMps = IdlePlan.EscortPaceShare * MathF.Min(
+            escorted.MaxSpeedMps,
+            CarFollower.CornerMps(1f / IdlePlan.CornerRadiusM(_config), escorted.GripMps2 * _config.Driving.GripMargin));
+
+        for (var car = 0; car < IdlePlan.ConvoyCars; car++)
+        {
+            // The gap is kept by whoever is behind, so it is the whole convoy that keeps a short one —
+            // including the car being escorted, which is following the police in front of it.
+            Cars.FollowingShare[car] = IdlePlan.ConvoyFollowingShare;
+            if (car == IdlePlan.Escorted) continue;
+
+            Cars.BlueLight[car] = true;
+            Cars.PaceMps[car] = paceMps;
+        }
+    }
+
+    /// <summary>
+    /// Which look a car the map put down wears: <b>the map's own where the map names one, and otherwise
+    /// the fleet's wrap.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The wrap goes round the fleet and never past it</b> (<see cref="CarCatalog.Count"/>): the service
+    /// vehicles share the sheet list with it, and the traffic a town draws for itself is drawn from the
+    /// fleet alone.
+    /// </para>
+    /// <para>
+    /// <b>A map names looks when the looks are the point of the map.</b> The exam stands one of them
+    /// (<see cref="ExamPlan.StandsOneLook"/>), because every card is a crossing read against another card
+    /// and a fleet of different weights would be a second variable inside every comparison; the idle ring
+    /// stands an escort and one car passing it (<see cref="IdlePlan"/>), because that is the whole of what
+    /// there is to look at on it.
+    /// </para>
+    /// </remarks>
+    byte LookOf(int car)
+    {
+        if (ExamPlan.StandsOneLook(_plan.Name)) return (byte)CarCatalog.Shared.Plain;
+
+        if (IdlePlan.StandsConvoys(_plan.Name))
+        {
+            return (byte)(IdlePlan.PartOf(car) switch
+            {
+                IdlePart.Armoured => CarCatalog.Shared.Armoured,
+                IdlePart.Sports => CarCatalog.Shared.Sports,
+                _ => CarCatalog.Shared.Police,
+            });
+        }
+
+        return (byte)(car % CarCatalog.Shared.Count);
     }
 
     /// <summary>

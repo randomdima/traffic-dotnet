@@ -20,7 +20,14 @@ public class CarLampTests
 
     static readonly CarCatalog Catalogue = CarCatalog.Shared;
 
-    /// <summary>A car with a driver in it, standing on a straight line with its foot off everything.</summary>
+    /// <summary>How far ahead the junction is staged, which is inside the reach an indicator answers one at.</summary>
+    const float JunctionAheadM = 30f;
+
+    /// <summary>
+    /// A car with a driver in it, standing on a straight line with its foot off everything, <b>approaching
+    /// a junction it turns at</b> — which is the only state an indicator says anything in (CAR-14.1), so it
+    /// is what every case about one is staged over.
+    /// </summary>
     static CarFleet Rolling(float curvature = 0f, float lengthM = 100f, int variant = 0)
     {
         var fleet = new CarFleet(1, arcsPerCar: 2, CarBuilds.OfTheFleet(Config, Catalogue));
@@ -29,6 +36,8 @@ public class CarLampTests
         fleet.Command[0] = DriveCommand.Idle;
         fleet.LineArcsOf(0)[0] = new ArcSeg(Vector2.Zero, 0f, lengthM, curvature);
         fleet.Line[0] = new DrivenLine(1, 1, lengthM);
+        fleet.ToTheBoxM[0] = JunctionAheadM;
+        fleet.TurningAtTheBox[0] = true;
         return fleet;
     }
 
@@ -110,6 +119,45 @@ public class CarLampTests
     {
         var justUnderRad = (Config.Lamps.TurnDeg * MathF.PI / 180f) * 0.9f;
         Assert.Equal(CarLampSet.None, Showing(Rolling(justUnderRad / Config.Lamps.TurnAheadM)));
+    }
+
+    /// <summary>
+    /// CAR-14.1 — <b>a bend with no junction at the end of it is a road and not a turn.</b> A circuit of
+    /// constant radius bends past the threshold for ever, and a car announcing that all the way round is
+    /// announcing something nobody can act on: there is nowhere else for it to go.
+    /// </summary>
+    [Fact]
+    public void ABendWithNoJunctionAtTheEndOfItIsNotIndicated()
+    {
+        var fleet = Rolling(curvature: 0.05f);
+        Assert.Equal(CarLampSet.TurnRight, Showing(fleet));
+
+        fleet.ToTheBoxM[0] = float.PositiveInfinity;
+        fleet.TurningAtTheBox[0] = false;
+        Assert.Equal(CarLampSet.None, Showing(fleet));
+    }
+
+    /// <summary>And a junction the car goes straight on through is nothing to announce either.</summary>
+    [Fact]
+    public void GoingStraightOnThroughAJunctionSaysNothing()
+    {
+        var fleet = Rolling(curvature: 0.05f);
+        fleet.TurningAtTheBox[0] = false;
+
+        Assert.Equal(CarLampSet.None, Showing(fleet));
+    }
+
+    /// <summary>
+    /// And it is announced on the approach rather than from two streets away: past the reach the lamp is
+    /// dark, whatever the line does at the far end of it.
+    /// </summary>
+    [Fact]
+    public void AJunctionTooFarOffIsNotAnnouncedYet()
+    {
+        var fleet = Rolling(curvature: 0.05f);
+        fleet.ToTheBoxM[0] = Config.Lamps.JunctionAheadM * 1.1f;
+
+        Assert.Equal(CarLampSet.None, Showing(fleet));
     }
 
     /// <summary>Only the stretch in front of the car counts: the turn it has already made is not one it is about to make.</summary>

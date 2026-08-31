@@ -87,6 +87,50 @@ are off the ground they cross. **A car turning *inside* its own axles is on none
 rolling wheels cannot describe an arc tighter than the one their axles cross at, so that is a pivot and the
 pad quotes how much of the run was one.
 
+**The idle ring** (`IdlePlan`) is the one laid map that measures nothing, and the one the game opens on
+(GEN-1b). It is **one loop of road with nothing else on it** — no building, no bay, no paint, no light and
+nobody on foot — carrying **an escorted convoy one way round and one car the other**: an armoured car
+between two police with their beacons up, and a sports car on the opposite lane of the same carriageway.
+What it is for is the picture the game idles on, so what it is chosen against is that it never stops being
+worth watching and never needs anybody's attention. **One car comes the other way and not a second convoy**:
+the same thing twice reads as a staging, where a quick car passing a slow escort is the plainest picture of
+traffic there is.
+
+**The escort is held under the pace of what it is escorting** (`IdlePlan.EscortPaceShare`, carried as
+`CarFleet.PaceMps`). Police paint is among the quickest looks the fleet ships and an armoured car among the
+slowest, so a leading escort left at its own pace drives away from its charge inside a lap. Held under it,
+the escorted car closes on the one ahead and the one behind closes on it, and the three keep station under
+the ordinary following rule — nothing staged, and nothing told to stay together. **The pace is read against
+the loop's tightest corner** (`IdlePlan.CornerRadiusM`), which is where the charge has the least margin over
+its escort and so where a convoy comes apart if it is going to.
+
+**And it follows closer than traffic does** (`IdlePlan.ConvoyFollowingShare`, carried as
+`CarFleet.FollowingShare`), which is what makes three cars read as one thing. It scales the **following
+interval** — the second of travel a driver leaves on top of the road it needs — and nothing else: every
+stopping distance, every corner and the ground the car in front has yet to vacate are what they were, so a
+convoy running close is still a convoy that can stop. The pace is the other half of the same effect, since
+the road a follower is granted is the road it needs to stop in.
+
+**It is laid to fit the view a run opens on** (`OBS-1b`): a circuit wider than the window is a picture of an
+empty stretch of road between one car and the next, so the whole ring is on screen and every car in the
+frame at once — and the field inside it is where the start menu stands (GEN-1b). **Nothing drives it that is
+not already in the town** — with nowhere to be on the map, the rule that drives an empty map's cars
+(`TownWorld.DriveTheEmptyMap`) puts each on the lane under it and the ordinary catalogue does the rest.
+**Its cars are dressed by the map** and not by the fleet's wrap, on the terms the exam's one look is
+(`TownWorld.LookOf`): a look is what a map asks for and never a duty — a police car is one with a station
+(SRV-2), and a car in police paint on a map with no station is an ordinary car in service paint, which is
+the state `EVA-7` already names. **It is cut into four roads** because a road runs between two named
+junctions (`TER-4`) and a loop has no end; one road a side is the fewest that leaves no two nodes joined
+twice, and **each is cut at the middle of a straight** so no node stands on a bend. **Nothing turns at any
+of them** — each node joins one road to the next and offers one way out — so nothing on this map indicates,
+gives way, or is refused anything (`CAR-14.1`, `SIM-7`).
+
+**The loop is a square with rounded corners and not a circle** (`IdlePlan.CornerShare`), because **the field
+it encloses is what the start menu stands in** and a panel is a rectangle. A circle spends most of the ground
+inside it on corners a panel cannot reach into; rounding a square leaves the middle of the field as wide as
+the field is. How far the corners are rounded trades that field against the corner speed — on a loop laid to
+one view it is the radius and not the driver that sets the pace, so a boxier loop is a slower convoy.
+
 **The crossings map is neither**, and it is not laid here: `Zebras` arrives as a file like a city does. It
 is five isolated streets with a crossing on each and one body apiece, one of those crossings deliberately
 laid off square, and it carries no cars and no buildings because the paint is the whole subject — a skewed
@@ -107,8 +151,40 @@ world seed produces the same city.
 **GEN-1a** A map's streets need not be generated; everything else about it is, so a traced city and a
 generated one are one kind of thing.
 
-**GEN-1b** No city is built until one is picked: the game opens on a start menu listing the maps and
-builds nothing before a choice is made.
+**GEN-1b** No city is built until one is picked: the game opens on a start menu listing the maps, and
+nothing a reader has not chosen is built. **What the menu is drawn over is the idle ring** (`IdlePlan`,
+`Game.IdleMap`) — the one map the game stands up without being asked, because it is laid to be looked at
+and costs a fraction of a city — and the menu stays up over it, in either configuration and on either
+head, until a map is picked. A run handed a map on the command line or in the query string opens on that
+map instead, and the menu shuts onto it.
+
+- **The start menu is the same panel laid as the thing it is** (`Menu.AtTheStart`), and not the popup under
+  the gear. It stands **in the middle of the window**; it carries **the map list and no tab strip**, since
+  one page needs no strip to pick it, with **the way out on the title's own line**; each map's **name is
+  written a size larger** and the line saying what it is keeps its size and **wraps**; and **it cannot be
+  shut** — there is nothing to shut it onto, so the gear and the legend button are not drawn under it,
+  Escape does nothing, and a click off it acts on nothing.
+- **It is laid to fit the field inside the ring, and the descriptions wrap into it** — a share of the
+  window's short side, which is the side the opening view and so the ring itself are figures across. **The
+  field is rectangular because the panel is** (`IdlePlan.CornerShare`): the loop is rounded off a square
+  rather than drawn as a circle, so a panel wide enough to read does not have to be short enough to clear a
+  curve. The popup under the gear is the one laid so that nothing in it ever breaks, and it is laid to the
+  longest description in the catalogue.
+- **It is one size and one place whatever is open in it**, and both groups are open when it opens. Its
+  height is the field's rather than the list's, so a group shut or opened moves no edge and no row out from
+  under the pointer, and a list longer than the panel **scrolls**. The popup under the gear is the one that
+  is as tall as its own page, and the one that opens on the places alone (`OBS-2a`) — a mis-click there
+  loses a running game, and behind the start menu there is none to lose.
+- **The read-out and the scale legend are not drawn over it.** They say what a run *is*, and the ring behind
+  the panel is a picture rather than a town somebody opened.
+- **The ring is framed like any other town** (`OBS-1b`): the panel is in the middle of the screen and the
+  middle of the ring is the field inside it, so what the menu covers is the field and the road is on screen
+  either side of it.
+
+- **The two are opened separately and in that order.** A desktop run has both on the disk it started
+  from; a page has neither, so it hands the browser its animation callback before it opens anything at
+  all — the menu stands on the files the boot already fetched, and the town behind it comes down while
+  the reader is looking at it (`WEB-6`, `WEB-9`).
 
 **GEN-2** Terrain, objects and agents are placed **plausibly**: the result must read as a small town, not
 as noise.
@@ -186,8 +262,8 @@ measure one thing claims that thing and nothing else, which is the whole of what
 | `Exam` | One claim a kind of card, and that every card this build does not pass is a known finding |
 | `Skidpad` | That every car turns under every pedal it stands, that each goes round the way its wheel is turned, and that nothing leaves its own square. **What the pedal costs the circle is quoted and never claimed**: the lightest pedal here is half, under which every car is being asked for more than its rubber holds, so how far it runs wide of its own axles is a fact about these tyres rather than a bound |
 | `Zebras` | That every crossing is walked kerb to kerb and nobody on foot is on a carriageway off the paint |
-| `Test`, and every city | The two every town owes: nothing is left inside anything else, and no car stands still with no clock running for it |
+| `Idle`, `Test`, and every city | The two every town owes: nothing is left inside anything else, and no car stands still with no clock running for it |
 
-**The fixture map claims nothing of its own on purpose.** It is where the detailed checks are staged
-rather than a map with a question, so a claim invented for it would be a claim the suite already asks
-better somewhere else.
+**The fixture map and the idle ring claim nothing of their own on purpose.** One is where the detailed
+checks are staged rather than a map with a question; the other is laid to be looked at and measures
+nothing. A claim invented for either would be a claim the suite already asks better somewhere else.

@@ -15,7 +15,7 @@ namespace TrafficSimulation.Tests.World;
 [Trait(Tier.Key, Tier.Town)]
 public class PathAssemblerTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// Five centimetres, and the figure is <see cref="ArcSeg"/>'s arithmetic rather than the join's

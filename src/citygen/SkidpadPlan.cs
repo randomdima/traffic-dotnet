@@ -106,8 +106,8 @@ internal static class SkidpadPlan
     /// </summary>
     /// <remarks>
     /// <b>It is a count and not the catalogue</b>, which a plan may not read: a plan knows core and nothing
-    /// else. <c>SkidpadPlanTests</c> is what holds the two to each other, so a look added to
-    /// <c>Fleet.json</c> without a square to drive in fails the suite rather than going unmeasured.
+    /// else. <b>The pad's own probe is what reports it</b>: a look added to <c>Fleet.json</c> without a
+    /// square to drive in turns up as a row nothing drove rather than as a look going unmeasured.
     /// </remarks>
     public const int Looks = 16;
 

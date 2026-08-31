@@ -32,7 +32,7 @@ public class RecoveryTests
     /// wearing the service variant, with a crew inside it and a yard of slots beside it.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryTown), MemberType = typeof(Towns))]
     public void EveryEvacuatorStandsAtItsDepotWithAYardBehindIt(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);

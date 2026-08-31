@@ -147,7 +147,7 @@ public class CrossingBandsTests
     /// <summary>A band is metres of arithmetic on floats: a millimetre is not a finding.</summary>
     const float Rounding = 1e-3f;
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     static (CrossingBands Bands, RoadGraph Roads, WalkingNetwork Walking, int Crossings) Project(string map)
     {

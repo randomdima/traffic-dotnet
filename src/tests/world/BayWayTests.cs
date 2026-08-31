@@ -47,7 +47,7 @@ public class BayWayTests
     /// </summary>
     const float AttainedBoundM = 0.01f;
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
     /// <b>One map's road graph and the ways at its bays, built once and read by every claim about them.</b>
