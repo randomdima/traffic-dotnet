@@ -93,5 +93,11 @@ public class PointerSpaceTests
         Assert.Equal(MenuAction.None, Click(menu, new Vector2(4f, 4f)).Action);
     }
 
-    static MenuChoice Click(Menu menu, Vector2 atPx) => menu.Click(atPx, new DebugSwitches(), new TrimFigures());
+    /// <summary>A tap: down and up in the same spot, since a map row is opened on the way up (CTL-1b).</summary>
+    static MenuChoice Click(Menu menu, Vector2 atPx)
+    {
+        var trims = new TrimFigures();
+        menu.Click(atPx, new DebugSwitches(), trims);
+        return menu.Pointer(atPx, held: false, SimConfig.Shipped().View.PointerDragPx, trims);
+    }
 }

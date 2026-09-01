@@ -99,8 +99,12 @@ internal sealed class ViewFigures
     /// </summary>
     public int SelectionMaxUnits { get; init; } = 32;
 
-    /// <summary>How far the pointer travels with the button down before a click becomes a drag (CTL-1b).</summary>
-    public float SelectionDragPx { get; init; } = 6f;
+    /// <summary>
+    /// How far the pointer travels with the button down before a click becomes a drag (CTL-1b). <b>One
+    /// figure for every surface a press can start a gesture on</b> — the town under a drag and the map
+    /// list under a finger scrolling it — so a tap means the same travel wherever it lands.
+    /// </summary>
+    public float PointerDragPx { get; init; } = 6f;
 
     /// <summary>
     /// The window the interface is never laid out on fewer pixels than (OBS-2k). <b>It is what the

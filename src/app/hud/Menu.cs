@@ -202,6 +202,50 @@ internal sealed partial class Menu
         Lay(_laidFor, _laidAt);
     }
 
+    /// <summary>
+    /// The same page dragged rather than wheeled, by the pixels the pointer went down the panel. <b>It is
+    /// the only scroll a finger has</b> — a handset has no wheel to take (CTL-9) — and the pointer that
+    /// asks for it is the mouse's as well, so the list answers one gesture and not two.
+    /// </summary>
+    /// <remarks>
+    /// <b>The rows come and go whole, so the travel is held and spent as each row's own height goes by.</b>
+    /// A list whose descriptions wrap has no pitch to divide by: its rows are as tall as what is written in
+    /// them, and a scroll in pixels divided by an average would drift a row every screenful. What is left
+    /// over at either end of the list is dropped rather than banked, so a drag off the bottom does not have
+    /// to be unwound before the list comes back.
+    /// </remarks>
+    void ScrollByPixels(float downPx)
+    {
+        if (!Scrolls)
+        {
+            _draggedPx = 0f;
+            return;
+        }
+
+        _draggedPx += downPx;
+        var firstRow = _firstRow;
+
+        while (_draggedPx > 0f && firstRow > 0 && _draggedPx >= HeightOfRow(firstRow - 1) + Theme.GapPx)
+        {
+            _draggedPx -= HeightOfRow(firstRow - 1) + Theme.GapPx;
+            firstRow--;
+        }
+
+        var lastFirstRow = _rowCount - _shownRows;
+        while (_draggedPx < 0f && firstRow < lastFirstRow && -_draggedPx >= HeightOfRow(firstRow) + Theme.GapPx)
+        {
+            _draggedPx += HeightOfRow(firstRow) + Theme.GapPx;
+            firstRow++;
+        }
+
+        if ((firstRow == 0 && _draggedPx > 0f) || (firstRow >= lastFirstRow && _draggedPx < 0f)) _draggedPx = 0f;
+
+        if (firstRow == _firstRow) return;
+
+        _firstRow = firstRow;
+        Lay(_laidFor, _laidAt);
+    }
+
     /// <summary>A click on the menu. Everything it can do is here, so nothing outside it has to know its layout.</summary>
     public MenuChoice Click(Vector2 pointPx, DebugSwitches switches, TrimFigures trims)
     {
@@ -216,7 +260,12 @@ internal sealed partial class Menu
             return MenuChoice.None;
         }
 
-        if (Page == Maps) return ClickedRow(pointPx);
+        if (Page == Maps)
+        {
+            PressedRow(pointPx);
+            return MenuChoice.None;
+        }
+
         if (Page == Figures) return ClickedTrim(pointPx, trims);
 
         for (var line = 0; line < MostLines; line++)
@@ -257,21 +306,60 @@ internal sealed partial class Menu
     }
 
     /// <summary>
-    /// The pointer while a button is down, offered every frame. <b>A trim follows it and takes effect as it
-    /// goes</b>, so the town answers under the hand that is moving it — which is the whole of what makes the
-    /// page an instrument rather than a form to be submitted.
+    /// A press on the map list. <b>It picks nothing</b>: a drag and a tap begin identically, and a row
+    /// opened on the way down would be whichever row the scroll was started on top of (CTL-1b). What the
+    /// press landed on is opened by <see cref="Pointer"/> on the way back up.
     /// </summary>
-    public void Drag(Vector2 pointPx, bool held, TrimFigures trims)
+    void PressedRow(Vector2 pointPx)
     {
-        if (_held < 0) return;
+        _pressedAtPx = pointPx;
+        _lastPointerPx = pointPx;
+        _draggedPx = 0f;
+        _pressedOnARow = true;
+    }
+
+    /// <summary>
+    /// The pointer while a button is down, offered every frame, and <b>what the press turns out to have
+    /// been</b>. A trim follows it and takes effect as it goes, so the town answers under the hand that is
+    /// moving it — which is the whole of what makes that page an instrument rather than a form to be
+    /// submitted; the map list scrolls under it and gives back the row the press landed on only where the
+    /// pointer never travelled.
+    /// </summary>
+    /// <param name="dragPx">
+    /// How far the pointer travels before the press is a drag rather than a tap (CTL-1b) — the figure the
+    /// town is dragged by, handed in so that a tap on a panel and a tap on a road are the same movement.
+    /// </param>
+    public MenuChoice Pointer(Vector2 pointPx, bool held, float dragPx, TrimFigures trims)
+    {
+        if (_held >= 0)
+        {
+            if (held) Move(_held, ShareAt(pointPx.X, _trims[_held]), trims);
+            else _held = -1;
+
+            return MenuChoice.None;
+        }
+
+        if (!_pressedOnARow) return MenuChoice.None;
 
         if (held)
         {
-            Move(_held, ShareAt(pointPx.X, _trims[_held]), trims);
-            return;
+            ScrollByPixels(pointPx.Y - _lastPointerPx.Y);
+            _lastPointerPx = pointPx;
+            return MenuChoice.None;
         }
 
+        _pressedOnARow = false;
+        return (pointPx - _pressedAtPx).LengthSquared() > dragPx * dragPx
+            ? MenuChoice.None
+            : ClickedRow(_pressedAtPx);
+    }
+
+    /// <summary>Whatever the pointer had hold of, let go of — the panel it was over is not the panel any more.</summary>
+    void LetGo()
+    {
         _held = -1;
+        _pressedOnARow = false;
+        _draggedPx = 0f;
     }
 
     /// <summary>

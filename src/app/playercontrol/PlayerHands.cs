@@ -213,7 +213,7 @@ internal sealed class PlayerHands
         _gesture = Gesture.None;
         var toPx = window.PointerPx;
 
-        if (!IsDrag(_fromPx, toPx, config.View.SelectionDragPx))
+        if (!IsDrag(_fromPx, toPx, config.View.PointerDragPx))
         {
             // Clicking nothing deselects, which is what makes the mark readable as an answer; with shift
             // it adds the unit under the pointer, or drops it if it was already picked out.

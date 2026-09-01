@@ -347,13 +347,17 @@ internal sealed partial class Game : IDisposable
             if (_window.TakePress(Key.E)) _world!.WorkTheAction();
         }
 
-        // A figure being dragged follows the pointer and takes effect as it goes — <b>on the town that is
-        // standing</b>, which is the whole point of the panel: the marks stay on the road, the cars stay
-        // where they are, and what changed is the only thing that changed. Standing the fleet up again is
-        // sixteen builds and a ground catalogue, so it is cheap enough to spend on the frames a hand is
-        // actually moving something.
-        _ui.Menu.Drag(_window.PointerPx, _window.IsMouseDown(MouseButton.Left), _ui.Trims);
+        // The menu's own pointer, offered every frame: a figure being dragged follows it and takes effect
+        // as it goes — <b>on the town that is standing</b>, which is the whole point of that page: the
+        // marks stay on the road, the cars stay where they are, and what changed is the only thing that
+        // changed. Standing the fleet up again is sixteen builds and a ground catalogue, so it is cheap
+        // enough to spend on the frames a hand is actually moving something. The map list scrolls under it
+        // and gives back the row a press that never travelled had landed on (CTL-1b).
+        var lifted = _ui.Menu.Pointer(
+            _window.PointerPx, _window.IsMouseDown(MouseButton.Left), _config.View.PointerDragPx, _ui.Trims);
+
         if (_ui.Menu.TakeFiguresMoved()) _world?.FiguresChanged();
+        if (Took(lifted)) return;
 
         // The wheel is the menu's while the pointer is over it: a page longer than the window scrolls,
         // and a camera that zoomed behind it would be a town nobody asked to move. Taking it here is
@@ -392,23 +396,44 @@ internal sealed partial class Game : IDisposable
         // — the other is a right-click, and the ruler handles that itself.
         if (!_ui.Switches.Ruler) _ui.Ruler.Clear();
 
-        switch (choice.Action)
+        if (Took(choice)) return;
+
+        // A press and a release inside one frame is still a tap, so the menu is offered its way up in the
+        // frame the press arrived in — which is what a scripted click is, both edges before one frame.
+        if (Took(_ui.Menu.Pointer(
+                _window.PointerPx, _window.IsMouseDown(MouseButton.Left), _config.View.PointerDragPx, _ui.Trims)))
         {
-            case MenuAction.OpenMap:
-                PickMap(choice.Name);
-                return;
-            case MenuAction.Quit:
-                _window.Close();
-                return;
+            return;
         }
 
         if (taken == ClickTaken.Yes) return;
 
         _hands.Click(button, atPx, alsoKeep, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler);
 
-        // A press and a release inside one frame is still a click, so the gesture is offered its way up
-        // in the frame it began in.
+        // The same, for the gesture on the town: a release is read off the button's state and not off an
+        // event (CTL-1b).
         _hands.Pointer(_window, _camera, _uiPx, _config, _world!);
+    }
+
+    /// <summary>
+    /// What the menu was asked for, done — the two things on it that leave the panel. It is asked twice a
+    /// frame (a press, and whatever the pointer turned out to be doing), so what to do about an answer is
+    /// one place rather than two.
+    /// </summary>
+    /// <returns>Whether the run has moved on and the rest of this frame's input is about a town that is gone.</returns>
+    bool Took(MenuChoice choice)
+    {
+        switch (choice.Action)
+        {
+            case MenuAction.OpenMap:
+                PickMap(choice.Name);
+                return true;
+            case MenuAction.Quit:
+                _window.Close();
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>
@@ -587,7 +612,7 @@ internal sealed partial class Game : IDisposable
         Camera = _camera,
         UiPx = _uiPx,
         PointerPx = _window.PointerPx,
-        MarqueePx = _hands.MarqueePx(_window.PointerPx, _config.View.SelectionDragPx),
+        MarqueePx = _hands.MarqueePx(_window.PointerPx, _config.View.PointerDragPx),
         MapName = _map,
         Tick = _loop?.Tick ?? 0,
         Frame = _meter.Figures,

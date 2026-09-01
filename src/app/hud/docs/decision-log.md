@@ -46,6 +46,28 @@ is a mis-click that does not lose a running game; behind the start menu nothing 
 reader is at it for is the catalogue. Which groups are open is set on each of the two transitions rather
 than left as whatever the last panel was showing, so each menu reads the way its own rule says.
 
+## A list is scrolled by dragging it, and a row is picked on the way up
+
+The only scroll the menu had was the wheel, so on a handset the start menu was a catalogue with a bottom
+nobody could reach: the page it opens on is taller than the field it stands in, there is no wheel to take,
+and the two-finger gesture belongs to the camera. Everything else the panel does a finger already did,
+which is what made the gap easy to miss — the rows took taps, the trims took drags, and the one thing
+between them took neither.
+
+**The gesture is the town's own and not a second one.** A press on the list starts something rather than
+picking, the rows follow the pointer while it is down, and the row opens when it comes up without having
+travelled — which is `CTL-1b` word for word, applied to a panel instead of to the ground. Picking on the
+way down was what made it impossible: whichever row a scroll was started on top of was the map it opened,
+so the list could not be dragged at all. It costs the mouse nothing to be read the same way, and one
+threshold for both is what stops a tap meaning two different amounts of travel on two surfaces.
+
+**The travel is spent a row at a time.** The rows are as tall as the descriptions wrapped into them, so
+there is no pitch to divide a distance by; a scroll converted through an average row drifts a row every
+screenful, and the panel is at its most wrong exactly where the list is longest. What a drag has travelled
+is held instead and spent as each row's own height goes past, which is the whole-row scrolling the wheel
+already did, asked for in pixels. The remainder at either end is dropped rather than banked, so a list
+dragged hard off the bottom comes back on the next stroke instead of on the fourth.
+
 ## A figure takes hold under the hand, not on release
 
 The figures page moved its trim while a slider was dragged but only stood the town up again when the

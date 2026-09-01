@@ -45,7 +45,20 @@ public class MenuLayoutTests
         return menu;
     }
 
-    static MenuChoice Click(Menu menu, Vector2 atPx) => menu.Click(atPx, new DebugSwitches(), new TrimFigures());
+    static readonly float DragPx = SimConfig.Shipped().View.PointerDragPx;
+
+    /// <summary>
+    /// A tap: down and up in the same spot. <b>A row is opened on the way up</b> (CTL-1b), since a press
+    /// on the map list starts a scroll as readily as it picks a map, so a test that only pressed would be
+    /// testing half a gesture.
+    /// </summary>
+    static MenuChoice Click(Menu menu, Vector2 atPx)
+    {
+        var trims = new TrimFigures();
+        var pressed = menu.Click(atPx, new DebugSwitches(), trims);
+        var lifted = menu.Pointer(atPx, held: false, DragPx, trims);
+        return pressed.Action == MenuAction.None ? lifted : pressed;
+    }
 
     /// <summary>
     /// <b>The popup comes out of the button that opened it</b>: under the gear, and aligned to the
@@ -281,6 +294,35 @@ public class MenuLayoutTests
     }
 
     /// <summary>
+    /// <b>And it is dragged as well as wheeled</b>, because a handset has no wheel to take (CTL-9): a press
+    /// that travels up the list carries the rows with it and opens nothing, and the row it started on is
+    /// still the row the layout draws where it has moved to.
+    /// </summary>
+    [Fact]
+    public void DraggingAPageThatScrollsCarriesTheRowsAndOpensNoMap()
+    {
+        var shortWindow = new Vector2(1400f, 320f);
+        var menu = Laid(shortWindow);
+        menu.OpenGroup(Menu.Scenarios);
+        menu.Lay(shortWindow, Gear(shortWindow));
+
+        var places = MapCatalogue.On(MapKind.Place);
+        var wasPx = menu.RowMiddlePx(1);
+
+        // Up the panel by exactly what the group header above the first map takes, which is one row of
+        // travel and so one row of list.
+        var trims = new TrimFigures();
+        var toPx = wasPx - new Vector2(0f, menu.RowHeightPx(0) + Theme.GapPx);
+        menu.Click(wasPx, new DebugSwitches(), trims);
+        menu.Pointer(toPx, held: true, DragPx, trims);
+        Assert.Equal(MenuAction.None, menu.Pointer(toPx, held: false, DragPx, trims).Action);
+
+        var nowPx = menu.RowMiddlePx(1);
+        Assert.True(nowPx.Y < wasPx.Y, $"the first map stayed at {nowPx.Y} of {wasPx.Y}");
+        Assert.Equal(places[0].Name, Click(menu, nowPx).Name);
+    }
+
+    /// <summary>
     /// <b>The row that is drawn and the switch that is toggled are the same one.</b> They were two
     /// switch statements, and a layer inserted in the middle of the list toggled its neighbour.
     /// </summary>
@@ -346,7 +388,7 @@ public class MenuLayoutTests
         for (var trim = 0; trim < TrimFigures.Count; trim++)
         {
             menu.Click(menu.TrimAtPx(trim, TrimFigures.Most), new DebugSwitches(), trims);
-            menu.Drag(Vector2.Zero, held: false, trims);
+            menu.Pointer(Vector2.Zero, held: false, DragPx, trims);
 
             for (var other = 0; other < TrimFigures.Count; other++)
             {
@@ -370,25 +412,25 @@ public class MenuLayoutTests
         menu.Click(menu.TrimAtPx(0, 3f), new DebugSwitches(), trims);
         Assert.True(menu.TakeFiguresMoved());
 
-        menu.Drag(menu.TrimAtPx(0, 5f), held: true, trims);
+        menu.Pointer(menu.TrimAtPx(0, 5f), held: true, DragPx, trims);
         Assert.True(menu.TakeFiguresMoved());
         Assert.Equal(5f, trims.Friction, 2);
 
         // Taken rather than read: the town is stood up again once for a figure and not every frame after it.
         Assert.False(menu.TakeFiguresMoved());
 
-        menu.Drag(menu.TrimAtPx(0, 5f), held: true, trims);
+        menu.Pointer(menu.TrimAtPx(0, 5f), held: true, DragPx, trims);
         Assert.False(menu.TakeFiguresMoved());
 
         // Past the end of the track, where the clamp holds the figure while the pointer runs on.
         var pastTheStopPx = menu.TrimAtPx(0, TrimFigures.Most) + new Vector2(200f, 0f);
-        menu.Drag(pastTheStopPx, held: true, trims);
+        menu.Pointer(pastTheStopPx, held: true, DragPx, trims);
         Assert.True(menu.TakeFiguresMoved());
-        menu.Drag(pastTheStopPx + new Vector2(500f, 0f), held: true, trims);
+        menu.Pointer(pastTheStopPx + new Vector2(500f, 0f), held: true, DragPx, trims);
         Assert.False(menu.TakeFiguresMoved());
 
         // And letting go is not a second move of a figure already standing where it was left.
-        menu.Drag(pastTheStopPx, held: false, trims);
+        menu.Pointer(pastTheStopPx, held: false, DragPx, trims);
         Assert.False(menu.TakeFiguresMoved());
     }
 

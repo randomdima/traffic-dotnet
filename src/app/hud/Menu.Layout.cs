@@ -85,6 +85,17 @@ internal sealed partial class Menu
     /// <summary>Which trim the pointer has hold of, or -1 while nothing is being dragged.</summary>
     int _held = -1;
 
+    /// <summary>Whether a press on the map list is still down, and where it landed (<see cref="PressedRow"/>).</summary>
+    bool _pressedOnARow;
+
+    Vector2 _pressedAtPx;
+
+    /// <summary>Where the pointer was last frame, so a drag is read as the pixels between two frames.</summary>
+    Vector2 _lastPointerPx;
+
+    /// <summary>What a drag has travelled and not yet spent on a row (<see cref="ScrollByPixels"/>).</summary>
+    float _draggedPx;
+
     bool _figuresMoved;
     readonly string[] _rowNames = new string[MostRows];
     readonly string[] _rowDescriptions = new string[MostRows];
@@ -153,6 +164,7 @@ internal sealed partial class Menu
     {
         AtTheStart = true;
         Open = true;
+        LetGo();
         OpenAt(Maps);
         OpenTheGroups(atTheStart: true);
         Relay();
@@ -183,6 +195,7 @@ internal sealed partial class Menu
     {
         AtTheStart = false;
         Open = false;
+        LetGo();
         OpenTheGroups(atTheStart: false);
         Relay();
     }

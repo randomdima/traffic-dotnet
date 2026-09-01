@@ -198,6 +198,12 @@ it is for the desktop, and what the page said about itself on the way is printed
 **It opens a window and cannot not**, for the reason in the [decision log](decision-log.md): headless
 Chromium runs every part of this but the presentation of a WebGPU canvas.
 
+**The gestures are asked for at a place and not through an element** — `--click X,Y` and `--drag
+X,Y:X,Y`, both in interface pixels — because the menu, the panels and the tabs are drawn into the canvas
+and there is nothing in the page to find. **The drag is a finger and not a held mouse** (`CTL-9`): a
+handset scrolls a panel by dragging it and pinches the camera with two, and neither is a gesture a click
+can stand in for, so this is the only way either is ever driven.
+
 **`qq web --debug` is the same page in ten seconds**, and it is the loop the boot is worked on in: a
 plain build lays the identical tree (WEB-7), so everything a page fetches, unpacks, decodes and stands
 up is there to be watched. **What it does not reproduce is any clock at all** — nothing is compiled

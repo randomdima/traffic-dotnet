@@ -138,6 +138,17 @@ question mark opens the control legend. Both obey the same three rules.
   — dismissing a panel and selecting the car that happened to be under the pointer are two intentions, and
   one click is one of them.
 
+**A list that scrolls is dragged as well as wheeled, and a row is opened on the way up.** A handset has no
+wheel to take (`CTL-9`), so a page longer than the panel would otherwise be a list nothing could reach the
+bottom of — and the gesture that reaches it is the one the town already answers: **a press starts a
+gesture rather than picking** (`CTL-1b`), the rows follow the pointer while it is down, and the row the
+press landed on is opened when it comes up without having travelled. It is the same travel that tells a
+drag from a click on the road, so a tap means one thing wherever it lands.
+
+**The rows come and go whole.** A list whose descriptions wrap has no pitch to divide a scroll in pixels
+by: what a drag has travelled is held and spent as each row's own height goes by, and what is left over at
+either end of the list is dropped rather than banked.
+
 **The control legend is its own popup and not a page of the menu.** The menu is where somebody goes to
 change something; the legend is where they go to find out what a key does, and a legend behind a tab of
 the settings is a legend read once and never found again.

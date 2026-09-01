@@ -14,7 +14,7 @@ namespace TrafficSimulation.Tests.PlayerControl;
 [Trait(Tier.Key, Tier.Unit)]
 public class GestureTests
 {
-    static readonly float ThresholdPx = SimConfig.Shipped().View.SelectionDragPx;
+    static readonly float ThresholdPx = SimConfig.Shipped().View.PointerDragPx;
 
     [Fact]
     public void APointerThatBarelyMovedIsStillAClick()
