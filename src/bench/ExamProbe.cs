@@ -8,6 +8,8 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Bench;
 
 /// <summary>
@@ -24,7 +26,7 @@ internal static class ExamProbe
 {
     public static bool Run(SimConfig config)
     {
-        using var world = new TownWorld(TownReader.ReadFile(ProjectPaths.TownFile(ExamPlan.Name)), config);
+        using var world = new TownWorld(Maps.Plan(ExamPlan.Name, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
         var watch = new ExamWatch(config, world);
         var loop = new SimLoop<TownWorld>(world, config);
         for (var tick = 0; tick < ExamDrive.Ticks; tick++)
@@ -135,8 +137,6 @@ internal sealed class ExamDrive
 
     public int Cars => _drove.Length;
 
-    public float CrossingPaceMps => _config.CarCrossingPaceMps;
-
     /// <summary>How many ticks of the town this has watched, which is what says a card has had its chance.</summary>
     public int Ticked => _tick + 1;
 
@@ -229,15 +229,6 @@ internal sealed class ExamDrive
 
             ExamAsks.EntersOnGreen when subject.CrossedTheBarOnARed =>
                 $"{Name(card)}: it crossed its own stop bar while the light was showing red — {subject}",
-
-            ExamAsks.AtCrossingPace when subject.OnThePaintFor == 0 =>
-                $"{Name(card)}: it never reached the paint — {subject}",
-
-            // The half again a body still clearing the paint has: the pace is a target the tyres deliver on
-            // the ground under them, and a car on a crossing may also be being pushed along it.
-            ExamAsks.AtCrossingPace when subject.FastestOnThePaintMps > CrossingPaceMps * 1.5f =>
-                $"{Name(card)}: it crossed the paint at {subject.FastestOnThePaintMps:F1} m/s against a "
-                + $"crossing pace of {CrossingPaceMps:F1} — {subject}",
 
             // The same arm every other claim carries: a card nobody stood in front of asked the engine
             // nothing, and passing it would say the opposite (`GaveWay`'s "nothing to give way to").
@@ -391,8 +382,8 @@ internal sealed class ExamDrive
     /// <summary>
     /// How near the subject has to be for a body at the kerb to be stepping out <em>in front of</em> it: the
     /// ground it covers while a walker gets the whole way over, and the ground it would need to stop in.
-    /// <b>It is the staging's own bound and not a rule</b> — what a driver owes a crossing is CAR-7b's and
-    /// TER-5e's, and is what the card is asking about.
+    /// <b>It is the staging's own bound and not a rule</b> — what a driver owes a crossing is TER-5e's,
+    /// and is what the card is asking about.
     /// </summary>
     float StepsOutInFrontOfM(int car)
     {
@@ -510,10 +501,8 @@ internal sealed class ExamDrove
     /// <summary>Whether it crossed its own stop bar while the light there was showing red.</summary>
     public bool CrossedTheBarOnARed { get; private set; }
 
-    /// <summary>How many ticks its own body stood on the paint its card watches, and how fast it ever was there.</summary>
+    /// <summary>How many ticks its own body stood on the paint its card watches.</summary>
     public int OnThePaintFor { get; private set; }
-
-    public float FastestOnThePaintMps { get; private set; }
 
     /// <summary>And how many of those it shared with somebody on foot.</summary>
     public int SharedThePaintFor { get; private set; }
@@ -635,7 +624,6 @@ internal sealed class ExamDrove
         if (!OnThePaint(atM, crossing, config)) return;
 
         OnThePaintFor++;
-        FastestOnThePaintMps = MathF.Max(FastestOnThePaintMps, speedMps);
         if (SomebodyIsOn(world, crossing, config)) SharedThePaintFor++;
     }
 
@@ -643,7 +631,7 @@ internal sealed class ExamDrove
     static bool OnThePaint(Vector2 atM, ExamCrossing crossing, SimConfig config)
     {
         var offM = atM - crossing.CentreM;
-        return MathF.Abs(Vector2.Dot(offM, crossing.Axis)) <= ExamLattice.CrossingDepthM * 0.5f
+        return MathF.Abs(Vector2.Dot(offM, crossing.Axis)) <= config.Road.CrossingDepthM * 0.5f
                && MathF.Abs(Vector2.Dot(offM, Heading.RightOf(crossing.Axis))) <= config.RoadWidthM * 0.5f;
     }
 

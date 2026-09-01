@@ -344,8 +344,8 @@ internal readonly record struct DriveScene
     /// lane it is <em>standing in</em> (TER-4c.1), so a body two lanes over leaves the shape a clear run and
     /// the ground test says yes. What the driver would then be doing is overtaking a queue that is waiting
     /// for a zebra and crossing paint the people on it are about to reach — so the refusal is here, once,
-    /// and it is the first gate rather than a second one (SIM-7). Being on the paint is included: the pace
-    /// is owed until the tail is off it (CAR-7b), and a car half over a crossing has nowhere to swerve to.
+    /// and it is the first gate rather than a second one (SIM-7). Being on the paint is included: a crossing
+    /// stays the car's business until its tail is off it, and a car half over one has nowhere to swerve to.
     /// </remarks>
     public bool ClearOfThePaint => float.IsPositiveInfinity(Context.CrossingAtM);
 

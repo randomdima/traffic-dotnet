@@ -97,6 +97,12 @@ nothing entered. The two absences big enough to be structural are named in
 the engine-free model, never a new soak. The tiers, the gates and the fixtures are
 [docs/verification.md](docs/verification.md).
 
+**A test states one exact behaviour or one stated requirement and fails for nothing else** (VER-12). A
+derivation written out twice, a drawn shape checked against the field it was drawn from, an index asserted
+to be in range, and `count > 0` over a simulated minute are the four shapes that are not tests — and a
+size is checked against the figure that decides it, never against the record that carries it. Whether a
+run had anything to say is the instruments' to report, not a gate's.
+
 ```
 dotnet build
 dotnet run --project traffic-dotnet.csproj -- --map Odesa

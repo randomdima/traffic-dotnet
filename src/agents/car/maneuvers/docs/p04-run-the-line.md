@@ -15,8 +15,8 @@ line.
 **`Sb` — the state it delivers.** Whatever the road produced: a stop line, a junction, or the place the
 line leaves the road for the way into the bay this leg holds. **A queue is not one of them** — a car held
 by the road it was granted is running its line on a shorter road, which is this entry (S-2a) — and
-**neither is a crossing**: the pace over the paint (CAR-7b) and the stop short of somebody on it
-(TER-4c.1) are terms of the same profile, so a car at a zebra is on a shorter road too.
+**neither is a crossing**: the stop short of somebody on the paint (TER-4c.1) is a term of the same
+profile, so a car at a zebra is on a shorter road too.
 
 **Line.** None of its own. It holds the route's line, drawn over the lanes the plan says to take and
 grown from its far end as the car eats it, so nothing already laid moves.
@@ -40,7 +40,7 @@ road reach the ladder — and the obstruction wait, which is the bound on standi
 | the box ahead is within reserve distance and is this car's | `P-8` |
 | at rest where the line runs out, on a stretch the leg comes back the other way from | `P-19` |
 | the grant or the headway bound the speed | keeps running — **this is what queueing is** |
-| the crossing term bound the speed | keeps running — **this is what slowing at a zebra is** (CAR-7b) |
+| the crossing term bound the speed | keeps running — **this is what stopping at a zebra is** (TER-5e) |
 
 **Why the exits are named off the binding term.** A car's speed is the minimum of everything that limits
 it, and the term that won is the least ambiguous reading there is of what the car is doing. Each entry

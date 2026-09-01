@@ -30,6 +30,16 @@ public class ParkingSectionTests
     public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
+    /// How much of a stretch a lane loses to being driven inside its road's own bends: the lane's offset
+    /// times the turn a stretch that long holds at the tightest radius a street may be laid to. <b>A cut is
+    /// placed in the road's own metres and the lane is measured in the lane's</b>, and this is the whole of
+    /// what the two disagree by.
+    /// </summary>
+    static float InsideTheBendM(float stretchM) =>
+        Config.LaneOffsetM * stretchM
+        / Config.CarCorneringRadiusM(Config.CityGen.StreetDesignSpeedMps, Config.Terrain.PavedCoefficient);
+
+    /// <summary>
     /// <b>A lot hangs off a kerb</b> (GEN-4b), which is the claim the frontage is read against: it stands
     /// on a road, over metres that road has, and its near edge reaches the carriageway rather than
     /// standing back behind a walk. It is what tells the drawing there is no kerb to draw a line for over
@@ -91,13 +101,15 @@ public class ParkingSectionTests
                 var alongM = MathF.Abs(Vector2.Dot(across, offM));
                 Assert.True(
                     deepM >= plan.Crosswalks.DepthM[crossing] * 0.5f
-                    || alongM >= plan.Crosswalks.SpanM[crossing] * 0.5f,
+                    || alongM >= plan.CrossingSpanM(crossing) * 0.5f,
                     $"{map}: place {node} stands on crossing {crossing}");
             }
 
             foreach (var lane in roads.LanesIn(node))
             {
-                Assert.True(roads.LaneLengthM[lane] >= shortestM, $"{map}: place {node} leaves lane {lane} too short to drive");
+                Assert.True(
+                    roads.LaneLengthM[lane] >= shortestM - InsideTheBendM(shortestM),
+                    $"{map}: place {node} leaves lane {lane} {roads.LaneLengthM[lane]:F2} m, short of {shortestM:F2} m");
             }
         }
     }

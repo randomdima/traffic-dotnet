@@ -140,3 +140,33 @@ panel's title, in the pace's own place, because that is what the pace *is* while
 Re-rolling the agent seed went with the page. It was the whole town life cycle behind one button, and
 what it produced was a town nobody could name afterwards; a run worth keeping is opened by name from
 the map list.
+
+## The interface's density is capped by what fits, and the layout was left alone
+
+The panels are laid out in interface pixels, and how many of the display's own pixels one of those is worth
+was the platform's factor and nothing else. That is right on a desktop and wrong on a handset: a phone
+reports three device pixels to the point over a viewport 390 points across, so the interface was laid out
+on 390 pixels — narrower than the menu, which then hung off both edges of the screen.
+
+Two ways out were open. One was to take every figure in the theme down a notch, which shrinks the chrome
+everywhere and changes every reference frame to fix a window nobody was looking at through. The other is a
+cap: the density is the display's own right up until the window would hold fewer interface pixels than the
+panels were laid for, and then it is whatever leaves them on the glass. That is the one taken. An ordinary
+desktop window never reaches it, so the pictures are the pictures they were; a handset reaches it at once,
+and what it gets is the same layout at the density that fits.
+
+**It is a size and not a device test.** A phone held either way up and a desktop window dragged down to a
+strip are the same problem, and the figure that answers it is the width of the widest panel rather than
+anything about who is holding the screen.
+
+## The compass is drawn only while the town is turned
+
+North-up used to be the only way the town could be, so there was nothing to say about it. Now that it turns
+(`OBS-1c`) there has to be a way back, and there are two candidates: a spring that puts the town level
+whenever it is near north, or a button.
+
+A spring cannot work here. The turn arrives a degree at a time — a frame of a twist, a notch of the wheel —
+so a camera that snapped back inside a few degrees would undo every step before the next one arrived, and
+the town could never be nudged off north at all. The button is exact, it is one press, and drawing it only
+while the town is turned means it is never a control that does nothing: a needle standing straight up on a
+town already north-up is the whole of what it would have said.

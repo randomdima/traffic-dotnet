@@ -68,7 +68,7 @@ by tick: what speed to hold, when to turn the wheel and how far, when to wait an
 the tyres moves a body.
 
 **CAR-10a** A car therefore **deviates from its line and is expected to**. What binds it is the ground it
-may be on (CAR-6.2), the road it was granted (S-2a) and the paint it owes (CAR-7b) — never the metres of
+may be on (CAR-6.2), the road it was granted (S-2a) and the paint it owes (TER-5e) — never the metres of
 the line itself. A car far enough off its line that it is no longer driving it is a recovery (CAR-9) and
 not a correction applied to the body.
 
@@ -144,14 +144,6 @@ in one, backing off, working round on the spot.
 resolve conflicts.
 
 **CAR-7a** A car must yield to any agent already inside the intersection or on a crossing it is taking.
-
-**CAR-7b** A car **crosses paint at a crossing pace**, which is the car's own figure: arrived at like a
-corner rather than held to from three streets away, and kept until the **tail** is off the paint rather
-than the nose. It is owed on every line that crosses a crossing — a template of a manoeuvre's own as much
-as a route — and it is lifted only where the crossing's own signal is holding the kerbs, read off the
-pedestrian side of the table so that what a driver may do and what the people on the kerb were told cannot
-disagree. **The stop short of a crossing somebody is on is not here**: it is the ground (TER-4c.1,
-TER-5e), and stating it again would be a second gate on a movement that has already been refused (SIM-7).
 
 **CAR-13** **A small share of people do not keep the courtesies**, and which ones is drawn once when the
 person is made and holds for the rest of the run. It is a fact about the **person and not the car** — the

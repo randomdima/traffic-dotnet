@@ -1,6 +1,7 @@
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Bench;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Tests.Bench;
 using TrafficSimulation.Tests.CityGen;
@@ -21,14 +22,21 @@ namespace TrafficSimulation.Tests.Hud;
 [Trait(Tier.Key, Tier.Town)]
 public class CatalogueTests
 {
+    /// <summary>
+    /// <b>Every map says what it is, and nothing says what it is without being a map.</b> A city says it in
+    /// its own brief and a map laid in code says it in the catalogue, so the two halves together have to
+    /// cover the shipped set exactly.
+    /// </summary>
     [Fact]
     public void EveryShippedMapIsDescribedAndEveryDescribedMapIsShipped()
     {
-        var shipped = ProjectPaths.ShippedMaps();
+        var shipped = Maps.Shipped();
 
         foreach (var map in shipped)
         {
-            Assert.Contains(MapCatalogue.Catalogued.ToArray(), entry => entry.Name == map);
+            Assert.False(
+                string.IsNullOrWhiteSpace(MapCatalogue.Describe(map).Description),
+                $"{map} is shipped and says nothing about itself");
         }
 
         foreach (var entry in MapCatalogue.Catalogued.ToArray())
@@ -48,7 +56,7 @@ public class CatalogueTests
         var places = MapCatalogue.On(MapKind.Place);
         var scenarios = MapCatalogue.On(MapKind.Scenario);
 
-        Assert.Equal(ProjectPaths.ShippedMaps().Length, places.Length + scenarios.Length);
+        Assert.Equal(Maps.Shipped().Length, places.Length + scenarios.Length);
         Assert.NotEmpty(places);
         Assert.NotEmpty(scenarios);
     }

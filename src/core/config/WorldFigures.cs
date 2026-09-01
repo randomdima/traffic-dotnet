@@ -16,9 +16,32 @@ internal sealed class RoadFigures
     /// </summary>
     public float TurnStraightToleranceDeg { get; init; } = 45f;
 
-    public float WidthInCarWidths { get; init; } = 3f;
+    /// <summary>
+    /// One marked traffic lane, in car widths — 3.6 m at the shipped car, which is the width every road in
+    /// this town is laid at. <b>A lane is the standard, and the carriageway is two of them</b>
+    /// (<see cref="SimConfig.LanesPerCarriageway"/>): a road wide enough for a car to pass another is a road
+    /// nothing on it has to negotiate, and a town of roads that each chose their own width is a town where
+    /// no figure quoted against a lane means anything.
+    /// </summary>
+    public float LaneWidthInCarWidths { get; init; } = 1.8f;
+
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
-    public float PavementWidthM { get; init; } = 4f;
+
+    /// <summary>
+    /// How far back along an arm a kerb fillet may run from the carriageway's own edge, in car widths.
+    /// <b>It is what bounds a corner at a skew junction</b>: two arms meeting at an angle have kerbs that
+    /// cross far outside the mouth, so a fillet turned on the full radius there lets go of the kerb tens of
+    /// metres down the road — and the crossing, the bar and the straight they stand on all follow it out.
+    /// A square junction is nowhere near this and keeps the full radius.
+    /// </summary>
+    public float JunctionFilletReachInCarWidths { get; init; } = 3f;
+
+    /// <summary>
+    /// One walking lane, in bodies — the pavement's own lane, and the pavement is two of them, one each way
+    /// (<see cref="SimConfig.PavementWidthM"/>). Two bodies wide, so somebody stepping round somebody coming
+    /// the other way does it inside the walk rather than over the kerb.
+    /// </summary>
+    public float WalkingLaneInPersonDiameters { get; init; } = 2f;
 
     public float EdgeLineWidthM { get; init; } = 0.3f;
 
@@ -34,6 +57,28 @@ internal sealed class RoadFigures
     public float ZebraStripeWidthM { get; init; } = 0.5f;
 
     public float ZebraStripePitchM { get; init; } = 1f;
+
+    /// <summary>
+    /// A crossing as it is laid at a junction: how deep the band is along the road it crosses, and how far
+    /// past the ground the junction itself reaches it stands. <b>Every map that lays paint lays it here</b>,
+    /// so a crossing on the exam and a crossing in a generated town are the same distance off the box.
+    /// </summary>
+    /// <remarks>
+    /// <b>The setback is measured from where that arm's own kerb fillet lets go of the kerb</b>
+    /// (<see cref="SimConfig.JunctionArmReachM"/>) and never from the node, so a skew junction's paint stands
+    /// off the ground the junction actually takes rather than off an average of every junction in the town.
+    /// It is therefore a stride of carriageway and not a slack allowance for the skew: enough that the
+    /// zebra's end bars stand on straight kerb rather than on the corner's own arc, and no more.
+    /// </remarks>
+    public float CrossingDepthM { get; init; } = 4f;
+
+    public float CrossingSetbackM { get; init; } = 1f;
+
+    /// <summary>And the bar behind it: how thickly it is painted, and how far behind the crossing it stands.</summary>
+    public float StopBarThicknessM { get; init; } = 0.4f;
+
+    public float StopBarSetbackM { get; init; } = 1f;
+
     public float ParkingSpaceMarginInCarWidths { get; init; } = 0.5f;
 
     /// <summary>
@@ -44,10 +89,21 @@ internal sealed class RoadFigures
     public float ParkingStagedInCarLengths { get; init; } = 3f;
 
     /// <summary>
-    /// How much straight a parking template ends on, so the rack is unwound before the car is at rest in
-    /// the bay: a quarter of a car length, measured at 1.1° out of square against 12° with none.
+    /// <b>The least straight a parking template may end on</b>, so it does not end with the rack still
+    /// wound on. It is a floor and not a target: the arcs take the lateral they need and whatever is left
+    /// over between the bay and the lane is the straight, which for a bay standing well off its lane is
+    /// metres.
     /// </summary>
-    public float ParkingStraightensUpInCarLengths { get; init; } = 0.25f;
+    /// <remarks>
+    /// <b>It is bought with the oncoming lane, which is what makes it small</b> (GEN-4j, P-14). A floor
+    /// above what the geometry affords is not free straight — it is met by swinging the template away from
+    /// the bay first, and every metre of that swing is ground taken off the far side of the street. On the
+    /// shipped lot a quarter of a car length here cost a 27° swing, five metres of extra path and a body
+    /// over the centreline, and bought <em>no measurable squareness at all</em>: the follower hands a car on
+    /// about twenty degrees out either way and settles the rest at rest
+    /// (<c>ManeuverTests.ACarThatHasParkedStandsSquareInItsBay</c>).
+    /// </remarks>
+    public float ParkingStraightensUpInCarLengths { get; init; } = 0.05f;
 
     /// <summary>The shortest stretch a cut laid for a car park may leave standing on either side of itself.</summary>
     public float ParkingSectionShortestStretchInCarLengths { get; init; } = 2f;
@@ -210,6 +266,172 @@ internal sealed class MarkFigures
 internal sealed class CityGenFigures
 {
     public float BlockSpacingAlongMinM { get; init; } = 95f;
+
+    /// <summary>The coarsest a district may be spaced. A district draws its blocks between the two.</summary>
+    public float BlockSpacingAlongMaxM { get; init; } = 170f;
+
+    /// <summary>
+    /// How much longer a block is across its district's bearing than along it. <b>A block is a rectangle</b>
+    /// — the traced cities' are, and a town of square blocks is a town with half as much road again as it
+    /// needs, all of which is then laid, walked, driven and drawn.
+    /// </summary>
+    public float BlockAspectMin { get; init; } = 1.2f;
+
+    public float BlockAspectMax { get; init; } = 2.2f;
+
+    /// <summary>
+    /// How near two of a kind have to stand before they are one thing rather than two (GEN-16): two nodes
+    /// this far apart are one junction, and two car parks sharing a kerb this far apart are one car park.
+    /// </summary>
+    /// <remarks>
+    /// <b>Authored rather than derived, and a town's figure rather than a car's.</b> It is wider than the
+    /// ground two junctions' own discs and corners take, which is what a road between them is already
+    /// refused for being shorter than — the point of this one is the gap that clears that floor and still
+    /// reads as one place: a stride of pavement between two car parks, or a pair of boxes a car crosses one
+    /// straight after the other.
+    /// </remarks>
+    public float LocalityM { get; init; } = 30f;
+
+    /// <summary>
+    /// How far off each other a junction's arms must stand (GEN-13). <b>Sixty degrees</b>: below it two
+    /// carriageways meeting at a node lie against each other rather than crossing, and the fillet, the
+    /// crossing and the bar on one arm are laid over the other. It is also the sharpest corner any junction
+    /// turns, so it is what a road's straight stub has to be long enough for
+    /// (<see cref="SimConfig.JunctionArmReachM"/>).
+    /// </summary>
+    public float ArmsApartMinDeg { get; init; } = 60f;
+
+    /// <summary>
+    /// The speed a street and an arterial are laid for, which is what their tightest bend is allowed to be:
+    /// the radius is <see cref="SimConfig.CarCorneringRadiusM"/> of it on tarmac and is never authored.
+    /// </summary>
+    public float StreetDesignSpeedMps { get; init; } = 14f;
+
+    public float ArterialDesignSpeedMps { get; init; } = 22f;
+
+    /// <summary>
+    /// How far off its own chord a street may wander, as a share of the district's block spacing. <b>It is
+    /// bounded by the block and not by the road</b> — two streets a block apart that each wandered half a
+    /// block would meet, and a town whose streets cross where no junction is is not a town.
+    /// </summary>
+    public float StreetWanderInBlocks { get; init; } = 0.06f;
+
+    /// <summary>The same for a district laid as a strict grid, where a street is very nearly a chord.</summary>
+    public float GridWanderInBlocks { get; init; } = 0.012f;
+
+    /// <summary>How many virtual nodes a road's middle span may carry. Odesa's most-bent road holds nine arcs.</summary>
+    public int WanderNodesMost { get; init; } = 3;
+
+    /// <summary>A building's footprint, drawn between the two. Odesa's run 10 m to 20 m a side.</summary>
+    public float BuildingSideMinM { get; init; } = 10f;
+
+    public float BuildingSideMaxM { get; init; } = 20f;
+
+    /// <summary>How many people a building holds, which is what the town's roster is spread over.</summary>
+    public int BuildingCapacity { get; init; } = 3;
+
+    /// <summary>
+    /// How many bays one car park holds, drawn between the two — which is how much frontage a lot takes
+    /// (GEN-4b). <b>A car park is a handful of spaces beside a street and never an apron</b>: the widest
+    /// one here is six bays, 24 m of kerb, which is about the frontage of one building.
+    /// </summary>
+    public int BaysPerLotFewest { get; init; } = 3;
+
+    public int BaysPerLotMost { get; init; } = 6;
+
+    /// <summary>
+    /// The longest deck a town builds. <b>A crossing wider than this is one the town does not make</b>
+    /// (GEN-14a): a road that would need a longer span stops at the bank instead, and what that leaves
+    /// unreachable is deleted with its own piece. It is authored rather than derived — how much bridge a
+    /// small town can afford is a fact about the town and not about any car that drives over it.
+    /// </summary>
+    public float BridgeDeckLongestM { get; init; } = 150f;
+
+    /// <summary>
+    /// How far the shore runs back from the water it belongs to. <b>The strip between the water and whatever
+    /// the town does with the ground</b>: nothing is scattered on it and nothing is built on it, because it
+    /// is not the grass those take.
+    /// </summary>
+    public float ShoreWidthM { get; init; } = 8f;
+
+    /// <summary>
+    /// How wide the line along each of the shore's own edges is drawn — the one where it meets the grass and
+    /// the one where it meets the water. <b>The width this town draws an edge at</b>
+    /// (<see cref="RoadFigures.EdgeLineWidthM"/>) is a road's figure and this is the shore's, because the two
+    /// are read at different distances.
+    /// </summary>
+    public float ShoreEdgeWidthM { get; init; } = 1f;
+
+    /// <summary>
+    /// How finely a shoreline is sampled: the most a chord may stand off the curve it is drawn through.
+    /// <b>Half a cell</b>, which is the finest the ground under it is classified, so the drawn bank and the
+    /// classified one agree everywhere and the outline is as smooth as the map can tell.
+    /// </summary>
+    public float ShoreChordToleranceM { get; init; } = 0.5f;
+
+    /// <summary>
+    /// The lattice the props are scattered on — one candidate a cell, jittered inside it. <b>It is the
+    /// town's prop density, and density goes as its square</b>: the scatter thins by a fifth for every
+    /// twelve centimetres in a metre this grows by.
+    /// </summary>
+    public float PropSpacingM { get; init; } = 7.4f;
+
+    /// <summary>
+    /// The band of grass a prop laid along a kerb stands in, measured out from the pavement's own outer
+    /// edge (GEN-6b) — <b>up against the walk rather than back off it</b>, because what a verge is for is
+    /// to be seen from the street. <b>The near edge is what the ground affords rather than what a figure
+    /// promises</b>: a prop owes its whole girth to grass (GEN-6a), so a narrow look reaches the near edge
+    /// of the band and a wide one is pushed out by its own width.
+    /// </summary>
+    public float PropVergeNearM { get; init; } = 0.5f;
+
+    public float PropVergeFarM { get; init; } = 2f;
+
+    /// <summary>
+    /// How far apart along a kerb the verge pass takes its candidates, each jittered inside its own step.
+    /// <b>It is shorter than the props are wide</b>, so what spaces a verge is the props' own girth against
+    /// each other (GEN-6c) and not the pitch: a stretch of kerb carries what fits along it.
+    /// </summary>
+    public float PropVergePitchM { get; init; } = 1.5f;
+
+    /// <summary>
+    /// The grass two props leave between them, girth to girth (GEN-6c). <b>Not touching is not enough</b>:
+    /// a prop is a picture as well as a disc, and a row of them laid rim to rim along a kerb reads as one
+    /// thing rather than as several — a verge wants to be seen through.
+    /// </summary>
+    public float PropApartM { get; init; } = 0.5f;
+
+    /// <summary>
+    /// How far a wild prop keeps off the walk and the car parks (GEN-6b) — <b>past the verge and not up
+    /// against it</b>, so the strip between the two passes reads as the edge of the town rather than as one
+    /// scatter that happens to change what it is made of.
+    /// </summary>
+    public float PropWildStandOffM { get; init; } = 7f;
+
+    /// <summary>
+    /// How much of a car park's verge is furniture rather than planting, and how much of the planting on
+    /// any verge is drawn from the wild set instead. <b>A verge is not a flower bed end to end</b>: a town
+    /// whose every kerb carried only the things it plants reads as a catalogue laid out along the street.
+    /// </summary>
+    public float PropFurnitureShare { get; init; } = 0.5f;
+
+    public float PropWildOnAVergeShare { get; init; } = 0.5f;
+
+    /// <summary>
+    /// The sizes a prop is drawn at. <b>The catalogue matches a prop by its kind and then by its size</b>,
+    /// so a kind nothing was drawn for, or a size no variant is near, is a prop the town has no picture of.
+    /// </summary>
+    public float PropDiameterMinM { get; init; } = 0.6f;
+
+    public float PropDiameterMaxM { get; init; } = 2.2f;
+
+    /// <summary>
+    /// The widest a <em>wild</em> prop is drawn, wherever it stands — the great trees are the only art
+    /// authored past the band above, and a wild look on a verge is a street tree. <b>A band is the set's
+    /// own</b>: asking for a size nothing in a set was drawn near gets the nearest look at the size that
+    /// was asked for, which is a planter stretched to the size of an oak.
+    /// </summary>
+    public float PropWildDiameterMaxM { get; init; } = 3f;
 }
 
 /// <summary>Tolerances the walkable and drivable graphs are built to.</summary>

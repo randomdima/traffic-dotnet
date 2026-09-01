@@ -1,21 +1,25 @@
-using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Town;
 
-/// <summary>What a crossing does to a car approaching it: which one is being met, at what pace, and whether anybody is standing on the paint.</summary>
+/// <summary>What a crossing does to a car approaching it: which one is being met, and whose ground its paint is.</summary>
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// <b>The whole of what a driver owes somebody on a crossing</b>: the pace it is approached at
-    /// (CAR-7b), and a stop short of the paint while anyone is on it or stepping onto it (TER-4c.1,
-    /// TER-5e).
+    /// <b>The whole of what a driver owes somebody on a crossing</b>: a stop short of the paint while
+    /// anyone is on it or has been refused it at the kerb (TER-4c.1, TER-5e).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is discharged here and by no manoeuvre of its own.</b> Both answers are terms of the speed
+    /// <b>Paint is not a speed limit.</b> A crossing whose band the book has granted this car the road
+    /// over takes nothing off it, and the car drives over it at whatever the rest of the road affords;
+    /// what slows a car at a zebra is the ground being somebody else's, which is one mechanism and not a
+    /// second (SIM-7).
+    /// </para>
+    /// <para>
+    /// <b>It is discharged here and by no manoeuvre of its own.</b> The answer is a term of the speed
     /// profile, taken every tick into the same minimum the corners and the grant are taken into, so a car
-    /// slowing at a zebra is running its line on the road the zebra left it (`P-4`). An entry named off
+    /// stopping at a zebra is running its line on the road the zebra left it (`P-4`). An entry named off
     /// the term that won would have imposed nothing the profile was not already imposing, and a
     /// <em>reactive</em> one would have entry conditions a person on foot cannot satisfy — refused, and a
     /// refused reactive manoeuvre goes to the ladder, which answers a pedestrian by reversing away from
@@ -25,22 +29,15 @@ internal sealed partial class TownWorld
     /// One crossing at a time: the nearest ahead is the one being approached. Asked as "is there paint
     /// ahead" it is never false for long, since a junction paints its far arm too.
     /// </para>
-    /// <para>
-    /// The pace exemption is read off the pedestrian side of the signal table, so what a driver may do
-    /// and what the people on the kerb have been told can never disagree. It lifts the pace and nothing
-    /// else — somebody on the paint anyway is still stopped for.
-    /// </para>
     /// </remarks>
     /// <param name="stopShortOfM">
     /// Where the profile is already being asked to stop, so a queue that would leave this car standing
     /// on the paint stops it before the paint instead.
     /// </param>
-    void CrossingAhead(int car, int ahead, float progressM, float stopShortOfM,
-        out float stopAtM, out float atM, out float paceMps)
+    void CrossingAhead(int car, int ahead, float progressM, float stopShortOfM, out float stopAtM, out float atM)
     {
         stopAtM = float.PositiveInfinity;
         atM = float.PositiveInfinity;
-        paceMps = float.PositiveInfinity;
 
         ref readonly var build = ref Cars.BuildOf(car);
         var noseM = progressM + build.NoseAheadOfAxleM;
@@ -54,15 +51,14 @@ internal sealed partial class TownWorld
         for (var step = 0; step < 2 && ahead + step < lanes; step++)
         {
             LookAtTheCrossingsOn(
-                car, ahead + step, progressM, stopShortOfM, noseM, centreM, tailM, reachM,
-                ref stopAtM, ref atM, ref paceMps);
+                car, ahead + step, progressM, stopShortOfM, noseM, centreM, tailM, reachM, ref stopAtM, ref atM);
         }
     }
 
     /// <summary>One lane of the chain's own crossings, weighed against the car standing where it is.</summary>
     void LookAtTheCrossingsOn(
         int car, int slotOfLane, float progressM, float stopShortOfM, float noseM, float centreM, float tailM,
-        float reachM, ref float stopAtM, ref float atM, ref float paceMps)
+        float reachM, ref float stopAtM, ref float atM)
     {
         var lane = Cars.ChainOf(car)[slotOfLane];
         var painted = _furniture.CrossingsOn(lane);
@@ -76,8 +72,9 @@ internal sealed partial class TownWorld
             var aheadM = nearEdgeM - noseM;
 
             // Behind it entirely — the tail is past the far edge — or too far ahead to be this car's
-            // business yet. The pace is held until the body is off the paint and not only up to it: a
-            // car that accelerates the moment its nose is over a zebra has not slowed for it.
+            // business yet. A crossing stays this car's business until the body is off it and not only
+            // up to it: what is under the car is what says it has nowhere to swerve to
+            // (<see cref="DriveScene.ClearOfThePaint"/>).
             if (tailM > farEdgeM || aheadM > reachM) continue;
 
             // One manoeuvre, one crossing: the nearest ahead is the one being approached — or the one
@@ -85,10 +82,6 @@ internal sealed partial class TownWorld
             if (aheadM >= atM) continue;
 
             atM = MathF.Max(0f, aheadM);
-            var kerbsHeld = _signals.CrossingIsLit(crossing)
-                            && _signals.ForCrossing(crossing, _elapsedS) != SignalColour.Green;
-
-            paceMps = kerbsHeld ? float.PositiveInfinity : Cars.BuildOf(car).CrossingPaceMps;
 
             // Somebody on it or stepping onto it, somebody with the right of way waiting at it, or a queue
             // that would leave this car standing on it — and only while the body has not yet started
@@ -114,7 +107,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The same thing owed by a car under its own geometry (CAR-7b): the same stop short of the paint, for
+    /// The same thing owed by a car under its own geometry (TER-5e): the same stop short of the paint, for
     /// a car swinging out of a bay, into one, or round an obstruction.
     /// </summary>
     /// <remarks>
@@ -125,18 +118,15 @@ internal sealed partial class TownWorld
     /// same measurement the town made to put the paint on the lane in the first place.
     /// </para>
     /// <para>
-    /// <b>The stop and the pace, and no bar and no light.</b> A template claims no movement and the ground
-    /// it runs over belongs to no lane, so there is no approach for a light to govern — but the pace a
-    /// crossing is approached at is owed by a car under its own geometry exactly as by one on its route,
-    /// and it is applied here rather than left to the reverse cap every template is otherwise held to.
-    /// Those are two unrelated figures that happen to agree, and `E-4` is a template let off the
-    /// manoeuvring pace altogether.
+    /// <b>The stop, and no bar and no light.</b> A template claims no movement and the ground it runs over
+    /// belongs to no lane, so there is no approach for a light to govern — what is left is the body on the
+    /// paint, which is owed a stop by a car under its own geometry exactly as by one on its route.
     /// </para>
     /// <para>
     /// <b>Asked of the book first and the geometry only after.</b> Nobody is on a crossing nearly all of
-    /// the time, and that answer is a walk of one way's occupants; the projection is what costs something —
-    /// so the pace, which is owed whether or not anybody is there, is taken from the same projection rather
-    /// than from a second pass.
+    /// the time, and that answer is a walk of one way's occupants; the projection is what costs something,
+    /// so it is taken only where the book has already said somebody is there — and where the paint is
+    /// under the car at all, which is what says the shape has nowhere to swerve to.
     /// </para>
     /// </remarks>
     /// <param name="leadM">Where the leading edge of the body stands along the line, in whichever gear it is being driven.</param>
@@ -162,7 +152,7 @@ internal sealed partial class TownWorld
             // projection that never reached the crossing comes back at the end of the window, which is a
             // place on the line and not a place the car is about to drive over.
             var offM = (Spline.SampleAt(line, onLineM).PositionM - centreM).Length();
-            if (offM > _plan.Crosswalks.SpanM[crossing] * 0.5f) continue;
+            if (offM > _furniture.CrossingSpanM(crossing) * 0.5f) continue;
 
             // A body already over the paint drives on. Stopping on a crossing is the one thing worse than
             // not having stopped short of it, and it is the same reading the route's own entry takes.

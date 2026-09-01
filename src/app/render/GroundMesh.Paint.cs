@@ -15,30 +15,36 @@ internal sealed partial class GroundMesh
     /// rather than running on into the junction behind it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Every run of marks is centred on the stretch it is on</b>, so a street never begins with half a
     /// dash at one end. Which stretches those are is <see cref="CentrelineRuns"/>: the road owns where its
     /// own paint breaks, and this lays dashes along what it is handed.
+    /// </para>
+    /// <para>
+    /// <b>A dash is laid on the road's own curve</b> and not on the chord of it
+    /// (<see cref="CurvedMark"/>).
+    /// </para>
     /// </remarks>
     void LaneDashes(CityPlan plan, SimConfig config, Vector3 tint, float[] periods)
     {
         var dashM = config.Road.LaneDashLengthM;
         var pitchM = dashM + config.Road.LaneDashGapM;
-        var halfM = new Vector2(dashM * 0.5f, config.Road.PaintLineWidthM * 0.5f);
+        var halfWidthM = config.Road.PaintLineWidthM * 0.5f;
         if (dashM <= 0f || pitchM <= dashM) return;
 
-        var runs = CentrelineRuns.Lay(plan);
+        var runs = CentrelineRuns.Lay(plan, config);
         for (var road = 0; road < plan.Roads.Count; road++)
         {
             var arcs = plan.Roads.SegmentsOf(road);
             foreach (var run in runs.On(road))
             {
-                DashRun(arcs, run.FromM, run.ToM, dashM, pitchM, halfM, tint, periods);
+                DashRun(arcs, run.FromM, run.ToM, dashM, pitchM, halfWidthM, tint, periods);
             }
         }
     }
 
     void DashRun(
-        ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float dashM, float pitchM, Vector2 halfM,
+        ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float dashM, float pitchM, float halfWidthM,
         Vector3 tint, float[] periods)
     {
         var runM = toM - fromM;
@@ -55,23 +61,9 @@ internal sealed partial class GroundMesh
         var startM = fromM + ((runM - laidM) * 0.5f);
         for (var dash = 0; dash < dashes; dash++)
         {
-            var (pointM, headingRad) = Along(arcs, startM + (dash * pitchM) + (dashM * 0.5f));
-            OrientedRect(pointM, new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad)), halfM, Surface.Tarmac, tint, periods);
+            var atM = startM + (dash * pitchM);
+            CurvedMark(arcs, atM, atM + dashM, halfWidthM, Surface.Tarmac, tint, periods);
         }
-    }
-
-    /// <summary>Where a distance along a chain of arcs lands, and which way the road is going there.</summary>
-    static (Vector2 PointM, float HeadingRad) Along(ReadOnlySpan<ArcSeg> arcs, float distanceM)
-    {
-        foreach (var arc in arcs)
-        {
-            if (distanceM <= arc.LengthM) return (arc.PointAtM(distanceM), arc.HeadingAtRad(distanceM));
-
-            distanceM -= arc.LengthM;
-        }
-
-        var last = arcs[^1];
-        return (last.EndM, last.HeadingAtRad(last.LengthM));
     }
 
     /// <summary>

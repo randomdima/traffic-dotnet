@@ -5,6 +5,8 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Bench;
 
 /// <summary>
@@ -119,7 +121,7 @@ internal static class TownProbe
 
     public static TownSample Sample(string map, SimConfig config)
     {
-        var plan = TownReader.ReadFile(ProjectPaths.TownFile(map));
+        var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
 
         var started = Stopwatch.GetTimestamp();
         using var world = new TownWorld(plan, config);

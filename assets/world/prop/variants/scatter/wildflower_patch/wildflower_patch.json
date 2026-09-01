@@ -1,6 +1,6 @@
 {
   "id": "wildflower_patch",
-  "kind": 1,
+  "kind": 0,
   "sprite": "wildflower_patch.webp",
   "diameterM": 2.00
 }

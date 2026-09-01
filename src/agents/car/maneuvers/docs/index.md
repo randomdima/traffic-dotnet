@@ -9,9 +9,8 @@ branch anywhere in the driver, because there is no such state here.
 road affords ([`LaneOccupancy`](../../../../world/road/LaneOccupancy.cs)); a car behind another is running
 its line on a shorter road, which is `P-4` and needs no entry of its own.
 
-**Nor is slowing at a crossing.** The pace over paint (CAR-7b) and the stop short of somebody on it
-(`TER-4c.1`, `TER-5e`) are terms of the same speed profile, so a car at a zebra is `P-4` on the road the
-zebra left it.
+**Nor is stopping at a crossing.** The stop short of somebody on the paint (`TER-4c.1`, `TER-5e`) is a
+term of the same speed profile, so a car at a zebra is `P-4` on the road the zebra left it.
 
 The pages below say **when an entry is the right thing to do, what it delivers, and the state either side
 of it**. How each one is written is its own file's XML docs; why any of it reads this way is
@@ -63,8 +62,8 @@ drivable and the router priced it out of reach from the day it was written. Comi
 now a bay's (`GEN-4l`) or `P-19`'s — [decision-log.md](decision-log.md).
 
 **`P-12` was the crossing, and what retired it is that a car slows at one without being told to**: the
-pace is the car's own (CAR-7b) and the stop short of somebody on the paint is the ground it was granted
-(`TER-4c.1`, `TER-5e`), both of them terms of a profile taken every tick. The entry set no limits, drove no
+stop short of somebody on the paint is the ground it was granted (`TER-4c.1`, `TER-5e`), a term of a
+profile taken every tick. The entry set no limits, drove no
 geometry and had no bound of its own — it named the term that had already won and handed the car back when
 the paint was behind it, which is `P-4` with a second name on it —
 [decision-log.md](decision-log.md).
@@ -158,8 +157,8 @@ car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No
 - **S-1** Hold the driven line, measured at the rear axle, aiming a speed-scaled distance ahead and
   never further than the corner being driven is wide.
 - **S-2** Speed is the minimum of every constraint — the gear cap, the corners, the end of the line, the
-  headway, **the road the car was granted**, the stop point, the crossing pace, **and whatever the entry in
-  charge asked for** — every distance taken a lead ahead of where the car is, against *usable* grip. The
+  headway, **the road the car was granted**, the stop point, the stop short of a crossing, **and whatever
+  the entry in charge asked for** — every distance taken a lead ahead of where the car is, against *usable* grip. The
   lead is the staleness of the driver's own decision and the travel of the pedal that answers it.
 - **S-2a** **Take the road ahead before driving down it.** Every tick, a driver asks for the stretch of
   its own way from a margin behind its tail (`TER-5c.2`) to where it plans to be able to stop, and is

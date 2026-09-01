@@ -18,8 +18,8 @@ public class SelectionTests
     static TownWorld Town(SimConfig? config = null) => new(Towns.Of(Towns.Fixture), config ?? Config);
 
     /// <summary>A box round a point, big enough to have a car's length of room either side of it.</summary>
-    static (Vector2 One, Vector2 Other) BoxRound(Vector2 atM, float reachM) =>
-        (atM - new Vector2(reachM), atM + new Vector2(reachM));
+    static (Vector2 CentreM, Vector2 SizeM) BoxRound(Vector2 atM, float reachM) =>
+        (atM, new Vector2(reachM * 2f));
 
     /// <summary>A click replaces what was picked out; a shift-click takes a unit in and a second drops it.</summary>
     [Fact]
@@ -56,9 +56,9 @@ public class SelectionTests
     public void ABoxTakesEveryUnitInsideItAndNothingOutsideIt()
     {
         using var world = Town();
-        var (one, other) = BoxRound(world.Cars.PositionM[0], reachM: 6f);
+        var (centreM, sizeM) = BoxRound(world.Cars.PositionM[0], reachM: 6f);
 
-        Assert.True(world.SelectIn(one, other, add: false) >= 1);
+        Assert.True(world.SelectIn(centreM, sizeM, turnRad: 0f, add: false) >= 1);
         Assert.True(world.IsSelected(SelectionKind.Car, 0), "a box drawn round a car did not catch it");
 
         var middleM = world.Cars.PositionM[0];
@@ -88,7 +88,7 @@ public class SelectionTests
 
         // A box over open country catches nothing, and catching nothing deselects — which is what makes
         // the marks readable as an answer.
-        Assert.Equal(0, world.SelectIn(new Vector2(-2_000f), new Vector2(-1_900f), add: false));
+        Assert.Equal(0, world.SelectIn(new Vector2(-2_000f), new Vector2(100f), turnRad: 0f, add: false));
         Assert.Equal(0, world.SelectedCount);
     }
 
@@ -99,8 +99,8 @@ public class SelectionTests
         using var world = Town();
         world.Select(new Selection(SelectionKind.Person, 0));
 
-        var (one, other) = BoxRound(world.Cars.PositionM[0], reachM: 6f);
-        world.SelectIn(one, other, add: true);
+        var (centreM, sizeM) = BoxRound(world.Cars.PositionM[0], reachM: 6f);
+        world.SelectIn(centreM, sizeM, turnRad: 0f, add: true);
 
         Assert.True(world.IsSelected(SelectionKind.Person, 0), "a box with shift dropped what was held");
         Assert.True(world.IsSelected(SelectionKind.Car, 0));
@@ -116,7 +116,7 @@ public class SelectionTests
         var config = new SimConfig { View = new ViewFigures { SelectionMaxUnits = 2 } };
         using var world = Town(config);
 
-        var caught = world.SelectIn(new Vector2(-10_000f), new Vector2(10_000f), add: false);
+        var caught = world.SelectIn(Vector2.Zero, new Vector2(20_000f), turnRad: 0f, add: false);
 
         Assert.Equal(2, caught);
         Assert.Equal(2, world.SelectedCount);

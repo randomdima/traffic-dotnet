@@ -267,7 +267,7 @@ public class SignalTests
         var centreM = plan.Crosswalks.CentreM[crossing];
         var along = Vector2.Normalize(plan.Crosswalks.Axis[crossing]);
         var halfDepthM = plan.Crosswalks.DepthM[crossing] * 0.5f;
-        var halfSpanM = plan.Crosswalks.SpanM[crossing] * 0.5f;
+        var halfSpanM = plan.CrossingSpanM(crossing) * 0.5f;
 
         var arcs = roads.ArcsOf(lane);
         var lengthM = roads.LaneLengthM[lane];

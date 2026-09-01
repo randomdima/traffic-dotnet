@@ -1,6 +1,6 @@
 {
   "id": "boulder",
-  "kind": 1,
+  "kind": 0,
   "sprite": "boulder.webp",
   "diameterM": 1.20
 }

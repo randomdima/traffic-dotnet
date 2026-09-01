@@ -2,5 +2,6 @@
   "id": "milk_crates",
   "kind": 2,
   "sprite": "milk_crates.webp",
-  "diameterM": 1.10
+  "diameterM": 1.10,
+  "turns": true
 }

@@ -39,7 +39,7 @@ the town as an argument. This is rule 1 of [goals.md](../../../../docs/goals.md)
 **WEB-3 — the page carries the visual layers and none of the instruments.** The interface, the debug
 layers, the scenario panel and the figures page are the town's own picture and are all here. **The
 offscreen picture, the sheet, the probes and the workshop steps are not**: `--shot`, `--sheet`,
-`--bench`, `--lamps` and `--place-services` are how a run is *measured*, they need a file system and a
+`--bench` and `--lamps` are how a run is *measured*, they need a file system and a
 process that can exit, and a page has neither. A browser is where the town is watched; the desktop is
 where it is answered for.
 

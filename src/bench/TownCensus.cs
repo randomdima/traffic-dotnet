@@ -26,11 +26,8 @@ internal static class TownCensus
 {
     public static void Run(string map, SimConfig config)
     {
-        var path = ProjectPaths.TownFile(map);
-        var bytes = new FileInfo(path).Length;
-
         var started = Stopwatch.GetTimestamp();
-        var plan = TownReader.ReadFile(path);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
         var elapsed = Stopwatch.GetElapsedTime(started);
 
         var grid = new TerrainGrid(plan, config);
@@ -38,7 +35,7 @@ internal static class TownCensus
         Console.WriteLine($"census — {plan.Name}, seed {plan.Seed}");
         Console.WriteLine($"{plan.WorldSizeM.X:F0} x {plan.WorldSizeM.Y:F0} m, {plan.GridWidth} x {plan.GridHeight} cells of " +
                           $"{plan.CellSizeM:F2} m, {plan.PavementWidthM:F1} m pavement");
-        Console.WriteLine($"{bytes / 1024d / 1024d:F2} MB read and laid out in {elapsed.TotalMilliseconds:F1} ms");
+        Console.WriteLine($"laid in {elapsed.TotalMilliseconds:F0} ms");
         Console.WriteLine();
 
         Console.WriteLine("ground");
@@ -87,23 +84,38 @@ internal static class TownCensus
         var propsByKind = new int[8];
         foreach (var kind in plan.Props.Kind) propsByKind[kind % propsByKind.Length]++;
 
+        // How many props wear a look with a front, which is the only sense in which the bearing the verge
+        // pass laid them on is visible (GEN-6b): a look that does not turn is drawn upright either way.
+        var looks = PropCatalog.Load();
+        var turned = 0;
+        for (var prop = 0; prop < plan.Props.Count; prop++)
+        {
+            var look = looks.Look(plan.Props.Kind[prop], plan.Props.RadiusM[prop] * 2f, prop);
+            if (looks.Variants[look].Turns) turned++;
+        }
+
         Console.WriteLine("what is laid");
         Console.WriteLine($"  roads          {plan.Roads.Count,7}  {plan.Roads.Segments.Length} arcs, {roadLengthM / 1000f:F2} km, " +
                           $"{Mean(plan.Roads.WidthM):F2} m wide");
-        Console.WriteLine($"  junctions      {plan.Junctions.Count,7}  {lit} lit, {plan.JunctionCorners.Count} kerb corners, " +
+        Console.WriteLine($"  junctions      {plan.Junctions.Count,7}  {lit} lit, {JunctionsWith(plan, 2)} with no fork, " +
+                          $"{JunctionsWith(plan, 1)} dead ends, {plan.JunctionCorners.Count} kerb corners, " +
                           $"reach {Mean(plan.Junctions.RadiusM):F2} m");
         Console.WriteLine($"  pavement       {PavementCorners.Solve(plan, config).Count,7}  inner corners solved, " +
                           $"{plan.PavementCorners.Count} carried by the map");
         Console.WriteLine($"  bridges        {plan.Bridges.Count,7}  paved areas {plan.PavedAreas.Count}");
-        Console.WriteLine($"  crossings      {plan.Crosswalks.Count,7}  {Mean(plan.Crosswalks.SpanM):F2} m across the road, " +
-                          $"{Mean(plan.Crosswalks.DepthM):F2} m deep");
+        // A zebra has no span of its own to print: what it reaches is solved off the road it is painted on
+        // (TER-6), and the widest is the one laid furthest off square.
+        Console.WriteLine($"  crossings      {plan.Crosswalks.Count,7}  {Mean(plan.Crosswalks.DepthM):F2} m deep, " +
+                          $"reaching {Widest(plan):F2} m at the widest");
         Console.WriteLine($"  stop bars      {plan.StopLines.Count,7}  {Mean(plan.StopLines.SpanM):F2} m across the lane, " +
                           $"{Mean(plan.StopLines.ThicknessM):F2} m thick");
         Console.WriteLine($"  parking lots   {plan.ParkingLots.Count,7}  {plan.ParkingLots.SpaceCount} spaces, " +
                           $"{Fronting(plan, config)} of them front a kerb the line is broken over");
         Console.WriteLine($"  buildings      {plan.Buildings.Count,7}  capacity {capacity}, {plan.Buildings.EntryPointM.Length} ways in");
-        Console.WriteLine($"  props          {plan.Props.Count,7}  {propsByKind[0]} tree, {propsByKind[1]} scatter, {propsByKind[2]} furniture");
-        Console.WriteLine($"  water          {plan.Water.Count,7}  outlines, {plan.Water.PointM.Length} points");
+        Console.WriteLine($"  props          {plan.Props.Count,7}  {propsByKind[0]} wild, {propsByKind[1]} planted, " +
+                          $"{propsByKind[2]} furniture; {turned} turned onto the kerb they stand along");
+        Console.WriteLine($"  water          {plan.Water.Outline.Count,7}  outlines, {plan.Water.Outline.PointM.Length} points; " +
+                          $"{plan.Water.Shore.Count} shores of {plan.Water.Shore.PointM.Length}");
         Console.WriteLine();
 
         Console.WriteLine("the roster the plan asks for");
@@ -125,6 +137,31 @@ internal static class TownCensus
         Console.WriteLine();
 
         Networks(plan, config);
+    }
+
+    /// <summary>
+    /// How many of the town's junctions have this many arms. <b>A generated town has none of one</b>
+    /// (GEN-5a) — a dead end wants the disc a car turns round in (TER-5a) and a city lays every junction as
+    /// the crossing its arms make — so that count says whether a map laid in code promised that ground on
+    /// purpose, and the count of two says how much of the town is crossed once rather than once an arm
+    /// (TER-6).
+    /// </summary>
+    static int JunctionsWith(CityPlan plan, int arms)
+    {
+        var atEach = new int[plan.Junctions.Count];
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            atEach[plan.Roads.FromJunction[road]]++;
+            atEach[plan.Roads.ToJunction[road]]++;
+        }
+
+        var found = 0;
+        foreach (var at in atEach)
+        {
+            if (at == arms) found++;
+        }
+
+        return found;
     }
 
     /// <summary>
@@ -270,6 +307,18 @@ internal static class TownCensus
         Console.WriteLine($"  joins          {turns,7}  movements; {free} take no setback, {atTheCap} take all the town allows; " +
                           $"mean {(turns == 0 ? 0f : setbackM / turns):F2} m, widest {widestM:F2} m of " +
                           $"{config.IntersectionCornerRadiusM:F2}, tightest arc {(float.IsFinite(tightestM) ? tightestM : 0f):F2} m");
+    }
+
+    /// <summary>How far the furthest-reaching zebra runs, which on a town of square crossings is a road's width.</summary>
+    static float Widest(CityPlan plan)
+    {
+        var spanM = 0f;
+        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+        {
+            spanM = MathF.Max(spanM, plan.CrossingSpanM(crossing));
+        }
+
+        return spanM;
     }
 
     static float Mean(ReadOnlySpan<float> figures)

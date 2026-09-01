@@ -4,6 +4,34 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-01 — the swing into a bay was bought with a straight nothing was keeping
+
+Every nose-in way in the shipped town swung out over the oncoming lane before it turned in, ran near twelve
+metres, and was reversed the whole of that way back out again. Nothing about the car forced it. A quarter
+turn carries the rear axle exactly its own radius sideways, the shipped lot stands its bays 4.4 m off the
+lane beside them and the tightest circle the shipped car has is 3.94 m — so **one arc reaches, with half a
+metre to spare**, and the swing existed only because two figures had already spent that half metre:
+a tenth over the minimum radius, and a quarter of a car length of settling straight on the end.
+
+Both are now a twentieth. The nose-in way in went from **11.9 m with a 27° swing and a body over the
+centreline to 6.8 m with no swing at all**, and the exit — which is that way reversed (GEN-4f) — halved with
+it.
+
+**What decided it was measuring what the straight buys, in a town rather than on a drawing.** The figure it
+was set on was 1.1° out of square against 12° with none. What the follower actually hands on at the end of
+`P-14` is **about twenty degrees out of square, and identically so at either figure**; the car settles the
+rest of the way once it is at rest. So the straight was paying the street for nothing, which is exactly the
+trade `P-14` already warned must be measured against the road it costs and never against the squareness
+alone.
+
+**The swing is kept and is not deprecated.** A bay standing nearer its lane than a turning radius still
+needs it and still gets it, and what that takes of the oncoming lane is still the crossings table's to
+answer and nobody's to bar (GEN-4j). What changed is that no bay in the shipped town is one of those.
+
+**What is not fixed is the twenty degrees.** It belongs to the follower converging on a template at
+manoeuvring pace, not to the shape, and it is now bounded — a body left across two spaces is a fault the
+suite fails on (`ManeuverTests`).
+
 ## 2026-08-27 — a bay is where a car turns round, and the turn holds it like a booking
 
 No junction admits a movement that reverses the direction of travel any more (TER-5f), so the town needed

@@ -1,6 +1,6 @@
 {
   "id": "stone_planter",
-  "kind": 2,
+  "kind": 1,
   "sprite": "stone_planter.webp",
   "diameterM": 1.90
 }

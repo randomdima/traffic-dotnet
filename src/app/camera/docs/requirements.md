@@ -1,7 +1,7 @@
 # The camera — requirements
 
-**OBS-1** Top-down, pannable and zoomable, so that **both the whole town and individual agents can be
-watched**.
+**OBS-1** Top-down, pannable, zoomable and turnable, so that **both the whole town and individual agents
+can be watched**.
 
 **OBS-1a** **Free pan always wins.** A manual pan or zoom takes the camera off any unit it was following
 and **keeps it off until the follow is asked for again**. Follow is offered only for a unit that is
@@ -24,5 +24,26 @@ of the screen and the middle of the ring is the field inside it, so the menu sit
 is on screen all the way round; a town shoved aside to clear a panel that is no longer in a corner would be
 half off the window instead. **That framing follows the window** until somebody moves the camera
 themselves: a canvas that settles its size a moment after the town stood up, or a window dragged wider,
-would otherwise leave what the reader opened on half off the screen. The first pan or zoom is theirs and
-ends it (OBS-1a).
+would otherwise leave what the reader opened on half off the screen. The first pan, zoom or turn is theirs
+and ends it (OBS-1a).
+
+**OBS-1c — The town turns.** A street runs the way it runs, and a reader following one along the bottom of
+the window is reading it sideways. So the view carries a **turn**: how far the town is drawn clockwise from
+north-up, about **the point the turn is asked for at** — the world under that pixel is the one thing that
+does not move, exactly as it is under a zoom.
+
+- **The town turns and the camera is never aimed.** What is stored is the angle the picture is at, which is
+  the thing a reader is looking at; a bearing anybody would have to invert appears nowhere.
+- **It is one transform and it is applied in one place** — where a position in metres becomes a position on
+  screen, on the processor and in every vertex stage alike. Nothing that carries a rotation of its own —
+  a body's heading, a band down a bending line — knows the town is turned at all.
+- **What is culled against is the turned view.** A town off the axes covers a larger box than the window's
+  own rectangle, and a body just outside that rectangle is inside the picture.
+- **Nothing on the interface turns with it.** The panels, the labels, the scale bar and the box a drag lays
+  are laid in the window's own pixels: they are the reader's furniture and not the town's.
+- **North-up is a button and never a spring.** The compass in the corner is drawn only while the town is
+  turned and puts it back level when it is pressed. A turn that snapped to north on its own could never be
+  nudged a degree at a time, since every degree would be undone before the next one arrived.
+
+**How it is asked for** is the input layer's (`CTL-9`): a twist between two fingers, or the wheel with
+control held.

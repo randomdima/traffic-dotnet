@@ -98,7 +98,15 @@ internal sealed class CarFigures
     /// How much wider than the car's own turning circle a manoeuvring template is drawn, so the steering is
     /// not sitting on its stop for the whole of an arc a car has to hold in both gears.
     /// </summary>
-    public float ParkingTemplateArcMargin { get; init; } = 1.1f;
+    /// <remarks>
+    /// <b>The margin is paid for in street</b> (P-14, GEN-4j). A single arc turning into a perpendicular bay
+    /// carries the rear axle exactly its own radius sideways, so every centimetre of margin is a centimetre
+    /// less of the gap between the lane and the bay — and once the arcs no longer reach, the shortfall is
+    /// met by swinging away from the bay first, out over the oncoming lane. At a tenth it took the shipped
+    /// lot past the point one arc reaches; at a twentieth it does not, and what the wider figure bought
+    /// was two degrees of squareness the follower does not keep anyway.
+    /// </remarks>
+    public float ParkingTemplateArcMargin { get; init; } = 1.05f;
 }
 
 /// <summary>The contact patch: what a wheel can put down, how the load moves onto it, and what it draws.</summary>
@@ -405,13 +413,6 @@ internal sealed class DrivingFigures
     public float JunctionReserveInCarLengths { get; init; } = 3f;
 
     /// <summary>
-    /// The pace a crossing is approached at — 8 m/s at the shipped figures, against a town whose cars run
-    /// at ten to twenty. Fast enough that a green is not spent crawling, slow enough that the stop for
-    /// somebody stepping off a kerb is a stop and not a skid. Lifted where the crossing is lit and red.
-    /// </summary>
-    public float CrossingPaceInCarLengthsPerS { get; init; } = 2f;
-
-    /// <summary>
     /// How far short of a crossing's paint a yielding car comes to rest. Leaving the crossing clear is
     /// the whole of the figure: stopping on the near edge is stopping where somebody has to walk round
     /// the bonnet.
@@ -537,9 +538,6 @@ internal sealed class PersonFigures
     /// </remarks>
     public float SlidingGripInFootGrips { get; init; } = 0.9f;
     public float FleeDistanceM { get; init; } = 8f;
-
-    /// <summary>A quarter of the stretch's band, so each direction has half of it.</summary>
-    public float LaneOffsetFraction { get; init; } = 0.25f;
 
     /// <summary>
     /// The clear ground a walker keeps between where it will have stopped and whatever it is stopping

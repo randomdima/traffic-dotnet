@@ -117,6 +117,10 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
     public void LineM(Vector2 fromM, Vector2 toM, float widthM, Vector4 colour) =>
         Bar(fromM, toM, widthM, colour, screen: false);
 
+    /// <summary>The same line in interface pixels, for a piece of furniture that is not upright — a needle.</summary>
+    public void LinePx(Vector2 fromPx, Vector2 toPx, float widthPx, Vector4 colour) =>
+        Bar(fromPx, toPx, widthPx, colour, screen: true);
+
     /// <summary>
     /// <b>One piece of a band down a bending line</b>: the ground between two stations of one arc,
     /// <paramref name="widthM"/> across it, where the line turns <paramref name="turnRad"/> between the

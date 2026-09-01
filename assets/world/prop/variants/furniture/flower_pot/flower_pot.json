@@ -1,6 +1,6 @@
 {
   "id": "flower_pot",
-  "kind": 2,
+  "kind": 1,
   "sprite": "flower_pot.webp",
   "diameterM": 0.70
 }

@@ -23,10 +23,12 @@ internal sealed class ControlsCard
     /// <summary>Key then meaning, in pairs.</summary>
     static readonly string[] Legend =
     [
-        "Arrows / middle-drag / wheel", "Camera, unless a unit is being driven",
-        "Left-click", "Select a unit; click nothing to deselect",
-        "Left-drag", "Select every unit inside the box",
-        "Shift-click / shift-drag", "Add to the selection, or drop a unit from it",
+        "Left-drag / arrows / one finger", "Move the town under the pointer",
+        "Wheel / two fingers apart", "Zoom about the pointer",
+        "Ctrl-wheel / two fingers twisted", "Turn the town; the compass puts it back north-up",
+        "Left-click / tap", "Select a unit; click nothing to deselect",
+        "Shift-drag", "Select every unit inside the box",
+        "Shift-click", "Add to the selection, or drop a unit from it",
         "Right-click", "Order every selected unit there",
         "  on a road", "A car drives there and stands in the lane",
         "  on a car park", "A car parks in the nearest free bay to it",
@@ -74,9 +76,17 @@ internal sealed class ControlsCard
     public void Show() => Open = true;
 
     /// <param name="anchor">The question mark it hangs under, aligned to its trailing edge.</param>
+    /// <remarks>
+    /// <b>The card is as wide as its own two columns until the window is narrower than that</b>, and
+    /// then it is the window's — the same rule the map list answers to. What is cut is cut by
+    /// <see cref="ScreenDraw.TextFitted"/> and reads as a line with more behind it; a card laid at its
+    /// own width on a handset ran its whole second column off the edge of the glass (OBS-2k).
+    /// </remarks>
     public void Draw(ref ScreenDraw draw, Vector2 uiPx, Rect anchor)
     {
-        var widthPx = ContentWidthPx + Theme.PaddingPx * 2f;
+        var contentWidthPx = MathF.Min(
+            ContentWidthPx, MathF.Max(KeyWidthPx, uiPx.X - (Theme.MarginPx * 2f) - (Theme.PaddingPx * 2f)));
+        var widthPx = contentWidthPx + Theme.PaddingPx * 2f;
         var heightPx = ContentHeightPx + Theme.PaddingPx * 2f + Theme.HeadingPx + Theme.GapPx * 2f + Theme.EdgePx;
         var atPx = Theme.PopupAt(anchor, uiPx, widthPx);
         Box = new Rect(atPx, new Vector2(widthPx, heightPx));
@@ -93,7 +103,7 @@ internal sealed class ControlsCard
             draw.TextFitted(rowAtPx, Legend[row * 2], Theme.SmallTextPx, Theme.Heading, KeyWidthPx);
             draw.TextFitted(
                 rowAtPx + new Vector2(KeyWidthPx, 0f), Legend[row * 2 + 1], Theme.SmallTextPx, Theme.Text,
-                ContentWidthPx - KeyWidthPx);
+                contentWidthPx - KeyWidthPx);
         }
     }
 

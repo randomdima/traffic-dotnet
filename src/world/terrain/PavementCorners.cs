@@ -71,7 +71,7 @@ internal static class PavementCorners
     public static List<PavementCorner> Solve(CityPlan plan, SimConfig config)
     {
         var corners = new List<PavementCorner>();
-        var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.Road.PavementWidthM;
+        var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
         if (walkM <= 0f) return corners;
 
         var pieces = Lay(plan, config, walkM);
@@ -129,8 +129,28 @@ internal static class PavementCorners
             if (Vector2.DistanceSquared(already.CornerM, atM) < SameCornerM * SameCornerM) return;
         }
 
-        corners.Add(new PavementCorner(atM, normalA, normalB, RadiusM(opening, walkM, config)));
+        // <b>The arc is turned in the verge that is actually there</b>, and the wedge's own angle is only
+        // half of what says how much that is. Where a third piece stands within a radius of the corner —
+        // two car parks whose walks all but meet — the arc struck on the angle alone has its centre on
+        // pavement, and what it then paves is the verge behind the corner instead of the spike in front
+        // of it. It is turned tighter until its centre is verge, and a corner with room for no arc at all
+        // is a cusp rather than a corner: nothing rounds it.
+        var corner = new PavementCorner(atM, normalA, normalB, RadiusM(opening, walkM, config));
+        for (var tightening = 0; !Clear(pieces, grid, corner.ArcCentreM); tightening++)
+        {
+            if (tightening >= TighteningsAllowed) return;
+
+            corner = corner with { RadiusM = corner.RadiusM * 0.5f };
+        }
+
+        corners.Add(corner);
     }
+
+    /// <summary>
+    /// How many times an arc may be halved to stand its centre on verge before the corner is given up as a
+    /// cusp. Four leaves a sixteenth of the radius, which is under the step the outline is walked at.
+    /// </summary>
+    const int TighteningsAllowed = 4;
 
     /// <summary>
     /// The arc a wedge is turned on: half the walk, <b>bounded by how far the fillet would reach in</b>
@@ -167,6 +187,22 @@ internal static class PavementCorners
 
     /// <summary>No piece: what <see cref="Inside"/> is asked to leave out when the whole union is the question.</summary>
     const int Nothing = -1;
+
+    /// <summary>
+    /// Whether a point stands on verge with room to spare — outside every piece by more than the width a
+    /// point is judged to be standing on an edge at. <b>Not merely outside</b>: an arc whose centre sits a
+    /// hair off the pavement is one whose own fillet is drawn along that pavement's edge, and which side
+    /// of the line it came down on is a rounding rather than a fact about the ground.
+    /// </summary>
+    static bool Clear(List<Piece> pieces, PieceGrid grid, Vector2 pointM)
+    {
+        foreach (var piece in grid.At(pointM))
+        {
+            if (Distance(pieces[piece], pointM) <= OnTheEdgeM) return false;
+        }
+
+        return true;
+    }
 
     /// <summary>Whether any piece but one holds a point.</summary>
     static bool Inside(List<Piece> pieces, PieceGrid grid, Vector2 pointM, int except)

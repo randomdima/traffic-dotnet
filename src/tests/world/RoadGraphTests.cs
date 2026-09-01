@@ -119,7 +119,15 @@ public class RoadGraphTests
                 if (terrain.At(pointM).Drivable) continue;
 
                 off++;
-                if (worst.Length == 0) worst = $"lane {lane} at {pointM} stands on {terrain.GroundAt(pointM)}";
+                if (worst.Length == 0)
+                {
+                    // The road as well as the lane: a lane number alone says nothing about which piece of
+                    // the map to go and look at, and a generated town is laid again rather than opened.
+                    var road = graph.LaneRoad[lane];
+                    worst = $"lane {lane} of road {road}, junctions {plan.Roads.FromJunction[road]} to "
+                            + $"{plan.Roads.ToJunction[road]} over {plan.Roads.SegmentsOf(road).Length} arc(s), "
+                            + $"at {pointM} stands on {terrain.GroundAt(pointM)}";
+                }
             }
 
             laneCount++;

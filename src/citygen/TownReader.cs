@@ -29,6 +29,12 @@ internal static class TownReader
     /// <summary>What the file writes where a record points at nothing — a crossing struck mid-block belongs to no junction.</summary>
     const uint NoIndex = 0xFFFFFFFF;
 
+    /// <summary>
+    /// How parallel a road has to run to a crossing's axis to be the road under it: an eighth of a turn,
+    /// which is as far off square as a crossing may be laid at all (<see cref="CityPlan.CrossingSpanM"/>).
+    /// </summary>
+    const float AlongEnough = 0.7071068f;
+
     public static CityPlan ReadFile(string path) => Read(File.ReadAllBytes(path), path);
 
     public static CityPlan Read(ReadOnlySpan<byte> bytes, string what = "<memory>")
@@ -69,13 +75,13 @@ internal static class TownReader
         var roads = ReadRoads(ref cursor);
         var bridges = ReadBridges(ref cursor);
         var pavedAreas = ReadPavedAreas(ref cursor);
-        var crosswalks = ReadCrosswalks(ref cursor);
+        var crosswalks = ReadCrosswalks(ref cursor, roads, what);
         var stopLines = ReadStopLines(ref cursor);
         var parkingLots = ReadParkingLots(ref cursor);
         var buildings = ReadBuildings(ref cursor);
         var props = ReadProps(ref cursor);
         var spawns = ReadSpawns(ref cursor);
-        var water = ReadWater(ref cursor);
+        var water = ReadWater(ref cursor, worldSizeM);
 
         if (cursor.Remaining != 0)
         {
@@ -272,27 +278,76 @@ internal static class TownReader
         return new CityPlan.PavedAreaArrays { MinM = minM, SizeM = sizeM };
     }
 
-    static CityPlan.CrosswalkArrays ReadCrosswalks(ref ByteCursor cursor)
+    /// <summary>
+    /// <b>The span the file carries is read and dropped</b>: a zebra is the width of the road it is
+    /// painted on (TER-6), so the record's own figure is a second answer, and on a shipped fixture it is
+    /// already the one that disagrees. The road is found under the paint instead, which is what the field
+    /// would have had to agree with.
+    /// </summary>
+    static CityPlan.CrosswalkArrays ReadCrosswalks(ref ByteCursor cursor, CityPlan.RoadArrays roads, string what)
     {
         var count = cursor.Count("crosswalks", bytesEach: 28);
         var centreM = new Vector2[count];
         var axis = new Vector2[count];
         var depthM = new float[count];
-        var spanM = new float[count];
+        var road = new int[count];
         var junction = new int[count];
         for (var i = 0; i < count; i++)
         {
             centreM[i] = cursor.V2();
             axis[i] = cursor.V2();
             depthM[i] = cursor.F32();
-            spanM[i] = cursor.F32();
+            _ = cursor.F32();
             junction[i] = Index(ref cursor);
+            road[i] = RoadAcross(roads, centreM[i], axis[i]);
+            if (road[i] == CityPlan.NoRecord)
+            {
+                throw new FormatException(
+                    $"{what} paints a crossing at {centreM[i]} that lies across no road of its own.");
+            }
         }
 
         return new CityPlan.CrosswalkArrays
         {
-            CentreM = centreM, Axis = axis, DepthM = depthM, SpanM = spanM, Junction = junction,
+            CentreM = centreM, Axis = axis, DepthM = depthM, Road = road, Junction = junction,
         };
+    }
+
+    /// <summary>
+    /// The road a crossing is painted across: the one running under the paint and along its axis. A
+    /// crossing on a node itself lies at the end of two of them, and either is the same carriageway
+    /// (TER-5b), so the nearer answers.
+    /// </summary>
+    static int RoadAcross(CityPlan.RoadArrays roads, Vector2 centreM, Vector2 axis)
+    {
+        if (axis.LengthSquared() <= 0f) return CityPlan.NoRecord;
+
+        axis = Vector2.Normalize(axis);
+        var found = CityPlan.NoRecord;
+        var nearestM = float.MaxValue;
+        for (var road = 0; road < roads.Count; road++)
+        {
+            var arcs = roads.SegmentsOf(road);
+            if (arcs.Length == 0) continue;
+
+            var lengthM = Spline.TotalLengthM(arcs);
+            var at = Spline.SampleAt(arcs, Spline.ProjectM(arcs, centreM, lengthM * 0.5f, lengthM));
+            var offM = (at.PositionM - centreM).Length();
+
+            // The paint has to be on this road rather than on one passing beside it: a crossing lies across
+            // the road it crosses, so its axis and the road agree to within an eighth of a turn — the
+            // skewed crossing the fixture is laid to carry included.
+            if (offM >= nearestM || MathF.Abs(Vector2.Dot(at.Direction, axis)) < AlongEnough) continue;
+
+            nearestM = offM;
+            found = road;
+        }
+
+        if (found == CityPlan.NoRecord) return CityPlan.NoRecord;
+
+        // And on it rather than near it: the paint is laid on the road's own line, so anything off it by
+        // half a carriageway is a crossing of some other road that happens to run parallel.
+        return nearestM <= roads.WidthM[found] * 0.5f ? found : CityPlan.NoRecord;
     }
 
     static CityPlan.StopLineArrays ReadStopLines(ref ByteCursor cursor)
@@ -400,7 +455,10 @@ internal static class TownReader
             kind[i] = cursor.U8();
         }
 
-        return new CityPlan.PropArrays { CentreM = centreM, RadiusM = radiusM, Kind = kind };
+        return new CityPlan.PropArrays
+        {
+            CentreM = centreM, RadiusM = radiusM, BearingRad = new float[count], Kind = kind,
+        };
     }
 
     static CityPlan.SpawnArrays ReadSpawns(ref ByteCursor cursor)
@@ -419,7 +477,12 @@ internal static class TownReader
         return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad };
     }
 
-    static CityPlan.WaterArrays ReadWater(ref ByteCursor cursor)
+    /// <summary>
+    /// The outlines the file carries, each cut to the map's own edges (GEN-2b). <b>A shore is drawn past the
+    /// town by whatever laid it</b> — a bank that closed inside the extent would be a lake — so the cut is
+    /// made where a file becomes a plan, exactly as it is made where a generated one is.
+    /// </summary>
+    static CityPlan.WaterArrays ReadWater(ref ByteCursor cursor, Vector2 worldSizeM)
     {
         var count = cursor.Count("water outlines", bytesEach: 4);
         var offsets = new int[count + 1];
@@ -427,11 +490,23 @@ internal static class TownReader
         for (var i = 0; i < count; i++)
         {
             offsets[i] = pointM.Count;
-            var points = cursor.Count("water outline points", bytesEach: 8);
-            for (var point = 0; point < points; point++) pointM.Add(cursor.V2());
+            var ringM = new Vector2[cursor.Count("water outline points", bytesEach: 8)];
+            for (var point = 0; point < ringM.Length; point++) ringM[point] = cursor.V2();
+
+            pointM.AddRange(WaterOutline.CutToTheMap(ringM, worldSizeM));
         }
 
         offsets[count] = pointM.Count;
-        return new CityPlan.WaterArrays { OutlineOffsets = offsets, PointM = pointM.ToArray() };
+
+        // <b>A map that arrives as a file carries no shore</b> (GEN-2c): the format was written before there
+        // was one, and a shore invented here would be a bank this build derived rather than the one whatever
+        // laid the fixture drew.
+        return new CityPlan.WaterArrays
+        {
+            Outline = new CityPlan.RingArrays { Offsets = offsets, PointM = pointM.ToArray() },
+            Shore = CityPlan.RingArrays.None,
+            ShoreEdge = CityPlan.RingArrays.None,
+            WaterEdge = CityPlan.RingArrays.None,
+        };
     }
 }

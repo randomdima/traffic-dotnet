@@ -100,7 +100,7 @@ internal sealed class SignalHeads
 
             var alongM = (crossings.DepthM[crossing] * 0.5f) + (config.Signals.WalkHeadWidthM * 0.5f) +
                          config.Signals.HeadClearanceM;
-            var acrossM = (crossings.SpanM[crossing] * 0.5f) + (config.Signals.WalkHeadLengthM * 0.5f) +
+            var acrossM = (plan.CrossingSpanM(crossing) * 0.5f) + (config.Signals.WalkHeadLengthM * 0.5f) +
                           config.Signals.HeadClearanceM;
 
             // Diagonally opposite, because the near-left corner of one direction is the far-right of

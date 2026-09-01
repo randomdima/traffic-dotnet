@@ -168,14 +168,14 @@ internal sealed partial class TownWorld
         // which is a stop taken *on* the crossing.
         CrossingAhead(
             car, LaneAheadSlot(car, progressM), progressM, MathF.Min(junctionStopM, seen.DistanceM),
-            out var crossingStopM, out var crossingAtM, out var crossingPaceMps);
+            out var crossingStopM, out var crossingAtM);
 
         // The grant was taken against the book while it was being laid, so it is a distance from where the
         // nose stood then: walking it in by the ground covered since is what stops it receding at exactly
         // the car's own speed, which is the same correction a manoeuvre's stop point gets.
         var context = new DriveContext(
             seen.DistanceM, seen.AlongMps, junctionStopM, Cars.GroundCoefficient[car],
-            crossingStopM, crossingAtM, crossingPaceMps, kind, Cars.AuthorityM[car] - coveredM,
+            crossingStopM, crossingAtM, kind, Cars.AuthorityM[car] - coveredM,
             Cars.GrantCutBy[car], Cars.FollowingShare[car]);
 
         Cars.Context[car] = context;
@@ -232,8 +232,7 @@ internal sealed partial class TownWorld
         CrossingOnTheTemplate(car, line, leadM, reachM, out var crossingStopM, out var crossingAtM);
 
         var context = new DriveContext(
-            seen.DistanceM, seen.AlongMps, stopAtM, Cars.GroundCoefficient[car], crossingStopM, crossingAtM,
-            float.IsPositiveInfinity(crossingAtM) ? float.PositiveInfinity : build.CrossingPaceMps, kind,
+            seen.DistanceM, seen.AlongMps, stopAtM, Cars.GroundCoefficient[car], crossingStopM, crossingAtM, kind,
             Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car]);
 
         Cars.Context[car] = context;
@@ -344,7 +343,7 @@ internal sealed partial class TownWorld
         // body — which is the same question the desk asked before it committed to this line at all.
         var clearM = GroundAhead.ClearM(_roads, _occupancy, line, tailM, reachM, build.FlankM, car);
 
-        // The paint is owed by a car under its own geometry as much as by one on its route (CAR-7b): a
+        // The paint is owed by a car under its own geometry as much as by one on its route (TER-5e): a
         // swerve, a bay entry and a bay exit all cross the same crossings.
         CrossingOnTheTemplate(car, line, tailM, reachM, out var crossingStopM, out var crossingAtM);
 
@@ -354,7 +353,6 @@ internal sealed partial class TownWorld
         var context = new DriveContext(
             clearM < reachM ? clearM : float.PositiveInfinity, 0f, float.PositiveInfinity,
             Cars.GroundCoefficient[car], crossingStopM, crossingAtM,
-            float.IsPositiveInfinity(crossingAtM) ? float.PositiveInfinity : build.CrossingPaceMps,
             clearM < reachM ? HeadwayKind.Unknown : HeadwayKind.Nothing);
 
         Cars.Context[car] = context;

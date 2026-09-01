@@ -11,6 +11,8 @@ struct Camera {
     centreM: vec2f,
     clipPerM: vec2f,
     uiPx: vec2f,
+    // How far the town is turned on screen, as its cosine and its sine (OBS-1c). Upright is (1, 0).
+    facing: vec2f,
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;
@@ -40,8 +42,16 @@ struct Sheets {
 
 /// The town's own metres to clip. The negation is the whole of what makes a y-up API draw a y-down
 /// world the same way the y-down one does.
+///
+/// **The turn is applied here and nowhere else** (OBS-1c). A sprite's heading and a band's direction
+/// are built in the town's own axes above this, so turning the whole offset turns them with it — which
+/// is why nothing that carries a rotation of its own knows the town is turned at all.
 fn toClip(atM: vec2f) -> vec4f {
-    let offset = (atM - camera.centreM) * camera.clipPerM;
+    let fromCentreM = atM - camera.centreM;
+    let turnedM = vec2f(
+        fromCentreM.x * camera.facing.x - fromCentreM.y * camera.facing.y,
+        fromCentreM.x * camera.facing.y + fromCentreM.y * camera.facing.x);
+    let offset = turnedM * camera.clipPerM;
     return vec4f(offset.x, -offset.y, 0.0, 1.0);
 }
 

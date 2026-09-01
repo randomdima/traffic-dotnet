@@ -55,6 +55,25 @@ internal static class Spline
     }
 
     /// <summary>
+    /// How much of a chain's own end is curved, which is nil for one that ends straight. <b>What a road
+    /// leaves a node with no fork on</b> (TER-5b), and so how far along that arm anything laid across a
+    /// straight has to stand.
+    /// </summary>
+    public static float BendAtTheEndM(ReadOnlySpan<ArcSeg> arcs, bool atStart)
+    {
+        var bendM = 0f;
+        for (var index = 0; index < arcs.Length; index++)
+        {
+            var arc = arcs[atStart ? index : arcs.Length - 1 - index];
+            if (MathF.Abs(arc.Curvature) <= StraightCurvature) break;
+
+            bendM += arc.LengthM;
+        }
+
+        return bendM;
+    }
+
+    /// <summary>
     /// The chain at one distance from its start, clamped to its own ends — a caller past either end
     /// gets the end pose rather than an exception, because a car shoved off the end of its line still
     /// has to be told something this tick.

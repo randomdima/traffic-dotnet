@@ -104,18 +104,27 @@ internal sealed class AppWindow : IDisposable
 
     public Vector2D<int> FramebufferSize => _window.FramebufferSize;
 
+    /// <summary>
+    /// The window the interface is never laid out on fewer pixels than (OBS-2k), or zero for no cap.
+    /// Set once by the composition root, off the figures, before the first frame is laid.
+    /// </summary>
+    public Vector2 LeastUiPx { get; set; }
+
     /// <summary>The display the window is on, by the name the desktop knows it by.</summary>
     public string DisplayName => _window.Monitor?.Name ?? "an unnamed display";
 
     /// <summary>
     /// How many of the display's own pixels the interface's pixel is worth: the ratio the platform
-    /// already applies, unless <c>--ui-scale</c> named one — the way out where a platform reports 1 on
-    /// a display nobody would call unscaled. Without it a 4K screen draws a 15-pixel label at a third
-    /// of its designed size. The town is unaffected: the camera opens on a span in metres.
+    /// already applies, capped by what the panels need (<see cref="InterfaceScale"/>) and overridden
+    /// outright by <c>--ui-scale</c> — the way out where a platform reports 1 on a display nobody would
+    /// call unscaled. Without it a 4K screen draws a 15-pixel label at a third of its designed size.
+    /// The town is unaffected: the camera opens on a span in metres.
     /// </summary>
-    public float UiScale => _wantedUiScale > 0f
-        ? _wantedUiScale
-        : _window.Size.X > 0 ? (float)_window.FramebufferSize.X / _window.Size.X : 1f;
+    public float UiScale => InterfaceScale.Fitted(
+        _wantedUiScale,
+        _window.Size.X > 0 ? (float)_window.FramebufferSize.X / _window.Size.X : 1f,
+        new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y),
+        LeastUiPx);
 
     /// <summary>The window, in the pixels the interface and the camera are laid out in.</summary>
     public Vector2 UiPx => new Vector2(_window.FramebufferSize.X, _window.FramebufferSize.Y) / UiScale;
@@ -126,6 +135,14 @@ internal sealed class AppWindow : IDisposable
 
     /// <summary>Where the pointer is, <b>in interface pixels</b> — the space the interface is laid out in.</summary>
     public Vector2 PointerPx => _mouse is null ? Vector2.Zero : InUiPx(_mouse.Position);
+
+    /// <summary>
+    /// Where the fingers on the glass are, in interface pixels, and how many were written (CTL-9).
+    /// <b>Always none here</b>: a desktop window has a mouse, and GLFW hands out no touches at all —
+    /// so the two-finger gestures are the browser's and this answers the same question with a zero
+    /// rather than with a second code path above it.
+    /// </summary>
+    public int Touches(Span<Vector2> intoPx) => 0;
 
     /// <summary>
     /// Opens the window, fullscreen unless <c>--windowed</c> asked otherwise, on the display

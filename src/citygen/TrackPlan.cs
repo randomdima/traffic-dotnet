@@ -412,7 +412,7 @@ internal static class TrackPlan
             PavedAreas = new CityPlan.PavedAreaArrays { MinM = [], SizeM = [] },
             Crosswalks = new CityPlan.CrosswalkArrays
             {
-                CentreM = [], Axis = [], DepthM = [], SpanM = [], Junction = [],
+                CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [],
             },
             ParkingLots = new CityPlan.ParkingLotArrays
             {
@@ -422,9 +422,9 @@ internal static class TrackPlan
             {
                 CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], Use = [], EntryOffsets = [0], EntryPointM = [],
             },
-            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], Kind = [] },
+            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], BearingRad = [], Kind = [] },
             Spawns = Spawns(lap, standing, config, CarsOn(which)),
-            Water = new CityPlan.WaterArrays { OutlineOffsets = [0], PointM = [] },
+            Water = CityPlan.WaterArrays.None,
         };
     }
 

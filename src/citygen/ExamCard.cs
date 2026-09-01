@@ -71,9 +71,6 @@ internal enum ExamAsks : byte
     /// </summary>
     EntersOnGreen,
 
-    /// <summary>Its own body never crosses the paint faster than a crossing is driven over (CAR-7b).</summary>
-    AtCrossingPace,
-
     /// <summary>It is never on the paint while somebody on foot is (TER-5e, TER-4c.1).</summary>
     StopsForThePaint,
 
@@ -262,19 +259,12 @@ internal static class ExamCards
         // The box somebody is walking over.
         MidBlock("Giving way at a mid-block crossing", ExamAsks.StopsForThePaint,
             Drives(ExamArm.South, ExamArm.West, PastTheMidBlockM)),
-        Paint("Crossing pace over the paint", ExamArm.South, ExamAsks.AtCrossingPace,
+        Paint("Empty paint takes nothing off it", ExamArm.South, ExamAsks.Unhindered,
             Drives(ExamArm.South, ExamArm.North, RunUpM)),
         Paint("Stopping short of somebody on the paint", ExamArm.South, ExamAsks.StopsForThePaint,
             Drives(ExamArm.South, ExamArm.North, RunUpM)),
-        Found(
-            Paint("Turning across a crossing somebody is on", ExamArm.North, ExamAsks.StopsForThePaint,
-                Drives(ExamArm.West, ExamArm.North, RunUpM)),
-            "It takes the turn and clears the box, then comes back down the arm and is settled beside it "
-            + "rather than driven on to where it was ordered. Nothing about the paint is wrong — it is never "
-            + "on it, and the walker is gone before it arrives; what it does not do is hold a route it has "
-            + "already turned onto. It appeared when the pedal stopped being authored in m/s² (CAR-45): the "
-            + "figure the ground reservation projects against fell to what the tyres actually deliver, and "
-            + "this movement was the one standing on the difference."),
+        Paint("Turning across a crossing somebody is on", ExamArm.North, ExamAsks.StopsForThePaint,
+            Drives(ExamArm.West, ExamArm.North, RunUpM)),
         Card("Shunting round at a dead end", ExamStage.Head, spur: true, ExamAsks.TurnsRound,
             Drives(ExamArm.South, ExamArm.South, ShortOfTheHeadM, BackDownTheSpurM)),
     ];

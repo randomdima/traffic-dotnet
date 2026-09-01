@@ -1,3 +1,4 @@
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.App.Hud;
@@ -25,11 +26,10 @@ internal readonly record struct MapEntry(string Name, MapKind Kind, string Descr
 /// can be opened one way can be opened the other.
 /// </summary>
 /// <remarks>
-/// What is on disk is the authority for <em>which</em> maps exist —
-/// <see cref="ProjectPaths.ShippedMaps"/> reads the folder, so a map cannot be shipped and unlisted —
-/// and this catalogue is the authority for what each one <em>is</em>. The unit suite guards the pair in
-/// both directions. The generated town has no row because the generator is not written, and a menu
-/// entry that opened nothing would be worse than its absence.
+/// <b><see cref="Maps.Shipped"/> is the authority for which maps exist</b> — the briefs in <c>towns/</c>
+/// and the maps this build lays in code — so a map cannot exist and be unlisted. <b>A city says what it is
+/// in its own brief</b>, which a binary file could never do; this catalogue is the authority for the rest,
+/// which is the maps laid to measure one thing. The unit suite guards the pair in both directions.
 /// </remarks>
 internal static class MapCatalogue
 {
@@ -39,8 +39,6 @@ internal static class MapCatalogue
     /// </summary>
     static readonly MapEntry[] Known =
     [
-        new("Odesa", MapKind.Place, "A coastal city: two grids on their own bearings inside an orbital ring"),
-        new("River", MapKind.Place, "A river city: five bridges, a street down each bank, an orbital through every way out"),
         new("Test", MapKind.Scenario, "The fixture map: one screen, one of every kind of ground, furnished thinly"),
         new("Zebras", MapKind.Scenario, "Five isolated streets with a crossing on each, one walker apiece"),
         new("Exam", MapKind.Scenario, "The driving exam: a six by six lattice of junctions, one crossing staged at each"),
@@ -54,7 +52,7 @@ internal static class MapCatalogue
     /// <summary>The shipped maps in menu order, places first — read off the folder and described from the catalogue.</summary>
     public static MapEntry[] Shipped()
     {
-        var names = ProjectPaths.ShippedMaps();
+        var names = Maps.Shipped();
         var entries = new MapEntry[names.Length];
         for (var map = 0; map < names.Length; map++) entries[map] = Describe(names[map]);
 
@@ -71,6 +69,10 @@ internal static class MapCatalogue
         {
             if (string.Equals(entry.Name, name, StringComparison.Ordinal)) return entry;
         }
+
+        // A generated city is described by the brief it is laid from: what a town is meant to be is
+        // authored beside its seed, and a second description here would be the one that goes stale.
+        if (Maps.IsGenerated(name)) return new MapEntry(name, MapKind.Place, Maps.Brief(name).Description);
 
         return new MapEntry(name, MapKind.Scenario, "Shipped but undescribed: add it to MapCatalogue");
     }

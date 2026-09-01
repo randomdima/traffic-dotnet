@@ -2,5 +2,6 @@
   "id": "post_box",
   "kind": 2,
   "sprite": "post_box.webp",
-  "diameterM": 1.10
+  "diameterM": 1.10,
+  "turns": true
 }

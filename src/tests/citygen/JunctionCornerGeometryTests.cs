@@ -49,27 +49,28 @@ public class JunctionCornerGeometryTests
     }
 
     /// <summary>
-    /// <b>A junction disc is not its kerb.</b> The disc is the ground two roads share and is regularly
-    /// narrower than the carriageway around it — Odesa's are 4 m across under 8 m roads — so anything laid
-    /// off the disc's own radius is laid in the road. It is a fact worth an assertion rather than a
-    /// comment, because the arithmetic that gets it wrong looks perfectly reasonable.
+    /// <b>A junction disc is not its kerb</b> (TER-5). The disc is the ground its arms share, so it stops
+    /// inside the pavement of every road that meets it — anything laid off a disc that reached past one is
+    /// laid on the walk. Asked of every junction, because the arithmetic that gets it wrong looks perfectly
+    /// reasonable and gets it wrong everywhere at once.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void AJunctionDiscIsNarrowerThanTheRoadsThatMeetAtIt(string map)
+    public void EveryJunctionDiscStopsInsideTheRoadsThatMeetAtIt(string map)
     {
         var plan = Towns.Of(map);
         var roads = plan.Roads;
 
-        var narrower = 0;
         for (var road = 0; road < roads.Count; road++)
         {
             foreach (var junction in (ReadOnlySpan<int>)[roads.FromJunction[road], roads.ToJunction[road]])
             {
-                if (plan.Junctions.RadiusM[junction] < roads.WidthM[road] * 0.5f + plan.PavementWidthM) narrower++;
+                var reachM = (roads.WidthM[road] * 0.5f) + plan.PavementWidthM;
+                Assert.True(
+                    plan.Junctions.RadiusM[junction] <= reachM,
+                    $"{map}: junction {junction} is {plan.Junctions.RadiusM[junction]:F2} m across where road " +
+                    $"{road} reaches {reachM:F2} m, so its disc is laid over the walk");
             }
         }
-
-        Assert.True(narrower > 0, $"{map}: every junction disc reaches past its own roads' pavements, which no shipped map does");
     }
 }

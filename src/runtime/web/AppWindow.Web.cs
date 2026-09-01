@@ -44,7 +44,15 @@ internal sealed class AppWindow : IDisposable
     const int Height = 7;
     const int Scale = 8;
     const int Resized = 9;
-    const int Axes = 10;
+
+    /// <summary>How many fingers are on the glass, and where the first two of them are (CTL-9).</summary>
+    const int TouchCount = 10;
+
+    const int TouchOneX = 11;
+    const int TouchOneY = 12;
+    const int TouchTwoX = 13;
+    const int TouchTwoY = 14;
+    const int Axes = 15;
 
     readonly byte[] _keys = new byte[(Keys * 2) + 8];
     readonly double[] _axes = new double[Axes];
@@ -76,16 +84,41 @@ internal sealed class AppWindow : IDisposable
     public string DisplayName => "the browser";
 
     /// <summary>
-    /// How many of the display's own pixels the interface's pixel is worth: the page's own device
-    /// pixel ratio, unless <c>ui-scale</c> named one.
+    /// The canvas the interface is never laid out on fewer pixels than (OBS-2k), or zero for no cap.
+    /// Set once by the composition root, off the figures, before the first frame is laid.
     /// </summary>
-    public float UiScale => _wantedUiScale > 0f ? _wantedUiScale : Math.Max(0.1f, (float)_axes[Scale]);
+    public Vector2 LeastUiPx { get; set; }
+
+    /// <summary>
+    /// How many of the display's own pixels the interface's pixel is worth: the page's own device
+    /// pixel ratio, capped by what the panels need (<see cref="InterfaceScale"/>) and overridden
+    /// outright by <c>ui-scale</c>. <b>The cap is what a phone is for</b>: a handset reports three
+    /// device pixels to the point and hands the page 390 of them across, which is narrower than the
+    /// menu.
+    /// </summary>
+    public float UiScale => InterfaceScale.Fitted(
+        _wantedUiScale, (float)_axes[Scale], new Vector2((float)_axes[Width], (float)_axes[Height]), LeastUiPx);
 
     /// <summary>The canvas, in the pixels the interface and the camera are laid out in.</summary>
     public Vector2 UiPx => new Vector2((float)_axes[Width], (float)_axes[Height]) / UiScale;
 
     /// <summary>Where the pointer is, <b>in interface pixels</b> — the space the interface is laid out in.</summary>
     public Vector2 PointerPx => InUiPx(new Vector2((float)_axes[PointerX], (float)_axes[PointerY]));
+
+    /// <summary>
+    /// Where the fingers on the glass are, in interface pixels, and how many were written (CTL-9).
+    /// <b>The page's own count and not the run's</b> — a finger is on the glass or it is not, and the
+    /// meaning of two of them at once is read from these two positions a frame apart
+    /// (<see cref="TrafficSimulation.App.PlayerControl.TouchGesture"/>) rather than decided out here.
+    /// </summary>
+    public int Touches(Span<Vector2> intoPx)
+    {
+        var count = Math.Min((int)_axes[TouchCount], intoPx.Length);
+        if (count > 0) intoPx[0] = InUiPx(new Vector2((float)_axes[TouchOneX], (float)_axes[TouchOneY]));
+        if (count > 1) intoPx[1] = InUiPx(new Vector2((float)_axes[TouchTwoX], (float)_axes[TouchTwoY]));
+
+        return count;
+    }
 
     /// <summary>The conversion itself, as arithmetic over three vectors and a factor, so it can be checked without a page.</summary>
     public static Vector2 InUiPx(
@@ -191,6 +224,8 @@ internal sealed class AppWindow : IDisposable
         Key.Number3 => 17,
         Key.ShiftLeft => 18,
         Key.ShiftRight => 19,
+        Key.ControlLeft => 20,
+        Key.ControlRight => 21,
         _ => Keys - 1,
     };
 

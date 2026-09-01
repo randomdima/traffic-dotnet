@@ -152,7 +152,26 @@ into each other.
 The panels, the legend and the ruler's figures are laid in window pixels and not in world space, so a
 zoom does not resize the interface and a scale factor does not have to be threaded through every
 measurement. A pointer position is converted **once**, at the boundary, and everything downstream is in
-one space.
+one space. A turned town does not turn them either (`OBS-1c`): they are the reader's furniture.
+
+**OBS-2k — The interface is never laid out on fewer pixels than the panels need.** How dense an interface
+pixel is drawn is the display's own factor — a 4K screen would otherwise write a 15-pixel label at a third
+of its designed size — **capped by what fits**: past the point where the window would hold fewer interface
+pixels than the widest panel is wide, it is whatever leaves that panel on the glass.
+
+- **The cap is a size in interface pixels and not a device to detect.** A handset reporting three device
+  pixels to the point over a 390-point viewport and a desktop window dragged down to a strip are the same
+  problem, and there is one answer to it.
+- **Both sides bind**, so a handset held either way up is fitted by whichever of them is short.
+- **An ordinary window is not capped at all**, which is what keeps a reference frame the picture it was:
+  the cap is reached where the panels would not fit, and on a desktop they fit several times over.
+- **`--ui-scale` is not capped.** Naming one at all says the guess underneath was wrong, and a figure
+  asked for and then quietly moved is a switch that does nothing.
+- **The town is unaffected either way.** The camera opens on a span in metres, so what changes is how much
+  of the window the chrome is worth and nothing about what is being looked at.
+- **And no panel is ever wider than the window.** The cap answers the density and not the layout, so a
+  panel as wide as its own widest row is still laid to the window when the window is narrower than that:
+  what does not fit is cut where the line is drawn and reads as a line with more behind it.
 
 ## Rebuilding a town
 

@@ -231,10 +231,19 @@ internal sealed partial class TownWorld
     /// that what a driver has to be held off is one book and not a book and a ray.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>The nearest lane and the one running back the other way</b>, and no wider a search than that. A
     /// prop is a street's furniture and a carriageway is two lanes, so those are the ones a thing standing
     /// in the road can be standing in; anything broad enough to reach a third is a town that has built a
     /// wall across its own street, which is <see cref="StandingGround"/>'s stated bound.
+    /// </para>
+    /// <para>
+    /// <b>The ground is asked before the road graph is.</b> A town's furniture is tens of thousands of
+    /// things and nearly every one of them stands on grass, where the answer is known from the cell it is
+    /// on: a prop with no drivable ground under its own footprint cannot lie inside any lane's band, and
+    /// searching the network for its nearest lane is the most expensive way there is to find that out. On a
+    /// city it is the difference between two seconds of standing a town up and a tenth of one.
+    /// </para>
     /// </remarks>
     StandingGround StaticsOnTheRoad()
     {
@@ -243,6 +252,7 @@ internal sealed partial class TownWorld
         {
             var centreM = _plan.Props.CentreM[prop];
             var radiusM = _plan.Props.RadiusM[prop];
+            if (!TouchesDrivableGround(centreM, radiusM)) continue;
 
             var lane = _roads.NearestLane(centreM, out _);
             if (lane < 0) continue;
@@ -254,6 +264,26 @@ internal sealed partial class TownWorld
         }
 
         return into.Seal();
+    }
+
+    /// <summary>
+    /// Whether any of the ground a circle covers is ground a car drives on. <b>Every cell it reaches</b>,
+    /// because a prop half a metre off the kerb still has its far edge in the road.
+    /// </summary>
+    bool TouchesDrivableGround(Vector2 centreM, float radiusM)
+    {
+        for (var acrossM = -radiusM; acrossM <= radiusM; acrossM += _terrain.CellSizeM)
+        {
+            for (var alongM = -radiusM; alongM <= radiusM; alongM += _terrain.CellSizeM)
+            {
+                if (_terrain.At(centreM + new Vector2(alongM, acrossM)).Drivable) return true;
+            }
+        }
+
+        return _terrain.At(centreM + new Vector2(radiusM, radiusM)).Drivable
+               || _terrain.At(centreM + new Vector2(-radiusM, radiusM)).Drivable
+               || _terrain.At(centreM + new Vector2(radiusM, -radiusM)).Drivable
+               || _terrain.At(centreM + new Vector2(-radiusM, -radiusM)).Drivable;
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Road;
@@ -154,6 +155,67 @@ internal static class RoadCuts
         }
 
         return arms;
+    }
+
+    /// <summary>
+    /// <b>How far each junction's own ground reaches along the arms that meet it</b> (TER-5): the kerb fillet
+    /// between an arm and its neighbour lets go of the kerb there, and the furthest of a junction's corners is
+    /// how much road the box has taken. Never less than the disc it is drawn on, never more than the sharpest
+    /// corner a junction may turn.
+    /// </summary>
+    /// <remarks>
+    /// <b>Read off <see cref="SimConfig.JunctionArmReachM"/> and never re-derived</b> — it is the same answer
+    /// the stage that laid the town set its crossings back from (TER-6). What wants it here is everything an
+    /// arm has to keep off that ground with no paint to measure against: a lane line with no bar or crossing
+    /// on its arm, and the node a car park asks to be cut at.
+    /// </remarks>
+    public static float[] ReachesM(CityPlan plan, SimConfig config)
+    {
+        var bearings = new List<float>[plan.Junctions.Count];
+        var bendM = new float[bearings.Length];
+        for (var junction = 0; junction < bearings.Length; junction++) bearings[junction] = [];
+
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var chain = plan.Roads.SegmentsOf(road);
+            if (chain.Length == 0) continue;
+
+            var outOfFrom = Spline.SampleAt(chain, 0f).Direction;
+            var outOfTo = -Spline.SampleAt(chain, Spline.TotalLengthM(chain)).Direction;
+            bearings[plan.Roads.FromJunction[road]].Add(MathF.Atan2(outOfFrom.Y, outOfFrom.X));
+            bearings[plan.Roads.ToJunction[road]].Add(MathF.Atan2(outOfTo.Y, outOfTo.X));
+
+            // A node with no fork has no corner to flare, and the ground it takes is the bend the two arms
+            // were swept into instead (TER-5b) — which is as much of that arm as anything must stand off.
+            bendM[plan.Roads.FromJunction[road]] =
+                MathF.Max(bendM[plan.Roads.FromJunction[road]], Spline.BendAtTheEndM(chain, atStart: true));
+            bendM[plan.Roads.ToJunction[road]] =
+                MathF.Max(bendM[plan.Roads.ToJunction[road]], Spline.BendAtTheEndM(chain, atStart: false));
+        }
+
+        var reachM = new float[bearings.Length];
+        for (var junction = 0; junction < bearings.Length; junction++)
+        {
+            var round = bearings[junction];
+            reachM[junction] = round.Count == 2
+                ? MathF.Max(plan.Junctions.RadiusM[junction], bendM[junction])
+                : plan.Junctions.RadiusM[junction];
+
+            if (round.Count < 2) continue;
+
+            round.Sort();
+            for (var at = 0; at < round.Count; at++)
+            {
+                var apartRad = round[(at + 1) % round.Count] - round[at];
+                if (apartRad <= 0f) apartRad += MathF.Tau;
+                if (apartRad >= MathF.PI) continue;
+
+                reachM[junction] = MathF.Max(
+                    reachM[junction], MathF.Min(config.JunctionArmReachMaxM, config.JunctionArmReachM(apartRad)));
+            }
+        }
+
+        return reachM;
     }
 
     /// <summary>How far into its own end junction a chain reaches, which is where the stretch on it starts or stops.</summary>

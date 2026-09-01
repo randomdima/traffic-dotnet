@@ -51,6 +51,29 @@ internal static class InterfaceScenarios
                           + "frame; the corners differing from the reference is the change itself."),
 
         new(
+            Name: "turned-town",
+            Group: "wider",
+            Map: "Test",
+            Subject: "The same town drawn turned (OBS-1c), which is the one thing about the view that "
+                     + "nothing but a picture can check: the turn is applied in every vertex stage, and "
+                     + "a sign wrong in one of them shows as that layer alone standing the wrong way.",
+            FrameWidthM: 120f, FinestFeatureM: 0.6f,
+            AtM: new Vector2(240f, 160f), Seconds: 30, Ui: [],
+            Expect:
+            [
+                "The roads run diagonally across the frame rather than square to its edges.",
+                "The ground, the buildings, the road markings, the crossings and the vehicles are all "
+                + "turned by the same angle: no layer stands square while the rest lean.",
+                "Every vehicle sits along the lane it is in, and every building sits square to the "
+                + "street it stands on.",
+                "The interface is not turned: the panels, their text and the scale legend are upright "
+                + "and square to the edges of the frame.",
+                "A third square button stands in the top-right corner, to the left of the question "
+                + "mark, carrying a two-tone needle leaning by about the angle the town is turned by.",
+            ],
+            TurnDeg: 30f),
+
+        new(
             Name: "status-panel",
             Group: "wider",
             Map: "Test",

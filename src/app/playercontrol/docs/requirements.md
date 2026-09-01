@@ -21,18 +21,27 @@ behaviour state is read where the unit is**.
   wears no brackets either, and a unit the camera has left behind would put its label against an edge it
   is nowhere near.
 
-**CTL-1b — One unit or many.** A selection holds **a set of units and not one**, and everything the
-interface does to a selection it does to every unit in it: the brackets, the paths, the orders, the keys
-and the lever.
+**CTL-1b — One unit or many, and the left button moves the town.** A selection holds **a set of units and
+not one**, and everything the interface does to a selection it does to every unit in it: the brackets, the
+paths, the orders, the keys and the lever.
 
-- **A box picks out several.** Dragging the left button over the town selects **every unit whose own
-  footprint the box covers** — the footprint a click tests, so what the box catches is what a reader can
-  see it drawn over. A box that catches nothing deselects, exactly as a click on nothing does.
-- **Shift adds and removes.** Shift-clicking a unit takes it into the selection, or drops it if it was
-  already there; shift held through a box keeps what was already picked out. Without shift, both replace.
-- **A press starts a gesture and the release resolves it.** Which of the two it was is known on the way
-  up: a pointer that did not travel is a click, anything further is a box. **While the button is down the
-  box is drawn on screen**, and it is drawn in screen pixels because it is a gesture rather than a place.
+- **A plain drag moves the town under the pointer**, and it is the first thing the left button does: the
+  commonest thing anybody wants of a top-down town is to be somewhere else in it, and it is the one gesture
+  a finger has as well as a mouse (`CTL-9`). The ground under the press is what stays under the pointer.
+- **Shift-drag picks out several.** A box drawn with shift held selects **every unit whose own footprint
+  the box covers** — the footprint a click tests, so what the box catches is what a reader can see it drawn
+  over. A box that catches nothing deselects, exactly as a click on nothing does. **The box lies the way
+  the window does** (`OBS-1c`): over a turned town it is a rectangle on the glass and a diamond on the
+  ground, and a box squared to the world would catch units a reader can see it missing.
+- **Shift is the whole of multiple selection, and it is read at the press.** Shift-clicking a unit takes it
+  into the selection, or drops it if it was already there; shift held through a box keeps what was already
+  picked out. Without shift, a click replaces and a drag moves the town. It is read where the button goes
+  down because it is what **decides which gesture this is**, and a modifier that changed the answer
+  half-way through a movement would be a drag that became a box under the hand.
+- **A press starts a gesture and the release resolves it.** Which it was is known on the way up: a pointer
+  that did not travel is a click, and anything further has already moved the town or laid a box. **While
+  the button is down the box is drawn on screen**, and it is drawn in screen pixels because it is a gesture
+  rather than a place.
 - **The set is bounded**, and the bound is a figure like any other. A box round more units than it holds
   takes what fits and stops.
 - **One line says what a group is, not what each of it is doing.** A single unit's behaviour state shows
@@ -181,7 +190,9 @@ nudged into the crossing. **It is never asked for on the way down to a stop.**
 
 **CTL-5b — Holding a drive key takes the wheel and keeps it.** Releasing the keys **coasts**; it does not
 hand the unit back. The wheel is given up by a right-click order, the reset, a change of selection, or a
-terminal state. The arrow keys pan the camera whenever no unit is being driven.
+terminal state. The arrow keys pan the camera whenever no unit is being driven — and they pan it in the
+**window's** directions and not the town's (`OBS-1c`), so the up arrow moves the picture down the screen
+however far the town is turned.
 
 **And the wheel suspends an order rather than ending it** (`S-7`, CTL-8). A hand substitutes the whole
 behaviour concern and the order is part of what it substitutes, so the order stands and is picked up
@@ -203,6 +214,29 @@ evacuator's arm (`EVA-5`), and a crew reaching for it reaches through this and n
 makes the recovery a thing that can be watched being done rather than a rule the player is outside of: a
 player who has backed a truck onto a car can pick it up, and a crew that has not got its truck there
 cannot.
+
+**CTL-9 — A finger is a pointer, and two of them are the camera.** The town runs on a desktop, in a
+browser and on a handset, and **there is one set of gestures and not two**: what a phone can do, a mouse
+can do, and the code underneath is the same code.
+
+- **One finger is the left button.** It drags the town, it taps to select, and it does both through the
+  very path a mouse does — down, travel, up, and the same threshold deciding which of the two it was
+  (CTL-1b). Nothing in the selection layer knows what kind of pointer it has.
+- **Two fingers are one movement of the camera, read every frame**: their middle pans, the distance
+  between them zooms about that middle, and the angle between them turns the town about it (`OBS-1c`). All
+  three at once and none of them a mode — a gesture that had to be classified before it was applied picks
+  wrong on the frame the hand had not decided yet, and then holds the wrong answer for the rest of it.
+- **The twist alone has a dead zone**, because no two fingers spread perfectly square: without one, every
+  pinch leaves the town a degree or two off north. What is spent crossing it is never applied, so the town
+  does not jump on the frame the twist is believed.
+- **A second finger ends what the first had started.** Whatever gesture was under way is dropped, so a
+  pinch cannot also be laying a box or picking a unit out on the way up.
+- **The desktop has the same three and asks for them differently**: the drag pans, the wheel zooms, and
+  the wheel with control held turns. **Shift is what a handset has not got**, so a touch selects one unit
+  at a time — which is what CTL-1b already says, rather than a second rule about fingers.
+- **The page hands over where the contacts are and nothing else.** What a pair of them means is a
+  difference between two frames, and reading it is the run's; a browser is asked what it saw, exactly as
+  it is for a key or a wheel.
 
 **CTL-6 — Implemented thin.** One slice owns picking, selection state, order translation and the drive
 keys, and the interface draws the mark; **each agent slice exposes a goal seam and a direct seam**, and the input is pushed

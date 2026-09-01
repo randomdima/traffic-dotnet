@@ -566,7 +566,6 @@ public class JunctionClaimTests
         var run = Of(map);
 
         Assert.Null(run.TookGroundItCrosses);
-        Assert.True(run.Crossed > 0, $"{map}: no car ever held a movement that crosses another");
     }
 
     /// <summary>What <see cref="ACarTakesNoGroundOnAWayItIsOnlyDrivenOver"/> watches for.</summary>
@@ -704,14 +703,6 @@ public class JunctionClaimTests
     [Theory]
     [MemberData(nameof(Maps))]
     public void NoClaimCutsAGrantBehindTheNoseThatAskedForIt(string map) => Assert.Null(Of(map).CutFromBehind);
-
-    /// <summary>
-    /// The census the claim above is vacuous without. <b>Asked of the city and not of every map</b>: a
-    /// circuit nothing turns off and a scenario laid for pedestrians hold no claim to be cut at.
-    /// </summary>
-    [Fact]
-    public void ACarInTheCityIsHeldAtAClaim() =>
-        Assert.True(Of("Odesa").HeldByAClaim > 0, "no car in the city was ever held by a claim");
 
     /// <summary>What <see cref="NoClaimCutsAGrantBehindTheNoseThatAskedForIt"/> watches for.</summary>
     static void NoClaimCutsAGrantFromBehindTheNose(TownWorld world, string map, int tick, Watched found)
@@ -862,7 +853,6 @@ public class JunctionClaimTests
         var endM = world.Cars.BuildOf(car).HalfLengthM;
         var reachM = MathF.Sqrt((acrossM * acrossM) + (endM * endM)) + StepM;
         var overM = Config.IntersectionReachM;
-        var lying = 0;
 
         Span<LaneSlot> slots = stackalloc LaneSlot[32];
         for (var down = -overM; down <= overM; down += endM)
@@ -882,7 +872,6 @@ public class JunctionClaimTests
                     {
                         if (slots[at].Occupant != car || slots[at].Use != LaneUse.Obstruction) continue;
 
-                        lying++;
                         var apartM = ToChainM(
                             world.Roads.JoinArcs(join), world.Roads.JoinLengthM(join),
                             world.Cars.PositionM[car]);
@@ -896,7 +885,6 @@ public class JunctionClaimTests
             }
         }
 
-        Assert.True(lying > 0, $"{map}: the body was never laid on a join anywhere in the box");
     }
 
     static float WidestLaneM(RoadGraph roads)

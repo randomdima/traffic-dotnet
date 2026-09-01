@@ -82,6 +82,35 @@ answers the last of them is the end of the question, and the tick count is the b
 may honestly take rather than a window to watch to the end of. A claim about a bound, a maximum or a
 count that must stay zero has no such end and runs its length.
 
+## What earns a test
+
+**VER-12** **A test states one exact behaviour or one stated requirement, and fails when that is wrong and
+for nothing else.** Four shapes are not tests, and none of them may be added:
+
+- **The derivation written out twice.** Scaling a figure and asserting everything scaled with it, or
+  asserting a derived figure equals the expression it is defined by, tests arithmetic rather than this
+  engine: it can only fail the day somebody changes the derivation deliberately, and on that day it is
+  edited to match rather than read.
+- **The record checked against itself.** A drawn shape asserted against the very field it was drawn from
+  is self-consistency, and the two agree however wrong the field is. **What a size is checked against is
+  the figure that decides it** — a crossing's span against the carriageway's width, a bay's pitch against
+  a bay's width, a junction's disc against the road's half-width — because that is the direction a defect
+  actually comes from.
+- **Non-degeneracy over a record the code just built.** An index in range, a width above zero, a count
+  above zero over arrays the plan filled in restates the type system. Over the *output of a stage* it is a
+  fair smoke test, because there zero is a real thing that can happen.
+- **The guard that the case arose.** `count > 0` over a simulated minute goes red when the town moves and
+  says nothing about a rule, so a rule is asserted on its own and **whether the run had anything to say is
+  the instruments' to report** — the census, the probes, `--bench maneuvers`' own last line — where it is
+  read rather than gated. A rule with no coverage but the census is a rule owing a **staged** case, and
+  staging it is the work; a `> 0` in front of it is not.
+
+**And the assertion is universal wherever the rule is.** `Assert.True(count > 0)` where every one of them
+must hold is a test one passing case satisfies for a whole city.
+
+**A test nobody can make fail on purpose is deleted rather than kept for the count.** The way to know is to
+break the thing it names and watch: a test that stays green is not a test of it.
+
 ## The gates
 
 Four tests in [tests/gates/](../src/tests/gates/) that assert what would otherwise be a habit, and each is

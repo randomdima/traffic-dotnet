@@ -219,7 +219,12 @@ internal sealed class Interface(TrimFigures trims)
     /// so while the start menu is up there is nothing to shut it onto and nothing behind it to click on:
     /// every click off the panel is taken and acts on nothing.
     /// </param>
-    public ClickTaken Click(Vector2 atPx, Vector2 uiPx, bool primary, bool hasTown, out MenuChoice choice)
+    /// <param name="camera">
+    /// The camera, for the one piece of furniture that acts on it: the compass, which puts a turned town
+    /// back north-up (OBS-1c). Nothing else here touches it — the camera is the input layer's (CTL-6).
+    /// </param>
+    public ClickTaken Click(
+        Vector2 atPx, Vector2 uiPx, bool primary, bool hasTown, Camera.Camera2D camera, out MenuChoice choice)
     {
         choice = MenuChoice.None;
 
@@ -228,6 +233,14 @@ internal sealed class Interface(TrimFigures trims)
         if (Menu.AtTheStart)
         {
             if (primary && Menu.Box.Contains(atPx)) choice = Menu.Click(atPx, Switches, Trims);
+            return ClickTaken.Yes;
+        }
+
+        // The compass is furniture only while the town is turned, so it takes a click only then: a
+        // button that is not drawn is not a button, whatever the corner it would have stood in.
+        if (camera.IsTurned && Chrome.CompassAt(uiPx).Contains(atPx))
+        {
+            if (primary) camera.FaceNorth();
             return ClickTaken.Yes;
         }
 
@@ -322,7 +335,7 @@ internal sealed class Interface(TrimFigures trims)
         {
             Overlay.Draw(
                 ref draw, ref ground, world, frame.Config, Switches, frame.Camera.CentreM,
-                frame.Camera.ViewSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
+                frame.Camera.CullSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
 
             underWritten = ground.Written;
 
@@ -369,7 +382,10 @@ internal sealed class Interface(TrimFigures trims)
         // GEN-1b: the start menu is the whole of what is on screen, so the two corner buttons are not
         // drawn under it — a gear that opens what is already open and cannot shut it is a button that
         // teaches nothing, and the legend behind it is about keys no town is listening for yet.
-        if (!Menu.AtTheStart) Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, Menu.Open, Controls.Open);
+        if (!Menu.AtTheStart)
+        {
+            Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, Menu.Open, Controls.Open, frame.Camera.TurnRad);
+        }
 
         // Last of all, over the furniture as well as the layers.
         if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches, Trims);

@@ -39,7 +39,7 @@ public class TownReaderTests
         Assert.Equal(480f, plan.WorldSizeM.X);
         Assert.Equal(320f, plan.WorldSizeM.Y);
         Assert.Equal(1f, plan.CellSizeM);
-        Assert.Equal(SimConfig.Shipped().Road.PavementWidthM, plan.PavementWidthM);
+        Assert.Equal(SimConfig.Shipped().PavementWidthM, plan.PavementWidthM);
     }
 
     [Theory]
@@ -51,7 +51,7 @@ public class TownReaderTests
         AssertOffsets(plan.Roads.SegmentOffsets, plan.Roads.Count, plan.Roads.Segments.Length);
         AssertOffsets(plan.ParkingLots.SpaceOffsets, plan.ParkingLots.Count, plan.ParkingLots.SpaceCount);
         AssertOffsets(plan.Buildings.EntryOffsets, plan.Buildings.Count, plan.Buildings.EntryPointM.Length);
-        AssertOffsets(plan.Water.OutlineOffsets, plan.Water.Count, plan.Water.PointM.Length);
+        AssertOffsets(plan.Water.Outline.Offsets, plan.Water.Outline.Count, plan.Water.Outline.PointM.Length);
         Assert.Equal(plan.ParkingLots.SpaceCount, plan.ParkingLots.SpaceHeadingRad.Length);
     }
 

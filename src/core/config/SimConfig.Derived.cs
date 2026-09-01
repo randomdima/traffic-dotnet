@@ -123,7 +123,7 @@ internal sealed partial class SimConfig
     /// bay. The shortness is the whole safeguard: roughly one frontage depth, which is the pavement the
     /// building line stands behind plus the strip in front of it.
     /// </summary>
-    public float PersonOffNetworkHopM => Road.PavementWidthM + Building.FrontGapM;
+    public float PersonOffNetworkHopM => PavementWidthM + Building.FrontGapM;
 
     /// <summary>
     /// The tightest circle the feet can hold at walking pace — the speed over the turn rate, 0.28 m at the
@@ -133,10 +133,23 @@ internal sealed partial class SimConfig
     public float WalkerTightestTurnM => PersonWalkSpeedMps / (PersonTurnRateDegPerS * MathF.PI / 180f);
 
 
-    public float WalkingLaneOffsetM => Road.PavementWidthM * Person.LaneOffsetFraction;
+    /// <summary>
+    /// One walking lane, two bodies wide (<see cref="RoadFigures.WalkingLaneInPersonDiameters"/>) — the
+    /// width every stretch of pavement in the town is walked at.
+    /// </summary>
+    public float WalkingLaneWidthM => PersonDiameterM * Road.WalkingLaneInPersonDiameters;
+
+    /// <summary>
+    /// The walk beside a carriageway: one lane each way, so two walkers passing each stay on their own
+    /// (TER-3c). It is the width a bridge deck carries and the depth the building line stands behind.
+    /// </summary>
+    public float PavementWidthM => WalkingLaneWidthM * LanesPerPavement;
+
+    /// <summary>A walking lane's own line is the middle of its half of the band.</summary>
+    public float WalkingLaneOffsetM => WalkingLaneWidthM * 0.5f;
 
     /// <summary>Half the walk, which is what stands a corner 4.83 m deep against the straight's 4 m.</summary>
-    public float PavementCornerRadiusM => Road.PavementWidthM * 0.5f;
+    public float PavementCornerRadiusM => PavementWidthM * 0.5f;
 
     /// <summary>
     /// The clear ground between one walker's reserved stretch and the next one's, which is what a queue on
@@ -176,15 +189,79 @@ internal sealed partial class SimConfig
     /// </summary>
     public float WalkerOffLaneM => WalkingLaneOffsetM;
 
-    public float RoadWidthM => Car.WidthM * Road.WidthInCarWidths;
+    /// <summary>
+    /// How many lanes a carriageway carries: one each way (TER-4a). It is what makes a road's width a lane
+    /// question rather than a width somebody chose.
+    /// </summary>
+    public const int LanesPerCarriageway = 2;
+
+    /// <summary>The same for the walk beside it, which is walked keeping right exactly as the road is.</summary>
+    public const int LanesPerPavement = 2;
+
+    /// <summary>
+    /// One traffic lane, 3.6 m at the shipped car (<see cref="RoadFigures.LaneWidthInCarWidths"/>).
+    /// <b>Every carriageway this build lays is laid at this</b>, so a figure quoted against a lane — a line's
+    /// offset, a kerb, a bar's span — means the same thing on every map (GEN-15).
+    /// </summary>
+    public float LaneWidthM => Car.WidthM * Road.LaneWidthInCarWidths;
+
+    public float RoadWidthM => LaneWidthM * LanesPerCarriageway;
+
+    /// <summary>
+    /// The whole width of ground a road takes: its carriageway and the walk either side of it. <b>It is
+    /// how far apart two roads' own lines have to stand to be two roads</b> (GEN-17), and it is what a
+    /// bridge's deck carries over the water.
+    /// </summary>
+    public float RoadFootprintM => RoadWidthM + (PavementWidthM * 2f);
 
     /// <summary>Half the carriageway is one direction's, and a lane's own line is the middle of that.</summary>
-    public float LaneOffsetM => RoadWidthM * 0.25f;
+    public float LaneOffsetM => LaneWidthM * 0.5f;
 
     /// <summary>The ground the roads share: one road width.</summary>
     public float IntersectionReachM => RoadWidthM;
 
     public float IntersectionCornerRadiusM => Car.WidthM * Road.IntersectionCornerRadiusInCarWidths;
+
+    /// <summary>The sharpest corner a junction turns, as the half-angle every kerb fillet is solved on.</summary>
+    public float ArmsApartMinRad => CityGen.ArmsApartMinDeg * MathF.PI / 180f;
+
+    /// <summary>
+    /// The fillet a corner whose arms stand that far apart is turned on: the junction's own radius, unless
+    /// the corner is skew enough that a full-sized one would run back along the arm further than a kerb
+    /// transition may reach (<see cref="RoadFigures.JunctionFilletReachInCarWidths"/>).
+    /// </summary>
+    public float JunctionFilletRadiusM(float armsApartRad) =>
+        MathF.Min(IntersectionCornerRadiusM, JunctionFilletReachM * MathF.Tan(armsApartRad * 0.5f));
+
+    public float JunctionFilletReachM => Car.WidthM * Road.JunctionFilletReachInCarWidths;
+
+    /// <summary>
+    /// <b>How far along an arm a junction reaches, corner by corner</b>: where the fillet between two arms
+    /// that far apart lets go of the kerb, which is where the ground the roads share ends and the arm's own
+    /// paint begins. An arm is reached by each of its two corners and stands off the further of them.
+    /// </summary>
+    /// <remarks>
+    /// It grows as the corner sharpens — two kerbs meeting at an angle cross well outside the mouth — so the
+    /// crossing and the bar on a skew arm stand further out than on a square one and both are the same stride
+    /// off their own junction. <b>Never the distance from the node</b>, which is the same everywhere and
+    /// right nowhere.
+    /// </remarks>
+    public float JunctionArmReachM(float armsApartRad) =>
+        ((RoadWidthM * 0.5f) + JunctionFilletRadiusM(armsApartRad)) / MathF.Tan(armsApartRad * 0.5f);
+
+    /// <summary>The furthest that ever is: the reach at the sharpest corner a junction may turn (GEN-13).</summary>
+    public float JunctionArmReachMaxM => JunctionArmReachM(ArmsApartMinRad);
+
+    /// <summary>
+    /// How much of a road either end is straight. <b>It is what is laid on it and never a length somebody
+    /// chose</b> (GEN-12): the junction's own ground and its fillet at their worst, then the crossing at its
+    /// setback, then the bar behind that — so a road laid to this carries every one of them across a straight
+    /// arm however skew its junctions came out, and a wider carriageway lengthens the stub rather than pushing
+    /// its own paint onto the bend.
+    /// </summary>
+    public float StraightStubM =>
+        JunctionArmReachMaxM + Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM
+        + Road.StopBarThicknessM;
 
     /// <summary>
     /// How near two lines through a junction pass before one is driven over the other (TER-5c): a car's
@@ -231,7 +308,7 @@ internal sealed partial class SimConfig
     public float ParkingSectionShortestStretchM => Car.LengthM * Road.ParkingSectionShortestStretchInCarLengths;
 
     /// <summary>Half a pavement band plus the front gap plus a person: how close a door counts as reached.</summary>
-    public float WayInTouchingReachM => Road.PavementWidthM * 0.5f + Building.FrontGapM + PersonDiameterM;
+    public float WayInTouchingReachM => PavementWidthM * 0.5f + Building.FrontGapM + PersonDiameterM;
 
     public float CarJunctionReserveM => Driving.NominalCarLengthM * Driving.JunctionReserveInCarLengths;
 
@@ -329,8 +406,6 @@ internal sealed partial class SimConfig
     public float CarSightM =>
         Car.MaxSpeedMps * Car.MaxSpeedMps
         / (2f * MathF.Min(CarBrakingMps2, TyreGripMps2) * Driving.GripMargin);
-
-    public float CarCrossingPaceMps => Car.LengthM * Driving.CrossingPaceInCarLengthsPerS;
 
     public float CarCrossingStandOffM => Car.WidthM * Driving.CrossingStandOffInCarWidths;
 

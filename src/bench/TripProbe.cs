@@ -4,6 +4,8 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Bench;
 
 /// <summary>
@@ -60,7 +62,7 @@ internal static class TripProbe
 
     public static TripSample Sample(string map, SimConfig config)
     {
-        using var world = new TownWorld(TownReader.ReadFile(ProjectPaths.TownFile(map)), config);
+        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 

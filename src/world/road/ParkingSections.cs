@@ -71,7 +71,7 @@ internal sealed class ParkingSections
         // test does not turn on which way round the rectangle was laid.
         foreach (var front in RoadFrontages.Lay(plan, config).All)
         {
-            var reachM = (roads.WidthM[front.Road] * 0.5f) + config.Road.PavementWidthM +
+            var reachM = (roads.WidthM[front.Road] * 0.5f) + config.PavementWidthM +
                          lots.HalfExtentM[front.Lot].Length();
             if (front.OffM > reachM) continue;
 
@@ -171,6 +171,7 @@ internal sealed class ParkingSections
         var painted = new List<(float FromM, float ToM)>[roads.Count];
 
         var discs = RoadCuts.JunctionIndex(plan, paddingM: 0f);
+        var reachM = RoadCuts.ReachesM(plan, config);
         var junctionCuts = new List<RoadCut>();
         for (var road = 0; road < roads.Count; road++)
         {
@@ -182,7 +183,11 @@ internal sealed class ParkingSections
                 roads.ToJunction[road], junctionCuts);
             foreach (var cut in junctionCuts)
             {
-                (painted[road] ??= []).Add((cut.EnterM - shortestM, cut.ExitM + shortestM));
+                // <b>Clear of the ground the junction reaches and not of the disc it is drawn on</b>: the
+                // corner an arm flares back through, or the bend a node with no fork was swept into, is
+                // ground a section standing on it would put a bay's mouth on.
+                var flareM = shortestM + reachM[cut.Junction] - plan.Junctions.RadiusM[cut.Junction];
+                (painted[road] ??= []).Add((cut.EnterM - flareM, cut.ExitM + flareM));
             }
         }
 

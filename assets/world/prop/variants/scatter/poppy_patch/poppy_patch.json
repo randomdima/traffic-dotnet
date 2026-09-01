@@ -1,6 +1,6 @@
 {
   "id": "poppy_patch",
-  "kind": 1,
+  "kind": 0,
   "sprite": "poppy_patch.webp",
   "diameterM": 1.80
 }

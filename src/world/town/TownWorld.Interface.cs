@@ -61,17 +61,28 @@ internal sealed partial class TownWorld
     /// first and then walkers, up to the bound, and a box that catches nothing deselects exactly as a
     /// click on nothing does.
     /// </summary>
+    /// <remarks>
+    /// <b>The box carries a turn because the window does</b> (OBS-1c): a drag over a town turned 30° is
+    /// a rectangle on the glass and a diamond on the ground, and a box squared to the world would catch
+    /// units the reader can see it missing. It is taken in the box's own frame throughout, which is one
+    /// transform per unit rather than a shape test of its own.
+    /// </remarks>
+    /// <param name="turnRad">Which way the box lies on the ground — the window's own axes, in the world's.</param>
     /// <param name="add">Whether what is already picked out is kept, which is shift held through the drag.</param>
     /// <returns>How many units the box came to.</returns>
-    public int SelectIn(Vector2 oneCornerM, Vector2 otherCornerM, bool add)
+    public int SelectIn(Vector2 centreM, Vector2 sizeM, float turnRad, bool add)
     {
-        var lowM = Vector2.Min(oneCornerM, otherCornerM);
-        var highM = Vector2.Max(oneCornerM, otherCornerM);
+        var alongBox = Heading.Unit(turnRad);
+        var acrossBox = Heading.RightOf(alongBox);
+        var halfM = Vector2.Abs(sizeM) * 0.5f;
         var changed = !add && _selected.Clear();
 
         for (var car = 0; car < Cars.Count && !_selected.Full; car++)
         {
-            if (OverlapsTheBox(car, lowM, highM)) changed |= _selected.Add(new Selection(SelectionKind.Car, car));
+            if (OverlapsTheBox(car, centreM, halfM, alongBox, acrossBox))
+            {
+                changed |= _selected.Add(new Selection(SelectionKind.Car, car));
+            }
         }
 
         for (var person = 0; person < People.Count && !_selected.Full; person++)
@@ -81,9 +92,9 @@ internal sealed partial class TownWorld
             if (People.Inside[person].Any) continue;
 
             var radiusM = People.RadiusM[person];
-            var atM = People.PositionM[person];
-            var nearestM = Vector2.Clamp(atM, lowM, highM);
-            if ((nearestM - atM).LengthSquared() <= radiusM * radiusM)
+            var offsetM = People.PositionM[person] - centreM;
+            var inTheBoxM = new Vector2(Vector2.Dot(offsetM, alongBox), Vector2.Dot(offsetM, acrossBox));
+            if ((Vector2.Clamp(inTheBoxM, -halfM, halfM) - inTheBoxM).LengthSquared() <= radiusM * radiusM)
             {
                 changed |= _selected.Add(new Selection(SelectionKind.Person, person));
             }
@@ -113,16 +124,19 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// The two shapes are a rotated box and an upright one, so it is four axes and no more: each box's
-    /// pair, with the other's extent projected onto them.
+    /// pair, with the other's extent projected onto them. <b>Both are taken in the selection box's own
+    /// frame</b>, which is what lets the box be turned without a second shape test: the car's heading
+    /// arrives already turned into it, and everything below is the arithmetic that was already here.
     /// </remarks>
-    bool OverlapsTheBox(int car, Vector2 lowM, Vector2 highM)
+    bool OverlapsTheBox(int car, Vector2 centreM, Vector2 boxHalfM, Vector2 alongBox, Vector2 acrossBox)
     {
         ref readonly var build = ref Cars.BuildOf(car);
-        var forward = Heading.Unit(Cars.HeadingRad[car]);
+        var heading = Heading.Unit(Cars.HeadingRad[car]);
+        var forward = new Vector2(Vector2.Dot(heading, alongBox), Vector2.Dot(heading, acrossBox));
         var right = Heading.RightOf(forward);
         var halfM = new Vector2(build.HalfLengthM, build.FlankM);
-        var boxHalfM = (highM - lowM) * 0.5f;
-        var offset = Cars.PositionM[car] - ((lowM + highM) * 0.5f);
+        var fromCentreM = Cars.PositionM[car] - centreM;
+        var offset = new Vector2(Vector2.Dot(fromCentreM, alongBox), Vector2.Dot(fromCentreM, acrossBox));
 
         var alongX = (halfM.X * MathF.Abs(forward.X)) + (halfM.Y * MathF.Abs(right.X));
         var alongY = (halfM.X * MathF.Abs(forward.Y)) + (halfM.Y * MathF.Abs(right.Y));

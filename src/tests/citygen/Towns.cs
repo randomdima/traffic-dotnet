@@ -9,6 +9,8 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.World.Town;
 using Xunit;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Tests.CityGen;
 
 /// <summary>
@@ -36,13 +38,26 @@ internal static class Towns
     /// <summary>The fixture map: one screen, one of every kind of ground, and what detailed checks are staged on.</summary>
     public const string Fixture = "Test";
 
+    /// <summary>
+    /// The four ring sets a town's water is drawn from, each with the name to say which one a failure is
+    /// about — so a question asked of the water is asked of every ring of it and not of the wet one alone.
+    /// </summary>
+    public static (string What, CityPlan.RingArrays Rings)[] WaterRingsOf(CityPlan.WaterArrays water) =>
+    [
+        ("outline", water.Outline), ("shore", water.Shore),
+        ("shore edge", water.ShoreEdge), ("water edge", water.WaterEdge),
+    ];
+
     static readonly ConcurrentDictionary<string, CityPlan> Shared = new();
 
-    public static IEnumerable<string> Shipped => ProjectPaths.ShippedMaps();
+    /// <summary>The shipped set: the briefs, and the maps this build lays in code.</summary>
+    public static IEnumerable<string> Shipped => Maps.Shipped();
+
+    static readonly SimConfig Figures = SimConfig.Shipped();
 
     public static CityPlan Of(string map) => Shared.GetOrAdd(map, Fresh);
 
-    public static CityPlan Fresh(string map) => TownReader.ReadFile(ProjectPaths.TownFile(map));
+    public static CityPlan Fresh(string map) => Maps.Plan(map, Figures, BuildingCatalog.Shared.OrdinaryFootprintsM());
 
     /// <summary>Every shipped map, as xUnit wants its cases: one row per map, so a failure names it.</summary>
     public static TheoryData<string> EveryShippedMap()

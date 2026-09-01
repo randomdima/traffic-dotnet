@@ -8,10 +8,11 @@ namespace TrafficSimulation.CityGen;
 internal readonly record struct ExamRoad(int FromJunction, int ToJunction, Vector2 FromM, Vector2 ToM);
 
 /// <summary>
-/// One crossing: where the paint is, the way the road under it runs, and the junction it approaches —
-/// <see cref="CityPlan.NoRecord"/> where it was struck in the middle of a block.
+/// One crossing: where the paint is, the way the road under it runs, the road it is painted across —
+/// whose width it spans — and the junction it approaches, <see cref="CityPlan.NoRecord"/> where it was
+/// struck in the middle of a block.
 /// </summary>
-internal readonly record struct ExamCrossing(Vector2 CentreM, Vector2 Axis, int Junction);
+internal readonly record struct ExamCrossing(Vector2 CentreM, Vector2 Axis, int Road, int Junction);
 
 /// <summary>
 /// <b>Where everything on the exam map stands</b>: the thirty-six cells, the spurs and mid-block nodes
@@ -52,22 +53,6 @@ internal sealed class ExamLattice
 
     /// <summary>How far past the box a driver is sent: clear of the junction and well short of the next one.</summary>
     public const float RunOnM = 40f;
-
-    /// <summary>
-    /// Where the paint stands on an arm: clear of the ground the junction reaches, and far enough past the
-    /// kerb fillet's own tangent that the pavement has a straight to turn onto the crossing from — a zebra
-    /// struck against the corner itself is a corner a walker cuts rather than turns.
-    /// </summary>
-    public const float CrossingSetbackM = 6f;
-
-    /// <summary>How much of the road's own length a crossing's paint takes up.</summary>
-    public const float CrossingDepthM = 4f;
-
-    /// <summary>And how far before the box a bar is painted, on the arms of a junction that carries lights.</summary>
-    public const float BarSetbackM = 2f;
-
-    /// <summary>How thick that bar is.</summary>
-    public const float BarThicknessM = 0.4f;
 
     public const int NoRoad = -1;
 
@@ -176,7 +161,8 @@ internal sealed class ExamLattice
     }
 
     /// <summary>How far back from a junction its stop bar is painted, which is where a driver is told what the box is showing.</summary>
-    public float BarM => ReachM + CrossingSetbackM + CrossingDepthM + BarSetbackM;
+    public float BarM =>
+        ReachM + _config.Road.CrossingSetbackM + _config.Road.CrossingDepthM + _config.Road.StopBarSetbackM;
 
     /// <summary>
     /// <b>Every crossing the map paints</b>: one on every arm of every junction that has arms to conflict
@@ -209,7 +195,9 @@ internal sealed class ExamLattice
     {
         var axis = Bearing(arm);
         return new ExamCrossing(
-            JunctionM(junction) + (axis * (ReachM + CrossingSetbackM + (CrossingDepthM * 0.5f))), axis, junction);
+            JunctionM(junction)
+            + (axis * (ReachM + _config.Road.CrossingSetbackM + (_config.Road.CrossingDepthM * 0.5f))),
+            axis, ArmRoad(junction, arm), junction);
     }
 
     /// <summary>
@@ -221,6 +209,7 @@ internal sealed class ExamLattice
         new(
             StageM(card) + (Bearing(ExamArm.South) * (BlockM * 0.5f)),
             Bearing(ExamArm.North),
+            ArmRoad(card, ExamArm.South),
             CityPlan.NoRecord);
 
     /// <summary>Which of the map's crossings a card is about — the one somebody is standing at.</summary>
@@ -276,7 +265,7 @@ internal sealed class ExamLattice
     }
 
     /// <summary>How far off the middle of a crossing its own kerbs stand: half the carriageway and half a pavement.</summary>
-    public float KerbOffsetM => (_config.RoadWidthM * 0.5f) + (_config.Road.PavementWidthM * 0.5f);
+    public float KerbOffsetM => (_config.RoadWidthM * 0.5f) + (_config.PavementWidthM * 0.5f);
 
     /// <summary>How many bodies the map stands on foot, which is one at the kerb of every crossing a card is about.</summary>
     public int Walkers { get; private set; }
@@ -292,8 +281,12 @@ internal sealed class ExamLattice
     /// <summary>The angle a direction is, which is the one thing the spawn arrays carry a pose as.</summary>
     public static float Facing(Vector2 direction) => MathF.Atan2(direction.Y, direction.X);
 
-    /// <summary>How far a junction's ground reaches: its own disc and the corner an arm is flared back to (TER-5).</summary>
-    public float ReachM => _config.LaneOffsetM + _config.IntersectionCornerRadiusM;
+    /// <summary>
+    /// How far a junction's ground reaches: where the fillet an arm is flared back on lets go of the kerb
+    /// (TER-5). <b>The lattice is square</b>, so every corner it turns is a right angle and every arm of it
+    /// reaches the same distance — which is the shortest reach any junction in any town has.
+    /// </summary>
+    public float ReachM => _config.JunctionArmReachM(MathF.PI * 0.5f);
 
     /// <summary>The head of a dead end holds a car working itself round on the spot, its own width clear of the kerb (TER-5a).</summary>
     public float HeadRadiusM => _config.CarTurningRadiusM + _config.Car.WidthM;

@@ -24,6 +24,7 @@ internal sealed class LaneFurniture
 
     readonly float[] _stopBarM;
     readonly float[] _stopBarThicknessM;
+    readonly float[] _crossingSpanM;
     readonly int[] _crossingFirst;
     readonly int[] _crossing;
     readonly float[] _crossingAlongM;
@@ -32,11 +33,12 @@ internal sealed class LaneFurniture
     readonly float[] _crossedAlongM;
 
     LaneFurniture(
-        float[] stopBarM, float[] stopBarThicknessM, int[] crossingFirst, int[] crossing, float[] crossingAlongM,
-        int[] laneFirst, int[] crossedLane, float[] crossedAlongM)
+        float[] stopBarM, float[] stopBarThicknessM, float[] crossingSpanM, int[] crossingFirst, int[] crossing,
+        float[] crossingAlongM, int[] laneFirst, int[] crossedLane, float[] crossedAlongM)
     {
         _stopBarM = stopBarM;
         _stopBarThicknessM = stopBarThicknessM;
+        _crossingSpanM = crossingSpanM;
         _crossingFirst = crossingFirst;
         _crossing = crossing;
         _crossingAlongM = crossingAlongM;
@@ -48,13 +50,15 @@ internal sealed class LaneFurniture
     public static LaneFurniture Project(CityPlan plan, RoadGraph roads)
     {
         var (barM, thicknessM) = StopBars(plan, roads);
-        var (first, crossing, alongM) = Crossings(plan, roads);
+        var spanM = Spans(plan);
+        var (first, crossing, alongM) = Crossings(plan, roads, spanM);
         var (laneFirst, crossedLane, crossedAlongM) = LanesUnderCrossings(plan, first, crossing, alongM);
 
         var most = 0;
         for (var on = 0; on + 1 < laneFirst.Length; on++) most = Math.Max(most, laneFirst[on + 1] - laneFirst[on]);
 
-        return new LaneFurniture(barM, thicknessM, first, crossing, alongM, laneFirst, crossedLane, crossedAlongM)
+        return new LaneFurniture(
+            barM, thicknessM, spanM, first, crossing, alongM, laneFirst, crossedLane, crossedAlongM)
         {
             MostLanesUnderACrossing = most,
         };
@@ -65,6 +69,12 @@ internal sealed class LaneFurniture
 
     /// <summary>The paint a car stops at the near edge of and has crossed at the far one.</summary>
     public float StopBarThicknessM(int lane) => _stopBarThicknessM[lane];
+
+    /// <summary>
+    /// How far each crossing reaches across its road, solved once here because a driver asks it of every
+    /// crossing ahead of it, every tick (<see cref="CityPlan.CrossingSpanM"/>).
+    /// </summary>
+    public float CrossingSpanM(int crossing) => _crossingSpanM[crossing];
 
     /// <summary>How many lane–crossing pairs there are in all, which is what sizes a per-pair roster.</summary>
     public int CrossingsOnLanes => _crossing.Length;
@@ -141,6 +151,13 @@ internal sealed class LaneFurniture
     /// The bars that were painted, not the ones the plan called for: a lane with no bar is a lane
     /// nothing was painted on, and a driver there has nothing to stop at short of the box itself.
     /// </summary>
+    /// <remarks>
+    /// <b>A lane's own bar is the one it ends at</b>, and only where nothing was painted there is it the one
+    /// it meets on its way out of a node — which is the far bar of the crossing a junction with no fork
+    /// carries (TER-6), painted for the traffic that has just come through. Taken the other way round, a
+    /// lane running from one of those to a lit junction would keep the bar behind it and lose the red one in
+    /// front.
+    /// </remarks>
     static (float[] AlongM, float[] ThicknessM) StopBars(CityPlan plan, RoadGraph roads)
     {
         var alongM = new float[roads.LaneCount];
@@ -148,28 +165,43 @@ internal sealed class LaneFurniture
         Array.Fill(alongM, float.PositiveInfinity);
 
         var bars = plan.StopLines;
-        for (var bar = 0; bar < bars.Count; bar++)
+        for (var pass = 0; pass < 2; pass++)
         {
-            var approach = bars.Approach[bar];
-            if (approach.LengthSquared() <= 0f) continue;
-
-            approach = Vector2.Normalize(approach);
-            var junction = bars.Junction[bar];
-            if (junction < 0 || junction >= roads.NodeCount) continue;
-
-            foreach (var lane in roads.LanesIn(junction))
+            for (var bar = 0; bar < bars.Count; bar++)
             {
-                if (roads.LaneRoad[lane] != bars.Road[bar]) continue;
-                if (Vector2.Dot(roads.EndOf(lane).Direction, approach) <= 0f) continue;
+                var approach = bars.Approach[bar];
+                if (approach.LengthSquared() <= 0f) continue;
 
-                var arcs = roads.ArcsOf(lane);
-                var lengthM = roads.LaneLengthM[lane];
-                alongM[lane] = Spline.ProjectM(arcs, bars.CentreM[bar], lengthM, lengthM);
-                thicknessM[lane] = bars.ThicknessM[bar];
+                approach = Vector2.Normalize(approach);
+                var junction = bars.Junction[bar];
+                if (junction < 0 || junction >= roads.NodeCount) continue;
+
+                var ends = pass == 0;
+                foreach (var lane in ends ? roads.LanesIn(junction) : roads.LanesOut(junction))
+                {
+                    if (roads.LaneRoad[lane] != bars.Road[bar]) continue;
+                    if (!ends && !float.IsPositiveInfinity(alongM[lane])) continue;
+
+                    var at = ends ? roads.EndOf(lane) : roads.StartOf(lane);
+                    if (Vector2.Dot(at.Direction, approach) <= 0f) continue;
+
+                    var arcs = roads.ArcsOf(lane);
+                    var lengthM = roads.LaneLengthM[lane];
+                    alongM[lane] = Spline.ProjectM(arcs, bars.CentreM[bar], ends ? lengthM : 0f, lengthM);
+                    thicknessM[lane] = bars.ThicknessM[bar];
+                }
             }
         }
 
         return (alongM, thicknessM);
+    }
+
+    /// <summary>The plan's own answer for every crossing at once (TER-6), taken here because it is a projection.</summary>
+    static float[] Spans(CityPlan plan)
+    {
+        var spanM = new float[plan.Crosswalks.Count];
+        for (var crossing = 0; crossing < spanM.Length; crossing++) spanM[crossing] = plan.CrossingSpanM(crossing);
+        return spanM;
     }
 
     /// <summary>
@@ -177,7 +209,7 @@ internal sealed class LaneFurniture
     /// turns at one — so a lane's own list is kept rather than a junction's: only the crossing on the arm
     /// being approached counts, and a junction paints its far arm too.
     /// </summary>
-    static (int[] First, int[] Crossing, float[] AlongM) Crossings(CityPlan plan, RoadGraph roads)
+    static (int[] First, int[] Crossing, float[] AlongM) Crossings(CityPlan plan, RoadGraph roads, float[] spanM)
     {
         var crossings = plan.Crosswalks;
         var first = new int[roads.LaneCount + 1];
@@ -190,7 +222,7 @@ internal sealed class LaneFurniture
 
             axis = Vector2.Normalize(axis);
             var centreM = crossings.CentreM[crossing];
-            var halfSpanM = crossings.SpanM[crossing] * 0.5f;
+            var halfSpanM = spanM[crossing] * 0.5f;
 
             var already = found.Count;
             for (var lane = 0; lane < roads.LaneCount; lane++)

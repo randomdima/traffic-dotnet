@@ -236,11 +236,46 @@ beyond their terrain attributes.
 
 - A crossing is **a band of the same carriageway pedestrians may walk over**. It is a plan entity of its
   own and the road graph never reads it, so **a crossing adds no node and nothing can turn at one**.
+- **A crossing has no width of its own.** It names the road it is painted across, and how far it reaches is
+  that road's width measured along the paint's own axis — so a crossing laid off square is longer by what
+  the skew costs it and still reaches kerb to kerb, and one laid square is the carriageway's width. That
+  one figure is what it is drawn, walked, stopped for and asked about at. A span carried beside the road's
+  is a second answer to a question the road has already answered (GEN-15), and the two disagree the first
+  time either is laid again: a zebra wider than its carriageway stands its end bars on the pavement, and a
+  narrower one leaves a strip of road nobody is walking over.
 - The terrain carries the rule: crosswalk ground is person-allowed, car-allowed *and* directional, so the
   lane direction underneath is left in place and a car on a crossing is still held to its lane.
 - **Placement is one rule, not hand-picked positions**: one crossing on every arm of every junction at a
   fixed setback from the paved junction reach, each tagged with the junction it approaches — so a
-  junction's signal bundle greens *its own* arms' crossings.
+  junction's signal bundle greens *its own* arms' crossings. **The reach is that arm's own** — where the
+  kerb fillet between it and its furthest neighbour lets go of the kerb, which grows as the corner sharpens
+  — and never the distance from the node, which is the same on every arm of every junction and right on
+  none of them. The bar behind the crossing is set back from the same place, and so is everything hung off
+  either of them.
+- **A junction that admits no fork carries one crossing and not one per arm, and none of the junction is in
+  where it goes.** Two arms are one road: everything that arrives leaves the only other way, so the node is
+  somewhere to cross rather than somewhere to choose, and a second zebra a few metres from the first is the
+  same road crossed twice and the same stop asked for twice. **The paint is the crossing's own bundle** —
+  the zebra with the bar of each of the two lanes that run over it, one either side and each facing the
+  paint — laid on **whichever of the two arms has the most road left behind it**, and it **begins where that
+  arm's own bend lets go** rather than a setback past a box: there is no box behind it, only the same road
+  swept round its corner (GEN-12a), and what is laid across a straight begins where the arc ends. Every other
+  junction's setback is a distance from a place cars turn across; this one's is the curve they drive round.
+- **The bars of such a node are the one pair a junction the signals do not govern carries**: nothing at two
+  arms is lit (TLT-3), so the whole of what governs the paint is the walker's own right of way (TER-5e) and
+  the bars are what say where the stop for one is made. A light there, if a map ever authors one, hangs off
+  those bars like every other and stands beside the zebra with them.
+- **And no lane line stops for such a node, only for its paint.** What a dash must not be laid down is ground
+  the movements through a box are driven across, and there are none here but the one the road itself makes —
+  so the line runs from the bundle's own outer bar **through the bend and the node** and on down the other
+  arm, as it does along any road that turns a corner. The one thing that still breaks it there is a zebra
+  laid **on the node itself**, which is what an authored inline junction carries: paint breaks a lane line
+  wherever the paint is.
+- **Elsewhere a lane line stops at the ground its junction reaches** and not at the disc that junction is
+  drawn on, whether or not the arm carries paint. The metres between an arm's kerb fillet and the disc are
+  the same turning ground as the rest of the box, and an arm too short for a crossing has nothing else to
+  stop its dashes: that reach is `SimConfig.JunctionArmReachM`, read from the figure and never measured a
+  second way.
 - **An arm too short to hold setback plus band clear of both junctions gets none.** Short spurs and small
   rings therefore have no crossings, and that is correct.
 - The inline junction is the exception and takes a single crossing laid on the node itself. **Being on the
@@ -355,12 +390,15 @@ cannot cross is one the lane under the paint already belongs to.
 ## Markings
 
 Everything painted on the ground is **engine-drawn primitives, never art**: lane centrelines (dashed,
-stopping at the stop bar rather than running on into the junction behind it), kerb lines (broken exactly
+stopping at the outermost paint an arm carries — its bar where it has one and its crossing where the
+junction is unlit — rather than running on into the junction behind it), kerb lines (broken exactly
 where the pavement's edge is, and over a car park's mouth, where the ground on the far side of the line
 is the lot's own tarmac and there is no kerb to be the edge of), pavement and deck edge lines, stop bars
-(square across *that arm's* direction, covering the approaching lane only, stopping at the kerb), zebras
+(square across *that arm's* direction, covering one lane only — the one driving at the paint — and
+stopping at the kerb), zebras
 (spanning kerb to kerb, running along the direction
-of the traffic that crosses them, between their bar and the junction without overlapping the bar), bay
+of the traffic that crosses them, between their bar and the junction without overlapping the bar, or
+between their two bars at a node that forks nothing), bay
 outlines (three-sided, open at the mouth, so a row of bays leaves no line across the ground a car enters
 the lot over, and laid against the lot's own edge — inside it — wherever they stand within a line's width
 of one) and drift marks.
@@ -372,7 +410,7 @@ shadow its whole rectangle casts along the road — and stops a line's width sho
 the corner where the two turn into one another is painted and painted once. A gap at that corner is a gap
 in the one place a driver entering the lot is looking.
 
-Five rules govern all of it:
+Six rules govern all of it:
 
 1. **A coordinate is read from whatever owns it, never re-derived.** One shape, one pattern, one lane
    offset. A figure that exists in two places eventually disagrees with itself.
@@ -384,6 +422,9 @@ Five rules govern all of it:
    dash.
 5. **Paint sits on the surface it belongs to**, checked on rendered frames because no numeric check
    answers it (VER-9).
+6. **A mark laid along a road is laid on the road's own curve**, never on the chord of it. A dash struck
+   straight across a bend stands its own sag off the line it marks, which at the radius a town's tightest
+   bends are laid to is most of a line's width — the line reads as a row of tangents rather than a curve.
 
 ## What this slice must produce
 

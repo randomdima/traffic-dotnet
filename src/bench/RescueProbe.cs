@@ -8,6 +8,8 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Bench;
 
 /// <summary>One town's rescue, staged and then watched to its end.</summary>
@@ -105,7 +107,7 @@ internal static class RescueProbe
 
     public static RescueRow Sample(string map, SimConfig config)
     {
-        using var world = new TownWorld(TownReader.ReadFile(ProjectPaths.TownFile(map)), config);
+        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 

@@ -84,6 +84,39 @@ internal sealed class CityPlan
 
     public int CellCount => GridWidth * GridHeight;
 
+    /// <summary>
+    /// How far a zebra reaches across the road, kerb to kerb: <b>the width of the road it is painted on,
+    /// measured along the paint's own axis</b> (TER-6). A crossing laid off square is longer by exactly what
+    /// the skew costs it, and one laid square across its road is the carriageway's width.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is solved and never carried.</b> A span beside the road's own width is a second answer to a
+    /// question the road has already answered, and the two disagree the moment either is laid again. The
+    /// projection makes this a build-time question: whoever asks it every tick keeps the answer.
+    /// </remarks>
+    public float CrossingSpanM(int crossing)
+    {
+        var road = Crosswalks.Road[crossing];
+        var arcs = Roads.SegmentsOf(road);
+        var lengthM = Spline.TotalLengthM(arcs);
+        var centreM = Crosswalks.CentreM[crossing];
+        var at = Spline.SampleAt(arcs, Spline.ProjectM(arcs, centreM, lengthM * 0.5f, lengthM));
+
+        var axis = Crosswalks.Axis[crossing];
+        var alongItsRoad = axis.LengthSquared() > 0f
+            ? MathF.Abs(Vector2.Dot(at.Direction, Vector2.Normalize(axis)))
+            : 1f;
+
+        return Roads.WidthM[road] / MathF.Max(alongItsRoad, LeastAlongItsRoad);
+    }
+
+    /// <summary>
+    /// How square to its road a crossing is held while its span is solved — an eighth of a turn off, by
+    /// which the skew has already made the paint half again as long as the road is wide. Past that the axis
+    /// is not that road's, and the span would run away rather than reach the far kerb.
+    /// </summary>
+    const float LeastAlongItsRoad = 0.7071068f;
+
     internal sealed class JunctionArrays
     {
         public required Vector2[] CentreM { get; init; }
@@ -150,12 +183,22 @@ internal sealed class CityPlan
         public int Count => MinM.Length;
     }
 
+    /// <summary>
+    /// The zebras. <b>A crossing carries no width of its own</b> (TER-6): it is a band of the carriageway
+    /// it is painted on, so how far it reaches is <see cref="CrossingSpanM"/> off the road it names.
+    /// </summary>
     internal sealed class CrosswalkArrays
     {
         public required Vector2[] CentreM { get; init; }
+
+        /// <summary>Along the road the crossing crosses, so the way over it is square to this.</summary>
         public required Vector2[] Axis { get; init; }
+
+        /// <summary>How much of the road's length the paint covers, which is the crossing's own figure.</summary>
         public required float[] DepthM { get; init; }
-        public required float[] SpanM { get; init; }
+
+        /// <summary>The road the paint is laid across, whose width the crossing spans kerb to kerb.</summary>
+        public required int[] Road { get; init; }
 
         /// <summary>The junction the crossing belongs to, or <see cref="NoRecord"/> where it was struck mid-block.</summary>
         public required int[] Junction { get; init; }
@@ -210,6 +253,20 @@ internal sealed class CityPlan
     {
         public required Vector2[] CentreM { get; init; }
         public required float[] RadiusM { get; init; }
+
+        /// <summary>
+        /// The road's own bearing where a prop was laid along a kerb (GEN-6b), and zero for one the wild
+        /// pass dropped on open ground. <b>It is drawn on only by a look that turns</b>
+        /// (<c>PropVariant.Turns</c>): a tree has no bearing to be wrong about, so the field says what the
+        /// ground was doing there and the catalogue says whether the picture cares.
+        /// </summary>
+        /// <remarks>
+        /// <b>The <c>.town</c> format does not carry it</b>, as it does not carry a spawn's patrol point:
+        /// a map that arrives as a file is one of the two fixtures, whose props were written before any of
+        /// them stood on a bearing, and the reader answers zero rather than inventing one.
+        /// </remarks>
+        public required float[] BearingRad { get; init; }
+
         public required byte[] Kind { get; init; }
         public int Count => CentreM.Length;
     }
@@ -228,15 +285,50 @@ internal sealed class CityPlan
         public int Count => Kind.Length;
     }
 
-    internal sealed class WaterArrays
+    /// <summary>Closed rings, carried flat with an offsets array beside them as every run in this structure is.</summary>
+    internal sealed class RingArrays
     {
+        public static RingArrays None => new() { Offsets = [0], PointM = [] };
+
         /// <summary>Count + 1 entries, over <see cref="PointM"/>.</summary>
-        public required int[] OutlineOffsets { get; init; }
+        public required int[] Offsets { get; init; }
 
         public required Vector2[] PointM { get; init; }
-        public int Count => OutlineOffsets.Length - 1;
 
-        public ReadOnlySpan<Vector2> OutlineOf(int outline) =>
-            PointM.AsSpan(OutlineOffsets[outline], OutlineOffsets[outline + 1] - OutlineOffsets[outline]);
+        public int Count => Offsets.Length - 1;
+
+        public ReadOnlySpan<Vector2> RingOf(int ring) =>
+            PointM.AsSpan(Offsets[ring], Offsets[ring + 1] - Offsets[ring]);
+    }
+
+    /// <summary>
+    /// A town's water, as the four rings each piece of it is drawn from (GEN-2c). <b>They are the same wave
+    /// at four offsets</b>, drawn largest first so that each fill leaves a line of the one under it: the
+    /// shore, the shore less a line, the water plus a line, the water.
+    /// </summary>
+    internal sealed class WaterArrays
+    {
+        /// <summary>A map with no water on it, which is most of them.</summary>
+        public static WaterArrays None => new()
+        {
+            Outline = RingArrays.None, Shore = RingArrays.None,
+            ShoreEdge = RingArrays.None, WaterEdge = RingArrays.None,
+        };
+
+        /// <summary>The water's own edge, which is what is drawn as water and what was classified as it.</summary>
+        public required RingArrays Outline { get; init; }
+
+        /// <summary>
+        /// The outer edge of the shore the water is set in. <b>The ring and not the strip</b>: the strip is
+        /// what is left of it once the water is laid over it, which is how it is drawn and how the ground
+        /// under it was classified.
+        /// </summary>
+        public required RingArrays Shore { get; init; }
+
+        /// <summary>That edge less a line's width, so what is left between the two is the line along the grass.</summary>
+        public required RingArrays ShoreEdge { get; init; }
+
+        /// <summary>And the water's edge plus one, so what is left between the two is the line along the water.</summary>
+        public required RingArrays WaterEdge { get; init; }
     }
 }

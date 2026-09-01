@@ -29,20 +29,45 @@ namespace TrafficSimulation.App.PlayerControl;
 /// the arrows pan the camera only while nothing is being driven.
 /// </para>
 /// <para>
-/// <b>CTL-1b — the left button picks out one unit or many, and which it was is known on the way up.</b>
-/// A press starts a box rather than selecting: a drag and a click begin identically, and a layer that
-/// selected on the way down would select whatever the box was started on top of and then select it
-/// again. Shift is read at the release for the same reason — it is the gesture that is modified.
+/// <b>CTL-1b — the left button drags the town, and a press that did not travel picks a unit out.</b>
+/// A press starts a gesture rather than selecting: a drag and a click begin identically, and a layer
+/// that selected on the way down would select whatever the drag was started on top of and then select
+/// it again. <b>Shift is read at the press</b>, because it is what decides which gesture this is — held,
+/// the drag lays a box over the town instead of moving it, and a click that never travelled adds to the
+/// selection instead of replacing it.
+/// </para>
+/// <para>
+/// <b>CTL-9 — a finger is the left button, and two of them are the camera.</b> One touch drags, taps and
+/// picks through the very code a mouse does; a second landing ends whatever the first had started and
+/// hands the camera to <see cref="TouchGesture"/> until both are lifted.
 /// </para>
 /// </remarks>
 internal sealed class PlayerHands
 {
+    /// <summary>What the left button is doing to the town while it is down (CTL-1b).</summary>
+    enum Gesture
+    {
+        /// <summary>Nothing: the button is up, or what it started was taken over by a second finger.</summary>
+        None,
+
+        /// <summary>The town is being dragged under the pointer, which is what a plain press does.</summary>
+        Panning,
+
+        /// <summary>A box is being laid over the town, which is what a press with shift held does.</summary>
+        Boxing,
+    }
+
+    readonly TouchGesture _touch = new();
+
     Vector2 _lastPointerPx;
 
     /// <summary>Where the left button went down on the town, while it is still down.</summary>
     Vector2 _fromPx;
 
-    bool _dragging;
+    Gesture _gesture;
+
+    /// <summary>Whether shift was held at the press, which is what the release does with what it caught.</summary>
+    bool _alsoKeep;
 
     /// <summary>
     /// One frame's worth of the keys, turned into the hand the world reads every tick inside it.
@@ -70,10 +95,28 @@ internal sealed class PlayerHands
     }
 
     /// <summary>
-    /// The camera, and the one rule that decides whether it moves at all: <b>the arrows pan whenever
-    /// no unit is being driven</b> (CTL-5b), and the wheel and the middle drag always do.
+    /// Two fingers on the glass, offered the camera before anything else is (CTL-9). <b>The frame two of
+    /// them are down is a frame the one-finger gesture is not</b>: whatever the first finger had started
+    /// is dropped, so a pinch cannot also be laying a box or picking a unit out on the way up.
     /// </summary>
-    public void DriveCamera(AppWindow window, Camera2D camera, Vector2 uiPx, float seconds, bool handsOn)
+    public void ReadTouches(AppWindow window, Camera2D camera, Vector2 uiPx, SimConfig config)
+    {
+        Span<Vector2> touchesPx = stackalloc Vector2[2];
+        if (!_touch.Read(touchesPx[..window.Touches(touchesPx)], camera, uiPx, config)) return;
+
+        _gesture = Gesture.None;
+    }
+
+    /// <summary>
+    /// The camera, and the one rule that decides whether the keys move it at all: <b>the arrows pan
+    /// whenever no unit is being driven</b> (CTL-5b). The drags and the wheel always do.
+    /// </summary>
+    /// <remarks>
+    /// <b>The wheel zooms, and with control held it turns</b> (OBS-1c) — the desktop's answer to the
+    /// twist between two fingers, and the same movement about the same point.
+    /// </remarks>
+    public void DriveCamera(
+        AppWindow window, Camera2D camera, Vector2 uiPx, SimConfig config, float seconds, bool handsOn)
     {
         if (!handsOn)
         {
@@ -86,20 +129,36 @@ internal sealed class PlayerHands
         }
 
         var pointerPx = window.PointerPx;
-        if (window.IsMouseDown(MouseButton.Middle)) camera.PanByPixels(pointerPx - _lastPointerPx);
+        var travelledPx = pointerPx - _lastPointerPx;
         _lastPointerPx = pointerPx;
 
-        camera.Zoom(window.TakeScroll(), pointerPx, uiPx);
+        // CTL-1b: the left button drags the town under the pointer unless shift asked for a box instead.
+        // The middle button keeps doing it whichever the left is doing, since it can be neither.
+        if (_gesture == Gesture.Panning || window.IsMouseDown(MouseButton.Middle)) camera.PanByPixels(travelledPx);
+
+        var scrolled = window.TakeScroll();
+        if (window.IsKeyDown(Key.ControlLeft) || window.IsKeyDown(Key.ControlRight))
+        {
+            camera.Turn(scrolled * float.DegreesToRadians(config.View.CameraTurnPerNotchDeg), pointerPx, uiPx);
+            return;
+        }
+
+        camera.Zoom(scrolled, pointerPx, uiPx);
     }
 
     /// <summary>
     /// A press on the town, once the panels have had their say. <b>The ruler is offered it before the
     /// selection layer</b>, so while the ruler is ticked a click measures rather than selecting or
-    /// ordering. A left press starts a box and picks nothing — that is <see cref="Pointer"/>'s, on the
+    /// ordering. A left press starts a drag and picks nothing — that is <see cref="Pointer"/>'s, on the
     /// way back up.
     /// </summary>
+    /// <param name="alsoKeep">
+    /// Whether shift was held as the button went down, which is the whole of what says whether this is a
+    /// pan or a box (CTL-1b) — and, if it turns out to have been a click, whether the unit under it joins
+    /// the selection or replaces it.
+    /// </param>
     public void Click(
-        MouseButton button, Vector2 atPx, Camera2D camera, Vector2 uiPx, TownWorld world,
+        MouseButton button, Vector2 atPx, bool alsoKeep, Camera2D camera, Vector2 uiPx, TownWorld world,
         DebugSwitches switches, Ruler ruler)
     {
         var pointM = camera.WorldAt(atPx, uiPx);
@@ -115,7 +174,8 @@ internal sealed class PlayerHands
         switch (button)
         {
             case MouseButton.Left:
-                _dragging = true;
+                _gesture = alsoKeep ? Gesture.Boxing : Gesture.Panning;
+                _alsoKeep = alsoKeep;
                 _fromPx = atPx;
                 break;
 
@@ -137,9 +197,9 @@ internal sealed class PlayerHands
     }
 
     /// <summary>
-    /// The pointer between the presses: <b>the box while the button is down, and what it caught on the
-    /// way up</b> (CTL-1b). A gesture that never left the spot it started on is a click and picks the one
-    /// unit under it; anything longer is a box and picks every unit inside it.
+    /// The pointer between the presses: <b>what the gesture caught on the way up</b> (CTL-1b). A gesture
+    /// that never left the spot it started on is a click and picks the one unit under it; anything longer
+    /// has already moved the town or laid a box, and what it does here is what that box caught.
     /// </summary>
     /// <remarks>
     /// A release is read off the button's state rather than off an event, so a press and a release inside
@@ -147,34 +207,44 @@ internal sealed class PlayerHands
     /// </remarks>
     public void Pointer(AppWindow window, Camera2D camera, Vector2 uiPx, SimConfig config, TownWorld world)
     {
-        if (!_dragging || window.IsMouseDown(MouseButton.Left)) return;
+        if (_gesture == Gesture.None || window.IsMouseDown(MouseButton.Left)) return;
 
-        _dragging = false;
+        var was = _gesture;
+        _gesture = Gesture.None;
         var toPx = window.PointerPx;
-        var alsoKeep = window.IsKeyDown(Key.ShiftLeft) || window.IsKeyDown(Key.ShiftRight);
 
         if (!IsDrag(_fromPx, toPx, config.View.SelectionDragPx))
         {
             // Clicking nothing deselects, which is what makes the mark readable as an answer; with shift
             // it adds the unit under the pointer, or drops it if it was already picked out.
             var unit = world.Pick(camera.WorldAt(_fromPx, uiPx));
-            if (alsoKeep) world.SelectAlso(unit);
+            if (_alsoKeep) world.SelectAlso(unit);
             else world.Select(unit);
 
             return;
         }
 
-        world.SelectIn(camera.WorldAt(_fromPx, uiPx), camera.WorldAt(toPx, uiPx), alsoKeep);
+        // A pan is finished the moment it is let go of: the town moved under the hand as it went, and
+        // there is nothing left for the release to be about.
+        if (was != Gesture.Boxing) return;
+
+        // The box is turned because the window is (OBS-1c). Its middle and its size are the gesture's own
+        // pixels put into metres, and its lie on the ground is the window's axes in the town's.
+        world.SelectIn(
+            camera.WorldAt((_fromPx + toPx) * 0.5f, uiPx),
+            Vector2.Abs(toPx - _fromPx) / camera.PixelsPerMetre, -camera.TurnRad, _alsoKeep);
     }
 
-    /// <summary>Whether the pointer travelled far enough for the gesture to be a box rather than a click.</summary>
+    /// <summary>Whether the pointer travelled far enough for the gesture to be a drag rather than a click.</summary>
     public static bool IsDrag(Vector2 fromPx, Vector2 toPx, float thresholdPx) =>
         (toPx - fromPx).LengthSquared() > thresholdPx * thresholdPx;
 
     /// <summary>The box as it stands this frame, for the interface to draw, or an empty one.</summary>
     public Rect MarqueePx(Vector2 pointerPx, float thresholdPx) =>
-        _dragging && IsDrag(_fromPx, pointerPx, thresholdPx) ? Marquee.Between(_fromPx, pointerPx) : default;
+        _gesture == Gesture.Boxing && IsDrag(_fromPx, pointerPx, thresholdPx)
+            ? Marquee.Between(_fromPx, pointerPx)
+            : default;
 
     /// <summary>The town has changed under the gesture, so there is nothing left for it to have been about.</summary>
-    public void TownChanged() => _dragging = false;
+    public void TownChanged() => _gesture = Gesture.None;
 }

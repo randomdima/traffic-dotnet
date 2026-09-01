@@ -135,3 +135,38 @@ says and stops there, with the lead car wrapped wherever it has got to.
 `RouteRunsOut` and `WalkedRunsOut` are what say whether there is anything to ask for. Without them the
 interface would have to plan to find out, and for the ordinary body — one standing on the last lane of its
 own route — the search from the end of that lane comes back with the way round the block.
+
+## The left button moves the town, and the box moved on to shift
+
+The left drag used to be the box and nothing else, and the camera was moved with the arrows, the wheel and
+a middle-button drag. That is a mouse's vocabulary written down as though it were everybody's. A handset
+has no middle button, no wheel and no arrows, so a town in a browser on a phone could be looked at from
+wherever it happened to open and nowhere else — and the gesture the left button *did* have was the one a
+finger is least likely to want.
+
+So the two swapped. A plain drag is the pan, which is the commonest thing anybody wants of a top-down town
+and the one gesture a finger has as well as a mouse; the box is shift-drag, which puts every way of picking
+out more than one unit behind the same modifier. Shift moved to being read at the **press** at the same
+time, because it is now what decides which of the two gestures this is rather than what the release does
+with what it caught.
+
+The middle drag was kept. It costs a clause, it is what a hand used to this town already does, and it can
+be neither of the other two — so there is no state in which it means something else.
+
+## Two fingers are read here and not in the page
+
+The browser reports where its contacts are; a pinch, a twist and a two-finger pan are what a *pair* of them
+did between one frame and the next, and that is arithmetic rather than a platform fact. Reading it in
+JavaScript would have put the town's feel on the far side of the wall, where nothing tests it and the
+desktop head cannot see it — and would have made the page the second thing with an opinion about the
+camera.
+
+So the page writes down how many fingers are down and where the first two of them are, exactly as it writes
+down a key or a wheel notch, and the run turns that into a movement. What that costs is four numbers in the
+axis array, which crosses the wall in the same copy everything else does.
+
+**All three movements are read every frame and none of them is a mode.** A gesture classified before it was
+applied picks wrong on the frame the hand had not decided yet and then holds the wrong answer for the rest
+of the movement. The twist alone gets a dead zone, because it is the one reading that is wrong rather than
+merely small: no two fingers spread perfectly square, and a pinch whose angle was believed leaves the town
+a couple of degrees off north every single time it is zoomed.

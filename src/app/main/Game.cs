@@ -14,6 +14,8 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.App.Main;
 
 /// <summary>
@@ -86,9 +88,10 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>
     /// What <see cref="FrameTheTown"/> left the camera at, while it is still there. It is how a window
-    /// resize tells a framing this run chose from one a reader has moved since.
+    /// resize tells a framing this run chose from one a reader has moved since — the turn included, since
+    /// a town turned in place is a reader having moved it (OBS-1c).
     /// </summary>
-    (Vector2 CentreM, float PixelsPerMetre)? _framedAt;
+    (Vector2 CentreM, float PixelsPerMetre, float TurnRad)? _framedAt;
 
     /// <summary>What the frame before this one took, which is the step the hands are read over.</summary>
     TimeSpan _lastFrame;
@@ -109,6 +112,10 @@ internal sealed partial class Game : IDisposable
         // The window and the machine under it are the one thing that is not the same on both, so they
         // are the one thing this root does not do itself (Game.Desktop.cs, Game.Web.cs).
         _window = Boot(width, height, validate, uiScale, pacing, fullscreen, display);
+
+        // OBS-2k: what the panels need, handed to the window before the first thing is laid out against
+        // it — the density is the display's until that would put the menu off the edge of the glass.
+        _window.LeastUiPx = new Vector2(config.View.InterfaceLeastWidthPx, config.View.InterfaceLeastHeightPx);
         _renderer = NewRenderer(GroundMesh.Nothing(), spriteCapacity: 1);
 
         _uiPx = _window.UiPx;
@@ -248,7 +255,7 @@ internal sealed partial class Game : IDisposable
             // (OBS-1a) — so the follow stops at the first frame this is no longer where it was left.
             if (_framedAt is { } framed && _world is not null)
             {
-                if (framed == (_camera.CentreM, _camera.PixelsPerMetre) && _ui.Menu.Open)
+                if (framed == (_camera.CentreM, _camera.PixelsPerMetre, _camera.TurnRad) && _ui.Menu.Open)
                 {
                     _camera.SetSpan(_config.View.CameraDefaultViewM, _uiPx);
                     FrameTheTown(_world, _world.Plan.WorldSizeM);
@@ -359,7 +366,10 @@ internal sealed partial class Game : IDisposable
 
         if (playing)
         {
-            _hands.DriveCamera(_window, _camera, _uiPx, seconds, _world!.HandsOn);
+            // CTL-9: the fingers first, because two of them take the camera off whatever one of them had
+            // started — a pinch that was also finishing a drag would pan twice and select on the way up.
+            _hands.ReadTouches(_window, _camera, _uiPx, _config);
+            _hands.DriveCamera(_window, _camera, _uiPx, _config, seconds, _world!.HandsOn);
             _world.Hands(_hands.ReadKeys(_window, _world));
         }
 
@@ -371,9 +381,12 @@ internal sealed partial class Game : IDisposable
             return;
         }
 
+        // CTL-1b: shift is read where the press was, because it is what says which gesture this is.
+        var alsoKeep = _window.IsKeyDown(Key.ShiftLeft) || _window.IsKeyDown(Key.ShiftRight);
+
         // The interface is offered the click before the town under it, so a panel drawn over a car is
         // not also a way of selecting that car.
-        var taken = _ui.Click(atPx, _uiPx, button == MouseButton.Left, playing, out var choice);
+        var taken = _ui.Click(atPx, _uiPx, button == MouseButton.Left, playing, _camera, out var choice);
 
         // Unticking the box drops the tapes with it, which is one of the two ways OBS-2f says they go
         // — the other is a right-click, and the ruler handles that itself.
@@ -391,7 +404,7 @@ internal sealed partial class Game : IDisposable
 
         if (taken == ClickTaken.Yes) return;
 
-        _hands.Click(button, atPx, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler);
+        _hands.Click(button, atPx, alsoKeep, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler);
 
         // A press and a release inside one frame is still a click, so the gesture is offered its way up
         // in the frame it began in.
@@ -427,7 +440,7 @@ internal sealed partial class Game : IDisposable
     /// </param>
     void Open(string map, bool behindTheMenu = false)
     {
-        var plan = TownReader.ReadFile(ProjectPaths.TownFile(map));
+        var plan = Maps.Plan(map, _config, BuildingCatalog.Shared.OrdinaryFootprintsM());
         _map = plan.Name;
 
         var mesh = GroundMesh.Build(plan, _config);
@@ -471,7 +484,7 @@ internal sealed partial class Game : IDisposable
     {
         var viewM = _camera.ViewSpanM(_uiPx);
         _camera.LookAt(Opening.LooksAtM(world.Terrain, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
-        _framedAt = (_camera.CentreM, _camera.PixelsPerMetre);
+        _framedAt = (_camera.CentreM, _camera.PixelsPerMetre, _camera.TurnRad);
     }
 
     /// <summary>
@@ -535,8 +548,10 @@ internal sealed partial class Game : IDisposable
         var sprites = 0;
         if (_looks is { } looks && _world is not null)
         {
+            // The cull span and not the view span: a turned town shows a diamond, and a body just outside
+            // the upright rectangle is inside the picture (OBS-1c).
             sprites = looks.Fill(
-                _world, _config, _camera.CentreM, _camera.ViewSpanM(_uiPx), _renderer.Sprites);
+                _world, _config, _camera.CentreM, _camera.CullSpanM(_uiPx), _renderer.Sprites);
         }
 
         _renderer.SetSpriteCount(sprites);
@@ -546,9 +561,9 @@ internal sealed partial class Game : IDisposable
         _renderer.SetUnderlayCount(under);
         parts.Mark(ref parts.InterfaceMs);
 
-        var (centreM, clipPerM) = _camera.ForShader(_uiPx);
+        var (centreM, clipPerM, facing) = _camera.ForShader(_uiPx);
         var before = Crossings();
-        _renderer.Frame(new CameraView(centreM, clipPerM, _uiPx));
+        _renderer.Frame(new CameraView(centreM, clipPerM, _uiPx, facing));
         parts.Mark(ref parts.SubmitMs);
 
         // The renderer's own account of what it waited for, taken off the frame just drawn and taken

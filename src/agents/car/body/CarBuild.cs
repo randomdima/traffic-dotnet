@@ -173,8 +173,6 @@ internal readonly record struct CarBuild
 
     public required float TailMarginM { get; init; }
 
-    public required float CrossingPaceMps { get; init; }
-
     public required float CrossingStandOffM { get; init; }
 
     public float HalfLengthM => LengthM * 0.5f;
@@ -324,7 +322,6 @@ internal readonly record struct CarBuild
             BodyMarginM = MathF.Max(widthM, lengthM * config.Driving.StandstillGapInCarLengths),
             TailMarginM = MathF.Max(widthM, lengthM * config.Driving.StandstillGapInCarLengths)
                 * config.Driving.TailMarginShare,
-            CrossingPaceMps = lengthM * config.Driving.CrossingPaceInCarLengthsPerS,
             CrossingStandOffM = widthM * config.Driving.CrossingStandOffInCarWidths,
         };
     }

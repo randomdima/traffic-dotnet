@@ -2,8 +2,12 @@ using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.World.Statics;
 
-/// <summary>One prop look: the image, what kind of thing it is, and the size band it was drawn for.</summary>
-internal readonly record struct PropVariant(string Id, int Kind, string SpritePath, float DiameterM);
+/// <summary>
+/// One prop look: the image, the ground its kind belongs on (GEN-6b), the size band it was drawn for, and
+/// whether it has a front to be turned by the bearing the plan laid it on.
+/// </summary>
+internal readonly record struct PropVariant(
+    string Id, int Kind, string SpritePath, float DiameterM, bool Turns);
 
 /// <summary>
 /// The looks a prop can wear, read from <c>assets/…/Catalog.json</c>, and the two-step rule that picks
@@ -134,6 +138,6 @@ internal sealed class PropCatalog
     {
         var variant = AssetJson.Read(path, PropVariantJson.Default.PropVariantFile);
         return new PropVariant(
-            variant.Id, variant.Kind, AssetJson.Beside(path, variant.Sprite), variant.DiameterM);
+            variant.Id, variant.Kind, AssetJson.Beside(path, variant.Sprite), variant.DiameterM, variant.Turns);
     }
 }

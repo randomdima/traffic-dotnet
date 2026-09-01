@@ -1,0 +1,28 @@
+{
+  "name": "Odesa",
+  "description": "A coastal city: grids on their own bearings inside an orbital ring",
+  "seed": 1,
+  "widthM": 3000,
+  "heightM": 2304,
+  "cellSizeM": 1,
+
+  "water": "Coast",
+  "waterBearingDeg": 18,
+  "waterShare": 0.2,
+  "waterMeander": 0.6,
+
+  "districts": 8,
+  "gridDistrictShare": 0.66,
+  "bearingSpreadDeg": 35,
+  "ringShare": 0.34,
+  "unregulatedJunctionShare": 0.15,
+
+  "buildings": 1200,
+  "parkingSlotShare": 0.32,
+  "people": 520,
+  "cars": 520,
+
+  "hospitals": 6,
+  "policeStations": 4,
+  "depots": 2
+}

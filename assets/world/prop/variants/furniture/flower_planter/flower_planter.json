@@ -1,6 +1,7 @@
 {
   "id": "flower_planter",
-  "kind": 2,
+  "kind": 1,
   "sprite": "flower_planter.webp",
-  "diameterM": 1.90
+  "diameterM": 1.90,
+  "turns": true
 }

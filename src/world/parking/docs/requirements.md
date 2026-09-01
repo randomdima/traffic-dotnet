@@ -25,8 +25,20 @@ distance of a lot**. A lot is an oriented rectangle laid along the chord of the 
 only where that kerb stays close to its own chord over the lot's length. The promise is not "a lot per
 building" but a density: any scan of frontage carries roughly as many bays as buildings.
 
+**A handful is a bounded number and the bounds are both ends of it**
+(`SimConfig.CityGen.BaysPerLotFewest`, `…Most`): no lot in a town holds fewer than the fewest or more than
+the most, and each of them draws its own count between the two. **The upper bound is what makes a lot a
+lot.** A car park is a few spaces at the side of a street, and one that grew along its kerb until the
+ground stopped it is an apron — it fronts several buildings at once, it puts a rank of parked cars where
+the street's own frontage should be, and nothing in the town ever fills it. The lower bound is the other
+end of the same statement: a rectangle of tarmac holding one or two cars is a lay-by that cost a lot's
+whole clearance (GEN-4d).
+
 **GEN-4c** A parking space exceeds the car footprint by the clearance margin on all sides, and all of
-that ground is the lot's.
+that ground is the lot's. **A rank of them stands side by side at that width, sharing the line between
+each pair** — the room between two parked cars is the margin each of their bays already carries, and a
+lot that counted it twice would be a row of detached bays with a stripe of bare tarmac down every join
+and no line either of them shares.
 
 **GEN-4i** **A car stands square in the middle of its bay**, the clearance the space carries along its own
 length shared between its nose and its tail. It is the pose the bay's ways end at, so it is what the
@@ -41,7 +53,10 @@ inside that ground would cut the street it is parked beside rather than being cl
 junction, on top of everything the junction already takes, so a car park's flank is not in the face of
 anybody waiting to turn out; and clear of the next lot, claimed along the lot's own bearing only and
 tested both ways round the pair — two lots facing each other across a carriageway are the two sides of a
-street and stay legal, while two sharing a kerb read as one long apron and do not.
+street and stay legal, while two sharing a kerb read as one long apron and do not. **What "clear" is worth
+is the walk that wraps a lot** (TER-3c.3): two standing closer than two of those have one wrap between
+them, which is the apron this refuses — and the verge they pinch out between them is a cusp rather than a
+corner the walk can turn (TER-3c.4).
 
 That every space is demonstrably enterable and leavable is `VER-2`, in
 [docs/verification.md](../../../../docs/verification.md#the-verification-intentions).
@@ -90,13 +105,19 @@ reverse.
 - **The near lane is what a standing is settled off**, because a standing needs both its ways and only the
   lane beside the bay lays both. A bay that lays neither is a bay with no way (`GEN-4f`).
 - **How far over the street that manoeuvre reaches is the table's question and not a second bar here**
-  (`SIM-7`). The turn into a bay swings away from it before it turns in, which is out over the carriageway,
-  and on a four-metre lane the swing carries the body over the centreline. What that takes of the oncoming
-  lane is measured for a bay's way exactly as it is measured for a junction's join (`TER-5c`), and whoever
-  is coming the other way is held off it by that and by nothing else. A bar held up before the measurement
-  — the body clear of the oncoming lane's own paint — refuses shapes the table has already found nobody
-  meets on, and refusing a shape costs the bay the standing it served: on a four-metre lane, every nose-in
-  in the town, which is also every way in a car can take from across the street.
+  (`SIM-7`). Where a bay stands nearer its lane than the turn into it can reach, the shape swings away from
+  the bay before it turns in — out over the carriageway, and far enough to carry the body over the
+  centreline. What that takes of the oncoming lane is measured for a bay's way exactly as it is measured
+  for a junction's join (`TER-5c`), and whoever is coming the other way is held off it by that and by
+  nothing else. A bar held up before the measurement — the body clear of the oncoming lane's own paint —
+  refuses shapes the table has already found nobody meets on, and refusing a shape costs the bay the
+  standing it served.
+
+  **But the swing is a cost and not a feature, and how many bays pay it is settled by two figures rather
+  than by the street** (`P-14`): the arc's own margin over the tightest circle the car has, and the straight
+  the template ends on. Both come off the gap between the lane and the bay, and a town whose lots stand a
+  turning radius clear of their lanes lays every nose-in as a single arc that never leaves its own side of
+  the road. The shipped figures are set so that it does.
 - **The far lane is kept in the forward direction only.** A car may nose into a bay across the carriageway,
   and one that backed in may drive out across it. Neither reverses over a lane of moving traffic to do it.
   So the far lane adds an approach and a departure and never a standing of its own.

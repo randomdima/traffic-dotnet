@@ -28,10 +28,10 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// what is in front is not a queue at all, and the way past it is round it.
 /// </para>
 /// <para>
-/// <b>And neither is a crossing.</b> The pace over paint (CAR-7b) and the stop short of a body on it
-/// (TER-4c.1, TER-5e) are the standing rules', folded into that same minimum, so a car slowing for a zebra
-/// is running its line on the road the zebra left it. An entry named off the term that won there would
-/// impose nothing the profile was not already imposing.
+/// <b>And neither is a crossing.</b> The stop short of a body on the paint (TER-4c.1, TER-5e) is the
+/// standing rules', folded into that same minimum, so a car slowing for a zebra is running its line on the
+/// road the zebra left it. An entry named off the term that won there would impose nothing the profile was
+/// not already imposing.
 /// </para>
 /// </remarks>
 internal static class P04RunTheLine

@@ -4,36 +4,19 @@ using Xunit;
 namespace TrafficSimulation.Tests.Config;
 
 /// <summary>
-/// <b>The relations between the figures, and never the figures.</b> What must survive a retune is the
-/// form: that every size is the car's width, that the grip is whatever stops a body inside its own
-/// diameter, that a derived figure cannot be authored over. A test that quotes a number back asserts
-/// nothing about this engine — it fails the day somebody tunes the town, which is the day it was meant
-/// to be tuned, and it passes every other day whatever the arithmetic between the numbers is doing.
+/// <b>What the figures refuse, and the one relation that has ever been got wrong.</b> A derived figure
+/// cannot be authored over; a figure this engine does not hold is refused rather than ignored; and the
+/// pace scale carries through the whole person model, which is the relation that put the casualty band
+/// below walking speed once already.
 /// </summary>
+/// <remarks>
+/// <b>Scaling a figure and asserting everything scaled with it is not a test of this engine</b> (VER-12):
+/// the assertion is the derivation written out a second time, so it can only fail on the day somebody
+/// changes the derivation on purpose — and on that day it is edited to match rather than read.
+/// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
 public class SimConfigTests
 {
-    [Fact]
-    public void EverySizeIsDerivedFromTheCarsWidth()
-    {
-        var config = SimConfig.Shipped();
-        var wider = new SimConfig { Car = new CarFigures { WidthM = config.Car.WidthM * 2f } };
-
-        Assert.Equal(config.RoadWidthM * 2f, wider.RoadWidthM);
-        Assert.Equal(config.PropDiameterM * 2f, wider.PropDiameterM);
-        Assert.Equal(config.PersonDiameterM * 2f, wider.PersonDiameterM);
-        Assert.Equal(config.IntersectionCornerRadiusM * 2f, wider.IntersectionCornerRadiusM);
-    }
-
-    [Fact]
-    public void AStreetsOwnBendPutsItsInnerKerbOnAJunctionsFlareRadius()
-    {
-        var config = SimConfig.Shipped();
-
-        Assert.Equal(config.IntersectionCornerRadiusM + config.RoadWidthM / 2f, config.RoadCornerRadiusM);
-        Assert.Equal(config.RoadWidthM, config.IntersectionReachM);
-    }
-
     /// <summary>
     /// <b>The pace scale carries through the whole person model, and the square of it through every
     /// acceleration.</b> Distances in this town are real and its pace is not, so a walker's grip is not a

@@ -103,7 +103,7 @@ internal sealed partial class GroundMesh
     {
         var mesh = new GroundMesh();
         var periods = Periods(config);
-        var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.Road.PavementWidthM;
+        var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
         var edgeM = config.Road.EdgeLineWidthM;
 
         // An edge is the surface darkened and paint is the surface brightened. Two measurements, not one
@@ -157,10 +157,16 @@ internal sealed partial class GroundMesh
             }
         }
 
-        for (var outline = 0; outline < plan.Water.Count; outline++)
-        {
-            mesh.Polygon(plan.Water.OutlineOf(outline), Surface.Water, Plain, periods);
-        }
+        // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
+        // of the one under it showing, which is the same trick the pavement's own rim is drawn by: what
+        // survives is one line where the shore meets the grass and another where it meets the water. <b>Each
+        // takes the colour of the ground it meets</b> — green against the grass and blue against the water —
+        // and each is drawn darker than that ground, so the edge reads as the shore's own shadow on it
+        // rather than as a highlight laid over it.
+        Water(mesh, plan.Water.Shore, Surface.Pavement, Shade(0.3f, 0.48f, 0.22f), periods);
+        Water(mesh, plan.Water.ShoreEdge, Surface.Pavement, Plain, periods);
+        Water(mesh, plan.Water.WaterEdge, Surface.Pavement, Shade(0.08f, 0.2f, 0.3f), periods);
+        Water(mesh, plan.Water.Outline, Surface.Water, Plain, periods);
 
         // A deck is drawn like the section TER-3b.1 draws: the deck itself out to its own half-width,
         // then the town's pavement carried across it at the width it has on land, which leaves the
@@ -194,11 +200,17 @@ internal sealed partial class GroundMesh
         }
 
         // The carriageway, twice, for its kerb line — the same trick the pavement's edge line is drawn
-        // by and for the same reason: a stroke laid on the carriageway's own offset curve, broken
-        // exactly where a road runs into a junction rather than walked or probed for.
-        foreach (var inset in (ReadOnlySpan<float>)[0f, kerbM])
+        // by: a stroke laid on the carriageway's own offset curve, broken exactly where a road runs into
+        // a junction rather than walked or probed for.
+        //
+        // <b>The line stands on the kerb and not in the lane</b> (TER-3d): the paint is struck a line's
+        // width <em>outside</em> the carriageway and the surface drawn back over it at full size, so what
+        // survives is a rim on the walk's inner edge and every lane keeps the whole width of asphalt the
+        // town was laid at. Struck inside, a lane measured off the picture comes out a line short of the
+        // figure every other part of the build quotes.
+        foreach (var inset in (ReadOnlySpan<float>)[-kerbM, 0f])
         {
-            var tint = inset == 0f ? paint : Plain;
+            var tint = inset < 0f ? paint : Plain;
             for (var road = 0; road < plan.Roads.Count; road++)
             {
                 mesh.Ribbon(plan.Roads.SegmentsOf(road), (plan.Roads.WidthM[road] * 0.5f) - inset,
@@ -220,10 +232,10 @@ internal sealed partial class GroundMesh
         }
 
         // The kerb line stops where the kerb does. A car park hangs off the kerb it is laid along, so over
-        // its frontage the ground on the far side of that line is the lot's own tarmac and not a walk —
-        // and a line painted there is one every car entering the lot drives across. The pavement's edge
-        // line is untouched: the lot's wrap is part of the union that one is a rim on, so it already
-        // rounds the outside of the lot rather than running between the lot and the street.
+        // its frontage the ground the line stands on is the lot's own tarmac and not a walk — and a line
+        // painted there is one every car entering the lot drives across. The pavement's edge line is
+        // untouched: the lot's wrap is part of the union that one is a rim on, so it already rounds the
+        // outside of the lot rather than running between the lot and the street.
         // It is broken over the lot's mouth and not over its whole shadow, and it stops a line's width
         // short of either end of that: the kerb line runs to the far face of the lot's outermost bay
         // stroke, so the corner the two turn is painted exactly once. It is the same end-to-end rule the
@@ -234,18 +246,19 @@ internal sealed partial class GroundMesh
             if (!front.FrontsTheKerb) continue;
 
             mesh.EdgeStrip(plan.Roads.SegmentsOf(front.Road), front.MouthFromM + kerbM, front.MouthToM - kerbM,
-                front.Side * plan.Roads.WidthM[front.Road] * 0.5f, kerbM, Surface.Tarmac, Plain, periods);
+                front.Side * ((plan.Roads.WidthM[front.Road] * 0.5f) + kerbM), kerbM, Surface.Tarmac, Plain,
+                periods);
         }
 
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh.LaneDashes(plan, config, paint, periods);
 
-        // A zebra spans the whole carriageway kerb to kerb, where a stop bar covers the approaching lane
-        // only — so the two are laid off different fields of the plan and neither is the other's default.
+        // A zebra spans the whole carriageway kerb to kerb — the width of the road it is painted on and
+        // never a span of its own (TER-6) — where a stop bar covers the approaching lane only.
         for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
         {
             mesh.Zebra(plan.Crosswalks.CentreM[crossing], plan.Crosswalks.Axis[crossing],
-                plan.Crosswalks.DepthM[crossing], plan.Crosswalks.SpanM[crossing], config, paint, periods);
+                plan.Crosswalks.DepthM[crossing], plan.CrossingSpanM(crossing), config, paint, periods);
         }
 
         // The bars that were painted, in the arm's own frame: the plan carries where each one landed,
@@ -261,6 +274,13 @@ internal sealed partial class GroundMesh
         mesh.BayStrokes(plan, config, paint, periods, frontages);
 
         return mesh;
+    }
+
+    /// <summary>Every ring of one of the water's own sets, laid as the one shape it is.</summary>
+    static void Water(
+        GroundMesh mesh, CityPlan.RingArrays rings, Surface surface, Vector3 tint, float[] periods)
+    {
+        for (var ring = 0; ring < rings.Count; ring++) mesh.Polygon(rings.RingOf(ring), surface, tint, periods);
     }
 
     /// <summary>The period each surface's texture repeats over, in metres, from the figures config carries.</summary>

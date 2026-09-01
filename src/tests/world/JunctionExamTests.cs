@@ -6,6 +6,8 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 using Xunit;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
@@ -73,7 +75,7 @@ public sealed class ExamRun : IDisposable
     public ExamRun()
     {
         var config = SimConfig.Shipped();
-        _world = new TownWorld(TownReader.ReadFile(ProjectPaths.TownFile(ExamPlan.Name)), config);
+        _world = new TownWorld(Maps.Plan(ExamPlan.Name, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
         Watch = new ExamWatch(config, _world);
 
         var loop = new SimLoop<TownWorld>(_world, config);

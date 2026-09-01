@@ -107,7 +107,7 @@ public class GroundMeshTests
         var mesh = Ground(map);
 
         var owed = 0;
-        for (var outline = 0; outline < plan.Water.Count; outline++) owed += plan.Water.OutlineOf(outline).Length - 2;
+        for (var outline = 0; outline < plan.Water.Outline.Count; outline++) owed += plan.Water.Outline.RingOf(outline).Length - 2;
 
         var laid = 0;
         for (var index = 0; index < mesh.Indices.Length; index += 3)
@@ -159,11 +159,17 @@ public class GroundMeshTests
     /// zebra's bars. The two are one claim, because both are answered by where a mark that is neither a
     /// bar the plan placed nor a stripe on a crossing is allowed to stand.
     /// </summary>
+    /// <remarks>
+    /// <b>A junction that admits no fork is not a junction to stop before</b> (TER-6): its two arms are one
+    /// carriageway, nothing turns across the ground between them, and a line that broke for it would leave a
+    /// gap in the middle of a road that only bends.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
     public void NoDashIsLaidInAJunctionOrOnACrossing(string map)
     {
         var plan = Towns.Of(map);
+        var arms = RoadCuts.ArmsPerJunction(plan);
 
         foreach (var markM in Marks(Ground(map)))
         {
@@ -171,6 +177,8 @@ public class GroundMeshTests
 
             for (var junction = 0; junction < plan.Junctions.Count; junction++)
             {
+                if (arms[junction] < 3) continue;
+
                 var reachM = plan.Junctions.RadiusM[junction];
                 Assert.True(Vector2.DistanceSquared(markM, plan.Junctions.CentreM[junction]) > reachM * reachM,
                     $"{map}: a dash at {markM} is laid inside junction {junction}");
@@ -184,15 +192,23 @@ public class GroundMeshTests
     /// a carriageway, and a dashed line laid down them draws a lane running into the junction.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// It is the stronger half of <see cref="NoDashIsLaidInAJunctionOrOnACrossing"/>: a crossing is set
     /// back onto the arm it approaches (TER-6), so stopping at the disc leaves the metres between the two
     /// to be dashed and every arm of every junction in the town shows it.
+    /// </para>
+    /// <para>
+    /// <b>A junction that admits no fork is not one of them</b> (TER-6): its bars belong to its own crossing
+    /// rather than to a box, and what stands behind them is the same road bending, which a lane line runs
+    /// down like any other.
+    /// </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
     public void NoDashIsLaidBetweenAStopBarAndItsJunction(string map)
     {
         var plan = Towns.Of(map);
+        var arms = RoadCuts.ArmsPerJunction(plan);
 
         foreach (var markM in Marks(Ground(map)))
         {
@@ -203,6 +219,7 @@ public class GroundMeshTests
                 var junction = plan.StopLines.Junction[bar];
                 var approach = plan.StopLines.Approach[bar];
                 if (junction < 0 || junction >= plan.Junctions.Count || approach.LengthSquared() <= 0f) continue;
+                if (arms[junction] < 3) continue;
 
                 approach = Vector2.Normalize(approach);
                 var offset = markM - plan.StopLines.CentreM[bar];
@@ -217,6 +234,51 @@ public class GroundMeshTests
         }
     }
 
+    /// <summary>
+    /// <b>And it stops at the crossing on an arm that has no bar.</b> A junction the ranking governs carries
+    /// no stop bar (TLT-3) and the same metres of turning ground behind its paint, so a rule written round
+    /// the bar leaves the throat of every unlit junction in the town dashed up to its own mouth.
+    /// </summary>
+    /// <remarks>
+    /// <b>A junction that admits no fork has no such throat</b> (TER-6): its crossing is a mid-block one on a
+    /// road that bends, so the lane line behind the paint runs on to the disc like any other stretch of
+    /// carriageway — which is the same reading as <see cref="NoDashIsLaidBetweenAStopBarAndItsJunction"/>.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NoDashIsLaidBetweenACrossingAndTheJunctionItApproaches(string map)
+    {
+        var plan = Towns.Of(map);
+        var arms = RoadCuts.ArmsPerJunction(plan);
+
+        foreach (var markM in Marks(Ground(map)))
+        {
+            if (OnACrossing(plan, markM) || IsOneOfThePlansBars(plan, markM)) continue;
+
+            for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+            {
+                var junction = plan.Crosswalks.Junction[crossing];
+                var axis = plan.Crosswalks.Axis[crossing];
+                if (junction < 0 || junction >= plan.Junctions.Count || axis.LengthSquared() <= 0f) continue;
+                if (arms[junction] < 3) continue;
+
+                // A crossing's axis runs out of the junction it approaches, so the ground in question is
+                // the other way: from the near edge of the paint to the junction's own centre.
+                var inward = -Vector2.Normalize(axis);
+                var offset = markM - plan.Crosswalks.CentreM[crossing];
+                var downM = Vector2.Dot(offset, inward);
+                var acrossM = MathF.Abs(Spline.Cross(inward, offset));
+                var toJunctionM = Vector2.Dot(
+                    plan.Junctions.CentreM[junction] - plan.Crosswalks.CentreM[crossing], inward);
+
+                Assert.False(
+                    downM > plan.Crosswalks.DepthM[crossing] * 0.5f && downM < toJunctionM
+                    && acrossM <= plan.CrossingSpanM(crossing) * 0.5f,
+                    $"{map}: a dash at {markM} stands {downM:F1} m behind the crossing on junction {junction}");
+            }
+        }
+    }
+
     static bool OnACrossing(CityPlan plan, Vector2 pointM)
     {
         for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
@@ -225,7 +287,7 @@ public class GroundMeshTests
             var offset = pointM - plan.Crosswalks.CentreM[crossing];
             var down = MathF.Abs(Vector2.Dot(offset, along));
             var across = MathF.Abs((offset.X * -along.Y) + (offset.Y * along.X));
-            if (down <= plan.Crosswalks.DepthM[crossing] * 0.5f && across <= plan.Crosswalks.SpanM[crossing] * 0.5f) return true;
+            if (down <= plan.Crosswalks.DepthM[crossing] * 0.5f && across <= plan.CrossingSpanM(crossing) * 0.5f) return true;
         }
 
         return false;
@@ -257,7 +319,7 @@ public class GroundMeshTests
         {
             var centreM = plan.Crosswalks.CentreM[crossing];
             var along = Vector2.Normalize(plan.Crosswalks.Axis[crossing]);
-            var spanM = plan.Crosswalks.SpanM[crossing];
+            var spanM = plan.CrossingSpanM(crossing);
 
             var offsets = new List<float>();
             foreach (var markM in marks)
@@ -301,14 +363,12 @@ public class GroundMeshTests
         var lots = plan.ParkingLots;
         if (lots.SpaceCount == 0) return;
 
-        // Half-metre cells: the nearest two strokes that are genuinely different are a bay apart, so a
-        // window of one cell either way finds the one stroke an edge is meant to carry and nothing else.
-        var painted = new Dictionary<(int X, int Y), int>();
-        foreach (var markM in Marks(Ground(map)))
-        {
-            var at = ((int)MathF.Round(markM.X * 2f), (int)MathF.Round(markM.Y * 2f));
-            painted[at] = painted.GetValueOrDefault(at) + 1;
-        }
+        // <b>A stroke is counted where it lies and not where its middle is.</b> A side stroke reaches
+        // past the mouth to the kerb line the lot fronts, so its middle stands off the middle of the
+        // edge it is drawn on by however far it was dragged — and a window round that middle finds
+        // nothing while the line is plainly there. The three edge middles are a bay apart and every
+        // stroke is a line's width across, so what covers one of them covers nothing else.
+        var painted = Quads(Ground(map));
 
         for (var space = 0; space < lots.SpaceCount; space++)
         {
@@ -329,18 +389,15 @@ public class GroundMeshTests
         int Strokes(Vector2 edgeM)
         {
             var strokes = 0;
-            for (var x = -1; x <= 1; x++)
+            foreach (var quad in painted)
             {
-                for (var y = -1; y <= 1; y++)
-                {
-                    strokes += painted.GetValueOrDefault(
-                        ((int)MathF.Round(edgeM.X * 2f) + x, (int)MathF.Round(edgeM.Y * 2f) + y));
-                }
+                if (Covers(quad, edgeM)) strokes++;
             }
 
             return strokes;
         }
     }
+
 
     /// <summary>
     /// <b>A bay's strokes are laid end to end and each corner is painted exactly once.</b> Laid to the
@@ -491,6 +548,177 @@ public class GroundMeshTests
         }
     }
 
+    /// <summary>
+    /// <b>A road is drawn as wide round a bend as down a straight</b> (GEN-15): the carriageway reaches
+    /// half the road either side of the road's own line at every point of every curve, so a lane measured
+    /// off a picture is the lane the town was laid with wherever it is measured.
+    /// </summary>
+    /// <remarks>
+    /// <b>A hair inside the edge rather than on it</b>, because a ribbon is sampled to a chord bow and the
+    /// drawn kerb cuts that much of the corner between two samples. Only the bends are asked about: a
+    /// straight ribbon is two triangles and cannot be pinched. The fixture is where they are asked of,
+    /// since it turns 9 m of radius — tighter than the floor a generated town lays a bend to.
+    /// </remarks>
+    [Fact]
+    public void EveryBendIsDrawnAsWideAsItsRoad()
+    {
+        var plan = Towns.Of(Towns.Fixture);
+        var tarmac = Triangles(Ground(Towns.Fixture), Surface.Tarmac);
+        const float HairM = 0.05f;
+
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var halfM = (plan.Roads.WidthM[road] * 0.5f) - HairM;
+            foreach (var arc in plan.Roads.SegmentsOf(road))
+            {
+                if (arc.Curvature == 0f) continue;
+
+                for (var alongM = 0f; alongM <= arc.LengthM; alongM += 0.5f)
+                {
+                    var headingRad = arc.HeadingAtRad(alongM);
+                    var across = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad));
+                    var centreM = arc.PointAtM(alongM);
+
+                    foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
+                    {
+                        var edgeM = centreM + (across * side * halfM);
+                        Assert.True(
+                            Covered(tarmac, edgeM),
+                            $"road {road} is drawn short of its own kerb at {edgeM}, {alongM:F1} m into a bend");
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>TER-3d — the kerb line stands on the kerb, so a lane keeps the whole width it was laid at.</b>
+    /// The ground a hair inside either edge of every carriageway is the surface as itself: a line struck
+    /// inside the road would be painted over exactly that strip, and a lane measured off the picture would
+    /// come out a line short of <c>LaneWidthM</c>.
+    /// </summary>
+    /// <remarks>
+    /// The marks are not asked about — a dash straddles the centreline and a zebra covers the lane, both by
+    /// design — so only the ground under them is read (<see cref="GroundMesh.FirstMarkVertex"/>).
+    /// </remarks>
+    [Fact]
+    public void NoLaneIsPaintedOverByTheLineThatMarksIt()
+    {
+        var plan = Towns.Of(Towns.Fixture);
+        var mesh = Ground(Towns.Fixture);
+        const float HairM = 0.05f;
+
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var halfM = (plan.Roads.WidthM[road] * 0.5f) - HairM;
+            foreach (var arc in plan.Roads.SegmentsOf(road))
+            {
+                for (var alongM = 0f; alongM <= arc.LengthM; alongM += 2f)
+                {
+                    var headingRad = arc.HeadingAtRad(alongM);
+                    var across = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad));
+                    var centreM = arc.PointAtM(alongM);
+
+                    foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
+                    {
+                        var edgeM = centreM + (across * side * halfM);
+                        Assert.False(
+                            PaintedGround(mesh, edgeM),
+                            $"road {road} carries paint on its own lane at {edgeM}, {alongM:F1} m along");
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>A dash is laid on the road's own curve and not on the chord of it.</b> Its ends stand on the
+    /// line however it is drawn — they are what it was laid between — so what says whether it followed the
+    /// bend is its <em>middle</em>: a mark struck straight across one stands its own sag off the line
+    /// there, and the line reads as a row of tangents.
+    /// </summary>
+    /// <remarks>
+    /// The fixture is where it is asked, since it turns 9 m of radius — tighter than the floor a generated
+    /// town lays a bend to; there a whole dash struck straight bows 5 cm, and a piece of one drawn to the
+    /// ground's own chord tolerance under 2 cm. A mark is taken for a dash by where it stands rather than
+    /// by how it was laid — on a road's own line, over a stretch that road is dashed over — and the window
+    /// that finds one is a whole line's width, wide enough to catch a dash that missed the line as well as
+    /// one that kept it. Bars stand a half lane off the line and a zebra's stripes cross it only where
+    /// nothing is dashed.
+    /// </remarks>
+    [Fact]
+    public void EveryDashIsLaidOnItsRoadsOwnCurve()
+    {
+        var plan = Towns.Of(Towns.Fixture);
+        var config = SimConfig.Shipped();
+        var runs = CentrelineRuns.Lay(plan, config);
+        var lineM = config.Road.PaintLineWidthM;
+        const float SagM = 0.025f;
+
+        var dashes = 0;
+        foreach (var quad in Quads(Ground(Towns.Fixture)))
+        {
+            var centreM = (quad[0] + quad[1] + quad[2] + quad[3]) * 0.25f;
+            for (var road = 0; road < plan.Roads.Count; road++)
+            {
+                var arcs = plan.Roads.SegmentsOf(road);
+                var offM = OffADashedStretchM(arcs, runs.On(road), centreM);
+                if (offM > lineM) continue;
+
+                dashes++;
+                Assert.True(offM <= SagM, $"a dash on road {road} bows {offM:F3} m off the line it marks");
+            }
+        }
+
+        Assert.True(dashes > 0, $"{Towns.Fixture} lays no dash on any of its roads");
+    }
+
+    /// <summary>
+    /// How far a place stands off a road's line over a stretch that road is dashed over, or infinity where
+    /// the nearest point of the line to it carries no dashes.
+    /// </summary>
+    static float OffADashedStretchM(
+        ReadOnlySpan<ArcSeg> arcs, ReadOnlySpan<RoadStretch> stretches, Vector2 pointM)
+    {
+        var lengthM = Spline.TotalLengthM(arcs);
+        var alongM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
+        foreach (var stretch in stretches)
+        {
+            if (alongM >= stretch.FromM && alongM <= stretch.ToM)
+            {
+                return Vector2.Distance(Spline.SampleAt(arcs, alongM).PositionM, pointM);
+            }
+        }
+
+        return float.PositiveInfinity;
+    }
+
+    /// <summary>
+    /// Whether the ground at a place was painted rather than drawn as itself — the ground alone, since
+    /// the marks laid over it are paint by definition. The last piece laid over a place is the one that
+    /// shows, so it is the last that answers.
+    /// </summary>
+    static bool PaintedGround(GroundMesh mesh, Vector2 pointM)
+    {
+        var vertices = mesh.Vertices;
+        var painted = false;
+        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3)
+        {
+            var first = (int)mesh.Indices[index];
+            if (first >= mesh.FirstMarkVertex) break;
+
+            Vector2[] triangle =
+            [
+                vertices[first].PositionM, vertices[(int)mesh.Indices[index + 1]].PositionM,
+                vertices[(int)mesh.Indices[index + 2]].PositionM,
+            ];
+
+            if (Covered([triangle], pointM)) painted = vertices[first].Tint.X > 1f;
+        }
+
+        return painted;
+    }
+
     /// <summary>Every triangle of one surface, as three corners each.</summary>
     static List<Vector2[]> Triangles(GroundMesh mesh, Surface surface)
     {
@@ -600,18 +828,31 @@ public class GroundMeshTests
         return nearest;
     }
 
-    /// <summary>Whether a convex quad wound one way round holds a point: every edge turns the same way to it.</summary>
+    /// <summary>
+    /// Whether a convex quad holds a point: every edge turns the same way to it, whichever way round the
+    /// quad itself is wound. <b>A millimetre of slack</b>, because a stroke laid to end exactly on a face
+    /// somebody else measures from is a point a rounding decides either way.
+    /// </summary>
     static bool Covers(Vector2[] quad, Vector2 pointM)
     {
-        var turned = 0;
+        const float slackM = 0.001f;
+        var wound = 0f;
+        for (var corner = 0; corner < quad.Length; corner++)
+        {
+            var edge = quad[(corner + 1) % quad.Length] - quad[corner];
+            var reach = quad[(corner + 2) % quad.Length] - quad[corner];
+            wound += (edge.X * reach.Y) - (edge.Y * reach.X);
+        }
+
+        var sign = wound < 0f ? -1f : 1f;
         for (var corner = 0; corner < quad.Length; corner++)
         {
             var edge = quad[(corner + 1) % quad.Length] - quad[corner];
             var reach = pointM - quad[corner];
-            turned += ((edge.X * reach.Y) - (edge.Y * reach.X)) < 0f ? -1 : 1;
+            if (sign * ((edge.X * reach.Y) - (edge.Y * reach.X)) < -slackM * edge.Length()) return false;
         }
 
-        return Math.Abs(turned) == quad.Length;
+        return true;
     }
 
     /// <summary>A town is not laid at the cost of a tick: this is load-time work, done once.</summary>

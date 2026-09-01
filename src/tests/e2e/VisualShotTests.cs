@@ -86,6 +86,7 @@ public class VisualShotTests(ITestOutputHelper output)
                     WidthPx: widthPx,
                     HeightPx: heightPx,
                     ViewM: scenario.ViewM,
+                    TurnDeg: scenario.TurnDeg,
                     AtM: atM,
                     Ui: scenario.Ui,
                     Seconds: scenario.Seconds,

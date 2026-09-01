@@ -4,7 +4,11 @@
 <head>
   <title>traffic-dotnet</title>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- `viewport-fit=cover` puts the canvas under a notch rather than beside it, and the browser's own
+       pinch is turned off because the town has one of its own (CTL-9): a page that zoomed the glass
+       under the gesture would be two zooms answering one pair of fingers. -->
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <!-- **The chain to the runtime, told to the browser rather than discovered by it.** Left to itself it
        learns of town.js and loading.js only after parsing main.js, and of the runtime only after running
        it — four round trips before the engine is asked for. These are all small; the nine megabytes
@@ -16,10 +20,18 @@
   <link rel="modulepreload" href="_framework/dotnet.js">
   <script type='module' src="main.js"></script>
   <style>
-    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+    /* `overscroll-behavior` is what stops a drag down the town becoming a pull-to-refresh. */
+    html, body { margin: 0; height: 100%; background: #000; overflow: hidden; overscroll-behavior: none; }
     /* The canvas is the whole page: the town's own interface is drawn inside it and there is no
-       second one out here. */
-    #town { display: block; width: 100vw; height: 100vh; }
+       second one out here. `dvh` and not `vh`, because a phone's `vh` is the viewport with the address
+       bar hidden and the canvas would stand that much off the bottom of the screen until it was.
+
+       **`touch-action: none` is what makes any of the touch work** (CTL-9): left to itself the browser
+       claims a drag as a scroll and a pinch as a zoom, and delivers neither to the page. */
+    #town {
+      display: block; width: 100vw; height: 100vh; height: 100dvh;
+      touch-action: none; user-select: none; -webkit-user-select: none;
+    }
     #banner {
       position: fixed; inset: auto 0 0 0; padding: 0.4rem 0.6rem;
       font: 13px/1.4 ui-monospace, monospace; color: #cfcfcf; background: #111;

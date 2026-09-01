@@ -18,6 +18,18 @@ internal static class ProjectPaths
 
     public static string TownFile(string map) => Path.Combine(Towns, map + ".town");
 
+    /// <summary>What a city is authored as: a seed and the intent, from which the town itself is generated.</summary>
+    public static string TownBriefFile(string map) => Path.Combine(Towns, map + ".json");
+
+    /// <summary>Every brief in <c>towns/</c>, by name — the cities this build can lay.</summary>
+    public static string[] TownBriefs()
+    {
+        var briefs = Directory.GetFiles(Towns, "*.json");
+        for (var at = 0; at < briefs.Length; at++) briefs[at] = Path.GetFileNameWithoutExtension(briefs[at]);
+        Array.Sort(briefs, StringComparer.Ordinal);
+        return briefs;
+    }
+
     /// <summary>
     /// What a sheet is stored as. WebP, and lossy wherever a sheet could take it without moving an
     /// opaque pixel more than a little — the art is continuous-tone and PNG stores it at four times

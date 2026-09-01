@@ -69,7 +69,7 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `SOL-1…36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4l` | Bays and lots, the ways at one, which way round a car stands in it, the booking, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…9` | The plan, what laying a town owes, and what a building declares it is for | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…17` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, and where two roads may touch | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1…11`, `PER-13…18`, `PER-23` | The walker, the trip, what it follows, how it crosses, when it takes a car and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the roof one wears, the apron of ambulances at them, the priority a call carries, what a rescue is and the standoff its crew walks in from | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |

@@ -8,7 +8,20 @@ layout(set = 0, binding = 0) uniform Camera {
     vec2 centreM;
     vec2 clipPerM;
     vec2 uiPx;
+    // How far the town is turned on screen, as its cosine and its sine (OBS-1c). Upright is (1, 0),
+    // and a screen-space quad never reaches this: the interface does not turn with the town.
+    vec2 facing;
 } camera;
+
+// The town's own metres to clip. **The turn is applied here and nowhere else**: a band is built about
+// its own direction in the town's axes, and turning the offset turns the built band with it.
+vec4 toClip(vec2 atM) {
+    vec2 fromCentreM = atM - camera.centreM;
+    vec2 turnedM = vec2(
+        fromCentreM.x * camera.facing.x - fromCentreM.y * camera.facing.y,
+        fromCentreM.x * camera.facing.y + fromCentreM.y * camera.facing.x);
+    return vec4(turnedM * camera.clipPerM, 0.0, 1.0);
+}
 
 layout(location = 0) in vec2 inCentre;
 layout(location = 1) in vec2 inHalfSize;
@@ -42,7 +55,7 @@ void main() {
     // division is where the desktop's scale factor is paid, and a 2x desktop hands in half the
     // extent so a panel comes out twice the pixels and the same size on the glass.
     gl_Position = inScreen == 0u
-        ? vec4((at - camera.centreM) * camera.clipPerM, 0.0, 1.0)
+        ? toClip(at)
         : vec4(at / camera.uiPx * 2.0 - 1.0, 0.0, 1.0);
 
     outUv = inUvMin + corner * inUvSize;

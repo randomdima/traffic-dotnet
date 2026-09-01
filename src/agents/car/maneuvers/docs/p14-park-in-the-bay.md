@@ -65,13 +65,23 @@ where there is no line to converge onto.
    nearer its lane than that is one no single arc reaches — so the template swings *away* from the bay
    first, which brings the sideways travel to `R(2cos φ − 1)`. It is what a driver does turning into a
    perpendicular space off the lane beside it, and it is the whole of why both lanes of a street can work a
-   bay.
+   bay. **It is also the expensive shape, and whether a bay needs it is a question about two figures**: the
+   swing is nothing at all wherever the bay stands at least `R` plus the settling straight off the lane,
+   and the shipped town clears that by a hand's width rather than by luck — see (3) and (4).
 3. **A margin over the minimum radius must be measured against the road it costs**, not only against the
-   squareness it buys. Widening an arc always looks free in a squareness number and never is.
-4. **A template that ends on an arc ends with the car still turning.** Aiming on down the final tangent
-   converges the car onto the line, but at manoeuvring pace with the rack still unwinding that takes
-   ground — measured at **12° off the lane against 1.1°** with a quarter of a car length of straight on
-   the end. Every template ends on a straight.
+   squareness it buys. Widening an arc always looks free in a squareness number and never is: a quarter
+   turn carries the axle exactly its own radius sideways, so the margin comes straight off the gap between
+   the lane and the bay — and once that gap is gone the shortfall is met by swinging out over the oncoming
+   lane. A tenth over the minimum cost the shipped lot a **27° swing, five metres of path and a body over
+   the centreline**. A twentieth costs none of it.
+4. **A template ends on a straight, and the straight is a floor rather than a target.** One that ends on an
+   arc ends with the car still turning; but the straight is what is *left over* once the arcs have taken
+   the lateral they need, and a floor set above what the geometry affords is not free straight — it is
+   bought with the swing in (3). **What the straight buys has to be measured in the town and not on the
+   drawing.** A quarter of a car length reads as 1.1° off the lane against 12° with none, and in a running
+   town the follower hands a car on **about twenty degrees out of square either way**, settling the rest
+   once it is at rest — so the long straight paid for the street and delivered nothing
+   ([`ManeuverTests.ACarThatHasParkedStandsSquareInItsBay`](../../../../tests/world/ManeuverTests.cs)).
 
 **Why it is not scheduled.** Steering to a pose inside a four-metre bay: the one place in the town where a
 tenth of a second of lag is metres.

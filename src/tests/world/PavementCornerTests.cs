@@ -47,7 +47,7 @@ public class PavementCornerTests
     {
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
-        var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.Road.PavementWidthM;
+        var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
 
         foreach (var corner in PavementCorners.Solve(plan, config))
         {

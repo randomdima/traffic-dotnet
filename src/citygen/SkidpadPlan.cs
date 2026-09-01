@@ -216,7 +216,7 @@ internal static class SkidpadPlan
             PavedAreas = new CityPlan.PavedAreaArrays { MinM = [], SizeM = [] },
             Crosswalks = new CityPlan.CrosswalkArrays
             {
-                CentreM = [], Axis = [], DepthM = [], SpanM = [], Junction = [],
+                CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [],
             },
             ParkingLots = new CityPlan.ParkingLotArrays
             {
@@ -226,9 +226,9 @@ internal static class SkidpadPlan
             {
                 CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], Use = [], EntryOffsets = [0], EntryPointM = [],
             },
-            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], Kind = [] },
+            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], BearingRad = [], Kind = [] },
             Spawns = Spawns(),
-            Water = new CityPlan.WaterArrays { OutlineOffsets = [0], PointM = [] },
+            Water = CityPlan.WaterArrays.None,
         };
     }
 

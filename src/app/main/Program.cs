@@ -53,8 +53,6 @@ internal static class Program
         var config = SimConfig.Load();
         var options = Options.Parse(args, config.View);
 
-        if (options.LayMaps) return LayTheMaps(config);
-        if (options.PlaceServices) return PlaceTheServices(config);
         if (options.Lamps) return CutTheLamps();
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, config);
         if (options.Check) return RunCheck(options, config);
@@ -110,6 +108,7 @@ internal static class Program
             WidthPx: options.Width,
             HeightPx: options.Height,
             ViewM: options.ViewM,
+            TurnDeg: options.TurnDeg,
             AtM: options.AtM,
             Ui: Wanted(options.Ui),
             UiScale: options.UiScale,
@@ -151,13 +150,13 @@ internal static class Program
         // The document is the only place a sheet's staging is written down. A word on the command line
         // beside it would be a second place for it to be wrong, and the loser would be the one nobody
         // could see in the picture.
-        if (options.Map is not null || options.AtM is not null || options.ViewM > 0f || options.Ui.Length > 0 ||
-            options.Seconds > 0 || options.RulerPointsM.Count > 0 || options.Title is not null ||
-            options.Note is not null)
+        if (options.Map is not null || options.AtM is not null || options.ViewM > 0f || options.TurnDeg != 0f ||
+            options.Ui.Length > 0 || options.Seconds > 0 || options.RulerPointsM.Count > 0 ||
+            options.Title is not null || options.Note is not null)
         {
             throw new ArgumentException(
-                "A sheet stages itself: --map, --view, --at, --ui, --seconds, --rule, --title and --note belong "
-                + "in the document. Only --shot PATH is read beside it, as where to write the sheet.");
+                "A sheet stages itself: --map, --view, --turn, --at, --ui, --seconds, --rule, --title and --note "
+                + "belong in the document. Only --shot PATH is read beside it, as where to write the sheet.");
         }
 
         var ask = SheetRequest.Read(options.Sheet!);
@@ -165,80 +164,6 @@ internal static class Program
 
         Console.WriteLine($"{"",-11}{sheet.Sheet} written at {sheet.WidthPx}x{sheet.HeightPx}, " +
                           $"{sheet.Cells.Length} cell(s), notes in {ShotNotes.NotesFor(sheet.Sheet)}");
-        return 0;
-    }
-
-    /// <summary>
-    /// <b>The maps this build lays itself, written out like any other.</b> The proving grounds
-    /// (<see cref="TrackPlan"/>), the driving exam (<see cref="ExamPlan"/>), the skidpad
-    /// (<see cref="SkidpadPlan"/>) and the idle ring (<see cref="IdlePlan"/>) are laid again from here
-    /// rather than kept only as files — every shape on either of them is chosen against the car's own
-    /// figures, so a figure that moves is a map that has to be laid again.
-    /// </summary>
-    /// <remarks>
-    /// <b>Every one of them, always, and never one alone.</b> The three laps are the same road read against
-    /// each other and the exam's thirty-six cards are read against each other, so a run that laid one map
-    /// would leave the rest measuring a road this build no longer has.
-    /// </remarks>
-    static int LayTheMaps(SimConfig config)
-    {
-        foreach (var lap in Enum.GetValues<TrackLap>()) Written(TrackPlan.Lay(config, lap));
-
-        Written(ExamPlan.Lay(config));
-        Written(SkidpadPlan.Lay(config));
-        Written(IdlePlan.Lay(config));
-        return 0;
-
-        static void Written(CityPlan plan)
-        {
-            var path = ProjectPaths.TownFile(plan.Name);
-            TownWriter.WriteFile(plan, path);
-
-            Console.WriteLine($"{plan.Name}: {path} written — {plan.WorldSizeM.X:F0}x{plan.WorldSizeM.Y:F0} m, " +
-                              $"{plan.Roads.Count} roads, {plan.Junctions.Count} junctions, " +
-                              $"{plan.Spawns.Count} spawns, {new FileInfo(path).Length / 1024} KiB");
-        }
-    }
-
-    /// <summary>
-    /// <b>Writes each shipped map's service buildings into the map</b> (GEN-9): which of its buildings
-    /// is the hospital, which are the police stations and which are the depots, placed where a town
-    /// would put them and committed to the file.
-    /// </summary>
-    /// <remarks>
-    /// <b>A workshop step and never a build one</b>, on <see cref="CutTheLamps"/>'s terms: it is run when
-    /// a map arrives or when the shares those services are placed at move, and what ships is the file it
-    /// commits. Placing them at every load instead could only ever shuffle, because the sweep that finds a
-    /// building with parking outside it and puts the next service across town from the last is a second of
-    /// work nobody wants to pay for at every start.
-    /// <para>
-    /// <b>Every map, always.</b> The shares are read off one <c>SimConfig</c>, so a run that placed one
-    /// town's services would leave the rest of them standing at a share this build no longer asks for.
-    /// </para>
-    /// </remarks>
-    static int PlaceTheServices(SimConfig config)
-    {
-        foreach (var map in ProjectPaths.ShippedMaps())
-        {
-            var path = ProjectPaths.TownFile(map);
-            var plan = TownReader.ReadFile(path);
-            ServicePlacement.Place(
-                plan,
-                plan.Seed,
-                [
-                    HospitalRoster.Apron(plan, config),
-                    PoliceStationRoster.Apron(plan, config),
-                    DepotRoster.Apron(plan, config),
-                ]);
-
-            TownWriter.WriteFile(plan, path);
-
-            var uses = BuildingUses.Of(plan);
-            Console.WriteLine($"{plan.Name,-10}{plan.Buildings.Count,6} buildings — " +
-                              $"{uses.Hospitals.Count} hospital(s), {uses.PoliceStations.Count} station(s), " +
-                              $"{uses.Depots.Count} depot(s)");
-        }
-
         return 0;
     }
 
@@ -409,7 +334,7 @@ internal static class Program
     static void ReportConfig(SimConfig config)
     {
         Console.WriteLine($"{config.Car.LengthM:F1}x{config.Car.WidthM:F1} m car at {config.Car.MassKg:F0} kg, " +
-                          $"{config.RoadWidthM:F1} m roads, {config.PersonDiameterM:F1} m people");
+                          $"{config.LaneWidthM:F1} m lanes, {config.PersonDiameterM:F1} m people");
         Console.WriteLine($"{"",-9}{config.Sim.TickRateHz} Hz, decisions every {config.Sim.AgentDecisionIntervalS:F2} s, " +
                           $"turning radius {config.CarTurningRadiusM:F2} m, a walker's {config.WalkerTightestTurnM:F2} m");
     }
@@ -421,7 +346,7 @@ internal static class Program
     static void ReportTown(string map, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
-        var plan = TownReader.ReadFile(ProjectPaths.TownFile(map));
+        var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
         var read = Stopwatch.GetElapsedTime(started);
 
         started = Stopwatch.GetTimestamp();
@@ -467,8 +392,9 @@ internal static class Program
 
     readonly record struct Options(
         bool Check, bool Validate, int Width, int Height, double Seconds, string? Bench, string? Map, float ViewM,
+        float TurnDeg,
         string? Shot, Vector2? AtM, string Ui, float UiScale, string Present, List<Vector2> RulerPointsM,
-        bool LayMaps, bool PlaceServices, string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
+        string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display)
     {
         /// <summary>
@@ -481,7 +407,9 @@ internal static class Program
         /// The words the other engines use: <c>--size W H</c>, <c>--map</c> and <c>--shot</c> are
         /// <c>traffic-native</c>'s, so a command line reads the same at both. <c>--shot</c> opens no
         /// window at all; <c>--seconds</c> closes the one <c>--map</c> opens, for a run nobody is
-        /// sitting in front of; <c>--view</c> opens on a named span in metres; <c>--bench</c> runs one
+        /// sitting in front of; <c>--view</c> opens on a named span in metres and <c>--turn</c> stages
+        /// the frame turned by a named angle (OBS-1c), which is how a turned town is photographed and
+        /// judged rather than only twisted by hand; <c>--bench</c> runs one
         /// of this engine's checks; <c>--ui-scale</c> lays the interface out at a factor of its own
         /// instead of the desktop's; <c>--present</c> is how a finished frame reaches the glass, which
         /// is what a frame rate from a windowed run means at all (<see cref="Swapchain"/>);
@@ -506,8 +434,8 @@ internal static class Program
             // for the platform that reports 1 on a display nobody would call unscaled.
             var options = new Options(Check: false, Validate: false,
                 Width: view.WindowWidthPx, Height: view.WindowHeightPx, Seconds: 0,
-                Bench: null, Map: null, ViewM: 0f, Shot: null, AtM: null, Ui: string.Empty, UiScale: 0f,
-                Present: "fifo", RulerPointsM: [], LayMaps: false, PlaceServices: false, Sheet: null,
+                Bench: null, Map: null, ViewM: 0f, TurnDeg: 0f, Shot: null, AtM: null, Ui: string.Empty, UiScale: 0f,
+                Present: "fifo", RulerPointsM: [], Sheet: null,
                 Caption: false, Title: null,
                 Note: null, Lamps: false, Windowed: false, Display: null);
             for (var i = 0; i < args.Length; i++)
@@ -520,12 +448,6 @@ internal static class Program
                         break;
                     case "--validate":
                         options = options with { Validate = true };
-                        break;
-                    case "--lay-maps":
-                        options = options with { LayMaps = true };
-                        break;
-                    case "--place-services":
-                        options = options with { PlaceServices = true };
                         break;
                     case "--lamps":
                         options = options with { Lamps = true };
@@ -555,6 +477,10 @@ internal static class Program
                         break;
                     case "--view" when i + 1 < args.Length:
                         options = options with { ViewM = float.Parse(args[i + 1]) };
+                        i++;
+                        break;
+                    case "--turn" when i + 1 < args.Length:
+                        options = options with { TurnDeg = float.Parse(args[i + 1]) };
                         i++;
                         break;
                     case "--at" when i + 2 < args.Length:
@@ -603,11 +529,12 @@ internal static class Program
                         break;
                     default:
                         throw new ArgumentException($"Unknown argument {args[i]}. Takes --map NAME, --view METRES, " +
+                                                    "--turn DEGREES, " +
                                                     "--at X Y, --shot PATH, --sheet FILE.json|-, --caption, " +
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
                                                     "--windowed, --display NAME|N, --seconds N, --validate, --check, " +
-                                                    "--bench NAME|all, --lay-maps, --place-services, --lamps.");
+                                                    "--bench NAME|all, --lamps.");
                 }
             }
 

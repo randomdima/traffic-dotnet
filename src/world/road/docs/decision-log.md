@@ -4,6 +4,120 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-01 — a junction with two arms is swept into the bend it always was
+
+**The corner read as a mistake because it was one.** A node of two arms had the whole apparatus of a
+junction — a disc, a fillet on each kerb, a mouth stamped out to the tangent points — for a place where
+nothing turns across anything, and the two carriageways met at a hard angle with the lane line kinked
+through ninety degrees at the node. TER-5b has always said that a corner is a road that turns and only a
+mid-block crossing is a junction; the generator was laying the authoring mistake the rule warns about.
+
+**The two arms are now swept into one arc and the node stands in the middle of it.** Each road takes half
+the turn, so both arrive on the same tangent and the pair is one continuous curve — kerb, carriageway and
+centreline together — and what is left at the node is an inline junction: two arms leaving in opposite
+directions, no corner to fillet, no ground of its own. The paint stands past the end of the arc, which is
+the same rule as everywhere else with the bend in place of the box (GEN-12a).
+
+**The radius is the widest the two roads can spare and never wider than the class's floor.** Wider is not
+better here: the arc is tangent to both arms, so every extra metre of radius cuts further inside the corner
+the layout chose, and past the floor there is nothing to buy — the speed the road is laid for already holds.
+Below `SimConfig.RoadCornerRadiusM` there is nothing to sell either: that is the bend whose inner kerb stands
+where the junction's fillet would have, so anything tighter is a worse corner than the one it replaces and
+the node keeps its junction instead. **The turn itself is the layout's**, which is why the arc may be tighter
+than the floor GEN-12 binds the wander to: a car slowed for that corner when it was a box and slows for it
+now that it is a curve.
+
+**Two things had been leaning on the box without saying so**, and the sweep found both. A lane line stopped
+at a junction only because the paint on its arm closed the ground back to the disc, so an arm that carried no
+paint — one too short for a crossing — was dashed into the throat; and a car park's section was kept clear of
+the disc rather than of the ground the junction reaches, so a cut could stand on the corner an arm flares
+through. Both now read `RoadCuts.ReachesM`, which is `SimConfig.JunctionArmReachM` and the bend at a node
+with no fork, in the one place either of them asks.
+
+## 2026-09-01 — a junction with two arms is crossed once
+
+**Every corner in a generated town was painted twice.** The placement rule is a crossing on every arm, and a
+node of two arms — a bend the layout put a junction at, a mid-block crossing — has two of them, so a driver
+turning one corner met a zebra a few metres before the node and a second a few metres after it, each with the
+setback and the paint the rule gives an arm of a crossroads. Nothing turns at such a node: everything that
+arrives leaves the only other way, so what the two zebras stood for was one road crossed twice.
+
+**The node now carries one**, on whichever arm has the most road left behind it, and the paint of the two
+arms is one bundle rather than two. Seventy-six of Odesa's two hundred and ten junctions are these, and the
+town lost a hundred and fifty-two zebras without losing a way over a single carriageway: one zebra joins the
+same two pavements the pair did.
+
+**The bars are the crossing's and not the arms', which is the same argument again.** One per arm was tried
+first, the lane coming the other way stopping before the node it turns through — where every other junction
+in the town puts a bar. It is the wrong picture: there is no box here to hold traffic out of, so a bar half a
+corner short of the paint stops a car for nothing it can see. The pair stands either side of the zebra now,
+each on the lane driving at it, and **the bundle begins where the corner's ground lets go** rather than a
+setback past it. The setback everywhere else is a distance from ground cars turn across, and here nothing
+turns; laid this way the far bar's outer edge falls exactly on `SimConfig.StraightStubM`, so the deepest
+bundle the town paints still lies wholly on the straight a road leaves its junctions on and no road had to be
+lengthened to hold it.
+
+**The lane line runs up to the bundle and through the node behind it.** Nothing at such a node closes ground
+off the line — not the paint, which everywhere else closes back through its own disc, and not the disc, which
+everywhere else is the box itself: what a dash must not be laid down is ground the movements through a box
+are driven across, and a node of two arms has none of it. Three claims stated the box rule and had to learn
+the exception — `NoDashIsLaidBetweenAStopBarAndItsJunction`,
+`NoDashIsLaidBetweenACrossingAndTheJunctionItApproaches` and `NoDashIsLaidInAJunctionOrOnACrossing` — and in
+each the claim was wrong rather than the paint. The gaps inside the bundle are shorter than one dash, so
+nothing is drawn in them, and the two arms' lines meet at the node the way a bend's does.
+
+**The disc still closes where the node's own crossing is laid on it**, which is the inline junction of an
+authored map (TER-6): that zebra stands past the end of every lane there, so nothing else would break the
+line and the dashes came out drawn down the middle of its bars —
+`EveryCrossingIsStripedRightAcrossItsOwnSpan` on the fixture map, which is the check that found it.
+
+**The bars are painted though nothing there is lit.** A node of two arms admits no conflicting movement and
+so carries no bundle (TLT-3), and a bar at an unlit junction is elsewhere the ranking's job to make
+unnecessary — but there is no ranking here either. The only thing that governs the crossing is the walker's
+right of way, and the bars are what say where the stop for one is made. A head, if a map ever authors one,
+hangs off a bar like every other and stands beside the zebra with it.
+
+**The far bar of the pair is on a lane leaving the node**, so `LaneFurniture` reads the lanes out of a
+junction as well as the lanes into it. A lane keeps the bar at the end it drives toward and takes the one
+behind it only where nothing was painted ahead — the other way round, a lane running from one of these to a
+lit junction would hold the paint behind it and be stopped at a red the junction in front never showed.
+
+## 2026-09-01 — a centreline stops at whatever paint the arm carries, not at the bar
+
+**Every unlit junction in the town was dashed up to its own mouth.** The rule that keeps a lane out of a
+junction's throat was written round the stop bar: a bar closed the ground from itself back to the disc
+behind it, and the crossing in between was inside that span. A junction the ranking governs carries no bar
+(TLT-3) and has the same metres of turning ground, so what it got was the disc alone — and the nine metres
+between the disc and the zebra came out dashed, drawing a lane running into a box nothing is lit for.
+
+**The junction is now carried by the paint rather than by the bar.** Each piece of paint on an arm names
+the junction it approaches, and every one of them closes the ground from itself to the far side of that
+junction's disc; a lit arm's bar stands further out than its crossing and closes the longer span, an unlit
+arm's crossing closes what there is, and a crossing struck mid-block names no junction and closes only its
+own bars. It costs one loop and no new figure, and it is the same rule the markings section always stated.
+
+## 2026-09-01 — a zebra spans the road it names, and carries no span of its own
+
+A crossing used to carry a span beside its centre, its axis and its depth, and every planner filled it with
+the width of the carriageway it was laying — so the field was a copy that agreed with the road until
+something laid one of the two again, and nothing in the suite could say which of the two a disagreement
+made wrong.
+
+A crossing now names the road it is painted across, the way a stop bar already did, and
+`CityPlan.CrossingSpanM` solves the reach off that road's width — one answer, wherever the span is drawn,
+walked, stopped for or tested (TER-6). What each crossing is *for* stays its own: the depth is the
+crossing's figure, because how much of a road's length the paint covers is nothing the road decides.
+
+**The skew is part of the relation and not an exception to it.** `Zebras` carries one crossing laid off
+square on purpose, and kerb to kerb along that paint's own axis is 8.83 m of an 8.00 m road — which is what
+the file's field held, and what the derivation now gives without being told. It is a projection, so it is
+solved at load: `LaneFurniture` keeps the answer for the driver, who asks it of every crossing ahead of it
+every tick.
+
+The two fixtures still arriving as files keep a span in the format, because the format has no writer left
+to drop it with. The reader takes the field and throws it away, finding the road under the paint instead —
+which is the thing the field would have had to agree with.
+
 ## 2026-08-29 — a body level with the asker is not in front of it
 
 Five minutes of Odesa left twenty-three walkers standing still for the whole run, and every one of them was
@@ -440,8 +554,8 @@ the junction discs are already taken against.
 **It gives way to what the road already carries.** A cut that would leave a stretch too short to drive is
 dropped, and so is one that would land on a zebra or a bar: a lane end inside a crossing splits the approach
 from the paint, and a driver then first hears of the crossing on the lane *after* the one it is braking on.
-That was not a guess — it was `CarsCrossTheirZebrasAtCrossingPace` failing on River at 18 m/s against a
-pace of 8.
+That was not a guess — it was River, where cars met such a crossing at 18 m/s having never been told it
+was there.
 
 ## 2026-08-24 — the table of crossings is indexed by way, so a way laid off a junction can use it
 

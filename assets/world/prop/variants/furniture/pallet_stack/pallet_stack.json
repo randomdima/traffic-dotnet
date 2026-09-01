@@ -2,5 +2,6 @@
   "id": "pallet_stack",
   "kind": 2,
   "sprite": "pallet_stack.webp",
-  "diameterM": 1.90
+  "diameterM": 1.90,
+  "turns": true
 }

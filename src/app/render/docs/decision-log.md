@@ -2,6 +2,26 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-09-01 — the kerb line moved onto the kerb, so a lane measures what it is
+
+The kerb line was struck a line's width *inside* the carriageway, the way the pavement's edge shade is
+struck inside the walk. The ground was always right — a lane is 3.6 m from the kerb to the centreline,
+straight or bent, and the picture was measured at the tightest bend the shipped maps carry to prove it:
+7.20 m kerb to kerb, the centre dash within 2 cm of the middle. But nothing a ruler could catch on the
+frame *was* 3.6: between the paint and the dash lay 3.23 m, and to the middle of the dash 3.35 m. The
+figure was measured off a picture three times and disagreed with the build three times, which is a
+drawing that argues with its own numbers.
+
+The paint is now struck outside the carriageway and the road drawn back over it (TER-3d), so the asphalt
+is exactly the carriageway and the line stands on the walk's innermost quarter of a metre — a painted
+kerb rather than an edge line. A tape from the asphalt's edge to the middle of the centre line now reads
+3.6 m, which is the figure `SimConfig.LaneWidthM` carries.
+
+**The pavement's own rim did not move.** It is a shade and not paint, and no figure is quoted against
+the width of a walk the way one is against a lane. What did move with the line is the strip that breaks
+it over a car park's mouth: it erases the line where the line now stands, or the break would be painted
+across the lane instead.
+
 ## 2026-08-30 — the art was never pixel art, and was stored as though it were
 
 `ArtPixelsPerMetre` read *"21 art pixels per metre blown back up ×3"*, which said the sheets carried

@@ -75,9 +75,8 @@ internal enum HeadwayKind : byte
 /// <param name="HeadwaySpeedMps">How fast that thing is going <em>along this car's heading</em> — the whole difference between a queue that will move and an obstruction that will not.</param>
 /// <param name="StopAtM">How far ahead along the line the car must be stopped: an unclaimed junction, a stop bar, a red light. Infinite where nothing stops it.</param>
 /// <param name="GroundCoefficient">What the surface under it is worth, which scales every grip figure the profile plans against.</param>
-/// <param name="CrossingStopM">Where a crossing says to stop short of its paint — somebody on it, or a queue that would leave this car standing on it. Infinite where none does.</param>
-/// <param name="CrossingAtM">How far ahead the paint the pace below is for begins. Infinite where there is none within reach.</param>
-/// <param name="CrossingPaceMps">What a crossing is approached at whether or not anybody is visible — <b>a pace to arrive at and not a cap to hold from here</b>. Infinite where none applies, which includes a crossing lit and showing its kerbs a red.</param>
+/// <param name="CrossingStopM">Where a crossing says to stop short of its paint — somebody on it, somebody refused it at the kerb, or a queue that would leave this car standing on it. Infinite where none does.</param>
+/// <param name="CrossingAtM">How far ahead the nearest paint within reach begins, and zero while the body is over it. Infinite where there is none within reach.</param>
 /// <param name="Ahead">What the thing <see cref="HeadwayM"/> is about actually is, which decides whether the way past it is round it.</param>
 /// <param name="AuthorityM">
 /// How far ahead of the nose the lane index cut this car's own ask short, or
@@ -96,20 +95,18 @@ internal enum HeadwayKind : byte
 /// </param>
 internal readonly record struct DriveContext(
     float HeadwayM, float HeadwaySpeedMps, float StopAtM, float GroundCoefficient,
-    float CrossingStopM, float CrossingAtM, float CrossingPaceMps, HeadwayKind Ahead = HeadwayKind.Nothing,
+    float CrossingStopM, float CrossingAtM, HeadwayKind Ahead = HeadwayKind.Nothing,
     float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
     float FollowingShare = 1f)
 {
     public DriveContext(float headwayM, float headwaySpeedMps, float stopAtM, float groundCoefficient)
         : this(
-            headwayM, headwaySpeedMps, stopAtM, groundCoefficient, float.PositiveInfinity, float.PositiveInfinity,
-            float.PositiveInfinity)
+            headwayM, headwaySpeedMps, stopAtM, groundCoefficient, float.PositiveInfinity, float.PositiveInfinity)
     {
     }
 
     public static DriveContext Clear => new(
-        float.PositiveInfinity, 0f, float.PositiveInfinity, 1f, float.PositiveInfinity, float.PositiveInfinity,
-        float.PositiveInfinity);
+        float.PositiveInfinity, 0f, float.PositiveInfinity, 1f, float.PositiveInfinity, float.PositiveInfinity);
 }
 
 /// <summary>
@@ -142,7 +139,7 @@ internal enum DrivingHold : byte
     /// <summary>A junction it has not been given, a bar or a red.</summary>
     Waiting,
 
-    /// <summary>A crossing ahead: the pace it is approached at (CAR-7b), or somebody on the paint.</summary>
+    /// <summary>A crossing whose ground is somebody else's: a body on the paint, or one refused it at the kerb (TER-4c.1, TER-5e).</summary>
     Crossing,
 
     /// <summary>
@@ -322,14 +319,11 @@ internal static class CarFollower
         Bind(ref targetMps, ApproachMps(0f, lineLengthM - progressM - leadM, brakingMps2), DrivingHold.LineEnd, ref hold);
         Bind(ref targetMps, ApproachMps(0f, context.StopAtM - leadM, brakingMps2), DrivingHold.Waiting, ref hold);
 
-        // CAR-7b: the stop short of the paint, and the pace to <em>arrive at</em> it at. Both are the
-        // crossing's own term rather than the junction's, because what a driver owes somebody on the
-        // paint is a stop point on this car's own line and not a claim on a box — and the pace is read
-        // like a corner, so a car three streets from a zebra is not driving at zebra pace.
+        // The stop short of the paint, which is the crossing's own term rather than the junction's: what a
+        // driver owes somebody on a crossing is a stop point on this car's own line and not a claim on a
+        // box. <b>Paint with nobody's ground on it costs nothing</b> (TER-4c.1) — a crossing the book
+        // grants this car the road over is driven at the speed the rest of the road affords.
         Bind(ref targetMps, ApproachMps(0f, context.CrossingStopM - leadM, brakingMps2), DrivingHold.Crossing, ref hold);
-        Bind(
-            ref targetMps, ApproachMps(context.CrossingPaceMps, context.CrossingAtM - leadM, brakingMps2),
-            DrivingHold.Crossing, ref hold);
 
         // <b>The gap to a shape, which is a different measurement from the grant below and not a second
         // gate on it</b> (SIM-7). The book holds every body as an interval of the way's own arclength,

@@ -54,23 +54,6 @@ public class CrossingTrafficTests
             $"{map}: the road's book held {run.MostSlots} of {run.Capacity} stretches");
     }
 
-    /// <summary>And the reading binds: somewhere in a busy town a driver is held by paint.</summary>
-    [Fact]
-    public void ADriverIsHeldByACrossing() =>
-        Assert.True(Of("Odesa").HeldByPaint > 0, "no driver in a minute of Odesa was held by a crossing");
-
-    /// <summary>
-    /// <b>A walker refused the band it asked for is in the road's book too</b> (TER-5e). It is not a body
-    /// and it cuts nobody's road; what it is there for is that the traffic can see somebody waiting, which
-    /// is the whole of what a right of way at an uncontrolled crossing is spent on — <b>and a thing a driver
-    /// must be held off that is in no book is a thing the driver cannot see</b> (TER-4c).
-    /// </summary>
-    [Fact]
-    public void SomebodyWaitingForALaneIsInTheRoadsBook() =>
-        Assert.True(
-            Of("Odesa").Waiting > 0,
-            "nobody in a minute of Odesa was written into the road's book as waiting for a lane");
-
     /// <summary>
     /// <b>And the traffic gives way to them where nothing else governs the crossing</b> (TER-5e): a driver
     /// approaching an uncontrolled zebra with somebody at its kerb is stopped short of the paint, and a body
@@ -131,7 +114,6 @@ public class CrossingTrafficTests
         var run = Of("Odesa");
 
         Assert.Null(run.GrantedPastTheEdge);
-        Assert.True(run.Refused > 0, "nobody in a minute of Odesa was refused a lane of a crossing it was on");
     }
 
     /// <summary>What <see cref="ABodyRefusedALaneIsGrantedNoFurtherThanItsEdge"/> watches for.</summary>

@@ -96,6 +96,13 @@ the ground comes through both. Drawn as every piece of pavement twice — once a
 shade, once a line's width smaller in the surface shade over it — so what survives is a rim on the
 union's own outer boundary and nowhere two pieces meet. Nothing walks an edge or probes a region.
 
+**TER-3d** **The kerb line stands on the kerb and not in the lane.** It is struck a line's width
+*outside* the carriageway and the road drawn back over it at its full width, so the asphalt from the
+kerb line to the centreline is the lane the town is laid at (GEN-15) and the paint stands on the
+innermost strip of the walk. Struck inside the carriageway — the way an edge shade is struck inside the
+surface it rims — the line takes its own width off the lane it marks, and every lane measured off a
+picture comes out short of the figure the rest of the build quotes, on the bends as on the straights.
+
 ## What this slice must produce
 
 - A query `terrain at (x, y)` → type, permissions, grip, drag, lane direction where directional.

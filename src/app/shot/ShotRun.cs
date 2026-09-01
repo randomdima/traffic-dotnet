@@ -11,6 +11,8 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.App.Shot;
 
 /// <summary>
@@ -54,7 +56,7 @@ internal static class ShotRun
         ui.Apply(wanted);
         foreach (var pointM in ask.RulerPointsM ?? []) ui.Ruler.Click(pointM);
 
-        var plan = TownReader.ReadFile(ProjectPaths.TownFile(ask.Map));
+        var plan = Maps.Plan(ask.Map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
 
         // GEN-1b in a picture: the start menu stands over the idle ring, so a picture of it is a picture of
         // the map that was asked for with the panel on top. Which map that is, is the request's.
@@ -79,6 +81,10 @@ internal static class ShotRun
         camera.LookAt(
             ask.AtM ?? Opening.LooksAtM(world.Terrain, plan.WorldSizeM, camera.ViewSpanM(uiPx).Y * 0.5f));
 
+        // About the middle of the frame, so the turn moves what is in the picture round rather than
+        // moving the picture off what was framed (OBS-1c).
+        camera.Turn(float.DegreesToRadians(ask.TurnDeg), uiPx * 0.5f, uiPx);
+
         // A shot of a town that has never ticked is a town of walkers standing on their spawns, which
         // is a picture of the plan rather than of the simulation. Seconds says how far in.
         var loop = new SimLoop<TownWorld>(world, config);
@@ -98,7 +104,7 @@ internal static class ShotRun
 
         looks.ReadAspects(renderer);
         looks.Lay(plan, world.Uses);
-        var sprites = looks.Fill(world, config, camera.CentreM, camera.ViewSpanM(uiPx), renderer.Sprites);
+        var sprites = looks.Fill(world, config, camera.CentreM, camera.CullSpanM(uiPx), renderer.Sprites);
         renderer.SetSpriteCount(sprites);
 
         // The pointer is put outside the frame, so nothing is drawn hovered: a shot with a row lit
@@ -124,9 +130,9 @@ internal static class ShotRun
         renderer.SetOverlayCount(quads);
         renderer.SetUnderlayCount(under);
 
-        var (centreM, clipPerM) = camera.ForShader(uiPx);
+        var (centreM, clipPerM, facing) = camera.ForShader(uiPx);
         var crossingsBefore = Vk.Crossings;
-        renderer.Frame(new CameraView(centreM, clipPerM, uiPx));
+        renderer.Frame(new CameraView(centreM, clipPerM, uiPx, facing));
         var crossings = Vk.Crossings - crossingsBefore;
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(ask.Path))!);
@@ -148,12 +154,18 @@ internal static class ShotRun
 /// </summary>
 /// <param name="Seconds">How far into a seeded run the frame is taken. Zero is the plan rather than
 /// the simulation: every walker still standing on its spawn.</param>
+/// <param name="TurnDeg">
+/// How far the town is turned in the frame, clockwise from north-up (OBS-1c), about the middle of it —
+/// which is what makes the turn a thing a picture can be judged on rather than only a thing a hand can
+/// do. Zero is the ordinary north-up frame and is what every reference frame is taken at.
+/// </param>
 internal readonly record struct ShotRequest(
     string Map,
     string Path,
     int WidthPx,
     int HeightPx,
     float ViewM = 0f,
+    float TurnDeg = 0f,
     Vector2? AtM = null,
     string[]? Ui = null,
     float UiScale = 0f,

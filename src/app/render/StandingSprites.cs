@@ -162,11 +162,19 @@ internal sealed class StandingSprites
         var diameterM = plan.Props.RadiusM[prop] * 2f;
         var variant = catalogue.Look(plan.Props.Kind[prop], diameterM, prop);
 
-        // The art is drawn upright and never turned: a tree seen from above has no bearing, and turning
-        // one would make the same look read as several.
+        // <b>The picture fits inside the disc the town reserved for it</b> (GEN-6d): the longest side of the
+        // sheet is the prop's own diameter and the other follows its aspect, so what is drawn is what a car
+        // is held off. Drawn <em>diameterM tall</em> instead, a sheet half again as wide as it is high
+        // reaches half a metre past its own girth and stands in the next prop along.
+        var look = catalogue.Variants[variant];
         var aspect = aspects[firstSheet + variant];
+        var sizeM = new Vector2(aspect, 1f) * (diameterM / MathF.Max(aspect, 1f));
+
+        // <b>The bearing is the plan's and whether it is used is the look's</b> (GEN-6b). A prop laid along
+        // a kerb carries the road's own bearing there, and a look with a front is turned onto it; a tree
+        // seen from above has no front, so it is drawn upright and the same look does not read as several.
         return new SpriteInstance(
-            plan.Props.CentreM[prop], new Vector2(diameterM * aspect, diameterM) * 0.5f, Vector2.Zero, Vector2.One,
-            PersonSprites.Plain, (uint)(firstSheet + variant), 0f);
+            plan.Props.CentreM[prop], sizeM * 0.5f, Vector2.Zero, Vector2.One,
+            PersonSprites.Plain, (uint)(firstSheet + variant), look.Turns ? plan.Props.BearingRad[prop] : 0f);
     }
 }

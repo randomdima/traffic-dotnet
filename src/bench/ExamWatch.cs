@@ -30,7 +30,7 @@ namespace TrafficSimulation.Bench;
 internal sealed class ExamWatch : ScenarioWatch
 {
     /// <summary>The claims are the kinds of thing a card can ask, in the enum's own order, and then the findings.</summary>
-    const int KnownFindingsStillFail = 8;
+    const int KnownFindingsStillFail = 7;
 
     const int CardsDrivenAsWritten = 0;
     const int OutstandingFindings = 1;
@@ -42,7 +42,6 @@ internal sealed class ExamWatch : ScenarioWatch
         "the weaker movement is on the box only once the stronger has left it",
         "a car goes onto the box after the one in front of it",
         "no car is on the box while its own approach is showing red",
-        "no car crosses the paint faster than a crossing is driven over",
         "no car is on the paint while somebody on foot is standing on it",
         "a car at a dead end comes back the way it came",
         "every card this build does not pass is a known finding",

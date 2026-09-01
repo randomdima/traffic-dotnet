@@ -32,6 +32,8 @@ namespace TrafficSimulation.Tests.E2E;
 /// <see cref="SizeFor"/> derives the resolution from, so a claim about a fine thing gets the pixels
 /// to see it and a claim about a coarse one does not pay for pixels nobody reads.</param>
 /// <param name="AtM">Where the camera is pinned, or null for the map's own centre.</param>
+/// <param name="TurnDeg">How far the town is turned in the frame, clockwise from north-up (OBS-1c).
+/// Zero is the ordinary frame, and every scenario but the one about the turn is taken at it.</param>
 /// <param name="Seconds">How far into a seeded run the frame is taken. The town is deterministic, so
 /// this is a moment and not a race.</param>
 /// <param name="Ui">The <c>--ui</c> words: <c>none</c> is a bare frame of the town, an empty list is
@@ -55,7 +57,8 @@ internal sealed record VisualScenario(
     string? Expected = null,
     string? ExpectedNote = null,
     (string Label, Vector2 AtM)[]? Cells = null,
-    Vector2[]? RulerPointsM = null)
+    Vector2[]? RulerPointsM = null,
+    float TurnDeg = 0f)
 {
     /// <summary>
     /// How many pixels the finest feature the claims mention has to be drawn at. Five is what it

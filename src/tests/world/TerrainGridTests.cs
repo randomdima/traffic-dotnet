@@ -148,9 +148,9 @@ public class TerrainGridTests
         var plan = Towns.Of(map);
         var grid = GridOf(map);
 
-        for (var outline = 0; outline < plan.Water.Count; outline++)
+        for (var outline = 0; outline < plan.Water.Outline.Count; outline++)
         {
-            var points = plan.Water.OutlineOf(outline);
+            var points = plan.Water.Outline.RingOf(outline);
             var inside = 0;
             foreach (var pointM in SampleInside(points, samples: 400, marginM: HalfACell * plan.CellSizeM))
             {

@@ -140,9 +140,9 @@ public class ManeuverExitTests
     }
 
     /// <summary>
-    /// <b>And so is the paint.</b> The pace over a crossing (CAR-7b) and the stop short of somebody on it
-    /// (TER-4c.1) are terms of the same profile, so a car slowing at a zebra is running its line on the
-    /// road the zebra left it — with no entry of its own to be handed to.
+    /// <b>And so is the paint.</b> The stop short of somebody on a crossing (TER-4c.1) is a term of the
+    /// same profile, so a car slowing at a zebra is running its line on the road the zebra left it — with
+    /// no entry of its own to be handed to.
     /// </summary>
     [Fact]
     public void RunningTheLineKeepsTheCarWhileTheCrossingIsWhatBindsIt()
@@ -150,7 +150,7 @@ public class ManeuverExitTests
         var scene = Running with
         {
             Hold = DrivingHold.Crossing,
-            Context = DriveContext.Clear with { CrossingAtM = 6f, CrossingPaceMps = 4f },
+            Context = DriveContext.Clear with { CrossingAtM = 6f, CrossingStopM = 6f },
         };
 
         Assert.Equal(ManeuverOutcomeKind.Running, Tick(Maneuver.RunTheLine, scene).Kind);

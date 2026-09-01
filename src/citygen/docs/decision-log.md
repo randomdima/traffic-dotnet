@@ -1,5 +1,486 @@
 # CityGen — decision log
 
+## 2026-09-01 — a prop's kind is where it stands, and the ground decides it rather than a die
+
+**Every prop was a coin toss between three sets.** The stage drew a kind uniformly and the sets were
+*tree*, *scatter* and *furniture* — a taxonomy of what the pictures are — so a litter bin stood in the
+middle of a field as often as an oak did, and a great tree was as likely to be laid against a kerb as a
+bollard. What the town then looked like from above was the same three-way noise everywhere, which is the
+one thing a scatter must not be: ground that is not the town has to read differently from ground that is.
+
+**The kinds are now placements** (GEN-6b) — wild, planted, furniture — and the stage reads the grounds
+within a verge of each candidate to decide which one it is. It is the same one-pass sweep it was: the
+candidate's own cell is tested first because most of a town is not grass, and a disc of the raster is read
+only for one that has already passed that. The verge is measured out from the paved edge, so the figure a
+reader tunes (`SimConfig.CityGen.PropVergeM`) is the depth of grass a street furnishes and not a distance
+from a centreline that means something different on every road.
+
+**A verge still carries wild looks half the time** (`PropWildOnAVergeShare`). A kerb planted only with the
+fourteen things a town plants reads as a catalogue laid end to end, and a self-sown bush on a verge is the
+commoner sight anyway — so the wild set is drawn on twice, in its own country and as half the planting of
+the town's.
+
+**And the size band went with the kind.** The great trees are authored at 2.6 m to 3 m and the draw stopped
+at 2.2, so nine looks were unreachable except through the catalogue's own fallback — which does not resize
+the prop, it only picks the nearest look, so what the town actually drew was an oak squeezed into a
+metre-wide disc. A band is now the set's own: wild up to `PropWildDiameterMaxM` wherever it stands, and the
+planted and furniture sets to the widest thing anybody drew for them. A wild look on a verge keeps the wild
+band, because a tree at a kerb is a street tree and not a mistake.
+
+**Thirty looks were deleted rather than filed**, and the test each one failed was the same: name what
+this is, and say which of the three places it stands in. Six were set *into* paving and a prop only ever
+stands on grass — a tree grate, a cellar hatch, a drain grate, a hydrant plate, a patch of cobble setts, a
+mosaic medallion. A tram shelter wanted a network this town has not got. A tree stump and a group of sawn
+rounds are cut trunks seen end on, which at this scale is a brown disc with rings on it. A hay bale and a
+patch of dry scrub are two featureless discs, and one of them is farm plant besides. And **eleven were park
+and garden amenities** — a boules court, a chess board, a sandpit, a play roundabout, a pergola, a
+reflecting pool, a sundial, a fountain, a drinking fountain, a café table and its parasol. Nothing is wrong
+with any of them except that **this town has no park to put them in**: the only urban ground a prop is laid
+on is a verge and the grass beside a car park, so every one of them could only ever turn up as a lone
+ornament in a strip of grass beside parked cars. The last eight went for the same reason one at a time — a
+mushroom ring, a rock outcrop, a reed clump, a vegetable plot, a utility cabinet, a litter bin, a lavender
+bed and a bottle bank — each a picture that reads as a coloured patch rather than as the thing it is named
+for.
+
+**What furniture means is now the thing a town stands beside its cars** — a bollard, a post box, a cone, a
+bin, a skip, pallets, crates — and that is a rule a reader can apply to a picture without having to ask. It
+leaves the set with nothing authored between 1.2 m and 1.9 m, so about one furniture draw in a hundred
+lands where no look was drawn and takes the catalogue's nearest instead, stretched by less than the band
+tolerance already allows. That is the case `PropCatalog` was written for; inventing a look to fill the gap
+would be shipping a picture for the sake of an interval.
+
+**What is left of the wild set below a metre is one moss patch**, so about an eighth of everything the
+country grows is that one look. It is the smallest thing on the map and the least distinct, which is the
+only reason a set this lopsided still reads — the moment a reader can pick it out, the answer is another
+small look and not a wider band.
+
+**The verge is walked and no longer swept** (GEN-6b). Deciding a prop's kind by probing the ground around a
+lattice square was a sweep answering a question about a *line*: it found the grass near a street without
+ever knowing which street, so it had no bearing to give anything and no idea how far out from the kerb it
+was standing — the figure that controlled it was a radius round a point, and what a verge actually is is a
+band along a road. The kerbs are walked now, both hands of every road, and a candidate stands two to five
+metre or so out from the pavement's own edge on **the road's own bearing there**. The second pass keeps the
+lattice, because the ground between the built parts of a town really is an area, and takes only what stands
+clear of the walk by more than the verge reaches — so the strip between the two is empty on purpose and the
+edge of the town is a line rather than a gradient.
+
+**A car park's own edges are walked too** (GEN-6b), because the grass beyond one belonged to nobody. A lot
+reaches back over the pavement it fronts, so its road is a lot's depth away and the kerb walk lands on
+tarmac there — and the wild sweep keeps its stand-off off the lot's Parking cells, so it will not go there
+either. What a reader saw was a car park with a bare apron of grass round it. All four sides are walked now,
+and the two that face the street are refused by the ground under them rather than by the stage being told
+which way out is: a lot carries its axis and its extent and nothing about where its road was.
+
+**Its verge begins past the walk that wraps it** (GEN-4d), which is what the first attempt got wrong — laid
+half a metre out like a kerb's, every candidate was refused, because a lot claims a ring of walkable grass
+its own pavement's width all round before anything fills it. That ring is a car park's pavement. Measuring
+the band from *past* it is not a special case bolted on: it is the same relation a street's verge stands
+in — the walk, then the band — with the walk read off the thing rather than assumed to be zero. It put a
+thousand pieces of furniture beside car parks that had none.
+
+**And the collar GEN-6a asks for turned out to be the sweep's and not the verge's.** Every prop was keeping
+the radius the pavement turns its corners on clear of itself, which held the whole verge a pavement's width
+back from the street it is a verge of — at a metre out, the collar refuses every candidate there is. What
+the collar is *for* is a candidate whose only knowledge of the pavement is the cells it read: the ground is
+classified where the walk is drawn as one union with its re-entrant corners rounded off, so a blind sweep
+can drop a prop in a corner that is drawn and not classified. **A kerb walk is not blind.** It stands a
+known distance off the pavement of the road it is walking, and it begins past the stub every junction lays
+its ground, its fillets, its paint and its bar across — which is where those corners are. So the verge owes
+its girth on grass and nothing else, and the sweep still owes the collar.
+
+**A picture says whether it has a front, and the placement says which way that front points.** The bearing
+is the plan's — the road's heading where the prop was laid, zero for anything the wild pass dropped — and
+whether it is used at all is the look's (`PropVariant.Turns`). Turning everything would make one tree read
+as several; turning nothing left a rectangular planter lying across the kerb it was supposed to stand along.
+**Nine of the sixty looks declare a front**, all of them rectangular, and no wild look may: the pass that
+lays those has no bearing to give them, which is a claim a test makes rather than a convention anybody
+remembers.
+
+**The bearing is not written to a `.town` file.** The format is at version 3, it refuses anything else, and
+the writer that would have produced a version 4 was deleted before this — so a prop read off one of the two
+fixture files carries zero, exactly as a spawn read off one carries no patrol point. Both fixtures are on
+their way to being laid in code, and neither is where a street's furniture is looked at.
+
+**A prop's picture was bigger than the prop** (GEN-6d). A sheet was drawn `diameterM` *tall* and as wide as
+its aspect made it, so anything wider than it was high reached past the disc the town reserved: the flower
+planter is authored at 1.9 m and was being drawn 3.45 m across — nearly twice its own girth, and the
+commonest thing on a verge. Nothing collided, because the discs were a metre and a half apart; the pictures
+overlapped anyway, and a car was being held off half of one. **The longest side of a sheet is the prop's own
+diameter now** and the other follows the aspect, so what is drawn is what a car is held off.
+
+**And the art tool went with it.** `qq art` measured a prop by the height that used to be the metres and
+measures it by its longest side now, which is the same one change. **It reports forty-eight prop sheets over
+their grid as a result** — nearly all of them by a few per cent, because a sheet a little wider than it is
+high was on grid under the old reading and is a little over it under the new. Two are worth re-cutting
+rather than shrugging at: the flower planter at 1.8× and the flower bed at 1.4×. Nothing is resampled here;
+`qq art --fix` is what does that, and it is not a thing to do to shipped art in passing.
+
+**Two props keep a clearance of grass between them, not merely their own skins** (GEN-6c). Rim to rim is
+still one long thing to look at, and a verge wants to be seen through. Half a metre costs the verge about an
+eighth of what it carried and is the difference between a row of planters and a hedge made of them.
+
+**Nothing overlaps any more, and a grid of its own is the index that makes that free** (GEN-6c). A prop
+claimed no ground and tested against none, so two neighbouring candidates jittered toward the edge they
+share stood inside each other — about four thousand of Odesa's hundred and nine, which is a bush growing out
+of a tree and two static discs the solver has to hold apart. **The index cannot be either pass's own
+pattern**, because one walks kerbs and the other sweeps a lattice and neither can see where the other put
+anything: `PropScatter` is a grid whose square is the widest prop's own width, so what a candidate is asked
+about is the nine squares round it and nothing outside them could reach. **The prop already laid is the one
+that stays** — a candidate that would touch one is simply not a prop, which is the same answer this
+generator gives everywhere else rather than nudging anything aside.
+
+**And the wild scatter went from six metres of lattice to seven and a half**, in two cuts of a fifth each.
+Density goes as the square of the lattice, so a fifth off it is the figure times the root of five quarters —
+6 m to 6.6 m and then to 7.4 m — and what comes out follows, because the sweep's acceptance barely moves
+with its own spacing. Odesa laid 108,939 props before any of this and lays 78,705 now.
+
+**What the verge carries is not the planted and furnished count**, because the share of it drawn from the
+wild set is counted as wild — a kind says which set a look comes from and not which pass put it there. On
+Odesa the verges carry about ten and a half thousand props of which 8,602 are planted or furnished, and the
+sweep lays the other sixty thousand.
+
+**The kerb is walked at a pitch shorter than the props are wide**, so what spaces a verge is the props' own
+girth against each other and not the step: a stretch of kerb carries what fits along it, and one crowded by
+buildings or bays carries what is left. Halving the pitch is therefore not a promise of twice as many, and
+it happens to have been one — the verge went from 4,633 planted and furnished to 8,602.
+
+**The art folders still say what the pictures are** — `tree/`, `scatter/`, `furniture/` — and the `kind`
+field says where the prop stands. They disagree on purpose: a planter and a hedge are furniture to draw and
+planting to place, and renaming the folders would only move the disagreement rather than settle it.
+
+## 2026-09-01 — an arm's paint is set back from that arm's own mouth, and the setback is a car length
+
+**A crossing stood a fixed distance from the node, and no junction's ground ends there.** The reach the
+paint was measured off was half a carriageway plus a full corner radius — the right answer for a junction
+whose arms stand square and the wrong one for every other, because two kerbs meeting at an angle cross well
+outside the mouth and the fillet between them lets go of the kerb further out the sharper the corner. The
+setback was carrying the difference: six metres, most of which was slack for a skew nobody had measured, so
+a square junction's zebra sat two road widths off its own kerb and the bar behind it further still.
+
+**The reach is now solved corner by corner** and an arm stands off the further of its two, which is what
+`Furniture` already had the geometry for — the fillet tangent it draws *is* the end of the junction's
+ground. What is left of the setback is what the name says: **a stride**, a metre of carriageway so the
+zebra's end bars stand on straight kerb rather than on the corner's own arc, and a metre behind the
+crossing for the bar. Odesa's paint came in about eight metres an arm and the skew arms kept the room they
+need, because their own mouths are further out and the paint went with them.
+
+**The two figures the fillet was borrowing are its own now.** Bounding a corner by the crossing's setback
+was what kept a full-sized fillet from paving the paint at a sharp junction, and with the paint measured
+off the fillet that circularity is gone: how far back a kerb transition may run is authored on its own
+(`JunctionFilletReachInCarWidths`), and the sixty degrees GEN-13 refuses an arm for is a figure on
+`SimConfig` rather than a constant in the generator. The straight stub is the worst of those reaches plus
+what stands on it, so a road still carries every piece of its junction's paint across a straight arm.
+
+## 2026-09-01 — a car park is three to six bays, because a run of frontage is an apron
+
+**Odesa was laying car parks a block long.** A lot was one slot of frontage, four bays wide, and
+neighbouring slots that had both drawn one were merged into a single rectangle covering the run — so where
+three slots in a row drew one, what was laid was sixteen bays of unbroken tarmac down one side of a street.
+Nothing ever filled it: the town's whole roster is 520 cars over 319 lots.
+
+**The merge was the right answer to the wrong question.** GEN-16 exists because two things a stride apart
+are a pair nothing downstream can read, and for a junction the resolution has to be a merge — refusing one
+deletes every road at it. Nothing hangs off a car park, and the ground was never asking for one bigger
+thing: an apron fronts several buildings at once and puts a rank of parked cars where a street's frontage
+should be. GEN-4b now bounds a lot at both ends — `BaysPerLotFewest` to `BaysPerLotMost`, three to six, each
+lot drawing its own count — and the second of a pair inside a locality is simply not laid.
+
+**The bounds are what a lot *is* and not a tuning.** The upper one is what makes a car park a car park
+rather than a surface; the lower one keeps a lot from being a two-car lay-by that cost a lot's whole
+clearance (GEN-4d). A slot is offered room for the widest of them, so a slot that has room has it whatever
+its own draw then asks for.
+
+**The clearance between two lots is measured between the rectangles and not along the road.** The old guard
+compared arc lengths along the kerb, which on a bend runs longer than the chord the two lots actually stand
+on — a pair 29 m apart passed a 30 m locality. It is now the same arithmetic GEN-4d states and the gate
+asks: the gap along the first lot's own bearing, rectangle to rectangle.
+
+**What it cost:** Odesa's 319 lots hold 1377 bays where they held about 3500, 4.3 to a lot, against 1200
+buildings and 520 cars — so the density GEN-4b actually promises, roughly a bay a building, is what the town
+now has rather than three times it.
+
+## 2026-09-01 — the crossings were unpicked, because planarity was an argument and not a check
+
+**Odesa laid an orbital and a street across each other with no junction where they met.** The two
+carriageways simply shared 20 m of tarmac: no box, no kerb fillets, no crossing, no stop bar, and the paint
+each of them carried belonged to a junction twenty metres away. Over sixty fixture seeds, seven towns held
+at least one.
+
+**Nothing had ever tested two roads against each other.** The generator's whole case for planarity was the
+arrangement — a district's region is convex so its streets stay inside it, an arterial carries a node
+wherever a street meets it, and the one region that is not convex is the ground outside the orbital, which
+is why `Arterials.CrossesTheRing` exists. The argument was sound and the coverage was not: that test had a
+single caller, `Lattice.Reach`, and `Lattice.Hang` — the stub that reaches out of a lattice to the arterial
+beside it, and the one road here deliberately laid across a district's own edge — never asked it. A stub
+from an outer sector onto a spoke node standing inside the ring is what Odesa laid, and the test would have
+refused it.
+
+**Adding the missing call was not the fix.** A rule that holds only where somebody remembered to invoke it
+is the same defect again a year later, and the arrangement has other seams than that one: the merge moves
+nodes up to a locality after every road has been laid, and a road is drawn as a wandering, arcing shape
+rather than as the chord the layout joined it on. GEN-17 states the property over the town instead, and
+`TownLayout.UnpickTheCrossings` is one pass that holds it.
+
+**It is a pass over the settled layout and not a test inside `Join`.** The stages lay in the order the
+ground is walked: the lattice hangs its streets before `Arterials.Close` joins the arterial they cross, so a
+test made as each road was offered would have kept whichever was laid first and deleted the orbital. Taken
+afterwards in precedence order — bridges, then arterials, then streets — the arterial stands and the street
+gives way, which is the same order the merge already re-offers in and for the same reason.
+
+**Measured against what will be drawn, not against what was joined.** A street strays off its chord by its
+own district's wander and an arterial's arc bulges off its chord by its sagitta — 13 m on Odesa's orbital —
+so `RoadStage.StraysM` gives the pass a per-road allowance and the clearance is one road's whole width plus
+both. It is the bound the wander is clamped to rather than the wander itself, because the draw needs the
+road stage's own stream, which cannot run until the roads that survive are known: a street held straight by
+its corner floor keeps ground it never uses, which is the cheaper of the two mistakes.
+
+**What it cost:** Odesa loses 6 roads of 316 and River 3 of 227, and both are still one connected piece. It
+bought back five failing conformance cases in the town tier — a walk crossing a carriageway off the paint, a
+crossing not striped across its own span, a stretch walked over a car park — every one of them a shape laid
+over ground another road had already taken.
+
+## 2026-08-31 — two of a kind near enough to be one are merged, and merging beat refusing
+
+**The town was laying pairs of things nothing downstream could read.** Two junctions a stride apart, with
+their fillets, crossings and bars over each other and a road between them no car is ever on; two car parks
+along one kerb with a stride of pavement pinched between them. Neither is anybody's mistake: the arterials,
+the lattice and the frontage are each laid at their own spacing and none of them knows what the others left
+there, so the near-coincidence is the ordinary case and not the odd one.
+
+**Merging rather than refusing, where anything hangs off the thing refused.** Refusing the second of a pair
+is what the layout already did to a road too short to be one — and it costs the whole piece that hung off it
+(GEN-8), which is how a town loses a block to an arithmetic coincidence. A junction is therefore merged: what
+the ground was asking for is one junction all the roads meet at.
+
+**The nodes are merged once the layout is joined, not welded as they are placed.** Welding at placement was
+tried first and it took half the town: an arterial that records a node on its own line and is handed back
+one twenty-five metres off it lays its next piece to somewhere else, the chain breaks, and what is left of
+it is deleted with everything hanging off it when the largest piece is kept. Merging afterwards leaves the
+arithmetic that puts nodes on a spoke, on the orbital and on a lattice to finish first, and holds the
+arrangement it produced to the rule.
+
+**What is merged is offered again road by road, and in the order the town cares about them.** Moving a node
+changes what its arms are worth, so each of them has to pass what it passed the first time (GEN-13) — and
+offered back in the order they were laid, a street can sever the arterial it was hung off and take half the
+town with it. Bridges first, then arterials, then streets: on Odesa that is 51 km of road against 42 km
+before, because the arterials that streets were quietly severing now survive.
+
+## 2026-08-31 — a lane is the width the town is laid in, and the straight stub is what stands on it
+
+**A road was three car widths across because somebody wrote three.** The carriageway is now two lanes and a
+lane is the standard one — 1.8 car widths, 3.6 m at the shipped car — so a road is 7.2 m rather than 6 m and
+every figure quoted against a lane means the same thing on every map (GEN-15). The pavement is the same
+question answered for the other traffic: two walking lanes, each two bodies wide, which is what lets two
+walkers pass without one of them stepping off. Both are ratios and not metres, because every size in this
+town is the car's width and a figure authored in metres beside them would be the one that stopped scaling.
+
+**Widening the road is what found the real defect.** GEN-12 says a road's ends are straight *for the length
+everything a junction lays across an arm stands on*, and the stub was authored at four car lengths — 16 m,
+against the 20.4 m the junction's own ground, its fillet, the crossing at its setback and the bar behind it
+actually take. The crossing sat exactly on the end of the straight at 6 m roads and hung off it onto the
+bend at 7.2 m, which is where the pavement's mitres, its mouths at the paint and the walking network's own
+corners came apart. **The stub is now derived from what is laid on it** and the wider road lengthens it
+rather than pushing its own paint onto a curve; the numbers that were tuned around the old stub are gone.
+## 2026-08-31 — the bank is a curve now, and the water is set in a shore
+
+**A shoreline was twenty-four points over four kilometres.** The bank is a sum of three sines and it always
+has been — what was rugged was the sampling, one point every hundred and seventy metres, drawn as chords a
+reader can measure by eye. **The count is now derived from the wave rather than authored**: a chord stands
+off a curve by about its own length squared over eight times the curve's bend, and the bend of a sum of
+sines is the sum of what each of them bends, so the step falls out of a tolerance. Half a cell is the
+tolerance, because that is the finest the ground under the bank is classified — a bank drawn finer than the
+cells that carry it is precision nobody can see. Odesa's coast came out at eighty-seven points a bank; a
+straighter brief would take fewer, and nothing has to be kept true by eye.
+
+**And the water is now set in a shore** (GEN-2c) rather than meeting the grass. The strip is the same wave
+laid a shore's width wider, so it is one width the whole way round and no band has to be fitted to a curve
+afterwards; the ring the map carries is the *outer* edge of it, and what makes it a strip is the water laid
+over the middle. It is drawn the way it was classified — the shore polygon first, the water over it — so the
+picture and the ground cannot disagree.
+
+**Its two edges are lines, and they are the same trick the pavement's rim is.** The map carries **four**
+rings rather than two — the shore, the shore less a line, the water plus a line, the water — and they are
+drawn largest first, so each fill leaves a line's width of the one under it showing. Nothing is offset by
+the renderer and nothing is classified twice: all four are the one wave at four offsets, so a line runs true
+along a bank however it meanders. **Each line is the colour of what it borders** — green against the grass,
+blue against the water, and darker than it, so the edge reads as the shore's own shadow on that ground
+rather than as a highlight drawn over it. The ground under both is shore, because **a line is a picture of
+an edge** and not a kind of cell anybody stands on.
+
+**The shore is not grass, and that is the whole of why nothing stands on it.** Props take the ground that is
+left over and slots take grass, so a beach that is its own kind of ground is a beach with nothing scattered
+on it and nothing built on it, with no rule anywhere naming a shore. The test the town owes is the plainer
+one — **no cell of water touches a cell of grass** — which is what a reader actually sees.
+
+**It wears the pavement's texture for now**, and that is a placeholder rather than a claim: sand has no art
+yet, and a `Ground` of its own is a kind in the catalogue, a surface in the renderer and a version of the
+map format. When there is a picture of a beach, the kind arrives with it and this stops being pavement.
+
+## 2026-08-31 — the map ends at its edge, and the shore is cut there rather than never drawn
+
+**Odesa's sea was painted to its own horizon.** The outline a coast is laid from pushes its far bank a map
+diagonal and two hundred metres past the edge, on purpose: a bank that closed inside the extent would be a
+lake, and a sea has no far shore on the map at all. The raster only ever took the cells that existed, so
+nothing downstream was wrong — but the outline is also what the ground mesh *draws* the water from, and what
+that drew was open sea over the void beyond the world.
+
+**The shape is still drawn through and is now cut where it becomes a plan** (GEN-2b). The alternative was to
+lay a shore that ends on the edge in the first place, which puts the map's own rectangle inside the meander
+arithmetic and gives a coast four special cases at the corners; clipping a ring against four half-planes has
+none, and it is the same cut for a town that is generated and a fixture that arrives as a file — `Test`'s
+river ran thirty metres off the top of its map and nobody had noticed.
+
+**And a prop keeps its own girth on the map.** The scatter lattice is jittered inside its own cell, so a
+candidate lands a hand's breadth from the edge of the world perhaps twice a town, and what stood there was
+half a tree over ground that does not exist. It is refused with its radius rather than with its centre.
+
+**The bar is asked of every map now** (`MapConformanceTests.NothingItCarriesStandsOffIt`), because "nothing
+stands off the map" is a shallow question of the kind a whole city can be asked: the outlines, the junctions,
+every metre of every road, the buildings with their footprints, the bays, the props with their radii and
+everybody standing at the first tick.
+
+## 2026-08-31 — a street that goes nowhere is deleted, and the fixture brief had to become a town
+
+**Every generated city was ending a dozen streets in a field.** Odesa carried 21 junctions of one arm and
+River 20 — the outer end of every spoke, where the ray runs to the margin and stops, and every lattice row
+whose next point fell in the water, in an arterial's corridor or off the edge of the world. They were dead
+ends in the sense TER-5a means (a junction of one arm) without being dead ends in the sense it *promises*:
+the road stage lays every junction as the disc its own arms need, so what a car found down there was three
+metres of tarmac and no room to turn. Nothing in the generator was looking for them.
+
+**They are deleted, with whatever is left hanging off them** (GEN-5a). Deleting one road can leave the
+junction behind it standing on one arm, so the sweep runs to a fixed point and what survives is the part of
+the layout every road of which runs between two places worth being at. That is GEN-8's own answer — a piece
+joined to nothing is dropped rather than linked up — applied one node at a time instead of one component at
+a time, and it is the same argument: an arm grown on to close the loop would have to cross whatever cut the
+street short in the first place. **Giving them turning heads was the alternative and it is worse**: a
+cul-de-sac is a thing a town plans, and one that appears wherever a lattice ran out of ground is noise with
+a kerb round it.
+
+**It costs a city about a tenth of its road and buys back the junctions nobody could use** — Odesa 195
+junctions to 174, River 184 to 164, and both read as more of a town for it.
+
+**What it exposed is that the property suite's fixture brief was not a town.** At 1500 × 1200 m with four
+districts the wheel is most of what fits: the orbital's own radius is a third of the short side, the
+lattice inside a sector is a handful of points, and two of the four seeds laid a layout with **no cycle in
+it at all** — one of them a pure tree, which the sweep quite correctly deleted in its entirety. The brief is
+now 2000 × 1500 with six districts and a river narrow enough for the deck bound to span, which lays 56 to
+100 junctions and a dozen or more independent loops on every seed, and the whole class still runs in a
+second. A fixture that answers questions about a chain of streets answers them about no arrangement this
+project ships.
+
+**And the census counts them**, beside how many junctions are lit. It is the line that says a generated
+town has none and that a laid map's are the ones it laid on purpose — the exam's spurs, which come with the
+head that turns a car round, and the skidpad's pads, which nothing is ever routed down.
+
+## 2026-08-31 — a bridge is a road, and the wheel is turned so there is one to build
+
+**The generator had no idea what water was.** It skipped a node that fell in the river and joined whatever
+dry nodes were left either side, so a "bridge" was however far apart the two-hundred-metre spacing had
+happened to leave them — a quarter-kilometre of deck at whatever angle the spoke met the bank at, and the
+same trick over the *sea*, where the far end is off the map. The hub sat at the middle of the map, which for
+a river town is in the river, so the town centre was a five-armed junction in the water.
+
+**A bridge is now a class of road** (GEN-14a) rather than a stretch of one. That is the change everything
+else falls out of: the layout asks the water of every road it is offered, and water takes a `Bridge` and
+nothing else — so a street cannot cross, the orbital's own arc is given up over its span because a deck is a
+straight thing, and a span longer than the deck a town builds is a road that is simply not laid. **The deck
+then runs the whole road**, which is what TER-3b asked for all along and what the old wet-part-plus-a-margin
+deck only approximated.
+
+**The nodes are what make a crossing short, not a search afterwards** (GEN-14b). Where a spoke or the
+orbital meets the water it carries a node on each bank, the abutment's own width back from it, and the
+stretch between the two is closed to everything else — the lattice may not hang a street on it and no
+spacing may insert into it, because a node between two bridgeheads is a junction on the deck. What is left
+between them is the water that path actually crosses.
+
+**And the wheel is turned so that a spoke runs down the river's own normal.** "Right across" cannot be
+arranged by moving a node: a bridgehead pushed off the spoke's ray leaves the sector the ray bounds, which
+is the one thing that makes the districts' streets planar without any intersection arithmetic. Turning the
+whole wheel buys the same thing for free — the rotation was a draw, and for a river town it is the normal
+instead. **The orbital's crossings are left to the length bound**: an oblique one is a long one, so the deck
+cap refuses it without any angle needing to be authored.
+
+**The sea is not bridged at all** (GEN-14b). A coast has one shore inside the town and whatever is past it
+is off the map, so every deck over it went nowhere; Odesa now stops at the beach and the pieces the sea cut
+off are deleted with their own component, as GEN-8 already says.
+
+**The water question is asked of the carriageway and not of the centreline.** A road whose middle runs a
+metre inside the bank has its far kerb and its pavement over the water, and the ground under them is painted
+road exactly as the middle is — which is a lane on the river that the terrain tier catches and nothing here
+was refusing. Odesa lost about a sixth of its road length to that and reads better for it.
+
+**What it cost the briefs:** `River` is a narrower river. A crossing has to fit inside the deck bound with
+its two abutments, and a fifteen-metre span cap over a two-hundred-metre river is a town with no bridges at
+all — so the share went to 0.045, which is about a hundred metres of water and a hundred and thirty of deck.
+The bound is authored (`SimConfig.CityGen.BridgeDeckLongestM`) because how much bridge a small town can
+afford is a fact about the town and not about any car that drives over it.
+
+## 2026-08-31 — a city is a seed and a brief, and every stage of laying one runs once
+
+**The gap this closes is the one the 2026-08-17 entry named.** There was no generator: cities arrived as
+baked `.town` files, so GEN-2 through GEN-8 bound whatever exported them, nothing here checked them, and a
+city could not be varied, replayed at another seed or repaired when a rule moved. `Odesa` and `River` are
+now briefs — a seed, an extent, the water, the districts, the counts — and the town is laid when the map is
+opened, in about a second for three thousand metres square.
+
+**Only hints are persisted, and never geometry.** A brief carries what a person would say about a place;
+everything a reader would call the map is derived from it. The moment a brief carries a node or an outline
+there are two answers to where the town is, and the one on disk is the one that goes stale — which is the
+same argument that keeps the pavement's inner corners out of the format.
+
+**Nothing retries, and that is a property of the arrangement rather than a rule anybody obeys.** Four
+things make the one-pass rule (GEN-10) affordable, and each of them replaces a search:
+
+- **The districts are convex.** A town is a wheel — a hub, its spokes and one orbital — and a district is a
+  sector of it. A street is laid between two lattice points of one district, and a segment between two
+  points of a convex region stays inside it, so no district's streets can cross another's. Planarity is
+  arranged rather than checked.
+- **The arterials carry a node wherever a street meets one.** A spoke leaves the hub on its own bearing and
+  the orbital carries a node at every spoke's bearing, so the crossings that would otherwise have to be
+  found and split are junctions that were placed there.
+- **A slot claims its own padding before anything fills it**, so GEN-3 holds of a building that was placed
+  rather than of the attempt that happened to pass.
+- **What is left over is deleted rather than joined up.** A piece of town the water or a refused junction
+  cut off is dropped with its own component, because a link drawn to reach it would cross whatever cut it
+  off. A town is what stayed connected, and the census reports what did not fit.
+
+**Two bounds came out of measuring the traced cities rather than out of taste** (`qq town` reads the old
+format and printed them). Their streets are single arcs at the ninetieth percentile and their median
+sinuosity is 1.000, so **straight is what a street is**: the wander a generated street is allowed is
+bounded by the district's block spacing, so no street can reach the one a block over, and by the radius its
+class's design speed affords on tarmac — derived from a speed and a grip, never authored as a radius
+(GEN-12). Bending is concentrated where the traced cities put it: the orbital is an arc by construction and
+the spokes are straight, because everything that asks whether a point stands clear of an arterial asks it
+of a ray through the hub.
+
+**A junction's arms have to stand square enough to be a junction** (GEN-13), and that was learned by
+laying towns without the rule. Two carriageways meeting at a shallow angle overlap for tens of metres: the
+kerb fillet on one arm paves the crossing on the other, the crossing's own ends land on the neighbouring
+carriageway, and the pavement that turns the corner stands in the road. Sixty degrees is where all three
+stop happening.
+
+**The painter now lays a shape to its own edge.** A stride is shorter than a cell, so a shape whose edge
+fell between two strides left the cell under that edge unpainted — a sliver of pavement inside a kerb
+fillet, which every walking check found and no map had ever shown before, because the traced cities' cells
+were painted by whatever exported them.
+
+**A building is sized by the roof it will wear.** The footprints come from the catalogue through the
+caller (`BuildingCatalog.OrdinaryFootprintsM`), because the plan may not read a catalogue that sits above
+it: the data crosses the seam and the type does not. Sized by a draw instead, a building wore the nearest
+roof there was, which is a picture that does not fit the box it stands on.
+
+**What the change deleted:** `TownWriter` and its round trip, `--lay-maps`, `--place-services` and
+`ServicePlacement`'s sweep at the workshop. The laid maps are produced in code when they are opened, so
+writing them to a file bought nothing; the services are placed by the stage that already knows which
+buildings have parking outside them, which is the sweep the old entry priced and declined because it could
+not be paid for at load.
+
+**What it has not finished:** the fixture map and the crossings map still arrive as files and are still
+read by `TownReader`; the browser fetches towns rather than briefs; and the town tier has findings left at
+generated junctions — the kerb fillet against the pavement that turns it, the strokes at a car park's
+mouth, and a walk that crosses a carriageway off the paint.
+
 ## 2026-08-31 — the ring is a rounded square, because what stands inside it is a rectangle
 
 **A circle is the wrong shape to put a panel in.** The start menu opens over this map and a panel is a
@@ -184,7 +665,7 @@ instead of cards.
 **Paint on every arm, not only where a card is about paint.** The first arrangement painted four crossings
 — one per card that watches one — and left every block's pavement a closed ring with no way off it, which
 is a walking network of islands. TER-6's placement rule is the fix and it costs the cards
-nothing: a crossing on every arm slows every approach to a crossing pace, which is what a junction does.
+nothing: a crossing on every arm is paint on every approach, which is what a junction has.
 
 **And two things it cannot carry, found by trying to.**
 

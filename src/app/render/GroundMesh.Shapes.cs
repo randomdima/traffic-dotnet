@@ -158,11 +158,75 @@ internal sealed partial class GroundMesh
         }
     }
 
+    /// <summary>
+    /// One mark laid down a stretch of a road's own curve, a half-width either side of it — a lane dash
+    /// that <b>bends with the bend it is on</b> rather than standing as the chord of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Piece by piece, each piece its own quad</b> rather than one strip of shared corners: a mark is
+    /// read back out of the mesh four vertices at a time (<see cref="FirstMarkVertex"/>).
+    /// </para>
+    /// <para>
+    /// <b>Two pieces meet on the cross-section they share</b>, and not each on its own tangent. Paint is
+    /// the ground drawn through a multiplying tint, so a piece overlapping the next reads as a bright
+    /// notch at the joint and one falling short of it as a nick out of the line — at every joint of every
+    /// dash on the bend.
+    /// </para>
+    /// </remarks>
+    void CurvedMark(
+        ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float halfWidthM, Surface surface, Vector3 tint,
+        float[] periods)
+    {
+        if (toM <= fromM || halfWidthM <= 0f) return;
+
+        var previousM = Vector2.Zero;
+        var previousAcrossM = Vector2.Zero;
+        var laid = false;
+        var walkedM = 0f;
+        foreach (var arc in arcs)
+        {
+            var startM = MathF.Max(fromM - walkedM, 0f);
+            var endM = MathF.Min(toM - walkedM, arc.LengthM);
+            walkedM += arc.LengthM;
+            if (endM <= startM) continue;
+
+            // Past the first arc the walk starts at its second sample: the first stands where the last
+            // arc's end did, so the piece between them is the one already laid.
+            var steps = Math.Max(1, (int)MathF.Ceiling((endM - startM) / StepM(arc.Curvature)));
+            for (var step = laid ? 1 : 0; step <= steps; step++)
+            {
+                var distanceM = startM + ((endM - startM) * step / steps);
+                var headingRad = arc.HeadingAtRad(distanceM);
+                var acrossM = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad)) * halfWidthM;
+                var pointM = arc.PointAtM(distanceM);
+                if (laid)
+                {
+                    var first = Vertex(previousM - previousAcrossM, surface, tint, periods);
+                    Vertex(pointM - acrossM, surface, tint, periods);
+                    Vertex(pointM + acrossM, surface, tint, periods);
+                    Vertex(previousM + previousAcrossM, surface, tint, periods);
+                    Quad(first);
+                }
+
+                previousM = pointM;
+                previousAcrossM = acrossM;
+                laid = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A disc: the ground a junction's arms share and the head a dead end turns in, and the pavement
+    /// round the outside of either. <b>Stepped along its own circumference</b>, as every other arc here
+    /// is — walked by its radius it comes out an octagon at the size a junction is, and a flat a quarter
+    /// of a metre deep is a notch cut into every carriageway that runs into the node.
+    /// </summary>
     void Disc(Vector2 centreM, float radiusM, Surface surface, Vector3 tint, float[] periods)
     {
         if (radiusM <= 0f) return;
 
-        var steps = Steps(radiusM);
+        var steps = Steps(radiusM * MathF.Tau);
         var centre = Vertex(centreM, surface, tint, periods);
         for (var step = 0; step <= steps; step++)
         {

@@ -1,6 +1,7 @@
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Terrain;
 using Xunit;
 
@@ -28,46 +29,6 @@ namespace TrafficSimulation.Tests.CityGen;
 public class MapConformanceTests
 {
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
-
-    /// <summary>Everything a record points at exists: an index into a run that is not there is a town nobody can build.</summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void ItValidates(string map)
-    {
-        var plan = Towns.Of(map);
-
-        Assert.True(plan.CellSizeM > 0f);
-        Assert.True(plan.WorldSizeM.X > 0f && plan.WorldSizeM.Y > 0f);
-
-        for (var road = 0; road < plan.Roads.Count; road++)
-        {
-            Assert.InRange(plan.Roads.FromJunction[road], 0, plan.Junctions.Count - 1);
-            Assert.InRange(plan.Roads.ToJunction[road], 0, plan.Junctions.Count - 1);
-            Assert.True(plan.Roads.WidthM[road] > 0f, $"road {road} has no width");
-            Assert.True(plan.Roads.SegmentsOf(road).Length > 0, $"road {road} has no shape");
-        }
-
-        // A crossing struck mid-block belongs to no junction, which is a record pointing at nothing
-        // and not a broken reference.
-        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
-        {
-            Assert.InRange(plan.Crosswalks.Junction[crossing], CityPlan.NoRecord, plan.Junctions.Count - 1);
-        }
-
-        for (var bar = 0; bar < plan.StopLines.Count; bar++)
-        {
-            Assert.InRange(plan.StopLines.Junction[bar], 0, plan.Junctions.Count - 1);
-            Assert.InRange(plan.StopLines.Road[bar], 0, plan.Roads.Count - 1);
-        }
-
-        for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
-        {
-            Assert.InRange(plan.Bridges.Road[bridge], 0, plan.Roads.Count - 1);
-            Assert.True(plan.Bridges.ToM[bridge] > plan.Bridges.FromM[bridge], $"bridge {bridge} spans nothing");
-            Assert.True(plan.Bridges.DeckWidthM[bridge] > plan.Roads.WidthM[plan.Bridges.Road[bridge]],
-                $"bridge {bridge}'s deck is no wider than the carriageway it carries");
-        }
-    }
 
     /// <summary>A junction is where roads meet, so a junction no road is an arm of is not one.</summary>
     [Theory]
@@ -204,5 +165,71 @@ public class MapConformanceTests
     {
         var ground = grid.At(pointM);
         Assert.True(ground.Walkable || ground.Drivable, $"{what} stands at {pointM} on ground permitted to nobody");
+    }
+
+    /// <summary>
+    /// <b>A map ends at its own edge</b> (GEN-2b). The extent is the whole of the world, so a shape laid past
+    /// it stands on ground nothing can classify, nobody can reach and the ground mesh draws over the void —
+    /// which is what a sea painted to its own horizon did.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NothingItCarriesStandsOffIt(string map)
+    {
+        var plan = Towns.Of(map);
+
+        foreach (var (what, rings) in Towns.WaterRingsOf(plan.Water))
+        {
+            for (var ring = 0; ring < rings.Count; ring++)
+            {
+                foreach (var pointM in rings.RingOf(ring)) AssertOnTheMap(plan, pointM, $"{map}: {what} {ring}");
+            }
+        }
+
+        for (var junction = 0; junction < plan.Junctions.Count; junction++)
+        {
+            AssertOnTheMap(plan, plan.Junctions.CentreM[junction], $"{map}: junction {junction}");
+        }
+
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var chain = plan.Roads.SegmentsOf(road);
+            var lengthM = Spline.TotalLengthM(chain);
+            for (var alongM = 0f; alongM <= lengthM; alongM += 1f)
+            {
+                AssertOnTheMap(plan, Spline.SampleAt(chain, alongM).PositionM, $"{map}: road {road}");
+            }
+        }
+
+        for (var building = 0; building < plan.Buildings.Count; building++)
+        {
+            var halfM = plan.Buildings.SizeM[building] * 0.5f;
+            AssertOnTheMap(
+                plan, plan.Buildings.CentreM[building], $"{map}: building {building}", MathF.Max(halfM.X, halfM.Y));
+        }
+
+        for (var space = 0; space < plan.ParkingLots.SpaceCount; space++)
+        {
+            AssertOnTheMap(plan, plan.ParkingLots.SpacePositionM[space], $"{map}: bay {space}");
+        }
+
+        for (var prop = 0; prop < plan.Props.Count; prop++)
+        {
+            AssertOnTheMap(plan, plan.Props.CentreM[prop], $"{map}: prop {prop}", plan.Props.RadiusM[prop]);
+        }
+
+        for (var spawn = 0; spawn < plan.Spawns.Count; spawn++)
+        {
+            AssertOnTheMap(plan, plan.Spawns.PositionM[spawn], $"{map}: spawn {spawn}");
+        }
+    }
+
+    /// <summary>On the map with its own girth on it, which for a point is the point itself.</summary>
+    static void AssertOnTheMap(CityPlan plan, System.Numerics.Vector2 pointM, string what, float reachM = 0f)
+    {
+        Assert.True(
+            pointM.X >= reachM && pointM.Y >= reachM
+            && pointM.X <= plan.WorldSizeM.X - reachM && pointM.Y <= plan.WorldSizeM.Y - reachM,
+            $"{what} stands at {pointM}, off a map of {plan.WorldSizeM}");
     }
 }

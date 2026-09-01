@@ -170,7 +170,7 @@ internal sealed partial class FootGraph
             // The axis runs *along* the road the crossing crosses, so the way over is square to it and
             // the span is how far.
             var across = new Vector2(-axis.Y, axis.X);
-            var reachM = crossings.SpanM[crossing] * 0.5f + bandM * 0.5f;
+            var reachM = plan.CrossingSpanM(crossing) * 0.5f + bandM * 0.5f;
 
             var near = builder.SplitNearest(centreM - across * reachM, bandM);
             var far = builder.SplitNearest(centreM + across * reachM, bandM);

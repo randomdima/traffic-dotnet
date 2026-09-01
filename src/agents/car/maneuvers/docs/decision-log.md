@@ -32,12 +32,11 @@ body, in what state, beside whom*.
 ## 2026-08-29 — `P-12` is retired: slowing at a crossing is what the reservation already does
 
 The entry set no limits, drove no line, laid no claim and had no bound of its own. Its own page said so —
-"this entry sets no limits: the pace over paint and the stop short of a body on it are the standing rules'."
-Both of those are terms of the speed profile taken every tick: the pace off the crossing the book found
-ahead, and the stop off the grant, which ends at the first place a rule stops the asker (`TER-4c.1`) and at
-the ground somebody on the paint is holding with the crossing's own right of way (`TER-5e`). A driver that
-cannot take the zebra slows because it was granted less road; one that can drives on. Nothing was left for
-an entry to impose.
+"this entry sets no limits: the stop short of a body on the paint is the standing rules'." That stop is a
+term of the speed profile taken every tick, read off the grant, which ends at the first place a rule stops
+the asker (`TER-4c.1`) and at the ground somebody on the paint is holding with the crossing's own right of
+way (`TER-5e`). A driver that cannot take the zebra slows because it was granted less road; one that can
+drives on. Nothing was left for an entry to impose.
 
 What it did do was **name the term that had already won**, which is `DrivingHold.Crossing` — a read-out the
 probe prints and the trace does not need a second copy of. And naming it cost something: while it was in
@@ -45,9 +44,6 @@ charge the car could not be handed to `P-8`, to `P-6` or to `E-4`, so a crossing
 kept a car out of the entry for the box it was entering. The one refusal that suppression was worth — no
 swerving round somebody on the paint — is already made by the ground the shape is laid over
 (`Person.RoadClaimMargin`), and a second gate on a movement the first one refuses is what `SIM-7` is about.
-
-The pace was the one thing here that is not emergent, so it is a rule now rather than a page: **CAR-7b**, in
-the car's own requirements, beside the yield it is measured with.
 
 Two things the entry had been hiding came out with it, and both are worth more than it was.
 

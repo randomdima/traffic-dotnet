@@ -4,6 +4,8 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Bench;
 
 /// <summary>
@@ -99,7 +101,7 @@ internal static class SkidpadProbe
     {
         // The map on disk and not the plan in hand: what is measured is the town every other reader gets,
         // and the pad is laid from those same figures, so the two cannot drift apart.
-        using var world = new TownWorld(TownReader.ReadFile(ProjectPaths.TownFile(SkidpadPlan.Name)), config);
+        using var world = new TownWorld(Maps.Plan(SkidpadPlan.Name, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
         var loop = new SimLoop<TownWorld>(world, config);
         var watch = new SkidpadWatch(config, world);
 

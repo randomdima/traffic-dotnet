@@ -46,6 +46,21 @@ internal sealed class ViewFigures
     public float CameraDefaultViewM { get; init; } = 70f;
     public float CameraZoomPerNotch { get; init; } = 1.15f;
     public float CameraPanPxPerS { get; init; } = 300f;
+
+    /// <summary>How far a notch of the wheel turns the town when the turn is asked for rather than the zoom (OBS-1c).</summary>
+    public float CameraTurnPerNotchDeg { get; init; } = 6f;
+
+    /// <summary>
+    /// How far two fingers have to twist before the town starts turning under them (OBS-1c). A pinch is
+    /// never exactly square, so without it every zoom leaves the town a degree or two off north.
+    /// </summary>
+    public float CameraTwistDeadZoneDeg { get; init; } = 8f;
+
+    /// <summary>
+    /// How far apart two fingers must be before the distance between them is worth dividing by
+    /// (OBS-1c) — two contacts reported at the same place would otherwise scale the view by infinity.
+    /// </summary>
+    public float TouchLeastSpreadPx { get; init; } = 24f;
     /// <summary>The size a run opens at when <c>--size</c> names none: the window it restores to, and the frame a shot is taken at.</summary>
     public int WindowWidthPx { get; init; } = 1600;
 
@@ -84,8 +99,17 @@ internal sealed class ViewFigures
     /// </summary>
     public int SelectionMaxUnits { get; init; } = 32;
 
-    /// <summary>How far the pointer travels with the button down before a click becomes a box (CTL-1b).</summary>
+    /// <summary>How far the pointer travels with the button down before a click becomes a drag (CTL-1b).</summary>
     public float SelectionDragPx { get; init; } = 6f;
+
+    /// <summary>
+    /// The window the interface is never laid out on fewer pixels than (OBS-2k). <b>It is what the
+    /// panels need and not what a display has</b>: the density is the display's own factor until the
+    /// widest panel would run off the edge, and then it is whatever leaves that panel on the glass.
+    /// </summary>
+    public float InterfaceLeastWidthPx { get; init; } = 560f;
+
+    public float InterfaceLeastHeightPx { get; init; } = 420f;
 }
 
 /// <summary>

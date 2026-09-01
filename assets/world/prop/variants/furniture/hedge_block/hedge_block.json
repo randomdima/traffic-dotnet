@@ -1,6 +1,7 @@
 {
   "id": "hedge_block",
-  "kind": 2,
+  "kind": 1,
   "sprite": "hedge_block.webp",
-  "diameterM": 2.00
+  "diameterM": 2.00,
+  "turns": true
 }

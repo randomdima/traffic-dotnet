@@ -34,7 +34,7 @@ const KEYS = {
     ArrowUp: 6, ArrowDown: 7, ArrowLeft: 8, ArrowRight: 9,
     Escape: 10, F11: 11, Backquote: 12, Pause: 13, Space: 14,
     Digit1: 15, Digit2: 16, Digit3: 17,
-    ShiftLeft: 18, ShiftRight: 19,
+    ShiftLeft: 18, ShiftRight: 19, ControlLeft: 20, ControlRight: 21,
 };
 
 const KEY_COUNT = 32;
@@ -45,12 +45,16 @@ const BUTTONS = KEY_COUNT * 2;
 const AXIS = {
     pointerX: 0, pointerY: 1, scroll: 2, clickX: 3, clickY: 4, clickButton: 5,
     width: 6, height: 7, scale: 8, resized: 9,
+    // The fingers on the glass, and where the first two of them are (CTL-9). **Where they are and not
+    // what they mean**: a pinch, a twist and a two-finger pan are one movement read a frame apart, and
+    // reading it is the run's (src/app/playercontrol/TouchGesture.cs).
+    touchCount: 10, touchOneX: 11, touchOneY: 12, touchTwoX: 13, touchTwoY: 14,
 };
 
 /// How many of them there are, which is the length the run's own array is made at. **Whether the
 /// run is over is not one of them**: an axis is something the page saw, a pump copies the page's
 /// copy over the run's, and the page has no opinion about that one.
-const AXIS_COUNT = 10;
+const AXIS_COUNT = 15;
 
 const state = {
     device: null,
@@ -382,6 +386,33 @@ function pump(keys, axes) {
     state.axes[AXIS.resized] = 0;
 }
 
+/// The fingers on the glass, by the id the browser gave each, in the order they came down (CTL-9).
+/// **A Map and not an array**, because that order is what makes "the first two" mean the same pair from
+/// one frame to the next: a finger lifted out of the middle of three must not renumber the others.
+const fingers = new Map();
+
+/// One contact, in the canvas's own pixels — the same space the pointer is written in.
+function at(e) {
+    const scale = state.axes[AXIS.scale];
+    return { x: e.offsetX * scale, y: e.offsetY * scale };
+}
+
+/// How many are down and where the first two are. Written on every change rather than once a frame,
+/// because a pump is a copy and this is what it copies.
+function writeFingers() {
+    const down = [...fingers.values()];
+    state.axes[AXIS.touchCount] = down.length;
+    if (down.length > 0) {
+        state.axes[AXIS.touchOneX] = down[0].x;
+        state.axes[AXIS.touchOneY] = down[0].y;
+    }
+
+    if (down.length > 1) {
+        state.axes[AXIS.touchTwoX] = down[1].x;
+        state.axes[AXIS.touchTwoY] = down[1].y;
+    }
+}
+
 function listen() {
     addEventListener('keydown', e => {
         const key = KEYS[e.code];
@@ -399,25 +430,73 @@ function listen() {
         if (key !== undefined) state.keys[DOWN + key] = 0;
     });
 
-    // A page that loses focus loses every key with it, or the town drives off on a key nobody is
-    // holding down any more.
-    addEventListener('blur', () => state.keys.fill(0, DOWN, DOWN + KEY_COUNT));
+    // A page that loses focus loses every key with it, and every finger too, or the town drives off on
+    // a key nobody is holding down any more and stays pinched between two that are not there.
+    addEventListener('blur', () => {
+        state.keys.fill(0, DOWN, DOWN + KEY_COUNT);
+        fingers.clear();
+        writeFingers();
+    });
 
     state.canvas.addEventListener('pointermove', e => {
-        const scale = state.axes[AXIS.scale];
-        state.axes[AXIS.pointerX] = e.offsetX * scale;
-        state.axes[AXIS.pointerY] = e.offsetY * scale;
+        if (e.pointerType === 'touch') {
+            if (!fingers.has(e.pointerId)) return;
+
+            fingers.set(e.pointerId, at(e));
+            writeFingers();
+            if (!e.isPrimary) return;
+        }
+
+        const { x, y } = at(e);
+        state.axes[AXIS.pointerX] = x;
+        state.axes[AXIS.pointerY] = y;
     });
 
     state.canvas.addEventListener('pointerdown', e => {
-        const scale = state.axes[AXIS.scale];
+        // **The canvas keeps the pointer for the whole gesture.** Without it a drag that leaves the
+        // element stops reporting, and the town is left being dragged by a finger nobody can see. It is
+        // refused for a pointer the browser is not tracking — a synthetic event, chiefly — and a throw
+        // here would take the rest of the press with it.
+        try {
+            state.canvas.setPointerCapture(e.pointerId);
+        } catch {
+            // Nothing to do: the gesture still reports while it is over the canvas, which is the page.
+        }
+
+        if (e.pointerType === 'touch') {
+            fingers.set(e.pointerId, at(e));
+            writeFingers();
+
+            // **Only the first finger is the button** (CTL-9): a second one landing is the camera's, and
+            // reported as a press it would be a second click on whatever it came down on.
+            if (!e.isPrimary) return;
+        }
+
+        // A tap has no move before it, so the pointer is put where the press was or the release resolves
+        // against wherever the mouse was last seen.
+        const { x, y } = at(e);
+        state.axes[AXIS.pointerX] = x;
+        state.axes[AXIS.pointerY] = y;
         state.keys[BUTTONS + e.button] = 1;
         state.axes[AXIS.clickButton] = e.button;
-        state.axes[AXIS.clickX] = e.offsetX * scale;
-        state.axes[AXIS.clickY] = e.offsetY * scale;
+        state.axes[AXIS.clickX] = x;
+        state.axes[AXIS.clickY] = y;
     });
 
-    addEventListener('pointerup', e => { state.keys[BUTTONS + e.button] = 0; });
+    const lifted = e => {
+        if (e.pointerType === 'touch') {
+            fingers.delete(e.pointerId);
+            writeFingers();
+            if (!e.isPrimary) return;
+        }
+
+        state.keys[BUTTONS + e.button] = 0;
+    };
+
+    addEventListener('pointerup', lifted);
+    // A gesture the browser took over — a system edge swipe, a call arriving — is fingers that never
+    // come up, and a town left mid-pinch by one.
+    addEventListener('pointercancel', lifted);
     state.canvas.addEventListener('contextmenu', e => e.preventDefault());
     state.canvas.addEventListener('wheel', e => {
         e.preventDefault();

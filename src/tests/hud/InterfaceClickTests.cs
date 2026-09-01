@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
@@ -41,8 +42,11 @@ public class InterfaceClickTests
         return ui;
     }
 
+    /// <summary>A camera for the one piece of furniture that acts on one, north-up unless a test turns it.</summary>
+    static Camera2D NorthUp() => new(SimConfig.Shipped(), new Vector2(400f, 400f), Window);
+
     static ClickTaken Click(Interface ui, Vector2 atPx, bool hasTown = true) =>
-        ui.Click(atPx, Window, primary: true, hasTown, out _);
+        ui.Click(atPx, Window, primary: true, hasTown, NorthUp(), out _);
 
     /// <summary>
     /// <b>The button that opens a popup shuts it.</b> A gear that only ever opened was a gear somebody
@@ -176,6 +180,26 @@ public class InterfaceClickTests
         ui.TownChanged(behindTheMenu: true);
         Assert.True(ui.Menu.Open);
         Assert.True(ui.Menu.AtTheStart);
+    }
+
+    /// <summary>
+    /// <b>OBS-1c: the compass is a button only while the town is turned.</b> It is not drawn on a town
+    /// that is already north up, and a corner that took clicks for a button nobody can see would be a
+    /// hole in the town that cannot be selected through.
+    /// </summary>
+    [Fact]
+    public void TheCompassTakesAClickOnlyWhileTheTownIsTurned()
+    {
+        var ui = Running();
+        var atPx = Middle(Chrome.CompassAt(Window));
+
+        Assert.Equal(ClickTaken.No, ui.Click(atPx, Window, primary: true, hasTown: true, NorthUp(), out _));
+
+        var turned = NorthUp();
+        turned.Turn(0.7f, Window * 0.5f, Window);
+
+        Assert.Equal(ClickTaken.Yes, ui.Click(atPx, Window, primary: true, hasTown: true, turned, out _));
+        Assert.False(turned.IsTurned, "the compass did not put the town back north up");
     }
 
     /// <summary>

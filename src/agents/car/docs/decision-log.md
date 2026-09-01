@@ -5,6 +5,31 @@
 chained, why an entry is entered on one thing and left on another. What is here is the body and the
 tyres.
 
+## 2026-09-01 — paint is not a speed limit, and `CAR-7b` is retired
+
+**A car slowed at every zebra in the town whether or not the crossing was anybody's.** The pace was a
+second term of the speed profile beside the stop short of the paint, owed on every line that crossed a
+crossing, and it bound whenever paint was within reach — so the status panel read `P-4 yielding at a
+crossing` at 37 km/h on an empty crossing with nothing on the book against it. There was nothing to yield
+to: what had bound the car was the pace and not the ground.
+
+**A crossing is ground and the book already says whose it is.** A walker on the paint lays the band of the
+lane it stands in and a walker refused one lays an `Awaited` stretch (`TER-4c.1`, `TER-5e`), both of which
+cut a driver's grant like anything else on the lane; the stop short of the paint is read off that book.
+The pace was a second gate on a movement the book had already answered (`SIM-7`) — and, being owed whether
+or not anybody was there, it was the one term of the profile that no reading of the world could switch off.
+So it is gone: `CAR-7b` is retired, the number stays retired, and `Driving.CrossingPaceInCarLengthsPerS`
+went with it.
+
+**What it cost, measured on the fixture over 1800 ticks.** Car-ticks bound by a crossing fell from 52% to
+26% and the mean speed rose from 5.37 to 5.85 m/s — the traffic is quicker and the crossings bind it only
+when somebody is actually there. **The stop that is left is arrived at from road speed**, which the same
+run says in the manoeuvre trace: `E-2` was never entered with the pace and is entered three times without
+it, and `P-6` twice as often. On Odesa that shows up as two broken claims — a staged casualty reached in
+332 s against a leg bound of 300, and a run of the city that raised no closure at all inside its window.
+**Both are the courtesy stop at the kerb arriving at speed** rather than the yield failing: a car that used
+to meet a waiting walker at 8 m/s now meets one at road speed and stops as hard as it can for them.
+
 ## 2026-08-31 — the indicator was reading a bend, and a bend is not a turn
 
 **A car indicated its way round every corner of every circuit.** CAR-14.1 read the indicator off the line's

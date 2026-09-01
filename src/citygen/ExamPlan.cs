@@ -60,7 +60,7 @@ internal static class ExamPlan
         var cells = new Ground[gridWidth * gridHeight];
         var laneDirs = new sbyte[cells.Length * 2];
         var widthM = config.RoadWidthM;
-        var walkM = config.Road.PavementWidthM;
+        var walkM = config.PavementWidthM;
 
         var segments = new ArcSeg[lattice.Roads.Count];
         for (var road = 0; road < lattice.Roads.Count; road++)
@@ -107,9 +107,9 @@ internal static class ExamPlan
             {
                 CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], Use = [], EntryOffsets = [0], EntryPointM = [],
             },
-            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], Kind = [] },
+            Props = new CityPlan.PropArrays { CentreM = [], RadiusM = [], BearingRad = [], Kind = [] },
             Spawns = Spawns(lattice),
-            Water = new CityPlan.WaterArrays { OutlineOffsets = [0], PointM = [] },
+            Water = CityPlan.WaterArrays.None,
         };
     }
 
@@ -127,7 +127,7 @@ internal static class ExamPlan
         {
             if (lattice.IsHead(junction))
             {
-                painter.Head(lattice.JunctionM(junction), lattice.HeadRadiusM + walkM, Ground.Sidewalk);
+                painter.Disc(lattice.JunctionM(junction), lattice.HeadRadiusM + walkM, Ground.Sidewalk);
             }
         }
 
@@ -137,21 +137,23 @@ internal static class ExamPlan
         {
             if (lattice.IsHead(junction))
             {
-                painter.Head(lattice.JunctionM(junction), lattice.HeadRadiusM, Ground.Intersection);
+                painter.Disc(lattice.JunctionM(junction), lattice.HeadRadiusM, Ground.Intersection);
                 continue;
             }
 
-            painter.Mouth(lattice.JunctionM(junction), halfM);
+            painter.Disc(lattice.JunctionM(junction), halfM, Ground.Intersection);
         }
 
         foreach (var corner in EveryCorner(lattice, config, widthM))
         {
-            painter.Fillet(corner.CornerM, corner.ArcCentreM, config.IntersectionCornerRadiusM);
+            painter.Fillet(
+                corner.CornerM, corner.TangentAM, corner.TangentBM, corner.ArcCentreM,
+                config.IntersectionCornerRadiusM);
         }
 
         foreach (var crossing in lattice.Crossings())
         {
-            painter.Crossing(crossing.CentreM, crossing.Axis, ExamLattice.CrossingDepthM, widthM);
+            painter.Crossing(crossing.CentreM, crossing.Axis, config.Road.CrossingDepthM, widthM);
         }
 
     }
@@ -269,21 +271,21 @@ internal static class ExamPlan
         var centreM = new List<Vector2>();
         var axis = new List<Vector2>();
         var depthM = new List<float>();
-        var spanM = new List<float>();
+        var road = new List<int>();
         var junction = new List<int>();
 
         foreach (var crossing in lattice.Crossings())
         {
             centreM.Add(crossing.CentreM);
             axis.Add(crossing.Axis);
-            depthM.Add(ExamLattice.CrossingDepthM);
-            spanM.Add(config.RoadWidthM);
+            depthM.Add(config.Road.CrossingDepthM);
+            road.Add(crossing.Road);
             junction.Add(crossing.Junction);
         }
 
         return new CityPlan.CrosswalkArrays
         {
-            CentreM = [.. centreM], Axis = [.. axis], DepthM = [.. depthM], SpanM = [.. spanM],
+            CentreM = [.. centreM], Axis = [.. axis], DepthM = [.. depthM], Road = [.. road],
             Junction = [.. junction],
         };
     }
@@ -320,7 +322,7 @@ internal static class ExamPlan
                     + (Heading.RightOf(travel) * config.LaneOffsetM * config.RoadSideSign));
                 approach.Add(travel);
                 spanM.Add(config.RoadWidthM * 0.5f);
-                thicknessM.Add(ExamLattice.BarThicknessM);
+                thicknessM.Add(config.Road.StopBarThicknessM);
                 junction.Add(cell);
                 road.Add(on);
             }

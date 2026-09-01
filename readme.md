@@ -98,12 +98,6 @@ with the map, the framing, the moment and the seed, tiled into one sheet for rev
 }
 ```
 
-`--place-services` decides which of each shipped map's buildings are its hospitals, its police stations and
-its depots, and writes it into the map ([citygen](src/citygen/docs/requirements.md)): the buildings with
-somewhere for their vehicles to stand, laid out as far from one another as the town allows. It is a
-**workshop step and never a build one** — run it when a map arrives or when the shares those services are
-placed at change, and commit the towns it rewrites.
-
 `--lamps` cuts the town's lamp sheet out of the fleet's own sprites — every lens a variant draws, in
 each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.png`.
 It is a **workshop step and never a build one**: run it when a variant's art or its lens rectangles
@@ -126,9 +120,14 @@ command reads which.
 | `Zebras` | five isolated streets with a crossing apiece, one of them laid off square | `--bench crossings` |
 | `Idle` | one loop of road and nothing else — a square with rounded corners, an armoured car between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
 
-`--lay-maps` writes all of those but `Zebras`, whose every shape is chosen against the car's own figures —
-so moving one of those figures is all of them to lay again, always together, since a lap is only comparable
-with a lap laid from the same arithmetic. `Zebras` arrives as a file like every city does.
+Every one of them but `Zebras` is **laid in code when it is opened**, from the car's own figures — so a
+figure that moves is every one of those maps laid again, together, since a lap is only comparable with a
+lap laid from the same arithmetic. `Zebras` and the fixture map still arrive as files.
+
+**A city is generated instead.** `towns/Odesa.json` and `towns/River.json` are briefs — a seed, an extent,
+the water, the districts and the counts — and the town is laid from one when the map is opened
+([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from)). The same brief at the same seed is
+the same town, every time.
 
 The exam and the crossings map are asserted card by card and crossing by crossing in the town tier off the
 probe's own run ([JunctionExamTests](src/tests/world/JunctionExamTests.cs)), so the instrument and the gate
@@ -166,9 +165,9 @@ an interpreted town whose frame rate means nothing.
 out, the frame — against the desktop's five, and the counter that says so is
 [`WebGpu.Crossings`](src/runtime/web/WebGpu.cs). Rule 1 is the same rule.
 
-**The page carries the visual layers and none of the instruments.** `--shot`, `--sheet`, `--bench`,
-`--lamps` and `--place-services` are how a run is measured and they stay on the desktop, which has a file
-system and a process that can exit.
+**The page carries the visual layers and none of the instruments.** `--shot`, `--sheet`, `--bench` and
+`--lamps` are how a run is measured and they stay on the desktop, which has a file system and a process
+that can exit.
 
 **The page downloads the art before the first frame and a map when that map is picked.** A frame cannot
 wait on a fetch, so the menu's click writes a name down and the boot's own loop — the one place a

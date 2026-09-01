@@ -5,6 +5,8 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
+using TrafficSimulation.World.Statics;
+
 namespace TrafficSimulation.Bench;
 
 /// <summary>
@@ -40,7 +42,7 @@ internal static class ManeuverProbe
 
     static void Trace(string map, SimConfig config)
     {
-        var plan = TownReader.ReadFile(ProjectPaths.TownFile(map));
+        var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);

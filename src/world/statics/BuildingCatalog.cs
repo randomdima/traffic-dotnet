@@ -103,6 +103,18 @@ internal sealed class BuildingCatalog
     /// rectangle laid the other way round is the same rectangle: matching without the swap would put a
     /// wide roof on a deep building whenever the plan happened to author it end-on.
     /// </remarks>
+    /// <summary>
+    /// The footprints the ordinary roofs are drawn at. <b>Handed to whoever lays a town</b>, because a
+    /// building is sized by the picture it will wear and the plan may not read a catalogue that sits above
+    /// it — the data crosses the seam and the type does not.
+    /// </summary>
+    public Vector2[] OrdinaryFootprintsM()
+    {
+        var footprintsM = new Vector2[Ordinary];
+        for (var variant = 0; variant < Ordinary; variant++) footprintsM[variant] = Variants[variant].FootprintM;
+        return footprintsM;
+    }
+
     public (int Variant, bool Swapped) Match(Vector2 sizeM)
     {
         var best = 0;

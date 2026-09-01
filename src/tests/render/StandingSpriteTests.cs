@@ -245,8 +245,9 @@ public class StandingSpriteTests
     }
 
     /// <summary>
-    /// A prop is drawn at the size the plan laid it — the same circle its body is — and wears a look
-    /// from its own kind's set.
+    /// <b>A prop is drawn inside the circle its body is</b> (GEN-6d): the longest side of the picture is
+    /// the diameter the plan laid it at, so nothing is drawn past the ground a car is held off. And it
+    /// wears a look from its own kind's set.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -258,7 +259,8 @@ public class StandingSpriteTests
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
             var instance = drawn[plan.Props.CentreM[prop]];
-            Assert.Equal(plan.Props.RadiusM[prop], instance.HalfSizeM.Y, 4);
+            Assert.Equal(
+                plan.Props.RadiusM[prop], MathF.Max(instance.HalfSizeM.X, instance.HalfSizeM.Y), 4);
 
             var variant = (int)instance.Sheet - Buildings.Count;
             Assert.InRange(variant, 0, Props.Count - 1);
@@ -293,6 +295,21 @@ public class StandingSpriteTests
             Assert.Equal(kind, offTheScale.Kind);
             Assert.Equal(authored.Max(), offTheScale.DiameterM);
         }
+    }
+
+    /// <summary>
+    /// <b>No wild look turns</b> (GEN-6b). The wild pass drops its props on open ground and carries no
+    /// bearing to turn one by, so a wild look that declared a front would be drawn upright wherever it
+    /// stood — a picture asking for something the placement can never give it.
+    /// </summary>
+    [Fact]
+    public void NoWildLookTurns()
+    {
+        var turned = Props.Variants
+            .Where(variant => variant.Kind == (int)PropKind.WildNature && variant.Turns)
+            .Select(variant => variant.Id);
+
+        Assert.Empty(turned);
     }
 
     /// <summary>The look is a function of the prop's index, so two runs of the same town draw the same town.</summary>
