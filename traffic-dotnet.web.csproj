@@ -141,15 +141,21 @@
        incompressible and the catalogues are not. The browser inflates it with `DecompressionStream`,
        which is the one decompressor a page has that its .NET runtime does not (WEB-4).
 
-       The towns are squeezed the same way but stay one file each: a `.town` is better than half zero
-       bytes — it holds a lane index laid out for reading and not for sending — so the nine of them are
-       twenty-three megabytes raw and 3.3 compressed, and a run fetches the one it opens.
+       The two towns still carried as files are squeezed the same way but stay one file each: a `.town` is
+       better than half zero bytes — it holds a lane index laid out for reading and not for sending — and a
+       run fetches the one it opens.
 
-       The manifest is the map list and nothing else now: what the browser may ask for, against the file
-       it would be fetched from. The archive carries its own index, so the art needs no line here. -->
+       **A city is its brief and not its town.** Every other map is generated from a few hundred bytes of
+       JSON or laid in code, so what crosses the wire for it is nothing at all: the briefs come down with
+       the papers at boot, small enough to be free and needed at once because the menu reads a city's
+       description out of its own brief.
+
+       The manifest is the map list and nothing else: what the browser may ask for, against the file it
+       would be fetched from. The archive carries its own index, so the art needs no line here. -->
   <ItemGroup>
     <TownArt Include="assets/**" />
     <TownPlan Include="towns/*.town" />
+    <TownBrief Include="towns/*.json" />
 
     <!-- The figures, loose beside the archive as well as inside it. They are the one thing a page reads
          before it has any reason to want the art, so a run that only ever shows the menu fetches this
@@ -168,27 +174,33 @@
     </PropertyGroup>
   </Target>
 
+  <!-- A brief goes in the manifest beside a plan and is copied as it lies: gzipping five hundred bytes
+       buys nothing and would put a second decompressor in the page's way (Main.Data).
+
+       **Both folders are cleared before they are filled**, for the reason the archive's was: a map that
+       stops being a file leaves its last `.gz` behind otherwise, and a published folder is the thing that
+       gets deployed — so it would go on being served, unlisted and never asked for, for ever. -->
   <Target Name="ListTheTownData" AfterTargets="Build"
           DependsOnTargets="NameTheArtPack;SqueezeTheTowns;PackTheArt;ForgetTheOldLinks">
     <WriteLinesToFile File="$(OutDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownPlan->'%(Identity).gz')" />
-    <RemoveDir Directories="$(OutDir)wwwroot/assets" />
+                      Lines="@(TownPlan->'%(Identity).gz');@(TownBrief->'%(Identity)')" />
+    <RemoveDir Directories="$(OutDir)wwwroot/assets;$(OutDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(OutDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(OutDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')"
+    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz');@(TownBrief)"
           DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="PublishTheTownData" AfterTargets="Publish"
           DependsOnTargets="NameTheArtPack;SqueezeTheTowns;PackTheArt;ForgetTheOldLinks">
     <WriteLinesToFile File="$(PublishDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownPlan->'%(Identity).gz')" />
-    <RemoveDir Directories="$(PublishDir)wwwroot/assets" />
+                      Lines="@(TownPlan->'%(Identity).gz');@(TownBrief->'%(Identity)')" />
+    <RemoveDir Directories="$(PublishDir)wwwroot/assets;$(PublishDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(PublishDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(PublishDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')"
+    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz');@(TownBrief)"
           DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 

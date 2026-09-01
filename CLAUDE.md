@@ -88,7 +88,7 @@ rules bind all of it.
 
 **No document holds a list of what is unbuilt.** Such a list is stale the week after it is written: the
 instruments report it instead — the last line of `--bench maneuvers` is the set of catalogue entries
-nothing entered. The two absences big enough to be structural are named in
+nothing entered. Any absence big enough to be structural is named in
 [docs/index.md](docs/index.md#known-gaps).
 
 ## Verification

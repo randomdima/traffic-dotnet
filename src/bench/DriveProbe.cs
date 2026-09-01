@@ -42,7 +42,7 @@ internal static class DriveProbe
             $"{"corner",8}{"line end",10}{"headway",9}{"granted",9}{"waiting",9}{"crossing",10}{"manoeuvre",11}{"lost",7}" +
             $"{"covered m",11}{"stuck",7}{"arrived",9}");
 
-        foreach (var map in ProjectPaths.ShippedMaps())
+        foreach (var map in Maps.Shipped())
         {
             var sample = Sample(map, config);
             Console.WriteLine(

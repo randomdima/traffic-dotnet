@@ -2,6 +2,7 @@ using System.Diagnostics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
@@ -79,9 +80,12 @@ internal static class Warmup
         _warm = true;
         SolverProbe.WarmTheProcess(config);
 
-        // The heaviest shipped town, because what is being warmed is the code the busiest map runs and a
-        // path only reached by a crowd is one the JIT would otherwise first see inside a measured window.
-        var plan = TownReader.ReadFile(ProjectPaths.TownFile(ProjectPaths.ShippedMaps()[0]));
+        // The fixture, because what is being warmed is the code a town with a crowd on it runs — queueing,
+        // giving way, bodies in contact — and a path only reached by a crowd is one the JIT would
+        // otherwise first see inside a measured window. It is named rather than taken off the front of the
+        // list: whichever map that happened to be was never a choice anybody made, and a city here would
+        // be its whole generation paid twice over for a warm-up.
+        var plan = Maps.Plan(Maps.Fixture, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
 

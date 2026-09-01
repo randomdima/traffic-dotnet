@@ -48,7 +48,7 @@ internal static class SignalProbe
             $"{"crossing against a road",24}{"reckless",10}{"red bars crossed",18}{"kerb waits",12}" +
             $"{"begun on red",14}{"given way at a kerb",21}{"crossings given back",22}");
 
-        foreach (var map in ProjectPaths.ShippedMaps())
+        foreach (var map in Maps.Shipped())
         {
             var sample = Sample(map, config);
             Console.WriteLine(

@@ -16,6 +16,12 @@ internal static class ProjectPaths
     /// <summary>The tunable figures, read once at startup and injected from the composition root.</summary>
     public static string SharedFiguresFile => Path.Combine(Assets, "shared", "config", "SimConfig.json");
 
+    /// <summary>
+    /// A town still carried as a file rather than laid in code or generated from a brief — the two
+    /// fixtures, and nothing else. <b>Only the map list asks for it</b>: which maps exist and where each
+    /// comes from is that list's to answer, and a caller that read the folder instead would be a second
+    /// map list, stale the day a town stops being a file.
+    /// </summary>
     public static string TownFile(string map) => Path.Combine(Towns, map + ".town");
 
     /// <summary>What a city is authored as: a seed and the intent, from which the town itself is generated.</summary>
@@ -82,15 +88,6 @@ internal static class ProjectPaths
     /// </summary>
     public static string LampAtlasFile() =>
         Path.Combine(Assets, "agents", "car", "variants", "common", "lamp_atlas" + Sheet);
-
-    /// <summary>The map list is the <c>towns/</c> folder itself, so a map cannot be shipped and unlisted.</summary>
-    public static string[] ShippedMaps()
-    {
-        var maps = Directory.GetFiles(Towns, "*.town");
-        for (var i = 0; i < maps.Length; i++) maps[i] = Path.GetFileNameWithoutExtension(maps[i]);
-        Array.Sort(maps, StringComparer.Ordinal);
-        return maps;
-    }
 
     static string FindRoot()
     {

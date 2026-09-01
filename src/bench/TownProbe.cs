@@ -44,8 +44,8 @@ internal static class TownProbe
         // (<see cref="Warmup"/>), or the first row is a measurement of the JIT.
         Warmup.TheProcess(config);
 
-        var samples = new TownSample[ProjectPaths.ShippedMaps().Length];
-        var maps = ProjectPaths.ShippedMaps();
+        var maps = Maps.Shipped();
+        var samples = new TownSample[maps.Length];
         for (var map = 0; map < maps.Length; map++)
         {
             var sample = Sample(maps[map], config);

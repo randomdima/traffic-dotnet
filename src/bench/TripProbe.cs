@@ -40,7 +40,7 @@ internal static class TripProbe
             $"{"map",-10}{"walkers",9}{"cars",6}{"drawn",8}{"drive",7}{"boarded",9}{"parked",8}{"got out",9}" +
             $"{"entered",9}{"full",6}{"given up",10}{"down",6}{"wrecked",9}");
 
-        foreach (var map in ProjectPaths.ShippedMaps())
+        foreach (var map in Maps.Shipped())
         {
             var sample = Sample(map, config);
             Console.WriteLine(

@@ -80,7 +80,7 @@ internal static class SoakProbe
             $"{"drives done",13}{"touches",9}{"peak mm",10}{"peak body",12}{"stuck ticks",13}{"stuck body",12}" +
             $"{"past mm",10}{"drove on",10}{"drove body",12}");
 
-        var maps = ProjectPaths.ShippedMaps();
+        var maps = Maps.Shipped();
         var watched = new TownWatch[maps.Length];
         for (var map = 0; map < maps.Length; map++)
         {

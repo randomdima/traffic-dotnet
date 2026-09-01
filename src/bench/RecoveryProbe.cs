@@ -89,7 +89,7 @@ internal static class RecoveryProbe
             $"{"restored",10}{"given up",10}{"yard full",11}{"reached s",11}{"yard s",9}{"mended s",10}" +
             $"{"nearest m",11}{"at rest m",11}{"doing there",20}{"towed m",10}{"stretch m",11}{"ended in",13}");
 
-        foreach (var map in ProjectPaths.ShippedMaps())
+        foreach (var map in Maps.Shipped())
         {
             var row = Sample(map, config);
             Console.WriteLine(

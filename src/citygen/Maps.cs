@@ -24,6 +24,14 @@ namespace TrafficSimulation.CityGen;
 /// </remarks>
 internal static class Maps
 {
+    /// <summary>
+    /// The map every detailed check is staged on: one screen, one of every kind of ground, furnished
+    /// thinly and with a crowd on it. <b>Named here because this is where a name becomes a town</b> —
+    /// the suite, the warm-up and the command line's own default all mean this one map, and three
+    /// spellings of it is two chances to mean a different one.
+    /// </summary>
+    public const string Fixture = "Test";
+
     /// <summary>The maps laid in code, each against the name it carries.</summary>
     static readonly (string Name, Func<SimConfig, CityPlan> Lay)[] Laid =
     [
@@ -35,12 +43,24 @@ internal static class Maps
         (IdlePlan.Name, IdlePlan.Lay),
     ];
 
+    /// <summary>
+    /// The two towns still carried as files rather than laid in code or generated from a brief: the
+    /// fixture, and the crossings map. Neither may move when the generator does, which is why they are
+    /// still files — and both are on their way to being laid in code.
+    /// </summary>
+    /// <remarks>
+    /// <b>Named and not found.</b> Which maps exist is this class and never the <c>towns/</c> folder, so a
+    /// map cannot appear because somebody left a file there and cannot vanish because one was moved: the
+    /// day a fixture is laid in code, the name comes off this list and everything above carries on.
+    /// </remarks>
+    static readonly string[] Filed = [Fixture, "Zebras"];
+
     /// <summary>Every map there is, in name order: the briefs on disk, the maps laid in code, and the fixtures still carried as files.</summary>
     public static string[] Shipped()
     {
         var names = new List<string>(ProjectPaths.TownBriefs());
         foreach (var (name, _) in Laid) names.Add(name);
-        names.AddRange(ProjectPaths.ShippedMaps());
+        names.AddRange(Filed);
         names.Sort(StringComparer.Ordinal);
         return [.. names];
     }
@@ -76,11 +96,9 @@ internal static class Maps
 
         if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config, roofsM);
 
-        // The two fixtures still arrive as files — the ground every detailed check is staged on, and the
-        // crossings map. Neither may move when the generator does, so both are on their way to being laid in
-        // code rather than generated.
-        var file = ProjectPaths.TownFile(name);
-        if (File.Exists(file)) return TownReader.ReadFile(file);
+        // And the two fixtures, off the list above rather than off whatever is in the folder: a name that
+        // is not on it is not a map, even where a file of that name happens to be lying there.
+        if (Array.IndexOf(Filed, name) >= 0) return TownReader.ReadFile(ProjectPaths.TownFile(name));
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

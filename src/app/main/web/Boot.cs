@@ -47,11 +47,11 @@ try
     async Task Open(string map, bool behindTheMenu = false)
     {
         // The plan is asked for first and read last: it comes down the wire while the art is being
-        // decoded on the processor, and neither of them is waiting on the other.
+        // decoded on the processor, and neither of them is waiting on the other. For a city there is
+        // nothing on the wire at all — its brief came down at boot and the town is generated below.
         Data.Expect(map);
         await Data.Art(Say);
-        Say($"fetching {map}…");
-        await Data.Town(map);
+        await Data.Town(map, Say);
         Say($"standing {map} up…");
         game.Start(map, behindTheMenu);
         Say(string.Empty);

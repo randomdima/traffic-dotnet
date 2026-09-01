@@ -179,7 +179,8 @@ browser run may wait — fetches the plan and stands the town up
 ```
 src/        every line of C#, and nothing else — the nine slices below
   core/     the kernel: config, geometry, persistence, simulation — and nothing that knows about a town
-  citygen/  the city plan as pure data: its structure, its cell vocabulary, its .town reader
+  citygen/  the city plan as pure data: its structure, its cell vocabulary, and gen/ — the generator
+            that lays one from a brief
   world/    terrain, road, foot, routing, physics, containment, statics, parking, town
   agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the maneuvers:
             one file per entry of the closed catalogue (src/agents/car/maneuvers/docs/index.md)
@@ -189,7 +190,8 @@ src/        every line of C#, and nothing else — the nine slices below
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not
 assets/     the art and the .json data read at startup, mirroring the code tree
-towns/      exported .town files — the simulation's input
+towns/      a city's brief — the seed and the intent it is generated from, a few hundred bytes each —
+            and the two fixtures still carried as baked .town files
 bin/, obj/  build output — the only folders at the root the project file writes
 ```
 

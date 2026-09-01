@@ -359,7 +359,7 @@ internal static class Program
                           $"{plan.Roads.Count} roads, {plan.Buildings.Count} buildings, {plan.Props.Count} props, {plan.Spawns.Count} spawns");
         Console.WriteLine($"{"",-9}ground laid as {mesh.Indices.Length / 3} triangles in {laid.TotalMilliseconds:F0} ms; " +
                           $"the first spawn stands on {ground.Ground} ({ground.Rules})");
-        Console.WriteLine($"{"",-9}maps on disk: {string.Join(", ", ProjectPaths.ShippedMaps())}");
+        Console.WriteLine($"{"",-9}maps this build knows: {string.Join(", ", Maps.Shipped())}");
     }
 
     /// <summary>

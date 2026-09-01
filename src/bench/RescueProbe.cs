@@ -85,7 +85,7 @@ internal static class RescueProbe
             $"{"given up",10}{"door full",11}{"reached s",11}{"door s",9}{"nearest m",11}{"at rest m",11}" +
             $"{"doing there",20}{"loaded s",10}{"in reach s",12}{"top mps",9}{"off lane m",12}{"ended in",14}");
 
-        foreach (var map in ProjectPaths.ShippedMaps())
+        foreach (var map in Maps.Shipped())
         {
             var row = Sample(map, config);
             Console.WriteLine(

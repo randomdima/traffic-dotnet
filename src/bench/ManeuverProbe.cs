@@ -33,7 +33,7 @@ internal static class ManeuverProbe
             $"manoeuvre trace — {WarmupTicks} warm-up ticks, {MeasuredTicks} measured " +
             $"({MeasuredTicks / config.Sim.TickRateHz} s), {config.Solver.VelocityIterations} solver iterations");
 
-        foreach (var map in ProjectPaths.ShippedMaps()) Trace(map, config);
+        foreach (var map in Maps.Shipped()) Trace(map, config);
 
         Console.WriteLine(
             $"The blocked-road clock is {config.CarBlockedRoadS:F0} s and the short fuse a car standing across a lane " +

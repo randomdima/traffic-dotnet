@@ -86,10 +86,8 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 
 ## Known gaps
 
-Two absences that are gaps rather than decisions, and neither is silent:
+One absence that is a gap rather than a decision, and it is not silent:
 
-- **No generator.** Towns arrive as `.town` files, so `GEN-2`, `GEN-3` and `GEN-5…8` bind whatever
-  exported them — [citygen](../src/citygen/docs/decision-log.md).
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

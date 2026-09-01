@@ -2,8 +2,8 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
+using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
@@ -209,10 +209,10 @@ internal static class TrackProbe
     /// </summary>
     public static LapWatch Measure(SimConfig config, TrackLap lap = TrackLap.Pacing)
     {
-        // The map on disk and not the plan in hand: what is measured is the town every other reader gets,
-        // and the lap is laid from those same figures, so the two cannot drift apart.
+        // The map by name and not a plan laid here: what is measured is the town every other reader gets,
+        // through the one list that turns a name into one, so the two cannot drift apart.
         using var world = new TownWorld(
-            TownReader.ReadFile(ProjectPaths.TownFile(TrackPlan.NameOf(lap))), config);
+            Maps.Plan(TrackPlan.NameOf(lap), config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
         var loop = new SimLoop<TownWorld>(world, config);
         var watch = lap == TrackLap.Fleet
             ? new FleetWatch(config, world)

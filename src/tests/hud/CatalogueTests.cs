@@ -110,7 +110,7 @@ public class CatalogueTests
     public void EveryWordAClaimDrawsIsPrintableAscii()
     {
         var config = SimConfig.Shipped();
-        foreach (var map in ProjectPaths.ShippedMaps())
+        foreach (var map in Maps.Shipped())
         {
             using var world = new TownWorld(Towns.Of(map), config);
             foreach (var watch in Scenarios.For(world, config))
