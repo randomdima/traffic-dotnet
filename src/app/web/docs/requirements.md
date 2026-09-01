@@ -204,6 +204,11 @@ and there is nothing in the page to find. **The drag is a finger and not a held 
 handset scrolls a panel by dragging it and pinches the camera with two, and neither is a gesture a click
 can stand in for, so this is the only way either is ever driven.
 
+**And `--device W,H` is the machine the page is hardest on.** A desktop browser sized down to a phone's
+width is not a phone: it reports its own pixel ratio, and the ratio is half of what `OBS-2k` answers — so
+the one window where the interface is laid out on something other than the display's own factor is the one
+window a plain `--shot` cannot show. The picture is the check here as everywhere else.
+
 **`qq web --debug` is the same page in ten seconds**, and it is the loop the boot is worked on in: a
 plain build lays the identical tree (WEB-7), so everything a page fetches, unpacks, decodes and stands
 up is there to be watched. **What it does not reproduce is any clock at all** — nothing is compiled

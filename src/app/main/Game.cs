@@ -392,6 +392,11 @@ internal sealed partial class Game : IDisposable
         // not also a way of selecting that car.
         var taken = _ui.Click(atPx, _uiPx, button == MouseButton.Left, playing, _camera, out var choice);
 
+        // OBS-2l: the window is the runtime's, so the button says somebody asked and this is where it is
+        // done — the same call F11 makes, from the frame the press arrived in so the browser still counts
+        // it as something the reader did.
+        if (_ui.TakeScreenAsked()) _window.ToggleFullscreen();
+
         // Unticking the box drops the tapes with it, which is one of the two ways OBS-2f says they go
         // — the other is a right-click, and the ruler handles that itself.
         if (!_ui.Switches.Ruler) _ui.Ruler.Clear();

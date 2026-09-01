@@ -30,12 +30,27 @@ internal static class Chrome
         new(GearAt(uiPx).AtPx - new Vector2(Theme.GearPx + Theme.GapPx, 0f), new Vector2(Theme.GearPx));
 
     /// <summary>
+    /// The screen, filled and given back — <c>F11</c> for a reader who has not got one (OBS-2l). <b>It is
+    /// the one corner button drawn under the start menu</b> (GEN-1b): the gear and the question mark are
+    /// about a town and there is none yet, where this is about the window a town will stand in — and a
+    /// handset is at its smallest exactly while somebody is choosing on it.
+    /// </summary>
+    /// <param name="atTheStart">
+    /// Whether it is the only button on screen, in which case it stands in the corner the gear would have.
+    /// A lone button third along, with two empty places beside it, reads as two buttons that failed to draw.
+    /// </param>
+    public static Rect ScreenAt(Vector2 uiPx, bool atTheStart) => atTheStart
+        ? GearAt(uiPx)
+        : new Rect(HelpAt(uiPx).AtPx - new Vector2(Theme.GearPx + Theme.GapPx, 0f), new Vector2(Theme.GearPx));
+
+    /// <summary>
     /// The compass beside the two of them, which is <b>drawn only while the town is turned</b> (OBS-1c)
     /// and puts it back north-up when it is pressed. A compass on a town already north-up is a button
     /// that does nothing, and the needle standing straight up is the whole of what it would say.
     /// </summary>
     public static Rect CompassAt(Vector2 uiPx) =>
-        new(HelpAt(uiPx).AtPx - new Vector2(Theme.GearPx + Theme.GapPx, 0f), new Vector2(Theme.GearPx));
+        new(ScreenAt(uiPx, atTheStart: false).AtPx - new Vector2(Theme.GearPx + Theme.GapPx, 0f),
+            new Vector2(Theme.GearPx));
 
     /// <param name="turnRad">How far the town is turned on screen, which is what the needle answers.</param>
     public static void Draw(
@@ -45,6 +60,31 @@ internal static class Chrome
 
         Corner(ref draw, HelpAt(uiPx), pointerPx, "?", helpOpen);
         Corner(ref draw, GearAt(uiPx), pointerPx, "=", menuOpen);
+    }
+
+    /// <summary>
+    /// The screen button, which is drawn on its own because it is drawn under the start menu as well
+    /// (<see cref="ScreenAt"/>). <b>It says nothing about its own state and the other two do</b>: a popup
+    /// is hidden behind its button where a window filling the screen is the thing being looked at.
+    /// </summary>
+    public static void DrawScreen(ref ScreenDraw draw, Vector2 uiPx, Vector2 pointerPx, bool atTheStart)
+    {
+        var box = ScreenAt(uiPx, atTheStart);
+        Theme.Face(ref draw, box, pointerPx, Theme.Panel);
+
+        // Corner brackets rather than a glyph: the sheet is printable ASCII, which has no mark that reads
+        // as a screen, and a rectangle drawn whole reads as a box rather than as the edges of one.
+        var inner = box.Inset(BracketInsetPx);
+        for (var corner = 0; corner < 4; corner++)
+        {
+            var right = (corner & 1) != 0;
+            var down = (corner & 2) != 0;
+            var atPx = new Vector2(right ? inner.Right : inner.AtPx.X, down ? inner.Bottom : inner.AtPx.Y);
+            var armPx = new Vector2(right ? -BracketArmPx : BracketArmPx, down ? -BracketArmPx : BracketArmPx);
+
+            draw.LinePx(atPx, atPx + new Vector2(armPx.X, 0f), BracketWidthPx, Theme.Heading);
+            draw.LinePx(atPx, atPx + new Vector2(0f, armPx.Y), BracketWidthPx, Theme.Heading);
+        }
     }
 
     /// <summary>
@@ -76,4 +116,10 @@ internal static class Chrome
 
     const float NeedleInsetPx = 7f;
     const float NeedleWidthPx = 2.5f;
+
+    /// <summary>How far inside the button the brackets stand, and how long each arm of one is.</summary>
+    const float BracketInsetPx = 8f;
+
+    const float BracketArmPx = 5f;
+    const float BracketWidthPx = 2f;
 }

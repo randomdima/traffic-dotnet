@@ -323,6 +323,26 @@ public class MenuLayoutTests
     }
 
     /// <summary>
+    /// <b>OBS-2k — no panel is ever wider than the window.</b> A handset is laid out at the display's own
+    /// density and so on fewer interface pixels than the popup's widest row wants; the rows are laid
+    /// narrower rather than the panel hanging off the edge of the glass.
+    /// </summary>
+    [Fact]
+    public void APanelWiderThanTheWindowIsLaidNarrowerThanItsRowsWant()
+    {
+        var handset = new Vector2(360f, 780f);
+        var menu = Laid(handset);
+
+        Assert.True(
+            menu.Box.AtPx.X >= 0f && menu.Box.Right <= handset.X,
+            $"the panel runs {menu.Box.AtPx.X} to {menu.Box.Right} of {handset.X}");
+
+        Assert.True(
+            menu.Box.SizePx.X < Laid(Window).Box.SizePx.X,
+            "the panel was laid at the width its rows wanted anyway");
+    }
+
+    /// <summary>
     /// <b>The row that is drawn and the switch that is toggled are the same one.</b> They were two
     /// switch statements, and a layer inserted in the middle of the list toggled its neighbour.
     /// </summary>

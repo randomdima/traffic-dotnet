@@ -228,6 +228,14 @@ internal sealed class Interface(TrimFigures trims)
     {
         choice = MenuChoice.None;
 
+        // Before everything, because it is the one button drawn on both screens (OBS-2l) — and before the
+        // panel, since at the start it stands in the corner the gear would have had.
+        if (Chrome.ScreenAt(uiPx, Menu.AtTheStart).Contains(atPx))
+        {
+            _screenAsked |= primary;
+            return ClickTaken.Yes;
+        }
+
         // The start menu owns the screen: the buttons it would hang off are not drawn, and a click
         // anywhere but on the panel is swallowed rather than dismissing it.
         if (Menu.AtTheStart)
@@ -293,6 +301,21 @@ internal sealed class Interface(TrimFigures trims)
 
     /// <summary>Whether the pointer is over a panel that would rather have the wheel than the camera.</summary>
     public bool WheelIsThePanels(Vector2 atPx) => Menu.Open && Menu.Box.Contains(atPx);
+
+    /// <summary>
+    /// Whether the screen button has been pressed since this was last asked (OBS-2l). <b>Taken rather than
+    /// read, because it is an edge and not a state</b> — and the window is the runtime's, so what the
+    /// interface can do about it is say that somebody asked.
+    /// </summary>
+    public bool TakeScreenAsked()
+    {
+        if (!_screenAsked) return false;
+
+        _screenAsked = false;
+        return true;
+    }
+
+    bool _screenAsked;
 
     /// <summary>The town has changed under everything that held a place in it.</summary>
     /// <param name="behindTheMenu">
@@ -386,6 +409,10 @@ internal sealed class Interface(TrimFigures trims)
         {
             Chrome.Draw(ref draw, frame.UiPx, frame.PointerPx, Menu.Open, Controls.Open, frame.Camera.TurnRad);
         }
+
+        // OBS-2l: the screen button is drawn on both, which is why it is not one of the three above. A
+        // handset is at its smallest while somebody is still choosing a map on it.
+        Chrome.DrawScreen(ref draw, frame.UiPx, frame.PointerPx, Menu.AtTheStart);
 
         // Last of all, over the furniture as well as the layers.
         if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches, Trims);

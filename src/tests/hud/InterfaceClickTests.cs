@@ -218,4 +218,24 @@ public class InterfaceClickTests
         ui.Menu.Shut();
         Assert.False(ui.WheelIsThePanels(Middle(ui.Menu.Box)));
     }
+
+    /// <summary>
+    /// <b>OBS-2l — the screen button is the one corner button the start menu draws</b>, and there it stands
+    /// in the corner the gear would have had. A reader with no <c>F11</c> is on a handset, and a handset is
+    /// at its smallest exactly while a map is being chosen on it.
+    /// </summary>
+    [Fact]
+    public void TheScreenButtonIsAskedForOnBothMenus()
+    {
+        var running = Running();
+        Assert.Equal(ClickTaken.Yes, Click(running, Middle(Chrome.ScreenAt(Window, atTheStart: false))));
+        Assert.True(running.TakeScreenAsked());
+
+        // Taken rather than read: the window is filled once for a press and not every frame after it.
+        Assert.False(running.TakeScreenAsked());
+
+        var start = AtTheStart();
+        Assert.Equal(ClickTaken.Yes, Click(start, Middle(Chrome.ScreenAt(Window, atTheStart: true))));
+        Assert.True(start.TakeScreenAsked());
+    }
 }

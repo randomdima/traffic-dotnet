@@ -25,6 +25,28 @@ internal sealed partial class Menu
         - ChromeHeightPx(atTheStart: true));
 
     /// <summary>
+    /// And what it is never shorter than, whatever the field comes to: <b>a group's own header and the
+    /// tallest map under it</b>. On a handset the field is a fifth of a tall screen and one wrapped
+    /// description is taller than that, which laid a panel carrying a heading and a band of empty panel —
+    /// a menu of no maps at all. The panel stands over the road there, which is what its own width already
+    /// does: the title and the way out are wider than the field on that window too.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the tallest row and not the first</b>, so this is one size like everything else about this
+    /// panel: opening a group cannot change it, and neither can scrolling to a longer description.
+    /// </remarks>
+    float LeastStartRoomPx()
+    {
+        var tallestPx = 0f;
+        for (var row = 0; row < _rowCount; row++)
+        {
+            if (_rowGroup[row] < 0) tallestPx = MathF.Max(tallestPx, HeightOfRow(row));
+        }
+
+        return tallestPx > 0f ? Theme.RowPx + Theme.GapPx + tallestPx : LinePitchPx;
+    }
+
+    /// <summary>
     /// And the room the popup lays its rows in, off <b>how far down the window it may reach</b>
     /// (<see cref="PopupHeightShare"/>) rather than off how many rows it has. <b>It never reaches less far
     /// than its own fixed page needs</b> — the switches are laid at a pitch rather than scrolled, so a
@@ -248,9 +270,14 @@ internal sealed partial class Menu
         // **The width is settled before the heights**, because on the start menu a description wraps to it
         // and a row is as tall as the lines that wrap came to. The popup's own width is what its widest row
         // wants, which is a measurement of the rows and not of the panel.
+        //
+        // **The window is the last word** (OBS-2k): what the rows want is what they are laid at until the
+        // window has not got it, and then they are laid narrower. A panel that held its wanted width on a
+        // window too narrow for it would be a panel with an edge off the glass — which is what the density
+        // used to be dropped to prevent, at the cost of an interface nobody could read on a handset.
         var contentWidthPx = MathF.Min(
             WidestContentPx(uiPx) + Theme.InsetPx * 2f + ScrollBarPx + Theme.GapPx,
-            MathF.Max(LeastContentPx, uiPx.X - Theme.MarginPx * 2f - Theme.PaddingPx * 2f));
+            uiPx.X - (Theme.MarginPx * 2f) - (Theme.PaddingPx * 2f));
 
         // The bar's room comes off the rows on every start-menu lay, scrolling or not: a description that
         // rewrapped the moment the list grew past the window is a panel that changes shape as it is read.
@@ -259,7 +286,9 @@ internal sealed partial class Menu
         // **The rows answer to the window rather than the window to them.** A list of maps on a short
         // display grew the panel straight off the bottom of the screen, which is a menu hiding the
         // thing it was written to expose; what does not fit scrolls.
-        var roomPx = AtTheStart ? StartRoomPx(uiPx) : PopupRoomPx(uiPx, anchor);
+        var roomPx = AtTheStart
+            ? MathF.Max(StartRoomPx(uiPx), LeastStartRoomPx())
+            : PopupRoomPx(uiPx, anchor);
 
         _firstRow = Math.Clamp(_firstRow, 0, Math.Max(0, _rowCount - 1));
         while (_firstRow > 0 && HeightFrom(_firstRow - 1) <= roomPx) _firstRow--;

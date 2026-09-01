@@ -46,6 +46,47 @@ is a mis-click that does not lose a running game; behind the start menu nothing 
 reader is at it for is the catalogue. Which groups are open is set on each of the two transitions rather
 than left as whatever the last panel was showing, so each menu reads the way its own rule says.
 
+## The panel gives way to the window, not the density to the panel
+
+The cap read the other way round: the interface was laid out on no fewer pixels than the widest panel
+wanted, and a window with fewer than that was drawn denser to make them. On a desktop it never bound, so
+it looked free. On a handset it bound every time — 360 points at three device pixels each is 1080, the
+panels wanted 560 interface pixels across, and what came back was an interface pixel worth two thirds of a
+point. **Every label on the screen was two thirds of the size it was drawn at**, which is a millimetre and
+a half of cap height on the one device where a reader is holding the glass rather than sitting back from
+it. The panels fitted, and nobody could read them.
+
+So the order is reversed. A panel wider than the window is laid narrower — the rows already wrap and the
+lines already cut, so there was nothing to invent — and the floor that remains is the narrowest window the
+panels are laid out for at all, well under any phone. It binds where there is genuinely nothing left to
+give: a window narrow enough that a glyph would be drawn under a pixel is one where a smaller panel buys
+nothing, and the least bad answer is to draw fewer, larger pixels and let the panel run to the edges.
+
+**A desktop window is untouched**, which is the point of naming a floor rather than a preference: the old
+figure was reached on a phone and the new one is not reached anywhere, so every reference frame is the
+picture it already was.
+
+## The screen button is a lever and the other two are switches
+
+`F11` fills the screen, and a handset has no `F11`. It is also the machine where filling it is worth most:
+the browser's own furniture is a third of a screen that is already small, and the town underneath is the
+whole reason the page was opened.
+
+**It is the one corner button drawn under the start menu**, where the gear and the question mark are not.
+Those two are about a town — one opens what is already open there, the other explains keys no town is
+listening for yet — and this one is about the window a town will stand in. The screen is at its smallest
+exactly while somebody is still choosing on it, so a button that appeared only after a map was picked
+would arrive one screen too late. It stands in the corner there rather than third along: a lone button
+with two empty places beside it reads as two buttons that failed to draw.
+
+**And it says nothing about its own state.** The other two say whether their popup is showing, because a
+popup is hidden behind its own button; a window filling the screen is the thing being looked at, and a
+button that reported it would be answering a question the screen has already answered.
+
+**The mark is drawn and not written.** The glyph sheet is printable ASCII and has no character that reads
+as a screen, so the button carries four corner brackets drawn as lines — the same way the compass carries a
+needle rather than an arrow glyph.
+
 ## A list is scrolled by dragging it, and a row is picked on the way up
 
 The only scroll the menu had was the wheel, so on a handset the start menu was a catalogue with a bottom

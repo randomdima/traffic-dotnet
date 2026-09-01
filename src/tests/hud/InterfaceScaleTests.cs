@@ -6,9 +6,9 @@ using Xunit;
 namespace TrafficSimulation.Tests.Hud;
 
 /// <summary>
-/// OBS-2k: how dense the interface is drawn. <b>The display's own factor until the panels would run off
-/// the glass</b>, and then whatever leaves them on it — which is the whole of what makes the same
-/// interface readable on a desktop and usable on a handset.
+/// OBS-2k: how dense the interface is drawn. <b>The display's own factor, so a label keeps the size it
+/// was designed at</b> — a panel that wants more room than the window has is laid narrower instead, and
+/// only a window narrower than the panels are laid for at all takes the density down with it.
 /// </summary>
 /// <remarks>
 /// It is beside <see cref="PointerSpaceTests"/> because it is the other half of the same question: that
@@ -33,27 +33,41 @@ public class InterfaceScaleTests
     }
 
     /// <summary>
-    /// And a handset is: three device pixels to the point over a 390-point viewport is 390 interface
-    /// pixels across, and the menu alone is wider than that. What comes back is the density that leaves
-    /// the window exactly as many interface pixels as the panels were laid for.
+    /// <b>And nor is a handset</b>, which is the whole of what OBS-2k is for: three device pixels to the
+    /// point over a 390-point viewport is 390 interface pixels across, the panels are laid to that, and the
+    /// label is written at the size it was drawn at rather than at two thirds of it.
     /// </summary>
     [Fact]
-    public void AHandsetComesDownToWhatThePanelsNeed()
+    public void AHandsetKeepsItsOwnDensityAndTheLabelItsSize()
     {
         var framebufferPx = new Vector2(1170f, 2532f);
 
-        var scale = Fitted(displayScale: 3f, framebufferPx);
-
-        Assert.True(scale < 3f, "a handset was laid out at its own device pixel ratio");
-        Assert.Equal(LeastUiPx.X, framebufferPx.X / scale, tolerance: 1e-2f);
-        Assert.True(framebufferPx.Y / scale >= LeastUiPx.Y, "the short side was fitted and the long one was not");
+        Assert.Equal(3f, Fitted(displayScale: 3f, framebufferPx));
+        Assert.True(framebufferPx.X / 3f >= LeastUiPx.X, "a phone is narrower than the interface is laid for");
     }
 
-    /// <summary>The other way up: a phone on its side is capped by its height rather than its width.</summary>
+    /// <summary>
+    /// <b>Below the narrowest window the panels are laid for, the density gives way instead.</b> There is
+    /// nothing left to lay a panel narrower into: a label drawn under a pixel a glyph is not a label, so
+    /// what comes back is the density that leaves the window exactly the interface it is laid for.
+    /// </summary>
+    [Fact]
+    public void AWindowNarrowerThanThePanelsAreLaidForTakesTheDensityDown()
+    {
+        var framebufferPx = new Vector2(600f, 900f);
+
+        var scale = Fitted(displayScale: 3f, framebufferPx);
+
+        Assert.True(scale < 3f, "a window narrower than the interface was laid out at its own ratio");
+        Assert.Equal(LeastUiPx.X, framebufferPx.X / scale, tolerance: 1e-2f);
+        Assert.True(framebufferPx.Y / scale >= LeastUiPx.Y, "the short side bound and the long one did not");
+    }
+
+    /// <summary>The other way up: a window on its side is bound by its height rather than its width.</summary>
     [Fact]
     public void WhicheverSideIsShortIsTheOneThatBinds()
     {
-        var framebufferPx = new Vector2(2532f, 1170f);
+        var framebufferPx = new Vector2(900f, 600f);
 
         var scale = Fitted(displayScale: 3f, framebufferPx);
 

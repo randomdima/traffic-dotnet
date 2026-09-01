@@ -107,13 +107,14 @@ internal sealed class ViewFigures
     public float PointerDragPx { get; init; } = 6f;
 
     /// <summary>
-    /// The window the interface is never laid out on fewer pixels than (OBS-2k). <b>It is what the
-    /// panels need and not what a display has</b>: the density is the display's own factor until the
-    /// widest panel would run off the edge, and then it is whatever leaves that panel on the glass.
+    /// The window the interface is never laid out on fewer pixels than (OBS-2k). <b>It is the narrowest
+    /// window the panels are still laid out for and not the width they would like</b>: a panel narrower
+    /// than its rows want is laid narrower, and only below this does the density give way instead — the
+    /// point past which a label is drawn under a pixel a glyph and there is nothing left to read.
     /// </summary>
-    public float InterfaceLeastWidthPx { get; init; } = 560f;
+    public float InterfaceLeastWidthPx { get; init; } = 360f;
 
-    public float InterfaceLeastHeightPx { get; init; } = 420f;
+    public float InterfaceLeastHeightPx { get; init; } = 300f;
 }
 
 /// <summary>

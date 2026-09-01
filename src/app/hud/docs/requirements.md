@@ -165,24 +165,36 @@ zoom does not resize the interface and a scale factor does not have to be thread
 measurement. A pointer position is converted **once**, at the boundary, and everything downstream is in
 one space. A turned town does not turn them either (`OBS-1c`): they are the reader's furniture.
 
-**OBS-2k — The interface is never laid out on fewer pixels than the panels need.** How dense an interface
-pixel is drawn is the display's own factor — a 4K screen would otherwise write a 15-pixel label at a third
-of its designed size — **capped by what fits**: past the point where the window would hold fewer interface
-pixels than the widest panel is wide, it is whatever leaves that panel on the glass.
+**OBS-2k — A label is drawn at the size it was designed, and it is the panel that gives way.** How dense an
+interface pixel is drawn is the display's own factor — a 4K screen would otherwise write a 15-pixel label
+at a third of its designed size, and a handset reporting three device pixels to the point would write it at
+two thirds. **Where a panel wants more room than the window has, the panel is laid narrower**, and the
+density is left where the display put it.
 
-- **The cap is a size in interface pixels and not a device to detect.** A handset reporting three device
-  pixels to the point over a 390-point viewport and a desktop window dragged down to a strip are the same
-  problem, and there is one answer to it.
-- **Both sides bind**, so a handset held either way up is fitted by whichever of them is short.
-- **An ordinary window is not capped at all**, which is what keeps a reference frame the picture it was:
-  the cap is reached where the panels would not fit, and on a desktop they fit several times over.
-- **`--ui-scale` is not capped.** Naming one at all says the guess underneath was wrong, and a figure
-  asked for and then quietly moved is a switch that does nothing.
-- **The town is unaffected either way.** The camera opens on a span in metres, so what changes is how much
-  of the window the chrome is worth and nothing about what is being looked at.
-- **And no panel is ever wider than the window.** The cap answers the density and not the layout, so a
-  panel as wide as its own widest row is still laid to the window when the window is narrower than that:
-  what does not fit is cut where the line is drawn and reads as a line with more behind it.
+- **The floor under it is the narrowest window the panels are still laid out for**, not the width they
+  would like: below that the interface is laid denser than the display asked, on the argument that a label
+  drawn under a pixel a glyph is not a label. It is a size in interface pixels and not a device to detect —
+  a handset and a desktop window dragged down to a strip are the same problem and get the same answer — and
+  **both sides bind**, so a window held either way up is fitted by whichever of them is short.
+- **An ordinary window never reaches it**, which is what keeps a reference frame the picture it was.
+- **`--ui-scale` is not floored either.** Naming one at all says the guess underneath was wrong, and a
+  figure asked for and then quietly moved is a switch that does nothing.
+- **The town is unaffected.** The camera opens on a span in metres, so what changes is how much of the
+  window the chrome is worth and nothing about what is being looked at.
+- **And no panel is ever wider than the window.** A panel as wide as its own widest row is still laid to
+  the window when the window is narrower than that: what does not fit is cut where the line is drawn, or
+  wrapped where the panel wraps, and reads as a line with more behind it.
+
+**OBS-2l — The window fills the screen from a button as well as from a key.** `F11` is the key and it is on
+the legend; the button is the same lever for a reader who has not got one, which on a handset is every
+reader — and a handset is where it is worth most, since the browser's own furniture is a third of a screen
+that is already small.
+
+- **It is the one corner button drawn under the start menu** (`GEN-1b`), and it stands in the corner there.
+  The gear and the question mark are about a town and there is none yet; this is about the window a town
+  will stand in, and the screen is at its smallest exactly while somebody is choosing on it.
+- **It says nothing about its own state**, where the other two say whether their popup is showing. A popup
+  is hidden behind its button; a window filling the screen is the thing being looked at.
 
 ## Rebuilding a town
 
