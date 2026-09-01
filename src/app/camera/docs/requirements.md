@@ -3,11 +3,15 @@
 **OBS-1** Top-down, pannable, zoomable and turnable, so that **both the whole town and individual agents
 can be watched**.
 
-**OBS-1a** **Free pan always wins.** A manual pan or zoom takes the camera off any unit it was following
-and **keeps it off until the follow is asked for again**. Follow is offered only for a unit that is
-*moving under a hand*; an autonomous agent is watched by panning to it, not by being chased. **A followed
-unit is led by its own speed and heading**, so the ground it is about to cover is on screen rather than
-the ground behind it.
+**OBS-1a — The camera stands on the one unit that is picked out.** A selection of **exactly one** unit is
+followed, whether it is driven by a hand or driving itself; a selection of several is not, because a group
+spread over a district has no one place to stand. **A followed unit is led by its own speed and heading**,
+so the ground it is about to cover is on screen rather than the ground behind it, and **the lead is capped
+against the view** — a unit led off its own picture is a camera watching the road instead of the car.
+
+**Free pan always wins.** A manual pan, zoom or turn takes the camera off the unit it was following and
+**keeps it off until a selection is asked for again** — which is a click or a box on the town, so clicking
+the unit already picked out is how a reader asks to be put back on it.
 
 The zoom is about the **pointer**, and the view opens on a fixed span at the middle of the town rather
 than on a whole-town fit, which on a small map is unreadably small.

@@ -27,6 +27,7 @@ internal sealed class ControlsCard
         "Wheel / two fingers apart", "Zoom about the pointer",
         "Ctrl-wheel / two fingers twisted", "Turn the town; the compass puts it back north-up",
         "Left-click / tap", "Select a unit; click nothing to deselect",
+        "  one unit picked", "The camera follows it until you move the camera",
         "Shift-drag", "Select every unit inside the box",
         "Shift-click", "Add to the selection, or drop a unit from it",
         "Right-click", "Order every selected unit there",

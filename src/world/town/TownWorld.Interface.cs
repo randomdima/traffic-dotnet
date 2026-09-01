@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Containment;
 
 namespace TrafficSimulation.World.Town;
 
@@ -102,6 +103,42 @@ internal sealed partial class TownWorld
 
         if (changed) GaveUpTheWheel();
         return _selected.Count;
+    }
+
+    /// <summary>
+    /// Where a unit is and how fast it is travelling — what a camera standing on it needs and nothing
+    /// more (OBS-1a). <b>PHY-7: somebody riding in a car is where that car is</b>, and moving at its
+    /// speed, because the container is what a reader watching them can see; somebody indoors stands at
+    /// the door they went in by and is going nowhere.
+    /// </summary>
+    /// <returns>Whether it is a unit of this town at all.</returns>
+    public bool Whereabouts(Selection unit, out Vector2 atM, out Vector2 velocityMps)
+    {
+        switch (Standing(unit).Kind)
+        {
+            case SelectionKind.Car:
+                atM = Cars.PositionM[unit.Index];
+                velocityMps = Cars.VelocityMps[unit.Index];
+                return true;
+
+            case SelectionKind.Person:
+                var inside = People.Inside[unit.Index];
+                if (inside.Kind == ContainerKind.Car)
+                {
+                    atM = Cars.PositionM[inside.Index];
+                    velocityMps = Cars.VelocityMps[inside.Index];
+                    return true;
+                }
+
+                atM = People.PositionM[unit.Index];
+                velocityMps = inside.Any ? Vector2.Zero : People.VelocityMps[unit.Index];
+                return true;
+
+            default:
+                atM = default;
+                velocityMps = default;
+                return false;
+        }
     }
 
     /// <summary>A unit as the town knows it, or nothing at all: an index off the end of a fleet is not a unit.</summary>

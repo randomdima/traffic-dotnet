@@ -57,6 +57,20 @@ internal sealed class ViewFigures
     public float CameraTwistDeadZoneDeg { get; init; } = 8f;
 
     /// <summary>
+    /// How far ahead of a followed unit the camera stands, as the time that unit takes to cover the ground
+    /// (OBS-1a) — so the lead is a second of the road in front rather than a distance that means a stride
+    /// at walking pace and a street at speed.
+    /// </summary>
+    public float CameraFollowLeadS { get; init; } = 1f;
+
+    /// <summary>
+    /// The most of the half-view that lead may eat (OBS-1a). Without a ceiling a car at speed is led clean
+    /// off its own picture: what the reader asked to watch is the unit, and the lead is only the ground in
+    /// front of it.
+    /// </summary>
+    public float CameraFollowLeadShareOfView { get; init; } = 0.3f;
+
+    /// <summary>
     /// How far apart two fingers must be before the distance between them is worth dividing by
     /// (OBS-1c) — two contacts reported at the same place would otherwise scale the view by infinity.
     /// </summary>

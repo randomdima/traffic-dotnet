@@ -54,6 +54,9 @@ internal sealed partial class Game : IDisposable
     readonly PlayerHands _hands = new();
     readonly FrameMeter _meter = new();
 
+    /// <summary>Whether the camera is standing on the unit picked out, and where that puts it (OBS-1a).</summary>
+    readonly Follow _follow;
+
     TownRenderer _renderer;
     Camera2D _camera;
 
@@ -108,6 +111,7 @@ internal sealed partial class Game : IDisposable
     {
         _config = config;
         _ui = new Hud.Interface(config.Trim);
+        _follow = new Follow(config);
 
         // The window and the machine under it are the one thing that is not the same on both, so they
         // are the one thing this root does not do itself (Game.Desktop.cs, Game.Web.cs).
@@ -275,6 +279,7 @@ internal sealed partial class Game : IDisposable
         parts.Mark(ref parts.InputMs);
 
         Advance(ref parts);
+        FollowTheSelection();
         Draw(ref parts);
 
         // The frame is what it cost plus what it waited to start, so a rate taken off it is the rate
@@ -286,6 +291,23 @@ internal sealed partial class Game : IDisposable
         parts.WholeMs = _lastFrame.TotalMilliseconds;
         Measure(in parts);
         return !_window.IsClosing;
+    }
+
+    /// <summary>
+    /// <b>OBS-1a — the camera stands on the one unit picked out</b>, between the tick that moved it and
+    /// the frame it is drawn in, so the picture is centred on where the unit is now rather than on where
+    /// it was when the last frame ended.
+    /// </summary>
+    void FollowTheSelection()
+    {
+        if (_world is not null && _world.SelectedCount == 1 &&
+            _world.Whereabouts(_world.Lead, out var atM, out var velocityMps))
+        {
+            _follow.Step(_camera, _uiPx, atM, velocityMps);
+            return;
+        }
+
+        _follow.Stop();
     }
 
     /// <summary>
@@ -381,7 +403,7 @@ internal sealed partial class Game : IDisposable
         {
             // A gesture ends on the way up rather than on an event, so the button is asked about every
             // frame and not only on the frames a press arrived in (CTL-1b).
-            if (playing) _hands.Pointer(_window, _camera, _uiPx, _config, _world!);
+            if (playing) ReadTheGesture();
             return;
         }
 
@@ -417,7 +439,17 @@ internal sealed partial class Game : IDisposable
 
         // The same, for the gesture on the town: a release is read off the button's state and not off an
         // event (CTL-1b).
-        _hands.Pointer(_window, _camera, _uiPx, _config, _world!);
+        ReadTheGesture();
+    }
+
+    /// <summary>
+    /// The gesture on the town, resolved on the way up (CTL-1b), and what it leaves the camera on: <b>a
+    /// selection asked for puts the camera on the unit where it came to exactly one</b> and takes it off
+    /// where it did not (OBS-1a). A pan asks for no selection and leaves the camera where the hand put it.
+    /// </summary>
+    void ReadTheGesture()
+    {
+        if (_hands.Pointer(_window, _camera, _uiPx, _config, _world!)) _follow.Asked(_world!.SelectedCount == 1);
     }
 
     /// <summary>
@@ -498,6 +530,7 @@ internal sealed partial class Game : IDisposable
         FrameTheTown(world, plan.WorldSizeM);
         _ui.TownChanged(behindTheMenu);
         _hands.TownChanged();
+        _follow.Stop();
     }
 
     /// <summary>

@@ -205,9 +205,14 @@ internal sealed class PlayerHands
     /// A release is read off the button's state rather than off an event, so a press and a release inside
     /// one frame still resolve — as a click, which is what a press and a release in the same spot is.
     /// </remarks>
-    public void Pointer(AppWindow window, Camera2D camera, Vector2 uiPx, SimConfig config, TownWorld world)
+    /// <returns>
+    /// Whether the reader asked for a selection, which is a click or a box and never a pan. It is what
+    /// puts the camera back on a single unit (OBS-1a), and it is said even where the set came out the
+    /// same: clicking the unit already picked out changes nothing and is still an ask.
+    /// </returns>
+    public bool Pointer(AppWindow window, Camera2D camera, Vector2 uiPx, SimConfig config, TownWorld world)
     {
-        if (_gesture == Gesture.None || window.IsMouseDown(MouseButton.Left)) return;
+        if (_gesture == Gesture.None || window.IsMouseDown(MouseButton.Left)) return false;
 
         var was = _gesture;
         _gesture = Gesture.None;
@@ -221,18 +226,19 @@ internal sealed class PlayerHands
             if (_alsoKeep) world.SelectAlso(unit);
             else world.Select(unit);
 
-            return;
+            return true;
         }
 
         // A pan is finished the moment it is let go of: the town moved under the hand as it went, and
         // there is nothing left for the release to be about.
-        if (was != Gesture.Boxing) return;
+        if (was != Gesture.Boxing) return false;
 
         // The box is turned because the window is (OBS-1c). Its middle and its size are the gesture's own
         // pixels put into metres, and its lie on the ground is the window's axes in the town's.
         world.SelectIn(
             camera.WorldAt((_fromPx + toPx) * 0.5f, uiPx),
             Vector2.Abs(toPx - _fromPx) / camera.PixelsPerMetre, -camera.TurnRad, _alsoKeep);
+        return true;
     }
 
     /// <summary>Whether the pointer travelled far enough for the gesture to be a drag rather than a click.</summary>
