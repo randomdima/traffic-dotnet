@@ -74,11 +74,11 @@ internal readonly record struct WayUnder(
 /// traffic in each.
 /// </para>
 /// <para>
-/// <b>A node is asked at either end of that lane the body reaches, and the setbacks say where that end is</b>
-/// (TER-5d): past one the ground stops being the lane's, and a lane shorter than the junctions either side of
-/// it answers to both. <b>How far the body reaches and not where its middle projects</b>, because a setback
-/// of nought puts that end on the lane's own last metre — and a body short of it with its nose over it is
-/// standing in the box.
+/// <b>A node is asked at either end of that lane the body reaches</b> (TER-5d): past a lane's own end the
+/// ground stops being the lane's, and a lane shorter than the bodies on it answers to both its nodes.
+/// <b>How far the body reaches and not where its middle projects</b> — a car short of a lane's last metre
+/// with its nose over it is standing in the box. It is the other networks that hold a line running on past
+/// where they are travelled, and the two figures are theirs to answer.
 /// </para>
 /// <para>
 /// <b>And a node is its lanes as much as its joins</b> (TER-4c.2). A junction's ground is carried by the
@@ -122,12 +122,12 @@ internal static class GroundUnder
         var back = ways.Reverse(lane);
         if (back >= 0) WriteTheLaneAt(ways,back, atM, body, crossesByM, into, ref written);
 
-        // Both ends of the nearest lane, because the setbacks are what say which of them the place can be
-        // past — and never the reverse lane's, whose ends are the same two junctions read the other way round.
-        // <b>Asked of where the body reaches and never of where its middle projects</b>: a lane that is left
-        // for the box at its own last metre (TER-5d) is one whose setback is nought, and a body short of that
-        // metre with its nose over it was a body the node was never asked about at all — the ground under
-        // that nose held by nobody, and the block on the lane stopping dead at the mouth of the junction.
+        // Both ends of the nearest lane — and never the reverse lane's, whose ends are the same two
+        // junctions read the other way round. <b>Asked of where the body reaches and never of where its
+        // middle projects</b>: a carriageway lane is left for the box at its own last metre (TER-5d), so a
+        // body short of that metre with its nose over it was a body the node was never asked about at all —
+        // the ground under that nose held by nobody, and the block on the lane stopping dead at the mouth
+        // of the junction.
         var lengthM = ways.LaneLengthM(lane);
         var arcs = ways.ArcsOf(lane);
         body.ReachOn(Spline.SampleAt(arcs, 0f).Direction, out var reachesBackM, out _);

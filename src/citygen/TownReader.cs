@@ -22,12 +22,14 @@ internal static class TownReader
     public const ulong Magic = 0x4E574F544E534654;
 
     /// <summary>
-    /// <b>4 carries no raster.</b> Version 3 shipped a cell grid and a lane direction per cell beside the
-    /// shapes — a second answer about the same ground, agreeing with the first to within half a cell. The
-    /// ground is solved against the shapes now (<see cref="GroundShapes"/>), so the two blocks and
-    /// the grid header they were sized by are gone rather than written and ignored.
+    /// <b>5 carries which way each road is driven</b> (TER-4d), as one byte on the road record: a town with
+    /// one-way streets in it cannot be read off the shapes, since a one-way road is a narrower road and a
+    /// narrower road is not necessarily one-way. Version 4 carried no raster — version 3 shipped a cell grid
+    /// and a lane direction per cell beside the shapes, a second answer about the same ground agreeing with
+    /// the first to within half a cell, and the ground is solved against the shapes now
+    /// (<see cref="GroundShapes"/>).
     /// </summary>
-    public const uint Version = 4;
+    public const uint Version = 5;
 
     /// <summary>What the file writes where a record points at nothing — a crossing struck mid-block belongs to no junction.</summary>
     const uint NoIndex = 0xFFFFFFFF;
@@ -57,7 +59,7 @@ internal static class TownReader
         var junctions = ReadJunctions(ref cursor);
         var junctionCorners = ReadJunctionCorners(ref cursor);
         var pavementCorners = ReadPavementCorners(ref cursor);
-        var roads = ReadRoads(ref cursor);
+        var roads = ReadRoads(ref cursor, what);
         var bridges = ReadBridges(ref cursor);
         var pavedAreas = ReadPavedAreas(ref cursor);
         var crosswalks = ReadCrosswalks(ref cursor, roads, what);
@@ -169,12 +171,13 @@ internal static class TownReader
         return new CityPlan.PavementCornerArrays { CornerM = cornerM, NormalA = normalA, NormalB = normalB, RadiusM = radiusM };
     }
 
-    static CityPlan.RoadArrays ReadRoads(ref ByteCursor cursor)
+    static CityPlan.RoadArrays ReadRoads(ref ByteCursor cursor, string what)
     {
-        var count = cursor.Count("roads", bytesEach: 16);
+        var count = cursor.Count("roads", bytesEach: 17);
         var fromJunction = new int[count];
         var toJunction = new int[count];
         var widthM = new float[count];
+        var flow = new RoadFlow[count];
         var offsets = new int[count + 1];
         var segments = new List<ArcSeg>(count * 4);
         for (var i = 0; i < count; i++)
@@ -182,6 +185,7 @@ internal static class TownReader
             fromJunction[i] = Index(ref cursor);
             toJunction[i] = Index(ref cursor);
             widthM[i] = cursor.F32();
+            flow[i] = Flow(cursor.U8(), what);
             offsets[i] = segments.Count;
             var pieces = cursor.Count("road segments", bytesEach: 20);
             for (var piece = 0; piece < pieces; piece++)
@@ -193,10 +197,16 @@ internal static class TownReader
         offsets[count] = segments.Count;
         return new CityPlan.RoadArrays
         {
-            FromJunction = fromJunction, ToJunction = toJunction, WidthM = widthM,
+            FromJunction = fromJunction, ToJunction = toJunction, WidthM = widthM, Flow = flow,
             SegmentOffsets = offsets, Segments = segments.ToArray(),
         };
     }
+
+    /// <summary>Which way a road record says it is driven, refused where the byte names no flow there is.</summary>
+    static RoadFlow Flow(byte written, string what) =>
+        written <= (byte)RoadFlow.AgainstTheRoad
+            ? (RoadFlow)written
+            : throw new FormatException($"{what} carries a road flow of {written}, which is not one this engine knows.");
 
     static CityPlan.BridgeArrays ReadBridges(ref ByteCursor cursor)
     {

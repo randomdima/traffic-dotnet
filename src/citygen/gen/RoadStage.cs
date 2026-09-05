@@ -54,15 +54,21 @@ internal static class RoadStage
         TownLayout layout, Districts districts, TownBrief brief, SimConfig config, ref Rng shape,
         ref Rng signals)
     {
-        // One width for every road there is, arterial or street (GEN-15).
-        var widthM = config.RoadWidthM;
+        // One lane's width for every road there is, arterial or street, and as many lanes as it is driven
+        // ways (GEN-15, TER-4d).
+        var widthM = new float[layout.Edges.Count];
         var chains = new ArcSeg[layout.Edges.Count][];
         for (var road = 0; road < layout.Edges.Count; road++)
         {
+            widthM[road] = config.LaneWidthM
+                           * (layout.Edges[road].Flow == RoadFlow.BothWays ? SimConfig.LanesPerCarriageway : 1);
             chains[road] = Chain(layout, districts, layout.Edges[road], config, ref shape);
         }
 
-        var junctions = Junctions(layout, Bends(layout, chains, config), brief, config, widthM, ref signals);
+        var centreM = Bends(layout, chains, config);
+        OntoTheDrivenHalf(layout, chains, centreM, widthM, config);
+
+        var junctions = Junctions(layout, centreM, brief, config, chains, widthM, ref signals);
         var furniture = Furniture.Lay(layout, chains, junctions, config, widthM);
 
         return new Laid(
@@ -71,7 +77,7 @@ internal static class RoadStage
             furniture.Corners,
             furniture.Crosswalks,
             furniture.StopLines,
-            Bridges(layout, chains, config, widthM));
+            Bridges(layout, chains, config));
     }
 
     /// <summary>
@@ -332,6 +338,44 @@ internal static class RoadStage
     }
 
     /// <summary>
+    /// <b>Every one-way road moved onto the half of the carriageway its traffic drives</b> (TER-4d): its own
+    /// half to the driving side, so its kerb there and its lane are the kerb and the lane a road of two ways
+    /// has in that direction — a street that runs on into the next one rather than one that steps sideways
+    /// into it. <b>The road's own width and never the catalogue's</b> (TER-4): what it is half of is what it
+    /// was laid at.
+    /// </summary>
+    /// <remarks>
+    /// <b>After the bends and never before them</b> (<see cref="Bends"/>): two arms swept onto one tangent
+    /// are still met once both are moved to the same side of the travel they share, where two merely joined
+    /// at a node would come apart by the deflection between them. <b>A node its own two arms are all of goes
+    /// with them</b> — the disc a junction is drawn on belongs on the road rather than beside it, and a node
+    /// with a fork in it keeps the place the layout put it whatever its arms do (<see cref="Junctions"/>).
+    /// </remarks>
+    static void OntoTheDrivenHalf(
+        TownLayout layout, ArcSeg[][] chains, Vector2[] centreM, float[] widthM, SimConfig config)
+    {
+        for (var road = 0; road < chains.Length; road++)
+        {
+            if (chains[road].Length == 0 || layout.Edges[road].Flow == RoadFlow.BothWays) continue;
+
+            var halfM = widthM[road] * 0.5f * config.RoadSideSign;
+            var moved = new ArcSeg[chains[road].Length];
+            Spline.OffsetInto(
+                chains[road], layout.Edges[road].Flow == RoadFlow.WithTheRoad ? halfM : -halfM, moved);
+            chains[road] = moved;
+        }
+
+        var arms = layout.Arms();
+        for (var road = 0; road < chains.Length; road++)
+        {
+            if (chains[road].Length == 0) continue;
+
+            if (arms[layout.Edges[road].From] == 2) centreM[layout.Edges[road].From] = chains[road][0].StartM;
+            if (arms[layout.Edges[road].To] == 2) centreM[layout.Edges[road].To] = chains[road][^1].EndM;
+        }
+    }
+
+    /// <summary>
     /// How tightly a road of this class may bend: the radius its own design speed affords on tarmac.
     /// <b>Derived and never authored</b> — a bend quoted in metres would be a figure nobody could check
     /// against the car that has to take it.
@@ -403,16 +447,30 @@ internal static class RoadStage
     }
 
     static CityPlan.JunctionArrays Junctions(
-        TownLayout layout, Vector2[] centreM, TownBrief brief, SimConfig config, float widthM, ref Rng draw)
+        TownLayout layout, Vector2[] centreM, TownBrief brief, SimConfig config, ArcSeg[][] chains,
+        float[] widthM, ref Rng draw)
     {
         var arms = layout.Arms();
         var radiusM = new float[centreM.Length];
         var lit = new bool[centreM.Length];
         var phaseOffsetS = new float[centreM.Length];
 
+        // <b>The disc is the ground its arms share</b> (TER-5), so it is sized on the arm whose own ground
+        // reaches furthest from it: its own half, and however far off the node the road itself stands where
+        // that road is one way (TER-4d). A one-way street therefore reaches exactly as far as the
+        // carriageway whose driven half it is, and one an arterial reaches is the arterial's own width
+        // whatever else stands there.
+        for (var road = 0; road < layout.Edges.Count; road++)
+        {
+            var halfM = widthM[road] * 0.5f;
+            var from = layout.Edges[road].From;
+            var to = layout.Edges[road].To;
+            radiusM[from] = MathF.Max(radiusM[from], halfM + StandsOffM(chains[road], atFromEnd: true, centreM[from]));
+            radiusM[to] = MathF.Max(radiusM[to], halfM + StandsOffM(chains[road], atFromEnd: false, centreM[to]));
+        }
+
         for (var junction = 0; junction < centreM.Length; junction++)
         {
-            radiusM[junction] = widthM * 0.5f;
 
             // <b>Only a junction that admits conflicting movements may be lit at all</b> (TLT-3), and a share
             // of those is left to the ranking instead (TER-5e) — drawn here, so a town lights the same way
@@ -427,11 +485,18 @@ internal static class RoadStage
         };
     }
 
-    static CityPlan.RoadArrays Roads(TownLayout layout, ArcSeg[][] chains, float widthM)
+    /// <summary>
+    /// How far off a junction its arm's own line stands, which is half a lane on a one-way street
+    /// (<see cref="OntoTheDrivenHalf"/>) and nothing anywhere else.
+    /// </summary>
+    static float StandsOffM(ArcSeg[] chain, bool atFromEnd, Vector2 centreM) =>
+        chain.Length == 0 ? 0f : ((atFromEnd ? chain[0].StartM : chain[^1].EndM) - centreM).Length();
+
+    static CityPlan.RoadArrays Roads(TownLayout layout, ArcSeg[][] chains, float[] widthM)
     {
         var fromJunction = new int[chains.Length];
         var toJunction = new int[chains.Length];
-        var widths = new float[chains.Length];
+        var flow = new RoadFlow[chains.Length];
         var offsets = new int[chains.Length + 1];
         var segments = new List<ArcSeg>(chains.Length * 2);
 
@@ -439,7 +504,7 @@ internal static class RoadStage
         {
             fromJunction[road] = layout.Edges[road].From;
             toJunction[road] = layout.Edges[road].To;
-            widths[road] = widthM;
+            flow[road] = layout.Edges[road].Flow;
             offsets[road] = segments.Count;
             segments.AddRange(chains[road]);
         }
@@ -447,7 +512,7 @@ internal static class RoadStage
         offsets[^1] = segments.Count;
         return new CityPlan.RoadArrays
         {
-            FromJunction = fromJunction, ToJunction = toJunction, WidthM = widths,
+            FromJunction = fromJunction, ToJunction = toJunction, WidthM = widthM, Flow = flow,
             SegmentOffsets = offsets, Segments = [.. segments],
         };
     }
@@ -457,8 +522,7 @@ internal static class RoadStage
     /// bridgehead to bridgehead, so the deck runs the whole road and reaches standable ground at both ends
     /// (TER-3b) rather than stopping where the water happened to.
     /// </summary>
-    static CityPlan.BridgeArrays Bridges(
-        TownLayout layout, ArcSeg[][] chains, SimConfig config, float widthM)
+    static CityPlan.BridgeArrays Bridges(TownLayout layout, ArcSeg[][] chains, SimConfig config)
     {
         var road = new List<int>();
         var fromM = new List<float>();

@@ -4,6 +4,86 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-05 — the corner is cut off the lane rather than marked on it
+
+**The setback used to be a number beside a lane rather than a fact about it.** A lane's line ran the whole
+stretch between two discs, and two figures said how far into either end its movements actually handed over
+(TER-5d). Everything downstream then carried the difference: the assembler threaded a sub-chain rather than
+a lane, a place on a lane had an origin under the line that was not nought, occupancy added the arriving
+join's figure to every metre it wrote, and the overlay drew the ground past each figure twice — once as the
+lane and once as the join laid over it. What that last one looks like is a spur of lane hanging past the
+point every movement leaves from, which is what sent us looking.
+
+**So it is cut off.** The widening still settles what each end needs, and then the lane is trimmed to what
+is left, so a lane's own first and last points *are* its connection points. `JoinedAtM` and `LeftAtM` are
+nought for every carriageway lane and are gone from the graph; `JoinFromM`, `JoinToM` and `LaneOriginM`
+went with them, and the three call sites that used to add them now add nothing. A join runs from one lane's
+end to the next lane's start, and no ground carries both.
+
+**The other networks keep their two figures**, and that is the point of the interface rather than a
+leftover: a pavement hands over at a point per turn, because a walk running straight through a node gives
+up no ground while one turning off it gives up a corner's margin, and a bay's way runs on past the pose to
+the end of the space because that run is ground and not line. The carriageway is the one network where the
+handover is a property of the end, so it is the one where the line can be cut to it.
+
+**What is still owed**: a lane is cut at the junction's *disc*, not at the reach its kerb corners actually
+paved. Cutting at the reach instead was tried and reverted — it moves every lane end out past the crossing
+and the stop bar the same reach positions, and it deletes short stretches outright, which costs the town
+its connectivity. Until the paint and the cut are settled together, a lane can still lie a little on an
+arm it meets at a skew angle; the shipped cities do not, and the hand-laid fixture does by half a metre.
+
+## 2026-09-05 — a one-way road is a narrower road, and a corner is solved on the pair it stands between
+
+**A one-way street could have been a two-lane road with one of its lanes left empty**, and it is not. The
+lane graph was already directed — lanes are cut per stretch, assigned by heading, and every consumer of the
+other side already asked whether there was one — so the whole of what a one-way road needed was to lay one
+lane instead of two, down the middle of half a carriageway. The alternative would have been a road as wide
+as any other with a lane nothing may enter, which is a rule every drawer, claimer and walker has to be told
+about; this way the road's own declared width carries it (TER-4), and the lane's width, its offset, its
+pavement, its zebra and its kerb all follow from that one figure as they always did. `LaneReverse` is
+`NoLane` there, and the eighteen places that read it were already written for the answer.
+
+**Which way it runs is carried and never inferred.** A narrow road is not necessarily a one-way one — a map
+may declare any width it likes — so the flow is a field on the road and a byte in the format (version 5),
+and no reader works it out from the geometry (TER-4).
+
+**Which half of the carriageway it is was the part we got wrong first.** Laid down the middle of the line
+its two junctions are joined on, a one-way street is a narrowing rather than a street: the road it meets
+carries the same traffic half a lane to one side, so every car through the junction stepped sideways, both
+kerbs stepped in, and the lane line, the pavement and the frontage all stepped with them. It stands on the
+half it is driven instead — half a lane to the driving side, so its own kerb *is* the kerb of the
+carriageway it is half of and the step is where that carriageway's centreline used to be. Nothing about the
+lane changed: it is still the middle of the road's own width, and the road is what moved
+(`RoadStage.OntoTheDrivenHalf`). **It is moved after the bends and never before them** — two arms swept
+onto one tangent stay met when both go to the same side of the travel they share, where two merely joined
+at a node come apart by the deflection between them — and **a node with no fork goes with its arms**, so
+the disc a junction is drawn on stays on the road. **It costs the layout nothing it had already kept**:
+half a carriageway moved half a carriageway over stands inside the full width the crossing pass held two
+roads apart by (GEN-17), so no road comes nearer another for it.
+
+**What it costs is the walk on the side the street is not driven**, which now runs where that carriageway's
+middle used to be — nearer the node than the kerb it is beside, and bitten deeper by the junction's own
+disc. A scrap of pavement a metre long between the paint and the kerb corner is what that leaves, and every
+corner at such an end hands over on what the scrap can spare rather than on the half band it wanted. It is
+the same debt as the lane cut at the disc rather than at the reach, and it is paid off the same way.
+
+**What actually broke was the junction, and it was already broken.** Every corner in this engine was solved
+as if both its arms were the same width: the kerbs crossed on the bisector at `half / sin(half the angle)`,
+and the reach along both arms was one figure. That is only true where the two arms are the same road width,
+which until now they always were. It is now the crossing of the two kerb lines, each offset by its own
+road's half (`SimConfig.JunctionCornerAlongM`), and each arm is reached as far as its own tangent point —
+the same answers as before wherever the two halves are equal, and the honest ones where they are not. The
+disc is sized on the widest arm the junction has, so a junction only one-way streets meet at is smaller and
+one an arterial reaches is the arterial's.
+
+**And whether a corner exists at all is measured off the narrower arm.** Two arms all but straight through
+cross their kerbs so far out that the junction never reaches the crossing, and that is the case with no
+corner to turn — a carriageway running through, or a step in the kerb where the two are different widths.
+Measured off the disc, as the spike test used to be, a narrow street meeting a full carriageway obliquely
+came out as no corner at all, and the pavement that ought to have stopped at its kerb ran on over the
+carriageway instead. It is measured off the mouth the wedge is a spike out of, which is the narrower of the
+two.
+
 ## 2026-09-04 — one table of ways, and no metre of one in two claims
 
 There were two sets of claims: the road's, over its lanes, its junction joins and the ways its bays are

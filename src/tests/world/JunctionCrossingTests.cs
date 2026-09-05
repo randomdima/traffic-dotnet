@@ -154,35 +154,65 @@ public class JunctionCrossingTests
     /// whole-box claim this replaced, written as ground.
     /// </summary>
     /// <remarks>
-    /// The bar is a share of the movements at a node, because the figure that matters is what one car in a
-    /// box leaves for the rest of the junction. A town of dead ends and mid-block crossings has no node
-    /// with two movements to have an opinion about, and says so rather than passing.
+    /// <para>
+    /// Asked of every junction — some pair of the movements through it runs at once — and then of the town,
+    /// as a share of all its pairs, because the figure that matters is what one car in a box leaves for the
+    /// rest of the junction. A town of dead ends and mid-block crossings has no node with two movements to
+    /// have an opinion about, and says so rather than passing.
+    /// </para>
+    /// <para>
+    /// <b>Two movements that share a lane are one queue and not a conflict</b>, and are no pair at all here:
+    /// they run down the same ground because it is the same ground — which is what two one-way streets
+    /// merging into one is (TER-4d), and what every pair leaving one lane already was.
+    /// </para>
+    /// <para>
+    /// <b>It is a claim about the junction and not about each movement through it</b> (TER-4d). Where every
+    /// arm is driven both ways, a straight has the opposing straight to clear it; a junction of one-way arms
+    /// has no such opposite, so a movement there can be driven over every other one it does not share a lane
+    /// with and each of those crossings can still be ground the two lines really do share.
+    /// </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void NoMovementIsDrivenOverEveryOtherAtItsJunction(string map)
+    public void NoJunctionIsShutByOneCar(string map)
     {
         var roads = GraphOf(map);
+        var lanesOfTurns = LanesOfTurns(roads);
         var pairs = 0;
         var free = 0;
 
         for (var node = 0; node < roads.NodeCount; node++)
         {
             var atTheNode = TurnsAt(roads, node);
-            foreach (var slot in atTheNode)
+            var apart = 0;
+            var cleared = 0;
+
+            for (var first = 0; first < atTheNode.Count; first++)
             {
-                foreach (var other in atTheNode)
+                for (var second = first + 1; second < atTheNode.Count; second++)
                 {
-                    if (other == slot) continue;
+                    var slot = atTheNode[first];
+                    var other = atTheNode[second];
+                    pairs += 2;
+                    if (!Takes(roads, slot, other)) free += 2;
 
-                    pairs++;
-                    if (!Takes(roads, slot, other)) free++;
+                    if (lanesOfTurns[other] == lanesOfTurns[slot]
+                        || roads.TurnToLane(other) == roads.TurnToLane(slot))
+                    {
+                        continue;
+                    }
+
+                    apart++;
+                    if (!Takes(roads, slot, other)) cleared++;
                 }
-
-                Assert.True(
-                    roads.Crossings.Of(roads.WayOfTurn(slot)).Length < atTheNode.Count - 1 || atTheNode.Count < 2,
-                    $"{map}: movement {slot} is driven over every other one at its junction");
             }
+
+            // <b>Where there is more than one pair to compare at all.</b> A junction of three arms with one
+            // of them exit-only offers a single pair — a turn across the oncoming stream and that stream —
+            // which really is a junction one car at a time, and says nothing about the table.
+            Assert.True(
+                cleared > 0 || apart < 2,
+                $"{map}: every pair of movements at node {node} is driven over the other");
         }
 
         if (pairs == 0) return;

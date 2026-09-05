@@ -244,6 +244,13 @@ internal sealed partial class SimConfig
 
     public float IntersectionCornerRadiusM => Car.WidthM * Road.IntersectionCornerRadiusInCarWidths;
 
+    /// <summary>
+    /// <b>The least lane a stretch keeps once the junctions at its ends have taken their ground</b>
+    /// (TER-5d): the body that drives it. A lane starts where the junction's ground stops, and a stretch
+    /// that cannot give up that much keeps what it has rather than becoming a lane nothing can stand on.
+    /// </summary>
+    public float LaneShortestStretchM => Car.LengthM;
+
     /// <summary>The sharpest corner a junction turns, as the half-angle every kerb fillet is solved on.</summary>
     public float ArmsApartMinRad => CityGen.ArmsApartMinDeg * MathF.PI / 180f;
 
@@ -258,6 +265,46 @@ internal sealed partial class SimConfig
     public float JunctionFilletReachM => Car.WidthM * Road.JunctionFilletReachInCarWidths;
 
     /// <summary>
+    /// <b>How far out along an arm the corner between it and its neighbour stands</b>: where the two kerbs
+    /// bounding the wedge cross, as a distance along the arm's own line, so a narrow one-way street meeting
+    /// a full carriageway makes a corner that stands further out along the narrow arm than along the wide
+    /// one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Each arm is given the distance to its own kerb and not its own half</b> (TER-4d): a road standing
+    /// off the node — the half of a carriageway a one-way street is driven on — has one kerb that much
+    /// nearer its neighbour and the other that much further, and the crossing of two lines is the same
+    /// arithmetic either way. Measured along the arm from the node, which the road's own line stands square
+    /// off, so a distance along it is a distance along the road.
+    /// </remarks>
+    public static float JunctionCornerAlongM(float armsApartRad, float kerbM, float neighbourKerbM) =>
+        ((kerbM * MathF.Cos(armsApartRad)) + neighbourKerbM) / MathF.Sin(armsApartRad);
+
+    /// <summary>
+    /// <b>Whether two arms turn a corner at all, and how far out their kerbs cross.</b> Two arms a straight
+    /// line or more apart never turn one — their kerbs run away from each other. Two that stand all but
+    /// straight through do not either: their kerbs cross so far off the node that the junction never reaches
+    /// it (<see cref="JunctionArmReachMaxM"/>), which is a carriageway running through and, where the two
+    /// are different widths (TER-4d), a step in the kerb rather than a corner. And a crossing no further out
+    /// than a line is wide leaves a spike nothing can see and no cell can hold.
+    /// </summary>
+    /// <remarks>
+    /// <b>The spike is measured off the nearer of the two kerbs</b>, which is the mouth the wedge is a spike
+    /// out of: measured off the further one, a street half a road wide meeting a full carriageway obliquely
+    /// reads as no corner at all, and the pavement that ought to stop at its kerb runs on over the
+    /// carriageway instead.
+    /// </remarks>
+    public bool JunctionTurnsACorner(float armsApartRad, float kerbM, float neighbourKerbM)
+    {
+        if (armsApartRad >= MathF.PI) return false;
+
+        var alongM = JunctionCornerAlongM(armsApartRad, kerbM, neighbourKerbM);
+        var offM = MathF.Sqrt((alongM * alongM) + (kerbM * kerbM));
+        return offM <= JunctionArmReachMaxM
+               && offM - MathF.Min(kerbM, neighbourKerbM) >= Road.PaintLineWidthM;
+    }
+
+    /// <summary>
     /// <b>How far along an arm a junction reaches, corner by corner</b>: where the fillet between two arms
     /// that far apart lets go of the kerb, which is where the ground the roads share ends and the arm's own
     /// paint begins. An arm is reached by each of its two corners and stands off the further of them.
@@ -268,8 +315,13 @@ internal sealed partial class SimConfig
     /// off their own junction. <b>Never the distance from the node</b>, which is the same everywhere and
     /// right nowhere.
     /// </remarks>
+    public float JunctionArmReachM(float armsApartRad, float kerbM, float neighbourKerbM) =>
+        JunctionCornerAlongM(armsApartRad, kerbM, neighbourKerbM)
+        + (JunctionFilletRadiusM(armsApartRad) / MathF.Tan(armsApartRad * 0.5f));
+
+    /// <summary>The same where both arms are a whole carriageway, which is every arm of a road driven both ways.</summary>
     public float JunctionArmReachM(float armsApartRad) =>
-        ((RoadWidthM * 0.5f) + JunctionFilletRadiusM(armsApartRad)) / MathF.Tan(armsApartRad * 0.5f);
+        JunctionArmReachM(armsApartRad, RoadWidthM * 0.5f, RoadWidthM * 0.5f);
 
     /// <summary>The furthest that ever is: the reach at the sharpest corner a junction may turn (GEN-13).</summary>
     public float JunctionArmReachMaxM => JunctionArmReachM(ArmsApartMinRad);

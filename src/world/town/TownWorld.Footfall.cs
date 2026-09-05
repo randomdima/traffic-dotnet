@@ -457,8 +457,19 @@ internal sealed partial class TownWorld
 
             // A lane's edge is a place and has no margin of its own, so the asker's is taken off it here —
             // the walking side of the one cut that is not made at somebody else's stretch.
+            //
+            // <b>And the vehicle standing on that band where one is</b> (PER-15,
+            // <see cref="PersonFleet.RefusedBy"/>): a road refuses nobody in particular and is given back by
+            // being driven on, so a walker held at one is waiting; a body over the paint is on no walk of
+            // this town's (TER-5c.1) and would otherwise hold a walker with nothing named as holding it,
+            // which is the one shape the clock that gives up a leg cannot see.
             var runsOutM = WhereTheWalkRunsOut(person, way) + asker.AtAPlaceM;
-            if (runsOutM < grantedToM) grantedToM = runsOutM;
+            if (runsOutM < grantedToM)
+            {
+                grantedToM = runsOutM;
+                heldBy = People.RefusedBy[person];
+                heldByOf = heldBy == PersonFleet.NoBody ? LaneRoster.Walking : LaneRoster.Driving;
+            }
         }
 
         return new WalkGrant(

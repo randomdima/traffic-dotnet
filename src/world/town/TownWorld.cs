@@ -754,7 +754,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // Held at a kerb is not stuck, and the clock that gives a leg up is frozen while it is: a walker
         // waiting out a long red would otherwise be handed somewhere else to be, halfway through a
         // crossing it had not begun.
-        if (People.HeldAtTheKerb[agent]) return;
+        //
+        // <b>Unless what is holding it is a body standing on the band</b> (PER-15,
+        // <see cref="PersonFleet.RefusedBy"/>). A red ends and a road is driven on; a car parked over the
+        // paint does neither, so this is a standstill wearing a kerb wait's clothes and the clock is the
+        // only thing that ever answers one.
+        if (People.HeldAtTheKerb[agent] && People.RefusedBy[agent] == PersonFleet.NoBody) return;
 
         // Nor is queueing: the body in front is under way and the ground it holds is ground it is about to
         // give back, so the clock that gives a leg up would be counting a wait that ends itself.

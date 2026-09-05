@@ -313,18 +313,16 @@ internal sealed partial class TownWorld
     /// own trip, made the other way round for one place instead of in bulk for a stretch.
     /// </summary>
     float OnTheLineM(int car, int slot, float alongLaneM) =>
-        LineAssembler.OnTheLineM(
-            _roads, Cars.ChainOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car), slot, alongLaneM);
+        LineAssembler.OnTheLineM(Cars.LaneStartsOf(car), Cars.LaneEndsOf(car), slot, alongLaneM);
 
     /// <summary>
     /// The town's ways under a stretch of one car's line, nearest first — the lanes it is laid over and the
     /// joins threaded between them, each with the metres of its own that the stretch covers.
     /// </summary>
     /// <remarks>
-    /// <b>The metres of a way and the metres of a line run at the same rate</b> and differ only by where
-    /// each lane's own start falls under the line (<see cref="LineAssembler.LaneOriginM"/>) — the line over
-    /// a lane is that lane's own arcs, so a stretch carried across is the same stretch of the same bending
-    /// ground and not a chord over it.
+    /// <b>The metres of a way and the metres of a line run at the same rate and start together</b> (TER-5d):
+    /// the line over a lane is that lane's own arcs from its own first metre, so a stretch carried across is
+    /// the same stretch of the same bending ground and not a chord over it.
     /// </remarks>
     int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into)
     {
@@ -344,21 +342,14 @@ internal sealed partial class TownWorld
         var ends = Cars.LaneEndsOf(car);
 
         var written = 0;
-        var arrivedOn = RoadGraph.NoTurn;
         for (var index = 0; index < lanes && written < into.Length; index++)
         {
             var leavingOn = index < lanes - 1 ? _roads.TurnSlot(chain[index], chain[index + 1]) : RoadGraph.NoTurn;
 
-            // Where the lane's own metres begin under the line's: the assembler took the line from the
-            // setback the arriving join was drawn to, and a lane measures everything from its own start.
-            var originM = arrivedOn == RoadGraph.NoTurn ? 0f : _roads.JoinToM(arrivedOn);
             if (Overlaps(fromLineM, toLineM, starts[index], ends[index], out var fromM, out var toM))
             {
                 into[written++] = new LineWay(
-                    _ways.OfRoadLane(chain[index]),
-                    originM + fromM - starts[index],
-                    originM + toM - starts[index],
-                    fromM);
+                    _ways.OfRoadLane(chain[index]), fromM - starts[index], toM - starts[index], fromM);
             }
 
             // <b>The stretch runs out at the box's near edge — `ends[index]` — and not at its far one.</b>
@@ -376,8 +367,6 @@ internal sealed partial class TownWorld
                 into[written++] = new LineWay(
                     _ways.OfRoadTurn(leavingOn), fromM - ends[index], toM - ends[index], fromM);
             }
-
-            arrivedOn = leavingOn;
         }
 
         // And the way the line finishes on, where it finishes on one: the line into a bay leaves its lane

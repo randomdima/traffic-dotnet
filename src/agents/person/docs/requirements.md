@@ -251,18 +251,32 @@ else's road is over, and the cars give way to it. **It is the escape and no long
 where the crossing is uncontrolled the traffic gives way before the patience is spent, and what the clock is
 left for is a crossing that never clears.
 
-**The one road the escape does not reach is a rescue coming through** (`AMB-4`), and *coming through* is
+**What the escape takes is a road and never a body.** A driver's road is a claim handed back by being
+driven on, so a band taken past the patience is a walker stepping out in front of a car that then stops.
+**A vehicle whose own body is standing on that band hands nothing back**, and no permission moves a walker
+through one: granted the band anyway, the walk runs straight through the car and the walker spends it
+walking into the car and shoving it down its own lane. **A body over the paint refuses whatever the clock
+reads.** What tells the two apart is the bar the pavement already holds a body to (PER-24) — the walker's
+own pace — and it is asked of the body's movement, never of the kind of body.
+
+**And standing at one is not waiting, so the clock that gives up a leg runs** (`PER-8`, PER-13). Nothing
+about a car parked over a zebra ends of its own accord, so a walker held at one is stopped rather than
+waiting: it stands at the band's edge, gives the leg up and is drawn another. It is the same answer the
+pavement gives for a body going nowhere and it is the whole of what a walker has for one. **This is the one
+kerb wait that is not a wait**, and read as one it is a body standing at a parked car for the length of the
+run.
+
+**The one *road* the escape does not reach is a rescue coming through** (`AMB-4`), and *coming through* is
 the whole of it. What the exemption is worth is its own justification — a call lasts seconds, so what is
-being waited out is going to pass — and a rescue standing still over the paint is not passing. It is a
-stopped car, which is what the walker taking the band would have made of it in any case; left unbounded,
-the escape never fires at that crossing at all and a body halfway over stands in a live carriageway for as
-long as the ambulance stands in it. **The bar is the walker's own pace**: a rescue closing slower than this
-body can walk is one the body is off the band well before.
+being waited out is going to pass — and a rescue standing still over the paint is not passing: it is a car
+standing on the band like any other, refused by the rule above and answered by the clock rather than by the
+patience. **The bar is the same one**, the walker's own pace: a rescue closing slower than this body can
+walk is one the body is off the band well before.
 
 **A red is not a gap question and no amount of clear road answers it** (PER-7.3): the signal is asked
-first and refuses outright, and the ground is asked second. **Past the patience the walker goes anyway** —
-a crossing that never clears is a jam rather than traffic, and a pedestrian has priority, which is what the
-crossing is for. Cars then stop, because the body on the paint is what cuts *their* grant. **The patience
+first and refuses outright, and the ground is asked second. **Past the patience the walker goes anyway,
+into any road and into nobody's body** — a crossing that never clears is a jam rather than traffic, and a
+pedestrian has priority, which is what the crossing is for. Cars then stop, because the body on the paint is what cuts *their* grant. **The patience
 is spent on standing in the road as much as on standing at its edge**, and what it is spent on is one
 lane: it is given back when the body is standing in that lane, and not when the traffic gave way — handed
 back then, it buys one tick of ground and the wait begins again.

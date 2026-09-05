@@ -4,6 +4,40 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-05 — the patience buys a road, and a car standing on the band is not one
+
+**Walkers were shoving stopped cars down their own lanes**, on the paint, in traffic that had done nothing
+wrong. The claims were right about all of it and the walker never read them: a car standing on a zebra is a
+stretch of the *lane* and writes nothing on the walk (TER-5c.1), so on a crossing way the only thing a car
+can ever cut a walker's grant with is the band refusal — and past `KerbPatienceS` the escape granted the
+band whatever was on it. Eight seconds behind a car queued over a crossing and the walker had an
+unobstructed permission through a tonne of steel, which it then spent.
+
+**The escape takes a road and never a body.** A driver's road is a claim handed back by driving on, so
+taking one past the patience is a walker stepping out in front of a car that stops for it — which is what a
+pedestrian's priority is. A body over the paint hands nothing back and no permission moves anybody through
+it. **What tells the two apart is the bar the pavement already holds a body to** (PER-24), the walker's own
+pace, so this is the rule the walk already ran on said of the road: one coming through the band is traffic,
+one going nowhere on it is a standstill.
+
+**And a standstill at a kerb is not a wait, so the clock had to be let run.** `HeldAtTheKerb` froze the
+clock that gives up a leg, on the true ground that a red ends and a gap arrives; a car parked over the paint
+does neither. Refused by a body, the walker now names it (`RefusedBy`) and is held by it like any other body
+going nowhere — which is what the clock needs to see, since a walk cut at a band edge was previously held by
+nobody at all.
+
+**The rescue exemption is one instance of this and no longer its own argument.** A rescue standing over the
+paint was let through by the escape because it "is a stopped car, which is what the walker taking the band
+would have made of it anyway" — and the walker made nothing of it, because there was nothing on the walk to
+make it of. It is now refused as a car standing on the band, and what answers it is the clock.
+
+**What it cost.** Five minutes of Odesa: walks arrived 448 against 446, walkers still held at the end 6
+against 14, the longest hold 97 s against 121 s, 2 rings of walkers against 3, and 5.19% of the run spent
+inside the gap they keep against 5.89%. **Walks given up went from 533 to 743**, and that is the honest
+price rather than a defect: a walker that cannot get past a body has one rung — a clock, and then the trip
+is thrown away — where a driver walks ten, and the number is what that missing catalogue costs when the town
+stops letting walkers push their way through. It is AGT-7's gap, priced.
+
 ## 2026-09-05 — a claim has a width, and the step round is an ask rather than an aim
 
 **The walker was given the driver's model on ground the driver's model is wrong about.** A carriageway lane

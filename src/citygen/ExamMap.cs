@@ -160,6 +160,7 @@ internal static class ExamMap
         return new CityPlan.RoadArrays
         {
             FromJunction = fromJunction, ToJunction = toJunction, WidthM = widths,
+            Flow = CityPlan.RoadArrays.AllBothWays(lattice.Roads.Count),
             SegmentOffsets = offsets, Segments = segments,
         };
     }

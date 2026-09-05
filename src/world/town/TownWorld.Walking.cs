@@ -51,10 +51,16 @@ internal sealed partial class TownWorld
             return false;
         }
 
+        // <b>And what refused it, because a body on the band is not a wait</b> (PER-15,
+        // <see cref="PersonFleet.RefusedBy"/>). The band under this body was answered in the rebuild
+        // (<see cref="PlaceTheWalkerOnTheRoad"/>) and found nothing, since a walker at a kerb is on no
+        // crossing yet; the band in front is this question, and it is the only one there is to record.
         var clear = Kerb.MayBegin(
             _config, _signals, _elapsedS, crossing, PaintClaimM(crossing), _occupancy,
             TheWayItStepsOnto(agent, crossing, out var onto) ? _bands.On(onto) : default,
-            People.WaitingToCrossS[agent]);
+            People.WaitingToCrossS[agent], out var standing);
+
+        People.RefusedBy[agent] = standing;
 
         if (clear)
         {

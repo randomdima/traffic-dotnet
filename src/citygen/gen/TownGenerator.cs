@@ -76,6 +76,7 @@ internal static class TownGenerator
         layout.UnpickTheCrossings(config.RoadFootprintM, RoadStage.StraysM(layout, districts, config));
         layout.KeepTheLargestComponent();
         layout.PruneTheDeadEnds();
+        OneWayStreets.Settle(layout);
 
         var shape = new Rng(brief.Seed, ShapeStream);
         var signals = new Rng(brief.Seed, SignalStream);
@@ -85,13 +86,12 @@ internal static class TownGenerator
             roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Crosswalks);
         var streets = new GroundShapes(paved, config);
 
-        var chains = ChainsOf(roads.Roads);
         var slot = new Rng(brief.Seed, SlotStream);
-        var statics = SlotStage.Lay(layout, chains, brief, streets, claims, config, roofsM, ref slot);
+        var statics = SlotStage.Lay(layout, roads.Roads, brief, streets, claims, config, roofsM, ref slot);
 
         var prop = new Rng(brief.Seed, PropStream);
         var built = new GroundShapes(paved.With(statics.ParkingLots), config);
-        var props = PropStage.Lay(brief, chains, statics.ParkingLots, built, claims, config, ref prop);
+        var props = PropStage.Lay(brief, roads.Roads, statics.ParkingLots, built, claims, config, ref prop);
 
         var spawn = new Rng(brief.Seed, SpawnStream);
         var spawns = SpawnStage.Lay(brief, statics.Buildings, statics.ParkingLots, ref spawn);
@@ -130,12 +130,4 @@ internal static class TownGenerator
     /// </summary>
     static float MarginM(SimConfig config) =>
         (config.RoadWidthM * 0.5f) + config.PavementWidthM + config.CityGen.BuildingSideMaxM;
-
-    /// <summary>The roads' arcs road by road, which is how every stage after the road stage walks them.</summary>
-    static ArcSeg[][] ChainsOf(CityPlan.RoadArrays roads)
-    {
-        var chains = new ArcSeg[roads.Count][];
-        for (var road = 0; road < roads.Count; road++) chains[road] = roads.SegmentsOf(road).ToArray();
-        return chains;
-    }
 }

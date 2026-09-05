@@ -72,6 +72,8 @@ internal sealed class PersonFleet
         RefusedWay = new int[capacity];
         Array.Fill(RefusedWay, NoWay);
         RefusedAtM = new float[capacity];
+        RefusedBy = new int[capacity];
+        Array.Fill(RefusedBy, NoBody);
         KerbM = new Vector2[capacity];
         HeldAtTheKerb = new bool[capacity];
         Stage = new TripStage[capacity];
@@ -257,6 +259,19 @@ internal sealed class PersonFleet
     /// <summary>Where on <see cref="RefusedWay"/> that lane's band begins, in the way's own metres.</summary>
     public float[] RefusedAtM { get; }
 
+    /// <summary>
+    /// <b>The vehicle standing on the band this body was refused</b>, or <see cref="NoBody"/> where what
+    /// refused it was a road somebody had taken (PER-15). <b>It is what tells a wait from a standstill</b>:
+    /// a road is handed back by driving on, so waiting for one ends itself and the clock that gives up a
+    /// leg is counting nothing; a body standing on the band hands nothing back, so the clock has to run.
+    /// </summary>
+    /// <remarks>
+    /// A car and never a walker: somebody else on the paint is written on the walk and cuts this body's
+    /// grant there like anything else, and only a vehicle is invisible to the pavement's own claims
+    /// (TER-5c.1).
+    /// </remarks>
+    public int[] RefusedBy { get; }
+
     /// <summary>Where that kerb is — taken when the wait begins, because the stand-off is measured from the paint and not from wherever the body has backed off to.</summary>
     public Vector2[] KerbM { get; }
 
@@ -419,6 +434,7 @@ internal sealed class PersonFleet
         WaitingToCrossS[person] = 0f;
         WaitingForLane[person] = NoLane;
         RefusedWay[person] = NoWay;
+        RefusedBy[person] = NoBody;
         HeldAtTheKerb[person] = false;
         Stage[person] = TripStage.StandingBy;
         DestinationBuilding[person] = NoBuilding;

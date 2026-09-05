@@ -81,7 +81,7 @@ public class DrivingNetworkTests
         {
             var junction = runs.FineNodeOf(node);
             onNetwork[junction] = true;
-            if (roads.LanesOut(junction).Length != 2 || roads.IsAPlace(junction)) continue;
+            if (!IsABend(roads, junction) || roads.IsAPlace(junction)) continue;
 
             Assert.False(
                 hasAChoice[ringOf[junction]],
@@ -94,7 +94,7 @@ public class DrivingNetworkTests
             var ways = roads.LanesOut(junction).Length;
             if (ways == 0) continue;
 
-            if (ways != 2 || roads.IsAPlace(junction))
+            if (!IsABend(roads, junction) || roads.IsAPlace(junction))
             {
                 Assert.True(onNetwork[junction], $"{map}: junction {junction} has {ways} ways on and is off the network");
                 continue;
@@ -127,11 +127,31 @@ public class DrivingNetworkTests
         hasAChoice = new bool[roads.NodeCount];
         for (var junction = 0; junction < roads.NodeCount; junction++)
         {
-            var ways = roads.LanesOut(junction).Length;
-            if (ways is not (0 or 2)) hasAChoice[ringOf[junction]] = true;
+            if (roads.LanesOut(junction).Length == 0) continue;
+            if (!IsABend(roads, junction)) hasAChoice[ringOf[junction]] = true;
         }
 
         return ringOf;
+    }
+
+    /// <summary>
+    /// <b>Whether one run merely passes through a junction</b>: every lane arriving has exactly one way on,
+    /// and as many lanes leave as arrive — so no two of those ways are the same lane. <b>Asked of the
+    /// movements and never of the arms</b> (TER-4d): a bend is one lane in and one lane out where the street
+    /// runs one way and two of each where it runs both, a dead end has an arrival with no way on at all, and
+    /// two one-way streets running into one are a merge, which is a node because two runs end there.
+    /// </summary>
+    static bool IsABend(RoadGraph roads, int junction)
+    {
+        var arriving = roads.LanesIn(junction);
+        if (arriving.Length == 0 || arriving.Length != roads.LanesOut(junction).Length) return false;
+
+        foreach (var lane in arriving)
+        {
+            if (roads.TurnsFrom(lane).Length != 1) return false;
+        }
+
+        return true;
     }
 
     static int Ring(int[] ringOf, int node)

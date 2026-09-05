@@ -32,14 +32,14 @@ namespace TrafficSimulation.CityGen.Gen;
 internal static class PropStage
 {
     public static CityPlan.PropArrays Lay(
-        TownBrief brief, ArcSeg[][] chains, CityPlan.ParkingLotArrays lots, GroundShapes ground,
+        TownBrief brief, CityPlan.RoadArrays roads, CityPlan.ParkingLotArrays lots, GroundShapes ground,
         GenClaims claims, SimConfig config, ref Rng draw)
     {
         var acrossM = new Vector2(brief.WidthM, brief.HeightM);
         var widestM = MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM);
         var scatter = PropScatter.Over(acrossM, widestM, config.CityGen.PropApartM);
 
-        AlongTheKerbs(chains, ground, claims, config, scatter, ref draw);
+        AlongTheKerbs(roads, ground, claims, config, scatter, ref draw);
         AroundTheLots(lots, ground, claims, config, scatter, ref draw);
         OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
 
@@ -59,10 +59,9 @@ internal static class PropStage
     /// the compass. The ends the walk leaves out are the stub every junction lays its own ground across.
     /// </summary>
     static void AlongTheKerbs(
-        ArcSeg[][] chains, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
+        CityPlan.RoadArrays roads, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
         ref Rng draw)
     {
-        var kerbM = (config.RoadWidthM * 0.5f) + config.PavementWidthM;
         var nearM = config.CityGen.PropVergeNearM;
         var bandM = config.CityGen.PropVergeFarM - nearM;
         var pitchM = config.CityGen.PropVergePitchM;
@@ -72,11 +71,15 @@ internal static class PropStage
         // prop is beside one is the whole verge and that pavement together.
         var lotReachM = config.CityGen.PropVergeFarM + config.PavementWidthM;
 
-        for (var road = 0; road < chains.Length; road++)
+        for (var road = 0; road < roads.Count; road++)
         {
-            if (chains[road].Length == 0) continue;
+            var chain = roads.SegmentsOf(road);
+            if (chain.Length == 0) continue;
 
-            var lengthM = Spline.TotalLengthM(chains[road]);
+            // The kerb of the road being walked and never the catalogue's: a one-way street's pavement
+            // stands half a carriageway nearer its middle (TER-4d).
+            var kerbM = (roads.WidthM[road] * 0.5f) + config.PavementWidthM;
+            var lengthM = Spline.TotalLengthM(chain);
             foreach (var hand in (ReadOnlySpan<int>)[-1, 1])
             {
                 for (var alongM = stubM; alongM <= lengthM - stubM; alongM += pitchM)
@@ -84,7 +87,7 @@ internal static class PropStage
                     var stationM = alongM + (draw.NextFloat() * pitchM);
                     if (stationM > lengthM - stubM) continue;
 
-                    var on = Spline.SampleAt(chains[road], stationM);
+                    var on = Spline.SampleAt(chain, stationM);
                     var atM = on.PositionM + (on.Right * hand * (kerbM + nearM + (draw.NextFloat() * bandM)));
                     if (ground.At(atM) != Ground.Grass) continue;
 

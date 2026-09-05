@@ -112,6 +112,18 @@ internal static class Towns
         return maps;
     }
 
+    /// <summary>The cities alone, without the fixture: what a question about a whole town is asked of.</summary>
+    public static TheoryData<string> EveryCity()
+    {
+        var maps = new TheoryData<string>();
+        foreach (var map in Shipped)
+        {
+            if (MapCatalogue.Describe(map).Kind == MapKind.Place) maps.Add(map);
+        }
+
+        return maps;
+    }
+
     /// <summary>
     /// <b>The walker standing nearest a carriageway</b>, or −1 — who a staged casualty is made of.
     /// <see cref="Bench.RescueProbe"/>'s own choice, for its own reason: a service vehicle arrives along the

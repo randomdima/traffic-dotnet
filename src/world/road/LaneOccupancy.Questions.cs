@@ -175,6 +175,32 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
+    /// <b>Whether a wheeled body is standing over this stretch</b> — going nowhere on it rather than coming
+    /// through it (PER-15). <b>The one thing on a road that no patience buys</b>: a driver's road is handed
+    /// back by driving on, and a body is not handed back at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>The bar is a pace and never zero</b>, exactly as <see cref="AnyRescueOver"/>'s is and for the same
+    /// reason: a car held in a queue creeps at fractions of a millimetre a second, and read against zero that
+    /// is a car coming through for as long as it sits there. Every claim over the ground is walked rather
+    /// than the first one taken, so a car standing on a piece of road cannot hide one moving over it.
+    /// </remarks>
+    /// <param name="comingThroughMps">How fast a body has to be going to be worth waiting for rather than standing at.</param>
+    public bool AnyTrafficStandingOver(
+        int way, float fromM, float toM, float comingThroughMps, out LaneClaim found)
+    {
+        var at = FromTheStart;
+        while (NextOver(
+                   way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.Traffic,
+                   RightOfWay.TurningAcross, ref at, out found))
+        {
+            if (MathF.Abs(found.AlongMps) < comingThroughMps) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// <b>Whether this stretch of ground is somebody else's</b>, whoever they are and whatever they are
     /// doing on it — what a manoeuvre asks of every place its own geometry would put a body, since a
     /// template runs over ground no way owns and the ways under it are all there is to ask; and what a

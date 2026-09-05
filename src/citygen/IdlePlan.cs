@@ -319,6 +319,7 @@ internal static class IdlePlan
                 FromJunction = Ends(first: true),
                 ToJunction = Ends(first: false),
                 WidthM = Filled(Roads, widthM),
+                Flow = CityPlan.RoadArrays.AllBothWays(Roads),
                 SegmentOffsets = [.. offsets],
                 Segments = [.. segments],
             },

@@ -175,7 +175,7 @@ internal static class RoadCuts
     /// </remarks>
     public static float[] ReachesM(CityPlan plan, SimConfig config)
     {
-        var bearings = new List<float>[plan.Junctions.Count];
+        var bearings = new List<(float Rad, float HalfM, float StandsOffM)>[plan.Junctions.Count];
         var bendM = new float[bearings.Length];
         for (var junction = 0; junction < bearings.Length; junction++) bearings[junction] = [];
 
@@ -184,10 +184,20 @@ internal static class RoadCuts
             var chain = plan.Roads.SegmentsOf(road);
             if (chain.Length == 0) continue;
 
-            var outOfFrom = Spline.SampleAt(chain, 0f).Direction;
-            var outOfTo = -Spline.SampleAt(chain, Spline.TotalLengthM(chain)).Direction;
-            bearings[plan.Roads.FromJunction[road]].Add(MathF.Atan2(outOfFrom.Y, outOfFrom.X));
-            bearings[plan.Roads.ToJunction[road]].Add(MathF.Atan2(outOfTo.Y, outOfTo.X));
+            // <b>Each arm with its own half beside it, and with however far off the node it stands</b>:
+            // where the kerbs of two arms cross is a fact about both their widths, and a one-way street is
+            // half a road wide and stands on the half of that road it is driven (TER-4d).
+            var halfM = plan.Roads.WidthM[road] * 0.5f;
+            var from = Spline.SampleAt(chain, 0f);
+            var to = Spline.SampleAt(chain, Spline.TotalLengthM(chain));
+            var outOfFrom = from.Direction;
+            var outOfTo = -to.Direction;
+            bearings[plan.Roads.FromJunction[road]].Add((
+                MathF.Atan2(outOfFrom.Y, outOfFrom.X), halfM,
+                StandsOffM(from.PositionM - plan.Junctions.CentreM[plan.Roads.FromJunction[road]], outOfFrom)));
+            bearings[plan.Roads.ToJunction[road]].Add((
+                MathF.Atan2(outOfTo.Y, outOfTo.X), halfM,
+                StandsOffM(to.PositionM - plan.Junctions.CentreM[plan.Roads.ToJunction[road]], outOfTo)));
 
             // A node with no fork has no corner to flare, and the ground it takes is the bend the two arms
             // were swept into instead (TER-5b) — which is as much of that arm as anything must stand off.
@@ -210,17 +220,32 @@ internal static class RoadCuts
             round.Sort();
             for (var at = 0; at < round.Count; at++)
             {
-                var apartRad = round[(at + 1) % round.Count] - round[at];
+                var next = (at + 1) % round.Count;
+                var apartRad = round[next].Rad - round[at].Rad;
                 if (apartRad <= 0f) apartRad += MathF.Tau;
-                if (apartRad >= MathF.PI) continue;
 
+                // The neighbour lies to the right of the first arm of the pair and to the left of the
+                // second, so a road standing off the node moves one kerb into the wedge and the other out.
+                var kerbAtM = round[at].HalfM + round[at].StandsOffM;
+                var kerbNextM = round[next].HalfM - round[next].StandsOffM;
+                if (!config.JunctionTurnsACorner(apartRad, kerbAtM, kerbNextM)) continue;
+
+                // The corner reaches each of its two arms differently where they are not the same width, and
+                // what the junction has taken is the further of them.
+                var cornerM = MathF.Max(
+                    config.JunctionArmReachM(apartRad, kerbAtM, kerbNextM),
+                    config.JunctionArmReachM(apartRad, kerbNextM, kerbAtM));
                 reachM[junction] = MathF.Max(
-                    reachM[junction], MathF.Min(config.JunctionArmReachMaxM, config.JunctionArmReachM(apartRad)));
+                    reachM[junction], MathF.Min(config.JunctionArmReachMaxM, cornerM));
             }
         }
 
         return reachM;
     }
+
+    /// <summary>How far off the node an arm's own line stands, to the right of the way out along it.</summary>
+    static float StandsOffM(Vector2 offTheNodeM, Vector2 outward) =>
+        Vector2.Dot(offTheNodeM, Heading.RightOf(outward));
 
     /// <summary>How far into its own end junction a chain reaches, which is where the stretch on it starts or stops.</summary>
     static float EndCutM(

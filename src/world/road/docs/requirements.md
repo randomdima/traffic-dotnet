@@ -15,6 +15,22 @@ traffic and must yield — which is a right of way and is stated as one (TER-5e)
 single global constant** — lane offset, turn classification, keep-right on foot and which flank a car door is
 on all read that one.
 
+**TER-4d** **A road runs one way or both ways, and a one-way road is the narrower for it.** A carriageway
+is as many lanes as it has ways, laid at the one lane width either way (GEN-15): two lanes where traffic
+runs both ways, and **one lane down the middle of half a road** where it runs one. **That half is the half
+its traffic drives, and the road stands on it**: its own half to the driving side of the line its two
+intersections are joined on, which is where a carriageway of two ways carries the lane running that way — so
+a one-way street meeting one of two ways continues that road's lane and that road's kerb rather than
+stepping across them. A one-way road therefore has no reverse lane to come back down, cross round what is
+in its way, or park against; no centreline, because it divides nothing; and **a bar only on the arm traffic
+comes to the junction on**. Everything else — the crossing on it, the kerb beside it, the claims over it —
+is what it always was, read off the road's own width.
+
+**Which way a road runs is the road's own and is never read off its shape.** A road is drawn from one
+intersection to the other and may be driven either way along that (`RoadFlow`); nothing infers it from the
+width, because a narrow road is not necessarily a one-way one and nothing infers topology from geometry
+(TER-4).
+
 **TER-4b** Two carriageways coming within a pavement's width of one another **must both name an
 intersection there** — nearer than that and no pavement fits between them, so their tarmac is one surface
 and a walker has no way past on foot.
@@ -40,6 +56,16 @@ carriageways**, which is the line a turning car takes. Each arm is stamped out t
 disc, mouths and fillets come out as one region. **"How far the junction reaches"** — what crossings and
 lots measure from — is half the disc plus the corner radius, not the disc's edge.
 
+**The disc is sized on the arm whose ground reaches furthest from the node — its own half and however far
+off the node its road stands — and a corner is solved on the two it stands between** (TER-4d). Where a
+one-way street meets a full carriageway their kerbs cross off the bisector, further out along the narrow
+arm than along the wide one, and each arm is reached as far as its own tangent point rather than to one
+figure both share. **An arm's kerb is where its road actually carries it**, which for a street standing on
+the driven half of a carriageway is one kerb nearer its neighbour and the other that much further off.
+**Two arms of different widths lying all but against one another turn no corner at all**:
+their kerbs are parallel and cross behind the mouth if they cross anywhere, which is a road narrowing at a
+junction — a step in the kerb, and nothing for a fillet to be tangent to.
+
 **A junction is not sized around a car's turning circle.** Turning geometry is the controller's problem.
 There is exactly one exception:
 
@@ -64,12 +90,18 @@ carriageways; neither arm is the outside of a turn, so the disc's own corner is 
 the same radius; one arm is a straight kerb running on, and nothing is drawn. Both kinds pave their
 square whole first and then take the ground back along the arc.
 
-**TER-5d** **A lane has one end, whatever is driven off it.** The line across the box is set back into the
-two lanes it joins far enough that it reaches the junction's own corner radius, and **the setback belongs to
-the lane end rather than to the turn** — the widest any of that end's movements asked for. A straight and a
-right-angle turn out of one lane therefore hand over at the same point, and the boundary between a lane and
-the box is a place that can be named without naming a movement. Every movement in the reckoning reaches a
-radius, because the one that never could is not a movement (TER-5f).
+**TER-5d** **A junction is a set of connection points, and the joins are what run between them.** Every
+movement out of a lane starts at that lane's own last point and every movement into one lands on its own
+first point, so a lane's line is the whole of what is driven along it and the ground past either end is the
+junction's alone. **Nothing runs over a connection point**: no lane carries a spur into the box for a
+movement to be drawn over, and no reader adds a figure to a lane's metres to find where they begin.
+
+**A lane end is one point, whatever is driven off it.** How far back from the disc it stands is far enough
+that the arc from it reaches the junction's own corner radius, and it is the deepest any of that end's
+movements asked for — so a straight and a right-angle turn out of one lane hand over at the same place, and
+what the corner takes is **cut off the lane** rather than marked on it. It is never more than the stretch
+can spare, because a lane cut away is a lane the town has not got. Every movement in the reckoning reaches
+a radius, because the one that never could is not a movement (TER-5f).
 
 **TER-5f** **No box admits a movement that reverses the direction of travel.** A pair of lanes that would
 face each other across an intersection is not joined at all: no turn is classified between them, no line is

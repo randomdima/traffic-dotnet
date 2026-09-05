@@ -28,8 +28,12 @@ internal static class Furniture
         CityPlan.CrosswalkArrays Crosswalks,
         CityPlan.StopLineArrays StopLines);
 
-    /// <summary>One road as it leaves a junction: which road, which of its ends, and the way out along it.</summary>
-    readonly record struct Arm(int Road, bool AtFromEnd, float BearingRad);
+    /// <summary>
+    /// One road as it leaves a junction: which road, which of its ends, the way out along it, and how far
+    /// the road's own line stands to the right of that way out — half a lane on a one-way street, which
+    /// stands on the half of the carriageway it is driven (TER-4d), and nothing on any other road.
+    /// </summary>
+    readonly record struct Arm(int Road, bool AtFromEnd, float BearingRad, float StandsOffM);
 
     /// <summary>
     /// The fillets a junction's corners are turned on, and <b>how far along each of its arms the junction's
@@ -39,9 +43,9 @@ internal static class Furniture
     readonly record struct Mouths(CityPlan.JunctionCornerArrays Corners, float[][] ReachM);
 
     public static Laid Lay(
-        TownLayout layout, ArcSeg[][] chains, CityPlan.JunctionArrays junctions, SimConfig config, float widthM)
+        TownLayout layout, ArcSeg[][] chains, CityPlan.JunctionArrays junctions, SimConfig config, float[] widthM)
     {
-        var arms = ArmsOf(layout, chains, junctions.Count);
+        var arms = ArmsOf(layout, chains, junctions.CentreM);
         var mouths = Corners(chains, junctions, arms, config, widthM);
         var through = Throughs(chains, arms, config, mouths.ReachM);
 
@@ -50,29 +54,37 @@ internal static class Furniture
         // bars stand on the pavement cannot be laid at all, and the ground under the paint is a stretch of
         // that same road rather than a rectangle anybody has to reconcile with it.
         var crossings = Crossings(chains, arms, config, mouths.ReachM, through);
-        var bars = Bars(chains, junctions, arms, config, widthM, mouths.ReachM, through);
+        var bars = Bars(layout, chains, junctions, arms, config, widthM, mouths.ReachM, through);
         return new Laid(mouths.Corners, crossings, bars);
     }
 
-    static List<Arm>[] ArmsOf(TownLayout layout, ArcSeg[][] chains, int junctions)
+    static List<Arm>[] ArmsOf(TownLayout layout, ArcSeg[][] chains, Vector2[] centreM)
     {
-        var arms = new List<Arm>[junctions];
-        for (var junction = 0; junction < junctions; junction++) arms[junction] = [];
+        var arms = new List<Arm>[centreM.Length];
+        for (var junction = 0; junction < centreM.Length; junction++) arms[junction] = [];
 
         for (var road = 0; road < chains.Length; road++)
         {
             if (chains[road].Length == 0) continue;
 
             var edge = layout.Edges[road];
-            arms[edge.From].Add(new Arm(road, true, RoadStage.Facing(Spline.SampleAt(chains[road], 0f).Direction)));
+            var start = Spline.SampleAt(chains[road], 0f);
+            var end = Spline.SampleAt(chains[road], Spline.TotalLengthM(chains[road]));
+            arms[edge.From].Add(new Arm(
+                road, true, RoadStage.Facing(start.Direction),
+                StandsOffM(start.PositionM - centreM[edge.From], start.Direction)));
             arms[edge.To].Add(new Arm(
-                road, false,
-                RoadStage.Facing(-Spline.SampleAt(chains[road], Spline.TotalLengthM(chains[road])).Direction)));
+                road, false, RoadStage.Facing(-end.Direction),
+                StandsOffM(end.PositionM - centreM[edge.To], -end.Direction)));
         }
 
         foreach (var junction in arms) junction.Sort((a, b) => Wrapped(a.BearingRad).CompareTo(Wrapped(b.BearingRad)));
         return arms;
     }
+
+    /// <summary>How far off the node an arm's own line stands, to the right of the way out along it.</summary>
+    static float StandsOffM(Vector2 offTheNodeM, Vector2 outward) =>
+        Vector2.Dot(offTheNodeM, Heading.RightOf(outward));
 
     /// <summary>
     /// The kerb fillet between each pair of arms that stand next to each other round a junction: the arc
@@ -86,7 +98,7 @@ internal static class Furniture
     /// the carriageway — the ground a car turns across, classified as somewhere to walk.
     /// </remarks>
     static Mouths Corners(
-        ArcSeg[][] chains, CityPlan.JunctionArrays junctions, List<Arm>[] arms, SimConfig config, float widthM)
+        ArcSeg[][] chains, CityPlan.JunctionArrays junctions, List<Arm>[] arms, SimConfig config, float[] widthM)
     {
         var cornerM = new List<Vector2>();
         var arcCentreM = new List<Vector2>();
@@ -94,19 +106,19 @@ internal static class Furniture
         var tangentAM = new List<Vector2>();
         var tangentBM = new List<Vector2>();
 
-        var halfM = widthM * 0.5f;
         var reachM = new float[arms.Length][];
         for (var junction = 0; junction < arms.Length; junction++)
         {
             // An arm no corner reaches — one of two that run apart, or of two all but straight through —
-            // is reached only by the carriageway's own edge. <b>Or by the bend it leaves on</b>, where the
+            // is reached only by the mouth's own edge. <b>Or by the bend it leaves on</b>, where the
             // two arms of a node with no fork were swept into one curve (<see cref="RoadStage"/>): the paint
             // an arm carries is laid across a straight, and the straight there begins where the arc ends.
             reachM[junction] = new float[arms[junction].Count];
             for (var at = 0; at < arms[junction].Count; at++)
             {
                 var arm = arms[junction][at];
-                reachM[junction][at] = MathF.Max(halfM, Spline.BendAtTheEndM(chains[arm.Road], arm.AtFromEnd));
+                reachM[junction][at] = MathF.Max(
+                    junctions.RadiusM[junction], Spline.BendAtTheEndM(chains[arm.Road], arm.AtFromEnd));
             }
 
             if (arms[junction].Count < 2) continue;
@@ -118,36 +130,39 @@ internal static class Furniture
                 var b = Heading.Unit(arms[junction][next].BearingRad);
                 var apartRad = Wrapped(arms[junction][next].BearingRad - arms[junction][at].BearingRad);
 
-                // Two arms a straight line or more apart have no corner between them: their kerbs run away
-                // from each other and the mouth's own edge is already tangent to both.
-                if (apartRad >= MathF.PI) continue;
+                // <b>Each arm's kerb stands off the node by its own half and by however far its road
+                // stands off there</b> (TER-4d) — the neighbour lies to the right of the first of the pair
+                // and to the left of the second — so whether the two cross at all, and where, is asked of
+                // the pair and not of one width the town shares.
+                var kerbAM = (widthM[arms[junction][at].Road] * 0.5f) + arms[junction][at].StandsOffM;
+                var kerbBM = (widthM[arms[junction][next].Road] * 0.5f) - arms[junction][next].StandsOffM;
+                if (!config.JunctionTurnsACorner(apartRad, kerbAM, kerbBM)) continue;
 
                 var half = apartRad * 0.5f;
+                var alongAM = SimConfig.JunctionCornerAlongM(apartRad, kerbAM, kerbBM);
+                var alongBM = SimConfig.JunctionCornerAlongM(apartRad, kerbBM, kerbAM);
 
-                // <b>How far the kerbs cross outside the mouth is whether there is a corner at all.</b> Two
-                // arms all but straight through leave a spike narrower than the line the kerb is drawn as,
-                // and a fillet turned on that is a shape nothing can see and no cell can hold.
-                var spikeM = (halfM / MathF.Sin(half)) - halfM;
-                if (spikeM < config.Road.PaintLineWidthM) continue;
+                // Into the wedge and never to a hand: the kerb bounding it is the arm's own line moved its
+                // own kerb's distance towards its neighbour, which is where that neighbour stands off it.
+                var intoTheWedge = Vector2.Normalize(b - (a * Vector2.Dot(a, b)));
+                var cornerAtM = junctions.CentreM[junction] + (a * alongAM) + (intoTheWedge * kerbAM);
 
-                // The two kerbs bounding the wedge, and the arc tangent to both: the corner is where they
-                // meet, the centre stands off it along the bisector, and each tangent runs back out along
-                // its own kerb.
+                // The arc tangent to both kerbs: its centre stands off the corner along the bisector of the
+                // wedge, and each tangent runs back out along its own kerb.
                 var bisector = Vector2.Normalize(a + b);
                 var filletM = config.JunctionFilletRadiusM(apartRad);
+                var alongTheKerbM = filletM / MathF.Tan(half);
 
-                var cornerAtM = junctions.CentreM[junction] + (bisector * (halfM / MathF.Sin(half)));
                 cornerM.Add(cornerAtM);
                 arcCentreM.Add(cornerAtM + (bisector * (filletM / MathF.Sin(half))));
                 radiusM.Add(filletM);
-                tangentAM.Add(cornerAtM + (a * (filletM / MathF.Tan(half))));
-                tangentBM.Add(cornerAtM + (b * (filletM / MathF.Tan(half))));
+                tangentAM.Add(cornerAtM + (a * alongTheKerbM));
+                tangentBM.Add(cornerAtM + (b * alongTheKerbM));
 
-                // Both arms of the corner are reached as far as that tangent, and each arm stands off
+                // Each arm of the corner is reached as far as its own tangent point, and stands off
                 // whichever of its own two corners reaches further.
-                var tangentAlongM = config.JunctionArmReachM(apartRad);
-                reachM[junction][at] = MathF.Max(reachM[junction][at], tangentAlongM);
-                reachM[junction][next] = MathF.Max(reachM[junction][next], tangentAlongM);
+                reachM[junction][at] = MathF.Max(reachM[junction][at], alongAM + alongTheKerbM);
+                reachM[junction][next] = MathF.Max(reachM[junction][next], alongBM + alongTheKerbM);
             }
         }
 
@@ -255,8 +270,8 @@ internal static class Furniture
     /// of what governs the paint is the walker's right of way — which these say where the stop for is made.
     /// </remarks>
     static CityPlan.StopLineArrays Bars(
-        ArcSeg[][] chains, CityPlan.JunctionArrays junctions, List<Arm>[] arms, SimConfig config, float widthM,
-        float[][] reachM, int[] through)
+        TownLayout layout, ArcSeg[][] chains, CityPlan.JunctionArrays junctions, List<Arm>[] arms,
+        SimConfig config, float[] widthM, float[][] reachM, int[] through)
     {
         var centreM = new List<Vector2>();
         var approach = new List<Vector2>();
@@ -282,17 +297,24 @@ internal static class Furniture
                 // side, which at a node with no fork is the same crossing barred from both of its sides.
                 foreach (var side in noFork ? (ReadOnlySpan<float>)[1f, -1f] : [1f])
                 {
+                    // <b>Nothing is stopped where nothing drives</b>: a one-way street bars the traffic
+                    // coming to the junction and paints nothing across the lane leaving it (TER-4d).
+                    if (!Driven(layout, arm, arrives: side > 0f)) continue;
+
                     var alongM = noFork
                         ? reachM[at][index] + ThroughCrossingSetbackM(config) + (side * BarOffTheCrossingM(config))
                         : reachM[at][index] + setbackM;
                     if (!OnTheArm(chains, arm, alongM, out var pointM, out var outward)) continue;
 
                     // Behind the paint and on the driver's own side of the centreline: a bar painted across
-                    // the whole carriageway is one the oncoming traffic is also stopped at.
+                    // the whole carriageway is one the oncoming traffic is also stopped at. A one-way street
+                    // has one lane and the bar is the whole of it, laid down the middle.
                     var travel = side > 0f ? -outward : outward;
-                    centreM.Add(pointM + (Heading.RightOf(travel) * config.LaneOffsetM * config.RoadSideSign));
+                    var lanes = layout.Edges[arm.Road].Flow == RoadFlow.BothWays ? 2 : 1;
+                    var offTheMiddleM = lanes == 2 ? config.LaneOffsetM * config.RoadSideSign : 0f;
+                    centreM.Add(pointM + (Heading.RightOf(travel) * offTheMiddleM));
                     approach.Add(travel);
-                    spanM.Add(widthM * 0.5f);
+                    spanM.Add(widthM[arm.Road] / lanes);
                     thicknessM.Add(config.Road.StopBarThicknessM);
                     junction.Add(at);
                     road.Add(arm.Road);
@@ -306,6 +328,18 @@ internal static class Furniture
             ThicknessM = [.. thicknessM], Junction = [.. junction], Road = [.. road],
         };
     }
+
+    /// <summary>
+    /// Whether an arm carries traffic the way asked of it: <paramref name="arrives"/> for the lane coming to
+    /// the junction the arm stands at, and the other way for the one leaving it. Both, on a road driven both
+    /// ways; one of them on a one-way street (TER-4d).
+    /// </summary>
+    static bool Driven(TownLayout layout, Arm arm, bool arrives) => layout.Edges[arm.Road].Flow switch
+    {
+        RoadFlow.WithTheRoad => arm.AtFromEnd != arrives,
+        RoadFlow.AgainstTheRoad => arm.AtFromEnd == arrives,
+        _ => true,
+    };
 
     /// <summary>How far out past whatever ground its junction reaches a crossing's own centre stands.</summary>
     static float CrossingSetbackM(SimConfig config) =>

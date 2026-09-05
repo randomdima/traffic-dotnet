@@ -17,6 +17,12 @@ namespace TrafficSimulation.Agents.Person.Control;
 /// patience the walker steps out and the cars stop, which is what the crossing is for.
 /// </para>
 /// <para>
+/// <b>And what it steps out into is a road and never a body</b> (<see cref="AStandstillIsOver"/>). The
+/// patience buys ground a driver has taken and can hand back by driving on; a vehicle standing on the band
+/// hands nothing back, so it refuses whatever the clock reads and the walker stands at it like anything
+/// else going nowhere (PER-13).
+/// </para>
+/// <para>
 /// <b>The give-way is a claim and never a prediction.</b> What the walker asks is whether the paint
 /// is anybody's — is any lane of it inside the road some driver has already taken — and not how long
 /// something would take to arrive. A claim runs from a car's own tail to where that car is committed
@@ -60,12 +66,18 @@ internal static class Kerb
     /// only the first is this question's.
     /// </param>
     /// <param name="claimM">How much of a lane a body on this paint takes, either side of it.</param>
+    /// <param name="standing">
+    /// The body standing on the band, or <see cref="LaneOccupancy.Nobody"/> — what the caller runs its
+    /// give-up clock against, since standing at one is not waiting for anything (PER-13).
+    /// </param>
     public static bool MayBegin(
         SimConfig config, SignalService signals, float timeS, int crossing, float claimM, LaneOccupancy roads,
-        ReadOnlySpan<CrossingBands.Band> ahead, float waitedS)
+        ReadOnlySpan<CrossingBands.Band> ahead, float waitedS, out int standing)
     {
+        standing = LaneOccupancy.Nobody;
         if (signals.CrossingIsLit(crossing) && signals.ForCrossing(crossing, timeS) != SignalColour.Green) return false;
         if (TheBandItStepsIntoIsFree(roads, ahead, claimM)) return true;
+        if (AStandstillIsOver(config, roads, ahead, claimM, out standing)) return false;
 
         // <b>Every other agent gives way to a rescue, and a body at a kerb is one of them</b> (AMB-4). The
         // patience is PER-15's escape from a crossing that never clears, and the road of a rescue that is
@@ -104,6 +116,45 @@ internal static class Kerb
         !roads.AnyTrafficOver(roads.Ways.OfRoadLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM);
 
     /// <summary>
+    /// <b>Whether a vehicle is standing on the band rather than coming through it</b> (PER-15) — the one
+    /// refusal the patience never escapes, because there is nothing on the other side of it to be given.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What the escape takes is a road and never a body.</b> A driver's road is a claim the traffic hands
+    /// back by driving on, and taking it past the patience is a walker stepping out in front of a car that
+    /// then stops. A car whose own body is over the paint hands nothing back: the ground is occupied rather
+    /// than spoken for, and a permission over it is a walker walking into a tonne of steel and shoving it
+    /// down its own lane.
+    /// </para>
+    /// <para>
+    /// <b>The bar is the walker's own pace</b>, which is the bar the pavement already holds a body to
+    /// (PER-24) and the bar a rescue is held to here: one coming through the band is traffic and is waited
+    /// out, one going nowhere on it is a standstill and is stood at. <b>Standing at one is not waiting</b>
+    /// (PER-13) — nothing about it ends on its own — so what answers it is the clock that gives up a leg and
+    /// never the patience.
+    /// </para>
+    /// </remarks>
+    public static bool AStandstillIsOver(
+        SimConfig config, LaneOccupancy roads, ReadOnlySpan<CrossingBands.Band> ahead, float claimM,
+        out int standing)
+    {
+        standing = LaneOccupancy.Nobody;
+        return ahead.Length > 0 && AStandstillIsOver(config, roads, ahead[0], claimM, out standing);
+    }
+
+    public static bool AStandstillIsOver(
+        SimConfig config, LaneOccupancy roads, CrossingBands.Band band, float claimM, out int standing)
+    {
+        var over = roads.AnyTrafficStandingOver(
+            roads.Ways.OfRoadLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM,
+            config.PersonWalkSpeedMps, out var found);
+
+        standing = over ? found.Occupant : LaneOccupancy.Nobody;
+        return over;
+    }
+
+    /// <summary>
     /// Whether the lane this body is about to step into is inside the road of <b>a rescue that is coming
     /// through it</b> (AMB-4).
     /// </summary>
@@ -112,9 +163,10 @@ internal static class Kerb
     /// <b>A rescue that is not moving is not one</b>, and that is the whole of what makes this an exception
     /// rather than a way of shutting a crossing for good. The exemption is worth what its own justification
     /// is worth — a call lasts seconds, so what is being waited out is going to pass — and an ambulance
-    /// sitting over the paint is not passing: it is a stopped car, which is what the walker taking the band
-    /// would have made of it anyway. Left unbounded, PER-15's escape never fires at that crossing at all,
-    /// and a body halfway over stands in a live carriageway for as long as the ambulance stands in it.
+    /// sitting over the paint is not passing: it is a car standing on the band like any other
+    /// (<see cref="AStandstillIsOver"/>), refused for as long as it stands there and answered by the clock
+    /// that gives up a leg rather than by the patience. Left unbounded here as well, the rescue would be the
+    /// one standstill a walker was told to wait out for ever.
     /// </para>
     /// <para>
     /// <b>The bar is the walker's own pace</b> (<see cref="SimConfig.PersonWalkSpeedMps"/>), which is the

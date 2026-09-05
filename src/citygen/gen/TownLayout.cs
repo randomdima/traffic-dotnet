@@ -25,7 +25,12 @@ internal enum RoadClass : byte
 /// The bend the layout itself asks for, as 1/radius — an orbital's own arc, and zero for everything the road
 /// stage is free to wander (<see cref="RoadStage"/>). It is signed: left of travel is positive.
 /// </param>
-internal readonly record struct LayoutEdge(int From, int To, RoadClass Class, float Curvature);
+/// <param name="Flow">
+/// Which way it is driven (TER-4d). What lays the road proposes it; what the town can be driven round
+/// settles it (<see cref="TownLayout.OpenTheOneWaysACarCannotLeave"/>).
+/// </param>
+internal readonly record struct LayoutEdge(
+    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow);
 
 /// <summary>
 /// <b>The town as nodes and what joins them</b>, before any of it is a curve or a cell — the product of the
@@ -98,7 +103,8 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     /// rather keep is not knowable while they are still being offered, so that is
     /// <see cref="UnpickTheCrossings"/>'s to settle once every road has been laid.
     /// </summary>
-    public void Join(int from, int to, RoadClass roadClass, float curvature = 0f)
+    public void Join(
+        int from, int to, RoadClass roadClass, float curvature = 0f, RoadFlow flow = RoadFlow.BothWays)
     {
         if (from == to) return;
 
@@ -116,7 +122,7 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
 
         _armsAt[from].Add(outward);
         _armsAt[to].Add(outward + MathF.PI);
-        _edges.Add(new LayoutEdge(from, to, roadClass, curvature));
+        _edges.Add(new LayoutEdge(from, to, roadClass, curvature, flow));
     }
 
     /// <summary>
@@ -134,6 +140,13 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
 
         return true;
     }
+
+    /// <summary>
+    /// Which way one road is driven, for the pass that settles that and changes nothing else
+    /// (<see cref="OneWayStreets"/>). <b>It is not a re-offer</b>: a road's ends, its class and its shape
+    /// are what they were, and only the traffic on it has changed.
+    /// </summary>
+    public void RunsOneWay(int edge, RoadFlow flow) => _edges[edge] = _edges[edge] with { Flow = flow };
 
     /// <summary>How many roads meet at each node, which is what decides a junction's radius and whether it may be lit.</summary>
     public int[] Arms()
@@ -491,7 +504,7 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         _joined.Clear();
         _armsAt.Clear();
         for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
-        foreach (var edge in edges) Join(edge.From, edge.To, edge.Class, edge.Curvature);
+        foreach (var edge in edges) Join(edge.From, edge.To, edge.Class, edge.Curvature, edge.Flow);
     }
 
     void Rebuilt(List<Vector2> nodeM, List<LayoutEdge> edges)

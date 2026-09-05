@@ -99,15 +99,14 @@ internal static class LineAssembler
                 lengthM += graph.JoinLengthM(arrivedOn);
             }
 
-            var fromM = arrivedOn != RoadGraph.NoTurn ? graph.JoinToM(arrivedOn) : 0f;
-            var toM = leavingOn != RoadGraph.NoTurn
-                ? graph.LaneLengthM[lane] - graph.JoinFromM(leavingOn)
-                : graph.LaneLengthM[lane];
-
-            if (index == lanes.Length - 1) toM = MathF.Min(toM, MathF.Max(fromM, lastLaneToM));
+            // <b>A lane is threaded whole</b> (TER-5d): it was cut back to the points its movements hand
+            // over at, so the join before it ends where its line begins and the join after it begins where
+            // its line ends.
+            var toM = graph.LaneLengthM[lane];
+            if (index == lanes.Length - 1) toM = MathF.Min(toM, MathF.Max(0f, lastLaneToM));
 
             laneStartM[index] = lengthM;
-            var laid = Spline.SubChainInto(graph.ArcsOf(lane), fromM, toM, into[written..]);
+            var laid = Spline.SubChainInto(graph.ArcsOf(lane), 0f, toM, into[written..]);
             for (var arc = 0; arc < laid; arc++) lengthM += into[written + arc].LengthM;
             written += laid;
             laneEndM[index] = lengthM;
@@ -134,40 +133,17 @@ internal static class LineAssembler
     }
 
     /// <summary>
-    /// Where a lane's own metres begin under the line's: the setback the arriving join was drawn to, and
-    /// nothing at all on the lane a line starts from.
-    /// </summary>
-    public static float LaneOriginM(RoadGraph graph, ReadOnlySpan<int> lanes, int slot)
-    {
-        if (slot <= 0) return 0f;
-
-        var arrivedOn = graph.TurnSlot(lanes[slot - 1], lanes[slot]);
-        return arrivedOn == RoadGraph.NoTurn ? 0f : graph.JoinToM(arrivedOn);
-    }
-
-    /// <summary>
     /// <b>Where a place on one of a line's lanes falls along the line itself</b> — a painted bar, a
     /// crossing, anything the town measured against a lane and a driver has to meet on its own line.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The two measures run at the same rate</b>, and the whole of the difference between them is
-    /// <see cref="LaneOriginM"/>. The line over a lane <em>is</em> that lane's own arcs and nothing else
-    /// (<see cref="Spline.SubChainInto"/>), so a metre of one is a metre of the other — which is what makes
-    /// a distance along a lane a distance along the ground the lane bends over rather than along a chord
-    /// through it. There is no scale here to get wrong and no geometry to walk.
-    /// </para>
-    /// <para>
-    /// <b>Clamped to the lane's own stretch of the line.</b> A place inside either setback is ground the
-    /// line crosses on a join instead, where a lane's metres have stopped standing for anything the car
-    /// is driving; the mouth of the junction is the nearest place on the line that is still this lane's.
-    /// </para>
+    /// <b>The two measures run at the same rate and start together.</b> The line over a lane <em>is</em>
+    /// that lane's own arcs and nothing else (<see cref="Spline.SubChainInto"/>), and a lane begins where
+    /// the join before it ended (TER-5d) — so a metre of one is a metre of the other, measured from the
+    /// same place. There is no origin here to get wrong and no geometry to walk. It is still clamped to the
+    /// lane's own stretch, because a line may stop short of a lane's end for the way into a bay.
     /// </remarks>
     public static float OnTheLineM(
-        RoadGraph graph, ReadOnlySpan<int> lanes, ReadOnlySpan<float> laneStartM, ReadOnlySpan<float> laneEndM,
-        int slot, float alongLaneM)
-    {
-        var onLineM = laneStartM[slot] + (alongLaneM - LaneOriginM(graph, lanes, slot));
-        return Math.Clamp(onLineM, laneStartM[slot], laneEndM[slot]);
-    }
+        ReadOnlySpan<float> laneStartM, ReadOnlySpan<float> laneEndM, int slot, float alongLaneM) =>
+        Math.Clamp(laneStartM[slot] + alongLaneM, laneStartM[slot], laneEndM[slot]);
 }

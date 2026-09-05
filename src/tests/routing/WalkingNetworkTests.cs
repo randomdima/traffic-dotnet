@@ -452,24 +452,25 @@ public class WalkingNetworkTests(ITestOutputHelper output)
                     landsM < ToleranceM,
                     $"{map}: the corner from stretch {edge} to {onto} lands {landsM:F2} m from that lane's own start");
 
+                var shared = foot.ToNode(edge);
                 if (foot.KindOf(edge) == FootEdgeKind.Crossing)
                 {
-                    AtTheKerb(map, foot, network, edge, onto, network.EndLengthM(edge));
+                    AtTheKerb(map, foot, edge, onto, shared, network.EndLengthM(edge));
                 }
                 else if (foot.KindOf(onto) == FootEdgeKind.Crossing)
                 {
                     // And the pavement's own half of that box: it stops at the zebra's mouth, which is half
                     // the crossing's band back from the node the two of them share.
-                    AtTheMouth(map, foot, network, edge, onto, network.EndLengthM(edge));
+                    AtTheMouth(map, foot, edge, onto, shared, network.EndLengthM(edge));
                 }
 
                 if (foot.KindOf(onto) == FootEdgeKind.Crossing)
                 {
-                    AtTheKerb(map, foot, network, onto, edge, network.HeadLengthM(onto));
+                    AtTheKerb(map, foot, onto, edge, shared, network.HeadLengthM(onto));
                 }
                 else if (foot.KindOf(edge) == FootEdgeKind.Crossing)
                 {
-                    AtTheMouth(map, foot, network, onto, edge, network.HeadLengthM(onto));
+                    AtTheMouth(map, foot, onto, edge, shared, network.HeadLengthM(onto));
                 }
             }
         }
@@ -637,7 +638,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     /// what the junction takes back, and what is left starts at the kerb. Less than that only where the
     /// pavement it meets is too short to give it, which the box is bounded by.
     /// </summary>
-    static void AtTheKerb(string map, FootGraph foot, WalkingNetwork network, int crossing, int pavement, float takenM)
+    static void AtTheKerb(string map, FootGraph foot, int crossing, int pavement, int shared, float takenM)
     {
         var kerbM = foot.BandM(pavement) * 0.5f;
         Assert.True(
@@ -648,8 +649,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
         // And short of it only by what a stretch sharing the same end could not afford, which is bounded by
         // half of the shortest of them: the start stays in the kerb-side half of the band whatever meets
         // there, and never back at the pavement's own line where the crossing's edge begins.
-        var affordedM = MathF.Min(
-            kerbM, MathF.Min(network.LaneLengthM(pavement), network.LaneLengthM(crossing)) * 0.5f);
+        var affordedM = MathF.Min(kerbM, Afforded(foot, crossing, shared));
         Assert.True(
             takenM >= MathF.Min(affordedM, kerbM * 0.5f) - ToleranceM,
             $"{map}: crossing {crossing} is walked from {takenM:F2} m in rather than from the kerb at "
@@ -661,16 +661,33 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     /// gives up at an end is the half-band of what runs across it, so a pavement meeting a crossing keeps
     /// its lane clear of the paint's own width — or as much of it as the two of them can afford.
     /// </summary>
-    static void AtTheMouth(string map, FootGraph foot, WalkingNetwork network, int pavement, int crossing, float takenM)
+    static void AtTheMouth(string map, FootGraph foot, int pavement, int crossing, int shared, float takenM)
     {
-        var mouthM = MathF.Min(
-            foot.BandM(crossing) * 0.5f,
-            MathF.Min(network.LaneLengthM(pavement), network.LaneLengthM(crossing)) * 0.5f);
-
+        var mouthM = MathF.Min(foot.BandM(crossing) * 0.5f, Afforded(foot, pavement, shared));
         Assert.True(
             takenM >= MathF.Min(mouthM, foot.BandM(crossing) * 0.25f) - ToleranceM,
             $"{map}: pavement {pavement} gives up {takenM:F2} m at the crossing {crossing} it meets, inside the "
             + $"{mouthM:F2} m of paint its own end stands in");
+    }
+
+    /// <summary>
+    /// <b>What an end can afford to give up: half of the shortest stretch at it</b>, and not half of the two
+    /// a corner stands between — one figure is given up per end (<c>WalkingNetwork.Margins</c>), so a scrap
+    /// of pavement between the paint and the kerb corner holds the whole box back. A one-way street leaves
+    /// them: the walk on the side it is not driven runs nearer the node than the kerb it is beside (TER-4d).
+    /// <b>The stretch's own length and not the lane's</b>, which is what is left after this has been taken.
+    /// </summary>
+    static float Afforded(FootGraph foot, int stretch, int shared)
+    {
+        // And a stretch keeps most of itself to walk whatever its two ends want, so what one end takes off
+        // a scrap is its share of what the scrap can spare (`WalkingNetwork.MostOfALaneItsCornersTake`).
+        var affordedM = foot.LengthM(stretch) * WalkingNetwork.MostOfALaneItsCornersTake * 0.5f;
+        foreach (var onto in foot.EdgesOut(shared))
+        {
+            affordedM = MathF.Min(affordedM, foot.LengthM(onto) * 0.5f);
+        }
+
+        return affordedM;
     }
 
     /// <summary>A centimetre, which is the arc arithmetic's and not the mitre's — the lanes it joins are its own endpoints by construction.</summary>

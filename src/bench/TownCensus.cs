@@ -108,7 +108,7 @@ internal static class TownCensus
 
         Console.WriteLine("what is laid");
         Console.WriteLine($"  roads          {plan.Roads.Count,7}  {plan.Roads.Segments.Length} arcs, {roadLengthM / 1000f:F2} km, " +
-                          $"{Mean(plan.Roads.WidthM):F2} m wide");
+                          $"{Mean(plan.Roads.WidthM):F2} m wide, {OneWay(plan)} of them one way");
         Console.WriteLine($"  junctions      {plan.Junctions.Count,7}  {lit} lit, {JunctionsWith(plan, 2)} with no fork, " +
                           $"{JunctionsWith(plan, 1)} dead ends, {plan.JunctionCorners.Count} kerb corners, " +
                           $"reach {Mean(plan.Junctions.RadiusM):F2} m");
@@ -158,6 +158,18 @@ internal static class TownCensus
     /// purpose, and the count of two says how much of the town is crossed once rather than once an arm
     /// (TER-6).
     /// </summary>
+    /// <summary>How many of the town's roads carry traffic one way only (TER-4d), which is how much of a grid town its middle is.</summary>
+    static int OneWay(CityPlan plan)
+    {
+        var found = 0;
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            if (plan.Roads.Flow[road] != RoadFlow.BothWays) found++;
+        }
+
+        return found;
+    }
+
     static int JunctionsWith(CityPlan plan, int arms)
     {
         var atEach = new int[plan.Junctions.Count];
@@ -278,47 +290,45 @@ internal static class TownCensus
     }
 
     /// <summary>
-    /// What the joins through the town's junctions came out at. <b>The figure to read is how many take
-    /// no setback at all</b>: a join is widened into the two lanes only as far as it takes for the arc
-    /// to reach the junction's own corner radius, so a straight and an open turn take none and only a
-    /// right-angle turn pays for one — and a town where most of them pay is a town whose junctions are
-    /// tight.
+    /// What the joins between the town's connection points came out at, and what the junctions cost the
+    /// lanes they stand on. <b>The figure to read is the tightest arc</b>: a join is the corner the junction
+    /// was paved for, since the arms are cut back to where that paving reaches, so a town whose tightest
+    /// join is inside the corner radius is a town with a junction paved smaller than the wedge it stands in.
     /// </summary>
     static void Joins(RoadGraph roads, SimConfig config)
     {
-        var turns = 0;
-        var free = 0;
-        var atTheCap = 0;
-        var setbackM = 0f;
-        var widestM = 0f;
+        var butted = 0;
+        var joinM = 0f;
+        var longestM = 0f;
+        var cutBackM = 0f;
+        var deepestM = 0f;
         var tightestM = float.PositiveInfinity;
 
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            var kinds = roads.TurnKindsFrom(lane);
-            for (var turn = 0; turn < kinds.Length; turn++)
-            {
-                var slot = roads.TurnSlotAt(lane, turn);
-                var atM = roads.JoinFromM(slot);
-                turns++;
-                if (atM <= 0f) free++;
-                var capM = MathF.Min(
-                    config.IntersectionCornerRadiusM,
-                    MathF.Min(roads.LaneLengthM[lane], roads.LaneLengthM[roads.TurnsFrom(lane)[turn]]) * 0.5f);
-                if (atM >= capM - 1e-3f) atTheCap++;
+            cutBackM += roads.LaneCutBackM[lane];
+            deepestM = MathF.Max(deepestM, roads.LaneCutBackM[lane]);
+        }
 
-                setbackM += atM;
-                widestM = MathF.Max(widestM, atM);
-                foreach (var arc in roads.JoinArcs(slot))
-                {
-                    if (MathF.Abs(arc.Curvature) > 1e-6f) tightestM = MathF.Min(tightestM, 1f / MathF.Abs(arc.Curvature));
-                }
+        for (var slot = 0; slot < roads.TurnCount; slot++)
+        {
+            if (roads.JoinArcs(slot).Length == 0) butted++;
+
+            joinM += roads.JoinLengthM(slot);
+            longestM = MathF.Max(longestM, roads.JoinLengthM(slot));
+            foreach (var arc in roads.JoinArcs(slot))
+            {
+                if (MathF.Abs(arc.Curvature) > 1e-6f) tightestM = MathF.Min(tightestM, 1f / MathF.Abs(arc.Curvature));
             }
         }
 
-        Console.WriteLine($"  joins          {turns,7}  movements; {free} take no setback, {atTheCap} take all the town allows; " +
-                          $"mean {(turns == 0 ? 0f : setbackM / turns):F2} m, widest {widestM:F2} m of " +
-                          $"{config.IntersectionCornerRadiusM:F2}, tightest arc {(float.IsFinite(tightestM) ? tightestM : 0f):F2} m");
+        Console.WriteLine($"  joins          {roads.TurnCount,7}  movements over {roads.LaneCount} lanes; " +
+                          $"{butted} join two lanes that butt; " +
+                          $"mean {(roads.TurnCount == 0 ? 0f : joinM / roads.TurnCount):F2} m, longest {longestM:F2} m, " +
+                          $"tightest arc {(float.IsFinite(tightestM) ? tightestM : 0f):F2} m of " +
+                          $"{config.IntersectionCornerRadiusM:F2}; " +
+                          $"corners took a further {(roads.LaneCount == 0 ? 0f : cutBackM / roads.LaneCount):F2} m " +
+                          $"a lane, deepest {deepestM:F2} m");
     }
 
     /// <summary>How far the furthest-reaching zebra runs, which on a town of square crossings is a road's width.</summary>

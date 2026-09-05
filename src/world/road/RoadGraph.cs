@@ -68,11 +68,12 @@ internal sealed class RoadGraph
     RoadGraph(
         int junctionCount, Vector2[] nodeCentreM, int[] laneRoad, float[] laneWidthM, int[] laneFromNode,
         int[] laneToNode, bool[] laneForward,
-        float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs, int[] laneReverse,
+        float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneCutBackM, int[] laneReverse,
         int[] nodeOutOffsets, int[] nodeOutLanes, int[] nodeInOffsets, int[] nodeInLanes,
         int[] turnOffsets, int[] turnToLane, LaneTurn[] turnKind, Joins joins,
         WayCrossings crossings, float nearestCellM)
     {
+        LaneCutBackM = laneCutBackM;
         _joins = joins;
         Crossings = crossings;
         JunctionCount = junctionCount;
@@ -151,8 +152,9 @@ internal sealed class RoadGraph
     public int[] LaneRoad { get; }
 
     /// <summary>
-    /// How wide the lane is: half the carriageway its road declared, which is the number the lane's own
-    /// line was offset by half of. <b>The road's figure and not the catalogue's</b> (TER-4).
+    /// How wide the lane is: the share of the carriageway its road declared that this direction has — half
+    /// of it where the road runs both ways and the whole of it where it runs one (TER-4d). <b>The road's
+    /// figure and not the catalogue's</b> (TER-4).
     /// </summary>
     public float[] LaneWidthM { get; }
 
@@ -167,8 +169,18 @@ internal sealed class RoadGraph
     public float[] LaneLengthM { get; }
 
     /// <summary>
+    /// How much of its stretch this lane gave up to the junctions at its two ends, the two together
+    /// (TER-5d). <b>Nothing that drives reads it</b> — a lane's line is what is left, and every movement
+    /// hands over at its ends — so it is the town's own record of what the boxes cost it, for the census to
+    /// report and for nothing to work out a second time.
+    /// </summary>
+    public float[] LaneCutBackM { get; }
+
+    /// <summary>
     /// The other lane of the same stretch — the one a car that has turned in a bay comes back down
-    /// (GEN-4l), and the one no turn at either end of it ever leads to (TER-5f).
+    /// (GEN-4l), and the one no turn at either end of it ever leads to (TER-5f). <b><see cref="NoLane"/> on
+    /// a one-way stretch</b> (TER-4d), which has no other lane: there is nothing to come back down, nothing
+    /// to cross to get round what is in the way, and nothing to park against on the far side.
     /// </summary>
     public int[] LaneReverse { get; }
 
@@ -272,28 +284,7 @@ internal sealed class RoadGraph
     public ReadOnlySpan<ArcSeg> JoinArcs(int slot) =>
         _joins.Arcs.AsSpan(_joins.ArcOffsets[slot], _joins.ArcOffsets[slot + 1] - _joins.ArcOffsets[slot]);
 
-    /// <summary>How far short of the arriving lane's end the join leaves it.</summary>
-    public float JoinFromM(int slot) => _joins.FromM[slot];
-
-    /// <summary>And how far into the lane it leaves for the join arrives.</summary>
-    public float JoinToM(int slot) => _joins.ToM[slot];
-
     public float JoinLengthM(int slot) => _joins.LengthM[slot];
-
-    /// <summary>
-    /// How far into a lane every movement into it arrives (TER-5d) — the lane's own share of the setback,
-    /// which is what says where a lane's metres begin under a line assembled through the junction behind
-    /// it.
-    /// </summary>
-    public float JoinedAtM(int lane) => _joins.JoinedAtM[lane];
-
-    /// <summary>
-    /// And how far short of its end every movement out of it leaves (TER-5d), so that
-    /// <c>JoinedAtM … LaneLengthM − LeftAtM</c> is <b>the stretch of a lane anything actually drives</b>.
-    /// Past either figure the lane's own line runs on into the box, under a movement rather than under
-    /// itself — a reader that draws the whole lane draws that ground twice and leaves a spur nobody drives.
-    /// </summary>
-    public float LeftAtM(int lane) => _joins.LeftAtM[lane];
 
     /// <summary>
     /// The network in the words a walk over ground is written in (<see cref="IWayNetwork"/>) — a view and
@@ -418,12 +409,17 @@ internal sealed class RoadGraph
 
             // A road's own lane offset comes from the road's own declared width, because the
             // catalogue's figure is a default and everything derived from it follows the road's
-            // (TER-4). Each direction has half the carriageway and a lane's line is the middle of
-            // its own half, so a quarter of a road is both the offset and half a lane — one number
-            // and one site for the relation, which is why the lane's width is taken from it and not
-            // worked out again.
-            var halfLaneM = roads.WidthM[road] * 0.25f;
-            var laneOffsetM = halfLaneM * config.RoadSideSign;
+            // (TER-4). Each direction has its share of the carriageway and a lane's line is the middle
+            // of that share, so one number is both the offset and half a lane — one site for the
+            // relation, which is why the lane's width is taken from it and not worked out again. <b>A
+            // one-way road's share is the whole of it</b> (TER-4d): one lane, laid down the middle,
+            // and the road is the narrower for it rather than the emptier. That middle is where a road of
+            // two ways carries the same-way lane, because the narrow road stands on the half of the
+            // carriageway it is driven and not in the middle of it.
+            var runsWithTheRoad = roads.Flow[road] != RoadFlow.AgainstTheRoad;
+            var runsAgainstIt = roads.Flow[road] != RoadFlow.WithTheRoad;
+            var halfLaneM = roads.WidthM[road] * 0.5f / roads.LanesOn(road);
+            var laneOffsetM = roads.LanesOn(road) == 1 ? 0f : halfLaneM * config.RoadSideSign;
 
             for (var cut = 0; cut + 1 < cuts.Count; cut++)
             {
@@ -436,18 +432,24 @@ internal sealed class RoadGraph
                 if (arcCount == 0) continue;
 
                 var forward = laneRoad.Count;
-                var backward = forward + 1;
+                var backward = forward + (runsWithTheRoad ? 1 : 0);
 
-                Spline.OffsetInto(scratch.AsSpan(0, arcCount), laneOffsetM, offset);
-                AddLane(
-                    road, halfLaneM, cuts[cut].Junction, cuts[cut + 1].Junction, true, offset.AsSpan(0, arcCount),
-                    backward);
+                if (runsWithTheRoad)
+                {
+                    Spline.OffsetInto(scratch.AsSpan(0, arcCount), laneOffsetM, offset);
+                    AddLane(
+                        road, halfLaneM, cuts[cut].Junction, cuts[cut + 1].Junction, true,
+                        offset.AsSpan(0, arcCount), runsAgainstIt ? backward : NoLane);
+                }
 
-                Spline.ReverseInto(scratch.AsSpan(0, arcCount), reversed);
-                Spline.OffsetInto(reversed.AsSpan(0, arcCount), laneOffsetM, offset);
-                AddLane(
-                    road, halfLaneM, cuts[cut + 1].Junction, cuts[cut].Junction, false, offset.AsSpan(0, arcCount),
-                    forward);
+                if (runsAgainstIt)
+                {
+                    Spline.ReverseInto(scratch.AsSpan(0, arcCount), reversed);
+                    Spline.OffsetInto(reversed.AsSpan(0, arcCount), laneOffsetM, offset);
+                    AddLane(
+                        road, halfLaneM, cuts[cut + 1].Junction, cuts[cut].Junction, false,
+                        offset.AsSpan(0, arcCount), runsWithTheRoad ? forward : NoLane);
+                }
             }
         }
 
@@ -456,22 +458,30 @@ internal sealed class RoadGraph
         junctions.CentreM.CopyTo(nodeCentreM, 0);
         sections.CentreM.CopyTo(nodeCentreM, junctions.Count);
 
-        var arcOffsets = laneArcOffsets.ToArray();
-        var arcs = laneArcs.ToArray();
-        var laneLengths = laneLengthM.ToArray();
+        var wholeOffsets = laneArcOffsets.ToArray();
+        var wholeArcs = laneArcs.ToArray();
+        var wholeLengths = laneLengthM.ToArray();
         var (outOffsets, outLanes) = Adjacency(nodeCount, laneFromNode);
         var (inOffsets, inLanes) = Adjacency(nodeCount, laneToNode);
         var (turnOffsets, turnToLane, turnKind) = Turns(
-            config, laneToNode, laneReverse, outOffsets, outLanes, arcOffsets, arcs);
+            config, laneToNode, laneReverse, outOffsets, outLanes, wholeOffsets, wholeArcs);
 
-        var joins = LayJoins(config, arcOffsets, arcs, laneLengths, turnOffsets, turnToLane, turnKind);
+        // <b>A lane ends where its movements hand over</b> (TER-5d): the cut back is settled over the whole
+        // stretch and then taken off the line, so a lane's own last point is where every join out of it
+        // starts and the ground past it is the junction's alone.
+        var (arrivingM, leavingM) = Setbacks(
+            config, wholeOffsets, wholeArcs, wholeLengths, turnOffsets, turnToLane);
+        var lanes = CutBackToTheJoins(
+            wholeOffsets, wholeArcs, wholeLengths, arrivingM, leavingM, scratch.Length);
+
+        var joins = LayJoins(lanes, turnOffsets, turnToLane);
         var crossings = LayCrossings(
-            config, nodeCount, laneLengths.Length, inOffsets, inLanes, turnOffsets, turnToLane, joins);
+            config, nodeCount, lanes.LengthM.Length, inOffsets, inLanes, turnOffsets, turnToLane, joins);
 
         return new RoadGraph(
             junctions.Count, nodeCentreM, [.. laneRoad], [.. laneWidthM], [.. laneFromNode], [.. laneToNode],
             [.. laneForward],
-            laneLengths, arcOffsets, arcs, [.. laneReverse],
+            lanes.LengthM, lanes.ArcOffsets, lanes.Arcs, lanes.CutBackM, [.. laneReverse],
             outOffsets, outLanes, inOffsets, inLanes, turnOffsets, turnToLane, turnKind, joins,
             crossings, config.NearestChainCellM);
 
@@ -576,51 +586,37 @@ internal sealed class RoadGraph
     }
 
     /// <summary>
-    /// Every join in the town, drawn once: for each turn, the arcs across the box and how far into the
-    /// two lanes they were taken.
+    /// Every join in the town, drawn once: for each turn, the arcs from the end of the lane it leaves to
+    /// the start of the lane it arrives on.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The join is set back into both lanes only as far as it takes to reach the corner the junction
-    /// was paved for.</b> A junction is not sized around a turning circle (TER-5): its arms are cut at
-    /// the disc, and two of them at right angles leave a corner tighter than the steering lock affords,
-    /// so a car following that line exactly ends up on the pavement. Taking the last of one lane and the
-    /// first of the next into the turn is what gives the arc its radius, and the smallest setback whose
-    /// tightest arc reaches the junction's own corner radius is what each turn asks for.
+    /// <b>A junction is a set of connection points and the joins are what run between them</b> (TER-5d).
+    /// A lane is cut back to the points its own movements hand over at (<see cref="CutBackToTheJoins"/>),
+    /// so its last point is where every movement out of it starts and its first point is where every
+    /// movement into it lands. There is no figure a reader has to add to a lane's metres, and no ground
+    /// carries both a lane and the line drawn across it.
     /// </para>
     /// <para>
-    /// <b>A lane end has one setback, and it is the widest its own turns asked for.</b> The alternative —
-    /// each turn taking exactly what it needs — puts the boundary between a lane and the box in a
-    /// different place for every movement out of it, so a lane has no one end, a straight and a turn hand
-    /// over at two different points, and everything reading the pair has to say which movement it means.
-    /// One point is worth the metres a straight gives up to it, and the straight it drives across the box
-    /// instead is still a straight.
+    /// <b>A lane end has one point, whatever is driven off it.</b> The alternative — each turn taking
+    /// exactly the run-in it needs — puts the boundary between a lane and the box in a different place for
+    /// every movement out of it, so a lane has no one end and everything reading the pair has to say which
+    /// movement it means. One point is worth the metres a straight gives up to it, and the straight it
+    /// drives across the box instead is still a straight.
     /// </para>
     /// <para>
-    /// <b>The radius asked for is the junction's and not the car's</b>: the wedge where two carriageways
-    /// meet is paved back to an arc tangent to both, and that arc
-    /// <em>is</em> the line a turning car takes. It is the wider of the two figures — 2.5 car widths
-    /// against the steering lock's own circle — so a join drawn to it is one every car in the fleet has
-    /// something in hand on.
+    /// <b>The radius asked for is the junction's and not the car's</b> (TER-5): the wedge where two
+    /// carriageways meet is paved back to an arc tangent to both, and that arc <em>is</em> the line a
+    /// turning car takes. It is the wider of the two figures — 2.5 car widths against the steering lock's
+    /// own circle — so a join drawn to it is one every car in the fleet has something in hand on.
     /// </para>
     /// <para>
-    /// It is never more than half of the shorter of the two lanes, so a short stretch between two
-    /// junctions is still a stretch and not two turns joined to each other — and so the two setbacks a
-    /// lane carries can never cross over each other.
-    /// </para>
-    /// <para>
-    /// <b>Every turn in the table is laid and every one of them reaches a rung</b>, because the one that
-    /// never could is not in the table: a line between two opposing lanes is a semicircle at a lane's own
-    /// spacing, tighter than the lock at any setback, and asking for the widest would have set every lane
-    /// in the town back as far as the town allows. It is not a movement (TER-5f), so it is not a join.
+    /// <b>Every turn in the table is laid</b>, because the one that could never be driven is not in the
+    /// table: a line between two opposing lanes is a semicircle at a lane's own spacing, tighter than the
+    /// lock wherever it is drawn from. It is not a movement (TER-5f), so it is not a join.
     /// </para>
     /// </remarks>
-    readonly record struct Joins(
-        int[] ArcOffsets, ArcSeg[] Arcs, float[] FromM, float[] ToM, float[] LengthM, float[] JoinedAtM,
-        float[] LeftAtM);
-
-    /// <summary>How finely the ladder of setbacks is stepped before the widest one is taken.</summary>
-    const int SetbackRungs = 8;
+    readonly record struct Joins(int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM);
 
     /// <summary>
     /// How near two lane ends have to stand before the movement between them is no movement at all: the
@@ -631,26 +627,75 @@ internal sealed class RoadGraph
     /// </summary>
     const float SameEndM = 1e-3f;
 
-    static Joins LayJoins(
-        SimConfig config, int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneLengthM, int[] turnOffsets,
-        int[] turnToLane, LaneTurn[] turnKind)
+    /// <summary>
+    /// Every join in the town, drawn once: <b>from the end of the lane it leaves to the start of the lane it
+    /// arrives on</b>, which after the cut back are the two connection points themselves.
+    /// </summary>
+    static Joins LayJoins(Lanes lanes, int[] turnOffsets, int[] turnToLane)
     {
         var turnCount = turnToLane.Length;
-        var laneCount = laneLengthM.Length;
         var arcOffsets = new int[turnCount + 1];
         var arcs = new List<ArcSeg>();
-        var fromM = new float[turnCount];
-        var toM = new float[turnCount];
         var lengthM = new float[turnCount];
         var drawn = new ArcSeg[2];
 
-        // One setback for the end of a lane and one for its start, widened a rung at a time until every
-        // turn through them holds the corner, so that every movement out of a lane leaves it at the same
-        // place and every movement into one arrives at the same place. Widening in rounds rather than
-        // turn by turn is what makes the two agree: a setback taken for one turn changes the arc of every
-        // other turn sharing that lane end, so what each one needs is only settled once they all are.
+        for (var lane = 0; lane < lanes.LengthM.Length; lane++)
+        {
+            for (var slot = turnOffsets[lane]; slot < turnOffsets[lane + 1]; slot++)
+            {
+                var onto = turnToLane[slot];
+                var from = Spline.SampleAt(ArcsOfCut(lane), lanes.LengthM[lane]);
+                var to = Spline.SampleAt(ArcsOfCut(onto), 0f);
+                var laid = TheSameEnd(from.PositionM, to.PositionM)
+                    ? 0
+                    : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
+                for (var arc = 0; arc < laid; arc++)
+                {
+                    arcs.Add(drawn[arc]);
+                    lengthM[slot] += drawn[arc].LengthM;
+                }
+
+                arcOffsets[slot + 1] = arcs.Count;
+            }
+        }
+
+        return new Joins(arcOffsets, [.. arcs], lengthM);
+
+        ReadOnlySpan<ArcSeg> ArcsOfCut(int lane) =>
+            lanes.Arcs.AsSpan(lanes.ArcOffsets[lane], lanes.ArcOffsets[lane + 1] - lanes.ArcOffsets[lane]);
+    }
+
+    /// <summary>Every lane cut back to the points its movements hand over at, and what that cost each of them.</summary>
+    readonly record struct Lanes(int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM, float[] CutBackM);
+
+    /// <summary>How finely the ladder of cut backs is stepped before the deepest one is taken.</summary>
+    const int SetbackRungs = 8;
+
+    /// <summary>
+    /// How far into each end of each lane the corner reaches: one figure for the end of a lane and one for
+    /// its start, widened a rung at a time until every turn through them holds the corner.
+    /// </summary>
+    /// <remarks>
+    /// A junction is not sized around a turning circle (TER-5): its arms are cut at the disc, and two of
+    /// them at right angles leave a corner tighter than the steering lock affords, so a car following that
+    /// line exactly ends up on the pavement. Taking the last of one lane and the first of the next into the
+    /// turn is what gives the arc its radius, and the smallest cut back whose tightest arc reaches the
+    /// junction's own corner radius is what each turn asks for.
+    /// <para>
+    /// Widening in rounds rather than turn by turn is what makes a lane end one point: a cut taken for one
+    /// turn changes the arc of every other turn sharing that end, so what each one needs is only settled
+    /// once they all are.
+    /// </para>
+    /// </remarks>
+    static (float[] ArrivingM, float[] LeavingM) Setbacks(
+        SimConfig config, int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneLengthM, int[] turnOffsets,
+        int[] turnToLane)
+    {
+        var laneCount = laneLengthM.Length;
+        var drawn = new ArcSeg[2];
         var leavingM = new float[laneCount];
         var arrivingM = new float[laneCount];
+
         for (var round = 0; round <= SetbackRungs; round++)
         {
             var widened = false;
@@ -677,39 +722,42 @@ internal sealed class RoadGraph
             if (!widened) break;
         }
 
-        for (var lane = 0; lane < laneCount; lane++)
-        {
-            for (var slot = turnOffsets[lane]; slot < turnOffsets[lane + 1]; slot++)
-            {
-                var onto = turnToLane[slot];
-                var leftM = leavingM[lane];
-                var joinedM = arrivingM[onto];
-
-                var from = Spline.SampleAt(ArcsOfBuilt(lane), laneLengthM[lane] - leftM);
-                var to = Spline.SampleAt(ArcsOfBuilt(onto), joinedM);
-                var laid = TheSameEnd(from.PositionM, to.PositionM)
-                    ? 0
-                    : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
-                for (var arc = 0; arc < laid; arc++)
-                {
-                    arcs.Add(drawn[arc]);
-                    lengthM[slot] += drawn[arc].LengthM;
-                }
-
-                fromM[slot] = leftM;
-                toM[slot] = joinedM;
-                arcOffsets[slot + 1] = arcs.Count;
-            }
-        }
-
-        return new Joins(arcOffsets, [.. arcs], fromM, toM, lengthM, arrivingM, leavingM);
-
-        ReadOnlySpan<ArcSeg> ArcsOfBuilt(int lane) =>
-            laneArcs.AsSpan(laneArcOffsets[lane], laneArcOffsets[lane + 1] - laneArcOffsets[lane]);
+        return (arrivingM, leavingM);
     }
 
     /// <summary>
-    /// Whether the line one turn would be drawn at these two setbacks reaches the junction's corner
+    /// <b>Every lane cut back to the two points its movements hand over at</b> (TER-5d), which is what makes
+    /// those points the lane's own ends. What the boxes took is off the line rather than marked on it, so no
+    /// reader has to know a lane's metres begin somewhere other than at nought, and no ground carries both a
+    /// lane and the join drawn across it.
+    /// </summary>
+    static Lanes CutBackToTheJoins(
+        int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneLengthM, float[] arrivingM, float[] leavingM,
+        int mostArcs)
+    {
+        var laneCount = laneLengthM.Length;
+        var arcOffsets = new int[laneCount + 1];
+        var arcs = new List<ArcSeg>(laneArcs.Length);
+        var lengthM = new float[laneCount];
+        var cutBackM = new float[laneCount];
+        var kept = new ArcSeg[mostArcs + 2];
+
+        for (var lane = 0; lane < laneCount; lane++)
+        {
+            var whole = laneArcs.AsSpan(laneArcOffsets[lane], laneArcOffsets[lane + 1] - laneArcOffsets[lane]);
+            var count = Spline.SubChainInto(whole, arrivingM[lane], laneLengthM[lane] - leavingM[lane], kept);
+            for (var arc = 0; arc < count; arc++) arcs.Add(kept[arc]);
+
+            arcOffsets[lane + 1] = arcs.Count;
+            lengthM[lane] = Spline.TotalLengthM(kept.AsSpan(0, count));
+            cutBackM[lane] = arrivingM[lane] + leavingM[lane];
+        }
+
+        return new Lanes(arcOffsets, [.. arcs], lengthM, cutBackM);
+    }
+
+    /// <summary>
+    /// Whether the line one turn would be drawn at these two cut backs reaches the junction's corner
     /// radius — the question the widening asks of every turn through a lane end each round.
     /// </summary>
     static bool HoldsTheCorner(
@@ -729,11 +777,15 @@ internal sealed class RoadGraph
     }
 
     /// <summary>
-    /// How far into a lane a turn may ever be set back: the corner the junction was paved for, and never
-    /// more than half the shorter of the two lanes, so the two setbacks a lane carries cannot cross.
+    /// How much further into a lane the corner may ever be taken: the radius the junction was paved for, and
+    /// never more than half of what the shorter of the two lanes can spare — because what is taken is cut
+    /// off the lane, and a stretch has to be left standing for a car to be on.
     /// </summary>
     static float CapM(SimConfig config, float[] laneLengthM, int lane, int onto) =>
-        MathF.Min(config.IntersectionCornerRadiusM, MathF.Min(laneLengthM[lane], laneLengthM[onto]) * 0.5f);
+        MathF.Min(
+            config.IntersectionCornerRadiusM,
+            MathF.Max(0f, MathF.Min(laneLengthM[lane], laneLengthM[onto]) - config.LaneShortestStretchM) * 0.5f);
+
 
     /// <summary>
     /// <b>Which ground each movement through a junction takes off the others</b> (TER-5c), worked out once
@@ -833,4 +885,7 @@ internal sealed class RoadGraph
 
     /// <summary>Two lanes with no turn between them, which is every pair that does not meet at a node.</summary>
     public const int NoTurn = -1;
+
+    /// <summary>Where a lane is asked for and the town has none — the reverse of a one-way stretch (TER-4d).</summary>
+    public const int NoLane = -1;
 }

@@ -37,7 +37,8 @@ internal readonly record struct GroundPieces(
         new(worldSizeM, pavementWidthM,
             new CityPlan.RoadArrays
             {
-                FromJunction = [], ToJunction = [], WidthM = [], SegmentOffsets = [0], Segments = [],
+                FromJunction = [], ToJunction = [], WidthM = [], Flow = [], SegmentOffsets = [0],
+                Segments = [],
             },
             new CityPlan.BridgeArrays { Road = [], FromM = [], ToM = [], DeckWidthM = [], PavementWidthM = [] },
             new CityPlan.JunctionArrays { CentreM = [], RadiusM = [], Lit = [], PhaseOffsetS = [] },

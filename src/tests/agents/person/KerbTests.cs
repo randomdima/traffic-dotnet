@@ -89,6 +89,26 @@ public class KerbTests
 
         public bool ARescueIsComingThrough => Kerb.ARescueIsOver(Config, Claims, Under, ClaimM);
 
+        /// <summary>A car under way over the band at a pace of its own, as against one standing on it.</summary>
+        public void PutACarCrossing(CrossingBands.Band band, float atMps)
+        {
+            var toM = band.AlongLaneM + Config.Car.LengthM;
+            Claims.ClaimUnderWay(
+                Claims.Ways.OfRoadLane(band.Lane), band.AlongLaneM - Config.Car.LengthM, toM, toM, atMps, 0);
+        }
+
+        public bool AStandstillIsOverIt => Kerb.AStandstillIsOver(Config, Claims, Under, ClaimM, out _);
+
+        /// <summary>Which body that is, which is what the walker is then held by.</summary>
+        public int TheStandstill
+        {
+            get
+            {
+                Kerb.AStandstillIsOver(Config, Claims, Under, ClaimM, out var standing);
+                return standing;
+            }
+        }
+
         /// <summary>Somebody already over the paint on one of the lanes.</summary>
         public void PutAWalkerOn(CrossingBands.Band band)
         {
@@ -168,7 +188,7 @@ public class KerbTests
         Assert.True(at.IsClear);
     }
 
-    /// <summary>A body standing over the paint is not a gap: what gets a walker past one is the patience.</summary>
+    /// <summary>A body standing over the paint is not a gap, and the patience is no answer to one either.</summary>
     [Fact]
     public void ABodyStandingOnThePaintHoldsIt()
     {
@@ -176,6 +196,60 @@ public class KerbTests
         at.PutABodyOn(at.First, endingShortOfM: 0f);
 
         Assert.False(at.IsClear);
+    }
+
+    /// <summary>
+    /// <b>A car standing on the band is a standstill and not a wait</b> (PER-15). The patience takes a road
+    /// a driver has taken and can give back by driving on; a body over the paint gives nothing back, so
+    /// taking it past the clock is a walker walking into a car and shoving it down its own lane.
+    /// </summary>
+    [Fact]
+    public void ACarStandingOnTheBandIsAStandstill()
+    {
+        var at = ACrossing();
+        at.PutABodyOn(at.First, endingShortOfM: 0f);
+
+        Assert.True(at.AStandstillIsOverIt);
+    }
+
+    /// <summary>
+    /// <b>And which body it is comes back with it</b>, because a walker held at one has to name what is
+    /// holding it or the clock that gives up a leg has nothing to run against.
+    /// </summary>
+    [Fact]
+    public void TheStandstillOnTheBandIsNamed()
+    {
+        var at = ACrossing();
+        at.PutABodyOn(at.First, endingShortOfM: 0f);
+
+        Assert.Equal(0, at.TheStandstill);
+    }
+
+    /// <summary>
+    /// <b>A car coming through the band is traffic and is waited out</b>, which is what leaves the patience
+    /// the escape it was written to be: read as a standstill instead, a busy street would refuse a walker on
+    /// every tick a car happened to be over the paint and the crossing would never clear at all.
+    /// </summary>
+    [Fact]
+    public void ACarComingThroughTheBandIsNotAStandstill()
+    {
+        var at = ACrossing();
+        at.PutACarCrossing(at.First, Config.PersonWalkSpeedMps * 2f);
+
+        Assert.False(at.AStandstillIsOverIt);
+    }
+
+    /// <summary>
+    /// <b>And a car stopped clear of the band is standing on nothing of it</b>: the question is the same
+    /// strip of road the gap question is asked about, so a parked row beside a crossing holds none of it.
+    /// </summary>
+    [Fact]
+    public void ACarStandingClearOfTheBandIsNotAStandstill()
+    {
+        var at = ACrossing();
+        at.PutABodyOn(at.First, ClearM);
+
+        Assert.False(at.AStandstillIsOverIt);
     }
 
     /// <summary>
@@ -209,8 +283,8 @@ public class KerbTests
     /// <summary>
     /// <b>And a rescue that has stopped over the paint is not one.</b> What the exemption is worth is its
     /// own justification — a call lasts seconds, so what is being waited out is going to pass — and an
-    /// ambulance standing on the band is not passing: unbounded, it is a crossing that never clears, which
-    /// is the one thing the patience exists for.
+    /// ambulance standing on the band is not passing: it is a car standing on the band like any other, and
+    /// what answers one of those is the clock that gives up a leg rather than a road to be waited out.
     /// </summary>
     [Fact]
     public void ARescueStandingOnThePaintDoesNotHoldItForEver()

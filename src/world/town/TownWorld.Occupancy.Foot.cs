@@ -53,6 +53,7 @@ internal sealed partial class TownWorld
     void PlaceTheWalkerOnTheRoad(int person)
     {
         People.RefusedWay[person] = PersonFleet.NoWay;
+        People.RefusedBy[person] = PersonFleet.NoBody;
 
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any) return;
@@ -97,7 +98,7 @@ internal sealed partial class TownWorld
                 if (lookedAhead || band.FromM > reachM) continue;
 
                 lookedAhead = true;
-                if (!MayStepOnto(person, band, paintM))
+                if (!MayStepOnto(person, band, paintM, out var standing))
                 {
                     // What it is standing here for, so that the patience it spends is spent on this lane
                     // and given back when it is standing in it.
@@ -107,6 +108,10 @@ internal sealed partial class TownWorld
                     // way's own metres (<see cref="WhereTheWalkRunsOut"/>).
                     People.RefusedWay[person] = _ways.OfFootway(edge);
                     People.RefusedAtM[person] = band.FromM;
+
+                    // And whether what refused it is a road or a body, which is what says whether this is a
+                    // wait at all (PER-15, <see cref="PersonFleet.RefusedBy"/>).
+                    People.RefusedBy[person] = standing;
 
                     // <b>The ask itself, written where it was refused</b> (TER-5e): what the traffic owes
                     // somebody waiting at an uncontrolled crossing is a stop short of the paint, and a
@@ -160,16 +165,29 @@ internal sealed partial class TownWorld
     /// give way to it — which is what a pedestrian's priority costs, spent by the clock and by nothing else.
     /// </remarks>
     /// <remarks>
+    /// <b>And never past a vehicle standing on the band</b> (<see cref="Kerb.AStandstillIsOver"/>): what the
+    /// escape takes is a road a driver has taken and can give back by driving on, and a body over the paint
+    /// gives nothing back. Taken anyway, the walk is a permission over ground a car is standing in and the
+    /// walker spends it walking into the car and shoving it down its own lane.
+    /// </remarks>
+    /// <remarks>
     /// <b>And never past an ambulance coming through</b> (AMB-4, <see cref="Kerb.ARescueIsOver"/>), which is
     /// the one road the escape does not reach: a call that is moving lasts seconds, so what a body at the
     /// kerb is waiting out is going to pass, and a crossing held open by a rescue on its way through is not
     /// the crossing that never clears this clock is for. <b>A rescue that has stopped over the paint is
-    /// not that</b> — it is the crossing that never clears — so the escape reaches it like anything else.
+    /// not that</b> — it is a car standing on the band, refused above and answered by the clock that gives
+    /// up a leg.
     /// </remarks>
-    bool MayStepOnto(int person, CrossingBands.Band band, float paintM) =>
-        Kerb.BandIsFree(_occupancy, band, paintM)
-        || (People.WaitingToCrossS[person] >= _config.Person.KerbPatienceS
-            && !Kerb.ARescueIsOver(_config, _occupancy, band, paintM));
+    /// <param name="standing">The body on the band, or <see cref="PersonFleet.NoBody"/> where a road refused it.</param>
+    bool MayStepOnto(int person, CrossingBands.Band band, float paintM, out int standing)
+    {
+        standing = PersonFleet.NoBody;
+        if (Kerb.BandIsFree(_occupancy, band, paintM)) return true;
+        if (Kerb.AStandstillIsOver(_config, _occupancy, band, paintM, out standing)) return false;
+
+        return People.WaitingToCrossS[person] >= _config.Person.KerbPatienceS
+               && !Kerb.ARescueIsOver(_config, _occupancy, band, paintM);
+    }
 
     /// <summary>
     /// How much of a lane a body on this crossing's paint is owed, measured along the way the traffic runs:

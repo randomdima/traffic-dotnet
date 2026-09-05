@@ -1,5 +1,39 @@
 # CityGen — decision log
 
+## 2026-09-05 — the grid in the middle runs one way, and keeps what it can be driven with
+
+**A one-way grid is laid and then held to what a car can do on it** (GEN-18). The two families of a strict
+district's lattice alternate against their own index, which is the arrangement that leaves every block
+reachable off the pair of streets round it — but the lattice a town ends up with is not the lattice that was
+laid. Water, the arterials' corridors and three passes of deletion leave it ragged, and a proposal that was
+a grid on paper is somewhere with a corner nothing comes back from.
+
+**So it is settled against the movements, and settled by opening streets.** The whole proposal is tried
+first — which is what a district the water left alone comes out as — and where that town cannot be driven
+round, the streets are taken in the order they were laid and each is kept only if the town is still
+drivable with it. At worst that is the town this generator laid before there were one-way streets at all,
+which is the one thing a fallback here has to be. Nothing is laid twice and no seed is thrown away (GEN-8).
+
+**Drivable is asked of the movements and not of the roads.** Every junction must be reachable from every
+lane, with no turning round in the road (TER-5f): a block whose streets all ran inwards keeps GEN-5's one
+connected component, has a way out of every junction on it, and is still somewhere a car drives into and
+never leaves. The settle works on the layout's own chords, so what the drawn shapes came out as is asked
+again of the lane graph itself, on the generated seeds and on the shipped cities.
+
+**The stubs are not offered.** What hangs a lattice onto the arterial beside it runs both ways, so a
+district is entered and left on a road that admits both — and an arterial, which is the town's own line
+rather than a block's, is never one-way at all.
+
+**Reachable everywhere was not enough, because the fault is local** (GEN-18a). A one-way street meeting a
+two-way one at a node of two arms passes every question above: every junction is still reachable from every
+movement, and the town drives. What it leaves is the lane back out of that node, which nothing ever arrives
+on — the only movement that could reach it is the turn round in the road TER-5f bans — so the town draws a
+lane, a stop bar and a line no car is ever on, and the carriageway changes width at a node that forks
+nothing. It was not the connectivity that was wrong but the question: a movement leaving a node needs some
+road other than its own arriving there, asked node by node, and the settle now keeps a street only where
+that holds too. It costs Odesa a third of its one-way streets and buys the rule that a node with no fork in
+it changes nothing about the road running through it.
+
 ## 2026-09-05 — the lattice is ground, and two exams stand on it
 
 **The walking exam wanted the driving exam's map without the driving exam's cars.** What a walker meets at

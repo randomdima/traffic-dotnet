@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
@@ -16,6 +17,12 @@ namespace TrafficSimulation.Tests.World;
 [Trait(Tier.Key, Tier.Town)]
 public class RoadGraphTests
 {
+    /// <summary>How far off one another two headings may be and still be the same line: a degree.</summary>
+    const float StraightThroughRad = MathF.PI / 180f;
+
+    /// <summary>A centimetre, which is the arc arithmetic's and not a geometry anybody drew.</summary>
+    const float ToleranceM = 0.01f;
+
     public static TheoryData<string> Maps => Towns.EveryTown();
 
     static RoadGraph GraphOf(string map) => RoadGraph.Build(Towns.Of(map), SimConfig.Shipped());
@@ -73,16 +80,24 @@ public class RoadGraphTests
     /// <summary>
     /// TER-4a's other half: the two lanes of a stretch are the same road driven both ways, so each is
     /// the other's reverse and they run between the same pair of nodes in opposite directions.
+    /// <b>A stretch of a one-way road has one lane and no reverse at all</b> (TER-4d).
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryLaneHasTheOneRunningTheOtherWay(string map)
+    public void EveryLaneHasTheOneRunningTheOtherWayUnlessItsRoadRunsOneWay(string map)
     {
+        var plan = Towns.Of(map);
         var graph = GraphOf(map);
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var back = graph.LaneReverse[lane];
+            if (plan.Roads.Flow[graph.LaneRoad[lane]] != RoadFlow.BothWays)
+            {
+                Assert.Equal(RoadGraph.NoLane, back);
+                continue;
+            }
+
             Assert.Equal(lane, graph.LaneReverse[back]);
             Assert.Equal(graph.LaneRoad[lane], graph.LaneRoad[back]);
             Assert.Equal(graph.LaneFromNode[lane], graph.LaneToNode[back]);
@@ -158,8 +173,11 @@ public class RoadGraphTests
             var sample = Spline.SampleAt(centreline, onCentreline);
             var acrossM = Vector2.Dot(start.PositionM - sample.PositionM, sample.Right);
 
-            // Read in the road's own frame, so a backward lane is the negative of a forward one.
-            var expectedM = plan.Roads.WidthM[road] * 0.25f * config.RoadSideSign * (graph.LaneForward[lane] ? 1f : -1f);
+            // Read in the road's own frame, so a backward lane is the negative of a forward one — and a
+            // one-way road's own lane is the middle of it, there being no other lane to keep off (TER-4d).
+            var expectedM = plan.Roads.Flow[road] == RoadFlow.BothWays
+                ? plan.Roads.WidthM[road] * 0.25f * config.RoadSideSign * (graph.LaneForward[lane] ? 1f : -1f)
+                : 0f;
             Assert.True(
                 MathF.Abs(acrossM - expectedM) < 0.1f,
                 $"{map}: lane {lane} sits {acrossM:F2} m across its road's centreline, not {expectedM:F2} m");
@@ -167,8 +185,54 @@ public class RoadGraphTests
     }
 
     /// <summary>
-    /// A lane is as wide as the ground it was cut out of: half the carriageway its road declared, and
-    /// exactly twice the distance its own line was moved off the centreline.
+    /// <b>A lane runs on into the lane opposite it without stepping sideways to do it</b> (TER-4d): where a
+    /// car leaves one lane on the heading it arrived on, the two lanes stand on one line. It is what a
+    /// one-way street standing on the half of the carriageway it is driven buys, and what the same street
+    /// laid down the middle of that ground cannot give — there the lane it runs into is half a lane over,
+    /// and every car through the junction is steered across the gap.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the movements that are straight through and of no others, because a lane leaving at an
+    /// angle is a turn and moving a car across the junction is what a turn is for. <b>What a straight pair
+    /// may still be apart is what the ground between them carries</b>: the two lanes hand over a junction's
+    /// width apart, so the angle between them over that gap is the step it is allowed and the rest is a
+    /// millimetre of arithmetic.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void ALaneRunsOnIntoTheOneOppositeWithoutSteppingSideways(string map)
+    {
+        var graph = GraphOf(map);
+
+        for (var lane = 0; lane < graph.LaneCount; lane++)
+        {
+            var end = graph.EndOf(lane);
+            foreach (var onto in graph.TurnsFrom(lane))
+            {
+                var start = graph.StartOf(onto);
+                var apartRad = MathF.Acos(Math.Clamp(Vector2.Dot(end.Direction, start.Direction), -1f, 1f));
+                if (apartRad > StraightThroughRad) continue;
+
+                // What the pair may be apart: what the angle carries over the ground between them, and what
+                // two roads laid at different lane widths put between their middles whatever else is true.
+                var overM = start.PositionM - end.PositionM;
+                var acrossM = MathF.Abs(Vector2.Dot(overM, end.Right));
+                var carriedM = (overM.Length() * MathF.Sin(apartRad))
+                               + (MathF.Abs(graph.LaneWidthM[lane] - graph.LaneWidthM[onto]) * 0.5f)
+                               + ToleranceM;
+                Assert.True(
+                    acrossM <= carriedM,
+                    $"{map}: lane {lane} hands over to lane {onto} {acrossM:F2} m to one side of its own line, "
+                    + $"which {apartRad * 180f / MathF.PI:F2} degrees over {overM.Length():F2} m between lanes "
+                    + $"{graph.LaneWidthM[lane]:F2} m and {graph.LaneWidthM[onto]:F2} m wide does not carry");
+            }
+        }
+    }
+
+    /// <summary>
+    /// A lane is as wide as the ground it was cut out of: the share of the carriageway its road declared
+    /// that its own direction has — half of it both ways and the whole of it one way (TER-4d) — and exactly
+    /// twice the distance its own line was moved off the centreline.
     /// </summary>
     /// <remarks>
     /// <b>The width is the model's and not a picture's.</b> It is the number the follower is held to a
@@ -178,22 +242,27 @@ public class RoadGraphTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ALaneIsHalfTheCarriagewayAndTwiceItsOwnOffset(string map)
+    public void ALaneIsItsShareOfTheCarriagewayAndTwiceItsOwnOffset(string map)
     {
         var plan = Towns.Of(map);
         var graph = GraphOf(map);
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var declaredM = plan.Roads.WidthM[graph.LaneRoad[lane]];
-            Assert.Equal(declaredM * 0.5f, graph.LaneWidthM[lane], tolerance: 1e-4f);
+            var road = graph.LaneRoad[lane];
+            var declaredM = plan.Roads.WidthM[road] / plan.Roads.LanesOn(road);
+            Assert.Equal(declaredM, graph.LaneWidthM[lane], tolerance: 1e-4f);
 
             var centreline = plan.Roads.SegmentsOf(graph.LaneRoad[lane]);
             var start = graph.StartOf(lane);
             var sample = Spline.SampleAt(centreline, Spline.ProjectM(centreline, start.PositionM, 0f, float.MaxValue));
             var acrossM = MathF.Abs(Vector2.Dot(start.PositionM - sample.PositionM, sample.Right));
+
+            // Half a lane off the middle where the road is shared with the oncoming traffic, and down the
+            // middle where there is none of it (TER-4d).
+            var offsetM = plan.Roads.LanesOn(road) == 2 ? graph.LaneWidthM[lane] * 0.5f : 0f;
             Assert.True(
-                MathF.Abs(acrossM - graph.LaneWidthM[lane] * 0.5f) < 0.1f,
+                MathF.Abs(acrossM - offsetM) < 0.1f,
                 $"{map}: lane {lane} is {graph.LaneWidthM[lane]:F2} m wide but its line was laid {acrossM:F2} m " +
                 "off the centreline");
         }
@@ -229,66 +298,15 @@ public class RoadGraphTests
     }
 
     /// <summary>
-    /// <b>A lane has one end, whatever is driven off it.</b> Every movement out of a lane leaves it at the
-    /// same point and every movement into one arrives at the same point, so the boundary between a lane and
-    /// the box it runs into is a place and not a property of the turn being taken — which is what lets
-    /// anything reading the pair name it without naming a movement.
-    /// </summary>
-    /// <remarks>
-    /// There is no movement through a box that reverses the direction of travel (TER-5f), so there is
-    /// nothing here to leave out: every turn in the table is one a setback helps.
-    /// </remarks>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void EveryMovementThroughALaneEndUsesTheSamePoint(string map)
-    {
-        var graph = GraphOf(map);
-        var arrivesAtM = new float[graph.LaneCount];
-        Array.Fill(arrivesAtM, float.NaN);
-
-        for (var lane = 0; lane < graph.LaneCount; lane++)
-        {
-            var turns = graph.TurnsFrom(lane);
-            var leavesAtM = float.NaN;
-            for (var turn = 0; turn < turns.Length; turn++)
-            {
-                var slot = graph.TurnSlotAt(lane, turn);
-                if (float.IsNaN(leavesAtM)) leavesAtM = graph.JoinFromM(slot);
-                if (float.IsNaN(arrivesAtM[turns[turn]])) arrivesAtM[turns[turn]] = graph.JoinToM(slot);
-
-                Assert.True(
-                    MathF.Abs(graph.JoinFromM(slot) - leavesAtM) < JoinToleranceM,
-                    $"{map}: lane {lane} is left at {graph.JoinFromM(slot):F2} m for {turns[turn]} and at "
-                    + $"{leavesAtM:F2} m for its other turns");
-                Assert.True(
-                    MathF.Abs(graph.JoinToM(slot) - arrivesAtM[turns[turn]]) < JoinToleranceM,
-                    $"{map}: lane {turns[turn]} is joined at {graph.JoinToM(slot):F2} m from {lane} and at "
-                    + $"{arrivesAtM[turns[turn]]:F2} m from another lane");
-
-                // And the lane carries both of its own points, which is what says where its own metres begin
-                // under a line assembled through the junction behind it, and where anything drawing it
-                // stops rather than running a spur on into the box.
-                Assert.True(
-                    MathF.Abs(graph.JoinedAtM(turns[turn]) - graph.JoinToM(slot)) < JoinToleranceM,
-                    $"{map}: lane {turns[turn]} says it is joined at {graph.JoinedAtM(turns[turn]):F2} m and the "
-                    + $"turn from {lane} joins it at {graph.JoinToM(slot):F2} m");
-                Assert.True(
-                    MathF.Abs(graph.LeftAtM(lane) - graph.JoinFromM(slot)) < JoinToleranceM,
-                    $"{map}: lane {lane} says it is left at {graph.LeftAtM(lane):F2} m from its end and the "
-                    + $"turn onto {turns[turn]} leaves it at {graph.JoinFromM(slot):F2} m");
-            }
-        }
-    }
-
-    /// <summary>
-    /// <b>Every turn carries the line across the box that goes with it</b>, and that line meets the two
-    /// lanes it joins exactly where their own setbacks say it does. A join that started or finished
-    /// anywhere else would be a break in every line assembled through it and a movement drawn beside the
-    /// road rather than onto it.
+    /// <b>Every turn carries the line across the box that goes with it, and that line runs from one lane's
+    /// own last point to the next lane's own first</b> (TER-5d). A lane is cut back to the points its
+    /// movements hand over at, so a junction is a set of connection points and the joins are what run
+    /// between them: a join starting or finishing anywhere else would be a break in every line assembled
+    /// through it, and a lane running on past one would be ground held twice with a spur nobody drives.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryJoinMeetsTheTwoLanesItJoins(string map)
+    public void EveryJoinRunsFromOneLanesEndToTheNextLanesStart(string map)
     {
         var graph = GraphOf(map);
 
@@ -299,8 +317,8 @@ public class RoadGraphTests
             {
                 var slot = graph.TurnSlotAt(lane, turn);
                 var join = graph.JoinArcs(slot);
-                var leaves = Spline.SampleAt(graph.ArcsOf(lane), graph.LaneLengthM[lane] - graph.JoinFromM(slot));
-                var arrives = Spline.SampleAt(graph.ArcsOf(turns[turn]), graph.JoinToM(slot));
+                var leaves = graph.EndOf(lane);
+                var arrives = graph.StartOf(turns[turn]);
 
                 // A pair of lanes that already meet needs no line between them, which is the one case
                 // with nothing to check.
@@ -321,14 +339,14 @@ public class RoadGraphTests
     }
 
     /// <summary>
-    /// <b>A join is widened only as far as it takes to reach the junction's own corner radius, and no
-    /// further.</b> The turn that does not reach it is the one the town has no room to widen — with the
-    /// whole of both lanes already taken into the turn — and that is a fact about the junction rather
-    /// than about the line drawn through it.
+    /// <b>A lane is cut back only as far as it takes for its joins to reach the junction's own corner
+    /// radius, and no further</b> (TER-5, TER-5d). The turn that does not reach it is the one the town has
+    /// no room for — both its lanes have already given up everything they can spare — and that is a fact
+    /// about the junction rather than about the line drawn through it.
     /// </summary>
     /// <remarks>
-    /// The pair no setback ever helps — two opposing lanes a lane's width apart, a semicircle however far
-    /// back it is taken — is not a movement and is not in the table (TER-5f).
+    /// The pair no cut back would ever help — two opposing lanes a lane's width apart, a semicircle however
+    /// far back it is drawn from — is not a movement and is not in the table (TER-5f).
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -342,19 +360,27 @@ public class RoadGraphTests
             var turns = graph.TurnsFrom(lane);
             for (var turn = 0; turn < turns.Length; turn++)
             {
+                var onto = turns[turn];
                 var slot = graph.TurnSlotAt(lane, turn);
+
+                // Measured against the stretches the cut back was settled on, which is what each lane still
+                // had when the widening asked how much it could spare.
+                var wholeM = MathF.Min(
+                    graph.LaneLengthM[lane] + graph.LaneCutBackM[lane],
+                    graph.LaneLengthM[onto] + graph.LaneCutBackM[onto]);
                 var capM = MathF.Min(
                     config.IntersectionCornerRadiusM,
-                    MathF.Min(graph.LaneLengthM[lane], graph.LaneLengthM[turns[turn]]) * 0.5f);
+                    MathF.Max(0f, wholeM - config.LaneShortestStretchM) * 0.5f);
 
                 var bend = 0f;
                 foreach (var arc in graph.JoinArcs(slot)) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
 
                 var holdable = bend <= 1e-6f || 1f / bend >= config.IntersectionCornerRadiusM;
                 Assert.True(
-                    holdable || graph.JoinFromM(slot) >= capM - 1e-3f,
-                    $"{map}: lane {lane} onto {turns[turn]} bends to {1f / bend:F2} m at a setback of " +
-                    $"{graph.JoinFromM(slot):F2} m of the {capM:F2} m the town allows");
+                    holdable || (graph.LaneCutBackM[lane] >= capM - 1e-3f && graph.LaneCutBackM[onto] >= capM - 1e-3f),
+                    $"{map}: lane {lane} onto {onto} bends to {1f / bend:F2} m where the two of them gave up " +
+                    $"{graph.LaneCutBackM[lane]:F2} m and {graph.LaneCutBackM[onto]:F2} m of the {capM:F2} m " +
+                    "the town allows an end");
             }
         }
     }

@@ -135,10 +135,9 @@ internal sealed partial class DebugOverlay
         var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
 
-        // <b>Every lane of the town, whole</b> (OBS-2d). A lane is a way over the whole of its
-        // own line — a body standing inside the setback at either end is written onto it there — so a layer
-        // that drew only the stretch a route travels left the blocks at every node standing on nothing.
-        // The setbacks are still where the movements take over, and those are drawn over the same ground.
+        // <b>Every lane of the town, whole</b> (OBS-2d), which is now the same thing as every lane between
+        // its two connection points: a lane is cut back to the points its movements hand over at (TER-5d),
+        // so the whole of its line is ground it holds and no part of it is drawn under a join as well.
         var roads = world.Roads;
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {

@@ -2,6 +2,7 @@ using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Terrain;
 using Xunit;
 
@@ -29,6 +30,27 @@ namespace TrafficSimulation.Tests.CityGen;
 public class MapConformanceTests
 {
     public static TheoryData<string> Maps => Towns.EveryShippedMap();
+
+    public static TheoryData<string> Cities => Towns.EveryCity();
+
+    /// <summary>
+    /// <b>A city can be driven round</b> (GEN-18): every junction it has is reachable from every lane it
+    /// carries. <b>Asked of the cities alone</b> — a map laid to measure one thing is deliberately in
+    /// pieces, and the ends it is made of are what it is for.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Cities))]
+    public void ACityCanBeDrivenRound(string map) =>
+        Assert.Null(Drivable.Offence(RoadGraph.Build(Towns.Of(map), SimConfig.Shipped())));
+
+    /// <summary>
+    /// <b>No lane of a city dangles</b> (GEN-18a): every one of them is driven onto and driven off, which a
+    /// lane at a node where the number of them changes is not.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Cities))]
+    public void NoLaneOfACityIsDrivenOntoByNothing(string map) =>
+        Assert.Null(Drivable.Dangling(RoadGraph.Build(Towns.Of(map), SimConfig.Shipped())));
 
     /// <summary>A junction is where roads meet, so a junction no road is an arm of is not one.</summary>
     [Theory]

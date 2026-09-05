@@ -4,6 +4,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Terrain;
 using Xunit;
 
@@ -262,6 +263,39 @@ public class GeneratorTests
 
     static void AssertNotGrass(CityPlan plan, Vector2 atM) =>
         Assert.True(GroundAt(plan, atM) != Ground.Grass, $"grass at {atM.X:F1},{atM.Y:F1} stands against the water");
+
+    /// <summary>
+    /// <b>A town with one-way streets in it can still be driven round</b> (GEN-18): from every lane there
+    /// is, every junction the town has is reachable — turning round in the road is not a movement (TER-5f),
+    /// so a block whose streets all ran inwards would pass GEN-5 and still be somewhere a car drives into
+    /// and never leaves.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of the lane graph the town is actually driven on</b> and not of the layout the generator
+    /// settled its one-way streets against: the turn table drops a movement the drawn lines leave no room
+    /// for as well as the one that turns round, so this is where a proposal that looked drivable on chords
+    /// answers for the shapes it came out as.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void EveryJunctionCanBeDrivenToFromEveryLane(ulong seed)
+    {
+        var roads = RoadGraph.Build(Lay(Brief(seed)), Config);
+        Assert.Null(Drivable.Offence(roads));
+    }
+
+    /// <summary>
+    /// <b>No lane dangles</b> (GEN-18a): every lane the town lays is one a car can be driven onto and one it
+    /// can be driven off again. A node that forks nothing is where this is lost — a road of two lanes meeting
+    /// a road of one leaves the lane back out of it with nothing that ever arrives on it.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoLaneIsDrivenOntoByNothing(ulong seed)
+    {
+        var roads = RoadGraph.Build(Lay(Brief(seed)), Config);
+        Assert.Null(Drivable.Dangling(roads));
+    }
 
     /// <summary>
     /// <b>Nothing ends in nothing</b> (GEN-5a): a generated town carries no junction of one arm, since the
@@ -737,12 +771,8 @@ public class GeneratorTests
     public void EveryCornerAJunctionTurnsIsTurned(ulong seed)
     {
         var plan = Lay(Brief(seed));
-        foreach (var (junction, apartRad, cornerAtM) in Corners(plan))
+        foreach (var (junction, apartRad, spikeM, cornerAtM) in Corners(plan))
         {
-            var halfM = plan.Junctions.RadiusM[junction];
-            var spikeM = (halfM / MathF.Sin(apartRad * 0.5f)) - halfM;
-            if (spikeM < Config.Road.PaintLineWidthM) continue;
-
             Assert.True(
                 Turned(plan, cornerAtM),
                 $"junction {junction} leaves a {spikeM:F2} m spike at {cornerAtM.X:F1},{cornerAtM.Y:F1} " +
@@ -762,12 +792,12 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// Every pair of arms standing next to each other round a junction on the near side of a straight
-    /// line, and where the two kerbs they carry cross.
+    /// Every pair of arms that turns a corner worth filleting: where the two kerbs they carry cross, and
+    /// how far outside the mouth that crossing stands.
     /// </summary>
-    static List<(int Junction, float ApartRad, Vector2 CornerM)> Corners(CityPlan plan)
+    static List<(int Junction, float ApartRad, float SpikeM, Vector2 CornerM)> Corners(CityPlan plan)
     {
-        var bearings = new List<float>[plan.Junctions.Count];
+        var bearings = new List<(float Rad, float HalfM, float StandsOffM)>[plan.Junctions.Count];
         for (var junction = 0; junction < bearings.Length; junction++) bearings[junction] = [];
 
         for (var road = 0; road < plan.Roads.Count; road++)
@@ -775,13 +805,24 @@ public class GeneratorTests
             var chain = plan.Roads.SegmentsOf(road);
             if (chain.Length == 0) continue;
 
-            var outOfFrom = Spline.SampleAt(chain, 0f).Direction;
-            var outOfTo = -Spline.SampleAt(chain, Spline.TotalLengthM(chain)).Direction;
-            bearings[plan.Roads.FromJunction[road]].Add(MathF.Atan2(outOfFrom.Y, outOfFrom.X));
-            bearings[plan.Roads.ToJunction[road]].Add(MathF.Atan2(outOfTo.Y, outOfTo.X));
+            var halfM = plan.Roads.WidthM[road] * 0.5f;
+            var from = Spline.SampleAt(chain, 0f);
+            var to = Spline.SampleAt(chain, Spline.TotalLengthM(chain));
+            var outOfFrom = from.Direction;
+            var outOfTo = -to.Direction;
+            bearings[plan.Roads.FromJunction[road]].Add((
+                MathF.Atan2(outOfFrom.Y, outOfFrom.X), halfM,
+                Vector2.Dot(
+                    from.PositionM - plan.Junctions.CentreM[plan.Roads.FromJunction[road]],
+                    Heading.RightOf(outOfFrom))));
+            bearings[plan.Roads.ToJunction[road]].Add((
+                MathF.Atan2(outOfTo.Y, outOfTo.X), halfM,
+                Vector2.Dot(
+                    to.PositionM - plan.Junctions.CentreM[plan.Roads.ToJunction[road]],
+                    Heading.RightOf(outOfTo))));
         }
 
-        var corners = new List<(int, float, Vector2)>();
+        var corners = new List<(int, float, float, Vector2)>();
         for (var junction = 0; junction < bearings.Length; junction++)
         {
             var round = bearings[junction];
@@ -790,17 +831,25 @@ public class GeneratorTests
             round.Sort();
             for (var at = 0; at < round.Count; at++)
             {
-                var a = Heading.Unit(round[at]);
-                var b = Heading.Unit(round[(at + 1) % round.Count]);
-                var apartRad = round[(at + 1) % round.Count] - round[at];
+                var next = (at + 1) % round.Count;
+                var a = Heading.Unit(round[at].Rad);
+                var b = Heading.Unit(round[next].Rad);
+                var apartRad = round[next].Rad - round[at].Rad;
                 if (apartRad <= 0f) apartRad += MathF.Tau;
-                if (apartRad >= MathF.PI) continue;
+                // Each kerb stands off the node by its own road's half and by however far off the node that
+                // road stands (TER-4d) — which for a one-way street beside a full carriageway is neither the
+                // bisector nor the node's own line.
+                var kerbAtM = round[at].HalfM + round[at].StandsOffM;
+                var kerbNextM = round[next].HalfM - round[next].StandsOffM;
+                if (!Config.JunctionTurnsACorner(apartRad, kerbAtM, kerbNextM)) continue;
 
-                var halfM = plan.Junctions.RadiusM[junction];
-                var bisector = Vector2.Normalize(a + b);
+                var alongM = SimConfig.JunctionCornerAlongM(apartRad, kerbAtM, kerbNextM);
+                var spikeM = MathF.Sqrt((alongM * alongM) + (kerbAtM * kerbAtM))
+                             - MathF.Min(kerbAtM, kerbNextM);
+                var intoTheWedge = Vector2.Normalize(b - (a * Vector2.Dot(a, b)));
                 corners.Add((
-                    junction, apartRad,
-                    plan.Junctions.CentreM[junction] + (bisector * (halfM / MathF.Sin(apartRad * 0.5f)))));
+                    junction, apartRad, spikeM,
+                    plan.Junctions.CentreM[junction] + (a * alongM) + (intoTheWedge * kerbAtM)));
             }
         }
 
@@ -962,13 +1011,15 @@ public class GeneratorTests
         public static PavedEdge Of(CityPlan plan, SimConfig config)
         {
             var edges = new PavedEdge(config.CityGen.PropWildStandOffM);
-            var kerbM = (config.RoadWidthM * 0.5f) + config.PavementWidthM;
 
             for (var road = 0; road < plan.Roads.Count; road++)
             {
                 var chain = plan.Roads.SegmentsOf(road).ToArray();
                 if (chain.Length == 0) continue;
 
+                // The road's own width and not the catalogue's: a one-way street's pavement stands half a
+                // carriageway nearer its middle (TER-4d).
+                var kerbM = (plan.Roads.WidthM[road] * 0.5f) + config.PavementWidthM;
                 var lengthM = Spline.TotalLengthM(chain);
                 for (var alongM = 0f; alongM <= lengthM; alongM += SampledM)
                 {

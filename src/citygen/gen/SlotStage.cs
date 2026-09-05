@@ -41,7 +41,7 @@ internal static class SlotStage
         CityPlan.BuildingArrays Buildings, CityPlan.ParkingLotArrays ParkingLots);
 
     public static Laid Lay(
-        TownLayout layout, ArcSeg[][] chains, TownBrief brief, GroundShapes ground, GenClaims claims,
+        TownLayout layout, CityPlan.RoadArrays roads, TownBrief brief, GroundShapes ground, GenClaims claims,
         SimConfig config, ReadOnlySpan<Vector2> roofsM, ref Rng draw)
     {
         var centreM = new List<Vector2>();
@@ -56,9 +56,7 @@ internal static class SlotStage
         var bayM = new List<Vector2>();
         var bayHeadingRad = new List<float>();
 
-        var widthM = config.RoadWidthM;
         var walkM = config.PavementWidthM;
-        var kerbM = (widthM * 0.5f) + walkM;
         var bayLengthM = config.ParkingSpaceLengthM;
         var bayWidthM = config.ParkingSpaceWidthM;
         var pitchM = config.CityGen.BuildingSideMaxM * (1f + PaddingShare);
@@ -77,11 +75,15 @@ internal static class SlotStage
         // whether two of them are one car park is a question about the frontage between them (GEN-16).
         var slots = new List<Slot>();
         var stubM = RoadStage.StubM(config);
-        for (var road = 0; road < chains.Length; road++)
+        for (var road = 0; road < roads.Count; road++)
         {
-            if (chains[road].Length == 0) continue;
+            var chain = roads.SegmentsOf(road);
+            if (chain.Length == 0) continue;
 
-            var lengthM = Spline.TotalLengthM(chains[road]);
+            // Off the kerb of this road and not of the widest there is: a one-way street is half a
+            // carriageway wide (TER-4d), and what fronts it stands that much nearer its middle.
+            var kerbM = (roads.WidthM[road] * 0.5f) + walkM;
+            var lengthM = Spline.TotalLengthM(chain);
             foreach (var hand in (ReadOnlySpan<int>)[-1, 1])
             {
                 for (var alongM = stubM; alongM <= lengthM - stubM; alongM += pitchM)
@@ -110,8 +112,8 @@ internal static class SlotStage
         }
 
         LayTheLots(
-            slots, bays, chains, config, ground, claims, bayLengthM, bayWidthM,
-            widthM * 0.5f, lotCentreM, lotAxis, lotHalfM, bayOffsets, bayM, bayHeadingRad);
+            slots, bays, roads, config, ground, claims, bayLengthM, bayWidthM,
+            lotCentreM, lotAxis, lotHalfM, bayOffsets, bayM, bayHeadingRad);
 
         var frontages = new List<Slot>(slots.Count);
         for (var slot = 0; slot < slots.Count; slot++)
@@ -129,9 +131,10 @@ internal static class SlotStage
         {
             if (centreM.Count >= brief.Buildings) break;
 
-            var on = Spline.SampleAt(chains[road], alongM);
+            var on = Spline.SampleAt(roads.SegmentsOf(road), alongM);
             LayABuilding(
-                on.PositionM, on.Right * hand, kerbM, walkM, config, ground, claims, roofsM,
+                on.PositionM, on.Right * hand, (roads.WidthM[road] * 0.5f) + walkM, walkM, config, ground,
+                claims, roofsM,
                 centreM, sizeM, headingRad, entryM, ref draw);
         }
 
@@ -204,9 +207,8 @@ internal static class SlotStage
     /// and a lot fewer is a shortfall the census reports (GEN-8) rather than a car park the length of a block.
     /// </remarks>
     static void LayTheLots(
-        List<Slot> slots, int[] bays, ArcSeg[][] chains, SimConfig config, GroundShapes ground,
-        GenClaims claims, float bayLengthM, float bayWidthM,
-        float roadHalfM, List<Vector2> lotCentreM, List<Vector2> lotAxis, List<Vector2> lotHalfM,
+        List<Slot> slots, int[] bays, CityPlan.RoadArrays roads, SimConfig config, GroundShapes ground,
+        GenClaims claims, float bayLengthM, float bayWidthM, List<Vector2> lotCentreM, List<Vector2> lotAxis, List<Vector2> lotHalfM,
         List<int> bayOffsets, List<Vector2> bayM, List<float> bayHeadingRad)
     {
         var localityM = config.CityGen.LocalityM;
@@ -226,13 +228,14 @@ internal static class SlotStage
 
             var kerb = slots[at];
             var halfAlongM = bays[at] * bayWidthM * 0.5f;
-            var chain = chains[kerb.Road];
+            var chain = roads.SegmentsOf(kerb.Road);
             var fromM = kerb.AlongM - halfAlongM;
             var toM = kerb.AlongM + halfAlongM;
             if (!KeepsToItsChord(chain, fromM, toM, straightM)) continue;
 
             var shape = Shape(
-                chain, fromM, toM, bays[at], kerb.Hand, bayWidthM, bayLengthM, roadHalfM, mouthM);
+                chain, fromM, toM, bays[at], kerb.Hand, bayWidthM, bayLengthM,
+                roads.WidthM[kerb.Road] * 0.5f, mouthM);
             if (kerb.Road == laidRoad && kerb.Hand == laidHand && ApartM(laid, shape) < localityM) continue;
             if (!Stands(shape, ground, claims, config)) continue;
 
@@ -261,7 +264,7 @@ internal static class SlotStage
     /// it starts and where it stops rather than the tangent at any one point of it.
     /// </summary>
     static LotShape Shape(
-        ArcSeg[] chain, float fromM, float toM, int bays, int hand, float bayWidthM, float bayLengthM,
+        ReadOnlySpan<ArcSeg> chain, float fromM, float toM, int bays, int hand, float bayWidthM, float bayLengthM,
         float roadHalfM, float mouthM)
     {
         var start = Spline.SampleAt(chain, fromM);
@@ -285,7 +288,7 @@ internal static class SlotStage
     /// middle no longer reaches the carriageway over — which is a car park behind the pavement rather than
     /// against it, and is what bounds how much frontage one run may take.
     /// </summary>
-    static bool KeepsToItsChord(ArcSeg[] chain, float fromM, float toM, float toleranceM)
+    static bool KeepsToItsChord(ReadOnlySpan<ArcSeg> chain, float fromM, float toM, float toleranceM)
     {
         var startM = Spline.SampleAt(chain, fromM).PositionM;
         var chordM = Spline.SampleAt(chain, toM).PositionM - startM;

@@ -389,8 +389,9 @@ so does a bridge, which is straight and nothing else (GEN-14a). **What the arm c
 bend**: the paint of such a node is laid on the straight after the arc ends, exactly as everywhere else it is
 laid past the ground its junction reaches (TER-6).
 
-**GEN-15** **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is two
-lanes of the one standard width (`SimConfig.LaneWidthM`) and the walk beside it two walking lanes of theirs
+**GEN-15** **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is as
+many lanes of the one standard width (`SimConfig.LaneWidthM`) as it has ways — two both ways and one
+one way (TER-4d) — and the walk beside it two walking lanes of theirs
 (`SimConfig.WalkingLaneWidthM`), whatever the road is for and wherever it stands: a town whose roads each
 chose their own width is a town where nothing quoted against a lane — a line's offset, a kerb, a bar's
 span, the room a body has to step round another — means the same thing twice. A map laid to measure one
@@ -416,6 +417,27 @@ walks or claims a way across it has anything to say about who goes first.
   its own piece.
 - It is a rule about **roads**, not about the paint or the ground: what a junction's own arms may do to each
   other is GEN-13's, and where the lots and the buildings stand is GEN-3's and GEN-16's.
+
+**GEN-18** **A grid town's middle is driven one way, and every one-way street it keeps is one the town can
+still be driven round.** Inside the orbital, a district laid as a strict lattice runs its own streets one
+way (TER-4d), **the two families alternating with their own index across the grid** — so every block is
+reached off the pair of streets round it, which a grid running all one way is not. Everything else runs
+both ways: the arterials, the districts that wander, the ground outside the ring, and every stub that hangs
+a lattice onto an arterial, which is how a district is entered and left at all.
+
+**What the town keeps is settled against the movements and not against the roads.** From every movement on
+the network every junction must be reachable, with no turning round in the road (TER-5f) — a block whose
+streets all ran inwards has a way out of every junction on it and is still somewhere a car drives into and
+never leaves. A street the deletions have left the town unable to afford **runs both ways again** (GEN-8),
+one at a time and in the order they were laid; nothing is laid twice and no seed is thrown away.
+
+**GEN-18a** **No lane dangles**: every lane the town lays is one a car can be driven onto and one it can be
+driven off again. **A node that forks nothing may not change how many lanes there are** — where a road of
+two ways meets a road of one, the way back out of that node is a lane no movement ever arrives on, since
+the only thing that could reach it is the turn round in the road that TER-5f bans. It is a local fact and
+not a connected one: a movement leaving a node needs some road other than its own arriving there, and a
+movement arriving needs some other road leaving. **A node of one arm is not what this is about** — a dead
+end is a place only turning round leaves, and dropping it is GEN-5a's.
 
 **GEN-16** **Two of a kind standing inside a locality of each other are one thing and not two**
 (`SimConfig.CityGen.LocalityM`). A town is laid at several spacings that know nothing of one another — an

@@ -152,6 +152,15 @@ internal sealed class CityPlan
         public required int[] ToJunction { get; init; }
         public required float[] WidthM { get; init; }
 
+        /// <summary>Which way each road is driven (TER-4d), which is also how many lanes its width is.</summary>
+        public required RoadFlow[] Flow { get; init; }
+
+        /// <summary>How many lanes a road's own width carries: one where it runs one way and two where it runs both.</summary>
+        public int LanesOn(int road) => Flow[road] == RoadFlow.BothWays ? 2 : 1;
+
+        /// <summary>A town whose every road runs both ways, which is every map that lays no one-way street.</summary>
+        public static RoadFlow[] AllBothWays(int roads) => new RoadFlow[roads];
+
         /// <summary>Count + 1 entries: road <c>i</c>'s pieces are <c>Segments[SegmentOffsets[i]..SegmentOffsets[i + 1]]</c>.</summary>
         public required int[] SegmentOffsets { get; init; }
 

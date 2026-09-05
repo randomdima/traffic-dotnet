@@ -151,8 +151,8 @@ internal static class SelectionPath
     }
 
     /// <summary>
-    /// A run of lanes drawn as the ground a car covers over them: each junction join and the lane past it,
-    /// between the setbacks that junction's own movements arrive and leave at (TER-5d). Answers the last
+    /// A run of lanes drawn as the ground a car covers over them: each junction join and the whole of the
+    /// lane past it, which is exactly the ground between two connection points (TER-5d). Answers the last
     /// lane drawn, which is what the next run is joined on from.
     /// </summary>
     static int Stretches(
@@ -171,8 +171,7 @@ internal static class SelectionPath
             }
 
             PathMarks.Chained(
-                ref draw, roads.ArcsOf(lane), roads.JoinedAtM(lane), roads.LaneLengthM[lane] - roads.LeftAtM(lane),
-                pitchM, bothWays: false, sagM, colour);
+                ref draw, roads.ArcsOf(lane), 0f, roads.LaneLengthM[lane], pitchM, bothWays: false, sagM, colour);
 
             lastLane = lane;
         }

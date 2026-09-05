@@ -1096,9 +1096,8 @@ public class LaneOccupancyInATownTests
         var lane = AQuietLaneOntoANode(world, withAJoinOfItsOwn: true, out _);
         Assert.True(lane >= 0, "the town has no quiet lane running into a junction");
 
-        // A metre short of the metre the lane is left at, so that the body is on the lane and its nose is not.
-        var leavesAtM = roads.LaneLengthM[lane] - roads.LeftAtM(lane);
-        var on = Spline.SampleAt(roads.ArcsOf(lane), leavesAtM - 1f);
+        // A metre short of the lane's own end, so that the body is on the lane and its nose is not.
+        var on = Spline.SampleAt(roads.ArcsOf(lane), roads.LaneLengthM[lane] - 1f);
         var car = StandTheBodyAt(world, on.PositionM, MathF.Atan2(on.Direction.Y, on.Direction.X));
         Assert.True(
             world.Cars.BuildOf(car).HalfLengthM > 1f, "a body shorter than the metre it stands back is no test");

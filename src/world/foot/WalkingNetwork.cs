@@ -583,7 +583,7 @@ internal sealed class WalkingNetwork
     /// The most of a lane its two corners may take between them. Under it there is nothing left to walk:
     /// the lane is a point, the two corners meet on it, and a stretch that short is a real thing in a town.
     /// </summary>
-    const float MostOfALaneItsCornersTake = 0.8f;
+    public const float MostOfALaneItsCornersTake = 0.8f;
 
     /// <summary>
     /// <b>Holds the two ends of a short stretch back in proportion</b> so that every lane keeps a stretch
@@ -630,9 +630,10 @@ internal sealed class WalkingNetwork
     /// nothing is coming through. What such a way is given is the room to round the step between them.
     /// </para>
     /// <para>
-    /// Bounded by half of each of the two lanes a corner stands between, so two corners a stride apart
-    /// share the ground rather than overrunning one another, and a stretch with no way off an end keeps
-    /// the whole of it. Turning round on the spot is not a way off: it decides nothing about how far a
+    /// Bounded by half of the shortest lane at that end — every one of them and not only the two a corner
+    /// stands between, because what is given up is the end's and is given up once — so two corners a stride
+    /// apart share the ground rather than overrunning one another, and a stretch with no way off an end
+    /// keeps the whole of it. Turning round on the spot is not a way off: it decides nothing about how far a
     /// lane is walked, and counted it pulled a lane's start back behind the corner landing bodies on it.
     /// </para>
     /// </remarks>

@@ -194,6 +194,7 @@ internal static class SkidpadPlan
                 FromJunction = Ends(rows, first: true),
                 ToJunction = Ends(rows, first: false),
                 WidthM = Filled(rows, PitchM),
+                Flow = CityPlan.RoadArrays.AllBothWays(rows),
                 SegmentOffsets = offsets,
                 Segments = segments,
             },

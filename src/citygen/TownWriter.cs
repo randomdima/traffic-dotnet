@@ -108,6 +108,7 @@ internal static class TownWriter
             Index(tape, roads.FromJunction[road]);
             Index(tape, roads.ToJunction[road]);
             tape.F32(roads.WidthM[road]);
+            tape.U8((byte)roads.Flow[road]);
 
             var arcs = roads.SegmentsOf(road);
             tape.Count(arcs.Length);

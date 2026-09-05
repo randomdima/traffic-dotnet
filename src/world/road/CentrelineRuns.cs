@@ -85,7 +85,10 @@ internal sealed class CentrelineRuns
         {
             offsets[road + 1] = offsets[road];
             var centreline = roads.SegmentsOf(road);
-            if (centreline.Length == 0) continue;
+
+            // <b>A one-way street has nothing to divide</b> (TER-4d): the dashes say which half of the road
+            // is the oncoming traffic's, and on a road with one lane on it there is no such half.
+            if (centreline.Length == 0 || roads.Flow[road] != RoadFlow.BothWays) continue;
 
             var spans = blocked[road] ??= [];
             RoadCuts.Along(

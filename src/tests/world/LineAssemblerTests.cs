@@ -150,23 +150,20 @@ public class LineAssemblerTests
             var turns = graph.TurnsFrom(lane);
             for (var turn = 0; turn < turns.Length; turn++)
             {
-                var slot = graph.TurnSlotAt(lane, turn);
                 pair[0] = lane;
                 pair[1] = turns[turn];
                 var line = LineAssembler.Assemble(graph, pair, arcs, starts, ends);
                 var driven = arcs.AsSpan(0, line.ArcCount);
 
-                // Each lane over the stretch of it the line was laid from: the leaving join's setback short
-                // of the end on the first, the arriving join's setback in on the second.
+                // Each lane whole, which is the whole of what the line was laid from: a lane ends where
+                // its movements hand over (TER-5d), so there is no stretch of it the line leaves out.
                 for (var at = 0; at < 2; at++)
                 {
                     var of = pair[at];
-                    var fromM = at == 0 ? 0f : graph.JoinToM(slot);
-                    var toM = at == 0 ? graph.LaneLengthM[of] - graph.JoinFromM(slot) : graph.LaneLengthM[of];
 
-                    for (var alongM = fromM; alongM <= toM; alongM += 1f)
+                    for (var alongM = 0f; alongM <= graph.LaneLengthM[of]; alongM += 1f)
                     {
-                        var onLineM = LineAssembler.OnTheLineM(graph, pair, starts, ends, at, alongM);
+                        var onLineM = LineAssembler.OnTheLineM(starts, ends, at, alongM);
                         var offM = (Spline.SampleAt(driven, onLineM).PositionM
                                     - Spline.SampleAt(graph.ArcsOf(of), alongM).PositionM).Length();
 

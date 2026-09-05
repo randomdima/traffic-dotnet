@@ -132,11 +132,7 @@ internal sealed class RunNetwork
         where TFine : IFineGraph
         where TPricer : IEdgeTurnPricer
     {
-        var decision = new bool[fine.NodeCount];
-        for (var node = 0; node < fine.NodeCount; node++)
-        {
-            decision[node] = fine.EdgesOut(node).Length != 2 || fine.AlwaysANode(node);
-        }
+        var decision = Decisions(fine);
 
         var travelNodeOf = new int[fine.NodeCount];
         Array.Fill(travelNodeOf, -1);
@@ -239,6 +235,50 @@ internal sealed class RunNetwork
             fineNodeOf.Add(fineNode);
             return travelNodeOf[fineNode];
         }
+    }
+
+    /// <summary>
+    /// <b>Which nodes survive the contraction</b>: the ones something is decided at, the ones two runs meet
+    /// at, and the ones a body can be sent to. Everything else is a place one run passes through — one way
+    /// on for every way in, and each of them taken by exactly one of them — and a run is what a chain of
+    /// those is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Counted as movements and never as edges</b> (TER-4d). Two lanes leaving is what a bend looks like
+    /// where every stretch is driven both ways, and a town with one-way streets in it has bends of one lane
+    /// in and one lane out, junctions of three lanes where nothing is decided, and — the case an edge count
+    /// cannot see at all — <b>merges</b>: two one-way streets running into one, where each arrival has a
+    /// single way on and the two of them are the same way. A merge is a node because two links end there.
+    /// </remarks>
+    static bool[] Decisions<TFine>(TFine fine) where TFine : IFineGraph
+    {
+        var arriving = new int[fine.NodeCount];
+        var comingBack = new int[fine.NodeCount];
+        for (var edge = 0; edge < fine.EdgeCount; edge++)
+        {
+            var node = fine.ToNode(edge);
+            if (node < 0) continue;
+
+            arriving[node]++;
+            if (fine.Reverse(edge) >= 0) comingBack[node]++;
+        }
+
+        var decision = new bool[fine.NodeCount];
+        for (var node = 0; node < fine.NodeCount; node++)
+        {
+            // An arrival that has the way back down its own piece among the ways out has one fewer way on
+            // than the node offers, because turning round is no movement (TER-5f). So a node of two-way
+            // pieces passes through at two ways out and one of one-way pieces at one, and a node of both
+            // has an arrival with a choice whichever it is.
+            var ways = fine.EdgesOut(node).Length;
+            var oneEach = comingBack[node] == arriving[node]
+                ? ways == 2
+                : comingBack[node] == 0 && ways == 1;
+
+            decision[node] = fine.AlwaysANode(node) || !oneEach || arriving[node] != ways;
+        }
+
+        return decision;
     }
 
     /// <summary>
