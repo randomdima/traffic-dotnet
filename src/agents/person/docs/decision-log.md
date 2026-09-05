@@ -4,6 +4,43 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-05 — a claim has a width, and the step round is an ask rather than an aim
+
+**The walker was given the driver's model on ground the driver's model is wrong about.** A carriageway lane
+holds one car abreast and a claim on it is honestly one interval of arclength; a walking lane is two bodies
+wide on purpose, and the same interval makes a single file of it. Everything walker-only in the town path had
+grown to work around that one hole — a re-aim with its own geometry, a walled-in flag, a permission read off
+the ground for a body off its line — and none of it could work, because the step turned off the line while
+the grant stayed on it and the walker stood a gap short of the body with its shoulders pointed at the gap.
+
+**So a claim now carries the span its holder covers across the way** rather than its distance from that
+way's line, and whoever reads it says where across the way *it* is (TER-4c.2). At nought it is the question
+it has always been, which is every driver and every walker on its line; what it buys is that a body can ask
+about ground it has stepped to instead of ground it has left. Read off the holder alone, a way was
+two-dimensional for whoever was written into it and one-dimensional for everybody reading it, and nothing
+could move out from under an answer.
+
+**And the step is that ask and not a re-aim** (PER-24). The offset comes off the body being got past — the
+far edge of its span, the room a reader needs, two shoulders — the ground is asked whether it will take it,
+and then the whole walk is asked for again from there and kept only if it buys more pavement than standing
+still did. One offset, written once, read by the ask, by the grant and by the feet: the fault this keeps
+out is the one this log keeps recording, which is two answers about one piece of ground.
+
+**What went with it**: the step's own geometry (`IsInTheWay`, `PassM`) and its unit tests, and the walled-in
+flag the follower carried. The step is decided where the grant is taken, so there was nothing left for them
+to decide.
+
+**The exam is clean for the first time** — 20 of 20 cards, both findings out of date, and the claim that a
+walker gets past a body standing in its way is answered rather than waiting. Over five minutes of Odesa:
+446 walks arrived against 433 and 533 given up against 617, walkers still held at the end 14 against 21, the
+longest hold 121 s against 208, rings of walkers each held by the next 3 against 5, and time spent inside the
+gap they keep 5.9% against 7.4%. The drivers got it back too — 22 cars standing at the end against 33, and 96
+bays against 89 — which is what a pavement that clears itself is worth to the road beside it.
+
+**What this does not touch is the reason the number is still 533.** A walker that cannot get past still has
+one rung: a clock, and then the whole trip is thrown away and a new destination drawn. A driver in the same
+position walks ten. That is `AGT-7`'s missing catalogue and it is still missing.
+
 ## 2026-09-05 — the walker has an exam, and the map it is asked on has no traffic
 
 **What a walker does was only ever asked of a city.** The arithmetic under it is unit-tested to death and
@@ -20,9 +57,9 @@ half is asked, with the traffic staged, on the driving exam's four cards about p
 **The exam's first run named the crowd fault exactly**, which is what it is for: a walk down an empty
 pavement, round a corner, over one arm, over two, past a lit crossing, round a dead end's head and four
 blocks up a street all pass, and the two cards where somebody is **standing** in the way — on the pavement
-and on the paint — do not. That is the missing width of a stretch, logged below on 2026-09-04 as the price
-of a claim that carries no band; the two cards now carry it as findings, so the day a claim has width the
-suite says the findings are out of date rather than leaving them to be re-discovered.
+and on the paint — do not. The two cards carried it as findings, and the day the claim gained a width the
+suite said the findings were out of date rather than leaving them to be re-discovered. That is what a
+finding is for.
 
 **And a leg running out is not a walk given up.** The instrument read the first one as the end of the walk
 and reported a long walk that crossed four blocks and arrived as a failure. A line is laid again from
@@ -83,10 +120,7 @@ standing on for as long as it stands there, and a grant reaching past it is a wa
 refused (TER-4c.3). What the body's movement decides is the *reply* and never the cut — waited for where it
 stands, or stepped round with whatever room the cut leaves in front.
 
-**The step round survives and is now bounded by the grant.** It was never a permission; it is a re-aim, and
-under PER-13 the walker turns off its line while it still has ground to walk into and stands where the grant
-runs out. What this costs is a walker abreast of something stationary: the metres beside a parked car are
-that car's, so a step cannot be *completed* along the way, and PER-8's clock is what finishes the job.
+**The step round survives and is bounded by the grant**, which is what it is asked as.
 
 **Which needed the clock to be running, and it was not.** Being held by the claims returned a walker out of
 its decision entirely — right for a queue, whose ground ends itself, and wrong the moment a body going
@@ -97,11 +131,6 @@ drawn round it. Fixing that alone cleared four recovery runs and a rescue that h
 step's own geometry already tested for it; the grant did not, so it named the casualty a paramedic had
 walked at as an obstruction and the crew was walked off its own errand. The two now ask it in the same
 terms, which is the whole of why it is one predicate and not two.
-
-**What is not built is a claim with width.** A stretch is an interval of one way's arclength and two bodies
-laterally clear of each other on one way still contend for it. That is the town's answer for now and it is
-why a step cannot finish; a claim that carried its band would let it, at the price of making every reader of
-the table two-dimensional.
 
 ## 2026-09-03 — going nowhere is a speed and not a use
 

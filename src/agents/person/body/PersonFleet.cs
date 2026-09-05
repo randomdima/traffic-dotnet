@@ -64,6 +64,7 @@ internal sealed class PersonFleet
         StepsRound = new int[capacity];
         Array.Fill(StepsRound, NoBody);
         StepsRoundOf = new LaneRoster[capacity];
+        StepsAcrossM = new float[capacity];
         GoalM = new Vector2[capacity];
         WaitingToCrossS = new float[capacity];
         WaitingForLane = new int[capacity];
@@ -204,6 +205,26 @@ internal sealed class PersonFleet
     /// walkers alone, a car's number is whichever walker happens to hold it.
     /// </summary>
     public LaneRoster[] StepsRoundOf { get; }
+
+    /// <summary>
+    /// <b>Where across its way's own line this walker is asking for ground</b>, signed to the way's right —
+    /// nought while it is walking the line, and the step it is taking round a body that is going nowhere
+    /// while it is taking one (PER-24).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is one figure and both halves of the step read it</b>: the pavement is asked for at this offset
+    /// (<c>TownWorld.AskForThePavement</c>), the grant is taken at it (<c>TownWorld.GrantThePavement</c>) and
+    /// the feet are aimed at it. Decided once where the body in the way is found, because a step the
+    /// permission and the feet worked out separately is two answers about one piece of ground.
+    /// </para>
+    /// <para>
+    /// <b>Nothing is planned and nothing is remembered</b> (PER-24). It is written afresh every tick from
+    /// whatever is in the way this tick, so it comes back to nought the moment nothing is — which is what
+    /// makes the divergence last exactly as long as the thing that caused it.
+    /// </para>
+    /// </remarks>
+    public float[] StepsAcrossM { get; }
 
     /// <summary>
     /// How long this body has been waiting to get across a crossing — standing at its kerb, or stopped in
@@ -394,6 +415,7 @@ internal sealed class PersonFleet
         HeldByOf[person] = LaneRoster.Walking;
         StepsRound[person] = NoBody;
         StepsRoundOf[person] = LaneRoster.Walking;
+        StepsAcrossM[person] = 0f;
         WaitingToCrossS[person] = 0f;
         WaitingForLane[person] = NoLane;
         RefusedWay[person] = NoWay;

@@ -138,11 +138,22 @@ as one is what a driver counts (`E-4`): a wreck, somebody knocked down, a walker
 off its own line — and **never a body under way along the same lane**, who is followed and never stepped
 round.
 
-**The step is a re-aim and never a permission** (TER-4c.3, PER-13). The body being stepped round holds its
-stretch of the way like anything else and the grant is cut at it like anywhere else, so what a step is taken
-with is the room the grant still leaves in front — the walker turns off its line while it has ground to walk
-into, and stands where the grant runs out. A step that could be walked past the body would be a walker
-crossing ground it was refused, which is the one thing no agent may do.
+**The step is an ask and never a re-aim** (TER-4c.3, PER-13). The body being stepped round holds its stretch
+of the line like anything else and the walk down that line is cut at it like anywhere else; **what a step is,
+is the same walk asked for again from an offset across the way**, and it is granted or refused on the claims
+exactly as the walk down the line was. So the permission a walker steps on is the ground it is actually
+stepping over, and a step that could be walked past the body without asking would be a walker crossing ground
+it was refused, which is the one thing no agent may do.
+
+**The offset is the least that gets past, and it comes off the body being got past.** A stretch says where
+across the way its holder is (TER-4c.2), so what clears it is the far edge of that span, the room a reader
+needs to pass it and the width of two shoulders — never a figure of its own, which is either short of what
+the body actually takes or wider than the pavement.
+
+**A step is only taken where it buys ground.** Asked again from the offset, the walk is cut by whatever is
+over the ground beside the body — somebody already abreast of it, a wall, a kerb — and a step granted no more
+than standing still is not a step. Where neither side buys anything the walker is walled in and stands, which
+is the answer it had before there was a step at all.
 
 **A step is only ever taken past a body the feet can get past, and that is the walker's own pace.** A body
 going the walker's way no faster than a walker walks is one a step gets round, which is what a walker off
@@ -150,13 +161,18 @@ its own line for a stride is; **one coming across the walk, or down it faster th
 for** — no step gets past a body that is through the ground before the feet are. It is the bar a walker
 holds a rescue to at a crossing (PER-15) said of the pavement, and it is asked of the body and not of the
 kind of body: **a car crossing a footway and a person crossing it are the same fact to whoever is walking
-there**. The step is taken the tick the walk runs into one, it is to the walker's **right**, and it is **the
-least that gets past** — the two bodies and the room between shoulders, off the aim the walk already had.
+there**. The step is taken the tick the walk runs into one, and it is to the walker's **right** wherever the
+ground will take it.
 
-**Nothing is planned and nothing is remembered.** The line is untouched, the aim comes back onto it as the
-body goes abeam, and a walker that is clear of one across its own walk is not stepping round anything at
-all. That is what makes the divergence the smallest thing that could work: it lasts exactly as long as the
-thing that caused it, and a walker cannot be left steering round a body that has moved.
+**Nothing is planned and nothing is remembered.** The line is untouched and the offset is worked out afresh
+every tick from whatever is in the way that tick, so the aim comes back onto the line of its own accord as the
+body goes abeam and a walker that is clear of one is not stepping round anything at all. That is what makes
+the divergence the smallest thing that could work: it lasts exactly as long as the thing that caused it, and
+a walker cannot be left steering round a body that has moved.
+
+**And the offset is one figure that both halves of the step read** — the pavement is asked for at it, the
+grant is taken at it and the feet are aimed at it. A step the permission and the feet each worked out for
+themselves is two answers about one piece of ground, and the walker walks on the one it was not granted.
 
 **A step may leave the walk, and the pavement is not the bound on it.** A lane's line runs about a body's
 width from the edge of its band, so the step round something standing on that line ends up off the walk
@@ -174,6 +190,10 @@ a walk on the road (PER-15).
 **Where both sides are refused there is no step**: the walker stands short of the body and the clock that
 gives up a leg (PER-13) draws it a line round. It is the answer a walled-in walker had before there was a
 step at all, and it is what keeps a queue of people from shoving a casualty down the street.
+
+**A walker part way round somebody is standing where it has stepped to**, and is written there — or whoever
+is behind it is held off a stretch of line it is no longer on, and whoever is coming past reads that line as
+clear.
 
 **It is where the two agents part company, and the only place they do.** A driver waits behind a wreck and
 is taken round it by a manoeuvre with a template, a look and a wait

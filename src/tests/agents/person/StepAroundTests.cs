@@ -10,96 +10,17 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.Person;
 
 /// <summary>
-/// PER-24's geometry, against a pose and a body — no claims, no terrain and no town, which is the whole of
-/// what the step is: an aim moved sideways by what is in the way of it.
+/// The one bound PER-24 puts on where a step may land, against a lane and a point — no claims, no town and
+/// nobody in the way, because this is the half of the step that is about ground rather than about bodies.
 /// </summary>
+/// <remarks>
+/// Where the step goes is the grant's and is asked of a running town
+/// (<see cref="TrafficSimulation.Tests.World.FootOccupancyTests"/>, <c>StepRoundTests</c>): a step is the
+/// walk asked for again from an offset across the way, so there is no geometry here to check it against.
+/// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
 public class StepAroundTests
 {
-    /// <summary>A walker at the origin walking east, with +y down: its right is +y.</summary>
-    static readonly Vector2 AimM = new(10f, 0f);
-
-    const float ClearanceM = 1.25f;
-
-    [Fact]
-    public void ABodyDeadAheadIsPassedOnTheRight()
-    {
-        var bodyM = new Vector2(3f, 0f);
-
-        Assert.True(StepAround.IsInTheWay(Vector2.Zero, AimM, bodyM, ClearanceM));
-
-        var passM = StepAround.PassM(Vector2.Zero, AimM, bodyM, ClearanceM, onTheRight: true);
-        Assert.Equal(ClearanceM, passM.Y, 3);
-        Assert.Equal(bodyM.X, passM.X, 3);
-    }
-
-    /// <summary>
-    /// <b>The least that gets past</b>: the pass point clears the body by the clearance and by nothing more,
-    /// which is the whole of what "minimal divergence" is checkable as.
-    /// </summary>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void ThePassPointIsExactlyTheClearanceOffTheBody(bool onTheRight)
-    {
-        var bodyM = new Vector2(3f, 0.4f);
-        var passM = StepAround.PassM(Vector2.Zero, AimM, bodyM, ClearanceM, onTheRight);
-
-        Assert.Equal(ClearanceM, (passM - bodyM).Length(), 3);
-        Assert.Equal(onTheRight ? bodyM.Y + ClearanceM : bodyM.Y - ClearanceM, passM.Y, 3);
-    }
-
-    /// <summary>
-    /// <b>A body already clear across the walk is not stepped round.</b> The step lasts as long as the thing
-    /// that caused it: read the other way, a walker that has stepped far enough stops stepping, which is
-    /// what stops the divergence growing tick after tick.
-    /// </summary>
-    [Fact]
-    public void ABodyClearOfTheWalkIsNothingToStepRound()
-    {
-        Assert.False(
-            StepAround.IsInTheWay(Vector2.Zero, AimM, new Vector2(3f, ClearanceM), ClearanceM));
-        Assert.False(
-            StepAround.IsInTheWay(Vector2.Zero, AimM, new Vector2(3f, -ClearanceM), ClearanceM));
-    }
-
-    /// <summary>
-    /// <b>The body a walk ends at is what the walk was for.</b> A paramedic walks at a casualty, and one
-    /// that stepped round it would arrive beside the thing it came to collect and never reach it.
-    /// </summary>
-    [Fact]
-    public void ABodyAtTheEndOfTheWalkIsNotSteppedRound() =>
-        Assert.False(StepAround.IsInTheWay(Vector2.Zero, AimM, AimM, ClearanceM));
-
-    /// <summary>
-    /// <b>Nor one standing within the room the step would take.</b> An aim inside that circle is an aim the
-    /// step can never reach — the walker would come round the body and round it again — and an officer
-    /// closing a road stands a stride from the casualty that raised the scene.
-    /// </summary>
-    [Fact]
-    public void AnAimInsideTheClearanceOfTheBodyIsNotSteppedAwayFrom() =>
-        Assert.False(
-            StepAround.IsInTheWay(Vector2.Zero, AimM, AimM - new Vector2(ClearanceM * 0.5f, 0f), ClearanceM));
-
-    /// <summary>Behind is not in the way, however close it is: the feet have already got past it.</summary>
-    [Fact]
-    public void ABodyBehindIsNotInTheWay() =>
-        Assert.False(StepAround.IsInTheWay(Vector2.Zero, AimM, new Vector2(-0.5f, 0f), ClearanceM));
-
-    /// <summary>
-    /// <b>The side is read off the walk and not off the axes.</b> Walking the other way down the same
-    /// pavement, the right is the other side of the street — which is the whole reason the frame is taken
-    /// from the aim every tick rather than held anywhere.
-    /// </summary>
-    [Fact]
-    public void TheRightIsTheWalkersRightAndNotTheWorlds()
-    {
-        var walkingWest = new Vector2(-10f, 0f);
-        var passM = StepAround.PassM(Vector2.Zero, walkingWest, new Vector2(-3f, 0f), ClearanceM, onTheRight: true);
-
-        Assert.Equal(-ClearanceM, passM.Y, 3);
-    }
-
     /// <summary>
     /// <b>The kerb is a line to be grazed and not a wall.</b> A step round a body standing on a pavement
     /// lane's own line reaches a quarter of a body past the kerb, so a rule that refused the carriageway
@@ -141,18 +62,5 @@ public class StepAroundTests
             var arcs = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(lap);
             return Spline.SampleAt(arcs, Spline.TotalLengthM(arcs) * 0.5f).PositionM;
         }
-    }
-
-    /// <summary>
-    /// A walker standing on its own aim has no walk to diverge from, and the answer is the aim it was
-    /// given: a body with nowhere to go does not step round anything.
-    /// </summary>
-    [Fact]
-    public void AWalkOfNoLengthIsNotDivergedFrom()
-    {
-        var atM = new Vector2(4f, 4f);
-
-        Assert.False(StepAround.IsInTheWay(atM, atM, new Vector2(4.2f, 4f), ClearanceM));
-        Assert.Equal(atM, StepAround.PassM(atM, atM, new Vector2(4.2f, 4f), ClearanceM, onTheRight: true));
     }
 }

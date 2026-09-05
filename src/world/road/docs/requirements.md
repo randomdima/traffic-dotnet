@@ -440,18 +440,24 @@ rule releases it — it is re-laid from the pose every tick and it is gone the t
   carriageway a walk runs over, so a car on the paint claims the road alone, and what holds a
   walker off it is that stretch of the lane. A body on foot there writes both, because that look-up is never
   asked about it.
-- **Every stretch carries how far aside of its way's own line its holder stands**, which is the one thing it
+- **Every stretch carries the span its holder covers across its way's own line**, which is the one thing it
   says about the third dimension and the whole of what makes the rule above affordable. A stretch has no
   width, so without it a way written onto is a way shut, and a town whose every turning car closed the lane
   beside it is a town that stops.
 - **Whether that body is a queue to wait behind, a shape to get past, or nothing at all is the reader's**
   and never the row's. One body is a queue to the lane it is driving, an obstruction to the lane it is only
-  lying across, and nothing to the lane it is merely clipping the edge of. A body is in the way of a way's
-  traffic when it stands nearer that way's own line than half the width of what travels there — **the line
-  and not the band**, because two metres of lane left over on the far side of a body is no use to a car
-  whose own line runs through it. **Half a car on a carriageway and half a body on a footway**: it is one
-  statement about a way and a figure apiece, and a walker takes half its own width either side of the line
-  it walks exactly as a driver does.
+  lying across, and nothing to the lane it is merely clipping the edge of. **A body is in the way of an
+  asker when the two of them are nearer one another across the way than half the width of what travels
+  there** — **the line and not the band**, because two metres of lane left over on the far side of a body is
+  no use to somebody whose own line runs through it. **Half a car on a carriageway and half a body on a
+  footway**: it is one statement about a way and a figure apiece, and a walker takes half its own width
+  either side of the line it walks exactly as a driver does.
+- **It is a question about the pair and never about the holder alone.** Where across a way the asker is
+  belongs in it: an asker travelling the line asks exactly what it always asked, and one that has stepped
+  aside asks about the ground it has stepped to. Read off the holder's distance from the line instead, a way
+  is two-dimensional for whoever is written into it and one-dimensional for everybody reading it — and then
+  a body cannot move out from under an answer it has been given, which is a pavement nobody can ever get
+  past anybody on (`PER-24`).
 - **It is written where nothing else already answers for the ground** (SIM-7). A driver under way has its
   own claim on the ways of its line and the crossing table on the box it is crossing (TER-5c.1); a
   second copy of either would be one refusal made twice, and a body nobody can give up deadlocks what a rank

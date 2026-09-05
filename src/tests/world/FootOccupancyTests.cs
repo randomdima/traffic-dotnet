@@ -453,10 +453,11 @@ public class FootOccupancyTests
     /// decided it.
     /// </summary>
     /// <remarks>
-    /// <b>Both cut the walk</b> (TER-4c.3) — either car is standing on ground the walk wanted, and a grant
-    /// that ran past one would be a permission disagreeing with the claim it was taken from. What the
-    /// movement decides is the reply: waited for where it stands, or stepped round with the room the cut
-    /// leaves in front.
+    /// <b>Both cut the walk down the line</b> (TER-4c.3) — either car is standing on ground the walk wanted.
+    /// What the movement decides is the reply: one coming through is waited for where it stands, and one
+    /// going nowhere is stepped past, which is this walker asking for the pavement <em>beside</em> the car
+    /// and being granted it. So the one that is waited for holds this body and the one that is stepped past
+    /// stops holding it, and that difference is the step having been taken rather than merely aimed at.
     /// </remarks>
     [Fact]
     public void ACarComingAcrossAFootwayHoldsTheWalkUp()
@@ -487,14 +488,19 @@ public class FootOccupancyTests
         Assert.Equal(LaneRoster.Driving, world.People.HeldByOf[person]);
         Assert.Equal(PersonFleet.NoBody, world.People.StepsRound[person]);
 
-        // And the same car standing on the same ground is stepped round instead — still cutting the walk at
-        // its own near edge, because the ground under it is its either way.
+        // And the same car standing on the same ground is stepped past instead: the walk down the line is
+        // cut at it either way, and what a step is, is the same walk asked for again from an offset across
+        // the way — so the body it is getting past is named, the offset is real, and the ground the walker
+        // was granted is no longer anybody's.
         world.Cars.VelocityMps[car] = Vector2.Zero;
         world.RebuildProximityIndex();
 
         Assert.Equal(car, world.People.StepsRound[person]);
         Assert.Equal(LaneRoster.Driving, world.People.StepsRoundOf[person]);
-        Assert.Equal(car, world.People.HeldBy[person]);
+        Assert.True(
+            MathF.Abs(world.People.StepsAcrossM[person]) > 0f,
+            "the walker named the car as the body to get past and then stepped nowhere");
+        Assert.Equal(PersonFleet.NoBody, world.People.HeldBy[person]);
     }
 
     /// <summary>

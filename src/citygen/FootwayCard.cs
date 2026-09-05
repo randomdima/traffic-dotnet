@@ -190,13 +190,9 @@ internal static class FootwayCards
                 Along(ExamArm.North, ExamSide.Left, NearM))),
 
         // Somebody else on the same pavement.
-        Found(
-            Card("Round somebody standing on the pavement", WalkAsks.StepsRound,
-                Walks(Along(ExamArm.West, ExamSide.Right, NearM), Along(ExamArm.West, ExamSide.Right, FarM)),
-                Stands(Along(ExamArm.West, ExamSide.Right, MidwayM))),
-            "It never gets past. A stretch is an interval of one way's arclength and carries no width, so "
-            + "the metres beside the body standing there are that body's too — the step is re-aimed, the "
-            + "grant runs out abreast of it, and the leg is given up rather than completed."),
+        Card("Round somebody standing on the pavement", WalkAsks.StepsRound,
+            Walks(Along(ExamArm.West, ExamSide.Right, NearM), Along(ExamArm.West, ExamSide.Right, FarM)),
+            Stands(Along(ExamArm.West, ExamSide.Right, MidwayM))),
         Card("Over the stem of a T", WalkAsks.TakesThePaint,
             Walks(Kerb(ExamArm.West, ExamSide.Right), Kerb(ExamArm.West, ExamSide.Left))),
 
@@ -225,13 +221,9 @@ internal static class FootwayCards
             Walks(Along(ExamArm.East, ExamSide.Right, AheadM), Along(ExamArm.East, ExamSide.Right, FarM))),
 
         // And the two together: a body in the way, standing where a walk has to go.
-        Found(
-            Crossroads("Past somebody standing on the paint", WalkAsks.TakesThePaint,
-                Walks(Kerb(ExamArm.South, ExamSide.Right), Kerb(ExamArm.South, ExamSide.Left)),
-                Stands(OnThePaint(ExamArm.South, ExamSide.Right))),
-            "It never leaves the kerb. The body standing on the paint holds the whole width of the "
-            + "crossing's own way for as long as it stands there, so the walk is cut at the kerb and the "
-            + "leg is given up — the same missing width as the card about the pavement."),
+        Crossroads("Past somebody standing on the paint", WalkAsks.TakesThePaint,
+            Walks(Kerb(ExamArm.South, ExamSide.Right), Kerb(ExamArm.South, ExamSide.Left)),
+            Stands(OnThePaint(ExamArm.South, ExamSide.Right))),
         Card("Over the paint and away down the next street", WalkAsks.TakesThePaint,
             Walks(Kerb(ExamArm.South, ExamSide.Left), Along(ExamArm.West, ExamSide.Left, MidwayM))),
 

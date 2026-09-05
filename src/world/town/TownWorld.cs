@@ -689,15 +689,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // What the pavement granted this walker, read as the permission it is (PER-13): there is
         // ground in front of it to walk into, or it stands where it is until whoever has that ground moves.
-        // A body going nowhere turns the aim off the line rather than adding to the grant (PER-24), so the
-        // step is taken with the room the cut leaves and never past the body — and where there is nowhere to
-        // step to, standing is the reply, exactly as it was before there was a step.
-        var walledIn = false;
-        var aimM = atTheKerb
-            ? WaitAimM(agent)
-            : StepRoundAim(agent, positionM, People.DestinationM[agent], out walledIn);
+        // A body going nowhere is stepped round by asking for the pavement beside it (PER-24), so the aim
+        // here is the offset that ask was granted at — and where no step was granted, the grant runs out at
+        // the body and standing is the reply, exactly as it was before there was a step.
+        var aimM = atTheKerb ? WaitAimM(agent) : StepAimM(agent, People.DestinationM[agent]);
 
-        var moving = People.Walking[agent] && !People.IsHeldByTheClaims(agent, StopsInM(agent)) && !walledIn &&
+        var moving = People.Walking[agent] && !People.IsHeldByTheClaims(agent, StopsInM(agent)) &&
                      (!atTheKerb || (aimM - positionM).Length() > People.RadiusM[agent]);
 
         var step = WalkerFollower.Step(

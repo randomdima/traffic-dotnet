@@ -4,6 +4,7 @@ using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 
@@ -95,56 +96,35 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Where a walker aims to get past the body in its way</b> (PER-24), which is the aim it already had
-    /// wherever nothing is. The obstruction was found when the grant was taken
-    /// (<see cref="GrantThePavement"/>); what is decided here is the side and whether the step is one this
-    /// body may take.
+    /// <b>Where a walker taking a step round somebody aims</b> (PER-24): the aim it already had, moved
+    /// across its own way by the offset the step was <em>granted</em> at
+    /// (<see cref="PersonFleet.StepsAcrossM"/>), and the aim untouched where no step was taken.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The right, and the pavement is not the bound on it.</b> A walker's own lane line runs a body's
-    /// width from the edge of its band, so nearly every step round somebody standing on that line ends up
-    /// off the walk — on the verge, the frontage or the channel — and a step held to the band would be a
-    /// walker turning left at almost every body it met. What answers is the ground and not the network.
+    /// <b>Nothing is decided here.</b> Which body is in the way, which side the step is to, whether the
+    /// ground will take it and whether it buys any pavement were all settled where the grant was
+    /// (<see cref="StepPastTheBody"/>), because a step the permission and the feet each worked out for
+    /// themselves is two answers about one piece of ground — and the walker walks on the one it was not
+    /// granted.
     /// </para>
     /// <para>
-    /// <b>Neither side is a body that stands where it is</b> (<paramref name="walledIn"/>), which is the
-    /// answer a walker had before there was a step at all: it stops short of what is in front of it and the
-    /// clock that gives up on a leg draws it a line round. Walking on instead would be a walker shoving a
-    /// casualty down the street, which is a body the ambulance then has to catch.
+    /// <b>Measured across the way and not across the walk.</b> The offset is a fact about the pavement's own
+    /// line, since that is what the claims beside the body are written along; taken off the line the body
+    /// happens to be aiming down, the step drifts as the aim swings and the grant stops describing it.
+    /// </para>
+    /// <para>
+    /// <b>It comes back on its own.</b> The offset is written afresh every tick from whatever is in the way
+    /// that tick, so a walker clear of the body is a walker aiming at its line again — the divergence lasts
+    /// exactly as long as the thing that caused it and nothing has to remember it.
     /// </para>
     /// </remarks>
-    /// <param name="walledIn">Whether a body is in the way and there is nowhere to step to get past it.</param>
-    Vector2 StepRoundAim(int agent, Vector2 positionM, Vector2 aimM, out bool walledIn)
+    Vector2 StepAimM(int agent, Vector2 aimM)
     {
-        walledIn = false;
+        var acrossM = People.StepsAcrossM[agent];
+        if (acrossM == 0f || !TheWayItIsOn(agent, out var arcs)) return aimM;
 
-        var body = People.StepsRound[agent];
-        if (body == PersonFleet.NoBody) return aimM;
-
-        WhereTheBodyInTheWayIs(body, People.StepsRoundOf[agent], out var bodyM, out var bodyRadiusM);
-        var clearanceM = People.RadiusM[agent] + bodyRadiusM + _config.PersonShoulderRoomM;
-        if (!StepAround.IsInTheWay(positionM, aimM, bodyM, clearanceM)) return aimM;
-
-        var fromTheCarriageway = _terrain.At(positionM).Drivable;
-
-        var rightM = StepAround.PassM(positionM, aimM, bodyM, clearanceM, onTheRight: true);
-        if (IsGroundToStepOnto(rightM, fromTheCarriageway))
-        {
-            StepsRound++;
-            return rightM;
-        }
-
-        var leftM = StepAround.PassM(positionM, aimM, bodyM, clearanceM, onTheRight: false);
-        if (IsGroundToStepOnto(leftM, fromTheCarriageway))
-        {
-            StepsRound++;
-            StepsRoundToTheLeft++;
-            return leftM;
-        }
-
-        walledIn = true;
-        return aimM;
+        return aimM + (Spline.SampleAt(arcs, People.OnWayM[agent]).Right * acrossM);
     }
 
     /// <summary>
