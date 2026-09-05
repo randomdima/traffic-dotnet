@@ -51,15 +51,23 @@ internal sealed partial class GroundShapes
     readonly Vector2 _worldSizeM;
 
     public GroundShapes(GroundPieces pieces, SimConfig config)
+        : this(Paving.Lay(pieces, config), config)
     {
+    }
+
+    /// <summary>
+    /// <b>Answered off the pavement the town was laid with</b> (<see cref="Paving"/>) rather than off a
+    /// second reading of the same shapes. What is drawn and what is answered for are one list, so the
+    /// question of whether they agree cannot be asked (TER-7).
+    /// </summary>
+    public GroundShapes(Paving paving, SimConfig config)
+    {
+        var pieces = paving.Of;
         _pieces = pieces;
         _worldSizeM = pieces.WorldSizeM;
-
-        // A map laid without a pavement of its own is walked at the town's figure, exactly as it is drawn.
-        var walkM = pieces.PavementWidthM > 0f ? pieces.PavementWidthM : config.PavementWidthM;
-        _walkM = walkM;
-        LayTheRoads(pieces, config, walkM);
-        LayTheShapes(pieces, config, walkM);
+        _walkM = paving.WalkM;
+        LayTheRoads(pieces, config, paving.WalkM);
+        LayTheShapes(paving, config);
     }
 
     /// <summary>

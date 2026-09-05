@@ -1,5 +1,24 @@
 # CityGen — decision log
 
+## 2026-09-05 — the pavement is laid once, and the picture and the answer read that laying
+
+**The shape of the pavement used to be written down twice.** `GroundMesh.Build` laid it as draw calls —
+a ribbon per road at half the carriageway and a walk, a disc per junction at its radius and a walk, a
+rounded wrap per lot, and the fillets that turn the inner corners — and `GroundShapes` laid the same four
+pieces again as coverage tests, in a different slice at a different tier, with nothing but memory keeping
+the two in step. It is the figure that exists in two places (TER-7), and the failure it invites is quiet:
+a band widened in the picture and not in the answer is a walker refused ground it can see it is standing
+on, and nothing fails until somebody looks.
+
+**So it is a step.** `Paving.Lay` states the pieces once and both readers take them from there. The
+restructure is exactly behaviour-preserving and was checked as such — the same two framings on Odesa and
+the fixture come back byte-identical, which is the only test that could have said so.
+
+**What it is not yet is laid off the lanes.** The pieces are still offset from a road's own centreline and
+a junction's own disc rather than from the carriageway the lanes make. That is the next step and this is
+what it needed first: with one list there is one place to change, where before there were two that had to
+be changed together and could not be checked against each other.
+
 ## 2026-09-05 — the grid in the middle runs one way, and keeps what it can be driven with
 
 **A one-way grid is laid and then held to what a car can do on it** (GEN-18). The two families of a strict

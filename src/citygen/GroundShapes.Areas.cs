@@ -311,8 +311,10 @@ internal sealed partial class GroundShapes
     /// The shapes that belong to no road, laid over the broad phases that answer which of them reach a
     /// point. <b>Every one is read off the plan the town is drawn from</b>, and none is re-derived here.
     /// </summary>
-    void LayTheShapes(GroundPieces plan, SimConfig config, float walkM)
+    void LayTheShapes(Paving paving, SimConfig config)
     {
+        var plan = paving.Of;
+        var walkM = paving.WalkM;
         var bucketM = config.Terrain.GroundBucketM;
 
         _junctionCentreM = plan.Junctions.CentreM;
@@ -325,7 +327,7 @@ internal sealed partial class GroundShapes
             plan.JunctionCorners.ArcCentreM, plan.JunctionCorners.RadiusM);
         _kerbIndex = _kerbs.Index(plan.WorldSizeM, bucketM);
 
-        var corners = PavementCorners.Solve(plan, config);
+        var corners = paving.Corners;
         var cornerM = new Vector2[corners.Count];
         var tangentAM = new Vector2[corners.Count];
         var tangentBM = new Vector2[corners.Count];
@@ -346,7 +348,7 @@ internal sealed partial class GroundShapes
         _lotCentreM = plan.ParkingLots.CentreM;
         _lotAxis = plan.ParkingLots.Axis;
         _lotHalfM = plan.ParkingLots.HalfExtentM;
-        _lotCornerM = config.PavementCornerRadiusM;
+        _lotCornerM = paving.WrapCornerM;
         var lotReachM = new float[_lotCentreM.Length];
         for (var lot = 0; lot < lotReachM.Length; lot++)
         {

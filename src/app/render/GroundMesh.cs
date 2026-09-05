@@ -103,7 +103,12 @@ internal sealed partial class GroundMesh
     {
         var mesh = new GroundMesh();
         var periods = Periods(config);
-        var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
+        // <b>The pavement is a step and not a shape this pass works out for itself</b> (TER-3c): what is
+        // drawn here is the list that town was laid with, which is the same list the ground is answered off
+        // (<see cref="GroundShapes"/>). Derived again here, the picture and the answer are two readings that
+        // have to be kept in step by whoever remembers.
+        var paving = Paving.Lay(plan.Ground, config);
+        var walkM = paving.WalkM;
         var edgeM = config.Road.EdgeLineWidthM;
 
         // An edge is the surface darkened and paint is the surface brightened. Two measurements, not one
@@ -112,8 +117,8 @@ internal sealed partial class GroundMesh
         var edge = Shade(0.58f, 0.58f, 0.62f);
         var paint = Shade(2.6f, 2.6f, 2.5f);
         var kerbM = config.Road.PaintLineWidthM;
-        var cornerM = config.PavementCornerRadiusM;
-        var corners = PavementCorners.Solve(plan.Ground, config);
+        var cornerM = paving.WrapCornerM;
+        var corners = paving.Corners;
 
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
@@ -125,14 +130,16 @@ internal sealed partial class GroundMesh
             var tint = inset == 0f ? edge : Plain;
             for (var road = 0; road < plan.Roads.Count; road++)
             {
-                mesh.Ribbon(plan.Roads.SegmentsOf(road), plan.Roads.WidthM[road] * 0.5f + walkM - inset,
-                    Surface.Pavement, tint, periods);
+                mesh.Ribbon(
+                    plan.Roads.SegmentsOf(road), paving.RibbonHalfM[road] - inset, Surface.Pavement, tint,
+                    periods);
             }
 
             for (var junction = 0; junction < plan.Junctions.Count; junction++)
             {
-                mesh.Disc(plan.Junctions.CentreM[junction], plan.Junctions.RadiusM[junction] + walkM - inset,
-                    Surface.Pavement, tint, periods);
+                mesh.Disc(
+                    plan.Junctions.CentreM[junction], paving.RingRadiusM[junction] - inset, Surface.Pavement,
+                    tint, periods);
             }
 
             // TER-3c.3: a lot turns a right angle of its own, so its wrap turns on half the walk —
@@ -141,7 +148,7 @@ internal sealed partial class GroundMesh
             for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
             {
                 mesh.RoundedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
-                    plan.ParkingLots.HalfExtentM[lot] + new Vector2(walkM - inset), cornerM - inset,
+                    paving.WrapHalfM[lot] - new Vector2(inset), cornerM - inset,
                     Surface.Pavement, tint, periods);
             }
 

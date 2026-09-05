@@ -62,6 +62,12 @@ lot. **It is stamped by what it is not** — it takes only ground nothing else h
 carriageway, the crossings, the corner flares and the bridge decks keep their own cells and the band
 falls out as the two strips either side, without anything having to know where a kerb is.
 
+**It is laid once, as a step of its own, and everything reads that one laying.** What the pavement is
+made of is a list of pieces the town is laid with (`Paving`); the picture draws that list and the answer
+to what the ground is at a point is given off the same one. Worked out a second time by whoever needed
+it, the two are a figure in two places — and a band widened in the picture and not in the answer is a
+walker refused ground it can see it is standing on.
+
 **TER-3c.1** The network a walking route is planned over *is* the pavement, its corners and its
 crossings; this is structure, not price. A bounded hop off the network to a nearby door is still allowed,
 and a road is still crossed only at a crossing.
