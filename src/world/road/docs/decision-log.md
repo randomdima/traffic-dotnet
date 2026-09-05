@@ -4,6 +4,38 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-05 — a connector is an object, and where lanes meet is worked out from them
+
+**A movement used to be a lane paired with an index into that lane's slots**, and the pair travelled
+together because neither number meant anything alone: the slot said which ground the movement took, the
+pair said which lanes it joined, and every reader of one carried the other. A connector is now the id, and
+it answers all of it — the lane it leaves, the lane it arrives on, the turn it makes, the right of way that
+carries and the line it is driven. The town's second block of ways is that id, so a way number and a
+connector are one integer exactly as a way number and a lane already were.
+
+**And the plan's node table is gone from the graph the town runs on.** Where two lanes meet was a record
+handed over beside the connectors, which is the same fact said twice: two lane ends are one place when a
+connector runs between them, or when they are the two ends of one stretch driven either way. `LanePlaces`
+works that out once, and the two things that need it read the same answer — the contraction that decides
+where a run of road ends, and the walk that lays a body onto the ground it is standing on. Derived twice,
+the router and the claims would be entitled to disagree about which lane ends are one piece of the world.
+
+**The second clause is not tidiness.** No box admits the movement that turns a car round (TER-5f), so the
+lane into a dead end has no connector to the lane coming back out of it. Joined only by connectors the two
+would be different places — a run arriving with nowhere to go, a run leaving that nothing arrives at — and
+a leg could not be priced round a car park's bay (GEN-4l) at all, because nothing would offer the pair.
+
+**What a junction is now is the plan's**: something authored, sized a disc for, paved a corner on. The
+graph keeps the lanes one junction lowered into and offers them to the two slices whose subject *is* an
+intersection — the signals a bundle governs (TLT-1) and the paint laid on an arm (TER-6). Nothing that
+drives, routes or claims can reach it, and a junction is the shape a set of crossed lanes happens to make.
+
+**The alternative was a spatial index over every way**, asked at a radius round the body: it needs no
+places at all and would find ways the walk from a lane end cannot see. It was not taken because the span a
+caller has to give the walk then has no bound the town can state — the radius is the largest body's, which
+is a fact about the fleet's catalogue and not about the road — and a walk that silently truncates is a body
+invisible on a way. The places give the same answer with a bound that is counted rather than guessed.
+
 ## 2026-09-05 — the corner is cut off the lane rather than marked on it
 
 **The setback used to be a number beside a lane rather than a fact about it.** A lane's line ran the whole

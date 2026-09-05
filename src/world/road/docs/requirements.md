@@ -90,7 +90,7 @@ carriageways; neither arm is the outside of a turn, so the disc's own corner is 
 the same radius; one arm is a straight kerb running on, and nothing is drawn. Both kinds pave their
 square whole first and then take the ground back along the arc.
 
-**TER-5d** **A junction is a set of connection points, and the joins are what run between them.** Every
+**TER-5d** **A junction is a set of connection points, and the connectors are what run between them.** Every
 movement out of a lane starts at that lane's own last point and every movement into one lands on its own
 first point, so a lane's line is the whole of what is driven along it and the ground past either end is the
 junction's alone. **Nothing runs over a connection point**: no lane carries a spur into the box for a
@@ -156,9 +156,9 @@ own way through is the crossing points it has still to reach — a body a cleara
 over it again — and never the box as a whole for as long as the car is in it. A car half way through a turn
 refusing the corner behind it is refusing a movement nothing was ever going to be driven into.
 
-**What a committed car does hold is its own join, at the places the others cross it.** A driver's road ahead
+**What a committed car does hold is its own connector, at the places the others cross it.** A driver's road ahead
 is a braking distance and no more, which does not reach the middle of a box until the car is nearly on top
-of it; two cars asking from opposite arms would each look the other's join up, find the metres where they
+of it; two cars asking from opposite arms would each look the other's connector up, find the metres where they
 cross still empty, and both go. So the ground where the lines meet is held from the moment a movement is
 committed to — on the mover's *own* way, where the traffic crossing it reads it. The ground between two
 crossing points is driven over by nothing and is nobody's to hold, and the metres behind the body are the
@@ -174,7 +174,7 @@ two.
 stretch is one interval of one way's arclength, which is the width of the road thrown away; a crossing point
 is a place two *lines* meet, and what has to be clear of it is a body off its line by up to the road's
 tolerance and swinging wider still at the back. So a body's ground begins a margin behind its tail — on a
-lane exactly as on a join, because a body is the same body wherever it stands — and **whoever is cut at it is
+lane exactly as on a connector, because a body is the same body wherever it stands — and **whoever is cut at it is
 cut at the margin rather than at the paintwork**. That is also what a queue at rest stands at: the follower
 keeps no gap of its own from the body in front, because the ground it may not enter is that body's to hold.
 
@@ -222,7 +222,7 @@ ground however it got there. Two bodies in one box is PHY-1's question, not this
 
 **TER-5e** **Where two bodies come to one piece of the world, a right of way says which of them gives it
 up.** It is carried by the stretch and not by the body — one car is straight through on the lane it is
-leaving and a turn across the oncoming stream on the join it is entering, and those are two stretches of two
+leaving and a turn across the oncoming stream on the connector it is entering, and those are two stretches of two
 ways — and it is a fact about the movement, worked out once with the town from the turn that movement makes.
 **Straighter is stronger**: a stream that turns out of nobody's way, then the near-side turn, which crosses
 nothing of its own carriageway, and last the turn across the oncoming stream (TER-4a), which is the weakest
@@ -517,7 +517,7 @@ SIM-7 is about; one that could grant the same metre twice would be no mechanism 
   own tail, so every ask is laid before any of them is answered and two bodies need no order to be resolved
   in: each is cut at the other's near edge and the answer is the same whichever is asked first.
 - **Ground nothing of the asker's own reaches is a claim ahead, and one is checked before it is laid** — the
-  places another way is driven over the one a car has committed to, whether that way is a junction's join or
+  places another way is driven over the one a car has committed to, whether that way is a connector or
   a bay's way out, and the band of a zebra a walker steps into. There is no tail to anchor the answer to, so
   the other claims are asked first and the ground is taken only if the answer is yes.
 - **A body driving geometry of its own holds the sweep of it, not the pose it is passing through.** A
@@ -526,9 +526,9 @@ SIM-7 is about; one that could grant the same metre twice would be no mechanism 
   left open is ground the traffic is granted while the manoeuvre is still driving down it.
 - **And it reads every way under each place that line would put it**, which is the same set of ways a body
   standing there is written onto: the lane, the lane running back the other way where the body reaches into
-  it, and every join of a junction it is lying under. **Asked of a narrower set than it is written to, a
+  it, and every connector it is lying under. **Asked of a narrower set than it is written to, a
   manoeuvre cannot see what a body standing in the same place wrote** — and that is exactly a junction,
-  where every car crossing holds its road on a *join* and on no lane at all, so a swerve or a back-off
+  where every car crossing holds its road on a *connector* and on no lane at all, so a swerve or a back-off
   through a box read the whole box as empty.
 - **A claim is answered every tick and not only on the tick it was taken.** It is re-laid from the body
   like everything else, so what a re-laid claim needs is the same question asked again: a claim over ground
@@ -580,7 +580,7 @@ The rule this is: **one that could grant the same metre twice would be no mechan
 is kept by the structure the claims are held in rather than by the passes that fill it, so it cannot be lost
 by adding a caller.
 
-**A claim is on a way, and every way of the town is one table** (TER-4c.2): a lane, the join across a
+**A claim is on a way, and every way of the town is one table** (TER-4c.2): a lane, the connector across a
 junction between one lane's end and the next one's start, the ways a parking bay is worked off, and **the two
 sides of every pavement with the mitres between them**. **They are told apart by the kind of ground each is,
 and by nothing else** — a way is a length and a run of metres, and which of the town's features drew one is
@@ -589,7 +589,7 @@ why the ground where two movements meet (TER-5c) needs no register of its own: e
 way somebody is travelling, and the table says which pairs of ways to read against each other.
 
 **One numbering, because a claim that cannot be compared with another is not a claim.** The lanes are
-numbered first, the joins after them, the bays after those and the pavement last, so a reader holding a way
+numbered first, the connectors after them, the bays after those and the pavement last, so a reader holding a way
 number asks the same question of every kind of ground. Held as a network apiece instead, one piece of the
 world had two records that nothing could compare: a walker was granted the footway a car was parked across
 and each book was right about itself.
@@ -598,11 +598,11 @@ and each book was right about itself.
 the traffic drives, half a body on anything it walks (TER-4c.2). It never decides who may claim: a person in
 a lane, a car on a kerb and a bollard on a verge are the same kind of fact to the ground under them.
 
-**The table of crossings is therefore indexed by way and not by movement.** A junction's join is only ever
-driven over another join, because the lanes hand over clear of the box (TER-5d) — so every lane's row is
+**The table of crossings is therefore indexed by way and not by movement.** A connector is only ever driven
+over another connector, because the lanes hand over clear of the box (TER-5d) — so every lane's row is
 empty and the table reads as the junction table it began as. What needs the wider index is a way laid
 *along* a street rather than across a box: the line into a parking bay leaves its lane part-way along and
-sweeps the lane running back the other way, and a table that could only name joins could not say which
+sweeps the lane running back the other way, and a table that could only name connectors could not say which
 ground that was.
 
 **A person in a lane is a body like any other and carries a reading of its own.** It cuts the road a driver
@@ -665,18 +665,25 @@ Six rules govern all of it:
 
 ## What this slice must produce
 
-- A road graph: one node per junction, directed lane edges, lanes cut at **every** junction a road runs
-  through rather than only the two it ends at, and at the places a slice above asked for (`GEN-4h`).
-- A turn classification per pair of lanes — straight / near-side / far-side — **filled once when the town
-  is laid** and read off thereafter, and **nothing at all between a lane and the one running back down its
-  own stretch** (TER-5f). Which turn joins two lanes is a fact about the road, not about the car on it.
+- **Directed lanes and the connectors between them, and no node table.** Lanes are cut at **every**
+  junction a road runs through rather than only the two it ends at, and at the places a slice above asked
+  for (`GEN-4h`). **Where two lane ends are the same ground is worked out from the connectors** — a
+  connector runs between them, or they are the two ends of one stretch driven either way — so a junction is
+  the shape a set of crossed lanes makes and is nothing the network carries. Derived twice, the router and
+  the claims would be entitled to disagree about which lane ends are one piece of the world.
+- **The plan's junctions, and the lanes each of them lowered into**, for the two slices whose subject *is*
+  an intersection: the signals a bundle governs (`TLT-1`) and the paint laid on an arm (TER-6). Nothing
+  that drives, routes or claims may reach it.
+- A turn on every connector — straight / near-side / far-side — **filled once when the town is laid** and
+  read off thereafter, and **no connector at all between a lane and the one running back down its own
+  stretch** (TER-5f). Which turn a connector makes is a fact about the road, not about the car on it.
 - A crossing registry queryable by junction, and a stop-line registry carrying the bars actually painted.
 - A table, filled once from the lines themselves and **indexed by way**, of where each of the town's ways
   is driven over the others, in both ways' own metres (TER-5c). **There is no register of who is inside a
   junction**: the table is looked up and the answer comes off the claims everything else reads
   (TER-5c.1). It is laid over every numbered way, so a slice above the road can measure its own
   ways into it with the same code and be read by the same walk.
-- A lane occupancy index over the ways of TER-4c — the lanes, the joins between them, and the ways a
+- A lane occupancy index over the ways of TER-4c — the lanes, the connectors between them, and the ways a
   slice above lays off them — carrying every
   body on the network and the stretch each driver has taken, so that **who is in front and how much road
   is whose** are answered from the town's own claims rather than from geometry (`S-2a`). It is laid over
