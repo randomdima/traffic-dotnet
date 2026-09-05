@@ -252,8 +252,8 @@ internal sealed partial class TownWorld
         if (ahead + 1 >= Cars.Line[car].LaneCount) return float.PositiveInfinity;
 
         var chain = Cars.ChainOf(car);
-        var slot = _roads.TurnSlot(chain[ahead], chain[ahead + 1]);
-        return slot != RoadGraph.NoTurn && _ways.OfRoadTurn(slot) == movementWay
+        var slot = _roads.ConnectorBetween(chain[ahead], chain[ahead + 1]);
+        return slot != RoadGraph.NoConnector && _ways.OfRoadConnector(slot) == movementWay
             ? Cars.LaneEndsOf(car)[ahead]
             : float.PositiveInfinity;
     }

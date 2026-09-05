@@ -172,7 +172,7 @@ internal static class GroundUnder
         // the street is that network's own walk to say, made over that network's own ways.
         if (node < 0) return;
 
-        WriteTheJoins(ways,node, atM, body, crossesByM, into, ref written);
+        WriteTheConnectors(ways,node, atM, body, crossesByM, into, ref written);
         WriteTheLanesAt(ways,ways.LanesIn(node), atM, body, crossesByM, into, ref written);
         WriteTheLanesAt(ways,ways.LanesOut(node), atM, body, crossesByM, into, ref written);
     }
@@ -227,26 +227,27 @@ internal static class GroundUnder
             reach.BackM, reach.AheadM);
     }
 
-    static void WriteTheJoins<TWays>(
+    static void WriteTheConnectors<TWays>(
         in TWays ways,int node, Vector2 atM, in BodyFootprint body, float crossesByM,
         Span<WayUnder> into, ref int written)
         where TWays : struct, IWayNetwork
     {
         foreach (var arriving in ways.LanesIn(node))
         {
-            for (var turn = 0; turn < ways.TurnsFrom(arriving).Length && written < into.Length; turn++)
+            foreach (var connector in ways.ConnectorsFrom(arriving))
             {
-                var slot = ways.TurnSlotAt(arriving, turn);
-                var arcs = ways.JoinArcs(slot);
+                if (written >= into.Length) return;
+
+                var arcs = ways.ConnectorArcs(connector);
                 if (arcs.Length == 0) continue;
 
-                var lengthM = ways.JoinLengthM(slot);
-                var onJoinM = Spline.ProjectM(arcs, atM, lengthM * 0.5f, lengthM);
+                var lengthM = ways.ConnectorLengthM(connector);
+                var alongM = Spline.ProjectM(arcs, atM, lengthM * 0.5f, lengthM);
                 var bandM = ways.LaneWidthM(arriving);
-                if (!RoadGraph.WithinTheBand(arcs, onJoinM, atM, bandM, body, crossesByM, out var reach)) continue;
+                if (!RoadGraph.WithinTheBand(arcs, alongM, atM, bandM, body, crossesByM, out var reach)) continue;
 
                 into[written++] = new WayUnder(
-                    ways.WayOfTurn(slot), onJoinM, bandM, reach.AlongUnit, reach.PastTheEndM,
+                    ways.WayOfConnector(connector), alongM, bandM, reach.AlongUnit, reach.PastTheEndM,
                     reach.AcrossFromM, reach.AcrossToM, reach.BackM, reach.AheadM);
             }
         }

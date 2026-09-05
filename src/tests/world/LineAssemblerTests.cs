@@ -55,7 +55,7 @@ public class LineAssemblerTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            foreach (var onto in graph.TurnsFrom(lane))
+            foreach (var onto in graph.LanesFrom(lane))
             {
                 pair[0] = lane;
                 pair[1] = onto;
@@ -102,7 +102,7 @@ public class LineAssemblerTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            foreach (var onto in graph.TurnsFrom(lane))
+            foreach (var onto in graph.LanesFrom(lane))
             {
                 pair[0] = lane;
                 pair[1] = onto;
@@ -147,7 +147,7 @@ public class LineAssemblerTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var turns = graph.TurnsFrom(lane);
+            var turns = graph.LanesFrom(lane);
             for (var turn = 0; turn < turns.Length; turn++)
             {
                 pair[0] = lane;
@@ -198,10 +198,10 @@ public class LineAssemblerTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var turns = graph.TurnsFrom(lane);
+            var turns = graph.LanesFrom(lane);
             for (var turn = 0; turn < turns.Length; turn++)
             {
-                var slot = graph.TurnSlotAt(lane, turn);
+                var slot = graph.ConnectorsFrom(lane)[turn];
                 pair[0] = lane;
                 pair[1] = turns[turn];
                 var line = LineAssembler.Assemble(graph, pair, arcs, starts, ends);
@@ -210,15 +210,15 @@ public class LineAssemblerTests
                 // the second's begin, which is what the assembler reports in those two spans.
                 // A centimetre, and it is the running sum's arithmetic rather than the join's: the
                 // assembler totals the same arc lengths in a different order.
-                var acrossM = MathF.Abs(graph.JoinLengthM(slot) - (starts[1] - ends[0]));
+                var acrossM = MathF.Abs(graph.ConnectorLengthM(slot) - (starts[1] - ends[0]));
                 Assert.True(acrossM < 0.01f, $"{map}: lane {lane} onto {turns[turn]} crosses {acrossM:F3} m more than its join is long");
 
                 // A place cut into a road (GEN-4h) has its two lanes meeting at a point, so the movement
                 // between them is a join of no length — and one drawn a rounding off a point is the same
                 // thing wearing float noise. There is no stretch to walk in either case.
-                if (graph.JoinLengthM(slot) < WalkedStepM) continue;
+                if (graph.ConnectorLengthM(slot) < WalkedStepM) continue;
 
-                var join = graph.JoinArcs(slot);
+                var join = graph.ConnectorArcs(slot);
                 var laid = 0;
                 var atM = 0f;
                 for (var arc = 0; arc < line.ArcCount; arc++)

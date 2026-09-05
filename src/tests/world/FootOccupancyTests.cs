@@ -359,7 +359,7 @@ public class FootOccupancyTests
         // On a join's own line, which is where a driver crossing the box is actually driven.
         world.People.Walking[person] = false;
         world.People.PositionM[person] =
-            Spline.SampleAt(world.Roads.JoinArcs(join), world.Roads.JoinLengthM(join) * 0.5f).PositionM;
+            Spline.SampleAt(world.Roads.ConnectorArcs(join), world.Roads.ConnectorLengthM(join) * 0.5f).PositionM;
         world.People.VelocityMps[person] = Vector2.Zero;
         world.RebuildProximityIndex();
 
@@ -367,7 +367,7 @@ public class FootOccupancyTests
         Span<LaneClaim> slots = stackalloc LaneClaim[64];
         foreach (var way in world.Occupancy.OccupiedWays)
         {
-            if (world.Ways.KindOf(way) != WayKind.Join) continue;
+            if (world.Ways.KindOf(way) != WayKind.Connector) continue;
 
             var count = world.Occupancy.CopyTo(way, slots);
             for (var slot = 0; slot < count; slot++)
@@ -896,11 +896,11 @@ public class FootOccupancyTests
             var join = -1;
             foreach (var lane in world.Roads.LanesIn(node))
             {
-                turns += world.Roads.TurnsFrom(lane).Length;
-                for (var turn = 0; turn < world.Roads.TurnsFrom(lane).Length && join < 0; turn++)
+                turns += world.Roads.LanesFrom(lane).Length;
+                for (var turn = 0; turn < world.Roads.LanesFrom(lane).Length && join < 0; turn++)
                 {
-                    var slot = world.Roads.TurnSlotAt(lane, turn);
-                    if (world.Roads.JoinArcs(slot).Length > 0) join = slot;
+                    var slot = world.Roads.ConnectorsFrom(lane)[turn];
+                    if (world.Roads.ConnectorArcs(slot).Length > 0) join = slot;
                 }
             }
 

@@ -544,7 +544,7 @@ public class LaneOccupancyTests
     {
         var index = Index(out var roads);
         var lane = FirstLongLane(roads, 60f);
-        var join = index.Ways.OfRoadTurn(roads.TurnSlotAt(lane, 0));
+        var join = index.Ways.OfRoadConnector(roads.ConnectorsFrom(lane)[0]);
         Assert.NotEqual(index.Ways.OfRoadLane(lane), join);
 
         index.Begin();
@@ -563,8 +563,8 @@ public class LaneOccupancyTests
     {
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            if (roads.LaneLengthM[lane] < atLeastM || roads.TurnsFrom(lane).Length == 0) continue;
-            if (roads.JoinLengthM(roads.TurnSlotAt(lane, 0)) <= 0f) continue;
+            if (roads.LaneLengthM[lane] < atLeastM || roads.LanesFrom(lane).Length == 0) continue;
+            if (roads.ConnectorLengthM(roads.ConnectorsFrom(lane)[0]) <= 0f) continue;
 
             return lane;
         }
@@ -1102,7 +1102,7 @@ public class LaneOccupancyInATownTests
         Assert.True(
             world.Cars.BuildOf(car).HalfLengthM > 1f, "a body shorter than the metre it stands back is no test");
 
-        var way = roads.WayOfTurn(roads.TurnSlotAt(lane, 0));
+        var way = roads.WayOfConnector(roads.ConnectorsFrom(lane)[0]);
         Assert.Equal(car, HolderOn(world, way, 0.25f));
     }
 
@@ -1118,15 +1118,15 @@ public class LaneOccupancyInATownTests
         Span<LaneClaim> slots = stackalloc LaneClaim[1];
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            if (roads.LaneLengthM[lane] < 60f || roads.TurnsFrom(lane).Length == 0) continue;
+            if (roads.LaneLengthM[lane] < 60f || roads.LanesFrom(lane).Length == 0) continue;
 
-            var slot = roads.TurnSlotAt(lane, 0);
-            if (roads.JoinArcs(slot).Length > 0 != withAJoinOfItsOwn) continue;
+            var slot = roads.ConnectorsFrom(lane)[0];
+            if (roads.ConnectorArcs(slot).Length > 0 != withAJoinOfItsOwn) continue;
 
-            var next = roads.TurnToLane(slot);
+            var next = roads.ConnectorTo(slot);
             if (world.Occupancy.CopyTo(world.Ways.OfRoadLane(lane), slots) != 0) continue;
             if (world.Occupancy.CopyTo(world.Ways.OfRoadLane(next), slots) != 0) continue;
-            if (world.Occupancy.CopyTo(roads.WayOfTurn(slot), slots) != 0) continue;
+            if (world.Occupancy.CopyTo(roads.WayOfConnector(slot), slots) != 0) continue;
 
             onwards = next;
             return lane;

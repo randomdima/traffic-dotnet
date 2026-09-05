@@ -16,8 +16,8 @@ internal enum WayKind : byte
     /// <summary>A lane of the carriageway.</summary>
     Lane,
 
-    /// <summary>A movement across a junction, threaded between two lanes.</summary>
-    Join,
+    /// <summary>A lane connector: the movement across a junction, threaded between two lanes.</summary>
+    Connector,
 
     /// <summary>A way a parking bay is worked off (`GEN-4f`).</summary>
     Bay,
@@ -30,8 +30,8 @@ internal enum WayKind : byte
 }
 
 /// <summary>
-/// <b>Every way in the town, numbered once</b> — the carriageway's lanes, the joins across its junctions,
-/// the ways its bays are worked off, the two sides of every pavement and the mitres between them. <b>One
+/// <b>Every way in the town, numbered once</b> — the carriageway's lanes, the connectors across its
+/// junctions, the ways its bays are worked off, the two sides of every pavement and the mitres between them. <b>One
 /// table and one numbering</b>, so that a claim on any of them is comparable with a claim on any other and
 /// the ground a body stands on can be written down without first asking what kind of body it is.
 /// </summary>
@@ -45,10 +45,10 @@ internal enum WayKind : byte
 /// </para>
 /// <para>
 /// <b>The blocks are in this order and the order is load-bearing</b>: the carriageway's lanes are numbered
-/// first so that a lane and its way are the same integer, the joins follow so that a turn slot is an offset
-/// from the lane count, and the bays follow those because a bay's way is numbered off the road it is cut
-/// into (<see cref="FirstBayWay"/>, which is knowable from the road alone and so can be asked before the
-/// bays exist). The pavement is last because nothing on the road needs to know it is there.
+/// first so that a lane and its way are the same integer, the connectors follow so that a connector's id is
+/// an offset from the lane count, and the bays follow those because a bay's way is numbered off the road it is cut
+/// into (<see cref="FirstBayWay"/>, which is knowable from the road alone and so can be asked before
+/// the bays exist). The pavement is last because nothing on the road needs to know it is there.
 /// </para>
 /// <para>
 /// <b>What is handed over is lengths and never networks</b> (SIM-7). The road is the lowest thing that can
@@ -59,7 +59,7 @@ internal enum WayKind : byte
 /// </remarks>
 internal sealed class TownWays
 {
-    readonly int _firstJoin;
+    readonly int _firstConnector;
     readonly int _firstBay;
     readonly int _firstFootway;
     readonly int _firstMitre;
@@ -76,18 +76,18 @@ internal sealed class TownWays
     /// </param>
     /// <param name="clearsAsideOnAFootwayM">And half a body, which is the same statement over the pavement.</param>
     TownWays(
-        int laneCount, int turnCount, ReadOnlySpan<float> laneLengthM, ReadOnlySpan<float> joinLengthM,
+        int laneCount, int connectorCount, ReadOnlySpan<float> laneLengthM, ReadOnlySpan<float> connectorLengthM,
         ReadOnlySpan<float> bayLengthM, ReadOnlySpan<float> footwayLengthM, ReadOnlySpan<float> mitreLengthM,
         float clearsAsideOnTheRoadM, float clearsAsideOnAFootwayM)
     {
-        _firstJoin = laneCount;
-        _firstBay = laneCount + turnCount;
+        _firstConnector = laneCount;
+        _firstBay = laneCount + connectorCount;
         _firstFootway = _firstBay + bayLengthM.Length;
         _firstMitre = _firstFootway + footwayLengthM.Length;
 
         _lengthM = new float[_firstMitre + mitreLengthM.Length];
         laneLengthM.CopyTo(_lengthM);
-        joinLengthM.CopyTo(_lengthM.AsSpan(_firstJoin));
+        connectorLengthM.CopyTo(_lengthM.AsSpan(_firstConnector));
         bayLengthM.CopyTo(_lengthM.AsSpan(_firstBay));
         footwayLengthM.CopyTo(_lengthM.AsSpan(_firstFootway));
         mitreLengthM.CopyTo(_lengthM.AsSpan(_firstMitre));
@@ -105,12 +105,12 @@ internal sealed class TownWays
         ReadOnlySpan<float> mitreLengthM, float clearsAsideOnTheRoadM, float clearsAsideOnAFootwayM)
     {
         // Laid once with the town, so the array is the standing cost of having a table at all.
-        var joinLengthM = new float[roads.TurnCount];
-        for (var turn = 0; turn < roads.TurnCount; turn++) joinLengthM[turn] = roads.JoinLengthM(turn);
+        var connectorLengthM = new float[roads.ConnectorCount];
+        for (var id = 0; id < roads.ConnectorCount; id++) connectorLengthM[id] = roads.ConnectorLengthM(id);
 
         return new TownWays(
-            roads.LaneCount, roads.TurnCount, roads.LaneLengthM, joinLengthM, bayLengthM, footwayLengthM,
-            mitreLengthM, clearsAsideOnTheRoadM, clearsAsideOnAFootwayM);
+            roads.LaneCount, roads.ConnectorCount, roads.LaneLengthM, connectorLengthM, bayLengthM,
+            footwayLengthM, mitreLengthM, clearsAsideOnTheRoadM, clearsAsideOnAFootwayM);
     }
 
     /// <summary>
@@ -126,13 +126,13 @@ internal sealed class TownWays
     /// the road graph laying its own table of crossings, and the bays working out where their block starts.
     /// A second statement of it is a second statement that can disagree.
     /// </summary>
-    public static int WayOfRoadTurn(int laneCount, int slot) => laneCount + slot;
+    public static int WayOfRoadConnector(int laneCount, int connector) => laneCount + connector;
 
     /// <summary>
     /// <b>Where the bays' ways begin</b>, which is knowable from the carriageway alone — the bays are
     /// numbered off the road they are cut into, and are laid before this table exists.
     /// </summary>
-    public static int FirstBayWay(RoadGraph roads) => WayOfRoadTurn(roads.LaneCount, roads.TurnCount);
+    public static int FirstBayWay(RoadGraph roads) => WayOfRoadConnector(roads.LaneCount, roads.ConnectorCount);
 
     /// <summary>Where the pavement's two blocks begin, for the network that has to name its own ways.</summary>
     public int FirstFootwayWay => _firstFootway;
@@ -142,14 +142,14 @@ internal sealed class TownWays
     public int Count => _lengthM.Length;
 
     /// <summary>How many lanes the carriageway has, which is what makes a lane and its way the same integer.</summary>
-    public int LaneCount => _firstJoin;
+    public int LaneCount => _firstConnector;
 
     public float LengthM(int way) => _lengthM[way];
 
     /// <summary>What kind of ground this way is laid on.</summary>
     public WayKind KindOf(int way) =>
-        way < _firstJoin ? WayKind.Lane
-        : way < _firstBay ? WayKind.Join
+        way < _firstConnector ? WayKind.Lane
+        : way < _firstBay ? WayKind.Connector
         : way < _firstFootway ? WayKind.Bay
         : way < _firstMitre ? WayKind.Footway
         : WayKind.Mitre;
@@ -172,8 +172,8 @@ internal sealed class TownWays
     /// <summary>A carriageway lane's own way number. The lanes are numbered first, so the two are one integer.</summary>
     public int OfRoadLane(int lane) => lane;
 
-    /// <summary>The way a junction's join is, named by the turn slot the road graph gave it.</summary>
-    public int OfRoadTurn(int slot) => _firstJoin + slot;
+    /// <summary>The way one of a junction's connectors is, named by the id the road graph gave it.</summary>
+    public int OfRoadConnector(int connector) => _firstConnector + connector;
 
     /// <summary>One side of one stretch of pavement, named by its own directed edge of the foot graph.</summary>
     public int OfFootway(int edge) => _firstFootway + edge;
@@ -184,7 +184,7 @@ internal sealed class TownWays
     /// <summary>The trip back, for a caller holding a way it already knows the kind of.</summary>
     public int RoadLaneOf(int way) => way;
 
-    public int RoadTurnOf(int way) => way - _firstJoin;
+    public int RoadConnectorOf(int way) => way - _firstConnector;
 
     public int FootwayOf(int way) => way - _firstFootway;
 

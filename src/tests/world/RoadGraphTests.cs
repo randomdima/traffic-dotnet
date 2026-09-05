@@ -64,12 +64,12 @@ public class RoadGraphTests
         {
             if (!graph.IsAPlace(graph.LaneToNode[lane])) continue;
 
-            foreach (var onward in graph.TurnsFrom(lane))
+            foreach (var onward in graph.LanesFrom(lane))
             {
                 if (onward == graph.LaneReverse[lane]) continue;
 
-                var slot = graph.TurnSlot(lane, onward);
-                Assert.Equal(0f, graph.JoinLengthM(slot), 3);
+                var slot = graph.ConnectorBetween(lane, onward);
+                Assert.Equal(0f, graph.ConnectorLengthM(slot), 3);
                 Assert.True(
                     (graph.EndOf(lane).PositionM - graph.StartOf(onward).PositionM).Length() < 1e-3f,
                     $"{map}: lane {lane} ends away from lane {onward} at the place they share");
@@ -207,7 +207,7 @@ public class RoadGraphTests
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var end = graph.EndOf(lane);
-            foreach (var onto in graph.TurnsFrom(lane))
+            foreach (var onto in graph.LanesFrom(lane))
             {
                 var start = graph.StartOf(onto);
                 var apartRad = MathF.Acos(Math.Clamp(Vector2.Dot(end.Direction, start.Direction), -1f, 1f));
@@ -286,10 +286,10 @@ public class RoadGraphTests
 
             // Every lane out of the node is a turn out of this one but the ones that face back: its own
             // reverse always, and anything else within the straight tolerance of head-on.
-            Assert.InRange(graph.TurnsFrom(lane).Length, 0, leaving.Length - (leaving.Contains(reverse) ? 1 : 0));
+            Assert.InRange(graph.LanesFrom(lane).Length, 0, leaving.Length - (leaving.Contains(reverse) ? 1 : 0));
             Assert.Null(graph.TurnBetween(lane, reverse));
 
-            foreach (var lane2 in graph.TurnsFrom(lane))
+            foreach (var lane2 in graph.LanesFrom(lane))
             {
                 Assert.Equal(graph.LaneToNode[lane], graph.LaneFromNode[lane2]);
                 Assert.NotEqual(reverse, lane2);
@@ -312,11 +312,11 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var turns = graph.TurnsFrom(lane);
+            var turns = graph.LanesFrom(lane);
             for (var turn = 0; turn < turns.Length; turn++)
             {
-                var slot = graph.TurnSlotAt(lane, turn);
-                var join = graph.JoinArcs(slot);
+                var slot = graph.ConnectorsFrom(lane)[turn];
+                var join = graph.ConnectorArcs(slot);
                 var leaves = graph.EndOf(lane);
                 var arrives = graph.StartOf(turns[turn]);
 
@@ -331,7 +331,7 @@ public class RoadGraphTests
                 }
 
                 var startM = (join[0].StartM - leaves.PositionM).Length();
-                var endM = (Spline.SampleAt(join, graph.JoinLengthM(slot)).PositionM - arrives.PositionM).Length();
+                var endM = (Spline.SampleAt(join, graph.ConnectorLengthM(slot)).PositionM - arrives.PositionM).Length();
                 Assert.True(startM < JoinToleranceM, $"{map}: lane {lane} onto {turns[turn]} starts {startM:F3} m off its own lane");
                 Assert.True(endM < JoinToleranceM, $"{map}: lane {lane} onto {turns[turn]} ends {endM:F3} m off the lane it joins");
             }
@@ -357,11 +357,11 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var turns = graph.TurnsFrom(lane);
+            var turns = graph.LanesFrom(lane);
             for (var turn = 0; turn < turns.Length; turn++)
             {
                 var onto = turns[turn];
-                var slot = graph.TurnSlotAt(lane, turn);
+                var slot = graph.ConnectorsFrom(lane)[turn];
 
                 // Measured against the stretches the cut back was settled on, which is what each lane still
                 // had when the widening asked how much it could spare.
@@ -373,7 +373,7 @@ public class RoadGraphTests
                     MathF.Max(0f, wholeM - config.LaneShortestStretchM) * 0.5f);
 
                 var bend = 0f;
-                foreach (var arc in graph.JoinArcs(slot)) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
+                foreach (var arc in graph.ConnectorArcs(slot)) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
 
                 var holdable = bend <= 1e-6f || 1f / bend >= config.IntersectionCornerRadiusM;
                 Assert.True(

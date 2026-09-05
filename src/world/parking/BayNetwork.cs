@@ -45,10 +45,10 @@ internal readonly struct BayNetwork(BayWays bays, RoadGraph roads, float spaceWi
     public int WayOfLane(int lane) => lane;
 
     /// <summary>
-    /// Nothing turns at a bay (<see cref="TurnsFrom"/>), so this is never asked and the identity is the only
-    /// answer that could not be wrong.
+    /// Nothing turns at a bay (<see cref="ConnectorsFrom"/>), so this is never asked and the identity is the
+    /// only answer that could not be wrong.
     /// </summary>
-    public int WayOfTurn(int slot) => slot;
+    public int WayOfConnector(int connector) => connector;
 
     /// <summary>
     /// <b>The way of the nearest bay to a place</b>, which the walk then reads that bay's other ways off.
@@ -109,13 +109,11 @@ internal readonly struct BayNetwork(BayWays bays, RoadGraph roads, float spaceWi
     public ReadOnlySpan<int> LanesOut(int node) => bays.WaysOf(node);
 
     /// <summary>Nothing is driven from one bay to the next: a bay is where a way ends and never a place it passes through.</summary>
-    public ReadOnlySpan<int> TurnsFrom(int lane) => [];
+    public ConnectorRun ConnectorsFrom(int lane) => default;
 
-    public int TurnSlotAt(int lane, int turn) => NoNode;
+    public ReadOnlySpan<ArcSeg> ConnectorArcs(int connector) => [];
 
-    public ReadOnlySpan<ArcSeg> JoinArcs(int slot) => [];
-
-    public float JoinLengthM(int slot) => 0f;
+    public float ConnectorLengthM(int connector) => 0f;
 
     public int MostWaysUnderAPlace => GroundUnder.MostWaysUnderAPlace(0, bays.MostWaysAtABay);
 

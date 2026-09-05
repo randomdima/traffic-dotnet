@@ -187,7 +187,7 @@ public class SelectionPathTests
         Assert.False(rest.IsEmpty, "nothing was planned past the lane the route was cut at");
 
         // The road joins it on from where the drawing stopped, and it ends where the car's own route does.
-        Assert.NotEqual(RoadGraph.NoTurn, world.Roads.TurnSlot(held[stopped], rest[0]));
+        Assert.NotEqual(RoadGraph.NoConnector, world.Roads.ConnectorBetween(held[stopped], rest[0]));
         Assert.Equal(held[^1], rest[^1]);
     }
 

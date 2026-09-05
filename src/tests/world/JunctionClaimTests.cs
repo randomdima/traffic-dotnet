@@ -288,9 +288,9 @@ public class JunctionClaimTests
             var stronger = RankOf(world, other, theirs) > RankOf(world, car, crossing)
                            && !heldBefore[other];
 
-            foreach (ref readonly var section in world.Roads.Crossings.Of(world.Roads.WayOfTurn(crossing)))
+            foreach (ref readonly var section in world.Roads.Crossings.Of(world.Roads.WayOfConnector(crossing)))
             {
-                if (world.Roads.TurnOfWay(section.OnWay) != theirs) continue;
+                if (world.Roads.ConnectorOfWay(section.OnWay) != theirs) continue;
                 if (stronger)
                 {
                     found.GivenUpToAStrongerMovement++;
@@ -321,7 +321,7 @@ public class JunctionClaimTests
     /// waved into a junction.
     /// </summary>
     static RightOfWay RankOf(TownWorld world, int car, int turn) =>
-        world.Cars.BlueLight[car] ? RightOfWay.Emergency : world.Roads.RightOfWayOfTurn(turn);
+        world.Cars.BlueLight[car] ? RightOfWay.Emergency : world.Roads.RightOfWayOfConnector(turn);
 
     /// <summary>
     /// <b>Nothing waiting at a red holds the ground beyond it.</b> A phase greens the arms that do not
@@ -439,7 +439,7 @@ public class JunctionClaimTests
             if (!OnARoute(world, car) || world.Cars.Line[car].LaneCount < 2) continue;
 
             var chain = world.Cars.ChainOf(car);
-            var slot = world.Roads.TurnSlot(chain[0], chain[1]);
+            var slot = world.Roads.ConnectorBetween(chain[0], chain[1]);
             var boundaryM = world.Cars.LaneEndsOf(car)[0];
 
             // A car that asked for no road at all holds a stretch of no length: where its ground would
@@ -455,7 +455,7 @@ public class JunctionClaimTests
             // A place cut into a road (GEN-4h) is a boundary with no box behind it: its two lanes meet at
             // a point, so the join between them has no metres and a claim over it holds nothing —
             // which is the whole of what "no ground is lost to a place" means.
-            if (world.Roads.JoinLengthM(slot) <= 0f) continue;
+            if (world.Roads.ConnectorLengthM(slot) <= 0f) continue;
 
             found.Reaching++;
             if (found.MissedTheNearEdge is not null) continue;
@@ -520,7 +520,7 @@ public class JunctionClaimTests
             // itself that its own claim carries behind its tail. It is not the clearance the
             // sections were drawn at — those answer a different question.
             var pastM = tailM - world.Cars.BuildOf(car).TailMarginM;
-            foreach (ref readonly var run in world.Roads.Crossings.OwnRuns(world.Roads.WayOfTurn(crossing)))
+            foreach (ref readonly var run in world.Roads.Crossings.OwnRuns(world.Roads.WayOfConnector(crossing)))
             {
                 if (run.ToM <= pastM) continue;
 
@@ -579,9 +579,9 @@ public class JunctionClaimTests
             var crossing = MovementOf(world, car);
             if (crossing < 0 || !OnARoute(world, car)) continue;
 
-            foreach (ref readonly var section in world.Roads.Crossings.Of(world.Roads.WayOfTurn(crossing)))
+            foreach (ref readonly var section in world.Roads.Crossings.Of(world.Roads.WayOfConnector(crossing)))
             {
-                var crossed = world.Roads.TurnOfWay(section.OnWay);
+                var crossed = world.Roads.ConnectorOfWay(section.OnWay);
                 found.Crossed++;
                 if (found.TookGroundItCrosses is not null || !Holds(world, crossed, car, ClaimsAsked.Granted))
                 {
@@ -636,7 +636,7 @@ public class JunctionClaimTests
 
         foreach (var way in index.OccupiedWays)
         {
-            if (world.Ways.KindOf(way) is not (WayKind.Join or WayKind.Bay)) continue;
+            if (world.Ways.KindOf(way) is not (WayKind.Connector or WayKind.Bay)) continue;
 
             var count = index.CopyTo(way, mine);
             for (var at = 0; at < count; at++)
@@ -760,7 +760,7 @@ public class JunctionClaimTests
     static bool HoldsAllOf(TownWorld world, int slot, int car, float fromM, float toM)
     {
         Span<LaneClaim> slots = stackalloc LaneClaim[32];
-        var count = world.Occupancy.CopyTo(world.Ways.OfRoadTurn(slot), slots);
+        var count = world.Occupancy.CopyTo(world.Ways.OfRoadConnector(slot), slots);
         var reachedM = fromM;
         for (var at = 0; at < count && reachedM < toM; at++)
         {
@@ -787,7 +787,7 @@ public class JunctionClaimTests
         var ahead = 0;
         while (ahead < world.Cars.Line[car].LaneCount - 1 && progressM >= starts[ahead + 1]) ahead++;
         if (ahead + 1 >= world.Cars.Line[car].LaneCount) return float.NegativeInfinity;
-        if (world.Roads.TurnSlot(chain[ahead], chain[ahead + 1]) != crossing) return float.NegativeInfinity;
+        if (world.Roads.ConnectorBetween(chain[ahead], chain[ahead + 1]) != crossing) return float.NegativeInfinity;
 
         ref readonly var build = ref world.Cars.BuildOf(car);
         return progressM + build.NoseAheadOfAxleM - build.LengthM - world.Cars.LaneEndsOf(car)[ahead];
@@ -873,16 +873,16 @@ public class JunctionClaimTests
 
                 foreach (var way in world.Occupancy.OccupiedWays)
                 {
-                    if (world.Ways.KindOf(way) != WayKind.Join) continue;
+                    if (world.Ways.KindOf(way) != WayKind.Connector) continue;
 
-                    var join = world.Ways.RoadTurnOf(way);
+                    var join = world.Ways.RoadConnectorOf(way);
                     var count = world.Occupancy.CopyTo(way, slots);
                     for (var at = 0; at < count; at++)
                     {
                         if (slots[at].Occupant != car || !slots[at].IsLoose) continue;
 
                         var apartM = ToChainM(
-                            world.Roads.JoinArcs(join), world.Roads.JoinLengthM(join),
+                            world.Roads.ConnectorArcs(join), world.Roads.ConnectorLengthM(join),
                             world.Cars.PositionM[car]);
                         if (apartM <= reachM) continue;
 
@@ -927,16 +927,16 @@ public class JunctionClaimTests
     static int MovementOf(TownWorld world, int car)
     {
         var way = world.Cars.MovementWay[car];
-        return way == CarFleet.NoWay || world.Ways.KindOf(way) != WayKind.Join
+        return way == CarFleet.NoWay || world.Ways.KindOf(way) != WayKind.Connector
             ? CarFleet.NoWay
-            : world.Ways.RoadTurnOf(way);
+            : world.Ways.RoadConnectorOf(way);
     }
 
     /// <summary>Whether this join's own way has a stretch of this car on it, of the kind asked for.</summary>
     static bool Holds(TownWorld world, int slot, int car, ClaimsAsked asked = ClaimsAsked.Loose)
     {
         Span<LaneClaim> slots = stackalloc LaneClaim[32];
-        var count = world.Occupancy.CopyTo(world.Ways.OfRoadTurn(slot), slots);
+        var count = world.Occupancy.CopyTo(world.Ways.OfRoadConnector(slot), slots);
         for (var at = 0; at < count; at++)
         {
             if (slots[at].Occupant == car && LaneOccupancy.Counts(slots[at], asked)) return true;
@@ -971,12 +971,12 @@ public class JunctionClaimTests
     /// </summary>
     static (int Slot, int Crossing, Vector2 AtM)? WhereTwoMovementsCross(RoadGraph roads)
     {
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfConnector(slot)))
             {
-                var crossed = roads.TurnOfWay(section.OnWay);
-                var arcs = roads.JoinArcs(crossed);
+                var crossed = roads.ConnectorOfWay(section.OnWay);
+                var arcs = roads.ConnectorArcs(crossed);
                 if (arcs.Length == 0) continue;
 
                 return (crossed, slot, Spline.SampleAt(arcs, (section.FromM + section.ToM) * 0.5f).PositionM);

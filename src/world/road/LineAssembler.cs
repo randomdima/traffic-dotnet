@@ -84,19 +84,19 @@ internal static class LineAssembler
     {
         var written = 0;
         var lengthM = 0f;
-        var arrivedOn = RoadGraph.NoTurn;
+        var arrivedOn = RoadGraph.NoConnector;
 
         for (var index = 0; index < lanes.Length; index++)
         {
             var lane = lanes[index];
-            var leavingOn = index < lanes.Length - 1 ? graph.TurnSlot(lane, lanes[index + 1]) : RoadGraph.NoTurn;
+            var leavingOn = index < lanes.Length - 1 ? graph.ConnectorBetween(lane, lanes[index + 1]) : RoadGraph.NoConnector;
 
-            if (arrivedOn != RoadGraph.NoTurn)
+            if (arrivedOn != RoadGraph.NoConnector)
             {
-                var join = graph.JoinArcs(arrivedOn);
+                var join = graph.ConnectorArcs(arrivedOn);
                 join.CopyTo(into[written..]);
                 written += join.Length;
-                lengthM += graph.JoinLengthM(arrivedOn);
+                lengthM += graph.ConnectorLengthM(arrivedOn);
             }
 
             // <b>A lane is threaded whole</b> (TER-5d): it was cut back to the points its movements hand
@@ -111,7 +111,7 @@ internal static class LineAssembler
             written += laid;
             laneEndM[index] = lengthM;
 
-            if (leavingOn == RoadGraph.NoTurn && index < lanes.Length - 1)
+            if (leavingOn == RoadGraph.NoConnector && index < lanes.Length - 1)
             {
                 return new DrivenLine(written, index + 1, lengthM);
             }

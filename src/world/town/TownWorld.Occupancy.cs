@@ -344,7 +344,7 @@ internal sealed partial class TownWorld
         var written = 0;
         for (var index = 0; index < lanes && written < into.Length; index++)
         {
-            var leavingOn = index < lanes - 1 ? _roads.TurnSlot(chain[index], chain[index + 1]) : RoadGraph.NoTurn;
+            var leavingOn = index < lanes - 1 ? _roads.ConnectorBetween(chain[index], chain[index + 1]) : RoadGraph.NoConnector;
 
             if (Overlaps(fromLineM, toLineM, starts[index], ends[index], out var fromM, out var toM))
             {
@@ -359,13 +359,13 @@ internal sealed partial class TownWorld
             // A place cut into a road (GEN-4h) joins its two lanes at a point: there is no ground between
             // them and so nothing to write, and a slot spent on it is one the claim has not got for
             // the lane past it.
-            if (leavingOn == RoadGraph.NoTurn || ends[index] >= toLineM) break;
+            if (leavingOn == RoadGraph.NoConnector || ends[index] >= toLineM) break;
 
             if (written < into.Length && starts[index + 1] > ends[index]
                 && Overlaps(fromLineM, toLineM, ends[index], starts[index + 1], out fromM, out toM))
             {
                 into[written++] = new LineWay(
-                    _ways.OfRoadTurn(leavingOn), fromM - ends[index], toM - ends[index], fromM);
+                    _ways.OfRoadConnector(leavingOn), fromM - ends[index], toM - ends[index], fromM);
             }
         }
 
@@ -403,10 +403,10 @@ internal sealed partial class TownWorld
                 widthM = _roads.LaneWidthM[_ways.RoadLaneOf(way)];
                 return _roads.ArcsOf(_ways.RoadLaneOf(way));
 
-            case WayKind.Join:
-                var slot = _ways.RoadTurnOf(way);
-                widthM = _roads.LaneWidthM[_roads.TurnToLane(slot)];
-                return _roads.JoinArcs(slot);
+            case WayKind.Connector:
+                var slot = _ways.RoadConnectorOf(way);
+                widthM = _roads.LaneWidthM[_roads.ConnectorTo(slot)];
+                return _roads.ConnectorArcs(slot);
 
             case WayKind.Bay:
                 widthM = _bayWays.Ways.LaneWidthM(way);
@@ -442,8 +442,8 @@ internal sealed partial class TownWorld
     /// the road is a car joining the traffic rather than one crossing it, which is ordinary traffic too.
     /// </remarks>
     RightOfWay RightOfWayOn(int way) =>
-        _ways.KindOf(way) == WayKind.Join
-            ? _roads.RightOfWayOfTurn(_ways.RoadTurnOf(way))
+        _ways.KindOf(way) == WayKind.Connector
+            ? _roads.RightOfWayOfConnector(_ways.RoadConnectorOf(way))
             : RightOfWay.Traffic;
 
     /// <summary>

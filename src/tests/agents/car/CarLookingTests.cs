@@ -143,13 +143,13 @@ public class CarLookingTests
         claims.Begin();
 
         var (slot, arcs) = AJoin(roads);
-        var lengthM = roads.JoinLengthM(slot);
+        var lengthM = roads.ConnectorLengthM(slot);
         var acrossTheBoxM = Spline.SampleAt(arcs, lengthM * 0.5f).PositionM;
 
         var halfWidthM = Config.Car.WidthM * 0.5f;
         Assert.False(GroundAhead.TakenAt(roads, claims, acrossTheBoxM, halfWidthM, Asking, out _));
 
-        claims.ClaimUnderWay(claims.Ways.OfRoadTurn(slot), (lengthM * 0.5f) - 2f, (lengthM * 0.5f) + 2f, (lengthM * 0.5f) + 2f, 0f, Somebody);
+        claims.ClaimUnderWay(claims.Ways.OfRoadConnector(slot), (lengthM * 0.5f) - 2f, (lengthM * 0.5f) + 2f, (lengthM * 0.5f) + 2f, 0f, Somebody);
 
         Assert.True(GroundAhead.TakenAt(roads, claims, acrossTheBoxM, halfWidthM, Asking, out var found));
         Assert.Equal(Somebody, found.Occupant);
@@ -158,10 +158,10 @@ public class CarLookingTests
     /// <summary>A junction's join of the fixture town with enough length to stand a body in the middle of.</summary>
     static (int Slot, ArcSeg[] Arcs) AJoin(RoadGraph roads)
     {
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            var arcs = roads.JoinArcs(slot);
-            if (arcs.Length == 0 || roads.JoinLengthM(slot) < Config.Car.LengthM) continue;
+            var arcs = roads.ConnectorArcs(slot);
+            if (arcs.Length == 0 || roads.ConnectorLengthM(slot) < Config.Car.LengthM) continue;
 
             return (slot, arcs.ToArray());
         }

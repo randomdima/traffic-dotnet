@@ -238,10 +238,10 @@ internal sealed partial class DebugOverlay
             var end = roads.EndOf(lane);
             if (!OnScreen(end.PositionM, viewCentreM, viewSpanM, config.CarTurningRadiusM * 2f)) continue;
 
-            for (var turn = 0; turn < roads.TurnKindsFrom(lane).Length; turn++)
+            foreach (var connector in roads.ConnectorsFrom(lane))
             {
                 Link(
-                    ref draw, roads.JoinArcs(roads.TurnSlotAt(lane, turn)), sagM, pitchM, bothWays: false, colour,
+                    ref draw, roads.ConnectorArcs(connector), sagM, pitchM, bothWays: false, colour,
                     viewCentreM, viewSpanM);
             }
         }

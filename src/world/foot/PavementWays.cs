@@ -29,7 +29,7 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
 {
     public int WayOfLane(int lane) => firstFootwayWay + lane;
 
-    public int WayOfTurn(int slot) => firstMitreWay + slot;
+    public int WayOfConnector(int connector) => firstMitreWay + connector;
 
     public int NearestLane(Vector2 atM, out float alongM)
     {
@@ -73,13 +73,13 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
 
     public ReadOnlySpan<int> LanesOut(int node) => walking.Foot.EdgesOut(node);
 
-    public ReadOnlySpan<int> TurnsFrom(int lane) => walking.TurnsFrom(lane);
+    /// <summary>The pavement's connectors are its mitres: the corner between the lane arrived on and the lane left for.</summary>
+    public ConnectorRun ConnectorsFrom(int lane) =>
+        new(walking.TurnSlotAt(lane, 0), walking.TurnsFrom(lane).Length);
 
-    public int TurnSlotAt(int lane, int turn) => walking.TurnSlotAt(lane, turn);
+    public ReadOnlySpan<ArcSeg> ConnectorArcs(int connector) => walking.JoinArcs(connector);
 
-    public ReadOnlySpan<ArcSeg> JoinArcs(int slot) => walking.JoinArcs(slot);
-
-    public float JoinLengthM(int slot) => walking.JoinLengthM(slot);
+    public float ConnectorLengthM(int connector) => walking.JoinLengthM(connector);
 
     public int MostWaysUnderAPlace =>
         GroundUnder.MostWaysUnderAPlace(walking.MostTurnsAtANode, walking.MostLanesAtANode);

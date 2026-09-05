@@ -65,21 +65,21 @@ internal sealed partial class TownWorld
         // on it waves cars into crossings unclaimed.
         var ahead = LaneAheadSlot(car, progressM);
         var movement = ahead + 1 < Cars.Line[car].LaneCount
-            ? _roads.TurnSlot(chain[ahead], chain[ahead + 1])
-            : RoadGraph.NoTurn;
+            ? _roads.ConnectorBetween(chain[ahead], chain[ahead + 1])
+            : RoadGraph.NoConnector;
 
         // <b>A movement with no ground under it is not a movement</b>: the two lanes at a place cut into a
         // road (GEN-4h) meet at a point, so the join between them is a join of no length and there is no box
         // to be given, to be refused, or to stop short of. Read as one anyway, every car park in the town
         // would put a junction across the street in front of it and every car would negotiate it.
-        var movementWay = movement == RoadGraph.NoTurn || _roads.JoinLengthM(movement) <= 0f
+        var movementWay = movement == RoadGraph.NoConnector || _roads.ConnectorLengthM(movement) <= 0f
             ? CarFleet.NoWay
-            : _ways.OfRoadTurn(movement);
+            : _ways.OfRoadConnector(movement);
 
         // CAR-14.1 reads its indicator off this same classification, so what the car states and what it
         // gives way to are one answer about one movement rather than two readings of the geometry.
-        Cars.TurningAtTheBox[car] = movement != RoadGraph.NoTurn
-            && _roads.RightOfWayOfTurn(movement) != RightOfWay.StraightOn;
+        Cars.TurningAtTheBox[car] = movement != RoadGraph.NoConnector
+            && _roads.RightOfWayOfConnector(movement) != RightOfWay.StraightOn;
 
         if (Cars.MovementWay[car] != movementWay) DropTheMovement(car);
 

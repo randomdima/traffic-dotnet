@@ -43,17 +43,17 @@ public class JunctionCrossingTests
     {
         var roads = GraphOf(map);
 
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfConnector(slot)))
             {
-                var crossed = roads.TurnOfWay(section.OnWay);
+                var crossed = roads.ConnectorOfWay(section.OnWay);
                 Assert.NotEqual(slot, crossed);
 
                 var back = false;
                 foreach (ref readonly var other in roads.Crossings.Of(section.OnWay))
                 {
-                    back |= roads.TurnOfWay(other.OnWay) == slot;
+                    back |= roads.ConnectorOfWay(other.OnWay) == slot;
                 }
 
                 Assert.True(back, $"{map}: turn {slot} takes ground off {crossed} and not the other way round");
@@ -67,14 +67,13 @@ public class JunctionCrossingTests
     public void NothingIsCrossedAcrossTwoJunctions(string map)
     {
         var roads = GraphOf(map);
-        var lanes = LanesOfTurns(roads);
 
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            var node = roads.LaneToNode[lanes[slot]];
-            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
+            var node = roads.LaneToNode[roads.ConnectorFrom(slot)];
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfConnector(slot)))
             {
-                Assert.Equal(node, roads.LaneToNode[lanes[roads.TurnOfWay(section.OnWay)]]);
+                Assert.Equal(node, roads.LaneToNode[roads.ConnectorFrom(roads.ConnectorOfWay(section.OnWay))]);
             }
         }
     }
@@ -97,12 +96,12 @@ public class JunctionCrossingTests
         var reachM = Config.JunctionCrossingClearanceM + LaidStepM(roads);
         var measured = 0;
 
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
+            foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfConnector(slot)))
             {
                 measured++;
-                var crossed = roads.TurnOfWay(section.OnWay);
+                var crossed = roads.ConnectorOfWay(section.OnWay);
                 var apartM = NearestOverTheSection(roads, slot, crossed, section.FromM, section.ToM);
                 Assert.True(
                     apartM <= reachM,
@@ -123,7 +122,6 @@ public class JunctionCrossingTests
     public void NothingDrivenOverTheSameGroundIsLeftOut(string map)
     {
         var roads = GraphOf(map);
-        var lanes = LanesOfTurns(roads);
 
         for (var node = 0; node < roads.NodeCount; node++)
         {
@@ -134,14 +132,14 @@ public class JunctionCrossingTests
                 {
                     var a = atTheNode[first];
                     var b = atTheNode[second];
-                    if (roads.JoinArcs(a).Length == 0 || roads.JoinArcs(b).Length == 0) continue;
+                    if (roads.ConnectorArcs(a).Length == 0 || roads.ConnectorArcs(b).Length == 0) continue;
 
-                    var apartM = NearestOverTheSection(roads, a, b, 0f, roads.JoinLengthM(b));
+                    var apartM = NearestOverTheSection(roads, a, b, 0f, roads.ConnectorLengthM(b));
                     if (apartM > Config.JunctionCrossingClearanceM) continue;
 
                     Assert.True(
                         Takes(roads, a, b),
-                        $"{map}: turns {a} and {b} at node {roads.LaneToNode[lanes[a]]} pass {apartM:0.00} m "
+                        $"{map}: turns {a} and {b} at node {roads.LaneToNode[roads.ConnectorFrom(a)]} pass {apartM:0.00} m "
                         + "from each other and neither takes ground off the other");
                 }
             }
@@ -177,7 +175,6 @@ public class JunctionCrossingTests
     public void NoJunctionIsShutByOneCar(string map)
     {
         var roads = GraphOf(map);
-        var lanesOfTurns = LanesOfTurns(roads);
         var pairs = 0;
         var free = 0;
 
@@ -196,8 +193,8 @@ public class JunctionCrossingTests
                     pairs += 2;
                     if (!Takes(roads, slot, other)) free += 2;
 
-                    if (lanesOfTurns[other] == lanesOfTurns[slot]
-                        || roads.TurnToLane(other) == roads.TurnToLane(slot))
+                    if (roads.ConnectorFrom(other) == roads.ConnectorFrom(slot)
+                        || roads.ConnectorTo(other) == roads.ConnectorTo(slot))
                     {
                         continue;
                     }
@@ -239,7 +236,6 @@ public class JunctionCrossingTests
     public void TwoStraightsInOppositeDirectionsClearEachOther(string map)
     {
         var roads = GraphOf(map);
-        var lanes = LanesOfTurns(roads);
         var pairs = 0;
 
         for (var node = 0; node < roads.NodeCount; node++)
@@ -249,7 +245,7 @@ public class JunctionCrossingTests
             {
                 foreach (var b in atTheNode)
                 {
-                    if (b == a || !FaceEachOther(roads, lanes, a, b)) continue;
+                    if (b == a || !FaceEachOther(roads, a, b)) continue;
 
                     pairs++;
                     Assert.False(
@@ -260,29 +256,30 @@ public class JunctionCrossingTests
             }
         }
 
-        Assert.True(pairs > 0 || !AnyStreetRunsBothWays(roads, lanes), $"{map}: no opposing straights were checked");
+        Assert.True(pairs > 0 || !AnyStreetRunsBothWays(roads), $"{map}: no opposing straights were checked");
     }
 
     /// <summary>Whether two movements are one street's two directions driven straight through one junction.</summary>
-    static bool FaceEachOther(RoadGraph roads, int[] lanes, int a, int b) =>
-        KindOf(roads, lanes, a) == LaneTurn.Straight
-        && KindOf(roads, lanes, b) == LaneTurn.Straight
-        && roads.LaneReverse[lanes[a]] == roads.TurnToLane(b)
-        && roads.LaneReverse[lanes[b]] == roads.TurnToLane(a);
+    static bool FaceEachOther(RoadGraph roads, int a, int b) =>
+        roads.KindOf(a) == LaneTurn.Straight
+        && roads.KindOf(b) == LaneTurn.Straight
+        && roads.LaneReverse[roads.ConnectorFrom(a)] == roads.ConnectorTo(b)
+        && roads.LaneReverse[roads.ConnectorFrom(b)] == roads.ConnectorTo(a);
 
     /// <summary>Whether any straight movement in the town has a lane running back the other way at all — the vacuous case.</summary>
-    static bool AnyStreetRunsBothWays(RoadGraph roads, int[] lanes)
+    static bool AnyStreetRunsBothWays(RoadGraph roads)
     {
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            if (KindOf(roads, lanes, slot) == LaneTurn.Straight && roads.LaneReverse[lanes[slot]] >= 0) return true;
+            if (roads.KindOf(slot) == LaneTurn.Straight && roads.LaneReverse[roads.ConnectorFrom(slot)] >= 0)
+            {
+                return true;
+            }
         }
 
         return false;
     }
 
-    static LaneTurn KindOf(RoadGraph roads, int[] lanes, int slot) =>
-        roads.TurnKindsFrom(lanes[slot])[slot - roads.TurnSlotAt(lanes[slot], 0)];
 
     /// <summary>
     /// <b>A movement's own runs are the near side of the same crossings</b>: every metre of one stands
@@ -298,9 +295,9 @@ public class JunctionCrossingTests
         var reachM = Config.JunctionCrossingClearanceM + LaidStepM(roads);
         var measured = 0;
 
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            foreach (ref readonly var run in roads.Crossings.OwnRuns(roads.WayOfTurn(slot)))
+            foreach (ref readonly var run in roads.Crossings.OwnRuns(roads.WayOfConnector(slot)))
             {
                 measured++;
                 for (var alongM = run.FromM; alongM <= run.ToM; alongM += StepM)
@@ -320,12 +317,12 @@ public class JunctionCrossingTests
     /// <summary>How far one place on a movement's own join stands off the nearest join it is driven over.</summary>
     static float NearestCrossedM(RoadGraph roads, int slot, float alongM)
     {
-        var atM = Spline.SampleAt(roads.JoinArcs(slot), alongM).PositionM;
+        var atM = Spline.SampleAt(roads.ConnectorArcs(slot), alongM).PositionM;
         var leastM = float.PositiveInfinity;
-        foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
+        foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfConnector(slot)))
         {
-            var crossed = roads.TurnOfWay(section.OnWay);
-            leastM = MathF.Min(leastM, ToChainM(roads.JoinArcs(crossed), roads.JoinLengthM(crossed), atM));
+            var crossed = roads.ConnectorOfWay(section.OnWay);
+            leastM = MathF.Min(leastM, ToChainM(roads.ConnectorArcs(crossed), roads.ConnectorLengthM(crossed), atM));
         }
 
         return leastM;
@@ -333,9 +330,9 @@ public class JunctionCrossingTests
 
     static bool Takes(RoadGraph roads, int slot, int other)
     {
-        foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfTurn(slot)))
+        foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfConnector(slot)))
         {
-            if (section.OnWay == roads.WayOfTurn(other)) return true;
+            if (section.OnWay == roads.WayOfConnector(other)) return true;
         }
 
         return false;
@@ -345,7 +342,7 @@ public class JunctionCrossingTests
     static float LaidStepM(RoadGraph roads)
     {
         var mostM = 0f;
-        for (var slot = 0; slot < roads.TurnCount; slot++) mostM = MathF.Max(mostM, roads.JoinLengthM(slot));
+        for (var slot = 0; slot < roads.ConnectorCount; slot++) mostM = MathF.Max(mostM, roads.ConnectorLengthM(slot));
 
         return mostM;
     }
@@ -353,12 +350,12 @@ public class JunctionCrossingTests
     /// <summary>How far the far end of a stretch of one join stands off another join's whole line.</summary>
     static float NearestOverTheSection(RoadGraph roads, int over, int crossed, float fromM, float toM)
     {
-        var arcs = roads.JoinArcs(over);
-        var overM = roads.JoinLengthM(over);
+        var arcs = roads.ConnectorArcs(over);
+        var overM = roads.ConnectorLengthM(over);
         var mostM = 0f;
         for (var alongM = fromM; alongM <= toM; alongM += StepM)
         {
-            var atM = Spline.SampleAt(roads.JoinArcs(crossed), alongM).PositionM;
+            var atM = Spline.SampleAt(roads.ConnectorArcs(crossed), alongM).PositionM;
             mostM = MathF.Max(mostM, ToChainM(arcs, overM, atM));
         }
 
@@ -381,20 +378,9 @@ public class JunctionCrossingTests
         var turns = new List<int>();
         foreach (var lane in roads.LanesIn(node))
         {
-            for (var turn = 0; turn < roads.TurnsFrom(lane).Length; turn++) turns.Add(roads.TurnSlotAt(lane, turn));
+            foreach (var connector in roads.ConnectorsFrom(lane)) turns.Add(connector);
         }
 
         return turns;
-    }
-
-    static int[] LanesOfTurns(RoadGraph roads)
-    {
-        var of = new int[roads.TurnCount];
-        for (var lane = 0; lane < roads.LaneCount; lane++)
-        {
-            for (var turn = 0; turn < roads.TurnsFrom(lane).Length; turn++) of[roads.TurnSlotAt(lane, turn)] = lane;
-        }
-
-        return of;
     }
 }

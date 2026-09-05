@@ -162,10 +162,10 @@ internal static class SelectionPath
         var lastLane = fromLane;
         foreach (var lane in lanes)
         {
-            var turn = lastLane >= 0 ? roads.TurnSlot(lastLane, lane) : RoadGraph.NoTurn;
-            if (turn != RoadGraph.NoTurn)
+            var turn = lastLane >= 0 ? roads.ConnectorBetween(lastLane, lane) : RoadGraph.NoConnector;
+            if (turn != RoadGraph.NoConnector)
             {
-                var join = roads.JoinArcs(turn);
+                var join = roads.ConnectorArcs(turn);
                 PathMarks.Chained(
                     ref draw, join, 0f, Spline.TotalLengthM(join), pitchM, bothWays: false, sagM, colour);
             }

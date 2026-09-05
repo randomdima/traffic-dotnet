@@ -485,7 +485,7 @@ internal sealed partial class TownWorld
         var way = People.OnWay[person];
         arcs = _ways.KindOf(way) == WayKind.Footway
             ? _pavement.ArcsOf(_ways.FootwayOf(way))
-            : _pavement.JoinArcs(_ways.MitreOf(way));
+            : _pavement.ConnectorArcs(_ways.MitreOf(way));
 
         return arcs.Length > 0;
     }

@@ -459,13 +459,13 @@ public class BayWayTests
     static string Named(BayWays ways, RoadGraph roads, int way) =>
         ways.IsBayWay(way) ? $"the way {way} at bay {ways.BayOfWay(way)} ({ways.LengthM(way):0.0} m)"
         : way < roads.LaneCount ? $"lane {way} ({roads.LaneLengthM[way]:0.0} m)"
-        : $"join {roads.TurnOfWay(way)} ({roads.JoinLengthM(roads.TurnOfWay(way)):0.0} m)";
+        : $"join {roads.ConnectorOfWay(way)} ({roads.ConnectorLengthM(roads.ConnectorOfWay(way)):0.0} m)";
 
     /// <summary>The line of any way of the town, whichever band it is in.</summary>
     static ReadOnlySpan<ArcSeg> LineOf(BayWays ways, RoadGraph roads, int way) =>
         ways.IsBayWay(way) ? ways.ArcsOf(way)
         : way < roads.LaneCount ? roads.ArcsOf(way)
-        : roads.JoinArcs(roads.TurnOfWay(way));
+        : roads.ConnectorArcs(roads.ConnectorOfWay(way));
 
     /// <summary>How coarsely that way was sampled, which is what a section's edges were rounded out by.</summary>
     static float StepOf(BayWays ways, RoadGraph roads, int way)
@@ -476,7 +476,7 @@ public class BayWayTests
 
         // A lane is sampled over a window round the bay rather than whole, so its step is the clearance
         // itself; anything short enough to sample whole steps no wider than that either.
-        var lengthM = way < roads.LaneCount ? roads.LaneLengthM[way] : roads.JoinLengthM(roads.TurnOfWay(way));
+        var lengthM = way < roads.LaneCount ? roads.LaneLengthM[way] : roads.ConnectorLengthM(roads.ConnectorOfWay(way));
         return MathF.Max(Config.JunctionCrossingClearanceM, lengthM / (LineOverlap.MostSamples - 1));
     }
 
@@ -521,13 +521,13 @@ public class BayWayTests
             if (!turns[lane])
             {
                 Assert.False(
-                    back >= 0 && roads.TurnsFrom(lane).Length == 0,
+                    back >= 0 && roads.LanesFrom(lane).Length == 0,
                     $"{map}: lane {lane} has no way out of it and no way back down it either");
                 continue;
             }
 
             Assert.True(back >= 0, $"{map}: lane {lane} may be turned at and has no lane running back");
-            if (roads.TurnsFrom(lane).Length == 0) continue;
+            if (roads.LanesFrom(lane).Length == 0) continue;
 
             var way = ways.TheWayToTurnIn(TheBayThatTurns(ways, lane, back), lane, back);
             Assert.NotEqual(BayWays.NoWay, way);

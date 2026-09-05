@@ -125,7 +125,7 @@ internal sealed partial class TownWorld
         if (Cars.Line[car].LengthM - progressM < SightM(car)
             && Cars.Line[car].LaneCount < LineAssembler.MostLanes
             && !IsOnTheFinalApproach(car)
-            && _roads.TurnsFrom(Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1]).Length > 0)
+            && _roads.LanesFrom(Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1]).Length > 0)
         {
             LayLine(car, Cars.Line[car].LaneCount, progressM);
         }
@@ -636,7 +636,7 @@ internal sealed partial class TownWorld
         // A queued lane the road does not join to the one under the car is a route from before a recovery
         // moved this car off it. The whole of it is stale, so the whole of it goes: taken one lane at a
         // time it ends the line at every one of them, a lane a tick, until the queue drains.
-        if (next >= 0 && _roads.TurnSlot(fromLane, next) == RoadGraph.NoTurn)
+        if (next >= 0 && _roads.ConnectorBetween(fromLane, next) == RoadGraph.NoConnector)
         {
             Cars.ClearRoute(car);
             next = CarFleet.NoLane;
@@ -692,7 +692,7 @@ internal sealed partial class TownWorld
     bool TurnsBackHere(int car, int fromLane) =>
         Cars.TurnsBackOn[car] >= 0
         && _roads.LaneReverse[fromLane] == Cars.TurnsBackOn[car]
-        && (TakeABayToTurnIn(car, fromLane, Cars.TurnsBackOn[car]) || _roads.TurnsFrom(fromLane).Length == 0);
+        && (TakeABayToTurnIn(car, fromLane, Cars.TurnsBackOn[car]) || _roads.LanesFrom(fromLane).Length == 0);
 
     /// <summary>
     /// A route from the far end of <paramref name="fromLane"/> to where the car is going, expanded into
@@ -856,7 +856,7 @@ internal sealed partial class TownWorld
                     break;
                 }
 
-                if (_roads.TurnSlot(last, lanes[slot]) == RoadGraph.NoTurn)
+                if (_roads.ConnectorBetween(last, lanes[slot]) == RoadGraph.NoConnector)
                 {
                     turnsBackOn = _roads.LaneReverse[last] == lanes[slot] ? lanes[slot] : CarFleet.NoLane;
                     joined = false;

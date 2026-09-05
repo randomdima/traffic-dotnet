@@ -148,7 +148,7 @@ public class DrivingNetworkTests
 
         foreach (var lane in arriving)
         {
-            if (roads.TurnsFrom(lane).Length != 1) return false;
+            if (roads.LanesFrom(lane).Length != 1) return false;
         }
 
         return true;
@@ -303,7 +303,7 @@ public class DrivingNetworkTests
     {
         for (var turn = 0; turn < turns; turn++)
         {
-            var onward = roads.TurnsFrom(lane);
+            var onward = roads.LanesFrom(lane);
             if (onward.Length == 0) break;
 
             lane = onward[turn % onward.Length];

@@ -23,7 +23,7 @@ internal static class Drivable
         for (var lane = 0; lane < roads.LaneCount; lane++) into[lane] = [];
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            foreach (var onto in roads.TurnsFrom(lane)) into[onto].Add(lane);
+            foreach (var onto in roads.LanesFrom(lane)) into[onto].Add(lane);
         }
 
         var reaches = new int[roads.LaneCount];
@@ -75,12 +75,12 @@ internal static class Drivable
         var into = new int[roads.LaneCount];
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            foreach (var onto in roads.TurnsFrom(lane)) into[onto]++;
+            foreach (var onto in roads.LanesFrom(lane)) into[onto]++;
         }
 
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            if (into[lane] > 0 && roads.TurnsFrom(lane).Length > 0) continue;
+            if (into[lane] > 0 && roads.LanesFrom(lane).Length > 0) continue;
 
             var what = into[lane] == 0 ? "is driven onto by nothing" : "is driven off onto nothing";
             return $"lane {lane} of road {roads.LaneRoad[lane]} {what}: node {roads.LaneFromNode[lane]} at "

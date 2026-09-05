@@ -310,21 +310,21 @@ internal static class TownCensus
             deepestM = MathF.Max(deepestM, roads.LaneCutBackM[lane]);
         }
 
-        for (var slot = 0; slot < roads.TurnCount; slot++)
+        for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            if (roads.JoinArcs(slot).Length == 0) butted++;
+            if (roads.ConnectorArcs(slot).Length == 0) butted++;
 
-            joinM += roads.JoinLengthM(slot);
-            longestM = MathF.Max(longestM, roads.JoinLengthM(slot));
-            foreach (var arc in roads.JoinArcs(slot))
+            joinM += roads.ConnectorLengthM(slot);
+            longestM = MathF.Max(longestM, roads.ConnectorLengthM(slot));
+            foreach (var arc in roads.ConnectorArcs(slot))
             {
                 if (MathF.Abs(arc.Curvature) > 1e-6f) tightestM = MathF.Min(tightestM, 1f / MathF.Abs(arc.Curvature));
             }
         }
 
-        Console.WriteLine($"  joins          {roads.TurnCount,7}  movements over {roads.LaneCount} lanes; " +
+        Console.WriteLine($"  joins          {roads.ConnectorCount,7}  movements over {roads.LaneCount} lanes; " +
                           $"{butted} join two lanes that butt; " +
-                          $"mean {(roads.TurnCount == 0 ? 0f : joinM / roads.TurnCount):F2} m, longest {longestM:F2} m, " +
+                          $"mean {(roads.ConnectorCount == 0 ? 0f : joinM / roads.ConnectorCount):F2} m, longest {longestM:F2} m, " +
                           $"tightest arc {(float.IsFinite(tightestM) ? tightestM : 0f):F2} m of " +
                           $"{config.IntersectionCornerRadiusM:F2}; " +
                           $"corners took a further {(roads.LaneCount == 0 ? 0f : cutBackM / roads.LaneCount):F2} m " +

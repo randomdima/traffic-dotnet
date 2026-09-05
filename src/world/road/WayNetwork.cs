@@ -27,8 +27,8 @@ internal interface IWayNetwork
     /// <summary>The town's way number for one of this network's lanes.</summary>
     int WayOfLane(int lane);
 
-    /// <summary>And for one of its turn slots.</summary>
-    int WayOfTurn(int slot);
+    /// <summary>And for one of its connectors.</summary>
+    int WayOfConnector(int connector);
 
     /// <summary>The lane whose own line passes nearest a point, and how far along it that is.</summary>
     int NearestLane(Vector2 atM, out float alongM);
@@ -65,16 +65,13 @@ internal interface IWayNetwork
 
     ReadOnlySpan<int> LanesOut(int node);
 
-    /// <summary>The lanes a body on this one may leave for, at the node this one ends at.</summary>
-    ReadOnlySpan<int> TurnsFrom(int lane);
+    /// <summary>The connectors a body on this lane may leave by, as the run of ids they are.</summary>
+    ConnectorRun ConnectorsFrom(int lane);
 
-    /// <summary>Where the <paramref name="turn"/>th way out of a lane stands in the town's own turn table.</summary>
-    int TurnSlotAt(int lane, int turn);
+    /// <summary>The line of one connector, which is empty where the two lanes butt.</summary>
+    ReadOnlySpan<ArcSeg> ConnectorArcs(int connector);
 
-    /// <summary>The line of one movement over a node, which is empty where the two lanes butt.</summary>
-    ReadOnlySpan<ArcSeg> JoinArcs(int slot);
-
-    float JoinLengthM(int slot);
+    float ConnectorLengthM(int connector);
 
     /// <summary>How much room the walk over this network needs (<see cref="GroundUnder.MostWaysUnderAPlace"/>).</summary>
     int MostWaysUnderAPlace { get; }
@@ -86,7 +83,7 @@ internal readonly struct RoadWays(RoadGraph roads) : IWayNetwork
     /// <summary>The carriageway is the first block of the town's numbering, so a lane and its way are one integer.</summary>
     public int WayOfLane(int lane) => lane;
 
-    public int WayOfTurn(int slot) => roads.LaneCount + slot;
+    public int WayOfConnector(int connector) => roads.WayOfConnector(connector);
 
     public int NearestLane(Vector2 atM, out float alongM) => roads.NearestLane(atM, out alongM);
 
@@ -116,13 +113,11 @@ internal readonly struct RoadWays(RoadGraph roads) : IWayNetwork
 
     public ReadOnlySpan<int> LanesOut(int node) => roads.LanesOut(node);
 
-    public ReadOnlySpan<int> TurnsFrom(int lane) => roads.TurnsFrom(lane);
+    public ConnectorRun ConnectorsFrom(int lane) => roads.ConnectorsFrom(lane);
 
-    public int TurnSlotAt(int lane, int turn) => roads.TurnSlotAt(lane, turn);
+    public ReadOnlySpan<ArcSeg> ConnectorArcs(int connector) => roads.ConnectorArcs(connector);
 
-    public ReadOnlySpan<ArcSeg> JoinArcs(int slot) => roads.JoinArcs(slot);
-
-    public float JoinLengthM(int slot) => roads.JoinLengthM(slot);
+    public float ConnectorLengthM(int connector) => roads.ConnectorLengthM(connector);
 
     public int MostWaysUnderAPlace =>
         GroundUnder.MostWaysUnderAPlace(roads.MostTurnsAtANode, roads.MostLanesAtANode);

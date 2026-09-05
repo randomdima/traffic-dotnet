@@ -237,7 +237,7 @@ internal sealed class BayWays
 
             // <b>And a stretch with no way out of it</b>, which is a dead end: what turns a car round there
             // is the car itself (`P-19`), on the room TER-5a promises, and no bay is wanted for it.
-            turns[lane] = back >= 0 && (bays.ATurnIsLaidBetween(lane, back) || roads.TurnsFrom(lane).Length == 0);
+            turns[lane] = back >= 0 && (bays.ATurnIsLaidBetween(lane, back) || roads.LanesFrom(lane).Length == 0);
         }
 
         return turns;

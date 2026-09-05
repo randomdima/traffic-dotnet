@@ -30,33 +30,32 @@ internal static class LaneTour
 {
     public static int NextLane(RoadGraph graph, SimConfig config, int lane, ref Rng draw)
     {
-        var turns = graph.TurnsFrom(lane);
-        var kinds = graph.TurnKindsFrom(lane);
-        if (turns.Length == 0) return CarFleetNoLane;
+        var connectors = graph.ConnectorsFrom(lane);
+        if (connectors.Count == 0) return CarFleetNoLane;
 
         var total = 0f;
-        for (var turn = 0; turn < turns.Length; turn++) total += Weight(graph, config, turns[turn], kinds[turn]);
-        if (total <= 0f) return turns[draw.NextInt(turns.Length)];
+        foreach (var connector in connectors) total += Weight(graph, config, connector);
+        if (total <= 0f) return graph.ConnectorTo(connectors[draw.NextInt(connectors.Count)]);
 
         var drawn = draw.NextFloat(0f, total);
-        for (var turn = 0; turn < turns.Length; turn++)
+        foreach (var connector in connectors)
         {
-            drawn -= Weight(graph, config, turns[turn], kinds[turn]);
-            if (drawn <= 0f) return turns[turn];
+            drawn -= Weight(graph, config, connector);
+            if (drawn <= 0f) return graph.ConnectorTo(connector);
         }
 
-        return turns[^1];
+        return graph.ConnectorTo(connectors[connectors.Count - 1]);
     }
 
     /// <summary>The cheaper the turn, the likelier it is drawn — at the prices the router quotes.</summary>
-    static float Weight(RoadGraph graph, SimConfig config, int lane, LaneTurn turn)
+    static float Weight(RoadGraph graph, SimConfig config, int connector)
     {
-        // A lane with no turn out of it is a dead end, and the way back out of one is a park and an unpark
-        // in a bay of its own. Declining it keeps a car nobody is routing on roads it can drive off again;
-        // it is not a rule — a dead end is a real place and a real driver goes down it.
-        if (graph.TurnsFrom(lane).Length == 0) return 0f;
+        // A lane with no connector out of it is a dead end, and the way back out of one is a park and an
+        // unpark in a bay of its own. Declining it keeps a car nobody is routing on roads it can drive off
+        // again; it is not a rule — a dead end is a real place and a real driver goes down it.
+        if (graph.ConnectorsFrom(graph.ConnectorTo(connector)).Count == 0) return 0f;
 
-        return turn switch
+        return graph.KindOf(connector) switch
         {
             LaneTurn.Straight => 1f,
             LaneTurn.NearSide => 1f / (1f + config.Driving.TurnPriceNearSideCarLengths),
