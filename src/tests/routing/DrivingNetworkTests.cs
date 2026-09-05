@@ -69,86 +69,100 @@ public class DrivingNetworkTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ANetworkNodeIsExactlyAJunctionWithAChoiceAtItOrAPlaceALegIsAimedAt(string map)
+    public void ANetworkNodeIsExactlyAPlaceWithAChoiceAtItOrAPlaceALegIsAimedAt(string map)
     {
         var (roads, network) = Of(map);
         var runs = network.Runs;
-        var onNetwork = new bool[roads.NodeCount];
-        var ringOf = Rings(roads, out var hasAChoice);
-        var anchors = new int[roads.NodeCount];
+        var arriving = LanesArriving(roads, runs);
+        var onNetwork = new bool[runs.PlaceCount];
+        var ringOf = Rings(roads, runs, out var hasAChoice);
+        var anchors = new int[runs.PlaceCount];
 
         for (var node = 0; node < runs.Graph.NodeCount; node++)
         {
-            var junction = runs.FineNodeOf(node);
-            onNetwork[junction] = true;
-            if (!IsABend(roads, junction) || roads.IsAPlace(junction)) continue;
+            var place = runs.PlaceOf(node);
+            onNetwork[place] = true;
+            if (!IsABend(roads, runs, arriving, place)) continue;
 
             Assert.False(
-                hasAChoice[ringOf[junction]],
-                $"{map}: junction {junction} is a bend on a road with a choice on it, and is on the network");
-            anchors[ringOf[junction]]++;
+                hasAChoice[ringOf[place]],
+                $"{map}: place {place} is a bend on a road with a choice on it, and is on the network");
+            anchors[ringOf[place]]++;
         }
 
-        for (var junction = 0; junction < roads.NodeCount; junction++)
+        for (var place = 0; place < runs.PlaceCount; place++)
         {
-            var ways = roads.LanesOut(junction).Length;
+            var ways = runs.LanesLeaving(place).Length;
             if (ways == 0) continue;
 
-            if (!IsABend(roads, junction) || roads.IsAPlace(junction))
+            if (!IsABend(roads, runs, arriving, place))
             {
-                Assert.True(onNetwork[junction], $"{map}: junction {junction} has {ways} ways on and is off the network");
+                Assert.True(onNetwork[place], $"{map}: place {place} has {ways} ways on and is off the network");
                 continue;
             }
 
             Assert.True(
-                hasAChoice[ringOf[junction]] || anchors[ringOf[junction]] == 1,
-                $"{map}: the ring through junction {junction} carries {anchors[ringOf[junction]]} anchors, not one");
+                hasAChoice[ringOf[place]] || anchors[ringOf[place]] == 1,
+                $"{map}: the ring through place {place} carries {anchors[ringOf[place]]} anchors, not one");
         }
     }
 
+    /// <summary>The lanes arriving at each place, which the network states the other way round.</summary>
+    static List<int>[] LanesArriving(RoadGraph roads, RunNetwork runs)
+    {
+        var arriving = new List<int>[runs.PlaceCount];
+        for (var place = 0; place < arriving.Length; place++) arriving[place] = [];
+        for (var lane = 0; lane < roads.LaneCount; lane++) arriving[runs.PlaceArriving(lane)].Add(lane);
+
+        return arriving;
+    }
+
     /// <summary>
-    /// Which junctions are joined to which by lanes, and whether anything in each such stretch of network
+    /// Which places are joined to which by lanes, and whether anything in each such stretch of network
     /// is a place with a choice at it. It is what tells a ring nothing splits from an ordinary street.
     /// </summary>
-    static int[] Rings(RoadGraph roads, out bool[] hasAChoice)
+    static int[] Rings(RoadGraph roads, RunNetwork runs, out bool[] hasAChoice)
     {
-        var ringOf = new int[roads.NodeCount];
-        for (var node = 0; node < ringOf.Length; node++) ringOf[node] = node;
+        var arriving = LanesArriving(roads, runs);
+        var ringOf = new int[runs.PlaceCount];
+        for (var place = 0; place < ringOf.Length; place++) ringOf[place] = place;
 
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            var from = Ring(ringOf, roads.LaneFromNode[lane]);
-            var to = Ring(ringOf, roads.LaneToNode[lane]);
+            var from = Ring(ringOf, runs.PlaceLeaving(lane));
+            var to = Ring(ringOf, runs.PlaceArriving(lane));
             if (from >= 0 && to >= 0) ringOf[from] = to;
         }
 
-        for (var node = 0; node < ringOf.Length; node++) ringOf[node] = Ring(ringOf, node);
+        for (var place = 0; place < ringOf.Length; place++) ringOf[place] = Ring(ringOf, place);
 
-        hasAChoice = new bool[roads.NodeCount];
-        for (var junction = 0; junction < roads.NodeCount; junction++)
+        hasAChoice = new bool[runs.PlaceCount];
+        for (var place = 0; place < runs.PlaceCount; place++)
         {
-            if (roads.LanesOut(junction).Length == 0) continue;
-            if (!IsABend(roads, junction)) hasAChoice[ringOf[junction]] = true;
+            if (runs.LanesLeaving(place).Length == 0) continue;
+            if (!IsABend(roads, runs, arriving, place)) hasAChoice[ringOf[place]] = true;
         }
 
         return ringOf;
     }
 
     /// <summary>
-    /// <b>Whether one run merely passes through a junction</b>: every lane arriving has exactly one way on,
+    /// <b>Whether one run merely passes through a place</b>: every lane arriving has exactly one way on,
     /// and as many lanes leave as arrive — so no two of those ways are the same lane. <b>Asked of the
-    /// movements and never of the arms</b> (TER-4d): a bend is one lane in and one lane out where the street
-    /// runs one way and two of each where it runs both, a dead end has an arrival with no way on at all, and
-    /// two one-way streets running into one are a merge, which is a node because two runs end there.
+    /// connectors and never of the arms</b> (TER-4d): a bend is one lane in and one lane out where the
+    /// street runs one way and two of each where it runs both, a dead end has an arrival with no way on at
+    /// all, and two one-way streets running into one are a merge, which is a place because two runs end
+    /// there. <b>The end of a parking section is never one</b> (GEN-4h): a leg is aimed at it, so it stays a
+    /// node whatever its degree.
     /// </summary>
-    static bool IsABend(RoadGraph roads, int junction)
+    static bool IsABend(RoadGraph roads, RunNetwork runs, List<int>[] arriving, int place)
     {
-        var arriving = roads.LanesIn(junction);
-        if (arriving.Length == 0 || arriving.Length != roads.LanesOut(junction).Length) return false;
+        var lanes = arriving[place];
+        if (lanes.Count == 0 || lanes.Count != runs.LanesLeaving(place).Length) return false;
 
-        foreach (var lane in arriving)
+        foreach (var lane in lanes)
         {
-            if (roads.LanesFrom(lane).Length != 1) return false;
+            if (roads.LaneEndsAtAPlace[lane] || roads.LanesFrom(lane).Length != 1) return false;
         }
 
         return true;
@@ -214,11 +228,11 @@ public class DrivingNetworkTests
             var lanes = runs.PiecesOf(link);
             for (var slot = 1; slot < lanes.Length; slot++)
             {
-                Assert.Equal(roads.LaneToNode[lanes[slot - 1]], roads.LaneFromNode[lanes[slot]]);
+                Assert.Equal(runs.PlaceArriving(lanes[slot - 1]), runs.PlaceLeaving(lanes[slot]));
             }
 
-            Assert.Equal(runs.FineNodeOf(runs.Graph.FromNode(link)), roads.LaneFromNode[lanes[0]]);
-            Assert.Equal(runs.FineNodeOf(runs.Graph.ToNode(link)), roads.LaneToNode[lanes[^1]]);
+            Assert.Equal(runs.PlaceOf(runs.Graph.FromNode(link)), runs.PlaceLeaving(lanes[0]));
+            Assert.Equal(runs.PlaceOf(runs.Graph.ToNode(link)), runs.PlaceArriving(lanes[^1]));
         }
     }
 

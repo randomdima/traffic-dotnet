@@ -70,6 +70,7 @@ internal sealed class RoadGraph
         int junctionCount, Vector2[] nodeCentreM, int[] laneRoad, float[] laneWidthM, int[] laneFromNode,
         int[] laneToNode, bool[] laneForward,
         float[] laneLengthM, int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneCutBackM, int[] laneReverse,
+        bool[] laneEndsAtAPlace,
         int[] nodeOutOffsets, int[] nodeOutLanes, int[] nodeInOffsets, int[] nodeInLanes,
         int[] connectorAt, int[] connectorToLane, LaneTurn[] connectorKind, ConnectorLines connectorLines,
         WayCrossings crossings, float nearestCellM)
@@ -86,6 +87,7 @@ internal sealed class RoadGraph
         LaneForward = laneForward;
         LaneLengthM = laneLengthM;
         LaneReverse = laneReverse;
+        LaneEndsAtAPlace = laneEndsAtAPlace;
         _laneArcOffsets = laneArcOffsets;
         _laneArcs = laneArcs;
         _nodeOutOffsets = nodeOutOffsets;
@@ -197,6 +199,14 @@ internal sealed class RoadGraph
     /// to cross to get round what is in the way, and nothing to park against on the far side.
     /// </summary>
     public int[] LaneReverse { get; }
+
+    /// <summary>
+    /// <b>Whether the lane runs out at a place a slice above asked for</b> rather than at an intersection —
+    /// the end of a parking section (GEN-4h). A run of road is broken there whatever the degree of the
+    /// place, because a leg aimed into a car park has to have somewhere to be routed to
+    /// (<see cref="Routing.IFineGraph.EndsARun"/>).
+    /// </summary>
+    public bool[] LaneEndsAtAPlace { get; }
 
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) =>
@@ -418,6 +428,7 @@ internal sealed class RoadGraph
         var laneForward = new List<bool>();
         var laneLengthM = new List<float>();
         var laneReverse = new List<int>();
+        var laneEndsAtAPlace = new List<bool>();
         var laneArcOffsets = new List<int> { 0 };
         var laneArcs = new List<ArcSeg>();
 
@@ -512,6 +523,7 @@ internal sealed class RoadGraph
             junctions.Count, nodeCentreM, [.. laneRoad], [.. laneWidthM], [.. laneFromNode], [.. laneToNode],
             [.. laneForward],
             lanes.LengthM, lanes.ArcOffsets, lanes.Arcs, lanes.CutBackM, [.. laneReverse],
+            [.. laneEndsAtAPlace],
             outOffsets, outLanes, inOffsets, inLanes, connectorAt, connectorToLane, connectorKind,
             connectorLines, crossings, config.NearestChainCellM);
 
@@ -524,6 +536,7 @@ internal sealed class RoadGraph
             laneToNode.Add(toNode);
             laneForward.Add(forward);
             laneReverse.Add(reverse);
+            laneEndsAtAPlace.Add(toNode >= junctions.Count);
             foreach (var arc in arcs) laneArcs.Add(arc);
             laneArcOffsets.Add(laneArcs.Count);
             laneLengthM.Add(Spline.TotalLengthM(arcs));

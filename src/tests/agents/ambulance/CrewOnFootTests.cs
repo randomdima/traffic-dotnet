@@ -207,7 +207,12 @@ public class CrewRecallTests
                            Config.AmbulanceGiveUpS,
                            MathF.Max(Config.EvacuatorGiveUpS, MathF.Max(Config.PatrolGiveUpS, Config.PoliceClosureLifeS)))
                        + Config.ServiceRecallS
-                       + Config.Sim.AgentDecisionIntervalS;
+                       + Config.Sim.AgentDecisionIntervalS
+                       // And the tick this is counted at. The bounds above are clocks the vehicle reads on
+                       // its own decision; what is measured below is the number of ticks a hand was seen
+                       // out, which is up to one tick longer than the span itself. Without it the test
+                       // fails on where the ticks happen to fall against the decision (VER-12).
+                       + Config.TickSeconds;
         var outS = new float[world.Cars.Count];
         var everOut = false;
         var longestS = 0f;

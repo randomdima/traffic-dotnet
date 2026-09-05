@@ -114,31 +114,30 @@ internal sealed class DrivingNetwork
         return new DrivingNetwork(roads, runs, linkOfLane, slotOfLane);
     }
 
-    /// <summary>The road graph read as the fine graph a contraction consumes: junctions as nodes, directed lanes as edges.</summary>
+    /// <summary>
+    /// The road graph read as the fine graph a contraction consumes: <b>directed lanes joined by their
+    /// connectors</b>, with where those lanes meet left for the contraction to work out.
+    /// </summary>
     readonly struct Fine(RoadGraph roads) : IFineGraph
     {
-        public int NodeCount => roads.NodeCount;
+        public int LaneCount => roads.LaneCount;
 
-        public int EdgeCount => roads.LaneCount;
+        public float LengthM(int lane) => roads.LaneLengthM[lane];
 
-        public Vector2 AnchorM(int node) => roads.NodeCentreM[node];
+        public int Reverse(int lane) => roads.LaneReverse[lane];
+
+        public ReadOnlySpan<int> Onward(int lane) => roads.LanesFrom(lane);
+
+        public Vector2 StartsAtM(int lane) => roads.StartOf(lane).PositionM;
+
+        public Vector2 EndsAtM(int lane) => roads.EndOf(lane).PositionM;
 
         /// <summary>
         /// <b>The ends of a parking section are kept whatever their degree</b> (GEN-4h). A place on a road
         /// offers one way on and would contract into the run through it, and a leg aimed at a bay would then
         /// have nowhere to be routed to but a metre inside a link.
         /// </summary>
-        public bool AlwaysANode(int node) => roads.IsAPlace(node);
-
-        public int FromNode(int edge) => roads.LaneFromNode[edge];
-
-        public int ToNode(int edge) => roads.LaneToNode[edge];
-
-        public float LengthM(int edge) => roads.LaneLengthM[edge];
-
-        public int Reverse(int edge) => roads.LaneReverse[edge];
-
-        public ReadOnlySpan<int> EdgesOut(int node) => roads.LanesOut(node);
+        public bool EndsARun(int lane) => roads.LaneEndsAtAPlace[lane];
     }
 
     /// <summary>

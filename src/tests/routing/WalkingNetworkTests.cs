@@ -64,26 +64,34 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     {
         var (foot, network) = Of(map);
         var runs = network.Runs;
-        var onNetwork = new bool[foot.NodeCount];
+        var onNetwork = new bool[runs.PlaceCount];
 
         for (var node = 0; node < runs.Graph.NodeCount; node++)
         {
-            var fine = runs.FineNodeOf(node);
-            onNetwork[fine] = true;
+            var place = runs.PlaceOf(node);
+            onNetwork[place] = true;
             Assert.True(
-                foot.EdgesOut(fine).Length != 2,
-                $"{map}: fine node {fine} at {foot.AnchorM(fine)} carries a walk straight through and is on the network");
+                runs.LanesLeaving(place).Length != 2,
+                $"{map}: place {place} at {At(foot, runs, place)} carries a walk straight through and is on "
+                + "the network");
         }
 
-        for (var fine = 0; fine < foot.NodeCount; fine++)
+        for (var place = 0; place < runs.PlaceCount; place++)
         {
-            var ways = foot.EdgesOut(fine).Length;
+            var ways = runs.LanesLeaving(place).Length;
             if (ways is 0 or 2) continue;
 
             Assert.True(
-                onNetwork[fine],
-                $"{map}: fine node {fine} at {foot.AnchorM(fine)} has {ways} ways on and is off the network");
+                onNetwork[place],
+                $"{map}: place {place} at {At(foot, runs, place)} has {ways} ways on and is off the network");
         }
+    }
+
+    /// <summary>Where a place stands, for a message: the start of any one of the stretches leaving it.</summary>
+    static Vector2 At(FootGraph foot, RunNetwork runs, int place)
+    {
+        var leaving = runs.LanesLeaving(place);
+        return leaving.IsEmpty ? Vector2.Zero : foot.AnchorM(foot.FromNode(leaving[0]));
     }
 
     /// <summary>
@@ -133,11 +141,11 @@ public class WalkingNetworkTests(ITestOutputHelper output)
             var edges = runs.PiecesOf(link);
             for (var slot = 1; slot < edges.Length; slot++)
             {
-                Assert.Equal(foot.ToNode(edges[slot - 1]), foot.FromNode(edges[slot]));
+                Assert.Equal(runs.PlaceArriving(edges[slot - 1]), runs.PlaceLeaving(edges[slot]));
             }
 
-            Assert.Equal(runs.FineNodeOf(runs.Graph.FromNode(link)), foot.FromNode(edges[0]));
-            Assert.Equal(runs.FineNodeOf(runs.Graph.ToNode(link)), foot.ToNode(edges[^1]));
+            Assert.Equal(runs.PlaceOf(runs.Graph.FromNode(link)), runs.PlaceLeaving(edges[0]));
+            Assert.Equal(runs.PlaceOf(runs.Graph.ToNode(link)), runs.PlaceArriving(edges[^1]));
         }
     }
 

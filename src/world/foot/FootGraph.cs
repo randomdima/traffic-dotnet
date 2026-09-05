@@ -115,8 +115,20 @@ internal sealed partial class FootGraph : IFineGraph
     public ReadOnlySpan<int> EdgesIn(int node) =>
         _nodeInEdges.AsSpan(_nodeOutOffsets[node], _nodeOutOffsets[node + 1] - _nodeOutOffsets[node]);
 
+    public int LaneCount => EdgeCount;
+
+    /// <summary>
+    /// The stretches a walker on this one may leave for at the end of it. <b>The way back is among them</b>,
+    /// unlike a carriageway's (TER-5f): a walker turns round where it likes.
+    /// </summary>
+    public ReadOnlySpan<int> Onward(int lane) => EdgesOut(_edgeTo[lane]);
+
+    public Vector2 StartsAtM(int lane) => _nodeM[_edgeFrom[lane]];
+
+    public Vector2 EndsAtM(int lane) => _nodeM[_edgeTo[lane]];
+
     /// <summary>A walk is aimed at a place on the pavement and never at a node of it, so none of them is kept for its own sake.</summary>
-    public bool AlwaysANode(int node) => false;
+    public bool EndsARun(int lane) => false;
 
     /// <summary>How wide the ground this stretch runs down is, which is what a lane is a quarter of.</summary>
     public float BandM(int edge) => _edgeBandM[edge];
