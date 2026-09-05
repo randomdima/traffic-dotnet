@@ -174,10 +174,10 @@ internal sealed class LaneFurniture
 
                 approach = Vector2.Normalize(approach);
                 var junction = bars.Junction[bar];
-                if (junction < 0 || junction >= roads.NodeCount) continue;
+                if (junction < 0 || junction >= roads.JunctionCount) continue;
 
                 var ends = pass == 0;
-                foreach (var lane in ends ? roads.LanesIn(junction) : roads.LanesOut(junction))
+                foreach (var lane in ends ? roads.LanesIntoJunction(junction) : roads.LanesOutOfJunction(junction))
                 {
                     if (roads.LaneRoad[lane] != bars.Road[bar]) continue;
                     if (!ends && !float.IsPositiveInfinity(alongM[lane])) continue;
@@ -290,14 +290,14 @@ internal sealed class LaneFurniture
         List<(int Lane, int Crossing, float AlongM)> found)
     {
         var junction = crossings.Junction[crossing];
-        if (junction < 0 || junction >= roads.NodeCount || roads.LanesIn(junction).Length >= 3) return;
+        if (junction < 0 || junction >= roads.JunctionCount || roads.LanesIntoJunction(junction).Length >= 3) return;
 
-        foreach (var lane in roads.LanesIn(junction))
+        foreach (var lane in roads.LanesIntoJunction(junction))
         {
             if (RunsAcross(roads.EndOf(lane).Direction, axis)) found.Add((lane, crossing, roads.LaneLengthM[lane]));
         }
 
-        foreach (var lane in roads.LanesOut(junction))
+        foreach (var lane in roads.LanesOutOfJunction(junction))
         {
             if (RunsAcross(roads.StartOf(lane).Direction, axis)) found.Add((lane, crossing, 0f));
         }

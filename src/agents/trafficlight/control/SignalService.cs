@@ -37,7 +37,11 @@ internal sealed class SignalService
     readonly float[] _offsetS;
     readonly int[] _laneAxis;
 
-    /// <summary>Which junction each lane arrives at, so a colour is a load rather than a call back into the graph.</summary>
+    /// <summary>
+    /// Which of the plan's junctions each lane arrives at, so a colour is a load rather than a call back into
+    /// the graph. <see cref="CityPlan.NoRecord"/> where the lane runs out at a cut rather than an
+    /// intersection, which is a lane with no axis and so a lane this is never read for.
+    /// </summary>
     readonly int[] _laneJunction;
 
     readonly int[] _crossingAxis;
@@ -93,9 +97,9 @@ internal sealed class SignalService
     public static SignalService Build(CityPlan plan, RoadGraph roads, SimConfig config)
     {
         var junctions = plan.Junctions;
-        var lit = new bool[roads.NodeCount];
-        var offsetS = new float[roads.NodeCount];
-        for (var junction = 0; junction < roads.NodeCount && junction < junctions.Count; junction++)
+        var lit = new bool[roads.JunctionCount];
+        var offsetS = new float[roads.JunctionCount];
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
             lit[junction] = junctions.Lit[junction] && AdmitsConflictingMovements(roads, junction);
             offsetS[junction] = junctions.PhaseOffsetS[junction];
@@ -104,20 +108,23 @@ internal sealed class SignalService
         // The reference bearing of each junction, taken off the first arm the graph lists there. Which
         // arm that is does not matter — what matters is that it is the same one every time the town is
         // read, which it is, because the graph is laid from the plan in the plan's own order.
-        var reference = new Vector2[roads.NodeCount];
-        for (var node = 0; node < roads.NodeCount; node++)
+        var reference = new Vector2[roads.JunctionCount];
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
-            var arms = roads.LanesIn(node);
-            reference[node] = arms.Length > 0 ? roads.EndOf(arms[0]).Direction : Vector2.UnitX;
+            var arms = roads.LanesIntoJunction(junction);
+            reference[junction] = arms.Length > 0 ? roads.EndOf(arms[0]).Direction : Vector2.UnitX;
         }
 
         var laneAxis = new int[roads.LaneCount];
         Array.Fill(laneAxis, NoAxis);
-        for (var node = 0; node < roads.NodeCount; node++)
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
-            if (!lit[node]) continue;
+            if (!lit[junction]) continue;
 
-            foreach (var lane in roads.LanesIn(node)) laneAxis[lane] = AxisOf(reference[node], roads.EndOf(lane).Direction);
+            foreach (var lane in roads.LanesIntoJunction(junction))
+            {
+                laneAxis[lane] = AxisOf(reference[junction], roads.EndOf(lane).Direction);
+            }
         }
 
         var crossings = plan.Crosswalks;
@@ -138,7 +145,7 @@ internal sealed class SignalService
                 : NoAxis;
         }
 
-        return new SignalService(config, lit, offsetS, laneAxis, roads.LaneToNode, crossingAxis, crossingJunction);
+        return new SignalService(config, lit, offsetS, laneAxis, roads.LaneToJunction, crossingAxis, crossingJunction);
     }
 
     /// <summary>
@@ -153,7 +160,7 @@ internal sealed class SignalService
     /// traffic gives way to whoever is standing at the kerb. Lit instead, a mid-block zebra holds a street
     /// on a timer that nothing on it is waiting for.
     /// </remarks>
-    static bool AdmitsConflictingMovements(RoadGraph roads, int junction) => roads.LanesIn(junction).Length >= 3;
+    static bool AdmitsConflictingMovements(RoadGraph roads, int junction) => roads.LanesIntoJunction(junction).Length >= 3;
 
     /// <summary>
     /// Which of the two axes a bearing is on: the reference's, or the other one. <b>Modulo a half turn</b>,
@@ -178,7 +185,7 @@ internal sealed class SignalService
         var along = Vector2.Normalize(bearing);
         var best = NoAxis;
         var bestAgreement = -1f;
-        foreach (var arm in roads.LanesIn(junction))
+        foreach (var arm in roads.LanesIntoJunction(junction))
         {
             var agreement = MathF.Abs(Vector2.Dot(roads.EndOf(arm).Direction, along));
             if (agreement <= bestAgreement) continue;

@@ -79,18 +79,19 @@ public class ParkingSectionTests
         var roads = RoadGraph.Build(plan, Config);
         var shortestM = Config.ParkingSectionShortestStretchM;
 
-        for (var node = roads.JunctionCount; node < roads.NodeCount; node++)
+        for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            // A place whose cut was refused carries no lane and stands for nothing.
-            if (roads.LanesIn(node).Length == 0) continue;
+            // A cut a slice above asked for is named by the lane that ends at it (GEN-4h), and one the
+            // cut refused left no lane ending there to name it.
+            if (!roads.LaneEndsAtAPlace[lane]) continue;
 
-            var atM = roads.NodeCentreM[node];
+            var atM = roads.EndOf(lane).PositionM;
             for (var junction = 0; junction < plan.Junctions.Count; junction++)
             {
                 var awayM = (plan.Junctions.CentreM[junction] - atM).Length();
                 Assert.True(
                     awayM >= plan.Junctions.RadiusM[junction] + shortestM,
-                    $"{map}: place {node} stands {awayM:F1} m from junction {junction}");
+                    $"{map}: the place lane {lane} ends at stands {awayM:F1} m from junction {junction}");
             }
 
             for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
@@ -102,15 +103,12 @@ public class ParkingSectionTests
                 Assert.True(
                     deepM >= plan.Crosswalks.DepthM[crossing] * 0.5f
                     || alongM >= plan.CrossingSpanM(crossing) * 0.5f,
-                    $"{map}: place {node} stands on crossing {crossing}");
+                    $"{map}: the place lane {lane} ends at stands on crossing {crossing}");
             }
 
-            foreach (var lane in roads.LanesIn(node))
-            {
-                Assert.True(
-                    roads.LaneLengthM[lane] >= shortestM - InsideTheBendM(shortestM),
-                    $"{map}: place {node} leaves lane {lane} {roads.LaneLengthM[lane]:F2} m, short of {shortestM:F2} m");
-            }
+            Assert.True(
+                roads.LaneLengthM[lane] >= shortestM - InsideTheBendM(shortestM),
+                $"{map}: a place leaves lane {lane} {roads.LaneLengthM[lane]:F2} m, short of {shortestM:F2} m");
         }
     }
 
@@ -192,8 +190,8 @@ public class ParkingSectionTests
             // through, the goal is a metre inside a run. It is the road being out of room and never a cut
             // laid in the wrong place, which is why the fallback is named rather than tolerated.
             var road = roads.LaneRoad[lane];
-            if (roads.LaneToNode[lane] == plan.Roads.FromJunction[road]
-                || roads.LaneToNode[lane] == plan.Roads.ToJunction[road])
+            if (roads.LaneToJunction[lane] == plan.Roads.FromJunction[road]
+                || roads.LaneToJunction[lane] == plan.Roads.ToJunction[road])
             {
                 continue;
             }
@@ -202,7 +200,7 @@ public class ParkingSectionTests
                 MathF.Abs(driving.Runs.LengthM(link) - driving.PlaceOfM(lane, roads.LaneLengthM[lane])) < 0.01f,
                 $"{map}: bay {ways.BayOfWay(way)} is reached over lane {lane}, which ends "
                 + $"{driving.Runs.LengthM(link) - driving.PlaceOfM(lane, roads.LaneLengthM[lane]):F0} m "
-                + $"inside its own run at node {roads.LaneToNode[lane]}");
+                + $"inside its own run at node {roads.LaneToJunction[lane]}");
         }
     }
 }

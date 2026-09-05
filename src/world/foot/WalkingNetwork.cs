@@ -56,13 +56,17 @@ internal sealed class WalkingNetwork
         _lanes = lanes;
         _joins = joins;
 
-        for (var node = 0; node < foot.NodeCount; node++)
+        Places = LanePlaces.Of(foot);
+
+        for (var place = 0; place < Places.Count; place++)
         {
             var turns = 0;
-            foreach (var edge in foot.EdgesIn(node)) turns += _joins.TurnOffsets[edge + 1] - _joins.TurnOffsets[edge];
+            foreach (var edge in Places.LanesArriving(place))
+            {
+                turns += _joins.TurnOffsets[edge + 1] - _joins.TurnOffsets[edge];
+            }
 
             MostTurnsAtANode = Math.Max(MostTurnsAtANode, turns);
-            MostLanesAtANode = Math.Max(MostLanesAtANode, foot.EdgesIn(node).Length * 2);
         }
     }
 
@@ -94,8 +98,11 @@ internal sealed class WalkingNetwork
     /// <summary>The most corners any one of the town's nodes turns, which is how much room a walk of a node needs.</summary>
     public int MostTurnsAtANode { get; }
 
-    /// <summary>And the most lanes any one of them has an end at, both directions of every stretch counted.</summary>
-    public int MostLanesAtANode { get; }
+    /// <summary>
+    /// <b>Where the pavement's lanes meet</b>, worked out from the mitres between them
+    /// (<see cref="LanePlaces"/>) exactly as the carriageway's are worked out from its connectors.
+    /// </summary>
+    public LanePlaces Places { get; }
 
     /// <summary>
     /// <b>How wide the ground one lane of a stretch is walked down</b>: half the band, since a stretch

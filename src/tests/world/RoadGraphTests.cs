@@ -34,7 +34,7 @@ public class RoadGraphTests
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryLaneRunsBetweenTwoNodesItNames(string map)
+    public void EveryLaneRunsBetweenTwoPlacesAndNamesAJunctionOnlyWhereItEndsAtOne(string map)
     {
         var plan = Towns.Of(map);
         var graph = GraphOf(map);
@@ -43,8 +43,11 @@ public class RoadGraphTests
         Assert.Equal(plan.Junctions.Count, graph.JunctionCount);
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            Assert.InRange(graph.LaneFromNode[lane], 0, graph.NodeCount - 1);
-            Assert.InRange(graph.LaneToNode[lane], 0, graph.NodeCount - 1);
+            Assert.InRange(graph.Places.Starting(lane), 0, graph.Places.Count - 1);
+            Assert.InRange(graph.Places.Arriving(lane), 0, graph.Places.Count - 1);
+            Assert.Equal(graph.LaneEndsAtAPlace[lane], graph.LaneToJunction[lane] == CityPlan.NoRecord);
+            Assert.InRange(graph.LaneFromJunction[lane], CityPlan.NoRecord, graph.JunctionCount - 1);
+            Assert.InRange(graph.LaneToJunction[lane], CityPlan.NoRecord, graph.JunctionCount - 1);
             Assert.True(graph.LaneLengthM[lane] > 0f, $"{map}: lane {lane} has no length");
         }
     }
@@ -62,7 +65,7 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            if (!graph.IsAPlace(graph.LaneToNode[lane])) continue;
+            if (!graph.LaneEndsAtAPlace[lane]) continue;
 
             foreach (var onward in graph.LanesFrom(lane))
             {
@@ -100,8 +103,8 @@ public class RoadGraphTests
 
             Assert.Equal(lane, graph.LaneReverse[back]);
             Assert.Equal(graph.LaneRoad[lane], graph.LaneRoad[back]);
-            Assert.Equal(graph.LaneFromNode[lane], graph.LaneToNode[back]);
-            Assert.Equal(graph.LaneToNode[back], graph.LaneFromNode[lane]);
+            Assert.Equal(graph.LaneFromJunction[lane], graph.LaneToJunction[back]);
+            Assert.Equal(graph.LaneToJunction[back], graph.LaneFromJunction[lane]);
         }
     }
 
@@ -281,17 +284,17 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var leaving = graph.LanesOut(graph.LaneToNode[lane]);
+            var leaving = graph.Places.LanesLeaving(graph.Places.Arriving(lane));
             var reverse = graph.LaneReverse[lane];
 
-            // Every lane out of the node is a turn out of this one but the ones that face back: its own
-            // reverse always, and anything else within the straight tolerance of head-on.
+            // Every lane out of the place is a connector out of this one but the ones that face back: its
+            // own reverse always, and anything else within the straight tolerance of head-on.
             Assert.InRange(graph.LanesFrom(lane).Length, 0, leaving.Length - (leaving.Contains(reverse) ? 1 : 0));
             Assert.Null(graph.TurnBetween(lane, reverse));
 
             foreach (var lane2 in graph.LanesFrom(lane))
             {
-                Assert.Equal(graph.LaneToNode[lane], graph.LaneFromNode[lane2]);
+                Assert.Equal(graph.Places.Arriving(lane), graph.Places.Starting(lane2));
                 Assert.NotEqual(reverse, lane2);
             }
         }

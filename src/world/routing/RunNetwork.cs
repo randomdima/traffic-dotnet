@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Routing;
 
@@ -9,28 +10,14 @@ namespace TrafficSimulation.World.Routing;
 /// </summary>
 /// <remarks>
 /// <b>There are no nodes in it.</b> Where two lanes meet is not a record a network carries and hands over —
-/// it is what the connectors say, and <see cref="RunNetwork.Places"/> works it out. A network that carried
-/// its own node table would be stating the same fact twice, and the town's junctions are the plan's
-/// business rather than the traveller's: what a body needs to know at the end of a lane is which lanes it
-/// may leave for, and that is the connector.
+/// it is what the connectors say, and <see cref="LanePlaces"/> works it out. A network that carried its own
+/// node table would be stating the same fact twice, and the town's junctions are the plan's business rather
+/// than the traveller's: what a body needs to know at the end of a lane is which lanes it may leave for, and
+/// that is the connector.
 /// </remarks>
-internal interface IFineGraph
+internal interface IFineGraph : ILaneEnds
 {
-    int LaneCount { get; }
-
     float LengthM(int lane);
-
-    /// <summary>The same piece travelled the other way, or <see cref="RunNetwork.NoEdge"/>.</summary>
-    int Reverse(int lane);
-
-    /// <summary>The lanes a body on this one may leave for at the end of it, which is what its connectors say.</summary>
-    ReadOnlySpan<int> Onward(int lane);
-
-    /// <summary>Where the lane's line begins, which is one of the two places its runs are joined at.</summary>
-    Vector2 StartsAtM(int lane);
-
-    /// <summary>And where it ends.</summary>
-    Vector2 EndsAtM(int lane);
 
     /// <summary>
     /// Whether the place this lane ends at survives the contraction however few ways on it offers — <b>a
@@ -76,11 +63,11 @@ internal sealed class RunNetwork
     readonly float[] _stationM;
     readonly float[] _lengthM;
     readonly int[] _placeOf;
-    readonly Where _places;
+    readonly LanePlaces _places;
 
     RunNetwork(
         TravelGraph graph, int[] pieceOffsets, int[] pieces, float[] stationM, float[] lengthM, int[] placeOf,
-        Where places)
+        LanePlaces places)
     {
         Graph = graph;
         _places = places;
@@ -110,9 +97,8 @@ internal sealed class RunNetwork
     public int PlaceOf(int node) => _placeOf[node];
 
     /// <summary>
-    /// <b>Where the network's lanes meet</b>, as this contraction worked it out from the connectors
-    /// (<see cref="Places"/>). It is what a link's two travel nodes stand at, and the only sense in which
-    /// this network has junctions at all.
+    /// <b>Where the network's lanes meet</b> (<see cref="LanePlaces"/>). It is what a link's two travel
+    /// nodes stand at, and the only sense in which this network has junctions at all.
     /// </summary>
     public int PlaceCount => _places.Count;
 
@@ -157,7 +143,7 @@ internal sealed class RunNetwork
         where TFine : IFineGraph
         where TPricer : IEdgeTurnPricer
     {
-        var places = Places(fine);
+        var places = LanePlaces.Of(fine);
         var decision = Decisions(fine, places);
 
         var travelNodeOf = new int[places.Count];
@@ -263,130 +249,7 @@ internal sealed class RunNetwork
         }
     }
 
-    /// <summary>
-    /// <b>Where the lanes of a network meet, worked out from the connectors and never read off a node
-    /// table</b>. Two lane ends are the same place when a connector runs between them, or when they are the
-    /// two ends of one stretch driven either way — and a place is what a chain of those comes to.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The second clause is what a dead end and a mid-block crossing rest on.</b> No box admits the
-    /// movement that turns a car round (TER-5f), so the lane into a dead end has no connector to the lane
-    /// coming back out of it and the two ends would stand in different places — a run arriving with nowhere
-    /// to go and a run leaving that nothing arrives at. They are the same ground, and joining them is what
-    /// lets a leg be priced round a car park's bay (GEN-4l) rather than not offered at all.
-    /// </para>
-    /// <para>
-    /// <b>It is a fact about the network and never about the town's junctions.</b> A junction is a thing the
-    /// plan authored and the ground was paved for; what a traveller meets is lanes that end where other
-    /// lanes begin, and this is that and nothing more (TER-5d).
-    /// </para>
-    /// </remarks>
-    readonly struct Where(int[] placeOfEnd, int count, Vector2[] anchorM, int[] leavingAt, int[] leaving)
-    {
-        /// <summary>The place a lane sets off from.</summary>
-        public int Starting(int lane) => placeOfEnd[lane * 2];
-
-        /// <summary>And the place it arrives at.</summary>
-        public int Arriving(int lane) => placeOfEnd[(lane * 2) + 1];
-
-        public int Count => count;
-
-        /// <summary>Where the place stands: the middle of the lane ends that meet there.</summary>
-        public Vector2 AnchorM(int place) => anchorM[place];
-
-        public ReadOnlySpan<int> LanesLeaving(int place) =>
-            leaving.AsSpan(leavingAt[place], leavingAt[place + 1] - leavingAt[place]);
-    }
-
-    static Where Places<TFine>(TFine fine) where TFine : IFineGraph
-    {
-        var ends = fine.LaneCount * 2;
-        var parent = new int[ends];
-        for (var end = 0; end < ends; end++) parent[end] = end;
-
-        for (var lane = 0; lane < fine.LaneCount; lane++)
-        {
-            foreach (var onto in fine.Onward(lane)) Join(End(lane), Start(onto));
-
-            var reverse = fine.Reverse(lane);
-            if (reverse >= 0) Join(End(lane), Start(reverse));
-        }
-
-        var placeOf = new int[ends];
-        Array.Fill(placeOf, -1);
-        var count = 0;
-        for (var end = 0; end < ends; end++)
-        {
-            var root = Root(end);
-            if (placeOf[root] < 0) placeOf[root] = count++;
-
-            placeOf[end] = placeOf[root];
-        }
-
-        var anchorM = new Vector2[count];
-        var met = new int[count];
-        var leavingAt = new int[count + 1];
-        for (var lane = 0; lane < fine.LaneCount; lane++)
-        {
-            Meet(placeOf[Start(lane)], fine.StartsAtM(lane));
-            Meet(placeOf[End(lane)], fine.EndsAtM(lane));
-            leavingAt[placeOf[Start(lane)] + 1]++;
-        }
-
-        for (var place = 0; place < count; place++) anchorM[place] /= MathF.Max(1, met[place]);
-        for (var place = 1; place <= count; place++) leavingAt[place] += leavingAt[place - 1];
-
-        var cursor = (int[])leavingAt.Clone();
-        var leaving = new int[fine.LaneCount];
-        for (var lane = 0; lane < fine.LaneCount; lane++) leaving[cursor[placeOf[Start(lane)]]++] = lane;
-
-        return new Where(placeOf, count, anchorM, leavingAt, leaving);
-
-        static int Start(int lane) => lane * 2;
-
-        static int End(int lane) => (lane * 2) + 1;
-
-        void Meet(int place, Vector2 atM)
-        {
-            anchorM[place] += atM;
-            met[place]++;
-        }
-
-        int Root(int end)
-        {
-            while (parent[end] != end) end = parent[end] = parent[parent[end]];
-
-            return end;
-        }
-
-        // The lower end keeps the class, so which place a chain of joins comes to is the network's and not
-        // the order the joins happened to be made in.
-        void Join(int left, int right)
-        {
-            var a = Root(left);
-            var b = Root(right);
-            if (a == b) return;
-
-            if (a < b) parent[b] = a;
-            else parent[a] = b;
-        }
-    }
-
-    /// <summary>
-    /// <b>Which nodes survive the contraction</b>: the ones something is decided at, the ones two runs meet
-    /// at, and the ones a body can be sent to. Everything else is a place one run passes through — one way
-    /// on for every way in, and each of them taken by exactly one of them — and a run is what a chain of
-    /// those is.
-    /// </summary>
-    /// <remarks>
-    /// <b>Counted as movements and never as edges</b> (TER-4d). Two lanes leaving is what a bend looks like
-    /// where every stretch is driven both ways, and a town with one-way streets in it has bends of one lane
-    /// in and one lane out, junctions of three lanes where nothing is decided, and — the case an edge count
-    /// cannot see at all — <b>merges</b>: two one-way streets running into one, where each arrival has a
-    /// single way on and the two of them are the same way. A merge is a node because two links end there.
-    /// </remarks>
-    static bool[] Decisions<TFine>(TFine fine, Where places) where TFine : IFineGraph
+    static bool[] Decisions<TFine>(TFine fine, LanePlaces places) where TFine : IFineGraph
     {
         var arriving = new int[places.Count];
         var comingBack = new int[places.Count];

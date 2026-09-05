@@ -49,8 +49,8 @@ internal readonly record struct WayUnder(
 
 /// <summary>
 /// <b>Which of the town's ways one place stands on</b> — the lane it is in, the lane running back the other
-/// way where the body reaches into it, and every way of a node it is lying over: the joins of a junction and
-/// the lanes that end there.
+/// way where the body reaches into it, and every way of a place it is lying over: the connectors across it
+/// and the lanes that end there.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -74,25 +74,27 @@ internal readonly record struct WayUnder(
 /// traffic in each.
 /// </para>
 /// <para>
-/// <b>A node is asked at either end of that lane the body reaches</b> (TER-5d): past a lane's own end the
-/// ground stops being the lane's, and a lane shorter than the bodies on it answers to both its nodes.
+/// <b>A place is asked at either end of that lane the body reaches</b> (TER-5d): past a lane's own end the
+/// ground stops being the lane's, and a lane shorter than the bodies on it answers to both its places.
 /// <b>How far the body reaches and not where its middle projects</b> — a car short of a lane's last metre
 /// with its nose over it is standing in the box. It is the other networks that hold a line running on past
 /// where they are travelled, and the two figures are theirs to answer.
 /// </para>
 /// <para>
-/// <b>And a node is its lanes as much as its joins</b> (TER-4c.2). A junction's ground is carried by the
-/// movements over it, but a node cut into a road carries a movement of no length
-/// (<see cref="RoadGraph.IsAPlace"/>) and nothing else, so a body lying over one is on the ends of two lanes
-/// and on no join at all: read as the nearest lane's alone, the ground under the half of it past the node
-/// belonged to nobody.
+/// <b>And a place is its lanes as much as its connectors</b> (TER-4c.2). A junction's ground is carried by
+/// the movements over it, but where a road is merely cut the connector across is of no length at all, so a
+/// body lying over that place is on the ends of two lanes and on no connector: read as the nearest lane's
+/// alone, the ground under the half of it past the cut belonged to nobody.
 /// </para>
 /// </remarks>
 internal static class GroundUnder
 {
-    /// <summary>How much room a caller has to give the walk: the two lanes of a stretch, and every way the busiest node has — its movements and the lanes at its ends — at each end of one.</summary>
-    public static int MostWaysUnderAPlace(int mostTurnsAtANode, int mostLanesAtANode) =>
-        2 + ((mostTurnsAtANode + mostLanesAtANode) * 2);
+    /// <summary>
+    /// How much room a caller has to give the walk: the two lanes of a stretch, and every way the busiest
+    /// place has — its connectors and the lanes at its ends — at each end of one.
+    /// </summary>
+    public static int MostWaysUnderAPlace(int mostConnectorsAtAPlace, int mostLanesAtAPlace) =>
+        2 + ((mostConnectorsAtAPlace + mostLanesAtAPlace) * 2);
 
     /// <summary>
     /// The ways this place stands on, written into <paramref name="into"/> and returned as the count of
@@ -125,7 +127,7 @@ internal static class GroundUnder
         // Both ends of the nearest lane — and never the reverse lane's, whose ends are the same two
         // junctions read the other way round. <b>Asked of where the body reaches and never of where its
         // middle projects</b>: a carriageway lane is left for the box at its own last metre (TER-5d), so a
-        // body short of that metre with its nose over it was a body the node was never asked about at all —
+        // body short of that metre with its nose over it was a body the place was never asked about at all —
         // the ground under that nose held by nobody, and the block on the lane stopping dead at the mouth
         // of the junction.
         var lengthM = ways.LaneLengthM(lane);
@@ -133,48 +135,48 @@ internal static class GroundUnder
         body.ReachOn(Spline.SampleAt(arcs, 0f).Direction, out var reachesBackM, out _);
         if (alongM - reachesBackM <= ways.JoinedAtM(lane))
         {
-            WriteTheNode(ways,ways.FromNode(lane), atM, body, crossesByM, into, ref written);
+            WriteThePlace(ways,ways.PlaceBefore(lane), atM, body, crossesByM, into, ref written);
         }
 
         body.ReachOn(Spline.SampleAt(arcs, lengthM).Direction, out var reachesOnM, out _);
         if (alongM + reachesOnM >= lengthM - ways.LeftAtM(lane))
         {
-            WriteTheNode(ways,ways.ToNode(lane), atM, body, crossesByM, into, ref written);
+            WriteThePlace(ways,ways.PlaceAfter(lane), atM, body, crossesByM, into, ref written);
         }
 
         return written;
     }
 
     /// <summary>
-    /// Every way one node has — the movements through it and <b>the lanes that end at it</b> — for a body
+    /// Every way one place has — the connectors across it and <b>the lanes that end at it</b> — for a body
     /// standing near enough to be on any of them.
     /// </summary>
     /// <remarks>
-    /// <b>The lanes, because a join is not always there to carry the ground across</b>. A node cut into a
-    /// road rather than planned as a junction has a movement of no length over it
-    /// (<see cref="RoadGraph.IsAPlace"/>), so a body lying over that node is on the ends of two lanes and on
-    /// no join at all — and read as the nearest lane's alone, half of it stood on ground the claims said was
-    /// empty and the block drawn for it stopped at the node.
+    /// <b>The lanes, because a connector is not always there to carry the ground across</b>. A road merely
+    /// cut for a place a slice above asked for (GEN-4h) has a connector of no length over it, so a body lying
+    /// over that place is on the ends of two lanes and on no connector at all — and read as the nearest
+    /// lane's alone, half of it stood on ground the claims said was empty and the block drawn for it stopped
+    /// at the cut.
     /// <para>
-    /// <b>The lanes are what a place can meet twice and the joins are not</b> (TER-5c.2), which is why the
-    /// dedupe is theirs alone (<see cref="WriteTheLane"/>). A lane is a lane of both the nodes at its ends,
-    /// so a body over one node meets the nearest lane and its reverse again there; a movement belongs to the
-    /// one node it crosses, and the two nodes this walk asks are the two ends of one lane.
+    /// <b>The lanes are what a place can meet twice and the connectors are not</b> (TER-5c.2), which is why
+    /// the dedupe is theirs alone (<see cref="WriteTheLane"/>). A lane is a lane of both the places at its
+    /// ends, so a body over one meets the nearest lane and its reverse again there; a connector belongs to
+    /// the one place it crosses, and the two places this walk asks are the two ends of one lane.
     /// </para>
     /// </remarks>
-    static void WriteTheNode<TWays>(
-        in TWays ways,int node, Vector2 atM, in BodyFootprint body, float crossesByM,
+    static void WriteThePlace<TWays>(
+        in TWays ways,int place, Vector2 atM, in BodyFootprint body, float crossesByM,
         Span<WayUnder> into, ref int written)
         where TWays : struct, IWayNetwork
     {
         // <b>A lane may end at nothing</b>, and then there is nothing to write: a parking bay's way runs out
-        // onto the carriageway, which is a node of a different network. What the body standing there holds of
-        // the street is that network's own walk to say, made over that network's own ways.
-        if (node < 0) return;
+        // onto the carriageway, which is a place of a different network. What the body standing there holds
+        // of the street is that network's own walk to say, made over that network's own ways.
+        if (place < 0) return;
 
-        WriteTheConnectors(ways,node, atM, body, crossesByM, into, ref written);
-        WriteTheLanesAt(ways,ways.LanesIn(node), atM, body, crossesByM, into, ref written);
-        WriteTheLanesAt(ways,ways.LanesOut(node), atM, body, crossesByM, into, ref written);
+        WriteTheConnectors(ways,place, atM, body, crossesByM, into, ref written);
+        WriteTheLanesAt(ways,ways.LanesArriving(place), atM, body, crossesByM, into, ref written);
+        WriteTheLanesAt(ways,ways.LanesLeaving(place), atM, body, crossesByM, into, ref written);
     }
 
     static void WriteTheLanesAt<TWays>(
@@ -207,8 +209,8 @@ internal static class GroundUnder
     {
         if (written >= into.Length) return;
 
-        // The nearest lane and the lane running back against it are both lanes of their own two nodes, so a
-        // body over a node meets them again there — and one way twice is one body laid twice (TER-5c.2).
+        // The nearest lane and the lane running back against it are both lanes of their own two places, so a
+        // body over a place meets them again there — and one way twice is one body laid twice (TER-5c.2).
         var way = ways.WayOfLane(lane);
         for (var already = 0; already < written; already++)
         {
@@ -228,11 +230,11 @@ internal static class GroundUnder
     }
 
     static void WriteTheConnectors<TWays>(
-        in TWays ways,int node, Vector2 atM, in BodyFootprint body, float crossesByM,
+        in TWays ways,int place, Vector2 atM, in BodyFootprint body, float crossesByM,
         Span<WayUnder> into, ref int written)
         where TWays : struct, IWayNetwork
     {
-        foreach (var arriving in ways.LanesIn(node))
+        foreach (var arriving in ways.LanesArriving(place))
         {
             foreach (var connector in ways.ConnectorsFrom(arriving))
             {

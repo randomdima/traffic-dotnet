@@ -86,12 +86,12 @@ public class SignalTests
         var signals = SignalService.Build(plan, roads, Config);
 
         var lit = 0;
-        for (var junction = 0; junction < roads.NodeCount; junction++)
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
             if (!signals.Lit(junction)) continue;
 
             lit++;
-            var arms = roads.LanesIn(junction);
+            var arms = roads.LanesIntoJunction(junction);
             foreach (var atS in WholeCycle())
             {
                 foreach (var arm in arms)
@@ -126,9 +126,9 @@ public class SignalTests
         // merely cut — a dead end, a mid-block crossing — whose crossings are the give-way rule at the
         // kerb rather than a bundle (TER-5e).
         var conflicting = 0;
-        for (var junction = 0; junction < roads.NodeCount; junction++)
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
-            if (junction < plan.Junctions.Count && plan.Junctions.Lit[junction] && roads.LanesIn(junction).Length >= 3)
+            if (junction < plan.Junctions.Count && plan.Junctions.Lit[junction] && roads.LanesIntoJunction(junction).Length >= 3)
             {
                 conflicting++;
             }
@@ -149,11 +149,11 @@ public class SignalTests
         var roads = RoadGraph.Build(plan, Config);
         var signals = SignalService.Build(plan, roads, Config);
 
-        for (var junction = 0; junction < roads.NodeCount; junction++)
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
             if (signals.Lit(junction)) continue;
 
-            foreach (var arm in roads.LanesIn(junction))
+            foreach (var arm in roads.LanesIntoJunction(junction))
             {
                 Assert.Equal(SignalService.NoAxis, signals.AxisOfLane(arm));
                 Assert.Equal(SignalColour.Green, signals.ForApproach(arm, 4.75f));
@@ -247,7 +247,7 @@ public class SignalTests
             if (!signals.CrossingIsLit(crossing)) continue;
 
             var junction = plan.Crosswalks.Junction[crossing];
-            foreach (var arm in roads.LanesIn(junction))
+            foreach (var arm in roads.LanesIntoJunction(junction))
             {
                 if (!RunsOverThePaint(plan, roads, arm, crossing)) continue;
 

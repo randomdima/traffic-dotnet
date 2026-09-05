@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Tests.CityGen;
@@ -29,14 +30,14 @@ internal static class Drivable
         var reaches = new int[roads.LaneCount];
         var walked = new Queue<int>();
 
-        for (var junction = 0; junction < roads.NodeCount; junction++)
+        for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
-            if (roads.LanesIn(junction).Length == 0) continue;
+            if (roads.LanesIntoJunction(junction).Length == 0) continue;
 
             // Walked backwards from the lanes arriving at it, so one walk says which lanes reach this
             // junction rather than one walk a lane saying which junctions it reaches.
             var found = 0;
-            foreach (var lane in roads.LanesIn(junction))
+            foreach (var lane in roads.LanesIntoJunction(junction))
             {
                 if (reaches[lane] == junction + 1) continue;
 
@@ -60,7 +61,7 @@ internal static class Drivable
             if (found < roads.LaneCount)
             {
                 return $"{roads.LaneCount - found} of {roads.LaneCount} lanes cannot be driven to junction " +
-                       $"{junction} at {roads.NodeCentreM[junction]}";
+                       $"{junction} at {AtJunction(roads, junction)}";
             }
         }
 
@@ -83,11 +84,17 @@ internal static class Drivable
             if (into[lane] > 0 && roads.LanesFrom(lane).Length > 0) continue;
 
             var what = into[lane] == 0 ? "is driven onto by nothing" : "is driven off onto nothing";
-            return $"lane {lane} of road {roads.LaneRoad[lane]} {what}: node {roads.LaneFromNode[lane]} at "
-                   + $"{roads.NodeCentreM[roads.LaneFromNode[lane]]} to node {roads.LaneToNode[lane]} at "
-                   + $"{roads.NodeCentreM[roads.LaneToNode[lane]]}";
+            return $"lane {lane} of road {roads.LaneRoad[lane]} {what}: from {roads.StartOf(lane).PositionM} "
+                   + $"to {roads.EndOf(lane).PositionM}";
         }
 
         return null;
+    }
+
+    /// <summary>Where a junction stands, for a message: the end of any one of the lanes that arrive at it.</summary>
+    static Vector2 AtJunction(RoadGraph roads, int junction)
+    {
+        var arms = roads.LanesIntoJunction(junction);
+        return arms.IsEmpty ? Vector2.Zero : roads.EndOf(arms[0]).PositionM;
     }
 }

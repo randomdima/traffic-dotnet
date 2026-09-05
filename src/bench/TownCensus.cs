@@ -247,8 +247,15 @@ internal static class TownCensus
         Console.WriteLine("the networks");
         Console.WriteLine($"  signals        {bundles,7}  bundles of the {plan.Junctions.Count} junctions, " +
                           $"{uncontrolled} of {signals.CrossingCount} crossings uncontrolled");
-        Console.WriteLine($"  driving        {roads.LaneCount,7}  lanes over {plan.Junctions.Count} junctions and " +
-                          $"{roads.NodeCount - roads.JunctionCount} places cut for car parks, laid in {elapsed.TotalMilliseconds:F0} ms");
+        var cut = 0;
+        for (var lane = 0; lane < roads.LaneCount; lane++)
+        {
+            if (roads.LaneEndsAtAPlace[lane]) cut++;
+        }
+
+        Console.WriteLine($"  driving        {roads.LaneCount,7}  lanes meeting at {roads.Places.Count} places, " +
+                          $"{plan.Junctions.Count} of them the plan's junctions and {cut} lane ends cut for car " +
+                          $"parks, laid in {elapsed.TotalMilliseconds:F0} ms");
         Console.WriteLine($"  contracted to  {runs.LinkCount,7}  runs over {runs.Graph.NodeCount} nodes; " +
                           $"mean {(runs.LinkCount == 0 ? 0f : totalM / runs.LinkCount):F0} m, longest {longestM:F0} m, most lanes in one {mostPieces}");
         Joins(roads, config);

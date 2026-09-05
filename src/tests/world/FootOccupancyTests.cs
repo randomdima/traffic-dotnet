@@ -890,11 +890,11 @@ public class FootOccupancyTests
         var best = 0;
         var bestJoin = 0;
         var most = -1;
-        for (var node = 0; node < world.Roads.NodeCount; node++)
+        for (var node = 0; node < world.Roads.JunctionCount; node++)
         {
             var turns = 0;
             var join = -1;
-            foreach (var lane in world.Roads.LanesIn(node))
+            foreach (var lane in world.Roads.LanesIntoJunction(node))
             {
                 turns += world.Roads.LanesFrom(lane).Length;
                 for (var turn = 0; turn < world.Roads.LanesFrom(lane).Length && join < 0; turn++)

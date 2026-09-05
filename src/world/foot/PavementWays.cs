@@ -5,7 +5,7 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.World.Foot;
 
 /// <summary>
-/// <b>The pavement as <see cref="IWayNetwork"/></b>: every stretch's two lanes, the nodes they meet at and
+/// <b>The pavement as <see cref="IWayNetwork"/></b>: every stretch's two lanes, the places they meet at and
 /// the mitre each corner is turned on — the walking network read in the same words the carriageway is, so
 /// that one walk lays a body onto whichever of them it is standing on (TER-4c.2,
 /// <see cref="GroundUnder"/>).
@@ -65,13 +65,13 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
 
     public float LeftAtM(int lane) => MathF.Max(0f, walking.LaneLengthM(lane) - walking.WalkedToM(lane));
 
-    public int FromNode(int lane) => walking.Foot.FromNode(lane);
+    public int PlaceBefore(int lane) => walking.Places.Starting(lane);
 
-    public int ToNode(int lane) => walking.Foot.ToNode(lane);
+    public int PlaceAfter(int lane) => walking.Places.Arriving(lane);
 
-    public ReadOnlySpan<int> LanesIn(int node) => walking.Foot.EdgesIn(node);
+    public ReadOnlySpan<int> LanesArriving(int place) => walking.Places.LanesArriving(place);
 
-    public ReadOnlySpan<int> LanesOut(int node) => walking.Foot.EdgesOut(node);
+    public ReadOnlySpan<int> LanesLeaving(int place) => walking.Places.LanesLeaving(place);
 
     /// <summary>The pavement's connectors are its mitres: the corner between the lane arrived on and the lane left for.</summary>
     public ConnectorRun ConnectorsFrom(int lane) =>
@@ -82,7 +82,7 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
     public float ConnectorLengthM(int connector) => walking.JoinLengthM(connector);
 
     public int MostWaysUnderAPlace =>
-        GroundUnder.MostWaysUnderAPlace(walking.MostTurnsAtANode, walking.MostLanesAtANode);
+        GroundUnder.MostWaysUnderAPlace(walking.MostTurnsAtANode, walking.Places.MostLanesAtOne);
 
     /// <summary>
     /// <b>Whether a stretch is paint over a carriageway rather than ground the walk has to itself.</b> The

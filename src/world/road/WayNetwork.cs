@@ -5,8 +5,8 @@ namespace TrafficSimulation.World.Road;
 
 /// <summary>
 /// <b>The shape of a network a body's ground can be read off</b> (<see cref="GroundUnder"/>): lanes with
-/// lines, widths and setbacks, nodes with lanes at their ends, and a movement over each node with a line of
-/// its own. The town has three of these — the carriageway, the pavement and the parking bays — and <b>they
+/// lines, widths and setbacks, the places their ends meet at, and a connector over each of those with a line
+/// of its own. The town has three of these — the carriageway, the pavement and the parking bays — and <b>they
 /// are one system read three times, never three systems</b> (TER-4c.2).
 /// </summary>
 /// <remarks>
@@ -53,17 +53,18 @@ internal interface IWayNetwork
     float LeftAtM(int lane);
 
     /// <summary>
-    /// The node this lane leaves, or negative where it leaves none — a lane may run out onto a network other
-    /// than its own, and what a body standing at that end holds there is that network's walk to say.
+    /// The place this lane sets off from (<see cref="LanePlaces"/>), or <see cref="LanePlaces.NoPlace"/>
+    /// where it sets off from none — a lane may run out onto a network other than its own, and what a body
+    /// standing at that end holds there is that network's walk to say.
     /// </summary>
-    int FromNode(int lane);
+    int PlaceBefore(int lane);
 
-    /// <summary>And the node it arrives at, on the same terms.</summary>
-    int ToNode(int lane);
+    /// <summary>And the place it arrives at, on the same terms.</summary>
+    int PlaceAfter(int lane);
 
-    ReadOnlySpan<int> LanesIn(int node);
+    ReadOnlySpan<int> LanesArriving(int place);
 
-    ReadOnlySpan<int> LanesOut(int node);
+    ReadOnlySpan<int> LanesLeaving(int place);
 
     /// <summary>The connectors a body on this lane may leave by, as the run of ids they are.</summary>
     ConnectorRun ConnectorsFrom(int lane);
@@ -105,13 +106,13 @@ internal readonly struct RoadWays(RoadGraph roads) : IWayNetwork
     /// <inheritdoc cref="JoinedAtM"/>
     public float LeftAtM(int lane) => 0f;
 
-    public int FromNode(int lane) => roads.LaneFromNode[lane];
+    public int PlaceBefore(int lane) => roads.Places.Starting(lane);
 
-    public int ToNode(int lane) => roads.LaneToNode[lane];
+    public int PlaceAfter(int lane) => roads.Places.Arriving(lane);
 
-    public ReadOnlySpan<int> LanesIn(int node) => roads.LanesIn(node);
+    public ReadOnlySpan<int> LanesArriving(int place) => roads.Places.LanesArriving(place);
 
-    public ReadOnlySpan<int> LanesOut(int node) => roads.LanesOut(node);
+    public ReadOnlySpan<int> LanesLeaving(int place) => roads.Places.LanesLeaving(place);
 
     public ConnectorRun ConnectorsFrom(int lane) => roads.ConnectorsFrom(lane);
 
@@ -120,5 +121,5 @@ internal readonly struct RoadWays(RoadGraph roads) : IWayNetwork
     public float ConnectorLengthM(int connector) => roads.ConnectorLengthM(connector);
 
     public int MostWaysUnderAPlace =>
-        GroundUnder.MostWaysUnderAPlace(roads.MostTurnsAtANode, roads.MostLanesAtANode);
+        GroundUnder.MostWaysUnderAPlace(roads.MostConnectorsAtAPlace, roads.Places.MostLanesAtOne);
 }

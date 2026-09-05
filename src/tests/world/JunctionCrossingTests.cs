@@ -70,10 +70,10 @@ public class JunctionCrossingTests
 
         for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
-            var node = roads.LaneToNode[roads.ConnectorFrom(slot)];
+            var node = roads.LaneToJunction[roads.ConnectorFrom(slot)];
             foreach (ref readonly var section in roads.Crossings.Of(roads.WayOfConnector(slot)))
             {
-                Assert.Equal(node, roads.LaneToNode[roads.ConnectorFrom(roads.ConnectorOfWay(section.OnWay))]);
+                Assert.Equal(node, roads.LaneToJunction[roads.ConnectorFrom(roads.ConnectorOfWay(section.OnWay))]);
             }
         }
     }
@@ -123,7 +123,7 @@ public class JunctionCrossingTests
     {
         var roads = GraphOf(map);
 
-        for (var node = 0; node < roads.NodeCount; node++)
+        for (var node = 0; node < roads.JunctionCount; node++)
         {
             var atTheNode = TurnsAt(roads, node);
             for (var first = 0; first < atTheNode.Count; first++)
@@ -139,7 +139,7 @@ public class JunctionCrossingTests
 
                     Assert.True(
                         Takes(roads, a, b),
-                        $"{map}: turns {a} and {b} at node {roads.LaneToNode[roads.ConnectorFrom(a)]} pass {apartM:0.00} m "
+                        $"{map}: turns {a} and {b} at node {roads.LaneToJunction[roads.ConnectorFrom(a)]} pass {apartM:0.00} m "
                         + "from each other and neither takes ground off the other");
                 }
             }
@@ -178,7 +178,7 @@ public class JunctionCrossingTests
         var pairs = 0;
         var free = 0;
 
-        for (var node = 0; node < roads.NodeCount; node++)
+        for (var node = 0; node < roads.JunctionCount; node++)
         {
             var atTheNode = TurnsAt(roads, node);
             var apart = 0;
@@ -238,7 +238,7 @@ public class JunctionCrossingTests
         var roads = GraphOf(map);
         var pairs = 0;
 
-        for (var node = 0; node < roads.NodeCount; node++)
+        for (var node = 0; node < roads.JunctionCount; node++)
         {
             var atTheNode = TurnsAt(roads, node);
             foreach (var a in atTheNode)
@@ -376,7 +376,7 @@ public class JunctionCrossingTests
     static List<int> TurnsAt(RoadGraph roads, int node)
     {
         var turns = new List<int>();
-        foreach (var lane in roads.LanesIn(node))
+        foreach (var lane in roads.LanesIntoJunction(node))
         {
             foreach (var connector in roads.ConnectorsFrom(lane)) turns.Add(connector);
         }

@@ -127,7 +127,7 @@ internal sealed class SignalHeads
     {
         var best = -1;
         var bestAgreement = 0f;
-        foreach (var lane in roads.LanesIn(junction))
+        foreach (var lane in roads.LanesIntoJunction(junction))
         {
             if (roads.LaneRoad[lane] != road) continue;
 

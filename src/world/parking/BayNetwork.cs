@@ -100,13 +100,18 @@ internal readonly struct BayNetwork(BayWays bays, RoadGraph roads, float spaceWi
     /// </summary>
     public float LeftAtM(int lane) => bays.LengthM(lane) - bays.DrivenLengthM(lane);
 
-    public int FromNode(int lane) => bays.IsEntry(lane) ? NoNode : bays.BayOfWay(lane);
+    /// <summary>
+    /// <b>The bay is the place</b>: a way in arrives at one and a way out sets off from one, and the other
+    /// end of either runs out onto the carriageway, which is a place of a different network.
+    /// </summary>
+    public int PlaceBefore(int lane) => bays.IsEntry(lane) ? LanePlaces.NoPlace : bays.BayOfWay(lane);
 
-    public int ToNode(int lane) => bays.IsEntry(lane) ? bays.BayOfWay(lane) : NoNode;
+    /// <inheritdoc cref="PlaceBefore"/>
+    public int PlaceAfter(int lane) => bays.IsEntry(lane) ? bays.BayOfWay(lane) : LanePlaces.NoPlace;
 
-    public ReadOnlySpan<int> LanesIn(int node) => bays.WaysOf(node);
+    public ReadOnlySpan<int> LanesArriving(int place) => bays.WaysOf(place);
 
-    public ReadOnlySpan<int> LanesOut(int node) => bays.WaysOf(node);
+    public ReadOnlySpan<int> LanesLeaving(int place) => bays.WaysOf(place);
 
     /// <summary>Nothing is driven from one bay to the next: a bay is where a way ends and never a place it passes through.</summary>
     public ConnectorRun ConnectorsFrom(int lane) => default;

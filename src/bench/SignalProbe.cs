@@ -116,9 +116,9 @@ internal static class SignalProbe
             {
                 if (!signals.Lit(junction)) continue;
 
-                foreach (var arm in roads.LanesIn(junction))
+                foreach (var arm in roads.LanesIntoJunction(junction))
                 {
-                    foreach (var other in roads.LanesIn(junction))
+                    foreach (var other in roads.LanesIntoJunction(junction))
                     {
                         if (signals.AxisOfLane(arm) == signals.AxisOfLane(other)) continue;
                         if (signals.ForApproach(arm, atS) == SignalColour.Red) continue;
@@ -133,7 +133,7 @@ internal static class SignalProbe
             {
                 if (signals.ForCrossing(crossing, atS) != SignalColour.Green) continue;
 
-                foreach (var arm in roads.LanesIn(plan.Crosswalks.Junction[crossing]))
+                foreach (var arm in roads.LanesIntoJunction(plan.Crosswalks.Junction[crossing]))
                 {
                     if (signals.AxisOfLane(arm) != AxisOfCrossing(signals, plan, roads, crossing)) continue;
                     if (signals.ForApproach(arm, atS) == SignalColour.Red) continue;
@@ -160,7 +160,7 @@ internal static class SignalProbe
         var along = System.Numerics.Vector2.Normalize(axis);
         var best = SignalService.NoAxis;
         var bestAgreement = -1f;
-        foreach (var arm in roads.LanesIn(junction))
+        foreach (var arm in roads.LanesIntoJunction(junction))
         {
             var agreement = MathF.Abs(System.Numerics.Vector2.Dot(roads.EndOf(arm).Direction, along));
             if (agreement <= bestAgreement) continue;
