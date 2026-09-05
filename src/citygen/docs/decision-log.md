@@ -19,6 +19,14 @@ a junction's own disc rather than from the carriageway the lanes make. That is t
 what it needed first: with one list there is one place to change, where before there were two that had to
 be changed together and could not be checked against each other.
 
+**A junction's ring is a disc and its kerb is not, and that turns out not to matter.** Carrying each kerb
+corner round at the band's width — the arc a turning car takes (TER-5) grown by the walk — was laid, drawn
+and answered from, on the suspicion that round a corner the band was whatever the circle happened to leave.
+It is not: the ring and the inner corners (TER-3c.4) already cover every one of them. The wrap cost 836
+triangles on the fixture and 22,790 on Odesa and moved two pixels in a frame 711 m across, which is the
+seam noise of drawing the same ground twice. It was taken out again. **The corner coverage is not where
+the pavement is wrong**, and the next reader looking at a junction can start somewhere else.
+
 ## 2026-09-05 — the grid in the middle runs one way, and keeps what it can be driven with
 
 **A one-way grid is laid and then held to what a car can do on it** (GEN-18). The two families of a strict
