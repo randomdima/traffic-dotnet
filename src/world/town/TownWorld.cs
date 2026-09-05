@@ -49,24 +49,35 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 {
     readonly SimConfig _config;
     readonly CityPlan _plan;
-    readonly TerrainGrid _terrain;
+    readonly GroundLocator _terrain;
     readonly PhysicsWorld _physics;
     readonly BucketGrid _nearby;
 
     readonly RoadGraph _roads;
 
-    /// <summary>Who is on each way of the road, rebuilt from the bodies in phase 2 — <see cref="RebuildLaneOccupancy"/>.</summary>
-    readonly LaneOccupancy _occupancy;
+    /// <summary>
+    /// <b>Every way in the town, in one numbering</b> — the carriageway, the bays and the pavement
+    /// (<see cref="TownWays"/>). One table, so a claim on any of them is comparable with a claim on any
+    /// other.
+    /// </summary>
+    readonly TownWays _ways;
 
-    /// <summary>And who is on each way of the pavement — <see cref="RebuildFootOccupancy"/>. Two networks, two books.</summary>
-    readonly LaneOccupancy _footfall;
+    /// <summary>The pavement read in the words a walk over ground is written in, over that numbering.</summary>
+    readonly PavementWays _pavement;
+
+    /// <summary>
+    /// <b>Who is on each way of the town</b>, rebuilt from the bodies in phase 2 —
+    /// <see cref="RebuildLaneOccupancy"/>. One set of claims over one set of ways: a car that has mounted a
+    /// kerb and the walker beside it are two stretches of one footway and not two records in two tables.
+    /// </summary>
+    readonly LaneOccupancy _occupancy;
     readonly SignalService _signals;
     readonly SignalHeads _heads;
 
     /// <summary>The paint each lane meets — its stop bar and the crossings across it — projected once at load.</summary>
     readonly LaneFurniture _furniture;
 
-    /// <summary>And the town's furniture, as the stretches of lane it stands on — laid into the book every tick.</summary>
+    /// <summary>And the town's furniture, as the stretches of lane it stands on — claimed every tick.</summary>
     readonly StandingGround _standing;
 
     /// <summary>Whether each car's nose was behind its approach's painted bar last tick — the other half of a crossing event.</summary>
@@ -107,8 +118,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>One tick's working set for the fleet's wheels; it survives no tick.</summary>
     readonly WheelScratch _wheels;
 
-    /// <summary>What each body that is not driving last laid, and the state it was laid from — <see cref="PlaceWhatIsNotDriving"/>.</summary>
-    readonly LyingBook _lying;
+    /// <summary>What each body last laid of the ground it stands on, and the pose it was laid from — <see cref="PlaceTheBody"/>.</summary>
+    readonly LyingClaims _lying;
 
     readonly CarBuilds _builds;
 
@@ -134,7 +145,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly WayCrossings _crossings;
 
     /// <summary>And how much of a bay's ways the body standing in it may hold, off that table.</summary>
-    readonly BayStandings _standings;
 
     /// <summary>
     /// What each of the town's buildings is for — its hospitals, its police stations and its depots
@@ -176,7 +186,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _plan = plan;
         _agentSeed = agentSeed ?? plan.Seed;
         _everyWheelWrites = SkidpadPlan.HoldsItsCarsWheels(plan.Name);
-        _terrain = new TerrainGrid(plan, config);
+        _terrain = new GroundLocator(plan, config);
         _physics = new PhysicsWorld(config);
 
         // The selection and the orders it can give are laid with the town: what the interface holds is
@@ -205,7 +215,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _walking = WalkingNetwork.Build(_foot, _terrain, config);
         _walkSearch = new RouteSearch(_walking.Graph, mostEntries: 2, mostGoals: 2, MostRunsInARoute);
 
-        // The interface's own room to plan a whole path into (CTL-1a), laid with the selection it is
+        // <b>And then the one table all of them are numbered in</b> (TER-4c.2, <see cref="TownWays"/>). It is
+        // laid last of the networks because it is laid over them: what it takes from each is a run of
+        // lengths, so no network below it learns that the others are there.
+        _ways = TownWays.Of(
+            _roads, _bayWays.LengthsM, PavementLengthsM(_walking, out var mitreLengthM), mitreLengthM,
+            config.LanePassableAsideM, config.WalkPassableAsideM);
+        _pavement = _walking.WaysIn(_ways);
+
+        // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.
         _paths = new SelectionPaths(_selected.Capacity, _driving.Graph, _walking.Graph, MostRunsInARoute);
         _furniture = LaneFurniture.Project(plan, _roads);
@@ -238,12 +256,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         People = new PersonFleet(walkers);
         _impulseNs = new Vector2[walkers];
         _progress = new WalkProgress(walkers);
-        _footfall = BookOfPavement(_walking, walkers * MostSlotsPerWalker);
 
-        // The ways at the bays are laid with the road graph above, before the book: the book is sized to
+        // The ways at the bays are laid with the road graph above, before the claims: they are sized to
         // every way in the town, and a bay's is a way like the rest of them.
         _crossings = BayCrossings.Over(_bayWays, _roads, config);
-        _standings = BayStandings.Of(_bayWays, _crossings, config);
 
         // <b>A map laid to compare one thing stands the nominal car and everything else stands the fleet</b>
         // (CAR-11a): the measured lap differs in the drive layout and in nothing else, and the exam's cards
@@ -253,13 +269,22 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             ? CarBuilds.OfTheNominalCar(config, CarCatalog.Shared)
             : CarBuilds.OfTheFleet(config, CarCatalog.Shared);
 
-        Cars = new CarFleet(drivers, PathAssembler.ArcsFor(_roads) + _bayWays.MostArcs, _builds);
+        Cars = new CarFleet(drivers, LineAssembler.ArcsFor(_roads) + _bayWays.MostArcs, _builds);
+
+        // <b>One table, sized for every shape either roster can be in on any of the ways</b> (TER-4c.2): a
+        // car holds the road it is driving and the footway it has mounted, and a walker holds the pavement
+        // it is on and the band of the lane it has stepped into.
         _occupancy = new LaneOccupancy(
-            _roads,
-            _bayWays.LengthsM,
-            (drivers * MostSlotsPerCar(_roads, _crossings)) + (walkers * MostRoadSlotsPerWalker(_furniture))
+            _ways,
+            (drivers * (MostSlotsPerCar(_roads.Ways, _crossings, _bayWays.Ways) + MostPavementRowsPerCar(_pavement)))
+            + (walkers
+               * (MostRoadSlotsPerWalker(_roads.Ways, _bayWays.Ways, _furniture) + MostSlotsPerWalker(_pavement)))
             + _standing.Count);
-        _lying = new LyingBook(drivers, MostLyingRowsPerCar(_roads, _bayWays));
+
+        // One record per body, over every kind of way: a pose is laid once and its rows go back into the one
+        // table they were numbered in.
+        _lying = new LyingClaims(
+            drivers, MostLyingRowsPerCar(_roads.Ways, _bayWays.Ways) + MostPavementRowsPerCar(_pavement));
         _wheels = new WheelScratch(drivers);
         _behindTheBar = new bool[drivers];
         Marks = new DriftMarks(config.Marks.Capacity);
@@ -338,14 +363,16 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     public BayWays BayWays => _bayWays;
 
-    /// <summary>Who is on each way of the road this tick, for whoever draws it or measures it.</summary>
+    /// <summary>
+    /// <b>Who is on each way of the town this tick</b>, for whoever draws it or measures it. <b>The claims
+    /// are nobody's roster and no one surface's</b>: a body on the carriageway is a stretch of the lane it
+    /// stands in, a car over a zebra a band of the walk it crosses, and a car on a kerb a stretch of the
+    /// footway under it.
+    /// </summary>
     public LaneOccupancy Occupancy => _occupancy;
 
-    /// <summary>
-    /// The same for the pavement. <b>Neither book is one roster's</b>: a body on the carriageway is a
-    /// stretch of the lane it stands in, and a car driving over a zebra a band of the walk it crosses.
-    /// </summary>
-    public LaneOccupancy Footfall => _footfall;
+    /// <summary>Every way in the town and what kind of ground each is, for whoever holds a way number.</summary>
+    public TownWays Ways => _ways;
 
     /// <summary>The one town-wide lookup both agent kinds read, and the only thing that knows what colour anything is.</summary>
     public SignalService Signals => _signals;
@@ -452,7 +479,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public long StepsRoundToTheLeft { get; private set; }
 
-    public TerrainGrid Terrain => _terrain;
+    public GroundLocator Terrain => _terrain;
 
     public CityPlan Plan => _plan;
 
@@ -470,7 +497,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>
     /// Where the two networks lie over one another: the band of each crossing way each lane under it covers
-    /// (<see cref="CrossingBands"/>). It is what either side reads to ask the other's book about ground it
+    /// (<see cref="CrossingBands"/>). It is what either side reads to ask the other's claims about ground it
     /// is about to be on, and neither side writes to it.
     /// </summary>
     public CrossingBands Bands => _bands;
@@ -482,7 +509,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>
     /// How many stretches of lane the town's own furniture stands on. <b>The instrument that says whether
-    /// the road's book knows about the immovable things at all</b> — a town reading zero here is a town
+    /// the road's claims know about the immovable things at all</b> — a town reading zero here is a town
     /// where nothing was built in a carriageway, which is the answer a well-formed map file gives.
     /// </summary>
     public int StandingSlots => _standing.Count;
@@ -542,7 +569,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         MendTheYards(_config.TickSeconds);
         _nearby.Rebuild(People.PositionM, People.RadiusM, People.Count);
         RebuildLaneOccupancy();
-        RebuildFootOccupancy();
 
         // Phase 3 begins on the walkers, which is the end of the roster the loop walks first.
         if (!Timed) return;
@@ -661,17 +687,17 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             People.Walking[agent] = false;
         }
 
-        // What the pavement's book granted this walker, read as the permission it is (PER-13): there is
+        // What the pavement granted this walker, read as the permission it is (PER-13): there is
         // ground in front of it to walk into, or it stands where it is until whoever has that ground moves.
-        // A body going nowhere is the other answer and is no part of that grant (PER-24): the aim goes
-        // round it, which is a walker's whole reply to something in the way — and where there is nowhere to
-        // step to, standing is, exactly as it was before there was a step.
+        // A body going nowhere turns the aim off the line rather than adding to the grant (PER-24), so the
+        // step is taken with the room the cut leaves and never past the body — and where there is nowhere to
+        // step to, standing is the reply, exactly as it was before there was a step.
         var walledIn = false;
         var aimM = atTheKerb
             ? WaitAimM(agent)
             : StepRoundAim(agent, positionM, People.DestinationM[agent], out walledIn);
 
-        var moving = People.Walking[agent] && !People.IsHeldByTheBook(agent, StopsInM(agent)) && !walledIn &&
+        var moving = People.Walking[agent] && !People.IsHeldByTheClaims(agent, StopsInM(agent)) && !walledIn &&
                      (!atTheKerb || (aimM - positionM).Length() > People.RadiusM[agent]);
 
         var step = WalkerFollower.Step(
@@ -733,11 +759,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // crossing it had not begun.
         if (People.HeldAtTheKerb[agent]) return;
 
-        // Nor is queueing, which is now the whole of what the book holds a walker for: the walker in front
-        // is under way and the ground it holds is ground it is about to give back. A body going nowhere
-        // stopped being one of these when it stopped cutting the grant (PER-24) — nothing waits behind one
-        // any more, so nothing has to be given a leg up out from behind one either.
-        if (People.IsHeldByTheBook(agent, StopsInM(agent))) return;
+        // Nor is queueing: the body in front is under way and the ground it holds is ground it is about to
+        // give back, so the clock that gives a leg up would be counting a wait that ends itself.
+        //
+        // A body going nowhere is the other case and is not one of these (PER-24). It holds the ground it is
+        // standing on for as long as it stands there, so a walker cut at it is stopped rather than waiting —
+        // and it has to keep deciding, or the clock never runs and nothing ever draws it a line round.
+        if (People.StepsRound[agent] == PersonFleet.NoBody && !IsHeldByAStandstill(agent) &&
+            People.IsHeldByTheClaims(agent, StopsInM(agent))) return;
 
         // Nor is a beat stood on purpose. It is the walking side's own idle — between two goals, and in the
         // road while a body paces one — and a clock that gave a leg up while it ran would end the stand

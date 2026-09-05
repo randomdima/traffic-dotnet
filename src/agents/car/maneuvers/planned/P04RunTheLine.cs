@@ -61,7 +61,7 @@ internal static class P04RunTheLine
         if (scene.Hold == DrivingHold.LostLine) return ManeuverOutcome.Running;
 
         // A place on the line this car was sent to — a casualty in the road (`P-18`) — <b>once it is near
-        // enough to be stopped for</b>, exactly as the box below is taken once it is within reserve
+        // enough to be stopped for</b>, exactly as the box below is taken once it is within claim
         // distance. Handed over any earlier, the last hundred metres of a rescue would be driven by an
         // entry that has no way past an obstruction: getting past what is in the way is this entry's
         // (`E-4`), and it has to still be the entry in charge while there is road left to do it in.
@@ -109,7 +109,7 @@ internal static class P04RunTheLine
 
         // The junction ahead, once it is near enough to have been asked for. A claim it could not get is
         // a stop at the boundary, and that is `P-6` above: it is what the profile is stopping for.
-        if (scene.ToTheBoxM <= scene.Config.CarJunctionReserveM && scene.BoxIsOurs)
+        if (scene.ToTheBoxM <= scene.Config.CarJunctionClaimM && scene.BoxIsOurs)
         {
             return ManeuverOutcome.To(Maneuver.TakeTheJunction, ManeuverReason.BoxIsOurs);
         }

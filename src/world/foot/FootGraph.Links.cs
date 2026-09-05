@@ -9,13 +9,13 @@ namespace TrafficSimulation.World.Foot;
 internal sealed partial class FootGraph
 {
     /// <summary>Whether any station of a line stands inside ground the plan paved over for traffic.</summary>
-    static bool RunsOverAPavedArea(CityPlan plan, ArcSeg line)
+    static bool RunsOverAPavedArea(CityPlan plan, float stepM, ArcSeg line)
     {
         var areas = plan.PavedAreas;
         if (areas.Count == 0) return false;
 
         ReadOnlySpan<ArcSeg> chain = new(in line);
-        var steps = Math.Max(2, (int)MathF.Ceiling(line.LengthM / plan.CellSizeM));
+        var steps = Math.Max(2, (int)MathF.Ceiling(line.LengthM / stepM));
         for (var step = 0; step <= steps; step++)
         {
             var pointM = Spline.SampleAt(chain, line.LengthM * step / steps).PositionM;
@@ -55,7 +55,7 @@ internal sealed partial class FootGraph
     /// one face the band does not run down.
     /// </para>
     /// </remarks>
-    static void LotBands(CityPlan plan, TerrainGrid terrain, Builder builder, float bandM)
+    static void LotBands(CityPlan plan, GroundLocator terrain, Builder builder, float bandM)
     {
         var lots = plan.ParkingLots;
         if (lots.Count == 0) return;

@@ -138,7 +138,7 @@ public class MapConformanceTests
     public void NothingIsLaidOnItsWater(string map)
     {
         var plan = Towns.Of(map);
-        var grid = new TerrainGrid(plan, SimConfig.Shipped());
+        var grid = new GroundLocator(plan, SimConfig.Shipped());
 
         for (var building = 0; building < plan.Buildings.Count; building++)
         {
@@ -161,7 +161,7 @@ public class MapConformanceTests
         }
     }
 
-    static void AssertOffTheWater(TerrainGrid grid, System.Numerics.Vector2 pointM, string what)
+    static void AssertOffTheWater(GroundLocator grid, System.Numerics.Vector2 pointM, string what)
     {
         var ground = grid.At(pointM);
         Assert.True(ground.Walkable || ground.Drivable, $"{what} stands at {pointM} on ground permitted to nobody");

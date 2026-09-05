@@ -2,7 +2,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 
 /// <summary>
 /// <b>The whole of what a manoeuvre does to the car.</b> An entry's procedure sets these and nothing
-/// else; the standing rules (§1.7) turn them, the line and what the book found into a steering angle
+/// else; the standing rules (§1.7) turn them, the line and what was found in front into a steering angle
 /// and a pedal. A manoeuvre that could write a command directly would be a manoeuvre that could put a
 /// car somewhere the tyres could not have taken it.
 /// </summary>

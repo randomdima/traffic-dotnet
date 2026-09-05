@@ -85,7 +85,7 @@ ticks rather than spiking on one. Three rules hold it honest:
 - **It is a floor on the rate, never a ceiling.** A manoeuvre declares for itself that it runs every tick,
   and two kinds always do: one **negotiating with something that is itself moving**, and one **steering to
   a pose**.
-- **Hard rules and the junction reservation are asked every tick regardless.** Setting the interval to 0
+- **Hard rules and the junction claim are asked every tick regardless.** Setting the interval to 0
   must make every agent think every tick and reproduce the un-clocked town exactly; that equivalence is
   the test that the clock changed no behaviour it should not have.
 

@@ -39,7 +39,11 @@ internal static class RoadCuts
         var bucketM = 0f;
         foreach (var radiusM in junctions.RadiusM) bucketM = MathF.Max(bucketM, radiusM + paddingM);
 
-        return BucketGrid.Build(plan.WorldSizeM, MathF.Max(bucketM, plan.CellSizeM), junctions.CentreM, junctions.RadiusM);
+        // A map with no junctions on it has nothing to bin, and one bucket over the whole town is the index
+        // that says so. A bucket has a size, and there is no junction here to take one off.
+        if (bucketM <= 0f) bucketM = MathF.Max(plan.WorldSizeM.X, plan.WorldSizeM.Y);
+
+        return BucketGrid.Build(plan.WorldSizeM, bucketM, junctions.CentreM, junctions.RadiusM);
     }
 
     /// <summary>

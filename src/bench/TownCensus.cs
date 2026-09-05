@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Agents.TrafficLight.Control;
@@ -30,33 +31,44 @@ internal static class TownCensus
         var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
         var elapsed = Stopwatch.GetElapsedTime(started);
 
-        var grid = new TerrainGrid(plan, config);
+        var locator = new GroundLocator(plan, config);
 
         Console.WriteLine($"census — {plan.Name}, seed {plan.Seed}");
-        Console.WriteLine($"{plan.WorldSizeM.X:F0} x {plan.WorldSizeM.Y:F0} m, {plan.GridWidth} x {plan.GridHeight} cells of " +
-                          $"{plan.CellSizeM:F2} m, {plan.PavementWidthM:F1} m pavement");
+        Console.WriteLine($"{plan.WorldSizeM.X:F0} x {plan.WorldSizeM.Y:F0} m, {plan.PavementWidthM:F1} m pavement");
         Console.WriteLine($"laid in {elapsed.TotalMilliseconds:F0} ms");
         Console.WriteLine();
 
-        Console.WriteLine("ground");
-        Span<int> cellsPerGround = stackalloc int[GroundCatalog.Kinds];
-        foreach (var ground in plan.Cells) cellsPerGround[(int)ground]++;
-        for (var ground = 0; ground < cellsPerGround.Length; ground++)
+        // <b>A share and never a count</b>: the ground is a set of shapes with no cells in it, so how much
+        // of the town each kind covers is measured by asking, on a lattice this report owns and at the step
+        // the figures name. The area is the sample's, which is what the row says.
+        var stepM = config.Terrain.GroundStepM;
+        Span<int> samplesPerGround = stackalloc int[GroundCatalog.Kinds];
+        var samples = 0;
+        var asked = Stopwatch.GetTimestamp();
+        for (var y = stepM * 0.5f; y < plan.WorldSizeM.Y; y += stepM)
         {
-            if (cellsPerGround[ground] == 0) continue;
+            for (var x = stepM * 0.5f; x < plan.WorldSizeM.X; x += stepM)
+            {
+                samplesPerGround[(int)locator.GroundAt(new Vector2(x, y))]++;
+                samples++;
+            }
+        }
+
+        // <b>What one question costs, beside the answers.</b> Four wheels a car, sixty times a second, is
+        // what this figure is really about, and a sweep of the whole town is the cheapest honest way to take
+        // it — every kind of ground in the proportion the town actually holds them.
+        var perAsk = Stopwatch.GetElapsedTime(asked).TotalMilliseconds * 1e6 / samples;
+
+        Console.WriteLine($"ground, sampled every {stepM:F2} m — {samples / 1000} k asks at {perAsk:F0} ns each");
+        for (var ground = 0; ground < samplesPerGround.Length; ground++)
+        {
+            if (samplesPerGround[ground] == 0) continue;
 
             var rules = GroundCatalog.RulesOf((Ground)ground);
-            Console.WriteLine($"  {(Ground)ground,-13}{cellsPerGround[ground],10} cells  " +
-                              $"{100d * cellsPerGround[ground] / plan.CellCount,5:F1} %  {rules}");
+            Console.WriteLine($"  {(Ground)ground,-13}{samplesPerGround[ground] * stepM * stepM / 10000f,10:F2} ha  " +
+                              $"{100d * samplesPerGround[ground] / samples,5:F1} %  {rules}");
         }
 
-        var directionalCells = 0;
-        for (var cell = 0; cell < plan.CellCount; cell++)
-        {
-            if (plan.LaneDirs[cell * 2] != 0 || plan.LaneDirs[cell * 2 + 1] != 0) directionalCells++;
-        }
-
-        Console.WriteLine($"  lane directions on {directionalCells} cells, {grid.CellSizeM:F2} m each");
         Console.WriteLine();
 
         var lit = 0;
@@ -100,7 +112,7 @@ internal static class TownCensus
         Console.WriteLine($"  junctions      {plan.Junctions.Count,7}  {lit} lit, {JunctionsWith(plan, 2)} with no fork, " +
                           $"{JunctionsWith(plan, 1)} dead ends, {plan.JunctionCorners.Count} kerb corners, " +
                           $"reach {Mean(plan.Junctions.RadiusM):F2} m");
-        Console.WriteLine($"  pavement       {PavementCorners.Solve(plan, config).Count,7}  inner corners solved, " +
+        Console.WriteLine($"  pavement       {PavementCorners.Solve(plan.Ground, config).Count,7}  inner corners solved, " +
                           $"{plan.PavementCorners.Count} carried by the map");
         Console.WriteLine($"  bridges        {plan.Bridges.Count,7}  paved areas {plan.PavedAreas.Count}");
         // A zebra has no span of its own to print: what it reaches is solved off the road it is painted on
@@ -234,7 +246,7 @@ internal static class TownCensus
         var footElapsed = Stopwatch.GetElapsedTime(footStarted);
 
         var walkStarted = Stopwatch.GetTimestamp();
-        var walking = WalkingNetwork.Build(foot, new TerrainGrid(plan, config), config);
+        var walking = WalkingNetwork.Build(foot, new GroundLocator(plan, config), config);
         var walkElapsed = Stopwatch.GetElapsedTime(walkStarted);
 
         var footM = 0f;

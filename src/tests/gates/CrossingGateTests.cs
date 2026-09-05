@@ -90,7 +90,7 @@ public class CrossingGateTests
         ui.Switches.Toggle(ref ui.Switches.WalkerLines);
         ui.Switches.Toggle(ref ui.Switches.Collision);
         ui.Switches.Toggle(ref ui.Switches.Nodes);
-        ui.Switches.Toggle(ref ui.Switches.Reservations);
+        ui.Switches.Toggle(ref ui.Switches.Claims);
         ui.Switches.Toggle(ref ui.Switches.Ruler);
         ui.Ruler.Click(camera.CentreM);
         ui.Ruler.Click(camera.CentreM + new Vector2(40f, 10f));
@@ -119,7 +119,7 @@ public class CrossingGateTests
         Assert.True(written <= TownRenderer.OverlayCapacity);
 
         // The ground marks are a buffer and a draw of their own, and they are what the nodes and
-        // reservation switches draw into — an empty one with every layer on would be the split silently
+        // claim switches draw into — an empty one with every layer on would be the split silently
         // doing nothing.
         Assert.True(underneath > 0, "every layer is on and nothing was drawn under the bodies");
         Assert.True(underneath <= TownRenderer.UnderlayCapacity);

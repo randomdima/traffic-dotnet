@@ -2,7 +2,7 @@ namespace TrafficSimulation.App.Debug;
 
 /// <summary>
 /// <b>OBS-2c — each thing a debug session can be opened for has a switch of its own, and no switch
-/// turns on anything a second one owns.</b> Eight checkboxes.
+/// turns on anything a second one owns.</b> Nine checkboxes.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -14,7 +14,7 @@ namespace TrafficSimulation.App.Debug;
 /// <b>A layer covers one kind of body entirely</b> — its geometry and the manoeuvre it is in alike —
 /// because the question a debug session asks is about the body and not about the kind of mark. What
 /// belongs to the <em>town</em> rather than to a body is not switched with a body at all, which is
-/// what <see cref="Nodes"/> and <see cref="Reservations"/> are for.
+/// what <see cref="Nodes"/> and <see cref="Claims"/> are for.
 /// </para>
 /// </remarks>
 internal sealed class DebugSwitches
@@ -36,19 +36,19 @@ internal sealed class DebugSwitches
     public bool Nodes;
 
     /// <summary>
-    /// <b>The two books of who has been granted which stretch of that ground</b>, as a block of the way
-    /// each stretch is a stretch of.
+    /// <b>Every claim on that ground</b>, as a block of the way each stretch is a stretch of, whatever kind
+    /// of ground that way is.
     /// </summary>
     /// <remarks>
-    /// A reservation is a fact about the <em>ground</em> and not about the body holding it — one body's
-    /// stretch is what cuts another's, across both rosters and both networks — so it is switched with the
+    /// A claim is a fact about the <em>ground</em> and not about the body holding it — one body's
+    /// stretch is what cuts another's, across both rosters and every kind of way — so it is switched with the
     /// town rather than with either kind of body (OBS-2c). Held under the car layer it could not show a
     /// walker standing in a lane without the car switch on, which is the reading it exists for. It is
     /// <em>not</em> switched with <see cref="Nodes"/> either: the graphs are the ground a town was laid
     /// with and the blocks are what the tick did to it this frame, and a junction's movements drawn under
     /// every block on them is the picture neither question wants.
     /// </remarks>
-    public bool Reservations;
+    public bool Claims;
 
     /// <summary>Every body's collision shape — the one the solver holds, not the one it is drawn at.</summary>
     public bool Collision;

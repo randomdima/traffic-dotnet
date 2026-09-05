@@ -13,8 +13,8 @@ the same search**; what differs is only what their network is made of — the la
 | **Local** | how to get from one node to the next | road or pavement geometry, lane direction, static objects | each agent kind's own |
 
 Below the local tier is the **manoeuvre**, which is more detailed again: it is what waits at a red light,
-picks its way down a bay to a car door, gives way. A local path is a combination of planned manoeuvres; a
-manoeuvre is not a path at all.
+picks its way down a bay to a car door, gives way. A local line is a combination of planned manoeuvres; a
+manoeuvre is not a line at all.
 
 ## What a node is
 

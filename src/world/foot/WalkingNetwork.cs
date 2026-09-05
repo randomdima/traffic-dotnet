@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 using TrafficSimulation.World.Terrain;
 
@@ -54,9 +55,28 @@ internal sealed class WalkingNetwork
         _laneOffsetM = laneOffsetM;
         _lanes = lanes;
         _joins = joins;
+
+        for (var node = 0; node < foot.NodeCount; node++)
+        {
+            var turns = 0;
+            foreach (var edge in foot.EdgesIn(node)) turns += _joins.TurnOffsets[edge + 1] - _joins.TurnOffsets[edge];
+
+            MostTurnsAtANode = Math.Max(MostTurnsAtANode, turns);
+            MostLanesAtANode = Math.Max(MostLanesAtANode, foot.EdgesIn(node).Length * 2);
+        }
     }
 
     public FootGraph Foot => _foot;
+
+    /// <summary>
+    /// The pavement in the words a walk over ground is written in (<see cref="IWayNetwork"/>) — a view and
+    /// not a second structure, so it is taken wherever it is wanted rather than kept.
+    /// </summary>
+    /// <remarks>
+    /// <b>It needs the town's numbering to name its own ways</b> (<see cref="TownWays"/>), and the town is
+    /// laid over this network rather than under it — so the table is handed in rather than reached for.
+    /// </remarks>
+    public PavementWays WaysIn(TownWays town) => new(this, town.FirstFootwayWay, town.FirstMitreWay);
 
     public RunNetwork Runs { get; }
 
@@ -70,6 +90,19 @@ internal sealed class WalkingNetwork
 
     /// <summary>How many mitres the town holds, which is what numbers the corners apart from the lanes.</summary>
     public int TurnCount => _joins.ToEdge.Length;
+
+    /// <summary>The most corners any one of the town's nodes turns, which is how much room a walk of a node needs.</summary>
+    public int MostTurnsAtANode { get; }
+
+    /// <summary>And the most lanes any one of them has an end at, both directions of every stretch counted.</summary>
+    public int MostLanesAtANode { get; }
+
+    /// <summary>
+    /// <b>How wide the ground one lane of a stretch is walked down</b>: half the band, since a stretch
+    /// carries a lane each way (<see cref="LaneOffsetM"/>) — the pavement's answer to a carriageway's lane
+    /// being half its width.
+    /// </summary>
+    public float LaneWidthM(int edge) => _foot.BandM(edge) * 0.5f;
 
     /// <summary>
     /// <b>The length of the line a walker going this way is actually held on</b>, which is not the
@@ -85,6 +118,16 @@ internal sealed class WalkingNetwork
     /// the stretch's own ground stops where the corner starts.
     /// </summary>
     public float TailLengthM(int edge) => _lanes.TailM[edge];
+
+    /// <summary>
+    /// And how much came off the head of it (<see cref="Carrying"/>) — the ground the corner arriving at
+    /// this stretch took, which is no longer part of the lane. It is what carries a place measured along
+    /// the <em>stretch</em> onto the lane, and nothing else needs it.
+    /// </summary>
+    public float HeadLengthM(int edge) => _lanes.HeadM[edge];
+
+    /// <summary>And what the corner leaving it took off the other end, on the same terms.</summary>
+    public float EndLengthM(int edge) => _lanes.EndM[edge];
 
     /// <summary>
     /// The turn this lane <b>carries rather than hands over at</b>, or <see cref="NoTurn"/> where it carries
@@ -258,7 +301,7 @@ internal sealed class WalkingNetwork
         return count;
     }
 
-    public static WalkingNetwork Build(FootGraph foot, TerrainGrid terrain, SimConfig config)
+    public static WalkingNetwork Build(FootGraph foot, GroundLocator terrain, SimConfig config)
     {
         var runs = RunNetwork.Contract(foot, default(Pricer));
 
@@ -278,14 +321,36 @@ internal sealed class WalkingNetwork
         var laneOffsetM = LaneOffsets(foot, terrain, config);
         var offset = LayLanes(foot, laneOffsetM);
         var joins = LayJoins(foot, offset, config);
-        return new WalkingNetwork(foot, runs, linkOfEdge, slotOfEdge, laneOffsetM, Carrying(foot, offset, joins), joins);
+        var lanes = Carrying(foot, offset, joins);
+        return new WalkingNetwork(foot, runs, linkOfEdge, slotOfEdge, laneOffsetM, lanes, OnTheLanes(foot, joins, lanes));
     }
 
     /// <summary>
-    /// Every lane in the town, laid once: the arcs, how long each line is and how much of that length is a
-    /// corner the lane carries rather than ground of its own stretch.
+    /// The mitres' figures restated in the metres of the lanes <see cref="Carrying"/> cut: <b>every one of
+    /// them is nought</b>. A mitre leaves the arriving lane at that lane's own last metre and lands on the
+    /// onward lane's first, because the ground either side of it is what came off those lanes — so there is
+    /// no margin left to remember, and a lane is walked from end to end.
     /// </summary>
-    readonly record struct Lanes(int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM, float[] TailM)
+    static Joins OnTheLanes(FootGraph foot, Joins joins, Lanes lanes)
+    {
+        Array.Clear(joins.FromM);
+        Array.Clear(joins.ToM);
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
+        {
+            joins.LaneFromM[edge] = 0f;
+            joins.LaneToM[edge] = lanes.LengthM[edge];
+        }
+
+        return joins;
+    }
+
+    /// <summary>
+    /// Every lane in the town, laid once: the arcs, how long each line is, how much of that length is a
+    /// corner the lane carries rather than ground of its own stretch, and how much of the stretch's own
+    /// offset line was cut off the head of it so that the mitre onto it lands on its first metre.
+    /// </summary>
+    readonly record struct Lanes(
+        int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM, float[] TailM, float[] HeadM, float[] EndM)
     {
         public ReadOnlySpan<ArcSeg> Of(int edge) =>
             Arcs.AsSpan(ArcOffsets[edge], ArcOffsets[edge + 1] - ArcOffsets[edge]);
@@ -322,50 +387,91 @@ internal sealed class WalkingNetwork
             lengthM[edge] = Spline.TotalLengthM(into);
         }
 
-        return new Lanes(arcOffsets, arcs, lengthM, new float[foot.EdgeCount]);
+        return new Lanes(
+            arcOffsets, arcs, lengthM, new float[foot.EdgeCount], new float[foot.EdgeCount],
+            new float[foot.EdgeCount]);
     }
 
     /// <summary>
-    /// The same lanes with each one's own corner folded into it: the stretch to where the corner leaves it,
-    /// and then the corner. <b>A stretch that arrives at a node offering one way on is one line round that
-    /// corner and not two pieces meeting at it</b> — nothing is decided there, the ground is the stretch's
-    /// own bend, and a piece in its own right is a piece every walk down it has to be handed.
+    /// The same lanes cut down to <b>exactly the ground a walk covers</b>, with each one's own corner folded
+    /// into it: the stretch to where the corner leaves it, and then the corner. <b>A stretch that arrives at
+    /// a node offering one way on is one line round that corner and not two pieces meeting at it</b> —
+    /// nothing is decided there, the ground is the stretch's own bend, and a piece in its own right is a
+    /// piece every walk down it has to be handed.
     /// </summary>
+    /// <remarks>
+    /// <b>And the margins at either end come off the line rather than being remembered against it</b>: the
+    /// corners at a stretch's two ends take their ground before the lane is stationed, so a lane that kept
+    /// its whole offset line ran a metre or two past the mitre at each end, into the node. That spur was
+    /// ground on a way — a body standing in the corner claimed it — and it was ground no walk
+    /// covers and no picture could show without drawing a line that ends in mid-pavement. Cut here, a lane
+    /// is what is walked down it, the mitres meet it end to end, and the pavement reads as one line through
+    /// every node. What is left over is the inside of the corner, which is ground on no way at all — the
+    /// same answer the town already gives for a verge.
+    /// </remarks>
     static Lanes Carrying(FootGraph foot, Lanes offset, Joins joins)
     {
         var most = 0;
         for (var edge = 0; edge < foot.EdgeCount; edge++) most = Math.Max(most, offset.Of(edge).Length);
 
-        var cut = new ArcSeg[most];
+        var carried = new ArcSeg[most + MostArcsInAMitre];
+
+        // Room to cut both ends of that: a sub-chain splits the arc it starts inside and the one it ends
+        // inside, so it can want two more than it was given.
+        var cut = new ArcSeg[carried.Length + 2];
         var arcOffsets = new int[foot.EdgeCount + 1];
         var arcs = new List<ArcSeg>(offset.Arcs.Length);
         var lengthM = new float[foot.EdgeCount];
         var tailM = new float[foot.EdgeCount];
+        var headM = new float[foot.EdgeCount];
+        var endM = new float[foot.EdgeCount];
 
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
             var lane = offset.Of(edge);
             var tail = joins.TailSlot[edge];
+            var held = 0;
             if (tail == NoTurn)
             {
-                foreach (var arc in lane) arcs.Add(arc);
-                lengthM[edge] = offset.LengthM[edge];
+                foreach (var arc in lane) carried[held++] = arc;
             }
             else
             {
-                var written = Spline.SubChainInto(lane, 0f, offset.LengthM[edge] - joins.FromM[tail], cut);
-                for (var arc = 0; arc < written; arc++) arcs.Add(cut[arc]);
-                foreach (var arc in joins.ArcsOf(tail)) arcs.Add(arc);
-
-                tailM[edge] = joins.LengthM[tail];
-                lengthM[edge] = joins.LaneToM[edge];
+                held = Spline.SubChainInto(lane, 0f, offset.LengthM[edge] - joins.FromM[tail], carried);
+                foreach (var arc in joins.ArcsOf(tail)) carried[held++] = arc;
             }
 
+            // The span the mitres leave of it, taken off the line itself. Both figures are in the metres of
+            // the line above — the carried corner is inside them — which is what makes the tail's own length
+            // survive the cut unchanged.
+            var fromM = joins.LaneFromM[edge];
+            var toM = MathF.Max(fromM, joins.LaneToM[edge]);
+            var written = Spline.SubChainInto(carried.AsSpan(0, held), fromM, toM, cut);
+            if (written == 0)
+            {
+                written = held;
+                carried.AsSpan(0, held).CopyTo(cut);
+                fromM = 0f;
+                toM = Spline.TotalLengthM(cut.AsSpan(0, written));
+            }
+
+            for (var arc = 0; arc < written; arc++) arcs.Add(cut[arc]);
+
+            headM[edge] = fromM;
+            endM[edge] = Spline.TotalLengthM(carried.AsSpan(0, held)) - toM;
+            tailM[edge] = tail == NoTurn ? 0f : joins.LengthM[tail];
+            lengthM[edge] = toM - fromM;
             arcOffsets[edge + 1] = arcs.Count;
         }
 
-        return new Lanes(arcOffsets, [.. arcs], lengthM, tailM);
+        return new Lanes(arcOffsets, [.. arcs], lengthM, tailM, headM, endM);
     }
+
+    /// <summary>
+    /// Room for the corner a lane folds into its own line. A bound on a build-time buffer and not a figure
+    /// behaviour reads: a mitre is a biarc or the straight that stands in for one.
+    /// </summary>
+    const int MostArcsInAMitre = 2;
 
     /// <summary>
     /// Below this a turn is no turn: the stretch runs straight on through a node a zebra or a lot put in
@@ -401,6 +507,7 @@ internal sealed class WalkingNetwork
         // turn, so a stretch hands over at a place and not at a place per way off it.
         var takenAtTheStartM = Margins(foot, offset, config, leaving: false);
         var takenAtTheEndM = Margins(foot, offset, config, leaving: true);
+        LeaveALaneToWalk(foot, offset, takenAtTheStartM, takenAtTheEndM);
 
         var laneFromM = new float[foot.EdgeCount];
         var laneToM = new float[foot.EdgeCount];
@@ -425,8 +532,13 @@ internal sealed class WalkingNetwork
 
                 var backM = takenAtTheEndM[edge];
                 var forwardM = takenAtTheStartM[onto];
+                // <b>Turning round on the spot lays no ground</b>, exactly as it is no way off a lane
+                // (<see cref="WalkedFromM"/>): a body that turns round is already standing where it ends
+                // up. Laid, it was a numbered way per stretch in the town that nothing walks and no
+                // layer draws — and one every body standing at a node was written onto (OBS-2d).
                 var laid = 0;
-                if (lane.Length > 0 && onward.Length > 0 && !SamePlaceAt(lane, laneM - backM, onward, forwardM))
+                if (onto != foot.Reverse(edge) && lane.Length > 0 && onward.Length > 0
+                    && !SamePlaceAt(lane, laneM - backM, onward, forwardM))
                 {
                     laid = Corner(lane, laneM - backM, onward, forwardM, config.WalkerTightestTurnM, drawn);
 
@@ -465,6 +577,32 @@ internal sealed class WalkingNetwork
 
         return new Joins(
             turnOffsets, toEdge, arcOffsets, [.. arcs], fromM, intoM, lengthM, laneFromM, laneToM, tailSlot);
+    }
+
+    /// <summary>
+    /// The most of a lane its two corners may take between them. Under it there is nothing left to walk:
+    /// the lane is a point, the two corners meet on it, and a stretch that short is a real thing in a town.
+    /// </summary>
+    const float MostOfALaneItsCornersTake = 0.8f;
+
+    /// <summary>
+    /// <b>Holds the two ends of a short stretch back in proportion</b> so that every lane keeps a stretch
+    /// of its own. Each end is bounded by half of the shorter of the two lanes it stands between, so on a
+    /// stretch shorter than either of its neighbours the pair can want the whole of it — and a lane cut to
+    /// nothing is a piece of pavement no walk can be stationed along and no body can stand on.
+    /// </summary>
+    static void LeaveALaneToWalk(FootGraph foot, Lanes offset, float[] atTheStartM, float[] atTheEndM)
+    {
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
+        {
+            var wantedM = atTheStartM[edge] + atTheEndM[edge];
+            var roomM = offset.LengthM[edge] * MostOfALaneItsCornersTake;
+            if (wantedM <= roomM || wantedM <= 0f) continue;
+
+            var share = roomM / wantedM;
+            atTheStartM[edge] *= share;
+            atTheEndM[edge] *= share;
+        }
     }
 
     /// <summary>
@@ -625,7 +763,7 @@ internal sealed class WalkingNetwork
     /// every station along it</b>, in both directions, since the two lanes of one stretch are one figure
     /// mirrored. Asked of the ground once when the town is laid, and never again.
     /// </summary>
-    static float[] LaneOffsets(FootGraph foot, TerrainGrid terrain, SimConfig config)
+    static float[] LaneOffsets(FootGraph foot, GroundLocator terrain, SimConfig config)
     {
         var fullM = config.WalkingLaneOffsetM;
         var bodyM = config.PersonDiameterM * 0.5f;
@@ -656,7 +794,7 @@ internal sealed class WalkingNetwork
     }
 
     /// <summary>Whether a body walking either lane of this stretch stands on walkable ground on both hands.</summary>
-    static bool Clear(TerrainGrid terrain, SplineSample at, float offsetM, float bodyM)
+    static bool Clear(GroundLocator terrain, SplineSample at, float offsetM, float bodyM)
     {
         foreach (var acrossM in (ReadOnlySpan<float>)
                  [offsetM - bodyM, offsetM + bodyM, -offsetM - bodyM, -offsetM + bodyM])

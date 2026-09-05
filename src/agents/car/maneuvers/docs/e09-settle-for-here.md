@@ -10,11 +10,11 @@ junction box, not committed to a template laid across the road behind it — and
 settled once.
 
 **`Sb` — the state it delivers.** The car stopped and held with the handbrake, every claim released, the
-booked bay back on the market, the leg over, and **the driver out and walking the rest of the trip**.
+claimed bay back on the market, the leg over, and **the driver out and walking the rest of the trip**.
 
 **Line.** None. It stops where it stands.
 
-**Do.** Give up the booking, hold, end the leg.
+**Do.** Give up the bay, hold, end the leg.
 
 **Guards.** None.
 

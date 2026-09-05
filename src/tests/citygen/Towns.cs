@@ -59,6 +59,16 @@ internal static class Towns
 
     public static CityPlan Fresh(string map) => Maps.Plan(map, Figures, BuildingCatalog.Shared.OrdinaryFootprintsM());
 
+    /// <summary>
+    /// <b>Whether a map stands any car up at all.</b> A question about what traffic does at a junction is
+    /// vacuous on a map with no traffic — the walking exam is a lattice of junctions with nothing driving
+    /// on it (<see cref="FootwayPlan"/>) — and a guard that says "nothing happened" would report that
+    /// absence as a failure of the engine.
+    /// </summary>
+    public static bool AnythingDrives(string map) => Array.IndexOf(Of(map).Spawns.Kind, SpawnKindCar) >= 0;
+
+    const byte SpawnKindCar = 1;
+
     /// <summary>Every shipped map, as xUnit wants its cases: one row per map, so a failure names it.</summary>
     public static TheoryData<string> EveryShippedMap()
     {
@@ -146,12 +156,7 @@ internal static class Towns
             Seed = plan.Seed,
             Name = plan.Name,
             WorldSizeM = plan.WorldSizeM,
-            CellSizeM = plan.CellSizeM,
             PavementWidthM = plan.PavementWidthM,
-            GridWidth = plan.GridWidth,
-            GridHeight = plan.GridHeight,
-            Cells = plan.Cells,
-            LaneDirs = plan.LaneDirs,
             Junctions = plan.Junctions,
             JunctionCorners = plan.JunctionCorners,
             PavementCorners = plan.PavementCorners,

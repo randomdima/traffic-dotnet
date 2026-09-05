@@ -1,6 +1,4 @@
-
 using System.Numerics;
-using System.Runtime.InteropServices;
 using System.Text;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Persistence;
@@ -14,9 +12,8 @@ namespace TrafficSimulation.CityGen;
 /// Refuses a version it does not know and refuses a file with bytes left over — one rule: a file that
 /// is nearly the one that was written must not be allowed to look like it worked.
 /// <para>
-/// Two things on the way in are not a straight copy: the sparse lane directions are expanded into the
-/// dense grid the follower's inner loop wants, and every run becomes a flat array with an offsets
-/// array beside it. Everything else is the file's own field order.
+/// One thing on the way in is not a straight copy: every run becomes a flat array with an offsets array
+/// beside it. Everything else is the file's own field order.
 /// </para>
 /// </remarks>
 internal static class TownReader
@@ -24,7 +21,13 @@ internal static class TownReader
     /// <summary>"TFSNTOWN", little-endian.</summary>
     public const ulong Magic = 0x4E574F544E534654;
 
-    public const uint Version = 3;
+    /// <summary>
+    /// <b>4 carries no raster.</b> Version 3 shipped a cell grid and a lane direction per cell beside the
+    /// shapes — a second answer about the same ground, agreeing with the first to within half a cell. The
+    /// ground is solved against the shapes now (<see cref="GroundShapes"/>), so the two blocks and
+    /// the grid header they were sized by are gone rather than written and ignored.
+    /// </summary>
+    public const uint Version = 4;
 
     /// <summary>What the file writes where a record points at nothing — a crossing struck mid-block belongs to no junction.</summary>
     const uint NoIndex = 0xFFFFFFFF;
@@ -50,25 +53,7 @@ internal static class TownReader
         var name = Encoding.UTF8.GetString(cursor.Take(cursor.Count("name", bytesEach: 1)));
         var seed = cursor.U64();
         var worldSizeM = cursor.V2();
-        var cellSizeM = cursor.F32();
         var pavementWidthM = cursor.F32();
-        var gridWidth = (int)cursor.U32();
-        var gridHeight = (int)cursor.U32();
-        if (gridWidth <= 0 || gridHeight <= 0 || (long)gridWidth * gridHeight > cursor.Remaining)
-        {
-            throw new FormatException($"{what} claims a {gridWidth}x{gridHeight} cell grid, which its {cursor.Remaining} remaining bytes cannot hold.");
-        }
-
-        var cells = new Ground[gridWidth * gridHeight];
-        MemoryMarshal.Cast<byte, Ground>(cursor.Take(cells.Length)).CopyTo(cells);
-        foreach (var ground in cells)
-        {
-            // Everything above indexes the catalogue's tables by this byte, so a cell outside it is
-            // refused here rather than read out of bounds a million ticks later.
-            if ((int)ground >= Grounds.Kinds) throw new FormatException($"{what} carries a cell of terrain type {(int)ground}, which no catalogue has.");
-        }
-
-        var laneDirs = ReadLaneDirs(ref cursor, cells.Length);
         var junctions = ReadJunctions(ref cursor);
         var junctionCorners = ReadJunctionCorners(ref cursor);
         var pavementCorners = ReadPavementCorners(ref cursor);
@@ -93,12 +78,7 @@ internal static class TownReader
             Seed = seed,
             Name = name,
             WorldSizeM = worldSizeM,
-            CellSizeM = cellSizeM,
             PavementWidthM = pavementWidthM,
-            GridWidth = gridWidth,
-            GridHeight = gridHeight,
-            Cells = cells,
-            LaneDirs = laneDirs,
             Junctions = junctions,
             JunctionCorners = junctionCorners,
             PavementCorners = pavementCorners,
@@ -113,29 +93,6 @@ internal static class TownReader
             Spawns = spawns,
             Water = water,
         };
-    }
-
-    /// <summary>
-    /// The file's <c>(index, x, y)</c> triples, laid into two bytes a cell over the whole grid. The
-    /// expansion is the reason the file may stay sparse: a city's grid is 24.6 MB of which a few per
-    /// cent is non-zero, and the tick asks for a direction by position.
-    /// </summary>
-    static sbyte[] ReadLaneDirs(ref ByteCursor cursor, int cellCount)
-    {
-        var laneDirs = new sbyte[cellCount * 2];
-        var count = cursor.Count("lane directions", bytesEach: 6);
-        for (var i = 0; i < count; i++)
-        {
-            var cell = cursor.U32();
-            var x = cursor.I8();
-            var y = cursor.I8();
-            if (cell >= (uint)cellCount) throw new FormatException($"A lane direction is on cell {cell}, off a grid of {cellCount}.");
-
-            laneDirs[cell * 2] = x;
-            laneDirs[cell * 2 + 1] = y;
-        }
-
-        return laneDirs;
     }
 
     /// <summary>

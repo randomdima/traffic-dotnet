@@ -91,7 +91,7 @@ public class CarRouteTests
     /// like from outside, and is exactly the fault a radius-based arrival test hid.
     /// </summary>
     /// <remarks>
-    /// What a car reaches is <em>the bay its driver reserved</em>, and it reaches it by coming to rest in
+    /// What a car reaches is <em>the bay its driver claimed</em>, and it reaches it by coming to rest in
     /// it: a car has no goals of its own (CAR-8), so there is no other arrival to count.
     /// </remarks>
     [Fact]
@@ -115,7 +115,7 @@ public class CarRouteTests
     /// <b>A leg's line reaches the bay, and it reaches it over the bay's own way</b> (GEN-4f). The route
     /// used to stop three car lengths short and a manoeuvre laid the rest from wherever the car had got
     /// to; what the line ends at now is the pose the town drew the bay's way to, so the last dozen metres
-    /// of a leg are in the book like every metre before them.
+    /// of a leg are claimed like every metre before them.
     /// </summary>
     /// <remarks>
     /// <b>A way the car reverses into is the one that ends at the mouth</b> (GEN-4j): a route is driven
@@ -150,7 +150,7 @@ public class CarRouteTests
                 var wayM = ways.ArcsOf(way);
                 var wantedM = ways.IsDrivenInReverse(way)
                     ? wayM[0].StartM
-                    : Spline.SampleAt(wayM, ways.LengthM(way)).PositionM;
+                    : Spline.SampleAt(wayM, ways.DrivenLengthM(way)).PositionM;
 
                 Assert.True(
                     (endsM - wantedM).Length() < 0.05f,

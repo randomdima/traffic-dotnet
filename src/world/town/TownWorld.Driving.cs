@@ -78,7 +78,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// A car on the route's own line: the lanes under it, the junction ahead of it, the paint across it,
-    /// and what the book says is down it.
+    /// and what the claims say is down it.
     /// </summary>
     void DriveTheRoute(int car, in CarPose pose)
     {
@@ -123,7 +123,7 @@ internal sealed partial class TownWorld
         // and a car that brakes for the end of its own knowledge reads as timidity. The chain is grown
         // from its far end, so nothing already laid moves and the car's progress is untouched.
         if (Cars.Line[car].LengthM - progressM < SightM(car)
-            && Cars.Line[car].LaneCount < PathAssembler.MostLanes
+            && Cars.Line[car].LaneCount < LineAssembler.MostLanes
             && !IsOnTheFinalApproach(car)
             && _roads.TurnsFrom(Cars.ChainOf(car)[Cars.Line[car].LaneCount - 1]).Length > 0)
         {
@@ -144,7 +144,7 @@ internal sealed partial class TownWorld
             + (build.LengthM * 2f),
             MathF.Max(0f, Cars.Line[car].LengthM - centreProgressM));
 
-        // S-3: what is in front, what it is and how far off — one walk of the book the grant was taken
+        // S-3: what is in front, what it is and how far off — one walk of the claims the grant was taken
         // against, so the reading and the road this car was given can never disagree.
         var seen = LookAhead(car, progressM + build.NoseAheadOfAxleM, reachM, out var kind, out var claimM);
 
@@ -170,7 +170,7 @@ internal sealed partial class TownWorld
             car, LaneAheadSlot(car, progressM), progressM, MathF.Min(junctionStopM, seen.DistanceM),
             out var crossingStopM, out var crossingAtM);
 
-        // The grant was taken against the book while it was being laid, so it is a distance from where the
+        // The grant was taken against the claims while they were being laid, so it is a distance from where the
         // nose stood then: walking it in by the ground covered since is what stops it receding at exactly
         // the car's own speed, which is the same correction a manoeuvre's stop point gets.
         var context = new DriveContext(
@@ -186,14 +186,14 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A car whose line is one of the town's own ways</b> — a bay's way out, driven backwards. The same
-    /// wheel and the same profile as a route, and the same book underneath: what is in front comes off the
+    /// wheel and the same profile as a route, and the same claims underneath: what is in front comes off the
     /// index, the road ahead is the grant, and the movement is taken and given back exactly as a junction's
     /// is.
     /// </summary>
     /// <remarks>
     /// <b>It is not a template and the difference is the whole point.</b> A template is laid over no way, so
     /// its driver holds the sweep it is committed to and reads the ground under it with a walk of its own;
-    /// a way is in the book, so the reservation runs along it, the traffic on the lane it crosses is cut by
+    /// a way is one of the town's own, so the claim runs along it, the traffic on the lane it crosses is cut by
     /// the town's own table, and there is nothing here that a car on a lane does not also do.
     /// </remarks>
     void DriveTheWay(int car, in CarPose pose)
@@ -255,28 +255,42 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>Past the point it could stop at, the car is going in whatever anything says</b> — the same
     /// exception a junction makes, and for the same reason: ground given back there is handed straight back
-    /// on the next tick, and between the two the sections read free to whoever crosses them.
+    /// on the next tick, and between the two the sections read free to whoever crosses them. <b>And it is
+    /// written to the car on the same terms</b> (<see cref="CarFleet.CommittedToTheBox"/>,
+    /// <see cref="JunctionStopM"/>), because that flag is the whole of how the rank a committed body holds
+    /// its ground with reaches its claim (<see cref="RightOnTheMovement"/>). Left to the junction's own
+    /// reading, a car on a way of its own carried whatever its last route decision wrote — a rescue waved
+    /// across one that could no longer stop, or ground nothing could take held by one that had stopped
+    /// streets away.
     /// </para>
     /// </remarks>
     float MovementStopM(int car, float progressM, float alongMps)
     {
         var way = Cars.LineWayOf(car);
+        Cars.CommittedToTheBox[car] = false;
         if (Cars.MovementWay[car] != way) DropTheMovement(car);
 
         var crossedAtM = FirstCrossedOnTheWayM(way);
         if (float.IsPositiveInfinity(crossedAtM)) return float.PositiveInfinity;
 
-        var toTheCrossingM = crossedAtM - progressM - LeadingEdgeAheadOfTheAxleM(car);
-        if (Cars.MovementWay[car] == way) return float.PositiveInfinity;
-
         ref readonly var build = ref Cars.BuildOf(car);
         var brakingMps2 = CarFollower.BrakingMps2(_config, build, Cars.GroundCoefficient[car]);
+        var toTheCrossingM = crossedAtM - progressM - LeadingEdgeAheadOfTheAxleM(car);
+
+        // Read a decision ahead, exactly as a junction's is: the claims that carry this to the rest of the
+        // town are laid at the top of a tick from what the last decision wrote, so a car that will be past
+        // stopping by the time the ranks are next compared has to count as committed now.
+        Cars.CommittedToTheBox[car] =
+            toTheCrossingM - (MathF.Max(0f, alongMps) * _config.CarReactionS)
+            <= StoppingM(alongMps, brakingMps2);
+
+        if (Cars.MovementWay[car] == way) return float.PositiveInfinity;
         if (toTheCrossingM <= StoppingM(alongMps, brakingMps2)) return float.PositiveInfinity;
 
-        var reserveAtM = MathF.Min(
-            StoppingM(alongMps, brakingMps2) + build.LengthM, _config.CarJunctionReserveM);
+        var claimAtM = MathF.Min(
+            StoppingM(alongMps, brakingMps2) + build.LengthM, _config.CarJunctionClaimM);
 
-        if (toTheCrossingM > reserveAtM) return float.PositiveInfinity;
+        if (toTheCrossingM > claimAtM) return float.PositiveInfinity;
 
         var heldFromM = FirstHeldOnTheMovementM(car, way);
         if (float.IsFinite(heldFromM))
@@ -339,7 +353,7 @@ internal sealed partial class TownWorld
         var reachM = MathF.Max(0f, lengthM - tailM);
 
         // <b>The ground under the shape and not a ray down it</b> (<see cref="GroundAhead"/>). A template is
-        // laid over no way, so what the book is asked is who has the ground each place along it would put a
+        // laid over no way, so what is asked is who has the ground each place along it would put a
         // body — which is the same question the desk asked before it committed to this line at all.
         var clearM = GroundAhead.ClearM(_roads, _occupancy, line, tailM, reachM, build.FlankM, car);
 
@@ -347,8 +361,8 @@ internal sealed partial class TownWorld
         // swerve, a bay entry and a bay exit all cross the same crossings.
         CrossingOnTheTemplate(car, line, tailM, reachM, out var crossingStopM, out var crossingAtM);
 
-        // <b>Unknown, still.</b> The ways under a template are not the ways it is driving, so what the book
-        // named there is a fact about somebody else's lane rather than about this car's own path — and a
+        // <b>Unknown, still.</b> The ways under a template are not the ways it is driving, so what was
+        // claimed there is a fact about somebody else's lane rather than about this car's own line — and a
         // reading that cannot be trusted to name what is in the way must never license driving round it.
         var context = new DriveContext(
             clearM < reachM ? clearM : float.PositiveInfinity, 0f, float.PositiveInfinity,
@@ -381,7 +395,7 @@ internal sealed partial class TownWorld
             _config, build, line, progressM, lengthM, steerRad, alongMps, lookaheadM, context, out var hold,
             out var plannedMps);
 
-        // The ceiling on the next reservation. It is the profile's own answer with the grant left out, so a
+        // The ceiling on the next claim. It is the profile's own answer with the grant left out, so a
         // car held at a standstill by the queue in front is not held to a standstill's worth of road.
         Cars.PlannedMps[car] = plannedMps;
 
@@ -486,34 +500,34 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>What is down the line ahead, what it is, and how far off it is</b> — all three out of the town's
-    /// own book, which is the whole of what a driver on a route looks at.
+    /// own claims, which are the whole of what a driver on a route looks at.
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>There is no ray here and that is the point.</b> A cast found a shape at a distance and could not
-    /// say whose it was, so the distance was the geometry's and the naming was the book's, and the two
-    /// regularly disagreed — a body the network never had came back as <c>Unknown</c>, and a reservation
-    /// with nothing standing on it yet came back as an empty road. Everything that can be on a lane is in
-    /// the book now: the traffic, the people (<see cref="LaneUse.OnFoot"/>) and the town's own furniture
+    /// say whose it was, so the distance was the geometry's and the naming came off the claims, and the two
+    /// regularly disagreed — a body the network never had came back as <c>Unknown</c>, and a claim
+    /// with nothing standing on it yet came back as an empty road. Everything that can be on a lane is
+    /// claimed now: the traffic, the people and the town's own furniture
     /// (<see cref="StandingGround"/>), so one question answers all of it.
     /// </para>
     /// <para>
     /// <b>And the reading cannot disagree with the grant any more.</b> Both are walks of the same ways over
-    /// the same metres of the same tick's book — where a cast was a second opinion about a road the car had
+    /// the same metres of the same tick's claims — where a cast was a second opinion about a road the car had
     /// already been granted or refused.
     /// </para>
     /// </remarks>
     HeadwayReading LookAhead(int car, float noseM, float reachM, out HeadwayKind kind, out float claimM)
     {
-        AheadOnThePath(car, noseM, reachM, out var onThePath, out var bodyM, out claimM);
-        if (!onThePath.Found)
+        AheadOnTheLine(car, noseM, reachM, out var onTheLine, out var bodyM, out claimM);
+        if (!onTheLine.Found)
         {
             kind = HeadwayKind.Nothing;
             return HeadwayReading.Nothing;
         }
 
-        kind = KindOf(onThePath.Use);
-        return new HeadwayReading(bodyM, onThePath.AlongMps);
+        kind = KindOf(onTheLine);
+        return new HeadwayReading(bodyM, onTheLine.AlongMps);
     }
 
     /// <summary>
@@ -888,7 +902,7 @@ internal sealed partial class TownWorld
         var searched = false;
         for (var index = 0; index < from; index++) seenM += _roads.LaneLengthM[chain[index]];
 
-        while (lanes < PathAssembler.MostLanes && seenM < reachM)
+        while (lanes < LineAssembler.MostLanes && seenM < reachM)
         {
             var next = NextLaneOnRoute(car, chain[lanes - 1], ref searched);
             if (next < 0) break;
@@ -913,9 +927,10 @@ internal sealed partial class TownWorld
         var tail = TheWayIntoTheBay(car, chain[lanes - 1]);
         var threaded = tail != CarFleet.NoWay && !_bayWays.IsDrivenInReverse(tail);
         Cars.TailWay[car] = tail;
-        Cars.Line[car] = PathAssembler.Assemble(
+        Cars.Line[car] = LineAssembler.Assemble(
             _roads, chain[..lanes], Cars.LineArcsOf(car), Cars.LaneStartsOf(car), Cars.LaneEndsOf(car),
             tail == CarFleet.NoWay ? float.PositiveInfinity : _bayWays.AtLaneM(tail),
-            threaded ? _bayWays.ArcsOf(tail) : default);
+            threaded ? _bayWays.ArcsOf(tail) : default,
+            threaded ? _bayWays.DrivenLengthM(tail) : float.PositiveInfinity);
     }
 }

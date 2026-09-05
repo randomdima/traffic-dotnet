@@ -195,9 +195,9 @@ nobody has been round is not a lap driven badly, and a run cut short before its 
 the engine nothing. The last line of a report carries the three counts, and the suite fails a claim its
 own run left waiting — a test chooses how long it watches.
 
-**A scenario may stage what it is about**, on the exam's terms: the exam orders its thirty-six cars on the
-first tick and the crossings map sends its five walkers over their own paint, because a body left to
-itself takes a crossing only by luck. **What is claimed is what the town did with that order** and never
+**A scenario may stage what it is about**, on the exam's terms: the driving exam orders its thirty-six cars
+on the first tick, the walking exam orders all twenty-eight of its bodies, and the crossings map sends its
+five walkers over their own paint, because a body left to itself takes a crossing only by luck. **What is claimed is what the town did with that order** and never
 that it was given one — and the staging is the watch's, so a run of that map in the game stages it exactly
 as the probe does.
 
@@ -235,7 +235,7 @@ different world seed still produces a valid simulation, and vice versa.
 **VER-11** **Every map states what it claims about itself, and every run of it says whether it kept it** —
 in the panel a player is looking at and in the output a script reads, off one watch. A map laid to measure
 one thing claims that thing; every town, laid or traced, claims the three above it: `PHY-1`, that nothing
-goes on driving into ground the book refused it (`TER-4c.1`), and that nothing stands still with no clock
+goes on driving into ground it was refused (`TER-4c.1`), and that nothing stands still with no clock
 running for it. A claim the run has not answered is reported as unanswered rather than counted either way.
 
 **What the second of those counts is a body going *deeper*, never a body being past.** A grant is worked
@@ -332,11 +332,13 @@ bound it is held to is a figure on `SimConfig` rather than a wall-clock reading.
 gated is the arrival**: whether a dense city's geometry lets a nine-metre articulated pair get all the way
 home is a fact about that city (`EVA-8`), which is a reading and not a claim.
 
-**`--bench exam` and `--bench crossings` are the same arrangement said of a junction and of the paint**
-([citygen](../src/citygen/docs/requirements.md#the-maps)). Each prints a verdict a subject — the movement,
-the claim its card makes, and what the cars actually did — and under that table the same run said as
-claims, and a tier reads that same run: `JunctionExamTests` asserts card by card off the probe's own
-verdict, so the instrument and the gate cannot disagree about what a crossing is. **A card this build does
+**`--bench exam`, `--bench footway` and `--bench crossings` are one arrangement said of a junction, of a
+walk and of the paint** ([citygen](../src/citygen/docs/requirements.md#the-maps)). Each prints a verdict a
+subject — the claim its card makes, and what the bodies actually did — and under that table the same run
+said as claims, and a tier reads that same run: `JunctionExamTests` and `WalkingExamTests` assert card by
+card off the probe's own verdict, so the instrument and the gate cannot disagree about what a crossing is.
+**The walking exam is the driving one with nothing driving on it**, because a walk that failed with traffic
+staged leaves a reader unable to say which of the two agents was wrong. **A card this build does
 not pass carries what it does instead**, and the tier asserts that card *still fails*: the day the engine
 passes it, the suite says so and the finding is deleted rather than left standing as a note nobody
 re-reads.

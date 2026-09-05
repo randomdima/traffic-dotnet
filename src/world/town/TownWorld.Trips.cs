@@ -384,7 +384,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>A screen and not a commitment.</b> A bay is left on whichever of its ways points the way the leg
     /// is going (`P-2`), and the route is planned from the lane the car actually lands on; what is being
-    /// asked here is only whether a bay is worth booking at all, and both lanes of a carriageway reach the
+    /// asked here is only whether a bay is worth claiming at all, and both lanes of a carriageway reach the
     /// same network. It is the ways of the standing the car is <em>in</em> all the same, because a car
     /// nose-first in its space has only the near lane to back onto (GEN-4j).
     /// </remarks>
@@ -408,7 +408,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// A bay is claimed only once a route to it exists: the search is asked before the reservation, so
+    /// A bay is claimed only once a route to it exists: the search is asked before the claim, so
     /// an unroutable bay is handed back rather than held for a car that will never arrive.
     /// </summary>
     bool RouteExistsToTheBay(int fromLane, int bay)
@@ -439,7 +439,7 @@ internal sealed partial class TownWorld
     /// <b>The node and not the metre the way leaves at.</b> A route is a run of nodes and the last of them
     /// has to be one the network has, or the leg is a route to somewhere plus a stretch of road the driver
     /// worked out for itself. The way in is threaded onto the end of that route as the line is assembled
-    /// (<c>PathAssembler</c>), so the car turns off where the way leaves rather than driving on to the node —
+    /// (<c>LineAssembler</c>), so the car turns off where the way leaves rather than driving on to the node —
     /// what the node buys is that the search, the price and the reroute all name the same place.
     /// <para>
     /// <b>The bay itself is what the search steers by</b>, because the two lanes arrive at nodes at opposite

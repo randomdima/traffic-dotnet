@@ -56,8 +56,8 @@ backing out of is then the ground it is blocking.
 **Why the swept path is held and not only walked.** Ground checked at the moment the straight was drawn is
 ground everybody else still reads as free, and a straight takes a second or two to drive: a car came up
 behind, was granted road that ran through the sweep, stopped in it, and was reversed into at manoeuvring
-pace. The line is written into the book from the body every tick for as long as it is being driven, so what
-refuses that car is the same book that refuses everything else, and there is no second mechanism (`SIM-7`).
+pace. The line is claimed from the body every tick for as long as it is being driven, so what
+refuses that car is the same claim that refuses everything else, and there is no second mechanism (`SIM-7`).
 
 **Why the reading is taken in the new gear.** What is in front is only as good as the gear and the line it
 was read on, and it needs a moment to settle after either changes.

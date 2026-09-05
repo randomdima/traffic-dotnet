@@ -316,7 +316,7 @@ internal sealed partial class TownWorld
         if (!TheSceneStillStands(car, out var sceneM)) return;
 
         // <b>A closure is bounded</b> (SRV-6). A scene nothing ever clears would otherwise hold a street out
-        // of the town for the rest of the run, which is the one failure a soft reservation can cause.
+        // of the town for the rest of the run, which is the one failure a closure's claim can cause.
         _beat.ClosedForS[car] += sinceLastDecisionS;
         if (_beat.ClosedForS[car] >= _config.PoliceClosureLifeS)
         {

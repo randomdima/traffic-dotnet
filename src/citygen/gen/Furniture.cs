@@ -46,10 +46,9 @@ internal static class Furniture
         var through = Throughs(chains, arms, config, mouths.ReachM);
 
         // <b>A crossing is the width of the carriageway it crosses</b>, kerb to kerb, and it is drawn to
-        // the width of the road it names rather than to a span of its own — so a zebra whose end bars
-        // stand on the pavement cannot be laid at all. What the ground's own rounding is owed is the
-        // classification's (<see cref="GroundPainter.Crossing"/>), which sweeps wider than the paint and
-        // lays nothing off the carriageway.
+        // the width of the road it names rather than to a span of its own (TER-6) — so a zebra whose end
+        // bars stand on the pavement cannot be laid at all, and the ground under the paint is a stretch of
+        // that same road rather than a rectangle anybody has to reconcile with it.
         var crossings = Crossings(chains, arms, config, mouths.ReachM, through);
         var bars = Bars(chains, junctions, arms, config, widthM, mouths.ReachM, through);
         return new Laid(mouths.Corners, crossings, bars);

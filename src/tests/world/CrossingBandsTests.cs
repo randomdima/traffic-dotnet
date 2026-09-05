@@ -103,13 +103,18 @@ public class CrossingBandsTests
                 if (under.Length < 2) continue;
 
                 many++;
-                var covered = 0f;
-                foreach (var band in under) covered += band.ToM - band.FromM;
 
-                Assert.True(
-                    covered < walking.LaneLengthM(edge),
-                    $"the lanes under crossing way {edge} cover {covered:0.00} m of its "
-                    + $"{walking.LaneLengthM(edge):0.00} m");
+                // Every one of them leaves some of the paint to the others. Summed instead, two bands that
+                // overlap read as more paint than the way has — which says nothing about whether either of
+                // them is the whole of it, and a crossing's lane is now the carriageway to the metre.
+                var lengthM = walking.LaneLengthM(edge);
+                foreach (var band in under)
+                {
+                    Assert.True(
+                        band.ToM - band.FromM < lengthM,
+                        $"lane {band.Lane} covers {band.ToM - band.FromM:0.00} m of crossing way {edge}, "
+                        + $"which is the whole of its {lengthM:0.00} m");
+                }
             }
         }
 
@@ -154,7 +159,7 @@ public class CrossingBandsTests
         var plan = Towns.Of(map);
         var roads = RoadGraph.Build(plan, Config);
         var furniture = LaneFurniture.Project(plan, roads);
-        var walking = WalkingNetwork.Build(FootGraph.Build(plan, Config), new TerrainGrid(plan, Config), Config);
+        var walking = WalkingNetwork.Build(FootGraph.Build(plan, Config), new GroundLocator(plan, Config), Config);
 
         return (CrossingBands.Project(plan, roads, furniture, walking), roads, walking, plan.Crosswalks.Count);
     }

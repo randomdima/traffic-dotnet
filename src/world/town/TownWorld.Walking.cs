@@ -41,7 +41,7 @@ internal sealed partial class TownWorld
             People.HeldAtTheKerb[agent] = false;
 
             // <b>Spent on the lane it is standing there for and given back when it is standing in it</b>
-            // (<see cref="PersonFleet.WaitingForLane"/>), which the book does. Handed back the tick the
+            // (<see cref="PersonFleet.WaitingForLane"/>), which the ask does. Handed back the tick the
             // traffic gave way instead, the patience buys one tick of ground and the wait begins again —
             // a body stuttering at a lane's edge for as long as the street is busy.
             if (!inTheRoad) People.WaitingToCrossS[agent] = 0f;
@@ -96,7 +96,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Where a walker aims to get past the body in its way</b> (PER-24), which is the aim it already had
-    /// wherever nothing is. The book found the obstruction when it took the grant
+    /// wherever nothing is. The obstruction was found when the grant was taken
     /// (<see cref="GrantThePavement"/>); what is decided here is the side and whether the step is one this
     /// body may take.
     /// </summary>
@@ -122,8 +122,8 @@ internal sealed partial class TownWorld
         var body = People.StepsRound[agent];
         if (body == PersonFleet.NoBody) return aimM;
 
-        var bodyM = People.PositionM[body];
-        var clearanceM = People.RadiusM[agent] + People.RadiusM[body] + _config.PersonShoulderRoomM;
+        WhereTheBodyInTheWayIs(body, People.StepsRoundOf[agent], out var bodyM, out var bodyRadiusM);
+        var clearanceM = People.RadiusM[agent] + bodyRadiusM + _config.PersonShoulderRoomM;
         if (!StepAround.IsInTheWay(positionM, aimM, bodyM, clearanceM)) return aimM;
 
         var fromTheCarriageway = _terrain.At(positionM).Drivable;
@@ -145,6 +145,32 @@ internal sealed partial class TownWorld
 
         walledIn = true;
         return aimM;
+    }
+
+    /// <summary>
+    /// <b>Where the body a walker has to get past stands, and how much room it takes</b> — read out of the
+    /// fleet its number is a number in (<see cref="PersonFleet.StepsRoundOf"/>). The pavement's claims hold
+    /// whatever is standing on the pavement (TER-4c.2), so what is in the way is as often a car that has
+    /// mounted a kerb as another walker.
+    /// </summary>
+    /// <remarks>
+    /// <b>A car is taken at the circle that holds the whole of it</b>, which is half its length: a body is
+    /// stepped round on one clearance and a car across a footway may be lying any way at all, so the shorter
+    /// half would be a step planned through the end of it. Where no such step lands on ground
+    /// (<paramref name="radiusM"/> being most of a pavement's width, it usually will not), the walker is
+    /// walled in and the clock that gives up on a leg draws it a line round (PER-8).
+    /// </remarks>
+    void WhereTheBodyInTheWayIs(int body, LaneRoster of, out Vector2 atM, out float radiusM)
+    {
+        if (of == LaneRoster.Walking)
+        {
+            atM = People.PositionM[body];
+            radiusM = People.RadiusM[body];
+            return;
+        }
+
+        atM = Cars.PositionM[body];
+        radiusM = Cars.BuildOf(body).HalfLengthM;
     }
 
     /// <summary>

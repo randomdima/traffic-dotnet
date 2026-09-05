@@ -153,10 +153,6 @@ internal static class SkidpadPlan
     public static CityPlan Lay(SimConfig config)
     {
         var worldSizeM = WorldSizeM;
-        var gridWidth = (int)MathF.Round(worldSizeM.X / CellSizeM);
-        var gridHeight = (int)MathF.Round(worldSizeM.Y / CellSizeM);
-        var cells = new Ground[gridWidth * gridHeight];
-        var laneDirs = new sbyte[cells.Length * 2];
 
         var rows = Table.Length;
         var segments = new ArcSeg[rows];
@@ -171,23 +167,15 @@ internal static class SkidpadPlan
             nodeM[(row * 2) + 1] = segments[row].EndM;
         }
 
-        var painter = new GroundPainter(cells, laneDirs, gridWidth, gridHeight, CellSizeM, config.RoadSideSign);
-        for (var row = 0; row < rows; row++) painter.Road(segments.AsSpan(row, 1), PitchM);
-
         return new CityPlan
         {
             Seed = 0x736B6964_70616431UL,
             Name = Name,
             WorldSizeM = worldSizeM,
-            CellSizeM = CellSizeM,
 
             // No pavement and so no walking network: there is nobody on foot here, and a kerb laid for
             // nobody is ground the comparison would have to explain.
             PavementWidthM = 0f,
-            GridWidth = gridWidth,
-            GridHeight = gridHeight,
-            Cells = cells,
-            LaneDirs = laneDirs,
             Junctions = Nodes(nodeM, config),
             StopLines = new CityPlan.StopLineArrays
             {
@@ -213,7 +201,7 @@ internal static class SkidpadPlan
             {
                 Road = [], FromM = [], ToM = [], DeckWidthM = [], PavementWidthM = [],
             },
-            PavedAreas = new CityPlan.PavedAreaArrays { MinM = [], SizeM = [] },
+            PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = new CityPlan.CrosswalkArrays
             {
                 CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [],

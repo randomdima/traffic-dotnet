@@ -55,7 +55,7 @@ internal sealed class ChainIndex
     /// <summary>Which query last offered each slot, so a chain crossing several cells is measured once.</summary>
     readonly int[] _stamp;
 
-    int[] _candidate;
+    readonly int[] _candidate;
     int _candidateCount;
     int _generation;
 
@@ -75,7 +75,12 @@ internal sealed class ChainIndex
         _cellStart = cellStart;
         _entrySlot = entrySlot;
         _stamp = new int[chainId.Length];
-        _candidate = new int[Math.Max(64, Math.Min(chainId.Length, 256))];
+
+        // <b>Room for every chain there is, once.</b> A slot is stamped the first time a query meets it, so
+        // the candidate set can never be longer than the set itself — and sized to a guess instead, a query
+        // over ground that happens to be busy grows the array, which is an allocation on a path the tick
+        // reads (rule 2). It is four bytes a chain.
+        _candidate = new int[Math.Max(1, chainId.Length)];
     }
 
     /// <summary>How many chains were registered. A census, so a caller can say what its index is of.</summary>
@@ -111,6 +116,43 @@ internal sealed class ChainIndex
         }
     }
 
+    /// <summary>
+    /// <b>Every</b> chain passing within <paramref name="radiusM"/> of the point, and how far along each of
+    /// them that is — for a caller that has to weigh all of them rather than take the nearest. Returns how
+    /// many there are.
+    /// </summary>
+    /// <remarks>
+    /// A result larger than the spans is truncated and the caller has silently turned the whole answer into
+    /// part of one, exactly as <c>BucketGrid.Query</c>'s is. The order is the grid's and is not the ids';
+    /// nothing here is a nearest, so nothing is settled on a tie.
+    /// </remarks>
+    public int Near(Vector2 pointM, float radiusM, Span<int> ids, Span<float> alongM)
+    {
+        if (ChainCount == 0) return 0;
+
+        Gather(pointM, radiusM);
+        var reachSq = radiusM * radiusM;
+        var found = 0;
+        for (var index = 0; index < _candidateCount; index++)
+        {
+            var slot = _candidate[index];
+            var arcs = _arcs.AsSpan(_arcStart[slot], _arcStart[slot + 1] - _arcStart[slot]);
+            var lengthM = _lengthM[slot];
+            var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
+            if ((Spline.SampleAt(arcs, atM).PositionM - pointM).LengthSquared() > reachSq) continue;
+
+            if (found < ids.Length)
+            {
+                ids[found] = _chainId[slot];
+                alongM[found] = atM;
+            }
+
+            found++;
+        }
+
+        return found;
+    }
+
     /// <summary>The slots whose pieces reach the ring, each once, in whatever order the cells gave them.</summary>
     /// <remarks>
     /// <b>The order is not load-bearing and they are deliberately not sorted.</b> The grid hands cells
@@ -138,8 +180,6 @@ internal sealed class ChainIndex
                     if (_stamp[slot] == _generation) continue;
 
                     _stamp[slot] = _generation;
-                    if (_candidateCount == _candidate.Length) Array.Resize(ref _candidate, _candidate.Length * 2);
-
                     _candidate[_candidateCount++] = slot;
                 }
             }

@@ -20,7 +20,13 @@ to the *town* rather than to a body is not switched with a body at all**.
 **OBS-2d** **Between them the layers leave nothing out.** Everything that acts on an agent while it moves
 is drawn by one of them: the ways it may travel, the movements a junction allows it, the nodes it plans
 over, the manoeuvre it is executing **with every place that manoeuvre owns**, the stretch of road the
-town's own book says it is on or has reserved, and the collision shape the solver gives it.
+town's own claims say it is on or has taken, and the collision shape the solver gives it.
+
+**And a block always stands on a line.** A claim names a way, so **every way either network can hold one
+of is a line the nodes layer draws, whole** — a lane over the whole of its own line and not only the
+stretch a route travels it, since a body inside the setback at either end is written onto it there. A way
+with no line under it cannot be read at all: the block is the only thing on screen, and what it says about
+where its holder is standing cannot be checked against anything.
 
 **OBS-2h** **An agent layer draws the action the agent is taking, and not the plan behind it.** What is
 drawn for a body is **two pieces of its own line**: the one it is on and the one it has planned to take off
@@ -57,40 +63,46 @@ and the walked points and the crossing each stands on, and it computes neither.
 
 **A reading has to be drawn as well as a shape.** Whether the car in front counts as a queue, as something
 to get past or as ground somebody is about to take is the one thing about a driver that has no shape of
-its own — so both books ([`LaneOccupancy`](../../../world/road/LaneOccupancy.cs)) are drawn as the
+its own — so the town's claims ([`LaneOccupancy`](../../../world/road/LaneOccupancy.cs)) are drawn as the
 stretches they are: **a washed-out block of the way, at that way's full width, curving with the ground
-under it**. **Every stretch a body holds takes that body's own colour, in whichever book it is written and
-whether it is standing on the ground, was granted it or has only claimed it** — a walker's band of a lane
+under it**. **Every stretch a body holds takes that body's own colour, on whatever kind of way it is claimed
+and whether it is standing on the ground, was granted it or has only claimed it** — a walker's band of a lane
 and its stretch of the pavement are one person's ground, so a block can be followed from the pavement onto
 the road that body is crossing and a junction says which of the cars in it holds what. What needs a colour
 of its own is what belongs to no body at all: the town's own furniture.
 
-**One colour and one wash, and the pieces told apart by a bar across the ends of each.** A body's ground is
-regularly several stretches — a lane, the join after it, the ground beyond its own road it has committed
-to — and they butt exactly, so under one wash the joints are invisible and the reading *how far does this
-go* cannot be taken. Said with a second wash instead, the pieces read as different **kinds** of ground
-standing on one street, which is a stronger claim than the picture has any business making: a claim and a
-reservation are the same body's, held for the same reason, and what differs is only where one stops. So the
-edge is a thin bar square across the way at either end of every stretch, in the same colour drawn up rather
-than down.
+**The colour is whose the ground is and the wash is how strong the hold on it is**
+([`ClaimPriority`](../../../world/road/ClaimPriority.cs)), each saying one thing and neither saying the
+other. The strongest hold there is — a body, and road a body can no longer give back — is drawn at half,
+and the weakest — road a driver has only stated it means to use — is drawn at a tenth, off the ladder's own
+numbers rather than a table of the layer's. Everything stays transparent enough to read the tarmac, the
+paint and the body through: a block says which ground is spoken for, and hiding the ground to say it defeats
+the point. Without the shade a busy junction is a single band of overlapping asks with nothing to say which
+of them anybody would give up, which is the reading the layer is opened there for.
+
+**And the pieces of one hold are told apart by a bar across the ends of each.** A body's ground is regularly
+several stretches at one strength — a lane, the join after it, the ground beyond its own road it has
+committed to — and they butt exactly, so under that one wash the joints are invisible and the reading *how
+far does this go* cannot be taken. So the edge is a thin bar square across the way at either end of every
+stretch, in its own block's colour and wash drawn up rather than down.
 
 **And the one hold that is not a stretch of way is drawn as what it is.** A bay a car is standing in or has
-booked is a place in a register (`GEN-4g`) and not ground in either book, and a bay's own two ways are drawn
+claimed is a place in a register (`GEN-4g`) and not ground on either network, and a bay's own two ways are drawn
 to the rear axle and stop there — so a block on one of them can only ever cover the ground behind that axle,
 with the car's whole nose past the end of it. The bay is drawn as the bay, in that body's colour like
-everything else here: **washed where a body is standing in it, outlined where a leg has only booked it**.
+everything else here: **washed where a body is standing in it, outlined where a leg has only claimed it**.
 Those two are different claims — somebody is standing here, against somebody is on their way and nobody else
 may take it — and not two shades of one.
 
-**The blocks are a layer of their own and belong to neither kind of body** (OBS-2c). A reservation is a
+**The blocks are a layer of their own and belong to neither kind of body** (OBS-2c). A claim is a
 fact about the *ground*: what cuts a driver's grant is as often a walker standing in the lane as another
 car, and what holds a body at the edge of a zebra is a car's stretch of the lane under the paint. Held
 under the car layer, neither of those could be seen without the car switch on — which is the reading the
 block exists for. **And a layer of their own rather than the nodes layer's**, though both are the town's rather than a
-body's: the graphs are the ground the town was laid with and never move once it is laid, the books are
+body's: the graphs are the ground the town was laid with and never move once it is laid, the claims are
 what this tick did to that ground and are re-laid from the bodies every frame, and switched together each
 reading came with the other drawn through it. Where both are on the blocks go **over** the graphs, so a
-chevron punching through a reservation cannot read as the lane still being open.
+chevron punching through a claim cannot read as the lane still being open.
 
 **A width drawn is a width the model holds.** The block is one lane wide because
 [`RoadGraph.LaneWidthM`](../../../world/road/RoadGraph.cs) is one lane wide: half the carriageway the town

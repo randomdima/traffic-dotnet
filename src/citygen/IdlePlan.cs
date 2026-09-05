@@ -276,10 +276,6 @@ internal static class IdlePlan
     public static CityPlan Lay(SimConfig config)
     {
         var worldSizeM = WorldSizeM(config);
-        var gridWidth = (int)MathF.Round(worldSizeM.X / CellSizeM);
-        var gridHeight = (int)MathF.Round(worldSizeM.Y / CellSizeM);
-        var cells = new Ground[gridWidth * gridHeight];
-        var laneDirs = new sbyte[cells.Length * 2];
         var widthM = config.RoadWidthM;
 
         var ring = Ring(config);
@@ -293,26 +289,15 @@ internal static class IdlePlan
             offsets.Add(segments.Count);
         }
 
-        var painter = new GroundPainter(cells, laneDirs, gridWidth, gridHeight, CellSizeM, config.RoadSideSign);
-        for (var road = 0; road < Roads; road++)
-        {
-            painter.Road(CollectionsMarshal.AsSpan(segments)[offsets[road]..offsets[road + 1]], widthM);
-        }
-
         return new CityPlan
         {
             Seed = 0x69646C65_63686173UL,
             Name = Name,
             WorldSizeM = worldSizeM,
-            CellSizeM = CellSizeM,
 
             // No pavement, and so no walking network: there is nobody on this map, and a kerb laid for
             // nobody is ground the picture would have to explain.
             PavementWidthM = 0f,
-            GridWidth = gridWidth,
-            GridHeight = gridHeight,
-            Cells = cells,
-            LaneDirs = laneDirs,
             Junctions = Nodes(nodeM, config),
 
             // No paint and no light anywhere on the ring: nothing meets at a node here, so a bar or a
@@ -341,7 +326,7 @@ internal static class IdlePlan
             {
                 Road = [], FromM = [], ToM = [], DeckWidthM = [], PavementWidthM = [],
             },
-            PavedAreas = new CityPlan.PavedAreaArrays { MinM = [], SizeM = [] },
+            PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = new CityPlan.CrosswalkArrays
             {
                 CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [],

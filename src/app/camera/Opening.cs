@@ -35,24 +35,23 @@ internal static class Opening
     /// How far from the middle the opening view already reaches, which is half its short side: road inside
     /// that is road the reader can see without the camera moving anywhere.
     /// </param>
-    public static Vector2 LooksAtM(TerrainGrid terrain, Vector2 worldSizeM, float inViewM)
+    public static Vector2 LooksAtM(GroundLocator terrain, SimConfig config, Vector2 worldSizeM, float inViewM)
     {
         var middleM = worldSizeM * 0.5f;
-        var roadM = NearestRoadM(terrain, middleM, worldSizeM);
+        var roadM = NearestRoadM(terrain, config.Terrain.GroundStepM, middleM, worldSizeM);
         return (roadM - middleM).Length() <= inViewM ? middleM : roadM;
     }
 
     /// <summary>The nearest ground a car could be on, or the middle itself where the town holds none.</summary>
-    static Vector2 NearestRoadM(TerrainGrid terrain, Vector2 middleM, Vector2 worldSizeM)
+    static Vector2 NearestRoadM(GroundLocator terrain, float stepM, Vector2 middleM, Vector2 worldSizeM)
     {
         if (terrain.At(middleM).Drivable) return middleM;
 
-        var stepM = terrain.CellSizeM;
         var reachM = MathF.Max(worldSizeM.X, worldSizeM.Y) * OfTheTown;
         for (var ringM = stepM; ringM <= reachM; ringM += stepM)
         {
-            // The ring is walked as a square rather than a circle: the cells are square, the answer is the
-            // same ground, and a trigonometric sweep of a grid is arithmetic spent on nothing.
+            // The ring is walked as a square rather than a circle: the answer is the same ground either
+            // way, and a trigonometric sweep is arithmetic spent on nothing.
             var steps = (int)MathF.Ceiling(ringM / stepM);
             for (var step = -steps; step <= steps; step++)
             {
@@ -67,7 +66,7 @@ internal static class Opening
         return middleM;
     }
 
-    static bool Drivable(TerrainGrid terrain, Vector2 pointM, out Vector2 atM)
+    static bool Drivable(GroundLocator terrain, Vector2 pointM, out Vector2 atM)
     {
         atM = pointM;
         return terrain.At(pointM).Drivable;

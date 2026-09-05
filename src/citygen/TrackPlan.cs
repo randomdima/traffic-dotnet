@@ -233,6 +233,25 @@ internal static class TrackPlan
     const float PadM = 6f;
 
     /// <summary>
+    /// The paving under the people, as the slabs the map carries. <b>A square of paving is a paved area and
+    /// not a kind of its own</b>: it is drawn from this array, classified from this array, and read by the
+    /// walk that refuses to run a line over one — three readers of one shape rather than a shape the ground
+    /// remembered and the plan did not.
+    /// </summary>
+    static CityPlan.PavedAreaArrays PavingUnder(ReadOnlySpan<Paced> standing)
+    {
+        var minM = new Vector2[standing.Length];
+        var sizeM = new Vector2[standing.Length];
+        for (var pacer = 0; pacer < standing.Length; pacer++)
+        {
+            minM[pacer] = standing[pacer].StandM - new Vector2(PadM * 0.5f);
+            sizeM[pacer] = new Vector2(PadM);
+        }
+
+        return new CityPlan.PavedAreaArrays { MinM = minM, SizeM = sizeM };
+    }
+
+    /// <summary>
     /// How many cars the measured lap carries. <b>Two of each drivetrain</b>, in the order the fleet ships
     /// them, so the rear, front and all-wheel answers are each a pair rather than one car's day.
     /// </summary>
@@ -322,10 +341,6 @@ internal static class TrackPlan
     public static CityPlan Lay(SimConfig config, TrackLap which = TrackLap.Pacing)
     {
         var worldSizeM = WorldSizeM(config);
-        var gridWidth = (int)MathF.Round(worldSizeM.X / CellSizeM);
-        var gridHeight = (int)MathF.Round(worldSizeM.Y / CellSizeM);
-        var cells = new Ground[gridWidth * gridHeight];
-        var laneDirs = new sbyte[cells.Length * 2];
         var widthM = config.RoadWidthM;
 
         var lap = Lap();
@@ -339,16 +354,9 @@ internal static class TrackPlan
             offsets.Add(segments.Count);
         }
 
-        var painter = new GroundPainter(cells, laneDirs, gridWidth, gridHeight, CellSizeM, config.RoadSideSign);
-        for (var road = 0; road < Roads; road++)
-        {
-            painter.Road(CollectionsMarshal.AsSpan(segments)[offsets[road]..offsets[road + 1]], widthM);
-        }
-
-        // After the roads, and only over ground no road took: a pad is where somebody stands, and a road
-        // that gave way to one would be a hole in the lap. There is none under a drunk — it is put down in
-        // the carriageway, and paving the place it started would be paving a piece of the lap — and none at
-        // all on the fleet lap, which carries nobody on foot.
+        // A pad is where somebody stands, and it is laid where no road is: there is none under a drunk — it
+        // is put down in the carriageway, and paving the place it started would be paving a piece of the lap
+        // — and none at all on the fleet lap, which carries nobody on foot.
         var standing = which switch
         {
             TrackLap.Drunk => ReelingFrom(lap, config),
@@ -356,10 +364,10 @@ internal static class TrackPlan
             _ => PacedFrom(lap, config),
         };
 
-        if (which == TrackLap.Pacing)
-        {
-            foreach (var pacer in standing) painter.Pad(pacer.StandM, PadM);
-        }
+        // <b>Carried as shapes and as nothing else</b> (TER-7): a slab the ground knew about and the plan
+        // did not was paving that was drawn from nothing. One array, which is what it is drawn from and what
+        // says a body is standing on paving.
+        var paved = which == TrackLap.Pacing ? PavingUnder(standing) : CityPlan.PavedAreaArrays.None;
 
         return new CityPlan
         {
@@ -371,15 +379,10 @@ internal static class TrackPlan
             },
             Name = NameOf(which),
             WorldSizeM = worldSizeM,
-            CellSizeM = CellSizeM,
 
             // No pavement, and so no walking network at all: there is nobody on a proving ground, and a
             // kerb laid for nobody is ground the measurement would have to explain.
             PavementWidthM = 0f,
-            GridWidth = gridWidth,
-            GridHeight = gridHeight,
-            Cells = cells,
-            LaneDirs = laneDirs,
             Junctions = Nodes(nodeM, config),
 
             // No paint anywhere on the lap. A bar is a place to stop that a driver is told about before it
@@ -409,7 +412,7 @@ internal static class TrackPlan
             {
                 Road = [], FromM = [], ToM = [], DeckWidthM = [], PavementWidthM = [],
             },
-            PavedAreas = new CityPlan.PavedAreaArrays { MinM = [], SizeM = [] },
+            PavedAreas = paved,
             Crosswalks = new CityPlan.CrosswalkArrays
             {
                 CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [],

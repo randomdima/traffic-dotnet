@@ -1,5 +1,74 @@
 # Terrain — decision log
 
+## 2026-09-03 — the cell grid is gone and the ground is solved against the shapes
+
+**There were two answers about one ground and they disagreed by design.** A map carried its shapes *and* a
+one-metre classification of them, and TER-7 stated the disagreement between the two as a tolerance: half a
+cell. Everything the town actually reads — grip under a wheel, whether a body may stand somewhere, how much
+road a driver claims — read the classification. So the error was largest exactly where it mattered most:
+on a corner fillet, where the lateral load is highest and no arrangement of metre squares is a kerb running
+at 40°. A tyre's contact patch is 0.2 m against a tolerance of 0.5 m.
+
+**It also fed back into traffic.** A car's grip came from the single cell under its centre, and the
+stopping distance that sizes a claim goes as v²/2a — so a misclassified cell lengthened a held stretch
+of road *quadratically*, and a raster artefact became a traffic artefact.
+
+**The answer is now solved against the shapes, in the reverse of the order they are drawn.** Ground is
+drawn by laying each piece over what is already there, so what a point *is* is the last piece laid over it,
+and the last piece laid is the first one met walking that list from the end. `GroundMesh.Build` and
+`GroundShapes.At` are one list in two directions; there is no tolerance anywhere, and the question
+of whether the drawn ground and the answered ground agree can no longer be asked.
+
+**Nested, because roads cannot overlap and lanes can.** The road level answers which road a point is on —
+`ChainIndex`, the same bucketed nearest-chain index the router already uses — and projects onto it once.
+After that a carriageway, a walk, a deck and a zebra are *intervals* in a frame with the bend taken out of
+it, and a crossing is two distances along the road it is painted across rather than a rectangle standing in
+the world. Curvature is paid once a query instead of once a feature. Everything that belongs to no road —
+junction discs, kerb fillets, the pavement's own inner corners, car parks, paving slabs, the water — is a
+shape over a bucket grid.
+
+**A zebra is asked about first because it is struck last.** Under the cells a crossing converted only cells
+that were already carriageway, so a crossing whose band lapped into a junction's disc simply stopped being
+one — and the walking network had stretches of crossing standing on ground no walker was permitted on.
+Drawn, the paint goes down over the disc like everything else; answered for in that order, it does too.
+
+**`Ground.Footway` and the lane direction are deleted rather than kept.** Nothing painted a footway; the
+kind existed only in the bytes of already-baked files. `LaneDirs` was two bytes a cell — 13.8 MB on Odesa —
+with no production consumer at all: what a lane's direction is, is the lane's, and every caller that wanted
+one already had a lane.
+
+**The generator does not keep a raster either.** It kept one at first — a scratch grid the layout stages
+read to decide where a building or a bench may stand — and that was still two descriptions of one ground,
+agreeing to within a cell. So the shape query was split in two: the *geometry* lives with the plan
+(`CityGen.GroundShapes`), which is what lets a half-laid town be asked what is where, and the *permissions*
+stay above it (`World.Terrain.GroundLocator`), because what a kind of ground allows is a rule about agents
+and the plan does not know what an agent is. `GroundPieces` is what a stage hands over: the shapes laid so
+far, and `None` for the rest.
+
+**Every collar the placement stages kept comes off with it.** A prop was cleared against the raster and
+then held a margin back from it — the whole radius the pavement turns its corners on for the wild sweep,
+because nothing had painted those corners in. The corners are in the answer now, so a candidate that clears
+it is clear, and GEN-6a is the whole of the rule again.
+
+**It costs the generator time.** Odesa laid in 384 ms against the raster and 900 ms against the shapes. Most
+of the difference was one question asked the wrong way — *is any paving within seven metres* — which by
+sampling needs a lattice fine enough not to step over a four-metre band, a hundred and fifty questions
+apiece over a hundred thousand candidates. Asked of the shapes instead (`GroundShapes.PavingWithin`) it is
+one index query, and that alone took 3.5 s back to 900 ms. What is left is the honest price of an exact
+answer, and it is paid once when a town is laid.
+
+**It costs about 300 ns a question on Odesa** — the census sweeps the whole town and prints the figure —
+against the 16–21 ns a cell lookup cost. That is 4 % of a core for four wheels on five hundred and fifty
+cars at 60 Hz, and it sits inside the 750–900 ns a moving body already pays `GroundUnder.At` every tick.
+The road level is nearly all of it: one projection onto a road's whole curve per candidate, which is the
+same arithmetic `RoadGraph.NearestLane` has always paid. What would take it back down is the fast path a
+body already on a lane does not need — it holds its lane, its progress and the arc, so a wheel's offset is
+a dot product — and that is a change to the physics rather than to the ground.
+
+**Format 4 drops both blocks and there is a writer now.** The two fixtures still carried as files were
+re-baked through `TownWriter`, which the format never had — a `.town` that could be read and not written is
+a format that cannot move. `Test.town` went from 235 KiB to 28.
+
 ## 2026-08-29 — the pavement's inner corners are solved and no longer read off the map
 
 **Every shipped map records fewer of them than it has.** The rule said the plan carried the list, and the

@@ -48,9 +48,9 @@ internal sealed class CarFleet
         Ambulance = new bool[capacity];
         BlueLight = new bool[capacity];
         AtWork = new bool[capacity];
-        LaneChain = new int[capacity * PathAssembler.MostLanes];
-        LaneStartM = new float[capacity * PathAssembler.MostLanes];
-        LaneEndM = new float[capacity * PathAssembler.MostLanes];
+        LaneChain = new int[capacity * LineAssembler.MostLanes];
+        LaneStartM = new float[capacity * LineAssembler.MostLanes];
+        LaneEndM = new float[capacity * LineAssembler.MostLanes];
         ProgressM = new float[capacity];
         AlongMps = new float[capacity];
         OffLineM = new float[capacity];
@@ -66,17 +66,18 @@ internal sealed class CarFleet
         Array.Fill(MovementWay, NoWay);
         LineWay = new int[capacity];
         Array.Fill(LineWay, NoWay);
-        ClaimWay = new int[capacity];
-        Array.Fill(ClaimWay, NoWay);
+        ClaimAhead = new GroundClaim[capacity * ClaimsAhead];
+        Array.Fill(ClaimAhead, GroundClaim.Nothing);
         TailWay = new int[capacity];
         Array.Fill(TailWay, NoWay);
         TurnsBackOn = new int[capacity];
         Array.Fill(TurnsBackOn, NoLane);
+        ClaimAheadWasTaken = new bool[capacity];
         ClaimFromM = new float[capacity];
         ClaimToM = new float[capacity];
-        ClaimWasTaken = new bool[capacity];
-        ReserveFromM = new float[capacity];
-        ReserveToM = new float[capacity];
+        StatedToM = new float[capacity];
+        StatedGrantM = new float[capacity];
+        Array.Fill(StatedGrantM, float.PositiveInfinity);
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
         GrantCutBy = new Control.HeadwayKind[capacity];
@@ -249,7 +250,7 @@ internal sealed class CarFleet
     /// </summary>
     /// <remarks>
     /// It is written where it is decided (<c>JunctionStopM</c>) and read where the movement's ground is laid
-    /// into the road's book, so that <em>committed</em> is one relation stated once rather than a stopping
+    /// as a claim, so that <em>committed</em> is one relation stated once rather than a stopping
     /// distance worked out twice from two different speeds.
     /// </remarks>
     public bool[] CommittedToTheBox { get; }
@@ -270,10 +271,10 @@ internal sealed class CarFleet
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is the name of a reservation and not a permission.</b> What the car actually holds is ground —
+    /// <b>It is the name of a claim and not a permission.</b> What the car actually holds is ground —
     /// the runs of that way the others are driven over it at
-    /// (<see cref="World.Road.WayCrossings"/>) — laid into the road's book from this field every tick,
-    /// exactly as <see cref="ClaimWay"/> is. So two cars crossing one junction without being driven over
+    /// (<see cref="World.Road.WayCrossings"/>) — claimed from this field every tick,
+    /// exactly as <see cref="ClaimAhead"/> is. So two cars crossing one junction without being driven over
     /// each other's ground take one each, and nothing about a junction is refused by anything other than
     /// what is standing on the metres wanted.
     /// </para>
@@ -287,37 +288,47 @@ internal sealed class CarFleet
     public int[] MovementWay { get; }
 
     /// <summary>
-    /// <b>The way of the book this car's line <em>is</em></b>, or <see cref="NoWay"/> where the line is a
+    /// <b>The numbered way this car's line <em>is</em></b>, or <see cref="NoWay"/> where the line is a
     /// chain of lanes or geometry of the car's own.
     /// </summary>
     /// <remarks>
     /// A bay's way out is the one line of this kind: it is not a lane, so it carries no chain, and it is not
     /// a template, because the town laid it. What it buys is that a car driving it is a car on a way — its
-    /// reservation is laid along it, its grant is cut by the table, and nothing about it needs a second
+    /// claim is laid along it, its grant is cut by the table, and nothing about it needs a second
     /// mechanism. <b>Read through <see cref="LineWayOf"/></b>, which is what makes it impossible for it to
     /// be stale.
     /// </remarks>
     public int[] LineWay { get; }
 
     /// <summary>
-    /// <b>The stretch of road this car has claimed and is not on yet</b> — the way it is on, and the two
-    /// metres along it. At most one, and <see cref="NoWay"/> where the car is claiming nothing.
+    /// <b>How many stretches of road one car may claim ahead of itself</b>: the lane a manoeuvre leaves and
+    /// the lane it crosses into. A carriageway is two lanes and `E-4` spans both of them.
+    /// </summary>
+    public const int ClaimsAhead = 2;
+
+    /// <summary>
+    /// <b>The stretches of road this car has claimed and is not on yet</b>, <see cref="ClaimsAhead"/> of
+    /// them, read through <see cref="ClaimsAheadOf"/>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It is a claim on <em>ground the body is about to cross into</em> and never on the road ahead of a
+    /// They are claims on <em>ground the body is about to cross into</em> and never on the road ahead of a
     /// car already driving down it: what holds a car off the queue in front of it is the headway term, and
-    /// a claim that restated it would be a second gate on the same movement (SIM-7). The two entries that
-    /// need one are the two that put a body somewhere the road did not send it — backing out of a bay, and
-    /// swinging round something in the lane.
+    /// a claim that restated it would be a second gate on the same movement (SIM-7). The one entry that
+    /// needs them puts a body where the road did not send it — `E-4`, which leaves its own lane over a
+    /// named stretch and crosses into the one running back the other way for the length of the pass.
     /// </para>
     /// <para>
-    /// <b>It is a field and not a register</b>, re-laid into the index from here every tick. A claim
+    /// <b>They are a field and not a register</b>, re-laid into the index from here every tick. A claim
     /// therefore cannot outlive the car that made it, cannot leak when one is wrecked, and needs nothing
-    /// released: an entry that stops wanting it writes <see cref="NoWay"/> and it is gone the next tick.
+    /// released: an entry that stops wanting one writes <see cref="GroundClaim.Nothing"/> and it is gone
+    /// the next tick.
     /// </para>
     /// </remarks>
-    public int[] ClaimWay { get; }
+    public GroundClaim[] ClaimAhead { get; }
+
+    /// <summary>This car's claims ahead, one slot apiece and each of them <see cref="GroundClaim.Nothing"/> where it holds none.</summary>
+    public Span<GroundClaim> ClaimsAheadOf(int car) => ClaimAhead.AsSpan(car * ClaimsAhead, ClaimsAhead);
 
     /// <summary>
     /// <b>The way this car's line finishes on past its last lane</b> — the way into the bay the leg is
@@ -325,8 +336,8 @@ internal sealed class CarFleet
     /// <see cref="TailWayOf"/></b>, which is what makes it impossible for it to be stale.
     /// </summary>
     /// <remarks>
-    /// It is what puts the last dozen metres of a leg into the book like every other metre of it: the
-    /// reservation runs along it, the traffic on the lane it crosses is held off it by the town's own table
+    /// It is what claims the last dozen metres of a leg like every other metre of it: the
+    /// claim runs along it, the traffic on the lane it crosses is held off it by the town's own table
     /// of crossings, and a driver working into a bay is a driver on a way. <b>Written where the line is
     /// assembled and nowhere else</b>, so it cannot describe a line the car is not holding.
     /// </remarks>
@@ -339,18 +350,14 @@ internal sealed class CarFleet
     /// frontage rather than the road running on.
     /// </summary>
     /// <remarks>
-    /// It is not the bay — that is a booking and the registry's (GEN-4g). A leg can want to turn here and
+    /// It is not the bay — that is a claim in the registry (GEN-4g). A leg can want to turn here and
     /// have no bay to do it in yet, which is a car driving up to the frontage and asking again, and the two
     /// facts have to be able to say so separately.
     /// </remarks>
     public int[] TurnsBackOn { get; }
 
-    public float[] ClaimFromM { get; }
-
-    public float[] ClaimToM { get; }
-
     /// <summary>
-    /// <b>Whether the claim above was taken off this car since it last thought</b> (TER-5e) — a road an
+    /// <b>Whether one of the claims above was taken off this car since it last thought</b> (TER-5e) — a road an
     /// officer closed across it, a rescue's, or a body that has been pushed onto the ground.
     /// </summary>
     /// <remarks>
@@ -360,16 +367,42 @@ internal sealed class CarFleet
     /// claim again or gives way to something else. Spent where it is read, so it survives exactly as long as
     /// it takes the driver to notice.
     /// </remarks>
-    public bool[] ClaimWasTaken { get; }
+    public bool[] ClaimAheadWasTaken { get; }
 
     /// <summary>
     /// <b>The stretch of its own line this car is committed to</b>, from its own tail to where its nose
     /// comes to rest if it holds this pedal until its next decision and then stops. In the line's metres,
     /// and meaningful only while the index is being laid — the grant taken off it is <see cref="AuthorityM"/>.
     /// </summary>
-    public float[] ReserveFromM { get; }
+    public float[] ClaimFromM { get; }
 
-    public float[] ReserveToM { get; }
+    public float[] ClaimToM { get; }
+
+    /// <summary>
+    /// <b>And the stretch beyond that one it means to use</b> (TER-5g): where its nose comes to rest if it
+    /// takes this line up to the speed it is planning for, holds that speed for as long as it says it will,
+    /// and then stops. In the line's metres, never behind <see cref="ClaimToM"/> and never past the end of
+    /// the line the car actually has.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the ground a stronger movement is entitled to take</b>, and the whole of what the car
+    /// states about where it is going. What comes back off it is the same grant the committed claim gets,
+    /// because the two are one ask read to two edges.
+    /// </remarks>
+    public float[] StatedToM { get; }
+
+    /// <summary>
+    /// <b>How much of that the answer left it</b> — the stated claim's own grant, from the nose, and
+    /// infinite where nothing took any of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is not <see cref="AuthorityM"/> and must not be folded into it.</b> The two are answered over
+    /// different reaches: the grant is taken inside the road the car means to be keeping, and this is taken
+    /// out to the end of what was stated — so a cut found only out there shortens what the car is saying
+    /// without touching what it is committed to, and no car brakes for a junction the gate has not let it
+    /// near. Nothing the driver reads is on it; what it feeds is the claim.
+    /// </remarks>
+    public float[] StatedGrantM { get; }
 
     /// <summary>
     /// <b>How far ahead of its nose the car was granted room to stop</b> — its own asked-for stretch cut at
@@ -391,7 +424,7 @@ internal sealed class CarFleet
     /// <remarks>
     /// <b>The reason a body is being held is a fact about what is in front and not about the distance</b>: a
     /// queue is waited behind and a wreck is driven round, and the two are the same number of metres. The
-    /// book worked it out to make the cut (<see cref="World.Road.LaneOccupancy.GrantedOn"/> hands the stretch
+    /// walk worked it out to make the cut (<see cref="World.Road.LaneOccupancy.GrantedOn"/> hands the stretch
     /// back), so anything that has to say <em>why</em> a car is held reads it rather than searching for the
     /// answer again — the trace, the overlay, and the proving ground's own rule that the people pacing its
     /// road are the instrument rather than the traffic.
@@ -400,7 +433,7 @@ internal sealed class CarFleet
 
     /// <summary>
     /// What the speed profile would have asked for with the road to itself — every term but the grant. It
-    /// is the <em>ceiling</em> on what the next reservation is sized by: a car may be committed to no more
+    /// is the <em>ceiling</em> on what the next claim is sized by: a car may be committed to no more
     /// road than it is going to drive over, and never to the road its top speed would need whether or not
     /// it is anywhere near it.
     /// </summary>
@@ -435,7 +468,7 @@ internal sealed class CarFleet
     public Control.DrivingHold[] Hold { get; }
 
     /// <summary>
-    /// What the driver was told about the world this tick — what the book has ahead of it and where
+    /// What the driver was told about the world this tick — what is claimed ahead of it and where
     /// it must be stopped by.
     /// </summary>
     /// <remarks>
@@ -593,7 +626,7 @@ internal sealed class CarFleet
     /// <summary>
     /// The queue dropped, <b>and with it the turn at the end of it</b>: a leg comes back the other way
     /// because the route it is holding says to (GEN-4l), so a route given up takes that with it. The bay
-    /// booked for the turn is the registry's and is given back by whoever gave up the route.
+    /// claimed for the turn is the registry's and is given back by whoever gave up the route.
     /// </summary>
     public void ClearRoute(int car)
     {
@@ -663,11 +696,11 @@ internal sealed class CarFleet
 
     public ReadOnlySpan<ArcSeg> LineOf(int car) => LineArcs.AsSpan(car * _arcsPerCar, Line[car].ArcCount);
 
-    public Span<int> ChainOf(int car) => LaneChain.AsSpan(car * PathAssembler.MostLanes, PathAssembler.MostLanes);
+    public Span<int> ChainOf(int car) => LaneChain.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
-    public Span<float> LaneStartsOf(int car) => LaneStartM.AsSpan(car * PathAssembler.MostLanes, PathAssembler.MostLanes);
+    public Span<float> LaneStartsOf(int car) => LaneStartM.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
-    public Span<float> LaneEndsOf(int car) => LaneEndM.AsSpan(car * PathAssembler.MostLanes, PathAssembler.MostLanes);
+    public Span<float> LaneEndsOf(int car) => LaneEndM.AsSpan(car * LineAssembler.MostLanes, LineAssembler.MostLanes);
 
     /// <summary>
     /// The way the line in hand <em>is</em>, or <see cref="NoWay"/>. <b>A line with no arcs is no way</b>,
@@ -684,7 +717,7 @@ internal sealed class CarFleet
     public int TailWayOf(int car) => Line[car].LaneCount > 0 ? TailWay[car] : NoWay;
 
     /// <summary>The lane the car is on, which is the first of its chain — or <see cref="NoLane"/> when it is on none.</summary>
-    public int LaneOf(int car) => Line[car].LaneCount > 0 ? LaneChain[car * PathAssembler.MostLanes] : NoLane;
+    public int LaneOf(int car) => Line[car].LaneCount > 0 ? LaneChain[car * LineAssembler.MostLanes] : NoLane;
 
     /// <summary>
     /// <b>The car this one is</b> — its own body, axles and what its tyres are worth (CAR-11). Every
@@ -735,8 +768,8 @@ internal sealed class CarFleet
         Line[car] = default;
         MovementWay[car] = NoWay;
         LineWay[car] = NoWay;
-        ClaimWay[car] = NoWay;
-        ClaimWasTaken[car] = false;
+        ClaimsAheadOf(car).Fill(GroundClaim.Nothing);
+        ClaimAheadWasTaken[car] = false;
         TailWay[car] = NoWay;
         TurnsBackOn[car] = NoLane;
         AuthorityM[car] = float.PositiveInfinity;
@@ -798,7 +831,7 @@ internal sealed class CarFleet
     public const int NoLane = -1;
 
     /// <summary>
-    /// No way of the book: a car committed to no movement, claiming no stretch, and whose line is a chain
+    /// No way at all: a car committed to no movement, claiming no stretch, and whose line is a chain
     /// of lanes or geometry of its own.
     /// </summary>
     public const int NoWay = -1;

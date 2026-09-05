@@ -26,7 +26,7 @@ internal sealed class TownWatch : ScenarioWatch
     /// <summary>PHY-1 as this town keeps it, which the gate on every shipped map asserts by name.</summary>
     public const int NothingInsideAnything = 0;
 
-    /// <summary>TER-4c.1 as this town keeps it: what the book gave a body is the whole of where it may be.</summary>
+    /// <summary>TER-4c.1 as this town keeps it: what a body was granted is the whole of where it may be.</summary>
     public const int NothingIsPastItsGrant = 1;
 
     const int NothingStandsUnclocked = 2;
@@ -37,7 +37,7 @@ internal sealed class TownWatch : ScenarioWatch
     static readonly string[] TheClaims =
     [
         "no body is left inside another",
-        "nobody goes on into ground the book refused it",
+        "nobody goes on into ground it was refused",
         "no car stands still with nothing running for it",
     ];
 
@@ -105,7 +105,7 @@ internal sealed class TownWatch : ScenarioWatch
     public int StuckBody => _stuckBody;
 
     /// <summary>
-    /// The furthest anything has ever been past the ground the book granted it, and which body that was. A
+    /// The furthest anything has ever been past the ground it was granted, and which body that was. A
     /// peak is a body arriving at the edge of its own grant a tick late; a long run of them is a body driving
     /// on road that was somebody else's.
     /// </summary>
@@ -290,7 +290,7 @@ internal sealed class TownWatch : ScenarioWatch
             _stuckBody = body;
         }
 
-        // And the same question asked of the book rather than of the shapes: whether a body is where it was
+        // And the same question asked of the claims rather than of the shapes: whether a body is where it was
         // told it could be. The two are not one reading — a car past its grant with nothing yet in the metres
         // it took is inside nothing at all, and is the tick before the contact rather than the contact.
         //

@@ -14,7 +14,7 @@ staged from.
 
 **Line.** The route's, unchanged.
 
-**Do.** Nothing of its own. The reservation pass and the speed profile between them already stop the car
+**Do.** Nothing of its own. The claim pass and the speed profile between them already stop the car
 at the bar; what this adds is that a car doing it has a **name**, so the watchdog can tell a car waiting
 out a light from a car that has stopped for no reason at all.
 
@@ -46,7 +46,7 @@ imposes nothing, so the profile pulls the car away the moment it may — and tak
 moving is what stops `P-4` being handed a stationary car a hundred times in one spot.
 
 **Why it is not scheduled.** Braking to a line is a closed loop on an error. It looks perfectly safe to
-schedule, because the car is stopping anyway and the reservation pass holds it at the bar every tick
+schedule, because the car is stopping anyway and the claim pass holds it at the bar every tick
 regardless — and scheduling it was still measured to push the front of the queue nearly twice as far back
 from the paint.
 

@@ -549,7 +549,7 @@ internal sealed partial class TownWorld
     void LetTheBuildingLetItGo(int car)
     {
         var apron = _duty.HomeBay[car] >= 0 ? _duty.HomeBay[car] : _beat.HomeBay[car];
-        if (apron >= 0 && _parking.HeldFor(apron) == car) _parking.HoldForTheCar(apron, ParkingRegistry.Reserved);
+        if (apron >= 0 && _parking.HeldFor(apron) == car) _parking.HoldForTheCar(apron, ParkingRegistry.Claimed);
 
         Cars.Ambulance[car] = false;
         Cars.BlueLight[car] = false;
@@ -581,7 +581,7 @@ internal sealed partial class TownWorld
         StandTheEvacuatorDown(car);
 
         var home = _recovery.HomeBay[car];
-        if (home >= 0 && _parking.HeldFor(home) == car) _parking.HoldForTheCar(home, ParkingRegistry.Reserved);
+        if (home >= 0 && _parking.HeldFor(home) == car) _parking.HoldForTheCar(home, ParkingRegistry.Claimed);
 
         _recovery.Depot[car] = RecoveryDuty.NoBuilding;
         _recovery.Yard[car] = RecoveryDuty.NoYard;

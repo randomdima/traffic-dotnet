@@ -8,10 +8,18 @@ namespace TrafficSimulation.CityGen;
 /// from it, a validator judges it, the <c>.town</c> format carries it, and the generator will emit it.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Structure of arrays, laid once at load: one array per field, and a variable-length run — a road's
 /// segments, a lot's spaces, a building's ways in, a water outline's points — is a flat array with an
 /// offsets array beside it, so a plan of a whole city is a few dozen allocations and no per-record
 /// object. The world is built from this structure and never from the file.
+/// </para>
+/// <para>
+/// <b>Every field here is a shape, and there is no raster among them.</b> What the ground is at a point is
+/// solved against these shapes (<see cref="GroundShapes"/>) rather than looked up in a
+/// classification laid beside them, so there is one geometry and the question of whether the two agree
+/// cannot be asked (TER-7).
+/// </para>
 /// </remarks>
 internal sealed class CityPlan
 {
@@ -28,25 +36,8 @@ internal sealed class CityPlan
 
     public required Vector2 WorldSizeM { get; init; }
 
-    public required float CellSizeM { get; init; }
-
     /// <summary>0 for a map laid without a pavement.</summary>
     public required float PavementWidthM { get; init; }
-
-    public required int GridWidth { get; init; }
-
-    public required int GridHeight { get; init; }
-
-    /// <summary>The terrain classification, row-major with y outer. One byte a cell; the town is fully covered.</summary>
-    public required Ground[] Cells { get; init; }
-
-    /// <summary>
-    /// Two components a cell, quantised to 1/127, dense over the whole grid and zero off the
-    /// carriageway. The file carries it sparse because a city's grid is 24.6 MB of mostly nothing;
-    /// it is expanded here because the tick asks for it <em>by position</em>, and a sparse lookup in
-    /// the follower's inner loop is a hash where a load would do.
-    /// </summary>
-    public required sbyte[] LaneDirs { get; init; }
 
     public required JunctionArrays Junctions { get; init; }
 
@@ -82,7 +73,13 @@ internal sealed class CityPlan
 
     public required WaterArrays Water { get; init; }
 
-    public int CellCount => GridWidth * GridHeight;
+    /// <summary>
+    /// The shapes the ground is cut from, as the one bundle both readings of the town's surface take
+    /// (<see cref="GroundShapes"/>, <see cref="PavementCorners"/>).
+    /// </summary>
+    public GroundPieces Ground => new(
+        WorldSizeM, PavementWidthM, Roads, Bridges, Junctions, JunctionCorners, ParkingLots, PavedAreas,
+        Crosswalks, Water);
 
     /// <summary>
     /// How far a zebra reaches across the road, kerb to kerb: <b>the width of the road it is painted on,
@@ -178,6 +175,9 @@ internal sealed class CityPlan
 
     internal sealed class PavedAreaArrays
     {
+        /// <summary>A map with no paving of its own on it, which is most of them.</summary>
+        public static PavedAreaArrays None => new() { MinM = [], SizeM = [] };
+
         public required Vector2[] MinM { get; init; }
         public required Vector2[] SizeM { get; init; }
         public int Count => MinM.Length;

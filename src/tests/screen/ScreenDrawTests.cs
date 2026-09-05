@@ -74,7 +74,7 @@ public class ScreenDrawTests
     /// <remarks>
     /// Butted as plain rectangles the two pivot about the centreline instead, opening a notch on the
     /// outside of the joint and doubling the blend on the inside. Both are half the band's width times the
-    /// turn across a piece, so it is a wide band round a tight bend — a car's reservation through a
+    /// turn across a piece, so it is a wide band round a tight bend — a car's claim through a
     /// junction join — that shows it worst.
     /// </remarks>
     [Fact]

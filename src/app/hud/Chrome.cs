@@ -6,8 +6,8 @@ namespace TrafficSimulation.App.Hud;
 /// <summary>
 /// The furniture a run carries that belongs to no panel: the buttons in the top-right corner. What
 /// the run <em>is</em> and what it costs is the status panel's, in the opposite corner
-/// (<see cref="StatusPanel"/>), and what the selected unit is doing stands beside that unit
-/// (<see cref="UnitLabel"/>).
+/// (<see cref="StatusPanel"/>), and what the selection <em>is</em> is the bottom-left
+/// (<see cref="UnitPanel"/>). Nothing about a unit is written on the town itself (OBS-2m).
 /// </summary>
 /// <remarks>
 /// <b>The panels keep to the corners.</b> The middle of the view is the town's, which is a claim the

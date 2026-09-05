@@ -11,9 +11,15 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 [Trait(Tier.Key, Tier.Unit)]
 public class RescuePriorityTests
 {
-    static LaneSlot Claim(RightOfWay right) => new(10f, 20f, 20f, 0f, 7, LaneUse.Claimed, Right: right);
+    /// <summary>Ground granted and not reached, at the rank its movement carries.</summary>
+    static LaneClaim Claim(RightOfWay right) =>
+        new(10f, 20f, 10f, 0f, 7, right == RightOfWay.Committed
+            ? ClaimPriority.Hard
+            : ClaimPriority.Firm, Right: right);
 
-    static LaneSlot Body(LaneUse use, RightOfWay right) => new(10f, 20f, 20f, 0f, 7, use, Right: right);
+    /// <summary>A body standing on the ground, whichever way it was measured.</summary>
+    static LaneClaim Body(bool onItsLine, RightOfWay right) =>
+        new(10f, 20f, 20f, 0f, 7, ClaimPriority.Hard, Right: right, OnItsLine: onItsLine);
 
     /// <summary>
     /// A rescue outranks every ordinary movement, the paint and <b>a closed road</b> (SRV-6), so none of
@@ -67,7 +73,7 @@ public class RescuePriorityTests
     [Fact]
     public void AClosureTakesNoBody()
     {
-        Assert.True(LaneOccupancy.Binds(Body(LaneUse.Reserved, RightOfWay.Traffic), RightOfWay.Closed));
+        Assert.True(LaneOccupancy.Binds(Body(onItsLine: true, RightOfWay.Traffic), RightOfWay.Closed));
         Assert.True(LaneOccupancy.Binds(Claim(RightOfWay.Committed), RightOfWay.Closed));
     }
 
@@ -87,13 +93,11 @@ public class RescuePriorityTests
     /// committed to being able to stop in, refuse a rescue exactly as they refuse anybody.
     /// </summary>
     [Theory]
-    [InlineData((byte)0)]
-    [InlineData((byte)1)]
-    [InlineData((byte)3)]
-    [InlineData((byte)4)]
-    public void ARescueIsRefusedByABodyWhateverRankThatBodyHolds(byte use)
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ARescueIsRefusedByABodyHoweverItWasMeasured(bool onItsLine)
     {
-        Assert.True(LaneOccupancy.Binds(Body((LaneUse)use, RightOfWay.Traffic), RightOfWay.Emergency));
+        Assert.True(LaneOccupancy.Binds(Body(onItsLine, RightOfWay.Traffic), RightOfWay.Emergency));
     }
 
     /// <summary>

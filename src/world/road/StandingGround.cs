@@ -10,12 +10,12 @@ namespace TrafficSimulation.World.Road;
 /// <para>
 /// <b>Projected once and re-laid every tick.</b> The projection is the expensive half and nothing about it
 /// can change — neither the prop nor the lane moves — so it is done with the town; the laying is a copy of
-/// a handful of stretches into a book that is cleared every tick, which is what keeps <em>one</em> rule
-/// about how the book is filled instead of two (<see cref="LaneOccupancy.Begin"/> drops everything, and
+/// a handful of stretches into claims that are cleared every tick, which is what keeps <em>one</em> rule
+/// about how a claim is laid instead of two (<see cref="LaneOccupancy.Begin"/> drops everything, and
 /// nothing has to be given back).
 /// </para>
 /// <para>
-/// <b>The book is the driver's one place to look.</b> Asking the static tree instead would be a descent
+/// <b>The claims are the driver's one place to look.</b> Asking the static tree instead would be a descent
 /// whose every step is a cache miss, per driver per tick, for an answer that cannot change — and it would
 /// leave a driver reading immovable ground out of one structure and everything else out of another.
 /// </para>
@@ -40,32 +40,32 @@ internal sealed class StandingGround
         _toM = toM;
     }
 
-    /// <summary>How many stretches of lane the town's furniture stands on, which is what a book needs room for.</summary>
+    /// <summary>How many stretches of lane the town's furniture stands on, which is the room its claims need.</summary>
     public int Count => _lane.Length;
 
     /// <summary>
-    /// Everything immovable, into a book that has just been begun. <b>Nobody's</b>
-    /// (<see cref="LaneOccupancy.Nobody"/>), because a prop is in no roster — and under a use of its own
-    /// (<see cref="LaneUse.Furniture"/>), because <em>which</em> questions it answers is the whole of what
-    /// it is: a driver's grant is cut at it like anything else on the lane, and a walker asking what is
-    /// coming down that lane is asking about wheels.
+    /// Everything immovable, into claims that have just been begun. <b>Nobody's</b>
+    /// (<see cref="LaneOccupancy.Nobody"/>), because a prop is in no roster — a claim nobody owns, which is
+    /// the whole of what it is: a driver's grant is cut at it like anything else on the lane, and a walker
+    /// asking what is coming down that lane is asking about wheels.
     /// </summary>
     /// <remarks>
-    /// Read as an <see cref="LaneUse.Obstruction"/> it was traffic, and what kept the walkers off that
+    /// Read as somebody's own body it was traffic, and what kept the walkers off that
     /// answer was that the exclusion they asked with named the same integer a prop stands under — one
     /// question's argument deciding another question's answer.
     /// </remarks>
-    public void LayInto(LaneOccupancy book)
+    public void LayInto(LaneOccupancy claims)
     {
         for (var at = 0; at < _lane.Length; at++)
         {
-            book.Add(book.WayOfLane(_lane[at]), _fromM[at], _toM[at], 0f, LaneOccupancy.Nobody, LaneUse.Furniture);
+            claims.ClaimWhereItStands(
+                claims.Ways.OfRoadLane(_lane[at]), _fromM[at], _toM[at], _toM[at], 0f, LaneOccupancy.Nobody);
         }
     }
 
     /// <summary>
     /// The stretches as they are found, before they are sealed into the arrays the tick reads. <b>Lanes and
-    /// not ways</b>, so that what is projected needs no book to exist yet — the book has to be sized by how
+    /// not ways</b>, so that what is projected needs no claims to exist yet — they have to be sized by how
     /// many of these there are.
     /// </summary>
     internal sealed class Builder

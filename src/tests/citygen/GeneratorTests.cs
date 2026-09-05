@@ -1,8 +1,10 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Terrain;
 using Xunit;
 
 namespace TrafficSimulation.Tests.CityGen;
@@ -234,25 +236,32 @@ public class GeneratorTests
             Assert.Equal(Ground.Grass, GroundAt(plan, plan.Props.CentreM[prop]));
         }
 
-        // And the shore is what the water is met at: no cell of it touches the grass. What may touch it is
-        // what the town laid over the shore afterwards — a bridge's own deck reaches the water by design.
-        for (var y = 0; y < plan.GridHeight; y++)
+        // And the shore is what the water is met at: no water anywhere in the town has grass a step from it.
+        // What may touch it is what the town laid over the shore afterwards — a bridge's own deck reaches
+        // the water by design.
+        var stepM = Config.Terrain.GroundStepM;
+        for (var y = stepM * 0.5f; y < plan.WorldSizeM.Y; y += stepM)
         {
-            for (var x = 0; x < plan.GridWidth; x++)
+            for (var x = stepM * 0.5f; x < plan.WorldSizeM.X; x += stepM)
             {
-                var cell = (y * plan.GridWidth) + x;
-                if (plan.Cells[cell] != Ground.Water) continue;
+                var atM = new Vector2(x, y);
+                if (GroundAt(plan, atM) != Ground.Water) continue;
 
-                if (x + 1 < plan.GridWidth) AssertNotGrass(plan, cell + 1, x + 1, y);
-                if (y + 1 < plan.GridHeight) AssertNotGrass(plan, cell + plan.GridWidth, x, y + 1);
-                if (x > 0) AssertNotGrass(plan, cell - 1, x - 1, y);
-                if (y > 0) AssertNotGrass(plan, cell - plan.GridWidth, x, y - 1);
+                foreach (var stride in (ReadOnlySpan<Vector2>)
+                         [new(stepM, 0f), new(-stepM, 0f), new(0f, stepM), new(0f, -stepM)])
+                {
+                    var besideM = atM + stride;
+                    if (besideM.X < 0f || besideM.Y < 0f) continue;
+                    if (besideM.X > plan.WorldSizeM.X || besideM.Y > plan.WorldSizeM.Y) continue;
+
+                    AssertNotGrass(plan, besideM);
+                }
             }
         }
     }
 
-    static void AssertNotGrass(CityPlan plan, int cell, int x, int y) =>
-        Assert.True(plan.Cells[cell] != Ground.Grass, $"grass at {x},{y} stands against the water");
+    static void AssertNotGrass(CityPlan plan, Vector2 atM) =>
+        Assert.True(GroundAt(plan, atM) != Ground.Grass, $"grass at {atM.X:F1},{atM.Y:F1} stands against the water");
 
     /// <summary>
     /// <b>Nothing ends in nothing</b> (GEN-5a): a generated town carries no junction of one arm, since the
@@ -746,7 +755,7 @@ public class GeneratorTests
     {
         for (var corner = 0; corner < plan.JunctionCorners.Count; corner++)
         {
-            if ((plan.JunctionCorners.CornerM[corner] - cornerAtM).Length() < plan.CellSizeM) return true;
+            if ((plan.JunctionCorners.CornerM[corner] - cornerAtM).Length() < Config.Terrain.GroundStepM) return true;
         }
 
         return false;
@@ -816,10 +825,11 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// <b>And one the sweep laid keeps the pavement's own corner radius clear too</b> (GEN-6a), since a
-    /// candidate cleared against the cells alone can be standing in a kerb corner that is drawn and not
-    /// classified (TER-3c.4). Which props those are is read back off where they stand: one on no paved
-    /// edge's verge is one no edge walk put there.
+    /// <b>And one the sweep laid stands the pavement's own corner radius clear of it too</b> (GEN-6a) —
+    /// which follows from the stand-off that pass keeps and is asserted separately because the two are
+    /// different figures: the day the stand-off drops below a corner radius, a wild prop can stand in a
+    /// wedge of verge the walk is drawn round (TER-3c.4). Which props those are is read back off where they
+    /// stand: one on no paved edge's verge is one no edge walk put there.
     /// </summary>
     [Theory]
     [MemberData(nameof(Seeds))]
@@ -843,9 +853,9 @@ public class GeneratorTests
     static void AllGrassWithin(CityPlan plan, int prop, float standM)
     {
         var atM = plan.Props.CentreM[prop];
-        for (var downM = -standM; downM <= standM; downM += plan.CellSizeM)
+        for (var downM = -standM; downM <= standM; downM += Config.Terrain.GroundStepM)
         {
-            for (var overM = -standM; overM <= standM; overM += plan.CellSizeM)
+            for (var overM = -standM; overM <= standM; overM += Config.Terrain.GroundStepM)
             {
                 var offsetM = new Vector2(overM, downM);
                 if (offsetM.LengthSquared() > standM * standM) continue;
@@ -882,7 +892,7 @@ public class GeneratorTests
             // tolerance. What is left between the two is still metres of strip.
             Assert.True(
                 edges.InAVerge(atM, Config)
-                || edges.NearestM(atM) > Config.CityGen.PropWildStandOffM - plan.CellSizeM,
+                || edges.NearestM(atM) > Config.CityGen.PropWildStandOffM - Config.Terrain.GroundStepM,
                 $"the prop at {atM.X:F1},{atM.Y:F1} stands {edges.NearestM(atM):F2} m off the nearest " +
                 $"paving, which is neither a verge nor clear of one " +
                 $"({Config.CityGen.PropWildStandOffM:F1} m)");
@@ -1140,14 +1150,15 @@ public class GeneratorTests
         return false;
     }
 
-    static Ground GroundAt(CityPlan plan, Vector2 pointM)
-    {
-        var x = (int)MathF.Floor(pointM.X / plan.CellSizeM);
-        var y = (int)MathF.Floor(pointM.Y / plan.CellSizeM);
-        if (x < 0 || y < 0 || x >= plan.GridWidth || y >= plan.GridHeight) return Ground.Water;
+    /// <summary>
+    /// What the ground is at a point, off the same locator the town itself reads. <b>Kept against the plan
+    /// it was laid over</b> so a theory asking it a million times pays for the indexes once.
+    /// </summary>
+    static Ground GroundAt(CityPlan plan, Vector2 pointM) => Located(plan).GroundAt(pointM);
 
-        return plan.Cells[(y * plan.GridWidth) + x];
-    }
+    static readonly ConditionalWeakTable<CityPlan, GroundLocator> Locators = [];
+
+    static GroundLocator Located(CityPlan plan) => Locators.GetValue(plan, laid => new GroundLocator(laid, Config));
 
     /// <summary>
     /// What a town is, as one number: everything the plan carries, folded in the order it carries it.
@@ -1157,10 +1168,7 @@ public class GeneratorTests
     static int Shape(CityPlan plan)
     {
         var hash = new HashCode();
-        hash.Add(plan.GridWidth);
-        hash.Add(plan.GridHeight);
-        foreach (var ground in plan.Cells) hash.Add((byte)ground);
-        foreach (var direction in plan.LaneDirs) hash.Add(direction);
+        hash.Add(plan.WorldSizeM);
         foreach (var arc in plan.Roads.Segments) hash.Add(arc);
         foreach (var centreM in plan.Junctions.CentreM) hash.Add(centreM);
         foreach (var lit in plan.Junctions.Lit) hash.Add(lit);

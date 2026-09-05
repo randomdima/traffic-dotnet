@@ -460,7 +460,7 @@ internal sealed partial class TownWorld
         Cars.Hold[car] = DrivingHold.None;
 
         // Nothing was asked of the world on this car's behalf, so the layer has nothing about it to
-        // draw: a hand-driven car reads no book and is stopped by nothing but the hand on the pedal.
+        // draw: a hand-driven car reads no claims and is stopped by nothing but the hand on the pedal.
         Cars.Context[car] = DriveContext.Clear;
         Tyres(car, pose);
     }

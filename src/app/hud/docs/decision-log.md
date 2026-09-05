@@ -167,20 +167,31 @@ it left is not reused: the middle of the view is the town's, and one fewer box o
 
 **And what a watch had to say about one body went to that body.** The claims table named the unluckiest
 car in the town — `deepest 8 mm car 7` — which is a finding somebody then had to go and find. A claim is
-a statement about the town; the same two sweeps read at one body are now on the label standing beside the
-selected unit, where the eye already is.
+a statement about the town; the same two sweeps read at one body are now rows on that unit's own panel,
+beside the figures the finding is about.
 
-## The selected unit's state left the corner and stands at the unit
+## Everything about the selection is in one corner, and the town carries only the mark
 
-It was one line in the bottom-left, which is as far from the unit it describes as a 1600-pixel window
-allows. Picking a car out and then reading about it in the opposite corner is two places to look, and
-with several cars on screen the line does not say which of them it is about — it says `car 21`, and
-finding car 21 is exactly the thing the reader was doing when they clicked.
+**A read-out that stands at the unit is one line wide, and a car is worth ten.** What a driver was told —
+what was claimed in front of the nose, how much room that left, how far off its line it is running, how
+much route is left, what a watch has against it — is the answer to every question that starts "why is it
+doing that", and none of it fits beside a car. What was beside the car was therefore the one line that did
+fit, and the moment there were rows worth reading there were two places to read them.
 
-It now stands beside the box the brackets wrap and follows it, flipping to the other side rather than
-being pinned into a margin over the unit, and drawing nothing at all for a unit that is not on the picture
-— inside a building, or behind the camera. A label clamped onto a window edge points at an edge the unit
-is nowhere near, which is worse than no label.
+So the words all went to the bottom-left and the town kept the **mark alone** (OBS-2m): brackets round the
+box, the path ahead of it, and nothing written over the road the car is about to drive down. The argument
+that once sent that line out of the corner — `car 21` in the opposite corner does not say *which* car — is
+answered by the mark rather than by the words: the brackets are on the unit, the path runs from under it,
+and the camera can be stood on it (OBS-1a). None of those cover anything.
+
+**The corner is also the only read-out that survives the unit leaving the picture.** A label draws nothing
+for a body inside a building or behind the camera, since one clamped to a window edge points at an edge the
+unit is nowhere near — so watching somebody get into a car used to mean watching the read-out about them
+disappear. A panel in a corner points at nothing to begin with, and goes on saying what they are doing.
+
+**A group is counted there and not described.** Thirty cars have no speed, no destination and no manoeuvre
+between them, so a set writes how many of each kind it holds — which is a row in a panel that is already
+open, rather than a box laid on the town to hold a count.
 
 ## The checks left the menu
 
@@ -233,3 +244,37 @@ so a camera that snapped back inside a few degrees would undo every step before 
 the town could never be nudged off north at all. The button is exact, it is one press, and drawing it only
 while the town is turned means it is never a control that does nothing: a needle standing straight up on a
 town already north-up is the whole of what it would have said.
+
+## The map picked is opened a frame late, so the card saying so is on screen for the wait
+
+Opening a city is seconds of work — the brief read, the layout settled, the ground rasterised, the fleet
+stood up and the renderer rebuilt for it — and it used to happen inside the frame that took the click. The
+reader pressed a row and the picture stopped: the menu was still on screen, the row was still lit, and
+nothing said the press had been read at all. On a page it is worse, because a plan still carried as a file
+has to come off the wire first.
+
+The open is now deferred to the end of the frame. That is one line and it costs nothing, and it is what
+makes the difference between a card drawn and a card drawn *and submitted*: a frame that opened the town
+before it drew would put the card up at the moment it stopped being needed. The seconds the open takes then
+land in the next frame's wait, where the clock already forgets time it was never asked to simulate and the
+meter already drops the frame — neither needed anything new, because a stalled frame is a thing this loop
+was already built to survive.
+
+**The two heads keep their split and lose their duplicate.** Both now do the same thing with a click — write
+the name down and put the card up — and differ only in who acts on it: the desktop's loop on its next turn,
+the page's boot on its own `await`, which is the one place there where waiting is allowed. That was already
+the browser's arrangement; what changed is that it is now the arrangement, and the desktop's own "a map
+picked is a map opened" is gone.
+
+**The card carries no progress and no spinner.** There is nothing honest to animate: on the desktop the frame
+the card is drawn in is the last frame there is until the town is standing, so anything moving would stop
+moving immediately and read as a hang. A page has frames all through its fetch and could animate, and that is
+exactly the reason not to — a piece of furniture that is alive on one head and frozen on the other is two
+things with one name, and the picture people take of the browser head would not be the picture of the
+desktop's.
+
+**And while it is up it is the whole interface.** The alternative was a card floating over a live menu, which
+on a page is several seconds of a map list somebody can go on clicking; the run would then be opening two
+towns, and the second click would be a defect nothing else could catch. Drawing nothing else is also what
+settles the read-out question — a frame rate, a scale bar and a claims table over the town being left are
+answers about a run that is already over.

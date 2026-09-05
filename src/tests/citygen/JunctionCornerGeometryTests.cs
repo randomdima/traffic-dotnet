@@ -25,11 +25,11 @@ public class JunctionCornerGeometryTests
     public void TheGroundInsideAFilletIsWalkableAndOutsideItIsRoad(string map)
     {
         var plan = Towns.Of(map);
-        var terrain = new TerrainGrid(plan, SimConfig.Shipped());
+        var terrain = new GroundLocator(plan, SimConfig.Shipped());
         var corners = plan.JunctionCorners;
         if (corners.Count == 0) return;
 
-        var strideM = plan.CellSizeM;
+        var strideM = SimConfig.Shipped().Terrain.GroundStepM;
         for (var corner = 0; corner < corners.Count; corner++)
         {
             var arcCentreM = corners.ArcCentreM[corner];

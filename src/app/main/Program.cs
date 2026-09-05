@@ -54,6 +54,7 @@ internal static class Program
         var options = Options.Parse(args, config.View);
 
         if (options.Lamps) return CutTheLamps();
+        if (options.Export is not null) return RunExport(options, config);
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
@@ -193,6 +194,21 @@ internal static class Program
                               $"{lamp.WidthPx,3}x{lamp.HeightPx,-3} distinct {lamp.Distinct:F2}");
         }
 
+        return 0;
+    }
+
+    /// <summary>
+    /// One map, laid and written out as a <c>.town</c> file (GEN-1). It is how a map generated from a
+    /// brief becomes one this build ships, and how a fixture is re-baked when the format moves.
+    /// </summary>
+    static int RunExport(Options options, SimConfig config)
+    {
+        var name = options.Map ?? Options.FixtureMap;
+        var plan = Maps.Plan(name, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
+        TownWriter.WriteFile(plan, options.Export!);
+
+        var written = new FileInfo(options.Export!).Length;
+        Console.WriteLine($"wrote {name} to {options.Export} — format {TownReader.Version}, {written / 1024} KiB");
         return 0;
     }
 
@@ -353,7 +369,7 @@ internal static class Program
         var mesh = GroundMesh.Build(plan, config);
         var laid = Stopwatch.GetElapsedTime(started);
 
-        var ground = new TerrainGrid(plan, config).At(plan.Spawns.Count > 0 ? plan.Spawns.PositionM[0] : plan.WorldSizeM * 0.5f);
+        var ground = new GroundLocator(plan, config).At(plan.Spawns.Count > 0 ? plan.Spawns.PositionM[0] : plan.WorldSizeM * 0.5f);
 
         Console.WriteLine($"{plan.Name} {plan.WorldSizeM.X:F0}x{plan.WorldSizeM.Y:F0} m read in {read.TotalMilliseconds:F1} ms — " +
                           $"{plan.Roads.Count} roads, {plan.Buildings.Count} buildings, {plan.Props.Count} props, {plan.Spawns.Count} spawns");
@@ -395,7 +411,7 @@ internal static class Program
         float TurnDeg,
         string? Shot, Vector2? AtM, string Ui, float UiScale, string Present, List<Vector2> RulerPointsM,
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
-        bool Windowed, string? Display)
+        bool Windowed, string? Display, string? Export)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: it is one screen, it
@@ -437,7 +453,7 @@ internal static class Program
                 Bench: null, Map: null, ViewM: 0f, TurnDeg: 0f, Shot: null, AtM: null, Ui: string.Empty, UiScale: 0f,
                 Present: "fifo", RulerPointsM: [], Sheet: null,
                 Caption: false, Title: null,
-                Note: null, Lamps: false, Windowed: false, Display: null);
+                Note: null, Lamps: false, Windowed: false, Display: null, Export: null);
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -469,6 +485,10 @@ internal static class Program
                         break;
                     case "--bench" when i + 1 < args.Length:
                         options = options with { Bench = args[i + 1] };
+                        i++;
+                        break;
+                    case "--export" when i + 1 < args.Length:
+                        options = options with { Export = args[i + 1] };
                         i++;
                         break;
                     case "--map" when i + 1 < args.Length:
@@ -534,7 +554,7 @@ internal static class Program
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
                                                     "--windowed, --display NAME|N, --seconds N, --validate, --check, " +
-                                                    "--bench NAME|all, --lamps.");
+                                                    "--bench NAME|all, --export PATH, --lamps.");
                 }
             }
 

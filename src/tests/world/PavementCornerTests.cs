@@ -1,7 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Tests.CityGen;
-using TrafficSimulation.World.Terrain;
+using TrafficSimulation.CityGen;
 using Xunit;
 
 namespace TrafficSimulation.Tests.World;
@@ -21,7 +21,7 @@ public class PavementCornerTests
     {
         var config = SimConfig.Shipped();
 
-        foreach (var corner in PavementCorners.Solve(Towns.Of(map), config))
+        foreach (var corner in PavementCorners.Solve(Towns.Of(map).Ground, config))
         {
             Assert.Equal(1f, corner.NormalA.Length(), tolerance: 1e-3f);
             Assert.Equal(1f, corner.NormalB.Length(), tolerance: 1e-3f);
@@ -49,7 +49,7 @@ public class PavementCornerTests
         var config = SimConfig.Shipped();
         var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
 
-        foreach (var corner in PavementCorners.Solve(plan, config))
+        foreach (var corner in PavementCorners.Solve(plan.Ground, config))
         {
             var deepM = Vector2.Distance(corner.ArcCentreM, corner.CornerM) - corner.RadiusM;
             Assert.InRange(deepM, 0f, (walkM * 0.5f) + 1e-2f);
@@ -67,7 +67,7 @@ public class PavementCornerTests
         var plan = Towns.Of("Exam");
 
         Assert.Equal(0, plan.PavementCorners.Count);
-        Assert.NotEmpty(PavementCorners.Solve(plan, SimConfig.Shipped()));
+        Assert.NotEmpty(PavementCorners.Solve(plan.Ground, SimConfig.Shipped()));
     }
 
     /// <summary>A map laid without a pavement has no corners to turn, and asking costs nothing.</summary>
@@ -77,6 +77,6 @@ public class PavementCornerTests
         var plan = Towns.Of("Track");
 
         Assert.Equal(0f, plan.PavementWidthM);
-        Assert.Empty(PavementCorners.Solve(plan, SimConfig.Shipped()));
+        Assert.Empty(PavementCorners.Solve(plan.Ground, SimConfig.Shipped()));
     }
 }

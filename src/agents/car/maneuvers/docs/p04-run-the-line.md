@@ -37,7 +37,7 @@ road reach the ladder — and the obstruction wait, which is the bound on standi
 | the line has left the road for the way into the leg's own bay, or has stopped at the mouth of one the car reverses into | the plan's next step — `P-14` |
 | a stop point or the end of the line bound the speed | `P-6` |
 | at rest, past the obstruction wait, in front of a **named obstruction** at rest with nobody exercising priority | `E-4` |
-| the box ahead is within reserve distance and is this car's | `P-8` |
+| the box ahead is within claim distance and is this car's | `P-8` |
 | at rest where the line runs out, on a stretch the leg comes back the other way from | `P-19` |
 | the grant or the headway bound the speed | keeps running — **this is what queueing is** |
 | the crossing term bound the speed | keeps running — **this is what stopping at a zebra is** (TER-5e) |

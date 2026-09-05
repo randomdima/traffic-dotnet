@@ -3,7 +3,7 @@ namespace TrafficSimulation.World.Road;
 /// <summary>
 /// <b>One place two ways are driven over each other</b>, in both ways' own metres: <see cref="FromM"/> to
 /// <see cref="ToM"/> of the crossed one, and <see cref="MineFromM"/> to <see cref="MineToM"/> of the
-/// crossing one. Either pair goes into the road's book as it stands.
+/// crossing one. Either pair goes into the road's claims as it stands.
 /// </summary>
 /// <remarks>
 /// <b>Both sides, because a crossing is one event and a car passes it once.</b> The crossed metres are what
@@ -12,7 +12,7 @@ namespace TrafficSimulation.World.Road;
 /// far side would have nothing to say about when.
 /// </remarks>
 /// <param name="OnWay">
-/// The way whose ground this is — the one being crossed, not the one crossing, numbered as the book numbers
+/// The way whose ground this is — the one being crossed, not the one crossing, numbered as the claims number
 /// ways (<see cref="LaneOccupancy.WayOfTurn"/>). <b>A way and not a movement</b>: a join is only ever driven
 /// over another join, because the lanes are set back clear of the box (TER-5d), but a way laid off a
 /// junction sweeps a lane's own metres and has to be able to say so.
@@ -25,7 +25,7 @@ internal readonly record struct CrossedSection(int OnWay, float FromM, float ToM
 /// merged, and the metres between two crossings that touch neither left out.
 /// </summary>
 /// <remarks>
-/// <b>It is the one thing a car committed to a crossing writes into the book</b>, and it is on the way that
+/// <b>It is the one thing a car committed to a crossing claims</b>, and it is on the way that
 /// car is itself driving. A driver's own road ahead is a braking distance and no more, which does not reach
 /// the place two lines meet until it is nearly on top of the junction; the runs are that same ground held
 /// from the moment the movement is committed to, so a car on any way crossing this one finds it there —
@@ -46,11 +46,11 @@ internal readonly record struct OwnRun(float FromM, float ToM);
 /// refused by whatever is standing on those metres and by nothing else.
 /// </para>
 /// <para>
-/// <b>It is looked up and never written into</b> (TER-5c), and that is what keeps a reservation to the ways
+/// <b>It is looked up and never written into</b> (TER-5c), and that is what keeps a claim to the ways
 /// a car is actually going to be on. A driver lays its road on the ways it drives; where its own way is
-/// driven over another, it reads this table and asks that other way's own book what is standing on the
+/// driven over another, it reads this table and asks that other way's own claims what is standing on the
 /// metres named there. Marked instead — a stretch written onto every way a movement crossed — one car
-/// approaching a junction reserved a fan of ways it would never touch, and the ground of a box belonged to
+/// approaching a junction claimed a fan of ways it would never touch, and the ground of a box belonged to
 /// whoever aimed at it first rather than to whoever was on it.
 /// </para>
 /// <para>
@@ -128,7 +128,7 @@ internal sealed class WayCrossings
         _ownRuns = [.. runs];
     }
 
-    /// <summary>How many ways the table is laid over, which is the whole of the book's own numbering.</summary>
+    /// <summary>How many ways the table is laid over, which is the whole of the claims' own numbering.</summary>
     public int WayCount => _offsets.Length - 1;
 
     /// <summary>
@@ -191,13 +191,13 @@ internal sealed class WayCrossings
 
     /// <summary>
     /// How many ways the busiest movement in the town crosses — <b>how many ways one driver may have to
-    /// look up</b>, and not how much room in the book it wants, since it writes to none of them.
+    /// look up</b>, and not how many claims it wants room for, since it writes to none of them.
     /// </summary>
     public int MostCrossedByOne { get; init; }
 
     /// <summary>
-    /// And how many runs of its own way the busiest one holds, which <em>is</em> room in the book: it is
-    /// the whole of what a car committed to a crossing lays beyond its own reservation.
+    /// And how many runs of its own way the busiest one holds, which <em>is</em> room for claims: it is
+    /// the whole of what a car committed to a crossing lays beyond its own.
     /// </summary>
     public int MostOwnRuns { get; }
 }

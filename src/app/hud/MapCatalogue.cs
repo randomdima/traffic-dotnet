@@ -42,6 +42,7 @@ internal static class MapCatalogue
         new("Test", MapKind.Scenario, "The fixture map: one screen, one of every kind of ground, furnished thinly"),
         new("Zebras", MapKind.Scenario, "Five isolated streets with a crossing on each, one walker apiece"),
         new("Exam", MapKind.Scenario, "The driving exam: a six by six lattice of junctions, one crossing staged at each"),
+        new("Footway", MapKind.Scenario, "The walking exam: a four by four lattice, one walk staged at each and no traffic at all"),
         new("Track", MapKind.Scenario, "The proving ground: one lap of five shapes, six cars, fifteen people pacing the road"),
         new("Drunk", MapKind.Scenario, "The same lap with the fifteen reeling down the road instead of pacing across it"),
         new("Fleet", MapKind.Scenario, "The same lap with the whole fleet on it: one of every look, each at its own figures"),

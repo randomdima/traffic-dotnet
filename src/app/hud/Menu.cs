@@ -81,7 +81,13 @@ internal sealed partial class Menu
 
     const int MostRows = 32;
 
-    /// <summary>The most switch rows the debug page lays, which is what the content column is never shorter than.</summary>
+    /// <summary>
+    /// The most switch rows the debug page lays, which is what the content column is never shorter than.
+    /// <b>It is <see cref="Lines"/>'s own length and has to be written twice</b>: the layout's spans are
+    /// sized from it before any instance exists, and a static field cannot read one declared below it or in
+    /// another half of this class. What holds the two together is that the last row is clicked by name in
+    /// the layout suite: laid short, the row a layer was added below is not there to be hit.
+    /// </summary>
     const int MostLines = 8;
 
     /// <summary>The bar down the rows when there are more of them than the window has room for.</summary>
@@ -163,8 +169,8 @@ internal sealed partial class Menu
     /// </remarks>
     static readonly string[] Lines =
     [
-        "Car lines", "Walker lines", "Nodes and links", "Lane reservations", "Collision", "Turn circles", "Ruler",
-        "Track figures",
+        "Car lines", "Walker lines", "Nodes and links", "Lane claims", "Collision",
+        "Turn circles", "Ruler", "Track figures",
     ];
 
     /// <summary>The middle of a laid row, which is what the suite clicks to ask the layout and the hit test the same question.</summary>
@@ -419,7 +425,7 @@ internal sealed partial class Menu
             case 0: return ref switches.CarLines;
             case 1: return ref switches.WalkerLines;
             case 2: return ref switches.Nodes;
-            case 3: return ref switches.Reservations;
+            case 3: return ref switches.Claims;
             case 4: return ref switches.Collision;
             case 5: return ref switches.TurnCircles;
             case 6: return ref switches.Ruler;

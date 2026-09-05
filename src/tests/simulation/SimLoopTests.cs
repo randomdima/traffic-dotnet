@@ -71,7 +71,7 @@ public class SimLoopTests
     }
 
     /// <summary>
-    /// The hard rules and the junction reservation are asked every tick regardless of the clock; the
+    /// The hard rules and the junction claim are asked every tick regardless of the clock; the
     /// catalogue is what the clock holds back.
     /// </summary>
     [Fact]

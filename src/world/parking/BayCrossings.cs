@@ -65,14 +65,19 @@ internal static class BayCrossings
         for (var at = 0; at < ways.WayCount; at++)
         {
             var way = ways.FirstWay + at;
-            var lengthM = ways.LengthM(way);
+
+            // <b>The driven part and never the whole way</b> (TER-5c). What a way in carries past the pose is
+            // the space itself (<see cref="BayWays.LengthM"/>), and nothing is driven over ground nothing
+            // drives: measured whole, every bay would read as crossed by its own neighbours' spaces and a car
+            // would give way to the empty tarmac in front of a parked one.
+            var lengthM = ways.DrivenLengthM(way);
 
             // <b>Sampled as finely as the budget allows, and not at the clearance.</b> A section's ends are
             // read to the step it was found at (<see cref="LineOverlap.Covered"/>); at the clearance that is
-            // two metres of slop on a way whose last four metres are the bay a car is parked in, and the
-            // ground a parked body may call its own is exactly what the answer is used for
-            // (<see cref="BayStandings"/>). A way at a bay is a dozen metres, so the finest step the sample
-            // count allows is a hand's breadth and costs the same walk.
+            // two metres of slop on a way whose last four metres are the bay a car is parked in, and where
+            // the street's ground ends is what tells a parked body from one cutting the lane beside it
+            // (GEN-4i). A way at a bay is a dozen metres, so the finest step the sample count allows is a
+            // hand's breadth and costs the same walk.
             var count = LineOverlap.Sample(
                 ways.ArcsOf(way), 0f, lengthM, lengthM, lengthM / (LineOverlap.MostSamples - 1), buffer,
                 out stepM[at]);
@@ -84,7 +89,7 @@ internal static class BayCrossings
         for (var at = 0; at < ways.WayCount; at++)
         {
             var way = ways.FirstWay + at;
-            var mine = new SampledWay(pointM[at], 0f, stepM[at], ways.LengthM(way));
+            var mine = new SampledWay(pointM[at], 0f, stepM[at], ways.DrivenLengthM(way));
 
             AgainstTheLanes(way, at, mine);
 
@@ -93,7 +98,7 @@ internal static class BayCrossings
                 if (!Overlap(boxM[at], boxM[other])) continue;
 
                 var theirWay = ways.FirstWay + other;
-                var theirs = new SampledWay(pointM[other], 0f, stepM[other], ways.LengthM(theirWay));
+                var theirs = new SampledWay(pointM[other], 0f, stepM[other], ways.DrivenLengthM(theirWay));
                 Keep(way, mine, theirWay, theirs);
             }
         }

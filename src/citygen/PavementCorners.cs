@@ -1,10 +1,9 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
-namespace TrafficSimulation.World.Terrain;
+namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// One re-entrant corner of the pavement: the point two of its pieces run into one another at, the
@@ -68,7 +67,7 @@ internal static class PavementCorners
     /// <summary>Nearly folded back on itself, where the arc's centre runs away and the wedge is a hairline.</summary>
     const float FoldedDot = -0.95f;
 
-    public static List<PavementCorner> Solve(CityPlan plan, SimConfig config)
+    public static List<PavementCorner> Solve(GroundPieces plan, SimConfig config)
     {
         var corners = new List<PavementCorner>();
         var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
@@ -341,7 +340,7 @@ internal static class PavementCorners
     /// side of each carriageway, the ring round each junction, the walk a bridge deck carries over and the
     /// wrap round each car park.
     /// </summary>
-    static List<Piece> Lay(CityPlan plan, SimConfig config, float walkM)
+    static List<Piece> Lay(GroundPieces plan, SimConfig config, float walkM)
     {
         var pieces = new List<Piece>();
         for (var road = 0; road < plan.Roads.Count; road++)

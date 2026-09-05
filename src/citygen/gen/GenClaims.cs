@@ -15,8 +15,12 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </remarks>
 internal readonly struct GenClaims(bool[] taken, int gridWidth, int gridHeight, float cellSizeM)
 {
-    public static GenClaims Over(GenRaster raster) =>
-        new(new bool[raster.Width * raster.Height], raster.Width, raster.Height, raster.CellSizeM);
+    public static GenClaims Over(Vector2 worldSizeM, float cellSizeM)
+    {
+        var width = Math.Max(1, (int)MathF.Ceiling(worldSizeM.X / cellSizeM));
+        var height = Math.Max(1, (int)MathF.Ceiling(worldSizeM.Y / cellSizeM));
+        return new GenClaims(new bool[width * height], width, height, cellSizeM);
+    }
 
     /// <summary>Whether every cell under a rectangle on a bearing is still free, the edge of the world counting as taken.</summary>
     public bool IsFree(Vector2 centreM, Vector2 axis, Vector2 halfExtentM)

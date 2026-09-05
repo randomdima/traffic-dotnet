@@ -103,12 +103,13 @@ internal static class Theme
     /// <summary>
     /// Ground of the driving network a car covers <em>backwards</em> — at present the way out of a bay,
     /// which is the town's one reversing movement (GEN-4f). <b>A shade of the driving colour and not a
-    /// colour of its own</b>: it is a way of the same book, and all the shade adds is which end of the car
+    /// colour of its own</b>: it is a way like any other, and all the shade adds is which end of the car
     /// leads down it.
     /// </summary>
     public static readonly Vector4 DrivingReverse = new(1f, 0.83f, 0.45f, 0.95f);
 
     public static readonly Vector4 WalkingNodes = new(0.30f, 0.90f, 0.45f, 0.95f);
+
     public static readonly Vector4 Collision = new(0.95f, 0.35f, 0.85f, 0.85f);
 
     /// <summary>
@@ -119,9 +120,9 @@ internal static class Theme
     public static readonly Vector4 TurnCircle = new(0.35f, 0.85f, 1f, 0.95f);
 
     /// <summary>
-    /// The stretches of either book that belong to no body at all — the town's own furniture, standing on
+    /// The claims on either network that belong to no body at all — the town's own furniture, standing on
     /// the lanes it stands on. <b>Ground a body is on, was granted or has claimed takes that body's own
-    /// colour</b> from <see cref="AgentLine"/>, in whichever book it is written: a block, the line running
+    /// colour</b> from <see cref="AgentLine"/>, on whichever network it is claimed: a block, the line running
     /// out of it and the body's own sprite are one walker's or one car's. One wash covers all of it — where
     /// one stretch of that ground stops and the next starts is a bar drawn across the way, never a hue and
     /// never a second wash.

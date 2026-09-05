@@ -154,10 +154,10 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The bay this leg is on its way to</b>, or <see cref="ParkingRegistry.NoBay"/> — the booking, which
-    /// is a register and the one hold in the town that is not a piece of road.
+    /// <b>The bay this leg is on its way to</b>, or <see cref="ParkingRegistry.NoBay"/> — a claim in the
+    /// register, and the one hold in the town that is not a piece of road.
     /// </summary>
-    int BayAimedAt(int car) => _desk.BookingOf(car);
+    int BayAimedAt(int car) => _desk.ClaimedBayOf(car);
 
     /// <summary>
     /// <b>The bay the line in hand finishes in</b>: the one this leg is turning in while it has one to turn
@@ -249,11 +249,11 @@ internal sealed partial class TownWorld
         Cars.TurnsBackOn[car] = CarFleet.NoLane;
     }
 
-    /// <summary>A bay booked for a leg — <b>the desk's, because a place is what a driver has to hand</b>.</summary>
-    bool TakeTheBay(int car, int bay) => _desk.BookTheBay(car, bay);
+    /// <summary>A bay claimed for a leg — <b>the desk's, because a place is what a driver has to hand</b>.</summary>
+    bool TakeTheBay(int car, int bay) => _desk.ClaimTheBay(car, bay);
 
     /// <summary>And given back.</summary>
-    void GiveUpTheBay(int car) => _desk.GiveUpTheBooking(car);
+    void GiveUpTheBay(int car) => _desk.GiveUpTheBay(car);
 
     /// <summary>
     /// The nearest free bay a car can be got into within <paramref name="withinM"/> of a place, or −1 —
@@ -341,7 +341,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// It is asked once, where the line is assembled, and the answer is carried on the car
     /// (<see cref="CarFleet.TailWay"/>) rather than re-derived — a leg that gave its bay up between the two
-    /// askings would otherwise be a line whose geometry and whose book disagreed about where it ends.
+    /// askings would otherwise be a line whose geometry and whose claims disagreed about where it ends.
     /// <b>The driver's habit is what picks between the two standings</b> (GEN-4j), and it is a habit rather
     /// than a draw precisely so that the two askings agree — <b>except at a turn, where the way out is what
     /// picks</b> (GEN-4l): a car parking here to come back the other way has one standing that gets it out

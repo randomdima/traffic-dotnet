@@ -16,10 +16,10 @@ namespace TrafficSimulation.World.Foot;
 /// networks can only be held against each other in one measure, which is this one.
 /// </para>
 /// <para>
-/// <b>It is read from both sides and written to by neither</b> (TER-5c.1). A body writes into the book of
-/// the network it is on; where the two lie over one another, this says which stretch of the other book
-/// stands for the same ground — which lane a body on the paint is standing in, and where on a walk the lane
-/// a body was refused begins.
+/// <b>It is read from both sides and written to by neither</b> (TER-5c.1). Where the two networks lie over
+/// one another the ground has one claim and one owner, and this says which stretch of the other network stands
+/// for the same ground — which lane a body on the paint is standing in, and where on a walk the lane a body
+/// was refused begins.
 /// </para>
 /// <para>
 /// <b>It is the turning-over of a projection already made</b> — <see cref="LaneFurniture.LanesUnder"/>

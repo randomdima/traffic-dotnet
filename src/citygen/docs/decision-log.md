@@ -1,5 +1,43 @@
 # CityGen — decision log
 
+## 2026-09-05 — the lattice is ground, and two exams stand on it
+
+**The walking exam wanted the driving exam's map without the driving exam's cars.** What a walker meets at
+a junction — a kerb corner, paint on every arm, a dead end with no paint at all, a crossing struck in the
+middle of a block — is exactly what `ExamPlan` already lays, and the only way to have it was to copy four
+hundred lines of geometry into a second plan. A junction laid twice is a junction that can pass one exam and
+fail the other for a reason nobody can name.
+
+**So the ground came out of the exam.** `ExamGround` is the cells, the spurs, the roads, the crossings and
+every place on them a card can name; `ExamMap` writes one out as a `CityPlan`. What is left in
+`ExamLattice` is the cars — where each stands, where it is sent — and `FootwayLattice` is the same page
+said of bodies. The cards decide the shape of each map and the ground is the same arithmetic underneath,
+which is what makes the two exams comparable at all.
+
+**Nothing drives on the walking exam, and that is the point of it.** A card that failed with traffic on the
+map leaves the reader unable to say which agent was wrong; what a driver owes a crossing is already asked,
+with the traffic staged, on the driving exam's own four cards about paint.
+
+**A card names a place as an arm, a side and a distance out**, and never as a point. The kerb, the
+pavement's own line and the paint's setback are the lattice's arithmetic, so a card cannot drift from the
+map it is staged on — and where the two exams' cards are written the same way, a claim about one can be
+read against the other.
+
+## 2026-09-03 — a dead end's head holds the car's body, not the path of its middle
+
+**The exam's shunt card stopped passing the moment the ground stopped being cells.** A head was sized
+`turning circle + the car's width`, which is what TER-5a asks for read one way — but a turning circle is
+the radius the car's *middle* sweeps, and the corner furthest from that middle stands half a length and
+half a width off it. So the head was always about two metres short of holding the body it is there to turn
+round, and the only thing that ever hid it was a classifier of metre squares answering *drivable* for half
+a cell past every kerb. Card 35 is the one place a car is asked to work itself round on the spot, and it is
+the one card that failed.
+
+**So the figure is derived from the body rather than from the circle**: the turning circle, plus the width
+TER-5a asks to be left clear, plus the half-diagonal of the car — which is the distance from the middle a
+body actually reaches. It is the exam lattice's own figure and it moves nothing else; a generated town has
+no dead ends and the fixtures carry theirs in their files.
+
 ## 2026-09-01 — a prop's kind is where it stands, and the ground decides it rather than a die
 
 **Every prop was a coin toss between three sets.** The stage drew a kind uniformly and the sets were
@@ -102,7 +140,7 @@ fixture files carries zero, exactly as a spawn read off one carries no patrol po
 their way to being laid in code, and neither is where a street's furniture is looked at.
 
 **A prop's picture was bigger than the prop** (GEN-6d). A sheet was drawn `diameterM` *tall* and as wide as
-its aspect made it, so anything wider than it was high reached past the disc the town reserved: the flower
+its aspect made it, so anything wider than it was high reached past the disc the town kept: the flower
 planter is authored at 1.9 m and was being drawn 3.45 m across — nearly twice its own girth, and the
 commonest thing on a verge. Nothing collided, because the discs were a metre and a half apart; the pictures
 overlapped anyway, and a car was being held off half of one. **The longest side of a sheet is the prop's own
@@ -210,7 +248,7 @@ at least one.
 arrangement — a district's region is convex so its streets stay inside it, an arterial carries a node
 wherever a street meets it, and the one region that is not convex is the ground outside the orbital, which
 is why `Arterials.CrossesTheRing` exists. The argument was sound and the coverage was not: that test had a
-single caller, `Lattice.Reach`, and `Lattice.Hang` — the stub that reaches out of a lattice to the arterial
+single caller, `ExamGround.Reach`, and `ExamGround.Hang` — the stub that reaches out of a lattice to the arterial
 beside it, and the one road here deliberately laid across a district's own edge — never asked it. A stub
 from an outer sector onto a spoke node standing inside the ring is what Odesa laid, and the test would have
 refused it.

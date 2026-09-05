@@ -133,10 +133,10 @@ internal static class SelectionPath
 
         if (line.Length == 0 && planned == 0) return;
 
-        // What a leg is aimed at is a booking (GEN-4g), and a bay is a thing the car is going *into* — so it
-        // is wrapped rather than crossed. A leg aimed at a place in the road instead (AMB-5, EVA-3, CTL-8a)
-        // has no bay and gets the cross.
-        var bay = world.Parking.BookingOf(car);
+        // What a leg is aimed at is a claim on a bay (GEN-4g), and a bay is a thing the car is going *into* —
+        // so it is wrapped rather than crossed. A leg aimed at a place in the road instead (AMB-5, EVA-3,
+        // CTL-8a) has no bay and gets the cross.
+        var bay = world.Parking.ClaimedBayOf(car);
         if (bay >= 0)
         {
             SelectionMark.Brackets(

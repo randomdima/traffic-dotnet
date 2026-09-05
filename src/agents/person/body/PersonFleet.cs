@@ -4,6 +4,7 @@ using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Agents.Person.Body;
 
@@ -54,13 +55,15 @@ internal sealed class PersonFleet
         OnWay = new int[capacity];
         Array.Fill(OnWay, NoWay);
         OnWayM = new float[capacity];
-        ReserveAheadM = new float[capacity];
+        ClaimAheadM = new float[capacity];
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
         HeldBy = new int[capacity];
         Array.Fill(HeldBy, NoBody);
+        HeldByOf = new LaneRoster[capacity];
         StepsRound = new int[capacity];
         Array.Fill(StepsRound, NoBody);
+        StepsRoundOf = new LaneRoster[capacity];
         GoalM = new Vector2[capacity];
         WaitingToCrossS = new float[capacity];
         WaitingForLane = new int[capacity];
@@ -85,7 +88,7 @@ internal sealed class PersonFleet
 
     public const int NoCar = -1;
 
-    /// <summary>What a person holds when the pavement's book has nowhere to put it.</summary>
+    /// <summary>What a person holds when the pavement has no way to put it on.</summary>
     public const int NoWay = -1;
 
     /// <summary>And when it is waiting for no lane of a crossing, which is nearly always.</summary>
@@ -146,15 +149,15 @@ internal sealed class PersonFleet
     /// </summary>
     public int[] OnWay { get; }
 
-    /// <summary>And how far along that way it stands, which is where its own stretch of the book begins.</summary>
+    /// <summary>And how far along that way it stands, which is where its own claim begins.</summary>
     public float[] OnWayM { get; }
 
-    /// <summary>How much pavement past its own front this body asked the book for, before anything was cut off it.</summary>
-    public float[] ReserveAheadM { get; }
+    /// <summary>How much pavement past its own front this body claimed, before anything was cut off it.</summary>
+    public float[] ClaimAheadM { get; }
 
     /// <summary>
     /// <b>What it was granted</b>: clear ground from its own front to where it may come to rest, and
-    /// nothing where the book cut it at somebody else's. Infinite where nothing binds it at all.
+    /// nothing where the answer cut it at somebody else's. Infinite where nothing binds it at all.
     /// </summary>
     /// <remarks>
     /// A walker's pace is a cap and never a profile (PER-3), so this is read as a permission and not as a
@@ -170,16 +173,37 @@ internal sealed class PersonFleet
     public int[] HeldBy { get; }
 
     /// <summary>
+    /// <b>Which of the town's two rosters that body is in</b> (<see cref="LaneRoster"/>), for the same reason
+    /// <see cref="StepsRoundOf"/> carries one: a body under way on the pavement may be a car crossing it
+    /// (PER-24), and an occupant number means nothing without the fleet it is a number in.
+    /// </summary>
+    public LaneRoster[] HeldByOf { get; }
+
+    /// <summary>
     /// <b>The body in front that is going nowhere</b>, or <see cref="NoBody"/> — a walker standing about,
-    /// somebody knocked down, one shoved off its own line. It cuts no grant (PER-24): what the walker does
-    /// with it is aim past it, so this is written where the grant is taken and read by the follower.
+    /// somebody knocked down, one shoved off its own line. It cuts the grant like anything else on the way
+    /// (TER-4c.3) and what this adds is what the walker <em>does</em> about it (PER-24) — aim past it with
+    /// the room the cut leaves — so it is written where the grant is taken and read by the follower.
     /// </summary>
     /// <remarks>
+    /// <b>Going nowhere is the body's own movement and not how its stretch was measured</b>
+    /// (<c>TownWorld.IsComingThrough</c>): a car crossing the pavement is laid where it lies like everything
+    /// else standing on it, and it is waited for rather than stepped round.
+    /// <para>
     /// <b>It is the nearest one on the ground this body asked for</b> and never a scan of the fleet, so a
-    /// walker steps round what its own reservation ran into and takes no notice of a body on the other side
+    /// walker steps round what its own claim ran into and takes no notice of a body on the other side
     /// of the street.
+    /// </para>
     /// </remarks>
     public int[] StepsRound { get; }
+
+    /// <summary>
+    /// <b>Which of the town's two rosters that body is in</b> (<see cref="LaneRoster"/>). The pavement holds
+    /// whatever is standing on it (TER-4c.2), a car that has mounted a kerb included, so an occupant is an
+    /// index into one of two fleets and <b>which one is carried rather than inferred</b> — read out of the
+    /// walkers alone, a car's number is whichever walker happens to hold it.
+    /// </summary>
+    public LaneRoster[] StepsRoundOf { get; }
 
     /// <summary>
     /// How long this body has been waiting to get across a crossing — standing at its kerb, or stopped in
@@ -197,8 +221,8 @@ internal sealed class PersonFleet
     /// <summary>
     /// <b>The way a lane this body asked for was refused on, or <see cref="NoWay"/> where it was refused
     /// none</b>, with <see cref="RefusedAtM"/> the metre of that way the lane's band begins at. Written when
-    /// the ask is answered against the road's book and read when the walk is granted, so <b>the refusal is
-    /// arrived at once and spent in the other network's metres</b> rather than asked twice of two books.
+    /// the ask is answered against the lanes and read when the walk is granted, so <b>the refusal is
+    /// arrived at once and spent in the metres of the crossing way</b> rather than asked twice.
     /// </summary>
     /// <remarks>
     /// It is not <see cref="WaitingForLane"/>, though the two are set together and regularly agree: that
@@ -242,7 +266,7 @@ internal sealed class PersonFleet
     /// </summary>
     /// <remarks>
     /// <b>A body closing the road is a body that holds more road than it stands on</b>, and stating it that
-    /// way is what keeps the road's book from ever learning what a policeman is: the book reads one float
+    /// way is what keeps the road from ever learning what a policeman is: the walk reads one float
     /// and lays one claim, on the terms every other stretch is laid on (TER-5e).
     /// </remarks>
     public float[] ClosesTheRoadM { get; }
@@ -364,10 +388,12 @@ internal sealed class PersonFleet
         WalkedRunsOut[person] = false;
         OnWay[person] = NoWay;
         OnWayM[person] = 0f;
-        ReserveAheadM[person] = 0f;
+        ClaimAheadM[person] = 0f;
         AuthorityM[person] = float.PositiveInfinity;
         HeldBy[person] = NoBody;
+        HeldByOf[person] = LaneRoster.Walking;
         StepsRound[person] = NoBody;
+        StepsRoundOf[person] = LaneRoster.Walking;
         WaitingToCrossS[person] = 0f;
         WaitingForLane[person] = NoLane;
         RefusedWay[person] = NoWay;
@@ -392,7 +418,7 @@ internal sealed class PersonFleet
     public bool Acts(int person) => !Wounded[person];
 
     /// <summary>
-    /// Whether the pavement's book is holding this walker where it stands: less ground granted in front of
+    /// Whether the pavement's claims are holding this walker where it stands: less ground granted in front of
     /// it than it needs to come to rest in. <b>The grant is a permission and not a speed</b> (PER-3,
     /// PER-13) — there is ground to walk into or there is not.
     /// </summary>
@@ -413,7 +439,7 @@ internal sealed class PersonFleet
     /// </para>
     /// </remarks>
     /// <param name="stopsInM">What this body needs to come to rest in from the speed it is doing — nothing at rest.</param>
-    public bool IsHeldByTheBook(int person, float stopsInM) =>
+    public bool IsHeldByTheClaims(int person, float stopsInM) =>
         Walking[person] && !HeldAtTheKerb[person] && AuthorityM[person] <= stopsInM;
 
     public Span<Vector2> WalkedLineOf(int person) =>

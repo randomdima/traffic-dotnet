@@ -70,13 +70,27 @@ the lane, and out to it. Every one of them is drawn for the rear axle, carries m
 the town's table of what is driven over what (`TER-5c`): a car working into a bay is held off the traffic,
 and the traffic off it, by the ground each of them holds and by no second mechanism (`SIM-7`).
 
-Five consequences, and the last three are the reason for the rule:
+Six consequences, and the last three are the reason for the rule:
 
+- **A way runs the length of the space and is driven as far as the pose.** Its own metres reach the far end of
+  the space it serves; the drive ends where the car comes to rest, which is a setback inside the way's own end
+  exactly as a lane's is (`TER-5d`). The metres past the pose are ground and nothing else — nothing is driven
+  over them (`TER-5c`) and no route is threaded through them. **A way that stopped at the pose left most of
+  its own space on no way at all**, the ground a nose-in car's bonnet stands over included, so a body standing
+  there claimed nothing and the driver aiming at the space read it as free.
+- **A body standing in a bay holds those ways, and holds them like any other body** (TER-4c.2). Its stretch on
+  each is the box it stands in projected onto that way's own line, laid by the walk that lays a body onto a
+  lane and onto a footway — not by an arithmetic of the bay's, and not from the register that says which bay
+  it claimed. So an occupied bay is a fact the town reads rather than a flag it is told; a car standing across
+  a bay it never claimed is on that bay's ways too; and what stops a driver aiming at the bay is the body at
+  the end of the way, on the headway that stops it behind anything else. **A body and not a car**: a person on
+  foot in a space is a stretch of that space's ways on the same terms, because which roster the body is in
+  decides nothing about the ground it is standing on.
 - **The last dozen metres of a leg are driven, not manoeuvred around.** A route's line finishes on the way
   in, so the whole of a leg is one chain over the town's ways and a driver working into a bay is a driver
   on a way.
 - **A way is the manoeuvre and not the approach to it.** It begins where the car stops driving straight
-  down the lane; the metres before that are the lane's own, driven under the lane's own reservation and not
+  down the lane; the metres before that are the lane's own, driven under the lane's own claim and not
   driven back up on the way out.
 - **A bay that can be driven into can be driven out of**, because it is the same line — a shape laid at all
   is laid in both directions off the lane its standing is settled on (`GEN-4j`). A way out lands on the
@@ -90,7 +104,7 @@ Five consequences, and the last three are the reason for the rule:
   there is bounded by `GEN-4j`. A bay whose geometry admits no line at all is a bay no trip may claim, and
   that is the whole of what "cannot be reached" means.
 - **Leaving a bay is a movement like a junction's and is nothing else.** The car drives the town's own way
-  out; its reservation runs along that way; the ground where the way crosses the street is taken before
+  out; its claim runs along that way; the ground where the way crosses the street is taken before
   the car moves onto it and given back where its body is past it — the protocol of `TER-5c.1` with a bay's
   way for the join. There is no gap looked at, no patience spent and no wait of its own, because a bay is a
   place a car gives way at and the town already knows how one of those works.
@@ -123,7 +137,7 @@ reverse.
   So the far lane adds an approach and a departure and never a standing of its own.
 - **Which way round a driver parks is a habit and not a decision**, drawn once per car, so the two askings
   that lay a leg's line agree. A bay that lays only the other standing overrules it.
-- **The standing is read off the pose and never off a booking.** Which way a car standing in a bay may
+- **The standing is read off the pose and never off the register.** Which way a car standing in a bay may
   leave, which flank its driver's door is on (`GEN-4e`), and which end of the body lies along the way it
   stands on are all answered from the direction the body is actually pointing.
 
@@ -134,13 +148,13 @@ junction admits a movement that reverses the direction of travel (TER-5f), so th
 (`P-19`) are the two ways round a town has, and this is the one an ordinary street offers.
 
 - **It is the bay's own two ways and nothing new** (`GEN-4f`): the way in off the lane the car is coming
-  down, and the way out onto the lane running back. Both are of the book, so the traffic is held off the
+  down, and the way out onto the lane running back. Both are the road's own, so the traffic is held off the
   car and the car off the traffic by the ground each holds, exactly as at any other park.
 - **The standing is the turn's and not the driver's habit** (`GEN-4j`). Only one standing comes out the
   other way off a given lane: nose in across the carriageway and reverse out onto the kerb-side lane, or
   back in off the kerb-side lane and drive out across the carriageway. Which one a frontage offers is the
   arithmetic's, and where it offers both the habit settles it.
-- **The bay is held while the turn is made, and that hold is a second booking** (`GEN-4g`). A leg turning
+- **The bay is held while the turn is made, and that hold is a second claim of the same kind** (`GEN-4g`). A leg turning
   keeps the place it is going to — the destination has not changed, only the way round to it — and gives
   the turning bay back the moment it is out of it. Every way a leg can end gives back both.
 - **A frontage with nothing free is not a leg that has failed.** The car drives on and asks again from
@@ -157,7 +171,7 @@ a police station ([agents/ambulance](../../../agents/ambulance/docs/requirements
 nearest them, up to the figure — and each bay of one is held for the single vehicle stood in it, for the
 whole run and not only while that vehicle is in it. Three consequences:
 
-- **A hold is not a booking** (`GEN-4g`). A booking is what one leg has and every way a leg can end gives
+- **A hold is not a leg's claim** (`GEN-4g`). That is what one leg has and every way a leg can end gives
   it back; a hold outlives every leg its vehicle drives, because the point of it is the bay being there
   when the vehicle comes back.
 - **A held bay is free to its holder and to nobody else**, which is the whole of the mechanism: it is
@@ -199,12 +213,12 @@ and a leg aimed at one of those bays is routed to a node like every other leg. T
   between the cut and the first bay are the run-in that bay's way in is staged over. A section with no room
   on its road for either cut keeps the node the road already ends at.
 
-**GEN-4g** **Which bay a leg is aimed at is a booking, and a booking is a register.** It is the one hold in
+**GEN-4g** **Which bay a leg is aimed at is a claim, and it lives in a register.** It is the one hold in
 the town that is not a piece of road, and it is a register because it has to be: the hold begins when the
 trip picks the bay and the walker sets off, which is minutes before anybody is at the wheel and over ground
-the car has no line to. It says which bay and nothing more — a bay is free when nobody has booked it and
-nobody is standing in it, and everything about the ground between the car and that bay is the road's book
-(`TER-4c.1`). The bays are indexed by where they stand, because what a trip asks is *the free bays within a
+the car has no line to. It says which bay and nothing more — a bay is free when nobody has claimed it and
+nobody is standing in it, and everything about the ground between the car and that bay is the road's own
+claims (`TER-4c.1`). The bays are indexed by where they stand, because what a trip asks is *the free bays within a
 walk of this door*.
 
 ## What this slice must produce
@@ -214,7 +228,7 @@ walk of this door*.
   driven over — measured with the same code a
   junction's joins are measured with.
 - The choice layer: the free bays near a place, nearest first, off an index of where the bays stand.
-- The booking (`GEN-4g`), the turn's own (`GEN-4l`) and the hold (`GEN-4k`): which bay each leg is aimed
+- The leg's claim (`GEN-4g`), the turn's own (`GEN-4l`) and the hold (`GEN-4k`): which bay each leg is aimed
   at, which one it is turning in, which bay each car has been left in, and which bay belongs to which
   vehicle for the whole run.
 - Where a walk to a car left in a bay is aimed (`GEN-4e`).

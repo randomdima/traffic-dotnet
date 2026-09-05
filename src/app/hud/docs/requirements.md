@@ -19,6 +19,21 @@ laboratory, and a mis-click on the row under a city should not lose somebody's g
 on both** (`GEN-1b`) — nothing is running behind it, so a mis-click costs nobody a game, and reading the
 whole catalogue is what somebody is at it for.
 
+**OBS-2n** **A map picked says so until it is standing.** Opening one is a plan read, a ground laid and a
+fleet stood up — and in a page a fetch before any of that — so the click is answered by a card in the
+middle of the window naming the map, from the press until the town it names is running.
+
+- **The frame that took the click draws the card and opens nothing.** A town stood up inside that frame
+  would be the whole wait spent behind the frame before it, and what the reader would see is a picture that
+  stopped answering. What acts on the name is the loop's next turn, or in a page the boot's own wait.
+- **It names the map and claims nothing about how far along it is.** On the desktop the open is one call,
+  so the frame carrying the card is the last frame until the town is standing: a bar filling or a spinner
+  turning would stop on its first frame and read as a run that has wedged. A card that moved in a page and
+  froze on the desktop would be two pieces of furniture wearing one name.
+- **While it is up it is the whole of the interface.** No panel, button, popup or layer is drawn and
+  nothing takes a click — a map list still standing under the card is a second map waiting to be picked
+  while the first is on the wire, and what arrived while the wait was on is dropped rather than banked.
+
 **OBS-2g** **Escape opens and shuts the settings popup, and the way out of the game is the button inside
 it.** A scene with no such panel keeps Escape as its own way out. The popup holds which map to open and
 the debug switches, and nothing else. **The start menu is the exception and not such a scene** (`GEN-1b`):
@@ -54,7 +69,7 @@ it.
 - **A claim and a reading are drawn differently and neither is invented here**: a claim carries a verdict
   in the three words the report uses, and a reading carries a figure and no verdict at all.
 - **Nothing here is about one body.** A claim is a statement about the town; what a watch has to say about
-  one unit is drawn beside that unit (`CTL-1`), where the eye already is.
+  one unit is a row on that unit's own panel (`OBS-2m`), beside the figures it is a finding about.
 
 **OBS-2f** A distance between two places is measurable **without a rebuild**:
 
@@ -112,6 +127,27 @@ section per shape:
   four more lines under it.
 - **Where it starts is handed to it** by the panel above it, which changes height as its body opens. A
   figure copied from that panel stops being that panel's the first time it grows a row.
+
+## The unit read-out
+
+**OBS-2m** **The bottom-left corner is the selection, and it is the only place the interface writes about
+it**: a title naming what is picked out over a body of rows — what the unit is, what it is doing, how
+fast, what is claimed in front of it, how much room that leaves, how much of its trip is left, and what
+the run's watches have against it.
+
+- **Nothing about a unit is written on the town** (`CTL-1`). What stands at the unit is the mark and only
+  the mark: a shape says which one, and words beside a car cover the ground the car is about to drive over.
+  Which unit the corner means is never in doubt, because the brackets are on it and the camera can be
+  stood on it (`OBS-1a`).
+- **A group is counted, not described** (`CTL-1b`): how many of each kind, and nothing else.
+- **It does not need the unit on the picture.** Somebody indoors or riding is not drawn and wears no
+  brackets (`PHY-7`), and a unit the camera has been panned off has nothing on screen either — this still
+  says what it is doing and where.
+- **Every figure is read off the body and none is worked out here**, and the words for both kinds are their
+  own slices' (`Car.Control.DrivingWords`, `Person.Control.WalkingWords`). A panel doing its own arithmetic
+  is a second opinion drawn beside the first.
+- **It appears with a selection rather than with a switch**, and its title shuts the body like the status
+  panel's. A read-out about a unit is already something somebody asked for by picking that unit out.
 
 ## The popups hang off the buttons that open them
 

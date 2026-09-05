@@ -95,13 +95,21 @@ internal sealed class ExamWatch : ScenarioWatch
     /// broken here on purpose</b> — it is a line in the cards to delete, and nothing else in the suite
     /// would ever say so.
     /// </summary>
+    /// <remarks>
+    /// <b>An exam with no findings left keeps this rather than waiting for ever on it.</b> The day the last
+    /// finding is deleted the claim is still true — nothing fails that is not written down, because nothing
+    /// fails — and a claim nothing can ever answer is a row on the panel that says less than the space it
+    /// takes.
+    /// </remarks>
     ClaimVerdict Findings()
     {
         var findings = 0;
         var decided = 0;
         var passing = 0;
+        var driven = 0;
         for (var card = 0; card < ExamCards.Count; card++)
         {
+            if (_drive.Decided(card)) driven++;
             if (ExamCards.All[card].Finding.Length == 0) continue;
 
             findings++;
@@ -113,7 +121,9 @@ internal sealed class ExamWatch : ScenarioWatch
 
         if (passing > 0) return ClaimVerdict.Broken;
 
-        return findings > 0 && decided == findings ? ClaimVerdict.Kept : ClaimVerdict.Waiting;
+        if (findings == 0) return driven == ExamCards.Count ? ClaimVerdict.Kept : ClaimVerdict.Waiting;
+
+        return decided == findings ? ClaimVerdict.Kept : ClaimVerdict.Waiting;
     }
 
     public override void Says(int claim, ref TextBuffer into)

@@ -11,11 +11,11 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// recovery begins from rest and drives a straight it has already walked.
 /// </para>
 /// <para>
-/// <b>Lane legality and the no-idling rule are suspended for this path; no-collision and red lights
+/// <b>Lane legality and the no-idling rule are suspended for this line; no-collision and red lights
 /// still bind</b> (S-6), which is exactly what keeps it a recovery rather than a licence.
 /// </para>
 /// <para>
-/// <b>The straight is along the car's own axis</b> and not toward the nearest legal point. The path this
+/// <b>The straight is along the car's own axis</b> and not toward the nearest legal point. The line this
 /// manoeuvre can issue is a single straight, so "the nearest lane point" — which is generally off to one
 /// side — would have the car drive the right distance in the wrong direction.
 /// </para>

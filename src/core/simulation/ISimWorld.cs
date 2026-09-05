@@ -27,7 +27,7 @@ internal interface ISimWorld
     /// <summary>Phase 2 — the proximity index rebuilt from the body roster. It survives nothing.</summary>
     void RebuildProximityIndex();
 
-    /// <summary>Phase 3a — hard rules and junction reservation, asked every tick regardless of the clock.</summary>
+    /// <summary>Phase 3a — hard rules and the junction claim, asked every tick regardless of the clock.</summary>
     void TickAgent(int agent);
 
     /// <summary>Phase 3b — the manoeuvre catalogue, run on the decision clock.</summary>

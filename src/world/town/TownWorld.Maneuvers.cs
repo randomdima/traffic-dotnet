@@ -55,7 +55,7 @@ internal sealed partial class TownWorld
     public long SwervesTaken { get; private set; }
 
     /// <summary>
-    /// How many legs have booked a bay to come back the other way from (GEN-4l) — <b>the instrument for
+    /// How many legs have claimed a bay to come back the other way from (GEN-4l) — <b>the instrument for
     /// whether a town's car parks are where its routes need to turn</b>, since a route that has to turn and
     /// a frontage with a free bay to turn in are two different facts about a map.
     /// </summary>
@@ -140,6 +140,16 @@ internal sealed partial class TownWorld
     {
         if (Install(car, next, subject)) return;
 
+        // <b>A discretionary entry that does not fit costs the car nothing</b> (§1.4 row 5,
+        // <see cref="Maneuvers.IsDiscretionary"/>). `P-4` offers `E-4` whenever a swerve would be worth
+        // making, and whether one can be drawn at all is the desk's; a refusal there says the road has no
+        // room for an overtake, which is not news about this car being stuck. Escalated instead, a car that
+        // merely could not get past took a recovery nobody asked for <em>and</em> had its blocked clock
+        // zeroed with it — so its patience never reached the watchdog, the ladder climbed for the wrong
+        // reason, and the swerve could never be offered again off a longer wait. The car goes on doing what
+        // it was doing, with the clock it has spent standing there still running.
+        if (Maneuvers.IsDiscretionary(next)) return;
+
         // A <em>recovery</em> whose `Sa` does not hold is a rung to skip, and skipping rungs is precisely
         // what the ladder does. Sending it back to `P-4` instead is a loop with no exit: `E-7` refused
         // for having already rerouted twice hands to `P-4`, replans the same blocked road, jams on it and
@@ -168,9 +178,8 @@ internal sealed partial class TownWorld
 
         // <b>A claim belongs to the entry that took it</b>, so it is given back here rather than by each
         // entry on the way out of itself: an exit an entry forgot would be a stretch of road nobody could
-        // ever use again. The two entries that want one take it in their own `Sa`, below, and `P-2` renews
-        // it every tick it goes on waiting.
-        Cars.ClaimWay[car] = CarFleet.NoWay;
+        // ever use again. The one entry that wants any takes them in its own `Sa`, below.
+        Cars.ClaimsAheadOf(car).Fill(GroundClaim.Nothing);
 
         var start = ManeuverCatalogue.Begin(id, SceneOf(car), _desk, subject);
         if (!start.CanEnter) return false;
@@ -262,7 +271,7 @@ internal sealed partial class TownWorld
         Cars.Suspended[car] = Maneuver.None;
         Cars.Limits[car] = DriveLimits.None;
         Cars.About[car] = PlannedStep.NoSubject;
-        Cars.ClaimWay[car] = CarFleet.NoWay;
+        Cars.ClaimsAheadOf(car).Fill(GroundClaim.Nothing);
         _drivePlans.Clear(car);
     }
 
@@ -345,9 +354,9 @@ internal sealed partial class TownWorld
         // knows what it was for — so it is re-entered through its own `Sa`, which either takes the claim
         // again or refuses and hands on. Nothing here stops the car: what holds it is the ground the
         // stronger movement is now standing on, cut off its grant like everything else (SIM-7).
-        if (Cars.ClaimWasTaken[car])
+        if (Cars.ClaimAheadWasTaken[car])
         {
-            Cars.ClaimWasTaken[car] = false;
+            Cars.ClaimAheadWasTaken[car] = false;
             GoTo(car, Cars.Doing[car], Cars.About[car]);
         }
 
@@ -469,7 +478,7 @@ internal sealed partial class TownWorld
     {
         var scene = SceneOf(car);
         var bay = _parking.BayOf(car);
-        var reserved = BayTheLineEndsIn(car);
+        var claimed = BayTheLineEndsIn(car);
         var jammed = scene.SomethingToBackAwayFrom;
 
         return new LadderState(
@@ -479,10 +488,10 @@ internal sealed partial class TownWorld
             BackOffsLeft: scene.BackOffsLeft,
             InItsOwnBay: bay >= 0 && Cars.Doing[car] == Maneuver.LeaveTheBay
                          && Cars.ProgressM[car] <= Cars.BuildOf(car).HalfLengthM,
-            AtItsOwnBay: reserved >= 0
-                         && (_parking.CentreM(reserved) - Cars.PositionM[car]).Length()
+            AtItsOwnBay: claimed >= 0
+                         && (_parking.CentreM(claimed) - Cars.PositionM[car]).Length()
                          <= Cars.BuildOf(car).LengthM * 2f,
-            HoldsAPlace: reserved >= 0,
+            HoldsAPlace: claimed >= 0,
             OnARoute: scene.OnARoute,
             ReroutesLeft: scene.ReroutesLeft,
             AStraightCanSaveIt: !scene.OnDrivableGround && _desk.StraightToLegalGround(car, out _, out _),
@@ -513,7 +522,7 @@ internal sealed partial class TownWorld
         InsideTheBox = Cars.InsideTheBox[car],
         LightAheadM = Cars.LightAheadM[car],
         BayHeld = _parking.BayOf(car),
-        BayBooked = BayAimedAt(car),
+        BayClaimed = BayAimedAt(car),
         OnTheFinalApproach = IsOnTheFinalApproach(car),
         ToTheBayM = ToTheWayIntoTheBayM(car),
         ToTheSceneM = ToTheSceneM(car),

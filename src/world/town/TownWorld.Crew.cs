@@ -14,7 +14,7 @@ namespace TrafficSimulation.World.Town;
 /// <remarks>
 /// <para>
 /// <b>A hand out is an ordinary walker</b> and nothing here pretends otherwise: it holds pavement in the
-/// same book, is cut by the same grants, is knocked down by the same cars. What it does not have is a trip —
+/// same claims, is cut by the same grants, is knocked down by the same cars. What it does not have is a trip —
 /// where it is going is its vehicle's errand, re-aimed on every decision, so a body that is shoved off its
 /// line simply walks at the place again from wherever it ended up.
 /// </para>
@@ -248,7 +248,7 @@ internal sealed partial class TownWorld
     /// with an impulse and its opposite, because both have mass, wheels and a line; a person carrying
     /// somebody has none of that, and an arm modelled as a spring between two walkers would be a joint
     /// nothing else in this town has. What the pair costs the road is the ground each of them stands on,
-    /// which the book already has.
+    /// which each already claims.
     /// </remarks>
     void TugAlong(int hand, int casualty)
     {

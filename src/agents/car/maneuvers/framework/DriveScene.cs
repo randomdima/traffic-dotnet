@@ -51,7 +51,7 @@ internal readonly record struct DriveScene
     /// <summary>Which of the things that limit a car limited this one — the term the entry is named off.</summary>
     public required DrivingHold Hold { get; init; }
 
-    /// <summary>What the book and the paint told the speed profile: headway, stop point, ground, crossing.</summary>
+    /// <summary>What the claims and the paint told the speed profile: headway, stop point, ground, crossing.</summary>
     public required DriveContext Context { get; init; }
 
     /// <summary>How far ahead the box the car's own line enters stands, or infinity where its line enters none.</summary>
@@ -69,8 +69,8 @@ internal readonly record struct DriveScene
     /// <summary>The bay this car is standing in, or −1.</summary>
     public required int BayHeld { get; init; }
 
-    /// <summary>The bay this leg has booked, or −1.</summary>
-    public required int BayBooked { get; init; }
+    /// <summary>The bay this leg has claimed, or −1.</summary>
+    public required int BayClaimed { get; init; }
 
     /// <summary>Whether the line in hand finishes on the way into the bay this leg is aimed at.</summary>
     public required bool OnTheFinalApproach { get; init; }
@@ -108,7 +108,7 @@ internal readonly record struct DriveScene
     /// <summary>
     /// <b>Whether this leg comes back the other way from the end of the line it is holding</b> (GEN-4l):
     /// the route reverses at the stretch the line finishes on, and what is past its end is a turn rather
-    /// than a lane. Where a bay was booked to turn in the plan already holds the two steps that make it;
+    /// than a lane. Where a bay was claimed to turn in the plan already holds the two steps that make it;
     /// where none was, `P-19` is what is left.
     /// </summary>
     public required bool TurnsBackHere { get; init; }
@@ -163,7 +163,7 @@ internal readonly record struct DriveScene
 
     /// <summary>
     /// <b>The road this car needs to come to rest</b> from the speed it is doing, on the ground it is
-    /// standing on — the same arithmetic every reservation in the town is sized by, so an entry that hands
+    /// standing on — the same arithmetic every claim in the town is sized by, so an entry that hands
     /// over "once it is near enough to stop for" means the same distance the road does.
     /// </summary>
     public float StoppingM
@@ -280,9 +280,9 @@ internal readonly record struct DriveScene
     /// </summary>
     /// <remarks>
     /// <b>A walker is one of them, and the ground under it is what keeps it safe rather than a rule that
-    /// refuses to look.</b> `E-4` lays its swerve and asks the book whose the ground under every point of it
-    /// is; a body on the carriageway is a stretch of that book with a margin round it
-    /// (<c>Person.RoadClaimMargin</c>), so a swerve that would come near one is refused by the same
+    /// refuses to look.</b> `E-4` lays its swerve and asks whose the ground under every point of it
+    /// is; a body on the carriageway has claimed it and the asker keeps its own margin off that claim
+    /// (<see cref="World.Road.LaneCredit"/>), so a swerve that would come near one is refused by the same
     /// arithmetic that refuses one over a wreck — and naming a second rule that refused the same movement
     /// would make the first useless (SIM-7).
     /// </remarks>
@@ -364,19 +364,20 @@ internal readonly record struct DriveScene
     /// will be, and the pair of movements that read each other's ground read the wrong ground.
     /// </para>
     /// <para>
-    /// <b>And it is the one place the claim behind a swerve cannot be laid.</b>
-    /// <c>ManeuverDesk.ClaimTheSwerve</c> claims the stretch of the car's own <em>lane</em> the shape leaves
-    /// and returns to; inside a box the car is on no lane, so the claim is silently not made and the traffic
-    /// behind reads the ground the manoeuvre is swinging through as empty road.
+    /// <b>And it is the one place the claims behind a swerve cannot be laid.</b>
+    /// <c>ManeuverDesk.TakeTheSwervesGround</c> claims the stretch of the car's own <em>lane</em> the shape
+    /// leaves and returns to, and the stretch of the lane it crosses into; inside a box the car is on no
+    /// lane, so there is nothing to take and the shape is refused rather than driven over ground the traffic
+    /// reads as empty road.
     /// </para>
     /// <para>
-    /// <b>The bar is the same one `P-4` hands the junction over at</b> (<see cref="SimConfig.CarJunctionReserveM"/>),
+    /// <b>The bar is the same one `P-4` hands the junction over at</b> (<see cref="SimConfig.CarJunctionClaimM"/>),
     /// and deliberately: a car near enough to have asked for the box is a car negotiating the box, and the
     /// two are alternatives rather than things to be done at once. A second figure here would be a second
     /// answer to "is this car at a junction yet".
     /// </para>
     /// </remarks>
-    public bool OnACarriageway => !InsideTheBox && ToTheBoxM > Config.CarJunctionReserveM;
+    public bool OnACarriageway => !InsideTheBox && ToTheBoxM > Config.CarJunctionClaimM;
 
     /// <summary>
     /// <b>The same question asked by a driver with a blue light on</b> (AMB-4): a queue counts, and there
@@ -392,9 +393,9 @@ internal readonly record struct DriveScene
     /// which is a question a rescue has already answered.
     /// </para>
     /// <para>
-    /// <b>What it does not relax is the two things that keep a swerve safe.</b> Something the book cannot
+    /// <b>What it does not relax is the two things that keep a swerve safe.</b> Something no claim can
     /// name is still never driven round — a priority is a rule about who waits, not a licence to pass what
-    /// nobody can see — and the shape itself is still walked over the ground and the book before the car
+    /// nobody can see — and the shape itself is still walked over the ground and the claims before the car
     /// commits to it (`E-4`), which is where a swerve into an occupied lane is actually refused.
     /// </para>
     /// <para>
@@ -418,7 +419,7 @@ internal readonly record struct DriveScene
     /// <see cref="HeldBackS"/> is the clock for, and the arithmetic half of the moving door above.
     /// </summary>
     public bool HeldBackBySomethingSlow =>
-        Hold is DrivingHold.Headway or DrivingHold.Reserved
+        Hold is DrivingHold.Headway or DrivingHold.Claimed
         && Context.HeadwaySpeedMps < PlannedMps * Config.Driving.PassWorthShare
         && AlongMps > Context.HeadwaySpeedMps;
 }

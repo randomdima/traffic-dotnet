@@ -85,7 +85,7 @@ things follow, and the first is the point of the rule.
   the terms every other place the catalogue is stopped at is asked on. An ambulance parked on the casualty
   is an ambulance in the lane it needs kept clear for itself, and one nobody can work round.
 - **The paramedic walks, and walks as a walker.** Out of the vehicle on the side the work is (`PHY-7a`),
-  over the pavement, across the road, held at kerbs and cut by the same book as anybody on foot. What is not
+  over the pavement, across the road, held at kerbs and cut by the same claims as anybody on foot. What is not
   the walker's own is where they are going: that is the vehicle's errand, re-aimed on the vehicle's own
   decision, so a crew shoved off its line simply walks at the place again.
 - **The casualty is tugged and never carried.** They stay a body in the world the whole way (`PHY-5`), set

@@ -37,7 +37,7 @@ internal static class TownProbe
     public static void Run(SimConfig config)
     {
         Console.WriteLine($"town probe — {WarmupTicks} warm-up ticks, {WindowS:F0} s measured per window, {config.Solver.VelocityIterations} solver iterations");
-        Console.WriteLine($"{"map",-10}{"walkers",9}{"cars",6}{"statics",9}{"in book",9}{"stand ms",10}{"B/tick",10}{"ours B",9}{"solver B",10}{"µs/tick",10}{"gen0",7}{"ticks",10}");
+        Console.WriteLine($"{"map",-10}{"walkers",9}{"cars",6}{"statics",9}{"claims",9}{"stand ms",10}{"B/tick",10}{"ours B",9}{"solver B",10}{"µs/tick",10}{"gen0",7}{"ticks",10}");
 
         // The capacity a big world grows outlives the world that grew it, and so does the compiler's
         // opinion of the tick: nothing is measured until a town has been stood up and run
@@ -50,7 +50,7 @@ internal static class TownProbe
         {
             var sample = Sample(maps[map], config);
             samples[map] = sample;
-            Console.WriteLine($"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Statics,9}{sample.InTheBook,9}{sample.StandMs,10:F0}{sample.BytesPerTick,10:F1}" +
+            Console.WriteLine($"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Statics,9}{sample.Claims,9}{sample.StandMs,10:F0}{sample.BytesPerTick,10:F1}" +
                               $"{sample.OwnBytesPerTick,9:F1}{sample.SolverBytesPerTick,10:F1}{sample.MicrosecondsPerTick,10:F1}{sample.Gen0Collections,7}{sample.MeasuredTicks,10}");
         }
 
@@ -113,7 +113,7 @@ internal static class TownProbe
     /// and <see cref="SolverBytesPerTick"/> is what is left, which is phase 4's step.
     /// </summary>
     public readonly record struct TownSample(
-        int Walkers, int Cars, int Statics, int InTheBook, double StandMs, double BytesPerTick, double OwnBytesPerTick,
+        int Walkers, int Cars, int Statics, int Claims, double StandMs, double BytesPerTick, double OwnBytesPerTick,
         double MicrosecondsPerTick, int Gen0Collections, long MeasuredTicks, PhaseTimes Phases, TickParts Sub)
     {
         public double SolverBytesPerTick => BytesPerTick - OwnBytesPerTick;

@@ -30,8 +30,14 @@ internal sealed partial class Game
 
     private partial long Crossings() => Runtime.Vk.Crossings;
 
-    /// <summary>The plan is on the disk this run started from, so a map picked is a map opened.</summary>
-    private partial void PickMap(string map) => Open(map);
+    /// <summary>
+    /// The plan is on the disk this run started from, so nothing is waited for: the map picked is stood up
+    /// on the loop's own turn, in the frame after the one that drew the card saying so (OBS-2n).
+    /// </summary>
+    partial void OpenWhatWasPicked()
+    {
+        if (TakeWanted() is { } picked) Open(picked);
+    }
 
     partial void Shutdown() => _vk.Dispose();
 }

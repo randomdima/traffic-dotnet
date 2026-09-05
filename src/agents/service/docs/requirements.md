@@ -47,7 +47,7 @@ worked in human form: the paramedic walks to the casualty (AMB-10), the recovery
   asks for a car nobody is in, and an ambulance standing empty at a scene is exactly one; what refuses a
   passer-by is that it belongs to a hospital, a station or a depot. A vehicle struck off its building
   (`EVA-7`) is an ordinary car in service paint and is free to whoever reaches it.
-- **A hand out is an ordinary walker.** The same pavement, the same kerbs, the same book, and knocked down
+- **A hand out is an ordinary walker.** The same pavement, the same kerbs, the same claims, and knocked down
   by the same cars — a crew member put in the road is a casualty like anybody else (`PER-18`), and the
   vehicle's next errand is worked by whoever is left.
 - **Nothing drives while a hand is out**, and no errand is given up without walking them in first.

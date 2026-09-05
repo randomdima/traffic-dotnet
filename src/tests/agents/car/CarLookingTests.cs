@@ -12,7 +12,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 
 /// <summary>
 /// <b>What a body driving geometry of its own can see</b>: a template is laid over no way, so the ground
-/// under each place along it is looked up and the book is asked who has it (<see cref="GroundAhead"/>).
+/// under each place along it is looked up and the claims say who has it (<see cref="GroundAhead"/>).
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 public class CarLookingTests
@@ -23,35 +23,35 @@ public class CarLookingTests
 
     const int Somebody = 3;
 
-    /// <summary>A lane of the fixture town long enough to lay a stretch down, and an empty book over that town.</summary>
-    static (RoadGraph Roads, LaneOccupancy Book, int Lane) ALane()
+    /// <summary>A lane of the fixture town long enough to lay a stretch down, and no claims over that town.</summary>
+    static (RoadGraph Roads, LaneOccupancy Claims, int Lane) ALane()
     {
         var roads = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
             if (roads.LaneLengthM[lane] < 60f) continue;
 
-            var book = new LaneOccupancy(roads, mostSlots: 8);
-            book.Begin();
-            return (roads, book, lane);
+            var claims = new LaneOccupancy(TownWays.OfTheRoad(roads), mostSlots: 8);
+            claims.Begin();
+            return (roads, claims, lane);
         }
 
         throw new InvalidOperationException($"{Towns.Fixture} has no lane 60 m long");
     }
 
-    /// <summary>The ground under a place is the lane's, and what the book says about that lane is the answer.</summary>
+    /// <summary>The ground under a place is the lane's, and what is claimed of that lane is the answer.</summary>
     [Fact]
     public void GroundInsideSomebodyElsesStretchIsTaken()
     {
-        var (roads, book, lane) = ALane();
-        book.Add(book.WayOfLane(lane), 20f, 26f, 0f, Somebody, LaneUse.Reserved);
+        var (roads, claims, lane) = ALane();
+        claims.ClaimUnderWay(claims.Ways.OfRoadLane(lane), 20f, 26f, 26f, 0f, Somebody);
 
         var onIt = Spline.SampleAt(roads.ArcsOf(lane), 23f).PositionM;
-        Assert.True(GroundAhead.TakenAt(roads, book, onIt, Config.Car.WidthM * 0.5f, Asking, out var found));
+        Assert.True(GroundAhead.TakenAt(roads, claims, onIt, Config.Car.WidthM * 0.5f, Asking, out var found));
         Assert.Equal(Somebody, found.Occupant);
 
         var pastIt = Spline.SampleAt(roads.ArcsOf(lane), 40f).PositionM;
-        Assert.False(GroundAhead.TakenAt(roads, book, pastIt, Config.Car.WidthM * 0.5f, Asking, out _));
+        Assert.False(GroundAhead.TakenAt(roads, claims, pastIt, Config.Car.WidthM * 0.5f, Asking, out _));
     }
 
     /// <summary>
@@ -61,11 +61,11 @@ public class CarLookingTests
     [Fact]
     public void ACarsOwnGroundIsNotTakenFromIt()
     {
-        var (roads, book, lane) = ALane();
-        book.Add(book.WayOfLane(lane), 20f, 26f, 0f, Asking, LaneUse.Reserved);
+        var (roads, claims, lane) = ALane();
+        claims.ClaimUnderWay(claims.Ways.OfRoadLane(lane), 20f, 26f, 26f, 0f, Asking);
 
         var onIt = Spline.SampleAt(roads.ArcsOf(lane), 23f).PositionM;
-        Assert.False(GroundAhead.TakenAt(roads, book, onIt, Config.Car.WidthM * 0.5f, Asking, out _));
+        Assert.False(GroundAhead.TakenAt(roads, claims, onIt, Config.Car.WidthM * 0.5f, Asking, out _));
     }
 
     /// <summary>
@@ -75,12 +75,12 @@ public class CarLookingTests
     [Fact]
     public void GroundClearOfTheLanesBandIsNobodys()
     {
-        var (roads, book, lane) = ALane();
-        book.Add(book.WayOfLane(lane), 20f, 26f, 0f, Somebody, LaneUse.Reserved);
+        var (roads, claims, lane) = ALane();
+        claims.ClaimUnderWay(claims.Ways.OfRoadLane(lane), 20f, 26f, 26f, 0f, Somebody);
 
         var on = Spline.SampleAt(roads.ArcsOf(lane), 23f);
         var beside = on.PositionM + (on.Right * (roads.LaneWidthM[lane] + Config.Car.WidthM));
-        Assert.False(GroundAhead.TakenAt(roads, book, beside, Config.Car.WidthM * 0.5f, Asking, out _));
+        Assert.False(GroundAhead.TakenAt(roads, claims, beside, Config.Car.WidthM * 0.5f, Asking, out _));
     }
 
     /// <summary>
@@ -90,18 +90,44 @@ public class CarLookingTests
     [Fact]
     public void ACandidateIsClearUpToTheFirstGroundSomebodyHas()
     {
-        var (roads, book, lane) = ALane();
+        var (roads, claims, lane) = ALane();
         var arcs = roads.ArcsOf(lane);
         var line = arcs.ToArray();
 
         var halfWidthM = Config.Car.WidthM * 0.5f;
-        Assert.Equal(30f, GroundAhead.ClearM(roads, book, line, 0f, 30f, halfWidthM, Asking), tolerance: 1e-3f);
+        Assert.Equal(30f, GroundAhead.ClearM(roads, claims, line, 0f, 30f, halfWidthM, Asking), tolerance: 1e-3f);
 
-        book.Add(book.WayOfLane(lane), 20f, 26f, 0f, Somebody, LaneUse.Reserved);
+        claims.ClaimUnderWay(claims.Ways.OfRoadLane(lane), 20f, 26f, 26f, 0f, Somebody);
 
         // The lane's own metres and the line's are the same metres here, because the line is the lane.
-        var clearM = GroundAhead.ClearM(roads, book, line, 0f, 30f, halfWidthM, Asking);
+        var clearM = GroundAhead.ClearM(roads, claims, line, 0f, 30f, halfWidthM, Asking);
         Assert.InRange(clearM, 20f - halfWidthM - 1f, 20f);
+    }
+
+    /// <summary>
+    /// <b>The far end of a candidate is walked like every metre before it.</b> The step lands on that end
+    /// only where the reach is a whole number of steps, so a stretch beginning between the last step and the
+    /// end is one a walk that stopped at the last step called clear — and the body holding it is one the
+    /// template comes to rest inside.
+    /// </summary>
+    [Fact]
+    public void TheFarEndOfACandidateIsWalked()
+    {
+        var (roads, claims, lane) = ALane();
+        var line = roads.ArcsOf(lane).ToArray();
+        var halfWidthM = Config.Car.WidthM * 0.5f;
+
+        // Half a metre past the last whole-metre step the walk takes, which is where GroundAhead's own step
+        // leaves off. The stretch begins clear of that step's own body and inside the end's.
+        const float lastStepM = 22f;
+        const float reachM = lastStepM + 0.5f;
+        var takenFromM = lastStepM + halfWidthM + 0.1f;
+
+        claims.ClaimUnderWay(claims.Ways.OfRoadLane(lane), takenFromM, takenFromM + 3f, takenFromM + 3f, 0f, Somebody);
+
+        Assert.Equal(
+            lastStepM, GroundAhead.ClearM(roads, claims, line, 0f, reachM, halfWidthM, Asking),
+            tolerance: 1e-3f);
     }
 
     /// <summary>
@@ -113,19 +139,19 @@ public class CarLookingTests
     public void GroundInsideAJunctionIsTakenByWhoeverIsCrossingIt()
     {
         var roads = RoadGraph.Build(Towns.Of(Towns.Fixture), Config);
-        var book = new LaneOccupancy(roads, mostSlots: 8);
-        book.Begin();
+        var claims = new LaneOccupancy(TownWays.OfTheRoad(roads), mostSlots: 8);
+        claims.Begin();
 
         var (slot, arcs) = AJoin(roads);
         var lengthM = roads.JoinLengthM(slot);
         var acrossTheBoxM = Spline.SampleAt(arcs, lengthM * 0.5f).PositionM;
 
         var halfWidthM = Config.Car.WidthM * 0.5f;
-        Assert.False(GroundAhead.TakenAt(roads, book, acrossTheBoxM, halfWidthM, Asking, out _));
+        Assert.False(GroundAhead.TakenAt(roads, claims, acrossTheBoxM, halfWidthM, Asking, out _));
 
-        book.Add(book.WayOfTurn(slot), (lengthM * 0.5f) - 2f, (lengthM * 0.5f) + 2f, 0f, Somebody, LaneUse.Reserved);
+        claims.ClaimUnderWay(claims.Ways.OfRoadTurn(slot), (lengthM * 0.5f) - 2f, (lengthM * 0.5f) + 2f, (lengthM * 0.5f) + 2f, 0f, Somebody);
 
-        Assert.True(GroundAhead.TakenAt(roads, book, acrossTheBoxM, halfWidthM, Asking, out var found));
+        Assert.True(GroundAhead.TakenAt(roads, claims, acrossTheBoxM, halfWidthM, Asking, out var found));
         Assert.Equal(Somebody, found.Occupant);
     }
 
@@ -145,7 +171,7 @@ public class CarLookingTests
 }
 
 /// <summary>
-/// The same looking asked of a running town, and the one reading the book could not give before everything
+/// The same looking asked of a running town, and the one reading the claims could not give before everything
 /// on a lane was in it.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]

@@ -13,7 +13,7 @@ namespace TrafficSimulation.Tests.World;
 /// join through each junction, which is the only geometry in the town that no plan carries.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
-public class PathAssemblerTests
+public class LineAssemblerTests
 {
     public static TheoryData<string> Maps => Towns.EveryTown();
 
@@ -43,10 +43,10 @@ public class PathAssemblerTests
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
         var graph = RoadGraph.Build(plan, config);
-        var terrain = new TerrainGrid(plan, config);
-        var arcs = new ArcSeg[PathAssembler.ArcsFor(graph)];
-        var starts = new float[PathAssembler.MostLanes];
-        var ends = new float[PathAssembler.MostLanes];
+        var terrain = new GroundLocator(plan, config);
+        var arcs = new ArcSeg[LineAssembler.ArcsFor(graph)];
+        var starts = new float[LineAssembler.MostLanes];
+        var ends = new float[LineAssembler.MostLanes];
 
         var turns = 0;
         var offRoad = 0;
@@ -59,7 +59,7 @@ public class PathAssemblerTests
             {
                 pair[0] = lane;
                 pair[1] = onto;
-                var line = PathAssembler.Assemble(graph, pair, arcs, starts, ends);
+                var line = LineAssembler.Assemble(graph, pair, arcs, starts, ends);
                 turns++;
 
                 var offM = 0f;
@@ -95,9 +95,9 @@ public class PathAssemblerTests
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
         var graph = RoadGraph.Build(plan, config);
-        var arcs = new ArcSeg[PathAssembler.ArcsFor(graph)];
-        var starts = new float[PathAssembler.MostLanes];
-        var ends = new float[PathAssembler.MostLanes];
+        var arcs = new ArcSeg[LineAssembler.ArcsFor(graph)];
+        var starts = new float[LineAssembler.MostLanes];
+        var ends = new float[LineAssembler.MostLanes];
         Span<int> pair = stackalloc int[2];
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
@@ -106,7 +106,7 @@ public class PathAssemblerTests
             {
                 pair[0] = lane;
                 pair[1] = onto;
-                var line = PathAssembler.Assemble(graph, pair, arcs, starts, ends);
+                var line = LineAssembler.Assemble(graph, pair, arcs, starts, ends);
 
                 for (var arc = 1; arc < line.ArcCount; arc++)
                 {
@@ -137,9 +137,9 @@ public class PathAssemblerTests
     {
         var config = SimConfig.Shipped();
         var graph = RoadGraph.Build(Towns.Of(map), config);
-        var arcs = new ArcSeg[PathAssembler.ArcsFor(graph)];
-        var starts = new float[PathAssembler.MostLanes];
-        var ends = new float[PathAssembler.MostLanes];
+        var arcs = new ArcSeg[LineAssembler.ArcsFor(graph)];
+        var starts = new float[LineAssembler.MostLanes];
+        var ends = new float[LineAssembler.MostLanes];
         Span<int> pair = stackalloc int[2];
 
         var worstM = 0f;
@@ -153,7 +153,7 @@ public class PathAssemblerTests
                 var slot = graph.TurnSlotAt(lane, turn);
                 pair[0] = lane;
                 pair[1] = turns[turn];
-                var line = PathAssembler.Assemble(graph, pair, arcs, starts, ends);
+                var line = LineAssembler.Assemble(graph, pair, arcs, starts, ends);
                 var driven = arcs.AsSpan(0, line.ArcCount);
 
                 // Each lane over the stretch of it the line was laid from: the leaving join's setback short
@@ -166,7 +166,7 @@ public class PathAssemblerTests
 
                     for (var alongM = fromM; alongM <= toM; alongM += 1f)
                     {
-                        var onLineM = PathAssembler.OnTheLineM(graph, pair, starts, ends, at, alongM);
+                        var onLineM = LineAssembler.OnTheLineM(graph, pair, starts, ends, at, alongM);
                         var offM = (Spline.SampleAt(driven, onLineM).PositionM
                                     - Spline.SampleAt(graph.ArcsOf(of), alongM).PositionM).Length();
 
@@ -194,9 +194,9 @@ public class PathAssemblerTests
     {
         var config = SimConfig.Shipped();
         var graph = RoadGraph.Build(Towns.Of(map), config);
-        var arcs = new ArcSeg[PathAssembler.ArcsFor(graph)];
-        var starts = new float[PathAssembler.MostLanes];
-        var ends = new float[PathAssembler.MostLanes];
+        var arcs = new ArcSeg[LineAssembler.ArcsFor(graph)];
+        var starts = new float[LineAssembler.MostLanes];
+        var ends = new float[LineAssembler.MostLanes];
         Span<int> pair = stackalloc int[2];
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
@@ -207,7 +207,7 @@ public class PathAssemblerTests
                 var slot = graph.TurnSlotAt(lane, turn);
                 pair[0] = lane;
                 pair[1] = turns[turn];
-                var line = PathAssembler.Assemble(graph, pair, arcs, starts, ends);
+                var line = LineAssembler.Assemble(graph, pair, arcs, starts, ends);
 
                 // The junction is the stretch between where the first lane's own pieces end and where
                 // the second's begin, which is what the assembler reports in those two spans.

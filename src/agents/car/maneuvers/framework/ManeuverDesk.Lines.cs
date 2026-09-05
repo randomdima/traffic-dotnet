@@ -15,7 +15,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// <remarks>
 /// <b>Every shape here is drawn for the car that is going to drive it</b> (CAR-11): its own circle, its own
 /// axle under its own body, its own width against the ground. The town's precomputed ways are the nominal
-/// car's and are offered first because a way of the book carries a reservation and a right of way with it;
+/// car's and are offered first because a numbered way carries a claim and a right of way with it;
 /// where one does not suit the body that turned up, the same shape is laid again from the pose that body is
 /// actually in (CAR-10b) rather than the car being asked to fit the drawing.
 /// </remarks>
@@ -28,8 +28,8 @@ internal sealed partial class ManeuverDesk
     /// (<see cref="LayTheExitLine"/>) rather than onto a line it is not on.
     /// </summary>
     /// <remarks>
-    /// <b>This is the whole of what makes leaving a bay ordinary.</b> The line is a way of the book, so the
-    /// car's reservation runs along it, its grant is cut by the town's own table of what is driven over
+    /// <b>This is the whole of what makes leaving a bay ordinary.</b> The line is a numbered way, so the
+    /// car's claim runs along it, its grant is cut by the town's own table of what is driven over
     /// what, and the ground it takes before it moves is taken by the protocol a car crossing a junction
     /// uses — there is no gap to be looked at, no patience to be spent, and nothing here that a car turning
     /// across a junction does not also do.
@@ -51,7 +51,7 @@ internal sealed partial class ManeuverDesk
         if ((fromAxleM - arcs[0].StartM).Length() > _config.CarOffPathM) return false;
 
         arcs.CopyTo(_candidate);
-        Commit(car, arcs.Length, _bayWays.LengthM(way), _bayWays.IsDrivenInReverse(way), way);
+        Commit(car, arcs.Length, _bayWays.DrivenLengthM(way), _bayWays.IsDrivenInReverse(way), way);
         return true;
     }
 
@@ -129,7 +129,7 @@ internal sealed partial class ManeuverDesk
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Read off the pose and never off a booking (GEN-4j). A car nose-first in its space reverses out onto
+    /// Read off the pose and never off the register (GEN-4j). A car nose-first in its space reverses out onto
     /// the lane beside it and has no other way out; one that backed in drives out, and may cross the
     /// carriageway doing it.
     /// </para>
@@ -200,8 +200,8 @@ internal sealed partial class ManeuverDesk
 
     /// <summary>
     /// `P-19`'s line: <b>one leg of a turn on the spot</b> — a single arc at this car's own lock, drawn for
-    /// the rear axle and driven in whichever gear this leg of it is, as far as the ground and the book
-    /// admit and never further round than one sweep.
+    /// the rear axle and driven in whichever gear this leg of it is, as far as the ground and the claims on
+    /// it admit and never further round than one sweep.
     /// </summary>
     /// <remarks>
     /// <b>The wheel goes the same way in both gears, which is what turns a car round rather than rocking
@@ -228,7 +228,7 @@ internal sealed partial class ManeuverDesk
                      / MathF.Abs(curvature);
 
         // The ground first, in steps, because a leg that runs out of tarmac half way round is a car on the
-        // pavement — and then the book, from the overhang the gear puts in front.
+        // pavement — and then the claims, from the overhang the gear puts in front.
         var reachM = GroundHolds(car, new ArcSeg(rearAxleM, travelRad, sweptM, curvature), sweptM);
         var tailM = backwards ? build.TailBehindAxleM : build.CentreAheadOfAxleM;
         if (reachM <= tailM) return false;
@@ -317,7 +317,7 @@ internal sealed partial class ManeuverDesk
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A lane over and not a body's width.</b> The book carries what is in the way as a stretch of
+    /// <b>A lane over and not a body's width.</b> A claim carries what is in the way as a stretch of
     /// arclength and never as a place across the road, so where in its lane the thing actually stands is a
     /// fact nothing here can read — and a shift of the car's own width leaves a car spanning both halves of
     /// its own lane, which passes a wreck on the line and nothing that is anywhere else on it. Moving over
@@ -333,7 +333,13 @@ internal sealed partial class ManeuverDesk
     /// </remarks>
     /// <param name="passM">What has to be got past, measured from the nose.</param>
     /// <param name="atMps">What the car is doing, and therefore how wide the shape has to be drawn to hold it.</param>
-    public bool LayTheSwerve(int car, float passM, float atMps)
+    /// <param name="fromM">
+    /// Where the car stands along its route's line, which is where the ground the shape wants begins.
+    /// <b>It is the caller's because committing the template throws it away</b>: a template restarts the
+    /// progress measure at its own origin, so read here it would claim a stretch at the top of the lane
+    /// rather than the stretch the car is on.
+    /// </param>
+    public bool LayTheSwerve(int car, float passM, float atMps, float fromM)
     {
         var headingRad = _cars.HeadingRad[car];
         var forward = Heading.Unit(headingRad);
@@ -371,11 +377,93 @@ internal sealed partial class ManeuverDesk
                 if (!GroundAdmits(car, _candidate.AsSpan(0, line.ArcCount), line.LengthM)) continue;
                 if (Look(car, line.ArcCount, build.CentreAheadOfAxleM, line.LengthM) < line.LengthM) continue;
 
+                // <b>The ground is taken before the shape is written and the shape is refused without
+                // it.</b> A swerve laid on a walk alone is a shape drawn over ground the walk found empty
+                // at that instant and nothing was holding for the seconds it takes to drive — so the car
+                // committed to the wrong side of the road and met what was coming there halfway along.
+                var crossed = attempt == 0 && lane >= 0 ? _roads.LaneReverse[lane] : CarFleet.NoLane;
+                if (!TakeTheSwervesGround(car, fromM, line, crossed)) continue;
+
                 Commit(car, line.ArcCount, line.LengthM, reverse: false);
                 return true;
             }
         }
 
+        return false;
+    }
+
+    /// <summary>The slot the swerve's own lane is claimed in: the stretch it leaves and comes back into.</summary>
+    const int TheLaneLeft = 0;
+
+    /// <summary>And the slot for the lane it crosses into, which is claimed for the whole run of the pass.</summary>
+    const int TheLaneCrossed = 1;
+
+    /// <summary>
+    /// `E-4`'s ground: <b>the whole of what the shape is about to be on, taken before the shape is
+    /// written</b> — the stretch of the car's own lane the swerve leaves and comes back into, so the traffic
+    /// behind reads that road as taken, and the stretch of the lane it crosses into, so what is coming down
+    /// the other side is held off it for as long as the pass takes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Both or neither.</b> Half a swerve is a car committed to the wrong side of the road with nothing
+    /// holding the far half of it, and that is the one way this manoeuvre ends up stopped nose to nose in
+    /// the oncoming lane: neither body can be made to give way there (TER-5f), so both stand until the
+    /// watchdog gives one of them up. Refused the crossing, the shape is refused with it and the car tries
+    /// the verge side or stays where it is.
+    /// </para>
+    /// <para>
+    /// <b>It is a longer question than the ground walk's and not a second copy of it</b> (SIM-7).
+    /// <see cref="Look"/> asks whose the ground under the <em>shape</em> is, at the instant it is drawn;
+    /// this asks who is coming for the run of lane the shape will be crossing for the seconds it takes to
+    /// drive it, which is a stretch the shape never touches most of and a question no walk of the geometry
+    /// can put.
+    /// </para>
+    /// <para>
+    /// <b>The crossed stretch is projected and never mirrored.</b> A carriageway's two lanes are drawn at
+    /// their own offsets from one centreline, so on a bend they are not the same length and a metre of one
+    /// is not <c>length − metre</c> of the other. The shape's own two ends go onto the lane by the
+    /// projection the town uses everywhere else, and the run between them is what is claimed.
+    /// </para>
+    /// </remarks>
+    /// <param name="crossed">
+    /// The lane the shape swings into, or <see cref="CarFleet.NoLane"/> where there is none to claim: the
+    /// verge side has no way under it, and a one-way street has no lane coming back. Neither has a stream to
+    /// be held off, and what refuses the shape over either is the ground walk as before.
+    /// </param>
+    bool TakeTheSwervesGround(int car, float fromM, in BayLine line, int crossed)
+    {
+        var lane = _cars.LaneOf(car);
+        if (lane < 0) return false;
+
+        // The line's first lane starts at the line's own origin, so the car's progress along it is already
+        // that lane's own metre — and never past the end of it, because a claim is a stretch of a way and a
+        // way has no metres beyond its own length. What keeps the shape itself short of the box is `E-4`.
+        var toM = MathF.Min(fromM + line.LengthM, _roads.LaneLengthM[lane]);
+        if (!Claim(car, TheLaneLeft, _occupancy.Ways.OfRoadLane(lane), fromM, toM, ClaimsAsked.Granted))
+        {
+            return false;
+        }
+
+        if (crossed < 0) return true;
+
+        var arcs = _roads.ArcsOf(crossed);
+        var laneLengthM = _roads.LaneLengthM[crossed];
+        var alongsideM = Spline.ProjectM(arcs, _cars.PositionM[car], laneLengthM * 0.5f, laneLengthM);
+        var windowM = line.LengthM + _cars.BuildOf(car).LengthM;
+        var oneEndM = Spline.ProjectM(arcs, _candidate[0].StartM, alongsideM, windowM);
+        var otherEndM = Spline.ProjectM(
+            arcs, Spline.SampleAt(_candidate.AsSpan(0, line.ArcCount), line.LengthM).PositionM, alongsideM,
+            windowM);
+
+        if (Claim(
+                car, TheLaneCrossed, _occupancy.Ways.OfRoadLane(crossed), MathF.Min(oneEndM, otherEndM),
+                MathF.Max(oneEndM, otherEndM), ClaimsAsked.HeldOrStated))
+        {
+            return true;
+        }
+
+        GiveBackTheClaim(car, TheLaneLeft);
         return false;
     }
 
@@ -410,7 +498,7 @@ internal sealed partial class ManeuverDesk
     }
 
     /// <summary>
-    /// How far down a candidate the ground is still nobody else's. <b>The book and not a ray</b>
+    /// How far down a candidate the ground is still nobody else's. <b>The claims and not a ray</b>
     /// (<see cref="GroundAhead"/>): a cast found a shape and could not say whether the ground beyond it was
     /// already inside somebody's road, so a swerve was laid into the stretch a car three seconds away was
     /// committed to.
@@ -425,7 +513,7 @@ internal sealed partial class ManeuverDesk
     /// every distance measured along one.
     /// </summary>
     /// <param name="way">
-    /// The way of the book this line <em>is</em>, where it is one of them, and <see cref="CarFleet.NoWay"/>
+    /// The numbered way this line <em>is</em>, where it is one of them, and <see cref="CarFleet.NoWay"/>
     /// for geometry the car laid itself. It is written here because this is where the line is written, so
     /// the two can never describe different things.
     /// </param>

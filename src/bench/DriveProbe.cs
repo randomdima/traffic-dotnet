@@ -50,7 +50,7 @@ internal static class DriveProbe
                 $"{sample.MeanOffLineM,12:F3}{sample.WorstOffLineM,9:F2}" +
                 $"{sample.StoppedShare,9:P0}{sample.OffRoadShare,10:P0}" +
                 $"{sample.Held(DrivingHold.Corner),8:P0}{sample.Held(DrivingHold.LineEnd),10:P0}" +
-                $"{sample.Held(DrivingHold.Headway),9:P0}{sample.Held(DrivingHold.Reserved),9:P0}" +
+                $"{sample.Held(DrivingHold.Headway),9:P0}{sample.Held(DrivingHold.Claimed),9:P0}" +
                 $"{sample.Held(DrivingHold.Waiting),9:P0}" +
                 $"{sample.Held(DrivingHold.Crossing),10:P0}{sample.Held(DrivingHold.Procedure),11:P0}" +
                 $"{sample.Held(DrivingHold.LostLine),7:P0}{sample.CoveredM,11:F0}{sample.WentNowhere,7}{sample.Arrived,9}");

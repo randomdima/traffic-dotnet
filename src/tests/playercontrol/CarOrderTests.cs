@@ -93,7 +93,7 @@ public class CarOrderTests
     }
 
     /// <summary>
-    /// CTL-8b: a click on a car park is an order to park in it — the bay clicked is booked and the leg to
+    /// CTL-8b: a click on a car park is an order to park in it — the bay clicked is claimed and the leg to
     /// it is an ordinary drive leg, so the car sets off and the order is finished when that leg ends.
     /// </summary>
     /// <remarks>
@@ -114,7 +114,7 @@ public class CarOrderTests
         Assert.Equal(Ground.Parking, world.Terrain.GroundAt(toM));
         Assert.True(world.OrderCar(car, toM));
         Assert.Equal(PlayerOrder.ParkThere, world.OrderOf(car));
-        Assert.Equal(bay, world.Parking.BookingOf(car));
+        Assert.Equal(bay, world.Parking.ClaimedBayOf(car));
         Assert.True(world.Cars.Driven[car]);
 
         loop.Advance(1800);
@@ -204,7 +204,7 @@ public class CarOrderTests
 
         Assert.True(world.OrderCar(car, toM));
         Assert.Equal(PlayerOrder.ParkAndWalkThere, world.OrderOf(car));
-        Assert.True(world.Parking.BookingOf(car) >= 0, "a park-and-walk order books the bay it is going to");
+        Assert.True(world.Parking.ClaimedBayOf(car) >= 0, "a park-and-walk order claims the bay it is going to");
     }
 
     /// <summary>The nearest cell to a place that a car may not drive on — a pavement, a lawn, a building's own ground.</summary>

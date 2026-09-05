@@ -249,7 +249,7 @@ internal sealed partial class FootGraph
     /// </para>
     /// </remarks>
     static void ArmBands(
-        CityPlan plan, TerrainGrid terrain, Builder builder,
+        CityPlan plan, GroundLocator terrain, SimConfig config, Builder builder,
         Dictionary<(int Strip, int Span, bool End), BandEnd> ends, float bandM)
     {
         foreach (var (junction, here) in EndsByJunction(ends))
@@ -272,7 +272,7 @@ internal sealed partial class FootGraph
                     var fromM = builder.PositionOf(fromNode);
                     var toM = builder.PositionOf(toNode);
                     var gapM = (toM - fromM).Length();
-                    if (gapM > capM || !OnFoot(terrain, fromM, toM) || builder.Joined(fromNode, toNode)) continue;
+                    if (gapM > capM || !OnFoot(terrain, config.Terrain.GroundStepM, fromM, toM) || builder.Joined(fromNode, toNode)) continue;
 
                     gaps.Add((gapM, fromNode, toNode));
                 }
@@ -303,10 +303,10 @@ internal sealed partial class FootGraph
     }
 
     /// <summary>Whether every station between two points is ground this network may run over: walkable, and no part of it a carriageway, a crossing's paint or a lot.</summary>
-    static bool OnFoot(TerrainGrid terrain, Vector2 fromM, Vector2 toM)
+    static bool OnFoot(GroundLocator terrain, float stepM, Vector2 fromM, Vector2 toM)
     {
         var runM = toM - fromM;
-        var steps = Math.Max(2, (int)MathF.Ceiling(runM.Length() / (terrain.CellSizeM * 0.5f)));
+        var steps = Math.Max(2, (int)MathF.Ceiling(runM.Length() / (stepM * 0.5f)));
         for (var step = 0; step <= steps; step++)
         {
             var at = terrain.At(fromM + (runM * step / steps));
@@ -351,7 +351,8 @@ internal sealed partial class FootGraph
     /// </para>
     /// </remarks>
     static void HeadBands(
-        CityPlan plan, Builder builder, Dictionary<(int Strip, int Span, bool End), BandEnd> ends, float bandM)
+        CityPlan plan, SimConfig config, Builder builder, Dictionary<(int Strip, int Span, bool End), BandEnd> ends,
+        float bandM)
     {
         var armsPerJunction = RoadCuts.ArmsPerJunction(plan);
         foreach (var (junction, arms) in EndsByJunction(ends))
@@ -366,7 +367,7 @@ internal sealed partial class FootGraph
             // The long way round, which is the head. The two ends straddle the one arm's carriageway, so
             // the short way between them is straight across the mouth of the road.
             var head = Around(builder, centreM, radiusM, arms[0].Node, arms[1].Node, theLongWay: true);
-            if (RunsOverAPavedArea(plan, head)) continue;
+            if (RunsOverAPavedArea(plan, config.Terrain.GroundStepM, head)) continue;
 
             builder.AddArc(arms[0].Node, arms[1].Node, head, bandM, FootEdgeKind.JunctionCorner);
         }

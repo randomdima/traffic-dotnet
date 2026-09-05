@@ -1,5 +1,95 @@
 # The driving manoeuvre catalogue — decision log
 
+## 2026-09-04 — a swerve takes the whole run before it drives any of it
+
+`E-4` laid a shape over ground a walk had found empty and then drove it for several seconds holding one
+half of it. The walk (`ManeuverDesk.Look`) answers for the instant it is made and reaches only what is
+**held** — a body, or road somebody has been granted — so an oncoming car whose committed road stopped
+forty metres short of the run was no answer at all, and what it had *stated* it meant to use
+(`TER-5g`) was never asked about. The claim that was taken was on the car's own lane, which holds the
+traffic behind and nothing that is coming.
+
+**The oncoming lane is the one piece of the town where the pair cannot be arbitrated.** Nothing is driven
+between a carriageway's two lanes (`TER-5f`), so there is no rank to settle it: the swerving car reads the
+oncoming body as a headway and stops, the oncoming car reads the swerving body as a wreck in its lane and
+stops, and both stand across the centreline until the watchdog gives one of them up. Every recovery below
+that rung — back off, settle, abandon — leaves something worse in the road than what was there.
+
+So the ground is taken first and the shape is refused without it
+(`ManeuverDesk.TakeTheSwervesGround`). Two stretches, both or neither: the lane the swerve leaves, asked
+about what anybody has been granted, and the lane it crosses into, asked about everything held **and
+everything stated**, because there the question is not who is standing on the road but what is coming.
+Refused the crossing, the shape is refused, and the car tries the verge side or spends the wait again.
+
+**It is a longer question than the walk's rather than a second copy of it** (`SIM-7`): the walk asks whose
+the ground under the shape is, and this asks who is coming for the run of lane the shape will be crossing
+while it drives — most of which the shape never touches, and none of which a walk of the geometry can put.
+The stretch on the crossed lane is projected from the shape's own two ends rather than mirrored off the
+lane it left, since two lanes of one carriageway are not the same length on a bend.
+
+**The claim ahead is two stretches now and was one.** `P-2` gave its up long ago — a bay's way out is a
+numbered way and carries its own claim — so `E-4` was the field's only user, and a carriageway is two
+lanes. A claim taken off either half gives the other back with it, since half a swerve is nowhere to drive.
+
+**There is no measurement of it on the shipped maps, and that is a finding of its own** — see the two
+entries below, which are what came of opening it. `E-4` is entered **once** in a minute of Odesa and once
+of River, and the claim changes nothing that can be counted because the entry is barely reached.
+
+## 2026-09-04 — a manoeuvre a planned entry merely offered is not a rung of the ladder
+
+`P-4` names `E-4` off `WorthGoingRound` and the desk decides whether a swerve can actually be drawn, which
+is the split the catalogue was built with: whether it is *wanted* is the scene's and whether it *fits* is
+the geometry's. But a hand-over that fails goes through `GoTo`, and `GoTo` read `E-4` as a reactive entry
+like any other — so a swerve the ground had no room for **escalated the ladder**. The car took a recovery
+nobody had asked for, and `Escalate` zeroed `BlockedS` on the way past.
+
+Both halves of that are wrong, and the second is the expensive one. **The blocked clock is the car's
+patience**, and a car behind a wreck spends it to earn exactly two things: the swerve, at the obstruction
+wait, and the watchdog, at the fuse. Zeroing it every time a swerve did not fit meant the clock could never
+get past the first of those — measured over a minute of Odesa with wrecks stood in front of the traffic,
+**the longest any car was ever blocked was 3.1 seconds**, against a thirty-second fuse. The ladder was
+climbing on a discretionary refusal instead, which is also why `E-6` was entered 364 times with a
+`P-4`↔`E-6` churn of 717: rung 5 is the first that installs for a car holding a bay.
+
+So a discretionary entry — `E-4` and nothing else, since no rung of `DrivingLadder` can name it — leaves
+the car doing what it was doing when its `Sa` refuses. No rung, no reset, and no trace either: the
+hand-over never happened, so the shuttle instrument stays honest. Over the same staged minute the clock
+runs as it was always meant to: **longest blocked 3.1 s → 11.9 s**, and the car-ticks that reach the
+desk's own geometry with everything else satisfied **18 → 537**.
+
+Odesa's own measured minute, with nothing staged in it, stops climbing for the wrong reason:
+
+| | before | after |
+|---|---|---|
+| rungs taken | 14 | **4** |
+| back-offs (`E-3`) · reroutes (`E-7`) | 2 · 4 | **0** · **0** |
+| legs settled (`E-9`) | 5 | **1** |
+| swerves (`E-4`) | 1 | 1 |
+
+The swerve does not move, and the entry below is why.
+
+## 2026-09-04 — the swerve can only be entered from rest, and from rest its own shape is undrivable
+
+With the two above in, 537 car-ticks reached `LayTheSwerve` and **352 of the 353 shapes it drew were
+refused by the terrain** — every one of the four it tries, both sides and both widths. Nothing else
+refused anything: no candidate failed to be drawn, and no claim was refused.
+
+The figures say why. A car may only take this entry from **rest** — for a stationary obstruction
+`WorthGoingRound` asks for `AtRest` and the blocked clock — and a car at rest has no speed for
+`CarCorneringRadiusM` to answer, so the radius falls to its floor. Measured at the refusals: **radius
+3.8 m, pass straight 7.4 m.** The pass is `HeadwayM + two car lengths` and the headway of a car stopped
+behind a wreck is nothing, so it is two car lengths and no more. A 3.6 m sideways shift at a 3.8 m radius
+over 7.4 m is a shape that yaws the body hard, and a carriageway is two lanes with nothing to spare —
+1.7 m of drivable ground either side of a lane's centreline — so the nose and the tail leave the road in
+the middle of the S.
+
+**The floor was written for an edge case that is the only case.** "The radius is what the speed asks for,
+floored at the lock for a car starting from rest" was the right correction to a swerve drawn at the lock
+*always*; what it missed is that this entry is never taken at any other speed. The shape has to be drawn
+for the speed the car is going to reach rather than the zero it is standing at, or the pass straight has
+to be longer than a stopped car's headway makes it — and either is a change to what the manoeuvre *is*
+rather than to how it is claimed.
+
 ## 2026-08-29 — the two ways the watchdog was never reached
 
 Five minutes of Odesa left ninety-six of a hundred and seventy-six drivers standing where they had stopped,
@@ -29,7 +119,7 @@ settled and most legs have finished, the same pair take it from a hundred and tw
 `--bench stuck` is what says so: it is the reading `--bench drive`'s `stuck` column counts, said as *which
 body, in what state, beside whom*.
 
-## 2026-08-29 — `P-12` is retired: slowing at a crossing is what the reservation already does
+## 2026-08-29 — `P-12` is retired: slowing at a crossing is what the claim already does
 
 The entry set no limits, drove no line, laid no claim and had no bound of its own. Its own page said so —
 "this entry sets no limits: the stop short of a body on the paint is the standing rules'." That stop is a
@@ -42,8 +132,9 @@ What it did do was **name the term that had already won**, which is `DrivingHold
 probe prints and the trace does not need a second copy of. And naming it cost something: while it was in
 charge the car could not be handed to `P-8`, to `P-6` or to `E-4`, so a crossing on the arm being approached
 kept a car out of the entry for the box it was entering. The one refusal that suppression was worth — no
-swerving round somebody on the paint — is already made by the ground the shape is laid over
-(`Person.RoadClaimMargin`), and a second gate on a movement the first one refuses is what `SIM-7` is about.
+swerving round somebody on the paint — is already made by the ground the shape is laid over and the margin
+the asker keeps off it ([`LaneCredit`](../../../../world/road/LaneCredit.cs)), and a second gate on a
+movement the first one refuses is what `SIM-7` is about.
 
 Two things the entry had been hiding came out with it, and both are worth more than it was.
 
@@ -67,12 +158,12 @@ junction, and it is the first gate rather than a second one: nothing else was ma
 `S-2a` reads the grant at a following time rather than at the reaction lead, which is what settles a queue
 at the standstill gap and a second of travel. The term was subtracted from every grant, whatever had cut it
 — so a car whose road ran out at a wreck, at somebody on foot, at ground somebody had claimed or at the
-place two movements meet held a second of travel clear of it *as well as* the margin the book had already
+place two movements meet held a second of travel clear of it *as well as* the margin already
 taken off. At town speed that is a dozen metres of street shut for something the car needed only to stop
 short of; on the proving ground it is a lap's straight that no longer reached the gear's own cap, with
 fifteen people pacing across the road two hundred metres away.
 
-What cut a grant is now carried with it (`CarFleet.GrantCutBy`), because the book worked it out to make the
+What cut a grant is now carried with it (`CarFleet.GrantCutBy`), because the walk worked it out to make the
 cut and anything asking *why* a car is held should read it rather than search for the answer again. The
 following time is kept where the cut was a queue and nowhere else. The proving ground's straight is back
 over its threshold, and Odesa's measured minute came back under its own baseline — 78 touches against 83
@@ -110,9 +201,9 @@ licenses the wrong side of the road at all is `CAR-6.2b`, and a box has none to 
 car is other movements' joins. **Those movements were arbitrated on the town's own table** (`TER-5c`), which
 says where a crossing car will be only for as long as it follows the join it claimed; a car that swings off
 its join is not where the town says it is, and the pair that read each other's ground both read the wrong
-ground. And **the swerve's own claim cannot be laid there**: `ManeuverDesk.ClaimTheSwerve` claims a stretch
-of the car's own *lane*, and inside a box `LaneOf` is −1, so the claim was silently never made and the
-traffic behind read the ground the shape was swinging through as empty road.
+ground. And **the swerve's own claim cannot be laid there**: `ManeuverDesk.TakeTheSwervesGround` claims a
+stretch of the car's own *lane*, and inside a box `LaneOf` is −1, so the claim was silently never made and
+the traffic behind read the ground the shape was swinging through as empty road.
 
 So `E-4` is a manoeuvre of a carriageway. The rule is in two halves because the two facts are known at
 different moments. Whether the car is *at* a junction is a fact about where it stands, so it sits with the
@@ -137,7 +228,7 @@ most overtaking of anywhere, drops from 11 touches to 7.
 
 The yield's whole content was a name and a bound. It drove no line, laid no claim, imposed nothing on the
 profile and did nothing on a tick — "the wait is already what the speed profile is doing" was its own page's
-description of it. Once a right of way is a rank carried by the stretches in the town's own book
+description of it. Once a right of way is a rank carried by the town's own claims
 (`TER-5e`), the *reason* a car is waiting is stated where the ground is, and the entry was a second place
 saying it.
 
@@ -158,7 +249,7 @@ red, and it is a car in front of a claim waiting perfectly correctly for a movem
 so a jam whose real answer was another second of patience got a reversing car instead, into road the traffic
 behind was entitled to be standing in.
 
-The door now reads the book's own name for what is in front (`NobodyEntitledIsInTheWay`): a wreck, a car
+The door now reads the claims' own name for what is in front (`NobodyEntitledIsInTheWay`): a wreck, a car
 nobody is in, a body shoved off its line, somebody on foot. `Waiting` survives only where the car is
 **itself** across a lane or in a box, because the ground it is reversing out of is then the ground it is
 blocking, and that is a reason of a different kind.
@@ -180,7 +271,7 @@ is wide; what is not noise is the direction, and `E-3` is still entered on every
 ## 2026-08-23 — a queue keeps a following time, and `E-2` fires above the plan instead of under it
 
 Following worked and read badly. A platoon moved in lurches, and all three reasons were arithmetic rather
-than anything about the reservation itself.
+than anything about the claim itself.
 
 **The equilibrium gap had nothing in it.** The grant inverts to a speed through a lead, and that lead was
 `CarReactionS` — so setting the two cars to one speed and solving gives `gap = standstill + v·τ`, with the
@@ -208,13 +299,13 @@ the half of that travel it costs — without which cars braked over less ground 
 made the difference up by braking harder than they planned.
 
 **And a grant is looked for as far as the gap it keeps, which is further than the ask reaches.** What a car
-lays into the book is the road it is committed to — a stopping distance and a reaction interval — and that
+claims is the road it is committed to — a stopping distance and a reaction interval — and that
 is shorter than a second of headway at any town speed, so the cut simply went unfound until the car had
-closed to inside its own reservation. The profile then held it off on the headway reading, at the reaction
+closed to inside its own claim. The profile then held it off on the headway reading, at the reaction
 lead, and the pair settled into closing up and falling back rather than into a gap. Looking further can only
 make a grant smaller (it is the least of everything found), so nothing about the safety of it turns on the
-reach and only the fluency does. On Odesa it took the `Reserved` term from 5 % of driver-ticks to **14 %**
-and the `Headway` term from 7 % to **1 %**: the reservation is what following is again, and the reading is
+reach and only the fluency does. On Odesa it took the `Claimed` term from 5 % of driver-ticks to **14 %**
+and the `Headway` term from 7 % to **1 %**: the claim is what following is again, and the reading is
 back to being the backstop it is for.
 
 Over the shipped maps, against all four together:
@@ -238,8 +329,8 @@ a mean of means and answered for no pass that ever happened; it is worked out pe
 
 `E-4` could not act on somebody standing in a lane, and the yield treated one as exercising a priority. The
 reason given was that the ground a swerve takes is the oncoming lane — but that is a fact about the
-*ground*, and the ground is already asked: `E-4` walks its template and asks the book whose every point
-under it is, and a body on a carriageway is a stretch of that book with a margin round it (`PER-15`). The
+*ground*, and the ground is already asked: `E-4` walks its template and asks whose every point
+under it is, and a body on a carriageway has claimed it, with a margin round it (`PER-15`). The
 rule was a second thing refusing a movement the first one already refuses, which is exactly what `SIM-7`
 says makes the first useless.
 
@@ -267,7 +358,7 @@ now, which makes the thing the S *does* — out by an offset, back onto the line
 bend as on a straight. It is the same correction the walker's own lurch needed for the same reason.
 
 **It moved over by the car's own width**, which is right for a wreck sitting on the line and wrong for
-everything else: the book carries what is in the way as a stretch of arclength and never as a place across
+everything else: a claim carries what is in the way as a stretch of arclength and never as a place across
 the road, so where in its lane the thing actually stands is a fact nothing can read. A shift of a body's
 width leaves the car spanning both halves of its own lane. It is **a lane over** now, which clears anything
 the lane can hold, with the narrow shift kept as the last thing tried for a road that has no room for it.
@@ -332,7 +423,7 @@ and a car stopped that much late — over the paint rather than short of it. Not
 soak's red-bar counter reads the same wrong figure the stop rule reads, so the two agreed with each other
 all the way past the bar.
 
-The conversion is [`PathAssembler.OnTheLineM`](../../../../world/road/PathAssembler.cs) now, next to the
+The conversion is [`LineAssembler.OnTheLineM`](../../../../world/road/LineAssembler.cs) now, next to the
 code that laid the mapping, and the call sites ask for it rather than reconstructing it. Measured against
 the guess over the same minute: **red bars crossed 1 → 0**, which is River's one long-standing crossing
 and it was this all along. On Odesa `P-8` entered 555 → 605 and `P-6` 320 → 355 — cars stopping at bars
@@ -371,14 +462,14 @@ within a stride of the paint; the walker at the kerb asked **every car in the to
 reached the point the body was about to occupy. Two searches of the ground for two facts each body already
 knew about itself.
 
-Both are readings of the books now:
+Both are readings of the claims now:
 
-- **A body on a crossing writes itself into the road's book**, as the band of the lane it is standing in
-  ([`LaneUse.OnFoot`](../../../../world/road/LaneOccupancy.cs)). `P-12` asks the lane it is driving
-  whether that band is spoken for. The use is its own for a reason that is the whole of why the two books
-  were separate to begin with: a walker read as a reservation would cut the grant of a car three lanes from
-  where it stands, and one read as an obstruction is one nothing could tell from a wreck.
-- **The walker asks the road's book what `P-2` asks it**: the nearest body behind the band on each of the
+- **A body on a crossing claims the road**, as the band of the lane it is standing in
+  ([`LaneOccupancy`](../../../../world/road/LaneOccupancy.cs)). `P-12` asks the lane it is driving
+  whether that band is spoken for. Its roster is carried for a reason that is the whole of why the two
+  networks were separate to begin with: a walker read as a committed claim would cut the grant of a car
+  three lanes from where it stands, and one read as an obstruction is one nothing could tell from a wreck.
+- **The walker asks the road's claims what `P-2` asks them**: the nearest body behind the band on each of the
   lanes the paint crosses, as a time (§8 rule 8). Looking *both ways* falls out of the two lanes of a
   stretch running opposite ways, rather than out of a radius that also counted cars on the next street.
 
@@ -394,9 +485,9 @@ from the walkers' tick.
 Following was an entry of the catalogue and a term of the speed profile: `P-5` named it, and the profile
 held the car at whatever gap three ray chains had measured to the shape in front. Both halves were wrong
 about what following *is*. A driver is not measuring a gap to a bumper; it is planning to stop in road
-that has to still be there when it gets to it, and the town's own book already knew which road that was.
+that has to still be there when it gets to it, and the town's own claims already knew which road that was.
 
-So the lane index carries a **reservation** now (S-2a). Every driver under way asks for the stretch of its
+So the lane index carries a **claim** now (S-2a). Every driver under way asks for the stretch of its
 own way from its tail to where it plans to be able to stop, and is granted what is left of that in front
 of the nearest car already on it. The grant inverts straight into a speed — what may be held here to be at
 rest by the far end of it — and **`P-5` is retired with its number**: a car behind another is running its
@@ -418,10 +509,10 @@ Four things had to be true of the arrangement, and each of them cost a run to fi
   before any of them is answered and two cars get the same answer whichever is asked first. The one place
   order does decide is a junction, where somebody has to win: a crossing is *taken* rather than granted,
   and first come holds it.
-- **The rays stay, and they are not a second gate on the same movement.** The book straightens a way's
-  curvature out and holds every body as an interval of arclength, so what it cannot say is how near the
-  *shape* of a car mid-turn, one straddling a join or one cutting a corner really is — and a walker is in
-  no such book at all. Suppressing the headway term wherever the index had a name for what was ahead cost
+- **The rays stay, and they are not a second gate on the same movement.** A claim straightens a way's
+  curvature out and holds a body as an interval of arclength, so what it cannot say is how near the
+  *shape* of a car mid-turn, one straddling a join or one cutting a corner really is — and a walker has no
+  claim of that kind at all. Suppressing the headway term wherever the index had a name for what was ahead cost
   **290 emergency stops in a minute of Odesa**. Kept, the same minute takes E-2 from **262 entries to 185**
   against the mechanism it replaced, with half again as many junctions taken.
 
@@ -439,7 +530,7 @@ there is no light, so `LightAheadM` is infinite; the car in front is stopped, so
 nothing. Three seconds later every car behind the second swings out into the oncoming lane, each of them
 separately justified.
 
-What tells the two apart is not available to geometry at all, so it is now held as a book: the **lane
+What tells the two apart is not available to geometry at all, so it is now claimed: the **lane
 index** ([`LaneOccupancy`](../../../../world/road/LaneOccupancy.cs)) carries every body on the network as
 a stretch of the way it stands on, rebuilt from the fleet's own arrays in phase 2, and says which of them
 are drivers on their own route. `DriveContext` gained one field for what it answers, and three things

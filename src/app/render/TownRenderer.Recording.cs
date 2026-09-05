@@ -194,8 +194,8 @@ internal sealed unsafe partial class TownRenderer
         api.CmdDrawIndexedIndirect(commands, _indirect.Handle, 0, 1, (uint)sizeof(DrawIndexedIndirectCommand));
 
         // The town's own ground marks, over the ground and under everything that stands on it: the
-        // stretches of road the book says are spoken for, and the networks under them. They are marks
-        // about the *ground* rather than about a body, so a car standing on a reservation has to read
+        // stretches of road somebody has claimed, and the networks under them. They are marks
+        // about the *ground* rather than about a body, so a car standing on a claim has to read
         // over it — drawn after the bodies, the wash tints every sprite it covers.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _overlayPipeline);

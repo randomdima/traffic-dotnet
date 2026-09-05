@@ -474,8 +474,8 @@ internal sealed class ExamDrove
         Card = card;
         Driver = driver;
         _drives = drives;
-        _from = ExamLattice.Bearing(drives.From);
-        _to = ExamLattice.Bearing(drives.To);
+        _from = ExamGround.Bearing(drives.From);
+        _to = ExamGround.Bearing(drives.To);
     }
 
     /// <summary>The card this car was staged by, and which of that card's drivers it is.</summary>

@@ -79,7 +79,7 @@ internal static class ShotRun
         // Where a run opens looking (OBS-1b), so an unframed picture is the frame the game opens on
         // rather than a second answer about the same map.
         camera.LookAt(
-            ask.AtM ?? Opening.LooksAtM(world.Terrain, plan.WorldSizeM, camera.ViewSpanM(uiPx).Y * 0.5f));
+            ask.AtM ?? Opening.LooksAtM(world.Terrain, config, plan.WorldSizeM, camera.ViewSpanM(uiPx).Y * 0.5f));
 
         // About the middle of the frame, so the turn moves what is in the picture round rather than
         // moving the picture off what was framed (OBS-1c).

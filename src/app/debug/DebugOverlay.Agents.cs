@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
@@ -41,7 +42,9 @@ internal sealed partial class DebugOverlay
             // ringed — the sprite is already there, and a mark on it says nothing.
             if (people.HeldAtTheKerb[person]) draw.RingM(atM, people.RadiusM[person] * 1.6f, PathMarks.PathLineM, colour, segments: 12);
 
-            Label(ref draw, atM, WalkName(people, person, world.StopsInM(person)), viewCentreM, viewSpanM, pixelsPerMetre);
+            Label(
+                ref draw, atM, WalkingWords.WalkName(people, person, world.StopsInM(person)), viewCentreM, viewSpanM,
+                pixelsPerMetre);
 
             if (!people.Walking[person]) continue;
 
@@ -87,48 +90,6 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// What a walker is doing, in the words its own follower uses. A state and not a manoeuvre: the
-    /// walker's catalogue is unbuilt, and a label naming one of its entries would claim behaviour that
-    /// is not there.
-    /// </summary>
-    static ReadOnlySpan<char> WalkName(Agents.Person.Body.PersonFleet people, int person, float stopsInM)
-    {
-        if (people.Wounded[person]) return "wounded, waiting for an ambulance";
-        if (people.HeldAtTheKerb[person]) return "held at the kerb";
-
-        // What the trip is doing outranks what the body is doing, because a body standing still is the
-        // one thing several of these states have in common.
-        if (!people.Walking[person])
-        {
-            return people.Stage[person] switch
-            {
-                Agents.Person.Control.TripStage.WaitingForAPlace => "waiting for a place",
-                Agents.Person.Control.TripStage.Alighting => "getting out",
-                Agents.Person.Control.TripStage.UnderOrders => "awaiting orders",
-                Agents.Person.Control.TripStage.StandingBy => "standing by",
-                _ => "standing",
-            };
-        }
-
-        // Standing still with a line ahead of it and no kerb in front: the ground it wanted is somebody
-        // else's, which is the other state this layer could not otherwise tell from walking. The lane it
-        // was refused is worth naming apart from the pavement it is queueing on — one is traffic and the
-        // other is a crowd, and they look identical from here.
-        if (people.IsHeldByTheBook(person, stopsInM))
-        {
-            return people.RefusedWay[person] == Agents.Person.Body.PersonFleet.NoWay
-                ? "waiting behind somebody"
-                : "waiting for a lane";
-        }
-
-        var taken = people.WalkedTaken[person];
-        var line = people.WalkedCrossingOf(person);
-        if (taken > 0 && taken <= line.Length && line[taken - 1] >= 0) return "on the crossing";
-
-        return people.Stage[person] == Agents.Person.Control.TripStage.WalkingToTheCar ? "walking to a car" : "walking";
-    }
-
-    /// <summary>
     /// The cars: the two pieces of route each is driving, what it found ahead of it and where it
     /// must be stopped by.
     /// </summary>
@@ -146,7 +107,7 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// <para>
     /// Everything the driver was told is read off the car and not recomputed
-    /// (<see cref="Agents.Car.Body.CarFleet.Context"/>): a layer asking the book itself would be drawing
+    /// (<see cref="Agents.Car.Body.CarFleet.Context"/>): a layer asking the claims itself would be drawing
     /// a second opinion beside the car, and one that agreed would be the more misleading of the two.
     /// </para>
     /// <para>
@@ -155,8 +116,8 @@ internal sealed partial class DebugOverlay
     /// at — and a ring standing out on the line among them reads as a thing the car <em>found</em> there.
     /// It is not: it is where the wheel is pointed (<see cref="Agents.Car.Control.CarFollower.Steer"/>),
     /// an output and not a reading, and it is a time ahead of the body rather than a place, so on a bend
-    /// it sits off the car's own path and looks like a detection that has drifted. What a driver can see
-    /// is the book, and the book is drawn as the ground it is.
+    /// it sits off the car's own line and looks like a detection that has drifted. What a driver can see
+    /// is the claims, and they are drawn as the ground they are.
     /// </para>
     static void CarLines(
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
@@ -223,7 +184,7 @@ internal sealed partial class DebugOverlay
                 draw.DiscM(Spline.SampleAt(line, joinM).PositionM, PathMarks.JoinDiscM, colour);
             }
 
-            // What the book has in front of the car, and where the car must be stopped by — both the
+            // What is claimed in front of the car, and where the car must be stopped by — both the
             // follower's own figures rather than this layer's arithmetic.
             var context = cars.Context[car];
             if (float.IsFinite(context.HeadwayM))

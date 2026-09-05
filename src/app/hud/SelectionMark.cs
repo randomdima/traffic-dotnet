@@ -58,13 +58,13 @@ internal static class SelectionMark
 
     /// <summary>
     /// The box a selected unit is drawn at — the car's own build (CAR-12a), the walker's own variant
-    /// height — so nothing drawn against a unit can drift from what is on screen underneath it. The label
-    /// beside the unit is laid against this same box (<see cref="UnitLabel"/>).
+    /// height — so nothing drawn against a unit can drift from what is on screen underneath it.
     /// </summary>
     /// <returns>
     /// Whether the unit is on the picture at all. <b>PHY-7: somebody inside a building or a car is not
-    /// drawn</b>, and there is nothing on screen to wrap or to stand a label beside — the container is
-    /// what a reader can see and what a click would have picked.
+    /// drawn</b>, and there is nothing on screen to wrap — the container is what a reader can see and what
+    /// a click would have picked. What that unit is doing is still read off the panel in the corner
+    /// (<see cref="UnitPanel"/>), which needs nothing on screen to point at.
     /// </returns>
     public static bool BoxOf(
         TownWorld world, SimConfig config, Selection selection, out Vector2 centreM, out Vector2 sizeM,

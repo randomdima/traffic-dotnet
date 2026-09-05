@@ -2,7 +2,7 @@ namespace TrafficSimulation.World.Road;
 
 /// <summary>
 /// <b>The terms one asker's grant is cut on</b>: the ground it keeps off whatever is not going anywhere,
-/// which roster's reservations it reads as traffic, and the right of way it asks with. <b>One statement of
+/// which roster's claims it reads as traffic, and the right of way it asks with. <b>One statement of
 /// where somebody else's ground stops an asker</b>, so the road and the pavement cannot come to two answers
 /// about it.
 /// </summary>
@@ -26,16 +26,23 @@ namespace TrafficSimulation.World.Road;
 /// for a driver, the standstill gap for a walker.
 /// </param>
 /// <param name="Under">
-/// Which roster's <see cref="LaneUse.Reserved"/> stretches are a body under way rather than something else's
-/// book bleeding through. A reservation is written by a body into the book of the network it is on
-/// (TER-5c.1), so this is the asker's own roster and the check is total rather than defensive.
+/// Which roster's bodies under way are bodies under way rather than another roster's bleeding through.
+/// A claim is laid by a body on the network it is on (TER-5c.1), so this is the asker's own roster and the
+/// check is total rather than defensive.
 /// </param>
 /// <param name="Right">
 /// The right of way the asker holds the ground it is asking for with (TER-5e). <b>The weakest rank is an
 /// asker that outranks nothing</b>, which is every walker on the pavement: no claim there is anybody's to
 /// take, so every stretch binds.
 /// </param>
-internal readonly record struct LaneCredit(float StandingMarginM, LaneRoster Under, RightOfWay Right)
+/// <param name="AcrossM">
+/// <b>Where across the way's own line the asker is asking from</b>, signed to the way's right
+/// (<see cref="LaneOccupancy.StandsAside"/>). <b>Nought is travelling the line</b>, which is every driver and
+/// every walker that has not stepped off it, and what it buys is that a body which has stepped aside asks
+/// about the ground it has stepped to rather than about the ground it left.
+/// </param>
+internal readonly record struct LaneCredit(
+    float StandingMarginM, LaneRoster Under, RightOfWay Right, float AcrossM = 0f)
 {
     /// <summary>
     /// <b>Where this stretch stops the asker, measured from its near edge</b>: at the edge itself where the
@@ -43,22 +50,23 @@ internal readonly record struct LaneCredit(float StandingMarginM, LaneRoster Und
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>What it turns on is the margin and nothing else.</b> A reservation is the one stretch laid behind
-    /// its owner's tail (TER-5c.2), so its near edge already stands a gap clear of the body and the asker
-    /// stops there; a wreck, a claim, somebody on foot and the town's own furniture are laid at their true
-    /// extent, so the asker keeps its own margin off them.
+    /// <b>What it turns on is the margin and nothing else</b> (<see cref="LaneClaim.OnItsLine"/>). A body
+    /// under way down this very way is laid from behind its own tail (TER-5c.2), so its near edge already
+    /// stands a gap clear of it and the asker stops there; a body lying where it is, ground nobody has
+    /// reached, somebody on foot and the town's own furniture are laid at their true extent, so the asker
+    /// keeps its own margin off them.
     /// </para>
     /// <para>
     /// <b>It was once the holder's own stopping distance</b>, on the ground that a body under way will have
     /// left the metres behind it by the time anybody arrives there. That is a true thing about traffic and
-    /// the wrong place to say it: the answer is written back into the book
+    /// the wrong place to say it: the answer is written back into the claim
     /// (<c>TownWorld.CutTheGroundToTheGrant</c>), so a credited answer is two bodies holding one metre —
     /// which is what a junction jams on. What it cost to take out is the proving ground's fifteen cars
     /// keeping station at seventy metres a second (<c>world/road/docs/decision-log.md</c>).
     /// </para>
     /// </remarks>
-    public float Of(in LaneSlot taken) =>
-        taken.Use == LaneUse.Reserved && taken.Of == Under ? 0f : AtAPlaceM;
+    public float Of(in LaneClaim taken) =>
+        taken.HasBody && taken.OnItsLine && taken.Of == Under ? 0f : AtAPlaceM;
 
     /// <summary>What a place that is nobody's stretch is worth, which is the asker's own margin off it.</summary>
     public float AtAPlaceM => -StandingMarginM;

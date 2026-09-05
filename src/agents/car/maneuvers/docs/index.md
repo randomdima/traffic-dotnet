@@ -32,7 +32,7 @@ of it**. How each one is written is its own file's XML docs; why any of it reads
 | `P-2` | LeaveTheBay | the car is in a bay and the leg is beginning | [p02-leave-the-bay.md](p02-leave-the-bay.md) |
 | `P-4` | RunTheLine | there is road ahead and nothing else applies — **the default**, and queueing | [p04-run-the-line.md](p04-run-the-line.md) |
 | `P-6` | HoldAtALine | there is a place ahead the car may not pass | [p06-hold-at-a-line.md](p06-hold-at-a-line.md) |
-| `P-8` | TakeTheJunction | the box ahead is within reserve distance and is this car's | [p08-take-the-junction.md](p08-take-the-junction.md) |
+| `P-8` | TakeTheJunction | the box ahead is within claim distance and is this car's | [p08-take-the-junction.md](p08-take-the-junction.md) |
 | `P-14` | ParkInTheBay | the leg's line has left the road for the way into the bay it holds | [p14-park-in-the-bay.md](p14-park-in-the-bay.md) |
 | `P-16` | SquareUpInTheBay | a park attempt failed and the retry needs a different pose | [p16-square-up-in-the-bay.md](p16-square-up-in-the-bay.md) |
 | `P-17` | StandParked | the car is in the bay and the leg is over | [p17-stand-parked.md](p17-stand-parked.md) |
@@ -69,7 +69,7 @@ the paint was behind it, which is `P-4` with a second name on it —
 [decision-log.md](decision-log.md).
 
 **`E-1` was the yield, and what retired it is that yielding is now ground rather than a manoeuvre**
-(`TER-5e`): a right of way is carried by the stretches in the town's own book, the body that gives way is
+(`TER-5e`): a right of way is carried by the town's own claims, the body that gives way is
 stopped short by the same speed profile that stops it at everything else, and what a car does while it waits
 is `P-6`. An entry whose whole content was a name and a bound was a second way of saying what the road had
 already said — [decision-log.md](decision-log.md).
@@ -87,7 +87,7 @@ Every `Sa` and every exit below is written in terms of these, and they are the f
 | **Motion** | speed along the direction the line is driven in; at rest or not |
 | **Ground** | bay · lane · junction box · crossing · off drivable ground |
 | **Line relation** | on the line · how far off it · on a route, on one of the town's own ways, or on a template of a manoeuvre's own |
-| **Holdings** | the movement it is committed to, the bay it stands in, the bay it has booked |
+| **Holdings** | the movement it is committed to, the bay it stands in, the bay it has claimed |
 | **Plan** | the remaining chain and the route cursor it is measured against |
 | **Counters** | time in the entry; attempts left on each bounded recovery |
 
@@ -176,17 +176,17 @@ car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No
   car** (`TER-4c.1`) — a red, a bar, a zebra it must stop short of — the gap it keeps included, so a car
   standing at a stop holds the ground it is on and none of what it stopped for.
 - **S-3** Watch ahead along the line actually being driven, in the gear it is being driven in. **Every
-  tick, and out of the town's own book** — what is in front, what it is and how far off it is are one walk
+  tick, and out of the town's own claims** — what is in front, what it is and how far off it is are one walk
   of the ways being driven, over the same stretches the grant in `S-2a` was taken against, so the reading
   and the road the car was given can never disagree ([the car's log](../../docs/decision-log.md)).
-  **Everything that can be on a lane is in the book**: the traffic, anybody on foot in it, and the town's
+  **Everything that can be on a lane has claimed it**: the traffic, anybody on foot in it, and the town's
   own furniture (`TER-4c`). **What is found is named and never guessed at from its speed.** A car under
   geometry of its own is the one exception — its ways are not the ways it is driving, so what it finds
   there is named unknown and unknown is never driven round.
 - **S-4** Take up the ground **on your own way through** the box ahead, at the places the other movements
   cross it, and give back the box behind (`TER-5c`). Every tick, never on the clock — a red can change
   under an entry, and nothing here is a claim on the junction. **What another movement's ground costs you
-  is looked up and never marked** (`TER-5c.1`): a car reserves the ways it is going to be on, and reads the
+  is looked up and never marked** (`TER-5c.1`): a car claims the ways it is going to be on, and reads the
   ways it is only driven over. **And what it costs you turns on the right of way each of you has there**
   (`TER-5e`): ground held by a movement that gives way to yours is ground you are not cut at, and ground
   held by a body past the point it could stop short is ground nobody's rank takes. A crossing already taken

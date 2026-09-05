@@ -39,7 +39,7 @@ internal static class Lattice
     const float ShortestStubInBlocks = 0.15f;
 
     public static void Lay(
-        TownLayout layout, Districts districts, Arterials arterials, TownBrief brief, GenRaster raster,
+        TownLayout layout, Districts districts, Arterials arterials, TownBrief brief, GroundShapes ground,
         SimConfig config, float marginM)
     {
         var extentM = new Vector2(brief.WidthM, brief.HeightM);
@@ -48,7 +48,7 @@ internal static class Lattice
 
         for (var district = 0; district < districts.Count; district++)
         {
-            LayOne(layout, districts, district, arterials, raster, extentM, marginM, clearanceM, weldM);
+            LayOne(layout, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM);
         }
     }
 
@@ -60,7 +60,7 @@ internal static class Lattice
         (config.RoadWidthM * 0.5f) + config.PavementWidthM + config.IntersectionCornerRadiusM;
 
     static void LayOne(
-        TownLayout layout, Districts districts, int district, Arterials arterials, GenRaster raster,
+        TownLayout layout, Districts districts, int district, Arterials arterials, GroundShapes ground,
         Vector2 extentM, float marginM, float clearanceM, float weldM)
     {
         var alongSpacingM = districts[district].BlockAlongM;
@@ -78,7 +78,7 @@ internal static class Lattice
             for (var v = -reach; v <= reach; v++)
             {
                 var atM = districts.HubM + (along * (u * alongSpacingM)) + (across * (v * acrossSpacingM));
-                if (!Stands(atM, districts, district, arterials, raster, extentM, marginM, clearanceM)) continue;
+                if (!Stands(atM, districts, district, arterials, ground, extentM, marginM, clearanceM)) continue;
 
                 node[Slot(u, v, reach, side)] = layout.AddNode(atM);
             }
@@ -91,25 +91,25 @@ internal static class Lattice
                 var from = node[Slot(u, v, reach, side)];
                 if (from < 0) continue;
 
-                Reach(layout, node, raster, arterials, u, v, 1, 0, reach, side);
-                Reach(layout, node, raster, arterials, u, v, 0, 1, reach, side);
-                Hang(layout, node, districts, district, arterials, raster, extentM, marginM, clearanceM, weldM, u, v, reach, side);
+                Reach(layout, node, ground, arterials, u, v, 1, 0, reach, side);
+                Reach(layout, node, ground, arterials, u, v, 0, 1, reach, side);
+                Hang(layout, node, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, u, v, reach, side);
             }
         }
     }
 
     /// <summary>Whether a lattice point is somewhere a junction may stand at all.</summary>
     static bool Stands(
-        Vector2 atM, Districts districts, int district, Arterials arterials, GenRaster raster, Vector2 extentM,
+        Vector2 atM, Districts districts, int district, Arterials arterials, GroundShapes ground, Vector2 extentM,
         float marginM, float clearanceM) =>
         atM.X > marginM && atM.Y > marginM && atM.X < extentM.X - marginM && atM.Y < extentM.Y - marginM
-        && raster.At(atM) == Ground.Grass
+        && ground.At(atM) == Ground.Grass
         && districts.At(atM) == district
         && !arterials.InACorridor(atM, clearanceM);
 
     /// <summary>One street of the lattice, where both its ends stand and the ground between them takes it.</summary>
     static void Reach(
-        TownLayout layout, int[] node, GenRaster raster, Arterials arterials, int u, int v, int du, int dv,
+        TownLayout layout, int[] node, GroundShapes ground, Arterials arterials, int u, int v, int du, int dv,
         int reach, int side)
     {
         if (u + du > reach || v + dv > reach) return;
@@ -132,7 +132,7 @@ internal static class Lattice
     /// anyway is how a street ends up crossing a block.
     /// </summary>
     static void Hang(
-        TownLayout layout, int[] node, Districts districts, int district, Arterials arterials, GenRaster raster,
+        TownLayout layout, int[] node, Districts districts, int district, Arterials arterials, GroundShapes ground,
         Vector2 extentM, float marginM, float clearanceM, float weldM, int u, int v, int reach, int side)
     {
         var from = node[Slot(u, v, reach, side)];

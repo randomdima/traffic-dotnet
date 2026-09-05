@@ -16,7 +16,7 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// <b>A person on the carriageway, written into the road's book</b>: the bands of the crossing under
+    /// <b>A person on the carriageway, claimed on the road's own ways</b>: the bands of the crossing under
     /// them their body covers, or the stretch of lane a body standing on bare tarmac covers.
     /// </summary>
     /// <remarks>
@@ -103,20 +103,20 @@ internal sealed partial class TownWorld
                     // and given back when it is standing in it.
                     People.WaitingForLane[person] = band.Lane;
 
-                    // And where the walk it is on runs out, which is this same answer said in the other
-                    // network's metres (<see cref="WhereTheWalkRunsOut"/>).
-                    People.RefusedWay[person] = _footfall.WayOfLane(edge);
+                    // And where the walk it is on runs out, which is this same answer said in the crossing
+                    // way's own metres (<see cref="WhereTheWalkRunsOut"/>).
+                    People.RefusedWay[person] = _ways.OfFootway(edge);
                     People.RefusedAtM[person] = band.FromM;
 
                     // <b>The ask itself, written where it was refused</b> (TER-5e): what the traffic owes
                     // somebody waiting at an uncontrolled crossing is a stop short of the paint, and a
-                    // thing a driver must be held off that is in no book is a thing it cannot see (TER-4c).
-                    WriteTheBand(person, band, paintM, LaneUse.Awaited);
+                    // thing a driver must be held off that nothing claims is a thing it cannot see (TER-4c).
+                    WriteTheBand(person, band, paintM, refused: true);
                     continue;
                 }
             }
 
-            WriteTheBand(person, band, paintM, LaneUse.OnFoot);
+            WriteTheBand(person, band, paintM, refused: false);
         }
     }
 
@@ -130,10 +130,22 @@ internal sealed partial class TownWorld
     /// is waiting for stops that driver short of the paint instead — the ask is not a body, and a grant cut
     /// at it would be a car braking as hard as it can for somebody still on the pavement.
     /// </remarks>
-    void WriteTheBand(int person, CrossingBands.Band band, float paintM, LaneUse use) =>
-        _occupancy.Add(
-            _occupancy.WayOfLane(band.Lane), band.AlongLaneM - paintM, band.AlongLaneM + paintM, 0f, person,
-            use, LaneRoster.Walking, RightOfWay.OnThePaint);
+    void WriteTheBand(int person, CrossingBands.Band band, float paintM, bool refused)
+    {
+        var way = _ways.OfRoadLane(band.Lane);
+        var fromM = band.AlongLaneM - paintM;
+        var toM = band.AlongLaneM + paintM;
+        if (refused)
+        {
+            _occupancy.ClaimAhead(
+                way, fromM, toM, 0f, person, ClaimPriority.Rejected, LaneRoster.Walking,
+                RightOfWay.OnThePaint);
+            return;
+        }
+
+        _occupancy.ClaimWhereItStands(
+            way, fromM, toM, toM, 0f, person, of: LaneRoster.Walking, right: RightOfWay.OnThePaint);
+    }
 
     /// <summary>
     /// <b>The answer to the ask for the band in front</b> (TER-4c.1): granted where no car's road is over
@@ -168,48 +180,86 @@ internal sealed partial class TownWorld
         ((_plan.Crosswalks.DepthM[crossing] * 0.5f) + _config.PersonDiameterM) * _config.Person.RoadClaimMargin;
 
     /// <summary>
-    /// A body standing on the carriageway with no paint under it, as the stretch of lane it covers. <b>Where
-    /// it lies and not where it is going</b> — a walker off the network, one knocked over, one pacing a road
-    /// on purpose (`PER-14`) and one a hand is steering are the same fact to whoever is driving up behind.
+    /// A body standing on the carriageway with no paint under it, as the stretch of <b>every way it is
+    /// touching</b>. <b>Where it lies and not where it is going</b> — a walker off the network, one knocked
+    /// over, one pacing a road on purpose (`PER-14`) and one a hand is steering are the same fact to whoever
+    /// is driving up behind.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>The same walk a car standing there is written onto</b> (TER-4c.2,
+    /// <see cref="TheRoadsGroundUnder"/>): the lane it is in, the lane running back the other way, every join
+    /// of a junction it is under, <b>and every way of the bay it is standing in</b>. Asked of the nearest lane
+    /// alone, a body inside a box was past the end of every lane there and so on none of them — a person
+    /// standing in a junction that no driver crossing it could see; asked of the carriageway alone, a person
+    /// in a parking space was ground the driver working into that space could not see either. Which of the
+    /// town's networks a piece of ground belongs to is a fact about the ground, and a walk that names them is
+    /// the walk every body in the town is laid by.
+    /// </para>
+    /// <para>
+    /// <b>What it holds of each is what its own box covers of that way and not a metre more</b> — the same
+    /// reading a car's pose is laid by (<see cref="BodyFootprint.CoversOn"/>), so a body squarely in a lane
+    /// holds its width and one that merely clips a way holds the clip. <b>The margin belongs to whoever is
+    /// driving at it</b> (SIM-7, <see cref="LaneCredit"/>): a grant already stops the driver's own
+    /// <see cref="Agents.Car.Body.CarBuild.BodyMarginM"/> short of anything laid where it lies, and a walker
+    /// that widened its own stretch as well would be that gap kept twice — a metre of it on the side that
+    /// cannot brake.
+    /// </para>
+    /// <para>
+    /// <b>Which ground a body is on is the band's to say and never the terrain grid's</b> (TER-4c.2, SIM-7).
+    /// The grid answers to the cell it is painted at, so a walker within half a cell of a kerb is regularly
+    /// standing on a cell the carriageway never reached — asked of it first, a body a stride into the road was
+    /// on no lane's claims at all, which is a body stepping out in front of traffic that cannot see it.
+    /// </para>
+    /// <para>
+    /// <b>And no ground beyond itself</b> (`PER-1`). A car lying in a road holds what it could not stop short
+    /// of as well, because it is a tonne going somewhere; a walker is owed a driver who can stop and asks for
+    /// nothing further, which is the whole of the difference between the two rows.
+    /// </para>
+    /// <para>
     /// <b>Or the road it is holding closed, and never both</b> (SRV-6, TER-5c.2). A body holds one metre of
     /// one way once: an officer standing beside the carriageway holds a stretch of it he is not on, and one
     /// who has been shoved <em>into</em> it holds the ground under him like anybody else and stops holding
     /// anything else — which is the honest answer, since a man knocked into a lane is not directing traffic.
+    /// </para>
     /// </remarks>
     void StandInTheRoad(int person)
     {
         var positionM = People.PositionM[person];
-        var lane = _roads.NearestLane(positionM, out var alongM);
-        if (lane < 0) return;
-
         var radiusM = People.RadiusM[person];
-        var alongUnit = Vector2.Zero;
-        var inTheLane = _terrain.At(positionM).Drivable
-                        && RoadGraph.WithinTheBand(
-                            _roads.ArcsOf(lane), alongM, positionM, _roads.LaneWidthM[lane], radiusM, radiusM,
-                            out alongUnit);
 
-        if (!inTheLane)
+        // <b>On the same terms a car standing there is</b> (<see cref="RoadGraph.WithinTheBand"/>): every way
+        // the body touches, each carrying how far aside of that way's line it is standing. The two networks
+        // are told apart by which the ground belongs to and never by which kind of body is standing on
+        // it (TER-4c) — so a man on the kerbside edge of a lane has claimed it and stops nobody
+        // driving down it, which is the same arithmetic that lets a car clip a lane without shutting it.
+        Span<WayUnder> under = stackalloc WayUnder[RoomForTheRoadsGround];
+        var count = TheRoadsGroundUnder(positionM, BodyFootprint.Round(radiusM), under);
+
+        if (count == 0)
         {
-            CloseTheRoad(person, lane, alongM, positionM);
+            var lane = _roads.NearestLane(positionM, out var alongM);
+            if (lane >= 0) CloseTheRoad(person, lane, alongM, positionM);
             return;
         }
 
-        var claimM = radiusM * _config.Person.RoadClaimMargin;
-        _occupancy.Add(
-            _occupancy.WayOfLane(lane), alongM - claimM, alongM + claimM,
-            Vector2.Dot(People.VelocityMps[person], alongUnit), person, LaneUse.OnFoot, LaneRoster.Walking);
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref under[index];
+            _occupancy.ClaimWhereItStands(
+                way.Way, way.AlongM + way.BackM, way.AlongM + way.AheadM, way.AlongM + way.AheadM,
+                Vector2.Dot(People.VelocityMps[person], way.AlongUnit), person, of: LaneRoster.Walking,
+                acrossFromM: way.AcrossFromM, acrossToM: way.AcrossToM);
+        }
     }
 
     /// <summary>
-    /// <b>A stretch of lane closed by the body standing beside it</b> (SRV-6) — the officer's soft
-    /// reservation, laid the way every other stretch is: a claim, on one way, at one rank.
+    /// <b>A stretch of lane closed by the body standing beside it</b> (SRV-6) — the officer's own claim,
+    /// laid the way every other stretch is: on one way, at one rank.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Nothing reading it learns a new word.</b> It is a <see cref="LaneUse.Claimed"/> stretch and it is
+    /// <b>Nothing reading it learns a new word.</b> It is ground granted and not reached, and it is
     /// refused by whoever <see cref="LaneOccupancy.Binds"/> says it refuses — every ordinary movement, and
     /// not an ambulance or an evacuator answering a call (AMB-4, EVA-4). That is the whole of "the officer
     /// gives way to the other services", and neither of them is told a policeman exists.
@@ -232,8 +282,8 @@ internal sealed partial class TownWorld
         var at = Spline.SampleAt(_roads.ArcsOf(lane), alongM);
         if ((at.PositionM - positionM).Length() > _roads.LaneWidthM[lane] + People.RadiusM[person]) return;
 
-        _occupancy.Add(
-            _occupancy.WayOfLane(lane), alongM - closedM, alongM + closedM, 0f, person, LaneUse.Claimed,
+        _occupancy.ClaimAhead(
+            _ways.OfRoadLane(lane), alongM - closedM, alongM + closedM, 0f, person, ClaimPriority.Firm,
             LaneRoster.Walking, RightOfWay.Closed);
     }
 
@@ -246,7 +296,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>A way and not a crossing</b>, because a lane's band falls at different metres on each of the ways
     /// a zebra is made of (<see cref="CrossingBands"/>) — and it is the way the body is actually walking,
-    /// so which side of the road it started from is a fact the book already has.
+    /// so which side of the road it started from is a fact the claim already carries.
     /// </remarks>
     bool OnACrossing(int person, out int edge, out float alongM)
     {
@@ -255,10 +305,10 @@ internal sealed partial class TownWorld
         if (!People.Walking[person]) return false;
 
         var way = People.OnWay[person];
-        if (way != PersonFleet.NoWay && _footfall.WayIsLane(way)
-            && _bands.CrossingOf(_footfall.WayIndex(way)) >= 0)
+        if (way != PersonFleet.NoWay && _ways.KindOf(way) == WayKind.Footway
+            && _bands.CrossingOf(_ways.FootwayOf(way)) >= 0)
         {
-            edge = _footfall.WayIndex(way);
+            edge = _ways.FootwayOf(way);
             alongM = People.OnWayM[person];
             return true;
         }

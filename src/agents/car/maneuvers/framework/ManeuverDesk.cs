@@ -34,7 +34,7 @@ internal sealed partial class ManeuverDesk
 {
     readonly SimConfig _config;
     readonly CarFleet _cars;
-    readonly TerrainGrid _terrain;
+    readonly GroundLocator _terrain;
     readonly RoadGraph _roads;
     readonly LaneOccupancy _occupancy;
     readonly ParkingRegistry _parking;
@@ -44,7 +44,7 @@ internal sealed partial class ManeuverDesk
     readonly ArcSeg[] _candidate = new ArcSeg[MostCandidateArcs];
 
     public ManeuverDesk(
-        SimConfig config, CarFleet cars, TerrainGrid terrain, RoadGraph roads, LaneOccupancy occupancy,
+        SimConfig config, CarFleet cars, GroundLocator terrain, RoadGraph roads, LaneOccupancy occupancy,
         ParkingRegistry parking, BayWays bayWays)
     {
         _config = config;
@@ -74,7 +74,7 @@ internal sealed partial class ManeuverDesk
     public int BayOf(int car) => _parking.BayOf(car);
 
     /// <summary>The bay this leg is on its way to, or <see cref="ParkingRegistry.NoBay"/>.</summary>
-    public int BookingOf(int car) => _parking.BookingOf(car);
+    public int ClaimedBayOf(int car) => _parking.ClaimedBayOf(car);
 
     /// <summary>The bay this leg is turning in (GEN-4l), or <see cref="ParkingRegistry.NoBay"/>.</summary>
     public int TurnOf(int car) => _parking.TurnOf(car);
@@ -139,13 +139,13 @@ internal sealed partial class ManeuverDesk
 
     /// <summary>
     /// <b>The bay a manoeuvre of this leg has in hand</b>: the one the car is standing in, then the one it
-    /// is turning in, then the place it is booked into. They are in the order a leg meets them, so an entry
+    /// is turning in, then the place it has claimed. They are in the order a leg meets them, so an entry
     /// that asks gets the bay it is working on now rather than the one at the end of the leg.
     /// </summary>
     public int BayInHand(int car) =>
         BayOf(car) is var standing and >= 0 ? standing
         : TurnOf(car) is var turning and >= 0 ? turning
-        : BookingOf(car);
+        : ClaimedBayOf(car);
 
     /// <summary>
     /// `P-2`'s success: the bay is the town's again the moment the car is out of it — <b>the standing and
@@ -165,13 +165,14 @@ internal sealed partial class ManeuverDesk
     /// `E-9` and `E-10`: a place held by a car that has stopped driving towards it is a place removed from
     /// the town.
     /// </summary>
-    public void GiveUpTheBooking(int car) => _parking.Release(car);
+    public void GiveUpTheBay(int car) => _parking.Release(car);
 
     /// <summary>
-    /// <b>A bay booked for a leg</b> — the register's, because a booking is held over ground the car has no
-    /// line to yet and is the one hold in the town that is not a piece of road (<see cref="ParkingRegistry"/>).
+    /// <b>A bay claimed for a leg</b> — the register's, because such a claim is held over ground the car has
+    /// no line to yet and is the one hold in the town that is not a piece of road
+    /// (<see cref="ParkingRegistry"/>).
     /// </summary>
-    public bool BookTheBay(int car, int bay) => _parking.Book(car, bay);
+    public bool ClaimTheBay(int car, int bay) => _parking.Claim(car, bay);
 
     /// <summary>
     /// The attempt counts, spent as an entry takes up. <b>Each is spent by the entry that has it</b> and
@@ -187,56 +188,72 @@ internal sealed partial class ManeuverDesk
 
     /// <summary>
     /// <b>The stretch of lane a manoeuvre is about to put a body on</b>, taken if nobody else has taken
-    /// ground it runs over. It is what makes a claim a reservation rather than a note, and it is re-laid
+    /// ground it runs over. It is what makes the claim binding rather than a note, and it is re-laid
     /// into the index from the car's own field every tick, so nothing here has to be released on a wreck.
     /// </summary>
-    bool Claim(int car, int way, float fromM, float toM)
+    /// <remarks>
+    /// <b>Laid at the moment it is taken and not only into the car</b>
+    /// (<c>TownWorld.TakeTheMovement</c> is the pair of it), so that a car deciding later in this same walk
+    /// is refused ground this one has just been given. A tick's decisions are a slice of the fleet rather
+    /// than one car, and left to the next rebuild two of them read an index with neither claim in it and both
+    /// took the same metres — which is the very thing <see cref="LaneOccupancy.ClaimedByAnother"/> is asked
+    /// to refuse.
+    /// <para>
+    /// <b>Whatever this slot had claimed of the way gives way to it</b>, because one body is one stretch
+    /// (TER-5c.2): a slot carries one interval, so the index must not be left holding the one before it —
+    /// and no two slots are ever on one way, which is what lets a slot be given back by withdrawing the
+    /// whole of the car's granted ground there. Nothing is laid over ground the car's own body already
+    /// holds, which is the same dedupe the rebuild makes
+    /// (<c>TownWorld.PlaceTheClaimAhead</c>, <see cref="LaneOccupancy.AlreadyHolds"/>).
+    /// </para>
+    /// </remarks>
+    /// <param name="against">
+    /// What already being on this ground means. The lane a manoeuvre is <em>on</em> asks about ground
+    /// somebody has been granted, since what it holds off is the traffic behind it; the lane it is crossing
+    /// into asks about the road anybody has stated as well (TER-5g), because there the question is not who
+    /// is standing there but <b>what is coming</b> — and a car whose committed road has not reached these
+    /// metres yet is still a car that has said it is on its way to them.
+    /// </param>
+    bool Claim(int car, int slot, int way, float fromM, float toM, ClaimsAsked against)
     {
-        if (_cars.ClaimWay[car] != way && _occupancy.ClaimedByAnother(way, fromM, toM, car)) return false;
+        ref var claim = ref _cars.ClaimsAheadOf(car)[slot];
+        if (claim.Way != way && _occupancy.ClaimedByAnother(way, fromM, toM, car, asked: against)) return false;
 
-        _cars.ClaimWay[car] = way;
-        _cars.ClaimFromM[car] = fromM;
-        _cars.ClaimToM[car] = toM;
+        if (claim.Any) _occupancy.Withdraw(claim.Way, car, ClaimsAsked.Granted);
+
+        claim = new GroundClaim(way, fromM, toM);
+        if (!_occupancy.AlreadyHolds(way, fromM, toM, car))
+        {
+            _occupancy.ClaimAhead(way, fromM, toM, _cars.AlongMps[car], car, ClaimPriority.Firm);
+        }
+
         return true;
     }
 
-    /// <summary>
-    /// `E-4`'s claim: the stretch of the car's own lane the swerve swings out of and back into. <b>The
-    /// oncoming lane is not claimed</b> — crossing the centreline is licensed for exactly this and for
-    /// nothing else (CAR-6.2b), and a claim on ground the other stream is entitled to would be a car
-    /// reserving the wrong side of the road.
-    /// </summary>
-    /// <param name="fromM">
-    /// Where the car stood along its route's line when the swerve was decided on. <b>It is the caller's
-    /// because laying the template has already thrown it away</b>: committing a template restarts the
-    /// progress measure at its own origin, so reading the car's progress here claims a stretch at the top of
-    /// the lane rather than the stretch the car is on — which leaves the traffic behind unheld and marks
-    /// road nobody is going to drive.
-    /// </param>
-    public void ClaimTheSwerve(int car, float fromM, float passM)
+    /// <summary>One slot given back, so a manoeuvre that could not take all the ground it needs is left holding none of it.</summary>
+    void GiveBackTheClaim(int car, int slot)
     {
-        var lane = _cars.LaneOf(car);
-        if (lane < 0) return;
+        ref var claim = ref _cars.ClaimsAheadOf(car)[slot];
+        if (!claim.Any) return;
 
-        // The line's first lane starts at the line's own origin, so the car's progress along it is already
-        // that lane's own metre.
-        Claim(car, _occupancy.WayOfLane(lane), fromM, fromM + passM);
+        _occupancy.Withdraw(claim.Way, car, ClaimsAsked.Granted);
+        claim = GroundClaim.Nothing;
     }
 
     /// <summary>
-    /// Whether a body of this length standing here, pointing this way, is on ground a car may drive on —
+    /// Whether a body of this build standing here, pointing this way, is on ground a car may drive on —
     /// centre, nose and tail. <b>The length is the body's own</b> (CAR-11): a truck's nose reaches over a
     /// kerb a hatchback's stops short of.
     /// </summary>
-    public bool BodyStandsOnDrivableGround(Vector2 centreM, Vector2 forward, float halfLengthM)
+    public bool BodyStandsOnDrivableGround(Vector2 centreM, Vector2 forward, in CarBuild build)
     {
         return _terrain.At(centreM).Drivable
-               && _terrain.At(centreM + forward * halfLengthM).Drivable
-               && _terrain.At(centreM - forward * halfLengthM).Drivable;
+               && _terrain.At(centreM + (forward * build.HalfLengthM)).Drivable
+               && _terrain.At(centreM - (forward * build.HalfLengthM)).Drivable;
     }
 
     public bool StandsOnDrivableGround(int car) =>
-        BodyStandsOnDrivableGround(_cars.PositionM[car], ForwardOf(car), _cars.BuildOf(car).HalfLengthM);
+        BodyStandsOnDrivableGround(_cars.PositionM[car], ForwardOf(car), _cars.BuildOf(car));
 
     /// <summary>
     /// How much ground a straight along the car's own axis actually has, <b>walked before committing and
@@ -252,7 +269,7 @@ internal sealed partial class ManeuverDesk
         var roomM = 0f;
         while (roomM + stepM <= _config.Car.ReverseBoundM
                && BodyStandsOnDrivableGround(
-                   _cars.PositionM[car] + travel * (roomM + stepM), forward, build.HalfLengthM))
+                   _cars.PositionM[car] + (travel * (roomM + stepM)), forward, build))
         {
             roomM += stepM;
         }
@@ -262,7 +279,7 @@ internal sealed partial class ManeuverDesk
 
     /// <summary>
     /// `E-8`'s question, and its <c>Sa</c>: <b>the nearest pose along the car's own axis where the whole
-    /// body lands on drivable ground</b>, searched outward both ways. The path that manoeuvre can issue
+    /// body lands on drivable ground</b>, searched outward both ways. The line that manoeuvre can issue
     /// is a single straight, so "the nearest legal lane point" — which is generally off to one side —
     /// would have the car drive the right distance in the wrong direction.
     /// </summary>
@@ -276,14 +293,14 @@ internal sealed partial class ManeuverDesk
         var stepM = build.LengthM * GroundStepInCarLengths;
         for (var outM = stepM; outM <= build.LengthM * SearchInCarLengths; outM += stepM)
         {
-            if (BodyStandsOnDrivableGround(_cars.PositionM[car] + forward * outM, forward, build.HalfLengthM))
+            if (BodyStandsOnDrivableGround(_cars.PositionM[car] + (forward * outM), forward, build))
             {
                 reachM = outM;
                 return true;
             }
 
             if (!BodyStandsOnDrivableGround(
-                    _cars.PositionM[car] - forward * outM, forward, build.HalfLengthM))
+                    _cars.PositionM[car] - (forward * outM), forward, build))
             {
                 continue;
             }
@@ -313,7 +330,7 @@ internal sealed partial class ManeuverDesk
             // The template is the rear axle's, so the body standing on it is centred this car's own
             // axle-to-middle ahead of the line (CAR-4a).
             var centreM = pose.PositionM + pose.Direction * build.CentreAheadOfAxleM;
-            if (!BodyStandsOnDrivableGround(centreM, pose.Direction, build.HalfLengthM)) return false;
+            if (!BodyStandsOnDrivableGround(centreM, pose.Direction, build)) return false;
         }
 
         return true;

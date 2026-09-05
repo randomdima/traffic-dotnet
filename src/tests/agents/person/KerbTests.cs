@@ -13,7 +13,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 
 /// <summary>
 /// PER-15: the question a walker asks before it steps off a kerb. <b>The band it steps into is asked
-/// whether it is anybody's</b>, against a book laid by hand over a real map's crossings; the signal half
+/// whether it is anybody's</b>, against claims laid by hand over a real map's crossings; the signal half
 /// is checked on a running town.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
@@ -23,7 +23,7 @@ public class KerbTests
 
     /// <summary>
     /// A way of a crossing of the fixture town that runs under two lanes with road behind both of them,
-    /// and an empty book over that town's roads. A crossing sits on an arm, so the lane approaching the
+    /// and no claims at all over that town's roads. A crossing sits on an arm, so the lane approaching the
     /// junction has most of a stretch behind the paint and the one leaving it has room for a car and no
     /// more.
     /// </summary>
@@ -32,7 +32,7 @@ public class KerbTests
         var plan = Towns.Of(Towns.Fixture);
         var roads = RoadGraph.Build(plan, Config);
         var furniture = LaneFurniture.Project(plan, roads);
-        var walking = WalkingNetwork.Build(FootGraph.Build(plan, Config), new TerrainGrid(plan, Config), Config);
+        var walking = WalkingNetwork.Build(FootGraph.Build(plan, Config), new GroundLocator(plan, Config), Config);
         var bands = CrossingBands.Project(plan, roads, furniture, walking);
 
         for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
@@ -43,16 +43,16 @@ public class KerbTests
                 if (under.Length < 2) continue;
                 if (under[0].AlongLaneM < RoomForACarM || under[1].AlongLaneM < RoomForACarM) continue;
 
-                var book = new LaneOccupancy(roads, mostSlots: 8);
-                book.Begin();
-                return new Crossing(book, bands, edge, plan.Crosswalks.DepthM[crossing] * 0.5f);
+                var claims = new LaneOccupancy(TownWays.OfTheRoad(roads), mostSlots: 8);
+                claims.Begin();
+                return new Crossing(claims, bands, edge, plan.Crosswalks.DepthM[crossing] * 0.5f);
             }
         }
 
         throw new InvalidOperationException($"{Towns.Fixture} has no crossing under two lanes with road behind them");
     }
 
-    readonly record struct Crossing(LaneOccupancy Book, CrossingBands Bands, int Edge, float HalfDepthM)
+    readonly record struct Crossing(LaneOccupancy Claims, CrossingBands Bands, int Edge, float HalfDepthM)
     {
         /// <summary>The lanes this crossing runs under, in the order a body walking it meets them.</summary>
         public ReadOnlySpan<CrossingBands.Band> Under => Bands.On(Edge);
@@ -63,32 +63,48 @@ public class KerbTests
         public CrossingBands.Band Beyond => Under[1];
 
         /// <summary>A car's own stretch of one of the lanes, ending that far short of the paint's centre.</summary>
-        public void PutACarOn(CrossingBands.Band band, float endingShortOfM, LaneUse use = LaneUse.Reserved) =>
-            Book.Add(
-                Book.WayOfLane(band.Lane), band.AlongLaneM - endingShortOfM - Config.Car.LengthM,
-                band.AlongLaneM - endingShortOfM, 0f, occupant: 0, use);
+        public void PutACarOn(CrossingBands.Band band, float endingShortOfM)
+        {
+            var toM = band.AlongLaneM - endingShortOfM;
+            Claims.ClaimUnderWay(
+                Claims.Ways.OfRoadLane(band.Lane), toM - Config.Car.LengthM, toM, toM, 0f, 0);
+        }
+
+        /// <summary>The same car as a body lying there rather than driving down the lane.</summary>
+        public void PutABodyOn(CrossingBands.Band band, float endingShortOfM)
+        {
+            var toM = band.AlongLaneM - endingShortOfM;
+            Claims.ClaimWhereItStands(
+                Claims.Ways.OfRoadLane(band.Lane), toM - Config.Car.LengthM, toM, toM, 0f, 0);
+        }
 
         /// <summary>An ambulance answering a call, with its own road over one of the lanes (AMB-4).</summary>
-        public void PutARescueOn(CrossingBands.Band band, float atMps) =>
-            Book.Add(
-                Book.WayOfLane(band.Lane), band.AlongLaneM - Config.Car.LengthM, band.AlongLaneM + Config.Car.LengthM,
-                atMps, occupant: 0, LaneUse.Reserved, LaneRoster.Driving, RightOfWay.Emergency);
+        public void PutARescueOn(CrossingBands.Band band, float atMps)
+        {
+            var toM = band.AlongLaneM + Config.Car.LengthM;
+            Claims.ClaimUnderWay(
+                Claims.Ways.OfRoadLane(band.Lane), band.AlongLaneM - Config.Car.LengthM, toM, toM, atMps, 0,
+                right: RightOfWay.Emergency);
+        }
 
-        public bool ARescueIsComingThrough => Kerb.ARescueIsOver(Config, Book, Under, ClaimM);
+        public bool ARescueIsComingThrough => Kerb.ARescueIsOver(Config, Claims, Under, ClaimM);
 
         /// <summary>Somebody already over the paint on one of the lanes.</summary>
-        public void PutAWalkerOn(CrossingBands.Band band) =>
-            Book.Add(
-                Book.WayOfLane(band.Lane), band.AlongLaneM - 0.5f, band.AlongLaneM + 0.5f, 0f, occupant: 0,
-                LaneUse.OnFoot, LaneRoster.Walking);
+        public void PutAWalkerOn(CrossingBands.Band band)
+        {
+            var toM = band.AlongLaneM + 0.5f;
+            Claims.ClaimUnderWay(
+                Claims.Ways.OfRoadLane(band.Lane), band.AlongLaneM - 0.5f, toM, toM, 0f, 0,
+                of: LaneRoster.Walking);
+        }
 
-        public bool IsClear => Kerb.TheBandItStepsIntoIsFree(Book, Under, HalfDepthM);
+        public bool IsClear => Kerb.TheBandItStepsIntoIsFree(Claims, Under, HalfDepthM);
 
         /// <summary>How much of a lane a body on this paint takes, either side of it — the town's own figure.</summary>
         public float ClaimM => (HalfDepthM + Config.PersonDiameterM) * Config.Person.RoadClaimMargin;
 
         /// <summary>The same question asked at that claim, which is what the town asks it at.</summary>
-        public bool IsClearOfTheBand => Kerb.TheBandItStepsIntoIsFree(Book, Under, ClaimM);
+        public bool IsClearOfTheBand => Kerb.TheBandItStepsIntoIsFree(Claims, Under, ClaimM);
     }
 
     /// <summary>How far short of the paint a stretch has to end to be clear of its band, with room to spare.</summary>
@@ -100,7 +116,7 @@ public class KerbTests
     /// <summary>
     /// <b>A parked row must never hold a crossing shut.</b> What is asked is whether the band this body
     /// steps into is inside somebody's road, so a car that has come to rest clear of it holds none of it
-    /// however near it is — and a stopped car's own reservation is a body's length and no more.
+    /// however near it is — and a stopped car's own claim is a body's length and no more.
     /// </summary>
     [Fact]
     public void ACarStoppedClearOfThePaintDoesNotHoldItShut()
@@ -112,7 +128,7 @@ public class KerbTests
     }
 
     /// <summary>
-    /// And a car whose own reservation reaches over the paint is waited for, which is the other half of the
+    /// And a car whose own claim reaches over the paint is waited for, which is the other half of the
     /// same rule: it is committed to ground this body would be standing on.
     /// </summary>
     [Fact]
@@ -140,7 +156,7 @@ public class KerbTests
     /// <summary>
     /// <b>And a lane this body has not reached yet holds nothing</b> (`PER-15`). A zebra is carriageway and
     /// not one thing: the ground a walker needs to leave the kerb is the lane it steps into, and the one
-    /// beyond it is asked for by the same reservation once it is the lane in front — which is what stops a
+    /// beyond it is asked for by the same claim once it is the lane in front — which is what stops a
     /// car on the far side of a road from holding a crossing shut it is nowhere near.
     /// </summary>
     [Fact]
@@ -157,7 +173,7 @@ public class KerbTests
     public void ABodyStandingOnThePaintHoldsIt()
     {
         var at = ACrossing();
-        at.PutACarOn(at.First, endingShortOfM: 0f, LaneUse.Obstruction);
+        at.PutABodyOn(at.First, endingShortOfM: 0f);
 
         Assert.False(at.IsClear);
     }
@@ -165,7 +181,7 @@ public class KerbTests
     /// <summary>
     /// <b>Another person on the paint is not traffic.</b> The question is whether the road is anybody's to
     /// drive, and a walker halfway over is neither a reason to stay on the kerb nor something this body
-    /// could be hurt by — the two of them are held apart by the pavement's own book instead.
+    /// could be hurt by — the two of them are held apart by the pavement's own claims instead.
     /// </summary>
     [Fact]
     public void AWalkerAlreadyOnThePaintIsNotWaitedFor()

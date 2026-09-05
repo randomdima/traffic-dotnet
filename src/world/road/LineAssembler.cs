@@ -34,7 +34,7 @@ internal readonly record struct DrivenLine(int ArcCount, int LaneCount, float Le
 /// crossed and never one per tick.
 /// </para>
 /// </remarks>
-internal static class PathAssembler
+internal static class LineAssembler
 {
     /// <summary>The most lanes a line is laid over, whatever the distance says — a bound on the work, not a figure behaviour reads.</summary>
     public const int MostLanes = 12;
@@ -79,7 +79,8 @@ internal static class PathAssembler
     /// </param>
     public static DrivenLine Assemble(
         RoadGraph graph, ReadOnlySpan<int> lanes, Span<ArcSeg> into, Span<float> laneStartM,
-        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity, ReadOnlySpan<ArcSeg> tail = default)
+        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity, ReadOnlySpan<ArcSeg> tail = default,
+        float tailToM = float.PositiveInfinity)
     {
         var written = 0;
         var lengthM = 0f;
@@ -121,13 +122,15 @@ internal static class PathAssembler
 
         // Only ever off the end of a whole chain: a line cut short above never reached the lane the tail
         // leaves, so there is nothing for it to be threaded onto.
-        foreach (var arc in tail)
-        {
-            into[written++] = arc;
-            lengthM += arc.LengthM;
-        }
+        //
+        // <b>And only as far as the tail is driven</b>: a way at a bay runs on past the pose a car comes to
+        // rest in, to the end of the space itself, and that run is ground rather than line
+        // (<c>BayWays.DrivenLengthM</c>). Threaded whole, every leg would end a car's length deeper in its
+        // bay than the paint puts it.
+        var tailArcs = Spline.SubChainInto(tail, 0f, tailToM, into[written..]);
+        for (var arc = 0; arc < tailArcs; arc++) lengthM += into[written + arc].LengthM;
 
-        return new DrivenLine(written, lanes.Length, lengthM);
+        return new DrivenLine(written + tailArcs, lanes.Length, lengthM);
     }
 
     /// <summary>

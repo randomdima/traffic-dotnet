@@ -39,6 +39,7 @@ internal static class Maps
         (TrackPlan.NameOf(TrackLap.Drunk), config => TrackPlan.Lay(config, TrackLap.Drunk)),
         (TrackPlan.NameOf(TrackLap.Fleet), config => TrackPlan.Lay(config, TrackLap.Fleet)),
         (ExamPlan.Name, ExamPlan.Lay),
+        (FootwayPlan.Name, FootwayPlan.Lay),
         (SkidpadPlan.Name, SkidpadPlan.Lay),
         (IdlePlan.Name, IdlePlan.Lay),
     ];

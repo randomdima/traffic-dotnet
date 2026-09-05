@@ -65,7 +65,7 @@ internal sealed class RoutePlanner
     public int SettledLinks { get; private set; }
 
     /// <summary>
-    /// The cheapest chain of links from any of <paramref name="entries"/> to any of
+    /// The cheapest route — a run of links — from any of <paramref name="entries"/> to any of
     /// <paramref name="goals"/>, written into <paramref name="intoLinks"/> in the order it is travelled.
     /// Returns how many were written, or zero where there is no route or the chain will not fit.
     /// </summary>

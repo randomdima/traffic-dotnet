@@ -24,22 +24,6 @@ public class BayWayTests
     /// <summary>The town lays its bays' ways for the nominal car (CAR-11a), so that is what they are read against.</summary>
     static readonly CarBuild Nominal = CarBuild.Nominal(Config, Config.Car.DrivenFrontShare);
 
-    /// <summary>And the longest body that can turn up in one of the bays those ways serve.</summary>
-    static readonly CarBuild Longest = LongestOfTheFleet();
-
-    static CarBuild LongestOfTheFleet()
-    {
-        var catalogue = CarCatalog.Load();
-        var builds = CarBuilds.OfTheFleet(Config, catalogue);
-        var longest = builds.Of(0);
-        for (var variant = 1; variant < catalogue.SheetCount; variant++)
-        {
-            if (builds.Of(variant).LengthM > longest.LengthM) longest = builds.Of(variant);
-        }
-
-        return longest;
-    }
-
     /// <summary>
     /// The slack a bound that is reached rather than approached needs: two lines separating at the fastest
     /// rate the measurement allows sit exactly on it, and single-precision arithmetic then puts them a
@@ -131,7 +115,9 @@ public class BayWayTests
 
                 Assert.NotEqual(ways.IsEntry(way), ways.IsEntry(mate));
                 Assert.NotEqual(ways.IsDrivenInReverse(way), ways.IsDrivenInReverse(mate));
-                Assert.Equal(ways.LengthM(way), ways.LengthM(mate), 3);
+                // The shape, which is the driven part: the run past the pose is ground the space carries and
+                // only a way in has it (<see cref="BayWays.LengthM"/>).
+                Assert.Equal(ways.DrivenLengthM(way), ways.DrivenLengthM(mate), 3);
                 Assert.Equal(ways.AtLaneM(way), ways.AtLaneM(mate), 3);
             }
         }
@@ -246,13 +232,43 @@ public class BayWayTests
             var axleM = BayTemplate.RearAxleOfBayM(
                 Nominal, plan.ParkingLots.SpacePositionM[bay], headingRad, ways.IsNoseIn(way));
 
-            var ends = Spline.SampleAt(arcs, ways.LengthM(way));
+            var ends = Spline.SampleAt(arcs, ways.DrivenLengthM(way));
             Assert.True(
                 (ends.PositionM - axleM).Length() < 0.05f,
                 $"{map}: the way into bay {bay} ends {(ends.PositionM - axleM).Length():F2} m off its pose");
             Assert.True(
                 Vector2.Dot(ends.Direction, Heading.Unit(headingRad)) > 0.999f,
                 $"{map}: the way into bay {bay} ends off square");
+        }
+    }
+
+    /// <summary>
+    /// <b>And it runs on past that pose to the far end of the space</b> (GEN-4f, TER-4c.2). A way that
+    /// stopped where the car does left the deepest metres of the bay — the ground in front of a car that
+    /// nosed in, which is most of the space — on no way at all: a body standing there claimed nothing, and
+    /// the driver aiming at the space read it as free.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void AWayInRunsOnToTheEndOfTheSpace(string map)
+    {
+        var ways = WaysOf(map, out _);
+        var plan = Towns.Of(map);
+
+        for (var way = ways.FirstWay; way < ways.TotalWayCount; way++)
+        {
+            if (!ways.IsEntry(way)) continue;
+
+            var bay = ways.BayOfWay(way);
+            var headingRad = plan.ParkingLots.SpaceHeadingRad[bay];
+            var backOfTheSpaceM = plan.ParkingLots.SpacePositionM[bay]
+                                  + (Heading.Unit(headingRad) * (Config.ParkingSpaceLengthM * 0.5f));
+
+            var ends = Spline.SampleAt(ways.ArcsOf(way), ways.LengthM(way)).PositionM;
+            Assert.True(
+                (ends - backOfTheSpaceM).Length() < 0.05f,
+                $"{map}: the way into bay {bay} ends {(ends - backOfTheSpaceM).Length():F2} m short of the "
+                + "back of the space it serves");
         }
     }
 
@@ -303,83 +319,6 @@ public class BayWayTests
                 Vector2.Dot(facing, lands.Direction) > 0.99f,
                 $"{map}: the way out of bay {bay} ends facing the wrong way down its lane");
         }
-    }
-
-    /// <summary>
-    /// <b>What a parked body holds is the bay, and the bay is ground nothing else is driven over</b>
-    /// (<see cref="BayStandings"/>): every metre of it, on both of the bay's ways, is clear of every crossing
-    /// but the one its own other way makes. A stretch that reached into a crossing would be a parked car
-    /// cutting the street beside it, or the neighbour working into the bay next door.
-    /// </summary>
-    /// <remarks>
-    /// <b>And it is never shorter than the body's own tail</b>, which is the stretch a parked car has always
-    /// laid: the floor is what stops a bay whose ways are crossed to the axle from holding nothing at all.
-    /// </remarks>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void WhatAParkedBodyHoldsIsGroundNothingElseIsDrivenOver(string map)
-    {
-        var ways = WaysOf(map, out var roads);
-        var crossings = BayCrossings.Over(ways, roads, Config);
-        var standings = BayStandings.Of(ways, crossings, Config);
-
-        for (var way = ways.FirstWay; way < ways.TotalWayCount; way++)
-        {
-            var bay = ways.BayOfWay(way);
-
-            // Which end of the body lies along the way is the standing's: nose-first the tail, backed in
-            // the nose, over a way that runs that much deeper into the space (GEN-4j). <b>Asked of the
-            // nominal car</b>, because that is the body the town laid these ways clear of (CAR-11a): a
-            // longer one holds more, and what that costs the bay next door is
-            // <see cref="ALongerBodyHoldsMoreOfItsBaysWay"/>.
-            var bodyM = ways.IsNoseIn(way) ? Nominal.TailBehindAxleM : Nominal.NoseAheadOfAxleM;
-            var (fromM, toM) = ways.WhereABodyInTheBayStandsM(way, standings.HoldsM(way, bodyM));
-            Assert.True(
-                toM - fromM >= bodyM - AttainedBoundM,
-                $"{map}: the body in bay {bay} holds {toM - fromM:0.00} m of way {way}, less than the "
-                + $"{bodyM:0.00} m of itself that lies along it");
-
-            foreach (ref readonly var section in crossings.Of(way))
-            {
-                if (ways.IsBayWay(section.OnWay) && ways.BayOfWay(section.OnWay) == bay) continue;
-
-                Assert.False(
-                    section.MineFromM < toM && fromM < section.MineToM,
-                    $"{map}: the body in bay {bay} holds {fromM:0.00}–{toM:0.00} m of way {way}, which "
-                    + $"{section.MineFromM:0.00}–{section.MineToM:0.00} m of it is driven over by "
-                    + $"{Named(ways, roads, section.OnWay)}");
-            }
-        }
-    }
-
-    /// <summary>
-    /// <b>A longer body holds more of its bay's way</b> (CAR-11). The stretch a parked car writes into the
-    /// book is what lies along the way of the car that is actually standing there, so a van's tail is ground
-    /// the next car in is refused — where the nominal car's would have left it free.
-    /// </summary>
-    /// <remarks>
-    /// This is the price of the town's bays being the nominal car's (CAR-11a) and it is paid the right way
-    /// round: the neighbour <em>sees</em> the ground and waits for it, rather than driving into a body the
-    /// book said was not there.
-    /// </remarks>
-    [Fact]
-    public void ALongerBodyHoldsMoreOfItsBaysWay()
-    {
-        var ways = WaysOf("Odesa", out var roads);
-        var standings = BayStandings.Of(ways, BayCrossings.Over(ways, roads, Config), Config);
-
-        var grew = 0;
-        for (var way = ways.FirstWay; way < ways.TotalWayCount; way++)
-        {
-            var noseIn = ways.IsNoseIn(way);
-            var nominalM = noseIn ? Nominal.TailBehindAxleM : Nominal.NoseAheadOfAxleM;
-            var longestM = noseIn ? Longest.TailBehindAxleM : Longest.NoseAheadOfAxleM;
-
-            Assert.True(standings.HoldsM(way, longestM) >= standings.HoldsM(way, nominalM));
-            if (longestM > nominalM && standings.HoldsM(way, longestM) > standings.HoldsM(way, nominalM)) grew++;
-        }
-
-        Assert.True(grew > 0, "no bay in Odesa holds more ground for the longest body in the fleet than for the nominal car");
     }
 
     /// <summary>

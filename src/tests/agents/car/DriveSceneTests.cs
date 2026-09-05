@@ -33,7 +33,7 @@ public class DriveSceneTests
         InsideTheBox = false,
         LightAheadM = float.PositiveInfinity,
         BayHeld = -1,
-        BayBooked = -1,
+        BayClaimed = -1,
         OnTheFinalApproach = false,
         ToTheBayM = float.PositiveInfinity,
         ToTheSceneM = float.PositiveInfinity,
@@ -121,7 +121,7 @@ public class DriveSceneTests
     }
 
     /// <summary>
-    /// <b>What the blue light does not relax</b>: something the book cannot name is never driven round,
+    /// <b>What the blue light does not relax</b>: something no claim can name is never driven round,
     /// and nothing is worth passing that is not slower than the road affords.
     /// </summary>
     [Fact]
@@ -166,14 +166,14 @@ public class DriveSceneTests
 
         Assert.True(behind.WorthGoingRound);
         Assert.False((behind with { InsideTheBox = true }).WorthGoingRound);
-        Assert.False((behind with { ToTheBoxM = Config.CarJunctionReserveM }).WorthGoingRound);
+        Assert.False((behind with { ToTheBoxM = Config.CarJunctionClaimM }).WorthGoingRound);
 
         // And the box being this car's to cross is no licence either: what it bought is the movement, which
         // is a line through the junction and not the road beside it.
         Assert.False((behind with { ToTheBoxM = 0f, BoxIsOurs = true }).WorthGoingRound);
 
         // Clear of it by a metre and the segment is a segment again.
-        Assert.True((behind with { ToTheBoxM = Config.CarJunctionReserveM + 1f }).WorthGoingRound);
+        Assert.True((behind with { ToTheBoxM = Config.CarJunctionClaimM + 1f }).WorthGoingRound);
     }
 
     /// <summary>
@@ -187,7 +187,7 @@ public class DriveSceneTests
 
         Assert.True(urgent.WorthGoingRound);
         Assert.False((urgent with { InsideTheBox = true }).WorthGoingRound);
-        Assert.False((urgent with { ToTheBoxM = Config.CarJunctionReserveM }).WorthGoingRound);
+        Assert.False((urgent with { ToTheBoxM = Config.CarJunctionClaimM }).WorthGoingRound);
     }
 
     /// <summary>

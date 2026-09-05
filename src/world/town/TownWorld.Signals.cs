@@ -17,7 +17,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <para>
     /// <b>What is taken is ground and not a permission</b> (TER-5c) — and it is ground on the car's <em>own</em>
-    /// way through the box, which goes into the road's book like any other stretch of road. Where that way
+    /// way through the box, which is claimed like any other stretch of road. Where that way
     /// is driven over another is <see cref="WayCrossings"/>'s to say, and it is looked up rather than
     /// written to. What is decided here is only <em>when</em> a car commits and when it lets go.
     /// </para>
@@ -74,9 +74,9 @@ internal sealed partial class TownWorld
         // would put a junction across the street in front of it and every car would negotiate it.
         var movementWay = movement == RoadGraph.NoTurn || _roads.JoinLengthM(movement) <= 0f
             ? CarFleet.NoWay
-            : _occupancy.WayOfTurn(movement);
+            : _ways.OfRoadTurn(movement);
 
-        // CAR-14.1 reads its indicator off this same classification, so what the car announces and what it
+        // CAR-14.1 reads its indicator off this same classification, so what the car states and what it
         // gives way to are one answer about one movement rather than two readings of the geometry.
         Cars.TurningAtTheBox[car] = movement != RoadGraph.NoTurn
             && _roads.RightOfWayOfTurn(movement) != RightOfWay.StraightOn;
@@ -89,7 +89,7 @@ internal sealed partial class TownWorld
 
         if (progressM >= ends[ahead])
         {
-            // Ground taken from in there is a statement of fact and is asked of nobody: a book that said
+            // Ground taken from in there is a statement of fact and is asked of nobody: a claim that said
             // otherwise would be describing a town other than the one that exists. Being in there is also
             // what puts this car on the short fuse — it is standing on everything its line crosses.
             Cars.InsideTheBox[car] = true;
@@ -123,8 +123,8 @@ internal sealed partial class TownWorld
         // sections read free to whoever crosses them. It is written to the car because the ground of the
         // movement is laid with it (TER-5e): what a committed body holds, nothing's right of way takes.
         //
-        // <b>Read a decision ahead, because everybody else reads it a decision late</b>: the book that
-        // carries this to the rest of the town is laid at the top of a tick from what the last decision
+        // <b>Read a decision ahead, because everybody else reads it a decision late</b>: the claims that
+        // carry this to the rest of the town are laid at the top of a tick from what the last decision
         // wrote, so a car that will be past stopping by the time the ranks are next compared has to count
         // as committed now. It costs the weaker movement a fraction of a second of ground it would have
         // given up anyway, and without it a stronger movement is waved across a car that can no longer
@@ -151,11 +151,11 @@ internal sealed partial class TownWorld
 
         if (stoppedShort) return lightStopM;
 
-        // Reserved once within stopping distance, capped by the reserve distance: earlier than that is
+        // Claimed once within stopping distance, capped by the claim distance: earlier than that is
         // a car holding ground it is nowhere near, and later is two cars committing in the same tick.
-        var reserveAtM = MathF.Min(
-            StoppingM(alongMps, brakingMps2) + build.LengthM, _config.CarJunctionReserveM);
-        if (toBoxM > reserveAtM) return lightStopM;
+        var claimAtM = MathF.Min(
+            StoppingM(alongMps, brakingMps2) + build.LengthM, _config.CarJunctionClaimM);
+        if (toBoxM > claimAtM) return lightStopM;
 
         // Refused at a place and not outright: the movement's own metres begin at the boundary, so ground
         // held on the far side of the box is stopped short of on the far side of the box — but only as far
@@ -226,18 +226,18 @@ internal sealed partial class TownWorld
     /// <b>The cut is the one the road grant makes</b> (<see cref="WhereTheGroundIsCrossed"/>): the near edge
     /// of the section, less the asker's own margin, since a section is a place and carries none of its own.
     /// That figure is what keeps this from deadlocking where a verdict did not — a car stopped a margin
-    /// short of a section reserves no metre of it, so the movement crossing there still reads it free and
+    /// short of a section claims no metre of it, so the movement crossing there still reads it free and
     /// goes, and the pair resolve rather than sitting one on each side of the ground they share.
     /// </para>
     /// <para>
     /// <b>Every section is read where it lies and none of it is written anywhere</b> (TER-5c). The table
     /// says which metres of which other join this movement is driven over; what is asked of those metres is
-    /// what is standing on them, in that join's own book — the same question a grant asks, at the moment a
+    /// what is standing on them, in that join's own metres — the same question a grant asks, at the moment a
     /// car decides whether to commit rather than as a distance.
     /// </para>
     /// <para>
-    /// <b>Spoken for and not merely claimed</b>: a car already crossing lays the join it is driving as its
-    /// own reservation rather than as a claim, and that is exactly the car this one must not be driven into.
+    /// <b>Standing on it and not merely claiming ahead</b>: a car already crossing lays the join it is
+    /// driving as the claim it is committed to, and that is exactly the car this one must not be driven into.
     /// It is what makes the pair of tests symmetric — each of two crossing movements is refused by the
     /// other's road, whichever of them asked first.
     /// </para>
@@ -250,7 +250,10 @@ internal sealed partial class TownWorld
     /// </remarks>
     float FirstHeldOnTheMovementM(int car, int movementWay)
     {
-        var mine = RightOfWayOf(car, movementWay);
+        // <b>The rank it will hold the ground at</b> (<see cref="RightOnTheMovement"/>) and not the
+        // movement's alone: a car past the point it could stop short of the box is going in whatever anybody
+        // has claimed, so refusing it here would be refusing a body already committed (TER-5e).
+        var mine = RightOnTheMovement(car, movementWay);
 
         // Read on the movement's own metres, so that what it is refused by and what it would take are one
         // set: ground it is already past is ground it is not asking for.
@@ -275,7 +278,8 @@ internal sealed partial class TownWorld
             var fromM = MathF.Max(run.FromM, passedM);
             if (run.ToM <= passedM || fromM >= leastM) continue;
 
-            var heldM = FirstHeldOn(car, movementWay, movementWay, fromM, MathF.Min(run.ToM, leastM), mine);
+            var heldM = FirstHeldOn(
+                car, movementWay, fromM, MathF.Min(run.ToM, leastM), mine, out _, crossingOn: movementWay);
             if (float.IsFinite(heldM)) leastM = MathF.Max(heldM, fromM);
         }
 
@@ -286,9 +290,9 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <para>
     /// <b>Everything lying over the section and not only what begins on it</b>
-    /// (<see cref="LaneOccupancy.NextSpokenForOver"/>). A section is a named piece of ground rather than the
+    /// (<see cref="LaneOccupancy.NextHeldOver"/>). A section is a named piece of ground rather than the
     /// road under the asker, so a stretch that began at a body further back and runs through it is the
-    /// answer: read the other way round, a car whose reservation entered a join before the metres two lines
+    /// answer: read the other way round, a car whose claim entered a join before the metres two lines
     /// meet on was invisible to the movement crossing there, and both went.
     /// </para>
     /// <para>
@@ -298,39 +302,13 @@ internal sealed partial class TownWorld
     /// them looked first.
     /// </para>
     /// <para>
-    /// <b>And what is skipped is a car, never whoever else holds the same number.</b> A section is a stretch
-    /// of any way and not only of a join — the way into a bay sweeps the lane running back the other way
-    /// (<see cref="WayCrossings"/>) — and a lane carries the walking roster's bodies and the town's own
-    /// furniture beside the traffic. Which roster an occupant is named in is carried by the stretch
-    /// (<see cref="LaneSlot.Of"/>), so a walker in the road and a bollard standing in it refuse this
-    /// movement like anything else on the ground it crosses; read as a car's number instead, the one is
-    /// whichever car happens to be indexed there and the other is nobody at all.
+    /// <b>The walk itself is the grant's</b> (<see cref="FirstHeldOn"/>), asked as a verdict rather than as a
+    /// distance: what refuses a movement about to be taken and what cuts the road of a car already making one
+    /// are one question about one piece of ground, and answered by two loops they were free to disagree.
     /// </para>
     /// </remarks>
     bool NobodyElseIsOn(int car, int movementWay, int way, float fromM, float toM, RightOfWay mine) =>
-        float.IsPositiveInfinity(FirstHeldOn(car, movementWay, way, fromM, toM, mine));
-
-    /// <summary>
-    /// The same walk, answered as the near edge of the first stretch that refuses rather than as the fact
-    /// that one does — in <paramref name="way"/>'s own metres, and never behind the piece asked about.
-    /// </summary>
-    /// <remarks>
-    /// <b>The first is the least</b>, since the book holds a way's stretches in the order their near edges
-    /// fall on it (<see cref="LaneOccupancy.NextSpokenForOver"/>), so the walk stops at the first one that
-    /// binds rather than carrying a minimum through the rest of them.
-    /// </remarks>
-    float FirstHeldOn(int car, int movementWay, int way, float fromM, float toM, RightOfWay mine)
-    {
-        var at = LaneOccupancy.FromTheStart;
-        while (_occupancy.NextSpokenForOver(way, fromM, toM, car, ref at, out var taken))
-        {
-            var crossingWithUs = taken is { Of: LaneRoster.Driving, Occupant: >= 0 }
-                                 && Cars.MovementWay[taken.Occupant] == movementWay;
-            if (!crossingWithUs && LaneOccupancy.Binds(taken, mine)) return MathF.Max(taken.FromM, fromM);
-        }
-
-        return float.PositiveInfinity;
-    }
+        float.IsPositiveInfinity(FirstHeldOn(car, way, fromM, toM, mine, out _, crossingOn: movementWay));
 
     /// <summary>
     /// <b>Whether something with the right of way over this movement has come for the ground it is
@@ -365,8 +343,9 @@ internal sealed partial class TownWorld
             if (section.MineToM <= passedM) continue;
 
             var at = LaneOccupancy.FromTheStart;
-            while (_occupancy.NextSpokenForOver(
-                       section.OnWay, section.FromM, section.ToM, car, ref at, out var taken))
+            while (_occupancy.NextHeldOver(
+                       section.OnWay, section.FromM, section.ToM, car, ref at, out var taken,
+                       asked: ClaimsAsked.HeldOrStated))
             {
                 if (taken.Right > mine) return true;
             }
@@ -376,7 +355,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The movement taken up: the car's own field, and the runs of its own join written into the book at
+    /// The movement taken up: the car's own field, and the runs of its own join claimed at
     /// the moment they are taken, so that a car later in this same walk is refused ground this one has just
     /// been given. <see cref="DropTheMovement"/> is the pair of it, and neither half is ever done alone.
     /// </summary>
@@ -387,8 +366,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The ground this car was crossing on, given back — <b>from the car and from the book together</b>.
-    /// The book is laid from the cars once a tick, so a field written away on its own leaves stretches
+    /// The ground this car was crossing on, given back — <b>from the car and from its claims together</b>.
+    /// The claims are laid from the cars once a tick, so a field written away on its own leaves stretches
     /// standing against everything that crosses them for the rest of the walk that wrote it.
     /// </summary>
     /// <remarks>
@@ -399,6 +378,12 @@ internal sealed partial class TownWorld
     /// is cleared here rather than at each of the eight places a movement is dropped, because a pairing kept
     /// by hand is a pairing that comes apart: the one that came apart was a car re-aimed mid-junction by an
     /// errand (AMB-9, SRV-5), which is the one drop that happens outside the driving step.
+    /// <para>
+    /// <b>And being committed to it goes with it</b> (<see cref="CarFleet.CommittedToTheBox"/>), for the same
+    /// reason. That flag says at what rank the movement's ground is held (<see cref="RightOnTheMovement"/>),
+    /// so a car holding no movement has nothing for it to be true of — and left standing it is read again by
+    /// whatever movement the car takes next, which is a fact about a box it has left.
+    /// </para>
     /// </remarks>
     void DropTheMovement(int car)
     {
@@ -407,7 +392,8 @@ internal sealed partial class TownWorld
 
         Cars.MovementWay[car] = CarFleet.NoWay;
         Cars.BoxIsOurs[car] = false;
-        _occupancy.Withdraw(held, car, LaneUse.Claimed);
+        Cars.CommittedToTheBox[car] = false;
+        _occupancy.Withdraw(held, car, ClaimsAsked.Granted);
     }
 
     /// <summary>

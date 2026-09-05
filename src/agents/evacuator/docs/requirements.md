@@ -85,9 +85,12 @@ and the tow is five things and no more:
   carries what the arm is not holding up. Those two wheels roll — they are not the locked block `PHY-5`
   describes, because nothing is braking them — and their sideways grip is what makes the wreck track the
   vehicle pulling it rather than swing about behind the arm.
-- **One movement.** A coupled pair is one thing moving down one road (`TER-5c.2`): the evacuator's own
-  reservation reaches back over the wreck, and the wreck asks for no ground of its own. That is also what
-  holds the traffic behind off the trailer rather than off the truck.
+- **One movement, and so one occupant.** A coupled pair is one thing moving down one road
+  (`TER-5c.2`): the evacuator's own claim reaches back over the wreck, and the ground the wreck stands
+  on that the truck's line does not name — the lane the trailer swings into as the pair turns — is held under
+  the **truck's** number and not the wreck's (`TER-4c.2`). Both halves matter. Asking for nothing, the
+  trailer was a car the traffic beside it could not see; asking under its own number, it cut its own hauler's
+  grant and the tow stopped dead on the first metre of road it stood on.
 
 **EVA-6** A wreck is **set down in a free yard slot** by the crew, once the evacuator is standing within
 their reach of one, **the man is out and standing at it** (`SRV-3`), and the hitching interval has been

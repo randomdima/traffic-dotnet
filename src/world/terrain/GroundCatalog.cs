@@ -10,9 +10,7 @@ namespace TrafficSimulation.World.Terrain;
 /// </summary>
 /// <remarks>
 /// The permissions are the catalogue's own; the coefficient is <see cref="SimConfig"/>'s, so a retune
-/// is a figure changed in one file and not a code change. Footway and Sidewalk deliberately declare the
-/// same permissions plus Sidewalk's preference: stating them twice with different values is how the two
-/// would drift.
+/// is a figure changed in one file and not a code change.
 /// </remarks>
 internal readonly struct GroundCatalog
 {
@@ -20,12 +18,11 @@ internal readonly struct GroundCatalog
     static readonly GroundRules[] RuleTable =
     [
         /* Grass        */ GroundRules.Walkable,
-        /* Road         */ GroundRules.Drivable | GroundRules.Directional,
+        /* Road         */ GroundRules.Drivable,
         /* Intersection */ GroundRules.Drivable,
-        /* Crosswalk    */ GroundRules.Walkable | GroundRules.Drivable | GroundRules.Directional,
+        /* Crosswalk    */ GroundRules.Walkable | GroundRules.Drivable,
         /* Parking      */ GroundRules.Walkable | GroundRules.Drivable,
         /* Water        */ GroundRules.None,
-        /* Footway      */ GroundRules.Walkable,
         /* Sidewalk     */ GroundRules.Walkable | GroundRules.Preferred,
     ];
 
@@ -35,7 +32,7 @@ internal readonly struct GroundCatalog
     /// </summary>
     static readonly bool[] PloughTable =
     [
-        /* Grass */ true, false, false, false, false, false, false, false,
+        /* Grass */ true, false, false, false, false, false, false,
     ];
 
     /// <summary>
@@ -91,8 +88,6 @@ internal readonly struct GroundCatalog
     public static bool Drivable(Ground ground) => (RulesOf(ground) & GroundRules.Drivable) != 0;
 
     public static bool Preferred(Ground ground) => (RulesOf(ground) & GroundRules.Preferred) != 0;
-
-    public static bool Directional(Ground ground) => (RulesOf(ground) & GroundRules.Directional) != 0;
 
     /// <summary>
     /// What the surface is worth to a body on it: 1 on anything paved, 0.8 on grass, 0.15 on water.

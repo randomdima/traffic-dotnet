@@ -91,13 +91,13 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <b>Everything the trip was holding is given back here.</b> A casualty is not going to walk to the
-    /// building it had claimed or drive the car it had booked, and a claim held by a body lying in the road
+    /// building or drive the car it had claimed, and a claim held by a body lying in the road
     /// is a place removed from the town for as long as the rescue takes.
     /// </remarks>
     /// <remarks>
     /// <b>And the body itself stops being something to collide with</b> (PHY-5b), from the tick after the
     /// contact that put it there — the impulse of the impact has already been spent by the step the arbiter
-    /// is judging. The road's book is untouched: a driver is still held off a body in the lane by the
+    /// is judging. The road's claims are untouched: a driver is still held off a body in the lane by the
     /// stretch it holds, which is what stops the traffic reaching it in the first place.
     /// </remarks>
     void RaiseTheCall(int person)
@@ -222,7 +222,7 @@ internal sealed partial class TownWorld
                 // <b>A delivery that has run out of clock is drawn again and never given up</b> (AMB-9):
                 // the casualty is aboard and alive, and there is no answer to a road that would not let
                 // this leg through better than laying the leg again from where the car has actually got to
-                // (MAN-3). The bay it books may well be a different one by now.
+                // (MAN-3). The bay it claims may well be a different one by now.
                 if (_duty.SinceS[car] >= _config.AmbulanceGiveUpS)
                 {
                     _duty.SinceS[car] = 0f;
@@ -589,7 +589,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>One leg of a call</b>: the place, the bay it books if it has one, and the chain re-derived from
+    /// <b>One leg of a call</b>: the place, the bay it claims if it has one, and the chain re-derived from
     /// the pose the car is actually in (MAN-3).
     /// </summary>
     /// <remarks>

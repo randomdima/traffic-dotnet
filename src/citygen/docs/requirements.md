@@ -24,10 +24,12 @@ Bay geometry is [world/parking](../../world/parking/docs/requirements.md); the g
 - **A road is carried as its curve.** A consumer that wants a polyline samples the arcs itself; anything
   that *draws* uses the arcs, because a ribbon laid on chords has a facet at every one of them.
 - **A straight is an arc at zero curvature** and needs no second form.
-- **The cell vocabulary is the plan's.** The eight kinds of ground and their count live here, so that the
-  plan points at nothing above it; what each kind *permits* is
-  [world/terrain](../../world/terrain/docs/requirements.md)'s, and that is the direction every consumer
-  goes. Nothing outside `world/terrain/` names a member of the enum (TER-2a).
+- **The ground vocabulary is the plan's, and so is the answer.** The seven kinds of ground live here, and
+  so does *what is on the ground at a point* — solved against the plan's own shapes (`GroundShapes`), which
+  is what lets a stage ask where a thing may stand while the town is still being laid. What each kind
+  *permits* is [world/terrain](../../world/terrain/docs/requirements.md)'s, because a permission is a rule
+  about agents and the plan does not know what an agent is; that is the direction every consumer goes, and
+  nothing outside `world/terrain/` names a member of the enum (TER-2a).
 - **The reader lives with the structure it produces**, not with the cursor that walks the bytes: a
   `.town` file is a plan, and `core/` does not know what a town is.
 
@@ -58,6 +60,16 @@ lights over the junctions whose cards are about lights, and somebody standing at
 and the box worth staging over and over is the one where the ranking alone does (TER-5e).
 Every car on it is one look and one build (CAR-11a), because a card is read against another card and a
 fleet of different weights would be a second variable inside every comparison.
+
+**The walking exam** (`FootwayPlan`) is the same question asked of the other agent: not what a car does
+where roads meet but **what somebody on foot does there**. It is the exam's own lattice — five rows of four
+cells — with one walk staged at each and **nothing driving on it at all**, laid from the twenty cards of
+`FootwayCards`: a card names where a body is put down, where it is sent, and the one claim it makes about
+the first of them. The two exams share their ground (`ExamGround`, `ExamMap`) and differ in their cards and
+in who is stood up, because a junction a walker cannot get round and a junction a car drove through must be
+the same junction. **Nothing drives on it on purpose**: what a car owes a crossing is the driving exam's
+question, and a walk that failed with traffic on the map would leave a reader unable to say which of the two
+agents was wrong.
 
 **The lap is laid three times, and each differs from the others in exactly one thing**, so a figure that
 moves between two of the tables is a fact about that one thing. `Track` stands fifteen people beside the
@@ -237,19 +249,14 @@ everything else scales to the layout — props to the ground left over, parking 
 to what conflicts, crossings to where the walkable region would otherwise split.
 
 **GEN-6a** **A prop stands wholly on grass.** Its whole girth and not its centre, because a bench half over
-a kerb is a bench in the road; and the same test is what keeps a prop on the map (GEN-2b): off the grid is
+a kerb is a bench in the road; and the same test is what keeps a prop on the map (GEN-2b): off the town is
 not grass.
 
-**And a prop the sweep lays keeps the radius the pavement turns its corners on clear as well**
-(`SimConfig.PavementCornerRadiusM`), because **the ground is classified cell by cell where the walk is drawn
-as one union with its re-entrant corners rounded off** (TER-3c.4) — every metre of ground that rounding adds
-stands within one corner radius of the pavement it rounds, so a candidate cleared against the cells alone
-can still be standing in the middle of a drawn kerb corner. **A prop laid along a kerb owes no such collar**
-(GEN-6b): it is not cleared against the cells alone but placed a known distance off the pavement of the road
-it was laid from, and the walk that laid it begins past the stub every junction lays its own ground, its
-fillets, its paint and its bar across — so the drawn corner the collar exists to keep a blind candidate out
-of is nowhere near it. A collar over that would not make the town safer; it would only hold the verge a
-pavement's width back from the street it is a verge of.
+**And no collar over that.** The ground a candidate is cleared against is the ground that is drawn (TER-7),
+the walk's own re-entrant corners included — so a candidate that clears it is clear, and a margin on top
+would only hold the verge back from the street it is a verge of. Every pass used to owe one, because the
+ground was read off a raster painted from the pieces alone: the corners were in neither, and a prop cleared
+against the cells could be standing in the middle of a drawn one.
 
 **GEN-6b** **A prop's kind is a placement and not a picture, and the pass that laid it is what decides
 which.** A stump and a planter are different kinds because they stand in different places, not because they
@@ -312,7 +319,7 @@ anything further off is further away than the rule can care about, whatever the 
 already laid is the one that stays**: nothing is nudged aside to make room, and a candidate that would come
 too near one is simply not a prop (GEN-8, GEN-10).
 
-**GEN-6d** **A prop's picture fits inside the disc the plan reserved for it**, so the longest side of the
+**GEN-6d** **A prop's picture fits inside the disc the plan kept for it**, so the longest side of the
 sheet is the prop's own `diameterM` and the other follows the art's aspect. **What is drawn is what a car is
 held off**: a sheet drawn to its own height instead, half again as wide as it is high, reaches half a metre
 past the girth the town gave it — standing in the prop beside it, and in the road when it is laid along a
@@ -479,6 +486,7 @@ measure one thing claims that thing and nothing else, which is the whole of what
 | `Drunk` | That a car gets round it without losing its line. The swerves, the back-offs and the laps given up on are quoted, because they are what the map is for |
 | `Fleet` | That every look drives the lap, stays on it, gets itself moving rather than crawling, and pulls at the rate its own file states |
 | `Exam` | One claim a kind of card, and that every card this build does not pass is a known finding |
+| `Footway` | The same, said of the walker: one claim a kind of card — that a walk arrives, that nothing holds one nothing is in the way of, that a road is crossed on the paint, that nobody steps out on a red, that a body standing in the way is got past and that one under way is followed — and that every card this build does not pass is a known finding |
 | `Skidpad` | That every car turns under every pedal it stands, that each goes round the way its wheel is turned, and that nothing leaves its own square. **What the pedal costs the circle is quoted and never claimed**: the lightest pedal here is half, under which every car is being asked for more than its rubber holds, so how far it runs wide of its own axles is a fact about these tyres rather than a bound |
 | `Zebras` | That every crossing is walked kerb to kerb and nobody on foot is on a carriageway off the paint |
 | `Idle`, `Test`, and every city | The two every town owes: nothing is left inside anything else, and no car stands still with no clock running for it |

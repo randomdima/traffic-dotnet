@@ -12,17 +12,17 @@ namespace TrafficSimulation.World.Parking;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The booking is a register and the movement is not</b> (GEN-4g), and the line between the two is the
-/// whole of what this type is for. A bay a leg is on its way to is held here, in an index of the bays
+/// <b>A claim on a bay is a register and the movement is not</b> (GEN-4g), and the line between the two is
+/// the whole of what this type is for. A bay a leg is on its way to is held here, in an index of the bays
 /// themselves, because the hold begins when the trip picks the bay and the walker sets off — minutes before
-/// anybody is at the wheel, over ground the car has no line to and no reservation on. Nothing else in the
+/// anybody is at the wheel, over ground the car has no line to and no claim on. Nothing else in the
 /// town holds ground it is not driving towards, so nothing else in the town could answer it.
 /// </para>
 /// <para>
-/// <b>What the booking is not is a second opinion about the road.</b> It says which bay a leg is aimed at
-/// and no more: the ground the car takes getting there is its reservation on the bay's own way, laid and
-/// answered like any other (TER-4c.1), and a body already standing where a booked car means to go refuses
-/// it there rather than here.
+/// <b>What such a claim is not is a second opinion about the road.</b> It says which bay a leg is aimed at
+/// and no more: the ground the car takes getting there is its claim on the bay's own way, laid and
+/// answered like any other (TER-4c.1), and a body already standing where the claiming car means to go
+/// refuses it there rather than here.
 /// </para>
 /// <para>
 /// <b>The bays are indexed by where they stand</b> (<see cref="BaysNear"/>), because the question a trip
@@ -45,8 +45,8 @@ internal sealed class ParkingRegistry
     readonly Vector2[] _doorM;
     readonly int[] _bayOfCar;
     readonly int[] _carInBay;
-    readonly int[] _bookedBy;
-    readonly int[] _bookingOfCar;
+    readonly int[] _claimedBy;
+    readonly int[] _claimedBayOfCar;
     readonly int[] _turningIn;
     readonly int[] _turnOfCar;
     readonly int[] _heldFor;
@@ -65,19 +65,19 @@ internal sealed class ParkingRegistry
         _headingRad = new float[bays];
         _doorM = new Vector2[bays];
         _carInBay = new int[bays];
-        _bookedBy = new int[bays];
+        _claimedBy = new int[bays];
         _turningIn = new int[bays];
         _heldFor = new int[bays];
         _candidates = new int[bays];
         _bayOfCar = new int[cars];
-        _bookingOfCar = new int[cars];
+        _claimedBayOfCar = new int[cars];
         _turnOfCar = new int[cars];
         Array.Fill(_carInBay, Nobody);
-        Array.Fill(_bookedBy, Nobody);
+        Array.Fill(_claimedBy, Nobody);
         Array.Fill(_turningIn, Nobody);
         Array.Fill(_heldFor, Nobody);
         Array.Fill(_bayOfCar, NoBay);
-        Array.Fill(_bookingOfCar, NoBay);
+        Array.Fill(_claimedBayOfCar, NoBay);
         Array.Fill(_turnOfCar, NoBay);
     }
 
@@ -111,14 +111,35 @@ internal sealed class ParkingRegistry
     /// </summary>
     public bool Takes(float lengthM, float widthM) => lengthM <= _spaceLengthM && widthM <= _spaceWidthM;
 
-    /// <summary>The bay this car has been left in, or <see cref="NoBay"/>.</summary>
+    /// <summary>
+    /// <b>Whether a body standing here is in this bay</b> — the bay's own space, on the bay's own axes,
+    /// against the middle of the body, which is where a parked car's middle stands (GEN-4i).
+    /// </summary>
+    /// <remarks>
+    /// <b>A registration is not a position.</b> A car is written into a bay by the manoeuvre that put it
+    /// there and out of one by the manoeuvre that drove it away (`P-2`), so a body that left by any other
+    /// route — a hand at the wheel, a shove, a wreck dragged off — is still registered in a bay it may be
+    /// streets from. Anything that reads the standing as a place to lay the body has to ask this first.
+    /// </remarks>
+    public bool HoldsTheBody(int bay, Vector2 atM)
+    {
+        var offsetM = atM - _centreM[bay];
+        var forward = Heading.Unit(_headingRad[bay]);
+        return MathF.Abs(Vector2.Dot(offsetM, forward)) <= _spaceLengthM * 0.5f
+            && MathF.Abs(Vector2.Dot(offsetM, Heading.RightOf(forward))) <= _spaceWidthM * 0.5f;
+    }
+
+    /// <summary>
+    /// The bay this car has been left in, or <see cref="NoBay"/>. <b>Where it is registered and not where it
+    /// is</b> — <see cref="HoldsTheBody"/> is the second question.
+    /// </summary>
     public int BayOf(int car) => _bayOfCar[car];
 
     /// <summary>And the car standing in this bay, or <see cref="Nobody"/> — the same fact from the other end.</summary>
     public int CarInBay(int bay) => _carInBay[bay];
 
     /// <summary>And the bay its leg is on its way to.</summary>
-    public int BookingOf(int car) => _bookingOfCar[car];
+    public int ClaimedBayOf(int car) => _claimedBayOfCar[car];
 
     /// <summary>And the bay it is turning in on the way there (GEN-4l), which is the other one it can hold.</summary>
     public int TurnOf(int car) => _turnOfCar[car];
@@ -132,7 +153,7 @@ internal sealed class ParkingRegistry
     /// vehicle is out on an errand is still that vehicle's apron.
     /// </summary>
     public bool IsFreeFor(int car, int bay) =>
-        _carInBay[bay] == Nobody && _bookedBy[bay] == Nobody && _ways.CanBeReached(bay)
+        _carInBay[bay] == Nobody && _claimedBy[bay] == Nobody && _ways.CanBeReached(bay)
         && (_turningIn[bay] == Nobody || _turningIn[bay] == car)
         && (_heldFor[bay] == Nobody || _heldFor[bay] == car);
 
@@ -141,27 +162,27 @@ internal sealed class ParkingRegistry
     /// of an apron's hold. Held this way it is free to nobody at all, which is what lets an apron be
     /// claimed before the plan's own cars are stood and still be there when they have been.
     /// </summary>
-    public void HoldTheApron(int bay) => _heldFor[bay] = Reserved;
+    public void HoldTheApron(int bay) => _heldFor[bay] = Claimed;
 
     /// <summary>
     /// And the second half: <b>the bay kept for one named vehicle for the whole run</b>. It is a hold on a
-    /// place and not a booking — a booking is what a leg under way has, and this outlives every leg the
+    /// place and not a leg's claim — that is what a leg under way has, and this outlives every leg the
     /// vehicle drives.
     /// </summary>
     public void HoldForTheCar(int bay, int car) => _heldFor[bay] = car;
 
-    /// <summary>Which vehicle this bay is held for, <see cref="Reserved"/>, or <see cref="Nobody"/>.</summary>
+    /// <summary>Which vehicle this bay is held for, <see cref="Claimed"/>, or <see cref="Nobody"/>.</summary>
     public int HeldFor(int bay) => _heldFor[bay];
 
     /// <summary>An apron bay whose vehicle has not been stood in it yet. Free to nobody, which is the point.</summary>
-    public const int Reserved = -2;
+    public const int Claimed = -2;
 
     /// <summary>
     /// <b>A slot of a depot's wreck yard</b> (EVA-2), held for whatever the evacuator brings to it and for
     /// nobody else — the one hold in the town that never names a vehicle.
     /// </summary>
     /// <remarks>
-    /// It is not <see cref="Reserved"/>, which is a bay waiting for the vehicle that will hold it for the
+    /// It is not <see cref="Claimed"/>, which is a bay waiting for the vehicle that will hold it for the
     /// rest of the run. A yard slot is empty most of the time on purpose: what stands in it is whichever
     /// wreck was fetched last, and that car is an ordinary one again half a minute later.
     /// </remarks>
@@ -171,39 +192,39 @@ internal sealed class ParkingRegistry
     public void HoldForTheYard(int bay) => _heldFor[bay] = TheYard;
 
     /// <summary>
-    /// <b>A bay booked for a leg</b>, and the one that leg held before it given back — a car is aimed at one
+    /// <b>A bay claimed for a leg</b>, and the one that leg held before it given back — a car is aimed at one
     /// place at a time.
     /// </summary>
-    public bool Book(int car, int bay)
+    public bool Claim(int car, int bay)
     {
         if (!IsFreeFor(car, bay)) return false;
 
         Release(car);
-        _bookingOfCar[car] = bay;
-        _bookedBy[bay] = car;
+        _claimedBayOfCar[car] = bay;
+        _claimedBy[bay] = car;
         return true;
     }
 
     /// <summary>
-    /// The booking given back: <b>a place held by a car that has stopped driving towards it is a place
+    /// The claim given back: <b>a place held by a car that has stopped driving towards it is a place
     /// removed from the town</b>, so every way a leg can end gives it up.
     /// </summary>
     public void Release(int car)
     {
-        var bay = _bookingOfCar[car];
+        var bay = _claimedBayOfCar[car];
         if (bay == NoBay) return;
 
-        _bookingOfCar[car] = NoBay;
-        _bookedBy[bay] = Nobody;
+        _claimedBayOfCar[car] = NoBay;
+        _claimedBy[bay] = Nobody;
     }
 
     /// <summary>
     /// <b>A bay a leg is turning in</b> (GEN-4l), and the second hold a car may have: it is coming back the
-    /// other way from here, so the place it is going to is still booked and still its. Refused, like every
+    /// other way from here, so the place it is going to is still claimed and still its. Refused, like every
     /// other hold, where the bay is not free to this car.
     /// </summary>
     /// <remarks>
-    /// It is a booking and lives inside one leg, so every way that leg can stop wanting it gives it back —
+    /// It is a claim and lives inside one leg, so every way that leg can stop wanting it gives it back —
     /// the car driving out of the bay, the leg taking another place, the car being stood down. What it is
     /// not is an occupancy: nobody comes to rest here, and a car turning is one nobody may walk to.
     /// </remarks>
@@ -228,7 +249,7 @@ internal sealed class ParkingRegistry
     }
 
     /// <summary>
-    /// A car come to rest in a bay. <b>The booking becomes an occupancy</b>: the leg that was aimed here has
+    /// A car come to rest in a bay. <b>The claim becomes an occupancy</b>: the leg that was aimed here has
     /// arrived, and what holds the bay from now on is the body standing in it.
     /// </summary>
     public void Occupy(int bay, int car)
@@ -324,8 +345,12 @@ internal sealed class ParkingRegistry
     static BucketGrid Index(CityPlan plan)
     {
         var lots = plan.ParkingLots;
-        var bucketM = plan.CellSizeM;
+        var bucketM = 0f;
         foreach (var halfExtentM in lots.HalfExtentM) bucketM = MathF.Max(bucketM, halfExtentM.Length() * 2f);
+
+        // A map with no car park on it has nothing to bin, and one bucket over the whole town is the index
+        // that says so.
+        if (bucketM <= 0f) bucketM = MathF.Max(plan.WorldSizeM.X, plan.WorldSizeM.Y);
 
         return new BucketGrid(plan.WorldSizeM, bucketM);
     }

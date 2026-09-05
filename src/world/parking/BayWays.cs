@@ -11,7 +11,7 @@ namespace TrafficSimulation.World.Parking;
 /// <summary>
 /// <b>The ways at a bay, laid once with the town</b> (GEN-4f): a line per standing the bay affords and per
 /// lane it can be worked off, each carried as the pair of ways it is driven as — into the bay, and out of
-/// it. They are ways of the road's book in every sense — arcs, a length, metres of their own, and a row in
+/// it. They are ways of the road in every sense — arcs, a length, metres of their own, and a row in
 /// the town's table of what is driven over what — and they are the whole of what makes a car park a place
 /// the ordinary mechanisms reach.
 /// </summary>
@@ -28,8 +28,8 @@ namespace TrafficSimulation.World.Parking;
 /// <b>The way in and the way out are one line</b> (GEN-4f): one shape is solved and the way out is that
 /// shape reversed, so it lands on the lane by construction rather than by a second solve aimed back at it, a
 /// bay that can be driven into can be driven out of, and a car leaving retraces the ground it arrived over.
-/// <b>The pair is two ways of the book all the same</b>, because a way's metres run in the direction it is
-/// driven and everything that reads one — a reservation, a grant, a crossing — counts from its start.
+/// <b>The pair is two ways all the same</b>, because a way's metres run in the direction it is
+/// driven and everything that reads one — a claim, a grant, a crossing — counts from its start.
 /// The two directions of a street are two lanes here for exactly the same reason.
 /// </para>
 /// <para>
@@ -65,7 +65,7 @@ namespace TrafficSimulation.World.Parking;
 /// <para>
 /// <b>A way is the manoeuvre and not the approach to it.</b> It begins at the metre of the lane where the
 /// car stops driving straight, so the ground before that is the lane's own — driven under the lane's own
-/// reservation on the way in, and not reversed back up on the way out. A car part-way onto a way still has
+/// claim on the way in, and not reversed back up on the way out. A car part-way onto a way still has
 /// its tail on the lane behind, and the traffic there is cut by that tail like any other. The lane is
 /// treated as straight over the template's own length, which is <see cref="BayTemplate"/>'s stated
 /// approximation and not a new one.
@@ -92,15 +92,18 @@ internal sealed class BayWays
     readonly int[] _lane;
     readonly float[] _atLaneM;
     readonly float[] _lengthM;
+    readonly float[] _drivenM;
     readonly bool[] _isEntry;
     readonly bool[] _isNoseIn;
     readonly int[] _arcOffsets;
     readonly ArcSeg[] _arcs;
+    readonly Vector2[] _atTheBayM;
+    readonly int[] _waysInOrder;
 
     BayWays(
         int firstWay, int[] firstWayOfBay, int[] firstBayOfLane, int[] baysOffLane, int[] bay, int[] lane,
-        float[] atLaneM, float[] lengthM,
-        bool[] isEntry, bool[] isNoseIn, int[] arcOffsets, ArcSeg[] arcs)
+        float[] atLaneM, float[] lengthM, float[] drivenM,
+        bool[] isEntry, bool[] isNoseIn, int[] arcOffsets, ArcSeg[] arcs, Vector2[] atTheBayM)
     {
         _firstWay = firstWay;
         _firstWayOfBay = firstWayOfBay;
@@ -110,19 +113,44 @@ internal sealed class BayWays
         _lane = lane;
         _atLaneM = atLaneM;
         _lengthM = lengthM;
+        _drivenM = drivenM;
         _isEntry = isEntry;
         _isNoseIn = isNoseIn;
         _arcOffsets = arcOffsets;
         _arcs = arcs;
+        _atTheBayM = atTheBayM;
+
+        _waysInOrder = new int[bay.Length];
+        for (var at = 0; at < _waysInOrder.Length; at++) _waysInOrder[at] = firstWay + at;
+
+        for (var space = 0; space < BayCount; space++)
+        {
+            MostWaysAtABay = Math.Max(MostWaysAtABay, WayCountOf(space));
+        }
     }
+
+    /// <summary>The ways the busiest bay has, which is what a walk over this network has to have room for.</summary>
+    public int MostWaysAtABay { get; }
+
+    /// <summary>
+    /// <b>These read as one of the town's networks</b> (<see cref="BayNetwork"/>) — a view and not a second
+    /// structure, so a body is laid onto a bay by the walk that lays it onto a lane and a footway.
+    /// </summary>
+    public BayNetwork Ways => new(this, OffTheRoad, SpaceWidthM);
+
+    /// <summary>The carriageway these hang off, which is where a walk over them starts from.</summary>
+    RoadGraph OffTheRoad { get; init; } = null!;
+
+    /// <summary>How wide a bay's way is measured (<see cref="SimConfig.ParkingSpaceWidthM"/>): the space it serves.</summary>
+    float SpaceWidthM { get; init; }
 
     /// <summary>The way number the band begins at — the road's own ways are numbered before it.</summary>
     public int FirstWay => _firstWay;
 
-    /// <summary>How many ways the bays add to the book.</summary>
+    /// <summary>How many ways the bays add to the numbering.</summary>
     public int WayCount => _bay.Length;
 
-    /// <summary>And how many ways the town has once they are in it, which is what the book is sized to.</summary>
+    /// <summary>And how many ways the town has once they are in it, which is what the claims are sized to.</summary>
     public int TotalWayCount => _firstWay + _bay.Length;
 
     public int BayCount => _firstWayOfBay.Length - 1;
@@ -136,6 +164,25 @@ internal sealed class BayWays
     public int WayCountOf(int bay) => _firstWayOfBay[bay + 1] - _firstWayOfBay[bay];
 
     public int WayOf(int bay, int slot) => _firstWay + _firstWayOfBay[bay] + slot;
+
+    /// <summary>
+    /// <b>All of them at once, as the run of ways they are</b> — the lanes at a bay, for the walk that
+    /// reads which of them a body standing there is on (<see cref="BayNetwork"/>).
+    /// </summary>
+    public ReadOnlySpan<int> WaysOf(int bay) => _waysInOrder.AsSpan(_firstWayOfBay[bay], WayCountOf(bay));
+
+    /// <summary>
+    /// <b>Where the bay's own end of this way is</b> — the axle pose it was drawn to, which is where a car
+    /// standing in the bay stands. Kept because it is the cheapest thing in the town to compare a place
+    /// against, and a walk over this network starts by asking which bay it could possibly be at.
+    /// </summary>
+    public Vector2 AtTheBayM(int way) => _atTheBayM[way - _firstWay];
+
+    /// <summary>
+    /// <b>The other half of this way's pair</b> — one shape driven the other way (GEN-4f) — or
+    /// <see cref="NoWay"/> where the lane laid only the one, which is every way off the far lane.
+    /// </summary>
+    public int PairOf(int way) => TheWay(BayOfWay(way), LaneOf(way), !IsEntry(way), IsNoseIn(way));
 
     /// <summary>
     /// <b>The bays worked off one lane</b>, each named once — the inverse of <see cref="LaneOf"/>, laid
@@ -238,7 +285,7 @@ internal sealed class BayWays
         return NoWay;
     }
 
-    /// <summary>Whether a way of the book is one of these rather than a lane or a junction's join.</summary>
+    /// <summary>Whether a numbered way is one of these rather than a lane or a junction's join.</summary>
     public bool IsBayWay(int way) => way >= _firstWay && way < TotalWayCount;
 
     public int BayOfWay(int way) => _bay[way - _firstWay];
@@ -268,12 +315,35 @@ internal sealed class BayWays
     /// </summary>
     public float AtLaneM(int way) => _atLaneM[way - _firstWay];
 
+    /// <summary>
+    /// <b>The way's own metres, end to end</b> — which for a way in runs past the pose a car comes to rest
+    /// in, on to the far end of the space itself (GEN-4f).
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the ground and not the drive</b>, which is the same split a lane carries (TER-5d): a lane's
+    /// line runs the whole stretch and a movement joins and leaves it inside its own ends. A bay's way ended
+    /// at the pose instead, and then the deepest metres of the space — the ground in front of a car that
+    /// nosed in, which is most of the space — belonged to no way at all, so a body standing there claimed
+    /// nothing and the driver aiming at that space read it as empty (TER-4c.2).
+    /// </remarks>
     public float LengthM(int way) => _lengthM[way - _firstWay];
 
-    /// <summary>Every one of them measured, in way order — what the book is laid over them by.</summary>
+    /// <summary>
+    /// <b>And how much of it is driven</b>: from the lane to the pose in the bay for a way in, and the whole
+    /// of a way out, which begins at that pose. What is past it is ground and nothing else — nothing is
+    /// driven over it (<see cref="BayCrossings"/>), no route is threaded through it, and a car standing at
+    /// the pose has come to the end of its line.
+    /// </summary>
+    public float DrivenLengthM(int way) => _drivenM[way - _firstWay];
+
+    /// <summary>Every one of them measured, in way order — what the claims are laid over them by.</summary>
     public ReadOnlySpan<float> LengthsM => _lengthM;
 
-    /// <summary>The line itself, in the direction the rear axle travels along it.</summary>
+    /// <summary>
+    /// The line itself, in the direction the rear axle travels along it — <b>including the run past the pose
+    /// that only a way in has</b> (<see cref="LengthM"/>), so whoever wants the drive and not the ground
+    /// takes the chain as far as <see cref="DrivenLengthM"/>.
+    /// </summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int way)
     {
         var at = way - _firstWay;
@@ -283,48 +353,28 @@ internal sealed class BayWays
     /// <summary>The most arcs any one of them took, which is what a line assembled through one has to have room for.</summary>
     public int MostArcs { get; private init; }
 
-    /// <summary>
-    /// <b>Where a body standing in the bay falls along one of its ways</b>: back from the rear axle the way
-    /// was drawn for — at the end of a way in, and at the start of a way out. How far back that reaches
-    /// differs with the standing, because the axle does (<see cref="BayTemplate.RearAxleOfBayM"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>Which end is the bay's is the whole of what this answers</b>, and it is stated here so that the
-    /// stretch a parked car lies on and the stretch a leg claims on its way to the bay are the same ground
-    /// and cannot come apart. How far back the body may hold is <see cref="BayStandings"/>'s, because it is
-    /// a question about what else is driven over this way and not about the way itself.
-    /// </remarks>
-    /// <param name="holdsM">
-    /// How far back from the axle the body holds, capped at the way — a bay off square to its kerb is
-    /// reached over a way that can be shorter than the car standing at the end of it.
-    /// </param>
-    public (float FromM, float ToM) WhereABodyInTheBayStandsM(int way, float holdsM)
-    {
-        var lengthM = LengthM(way);
-        var heldM = MathF.Min(holdsM, lengthM);
-        return IsEntry(way) ? (lengthM - heldM, lengthM) : (0f, heldM);
-    }
-
     public static BayWays Build(CityPlan plan, RoadGraph roads, SimConfig config)
     {
         // <b>The town's ways are laid for the nominal car, and they are a recommendation</b> (CAR-11a).
-        // A bay's way is a piece of the book — a stretch of ground with a right of way over it — and the
+        // A bay's way is a way like the rest — a stretch of ground with a right of way over it — and the
         // town has one body to lay it for; the car that actually turns up drives it with its own axles and
         // its own circle, and one whose axle does not start where this way does lays its own shape from
         // where it is standing (`ManeuverDesk.LayTheExitLine`).
         var nominal = CarBuild.Nominal(config, config.Car.DrivenFrontShare);
         var lots = plan.ParkingLots;
-        var firstWay = LaneOccupancy.WayOfTurn(roads.LaneCount, roads.TurnCount);
+        var firstWay = TownWays.FirstBayWay(roads);
 
         var firstWayOfBay = new int[lots.SpaceCount + 1];
         var bay = new List<int>();
         var lane = new List<int>();
         var atLaneM = new List<float>();
         var lengthM = new List<float>();
+        var drivenM = new List<float>();
         var isEntry = new List<bool>();
         var isNoseIn = new List<bool>();
         var arcOffsets = new List<int> { 0 };
         var arcs = new List<ArcSeg>();
+        var atTheBayM = new List<Vector2>();
         var drawn = new ArcSeg[BayTemplate.MostArcs];
         var shifted = new ArcSeg[BayTemplate.MostArcs];
         var backwards = new ArcSeg[BayTemplate.MostArcs];
@@ -370,8 +420,11 @@ internal sealed class BayWays
 
         return new BayWays(
             firstWay, firstWayOfBay, firstBayOfLane, baysOffLane, [.. bay], [.. lane], [.. atLaneM],
-            [.. lengthM], [.. isEntry],
-            [.. isNoseIn], [.. arcOffsets], [.. arcs]) { MostArcs = most };
+            [.. lengthM], [.. drivenM], [.. isEntry],
+            [.. isNoseIn], [.. arcOffsets], [.. arcs], [.. atTheBayM])
+        {
+            MostArcs = most, OffTheRoad = roads, SpaceWidthM = config.ParkingSpaceWidthM,
+        };
 
         // One candidate lane and one standing, asked the one question the template answers: is there a
         // shape between that lane and the pose a car standing that way round holds.
@@ -411,11 +464,27 @@ internal sealed class BayWays
             }
 
             // The pair: the shape as it was drawn, and the same shape walked the other way. Two rows of the
-            // book over one piece of ground, because a way's metres run in the direction it is driven. The
+            // ways over one piece of ground, because a way's metres run in the direction it is driven. The
             // far lane keeps only the one of them the car is under power for.
+            // <b>How far the way runs on past the pose</b> (GEN-4f): to the far end of the space, measured
+            // along the bay's own bearing, which is the direction the axle is travelling at the end of the
+            // shape whichever way round the car stands. It is the ground a body in the space can be standing
+            // on and nothing drives it (<see cref="DrivenLengthM"/>) — a nose-in car's own bonnet is inside
+            // it, and so is anybody walking in front of that car.
+            var pastThePoseM = MathF.Max(
+                0f, (config.ParkingSpaceLengthM * 0.5f) - Vector2.Dot(axleM - centreM, Heading.Unit(headingRad)));
+
             Spline.ReverseInto(drawn.AsSpan(0, laid.ArcCount), backwards);
-            if (!forwardsOnly || noseIn) Add(space, candidate, stagedM, laid, drawn, entry: true, noseIn);
-            if (!forwardsOnly || !noseIn) Add(space, candidate, stagedM, laid, backwards, entry: false, noseIn);
+            if (!forwardsOnly || noseIn)
+            {
+                Add(space, candidate, stagedM, axleM, laid, drawn, entry: true, noseIn, headingRad, pastThePoseM);
+            }
+
+            if (!forwardsOnly || !noseIn)
+            {
+                Add(space, candidate, stagedM, axleM, laid, backwards, entry: false, noseIn, headingRad, 0f);
+            }
+
             return true;
 
             // The template from a place on the lane, in the direction the axle travels from there.
@@ -428,18 +497,29 @@ internal sealed class BayWays
             }
         }
 
-        void Add(int space, int onLane, float onLaneM, in BayLine laid, ArcSeg[] drawnAs, bool entry, bool noseIn)
+        void Add(
+            int space, int onLane, float onLaneM, Vector2 axleM, in BayLine laid, ArcSeg[] drawnAs, bool entry,
+            bool noseIn, float bayHeadingRad, float pastThePoseM)
         {
             bay.Add(space);
             lane.Add(onLane);
             atLaneM.Add(onLaneM);
-            lengthM.Add(laid.LengthM);
+            atTheBayM.Add(axleM);
+            lengthM.Add(laid.LengthM + pastThePoseM);
+            drivenM.Add(laid.LengthM);
             isEntry.Add(entry);
             isNoseIn.Add(noseIn);
             for (var arc = 0; arc < laid.ArcCount; arc++) arcs.Add(drawnAs[arc]);
 
+            // <b>The run on to the end of the space, as the straight it is</b>: the shape ends square on the
+            // bay's own bearing (<see cref="BayTemplate.TryLay"/>), so the ground past the pose carries
+            // straight on down the same line. <b>A way out has none</b> — it begins at the pose, and ground
+            // behind a car that is leaving is not ground its line covers; the way in is what carries the
+            // space, and it is the one a driver aiming at the bay reads.
+            if (pastThePoseM > 0f) arcs.Add(new ArcSeg(axleM, bayHeadingRad, pastThePoseM, 0f));
+
             arcOffsets.Add(arcs.Count);
-            most = Math.Max(most, laid.ArcCount);
+            most = Math.Max(most, arcs.Count - arcOffsets[^2]);
         }
     }
 

@@ -7,7 +7,18 @@ can be watched**.
 followed, whether it is driven by a hand or driving itself; a selection of several is not, because a group
 spread over a district has no one place to stand. **A followed unit is led by its own speed and heading**,
 so the ground it is about to cover is on screen rather than the ground behind it, and **the lead is capped
-against the view** — a unit led off its own picture is a camera watching the road instead of the car.
+against the view** — a unit led off its own picture is a camera watching the road instead of the car. The
+same lead serves a walker and a car, because it is a time and not a distance.
+
+**A follow is eased and never nailed**, and in two places: the camera **closes on where it is going** over
+a span of real time, and the lead **swings round** over a longer one. The first is what the tick boundaries
+disappear into — the town is stepped at a fixed rate and drawn at the window's, so a camera pinned exactly
+to the unit steps the whole picture twice one frame and not at all the next. The second is what a change of
+heading disappears into: a walker stopping at a kerb reverses the offset, and an offset that crosses the
+picture in the time a body takes to turn is worse than no lead at all. **Both spans are real time and
+neither is ticks**, exactly as a pan is. **A unit that jumped is stood on outright** — a fresh selection, or
+somebody who got into a car — because easing across a screen's length is a camera that has lost it until it
+arrives.
 
 **Free pan always wins.** A manual pan, zoom or turn takes the camera off the unit it was following and
 **keeps it off until a selection is asked for again** — which is a click or a box on the town, so clicking

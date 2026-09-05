@@ -117,12 +117,12 @@ public class CarFollowerTests
         Assert.Equal(DrivingHold.Headway, queued);
         Assert.Equal(DrivingHold.Waiting, waiting);
         Assert.Equal(DrivingHold.LineEnd, ending);
-        Assert.Equal(DrivingHold.Reserved, granted);
+        Assert.Equal(DrivingHold.Claimed, granted);
     }
 
     /// <summary>
     /// A moving queue is followed at its own speed rather than stopped short of, and the arithmetic that
-    /// does it is the grant's alone: the car in front reserved from where <em>it</em> will have stopped, so
+    /// does it is the grant's alone: the car in front claimed from where <em>it</em> will have stopped, so
     /// the ground behind that is the follower's to use.
     /// </summary>
     [Fact]
@@ -139,7 +139,7 @@ public class CarFollowerTests
         Assert.True(behindACar > behindAWreck);
 
         // <b>To the last bit of the arithmetic and not to the last bit of the float.</b> The grip cancels
-        // between what the leader reserved and what the follower inverts, so the answer is the leader's own
+        // between what the leader claimed and what the follower inverts, so the answer is the leader's own
         // speed — but the two sides reach it by different routes and the cancellation is exact in algebra
         // rather than in single precision.
         Assert.True(
@@ -163,7 +163,7 @@ public class CarFollowerTests
         var targetMps = Target(Straight, 10f, queueMps, Granted(settledM, queueMps), out var hold);
 
         Assert.Equal(queueMps, targetMps, 1e-2f);
-        Assert.Equal(DrivingHold.Reserved, hold);
+        Assert.Equal(DrivingHold.Claimed, hold);
     }
 
     /// <summary>Nearer than that it slows, further back it closes up — which is what makes the gap settle at all.</summary>
@@ -200,7 +200,7 @@ public class CarFollowerTests
 
     /// <summary>
     /// <b>The grant and the rays measure different things</b>, so each holds the car off what the other
-    /// cannot see: road spoken for beyond an empty corridor, and a shape in one nothing has reserved.
+    /// cannot see: road spoken for beyond an empty corridor, and a shape in one nothing has claimed.
     /// </summary>
     [Fact]
     public void TheGrantAndTheRaysEachHoldTheCarOffWhatTheOtherCannotSee()
@@ -208,7 +208,7 @@ public class CarFollowerTests
         var spokenFor = Target(Straight, 10f, 20f, DriveContext.Clear with { AuthorityM = 6f }, out var granted);
         var inTheWay = Target(Straight, 10f, 20f, Unnamed(6f), out var seen);
 
-        Assert.Equal(DrivingHold.Reserved, granted);
+        Assert.Equal(DrivingHold.Claimed, granted);
         Assert.Equal(DrivingHold.Headway, seen);
         Assert.True(spokenFor < Figures.Car.MaxSpeedMps);
         Assert.True(inTheWay < Figures.Car.MaxSpeedMps);

@@ -8,7 +8,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// <remarks>
 /// <para>
 /// <b>It is a sequence of lines and not one shape.</b> Each leg is a single arc as long as the ground and
-/// the book will hold, and the next is laid from the pose the last one ended in — so a wide dead end comes
+/// the claims will hold, and the next is laid from the pose the last one ended in — so a wide dead end comes
 /// round in two legs and a narrow one in six, without anything here knowing which kind it is standing in.
 /// </para>
 /// <para>
@@ -30,7 +30,7 @@ internal static class P19ShuntRound
 
     /// <summary>
     /// <c>Sa</c>: at rest, with this leg coming back the other way from here, not round yet, and a leg of
-    /// the turn that the ground and the book both admit.
+    /// the turn that the ground and the claims both admit.
     /// </summary>
     /// <remarks>
     /// <b>It is entered part-way round as readily as at the start</b>, which is what a reflex interrupting

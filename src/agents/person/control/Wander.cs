@@ -36,7 +36,7 @@ internal static class Wander
     /// A walkable point somewhere in the town, preferring ground that declares itself preferred.
     /// False means this walker found nowhere to go this time and should stand.
     /// </summary>
-    public static bool DrawDestination(CityPlan plan, TerrainGrid terrain, ref Rng draw, out Vector2 destinationM)
+    public static bool DrawDestination(CityPlan plan, GroundLocator terrain, ref Rng draw, out Vector2 destinationM)
     {
         var fallback = Vector2.Zero;
         var haveFallback = false;

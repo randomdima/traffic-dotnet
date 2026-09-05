@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Text;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Car.Maneuvers;
@@ -9,6 +10,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Containment;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
 using TrafficSimulation.World.Statics;
@@ -119,10 +121,10 @@ internal static class StuckProbe
                     people.PositionM[person], ref personStillFromM[person], ref personStillTicks[person],
                     ref personWorstTicks[person]);
 
-                // <b>The walking side's own stuck, and the one the metres cannot say</b>: a body the book is
-                // holding takes no decision at all (PER-13), so nothing runs out for it and the only thing
-                // that ever lets it go is whoever is in front of it moving.
-                if (!people.IsHeldByTheBook(person, world.StopsInM(person)))
+                // <b>The walking side's own stuck, and the one the metres cannot say</b>: a body somebody
+                // else's claim is holding takes no decision at all (PER-13), so nothing runs out for it and
+                // the only thing that ever lets it go is whoever is in front of it moving.
+                if (!people.IsHeldByTheClaims(person, world.StopsInM(person)))
                 {
                     heldTicks[person] = 0;
                     continue;
@@ -133,7 +135,7 @@ internal static class StuckProbe
 
                 // <b>And standing inside the gap it keeps behind somebody</b>, which is the other half of the
                 // same fault: a grant below nothing cut at another body is one that has come to rest past
-                // the near edge of the ground the book gave that body, and a pavement's worth of those is a
+                // the near edge of the ground that body was given, and a pavement's worth of those is a
                 // queue closed up into a heap. <b>Cut at a body and not at a place</b> — a walker held at the
                 // edge of a lane the road refused it is standing exactly where it should be.
                 if (people.AuthorityM[person] < 0f && people.HeldBy[person] != PersonFleet.NoBody)
@@ -306,7 +308,7 @@ internal static class StuckProbe
             Console.WriteLine(
                 $"    line {cars.Line[car].ArcCount} arcs, progress {cars.ProgressM[car]:F1} m, lane " +
                 $"{cars.LaneOf(car)}, line way {cars.LineWay[car]}, movement way {cars.MovementWay[car]}, " +
-                $"claim way {cars.ClaimWay[car]}, tail way {cars.TailWay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
+                $"claims ahead {ClaimsAhead(cars, car)}, tail way {cars.TailWay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
                 $"ours {cars.BoxIsOurs[car]}, inside {cars.InsideTheBox[car]}, committed {cars.CommittedToTheBox[car]}, " +
                 $"light in {cars.LightAheadM[car]:F1} m");
             Console.WriteLine(
@@ -315,6 +317,21 @@ internal static class StuckProbe
                 $"({cars.DestinationM[car].X:F1}, {cars.DestinationM[car].Y:F1})");
             Neighbours(world, cars.PositionM[car]);
         }
+    }
+
+    /// <summary>The ways this car is holding ahead of itself and the metres of each, as "none" where it holds nothing.</summary>
+    static string ClaimsAhead(CarFleet cars, int car)
+    {
+        var said = new StringBuilder();
+        foreach (ref readonly var claim in cars.ClaimsAheadOf(car))
+        {
+            if (!claim.Any) continue;
+
+            if (said.Length > 0) said.Append(" and ");
+            said.Append($"way {claim.Way} {claim.FromM:F1}–{claim.ToM:F1} m");
+        }
+
+        return said.Length > 0 ? said.ToString() : "none";
     }
 
     static void ReportPeople(TownWorld world, SimConfig config, int[] stillTicks, int[] worstTicks)
@@ -368,7 +385,7 @@ internal static class StuckProbe
                 $"runs out {people.WalkedRunsOut[person]}, goal ({people.GoalM[person].X:F1}, " +
                 $"{people.GoalM[person].Y:F1}), building {people.DestinationBuilding[person]}, car {people.TripCar[person]}");
             Console.WriteLine(
-                $"    grant {people.AuthorityM[person]:F2} m of {people.ReserveAheadM[person]:F2} m asked, way " +
+                $"    grant {people.AuthorityM[person]:F2} m of {people.ClaimAheadM[person]:F2} m asked, way " +
                 $"{people.OnWay[person]} at {people.OnWayM[person]:F1} m, steps round {people.StepsRound[person]}, " +
                 $"at the kerb {people.HeldAtTheKerb[person]} for {people.WaitingToCrossS[person]:F1} s, " +
                 $"lane {people.WaitingForLane[person]}, refused way {people.RefusedWay[person]}, " +
@@ -507,6 +524,14 @@ internal static class StuckProbe
     }
 
     /// <summary>
+    /// Who is holding this walker, <b>where that is another walker</b> — the chain a hold is followed up is
+    /// a chain of the walking roster, and a car crossing the pavement (PER-24) is the head of one rather
+    /// than a link in it.
+    /// </summary>
+    static int HeldByAWalker(PersonFleet people, int person) =>
+        people.HeldByOf[person] == LaneRoster.Walking ? people.HeldBy[person] : PersonFleet.NoBody;
+
+    /// <summary>
     /// <b>One hold, followed up the chain to whoever is at the head of it</b>: everybody behind a hold is
     /// held by the hold in front, so the head is the only body a fix can be written from.
     /// </summary>
@@ -517,7 +542,7 @@ internal static class StuckProbe
         while (at != PersonFleet.NoBody && !chain.Contains(at))
         {
             chain.Add(at);
-            at = people.HeldBy[at];
+            at = HeldByAWalker(people, at);
         }
 
         var root = chain[^1];
@@ -534,10 +559,10 @@ internal static class StuckProbe
     }
 
     /// <summary>
-    /// <b>How long the pavement's book held anybody where they stood, and who was holding whom</b>.
+    /// <b>How long the pavement's claims held anybody where they stood, and who was holding whom</b>.
     /// </summary>
     /// <remarks>
-    /// <b>A walker held by the book takes no decision at all</b> (PER-13): waiting behind a body that is
+    /// <b>A walker held by somebody else's claim takes no decision at all</b> (PER-13): waiting behind a body that is
     /// under way is not being stuck, so the clock that gives a leg up is frozen while it is true. That makes
     /// the length of a hold the whole of the walking side's safety margin — and a hold that comes round on
     /// itself is one no length of clock behind it could ever have cleared, because the two of them are each
@@ -560,7 +585,7 @@ internal static class StuckProbe
 
         Console.WriteLine();
         Console.WriteLine(
-            $"holds — {held} walkers the book was still holding at the end of the run, {ever} held for longer " +
+            $"holds — {held} walkers still held at the end of the run, {ever} held for longer " +
             $"than {StillTicks / config.Sim.TickRateHz} s at a stretch, of {people.Count}");
         Console.WriteLine(
             $"        the longest anybody was held without a decision was " +
@@ -593,7 +618,7 @@ internal static class StuckProbe
             while (at != PersonFleet.NoBody && !ring.Contains(at))
             {
                 ring.Add(at);
-                at = people.HeldBy[at];
+                at = HeldByAWalker(people, at);
             }
 
             // <b>Counted once, from the lowest-numbered body in it.</b> Every walker queueing behind a ring
@@ -616,7 +641,7 @@ internal static class StuckProbe
     /// by the next is a deadlock rather than a queue, and it is the one shape no clock behind it can clear.
     /// </summary>
     /// <remarks>
-    /// The car in front is found by the geometry rather than read off the book, because the reading a driver
+    /// The car in front is found by the geometry rather than read off the claims, because the reading a driver
     /// acts on carries the distance and not whose it was. It is a probe's approximation and never a figure
     /// anything drives on: the nearest body sitting within a stride of the gap the driver said it had.
     /// </remarks>

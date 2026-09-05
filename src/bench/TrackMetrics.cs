@@ -556,13 +556,13 @@ internal sealed class TrackMetrics
     /// that pass away would throw away every stop the lap has.
     /// </summary>
     /// <remarks>
-    /// <b>The driver's own reading says which it is</b>, which is what the book naming everything on a lane
+    /// <b>The driver's own reading says which it is</b>, which is what claiming everything on a lane
     /// bought: a walk of the fleet asking whether the body in front was one of the people was a search for
     /// an answer the car had already been given.
     /// </remarks>
     static bool HeldByTraffic(TownWorld world, int car) => world.Cars.Hold[car] switch
     {
-        DrivingHold.Reserved => world.Cars.GrantCutBy[car] != HeadwayKind.Walker,
+        DrivingHold.Claimed => world.Cars.GrantCutBy[car] != HeadwayKind.Walker,
         DrivingHold.Headway => world.Cars.Context[car].Ahead != HeadwayKind.Walker,
         _ => false,
     };

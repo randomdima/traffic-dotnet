@@ -537,7 +537,7 @@ public class GroundMeshTests
     {
         var pavement = Triangles(Ground(map), Surface.Pavement);
 
-        foreach (var corner in PavementCorners.Solve(Towns.Of(map), SimConfig.Shipped()))
+        foreach (var corner in PavementCorners.Solve(Towns.Of(map).Ground, SimConfig.Shipped()))
         {
             var arcCentreM = corner.ArcCentreM;
             var deepM = (corner.RadiusM + Vector2.Distance(arcCentreM, corner.CornerM)) * 0.5f;

@@ -87,7 +87,7 @@ internal static class PathMarks
     /// pieces share their cuts and a band is one shape. Butted as rectangles they pivot about the
     /// centreline instead, and a lane-wide band round a junction join comes out as a fan of blocks with a
     /// notch outside every joint and a double-blended wedge inside it — the wider the band the worse, and
-    /// a reservation is drawn at the lane's own width.
+    /// a claim is drawn at the lane's own width.
     /// </para>
     /// </remarks>
     public static void Banded(

@@ -17,7 +17,4 @@ internal enum GroundRules : byte
 
     /// <summary>Walkable, and priced below a walker's other ground.</summary>
     Preferred = 1 << 2,
-
-    /// <summary>A lane direction runs underneath, so the cell carries one.</summary>
-    Directional = 1 << 3,
 }

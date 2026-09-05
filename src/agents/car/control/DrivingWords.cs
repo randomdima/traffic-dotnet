@@ -53,12 +53,28 @@ internal static class DrivingWords
     /// the entry the car is in says what it is doing, and this says which of the things that limit a
     /// car is the one limiting it.
     /// </summary>
+    /// <summary>
+    /// What was found in front of a car, in the words the follower reads it by. <b>It names what the
+    /// thing is and never what the car will do about it</b>: whether an obstruction is driven round is the
+    /// catalogue's answer, and this is the reading the answer was reached on.
+    /// </summary>
+    public static string AheadName(HeadwayKind ahead) => ahead switch
+    {
+        HeadwayKind.Queue => "a queue",
+        HeadwayKind.Obstruction => "an obstruction",
+        HeadwayKind.Claimed => "claimed ground",
+        HeadwayKind.Stated => "road somebody means to use",
+        HeadwayKind.Walker => "a walker",
+        HeadwayKind.Unknown => "something unnamed",
+        _ => "nothing",
+    };
+
     public static string HoldName(DrivingHold hold) => hold switch
     {
         DrivingHold.Corner => "slowing for a corner",
         DrivingHold.LineEnd => "stopping at the end of its line",
         DrivingHold.Headway => "holding off something in the way",
-        DrivingHold.Reserved => "queueing",
+        DrivingHold.Claimed => "queueing",
         DrivingHold.Waiting => "waiting for the junction",
         DrivingHold.Crossing => "yielding at a crossing",
         DrivingHold.LostLine => "off its line",

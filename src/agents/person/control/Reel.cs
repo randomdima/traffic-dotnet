@@ -49,7 +49,7 @@ internal enum Lurch
 /// is a verge, and a lap of them would be a lap nothing gets round.
 /// </para>
 /// <para>
-/// <b>It asks nothing of the traffic, and the one thing it looks at is a body.</b> A reservation cut at this
+/// <b>It asks nothing of the traffic, and the one thing it looks at is a body.</b> A claim cut at this
 /// body is a car committed to stopping short of it, so the road in front of it is its own to walk down — a
 /// body that waited for a gap would be a body no driver is ever tested by. What it will not walk into is
 /// something <em>standing</em> there, because that it walks into rather than the other way round and nobody
@@ -81,7 +81,7 @@ internal static class Reel
     /// </summary>
     /// <param name="facing">Which way the body is pointing, which is what keeps the lurch going one way down the road.</param>
     public static Lurch NextLurch(
-        SimConfig config, RoadGraph roads, LaneOccupancy book, int person, Vector2 fromM, Vector2 facing,
+        SimConfig config, RoadGraph roads, LaneOccupancy claims, int person, Vector2 fromM, Vector2 facing,
         float radiusM, ref Rng draw, out Vector2 goalM)
     {
         goalM = fromM;
@@ -111,12 +111,12 @@ internal static class Reel
 
         var acrossM = MathF.Max(0f, (roads.LaneWidthM[lane] * 0.5f) - radiusM);
         var strideM = MathF.Min(config.PersonWalkSpeedMps * config.Person.LurchS, ChordM(at.Curvature, acrossM));
-        var claimM = radiusM * config.Person.RoadClaimMargin;
-
-        // A body and not a reservation: a car that has stopped, a wreck, somebody else reeling down the same
-        // lane.
-        if (book.AheadBody(
-                book.WayOfLane(lane), alongM, alongM + strideM + claimM, person, out _, LaneRoster.Walking))
+        // A body and not the road somebody claimed: a car that has stopped, a wreck, somebody else reeling
+        // down the same lane. Out to the body's own front where the lurch ends and no further: what a driver
+        // keeps clear of this walker is that driver's own margin (SIM-7), and the walker asks for what it covers.
+        if (claims.AheadBody(
+                claims.Ways.OfRoadLane(lane), alongM, alongM + strideM + radiusM, person, out _,
+                LaneRoster.Walking))
         {
             return Lurch.NoRoom;
         }

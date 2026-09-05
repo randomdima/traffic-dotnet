@@ -39,7 +39,7 @@ public class TripTests
 
     /// <summary>
     /// <b>VER-8: a whole trip, end to end.</b> Somebody leaves a building, walks to a car, drives it to
-    /// the bay it reserved, gets out and walks in — and the counts move together, because a town where
+    /// the bay it claimed, gets out and walks in — and the counts move together, because a town where
     /// only the first of them moves is a town of people setting off and arriving nowhere.
     /// </summary>
     [Fact]

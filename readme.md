@@ -52,8 +52,9 @@ run opens fullscreen on the display the pointer is on and `F11` toggles it; `--d
 that display instead, by the desktop's own name for it, and `--windowed` opens in a window, for a run
 to be looked at beside something else. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
+`--export` writes a map out as a `.town` file,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `drive`, `track`, `drunk`, `fleet`, `exam`, `skidpad`, `crossings`, `maneuvers`, `trips`, `rescue`,
+(`census`, `drive`, `track`, `drunk`, `fleet`, `exam`, `footway`, `skidpad`, `crossings`, `maneuvers`, `trips`, `rescue`,
 `recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `solver`, `signals`, `walk`); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
@@ -74,7 +75,7 @@ map draws it as the last section of the status panel — a broken claim counted 
 title, the rows behind it opened by `--ui scenario` or by clicking down to them; a place map has nothing to
 claim and shows none of it —
 and every headless run prints the same table: a row a claim, the figures behind each verdict, and a last
-line a script can read. **A broken claim is a failed run**, so `--bench exam`, `--bench crossings` and
+line a script can read. **A broken claim is a failed run**, so `--bench exam`, `--bench footway`, `--bench crossings` and
 `--map Track --seconds 300` all exit non-zero when the town breaks something it claims. What is quoted
 beside the claims — the drunks' swerves, the laps a fleet got round — fails nothing: it is a fact about
 that town rather than a bound
@@ -98,6 +99,10 @@ with the map, the framing, the moment and the seed, tiled into one sheet for rev
 }
 ```
 
+`--export PATH --map NAME` lays a map and writes it out as a `.town` file. It is how a map generated from
+a brief becomes one this build ships, and how a fixture is re-baked when the format moves — the reader and
+the writer are one contract, and the round trip over every shipped map is what says so.
+
 `--lamps` cuts the town's lamp sheet out of the fleet's own sprites — every lens a variant draws, in
 each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.png`.
 It is a **workshop step and never a build one**: run it when a variant's art or its lens rectangles
@@ -105,7 +110,7 @@ change, and commit the picture. The line it prints per lens is the instrument fo
 arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
 and comes back undistinguished.
 
-**Six maps are laid to measure one thing**, and each claims that one thing and nothing else; a seventh is
+**Seven maps are laid to measure one thing**, and each claims that one thing and nothing else; an eighth is
 laid to be looked at and claims nothing of its own. **What each
 is and what it claims is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only which
 command reads which.
@@ -116,6 +121,7 @@ command reads which.
 | `Drunk` | the same lap with those fifteen reeling **in** it, which is the only place anything overtakes (`E-4`) | `--bench drunk` |
 | `Fleet` | the same lap again with one car of every look on it and nobody on foot | `--bench fleet` |
 | `Exam` | a six by six lattice of junctions, one staged crossing manoeuvre in each | `--bench exam`, `--map Exam` |
+| `Footway` | the same lattice five cells by four with nothing driving on it: one staged **walk** in each — the corner, the paint, the light, the body in the way | `--bench footway`, `--map Footway` |
 | `Skidpad` | a grid of plain road, a square a car: every look on full left lock, a row per pedal and gear — three pedals each way — each drawing its own circle beside the one its axles ask for | `--bench skidpad`, `--ui turn-circles`, `--ui menu-figures` |
 | `Zebras` | five isolated streets with a crossing apiece, one of them laid off square | `--bench crossings` |
 | `Idle` | one loop of road and nothing else — a square with rounded corners, an armoured car between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
@@ -129,9 +135,11 @@ the water, the districts and the counts — and the town is laid from one when t
 ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from)). The same brief at the same seed is
 the same town, every time.
 
-The exam and the crossings map are asserted card by card and crossing by crossing in the town tier off the
-probe's own run ([JunctionExamTests](src/tests/world/JunctionExamTests.cs)), so the instrument and the gate
-cannot disagree about what a crossing is.
+The two exams and the crossings map are asserted card by card and crossing by crossing in the town tier off
+the probe's own run ([JunctionExamTests](src/tests/world/JunctionExamTests.cs),
+[WalkingExamTests](src/tests/agents/person/WalkingExamTests.cs)), so the instrument and the gate cannot
+disagree about what a crossing is. **A card the build does not pass carries what it does instead**, and is
+asserted to still fail — so the day it comes right the suite says so and the line is deleted.
 
 ## The same town, in a browser
 

@@ -78,9 +78,9 @@ internal abstract class ScenarioWatch(string name, string subject, string[] clai
 
     /// <summary>
     /// <b>What this watch has to say about one unit</b>, or nothing at all. A claim is about the town and
-    /// a note is about a body: the claims panel draws the first and the label standing beside the selected
-    /// unit draws the second (CTL-1), so a finding that names one car is read where that car is rather
-    /// than in a corner of the screen the car is not in.
+    /// a note is about a body: the claims panel draws the first and the selected unit's own read-out draws
+    /// the second (OBS-2m), so a finding that names one car is read beside that car's own figures rather
+    /// than in a table of statements about the town.
     /// </summary>
     /// <returns>Whether anything was written into <paramref name="into"/>.</returns>
     public virtual bool Notes(SelectionKind kind, int index, ref TextBuffer into) => false;

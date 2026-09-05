@@ -40,6 +40,7 @@ internal static class CheckCatalogue
         new("recovery", "One staged wreck a town: whether an evacuator came, towed it home and mended it", Quoted(RecoveryProbe.Run)),
         new("maneuvers", "Which manoeuvre every driver was in, and what the ladder came to", Quoted(ManeuverProbe.Run)),
         new("exam", "Every junction crossing the exam stages, and what each card came to", ExamProbe.Run),
+        new("footway", "Every walk the walking exam stages, with nothing driving, and what each card came to", FootwayProbe.Run),
         new("crossings", "Five streets with a crossing on each: whether every one of them is walked", CrossingProbe.Run),
         new("signals", "The lit town's invariants, sampled every tick of a soak", Quoted(SignalProbe.Run)),
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),

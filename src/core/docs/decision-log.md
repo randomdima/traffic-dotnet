@@ -41,7 +41,7 @@ identical afterwards, which is the check that mattered.
 ## 2026-08-16 — agents stopped thinking every tick, and the clock is in seconds
 
 Every agent decided at 60 Hz, re-running its whole procedure — the manoeuvre, the watchdog, the limits,
-the junction booking — whatever it was doing. On a jammed town 96 % of cars stand still, and each was
+the junction claim — whatever it was doing. On a jammed town 96 % of cars stand still, and each was
 still doing all of it sixty times a second.
 
 Agents now run their catalogue every `AgentDecisionIntervalS`, staggered by their own index. Two things

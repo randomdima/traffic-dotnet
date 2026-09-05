@@ -26,9 +26,9 @@ internal static class P08TakeTheJunction
 
     public const bool Watched = true;
 
-    /// <summary><c>Sa</c>: a box within the reserve distance ahead that this car has been given.</summary>
+    /// <summary><c>Sa</c>: a box within the claim distance ahead that this car has been given.</summary>
     public static ManeuverStart Begin(in DriveScene scene, ManeuverDesk desk, int subject) =>
-        scene.ToTheBoxM <= scene.Config.CarJunctionReserveM && scene.BoxIsOurs
+        scene.ToTheBoxM <= scene.Config.CarJunctionClaimM && scene.BoxIsOurs
             ? ManeuverStart.Yes
             : ManeuverStart.No;
 
@@ -40,7 +40,7 @@ internal static class P08TakeTheJunction
         // "not in a box that is mine", and only the distance to the next one tells them apart. Asked the
         // other way round, every car that had just crossed a junction reported that it had been turned
         // back from one.
-        if (scene.ToTheBoxM > scene.Config.CarJunctionReserveM)
+        if (scene.ToTheBoxM > scene.Config.CarJunctionClaimM)
         {
             return ManeuverOutcome.To(Maneuver.RunTheLine, ManeuverReason.LineSpent);
         }

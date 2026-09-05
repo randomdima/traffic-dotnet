@@ -6,8 +6,8 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// See <c>docs/p02-leave-the-bay.md</c> for the scenario, the states either side of it and the bounds.
 /// </summary>
 /// <remarks>
-/// <b>There is no wait here, and its absence is the entry</b> (GEN-4f). The way out is a way of the road's
-/// book, so what holds the car in the bay is the road it is granted — cut at the first metre of it the traffic
+/// <b>There is no wait here, and its absence is the entry</b> (GEN-4f). The way out is one of the road's own
+/// ways, so what holds the car in the bay is the road it is granted — cut at the first metre of it the traffic
 /// on the street is driven over, by the same table walk that cuts a car at a junction — and what stops two
 /// neighbouring bays taking the same gap is that the first of them takes the ground before it moves onto
 /// it. A gap looked at, a patience spent and a beat to break the row apart were all one mechanism standing

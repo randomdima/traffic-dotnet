@@ -12,7 +12,7 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// <para>
 /// This is not a route and does not pretend to be, exactly as <see cref="Person.Control.Wander"/> is
 /// not a trip. It is the smallest thing that keeps cars on the road indefinitely so that the follower,
-/// the tyres, the looking and the reservation can be watched doing their work, and the seam it is pushed
+/// the tyres, the looking and the claims can be watched doing their work, and the seam it is pushed
 /// through is the one a router uses.
 /// </para>
 /// <para>

@@ -108,7 +108,7 @@ internal sealed partial class DebugOverlay
     /// </summary>
     /// <param name="ground">
     /// <b>What is drawn under the bodies</b> — the marks that are about the ground rather than about
-    /// anybody standing on it. A reservation is a stretch of road and a network is the road itself, so a
+    /// anybody standing on it. A claim is a stretch of road and a network is the road itself, so a
     /// car has to read over both; drawn with the rest, the wash tints every sprite it covers.
     /// </param>
     public void Draw(
@@ -116,6 +116,7 @@ internal sealed partial class DebugOverlay
         Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         Relaid = false;
+
         if (switches.NeedsNetworks)
         {
             RelayIfStale(world, config, switches, viewCentreM, viewSpanM, pixelsPerMetre);
@@ -123,20 +124,19 @@ internal sealed partial class DebugOverlay
         }
 
         // <b>Laid every frame and never into the cache above it.</b> The graphs the cache holds do not move
-        // once the town is laid; the two books are re-laid from the bodies every tick, so a block copied out
-        // of a stale buffer would be a reservation the town gave up several frames ago.
+        // once the town is laid; both networks' claims are re-laid from the bodies every tick, so a block
+        // copied out of a stale buffer would be a claim the town gave up several frames ago.
         //
         // <b>After the network graphs, so it is drawn over them where both are on.</b> The graphs say where
         // anything *could* go and the blocks say who has the ground now, so a chevron punching through a
-        // reservation reads as the lane still being open. The agents' own lines are in the other buffer and
+        // claim reads as the lane still being open. The agents' own lines are in the other buffer and
         // so stay above both: a car's route running out of the front of its block is the picture the two make.
-        if (switches.Reservations)
+        if (switches.Claims)
         {
             // The bays first, because a bay is ground several stretches of way lie across and the stretches
             // are the finer reading of the two.
             TakenBays(ref ground, world, config, viewCentreM, viewSpanM);
-            LaneIndex(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
-            FootIndex(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
+            ClaimIndex(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
         }
 
         if (switches.WalkerLines) WalkerLines(ref draw, world, config, viewCentreM, viewSpanM, pixelsPerMetre);

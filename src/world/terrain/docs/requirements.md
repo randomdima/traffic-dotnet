@@ -10,19 +10,23 @@ Roads, junctions and what is painted on them are [world/road](../../road/docs/re
 
 **TER-1** The city is fully covered by terrain: no empty space and no holes.
 
-**TER-2** Every terrain type declares which agents may traverse it under soft rules, its effect on
-movement (grip, drag, mark threshold) and whether it is directional. **The movement effect applies to
-every body occupying it whether or not it is permitted there** — legality is a soft-rule matter only.
+**TER-2** Every terrain type declares which agents may traverse it under soft rules and its effect on
+movement (grip, drag, mark threshold). **The movement effect applies to every body occupying it whether or
+not it is permitted there** — legality is a soft-rule matter only.
 
 **TER-2a** Rules address terrain by **set** — drivable, walkable, preferred, permitted-to-nobody — and
 never by type name. A rule written against `Sidewalk` breaks the day the town gains a boardwalk; one
 written against *walkable* does not.
 
+Two slices name a kind and no third may: the **plan**, which lays the ground and solves what is on it, and
+**this one**, which says what each kind permits. That split is why a town half-laid can be asked where a
+thing may stand without the plan learning what an agent is.
+
 **TER-3** The catalogue is data. It must distinguish at minimum: a default pedestrian ground; a
-directional carriageway of two opposing lanes; the ground roads share where they meet; a pedestrian-legal
-way across a carriageway; ground a car idles on that a pedestrian may stand on; paved pedestrian-only
-ground; and ground permitted to nobody. Two types differing only in what they draw are still two types,
-but no rule may turn on that difference alone.
+carriageway; the ground roads share where they meet; a pedestrian-legal way across a carriageway; ground a
+car idles on that a pedestrian may stand on; paved pedestrian-only ground; and ground permitted to nobody.
+Two types differing only in what they draw are still two types, but no rule may turn on that difference
+alone.
 
 **TER-3a** Ground legal to nobody is terrain and not a hole: coverage still holds, and a body pushed onto
 it is on ground and can leave under its own power. What makes it impassable is only that no route is ever
@@ -31,20 +35,24 @@ planned across it.
 **PHY-8** Terrain is not a collider. It modulates the movement of the body occupying it and never blocks
 movement outright; what makes ground impassable is permission.
 
-## Two views of one geometry
+## One geometry
 
-**TER-7** The ground drawn and the ground classified are the same ground: both are read off the plan's
-shapes, and the cell grid is a **classifier** agreeing with them to within half a cell. Neither is
-derived from the other by re-tracing.
+**TER-7** The ground drawn and the ground answered for are **one geometry**: the plan's shapes. What the
+ground is at a point is *solved* against those same shapes, in the reverse of the order they are drawn in,
+so the answer is the last piece drawn over that point — exactly, and at every angle. There is no second
+representation, so there is nothing for the answer to disagree with and no tolerance anywhere.
 
 The consequence is the one that matters: **a marking always sits on the surface it belongs to**, because
-paint and cells are two views of one geometry. Where they disagree the geometry is wrong, not the
-picture. No arrangement of metre squares is a kerb running at 40°.
+there is only one surface. Where the answer looks wrong the geometry is wrong, not the picture. A kerb
+running at 40° is a kerb running at 40°.
 
-**A stamp returns where it actually landed and the caller carries that** rather than recomputing it. A
-fill that gives a cell to a rectangle when the cell's centre is inside can stand half a cell proud on one
-side and half a cell short on the other. Snap what is stamped, return the snapped shape, and carry the
-snapped shape in the plan.
+**A shape the ground has is a shape the plan carries.** Anything laid into the town has to be in the plan
+as its own record, or it is ground that is drawn from nothing and answered for by nothing — and the two
+readers of that record, the picture and the query, take it off the one array.
+
+**A raster is scratch and never an answer.** The generator paints one while a town is being decided, so a
+stage can ask what has been laid where; it agrees with the shapes only to within a cell, it is never
+shipped, and no rule about a finished town may be argued from it.
 
 ## The pavement
 
@@ -105,8 +113,8 @@ picture comes out short of the figure the rest of the build quotes, on the bends
 
 ## What this slice must produce
 
-- A query `terrain at (x, y)` → type, permissions, grip, drag, lane direction where directional.
-  Continuous position in, no snapping out.
-- A drawn surface matching that query to within half a cell everywhere
+- A query `ground at (x, y)` → type, permissions, grip, drag. Continuous position in, no snapping out, and
+  a point off the town's own box answered rather than refused.
+- The same answer the surface is drawn from, everywhere and exactly
   ([app/render](../../../app/render/docs/requirements.md) owns the drawing).
 - Pavement bands of constant width along every straight and correct round every corner, inner and outer.

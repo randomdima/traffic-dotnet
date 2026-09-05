@@ -105,6 +105,7 @@ internal sealed class RoadGraph
             foreach (var lane in LanesIn(node)) turns += _turnOffsets[lane + 1] - _turnOffsets[lane];
 
             MostTurnsAtANode = Math.Max(MostTurnsAtANode, turns);
+            MostLanesAtANode = Math.Max(MostLanesAtANode, LanesIn(node).Length + LanesOut(node).Length);
         }
     }
 
@@ -139,6 +140,13 @@ internal sealed class RoadGraph
     /// in a box can be lying under at once, and so how much room in the lane index one of them can want.
     /// </summary>
     public int MostTurnsAtANode { get; }
+
+    /// <summary>
+    /// And the most lanes any one of them has an end at, arriving and leaving counted apart — <b>how many
+    /// lanes a body standing over a node can be lying on the end of at once</b>, which is what carries a
+    /// body's ground across a node the join over it has no length to hold (<see cref="IsAPlace"/>).
+    /// </summary>
+    public int MostLanesAtANode { get; }
 
     public int[] LaneRoad { get; }
 
@@ -191,13 +199,13 @@ internal sealed class RoadGraph
     public int TurnToLane(int slot) => _turnToLane[slot];
 
     /// <summary>
-    /// The way a join is, in the numbering <see cref="Crossings"/> is laid in — the book's own
-    /// (<see cref="LaneOccupancy.WayOfTurn"/>), forwarded here because that is where the table is.
+    /// The way a join is, in the numbering <see cref="Crossings"/> is laid in — the town's own
+    /// (<see cref="TownWays"/>), whose first two blocks are this graph's lanes and then its joins.
     /// </summary>
-    public int WayOfTurn(int turnSlot) => LaneOccupancy.WayOfTurn(LaneCount, turnSlot);
+    public int WayOfTurn(int turnSlot) => TownWays.WayOfRoadTurn(LaneCount, turnSlot);
 
     /// <summary>And the trip back, for a caller holding a section's <see cref="CrossedSection.OnWay"/>.</summary>
-    public int TurnOfWay(int way) => LaneOccupancy.TurnOfWay(LaneCount, way);
+    public int TurnOfWay(int way) => way - LaneCount;
 
     /// <summary>
     /// <b>The right of way a movement through a box has</b> (TER-5e) — a fact about the turn it makes, so it
@@ -232,7 +240,7 @@ internal sealed class RoadGraph
 
     /// <summary>
     /// <b>The ground each way through a junction takes off the others</b> (TER-5c), laid once with the town
-    /// like the joins it is measured off, and <b>indexed the way the book numbers ways</b>
+    /// like the joins it is measured off, and <b>indexed the way the claims number ways</b>
     /// (<see cref="LaneOccupancy.WayOfTurn"/>). It is a property of the movement and never of the
     /// intersection: a street bending through a box is driven over nothing and takes nothing.
     /// </summary>
@@ -287,6 +295,12 @@ internal sealed class RoadGraph
     /// </summary>
     public float LeftAtM(int lane) => _joins.LeftAtM[lane];
 
+    /// <summary>
+    /// The network in the words a walk over ground is written in (<see cref="IWayNetwork"/>) — a view and
+    /// not a second structure, so it is taken wherever it is wanted rather than kept.
+    /// </summary>
+    public RoadWays Ways => new(this);
+
     /// <summary>The lane whose line passes nearest a point, and how far along it that is.</summary>
     /// <remarks>
     /// <b>It is not only asked of a car being stood up.</b> A car that has lost its line reacquires
@@ -302,37 +316,72 @@ internal sealed class RoadGraph
     public SplineSample EndOf(int lane) => Spline.SampleAt(ArcsOf(lane), LaneLengthM[lane]);
 
     /// <summary>
-    /// Whether a place stands inside one way's own band, and where on that way's line it falls.
+    /// Whether a body stands on one way, which is <b>whether its box reaches inside that way's band at all</b>
+    /// — and, where it does, how far aside of the way's own line it stands.
     /// <b>The band the way is laid to and never a radius of the caller's choosing</b>: everything on the
-    /// map is nearest some lane, and reading that lane's book for a body on the pavement beside it would
+    /// map is nearest some lane, and claiming that lane for a body on the pavement beside it would
     /// hold a street up for the traffic it is parked next to.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Across the way and along it, and the second half is not redundant.</b> A projection onto a way is
     /// clamped to that way's own ends (<see cref="Spline.ProjectM"/>), so a body standing past one of them
     /// answers at the endpoint — and measured across the band alone, anything lined up with a way's end is
-    /// standing on it however far up the road it really is. What that put in the book was a body on joins it
+    /// standing on it however far up the road it really is. What that claimed was a body on joins it
     /// was nowhere near, which is a junction shut by a car in the next street. Inside the way the nearest
     /// point is square to the line and the second test costs nothing; it bites only where the clamp did.
+    /// </para>
+    /// <para>
+    /// <b>Bare overlap and no verdict</b> (TER-4c.2). A body touching a way's band is on that way, and where
+    /// across it stands is <see cref="BandReach.AcrossFromM"/> — a figure for whoever is trying to
+    /// get past (<see cref="LaneOccupancy.StandsAside"/>) and never a reason to leave the fact out of the
+    /// claims. Asked as a clear width instead, a car straddling the line between two lanes left enough of each
+    /// of them clear to be written onto neither, and stood in the middle of a road that could not see it.
+    /// </para>
     /// </remarks>
-    /// <param name="reachM">How far past the band the body itself reaches — its own half-width or radius.</param>
-    /// <param name="alongReachM">How far past a way's own end the body still lies on it — its own half-length or radius.</param>
-    /// <param name="alongUnit">
-    /// The way the line runs where <paramref name="alongM"/> falls on it. <b>Handed back rather than left
-    /// to the caller</b>: this test measures across the band and along it, so it has already turned that
-    /// angle into a direction, and a caller that asks <see cref="SplineSample.Direction"/> for it again
-    /// reduces the same angle a third time.
+    /// <param name="body">
+    /// The box the asking body stands in, read against this way's own line
+    /// (<see cref="BodyFootprint.CoversOn"/>) — what of it is inside the band, and how far past the way's
+    /// own ends it may stand and still be on it. <b>Both come out of the pose</b>: a body lying across a way
+    /// reaches its length over the band and its width along it.
+    /// </param>
+    /// <param name="reach">
+    /// What this way has of the body: the run of the line it covers, how far aside of that line it stands,
+    /// and which way the line runs there — <b>all of it handed back rather than left to the caller</b>, since
+    /// this test has reduced the angle already and a caller that asks <see cref="SplineSample.Direction"/>
+    /// for it again reduces the same one a third time.
     /// </param>
     public static bool WithinTheBand(
-        ReadOnlySpan<ArcSeg> arcs, float alongM, Vector2 atM, float bandM, float reachM, float alongReachM,
-        out Vector2 alongUnit)
+        ReadOnlySpan<ArcSeg> arcs, float alongM, Vector2 atM, float bandM, in BodyFootprint body,
+        float crossesByM, out BandReach reach)
     {
+        reach = default;
+
         var on = Spline.SampleAt(arcs, alongM);
-        alongUnit = on.Direction;
+        var alongUnit = on.Direction;
+        body.ReachOn(alongUnit, out var alongReachM, out var acrossReachM);
 
         var offsetM = atM - on.PositionM;
-        return MathF.Abs(Vector2.Dot(offsetM, Heading.RightOf(alongUnit))) <= (bandM * 0.5f) + reachM
-               && MathF.Abs(Vector2.Dot(offsetM, alongUnit)) <= alongReachM;
+        var pastTheEndM = MathF.Abs(Vector2.Dot(offsetM, alongUnit));
+        if (pastTheEndM > alongReachM) return false;
+        // <b>Crossed and not touched</b>: the body's near edge has to be this far inside the band's own edge
+        // before it is on the way at all, which is what keeps a wing mirror over the paint out of the next
+        // lane's claims. Nought asks the bare question, which is what a walk over ground wants.
+        if (MathF.Abs(Vector2.Dot(offsetM, Heading.RightOf(alongUnit))) - acrossReachM
+            >= (bandM * 0.5f) - crossesByM)
+        {
+            return false;
+        }
+
+        if (!body.CoversOn(alongUnit, offsetM, bandM * 0.5f, out var backM, out var aheadM)) return false;
+
+        // Where the box falls across the line, to the way's right — the span and not the clearance, because
+        // whether one body is in another's way is a fact about the pair of them and a clearance can only be
+        // asked by whatever travels the line itself.
+        var acrossM = Vector2.Dot(offsetM, Heading.RightOf(alongUnit));
+        reach = new BandReach(
+            alongUnit, pastTheEndM, acrossM - acrossReachM, acrossM + acrossReachM, backM, aheadM);
+        return true;
     }
 
     public static RoadGraph Build(CityPlan plan, SimConfig config)
@@ -707,7 +756,7 @@ internal sealed class RoadGraph
         int[] turnToLane, Joins joins)
     {
         var turnCount = turnToLane.Length;
-        var wayCount = LaneOccupancy.WayOfTurn(laneCount, turnCount);
+        var wayCount = TownWays.WayOfRoadTurn(laneCount, turnCount);
         var clearanceM = config.JunctionCrossingClearanceM;
         var found = new List<CrossedSection>[wayCount];
         var atTheNode = new List<int>();
@@ -755,8 +804,8 @@ internal sealed class RoadGraph
             var sampledB = new SampledWay(alongB, 0f, stepB, joins.LengthM[b]);
             if (!LineOverlap.Measure(sampledA, sampledB, clearanceM, out var onA, out var onB)) return;
 
-            var wayA = LaneOccupancy.WayOfTurn(laneCount, a);
-            var wayB = LaneOccupancy.WayOfTurn(laneCount, b);
+            var wayA = TownWays.WayOfRoadTurn(laneCount, a);
+            var wayB = TownWays.WayOfRoadTurn(laneCount, b);
             (found[wayA] ??= []).Add(new CrossedSection(wayB, onB.FromM, onB.ToM, onA.FromM, onA.ToM));
             (found[wayB] ??= []).Add(new CrossedSection(wayA, onA.FromM, onA.ToM, onB.FromM, onB.ToM));
         }

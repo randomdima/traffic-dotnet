@@ -10,7 +10,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.Person;
 
 /// <summary>
-/// PER-24's geometry, against a pose and a body — no book, no terrain and no town, which is the whole of
+/// PER-24's geometry, against a pose and a body — no claims, no terrain and no town, which is the whole of
 /// what the step is: an aim moved sideways by what is in the way of it.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]

@@ -27,7 +27,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
         var plan = Towns.Of(at);
         var config = SimConfig.Shipped();
         var foot = FootGraph.Build(plan, config);
-        return (foot, WalkingNetwork.Build(foot, new TerrainGrid(plan, config), config));
+        return (foot, WalkingNetwork.Build(foot, new GroundLocator(plan, config), config));
     });
 
     static readonly ConcurrentDictionary<string, (FootGraph Foot, WalkingNetwork Network)> Built = new();
@@ -220,11 +220,11 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     {
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
-        var terrain = new TerrainGrid(plan, config);
+        var terrain = new GroundLocator(plan, config);
         var (foot, network) = Of(map);
         var bodyM = config.PersonDiameterM * 0.5f;
 
-        var toleranceM = terrain.CellSizeM * 0.5f;
+        var toleranceM = config.Terrain.GroundStepM * 0.5f;
         var kept = 0;
         var flattened = 0;
         var totalM = 0f;
@@ -242,7 +242,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
             if (offsetM <= 0f) continue;
 
             var lengthM = foot.LengthM(edge);
-            var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / terrain.CellSizeM));
+            var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / config.Terrain.GroundStepM));
             for (var station = 0; station <= stations; station++)
             {
                 var at = Spline.SampleAt(foot.ArcsOf(edge), lengthM * station / stations);
@@ -272,7 +272,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     }
 
     /// <summary>How far past the last walkable ground a shoulder actually stands, so the tolerance above is a figure and not a shrug.</summary>
-    static float Overhang(TerrainGrid terrain, SplineSample at, float shoulderM, float toleranceM)
+    static float Overhang(GroundLocator terrain, SplineSample at, float shoulderM, float toleranceM)
     {
         var inwardM = MathF.CopySign(0.01f, -shoulderM);
         for (var backM = 0f; backM <= toleranceM; backM += MathF.Abs(inwardM))
@@ -316,6 +316,10 @@ public class WalkingNetworkTests(ITestOutputHelper output)
             var turns = network.TurnsFrom(edge);
             for (var turn = 0; turn < turns.Length; turn++)
             {
+                // Turning round on the spot is not a corner between two stretches and lays nothing
+                // (<see cref="TurningRoundOnTheSpotLaysNoMitre"/>).
+                if (turns[turn] == foot.Reverse(edge)) continue;
+
                 var onward = network.LaneOf(turns[turn]);
                 if (onward.Length == 0) continue;
 
@@ -415,10 +419,6 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     public void EveryCornerThroughAStretchEndUsesTheSamePoint(string map)
     {
         var (foot, network) = Of(map);
-        var leavesAtM = new float[foot.EdgeCount];
-        var landsAtM = new float[foot.EdgeCount];
-        Array.Fill(leavesAtM, float.NaN);
-        Array.Fill(landsAtM, float.NaN);
 
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
@@ -429,36 +429,47 @@ public class WalkingNetworkTests(ITestOutputHelper output)
                 if (network.JoinLengthM(slot) <= 0f) continue;
 
                 var onto = turns[turn];
-                Assert.True(
-                    float.IsNaN(leavesAtM[edge]) || MathF.Abs(leavesAtM[edge] - network.JoinFromM(slot)) < ToleranceM,
-                    $"{map}: stretch {edge} hands over {leavesAtM[edge]:F2} m before its end to one way off it and "
-                    + $"{network.JoinFromM(slot):F2} m before it to {onto}");
-                Assert.True(
-                    float.IsNaN(landsAtM[onto]) || MathF.Abs(landsAtM[onto] - network.JoinToM(slot)) < ToleranceM,
-                    $"{map}: stretch {onto} is landed on {landsAtM[onto]:F2} m along by one corner and "
-                    + $"{network.JoinToM(slot):F2} m along by the one from {edge}");
 
-                leavesAtM[edge] = network.JoinFromM(slot);
-                landsAtM[onto] = network.JoinToM(slot);
+                // The place itself, and not a margin against it: what a stretch gives up at an end comes
+                // off its own line, so every corner off that end leaves the lane's last point and every
+                // corner onto a lane lands on its first.
+                var join = network.JoinArcs(slot);
+                var lane = network.LaneOf(edge);
+                var onward = network.LaneOf(onto);
+                if (lane.Length == 0 || onward.Length == 0) continue;
+
+                // A carried corner is the end of the lane itself, so what it sets off from is the lane a
+                // tail before its end; every other leaves the lane's own last point.
+                var setsOffAtM = network.TailOf(edge) == slot
+                    ? network.LaneLengthM(edge) - network.TailLengthM(edge)
+                    : network.LaneLengthM(edge);
+                var leavesM = (join[0].StartM - Spline.SampleAt(lane, setsOffAtM).PositionM).Length();
+                var landsM = (Spline.SampleAt(join, network.JoinLengthM(slot)).PositionM - onward[0].StartM).Length();
+                Assert.True(
+                    leavesM < ToleranceM,
+                    $"{map}: the corner from stretch {edge} to {onto} sets off {leavesM:F2} m from that lane's own end");
+                Assert.True(
+                    landsM < ToleranceM,
+                    $"{map}: the corner from stretch {edge} to {onto} lands {landsM:F2} m from that lane's own start");
 
                 if (foot.KindOf(edge) == FootEdgeKind.Crossing)
                 {
-                    AtTheKerb(map, foot, network, edge, onto, network.JoinFromM(slot));
+                    AtTheKerb(map, foot, network, edge, onto, network.EndLengthM(edge));
                 }
                 else if (foot.KindOf(onto) == FootEdgeKind.Crossing)
                 {
                     // And the pavement's own half of that box: it stops at the zebra's mouth, which is half
                     // the crossing's band back from the node the two of them share.
-                    AtTheMouth(map, foot, network, edge, onto, network.JoinFromM(slot));
+                    AtTheMouth(map, foot, network, edge, onto, network.EndLengthM(edge));
                 }
 
                 if (foot.KindOf(onto) == FootEdgeKind.Crossing)
                 {
-                    AtTheKerb(map, foot, network, onto, edge, network.JoinToM(slot));
+                    AtTheKerb(map, foot, network, onto, edge, network.HeadLengthM(onto));
                 }
                 else if (foot.KindOf(edge) == FootEdgeKind.Crossing)
                 {
-                    AtTheMouth(map, foot, network, onto, edge, network.JoinToM(slot));
+                    AtTheMouth(map, foot, network, onto, edge, network.HeadLengthM(onto));
                 }
             }
         }
@@ -504,6 +515,40 @@ public class WalkingNetworkTests(ITestOutputHelper output)
         }
 
         Assert.True(carried > 0, $"{map}: not one lane carries its own corner");
+    }
+
+    /// <summary>
+    /// <b>Turning round on the spot lays no ground.</b> It is not a way off a lane
+    /// (<see cref="ALaneIsWalkedExactlyAsFarAsTheOutermostMitreAtEachEnd"/>), so a mitre laid for it is a
+    /// way nothing walks, nothing plans over and no layer draws — and one a body standing at
+    /// the node is written onto all the same.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void TurningRoundOnTheSpotLaysNoMitre(string map)
+    {
+        var (foot, network) = Of(map);
+
+        var laid = 0;
+        var groundM = 0f;
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
+        {
+            var turns = network.TurnsFrom(edge);
+            for (var turn = 0; turn < turns.Length; turn++)
+            {
+                if (turns[turn] != foot.Reverse(edge)) continue;
+
+                var slot = network.TurnSlotAt(edge, turn);
+                if (network.JoinArcs(slot).Length == 0) continue;
+
+                laid++;
+                groundM += network.JoinLengthM(slot);
+            }
+        }
+
+        Assert.True(
+            laid == 0,
+            $"{map}: {laid} mitres carrying {groundM:F0} m of ground are laid for turning round on the spot");
     }
 
     /// <summary>

@@ -19,8 +19,8 @@ namespace TrafficSimulation.Tests.Agents.Service;
 /// <remarks>
 /// <b>Watched over a whole run rather than asserted of one tick.</b> Which patrol takes the call and how
 /// long it takes to arrive are facts about that town's traffic; what is being asked is that the machine
-/// runs at all — a call is taken, an officer stands in the street, and a stretch of lane comes out of the
-/// book at the rank SRV-6 says it should.
+/// runs at all — a call is taken, an officer stands in the street, and a stretch of lane is claimed
+/// at the rank SRV-6 says it should be.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 public class ClosureTests
@@ -151,7 +151,7 @@ public class ClosureTests
 
     /// <summary>
     /// <b>And every closure ends</b> (SRV-6): its scene stops being one, or its own bound does it. A lane
-    /// held out of the town for the rest of a run is the single failure a soft reservation can cause, so the
+    /// held out of the town for the rest of a run is the single failure a closure's claim can cause, so the
     /// bound is watched rather than trusted.
     /// </summary>
     [Fact]
@@ -190,17 +190,17 @@ public class ClosureTests
     /// </summary>
     static bool TheRoadIsShutAround(TownWorld world, int officer)
     {
-        var book = world.Occupancy;
-        var slots = new LaneSlot[book.Capacity];
-        foreach (var way in book.OccupiedWays)
+        var claims = world.Occupancy;
+        var slots = new LaneClaim[claims.Capacity];
+        foreach (var way in claims.OccupiedWays)
         {
             var found = 0;
-            var count = book.CopyTo(way, slots);
+            var count = claims.CopyTo(way, slots);
             for (var slot = 0; slot < count; slot++)
             {
                 ref readonly var taken = ref slots[slot];
                 if (taken.Of != LaneRoster.Walking || taken.Occupant != officer) continue;
-                if (taken.Use != LaneUse.Claimed) continue;
+                if (!taken.IsGranted) continue;
 
                 Assert.Equal(RightOfWay.Closed, taken.Right);
 

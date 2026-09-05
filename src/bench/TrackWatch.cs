@@ -129,7 +129,7 @@ internal sealed class TrackWatch : LapWatch
     /// <summary>What the tyres afford sideways, which is the whole of what a corner's own speed is.</summary>
     readonly float _lateralMps2;
 
-    /// <summary>And what the profile plans to slow at, which is the figure every reservation on the road is sized by.</summary>
+    /// <summary>And what the profile plans to slow at, which is the figure every claim on the road is sized by.</summary>
     readonly float _plannedMps2;
 
     /// <summary>Past this the town stops calling a car crabbing across its line a car on it: twice a lane's own half-width.</summary>

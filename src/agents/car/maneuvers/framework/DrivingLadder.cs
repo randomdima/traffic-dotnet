@@ -11,7 +11,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// <param name="BackOffsLeft">Attempts left on the back-off's own count — two per jam.</param>
 /// <param name="InItsOwnBay">Standing in the bay it still holds, before the mouth: the one piece of road this car is entitled to occupy.</param>
 /// <param name="AtItsOwnBay">Within reach of the bay this leg holds — without which a car that jams leaving one bay is sent to square itself up in another across town.</param>
-/// <param name="HoldsAPlace">There is a reserved bay to give up.</param>
+/// <param name="HoldsAPlace">There is a claimed bay to give up.</param>
 /// <param name="OnARoute">There is a route to re-derive, and a stretch to mark blocked.</param>
 /// <param name="ReroutesLeft">Reroutes left on this leg.</param>
 /// <param name="AStraightCanSaveIt">A pose exists along the car's own axis where the whole body lands on drivable ground.</param>

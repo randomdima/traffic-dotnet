@@ -7,7 +7,8 @@ namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
 /// <b>The first stage: the ground everything else is laid on, and the water cut out of it.</b> What it
-/// hands the stages after it is the raster they paint into and the outlines the map carries.
+/// hands the stages after it is the rings the map carries — which are the water, and the only description
+/// of it there is (TER-7).
 /// </summary>
 /// <remarks>
 /// <b>The water is decided before a single node is placed</b>, because every later stage asks the ground
@@ -81,9 +82,8 @@ internal static class TerrainStage
         public Vector2 Across(Vector2 pointM) => Heading.RightOf(Along(pointM));
     }
 
-    public static Water Lay(TownBrief brief, SimConfig config, GenRaster raster, ref Rng draw)
+    public static Water Lay(TownBrief brief, SimConfig config, ref Rng draw)
     {
-        raster.Fill(Ground.Grass);
         if (brief.Water == WaterKind.None) return new Water(brief.Water, CityPlan.WaterArrays.None, []);
 
         var extentM = new Vector2(brief.WidthM, brief.HeightM);
@@ -129,14 +129,9 @@ internal static class TerrainStage
             middleM, across, nearM + (landward * (shoreM - lineM)), farM - (landward * (shoreM - lineM)));
         var waterLineM = Ring(middleM, across, nearM + (landward * lineM), farM - (landward * lineM));
 
-        // The shore first and the water set into it, so what is left of the wider ring is the strip between
-        // the two (GEN-2c). Both are the same wave, so the strip is a shore's width everywhere — and the two
-        // rings between them are lines and not ground, so nothing is classified from either.
-        raster.FillOutline(bankM, Ground.Sidewalk);
-        raster.FillOutline(outlineM, Ground.Water);
-
-        // The raster took what fell on it; what the map carries is the same shapes cut to the map's own edges
-        // (GEN-2b), because the rings are what the water and its shore are drawn from.
+        // Cut to the map own edges (GEN-2b): the rings are what the water and its shore are drawn from and
+        // what says a point is wet, so a bank drawn past the town would be ground nobody could stand on
+        // outside it.
         return new Water(
             brief.Water,
             new CityPlan.WaterArrays

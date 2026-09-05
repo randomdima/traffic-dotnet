@@ -71,6 +71,22 @@ internal sealed class ViewFigures
     public float CameraFollowLeadShareOfView { get; init; } = 0.3f;
 
     /// <summary>
+    /// How long the camera takes to close about two thirds of the gap between where it stands and where
+    /// the followed unit wants it (OBS-1a). It is what makes a follow smooth rather than nailed: the town
+    /// is stepped at a fixed rate and drawn at the window's, so a camera nailed to the unit shows every
+    /// tick boundary. Long enough to absorb one, short enough that nobody reads it as drag.
+    /// </summary>
+    public float CameraFollowEaseS { get; init; } = 0.12f;
+
+    /// <summary>
+    /// And how long the lead itself takes to swing to a new heading or a new speed (OBS-1a) — longer than
+    /// the camera's own ease, because what it is smoothing is the unit's own manoeuvring: a walker who
+    /// stops at a kerb or a car that turns a corner would otherwise sweep the offset across the picture
+    /// in the time the body takes to change direction.
+    /// </summary>
+    public float CameraFollowLeadEaseS { get; init; } = 0.6f;
+
+    /// <summary>
     /// How far apart two fingers must be before the distance between them is worth dividing by
     /// (OBS-1c) — two contacts reported at the same place would otherwise scale the view by infinity.
     /// </summary>

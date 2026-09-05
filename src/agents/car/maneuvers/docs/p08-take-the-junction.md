@@ -6,11 +6,11 @@ Code: [P08TakeTheJunction.cs](../planned/P08TakeTheJunction.cs) · [catalogue](i
 turn, and the turn across the oncoming stream — because which one is being made is a fact about the
 route and the geometry for it was drawn with the rest of the leg.
 
-**`Sa` — the state it starts in.** The box the car's own line enters is within the reserve distance and the
+**`Sa` — the state it starts in.** The box the car's own line enters is within the claim distance and the
 **ground through it** is this car's: the crossing taken, or the body already inside it.
 
 **`Sb` — the state it delivers.** The body out the far side, on the lane the route wanted, with the ground
-given back and the next box further off than a car reserves at.
+given back and the next box further off than a car claims at.
 
 **Line.** The route's. The turn is lanes and the join between them, laid by the assembler.
 
@@ -23,13 +23,13 @@ everything its own way through is driven over.
 **What is taken is ground and not a permission** (TER-5c;
 [`WayCrossings`](../../../../world/road/WayCrossings.cs) is the table and the rule is stated
 there). **This entry adds nothing on top of it** — what the car takes is a stretch of the way it is itself
-driving, in the same book as every other stretch of road, and it is refused by whatever is standing on the
+driving, claimed like every other stretch of road, and it is refused by whatever is standing on the
 metres it wants. So two cars going straight on opposite arms take the junction together, and so does a
 queue making the same movement.
 
 **And it takes nothing on the ways it is driven over** (TER-5c.1). Where its own way crosses another, the
 table says which metres of which other way to ask about, and the driver reads them where they lie. A car
-approaching a box therefore reserves the road it is going to be on and nothing else.
+approaching a box therefore claims the road it is going to be on and nothing else.
 
 **Bounds.** The short fuse, because a car inside a box **is** the obstruction and patience is the wrong
 answer there.
@@ -38,7 +38,7 @@ answer there.
 
 | | Successor |
 |---|---|
-| the body is out and the next box is beyond the reserve distance | `P-4` |
+| the body is out and the next box is beyond the claim distance | `P-4` |
 | the ground was given back before the car committed | `P-6` (failure) — stop at the boundary |
 
 **When it is given back** is the standing rules' answer and not this entry's (S-4): only a car nothing but

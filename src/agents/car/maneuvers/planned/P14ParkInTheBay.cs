@@ -9,7 +9,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// <b>The line is the town's, where the town laid one.</b> The way into a bay is settled with the ground
 /// it was painted on and threaded onto the end of the leg's own line, so this entry lays nothing and
 /// drives on down the chain it was handed — which is what puts the last dozen metres of a leg in the
-/// road's book like every metre before them.
+/// road's own claims like every metre before them.
 /// </para>
 /// <para>
 /// <b>And a template from the pose the car actually stands in, where it has been shuffled off that

@@ -286,7 +286,7 @@ internal sealed partial class TownWorld
     /// than rolls (PHY-5).
     /// </summary>
     /// <remarks>
-    /// Letting the junction go is the load-bearing line. A wreck that kept its reservation would hold a
+    /// Letting the junction go is the load-bearing line. A wreck that kept its claim would hold a
     /// box shut against every car that has to cross it, for the rest of the run — a jam made by the
     /// bookkeeping rather than by the crash.
     /// </remarks>

@@ -47,17 +47,17 @@ public class AllocationGateTests
     public void AskingTheGroundOfAWholeCityAllocatesNothing()
     {
         var plan = Towns.Of("Odesa");
-        var grid = new TerrainGrid(plan, SimConfig.Shipped());
+        var ground = new GroundLocator(plan, SimConfig.Shipped());
         var step = plan.WorldSizeM / 1_000f;
 
         var walked = 0f;
-        for (var probe = 0; probe < 1_000; probe++) walked += grid.At(step * probe).Coefficient;
+        for (var probe = 0; probe < 1_000; probe++) walked += ground.At(step * probe).Coefficient;
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var probe = 0; probe < 1_000_000; probe++)
         {
-            var sample = grid.At(new Vector2(step.X * (probe % 1_000), step.Y * (probe % 997)));
-            walked += sample.Coefficient + sample.LaneDirection.X;
+            var sample = ground.At(new Vector2(step.X * (probe % 1_000), step.Y * (probe % 997)));
+            walked += sample.Coefficient;
         }
 
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());

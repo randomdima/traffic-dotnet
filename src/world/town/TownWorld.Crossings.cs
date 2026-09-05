@@ -11,7 +11,7 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Paint is not a speed limit.</b> A crossing whose band the book has granted this car the road
+    /// <b>Paint is not a speed limit.</b> A crossing whose band this car has been granted the road
     /// over takes nothing off it, and the car drives over it at whatever the rest of the road affords;
     /// what slows a car at a zebra is the ground being somebody else's, which is one mechanism and not a
     /// second (SIM-7).
@@ -123,9 +123,9 @@ internal sealed partial class TownWorld
     /// paint, which is owed a stop by a car under its own geometry exactly as by one on its route.
     /// </para>
     /// <para>
-    /// <b>Asked of the book first and the geometry only after.</b> Nobody is on a crossing nearly all of
+    /// <b>Asked of the claims first and the geometry only after.</b> Nobody is on a crossing nearly all of
     /// the time, and that answer is a walk of one way's occupants; the projection is what costs something,
-    /// so it is taken only where the book has already said somebody is there — and where the paint is
+    /// so it is taken only where a claim has already said somebody is there — and where the paint is
     /// under the car at all, which is what says the shape has nowhere to swerve to.
     /// </para>
     /// </remarks>
@@ -171,7 +171,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// Whether anybody is on this crossing or about to step onto it, <b>read off the road's own book</b>:
+    /// Whether anybody is on this crossing or about to step onto it, <b>read off the road's own claims</b>:
     /// a walker crossing lays the band of every lane its paint is laid across, and this asks the one it is
     /// driving down whether that band is spoken for.
     /// </summary>
@@ -184,7 +184,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool AnybodyOnTheCrossing(int lane, float alongM)
     {
-        var way = _occupancy.WayOfLane(lane);
+        var way = _ways.OfRoadLane(lane);
         return _occupancy.AnybodyCrossing(way, alongM, alongM);
     }
 
@@ -214,7 +214,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     bool GivingWayAtTheKerb(int lane, float alongM)
     {
-        if (!_occupancy.AnybodyWaitingFor(_occupancy.WayOfLane(lane), alongM, alongM)) return false;
+        if (!_occupancy.AnybodyWaitingFor(_ways.OfRoadLane(lane), alongM, alongM)) return false;
 
         GaveWayAtAKerb++;
         return true;

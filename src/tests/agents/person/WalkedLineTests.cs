@@ -198,7 +198,7 @@ public class WalkedLineTests
     /// <summary>What <see cref="NoWalkCrossesACarriagewayOffThePaint"/> watches for.</summary>
     static void NoWalkCrossesOffThePaint(TownWorld world, string map, Watched found)
     {
-        var strideM = world.Plan.CellSizeM * 0.25f;
+        var strideM = Config.Terrain.GroundStepM * 0.25f;
         for (var person = 0; person < world.People.Count; person++)
         {
             var line = world.People.WalkedLineOf(person);

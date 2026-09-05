@@ -33,10 +33,12 @@ public class JunctionClaimTests
     public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
-    /// Every shipped map that has a junction two movements are driven across each other in. <b>A map
-    /// without one owns no question about the ground in a box</b>: Zebras is mid-block crossings, which
-    /// pave nothing of their own (TER-5b), and Track and Drunk are circuits nothing turns off — so on those
-    /// three every claim about a body standing where two ways through meet is vacuous rather than checked.
+    /// Every shipped map that has a junction two movements are driven across each other in, <b>and
+    /// something driving to cross it with</b>. A map without either owns no question about the ground in a
+    /// box: Zebras is mid-block crossings, which pave nothing of their own (TER-5b), Track and Drunk are
+    /// circuits nothing turns off, and the walking exam is a lattice of junctions with no traffic on it at
+    /// all — so on those every claim about a body standing where two ways through meet is vacuous rather
+    /// than checked.
     /// </summary>
     public static TheoryData<string> CrossedMaps
     {
@@ -45,6 +47,7 @@ public class JunctionClaimTests
             var maps = new TheoryData<string>();
             foreach (var map in Towns.Shipped)
             {
+                if (!Towns.AnythingDrives(map)) continue;
                 if (WhereTwoMovementsCross(RoadGraph.Build(Towns.Of(map), Config)) is not null) maps.Add(map);
             }
 
@@ -109,8 +112,8 @@ public class JunctionClaimTests
     static Watched Of(string map) => Runs.GetOrAdd(map, Watch);
 
     /// <summary>
-    /// A minute of the town, with the book re-laid before it is read each tick — which is what
-    /// <see cref="ACarReservesTheBoxFromItsNearEdge"/> needs and what the claims that only read the fleet
+    /// A minute of the town, with the claims re-laid before they are read each tick — which is what
+    /// <see cref="ACarClaimsTheBoxFromItsNearEdge"/> needs and what the checks that only read the fleet
     /// are indifferent to.
     /// </summary>
     static Watched Watch(string map)
@@ -132,7 +135,7 @@ public class JunctionClaimTests
             TheDriverIsToldWhatTheRegistryHolds(world, map, tick, found);
             NothingIsWavedOntoGroundAnotherCarIsCrossing(world, map, tick, found);
             NothingStoppedAtARedHoldsTheGroundBeyondIt(world, map, tick, found);
-            AReservationReachesIntoTheBox(world, map, found);
+            AClaimReachesIntoTheBox(world, map, found);
             TheBoxEmptiesBehindTheBody(world, map, tick, found);
             NoGroundIsTakenOnAWayOnlyDrivenOver(world, map, found);
             NoGrantReachesGroundAnotherBodyHas(world, map, tick, found);
@@ -177,14 +180,14 @@ public class JunctionClaimTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Asked of the pair rather than of the arithmetic that produced it — the sections, the book and the
+    /// Asked of the pair rather than of the arithmetic that produced it — the sections, the claims and the
     /// order the walk happens to take are all on the far side of this — and counted as well as asserted,
     /// since a run in which no two cars were ever in one junction together proves nothing.
     /// </para>
     /// <para>
     /// <b>What a car inside a box holds is a fact and not a grant</b>, and the pair of them is deliberately
-    /// left out. A driver past the point it could have stopped at goes in whatever the book says, and one
-    /// that stalls in there is standing on that ground however it got there — a town that said otherwise
+    /// left out. A driver past the point it could have stopped at goes in whatever anybody has claimed, and
+    /// one that stalls in there is standing on that ground however it got there — a town that said otherwise
     /// would be describing itself wrongly. Two bodies in one box is the collision layer's question (PHY-1),
     /// not this one's; what is asked here is that nothing was ever <em>waved</em> into one.
     /// </para>
@@ -271,7 +274,7 @@ public class JunctionClaimTests
             //
             // <b>Asked without the town's own decision's lead</b> (CanStillStopShortOfTheBox): what makes
             // taking the ground unsafe is the car being unable to stop, and the town commits a car a
-            // decision <em>before</em> that so the book carrying its rank is never behind the road. Asked
+            // decision <em>before</em> that so the claim carrying its rank is never behind the road. Asked
             // with the lead in it, every grant landing inside that lead reads as a car driven into — a
             // picture of the safety margin rather than of a town that has run out of one.
             var weaker = RankOf(world, other, theirs) < RankOf(world, car, crossing)
@@ -365,7 +368,7 @@ public class JunctionClaimTests
     /// what is asserted does not come out of the arithmetic that produced it.
     /// </summary>
     /// <remarks>
-    /// It carries <b>a decision's lead</b>: the book that hands a car's rank to everybody else is laid
+    /// It carries <b>a decision's lead</b>: the claim that hands a car's rank to everybody else is laid
     /// before this tick's drivers decide, so a car that will be past stopping by the time the ranks are
     /// next compared counts as committed now.
     /// </remarks>
@@ -398,26 +401,26 @@ public class JunctionClaimTests
     }
 
     /// <summary>
-    /// <b>A car reserves the box it is about to cross, from the edge of it.</b> The ground under a junction
-    /// is the join between the two lanes, and a reservation that reaches into one covers some of it — so a
+    /// <b>A car claims the box it is about to cross, from the edge of it.</b> The ground under a junction
+    /// is the join between the two lanes, and a claim that reaches into one covers some of it — so a
     /// driver holds it from the moment its own stretch reaches the boundary, not from the moment the
     /// stretch has cleared the whole junction.
     /// </summary>
     /// <remarks>
     /// <para>
     /// It is the same walk that says what a driver can <em>see</em> (<c>WaysAlong</c>), so a car that
-    /// reserves none of a box is also a car nothing standing in that box is visible to.
+    /// claims none of a box is also a car nothing standing in that box is visible to.
     /// </para>
     /// <para>
-    /// <b>The book is re-laid before it is read.</b> A tick lays it in phase 2 and then hands the drivers
+    /// <b>The claims are re-laid before they are read.</b> A tick lays them in phase 2 and then hands the drivers
     /// their lines in phase 3, and a car that crossed a boundary in between has had its chain shifted under
-    /// it — so a reservation taken from the finished tick would be measured against a line it was never
+    /// it — so a claim taken from the finished tick would be measured against a line it was never
     /// laid over. Asked again from the state as it stands, the two are one frame.
     /// </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ACarReservesTheBoxFromItsNearEdge(string map)
+    public void ACarClaimsTheBoxFromItsNearEdge(string map)
     {
         var run = Of(map);
 
@@ -428,8 +431,8 @@ public class JunctionClaimTests
         Assert.Equal(run.Drivers > 0, run.Reaching > 0);
     }
 
-    /// <summary>What <see cref="ACarReservesTheBoxFromItsNearEdge"/> watches for.</summary>
-    static void AReservationReachesIntoTheBox(TownWorld world, string map, Watched found)
+    /// <summary>What <see cref="ACarClaimsTheBoxFromItsNearEdge"/> watches for.</summary>
+    static void AClaimReachesIntoTheBox(TownWorld world, string map, Watched found)
     {
         for (var car = 0; car < world.Cars.Count; car++)
         {
@@ -441,16 +444,16 @@ public class JunctionClaimTests
 
             // A car that asked for no road at all holds a stretch of no length: where its ground would
             // begin is a fact about the body and is filled for every car, driven or not.
-            if (world.Cars.ReserveToM[car] <= world.Cars.ReserveFromM[car]) continue;
+            if (world.Cars.ClaimToM[car] <= world.Cars.ClaimFromM[car]) continue;
 
-            // <b>Asked of the road the car got and not of the road it asked for</b> (TER-4c.1): the book
+            // <b>Asked of the road the car got and not of the road it asked for</b> (TER-4c.1): the claim
             // holds the answer, so a car whose ask reached the boundary and whose grant did not has nothing
             // in the box and is owed nothing there.
             if (slot < 0 || world.GroundEndsAtM(car) <= boundaryM) continue;
-            if (world.Cars.ReserveFromM[car] >= world.Cars.LaneStartsOf(car)[1]) continue;
+            if (world.Cars.ClaimFromM[car] >= world.Cars.LaneStartsOf(car)[1]) continue;
 
             // A place cut into a road (GEN-4h) is a boundary with no box behind it: its two lanes meet at
-            // a point, so the join between them has no metres and a reservation over it holds nothing —
+            // a point, so the join between them has no metres and a claim over it holds nothing —
             // which is the whole of what "no ground is lost to a place" means.
             if (world.Roads.JoinLengthM(slot) <= 0f) continue;
 
@@ -460,10 +463,10 @@ public class JunctionClaimTests
             // <b>The road or the claim beyond it, because the seam between them is not the question</b>
             // (<c>ClaimWhatTheAnswerTook</c>). What reaches into the box is the union of the two, and which
             // side of it a given metre falls on moves with the answer the car was given this tick.
-            if (Holds(world, slot, car, LaneUse.Reserved) || Holds(world, slot, car, LaneUse.Claimed)) continue;
+            if (Holds(world, slot, car, ClaimsAsked.Bodies) || Holds(world, slot, car, ClaimsAsked.Granted)) continue;
 
             found.MissedTheNearEdge =
-                $"{map}: car {car} reserves {world.Cars.ReserveFromM[car]:0.00}–"
+                $"{map}: car {car} claims {world.Cars.ClaimFromM[car]:0.00}–"
                 + $"{world.GroundEndsAtM(car):0.00} m past a boundary at {boundaryM:0.00} m, "
                 + $"and join {slot} has none of it";
         }
@@ -476,7 +479,7 @@ public class JunctionClaimTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Asked of the reservation and the claim together, because between them they are the answer.</b>
+    /// <b>Asked of the committed claim and the one ahead together, because between them they are the answer.</b>
     /// What holds a crossing point is whichever of the two has got to it — the road the car is driving where
     /// that road reaches, and the claim beyond it — and which one it is changes from tick to tick as the
     /// body slows and speeds up. A test that named one of them would be asserting the seam rather than the
@@ -514,7 +517,7 @@ public class JunctionClaimTests
             if (float.IsNegativeInfinity(tailM)) continue;
 
             // The same figure the town gives ground back on: the share of the margin a body keeps around
-            // itself that its own reservation carries behind its tail. It is not the clearance the
+            // itself that its own claim carries behind its tail. It is not the clearance the
             // sections were drawn at — those answer a different question.
             var pastM = tailM - world.Cars.BuildOf(car).TailMarginM;
             foreach (ref readonly var run in world.Roads.Crossings.OwnRuns(world.Roads.WayOfTurn(crossing)))
@@ -549,7 +552,7 @@ public class JunctionClaimTests
     const float Tolerance = 1e-2f;
 
     /// <summary>
-    /// <b>A car reserves the ways it drives and no others</b> (TER-5c). A movement crosses the other ways
+    /// <b>A car claims the ways it drives and no others</b> (TER-5c). A movement crosses the other ways
     /// through its junction, and writing it onto the ground where two of them meet would give a car
     /// approaching a box a fan of joins it is never going to be on — the box would belong to whoever aimed
     /// at it rather than to whoever is in it.
@@ -580,7 +583,7 @@ public class JunctionClaimTests
             {
                 var crossed = world.Roads.TurnOfWay(section.OnWay);
                 found.Crossed++;
-                if (found.TookGroundItCrosses is not null || !Holds(world, crossed, car, LaneUse.Claimed))
+                if (found.TookGroundItCrosses is not null || !Holds(world, crossed, car, ClaimsAsked.Granted))
                 {
                     continue;
                 }
@@ -595,20 +598,20 @@ public class JunctionClaimTests
 
     /// <summary>
     /// <b>The end of the whole arrangement: one body to a piece of ground, wherever the two ways under it
-    /// meet.</b> A reservation is a lane's, but the ground it stands for is the town's — so a grant that
+    /// meet.</b> A claim is a lane's, but the ground it stands for is the town's — so a grant that
     /// reached a section of a join another body already has would be two cars given the same metre of the
     /// world, each of them reading its own way and finding it empty.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Asked of the grant and never of the ask. What goes into the book is the road a car is committed to
-    /// and the cut is taken off it afterwards, so a stretch read back out of the book has to be trimmed by
+    /// Asked of the grant and never of the ask. What is claimed is the road a car is committed to
+    /// and the cut is taken off it afterwards, so a stretch read back off a claim has to be trimmed by
     /// the authority its holder was given before it says anything about who may be where.
     /// </para>
     /// <para>
     /// <b>A car inside the box is left out, on the asking side only.</b> What a body in there holds is a
     /// statement of fact rather than a grant — a driver past the point it could have stopped at goes in
-    /// whatever the book says — while on the answering side it is exactly the body everything crossing that
+    /// whatever anybody has claimed — while on the answering side it is exactly the body everything crossing that
     /// ground must be refused for.
     /// </para>
     /// </remarks>
@@ -628,18 +631,18 @@ public class JunctionClaimTests
     static void NoGrantReachesGroundAnotherBodyHas(TownWorld world, string map, int tick, Watched found)
     {
         var index = world.Occupancy;
-        Span<LaneSlot> mine = stackalloc LaneSlot[32];
-        Span<LaneSlot> theirs = stackalloc LaneSlot[32];
+        Span<LaneClaim> mine = stackalloc LaneClaim[32];
+        Span<LaneClaim> theirs = stackalloc LaneClaim[32];
 
         foreach (var way in index.OccupiedWays)
         {
-            if (index.WayIsLane(way)) continue;
+            if (world.Ways.KindOf(way) is not (WayKind.Join or WayKind.Bay)) continue;
 
             var count = index.CopyTo(way, mine);
             for (var at = 0; at < count; at++)
             {
                 var asked = mine[at];
-                if (asked.Use != LaneUse.Reserved || asked.Of != LaneRoster.Driving) continue;
+                if (!asked.HasBody || !asked.OnItsLine || asked.Of != LaneRoster.Driving) continue;
                 if (world.Cars.InsideTheBox[asked.Occupant]) continue;
 
                 var grantedToM = GrantedToM(world, asked);
@@ -727,8 +730,8 @@ public class JunctionClaimTests
     }
 
     /// <summary>
-    /// Where a grant actually ends on the way it was laid on. <b>What goes into the book is what the car
-    /// asked for</b> — the cut is taken off it afterwards, so a stretch drawn from the book has to be read
+    /// Where a grant actually ends on the way it was laid on. <b>What is claimed is what the car
+    /// asked for</b> — the cut is taken off it afterwards, so a stretch drawn from a claim has to be read
     /// back through the grant the driver was given.
     /// </summary>
     /// <remarks>
@@ -736,12 +739,12 @@ public class JunctionClaimTests
     /// has driven a tick further since. A way's metres and a line's run at the same rate, so an overshoot
     /// measured on the line is the same number of metres of the way.
     /// </remarks>
-    static float GrantedToM(TownWorld world, in LaneSlot asked)
+    static float GrantedToM(TownWorld world, in LaneClaim asked)
     {
         var car = asked.Occupant;
-        var noseM = world.Cars.ReserveFromM[car] + world.Cars.BuildOf(car).TailMarginM
+        var noseM = world.Cars.ClaimFromM[car] + world.Cars.BuildOf(car).TailMarginM
                     + world.Cars.BuildOf(car).LengthM;
-        var overshotM = world.Cars.ReserveToM[car] - (world.Cars.AuthorityM[car] + noseM);
+        var overshotM = world.Cars.ClaimToM[car] - (world.Cars.AuthorityM[car] + noseM);
 
         return asked.ToM - MathF.Max(0f, overshotM);
     }
@@ -756,8 +759,8 @@ public class JunctionClaimTests
     /// </remarks>
     static bool HoldsAllOf(TownWorld world, int slot, int car, float fromM, float toM)
     {
-        Span<LaneSlot> slots = stackalloc LaneSlot[32];
-        var count = world.Occupancy.CopyTo(world.Occupancy.WayOfTurn(slot), slots);
+        Span<LaneClaim> slots = stackalloc LaneClaim[32];
+        var count = world.Occupancy.CopyTo(world.Ways.OfRoadTurn(slot), slots);
         var reachedM = fromM;
         for (var at = 0; at < count && reachedM < toM; at++)
         {
@@ -822,7 +825,7 @@ public class JunctionClaimTests
     /// by projecting it onto that way's line, and a projection is clamped to the way's own ends — so a body
     /// merely lined up with a join answered at that end with no offset across the line at all, however far
     /// up the road it really stood. Since a body in a junction is asked of <em>every</em> join at the node,
-    /// what that put in the book was one car shutting movements on the far side of a box it was nowhere
+    /// what that claimed was one car shutting movements on the far side of a box it was nowhere
     /// near, which is the same defect as a table of verdicts arrived at from the geometry.
     /// </summary>
     /// <remarks>
@@ -833,8 +836,8 @@ public class JunctionClaimTests
     /// </para>
     /// <para>
     /// The bar is the plain distance from the body to the join's whole line, which is a different sum from
-    /// the band arithmetic that laid it — half the widest lane and half a body across, half a body along.
-    /// A body a clamp put on a join misses it by metres rather than by centimetres.
+    /// the band arithmetic that laid it — half the widest lane and a body's own corner across, that corner
+    /// again along. A body a clamp put on a join misses it by metres rather than by centimetres.
     /// </para>
     /// </remarks>
     [Theory]
@@ -849,12 +852,18 @@ public class JunctionClaimTests
         world.Cars.Broken[car] = true;
         world.Cars.VelocityMps[car] = Vector2.Zero;
 
-        var acrossM = (WidestLaneM(world.Roads) * 0.5f) + world.Cars.BuildOf(car).FlankM;
-        var endM = world.Cars.BuildOf(car).HalfLengthM;
-        var reachM = MathF.Sqrt((acrossM * acrossM) + (endM * endM)) + StepM;
+        // The furthest a box this size can reach off a line whatever angle it crosses that line at, which is
+        // the circle it turns inside. Read at its flank, the bound is the one an aligned body keeps and a
+        // body lying across the line misses by centimetres — which is a bound on the pose and not on the
+        // clamp this is looking for.
+        ref readonly var build = ref world.Cars.BuildOf(car);
+        var cornerM = MathF.Sqrt((build.HalfLengthM * build.HalfLengthM) + (build.FlankM * build.FlankM));
+        var acrossM = (WidestLaneM(world.Roads) * 0.5f) + cornerM;
+        var reachM = MathF.Sqrt((acrossM * acrossM) + (cornerM * cornerM)) + StepM;
+        var endM = build.HalfLengthM;
         var overM = Config.IntersectionReachM;
 
-        Span<LaneSlot> slots = stackalloc LaneSlot[32];
+        Span<LaneClaim> slots = stackalloc LaneClaim[32];
         for (var down = -overM; down <= overM; down += endM)
         {
             for (var across = -overM; across <= overM; across += endM)
@@ -864,13 +873,13 @@ public class JunctionClaimTests
 
                 foreach (var way in world.Occupancy.OccupiedWays)
                 {
-                    if (world.Occupancy.WayIsLane(way)) continue;
+                    if (world.Ways.KindOf(way) != WayKind.Join) continue;
 
-                    var join = world.Occupancy.WayIndex(way);
+                    var join = world.Ways.RoadTurnOf(way);
                     var count = world.Occupancy.CopyTo(way, slots);
                     for (var at = 0; at < count; at++)
                     {
-                        if (slots[at].Occupant != car || slots[at].Use != LaneUse.Obstruction) continue;
+                        if (slots[at].Occupant != car || !slots[at].IsLoose) continue;
 
                         var apartM = ToChainM(
                             world.Roads.JoinArcs(join), world.Roads.JoinLengthM(join),
@@ -918,19 +927,19 @@ public class JunctionClaimTests
     static int MovementOf(TownWorld world, int car)
     {
         var way = world.Cars.MovementWay[car];
-        return way == CarFleet.NoWay || world.Occupancy.WayIsLane(way) || world.BayWays.IsBayWay(way)
+        return way == CarFleet.NoWay || world.Ways.KindOf(way) != WayKind.Join
             ? CarFleet.NoWay
-            : world.Roads.TurnOfWay(way);
+            : world.Ways.RoadTurnOf(way);
     }
 
     /// <summary>Whether this join's own way has a stretch of this car on it, of the kind asked for.</summary>
-    static bool Holds(TownWorld world, int slot, int car, LaneUse use = LaneUse.Obstruction)
+    static bool Holds(TownWorld world, int slot, int car, ClaimsAsked asked = ClaimsAsked.Loose)
     {
-        Span<LaneSlot> slots = stackalloc LaneSlot[32];
-        var count = world.Occupancy.CopyTo(world.Occupancy.WayOfTurn(slot), slots);
+        Span<LaneClaim> slots = stackalloc LaneClaim[32];
+        var count = world.Occupancy.CopyTo(world.Ways.OfRoadTurn(slot), slots);
         for (var at = 0; at < count; at++)
         {
-            if (slots[at].Occupant == car && slots[at].Use == use) return true;
+            if (slots[at].Occupant == car && LaneOccupancy.Counts(slots[at], asked)) return true;
         }
 
         return false;
@@ -938,7 +947,7 @@ public class JunctionClaimTests
 
     /// <summary>
     /// A car standing on the road rather than in a bay, which is the one a body can be put anywhere: a bay
-    /// stands off the kerb and what is in one is deliberately left out of the road's book.
+    /// stands off the kerb and what is in one is deliberately left off the road's own ways.
     /// </summary>
     static int ACarOffTheParking(TownWorld world, string map)
     {

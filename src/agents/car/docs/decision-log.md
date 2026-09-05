@@ -10,13 +10,13 @@ tyres.
 **A car slowed at every zebra in the town whether or not the crossing was anybody's.** The pace was a
 second term of the speed profile beside the stop short of the paint, owed on every line that crossed a
 crossing, and it bound whenever paint was within reach — so the status panel read `P-4 yielding at a
-crossing` at 37 km/h on an empty crossing with nothing on the book against it. There was nothing to yield
+crossing` at 37 km/h on an empty crossing with nothing claimed against it. There was nothing to yield
 to: what had bound the car was the pace and not the ground.
 
-**A crossing is ground and the book already says whose it is.** A walker on the paint lays the band of the
-lane it stands in and a walker refused one lays an `Awaited` stretch (`TER-4c.1`, `TER-5e`), both of which
-cut a driver's grant like anything else on the lane; the stop short of the paint is read off that book.
-The pace was a second gate on a movement the book had already answered (`SIM-7`) — and, being owed whether
+**A crossing is ground and the claims on it already say whose it is.** A walker on the paint lays the band
+of the lane it stands in and a walker refused one lays a rejected claim (`TER-4c.1`, `TER-5e`), both of which
+cut a driver's grant like anything else on the lane; the stop short of the paint is read off those.
+The pace was a second gate on a movement the claims had already answered (`SIM-7`) — and, being owed whether
 or not anybody was there, it was the one term of the profile that no reading of the world could switch off.
 So it is gone: `CAR-7b` is retired, the number stays retired, and `Driving.CrossingPaceInCarLengthsPerS`
 went with it.
@@ -124,11 +124,11 @@ sight distance is its stopping distance from that figure: `super_cyan` had been 
 town of 150 m blocks.
 
 **What all of it exposed is that the town's spacing was buying margin from the fiction.** The ground a car
-reserves is the ground it could reach in a reaction time, projected against its pedal — so pedals two and a
+claims is the ground it could reach in a reaction time, projected against its pedal — so pedals two and a
 half times what any tyre could take had been quietly paying for the fleet's following distance. With honest
-ones the reservation is shorter and cars run into each other: **four of sixteen wreck on the fleet lap where
+ones the claim is shorter and cars run into each other: **four of sixteen wreck on the fleet lap where
 none did**, the exam's card 34 stopped completing its turn, and the allocation gate's warm-up doubled twice
-because a map now reaches its worst pile-up later. Setting the reservation against the planned speed instead
+because a map now reaches its worst pile-up later. Setting the claim against the planned speed instead
 removes the dependency and is wrong: a stopped car would hold road it could not have driven over, which
 `LaneOccupancyInATownTests` refuses and should. **The margin has to come from the driving model rather than
 from an engine figure, and that is not a change to a car's figures** — it is left standing, failing, and
@@ -598,7 +598,7 @@ an abandonment — four sites that can disagree about one fact, bought with one 
 that is already doing spline work.
 
 **What it drops is two courtesies and not the rule set**, and the list is closed in the requirement rather
-than left to the reader. The tempting version was a driver that ignores the road's book — it makes crashes
+than left to the reader. The tempting version was a driver that ignores the road's claims — it makes crashes
 immediately, which is what a rescue with nothing to fetch appears to want. But `RightOfWay` is the whole
 of why nobody is ever driven into on purpose, and a driver exempt from it is not a bad driver, it is a
 second physics. So a reckless driver runs the red and does not wait for somebody still on the kerb, and
@@ -733,13 +733,13 @@ every tyre has to show past the panels by `Tyre.ShowsPastTheBodyworkShare` of it
 the art rather than against another number in the same file; and no sheet may carry an opaque island too
 small to be a picture of anything.
 
-## 2026-08-22 — the book is the only thing a driver looks at
+## 2026-08-22 — the claims are the only thing a driver looks at
 
 The rays went. A driver on its route now reads what is in front of it, what that is and how far off it is
-out of the town's own book, in one walk of the ways it is driving — and a car on geometry of its own
-(`GroundAhead`) walks the ground under that geometry and asks the book who has it.
+out of the town's own claims, in one walk of the ways it is driving — and a car on geometry of its own
+(`GroundAhead`) walks the ground under that geometry and asks who has it.
 
-**What made it possible was putting everything that can be on a lane into the book.** It already held the
+**What made it possible was claiming everything that can be on a lane.** They already held the
 traffic. It now holds **anybody on foot in a lane** — on the paint or on bare tarmac, with a reading of its
 own, so that what a driver does about one is decided by what it is — and **the town's own furniture**, projected onto the lanes it
 stands on once when the town is laid. That last is the one a ray was genuinely still earning: the instrument
@@ -748,16 +748,16 @@ no prop in a carriageway at all, and the `Test` map has 38. The ray was paying e
 real towns do not contain and the fixture map does.
 
 **The two answers used to disagree, and that was the deeper reason.** A cast found a shape and could not
-say whose it was, so the distance was the geometry's and the naming was the book's. Where they were not
+say whose it was, so the distance was the geometry's and the naming came off the claims. Where they were not
 talking about the same body the reading came back `Unknown`, which is never driven round — and a
-reservation with nothing standing on it *yet* came back as an empty road, because a ray finds bodies and a
-reservation is empty ground. A driver was reading one world and being granted road out of another.
+claim with nothing standing on it *yet* came back as an empty road, because a ray finds bodies and such a
+claim is empty ground. A driver was reading one world and being granted road out of another.
 `HeadwayKind.Unknown` survives for exactly one caller now: a car under its own template, whose ways are not
 the ways it is driving.
 
 It is also most of what a car cost. Odesa's cars went **375 → 171 µs** of the ranked tick and the frame
 **519 → 407 µs**, with the corridor box, the moving-grid query, the followed-body projection, the clearance
-scan and the three ray chains all gone. Nothing is a tick behind the world: the book is rebuilt from the
+scan and the three ray chains all gone. Nothing is a tick behind the world: the claims are rebuilt from the
 bodies in phase 2, before any driver decides, so every reader sees the same one.
 
 ## 2026-08-22 — a driver looks as far as it needs to stop, and not as far as the pedal could ask for
@@ -789,14 +789,14 @@ this. Lane widths, junction radii, bays and the ways laid into and out of them w
 and re-sizing a town per car is not a fleet, it is nineteen towns. What follows from keeping them is the
 doctrine the change is really about: **what the town precomputes is a recommendation** (CAR-10). A route is
 a chain of lanes so that a driver does not search the network every metre; a bay's way is a shape with a
-reservation and a right of way already attached to it. Neither is a rail. A car holds its line with its own
+claim and a right of way already attached to it. Neither is a rail. A car holds its line with its own
 steering at its own speed, cuts a corner a shorter car takes cleanly, and where the town's own shape does
 not suit the body that turned up — a van whose axle sits further back than the nominal car's, a truck whose
 circle is wider — it lays the same shape again from the pose it is actually standing in (CAR-10b). Nothing
 is shuffled onto a line to make a drawing fit.
 
 **It found a real defect in the junction protocol.** A stronger movement takes ground from a weaker one
-while the weaker one can still stop short of the box (TER-5e), and the ranks are compared off a book laid at
+while the weaker one can still stop short of the box (TER-5e), and the ranks are compared off claims laid at
 the top of a tick from what the last decision wrote. With one car repeated, the two readings never
 disagreed; with cars that brake at their own rates, a car could cross into "cannot stop" inside the tick it
 was traded against — a stronger movement waved across a body already committed. Commitment is now judged a

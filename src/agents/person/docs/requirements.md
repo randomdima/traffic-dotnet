@@ -49,9 +49,28 @@ given what is left of that in front of the nearest body already on it **that is 
 is granted ground somebody else will still be standing on once they have stopped**, which is the whole of
 what holds one walker off the next.
 
-**What is under way is the whole of what cuts it** (PER-24). A body going nowhere is on the same ground and
-in the same book, and it is left out of this one question because standing behind it is not what a walker
-does about it.
+**Everything holding ground in front cuts it, under way or not** (TER-4c.3). A body going nowhere holds the
+ground it stands on for exactly as long as it stands there, so a walk meeting one is cut at the metre that
+stretch begins and the walker stops within its stopping distance of it. There is no second answer: the
+permission a walker walks on **is** the stretch it was granted, and a grant that ran past a body somebody was
+standing on would be the town telling one walker two different things about one piece of ground.
+
+**A walker on no way of the pavement is granted on the ground itself.** Off every line there is no stretch to
+be cut on, so the question is put to the ways under the ground the body would step into: it may step where no
+other body is standing and may not where one is. The state is the common one and not a corner of the rule —
+every walk begins before its first point is taken, a step aside puts a body off its line, and the clock that
+gives up a leg (PER-8) hands out another line to begin — so a walker granted nothing to be cut by is a walker
+granted the whole town. **Only bodies bind it**, and not ground somebody else was merely granted: a body over
+the metres takes them from a reach (TER-4c.3), which is what keeps a crowd from holding every metre of its own
+pavement.
+
+**Going nowhere decides what a walker does about the body, never whether it is cut at one** — and it is a
+fact about the body's own movement, whoever or whatever is moving it, never about how that body's ground was
+written down. A walker on a line of its own, a body under a hand, one being shoved and a car that has mounted
+a kerb are four ways of writing the same ground. One **coming through** ground the walk wants — moving across
+it, or down it faster than a walk goes — is waited for where it is, because the ground is about to be its.
+One going nowhere is stepped round instead (PER-24), which is a step taken with the room the grant still
+leaves in front and never a licence to walk into the stretch itself.
 
 **And in front is a fact about the two bodies rather than about the ground they hold.** A stretch begins a
 margin behind its owner, so one that reaches back over the asker belongs to a body that may be level with it
@@ -78,23 +97,60 @@ other ground, so a walk is never held up by one — that is a fact about the sha
 and not a test anybody runs.
 
 **Waiting behind a body that is under way is not being stuck**, and the clock that gives a leg up (PER-8)
-does not run while it is. It is now the only thing a walker waits behind at all, so the clock is left for
-a body that is genuinely getting nowhere — one whose step round is refused by the ground on both sides, or
-one being pushed.
+does not run while it is: the ground in front is ground its holder is about to give back, so the wait ends
+itself and a clock counting it would be counting nothing.
 
-**The pavement's book holds walkers and nothing else, and a zebra is where that matters.** The paint is a
-walk laid over a carriageway, so a car crossing one has a stretch of the *lane* and writes nothing on the
-walk (TER-5c.1); what cuts a walker's grant there is that stretch, looked up where the crossing runs over
-the lane. The mirror of it holds on the other side: a person standing anywhere on a carriageway is a stretch
-of the lane it stands in, and cuts the road a driver is granted
-([world/road](../../../world/road/docs/requirements.md)).
+**Standing at a body that is going nowhere is the opposite, and the clock must run.** Nothing about that
+stretch ends on its own, so a walker cut at one is stopped rather than waiting — and it goes on deciding
+while it stands there, or the clock never runs, no line is ever drawn round, and the walk is over. A step
+round is what it tries first (PER-24); the clock is what answers when the step is refused by the ground on
+both sides, or when there was never room in front to take one.
+
+**And a standstill is read off the body holding the walker, not off what the walker did about it.** A step
+round is the usual sign of one and is not the rule: a body standing at the very place the walk was going is
+never stepped round, and a walker on no way of the pavement is held by the ground rather than by a queue. **A
+body on no way is itself a standstill to whoever it holds**, however busily it is walking — what is on a way
+is in a queue with an order to it and gives its ground back down the line, and two bodies off every way can
+hold each other with nothing to break it but the clock.
+
+**The pavement is claimed by whatever is standing on it** (TER-4c.2), a car that has mounted a kerb
+included: it is a stretch of the footway under it, cutting the walk at its own near edge like anything else
+there and stepped round once it has stopped, because a car that claims nothing here is a car a walk goes
+straight through. The mirror of it holds on the other
+side — a person standing anywhere on the road's own ground is a stretch of it and cuts the road a driver is
+granted ([world/road](../../../world/road/docs/requirements.md)): **the lane it stands in, the joins of a
+junction it is under, and the ways of a parking bay it is standing in** (`GEN-4f`), which are one numbering
+and are walked in one pass. What it holds of each is what its own body covers of that way, and the margin a body
+on a road is owed over that; it takes no ground beyond itself, because what it is owed is a driver who can
+stop (`PER-1`).
+
+**A zebra is where that stops for a car, because there the two networks are one piece of ground.** The paint
+is a walk laid over a carriageway, so a car on one has a stretch of the *lane* and writes nothing on the walk
+(TER-5c.1); what cuts a walker's grant there is that stretch, looked up where the crossing runs over the
+lane. **A body on foot standing on the paint is a stretch of the walk under it like anywhere else**, because
+that look-up is not made for it: what a walker asks the road is what traffic is *coming*, and somebody
+standing in a lane is not an answer to that.
 
 ## Getting past
 
 **PER-24** A walker **steps round a body that is going nowhere rather than waiting behind it**. What counts
 as one is what a driver counts (`E-4`): a wreck, somebody knocked down, a walker standing about or shoved
-off its own line — and **never somebody under way along the same lane**, who is followed and never stepped
-round. The step is taken the tick the walk runs into one, it is to the walker's **right**, and it is **the
+off its own line — and **never a body under way along the same lane**, who is followed and never stepped
+round.
+
+**The step is a re-aim and never a permission** (TER-4c.3, PER-13). The body being stepped round holds its
+stretch of the way like anything else and the grant is cut at it like anywhere else, so what a step is taken
+with is the room the grant still leaves in front — the walker turns off its line while it has ground to walk
+into, and stands where the grant runs out. A step that could be walked past the body would be a walker
+crossing ground it was refused, which is the one thing no agent may do.
+
+**A step is only ever taken past a body the feet can get past, and that is the walker's own pace.** A body
+going the walker's way no faster than a walker walks is one a step gets round, which is what a walker off
+its own line for a stride is; **one coming across the walk, or down it faster than a walk goes, is waited
+for** — no step gets past a body that is through the ground before the feet are. It is the bar a walker
+holds a rescue to at a crossing (PER-15) said of the pavement, and it is asked of the body and not of the
+kind of body: **a car crossing a footway and a person crossing it are the same fact to whoever is walking
+there**. The step is taken the tick the walk runs into one, it is to the walker's **right**, and it is **the
 least that gets past** — the two bodies and the room between shoulders, off the aim the walk already had.
 
 **Nothing is planned and nothing is remembered.** The line is untouched, the aim comes back onto it as the
@@ -127,10 +183,10 @@ pavement, and needs none of it.
 ## Crossing
 
 **PER-15** **A walker steps onto a crossing when the lane it is stepping into is inside nobody's road, and
-never on a gap in the traffic.** It is `PER-14`'s rule said of paint: a reservation runs from a car's own
+never on a gap in the traffic.** It is `PER-14`'s rule said of paint: a claim runs from a car's own
 tail to where that car is committed to being able to stop, so a car far enough away to stop for this body
 holds none of that ground and one that is not, does. **The time something would take to arrive is the
-arithmetic behind that reservation** and is not computed a second time here.
+arithmetic behind that claim** and is not computed a second time here.
 
 **A zebra is a road and not one thing, and it is crossed a lane at a time.** A body on the paint holds the
 band of the lane it is standing in and the band in front of it, and never a third: a lane it has cleared is
@@ -158,11 +214,11 @@ stop is not the stopper's, or a car waiting at its own red would hold the paint 
 whose green it is.
 
 **A refusal is written down, and that is what the traffic gives way to.** A body refused the band it asked
-for puts the ask itself into the road's book — not as a body and not as road anybody has taken, so no
+for claims the ask itself on the road — not as a body and not as road anybody has taken, so no
 driver's grant is cut at it — and **a car approaching that paint is stopped short of it** (TER-5e). A body
 stopped short of a crossing holds none of it, so the band is free on the next tick and the walker steps into
 ground the traffic has given up rather than into a gap it found. A thing a driver must be held off that is
-in no book is a thing the driver cannot see (TER-4c), and a right of way nobody can see is not one.
+claimed nowhere is a thing the driver cannot see (TER-4c), and a right of way nobody can see is not one.
 
 **The stop is bounded by the road it takes to make one**, which is what makes the priority safe rather than
 merely absolute: a car too close to stop keeps the paint, the band stays refused, and the wait lasts another
@@ -230,7 +286,7 @@ car there is the driver looking at what is in front of it.
 That rule is a fact about the shape of the walking network, and a map with no pavement has laid no edges at
 all. Where there is a network, a walker with no trip wanders it and crosses on the paint like any other.
 
-**What it waits for is ground nobody has taken, and never a gap in the traffic.** A reservation is the road
+**What it waits for is ground nobody has taken, and never a gap in the traffic.** A claim is the road
 a driver is committed to ([world/road](../../../world/road/docs/requirements.md)), so a body put down
 beyond every one of them is a body every car on the road can still stop for. Waiting for an empty road
 instead would be a walker who only ever stepped out when nothing was coming, which is a walker no driver is
@@ -266,7 +322,7 @@ lawfully pass, on a road whose only other ground is a verge. **A bend is not cut
 what is in front of it and not along the road, so the lurch is no longer than the chord that stays inside
 the lane, which is the corner formula the traffic is held to.
 
-**It asks nothing of the traffic and the traffic is what keeps it alive.** A reservation cut at this body is
+**It asks nothing of the traffic and the traffic is what keeps it alive.** A claim cut at this body is
 a car committed to stopping short of it, so the road in front of it is its own to walk down; what it will
 not walk into is a **body** — a car that has stopped, a wreck, somebody else reeling down the same lane —
 because those it walks into rather than the other way round, and nobody is holding off on its behalf.
@@ -304,7 +360,7 @@ a stop on the ground rather than on any intent of its own, and it is still there
 about being knocked over wears off on a clock, and only a hospital puts somebody back on their feet.
 
 **Everything the trip was holding is given back at the moment they go down.** A casualty is not going to
-walk to the building it had claimed or drive the car it had booked, and a claim held by a body lying in
+walk to the building or drive the car it had claimed, and a claim held by a body lying in
 the road is a place removed from the town for as long as the rescue takes.
 
 **A casualty is a body in the road and not somebody crossing it.** They hold the ground they lie on and

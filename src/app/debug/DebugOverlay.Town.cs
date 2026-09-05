@@ -135,40 +135,30 @@ internal sealed partial class DebugOverlay
         var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
 
-        // Every piece of every run, rather than every lane of the town: the two come to the same
-        // ground where a network covers it, and a piece no link is travelled over is ground this
-        // layer's question is not about.
+        // <b>Every lane of the town, whole</b> (OBS-2d). A lane is a way over the whole of its
+        // own line — a body standing inside the setback at either end is written onto it there — so a layer
+        // that drew only the stretch a route travels left the blocks at every node standing on nothing.
+        // The setbacks are still where the movements take over, and those are drawn over the same ground.
         var roads = world.Roads;
-        var driving = world.Driving.Runs;
-        for (var link = 0; link < driving.LinkCount; link++)
+        for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            foreach (var lane in driving.PiecesOf(link))
-            {
-                // Between the two setbacks its own ends carry, which is the stretch of it anything drives:
-                // the rest is under the movements through the box, and drawn as lane as well it is the same
-                // spur past every corner the walking side had.
-                Chain(
-                    ref draw, roads.ArcsOf(lane), roads.JoinedAtM(lane), roads.LaneLengthM[lane] - roads.LeftAtM(lane),
-                    sagM, pitchM, bothWays: false, Theme.DrivingNodes, viewCentreM, viewSpanM);
-            }
+            Chain(
+                ref draw, roads.ArcsOf(lane), sagM, pitchM, bothWays: false, Theme.DrivingNodes, viewCentreM,
+                viewSpanM);
         }
 
         Movements(ref draw, roads, config, sagM, pitchM, Theme.DrivingNodes, viewCentreM, viewSpanM);
         BayApproaches(ref draw, world.BayWays, sagM, pitchM, Theme.DrivingNodes, viewCentreM, viewSpanM);
 
-        // Each stretch between the stations a walk actually joins and leaves its lane at, because the
-        // mitres below cover the rest: drawn whole, the ground either side of every node is drawn twice
-        // and a spur of it runs past the corner into the node, which is a walk nobody walks.
+        // And the same on the pavement, for the same reason: a walk covers a lane between the stations it
+        // joins and leaves at, and the claims cover the whole line.
         var walking = world.Walking;
-        var runs = walking.Runs;
-        for (var link = 0; link < runs.LinkCount; link++)
+        var foot = world.Foot;
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
-            foreach (var edge in runs.PiecesOf(link))
-            {
-                Chain(
-                    ref draw, walking.LaneOf(edge), walking.WalkedFromM(edge), walking.WalkedToM(edge), sagM, pitchM,
-                    OnOneLine(walking, edge), Theme.WalkingNodes, viewCentreM, viewSpanM);
-            }
+            Chain(
+                ref draw, walking.LaneOf(edge), sagM, pitchM, OnOneLine(walking, edge), Theme.WalkingNodes,
+                viewCentreM, viewSpanM);
         }
 
         Mitres(ref draw, world, sagM, pitchM, Theme.WalkingNodes, viewCentreM, viewSpanM);
@@ -179,8 +169,10 @@ internal sealed partial class DebugOverlay
 
     /// <summary>
     /// The corners of the walking network: from each stretch arriving at a node, the town's own mitre
-    /// onto each stretch it may leave for, read off the network rather than laid again here. Turning
-    /// round on the spot is left out — drawn, it is a ring at every node, over the corners worth seeing.
+    /// onto each stretch it may leave for, read off the network rather than laid again here. <b>Every
+    /// mitre the town lays</b> (OBS-2d) — a way of the pavement with no line under it here is a
+    /// claim the picture cannot account for, and turning round on the spot lays none
+    /// (<see cref="WalkingNetwork.JoinArcs"/>).
     /// </summary>
     /// <remarks>
     /// Dotted where a mitre meets a stretch, as a junction movement is (<see cref="Movements"/>). Where
@@ -200,9 +192,9 @@ internal sealed partial class DebugOverlay
             var turns = walking.TurnsFrom(edge);
             for (var turn = 0; turn < turns.Length; turn++)
             {
-                // The turn-around, and the corner the lane carries: one is a walk nobody makes and the
-                // other is already drawn, as the bend at the end of the stretch that owns it.
-                if (turns[turn] == foot.Reverse(edge) || walking.TurnSlotAt(edge, turn) == walking.TailOf(edge)) continue;
+                // The corner the lane carries is already drawn, as the bend at the end of the stretch that
+                // owns it.
+                if (walking.TurnSlotAt(edge, turn) == walking.TailOf(edge)) continue;
 
                 // A mitre lies on top of the mitre back the other way exactly when both the lanes it joins
                 // do: it is the corner between their two lines, and where those are single lines so is it.
@@ -266,7 +258,7 @@ internal sealed partial class DebugOverlay
     /// <remarks>
     /// <para>
     /// <b>Drawn in the driving colour and not a colour of their own</b>, because that is what they are —
-    /// ways of the same book, in the same table of what is driven over what. A layer that gave a car park
+    /// ways of the same numbering, in the same table of what is driven over what. A layer that gave a car park
     /// its own colour would be saying a bay is a different kind of thing, which is the reading this whole
     /// slice exists to refuse.
     /// </para>

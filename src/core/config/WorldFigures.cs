@@ -25,6 +25,20 @@ internal sealed class RoadFigures
     /// </summary>
     public float LaneWidthInCarWidths { get; init; } = 1.8f;
 
+    /// <summary>
+    /// <b>How far past a way's own edge a body has to reach before it is on that way</b>, in car widths
+    /// (TER-4c.2) — the line has to be crossed and not merely touched.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is what keeps a graze from being claimed.</b> A body is written onto every way it is on and a
+    /// stretch has no width, so a wing mirror over the paint would claim a car's place in the next lane for as
+    /// long as it hung there — and the two lanes of every carriageway would trade bodies on the noise in a
+    /// pose. Three twentieths of a car — 30 cm at the shipped one — is enough that a body has to be leaning
+    /// into the next lane rather than brushing it, and well short of the half-body that would let a car sit
+    /// in one unseen.
+    /// </remarks>
+    public float CrossesOntoAWayInCarWidths { get; init; } = 0.15f;
+
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
 
     /// <summary>
@@ -178,6 +192,20 @@ internal sealed class TerrainFigures
     /// factor: it records the wheel <em>ploughing</em> it rather than a slide at all, and takes the bar.
     /// </summary>
     public float PavedMarkFactor { get; init; } = 0.8f;
+
+    /// <summary>
+    /// How wide a bucket the ground's own broad phases are laid over — the roads, the junction discs, the
+    /// kerb fillets and the car parks. Near a road's own width, so a query on a street looks at the street
+    /// and its neighbours and not at the block.
+    /// </summary>
+    public float GroundBucketM { get; init; } = 8f;
+
+    /// <summary>
+    /// How finely the ground is walked by a caller that has to <em>sample</em> it — a walk checking that a
+    /// stretch stays on ground a person may stand on, a camera looking for the nearest road. It is a step
+    /// and never a resolution: what the ground is at a point is exact wherever it is asked.
+    /// </summary>
+    public float GroundStepM { get; init; } = 1f;
 }
 
 /// <summary>What a tyre has to be doing before it writes on the ground, and how much of that the town keeps.</summary>

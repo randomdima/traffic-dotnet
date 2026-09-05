@@ -1,40 +1,6 @@
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// Which arm of a junction a car comes from or leaves by, on a map whose every road runs one of the four
-/// ways. <b>The lattice's bearings and not the compass's</b>: <see cref="ExamArm.North"/> is the way the
-/// rows count up, which is up the screen.
-/// </summary>
-internal enum ExamArm : byte
-{
-    North,
-    East,
-    South,
-    West,
-}
-
-/// <summary>
-/// Where a card's junction stands relative to the cell that holds it. A cell's own node is the ordinary
-/// answer; the other two are for the shapes a lattice of crossings cannot itself be
-/// (<see cref="ExamPlan"/>).
-/// </summary>
-internal enum ExamStage : byte
-{
-    /// <summary>The cell's own node — a crossroads or a T, depending on how many arms it has.</summary>
-    Cell,
-
-    /// <summary>The head of the cell's spur, which is a dead end (TER-5a).</summary>
-    Head,
-
-    /// <summary>
-    /// The cell's own node again, with the paint this card is about <b>struck in the middle of its south
-    /// arm</b> rather than on an arm of the junction — a crossing belonging to no junction (TER-6), which
-    /// is the one place the traffic has nothing but the body on the paint to go on.
-    /// </summary>
-    MidBlock,
-}
-
-/// <summary>
 /// One car a card stages: the arm it stands on, the arm it is sent out by, and how far back from the
 /// junction it starts. <b>The movement is the pair of arms and never a name</b> — which of straight, near
 /// side and across it is falls out of the two bearings, exactly as the road graph works it out.
@@ -161,6 +127,13 @@ internal static class ExamCards
 
     const float BackDownTheSpurM = 45f;
 
+    /// <summary>
+    /// Where the <em>other</em> car of a pair sharing one arm is sent, so that the two are not ordered to
+    /// one metre of it. Whichever of them crosses second would otherwise find the first parked on its own
+    /// place, and the card would be reporting the order they went in rather than what it is about.
+    /// </summary>
+    const float WellPastM = 60f;
+
     public static ReadOnlySpan<ExamCard> All => Table;
 
     /// <summary>How many cards there are, which is also the lattice: six cells by six.</summary>
@@ -226,9 +199,9 @@ internal static class ExamCards
         Card("The straight keeps the ground a near-side turn merges over", ExamStage.Cell, spur: false,
             ExamAsks.Unhindered,
             Drives(ExamArm.West, ExamArm.East), Drives(ExamArm.South, ExamArm.East)),
-        Card("The turn across gives way to the straight it merges in front of", ExamStage.Cell, spur: false,
+        Card("The turn across gives way to the straight it merges in with", ExamStage.Cell, spur: false,
             ExamAsks.GivesWay,
-            Drives(ExamArm.North, ExamArm.East), Drives(ExamArm.West, ExamArm.East)),
+            Drives(ExamArm.North, ExamArm.East), Drives(ExamArm.West, ExamArm.East, BackM, WellPastM)),
         Card("The straight outranks both the near side and the across", ExamStage.Cell, spur: false,
             ExamAsks.Unhindered,
             Drives(ExamArm.South, ExamArm.North), Drives(ExamArm.East, ExamArm.South),

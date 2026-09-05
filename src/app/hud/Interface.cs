@@ -104,8 +104,14 @@ internal sealed class Interface(TrimFigures trims)
     /// <summary>The popup under the question mark: every key the player has.</summary>
     public ControlsCard Controls { get; } = new();
 
+    /// <summary>The card over the town while the map somebody picked is being opened (OBS-2n).</summary>
+    public MapOpening Opening { get; } = new();
+
     /// <summary>The corner the run reads itself off: the rate, the map and the pace, over what they cost.</summary>
     public StatusPanel Status { get; } = new();
+
+    /// <summary>The opposite corner: the one unit picked out, in figures (OBS-2m). Drawn only while there is one.</summary>
+    public UnitPanel Unit { get; } = new();
 
     public DebugSwitches Switches { get; } = new();
 
@@ -177,8 +183,8 @@ internal sealed class Interface(TrimFigures trims)
                 case "nodes":
                     Switches.Toggle(ref Switches.Nodes);
                     break;
-                case "reservations":
-                    Switches.Toggle(ref Switches.Reservations);
+                case "claims":
+                    Switches.Toggle(ref Switches.Claims);
                     break;
                 case "collision":
                     Switches.Toggle(ref Switches.Collision);
@@ -198,8 +204,8 @@ internal sealed class Interface(TrimFigures trims)
                 default:
                     throw new ArgumentException(
                         $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
-                        "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, reservations, " +
-                        "collision, turn-circles, ruler, track.");
+                        "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
+                        "claims, collision, turn-circles, ruler, track.");
             }
         }
     }
@@ -227,6 +233,11 @@ internal sealed class Interface(TrimFigures trims)
         Vector2 atPx, Vector2 uiPx, bool primary, bool hasTown, Camera.Camera2D camera, out MenuChoice choice)
     {
         choice = MenuChoice.None;
+
+        // OBS-2n: while a map is opening the card is the whole of the interface, so there is nothing here
+        // to press — not even the screen button, which is not drawn either. The click is taken rather than
+        // passed down: a second map picked while the first is on the wire is a run opening two towns.
+        if (Opening.Showing) return ClickTaken.Yes;
 
         // Before everything, because it is the one button drawn on both screens (OBS-2l) — and before the
         // panel, since at the start it stands in the corner the gear would have had.
@@ -296,6 +307,10 @@ internal sealed class Interface(TrimFigures trims)
 
         if (Status.Click(atPx)) return ClickTaken.Yes;
 
+        // Before the town, like every other panel: a click on a car's own read-out that fell through and
+        // selected whatever was behind it would be the one panel that deselected what it is about.
+        if (Unit.Click(atPx)) return ClickTaken.Yes;
+
         return Switches.TrackFigures && Track.Click(atPx) ? ClickTaken.Yes : ClickTaken.No;
     }
 
@@ -328,6 +343,7 @@ internal sealed class Interface(TrimFigures trims)
         Overlay.TownChanged();
         Ruler.TownChanged();
         Track.TownChanged();
+        Opening.Stood();
         if (behindTheMenu) Menu.StandAtTheStart();
         else Menu.ShutOntoTheTown();
 
@@ -345,6 +361,15 @@ internal sealed class Interface(TrimFigures trims)
         var draw = new ScreenDraw(into);
         var ground = new ScreenDraw(under);
         underWritten = 0;
+
+        // OBS-2n: while a map is opening, the card is the whole of the interface. The town behind it is the
+        // one being left, and a read-out, a legend and a map list over it are furniture about a run that is
+        // already over — the layers included, since a debug mark on the old town outlives the old town.
+        if (Opening.Showing)
+        {
+            Opening.Draw(ref draw, frame.UiPx);
+            return draw.Written;
+        }
 
         var world = frame.World;
 
@@ -378,10 +403,6 @@ internal sealed class Interface(TrimFigures trims)
                     ref draw, frame.Camera, frame.UiPx, frame.Camera.WorldAt(frame.PointerPx, frame.UiPx));
             }
 
-            // What the selected unit is doing, standing at the unit rather than in a corner (CTL-1). Over
-            // the brackets it is laid against and under every panel.
-            UnitLabel.Draw(ref draw, frame.UiPx, world, frame.Config, frame.Camera, claimed);
-
             // GEN-1b: <b>the read-out and the legend say what a run is, and the start menu is not one.</b>
             // The ring behind the panel is a picture rather than a town somebody opened, and a frame rate
             // and a scale bar over it are answers to questions nobody has asked yet.
@@ -396,6 +417,11 @@ internal sealed class Interface(TrimFigures trims)
                 {
                     Track.Draw(ref draw, frame.PointerPx, Status.Box.Bottom + Theme.GapPx, track);
                 }
+
+                // OBS-2m: everything the interface has to say about the selection, in the opposite corner —
+                // and nothing of it on the town, where the brackets and the path stand instead (CTL-1). It
+                // is drawn whether or not the unit is on the picture, which is half of what it is for.
+                Unit.Draw(ref draw, frame.UiPx, frame.PointerPx, world, claimed);
 
                 // The legend is furniture, has no switch, and is drawn from the moment a town is standing.
                 ScaleLegend.Draw(ref draw, frame.UiPx, frame.Camera.PixelsPerMetre);

@@ -5,34 +5,34 @@ namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>What a car crossing a junction holds of its own join</b>: the runs of that join the other ways
-/// through the box are driven over it at, laid ahead of the road the car's own reservation has reached.
+/// through the box are driven over it at, laid ahead of the road the car's own claim has reached.
 /// </summary>
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// <b>The ground a car crossing a junction has committed to on its own join</b>, laid into the road's
-    /// book from the car's own field — the runs of that join the other ways through the box are driven over
+    /// <b>The ground a car crossing a junction has committed to on its own join</b>, claimed from the car's
+    /// own field — the runs of that join the other ways through the box are driven over
     /// it at (<see cref="WayCrossings.OwnRuns"/>).
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>Its own join and nothing else</b> (TER-5c). Writing a stretch onto every join it is driven over
-    /// would put it in front of the traffic on those joins in their own book, and it would also be a car
-    /// reserving several ways at once, none of which it will ever be on, and a box washed over by whoever
+    /// would put it in front of the traffic on those joins in their own metres, and it would also be a car
+    /// claiming several ways at once, none of which it will ever be on, and a box washed over by whoever
     /// merely aimed at it. What the runs are for is the same car coming the other way — it reads them where
     /// they lie
     /// (<see cref="WhereTheGroundIsCrossed"/>), which is the same fact asked from the other end.
     /// </para>
     /// <para>
-    /// <b>They are laid where the car's own reservation has not reached yet</b>, and that is the whole of
-    /// why the claim exists: a car's road ahead is a braking distance and no more, which does not reach the
-    /// place two lines meet until it is nearly on top of the junction. Under the body the same ground is the
-    /// car's own reservation (<see cref="AskForTheGround"/>), which carries its length and its swing.
+    /// <b>They are laid where the car's own committed claim has not reached yet</b>, and that is the whole of
+    /// why the claim ahead exists: a car's road ahead is a braking distance and no more, which does not reach
+    /// the place two lines meet until it is nearly on top of the junction. Under the body the same ground is
+    /// the car's own claim (<see cref="AskForTheGround"/>), which carries its length and its swing.
     /// </para>
     /// <para>
-    /// Re-laid from the car every tick for the same reason a claim is: nothing has to be released, a
-    /// crossing cannot outlive the car making it, and a car wrecked or taken over by a hand is out of the
-    /// book on the next rebuild without anything having had to notice.
+    /// Re-laid from the car every tick for the same reason every claim is: nothing has to be released, a
+    /// crossing cannot outlive the car making it, and a car wrecked or taken over by a hand is gone
+    /// on the next rebuild without anything having had to notice.
     /// </para>
     /// </remarks>
     void PlaceTheCrossing(int car)
@@ -65,16 +65,16 @@ internal sealed partial class TownWorld
     /// </para>
     /// <para>
     /// <b>What is laid is the run less the road</b>, which is what keeps one body to one metre of one way.
-    /// The car's own reservation on this join is a stretch of the same book carrying its length, its swing
-    /// and where it comes to rest; a claim over the same metres is that car laid over itself — two occupants
-    /// to every walk of the way and two washes to the overlay — and it holds nothing the reservation was not
-    /// holding already. The two are read as one set (<c>Spoken</c>), so what another movement is refused by
+    /// The car's own claim on this join is a stretch of the same way carrying its length, its swing
+    /// and where it comes to rest; a second claim over the same metres is that car laid over itself — two
+    /// occupants to every walk of the way and two washes to the overlay — and it holds nothing the first was
+    /// not holding already. The two are read as one set (<see cref="ClaimsAsked.Held"/>), so what another movement is refused by
     /// is their union and does not turn on where the seam between them falls.
     /// </para>
     /// <para>
     /// <b>Which is the ground ahead of the car's own road and nothing else</b>: what it is committed to and
-    /// has not reached. <b>Behind the body there is nothing to claim</b>, because the reservation already
-    /// begins a margin behind the tail (<see cref="SimConfig.CarTailMarginM"/>) — the width the book's
+    /// has not reached. <b>Behind the body there is nothing to claim</b>, because the committed claim already
+    /// begins a margin behind the tail (<see cref="SimConfig.CarTailMarginM"/>) — the width a
     /// one-dimensional reading of a swinging body threw away, carried on every way the car is on rather than
     /// added back on this one. Released at the bare tail instead, Odesa's soak wrecks cars.
     /// </para>
@@ -104,11 +104,18 @@ internal sealed partial class TownWorld
     /// </remarks>
     void LayTheMovement(int car, int movementWay)
     {
+        // <b>The claim supersedes whatever this car had merely stated here</b> (TER-5g). The two are the
+        // same ground said twice — the granted claim is the soft one made specific, at the rank a movement
+        // carries — and a car holding both is one body counted twice on one way (TER-5c.2). It is withdrawn
+        // rather than skipped at the ask, because a movement is taken mid-walk as well as at the rebuild.
+        _occupancy.Withdraw(movementWay, car, ClaimsAsked.Stated);
+
         // What the car's own road holds of this way, in that way's own metres.
         var beginsM = WhereTheMovementBeginsM(car, movementWay);
-        var roadFromM = Cars.ReserveFromM[car] - beginsM;
-        var roadToM = Cars.ReserveToM[car] - beginsM;
+        var roadFromM = Cars.ClaimFromM[car] - beginsM;
+        var roadToM = Cars.ClaimToM[car] - beginsM;
         var right = RightOnTheMovement(car, movementWay);
+        var priority = PriorityOnTheMovement(car);
 
         foreach (ref readonly var run in _crossings.OwnRuns(movementWay))
         {
@@ -119,9 +126,24 @@ internal sealed partial class TownWorld
 
         void Claim(float fromM, float toM)
         {
-            if (toM > fromM) _occupancy.Add(movementWay, fromM, toM, 0f, car, LaneUse.Claimed, right: right);
+            if (toM > fromM) _occupancy.ClaimAhead(movementWay, fromM, toM, 0f, car, priority, right: right);
         }
     }
+
+    /// <summary>
+    /// <b>How strongly a car holds the ground of its own movement</b> (TER-5g): a body's, once it is past the
+    /// point it could stop short of the box, and a rescue's while it is answering a call
+    /// (<see cref="ClaimPriority.Special"/>) — otherwise ground granted and not reached like anybody else's.
+    /// </summary>
+    /// <remarks>
+    /// <b>Being committed outranks carrying a light</b>, and that order is the whole of it: what a body
+    /// already committed to a box holds, nothing takes (TER-5e), and a rescue's claim is above every rank a
+    /// road carries of itself but below a body that can no longer stop.
+    /// </remarks>
+    ClaimPriority PriorityOnTheMovement(int car) =>
+        Cars.CommittedToTheBox[car] ? ClaimPriority.Hard
+        : Cars.BlueLight[car] ? ClaimPriority.Special
+        : ClaimPriority.Firm;
 
     /// <summary>
     /// <b>The metres the answer took off the road, handed over to the claim that was carrying the rest of the
@@ -130,9 +152,9 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The seam moves and the union does not.</b> A reservation and the claim beyond it are laid as one
+    /// <b>The seam moves and the union does not.</b> A committed claim and the one beyond it are laid as one
     /// piece of ground with the join between them wherever the road happened to reach
-    /// (<see cref="LayTheMovement"/>), and every reader takes them as one set (<c>Spoken</c>). Cut without
+    /// (<see cref="LayTheMovement"/>), and every reader takes them as one set (<see cref="ClaimsAsked.Held"/>). Cut without
     /// this, the metres between the answer and the ask fell out of both, and a car sitting in a box was
     /// sitting on ground a crossing movement was free to be granted.
     /// </para>
@@ -151,22 +173,41 @@ internal sealed partial class TownWorld
         if (isM >= wasM) return;
 
         var right = RightOnTheMovement(car, movementWay);
+        var priority = PriorityOnTheMovement(car);
         foreach (ref readonly var run in _crossings.OwnRuns(movementWay))
         {
             var fromM = MathF.Max(run.FromM, isM);
             var toM = MathF.Min(run.ToM, wasM);
-            if (toM > fromM) _occupancy.Add(movementWay, fromM, toM, 0f, car, LaneUse.Claimed, right: right);
+            if (toM > fromM)
+            {
+                _occupancy.ClaimAhead(movementWay, fromM, toM, 0f, car, priority, right: right);
+            }
         }
     }
 
     /// <summary>
     /// The rank a car holds its own join's ground with, on either side of the seam between the road and the
-    /// claim: <b>the movement's own, until the car is past the point it could stop short of the box</b>
+    /// claim ahead: <b>the movement's own, until the car is past the point it could stop short of the box</b>
     /// (<see cref="CarFleet.CommittedToTheBox"/>), and then a rank nothing takes — a right of way that took
     /// ground off a body already committed to it would be a rule about who is driven into.
     /// </summary>
     RightOfWay RightOnTheMovement(int car, int movementWay) =>
         Cars.CommittedToTheBox[car] ? RightOfWay.Committed : RightOfWayOf(car, movementWay);
+
+    /// <summary>
+    /// <b>The rank a car both holds and asks a way's ground with</b> — on the way through the box it is
+    /// committed to, the rank that says so (<see cref="RightOnTheMovement"/>); everywhere else, the
+    /// movement's own. <b>The committed claim, the one beyond it and the ask are one rank</b>, which is what
+    /// keeps the seam between them from being a place a car outranks itself.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked with the weaker rank a car refuses itself into a corner</b> (TER-5e). A body past the point
+    /// it could stop holds its crossing against everything; asking below that it would be held off ground
+    /// somebody else had merely stated, and a car stopped in the middle of a box on the strength of
+    /// another car's intentions is the one shape the ranks exist to prevent.
+    /// </remarks>
+    RightOfWay AskingRightOn(int car, int way) =>
+        way == Cars.MovementWay[car] ? RightOnTheMovement(car, way) : RightOfWayOf(car, way);
 
     /// <summary>
     /// <b>How far behind this car a crossing point has to fall before it is behind it</b>: where its own
@@ -175,10 +216,10 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is the near edge of the reservation and nothing worked out a second time</b>
+    /// <b>It is the near edge of the committed claim and nothing worked out a second time</b>
     /// (<see cref="AskForTheGround"/>) — a body's length and the margin it keeps behind its tail. The tail
     /// and not the nose, because a section is a place the <em>body</em> goes over: a car whose bumper has
-    /// cleared a crossing point is still lying across it. The margin is what the book's one-dimensional
+    /// cleared a crossing point is still lying across it. The margin is what a one-dimensional
     /// reading of a body owes the width it threw away; released at the bare tail, Odesa's soak wrecks cars
     /// (<see cref="SimConfig.CarTailMarginM"/>).
     /// </para>
@@ -189,7 +230,7 @@ internal sealed partial class TownWorld
     /// </para>
     /// </remarks>
     float PastOnTheMovementM(int car, int movementWay) =>
-        Cars.ReserveFromM[car] - WhereTheMovementBeginsM(car, movementWay);
+        Cars.ClaimFromM[car] - WhereTheMovementBeginsM(car, movementWay);
 
     /// <summary>
     /// <b>Where the way this car's movement is made on begins under the line's own metres</b>, and infinity
@@ -212,7 +253,7 @@ internal sealed partial class TownWorld
 
         var chain = Cars.ChainOf(car);
         var slot = _roads.TurnSlot(chain[ahead], chain[ahead + 1]);
-        return slot != RoadGraph.NoTurn && _occupancy.WayOfTurn(slot) == movementWay
+        return slot != RoadGraph.NoTurn && _ways.OfRoadTurn(slot) == movementWay
             ? Cars.LaneEndsOf(car)[ahead]
             : float.PositiveInfinity;
     }

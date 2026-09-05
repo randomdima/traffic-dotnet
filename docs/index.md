@@ -37,7 +37,7 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [app/screen/](../src/app/screen/) — the chrome | [requirements](../src/app/screen/docs/requirements.md) | — |
 | [app/render/](../src/app/render/) — the picture | [requirements](../src/app/render/docs/requirements.md) | [log](../src/app/render/docs/decision-log.md) |
 | [app/hud/](../src/app/hud/) — the interface | [requirements](../src/app/hud/docs/requirements.md) | [log](../src/app/hud/docs/decision-log.md) |
-| [app/debug/](../src/app/debug/) — the layers | [requirements](../src/app/debug/docs/requirements.md) | — |
+| [app/debug/](../src/app/debug/) — the layers | [requirements](../src/app/debug/docs/requirements.md) | [decisions](../src/app/debug/docs/decision-log.md) |
 | [app/shot/](../src/app/shot/) — the picture taken for review | [requirements](../src/app/shot/docs/requirements.md) | [log](../src/app/shot/docs/decision-log.md) |
 | [app/playercontrol/](../src/app/playercontrol/) — the player's hands | [requirements](../src/app/playercontrol/docs/requirements.md) | — |
 | [runtime/](../src/runtime/) — the machine | [requirements](../src/runtime/docs/requirements.md) | [log](../src/runtime/docs/decision-log.md) |
@@ -68,7 +68,7 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
-| `GEN-4…4l` | Bays and lots, the ways at one, which way round a car stands in it, the booking, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
+| `GEN-4…4l` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
 | `GEN-1…3`, `GEN-5…17` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, and where two roads may touch | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1…11`, `PER-13…18`, `PER-23` | The walker, the trip, what it follows, how it crosses, when it takes a car and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
@@ -77,7 +77,7 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the priority a tow carries only outbound, the arm and the two wheels under what it pulls | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
 | `OBS-1`, `OBS-1a` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
-| `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i` | The status panel and its claims, the menu, the legend, the ruler | [app/hud](../src/app/hud/docs/requirements.md) |
+| `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i`, `OBS-2k…2n` | The status panel and its claims, the menu, the legend, the ruler, the unit read-out, the card a map is opened behind | [app/hud](../src/app/hud/docs/requirements.md) |
 | `OBS-2b…2d`, `OBS-2h`, `OBS-2j` | The debug layers, the read-out and the turn circle | [app/debug](../src/app/debug/docs/requirements.md) |
 | `CTL-1…8d` | Selection, orders, a car's four of them, hand driving, the unit's own action | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |

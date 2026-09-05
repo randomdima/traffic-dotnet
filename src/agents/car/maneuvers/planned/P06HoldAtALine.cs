@@ -14,7 +14,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// </para>
 /// <para>
 /// <b>It must not be scheduled</b>, and that was measured rather than reasoned. It looks perfectly safe
-/// to run on the decision clock, because the car is stopping and the reservation pass holds it at the
+/// to run on the decision clock, because the car is stopping and the claim pass holds it at the
 /// bar every tick regardless — and scheduling it still put the front of the queue nearly twice as far
 /// back from the paint.
 /// </para>

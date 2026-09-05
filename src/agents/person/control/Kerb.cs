@@ -17,18 +17,18 @@ namespace TrafficSimulation.Agents.Person.Control;
 /// patience the walker steps out and the cars stop, which is what the crossing is for.
 /// </para>
 /// <para>
-/// <b>The give-way is a reservation and never a prediction.</b> What the walker asks is whether the paint
+/// <b>The give-way is a claim and never a prediction.</b> What the walker asks is whether the paint
 /// is anybody's — is any lane of it inside the road some driver has already taken — and not how long
-/// something would take to arrive. A reservation runs from a car's own tail to where that car is committed
+/// something would take to arrive. A claim runs from a car's own tail to where that car is committed
 /// to being able to stop, so <em>a car far enough away to stop for this body holds none of the crossing</em>
 /// and one that is not, does. The time it would take to get here is a figure the arithmetic behind that
-/// reservation has already taken, and asked again here it is the same answer computed twice from staler
+/// claim has already taken, and asked again here it is the same answer computed twice from staler
 /// numbers.
 /// </para>
 /// <para>
 /// <b>The lane it steps into and no further.</b> A zebra is carriageway like the rest of it, so what a
 /// body needs before it leaves the kerb is the ground it is about to be standing on; the lanes past that
-/// are asked for in turn as it reaches them, by the same question asked of the same book, and a walker held
+/// are asked for in turn as it reaches them, by the same question asked of the same claims, and a walker held
 /// part way over is held by a car committed to a band it has not got to yet rather than by a rule about the
 /// whole paint.
 /// </para>
@@ -38,7 +38,7 @@ namespace TrafficSimulation.Agents.Person.Control;
 /// gives way. The kerb is where this particular asker happens to be standing and never a gate of its own.
 /// </para>
 /// <para>
-/// <b>It is asked of the road's own book and never of the fleet</b> (<see cref="LaneOccupancy"/>). Looking
+/// <b>It is asked of the road's own claims and never of the fleet</b> (<see cref="LaneOccupancy"/>). Looking
 /// <em>both</em> ways falls out of the lanes rather than out of a radius. Asked of every car in the town it
 /// was the same question with a scan of the whole fleet behind it, and it counted cars on other streets
 /// that happened to be near.
@@ -84,11 +84,11 @@ internal static class Kerb
     /// <summary>
     /// Whether one lane's width of a crossing is inside the road anybody has already taken. Looks <b>both
     /// ways</b>, which falls out of a stretch's two lanes running opposite ways: a band is one strip of
-    /// carriageway and every direction of traffic over it is in the same book.
+    /// carriageway and every direction of traffic over it claims the same ground.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The band and not the point.</b> A reservation is a stretch of lane and the paint has a depth, so a
+    /// <b>The band and not the point.</b> A claim is a stretch of lane and the paint has a depth, so a
     /// car committed to ground that ends a metre short of the centreline is a car that will be standing on
     /// the near half of the zebra — and asked at the middle alone, that is a crossing this body is waved
     /// onto.
@@ -96,12 +96,12 @@ internal static class Kerb
     /// <para>
     /// <b>It is the same question a body already crossing asks of the lane in front of it</b>, and one
     /// answer rather than two: what a walker at a kerb may step onto and what one halfway over may walk
-    /// into is the same strip of road asked about by the same book, and the kerb is only where the body
+    /// into is the same strip of road asked about the same way, and the kerb is only where the body
     /// happens to be standing when it asks.
     /// </para>
     /// </remarks>
     public static bool BandIsFree(LaneOccupancy roads, CrossingBands.Band band, float claimM) =>
-        !roads.AnyTrafficOver(roads.WayOfLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM);
+        !roads.AnyTrafficOver(roads.Ways.OfRoadLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM);
 
     /// <summary>
     /// Whether the lane this body is about to step into is inside the road of <b>a rescue that is coming
@@ -130,6 +130,6 @@ internal static class Kerb
     public static bool ARescueIsOver(
         SimConfig config, LaneOccupancy roads, CrossingBands.Band band, float claimM) =>
         roads.AnyRescueOver(
-            roads.WayOfLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM,
+            roads.Ways.OfRoadLane(band.Lane), band.AlongLaneM - claimM, band.AlongLaneM + claimM,
             config.PersonWalkSpeedMps);
 }

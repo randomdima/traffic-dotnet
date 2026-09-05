@@ -86,6 +86,9 @@ internal sealed partial class Game : IDisposable
     SimClock _clock;
     string _map = string.Empty;
 
+    /// <summary>The map the menu was clicked on and this run has not stood up yet.</summary>
+    string? _wanted;
+
     long _crossingsPerFrame;
     long _frames;
 
@@ -141,12 +144,41 @@ internal sealed partial class Game : IDisposable
     private partial long Crossings();
 
     /// <summary>
-    /// A map the menu was clicked on. <b>Not necessarily an open</b>: a desktop run has the plan on
-    /// disk and opens it where it stands, and a page has to fetch it first — and a frame cannot wait
-    /// on a fetch, so the browser's half only writes the name down and the boot's own <c>await</c>
-    /// picks it up (<see cref="Main.Data.Town"/>).
+    /// A map the menu was clicked on: <b>the name written down and the card put up, and no town opened
+    /// inside this frame</b> (OBS-2n). Opening one is seconds of work — a plan read, a ground laid, a
+    /// fleet stood up, and in a page a fetch before any of it — so the frame that took the click ends by
+    /// drawing the card, and what acts on the name is the head's own
+    /// <see cref="OpenWhatWasPicked"/>: the loop's next turn on the desktop, and the boot's own
+    /// <c>await</c> in a page, which is the one place there where waiting is allowed
+    /// (<see cref="Main.Data.Town"/>).
     /// </summary>
-    private partial void PickMap(string map);
+    void PickMap(string map)
+    {
+        _wanted = map;
+        _ui.Opening.Opens(map);
+    }
+
+    /// <summary>
+    /// The map <see cref="PickMap"/> wrote down, stood up — <b>after the frame that took the click has
+    /// been drawn</b>, so the card is on screen for the whole of the wait rather than behind it.
+    /// </summary>
+    /// <remarks>
+    /// It is the head's because the wait is: a desktop run has the plan on the disk it started from and
+    /// opens it here, and a page has to fetch it first, so there this does nothing and the boot loop
+    /// drains <see cref="TakeWanted"/> instead.
+    /// </remarks>
+    partial void OpenWhatWasPicked();
+
+    /// <summary>
+    /// The map a click asked for, once. <b>The browser's boot loop is what drains it</b>: that is the only
+    /// place in a page where waiting for the plan to arrive is allowed (<see cref="Main.Data.Town"/>).
+    /// </summary>
+    public string? TakeWanted()
+    {
+        var wanted = _wanted;
+        _wanted = null;
+        return wanted;
+    }
 
     /// <summary>The machine, let go of after the renderer and before the window.</summary>
     partial void Shutdown();
@@ -275,11 +307,12 @@ internal sealed partial class Game : IDisposable
 
         // Never over more than a frame: the span carrying a stall is the one after it, and a pan
         // stepped over forty-five seconds of a tab nobody was looking at throws the camera off the map.
-        ReadInput(MathF.Min((float)_lastFrame.TotalSeconds, (float)(FrameMeter.LongestFrameMs / 1000d)));
+        var sinceLastFrameS = MathF.Min((float)_lastFrame.TotalSeconds, (float)(FrameMeter.LongestFrameMs / 1000d));
+        ReadInput(sinceLastFrameS);
         parts.Mark(ref parts.InputMs);
 
         Advance(ref parts);
-        FollowTheSelection();
+        FollowTheSelection(sinceLastFrameS);
         Draw(ref parts);
 
         // The frame is what it cost plus what it waited to start, so a rate taken off it is the rate
@@ -290,20 +323,26 @@ internal sealed partial class Game : IDisposable
         _lastFrame = Stopwatch.GetElapsedTime(startedAt, _frameClosedAt) + TimeSpan.FromMilliseconds(waitedMs);
         parts.WholeMs = _lastFrame.TotalMilliseconds;
         Measure(in parts);
+
+        // OBS-2n — and last of all, the map somebody picked, now that the card saying so has been drawn
+        // and submitted. The seconds it takes land in the next frame's wait, where the clock forgets them
+        // and the meter drops the frame, which is what both of those are there for.
+        OpenWhatWasPicked();
         return !_window.IsClosing;
     }
 
     /// <summary>
     /// <b>OBS-1a — the camera stands on the one unit picked out</b>, between the tick that moved it and
     /// the frame it is drawn in, so the picture is centred on where the unit is now rather than on where
-    /// it was when the last frame ended.
+    /// it was when the last frame ended. <b>The span is the frame's own and not the tick's</b>: what the
+    /// camera eases over is real time, exactly as a pan is.
     /// </summary>
-    void FollowTheSelection()
+    void FollowTheSelection(float sinceLastFrameS)
     {
         if (_world is not null && _world.SelectedCount == 1 &&
             _world.Whereabouts(_world.Lead, out var atM, out var velocityMps))
         {
-            _follow.Step(_camera, _uiPx, atM, velocityMps);
+            _follow.Step(_camera, _uiPx, atM, velocityMps, sinceLastFrameS);
             return;
         }
 
@@ -351,6 +390,18 @@ internal sealed partial class Game : IDisposable
     void ReadInput(float seconds)
     {
         if (_window.TakePress(Key.F11)) _window.ToggleFullscreen();
+
+        // OBS-2n: while a map is opening, nothing under the card is listening — the panels it would act on
+        // are not drawn. <b>What arrived is dropped rather than banked</b>: the queues hold a click until
+        // somebody asks for it, so a tap during a fetch would otherwise land on the town that arrives,
+        // wherever the pointer happened to have been. The window key is left above this because filling the
+        // screen is about the window rather than about the town in it.
+        if (_ui.Opening.Showing)
+        {
+            _window.TakeClick(out _, out _);
+            _window.TakeScroll();
+            return;
+        }
 
         if (_window.TakePress(Key.Escape)) Escape();
 
@@ -457,7 +508,7 @@ internal sealed partial class Game : IDisposable
     /// frame (a press, and whatever the pointer turned out to be doing), so what to do about an answer is
     /// one place rather than two.
     /// </summary>
-    /// <returns>Whether the run has moved on and the rest of this frame's input is about a town that is gone.</returns>
+    /// <returns>Whether the run has moved on and the rest of this frame's input is about a town on its way out.</returns>
     bool Took(MenuChoice choice)
     {
         switch (choice.Action)
@@ -546,7 +597,7 @@ internal sealed partial class Game : IDisposable
     void FrameTheTown(TownWorld world, Vector2 worldSizeM)
     {
         var viewM = _camera.ViewSpanM(_uiPx);
-        _camera.LookAt(Opening.LooksAtM(world.Terrain, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
+        _camera.LookAt(Opening.LooksAtM(world.Terrain, _config, worldSizeM, MathF.Min(viewM.X, viewM.Y) * 0.5f));
         _framedAt = (_camera.CentreM, _camera.PixelsPerMetre, _camera.TurnRad);
     }
 

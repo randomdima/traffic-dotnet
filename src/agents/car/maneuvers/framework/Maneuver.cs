@@ -93,6 +93,19 @@ internal static class Maneuvers
     public static bool IsReactive(Maneuver maneuver) => maneuver >= Maneuver.EmergencyStop;
 
     /// <summary>
+    /// <b>An entry a planned one <em>offers</em>, as against one the ladder names</b> (§1.4 row 5). It is
+    /// taken up where it fits and skipped where it does not, and a car that could not have it has not
+    /// climbed anything: it is not stuck, and it has spent nothing finding out.
+    /// </summary>
+    /// <remarks>
+    /// <b>`E-4` is the only one, and no rung of the ladder can name it</b>
+    /// (<see cref="DrivingLadder.At"/>). Overtaking is a convenience a driver takes where the road has room
+    /// for it; every other reactive entry is a recovery from something the car can do nothing else about,
+    /// and a refused recovery genuinely is the next rung's business.
+    /// </remarks>
+    public static bool IsDiscretionary(Maneuver maneuver) => maneuver == Maneuver.GoRound;
+
+    /// <summary>
     /// The three entries that end a drive leg. <b>Terminal is a property of the entry and not of the
     /// tick it happens on</b>: whoever ordered the leg reads which of the three it was to know whether
     /// the car is parked, stopped somewhere legal, or left where it stands.

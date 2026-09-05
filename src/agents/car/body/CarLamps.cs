@@ -104,7 +104,7 @@ internal enum CarLamp : byte
 /// reach of one (<see cref="LampFigures.JunctionAheadM"/>) and only where the movement into it is a turn
 /// rather than straight on (<see cref="CarFleet.TurningAtTheBox"/>). <b>Which</b> side is still the
 /// geometry's and never the manoeuvre's: a car's intent is already written down as the line it is about to
-/// drive, so no entry of the catalogue has to announce itself.
+/// drive, so no entry of the catalogue has to state itself.
 /// </para>
 /// <para>
 /// This is kept beside the body it is a fact about rather than in the renderer that draws it, on the

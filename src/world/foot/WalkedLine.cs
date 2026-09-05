@@ -61,8 +61,8 @@ internal static class WalkedLine
     /// </param>
     /// <param name="intoWay">
     /// And which way of the pavement each point stands on: the stretch's own directed edge, or the
-    /// <em>complement</em> of a mitre's turn slot where the point is on a corner. <b>It is what the walking
-    /// book is laid from</b> — a walker's place on the network is read off the point it is walking at, and
+    /// <em>complement</em> of a mitre's turn slot where the point is on a corner. <b>It is what a walker's
+    /// claims are laid from</b> — its place on the network is read off the point it is walking at, and
     /// re-deriving it from the body would be a second opinion about where the walk goes.
     /// </param>
     /// <param name="intoAlongM">How far along that way's own line the point stands, in the lane's metres.</param>
@@ -102,13 +102,16 @@ internal static class WalkedLine
                 // The offset line is shorter inside a bend and longer outside it, so a place measured
                 // along the stretch is carried over as a fraction of it rather than as a distance — and
                 // as a fraction of the lane's own ground, since a corner the lane carries stands past the
-                // end of the stretch that ground belongs to.
+                // end of the stretch that ground belongs to and the corner arriving took the head of it.
                 var edgeLengthM = MathF.Max(1e-4f, foot.LengthM(edge));
                 var walkedLengthM = walking.LaneLengthM(edge);
-                var alongTheStretchM = walkedLengthM - walking.TailLengthM(edge);
-                var fromM = slot == fromSlot ? fromEdgeM / edgeLengthM * alongTheStretchM : 0f;
+                var headM = walking.HeadLengthM(edge);
+                var alongTheStretchM = walkedLengthM - walking.TailLengthM(edge) + headM;
+                var fromM = slot == fromSlot
+                    ? MathF.Max(0f, fromEdgeM / edgeLengthM * alongTheStretchM - headM)
+                    : 0f;
                 var toM = slot == toSlot && float.IsFinite(toEdgeM)
-                    ? toEdgeM / edgeLengthM * alongTheStretchM
+                    ? MathF.Max(0f, toEdgeM / edgeLengthM * alongTheStretchM - headM)
                     : walkedLengthM;
 
                 // The corner out of this stretch, and the one into it: the lane gives up the ground the

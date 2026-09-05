@@ -7,14 +7,14 @@ here. The car works itself round on the spot, a leg of the turn at a time, forwa
 what a driver does at the end of a cul-de-sac.
 
 **`Sa` — the state it starts in.** At rest, on a stretch this leg comes back the other way from (`TER-5f`),
-not round yet, and a leg of the turn the ground and the book both admit. **It is entered part-way round as
+not round yet, and a leg of the turn the ground and the claims both admit. **It is entered part-way round as
 readily as at the start**: the entry state is the pose, so a car whose turn was interrupted by a reflex
 (§1.6) asks for the leg that suits the pose it is in rather than beginning again.
 
 **`Sb` — the state it delivers.** The body on the opposite lane's line, pointing the other way, with the
 route picked up from there.
 
-**Line.** One arc a leg, at this car's own lock, as long as the ground and the book will hold and never
+**Line.** One arc a leg, at this car's own lock, as long as the ground and the claims will hold and never
 further round than one sweep. **The wheel goes the same way in every leg and the gear alternates**, which
 is the whole of what turns a car round rather than rocking it on one spot; and the way round is the way the
 middle of the road lies, settled once — half a turn is as near one way round as the other, so an answer
@@ -24,7 +24,7 @@ handed a line it is standing five metres off is a car the follower calls lost on
 
 **Do.** Drive each leg out, look at where that leaves the body, lay the next.
 
-**Guards.** Every leg is walked over the ground and asked of the book before it is driven, in the gear it
+**Guards.** Every leg is walked over the ground and asked of the claims before it is driven, in the gear it
 is driven in. **A leg that will not lay is waited on and never escalated** — what refuses one is the ground
 being somebody else's, which is a fact about this moment and not about this dead end.
 

@@ -32,7 +32,7 @@ public class FootGraphTests
     public void EveryStretchIsWalkedOnGroundAPersonMayStandOn(string map)
     {
         var plan = Towns.Of(map);
-        var terrain = new TerrainGrid(plan, SimConfig.Shipped());
+        var terrain = new GroundLocator(plan, SimConfig.Shipped());
         var foot = Of(map);
 
         var offFoot = 0;
@@ -40,7 +40,7 @@ public class FootGraphTests
         var where = new SortedDictionary<string, (int Count, Vector2 First)>();
         for (var edge = 0; edge < foot.EdgeCount; edge += 2)
         {
-            foreach (var pointM in Along(foot, edge, plan.CellSizeM))
+            foreach (var pointM in Along(foot, edge, SimConfig.Shipped().Terrain.GroundStepM))
             {
                 sampled++;
                 if (terrain.At(pointM).Walkable) continue;
@@ -64,14 +64,14 @@ public class FootGraphTests
     public void NoStretchIsWalkedAcrossAParkingLot(string map)
     {
         var plan = Towns.Of(map);
-        var terrain = new TerrainGrid(plan, SimConfig.Shipped());
+        var terrain = new GroundLocator(plan, SimConfig.Shipped());
         var foot = Of(map);
 
         var onLot = 0;
         var worst = string.Empty;
         for (var edge = 0; edge < foot.EdgeCount; edge += 2)
         {
-            foreach (var pointM in Along(foot, edge, plan.CellSizeM))
+            foreach (var pointM in Along(foot, edge, SimConfig.Shipped().Terrain.GroundStepM))
             {
                 if (terrain.GroundAt(pointM) != Ground.Parking) continue;
 
@@ -166,7 +166,7 @@ public class FootGraphTests
     public void OnlyACrossingStandsOnGroundACarDrivesOn(string map)
     {
         var plan = Towns.Of(map);
-        var terrain = new TerrainGrid(plan, SimConfig.Shipped());
+        var terrain = new GroundLocator(plan, SimConfig.Shipped());
         var foot = Of(map);
 
         var onRoad = 0;
@@ -176,7 +176,7 @@ public class FootGraphTests
         {
             if (foot.KindOf(edge) == FootEdgeKind.Crossing) continue;
 
-            foreach (var pointM in Along(foot, edge, plan.CellSizeM))
+            foreach (var pointM in Along(foot, edge, SimConfig.Shipped().Terrain.GroundStepM))
             {
                 sampled++;
                 if (!terrain.At(pointM).Drivable) continue;

@@ -8,8 +8,8 @@ namespace TrafficSimulation.Tests.CityGen;
 
 /// <summary>
 /// The one thing that crosses between the engines at run time, read back. What is asserted here is
-/// the format's own contract and the two shapes the reader adds on the way in:
-/// the dense lane-direction grid, and a run stored as a flat array with its offsets beside it.
+/// the format's own contract and the shape the reader adds on the way in: a run stored as a flat array
+/// with its offsets beside it.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 public class TownReaderTests
@@ -23,11 +23,7 @@ public class TownReaderTests
         var plan = Towns.Of(map);
 
         Assert.Equal(map, plan.Name);
-        Assert.True(plan.GridWidth > 0 && plan.GridHeight > 0);
-        Assert.Equal(plan.CellCount, plan.Cells.Length);
-        Assert.Equal(plan.CellCount * 2, plan.LaneDirs.Length);
-        Assert.Equal(plan.GridWidth * plan.CellSizeM, plan.WorldSizeM.X, tolerance: plan.CellSizeM);
-        Assert.Equal(plan.GridHeight * plan.CellSizeM, plan.WorldSizeM.Y, tolerance: plan.CellSizeM);
+        Assert.True(plan.WorldSizeM.X > 0f && plan.WorldSizeM.Y > 0f);
     }
 
     /// <summary>The header figures of the fixture map, which is the town every detailed check is staged on.</summary>
@@ -38,7 +34,6 @@ public class TownReaderTests
 
         Assert.Equal(480f, plan.WorldSizeM.X);
         Assert.Equal(320f, plan.WorldSizeM.Y);
-        Assert.Equal(1f, plan.CellSizeM);
         Assert.Equal(SimConfig.Shipped().PavementWidthM, plan.PavementWidthM);
     }
 
@@ -56,28 +51,37 @@ public class TownReaderTests
     }
 
     /// <summary>
-    /// The sparse triples the file carries, read back off the dense grid the reader expands them
-    /// into: a direction exists only on carriageway, so a cell with one is a directional cell.
+    /// <see cref="TownWriter"/> and <see cref="TownReader"/> are one contract, and this is what says so:
+    /// a map written out and read back is the map that was written, field for field.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void LaneDirectionsAreExpandedOntoTheCarriagewayAndNowhereElse(string map)
+    public void AMapWrittenOutAndReadBackIsTheMapThatWasWritten(string map)
     {
         var plan = Towns.Of(map);
+        var again = TownReader.Read(TownWriter.Write(plan), map);
 
-        var directional = 0;
-        for (var cell = 0; cell < plan.CellCount; cell++)
-        {
-            var x = plan.LaneDirs[cell * 2];
-            var y = plan.LaneDirs[cell * 2 + 1];
-            if (x == 0 && y == 0) continue;
-
-            directional++;
-            var lengthSquared = (x / 127f * (x / 127f)) + (y / 127f * (y / 127f));
-            Assert.InRange(lengthSquared, 0.9f, 1.1f);
-        }
-
-        Assert.True(directional > 0, $"{map} carries no lane direction at all");
+        Assert.Equal(plan.Name, again.Name);
+        Assert.Equal(plan.Seed, again.Seed);
+        Assert.Equal(plan.WorldSizeM, again.WorldSizeM);
+        Assert.Equal(plan.PavementWidthM, again.PavementWidthM);
+        Assert.Equal(plan.Junctions.CentreM, again.Junctions.CentreM);
+        Assert.Equal(plan.Junctions.RadiusM, again.Junctions.RadiusM);
+        Assert.Equal(plan.JunctionCorners.CornerM, again.JunctionCorners.CornerM);
+        Assert.Equal(plan.PavementCorners.CornerM, again.PavementCorners.CornerM);
+        Assert.Equal(plan.Roads.Segments, again.Roads.Segments);
+        Assert.Equal(plan.Roads.WidthM, again.Roads.WidthM);
+        Assert.Equal(plan.Bridges.Road, again.Bridges.Road);
+        Assert.Equal(plan.PavedAreas.MinM, again.PavedAreas.MinM);
+        Assert.Equal(plan.Crosswalks.CentreM, again.Crosswalks.CentreM);
+        Assert.Equal(plan.Crosswalks.Road, again.Crosswalks.Road);
+        Assert.Equal(plan.StopLines.CentreM, again.StopLines.CentreM);
+        Assert.Equal(plan.ParkingLots.SpacePositionM, again.ParkingLots.SpacePositionM);
+        Assert.Equal(plan.Buildings.EntryPointM, again.Buildings.EntryPointM);
+        Assert.Equal(plan.Buildings.Use, again.Buildings.Use);
+        Assert.Equal(plan.Props.CentreM, again.Props.CentreM);
+        Assert.Equal(plan.Spawns.PositionM, again.Spawns.PositionM);
+        Assert.Equal(plan.Water.Outline.PointM, again.Water.Outline.PointM);
     }
 
     [Fact]

@@ -22,17 +22,18 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </para>
 /// </remarks>
 internal sealed class WaterRules(
-    GenRaster raster, TerrainStage.Water water, float longestDeckM, float abutmentM, float halfWidthM)
+    GroundShapes ground, float stepM, TerrainStage.Water water, float longestDeckM, float abutmentM,
+    float halfWidthM)
 {
     public TerrainStage.Water Water => water;
 
     /// <summary>How far back from the bank a bridgehead stands: the ground its own junction takes.</summary>
     public float AbutmentM => abutmentM;
 
-    /// <summary>How finely the water is walked, which is how finely it was cut.</summary>
-    public float StepM => raster.CellSizeM;
+    /// <summary>How finely the water is walked.</summary>
+    public float StepM => stepM;
 
-    public bool Wet(Vector2 atM) => raster.At(atM) == Ground.Water;
+    public bool Wet(Vector2 atM) => ground.At(atM) == Ground.Water;
 
     /// <summary>Whether the water stands anywhere under a road laid on this chord.</summary>
     public bool Wets(Vector2 fromM, Vector2 toM)
@@ -41,7 +42,7 @@ internal sealed class WaterRules(
         if (runM <= 0f) return Wet(fromM);
 
         var sideM = Heading.RightOf((toM - fromM) / runM) * halfWidthM;
-        var steps = Math.Max(2, (int)(runM / raster.CellSizeM));
+        var steps = Math.Max(2, (int)(runM / stepM));
         for (var step = 0; step <= steps; step++)
         {
             var atM = Vector2.Lerp(fromM, toM, step / (float)steps);

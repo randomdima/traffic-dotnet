@@ -148,11 +148,19 @@ internal sealed partial class SimConfig
     /// <summary>A walking lane's own line is the middle of its half of the band.</summary>
     public float WalkingLaneOffsetM => WalkingLaneWidthM * 0.5f;
 
+    /// <summary>
+    /// <b>How far clear of a walking lane's own line something has to stand for a walk to get past it</b>
+    /// (TER-4c.2) — the pavement's <see cref="LanePassableAsideM"/>, and the same statement: half a body,
+    /// because what walks a lane walks its line and takes half its width either side of it. Anything nearer
+    /// than this is in the way, however much of the band it has left over.
+    /// </summary>
+    public float WalkPassableAsideM => PersonDiameterM * 0.5f;
+
     /// <summary>Half the walk, which is what stands a corner 4.83 m deep against the straight's 4 m.</summary>
     public float PavementCornerRadiusM => PavementWidthM * 0.5f;
 
     /// <summary>
-    /// The clear ground between one walker's reserved stretch and the next one's, which is what a queue on
+    /// The clear ground between one walker's claimed stretch and the next one's, which is what a queue on
     /// a pavement stands at — half a metre at the shipped figures.
     /// </summary>
     public float PersonStandstillGapM => PersonDiameterM * Person.StandstillGapInDiameters;
@@ -214,8 +222,22 @@ internal sealed partial class SimConfig
     /// </summary>
     public float RoadFootprintM => RoadWidthM + (PavementWidthM * 2f);
 
+    /// <summary>
+    /// <b>How far past a way's own edge a body has to reach before it is on that way</b> (TER-4c.2): the
+    /// line is crossed and not merely touched, which is what keeps a wing mirror over the paint out of the
+    /// next lane's claims (<see cref="RoadFigures.CrossesOntoAWayInCarWidths"/>).
+    /// </summary>
+    public float CrossesOntoAWayM => Car.WidthM * Road.CrossesOntoAWayInCarWidths;
+
     /// <summary>Half the carriageway is one direction's, and a lane's own line is the middle of that.</summary>
     public float LaneOffsetM => LaneWidthM * 0.5f;
+
+    /// <summary>
+    /// <b>How far clear of a lane's own line something has to stand for the traffic to drive past it</b>
+    /// (TER-4c.2): half a car, because what drives a lane drives its line and takes half its width either
+    /// side of it. Anything nearer than this is in the way, however much of the lane it has left over.
+    /// </summary>
+    public float LanePassableAsideM => Car.WidthM * 0.5f;
 
     /// <summary>The ground the roads share: one road width.</summary>
     public float IntersectionReachM => RoadWidthM;
@@ -278,21 +300,6 @@ internal sealed partial class SimConfig
 
     public float ParkingSpaceWidthM => Car.WidthM * (1f + Road.ParkingSpaceMarginInCarWidths * 2f);
 
-    /// <summary>
-    /// <b>How much of a bay's own way the body standing nose-first in it reaches back over</b>: from the
-    /// mouth of the bay to the axle the way ends at, which for a car square in the middle of its space
-    /// (GEN-4i) is half the space behind the axle. It is the ceiling on what a body standing there holds
-    /// (<see cref="World.Parking.BayStandings"/>).
-    /// </summary>
-    public float ParkingStandingGroundM => (ParkingSpaceLengthM * 0.5f) - CarCentreAheadOfAxleM;
-
-    /// <summary>
-    /// And backed in, where the same body stands over the same ground but its axle is at the deep end of
-    /// the space instead (GEN-4j) — so the way runs a wheelbase's half further in and the body reaches
-    /// that much further back along it.
-    /// </summary>
-    public float ParkingBackedInStandingGroundM => (ParkingSpaceLengthM * 0.5f) + CarCentreAheadOfAxleM;
-
     /// <summary>How far before a bay a way in leaves its lane, which is also the run-in the template needs.</summary>
     public float ParkingStagedInM => Car.LengthM * Road.ParkingStagedInCarLengths;
 
@@ -310,17 +317,17 @@ internal sealed partial class SimConfig
     /// <summary>Half a pavement band plus the front gap plus a person: how close a door counts as reached.</summary>
     public float WayInTouchingReachM => PavementWidthM * 0.5f + Building.FrontGapM + PersonDiameterM;
 
-    public float CarJunctionReserveM => Driving.NominalCarLengthM * Driving.JunctionReserveInCarLengths;
+    public float CarJunctionClaimM => Driving.NominalCarLengthM * Driving.JunctionClaimInCarLengths;
 
     /// <summary>
     /// <b>The ground a car keeps around itself</b> — asked for in front of its nose as part of its own
-    /// stretch, and laid into the book behind its tail at <see cref="CarTailMarginM"/> (TER-4c.1), so that
+    /// stretch, and claimed behind its tail at <see cref="CarTailMarginM"/> (TER-4c.1), so that
     /// <b>what a queue at rest stands at and what a body in a junction is still swinging through are one
     /// figure and one stretch</b>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is a margin on a lossy reading before it is a comfort.</b> The book puts a body on a way as one
+    /// <b>It is a margin on a lossy reading before it is a comfort.</b> A claim puts a body on a way as one
     /// interval of that way's arclength, which is the whole width of the road thrown away: a crossing point
     /// is where two <em>lines</em> pass, and what has to be clear of it is a body that is off its own line by
     /// up to the road's tolerance and swings wider still at the back. A tail exactly on the far edge of a
@@ -348,17 +355,18 @@ internal sealed partial class SimConfig
         MathF.Max(Car.WidthM, Car.LengthM * Driving.StandstillGapInCarLengths);
 
     /// <summary>
-    /// <b>The part of that ground a reservation keeps behind the tail</b>
+    /// <b>The part of that ground a claim keeps behind the tail</b>
     /// (<see cref="DrivingFigures.TailMarginShare"/>) — where a body's stretch begins, on every way it is on,
     /// and therefore where whoever comes up behind it is cut.
     /// </summary>
     /// <remarks>
     /// The end that swings widest is also the end that queues the road behind it, and the two ends are read
     /// by different traffic: in front the margin is this car's own cover against a bar or a body it is
-    /// closing on, behind it is what the book owes the width it threw away. Only the tail is short of
+    /// closing on, behind it is what the claim owes the width it threw away. Only the tail is short of
     /// <see cref="CarBodyMarginM"/>, and how short is a question `--bench soak` answers.
     /// </remarks>
     public float CarTailMarginM => CarBodyMarginM * Driving.TailMarginShare;
+
 
     /// <summary>
     /// How far off its line a car is no longer on it: half a lane, which is the width of ground the lane

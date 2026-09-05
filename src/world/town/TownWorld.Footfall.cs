@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Person.Body;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
@@ -7,13 +8,14 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The pavement's own index</b>: who is on each way of the footway and which stretch of it each walker
-/// has been granted, laid once a tick from the bodies themselves — and the one question a walker asks of
-/// it, which is how much of the pavement in front of it is its own.
+/// <b>The walkers' half of the claims</b>: which stretch of the footway each walker has asked for and which
+/// it was granted, laid once a tick from the bodies themselves — and the one question a walker asks of the
+/// index, which is how much of the pavement in front of it is its own.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It is the lane index's arithmetic over the other network</b> (<see cref="LaneOccupancy"/>), and
+/// <b>It is the same table and the same arithmetic over ground of another kind</b>
+/// (<see cref="LaneOccupancy"/>, <see cref="TownWays"/>), and
 /// deliberately not a second mechanism: every driver asks for the road from its own tail to where it plans
 /// to stop and is granted what is left of it in front of the nearest body already on it, and a walker asks
 /// for the pavement on exactly those terms. <b>Nobody is granted ground somebody else will still be
@@ -26,10 +28,16 @@ namespace TrafficSimulation.World.Town;
 /// difference in what reads the answer rather than in how the answer is arrived at.
 /// </para>
 /// <para>
-/// <b>And what it is asked about is one use narrower</b> (PER-24, <see cref="LaneOccupancy.UnderWay"/>). A
-/// body going nowhere cuts no walk: the same walk that takes the grant picks it out
-/// (<see cref="PersonFleet.StepsRound"/>) and the feet go round it, so the book answers the same question
-/// with the same arithmetic and one of the two answers it gives is a step rather than a stop.
+/// <b>Everything in front cuts it and what a body is doing decides the reply</b> (PER-24, TER-4c.3). A body
+/// going nowhere holds its ground like any other, so the walk stops at it either way; the same walk that
+/// takes the grant picks it out (<see cref="PersonFleet.StepsRound"/>) and the feet re-aim past it with
+/// whatever room the cut left, which is one question answered with one arithmetic and two replies.
+/// </para>
+/// <para>
+/// <b>A body on no way of the pavement is granted on the ground instead of along a line</b>
+/// (<see cref="GrantWhereItStands"/>). A walk that has not taken its first point, one shoved off its line and
+/// one under a hand are all in that state, and a body with no stretch to be cut on still walks only into
+/// ground nobody is standing on.
 /// </para>
 /// <para>
 /// <b>A way is one side of one stretch</b>, or the mitre between two of them. The two directions of a
@@ -45,11 +53,24 @@ namespace TrafficSimulation.World.Town;
 /// obstruction it is.
 /// </para>
 /// <para>
-/// <b>Nothing but a walker is ever written into it</b> (TER-5c.1). A zebra is a walk laid over a
+/// <b>Whatever is standing on the pavement is written into it</b> (TER-4c.2), a car that has mounted a kerb
+/// included (<see cref="LieOnThePavement"/>): a body holds the ground it occupies whatever kind of body it
+/// is, and a car that claims nothing here is one a walk goes straight through.
+/// </para>
+/// <para>
+/// <b>What is never written into it is a car on the paint</b> (TER-5c.1). A zebra is a walk laid over a
 /// carriageway, so the ground under it has two names and one owner: the car's stretch of it is a stretch of
 /// the <em>lane</em>, and what stops a body walking into it is that stretch, looked up where the crossing
 /// runs over the lane (<see cref="WhereTheWalkRunsOut"/>). Marked here as well, a car held one body
-/// twice over one piece of ground, in two books whose answers could differ.
+/// twice over one piece of ground, under two claims whose answers could differ.
+/// </para>
+/// <para>
+/// <b>A body on foot standing there is written in like anywhere else</b> (TER-4c.2,
+/// <see cref="StandInTheWay"/>). The look-up that answers for a car does not answer for it: what a walker
+/// asks the road is what traffic is coming (<see cref="LaneOccupancy.AnyTrafficOver"/>), it asks it of the
+/// band it is about to step into and of no other, and a person on the carriageway is not an answer to it. So
+/// the ground a body occupies is claimed on every way it stands on, and a crossing is a way of the
+/// walk like the rest.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -57,48 +78,45 @@ internal sealed partial class TownWorld
     /// <summary>
     /// How many ways one walker's stretch of pavement may be cut into: the ways behind it — the margin it
     /// keeps reaches back over a mitre and onto the stretch before it — the one it stands on, and the ones
-    /// its reservation runs over. A bound on a stack span and not a figure behaviour reads.
+    /// its claim runs over. A bound on a stack span and not a figure behaviour reads.
     /// </summary>
     /// <remarks>
-    /// <b>Reached, the ways at the far end go unwritten</b>, and a walker's ground in front of it missing
-    /// from the book is somebody else granted it. A corner is two short ways within a stride, and the margin
+    /// <b>Reached, the ways at the far end go unwritten</b>, and a walker's ground in front of it left
+    /// unclaimed is somebody else granted it. A corner is two short ways within a stride, and the margin
     /// now reaches back over one of them, so the count is what a body on a corner can cover rather than what
     /// a stretch of pavement suggests.
     /// </remarks>
     const int MostWaysAlongAWalk = 5;
 
-    /// <summary>How many stretches one walker may put in the book at once, which is one per way it covers.</summary>
-    const int MostSlotsPerWalker = MostWaysAlongAWalk;
+    /// <summary>
+    /// How many claims one walker may lay at once, which is one per way it covers: the ways
+    /// along the walk it is asking for, or — standing about — every way of the pavement its own box is over
+    /// (<see cref="StandInTheWay"/>). A body lays one of the two and never both.
+    /// </summary>
+    static int MostSlotsPerWalker(in PavementWays pavement) =>
+        Math.Max(MostWaysAlongAWalk, pavement.MostWaysUnderAPlace);
 
     /// <summary>
-    /// The book laid over the walking network's own ways — a lane each way down every stretch, then the
-    /// mitres — in the numbering <see cref="LaneOccupancy.WayOfLane"/> and
-    /// <see cref="LaneOccupancy.WayOfTurn"/> hand out.
+    /// <b>The pavement's two blocks of the town's numbering, as the runs of metres they are</b> — a lane
+    /// each way down every stretch, and the mitre at every corner. Handed to <see cref="TownWays"/>, which
+    /// is what makes them ways of the same table the carriageway's are.
     /// </summary>
-    static LaneOccupancy BookOfPavement(WalkingNetwork walking, int mostSlots)
+    /// <remarks>
+    /// <b>What stands far enough aside of one of these lines to be walked past is half a body</b>
+    /// (<see cref="SimConfig.WalkPassableAsideM"/>, <see cref="TownWays.ClearsAsideM"/>), which is the
+    /// road's own bar in the walking side's figures. At nought a stretch stopped being in the way the moment
+    /// it was a hair clear of the line — so a car parked across a footway was walked straight through, the
+    /// walker's own width being the whole of what it had left over.
+    /// </remarks>
+    static float[] PavementLengthsM(WalkingNetwork walking, out float[] mitreLengthM)
     {
         var lanesM = new float[walking.Foot.EdgeCount];
         for (var edge = 0; edge < lanesM.Length; edge++) lanesM[edge] = walking.LaneLengthM(edge);
 
-        var mitresM = new float[walking.TurnCount];
-        for (var turn = 0; turn < mitresM.Length; turn++) mitresM[turn] = walking.JoinLengthM(turn);
+        mitreLengthM = new float[walking.TurnCount];
+        for (var turn = 0; turn < mitreLengthM.Length; turn++) mitreLengthM[turn] = walking.JoinLengthM(turn);
 
-        return new LaneOccupancy(lanesM, mitresM, mostSlots);
-    }
-
-    /// <summary>
-    /// <b>The book rebuilt from the bodies</b>, in phase 2, before any walker has decided anything — asked
-    /// in one walk and granted in the next, so that what a walker is granted is a fact about where the
-    /// bodies are and never about which of them was served first.
-    /// </summary>
-    void RebuildFootOccupancy()
-    {
-        _footfall.Begin();
-
-        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongAWalk];
-        for (var person = 0; person < People.Count; person++) AskForThePavement(person, ways);
-
-        for (var person = 0; person < People.Count; person++) GrantThePavement(person, ways);
+        return lanesM;
     }
 
     /// <summary>
@@ -106,8 +124,8 @@ internal sealed partial class TownWorld
     /// where it is on none of it.
     /// </summary>
     /// <remarks>
-    /// <b>Worked out before either book is laid, because both read it</b> (<see cref="RebuildLaneOccupancy"/>):
-    /// the road's book needs the way a body on a crossing is walking to know which lane it stands in, and
+    /// <b>Worked out before either network is laid, because both read it</b> (<see cref="RebuildLaneOccupancy"/>):
+    /// the road needs the way a body on a crossing is walking to know which lane it stands in, and
     /// the pavement's own ask begins from the same place. Asked twice it was the same walk of the same
     /// line, and the two answers were a tick apart.
     /// </remarks>
@@ -129,13 +147,13 @@ internal sealed partial class TownWorld
     /// and goes in where it lies.
     /// </summary>
     /// <remarks>
-    /// <b>The body needs no stretch of its own</b>, here or on the road: a reservation already begins at its
-    /// owner's back, so where the body ends is an edge of that stretch (<see cref="LaneSlot.StandsToM"/>)
+    /// <b>The body needs no stretch of its own</b>, here or on the road: a claim already begins at its
+    /// owner's back, so where the body ends is an edge of that stretch (<see cref="LaneClaim.StandsToM"/>)
     /// and never a second one laid over it.
     /// </remarks>
     void AskForThePavement(int person, Span<LineWay> ways)
     {
-        People.ReserveAheadM[person] = 0f;
+        People.ClaimAheadM[person] = 0f;
         People.AuthorityM[person] = float.PositiveInfinity;
 
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
@@ -153,17 +171,17 @@ internal sealed partial class TownWorld
         // get, and would put this body's stretch over ground a driver has.
         var alongMps = AlongItsWalkMps(person);
         var stoppingM = StoppingM(alongMps, FootGripMps2(person));
-        People.ReserveAheadM[person] = MathF.Max(stoppingM, MathF.Min(WantsAheadM(person), HeldAtM(person)));
+        People.ClaimAheadM[person] = MathF.Max(stoppingM, MathF.Min(WantsAheadM(person), HeldAtM(person)));
 
         // From the margin behind its back, exactly as a car's is (TER-5c.2): the ground a body keeps around
         // itself is that body's to hold, and whoever comes up behind is cut at it rather than keeping a gap
         // of its own.
         var radiusM = People.RadiusM[person];
-        var count = WaysAlongTheWalk(person, radiusM + _config.PersonStandstillGapM, ReserveToM(person), ways);
+        var count = WaysAlongTheWalk(person, radiusM + _config.PersonStandstillGapM, ClaimToM(person), ways);
         for (var index = 0; index < count; index++)
         {
             ref readonly var over = ref ways[index];
-            _footfall.AddUnderWay(
+            _occupancy.ClaimUnderWay(
                 over.Way, over.FromM, OnTheWayM(over, radiusM), over.ToM, alongMps, person,
                 of: LaneRoster.Walking);
         }
@@ -178,8 +196,9 @@ internal sealed partial class TownWorld
     /// <b>Sized by the pace it walks at and not by what it is doing</b>, exactly as a driver's is: a walker
     /// stopped at the back of a queue asks for the ground it needs to set off into, or the queue could never
     /// let it go. <b>It is also the reach of the ask on the road's side</b> — how near a lane of a crossing
-    /// has to be before this body asks for it (<see cref="PlaceTheWalkerOnTheRoad"/>) — so the two networks
-    /// are asked for the same distance in front of one body and not two figures that drift apart.
+    /// has to be before this body asks for it (<see cref="PlaceTheWalkerOnTheRoad"/>) — so the carriageway
+    /// and the footway are asked for the same distance in front of one body and not two figures that drift
+    /// apart.
     /// </remarks>
     float WantsAheadM(int person)
     {
@@ -192,7 +211,7 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>What this body needs to come to rest in from the speed it is actually doing</b> — nothing at rest,
     /// and the pace's own stopping distance at the pace. It is the floor under the ask above and the bar the
-    /// grant is read against (<see cref="PersonFleet.IsHeldByTheBook"/>), which are the same distance said
+    /// grant is read against (<see cref="PersonFleet.IsHeldByTheClaims"/>), which are the same distance said
     /// once.
     /// </summary>
     public float StopsInM(int person)
@@ -222,7 +241,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>How far past its own middle the far end of a walker's ask stands.</summary>
-    float ReserveToM(int person) => People.RadiusM[person] + People.ReserveAheadM[person];
+    float ClaimToM(int person) => People.RadiusM[person] + People.ClaimAheadM[person];
 
     /// <summary>
     /// <b>What the walker actually got</b>: its own stretch, cut at the nearest place anything in front of
@@ -238,25 +257,38 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>And cut at the edge of a lane this body was refused</b> (<see cref="WhereTheWalkRunsOut"/>).
     /// A zebra is carriageway a walk runs over, so the ground under a crossing way has two names and one
-    /// owner — and a body that asked the road's book for the next band and did not get it is a body that may
-    /// walk up to that band and no further. It is the driving side's own arrangement over the other network
-    /// (TER-5c.1): the ground where two ways cross is looked up in the book it belongs to, and nobody writes
-    /// into a book of a network they are not on.
+    /// owner — and a body that asked the road for the next band and did not get it is a body that may
+    /// walk up to that band and no further. It is the driving side's own arrangement over ground of another
+    /// kind (TER-5c.1): where two ways lie over one another the ground is looked up on the one it belongs
+    /// to, and nobody claims on a way they are not on.
     /// </para>
     /// <para>
-    /// <b>What it is not cut at is a body going nowhere</b> (PER-24, <see cref="LaneOccupancy.UnderWay"/>).
-    /// That is the whole of where a walker parts from a driver on the far side of the same book: a driver
-    /// waits behind a wreck and is eventually walked round it by the ladder, and a walker has feet — it is
-    /// handed the nearest one on the ground it asked for and aims past it in the same tick.
+    /// <b>And cut at a body going nowhere too</b> (TER-4c.3, PER-13). It holds the stretch it is standing on
+    /// for as long as it stands there, so the walk stops at that stretch's near edge like anywhere else — a
+    /// walker walks only into ground it holds, and a grant reaching past a parked car would be the town
+    /// saying one thing in the claims and another in the permission taken off them.
+    /// </para>
+    /// <para>
+    /// <b>What going nowhere decides is what the walker does about it</b> (PER-24,
+    /// <see cref="IsComingThrough"/>) — waited for where it stands, or stepped round with whatever room the
+    /// cut leaves in front. It is a fact about the body's own movement and never about how its claim was
+    /// laid: a body under a hand, one being shoved and a car crossing the pavement are all laid from a pose
+    /// while moving, and each is coming through ground the walk wanted.
     /// </para>
     /// </remarks>
     void GrantThePavement(int person, Span<LineWay> ways)
     {
         People.StepsRound[person] = PersonFleet.NoBody;
+        People.StepsRoundOf[person] = LaneRoster.Walking;
         People.HeldBy[person] = PersonFleet.NoBody;
-        if (People.OnWay[person] == PersonFleet.NoWay) return;
+        People.HeldByOf[person] = LaneRoster.Walking;
+        if (People.OnWay[person] == PersonFleet.NoWay)
+        {
+            GrantWhereItStands(person);
+            return;
+        }
 
-        var grantedToM = ReserveToM(person);
+        var grantedToM = ClaimToM(person);
 
         // The terms this walker is cut on, which are the driver's terms in the walker's own figures
         // (<see cref="LaneCredit"/>). <b>It asks with the weakest rank</b>: no claim on the pavement is a
@@ -271,24 +303,48 @@ internal sealed partial class TownWorld
             var fromM = OnTheWayM(way, People.RadiusM[person]);
 
             // In front of the body and not of the ground it holds, which is the road's own reading
-            // (<see cref="LaneOccupancy.NextSpokenFor"/>): a stretch begins behind its owner's back.
+            // (<see cref="LaneOccupancy.NextHeld"/>): a stretch begins behind its owner's back.
             var cutM = OnTheLineM(
                 way,
-                _footfall.GrantedOn(
-                    way.Way, fromM, way.ToM, person, asker, out var heldBy, LaneOccupancy.UnderWay));
+                _occupancy.GrantedOn(
+                    way.Way, fromM, way.ToM, person, asker, out var heldBy, ClaimsAsked.Walkable));
             if (cutM < grantedToM)
             {
                 grantedToM = cutM;
                 People.HeldBy[person] = heldBy.Found ? heldBy.Occupant : PersonFleet.NoBody;
+                People.HeldByOf[person] = heldBy.Found ? heldBy.Of : LaneRoster.Walking;
             }
 
-            // The one the walk runs into rather than the one it is granted up to: the nearest is what the
-            // feet have to get past, and a second body behind it is next tick's question.
-            if (People.StepsRound[person] == PersonFleet.NoBody
-                && _footfall.AheadObstruction(
-                    way.Way, fromM, way.ToM, person, out var inTheWay, LaneRoster.Walking))
+            // And the bodies laid where they lie, which the cut above leaves out and which the walker
+            // answers one of two ways. <b>Of whichever roster</b> (TER-4c.2): a car that has mounted a kerb
+            // is a body on the pavement like any other, and its number means nothing without the fleet it is
+            // a number in.
+            var at = LaneOccupancy.FromTheStart;
+            while (_occupancy.NextLying(way.Way, fromM, way.ToM, person, ref at, out var lying, LaneRoster.Walking))
             {
-                People.StepsRound[person] = inTheWay.Occupant;
+                // <b>Every one of them cuts the walk</b> (TER-4c.3): the ground under a body is that body's
+                // for as long as it stands there, whether it got there by walking, by being shoved or by
+                // being driven. What its movement decides is the reply below, never the cut.
+                var heldToM = OnTheLineM(way, lying.FromM) + asker.AtAPlaceM;
+                if (heldToM < grantedToM)
+                {
+                    grantedToM = heldToM;
+                    People.HeldBy[person] = lying.Occupant;
+                    People.HeldByOf[person] = lying.Of;
+                }
+
+                // <b>Going nowhere is the body's own movement and never how its stretch was measured</b>
+                // (PER-24, <see cref="IsComingThrough"/>). One coming through ground the walk wants is
+                // waited for where it stands; one going nowhere is aimed past instead.
+                if (IsComingThrough(lying)) continue;
+
+                // The one the walk runs into rather than the one it is granted up to: the nearest is what
+                // the feet have to get past, and a second body behind it is next tick's question.
+                if (People.StepsRound[person] != PersonFleet.NoBody) continue;
+                if (IsWhereTheWalkIsGoing(person, in lying)) continue;
+
+                People.StepsRound[person] = lying.Occupant;
+                People.StepsRoundOf[person] = lying.Of;
             }
 
             // A lane's edge is a place and has no margin of its own, so the asker's is taken off it here —
@@ -301,8 +357,139 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
+    /// <b>What a walker on no way at all may step into</b> (PER-13). A body freshly handed a line, one that
+    /// has stepped off its own to get past something, one under a hand: it holds the ground it stands on
+    /// (<see cref="StandInTheWay"/>) and has no stretch in front of it to be cut on, so the permission is
+    /// asked of the ground instead — is the patch this body would step into anybody's?
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same question a manoeuvre asks</b> (<see cref="LaneOccupancy.AnybodyStandingOver"/>): a
+    /// template runs over ground no way owns and the ways under it are all there is to ask, and a body with
+    /// no line is in exactly that position. <b>It is a permission and not a distance</b> (PER-13) — there is
+    /// ground to step into or there is not — because a body off every line has no metre to measure one along.
+    /// </para>
+    /// <para>
+    /// <b>Without it a walker off its line was granted the whole town</b>: every walk begins on a line it has
+    /// not walked a point of yet, and the give-up clock (PER-8) hands a held walker a fresh one — so the one
+    /// thing that reliably freed a walker cut at a parked car was the tick after it stopped being cut at
+    /// anything.
+    /// </para>
+    /// <para>
+    /// <b>Asked over the whole reach and not at the end of it</b>: the box runs from the body outward, or a
+    /// body standing inside the reach would be stepped straight through on the way past it.
+    /// </para>
+    /// <para>
+    /// <b>And the reach is the margin this body keeps, not the ground it wants</b> — the same figure the walk
+    /// on a way is cut short of a stretch by (<see cref="LaneCredit.AtAPlaceM"/>), and never less than what
+    /// this tick commits it to. Asked over everything it is asking for, a walker is stopped a whole ask short
+    /// of what it is walking at, and a paramedic never gets near enough to a casualty to pick one up.
+    /// </para>
+    /// </remarks>
+    void GrantWhereItStands(int person)
+    {
+        // PHY-7: inside a container there is no body in the world, and nothing outside is in its way.
+        if (People.Inside[person].Any || !People.Walking[person]) return;
+
+        var positionM = People.PositionM[person];
+        var strideM = People.DestinationM[person] - positionM;
+        var lengthM = strideM.Length();
+        if (lengthM < _config.CrossesOntoAWayM) return;
+
+        var radiusM = People.RadiusM[person];
+        var reachM = MathF.Min(lengthM, MathF.Max(StopsInM(person), _config.PersonStandstillGapM));
+        var forward = strideM / lengthM;
+
+        Span<WayUnder> under = stackalloc WayUnder[_pavement.MostWaysUnderAPlace];
+        var count = GroundUnder.At(
+            _pavement, positionM + (forward * (reachM * 0.5f)),
+            new BodyFootprint(radiusM + (reachM * 0.5f), radiusM, forward), _config.CrossesOntoAWayM, under);
+
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref under[index];
+            if (!_occupancy.AnybodyStandingOver(
+                    way.Way, way.AlongM + way.BackM, way.AlongM + way.AheadM, person, out var standing,
+                    LaneRoster.Walking))
+            {
+                continue;
+            }
+
+            // Nothing holds a body off the place it is walking to (PER-24): arriving is what stops that walk,
+            // and a permission read off the ground cannot say "you may not reach where you are going" without
+            // stranding a paramedic a body's width short of the casualty it was sent to.
+            if (IsWhereTheWalkIsGoing(person, in standing)) continue;
+
+            People.AuthorityM[person] = 0f;
+            People.HeldBy[person] = standing.Occupant;
+            People.HeldByOf[person] = standing.Of;
+
+            // The same reply the walk on a way makes to the same body (PER-24): waited for where it stands,
+            // or stepped round with whatever room the cut leaves — which here is none, so what the step is
+            // for is the clock behind it (<see cref="IsHeldByAStandstill"/>).
+            if (IsComingThrough(standing)) return;
+
+            People.StepsRound[person] = standing.Occupant;
+            People.StepsRoundOf[person] = standing.Of;
+            return;
+        }
+    }
+
+    /// <summary>
+    /// <b>Whether what is holding this walker is going nowhere</b> rather than queueing in front of it. A body
+    /// under way down the same pavement gives its ground back by walking on, so the clock that gives up on a
+    /// leg would be counting a wait that ends itself; a body going nowhere never does, and a walker cut at one
+    /// is stopped rather than waiting (PER-8, PER-24).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is read off the holder and not off the stretch that cut this walker</b>, so every way a walk can
+    /// be stopped by a standstill gives one answer: a body lying where it lies, a body at the very place this
+    /// walk was going (<see cref="IsWhereTheWalkIsGoing"/>, which is never stepped round and so leaves nothing
+    /// behind on the walker), and a car standing on the pavement, which is on no walk at all.
+    /// </para>
+    /// <para>
+    /// <b>A body on no way is one of them however busily it is walking</b> (<see cref="IsAfoot"/>). What is on
+    /// a way is in a queue with an order to it and gives its ground back down the line; a body off every way
+    /// is held on the ground itself (<see cref="GrantWhereItStands"/>) and two of those can hold each other,
+    /// which is a standstill that only a clock breaks. Left out, the town ran thirteen rings of walkers each
+    /// waiting on the next.
+    /// </para>
+    /// </remarks>
+    bool IsHeldByAStandstill(int person)
+    {
+        var holding = People.HeldBy[person];
+        if (holding == PersonFleet.NoBody) return false;
+        if (People.HeldByOf[person] != LaneRoster.Walking) return true;
+
+        return !People.Walking[holding] || People.OnWay[holding] == PersonFleet.NoWay;
+    }
+
+    /// <summary>
+    /// <b>Whether this body is standing where the walk is going</b> rather than in the way of it — the one
+    /// body a walker never steps round (PER-24). The ground within a clearance of it is exactly the ground
+    /// a step would be stepping out of, so a walker aiming inside that circle has an aim no step can reach:
+    /// it would come round the body and round it again for as long as the leg lasted. A paramedic walks
+    /// <em>at</em> a casualty, and a walker walks at its own doorway.
+    /// </summary>
+    /// <remarks>
+    /// <b>It decides the reply and never the cut</b> (TER-4c.3): the body holds its stretch either way and
+    /// the walk stops at it either way, so what this changes is that the walker stands a clearance short of
+    /// where it was going instead of circling it.
+    /// <b>Asked in the same terms the step itself is</b> (<see cref="StepAround.IsInTheWay"/>), so the two
+    /// cannot disagree about which body is being got past.
+    /// </remarks>
+    bool IsWhereTheWalkIsGoing(int person, in LaneClaim lying)
+    {
+        WhereTheBodyInTheWayIs(lying.Occupant, lying.Of, out var bodyM, out var bodyRadiusM);
+
+        var clearanceM = People.RadiusM[person] + bodyRadiusM + _config.PersonShoulderRoomM;
+        return (bodyM - People.DestinationM[person]).LengthSquared() < clearanceM * clearanceM;
+    }
+
+    /// <summary>
     /// <b>Where on this walk a lane this body was refused begins</b>, in the walk's own metres, or infinity
-    /// where it was refused none. <b>The refusal is not made here</b>: the road's book answered it when the
+    /// where it was refused none. <b>The refusal is not made here</b>: the road answered it when the
     /// band was asked for (<see cref="MayStepOnto"/>) and said where on the crossing way it lands, and this
     /// is that one answer spent — so the body stops at the kerb line of the lane rather than in it.
     /// </summary>
@@ -317,7 +504,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// Whether this walker is a body on a line of its own rather than a shape on the pavement — <b>the
-    /// whole of what the book is for</b>. One that is gets queued behind however long it stands; one that
+    /// whole of what the claims are for</b>. One that is gets queued behind however long it stands; one that
     /// is not gets given up on and walked round.
     /// </summary>
     /// <remarks>
@@ -331,8 +518,15 @@ internal sealed partial class TownWorld
     /// <b>A body that has not reached the way its point is on is still on the way behind it</b>, and this
     /// is the common case rather than the corner one: a station is laid up to four metres up the walk, so
     /// a walker rounding a corner spends whole seconds aiming at a point on ground it is not on yet. Read
-    /// off the near point alone it would stand at a negative distance, which is a body in the book before
+    /// off the near point alone it would stand at a negative distance, which is a body claimed before
     /// the way it is on begins — and every grant taken against it is then a grant over ground nobody is on.
+    /// </para>
+    /// <para>
+    /// <b>The first point of a line is walked at like any other.</b> There is no point behind it to measure
+    /// across, so the off-the-line test simply has nothing to say — and a body standing before the way that
+    /// point is on has no way behind it to fall back to and is on none. Refused outright instead, every walk
+    /// in the town began with its walker on no way at all, which is the one state the pavement's own grant
+    /// could not answer for (<see cref="GrantWhereItStands"/>).
     /// </para>
     /// </remarks>
     bool IsAfoot(int person, out int way, out float alongM)
@@ -343,7 +537,7 @@ internal sealed partial class TownWorld
         if (!People.Walking[person] || !People.IsOnItsFeet(person)) return false;
 
         // A hand at the keys aims a walker wherever it likes and the line under it is whatever was last
-        // laid, so what the book would be reading is where that walker was going before the hand took it.
+        // laid, so what would be claimed is where that walker was going before the hand took it.
         if (_hands.Held && _selected.Holds(SelectionKind.Person, person)) return false;
 
         var at = People.WalkedAt(person);
@@ -357,13 +551,13 @@ internal sealed partial class TownWorld
         // The same bar the driving side holds a car to before it calls its line lost, in the walking side's
         // own figures: a body further off the stretch of walk it is on than that stretch has ground either
         // side of it is standing somewhere else, whatever its line still says. Reading one of those as a
-        // walker on a lane puts a reservation on ground nobody is on and queues a pavement behind it.
+        // walker on a lane claims ground nobody is on and queues a pavement behind it.
         //
         // <b>With no point behind it there is no stretch to measure against</b>, and a line freshly laid
         // from where a body got to says nothing about where that body stands across it — so it is not
         // placed until it has walked a point, which is the same answer the negative-distance case gives.
-        if (at == 0
-            || OffTheWalkM(points[at - 1], points[at], positionM) > _config.WalkerOffLaneM * OffLineTolerance)
+        if (at > 0
+            && OffTheWalkM(points[at - 1], points[at], positionM) > _config.WalkerOffLaneM * OffLineTolerance)
         {
             return false;
         }
@@ -378,6 +572,8 @@ internal sealed partial class TownWorld
             // Standing before the way its own point is on. The ground under it is the way the point behind
             // it was stationed on, and how much of the stretch between the two is still on that way is the
             // near point's own distance short of it.
+            if (at == 0) return false;
+
             var before = WayOf(codes[at - 1]);
             if (before == PersonFleet.NoWay) return false;
 
@@ -386,7 +582,7 @@ internal sealed partial class TownWorld
         }
 
         way = on;
-        alongM = MathF.Min(alongM, _footfall.WayLengthM(way));
+        alongM = MathF.Min(alongM, _occupancy.WayLengthM(way));
         return true;
     }
 
@@ -401,42 +597,73 @@ internal sealed partial class TownWorld
         return (atM - (fromM + (run * at))).Length();
     }
 
-    /// <summary>The book's own way number for a point of a walked line, or <see cref="PersonFleet.NoWay"/> for the hop off the network.</summary>
+    /// <summary>
+    /// The town's way number for a point of a walked line, or <see cref="PersonFleet.NoWay"/> for the hop
+    /// off the network. <b>The one place a walked line's own encoding is spent</b>
+    /// (<see cref="WalkedLine"/>): a stretch's own edge, or the complement of a mitre's turn slot.
+    /// </summary>
     int WayOf(int code) =>
         code == WalkedLine.NoWay ? PersonFleet.NoWay
-        : code >= 0 ? _footfall.WayOfLane(code)
-        : _footfall.WayOfTurn(~code);
+        : code >= 0 ? _ways.OfFootway(code)
+        : _ways.OfMitre(~code);
 
     /// <summary>
     /// Anything that is not walking a line: a body standing about, one knocked off its feet, one somebody
     /// is steering by hand, the last stride of a walk off the network onto a doorstep. <b>It is where it
     /// lies</b>, which is a question for the pavement and not for a line it is no longer on.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The same walk a car standing on the footway is written onto</b> (TER-4c.2,
+    /// <see cref="LieOnThePavement"/>, <see cref="GroundUnder"/>): every way the body's own box touches — the
+    /// lane it is on, the lane running back the other way where it reaches into it, and the mitres and lanes
+    /// of a corner it is standing over. <b>And its own box and not a radius at a projection</b>
+    /// (<see cref="BodyFootprint.CoversOn"/>), which is the reading every other body in the town is laid by.
+    /// </para>
+    /// <para>
+    /// <b>The paint of a crossing among them</b> (TER-4c.2). A zebra is a way of the walk like any other and a
+    /// body standing on one is standing on it; left out, the only claims a walker reads had nothing on that
+    /// ground, so a walk went straight through somebody standing on the paint and no step was ever taken round
+    /// one (PER-24). <b>It is the car that is left out and not the crossing</b>
+    /// (<see cref="WalkedAlone"/>): what holds a walker off a car there is that car's stretch of the lane,
+    /// looked up where the crossing runs over it — and that look-up is about the traffic that is
+    /// <em>coming</em> (<see cref="LaneOccupancy.AnyTrafficOver"/>), which somebody standing in the road is
+    /// not.
+    /// </para>
+    /// <para>
+    /// <b>A place on a lane is projected onto that lane and never scaled onto it.</b> A lane is the stretch's
+    /// curve moved a quarter of the band aside, so it is longer outside a bend and shorter inside one and
+    /// carries the corner off its own end where that corner is nobody's choice
+    /// (<see cref="WalkingNetwork.TailLengthM"/>): a share of the stretch walked, read as the same share of
+    /// the lane, is a body drawn a corner's length from where it stands. <see cref="PavementWays"/> seeds the
+    /// projection with that share and then projects, which is the whole of the difference.
+    /// </para>
+    /// <para>
+    /// <b>And each row says how far aside of that way's line the body stands</b>
+    /// (<see cref="LaneClaim.AsideM"/>, <see cref="LaneOccupancy.StandsAside"/>), which is what lets a body be
+    /// written onto every way it touches without shutting every one of them: on the pavement the bar is nought,
+    /// so what is in somebody's way is a body over the line they are walking. Written without it, one person
+    /// standing at a corner held both lanes of every stretch meeting there and the mitres between them — a
+    /// corner nobody could walk through.
+    /// </para>
+    /// </remarks>
     void StandInTheWay(int person)
     {
-        var positionM = People.PositionM[person];
-        var edge = _foot.NearestEdge(positionM, out var alongEdgeM);
-        if (edge < 0) return;
-
-        var on = Spline.SampleAt(_foot.ArcsOf(edge), alongEdgeM);
-        var offsetM = _walking.LaneOffsetM(edge);
-
-        // Which of the stretch's two lanes it is standing on. They are laid half a band apart, so a body on
-        // one of them stands on neither the other nor between them, and the answer is which side of the
-        // stretch's own line the body is.
-        var acrossM = Vector2.Dot(positionM - on.PositionM, on.Right);
-        var lane = acrossM >= 0f ? edge : _foot.Reverse(edge);
-        if (MathF.Abs(MathF.Abs(acrossM) - offsetM) > _config.WalkerOffLaneM) return;
-
-        var edgeLengthM = MathF.Max(1e-4f, _foot.LengthM(edge));
-        var alongLaneM = lane == edge ? alongEdgeM : edgeLengthM - alongEdgeM;
-        alongLaneM = alongLaneM / edgeLengthM * (_walking.LaneLengthM(lane) - _walking.TailLengthM(lane));
-
         var radiusM = People.RadiusM[person];
-        var alongMps = Vector2.Dot(People.VelocityMps[person], lane == edge ? on.Direction : -on.Direction);
-        _footfall.Add(
-            _footfall.WayOfLane(lane), alongLaneM - radiusM, alongLaneM + radiusM, alongMps, person,
-            LaneUse.Obstruction, LaneRoster.Walking);
+
+        Span<WayUnder> under = stackalloc WayUnder[_pavement.MostWaysUnderAPlace];
+        var count = GroundUnder.At(
+            _pavement, People.PositionM[person], BodyFootprint.Round(radiusM), _config.CrossesOntoAWayM,
+            under);
+
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref under[index];
+            _occupancy.ClaimWhereItStands(
+                way.Way, way.AlongM + way.BackM, way.AlongM + way.AheadM, way.AlongM + way.AheadM,
+                Vector2.Dot(People.VelocityMps[person], way.AlongUnit), person, of: LaneRoster.Walking,
+                acrossFromM: way.AcrossFromM, acrossToM: way.AcrossToM);
+        }
     }
 
     /// <summary>

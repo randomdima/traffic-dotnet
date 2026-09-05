@@ -11,7 +11,7 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// between a queue that will move and an obstruction that will not.
 /// </summary>
 /// <remarks>
-/// Both come out of the town's own book, in the way's own metres. There is no ray behind it: everything
+/// Both come out of the town's own claims, in the way's own metres. There is no ray behind it: everything
 /// that can be on a lane is a stretch of that lane, so the gap is a subtraction rather than a cast.
 /// </remarks>
 internal readonly record struct HeadwayReading(float DistanceM, float AlongMps)
@@ -36,7 +36,7 @@ internal enum HeadwayKind : byte
     Nothing,
 
     /// <summary>
-    /// A live driver on this car's own path, pointed the way this car is going. <b>A queue however long
+    /// A live driver on this car's own line, pointed the way this car is going. <b>A queue however long
     /// it has stood</b> — the car at its head is held by something, and that something is not this car's
     /// to drive round.
     /// </summary>
@@ -54,7 +54,7 @@ internal enum HeadwayKind : byte
     /// <summary>
     /// <b>A person standing in the lane</b> — on the paint or on bare carriageway, it is the same fact to a
     /// driver. Waited behind while it is moving, and <b>gone round once it has stopped</b>: a walker is an
-    /// agent like any other, and what keeps a swerve off one is the body's own stretch of the book rather
+    /// agent like any other, and what keeps a swerve off one is the body's own claim rather
     /// than a rule that refuses to look at it (`E-4`).
     /// </summary>
     Walker,
@@ -65,13 +65,25 @@ internal enum HeadwayKind : byte
     /// justify crossing the centreline to pass.
     /// </summary>
     Unknown,
+
+    /// <summary>
+    /// <b>Road another driver stated it means to use and has not reached</b> (TER-5g) — a place and not
+    /// a body, so it is stopped short of rather than followed, and no station is kept behind it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the one reading that says a car is giving way rather than queueing.</b> A grant cut here
+    /// belongs to a movement this one is weaker than, and what the driver does about it is the same thing it
+    /// does about every other short grant: hold the speed the road it was left with affords, which is an
+    /// ease-off where there is road and a stop where there is none.
+    /// </remarks>
+    Stated,
 }
 
 /// <summary>
 /// What the driver has been told about the world this tick, over and above the line it is driving:
 /// what is in front of it, how fast that is going, and where it must be stopped by.
 /// </summary>
-/// <param name="HeadwayM">From the nose to whatever the book has in front, or <see cref="float.PositiveInfinity"/> for an empty road.</param>
+/// <param name="HeadwayM">From the nose to whatever is claimed in front, or <see cref="float.PositiveInfinity"/> for an empty road.</param>
 /// <param name="HeadwaySpeedMps">How fast that thing is going <em>along this car's heading</em> — the whole difference between a queue that will move and an obstruction that will not.</param>
 /// <param name="StopAtM">How far ahead along the line the car must be stopped: an unclaimed junction, a stop bar, a red light. Infinite where nothing stops it.</param>
 /// <param name="GroundCoefficient">What the surface under it is worth, which scales every grip figure the profile plans against.</param>
@@ -129,12 +141,12 @@ internal enum DrivingHold : byte
     Headway,
 
     /// <summary>
-    /// The ground it was granted to stop in has run out: somebody in front reserved the rest of it.
+    /// The ground it was granted to stop in has run out: somebody in front claimed the rest of it.
     /// <b>This is what queueing is</b> — the whole of following, and a speed behaviour rather than a
-    /// decision. It binds where the book knows something the rays cannot see: road spoken for round a
+    /// decision. It binds where a claim says something the rays cannot see: road spoken for round a
     /// bend, across a join, or by a car that is not in the corridor yet.
     /// </summary>
-    Reserved,
+    Claimed,
 
     /// <summary>A junction it has not been given, a bar or a red.</summary>
     Waiting,
@@ -271,7 +283,7 @@ internal static class CarFollower
     /// </summary>
     /// <param name="plannedMps">
     /// What it would have asked for with the road to itself — every term but the grant. <b>It is the
-    /// ceiling on the next reservation</b>, and it is taken here because this is where the terms are: the
+    /// ceiling on the next claim</b>, and it is taken here because this is where the terms are: the
     /// road a car holds is bounded by the speed it is driving towards as well as by the one it can reach
     /// before the next decision.
     /// </param>
@@ -321,15 +333,15 @@ internal static class CarFollower
 
         // The stop short of the paint, which is the crossing's own term rather than the junction's: what a
         // driver owes somebody on a crossing is a stop point on this car's own line and not a claim on a
-        // box. <b>Paint with nobody's ground on it costs nothing</b> (TER-4c.1) — a crossing the book
-        // grants this car the road over is driven at the speed the rest of the road affords.
+        // box. <b>Paint with nobody's ground on it costs nothing</b> (TER-4c.1) — a crossing this car has
+        // been granted the road over is driven at the speed the rest of the road affords.
         Bind(ref targetMps, ApproachMps(0f, context.CrossingStopM - leadM, brakingMps2), DrivingHold.Crossing, ref hold);
 
         // <b>The gap to a shape, which is a different measurement from the grant below and not a second
-        // gate on it</b> (SIM-7). The book holds every body as an interval of the way's own arclength,
+        // gate on it</b> (SIM-7). A claim holds a body as an interval of the way's own arclength,
         // which follows the road round every bend but carries no width and no angle — so what it cannot
         // say is how near the *shape* of a car mid-turn, one straddling a join or one cutting a corner
-        // actually is, and a walker is in no such book at all.
+        // actually is, and a walker has no claim of that kind at all.
         // Suppressing this wherever the index had a name for what was ahead cost 290 emergency stops in a
         // minute of Odesa.
         var gapM = context.HeadwayM - car.HalfLengthM - leadM;
@@ -337,13 +349,13 @@ internal static class CarFollower
             ref targetMps, ApproachMps(MathF.Max(0f, context.HeadwaySpeedMps), gapM, brakingMps2),
             DrivingHold.Headway, ref hold);
 
-        // The road to itself, which is the figure the next reservation is asked for at — before the grant
+        // The road to itself, which is the figure the next claim is asked for at — before the grant
         // is folded in, and never after it.
         plannedMps = MathF.Max(0f, targetMps);
 
         // <b>And the grant, which is the whole of following.</b> The ground the index gave this car to
         // stop in inverts straight into a speed: what may be held here to be at rest by the far end of it.
-        // A car in front is credited with the ground it will have vacated, because its own reservation
+        // A car in front is credited with the ground it will have vacated, because its own claim
         // begins where it will have stopped and not where it is.
         //
         // <b>Read at a following time and not at the reaction lead</b>, which is the one term here that is
@@ -362,7 +374,7 @@ internal static class CarFollower
             : 0f;
         Bind(
             ref targetMps, ApproachMps(0f, context.AuthorityM - followingM, brakingMps2),
-            DrivingHold.Reserved, ref hold);
+            DrivingHold.Claimed, ref hold);
 
         return MathF.Max(0f, targetMps);
     }

@@ -57,6 +57,9 @@ internal sealed partial class FootGraph : IFineGraph
     readonly int[] _nodeOutOffsets;
     readonly int[] _nodeOutEdges;
 
+    /// <summary>The same list read the other way round, which the pairing makes free to lay and awkward to walk without.</summary>
+    readonly int[] _nodeInEdges;
+
     /// <summary>
     /// The forward stretches over a grid, which is the whole of what <see cref="NearestEdge"/> is. Laid
     /// with the graph because the graph is immutable and the tick asks the question.
@@ -78,6 +81,9 @@ internal sealed partial class FootGraph : IFineGraph
         _edgeArcs = edgeArcs;
         _nodeOutOffsets = nodeOutOffsets;
         _nodeOutEdges = nodeOutEdges;
+
+        _nodeInEdges = new int[nodeOutEdges.Length];
+        for (var at = 0; at < nodeOutEdges.Length; at++) _nodeInEdges[at] = Reverse(nodeOutEdges[at]);
 
         // Only the forward half of each pair: the two directions of a stretch are the same line, so
         // indexing both would offer every answer twice and give the reverse edge a chance at a tie.
@@ -104,6 +110,10 @@ internal sealed partial class FootGraph : IFineGraph
 
     public ReadOnlySpan<int> EdgesOut(int node) =>
         _nodeOutEdges.AsSpan(_nodeOutOffsets[node], _nodeOutOffsets[node + 1] - _nodeOutOffsets[node]);
+
+    /// <summary>The stretches arriving at a node, which are the ones leaving it walked the other way.</summary>
+    public ReadOnlySpan<int> EdgesIn(int node) =>
+        _nodeInEdges.AsSpan(_nodeOutOffsets[node], _nodeOutOffsets[node + 1] - _nodeOutOffsets[node]);
 
     /// <summary>A walk is aimed at a place on the pavement and never at a node of it, so none of them is kept for its own sake.</summary>
     public bool AlwaysANode(int node) => false;
@@ -143,13 +153,13 @@ internal sealed partial class FootGraph : IFineGraph
         // laying one down the middle of its roads.
         if (bandM > 0f)
         {
-            var terrain = new TerrainGrid(plan, config);
+            var terrain = new GroundLocator(plan, config);
             var strips = Strips(plan, config, bandM);
             var corners = Corners(plan, strips, bandM);
             var ends = Lay(builder, strips, bandM);
             KerbCorners(plan, builder, corners, ends, bandM);
-            ArmBands(plan, terrain, builder, ends, bandM);
-            HeadBands(plan, builder, ends, bandM);
+            ArmBands(plan, terrain, config, builder, ends, bandM);
+            HeadBands(plan, config, builder, ends, bandM);
             LotBands(plan, terrain, builder, bandM);
             Crossings(plan, builder, bandM);
         }

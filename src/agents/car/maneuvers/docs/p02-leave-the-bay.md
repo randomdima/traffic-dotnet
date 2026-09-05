@@ -15,12 +15,12 @@ to the town, and no line in hand — the plan's next step lays one.
 
 **Line.** The bay's own way ([`BayWays`](../../../../world/parking/BayWays.cs)), **which is the line the car
 was parked over, travelled the other way**: the turn out of the bay, the swing that squares it up, and the
-metre of lane it lands on. It is a way of the road's book and is taken up as it stands; drawn for the rear
+metre of lane it lands on. It is one of the road's own ways and is taken up as it stands; drawn for the rear
 axle. Where the car is not standing at the bay's own pose — after a recovery, after `P-16`, or because this
 car's axle sits somewhere else under its body than the nominal car's does (`CAR-11a`) — the same shape is
 laid from the pose the car is actually in, **at this car's own turning circle**, and driven instead
-(`CAR-10b`). The town's way is an offer and not a rail: what it buys where it fits is a reservation and a
-right of way already written into the book.
+(`CAR-10b`). The town's way is an offer and not a rail: what it buys where it fits is a claim and a
+right of way already attached to it.
 
 **Which gear.** The one the way is driven in, which is the standing's and not this entry's (`GEN-4j`). A
 car that nosed into its space reverses out, and the follower steers against the direction of travel; one
@@ -51,7 +51,7 @@ somewhere it is allowed to be; after it, it is across a lane and finishing is ch
 | the line is no longer in hand | `P-4` (failure) |
 | stuck past the fuse | the ladder — rung 1′ re-lays this same manoeuvre while the car is still inside the bay |
 
-**Why there is no wait here.** Because the town already has one. The way out is a way of the book, so what
+**Why there is no wait here.** Because the town already has one. The way out is one of the road's own, so what
 holds the car in the bay is the road it is granted — cut at the first metre of that way the traffic on the
 street is driven over, by the table walk that cuts a car at a junction (`TER-5c.1`) — and what stops two
 cars in neighbouring bays taking the same gap is that the first of them takes the ground before it moves

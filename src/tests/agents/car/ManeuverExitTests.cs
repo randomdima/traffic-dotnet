@@ -42,7 +42,7 @@ public class ManeuverExitTests
         InsideTheBox = false,
         LightAheadM = float.PositiveInfinity,
         BayHeld = -1,
-        BayBooked = -1,
+        BayClaimed = -1,
         OnTheFinalApproach = false,
         ToTheBayM = float.PositiveInfinity,
         ToTheSceneM = float.PositiveInfinity,
@@ -88,7 +88,7 @@ public class ManeuverExitTests
     [Fact]
     public void RunningTheLineTakesTheJunctionOnceTheBoxIsItsOwn()
     {
-        var scene = Running with { ToTheBoxM = Config.CarJunctionReserveM * 0.5f, BoxIsOurs = true };
+        var scene = Running with { ToTheBoxM = Config.CarJunctionClaimM * 0.5f, BoxIsOurs = true };
         Assert.Equal(Maneuver.TakeTheJunction, Tick(Maneuver.RunTheLine, scene).Next);
     }
 
@@ -132,7 +132,7 @@ public class ManeuverExitTests
     {
         var scene = Running with
         {
-            Hold = DrivingHold.Reserved,
+            Hold = DrivingHold.Claimed,
             Context = DriveContext.Clear with { AuthorityM = Config.Car.LengthM, Ahead = HeadwayKind.Queue },
         };
 

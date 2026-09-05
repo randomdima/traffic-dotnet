@@ -10,7 +10,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 
 /// <summary>
 /// CAR-14: what a car's lamps say. The indicator is the claim worth checking hardest — it is read off
-/// the line the car is about to drive rather than announced by whatever manoeuvre laid that line, so
+/// the line the car is about to drive rather than stated by whatever manoeuvre laid that line, so
 /// what the test stages is geometry and never an entry of the catalogue.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
@@ -137,7 +137,7 @@ public class CarLampTests
         Assert.Equal(CarLampSet.None, Showing(fleet));
     }
 
-    /// <summary>And a junction the car goes straight on through is nothing to announce either.</summary>
+    /// <summary>And a junction the car goes straight on through is nothing to state either.</summary>
     [Fact]
     public void GoingStraightOnThroughAJunctionSaysNothing()
     {
@@ -148,11 +148,11 @@ public class CarLampTests
     }
 
     /// <summary>
-    /// And it is announced on the approach rather than from two streets away: past the reach the lamp is
+    /// And it is stated on the approach rather than from two streets away: past the reach the lamp is
     /// dark, whatever the line does at the far end of it.
     /// </summary>
     [Fact]
-    public void AJunctionTooFarOffIsNotAnnouncedYet()
+    public void AJunctionTooFarOffIsNotStatedYet()
     {
         var fleet = Rolling(curvature: 0.05f);
         fleet.ToTheBoxM[0] = Config.Lamps.JunctionAheadM * 1.1f;

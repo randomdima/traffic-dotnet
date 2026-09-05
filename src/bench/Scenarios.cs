@@ -29,6 +29,9 @@ internal static class Scenarios
         if (string.Equals(map, ExamPlan.Name, StringComparison.Ordinal))
             return [new ExamWatch(config, world), town];
 
+        if (string.Equals(map, FootwayPlan.Name, StringComparison.Ordinal))
+            return [new FootwayWatch(config, world), town];
+
         if (string.Equals(map, ZebraWatch.Map, StringComparison.Ordinal))
             return [new ZebraWatch(config, world), town];
 

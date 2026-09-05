@@ -4,6 +4,371 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-04 — one table of ways, and no metre of one in two claims
+
+There were two sets of claims: the road's, over its lanes, its junction joins and the ways its bays are
+worked off, and the pavement's, over the two sides of every stretch and the mitres between them. They were
+two `LaneOccupancy` instances in two numbering spaces, and the only thing that said which of them a way
+number belonged to was a `bool` on the row a body's pose laid. **Nothing could compare a claim in one with a
+claim in the other**, so a car parked across a footway and the walker coming down it each held the same
+ground and each book was right about itself. The overlay drew it: two washes over one piece of pavement, one
+per network, one per body.
+
+**There is now one table.** Every way in the town is numbered once — lanes, joins, bays, footways, mitres —
+and the kind is a property of the ground rather than a table it lives in (`TownWays`, TER-4c.2). What the
+kind decides is how wide the ground is and what has to stand clear of its line: half a car on anything the
+traffic drives, half a body on anything it walks. It decides nothing about who may claim, which was already
+the rule and now has nowhere left to be violated.
+
+**And the claims on a way are disjoint by construction** (TER-4c.3). The insertion was a splice that never
+looked at what was already there; exclusivity lived only in the grant passes, and those only ever shortened
+the *asker's own* far edge — so the table was full of overlapping asks by design and two cars queued for one
+turn each held that join's own runs. A stretch is now cut back to the edge of whatever it would have shared
+ground with, before it goes in, and the gate walks every way of every shipped map every tick to say so.
+
+**What decides which of a pair gives up the ground had to be the body and not the rank.** Read off the
+priorities, two bodies of one rank were settled by whichever went into the table first — and a follower
+close enough for its nose to reach into the margin the leader keeps could take the leader's own ground out
+from under it. A claim whose body stands over the shared metres now beats one merely reaching across them,
+and between two bodies it is whichever is further back that yields: the same answer the grant arrives at,
+and the same answer whichever order the pair is laid in.
+
+**A refused ask is outside it**, and that is the one exemption. It is a mark and not a hold — nobody's
+ground, binding nobody — laid deliberately over the stretch the traffic holds, because what it says is that
+somebody is waiting for exactly those metres (TER-5g). Made exclusive with the rest, it was cut away by the
+thing it was marking and the traffic stopped giving way at uncontrolled crossings.
+
+**What is not settled is the stretch laid from a pose that reaches past a body.** A swerve's corridor runs
+over the very body it is swinging round and a movement's runs reach past whatever is standing in the box;
+truncated at it, the far half is ground its holder is committed to and nobody holds. Laying the far half as
+a second run of the same claim was tried and is worse: an occupant with two stretches of one way breaks
+`Withdraw`, `CutTo` and `AlreadyHolds`, which all take a hold on a way to be one interval (TER-5c.2), and
+the town gave way less rather than more. So the truncation stands and three cases fail with it — a
+template's far end, the hand-back across a box, and a rescue behind a stopped one. **Making them disjoint
+needs TER-5c.2 opened first**, and that is a decision about what a body is allowed to hold rather than about
+how the table is filled.
+
+## 2026-09-04 — a way has one property, and it is a claim
+
+There were two words for one row. `LaneUse` said how a stretch had been measured — from a line, from
+a pose, reached for and not arrived at, a walker's band, the town's furniture, an ask refused — and the
+rank said how strong the hold was, and every question was a mask over the first with a floor
+under the second. Two of the seven uses then turned out to mean the same thing as a strength, and the
+vocabulary drifted three ways at once: the same stretch was an *intent* in the enum, an *announcement* in
+the method that laid it and a *want* in the field that sized it.
+
+**There is now one row and one word.** A way is used when there is a claim on it: who is claiming, where,
+and at what priority (TER-5g). Everything a reader used to get from the use is worked out from those —
+whether a body is standing in it is whether its body edge is past its near edge, whose it is is the
+occupant and the roster, the town's furniture is a claim nobody owns, and the one thing left that none of
+those say is whether the body is following this way's line or merely standing on it, which is a flag on the
+claim because it turns the margin and what a walker may step round.
+
+**The masks became a ceiling on the ladder**, and that is the thing that says the shape is right: what a
+grant is cut by is every claim at `Firm` or stronger, and what the driving side reads is every claim at
+`Soft` or stronger. A question now names what it is about (`ClaimsAsked`) and the answer is derived from the
+claim, so the two can no longer disagree.
+
+**The priority ladder needed five levels and not three.** `Firm` and `Soft` differ by one `=` — ground
+granted is taken by a strictly stronger movement, ground merely stated by an equal one — and collapsing them
+either deadlocks two crossing movements of one rank or leaves every weaker movement waiting on ground the
+other was only thinking about. `Rejected` is the walker's refused band, which binds nobody and is the
+lifecycle's own word for what it is.
+
+**The right of way stayed, and it should not have to.** A junction's every movement is a way of its own, so
+the rank of a claim is a fact about the ground it is on and the field is a cached copy of it
+(`TownWorld.RightOfWayOn`). What still reads the copy is the asker's own rank on its own way, and the
+marker `AnyRescueOver` spots a rescue by. Taking it off is a change of its own.
+
+## 2026-09-04 — a driver states the road it means to use, at a strength anything stronger can take
+
+What was claimed was what every car was committed to and nothing about where any of them was going, while
+the grant already looked further up the road than that (`LookForTheCutToM`). Every driver could therefore
+read the others' commitments a reaction interval out and none of them declared its own, and the read/write
+asymmetry was the defect rather than the length of either half. What it cost was a car pulling out of a
+side road in front of one coming at speed: the approacher's ground reached nowhere near the box, so nothing
+said it was coming and the only move left to it was a hard stop.
+
+It also left the rank ladder with almost nothing to rank. Seven levels were compared in two places, and the
+only revocable hold in the town was the claim across a box — so a blue light held its road at `Emergency`
+and that bought it nothing on a lane, where the traffic ahead held a committed claim which binds
+unconditionally and correctly.
+
+A car now lays a second stretch beyond the one it is committed to: what it takes to reach the speed it is
+planning for, hold that speed for as long as it says it will, and stop from there. **The holding time is
+what tells a plan from a commitment.** Measured at the decision interval — a tenth of a second — the stated
+claim is arithmetically the committed one again for any car already doing the speed it is planning for,
+which is every car on an open road and exactly the ones whose intentions are worth having claimed. It is a
+figure of its own (`DrivingFigures.StatedRunS`) for that reason. **That is the ask the committed claim
+deliberately is not**
+(2026-08-22, below, which still stands and is why that one is short) — and the whole of the
+difference is that this one can be taken. Held as ground the car was committed to, the same figure was a
+quarter of a kilometre of empty straight nothing could ask back; held at p9 on the named ladder (TER-5g) it
+costs whoever outranks it nothing at all.
+
+**A tie does not refuse.** A granted claim is one movement's ground and is settled by whoever took it, so
+ground held at an equal rank binds; a stated claim is laid by everybody in the same rebuild, so two
+movements of one rank that each refused the other's would each be waiting on ground the other was merely
+thinking about and neither would ever ask for it. Stated claims are therefore taken by a strictly stronger
+movement only, and a tie is settled by the granted claim exactly as it was before anybody stated anything.
+
+**And a body that is not moving states nothing**, which is the half of it the exam paid for. Sized from
+a standstill the stated claim is the pull-away horizon of every car in every queue in the town, held
+against every movement those queues cross: a car waiting at a give-way line held the box shut against the
+very traffic it was waiting for, and the weaker movement in seven cards of thirty-six never went at all.
+Such a claim says where a car is going, and a car at rest is going nowhere until it moves.
+
+**The rank a car asks a box's ground with had to become the rank it holds that ground at.** A car past the
+point it could stop short was asking with its movement's own rank while holding the ground with
+`RightOfWay.Committed`, which nothing had ever noticed because a claim at an equal rank binds anyway.
+Against a stated claim it noticed at once: a car committed to a box was cut at ground the oncoming stream
+had merely stated, stopped in the middle of the junction, and stayed there — card 11's failure, and the
+same shape as card 9's standing finding.
+
+**One exam card was ordering two cars to one metre of road.** Card 21 stages a turn across and a straight
+into the same arm and both were sent to the same place, so it passed only while the weaker movement got
+there first. Giving way properly is now what it does, so the card was reporting the order they went in
+rather than what it is about; the straight is sent further on and the card is named for what it tests.
+
+**The signals needed no change at all**, which was the surprise. A red is already a stop point the ask is
+clamped by, so clamping the stated claim by the same point is the whole of "a red refuses the soft
+claim, and refuses it for nobody exempt from the bar": a car stopped at a bar states nothing
+beyond it, a car with a blue light is not stopped by the bar and neither is what it states, and a car
+past the point it could stop is stopped by nothing. Expressed instead as ranked ground laid at the bar, the
+light would have decided in two places and been free to disagree with itself.
+
+**What it costs is room.** The two asks together reach as far as the assembled line, so a car's share
+of the index went from eight stretches to the ways of its own line and two, and every walk of a busy way is
+longer. The line itself was not grown to fit the ask: it is drawn as far as the car can see (`CAR-11`),
+the stated claim is clamped to it, and whether that sight distance should grow is a separate measured
+question.
+
+## 2026-09-03 — a body on foot holds the paint it stands on, and only a car is left off it
+
+The exclusion that keeps a car on a zebra from claiming the pavement was applied to whoever was standing
+there, walker included. A zebra is several lanes crossing one walk and nothing else — the same shape as a
+junction, where a body standing in the box goes onto every join under it — so the special case cost a walker
+standing on the paint its claim on the only network another walker reads: no cut to a grant, no step round it
+(PER-24), a walk straight through it, and one block in the overlay where there should be two.
+
+**The argument that covers a car does not reach a person.** What holds a walker off a car on the paint is
+that car's stretch of the lane, looked up where the crossing crosses — and that look-up asks what traffic is
+*coming* (`LaneOccupancy.AnyTrafficOver`), of the one band the body is about to step into. A person standing
+in a lane is deliberately not an answer to that question, and a walker already on the same band asks nothing
+at all, so nothing anywhere held one walker off another.
+
+`StandInTheWay` now writes every way its own box touches, the paint among them, as `LaneUse.Lying` like any
+other body going nowhere. `WalkedAlone` is left where the argument does hold: the car's write.
+
+## 2026-09-03 — a lane is the ground it is walked over, and the corners come off the line
+
+A pavement lane was the whole of its stretch's offset line, with the ground each corner takes remembered
+against it as a pair of margins. The walk started a margin in and ended a margin short; the metres between
+the margin and the line's own end were on the lane and on nothing else. That spur was real — a body standing
+inside a corner claimed it — and it was a metre or two at **both** ends of **every** lane,
+which the picture could only show as a line ending in mid-pavement. Hidden, the blocks on it stood on
+nothing; drawn, the sidewalk read as a web of severed stubs where it is in fact continuous.
+
+The margins now come off the line itself. `Carrying` cuts each lane down to the span the mitres leave it, so
+`WalkedFromM` is nought, `WalkedToM` is the lane's own length, and a mitre sets off from the arriving lane's
+last point and lands on the onward lane's first. There is nothing left to hand over and nothing left to
+draw twice: the pavement is one line through every node. What is left over is the inside of each corner,
+which is ground on no way at all — the answer the town already gives for a verge.
+
+**Two ends of a short stretch could want the whole of it.** Each is bounded by half of the shorter of the two
+lanes it stands between, so on a stretch shorter than both its neighbours the pair took everything and the
+lane cut to a point. Three lanes on Odesa and one on River did. They are now held back in proportion to
+leave the lane four fifths of itself, which is the one figure this arrangement needs that the geometry does
+not give.
+
+## 2026-09-03 — turning round on the spot lays no ground
+
+`LayJoins` laid a mitre for every way out of the node a stretch arrives at, and a stretch's own reverse is
+one of them. Nothing else in the network treated it as a way: it is excluded from how far a lane is walked,
+from the corner a lane may carry, and from the count that decides whether a corner is anybody's choice. But
+the arcs were laid all the same — 7292 of them on Odesa carrying 22.9 km of ground, 5252 on River, one per
+directed stretch in the town — and every one took a number of the pavement's own.
+
+That made it a way with claims on it and no line anywhere. `GroundUnder.WriteTheJoins` wrote every
+body standing at a node onto it, so the claims layer drew a fan of blocks across the corner in the
+walker's own colour, over ground the nodes layer had nothing to draw — the picture could not account for
+the blocks, which is exactly what OBS-2d forbids. It also spent slots: a body's ways come out of a fixed
+span, and a bogus one at the front of it is a real one at the back going unwritten.
+
+A body that turns round is already standing where it ends up, so the turn stays in the table — a walk at a
+dead end still needs it — and lays nothing. The debug layer no longer skips it either: it draws every mitre
+the town lays, and what it draws is now the whole of what can be claimed.
+
+## 2026-09-03 — a walker is laid on a car's terms, and on nothing of its own
+
+Two things stood between a body on foot and the reading every other body in the town gets, and both were on
+the walker's side alone.
+
+**The terrain grid decided whether a walker was on the road at all.** `StandInTheRoad` asked
+`Terrain.At(centre).Drivable` before it asked the geometry anything, and the grid answers to the cell it was
+painted at — a metre across on every map this build lays. So a walker within half a cell of a kerb regularly
+sampled ground the carriageway never reached, and a body a stride into the road claimed no lane:
+somebody stepping out in front of traffic that had nothing to read. The test that says a body in a junction
+is on the joins under it had already been written round it, standing its walker on a join's own line because
+the middle of the box "is ground the terrain classifier does not always call drivable". A band is what says
+which way a body is on, for a car and now for a walker, and the walk is the same `GroundUnder.At` either
+way; the grid is what a body drives and walks *over*, and it was never fit to say where one is.
+
+**And the claim was widened by a margin of its own.** A walker's stretch went in `Person.RoadClaimMargin`
+longer at each end than its box covered — seven centimetres at the shipped figures, sitting on top of the
+two metres of `CarBuild.BodyMarginM` a driver's own `LaneCredit` already stops short of anything laid where
+it lies. That is `SIM-7` exactly: the second gate does not make the walker safer, it makes it harder to say
+what the first one is worth. The margin belongs to whoever is doing the braking, so the road claim is the
+box and nothing more, and `Person.RoadClaimMargin` is now the crossing paint's alone — where it means
+something, since a body on a zebra may be anywhere along the marked ground before a driver arrives.
+
+## 2026-09-02 — a body holds the ground it stands on, and what to call it is the reader's
+
+**The write was gated on the verdict.** A body was laid where it lies only when nothing was driving it, and
+even then not on the join it was making its movement on — the ground there was covered instead by the whole
+runs of that join, claimed. A claim is the one hold a right of way can take and it is in no question about
+where a body *is*, so a car under a hand sitting in a box was a car every crossing driver read as empty
+ground. The gate was `Driven && !Broken`, which is the reader's conclusion — obstruction or not — deciding
+whether the fact got written at all.
+
+**Now every body writes the space it occupies, and the row says only how it was measured** (TER-4c.2).
+`LaneUse.Reserved` is a stretch taken from the line its owner is following, so its near edge carries that
+owner's margin; `LaneUse.Lying` is the bare box a body stands in, taken from its pose. That is the one thing
+`LaneCredit` needs and the only thing either name claims. Queue or obstruction is `TownWorld.KindOf`, off
+the occupant and the row together: a body is a queue on the way it is driving and an obstruction on the way
+it is only lying across, and the same car is both at once.
+
+**The box is projected and not approximated.** A body askew reaches its own length across the way beside it
+and its own width along the way under it, and the two swap over as it turns — so one radius is wrong on both
+axes at once, leaving a broadside wreck off the lane it is lying across while writing two car lengths onto
+the lane it covers the width of. `BodyFootprint` reduces the pose against each way's own tangent.
+
+**A body is on a way the moment it touches it, and the stretch says how far aside it stands.** The first
+attempt withheld the write until the body obstructed the band — which is a verdict, and the wrong one twice
+over. A car straddling the line left two thirds of each lane clear of it and so was written onto neither: it
+stood square across a road that could not see it, claiming nothing. The reasoning behind that gate was
+still sound as far as it went — a stretch has no width, so a way written onto is a way shut, and read as bare
+overlap alone every turning car closed the lane beside it and the town ground to a halt. What was wrong was
+the place. `LaneSlot.AsideM` carries how far clear of the way's own line the body stands; the write records
+it and `LaneOccupancy.StandsAside` is what the traffic makes of it, at half the width of whatever drives
+there. **Against the line and not the band**: two metres of lane left over past a body is no use to a car
+whose own line runs through the body.
+
+**Only the walks taken along a line ask it.** What is in front, what a grant is cut at, what is coming up
+behind. A question about a named piece of ground — a template asking whose the ground under it is, a junction
+asking about the metres another way crosses — gets every claim unfiltered, because a manoeuvre runs over ground
+no line goes down and a body it would merely reach past is a body it is about to be inside of.
+
+**And what a body covers of a way is the box clipped to the band, not the box's shadow.** Projected whole, an
+angled body claims its own length of every way it touches: a car turned forty-five degrees across its lane
+reaches the corner of the next one by nineteen centimetres and held four metres of it — as much as of the
+lane it was standing in. `BodyFootprint.CoversOn` clips the four edges of the box against the band and
+projects what survives, which for that car is thirty-seven centimetres. It is exact rather than conservative
+and that is the point: the write is the fact, and a fact eleven times too big is not a safe approximation of
+one, it is a lane shut by a wing mirror. The pair of it is that a caller asking whether a body's ground is
+taken has to ask with that body's box — `GroundAhead.TakenAt` takes one — since a circle at the same middle
+covers a different piece of a way it meets at an angle.
+
+**And a sweep is two poses and not a corridor.** A body driving a template holds the ground it has still to
+sweep (TER-4c.1), which was laid as everything between where it stood and where it was committed to being,
+on every way either end reached. On a way it was in the act of *leaving* that is a claim on the whole
+manoeuvre's length: a car swinging off a lane into a bay held seven and a half metres of that lane for a body
+under four. Both poses are now read — the far one at the heading the template ends on, not the heading the
+car happens to be at — and a way is laid from the ends that are actually on it, joined where both are. The
+same car now holds four metres and a third, which is its own box where it stands.
+
+**And the line has to be crossed rather than touched** (`SimConfig.CrossesOntoAWayM`). Bare overlap is the
+right shape and one grazing pose too many: a stretch has no width, so a body written onto a way is a body the
+traffic there is told about, and a wing mirror over the paint claimed the next lane for as long
+as it hung there. The bar is three twentieths of a car's width past the way's own edge, so a body has to
+be leaning into the next lane rather than brushing it. **The allowance is across and not along**: a first
+attempt gave the stretch a margin at each end instead, which is a different thing altogether — it lengthens
+what a body holds of a way it is already on rather than deciding whether it is on one, and the near end of a
+stretch is where the traffic behind is cut, so the fixture town's rescue gates priced it out at three
+twentieths of a car's width.
+
+**What is deliberately not written is what something else already answers for** (SIM-7). A driver under way
+has its own claim on its line's ways and the crossing table on the box (TER-5c.1). Writing a body onto
+the other joins as well deadlocked the crossroads outright — four cars each holding ground the other three
+waited for, and a body is the one hold no rank can take, so the resolution the ranks exist for never ran.
+
+**The lane running back against a driver is a gap and is left open.** Nothing is ever driven between a
+carriageway's two lanes (TER-5f), so two bodies meeting there cannot be ordered: a car that stops while
+still angled across the line holds the oncoming lane for the rest of the run, and the fixture town's rescue
+gates gridlocked when it did. The honest place to close it is `OffTheLineAllowanceM`, which lets a car sit a
+full lane's width off its line and still count as driving one; a body that far out should stop being under
+way, and then it is written here like anything else.
+
+**Two registers were still deciding where a body was.** The write stopped being gated on the verdict but was
+still taken from a register in two cases, and both are bodies the town could drive straight through. A car
+standing in a bay was laid onto the bay's own ways from `ParkingRegistry.BayOf` — a register given back only
+by the manoeuvre that drives out of one (GEN-4g), so a car taken out of its bay by a hand at the wheel, by a
+shunt or by a recovery arm went on holding two ways of a bay it was streets from and no metre of the road it
+had stopped in the middle of. `ParkingRegistry.HoldsTheBody` is the second question the shortcut now has to
+pass, and everything that fails it is laid from its pose like every other body.
+
+**And a car on a tow bar laid nothing at all.** The reasoning was right — the pair is one movement and one
+stretch (TER-5c.2), and the hauler's own claim already reaches back over the bar — but it only holds for
+the ways of the hauler's own line. The lane the trailer swings into as the pair turns was ground with a car
+in it and no claim on it. It is now laid like anything else and filed under the hauler's number
+(`TownWorld.LaidAs`), which is what one movement being one occupant actually means: the truck's grant cannot
+be cut at its own trailer, and the traffic behind is held off the pair as the single thing it is.
+
+**And the walk stopped at the node instead of crossing it.** A body lying over a node held ground up to the
+seam and nothing past it, so the block drawn for it ended at the mouth of the junction and the ground under
+the far half of the car belonged to nobody. Two things did it and both were the walk asking about the middle
+of a body rather than about the body. **The node was asked at all only where the middle projected past the
+metre the lane is left at** — which for a lane whose setback is nought is the lane's own last metre
+(TER-5d) — so a car a metre short of it with its nose in the box was a car `GroundUnder` never asked the node
+about. It is now asked wherever the body *reaches* that metre, which is `BodyFootprint.ReachOn` against the
+lane's own tangent at that end. **And a node was read as its joins alone**, which is true of a junction and
+false of a node cut into a road: those carry a movement of no length (`RoadGraph.IsAPlace`) — nine hundred of
+Odesa's two thousand three hundred — so the two lanes butt and there is nothing over the seam to hold what
+lies across it. A node is now its lanes as much as its joins, and a body over one is on both ends. The room
+the walk needs grew with it (`RoadGraph.MostLanesAtANode`), and a lane met twice — once as the nearest, again
+as a lane of its own node — is written once, because one way twice is one body laid twice (TER-5c.2).
+
+**And half the rule only ever applied to half the town.** A person standing in a lane was a stretch of that
+lane and had been for as long as there were claims; a car standing on a pavement claimed nothing at all. The
+reason was a rule read one turn too far: TER-5c.1 says ground the two networks *share* has one owner, which
+is a fact about a zebra, and it had hardened into "a body claims the network it is on and
+never into the other" — a fact about the body. Ground the walk has to itself is not shared with anything, so
+a car that has mounted a kerb was standing on a footway nothing walking there could see, and a walk went
+straight through it.
+
+**A body is now written onto whichever network it is standing on, and the exception is the shared ground
+alone.** The two networks were already the same arithmetic over two sets of ways, so what was missing was a
+name for that shape: `IWayNetwork` — lanes with lines, widths and setbacks, nodes with lanes at their ends,
+a movement over each node — implemented by `RoadWays` and `PavementWays` and taken by `GroundUnder.At` as a
+generic argument. Struct arguments rather than an interface reference, because the walk runs per body per
+tick and a virtual call per way is the town's hottest path. The pavement's setbacks are its mitres'
+(`WalkingNetwork.WalkedFromM`), which is TER-5d in the other network's words, and a footway lane is half a
+band exactly as a traffic lane is half a carriageway.
+
+**Naming the shape found a third of them.** The ways at a parking bay are lines of the road's own with a
+node at one end, so they are an `IWayNetwork` too, and a car standing in a bay had been laid by an arithmetic
+of its own for want of anywhere to say so ([`BayNetwork`](../../parking/BayNetwork.cs), and the parking
+slice's [decision log](../../parking/docs/decision-log.md)). The only thing the walk itself wanted for it was
+a guard for a lane that ends at nothing: a bay's way runs out onto the carriageway, which is a node of
+another network, and what the body standing there holds of the street is that network's own walk to say.
+
+**A crossing is left out of a car's write on purpose** (TER-5c.1). The paint is carriageway a walk runs over,
+so a car on it is a stretch of the *lane* and what holds a walker off it is that stretch looked up where the
+crossing crosses; written on the walk as well it would be one body holding one piece of ground twice, in two
+records free to disagree — and the one a walker reads says a body going nowhere may be stepped round, which
+is a walker stepping into the lane beside a car it was already being held off.
+
+**What it cost was one roster confusion, which is the trap `LaneRoster` exists for.** A walker steps round
+the nearest body lying on the ground it asked for, and that number was read straight out of the walkers'
+fleet; the first car on a pavement made it an index into the wrong array. `PersonFleet.StepsRoundOf` now
+carries which fleet, as every claim already does. A car is stepped round at the circle holding
+the whole of it — half its length, since it may be lying any way across the walk — so most of the time there
+is no step and the walker is walled in, which hands the leg to the clock that gives up on one (PER-8).
+
+**Three of Odesa's five hundred and fifty-five cars hold pavement after a minute**, and a bayed car holds
+none: a bay stands off the kerb and the footway's band does not reach it, so the rule costs the pavement
+nothing it did not owe.
+
 ## 2026-09-01 — a junction with two arms is swept into the bend it always was
 
 **The corner read as a mistake because it was one.** A node of two arms had the whole apparatus of a
@@ -164,18 +529,18 @@ past, and `GrantedOn` passes over a claim whose near edge is behind the asker. *
 holder has not reached** (TER-5e), so one the asker is standing on is ground the asker has — it can never
 be a body to be held off, and it is the one kind of stretch that cannot be a contact.
 
-What is deliberately still allowed to answer from behind is a body: a reservation, a wreck or somebody on
+What is deliberately still allowed to answer from behind is a body: a claim, a wreck or somebody on
 foot reaching back past the nose is an overlap, and the grant is left free to come back negative and say
 so. That is the whole of the difference between the two halves of the unit case in `LaneOccupancyTests`,
 and `NoClaimCutsAGrantBehindTheNoseThatAskedForIt` watches every shipped map for the rest of it.
 
-## 2026-08-29 — the book holds the answer, and one metre is one body's
+## 2026-08-29 — the claim holds the answer, and one metre is one body's
 
 `TER-4c.1` has always said that ground is asked for, answered, and then it is the asker's, and that a
 mechanism which could grant the same metre twice would be no mechanism at all. The code granted correctly and
 then threw the answer away: `AskForTheGround` laid the ask — bounded by the rules that stop the car and by
 nothing in front of it — `GrantTheGround` worked out where the traffic cut it, wrote that to
-`CarFleet.AuthorityM`, and left the ask standing in the book. Every other reader for the rest of the tick
+`CarFleet.AuthorityM`, and left the ask standing as the claim. Every other reader for the rest of the tick
 read the question. A car held at a red still held the sweep of road beyond it; the movements that road
 crossed were refused by ground its holder had itself been refused. Asked of the shipped maps, two bodies
 held one metre by as much as 13.72 m on Fleet, 3.63 m on River and 0.95 m on Odesa.
@@ -225,7 +590,7 @@ ask is clamped to the stop point the gate had already set.
 
 So the gate answers in metres too, on the same figure: `FirstHeldOnTheMovementM` returns the near edge of
 the first section that binds, and the car is stopped a body margin short of it. That figure is what keeps
-it from deadlocking where the verdict did not — a car held a margin short of a section reserves no metre of
+it from deadlocking where the verdict did not — a car held a margin short of a section claims no metre of
 it, so the movement crossing there still reads it free and goes, and the two resolve instead of standing
 one on each side of the ground they share.
 
@@ -239,18 +604,18 @@ crossroads whose arms are one lane each is generally such a box, the car stops a
 did before: the shipped towns' tallies are unmoved, and what the change buys is the wide box, where the
 free ground is real.
 
-## 2026-08-28 — the walkers go into the road's book between the asks and the grants
+## 2026-08-28 — the walkers claim the road between the asks and the grants
 
-TER-4c says a person in a lane cuts the road a driver is granted exactly as a car standing there would. The
-book did not do it. The walkers were written into the road's book as the *last* pass of the rebuild, after
-every grant had been taken off it — and the book is wiped at the top of the next rebuild, so no driver ever
+TER-4c says a person in a lane cuts the road a driver is granted exactly as a car standing there would. It
+did not happen. The walkers claimed the road as the *last* pass of the rebuild, after
+every grant had been taken off it — and the claims are wiped at the top of the next rebuild, so no driver ever
 read a band while it was deciding how much road it had. What held a car off somebody on the paint was the
 crossing's own stop and the headway reading, and nothing at all held one off somebody standing on
 bare carriageway except that same headway.
 
 The order is one question with the walkers on both sides of it, so they belong between the two halves of it:
 the cars' asks first, because what a body at a kerb may step onto is whether a driver's road is over the
-band; then the walkers; then the grants, because a band in the book is ground a driver may not be granted.
+band; then the walkers; then the grants, because a band claimed is ground a driver may not be granted.
 
 River's measured minute went from two people knocked down and two cars wrecked to none of either, and its
 touches from 55 to 50.
@@ -261,7 +626,7 @@ Two pieces of code answered *which ways is this place on*. Writing a body that i
 it on the lane it was nearest and on every join of the junctions at either end of that lane; reading the
 ground under a manoeuvre's template asked the nearest lane and stopped. So a car crossing a junction — whose
 road is written on the **join** and on no lane at all (TER-5c.1) — was invisible to every swerve, back-off
-and bay exit swinging through the same box. The book was not wrong; nobody was asking it.
+and bay exit swinging through the same box. The claims were not wrong; nobody was asking them.
 
 There is one walk now (`GroundUnder`), and both sides call it: the lane, **the lane running back the other
 way** where the body reaches into its band, and every join of a junction the place is lying under. Writing
@@ -277,13 +642,13 @@ back into*, and the alternative is a car reversing into a movement that cannot s
 ## 2026-08-28 — a claim is answered every tick, and its holder is told when it loses
 
 A claim was answered once, at the moment the desk took it, and re-laid unread from the car's own field for
-as long as the entry wanted it. Everything else in the book is laid and answered afresh every tick; the
+as long as the entry wanted it. Every other claim is laid and answered afresh every tick; the
 claim was the one hold that remembered an answer. So a right of way took the ground and nothing said so: the
 stronger movement was not cut, the claim's holder was not cut either, and the pair drove at the same metres
 from opposite sides — the exact failure TER-5c.1 exists to prevent, reintroduced by the one stretch that
 skipped the walk.
 
-It is answered again after every body is in the book and before anything is granted off it, and a claim a
+It is answered again after every body has claimed and before anything is granted off it, and a claim a
 stronger rank has taken is withdrawn inside the same tick. **The holder is told**, because the only thing
 that knows what a claim was for is the entry that took it: that entry is re-entered through its own `Sa`,
 and takes the claim again or hands on.
@@ -313,21 +678,20 @@ than joined: a car park's frontage, where the driver parks and unparks (`GEN-4l`
 works itself round (`P-19`). Which stretches those are is a fact about the town laid with it — the ways at
 the bays, and whether a lane has any way out at all — and it is handed to the network as flags, because
 the road is below the car parks that hang off it.
-## 2026-08-27 — an obstruction is a reservation that generally reaches nowhere
+## 2026-08-27 — an obstruction is a claim that generally reaches nowhere
 
 A body the road was not driving held the metres under it and nothing else: its footprint, no ground ahead.
 That is right for a wreck standing in a lane and wrong for the same wreck two seconds earlier, still sliding
 — and wrong in the direction that costs, because the traffic behind was granted the road that body was about
 to be standing on. The pavement never had this problem: `AskForThePavement` lays every walker, moving or
-standing, as one stretch reaching `max(stopping, …)` ahead, so a standing walker is already a reservation
+standing, as one stretch reaching `max(stopping, …)` ahead, so a standing walker is already a claim
 that reaches nowhere. The road's side was the outlier.
 
 So a body that is not driving a route lays the third edge every other body carries — its own stopping
 distance past where it stands, from the speed it actually has. **Nothing is a special case any more: static
-and slow bodies reserve almost nothing ahead and fast ones reserve a lot, which is the same arithmetic a
-driver's reservation is, asked of a body with nowhere to go.** `LaneUse.Obstruction` survives as a *name*,
-because `HeadwayKind` and `E-4` turn on it — whether a thing can be got past is a separate question and is
-not being answered here.
+and slow bodies claim almost nothing ahead and fast ones claim a lot, which is the same arithmetic a
+driver's own claim is, asked of a body with nowhere to go.** Whether a thing can be got past is a separate
+question and is not being answered here; it is the reader's, off the occupant.
 
 **Where the body is sweeping a template, the sweep is that ground and is already laid.** The two are one
 answer to one question — what this body is committed to — read once off the line it is driving and once off
@@ -336,7 +700,7 @@ the speed it is doing, and taking both is a car holding a swerve's worth of lane
 **What the measurement threw out was the tidier version.** Laying the stretch with a margin behind it, so
 the credit could read "a body is worth its stopping distance" with no switch on `LaneUse` at all, reads
 better and measures worse: a margin on the stretch is not only a gap for whoever is behind, it is a fatter
-body in *every* question asked of the book — the templates a manoeuvre may lay, the junction sections a
+body in *every* question asked of the claims — the templates a manoeuvre may lay, the junction sections a
 movement reads as free. Odesa's measured minute went 69 touches to 88 and River's 35 to 54, with peak
 interpenetration up from 208 mm to 325 mm. So the margin stays where it was, the credit keeps its one
 switch, and the switch is documented for what it is: whether the stretch carries a margin of its own, not
@@ -346,7 +710,7 @@ With the ahead-extension alone every map is back to its baseline to the touch �
 is the honest report: the hole it closes is one a measured minute of these towns does not open. It is pinned
 by a test instead (`ABodyOffItsRouteHoldsTheRoadItsSpeedStillNeeds`).
 
-## 2026-08-27 — the grant is a question the book answers, and both networks ask it
+## 2026-08-27 — the grant is a question the claims answer, and both networks ask it
 
 The road's grant and the pavement's were the same forty lines twice: walk the ways under the ask, walk the
 stretches spoken for in front of the body, cut at each holder's near edge plus what the ground beyond that
@@ -356,9 +720,9 @@ off that — and both then made a second cut, at a place that is nobody's stretc
 subtracted by hand: a junction's crossing point on the driving side, the kerb line of a refused lane on the
 walking one. Two copies of one rule, in two slices, free to drift.
 
-So the grant is `LaneOccupancy.GrantedOn`, asked like every other question of the book, and what the asker
+So the grant is `LaneOccupancy.GrantedOn`, asked like every other question of the claims, and what the asker
 brings to it is `LaneCredit` — its braking, the ground it keeps off a body that is going nowhere, whose
-reservations it reads as traffic, and the rank it asks with. **The credit rule and `Binds` now exist once**,
+claims it reads as traffic, and the rank it asks with. **The credit rule and `Binds` now exist once**,
 and the place-cut reads the same figure by name (`AtAPlaceM`) rather than restating it. A walker asks with
 the weakest rank, which is the honest statement of what was already true: no claim on the pavement is a
 walker's to take, so every stretch in front of it binds.
@@ -373,7 +737,7 @@ over what came back, so "is a rescue over this" and "is anybody on the paint" st
 loops and became masks like their siblings. And `Nobody` no longer matches itself: the town's furniture
 stands under that number, so a question asked by nobody in particular — a walker at a kerb, an overlay —
 excluded every bollard in the town from its own answer. Nothing in the town asks one of those with a mask
-the furniture is in, so it cost nothing today; it is the trap the furniture was given a use of its own to
+the furniture is in, so it cost nothing today; it is the trap the furniture was given a claim of its own to
 escape, sprung from the other end.
 
 ## 2026-08-25 — where a road's paint breaks is the road's answer, not the drawing's
@@ -462,7 +826,7 @@ so the comparison happens exactly where two pieces of ground meet and nowhere el
 
 **What made it safe rather than merely one-sided is that it takes a claim and never a body.** A claim is
 already the town's word for ground somebody has not reached and is not committed to, so it is precisely the
-ground that can be handed back; a reservation is the road a body needs to stop in, and taking that would be
+ground that can be handed back; a committed claim is the road a body needs to stop in, and taking that would be
 a licence to drive into whoever holds it. The one hole in that was a car past the point it could stop short
 of its box — its ground there is still a claim, and it is going in whatever anything says — so a committed
 car lays the same claim at a rank nothing outranks. That is why `CommittedToTheBox` is a field on the car
@@ -484,7 +848,7 @@ counted and asserted (`GivenUpToAStrongerMovement`), because an exemption nothin
 The shipped towns pass that claim either way round; it is any nudge to the parking sections — the metre a
 lot's frontage begins at moving a hand's width — that puts the two grants of a pair in the same walk.
 
-## 2026-08-25 — a walker's refusal is written into the book, because a right of way nobody can see is not one
+## 2026-08-25 — a walker's refusal is a claim of its own, because a right of way nobody can see is not one
 
 The pedestrian priority at an uncontrolled zebra had nowhere to live. A walker refused the band it asked for
 simply waited, and the traffic learned nothing: the only thing a driver ever saw was a body already on the
@@ -492,7 +856,7 @@ paint, which is the one case where giving way is too late to be a courtesy. Spen
 stepping out regardless works, and it is what the town did — but it makes the walker force every crossing
 and puts a body in front of traffic that had no warning.
 
-So the ask itself goes into the road's book, as a use of its own. It is in no mask: no grant is cut at it,
+So the ask itself is claimed on the road, at a rank of its own. It is in no scope that cuts: no grant is cut at it,
 because a cut is what a *body* is worth and this is somebody on the pavement. What it does is put a stop
 point in front of the driver — the same stop a body on the paint produces — and a body stopped short of a
 crossing already holds none of it (TER-4c.1), so the band frees itself on the next tick and the walker takes
@@ -508,7 +872,7 @@ nothing had to be written to say so.
 The one thing TER-5b says an inline junction exists for — to carry a mid-block crossing — did not work. The
 paint is laid on the node itself, which is further from every lane's end than the paint is wide, so the
 projection that puts crossings onto lanes found no lane for it: no driver slowed for it, and a walker
-standing on it wrote nothing into the road's book and was invisible to the traffic. Every such crossing in
+standing on it claimed nothing of the road and was invisible to the traffic. Every such crossing in
 the shipped towns was lit, and the lights hid it.
 
 It is laid across the lanes that meet at the node now, each at its own end — the arriving one at its length,
@@ -517,21 +881,20 @@ of its own. The fallback is taken only where the projection found nothing *and* 
 turns; anywhere else a crossing is set back onto the arm it approaches and is found where it lies, and laying
 it on the node regardless would paint one crossing across every arm of a crossroads.
 
-## 2026-08-24 — the town's furniture is a use of its own, and not an occupant number
+## 2026-08-24 — the town's furniture is a claim nobody owns, and not an occupant number
 
-A bollard in a lane went into the book as an `Obstruction` belonging to `Nobody`, and `Nobody` is also
-the integer a query names when the asker is not in the book at all — a walker at a kerb, a body about to
+A bollard in a lane was claimed as an obstruction belonging to `Nobody`, and `Nobody` is also
+the integer a query names when the asker has claimed nothing at all — a walker at a kerb, a body about to
 step off one. So the two questions the walkers ask about traffic, `AnyTrafficOver` and `BehindBody`, were
 skipping the town's furniture because the exclusion they asked with happened to name it. The answers were
 the ones a town wants: a walker does not wait for a bollard, and a bollard is not something that stopped
 for it. They were reached by an argument of one question deciding the answer to another, and a query
-written next with the same exclusion and a wider mask would have dropped the furniture where TER-4c says
+written next with the same exclusion and a wider scope would have dropped the furniture where TER-4c says
 it must be read.
 
-It is `LaneUse.Furniture` now, which puts the fact in the masks where every other such fact already is:
-in `Bodies` and in `Spoken`, so a driver's grant is cut at it like anything else on the lane, and out of
-`Traffic`, so whoever asks what is **coming** down a lane is asking about wheels. Nothing about the town
-moved; what moved is where the answer comes from.
+The fact is the claim's own now: a prop is in neither roster (`LaneClaim.IsFurniture`), so a driver's grant
+is cut at it like anything else on the lane and whoever asks what is **coming** down a lane is asking about
+wheels. Nothing about the town moved; what moved is where the answer comes from.
 
 ## 2026-08-24 — a road may be cut where nothing crosses it
 
@@ -569,7 +932,7 @@ section that could only name a turn slot had nothing to name. The alternative wa
 read in a second branch of the one query that cuts a grant, which is the duplicate SIM-7 is about and is
 the one place it would have been got wrong: where a car park meets a street.
 
-So a section names a **way** and the table is laid over every way the book numbers. Every lane's row is
+So a section names a **way** and the table is laid over every numbered way. Every lane's row is
 empty on a street with no car park on it, which is nearly all of them — the walk over an empty row is a
 bounds check, and it buys the one index in which a junction's join and a bay's way in are the same kind of
 thing. `LineOverlap` is the measurement itself, lifted out of the road graph so that the ways at a bay are
@@ -585,8 +948,8 @@ enough, the crossing was an artefact of where the samples fell and is dropped.
 
 ## 2026-08-23 — a template holds the ground it sweeps, and not the pose it is passing through
 
-A car driving geometry of its own — a recovery straight, a bay exit, a swerve — was in the book as the
-footprint it stood on and nothing more. The path it was about to drive down had been walked before the line
+A car driving geometry of its own — a recovery straight, a bay exit, a swerve — claimed the
+footprint it stood on and nothing more. The line it was about to drive down had been walked before it
 was laid (`GroundAhead`, the desk's own check) and was then **left open**: every other driver read it as free
 road, was granted it, and could come to rest in it while the manoeuvre was still a second from arriving.
 Odesa's soak found it as two wrecks a minute — a car reversing at manoeuvring pace into a driver that had
@@ -603,7 +966,7 @@ length of a body. Both ends are asked, each lays the whole interval, and `LaneOc
 keeps one body to one stretch of one way (TER-5c.2) rather than the order the two readings were taken in.
 
 **A bay exit is no longer one of them**, and that is the shape the rest of this should take. The way out of a
-bay is a way of the book, so its driver is a driver on a way: what it holds is a reservation along that way
+bay is a numbered way, so its driver is a driver on a way: what it holds is a claim along that way
 and the crossings on it, and no sweep is read off its geometry at all
 ([parking](../../parking/docs/decision-log.md)). What is left here is the recovery straight, the swerve and
 the legs of a turn on the spot — the lines the town did not lay.
@@ -617,15 +980,15 @@ against 4 wrecked, 56 touches, 15 stuck ticks and 827 mm before.
 
 ## 2026-08-23 — the tail keeps a share of the margin, not the whole of it
 
-The margin sits at both ends of a reservation and the two ends are not paid for by the same traffic. In
-front it is this car's own cover, and it costs the car that keeps it. Behind it is what the book's
+The margin sits at both ends of a claim and the two ends are not paid for by the same traffic. In
+front it is this car's own cover, and it costs the car that keeps it. Behind it is what a
 one-dimensional reading owes the width it threw away, and **it costs whoever comes up behind**: a stretch
 begins there, so every metre of it is a metre of road the follower is queued out of and a metre of a join
 that reads taken after the body is off it.
 
 So the tail keeps a share of the figure rather than all of it — `DrivingFigures.TailMarginShare` at 0.6,
-`SimConfig.CarTailMarginM` — and `ReserveFromM` is `nose − length − tail margin`. Everything downstream
-follows from that one site: `PastOnTheCrossing` is still the near edge of the reservation, the queue still
+`SimConfig.CarTailMarginM` — and `ClaimFromM` is `nose − length − tail margin`. Everything downstream
+follows from that one site: `PastOnTheCrossing` is still the near edge of the claim, the queue still
 settles at whatever the leader holds behind itself, and the front of the ask is untouched.
 
 **What it changes is the standing gap.** A queue at rest now stands at 1.2 m rather than 2 m, because the
@@ -648,18 +1011,18 @@ put a standing car 0.8 m nearer, which is the difference between a blind reverse
 does not. The hole is above: a template held no ground. With it closed, **0.6 runs 0 wrecked and 46
 touches** — fewer than the 50 the full margin gave before any of this.
 
-## 2026-08-23 — one body, one stretch: the margin is part of the reservation
+## 2026-08-23 — one body, one stretch: the margin is part of the claim
 
 A car in a junction held a claim of its own behind its tail — the release margin — so that whoever crossed
 there met the ground a swinging body might still be on. It worked, and it was a second stretch of one way
 for one body: two occupants to every walk of the join, two bars across the road on the overlay, and a
 trailing block behind a car that had visibly left it. It was also only true *in junctions*, though nothing
-about the reason is: the book throws away the width of the road wherever a body stands, not only where two
+about the reason is: a claim throws away the width of the road wherever a body stands, not only where two
 lines cross.
 
-So the margin is where it always belonged, in the body's own reservation, on every way the body is on:
-`ReserveFromM` is now `nose − length − margin`, the crossing claim covers only the ground ahead of that, and
-`PastOnTheCrossing` is the near edge of the reservation rather than a second sum over the same pose. The
+So the margin is where it always belonged, in the body's own claim, on every way the body is on:
+`ClaimFromM` is now `nose − length − margin`, the crossing claim covers only the ground ahead of that, and
+`PastOnTheCrossing` is the near edge of it rather than a second sum over the same pose. The
 release figure and the follower's standstill gap were the same 2 m answering two questions, and they are one
 figure now (`SimConfig.CarBodyMarginM`) — **the ground a body keeps around itself**. The queue arithmetic is
 unchanged by construction: what the follower used to subtract for itself, the leader now holds.
@@ -691,28 +1054,28 @@ to as well as the one that stayed stuck).
 ## 2026-08-23 — a zebra is ground with a lane under it, and not a thing the traffic holds
 
 The same decision as the junction one below, taken over the other network, and it was left half made: a car
-crossing a zebra wrote **a second copy of itself into the pavement's book** — its lane's band of every way
+crossing a zebra laid **a second copy of itself on the pavement** — its lane's band of every way
 that crossing is made of — so that a walker's grant would be cut by it. One body then held one piece of
-ground twice, under two names, in two books whose answers could differ; the overlay drew the copy as a wash
+ground twice, under two names, in two claims whose answers could differ; the overlay drew the copy as a wash
 over the whole paint, which is a picture of a crossing being *shut* rather than of a lane being somebody's.
 
 It is a lookup now, and it points the way the walker is going. `CrossingBands` already carried the band each
 lane covers of each crossing way, measured once when the town is laid, so nothing new had to be worked out:
-a body asks the road's book for the band in front of it, and where the answer is no, the same band's near
+a body asks the road's claims for the band in front of it, and where the answer is no, the same band's near
 edge is where its walk is cut (`WhereTheWalkRunsOut`). The refusal is made once and spent twice —
 `MayStepOnto` is the ask, `PersonFleet.RefusedWay` is what it answered, and the grant over the walk is that
 same answer in the other network's metres. **It is the answer that is carried and never the question**: a
-body past its patience is granted a band the book would refuse, and a grant that re-asked instead of reading
+body past its patience is granted a band the claims would refuse, and a grant that re-asked instead of reading
 would hold that body at the edge of ground it had just been given.
 
-`TakeTheCrossingsAhead` and its bound on the pavement's book are gone with it, and three tests hold what
-replaced them: `NoCarIsEverInThePavementsBook`, `ABodyRefusedALaneIsGrantedNoFurtherThanItsEdge` and
+`TakeTheCrossingsAhead` and its bound on the pavement are gone with it, and three tests hold what
+replaced them: `NoCarEverClaimsThePavementOnAZebra`, `ABodyRefusedALaneIsGrantedNoFurtherThanItsEdge` and
 `ABodyRefusedALaneWalksIntoItOnceItIsGranted`.
 
 **The kerb stopped being a special case with it.** A body was allowed to take the band in front only while
 it stood on a pavement; half way over it was refused its own next lane and held by the car's copy instead.
 Two arrangements for one question, and the answer differed by which side of a kerb line the asker stood on.
-It is one question now — the same band, the same book, wherever the body is standing when it asks — and
+It is one question now — the same band, the same claims, wherever the body is standing when it asks — and
 `PER-15` reads accordingly.
 
 **A body holding the lane in front of it was tried once and rejected, and what makes it right now is the
@@ -721,16 +1084,16 @@ for the whole width of the crossing; and with the car's band laid after the walk
 every race and the band went back to holding nothing. Both are answered rather than argued with: a body
 asks for the band its **own ask reaches**, which at a walking pace and a standstill gap is about a stride,
 so the far lane is held for the last step before the foot goes down and not for the crossing; and the cars'
-reservations go into the book before any walker's claim is checked against them, so the race now goes the
+claims are laid before any walker's is checked against them, so the race now goes the
 other way — a car committed over the paint cannot be claimed out from under.
 
-## 2026-08-23 — a reservation stops where a rule stops the car
+## 2026-08-23 — a claim stops where a rule stops the car
 
 `AskForTheGround` clamped the road a car asks for at the place it is held — a red, a bar, a crossing — and
 then **added the margin it keeps in front on top of the clamp**. So every car in the town held two metres of
 ground past every bar it stood at, and the stand-off a crossing stops a car at is one metre: a car waiting for a
 zebra held a metre of the zebra. Measured on the Test crossroads, a car standing at its own red had its
-reservation 0.33 m inside the paint's near edge, and the band a body at the kerb asks about reaches
+claim 0.33 m inside the paint's near edge, and the band a body at the kerb asks about reaches
 `PaintClaimM` ≈ 2.9 m either side of the paint's centre — so the crossing read as taken, on the pedestrian
 phase, by a car that had stopped precisely to let those people cross. They got over on their patience, eight
 seconds later, which made a signalled crossing behave like an unsignalled one.
@@ -740,17 +1103,17 @@ changes: a follower's grant already subtracts the gap from the near edge of the 
 spacing is where it was, and the ask only ever shrinks at a stop. What a stopped car holds is now the ground
 it is standing on, which is what a stopped car is.
 
-## 2026-08-23 — a car reserves the ways it drives and looks up the ways it is driven over
+## 2026-08-23 — a car claims the ways it drives and looks up the ways it is driven over
 
 A movement wrote its crossing points onto **both** joins: a stretch on every other way through the box its
-line came near, and the matching runs on its own. Half of that is a body reserving ground it is never going
+line came near, and the matching runs on its own. Half of that is a body claiming ground it is never going
 to be on. On screen it is the whole reason a junction under one approaching car was a fan of teal over
-every way through it, most of them movements that car would never make; in the book it is a car holding up
+every way through it, most of them movements that car would never make; in the index it is a car holding up
 to `MostCrossedByOne` stretches of other people's road, which is what the index was sized for.
 
 It is a lookup now. The table was already symmetric and already carried both ends of every section
 ([`WayCrossings`](../WayCrossings.cs)), so nothing new had to be measured: a driver looks its own
-way up, reads the metres named there **in the other way's own book**, and its grant is cut at the near edge
+way up, reads the metres named there **among the other way's own claims**, and its grant is cut at the near edge
 of the first section anybody is standing on (`WhereTheGroundIsCrossed`). What one car holds on its own join
 is exactly what the other finds when it looks — that is the same interval, filed under both movements.
 
@@ -763,13 +1126,13 @@ The runs of a movement's own join are held from the tick it commits, and that is
 asking about the crossed joins, so the entry into a box was covered either way; what was not was the road a
 car is *granted* on the approach — cut only by its own ways, it ran straight through the metres two lines
 meet on and the ground of a junction was one car's and another's at once. Cut by the lookup as well, a
-reservation stated in one lane's metres means something about the whole town:
+claim stated in one lane's metres means something about the whole town:
 `NoGrantReachesGroundAnotherBodyHasOnACrossingWay` is that property, and
 `ACarTakesNoGroundOnAWayItIsOnlyDrivenOver` is the half of it that keeps the ways clean.
 
 **A section is a named piece of ground and not the road under the asker, and the walk had to say so.**
 `NextSpokenFor` skips a stretch whose near edge is behind the window — right for a driver reading the
-occupants of its own way in the order they are in, and wrong here: a car whose reservation entered a join
+occupants of its own way in the order they are in, and wrong here: a car whose claim entered a join
 *before* the metres two lines cross was invisible to the movement crossing there, and both went.
 `LaneOccupancy.NextSpokenForOver` is the overlap walk, and the all-or-nothing `SpokenForByAnother` is now
 its first answer rather than a second copy of the loop.
@@ -786,25 +1149,25 @@ can be moved without redrawing the sections — which is what the soak numbers o
 
 A car in a box held the crossing points on its own join twice: once as the road it was driving, and once
 as the claim laid from the table. On a join a driver was well inside, the two came out as the same
-interval to the centimetre — `Reserved 0.00–14.25` and `Claimed 0.00–14.25` of one way, one car. Two
+interval to the centimetre — `0.00–14.25` committed and `0.00–14.25` claimed ahead, of one way, one car. Two
 occupants to every walk of that way, two washes to the overlay, and a picture in which a car appears to
-have reserved the same ground twice.
+have claimed the same ground twice.
 
-Nothing computed a wrong answer, because the two uses are read as one set and their union was right. What
-it cost was that the book stopped saying what it says it says, and `NobodyHoldsTwoStretchesOfOneWay` could
-not catch it: that test exempted claims outright, on the reasoning that a claim is ground its owner is not
-on yet. True of the reasoning, not true of the stretch.
+Nothing computed a wrong answer, because the two are read as one set and their union was right. What
+it cost was that the claims stopped saying what they say they say, and `NobodyHoldsTwoStretchesOfOneWay`
+could not catch it: that test exempted the claim ahead outright, on the reasoning that it is ground its
+owner is not on yet. True of the reasoning, not true of the stretch.
 
-The claim is now the run **less** the reservation, and the exemption is gone — the test asks for overlap
-rather than for a second appearance, so a claim may stand beside a body's own road and never over it. The
+The claim ahead is now the run **less** the committed one, and the exemption is gone — the test asks for
+overlap rather than for a second appearance, so it may stand beside a body's own road and never over it. The
 ask is laid before the crossing for it, since a claim clipped against the stretch the car held a tick ago
 is clipped against the wrong metres.
 
-**It is two pieces where the road ends inside a run, and the near one is load-bearing.** A reservation
+**It is two pieces where the road ends inside a run, and the near one is load-bearing.** A committed claim
 begins at the tail and a run is given up a clearance behind that, so the metres between them are ground the
 body is still swinging over — the clearance that stopped River's soak wrecking cars. Dropped as
 redundant on the first attempt, the give-back test caught it in one run: a car 0.30 m into a join had let
-go of the first 0.30 m of it. So one run may split, one reservation being one interval, and the slot budget
+go of the first 0.30 m of it. So one run may split, one claim being one interval, and the slot budget
 is `MostOwnRuns + 1`.
 
 **And the far half of the give-back is not observable while a car is in the box**, which the counting in
@@ -824,7 +1187,7 @@ to be driven over, and a car half way through kept holding the metres behind its
 The near side is now the same places the far side is, merged where two of them overlap so that one body
 cannot appear twice over one metre, and given back on the same test: a run whose far end is behind the tail
 is gone, and the near edge of the one the body is in walks up with it. What is under the body on its own
-join is the car's reservation, which was always there and carries the length and the swing the interval was
+join is the car's committed claim, which was always there and carries the length and the swing the interval was
 being asked to stand for.
 
 ## 2026-08-23 — a body is on a way across its band and along it
@@ -832,7 +1195,7 @@ being asked to stand for.
 Whether a body stands on one of the town's ways was a lateral question only: project the body onto the
 way's line, and compare the offset across the line against the band. A projection is clamped to the way's
 own ends, so anything lined up with a way's end answered at that end however far up the road it stood —
-and a body ten metres past a join measured no offset at all. What that put in the book was cars lying on
+and a body ten metres past a join measured no offset at all. What that claimed was cars lying on
 joins they were nowhere near, most visibly for a body standing in a junction, which is asked of *every*
 join at the node: one car in a box could shut movements on the far side of it that nothing was near.
 
@@ -842,7 +1205,7 @@ the clamp did, which is exactly the case that was wrong.
 
 ## 2026-08-23 — a junction is committed to at the rate the car actually brakes at
 
-Two figures decide the life of a crossing — the reserve distance a car takes one up at, and the point past
+Two figures decide the life of a crossing — the claim distance a car takes one up at, and the point past
 which it keeps one whatever else is holding it up — and both are a stopping distance. They were the only
 stopping distances in the town read off the pedal's own cap, `Car.BrakingMps2`, while every stretch of road
 a car holds is sized by `CarFollower.BrakingMps2`: the same cap against the tyres, at the braking margin,
@@ -850,19 +1213,19 @@ on the ground under this car.
 
 The cap is the larger figure, so both readings erred the one way that costs. A car past the point it could
 stop at was still judged able to, so it gave the sections back for a bar it was going to cross anyway — and
-in between that tick and the next, when the book hands them straight back as a fact, they read free to
+in between that tick and the next, when they are claimed straight back as a fact, they read free to
 whoever crosses them. And a car took its crossing later than the tick it committed on, which is the window
 two cars commit in together. Neither figure noticed wet ground at all, where the gap between the two rates
 is widest.
 
-Both are `StoppingM` at `CarFollower.BrakingMps2` now, which is the same call the reservation pass makes a
+Both are `StoppingM` at `CarFollower.BrakingMps2` now, which is the same call the claim pass makes a
 few lines earlier. `NothingStoppedAtARedHoldsAWayThroughTheJunctionBeyondIt` had the third copy of the
 formula and read the cap too; it asks the town's own figure now, which is what caught this.
 
 ## 2026-08-23 — a crossing is given back where it is passed
 
 Ground taken for a junction was taken whole and held until the car was out the far side. On screen that is
-a car half way through a turn still washing the corner it came in by, and in the book it is the traffic on
+a car half way through a turn still washing the corner it came in by, and on the ground it is the traffic on
 that corner held off a movement nothing was ever going to be driven into.
 
 A section is a *place* two lines meet, and a body passes a place once. The table now carries both ends of
@@ -877,8 +1240,8 @@ River's soak came back with two cars wrecked and 421 mm of interpenetration agai
 margin later (`SimConfig.CarBodyMarginM`, which the table above is sized apart from) it is back to the
 100 mm the design without any release gives.
 
-**The car's own reservation is not released with them.** It looks like the same fact and is not: a crossing
-point is a place, and the only question about it is whether this body is over it, while the reservation is
+**The car's own committed claim is not released with them.** It looks like the same fact and is not: a
+crossing point is a place, and the only question about it is whether this body is over it, while the claim is
 the road the car is *driving*, carrying its length, its swing and wherever it comes to rest. Slid forward
 with the tail, Odesa's touching count went from 51 to 232 and its reactive rungs from 10 to 27 with nothing
 else changed. It is held whole and given back with the crossing.
@@ -893,7 +1256,7 @@ section held to the far side, as it was before.
 
 `JunctionRegistry` counted the cars making each movement and `RoadGraph.Conflicting` said which movements
 could not both be made. Nothing drew either of them, so what actually stopped a car at a junction was
-invisible: the overlay showed the road's book, and the road's book was not the thing deciding.
+invisible: the overlay showed the road's claims, and those were not the thing deciding.
 
 Worse, the relation was almost complete. Measured over Odesa, **an average movement conflicted with 81 %
 of the other movements at its junction**, and one car in a box refused **70 %** of them. Three quarters of
@@ -907,7 +1270,7 @@ It is ground now, and only ground. The table says, per movement, **the section o
 line is driven over** ([`WayCrossings`](../WayCrossings.cs)), measured on both sides at the same
 clearance the old relation used. A car is refused by whatever is standing on those metres and by nothing
 else, and it can be looked at on screen. The registry, the relation and `CarFleet.HeldMovement` are gone;
-the field left on the car names a reservation rather than a permission.
+the field left on the car names a claim rather than a permission.
 
 Three things had to be true of it, and each cost a defect to find:
 
@@ -931,12 +1294,12 @@ of those node-ticks either way.
 ## 2026-08-23 — a stretch runs out at the box's near edge
 
 `WaysAlong` is the one walk that turns a run of a car's line into the town's own ways, and all three
-questions a driver has go through it: the road it reserves, the road it is granted, and the road it can
+questions a driver has go through it: the road it claims, the road it is granted, and the road it can
 see. It stopped walking when the *next lane* began — and the next lane begins on the far side of the
 junction, because the join is the ground between one lane's end and the next one's start.
 
 So nothing was laid on a junction until the stretch reached clear across it. A car approaching a box
-reserved none of the box, was granted its road as though the box were empty, and could see nothing
+claimed none of the box, was granted its road as though the box were empty, and could see nothing
 standing in it; its own block appeared half way through the turn, once the tail was inside and the far
 edge was within a stopping distance. The guard is the near edge now — `ends[index]` — and the overlap that
 follows was already written to clamp, so a stretch ending anywhere inside a box lays the part of it that
@@ -967,7 +1330,7 @@ those two ticks the sections read free to whoever crosses them, which is a car w
 somebody is already in.
 
 `LaneOccupancy.Withdraw` is what makes the giving back mean anything inside the tick that does it: the
-book is laid from the cars once, before any driver decides, so stretches left standing after their holder
+claims are laid from the cars once, before any driver decides, so stretches left standing after their holder
 let go would refuse everything that crosses them until the next rebuild.
 
 ## 2026-08-23 — a body in a box is on the joins, not on a lane
@@ -977,24 +1340,24 @@ wreck, a car under a hand, a body shoved into the middle of a crossroads — non
 anything, and `PlaceTheCrossing` gives back the ground of anything nobody is driving. So nothing had
 anything to say about them, and the traffic crossing the box was granted the ground they were lying on.
 
-The book should have caught it and could not. A standing body was laid onto the lane it lies nearest, and
+The claims should have caught it and could not. A standing body was laid onto the lane it lies nearest, and
 a body in a box is past that lane's own setback (TER-5d) — where the lane's line runs on under a movement
 rather than under itself, and no driver's line is laid over it. The stretch went somewhere nothing walks.
 
 It is laid on the joins now: both ends of the nearest lane are asked, and every join of the junction the
 body is lying under gets its stretch, on the same band test a lane gets. That is what makes the whole of a
-junction's ground answer to the same book as the rest of the road (TER-4c), and it is one mechanism rather
+junction's ground answer the same way as the rest of the road (TER-4c), and it is one mechanism rather
 than two — a body in a box refuses what crosses it in the same way a car crossing does.
 
 ## 2026-08-22 — a body is one stretch of a way, never two
 
 A driver under way used to be laid twice on the same ground: a `Travelling` stretch for the body, and a
 `Reserved` one from the same tail out to where the car could stop. The two shared a near edge exactly —
-`noseM - LengthM` is the axle less the overhang — so the reservation always contained the body, and every
+`noseM - LengthM` is the axle less the overhang — so the road always contained the body, and every
 walk of a way counted one car as two occupants.
 
 Nothing computed the wrong answer, because the masks kept them apart: `Travelling` was in the body
-questions and out of the spoken-for ones, `Reserved` the other way round. What it cost was that the book
+questions and out of the spoken-for ones, `Reserved` the other way round. What it cost was that a claim
 could no longer be read as what it says it is. The overlay drew both, so a car sat under a double wash of
 its own colour and a reader had to know the model to know that was one block; and every query that walked
 a way had to be written knowing which of a car's two entries it would meet.
@@ -1006,15 +1369,15 @@ a body the two are equal, so the distinction costs nothing to lay and nothing to
 
 `LaneUse.Travelling` went with it: the walking side had already settled this shape — a walker's ask begins
 at its own back and it was never given a body stretch — so both networks now name the same thing
-`Reserved` and are laid by the same call. `NobodyHoldsTwoStretchesOfOneWay` holds it, over both books, with
-a claim the one stretch a body may hold beside its own — a claim is ground its owner is not on yet.
+`Reserved` and are laid by the same call. `NobodyHoldsTwoStretchesOfOneWay` holds it, over both networks, with
+the claim ahead the one stretch a body may hold beside its own — that one is ground its owner is not on yet.
 
-## 2026-08-22 — neither book is one roster's
+## 2026-08-22 — neither network's claims are one roster's
 
-A walker on a crossing used to be in the road's book and in none of the road's questions. That was
+A walker on a crossing used to claim the road and be in none of the road's questions. That was
 deliberate and it was half right: a walker read as an obstruction is a walker `E-4` crosses the centreline
-to drive round, and a walker read as a reservation cuts the grant of a car three lanes away. So it was put
-in a use nothing queried, and the crossing rule read it through a keyhole.
+to drive round, and a walker read as a committed claim cuts the grant of a car three lanes away. So it was
+put in a use nothing queried, and the crossing rule read it through a keyhole.
 
 What that cost was invisible until the ray went: **nothing cut a driver's road at a body standing in it.**
 The car stopped, but it stopped because a separate rule computed a stop point off the paint — and a person
@@ -1023,16 +1386,16 @@ standing in a lane with no paint under it cut nothing at all and was seen only b
 Both halves are now the same mechanism. `OnFoot` is in every query a grant is taken against, and it carries
 its own reading (`HeadwayKind.Walker`) so the one thing it must never be — something to get past — is a
 property of the reading and not of which query happened to skip it. Its mirror is that **a car takes its
-stretch of the zebra it drives over, in the pavement's book**, so a walker's grant is cut by traffic on
+stretch of the zebra it drives over, on the pavement**, so a walker's grant is cut by traffic on
 exactly the terms a driver's is cut by a body on the paint.
 
 One thing fell out that had to be built rather than found: **an occupant is an index into one of two
-rosters, and the stretch has to carry which.** Inferring it from the book was fine while each book held one
+rosters, and the stretch has to carry which.** Inferring it from the network was fine while each held one
 roster; the first walker whose index matched a car's was read out of the wrong fleet. It also broke
 exclusion — a car excusing its own stretch by number excused a walker's too.
 
 The walker's give-way arithmetic went with all this. It asked how long something would take to reach the
-paint, and the reservation *is* that arithmetic, already done, from fresher numbers: a car far enough away
+paint, and the claim *is* that arithmetic, already done, from fresher numbers: a car far enough away
 to stop for this body is committed to ground short of the crossing, and one that is not, is not.
 `GiveWayReachWalkSeconds` went with it.
 
@@ -1045,8 +1408,8 @@ The car's half was **inert as well as coarse**. A car's stretch of a zebra was l
 own start, and `NextSpokenFor` skips a stretch whose near edge is behind the asker's — a walk enters a
 crossing lane at the mitre hand-over, measured never nearer than 1.03 m on Odesa, so every one of those
 stretches sat behind every walker that could have been cut at one. Measured over a minute of Odesa:
-**562 782 reservations laid, 40 469 walker asks reaching a crossing way, and not one grant cut.** What
-actually held a walker at a kerb was the give-way question on the road's side, and the pavement's book was
+**562 782 claims laid, 40 469 walker asks reaching a crossing way, and not one grant cut.** What
+actually held a walker at a kerb was the give-way question on the road's side, and the pavement was
 paying for a stretch per car per tick to hold nothing.
 
 The walker's half was live and it over-held: a body on the paint took the band of **every** lane the
@@ -1067,13 +1430,13 @@ once holds the lane in front of it for the rest of the crossing, which is the wh
 opened on, back again.
 
 What it cost: a driver reads a walker in its lane less often, because a body in the next lane is no longer
-in this lane's book — `CarLookingInATownTests` moved from the fixture to Odesa for that reason, the reading
+claiming this lane — `CarLookingInATownTests` moved from the fixture to Odesa for that reason, the reading
 being a matter of being the car in that lane rather than of the rule still working.
 
 ## 2026-08-22 — braking has its own margin, and it is nearly all of the grip
 
 `GripMargin` is 0.7, and using it for braking as well as for cornering put the profile's planned stop at
-13.1 m/s² against the 21 the tyres and the rolling drag actually delivered. Every reservation on the road
+13.1 m/s² against the 21 the tyres and the rolling drag actually delivered. Every claim on the road
 is sized by that planned figure, so a car held half again as much street as its own stop was going to use.
 
 Braking now has `BrakingMargin`, at 0.95. A corner is held for as long as it lasts and the margin there
@@ -1085,9 +1448,9 @@ quarter of the planned rate.
 
 Corner speeds are untouched, which is the point of the figure being its own.
 
-## 2026-08-22 — a reservation is the ground a car is committed to, not the ground its plan would need
+## 2026-08-22 — a claim is the ground a car is committed to, not the ground its plan would need
 
-A driver used to ask the book for its whole stopping distance from the speed the profile was driving
+A driver used to ask for its whole stopping distance from the speed the profile was driving
 towards, so that a car stopped in a queue asked for the road to pull away into rather than the nothing a
 standstill needs. On a town street the profile's answer is always some corner or the end of the assembled
 line, and the ask came out at a few tens of metres. On open road it is the car's own top speed — 75 m/s,
@@ -1113,7 +1476,7 @@ junction's corner radius, which is the least ground taken and the tidiest straig
 had no single end: a straight handed over to the box at the lane's own end, a right-angle turn out of the
 same lane handed over up to 4.5 m earlier, and two turns out of one lane could differ from each other
 because the cap is half of the *shorter* of each pair. Everything downstream that wants to name that
-boundary — the assembler cutting the chain, the occupancy book, a debug layer drawing where the driving
+boundary — the assembler cutting the chain, the occupancy index, a debug layer drawing where the driving
 changes — had to name a movement to do it.
 
 The setback is now the lane end's, and it is the widest its own movements asked for (TER-5d). Straights

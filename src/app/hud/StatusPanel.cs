@@ -53,7 +53,8 @@ namespace TrafficSimulation.App.Hud;
 /// <b>OBS-2i — what the map claims about itself is the last section</b>, and it is there on a scenario
 /// map and on no other: a place is a town somebody plays and has no test results to read. What it draws
 /// is the run's own watches (<see cref="ScenarioWatch"/>) and none of its own arithmetic, and nothing on
-/// it is about one body — a finding that names a car is drawn beside that car (<see cref="UnitLabel"/>).
+/// it is about one body — a finding that names a car is drawn on that car's own panel
+/// (<see cref="UnitPanel"/>).
 /// A broken claim is on the title whether or not any of it is open, because a town that has broken one
 /// of its own claims has to say so without being asked.
 /// </para>

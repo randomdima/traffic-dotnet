@@ -198,6 +198,20 @@ public class ScenarioTests
     }
 
     /// <summary>
+    /// <b>And the walking exam claims one thing for every kind of thing its own cards can ask</b>, on the
+    /// same terms and for the same reason: its claims are indexed by <see cref="WalkAsks"/>, so a kind
+    /// added to the enum without a claim beside it would quietly be answered by the claim above it.
+    /// </summary>
+    [Fact]
+    public void TheWalkingExamClaimsOneThingForEveryKindOfCardThereIs()
+    {
+        var footway = Assert.Single(
+            Array.FindAll(Scenarios.For(Standing(FootwayPlan.Name), Config), watch => watch is FootwayWatch));
+
+        Assert.Equal(Enum.GetValues<WalkAsks>().Length + 1, footway.Claims);
+    }
+
+    /// <summary>
     /// <b>The proving grounds are watched by the instrument that measures them</b> and not by a second one
     /// of the watch's own: the panel that draws the shape table and the claims about that table are one
     /// reading of one lap.

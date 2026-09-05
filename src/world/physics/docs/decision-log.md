@@ -22,7 +22,7 @@ that slid through a wall would be the thing `SIM-1` exists to stop, and a corpse
 costs a manifold nothing else was going to use. Nothing comes of the contact: `PHY-4a` already makes a
 person against static geometry harmless at any energy.
 
-**The road's book was left alone.** A casualty still holds the stretch of lane under it and traffic still
+**The road's claims were left alone.** A casualty still holds the stretch of lane under it and traffic still
 queues behind it (`LaneOccupancy.AnybodyCrossing`), so in an ordinary town no car ever reaches one — what
 changed is what happens when something does, and what the rescue itself is able to do without shoving its
 own patient down the road.

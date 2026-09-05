@@ -250,10 +250,10 @@ internal sealed class LampFigures
     public float TurnDeg { get; init; } = 20f;
 
     /// <summary>
-    /// How near the junction a car has to be before it announces the turn it is taking there (CAR-14.1).
+    /// How near the junction a car has to be before it states the turn it is taking there (CAR-14.1).
     /// <b>The distance somebody behind is still able to act on it</b> — far enough out that the car behind
     /// has read it before either of them is slowing for the junction, and near enough that what is being
-    /// announced is plainly the junction in front rather than one two streets away.
+    /// stated is plainly the junction in front rather than one two streets away.
     /// </summary>
     public float JunctionAheadM { get; init; } = 50f;
 
@@ -295,7 +295,7 @@ internal sealed class DrivingFigures
     /// tyres spend outside their own budget and hand back as a stop shorter than the plan.
     /// </summary>
     /// <remarks>
-    /// It is what sizes every reservation on the road, because the ground a car holds is the ground it
+    /// It is what sizes every claim on the road, because the ground a car holds is the ground it
     /// plans to stop in. At <see cref="GripMargin"/> a car doing 150 km/h held 72 m of empty street for a
     /// stop it would have made in 50.
     /// </remarks>
@@ -338,13 +338,13 @@ internal sealed class DrivingFigures
     public float StandstillGapInCarLengths { get; init; } = 0.5f;
 
     /// <summary>
-    /// What share of <see cref="SimConfig.CarBodyMarginM"/> a body's reservation keeps <em>behind</em> its
+    /// What share of <see cref="SimConfig.CarBodyMarginM"/> a body's claim keeps <em>behind</em> its
     /// tail. The margin in front is the whole of it; the tail carries this much of it.
     /// </summary>
     /// <remarks>
     /// <b>It is the one place the two ends of the margin are not the same figure</b>, and what it buys is the
     /// road behind a car — a stretch begins here, so every metre of it is a metre the traffic behind is
-    /// queued out of. What it spends is the cover the book's one-dimensional reading owes at the end that
+    /// queued out of. What it spends is the cover a one-dimensional reading owes at the end that
     /// swings widest, and the soak is what prices it: at 1 Odesa runs a measured minute with nothing
     /// wrecked, and anything under a body's width at the tail wrecks cars (`--bench soak`).
     /// </remarks>
@@ -365,6 +365,21 @@ internal sealed class DrivingFigures
     /// the queue. A second of travel is what a queue that has to absorb one keeps.
     /// </remarks>
     public float FollowingHeadwayS { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How long a driver says it means to hold the speed it is planning for</b> (TER-5g) — the middle
+    /// term of the road it states, between getting up to that speed and stopping from it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is what tells a plan from a commitment, and without it there is no difference.</b> A
+    /// committed claim already holds one decision interval of travel and a stop
+    /// (<see cref="SimConfig.CarReactionS"/>, a tenth of a second), so a stated claim measured at the same
+    /// interval is exactly the committed one again for any car already doing the speed it is planning for —
+    /// which is every car on an open road, and the ones whose intentions are worth having stated.
+    /// <b>What it costs is room</b>: it is metres held at every speed by every car in the town, so what
+    /// the town can afford is the soak's answer and not a rule's.
+    /// </remarks>
+    public float StatedRunS { get; init; } = 2f;
 
     /// <summary>
     /// How long a pedal takes to travel from one stop to the other, which is what bounds the rate the
@@ -409,8 +424,8 @@ internal sealed class DrivingFigures
     /// <summary>How far either side of its last progress a car looks for itself on its own line.</summary>
     public float ProjectionWindowInCarLengths { get; init; } = 2f;
 
-    /// <summary>The cap on how early the junction ahead is reserved, over and above being within stopping distance.</summary>
-    public float JunctionReserveInCarLengths { get; init; } = 3f;
+    /// <summary>The cap on how early the junction ahead is claimed, over and above being within stopping distance.</summary>
+    public float JunctionClaimInCarLengths { get; init; } = 3f;
 
     /// <summary>
     /// How far short of a crossing's paint a yielding car comes to rest. Leaving the crossing clear is
@@ -569,14 +584,14 @@ internal sealed class PersonFigures
     public float RoadGrazeInDiameters { get; init; } = 0.5f;
 
     /// <summary>
-    /// How much more of a lane a body on the carriageway claims than it actually covers. <b>A body on a
-    /// road is not a body on a pavement</b>: what it is asking for is that nothing arrives where it is
-    /// standing, and it is asking it of a driver who is a good deal less able to stop than it is to step.
+    /// How much more of a crossing's paint a body on it claims than the paint and the body between them
+    /// measure. <b>A body on a zebra is anywhere along it before a driver arrives</b>, so what the traffic is
+    /// held off is the marked ground rather than the metre the walker happens to be standing on.
     /// </summary>
     /// <remarks>
-    /// It widens the claim and never the test that decides whether the body is in a lane at all — a walker
-    /// on the pavement past a kerb is not on the road, and a margin that put it there would queue a street
-    /// behind everybody walking down it.
+    /// <b>The paint's and no longer the tarmac's.</b> A body on bare carriageway holds what its own box covers
+    /// of the ways under it and nothing more (<c>TownWorld.StandInTheRoad</c>): the ground a driver keeps off
+    /// it is that driver's own margin (SIM-7), so a second one on the walker's side is one gap kept twice.
     /// </remarks>
     public float RoadClaimMargin { get; init; } = 1.15f;
 
@@ -849,7 +864,7 @@ internal sealed class ServiceFigures
     /// <summary>
     /// How long a closure may stand before the officer is recalled and the lane given back, in blocked-road
     /// clocks (SRV-6). <b>A closure that outlived its scene would hold a street out of the town for the rest
-    /// of the run</b>, which is the one failure a soft reservation can cause.
+    /// of the run</b>, which is the one failure a closure's claim can cause.
     /// </summary>
     /// <remarks>
     /// <b>The same ten clocks every other leg here is bounded by</b>, and deliberately not longer. A closure

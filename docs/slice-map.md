@@ -16,7 +16,7 @@ the same tier may depend on each other only in the one direction the tier's own 
 | Tier | Slices | May know about |
 |---|---|---|
 | **Kernel** | `core/` — config, geometry, persistence, simulation | Nothing else in the project. **Not a town** |
-| **Plan** | `citygen/` — the plan, its cell vocabulary, its reader | core |
+| **Plan** | `citygen/` — the plan, its ground vocabulary, its reader and writer | core |
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking | core, citygen, and each other in one direction |
 | **Composition** | `world/town/` | Everything below it. **This is the seam, and it is the only thing allowed to be** |
 | **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight | core, citygen, world |
@@ -26,7 +26,10 @@ the same tier may depend on each other only in the one direction the tier's own 
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
-road, containment → physics. Inside `agents/`, it is `ambulance/` and `service/` → `world/statics/` and
+road, containment → physics. **The ground is split across the Plan tier and the World tier on purpose**:
+what shape is at a point is the plan's (`citygen/GroundShapes`), so a town half-laid can be asked where a
+thing may stand, and what that kind of ground *permits* is `world/terrain/`'s, because a permission is a
+rule about agents and the plan does not know what an agent is (TER-2a). Inside `agents/`, it is `ambulance/` and `service/` → `world/statics/` and
 nothing else, and `evacuator/` → nothing at all: each is a roster of buildings and what stands at them, and
 the driving they ask for is the car's catalogue, reached from the composition seam like every other leg.
 **An errand's slice never depends on `agents/car/`**, which is why the arithmetic of a tow is `TowBar` in
@@ -104,5 +107,3 @@ rather than the type is what keeps the arrow pointing down**:
   caller hands over three spans (`PHY-7a`).
 - **`TownRenderer.SheetFrameAspect(sheet, columns, rows)`** — the renderer knows how big an image is;
   what it is cut into is a fact about the thing it draws, so the grid comes from the caller.
-- **`Grounds.Kinds`** — the plan's reader bounds a cell byte against the plan's own vocabulary, not
-  against the terrain catalogue that interprets it.

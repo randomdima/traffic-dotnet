@@ -98,7 +98,7 @@ internal static class SoakProbe
             $"PHY-1 is kept while no one body stays more than {OverlapAllowanceM * 1_000f:F0} mm inside another for " +
             $"{StuckAfterTicks} ticks: a peak is one tick's approach, and a long run of them is a body nothing pushed back out.");
         Console.WriteLine(
-            $"TER-4c.1 is kept while nobody goes on getting deeper into ground the book refused it for " +
+            $"TER-4c.1 is kept while nobody goes on getting deeper into ground it was refused for " +
             $"{PastAfterTicks} ticks: the ticks a body spends arriving at rest are the stop, and a body still " +
             "going deeper after them never braked.");
 
@@ -164,13 +164,13 @@ internal static class SoakProbe
 
     /// <summary>
     /// <b>How far past the ground it was granted every dynamic body is</b>, this instant — walkers first,
-    /// then cars, in the roster's own order, and zero for a body still inside what the book gave it.
+    /// then cars, in the roster's own order, and zero for a body still inside what it was granted.
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>It is the town's own answer read back, not a second measurement of it.</b> A grant is what is left
     /// of a body's ask once everything already spoken for has been taken out of it, expressed from that
-    /// body's own nose — so it goes negative exactly when the nose is past the place the book stopped it, and
+    /// body's own nose — so it goes negative exactly when the nose is past the place the answer stopped it, and
     /// the figure is that overshoot. Measured any other way this would be a second arithmetic free to
     /// disagree with the one the drivers are actually held to.
     /// </para>

@@ -5,13 +5,13 @@
 SRV-6 needed traffic held off a scene while other service vehicles drove through it. Three shapes were on
 the table and only one of them left the rest of the town alone.
 
-**A new `LaneUse` was the obvious one and the worst.** Every query in the road's book names the uses it is
+**A new `LaneUse` was the obvious one and the worst.** Every query of the road named the uses it was
 about — what is traffic, what is a body, what is spoken for — so a sixth use is a decision in a dozen
 places about whether a closure counts, and a closure that a query forgot is a street that shuts against
 nobody or against everybody.
 
 **Weighting the routing was the expensive one.** It would send traffic round rather than letting it queue at
-the tape, which is more faithful, and it needs a second thing that has to agree with the book about what is
+the tape, which is more faithful, and it needs a second thing that has to agree with the claims about what is
 closed. Two answers to one question is what this project keeps refusing.
 
 **So a closure is an ordinary claim at a rank of its own**, between the paint and a call. `Binds` already

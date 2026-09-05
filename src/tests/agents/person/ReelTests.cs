@@ -22,12 +22,12 @@ public class ReelTests
 
     static readonly RoadGraph Roads = RoadGraph.Build(Towns.Of(TrackPlan.Name), Config);
 
-    /// <summary>An empty book over those roads, so a lurch is refused by nothing it was not given.</summary>
-    static LaneOccupancy AnEmptyBook()
+    /// <summary>No claims at all over those roads, so a lurch is refused by nothing it was not given.</summary>
+    static LaneOccupancy NoClaims()
     {
-        var book = new LaneOccupancy(Roads, mostSlots: 64);
-        book.Begin();
-        return book;
+        var claims = new LaneOccupancy(TownWays.OfTheRoad(Roads), mostSlots: 64);
+        claims.Begin();
+        return claims;
     }
 
     static float RadiusM => Config.PersonDiameterM * 0.5f;
@@ -75,7 +75,7 @@ public class ReelTests
         var draw = new Rng(1, 2);
 
         var took = Reel.NextLurch(
-            Config, Roads, AnEmptyBook(), person: 0, atM, along * facing, RadiusM, ref draw, out var goalM);
+            Config, Roads, NoClaims(), person: 0, atM, along * facing, RadiusM, ref draw, out var goalM);
 
         Assert.Equal(Lurch.Taken, took);
         Assert.True(Vector2.Dot(goalM - atM, along * facing) > 0f);
@@ -92,12 +92,12 @@ public class ReelTests
         var (atM, along, lane) = OnTheStraight();
         var halfM = Roads.LaneWidthM[lane] * 0.5f;
         var draw = new Rng(7, 11);
-        var book = AnEmptyBook();
+        var claims = NoClaims();
 
         var fromM = atM;
         for (var lurch = 0; lurch < 200; lurch++)
         {
-            if (Reel.NextLurch(Config, Roads, book, person: 0, fromM, along, RadiusM, ref draw, out var goalM)
+            if (Reel.NextLurch(Config, Roads, claims, person: 0, fromM, along, RadiusM, ref draw, out var goalM)
                 != Lurch.Taken)
             {
                 break;
@@ -122,10 +122,10 @@ public class ReelTests
     public void ALurchRoundAHairpinIsShorterThanOneDownAStraight()
     {
         var draw = new Rng(3, 5);
-        var book = AnEmptyBook();
+        var claims = NoClaims();
 
-        Assert.Equal(Lurch.Taken, Lurched(Middle(TrackPlan.Straight), book, ref draw, out var downTheStraightM));
-        Assert.Equal(Lurch.Taken, Lurched(Middle(TrackPlan.Turn180), book, ref draw, out var roundTheHairpinM));
+        Assert.Equal(Lurch.Taken, Lurched(Middle(TrackPlan.Straight), claims, ref draw, out var downTheStraightM));
+        Assert.Equal(Lurch.Taken, Lurched(Middle(TrackPlan.Turn180), claims, ref draw, out var roundTheHairpinM));
 
         Assert.Equal(
             Config.PersonWalkSpeedMps * Config.Person.LurchS, downTheStraightM, 0.5f);
@@ -147,15 +147,16 @@ public class ReelTests
         var strideM = Config.PersonWalkSpeedMps * Config.Person.LurchS;
         var draw = new Rng(13, 17);
 
-        var book = AnEmptyBook();
+        var claims = NoClaims();
         Roads.NearestLane(atM, out var alongM);
-        book.Add(
-            book.WayOfLane(lane), alongM + (strideM * 0.5f), alongM + (strideM * 0.5f) + Config.Car.LengthM, 0f,
-            occupant: 0, LaneUse.Obstruction);
+        var fromM = alongM + (strideM * 0.5f);
+        claims.ClaimWhereItStands(
+            claims.Ways.OfRoadLane(lane), fromM, fromM + Config.Car.LengthM, fromM + Config.Car.LengthM, 0f,
+            0);
 
         Assert.Equal(
             Lurch.NoRoom,
-            Reel.NextLurch(Config, Roads, book, person: 0, atM, along, RadiusM, ref draw, out _));
+            Reel.NextLurch(Config, Roads, claims, person: 0, atM, along, RadiusM, ref draw, out _));
     }
 
     /// <summary>And a body off the road altogether is one the ordinary wander carries, not one that reels.</summary>
@@ -167,16 +168,16 @@ public class ReelTests
         Assert.Equal(
             Lurch.NoRoad,
             Reel.NextLurch(
-                Config, Roads, AnEmptyBook(), person: 0, new Vector2(-1_000f, -1_000f), Vector2.UnitX, RadiusM,
+                Config, Roads, NoClaims(), person: 0, new Vector2(-1_000f, -1_000f), Vector2.UnitX, RadiusM,
                 ref draw, out _));
     }
 
-    static Lurch Lurched(Vector2 fromM, LaneOccupancy book, ref Rng draw, out float strideM)
+    static Lurch Lurched(Vector2 fromM, LaneOccupancy claims, ref Rng draw, out float strideM)
     {
         var lane = Roads.NearestLane(fromM, out var alongM);
         var on = Spline.SampleAt(Roads.ArcsOf(lane), alongM);
 
-        var took = Reel.NextLurch(Config, Roads, book, person: 0, on.PositionM, on.Direction, RadiusM, ref draw, out var goalM);
+        var took = Reel.NextLurch(Config, Roads, claims, person: 0, on.PositionM, on.Direction, RadiusM, ref draw, out var goalM);
 
         Roads.NearestLane(goalM, out var goalAlongM);
         strideM = goalAlongM - alongM;

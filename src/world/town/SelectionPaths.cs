@@ -4,7 +4,7 @@ using TrafficSimulation.World.Routing;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// The room the interface plans a whole path into (CTL-1a): a slot for each unit the selection may hold,
+/// The room the interface plans a whole route into (CTL-1a): a slot for each unit the selection may hold,
 /// carrying the rest of the way past what that unit is holding itself, and what it was planned for.
 /// </summary>
 /// <remarks>
@@ -22,8 +22,8 @@ namespace TrafficSimulation.World.Town;
 internal sealed class SelectionPaths
 {
     /// <summary>
-    /// How much of a path one slot may hold. <b>A bound on the work and not a figure anything reads</b>,
-    /// and room enough for a whole way across the largest shipped town with a good deal to spare — a path
+    /// How much of a route one slot may hold. <b>A bound on the work and not a figure anything reads</b>,
+    /// and room enough for a whole way across the largest shipped town with a good deal to spare — a route
     /// longer than this is drawn as far as it goes.
     /// </summary>
     /// <remarks>

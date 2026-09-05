@@ -46,30 +46,31 @@ internal static class TownGenerator
     {
         brief.Check(brief.Name);
 
-        var gridWidth = (int)MathF.Round(brief.WidthM / brief.CellSizeM);
-        var gridHeight = (int)MathF.Round(brief.HeightM / brief.CellSizeM);
-        var cells = new Ground[gridWidth * gridHeight];
-        var laneDirs = new sbyte[cells.Length * 2];
-        var raster = new GenRaster(cells, gridWidth, gridHeight, brief.CellSizeM);
-        var claims = GenClaims.Over(raster);
-        var painter = new GroundPainter(
-            cells, laneDirs, gridWidth, gridHeight, brief.CellSizeM, config.RoadSideSign);
+        var worldSizeM = new Vector2(brief.WidthM, brief.HeightM);
+        var claims = GenClaims.Over(worldSizeM, brief.CellSizeM);
+
+        // <b>The ground, asked about while the town is still being laid.</b> Every stage below reads it to
+        // decide where a thing may stand, and it is the same reading the finished map answers with — the
+        // shapes laid so far and nothing else (TER-7). It is remade as each stage adds its own, because
+        // what is on the ground at a point is a fact about the shapes there are.
+        var bare = GroundPieces.None(worldSizeM, config.PavementWidthM);
 
         var terrain = new Rng(brief.Seed, TerrainStream);
-        var water = TerrainStage.Lay(brief, config, raster, ref terrain);
+        var water = TerrainStage.Lay(brief, config, ref terrain);
+        var wet = new GroundShapes(bare.With(water.Rings), config);
         var rules = new WaterRules(
-            raster, water, config.CityGen.BridgeDeckLongestM, Lattice.CorridorM(config),
-            (config.RoadWidthM * 0.5f) + config.PavementWidthM);
+            wet, config.Terrain.GroundStepM, water, config.CityGen.BridgeDeckLongestM,
+            Lattice.CorridorM(config), (config.RoadWidthM * 0.5f) + config.PavementWidthM);
 
         var district = new Rng(brief.Seed, DistrictStream);
-        var districts = Districts.Lay(brief, config, raster, water, ref district);
+        var districts = Districts.Lay(brief, config, wet, water, ref district);
 
         // Nothing shorter than the ground two junctions' own discs and corners take is a road at all.
         var shortestRoadM = Lattice.CorridorM(config) * 2f;
         var layout = new TownLayout(shortestRoadM, config.ArmsApartMinRad, config.CityGen.LocalityM, rules);
         var marginM = MarginM(config);
         var arterials = Arterials.Lay(layout, districts, brief, rules, shortestRoadM, marginM);
-        Lattice.Lay(layout, districts, arterials, brief, raster, config, marginM);
+        Lattice.Lay(layout, districts, arterials, brief, wet, config, marginM);
         arterials.Close(layout, rules);
         layout.MergeTheLocalNodes();
         layout.UnpickTheCrossings(config.RoadFootprintM, RoadStage.StraysM(layout, districts, config));
@@ -78,14 +79,19 @@ internal static class TownGenerator
 
         var shape = new Rng(brief.Seed, ShapeStream);
         var signals = new Rng(brief.Seed, SignalStream);
-        var roads = RoadStage.Lay(layout, districts, brief, raster, painter, config, ref shape, ref signals);
+        var roads = RoadStage.Lay(layout, districts, brief, config, ref shape, ref signals);
+
+        var paved = bare.With(water.Rings).With(
+            roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Crosswalks);
+        var streets = new GroundShapes(paved, config);
 
         var chains = ChainsOf(roads.Roads);
         var slot = new Rng(brief.Seed, SlotStream);
-        var statics = SlotStage.Lay(layout, chains, brief, raster, claims, painter, config, roofsM, ref slot);
+        var statics = SlotStage.Lay(layout, chains, brief, streets, claims, config, roofsM, ref slot);
 
         var prop = new Rng(brief.Seed, PropStream);
-        var props = PropStage.Lay(brief, chains, statics.ParkingLots, raster, claims, config, ref prop);
+        var built = new GroundShapes(paved.With(statics.ParkingLots), config);
+        var props = PropStage.Lay(brief, chains, statics.ParkingLots, built, claims, config, ref prop);
 
         var spawn = new Rng(brief.Seed, SpawnStream);
         var spawns = SpawnStage.Lay(brief, statics.Buildings, statics.ParkingLots, ref spawn);
@@ -95,12 +101,7 @@ internal static class TownGenerator
             Seed = brief.Seed,
             Name = brief.Name,
             WorldSizeM = new Vector2(brief.WidthM, brief.HeightM),
-            CellSizeM = brief.CellSizeM,
             PavementWidthM = config.PavementWidthM,
-            GridWidth = gridWidth,
-            GridHeight = gridHeight,
-            Cells = cells,
-            LaneDirs = laneDirs,
             Junctions = roads.Junctions,
             JunctionCorners = roads.Corners,
 
@@ -112,7 +113,7 @@ internal static class TownGenerator
             },
             Roads = roads.Roads,
             Bridges = roads.Bridges,
-            PavedAreas = new CityPlan.PavedAreaArrays { MinM = [], SizeM = [] },
+            PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = roads.Crosswalks,
             StopLines = roads.StopLines,
             ParkingLots = statics.ParkingLots,

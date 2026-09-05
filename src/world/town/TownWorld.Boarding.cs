@@ -280,7 +280,7 @@ internal sealed partial class TownWorld
         DrawTrip(person);
     }
 
-    /// <summary>What a trip holds on the town's behalf: a building's claim and a car with a bay reserved for it.</summary>
+    /// <summary>What a trip holds on the town's behalf: a building's claim and a car with a bay claimed for it.</summary>
     void GiveUpTheClaims(int person)
     {
         var building = People.DestinationBuilding[person];

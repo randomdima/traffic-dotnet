@@ -102,7 +102,7 @@ public class RoadGraphTests
     {
         var plan = Towns.Of(map);
         var graph = GraphOf(map);
-        var terrain = new TerrainGrid(plan, SimConfig.Shipped());
+        var terrain = new GroundLocator(plan, SimConfig.Shipped());
 
         var offRoad = 0;
         var worst = string.Empty;

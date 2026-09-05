@@ -41,8 +41,8 @@ internal static class SlotStage
         CityPlan.BuildingArrays Buildings, CityPlan.ParkingLotArrays ParkingLots);
 
     public static Laid Lay(
-        TownLayout layout, ArcSeg[][] chains, TownBrief brief, GenRaster raster, GenClaims claims,
-        GroundPainter painter, SimConfig config, ReadOnlySpan<Vector2> roofsM, ref Rng draw)
+        TownLayout layout, ArcSeg[][] chains, TownBrief brief, GroundShapes ground, GenClaims claims,
+        SimConfig config, ReadOnlySpan<Vector2> roofsM, ref Rng draw)
     {
         var centreM = new List<Vector2>();
         var sizeM = new List<Vector2>();
@@ -110,7 +110,7 @@ internal static class SlotStage
         }
 
         LayTheLots(
-            slots, bays, chains, config, raster, claims, painter, bayLengthM, bayWidthM,
+            slots, bays, chains, config, ground, claims, bayLengthM, bayWidthM,
             widthM * 0.5f, lotCentreM, lotAxis, lotHalfM, bayOffsets, bayM, bayHeadingRad);
 
         var frontages = new List<Slot>(slots.Count);
@@ -131,7 +131,7 @@ internal static class SlotStage
 
             var on = Spline.SampleAt(chains[road], alongM);
             LayABuilding(
-                on.PositionM, on.Right * hand, kerbM, walkM, config, raster, claims, roofsM,
+                on.PositionM, on.Right * hand, kerbM, walkM, config, ground, claims, roofsM,
                 centreM, sizeM, headingRad, entryM, ref draw);
         }
 
@@ -157,7 +157,7 @@ internal static class SlotStage
     /// is the size the plan authored rather than the nearest thing to it.
     /// </summary>
     static void LayABuilding(
-        Vector2 onRoadM, Vector2 outward, float kerbM, float walkM, SimConfig config, GenRaster raster,
+        Vector2 onRoadM, Vector2 outward, float kerbM, float walkM, SimConfig config, GroundShapes ground,
         GenClaims claims, ReadOnlySpan<Vector2> roofsM, List<Vector2> centreM, List<Vector2> sizeM,
         List<float> headingRad, List<Vector2> entryM, ref Rng draw)
     {
@@ -170,7 +170,7 @@ internal static class SlotStage
         var halfM = new Vector2(footprintM.X * 0.5f, footprintM.Y * 0.5f) * (1f + PaddingShare);
         var standM = onRoadM + (outward * (kerbM + config.Building.FrontGapM + halfM.Y));
 
-        if (!raster.IsAll(standM, facing, halfM, Ground.Grass)) return;
+        if (!ground.IsAll(standM, facing, halfM, config.Terrain.GroundStepM, Ground.Grass)) return;
         if (!claims.IsFree(standM, facing, halfM)) return;
 
         claims.Claim(standM, facing, halfM);
@@ -204,13 +204,13 @@ internal static class SlotStage
     /// and a lot fewer is a shortfall the census reports (GEN-8) rather than a car park the length of a block.
     /// </remarks>
     static void LayTheLots(
-        List<Slot> slots, int[] bays, ArcSeg[][] chains, SimConfig config, GenRaster raster,
-        GenClaims claims, GroundPainter painter, float bayLengthM, float bayWidthM,
+        List<Slot> slots, int[] bays, ArcSeg[][] chains, SimConfig config, GroundShapes ground,
+        GenClaims claims, float bayLengthM, float bayWidthM,
         float roadHalfM, List<Vector2> lotCentreM, List<Vector2> lotAxis, List<Vector2> lotHalfM,
         List<int> bayOffsets, List<Vector2> bayM, List<float> bayHeadingRad)
     {
         var localityM = config.CityGen.LocalityM;
-        var mouthM = raster.CellSizeM;
+        var mouthM = config.Terrain.GroundStepM;
 
         // How far the kerb may stand off the chord the lot is laid on (GEN-4b): a hand's width, which is
         // the same figure the kerb line's own break is judged by (<c>RoadFrontages</c>). A lot whose kerb
@@ -234,10 +234,10 @@ internal static class SlotStage
             var shape = Shape(
                 chain, fromM, toM, bays[at], kerb.Hand, bayWidthM, bayLengthM, roadHalfM, mouthM);
             if (kerb.Road == laidRoad && kerb.Hand == laidHand && ApartM(laid, shape) < localityM) continue;
-            if (!Stands(shape, raster, claims, config.PavementWidthM)) continue;
+            if (!Stands(shape, ground, claims, config)) continue;
 
             LayALot(
-                shape, config, claims, painter, mouthM, bayWidthM, lotCentreM, lotAxis, lotHalfM, bayOffsets,
+                shape, config, claims, mouthM, bayWidthM, lotCentreM, lotAxis, lotHalfM, bayOffsets,
                 bayM, bayHeadingRad);
 
             laidRoad = kerb.Road;
@@ -318,9 +318,11 @@ internal static class SlotStage
     /// (TER-3c.4).
     /// </para>
     /// </remarks>
-    static bool Stands(LotShape shape, GenRaster raster, GenClaims claims, float walkM) =>
-        raster.IsAll(shape.BayCentreM, shape.Along, shape.BayHalfM, Ground.Grass, Ground.Sidewalk)
-        && claims.IsFree(shape.BayCentreM, shape.Along, shape.BayHalfM + new Vector2(walkM));
+    static bool Stands(LotShape shape, GroundShapes ground, GenClaims claims, SimConfig config) =>
+        ground.IsAll(
+            shape.BayCentreM, shape.Along, shape.BayHalfM, config.Terrain.GroundStepM, Ground.Grass,
+            Ground.Sidewalk)
+        && claims.IsFree(shape.BayCentreM, shape.Along, shape.BayHalfM + new Vector2(config.PavementWidthM));
 
     /// <summary>
     /// <b>A car park reaches the carriageway</b> (GEN-4b): its own tarmac stands where the pavement would be,
@@ -328,7 +330,7 @@ internal static class SlotStage
     /// lot standing back behind the walk is one that every way in crosses a pavement to reach.
     /// </summary>
     static void LayALot(
-        LotShape shape, SimConfig config, GenClaims claims, GroundPainter painter, float mouthM,
+        LotShape shape, SimConfig config, GenClaims claims, float mouthM,
         float bayWidthM, List<Vector2> lotCentreM, List<Vector2> lotAxis, List<Vector2> lotHalfM,
         List<int> bayOffsets, List<Vector2> bayM, List<float> bayHeadingRad)
     {
@@ -337,8 +339,6 @@ internal static class SlotStage
         // The lot itself is the bays and the mouth in front of them, which is what reaches the road.
         var halfM = new Vector2(shape.BayHalfM.X, shape.BayHalfM.Y + (mouthM * 0.5f));
         var standM = shape.BayCentreM - (shape.Outward * (mouthM * 0.5f));
-        painter.Lot(standM, shape.Along, halfM);
-
         lotCentreM.Add(standM);
         lotAxis.Add(shape.Along);
         lotHalfM.Add(halfM);

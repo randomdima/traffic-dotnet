@@ -25,6 +25,14 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// Something almost as fast as this car needs hundreds of metres, and the ground is what refuses that.
 /// </para>
 /// <para>
+/// <b>The ground is taken before the shape is committed to, both halves of it</b>
+/// (<see cref="ManeuverDesk.TakeTheSwervesGround"/>): the stretch of the car's own lane the swerve leaves
+/// and comes back into, and the stretch of the lane it crosses into for the whole run of the pass. A
+/// swerve that cannot have both is not driven — the wrong side of the road is the one piece of the town
+/// where neither of two bodies can be made to give way (TER-5f), so a car that gets halfway across it and
+/// meets something coming stands there until the watchdog gives it up.
+/// </para>
+/// <para>
 /// <b>Discretionary</b> (§1.4 row 5), and the discretion is <see cref="DriveScene.WorthGoingRound"/>'s.
 /// A queue is not an obstruction, and a car that swings out round a queue is a head-on.
 /// </para>
@@ -36,8 +44,8 @@ internal static class E04GoRound
     public const bool Watched = true;
 
     /// <summary>
-    /// <c>Sa</c>: on a route, with something in front worth getting past, and a swerve the ground and the
-    /// book both admit.
+    /// <c>Sa</c>: on a route, with something in front worth getting past, and a swerve whose whole run —
+    /// the lane it leaves and the lane it crosses into — the ground admits and the claims will give it.
     /// </summary>
     /// <remarks>
     /// <b>What is in front, what it is doing, whether it is entitled to be there and how long this car has
@@ -64,15 +72,15 @@ internal static class E04GoRound
         // measured. A swerve that reaches into the box is a car crossing a junction on a line the town has
         // no record of.
         if (passM > scene.ToTheBoxM) return ManeuverStart.No;
-        if (!desk.LayTheSwerve(scene.Car, passM, scene.AlongMps)) return ManeuverStart.No;
 
-        // The stretch of this car's own lane the swerve leaves and comes back into, so the traffic behind
-        // holds off the ground it is about to swing through. It is measured from where the car stood on its
-        // route rather than from where it stands now, because laying the template above has just restarted
-        // the progress measure. The oncoming half is deliberately not claimed — see
-        // <see cref="ManeuverDesk.ClaimTheSwerve"/>.
-        desk.ClaimTheSwerve(scene.Car, scene.ProgressM, passM);
-        return ManeuverStart.Yes;
+        // <b>The whole of the ground first, and the shape only if it is granted</b>
+        // (<see cref="ManeuverDesk.TakeTheSwervesGround"/>): the stretch of this car's own lane the swerve
+        // leaves and comes back into, so the traffic behind holds off the road it is about to swing through,
+        // and the stretch of the lane it crosses into, so what is coming down the other side is held off it
+        // for the whole of the pass rather than meeting the body halfway along.
+        return desk.LayTheSwerve(scene.Car, passM, scene.AlongMps, scene.ProgressM)
+            ? ManeuverStart.Yes
+            : ManeuverStart.No;
     }
 
     public static ManeuverOutcome Tick(in DriveScene scene, ManeuverDesk desk, float sinceS, ref DriveLimits limits)

@@ -6,7 +6,7 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.Agents.Person.Control;
 
 /// <summary>The lane a walker beside a road would step into, and where the middle of it is.</summary>
-/// <param name="Lane">The lane itself, which is also its way in the road's own book.</param>
+/// <param name="Lane">The lane itself, which is also its way in the road's own numbering.</param>
 /// <param name="AlongM">How far along that lane the step lands.</param>
 /// <param name="RoadM">And where that is, which is where the body would stand.</param>
 internal readonly record struct PacedStep(int Lane, float AlongM, Vector2 RoadM);
@@ -24,7 +24,7 @@ internal readonly record struct PacedStep(int Lane, float AlongM, Vector2 RoadM)
 /// looking at what is in front of it and nothing else.
 /// </para>
 /// <para>
-/// <b>What it waits for is ground nobody has taken</b>, and never a gap in the traffic. A reservation is the
+/// <b>What it waits for is ground nobody has taken</b>, and never a gap in the traffic. A claim is the
 /// road a driver is committed to — its own tail to where it plans to be able to stop — so a body put down
 /// outside every one of them is a body every car on the road can still stop for, and a body put down inside
 /// one is a body nothing could have. Waiting for an empty road instead would be a walker that only ever
@@ -77,7 +77,7 @@ internal static class StepOut
         // yet, and stepping out again in front of it is asking one driver the same question twice.
         if (StoodStillFor(config, roads, step)) return false;
 
-        if (!roads.TakenUpTo(roads.WayOfLane(step.Lane), step.AlongM, out var taken)) return true;
+        if (!roads.TakenUpTo(roads.Ways.OfRoadLane(step.Lane), step.AlongM, out var taken)) return true;
 
         var clearM = step.AlongM - taken.ToM;
         if (clearM <= config.PersonDiameterM) return false;
@@ -100,7 +100,8 @@ internal static class StepOut
     {
         var reachM = config.Car.LengthM + config.CarBodyMarginM;
         return roads.BehindBody(
-                   roads.WayOfLane(step.Lane), step.AlongM, step.AlongM - reachM, LaneOccupancy.Nobody, out var behind)
+                   roads.Ways.OfRoadLane(step.Lane), step.AlongM, step.AlongM - reachM, LaneOccupancy.Nobody,
+                   out var behind)
                && MathF.Abs(behind.AlongMps) <= config.Driving.StopSpeedMps;
     }
 }

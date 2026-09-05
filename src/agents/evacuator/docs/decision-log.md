@@ -53,7 +53,7 @@ and load changed with whatever happened to be on the hook. Nothing on screen cou
 What an underlift actually goes under is the **front of the car**, which is the same place on every car
 there is. So the fork now takes hold a fixed distance inside the nose — one figure on `SimConfig.Evacuator`
 rather than a measurement off each variant — and everything downstream falls out of it: the set-down, the
-road the pair reserves and the gap behind the truck are the same for a coupé and for a van.
+road the pair claims and the gap behind the truck are the same for a coupé and for a van.
 
 ## 2026-08-26 — the arm got a second picture
 
@@ -147,16 +147,16 @@ along it, and all of that yaw lands on the truck. On one budget a corner taken a
 tractor through fifty degrees inside two seconds and left it circling at full lock; capped, the coupling
 stretches instead and the trailer scrubs round.
 
-## 2026-08-26 — a towed wreck lays no ground, and the truck's reservation reaches back over it
+## 2026-08-26 — a towed wreck lays no ground, and the truck's claim reaches back over it
 
 A wreck is a body that is not driving, so the lane index lays it where it lies as the obstruction it is —
 and the first tow ever run came to a dead stop the moment it began, because the trailer's own stretch cut
 the grant of the truck towing it. The truck was queueing behind itself.
 
 Excluding a second body from the grant would have meant a second exclusion threaded through every question
-the lane book answers. Instead the pair is what it looks like: **one movement, one stretch** (`TER-5c.2`).
+the lane index answers. Instead the pair is what it looks like: **one movement, one stretch** (`TER-5c.2`).
 The truck asks for the ground both of them stand on and the wreck asks for none. That needed one term in
-the reservation's near edge and one early return in the lying pass, it holds the traffic behind off the
+the claim's near edge and one early return in the lying pass, it holds the traffic behind off the
 trailer rather than off the truck, and there is no second register of who is on what.
 
 ## 2026-08-26 — the wreck is winched onto the hook and set down in the slot, and both are placements
@@ -179,7 +179,7 @@ have and would be a poor first one to write.
 
 "A large wreck park" wants to be a rectangle of ground beside the depot, cut into slots, with its own way in
 off the road. What that costs is new drivable geometry: a free-ground search, a cut in the road (`GEN-4h`),
-ways in for every slot, and a place in the occupancy book — all of it laid by this project, which reads
+ways in for every slot, and a place in the occupancy index — all of it laid by this project, which reads
 plans and does not lay them.
 
 The yard is instead an apron (`GEN-4k`) with a bigger figure and a hold of its own kind. Every question a

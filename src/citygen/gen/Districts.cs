@@ -78,13 +78,14 @@ internal sealed class Districts
     public float SpokeBearingRad(int spoke) => _firstSpokeRad + (spoke * MathF.Tau / Spokes);
 
     public static Districts Lay(
-        TownBrief brief, SimConfig config, GenRaster raster, TerrainStage.Water water, ref Rng draw)
+        TownBrief brief, SimConfig config, GroundShapes ground, TerrainStage.Water water, ref Rng draw)
     {
         var extentM = new Vector2(brief.WidthM, brief.HeightM);
         var spokes = Math.Clamp((brief.Districts + 1) / 2, SpokesFewest, SpokesMost);
         var ringRadiusM = brief.RingShare > 0f ? MathF.Min(extentM.X, extentM.Y) * brief.RingShare : 0f;
         var hubM = DryHubM(
-            extentM * 0.5f, raster, water, config.CityGen.BlockSpacingAlongMaxM, out var inlandM);
+            extentM * 0.5f, ground, extentM, config.Terrain.GroundStepM, water,
+            config.CityGen.BlockSpacingAlongMaxM, out var inlandM);
 
         var townBearingRad = draw.NextFloat(0f, MathF.PI * 0.5f);
         var spreadRad = brief.BearingSpreadDeg * MathF.PI / 180f;
@@ -127,19 +128,20 @@ internal sealed class Districts
     /// </summary>
     /// <param name="inlandM">The way it moved, which is the way the water lies from it.</param>
     static Vector2 DryHubM(
-        Vector2 atM, GenRaster raster, TerrainStage.Water water, float clearanceM, out Vector2 inlandM)
+        Vector2 atM, GroundShapes ground, Vector2 extentM, float stepM, TerrainStage.Water water,
+        float clearanceM, out Vector2 inlandM)
     {
         inlandM = water.Any ? water.Across(atM) : Vector2.UnitX;
-        if (raster.At(atM) != Ground.Water) return atM;
+        if (ground.At(atM) != Ground.Water) return atM;
 
         // Both banks are walked out from together, so the hub crosses the narrower half of the water rather
         // than whichever side the shore normal happened to point at.
-        var reachM = MathF.Min(raster.Width, raster.Height) * raster.CellSizeM * 0.5f;
-        for (var offM = raster.CellSizeM; offM < reachM; offM += raster.CellSizeM)
+        var reachM = MathF.Min(extentM.X, extentM.Y) * 0.5f;
+        for (var offM = stepM; offM < reachM; offM += stepM)
         {
-            if (raster.At(atM + (inlandM * offM)) != Ground.Water) return atM + (inlandM * (offM + clearanceM));
+            if (ground.At(atM + (inlandM * offM)) != Ground.Water) return atM + (inlandM * (offM + clearanceM));
 
-            if (raster.At(atM - (inlandM * offM)) != Ground.Water)
+            if (ground.At(atM - (inlandM * offM)) != Ground.Water)
             {
                 inlandM = -inlandM;
                 return atM + (inlandM * (offM + clearanceM));

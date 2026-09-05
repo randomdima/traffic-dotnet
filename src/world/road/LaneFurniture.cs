@@ -80,8 +80,8 @@ internal sealed class LaneFurniture
     public int CrossingsOnLanes => _crossing.Length;
 
     /// <summary>
-    /// The most lanes any one crossing is laid across. <b>What one walker on the paint costs the road's
-    /// book</b>, and therefore the figure the book has to be sized with room for — a dropped stretch here
+    /// The most lanes any one crossing is laid across. <b>How many claims one walker on the paint costs the
+    /// road</b>, and therefore the figure they have to be sized with room for — a dropped stretch here
     /// would be a body on a crossing no driver could see.
     /// </summary>
     public int MostLanesUnderACrossing { get; private init; }
@@ -102,8 +102,8 @@ internal sealed class LaneFurniture
 
     /// <summary>
     /// <b>The same pairs the other way up</b>: the lanes one crossing's paint is laid across, with how far
-    /// along each of them it falls. What a body <em>on</em> a crossing has to be written into the road's
-    /// book against, since the road holds everything as a stretch of a lane.
+    /// along each of them it falls. What a body <em>on</em> a crossing has to lay its claim on the road
+    /// against, since the road holds everything as a stretch of a lane.
     /// </summary>
     public LanesUnderACrossing LanesUnder(int crossing) => new(this, _laneFirst[crossing], _laneFirst[crossing + 1]);
 

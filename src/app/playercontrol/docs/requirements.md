@@ -6,20 +6,20 @@ town.
 
 **CTL-1 — Selection.** Left-click selects a single unit, person or car; left-click elsewhere reselects or
 deselects. The selection is **marked on the town by a shape and never by a change to the unit's own
-picture** — corner brackets standing outside its box, laid in the frame that box is drawn in — and **its
-behaviour state is read where the unit is**.
+picture** — corner brackets standing outside its box, laid in the frame that box is drawn in.
 
-- **The state stands beside the unit and follows it**, clear of the box the brackets wrap, on the other
-  side of it where there is no room, and never off the window. A read-out in a corner is a second place to
-  look: the eye is on the unit that was just picked out, and what the line is about has to be in no doubt
-  however many are on screen.
-- **What the run's own watches have against that one body is on the same label** — how deep inside
+- **What is drawn on the town is the mark and nothing else**, and **what the unit is doing is read off the
+  panel** (`OBS-2m`). A shape says *which* unit without covering the ground it is about to drive over;
+  words take room, and the room they take is the town. The brackets and the path are what tie the panel to
+  a body, so the corner never has to say which car it means.
+- **What the run's own watches have against that one body goes to the same panel** — how deep inside
   something it is, how far past the ground it was granted (`OBS-2i`, `Bench.ScenarioWatch`). A claim is a
-  statement about the town and belongs on the panel that holds claims; a finding that names one car
-  belongs at that car.
-- **Nothing off the picture is labelled.** A unit inside a building or a car is not drawn (`PHY-7`) and
-  wears no brackets either, and a unit the camera has left behind would put its label against an edge it
-  is nowhere near.
+  statement about the town and belongs on the panel that holds claims; a finding that names one car belongs
+  with that car's own figures.
+- **A unit with nothing drawn for it is still described.** Somebody inside a building or a car is not
+  drawn (`PHY-7`) and wears no brackets, and a unit the camera has been panned off has nothing on screen
+  either — a read-out that stood on the town could say nothing about any of them, and one in a corner has
+  nothing to point at and so nothing to lose.
 
 **CTL-1b — One unit or many, and the left button moves the town.** A selection holds **a set of units and
 not one**, and everything the interface does to a selection it does to every unit in it: the brackets, the
@@ -44,10 +44,10 @@ paths, the orders, the keys and the lever.
   rather than a place.
 - **The set is bounded**, and the bound is a figure like any other. A box round more units than it holds
   takes what fits and stops.
-- **One line says what a group is, not what each of it is doing.** A single unit's behaviour state shows
-  as CTL-1 says; several show as a count of each kind.
+- **A group is counted, not described.** A single unit's behaviour state shows as CTL-1 says; several show
+  as a count of each kind, because thirty cars have no speed, no destination and no manoeuvre between them.
 
-**CTL-1a — Where it is going, drawn whole.** The selection carries a second mark: **the whole of the path
+**CTL-1a — Where it is going, drawn whole.** The selection carries a second mark: **the whole of the route
 the unit is holding**, from under its own body to the end of what it has planned, as one chevronned line
 in the interface's own colour — and **a mark on the goal at the end of it**. A place on the ground is
 crossed; **a thing rather than a place is wrapped in the same brackets the unit itself wears** — the
@@ -112,7 +112,7 @@ a recovery beside its wreck: one entry, three errands and a hand. The order is f
 rest within reach of the place — and, like every other order, when the leg ends any other way (CTL-4).
 
 **CTL-8b — Parking is the bay machinery, and a place off the road is a park and then a walk.** A park
-order books a bay and drives the ordinary leg to it. **The bay is the free one nearest the point**, over
+order claims a bay and drives the ordinary leg to it. **The bay is the free one nearest the point**, over
 the whole town rather than within a walk of it: a trip is bounded because nobody parks a mile from the
 door they are going to (PER-10a), while a player who clicked a full car park asked for the nearest free
 bay to it and a refusal reads as a click that did not land.
@@ -181,7 +181,7 @@ queue ahead and drive into things on purpose.
 per-gear speed caps, bounded acceleration and braking, the turning circle and no rotating on the spot,
 the person's turn rate and constant walk speed, plus terrain effects, collisions, damage and terminal
 states. **The rest of the world is not told** — other cars look, queue and yield around a hand-driven
-car exactly as around any other, and it still reserves the crossing it is entering so they can.
+car exactly as around any other, and it still claims the crossing it is entering so they can.
 
 **CTL-5a — The handbrake is the car's own action, not the player's.** A car driving its route pulls it
 whenever the speed profile asks for a dead stop it has **already made** — the end of the route, the car

@@ -52,7 +52,7 @@ internal enum TripStage : byte
     /// <summary>
     /// <b>And out of it, working</b> (SRV-3): a paramedic walking to a casualty, a recovery man at the arm,
     /// an officer standing beside a closed road. <b>The walking is an ordinary walker's</b> — kerbs, lanes
-    /// and the book — and what says where it is going is the vehicle's own duty and never a trip.
+    /// and the claims — and what says where it is going is the vehicle's own duty and never a trip.
     /// </summary>
     Attending,
 }

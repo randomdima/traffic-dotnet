@@ -10,7 +10,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// over three fields.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
-public class HeldByTheBookTests
+public class HeldByTheClaimsTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
@@ -36,7 +36,7 @@ public class HeldByTheBookTests
     {
         var people = OneWalkerGranted(StopsFromPaceM * 2f);
 
-        Assert.False(people.IsHeldByTheBook(person: 0, StopsFromPaceM));
+        Assert.False(people.IsHeldByTheClaims(person: 0, StopsFromPaceM));
     }
 
     /// <summary>
@@ -50,7 +50,7 @@ public class HeldByTheBookTests
     {
         var people = OneWalkerGranted(StopsFromPaceM * 0.5f);
 
-        Assert.True(people.IsHeldByTheBook(person: 0, StopsFromPaceM));
+        Assert.True(people.IsHeldByTheClaims(person: 0, StopsFromPaceM));
     }
 
     /// <summary>
@@ -63,7 +63,7 @@ public class HeldByTheBookTests
     {
         var people = OneWalkerGranted(StopsFromPaceM * 0.1f);
 
-        Assert.False(people.IsHeldByTheBook(person: 0, stopsInM: 0f));
+        Assert.False(people.IsHeldByTheClaims(person: 0, stopsInM: 0f));
     }
 
     /// <summary>And no ground is a stand however slowly the body is going.</summary>
@@ -72,7 +72,7 @@ public class HeldByTheBookTests
     {
         var people = OneWalkerGranted(-0.2f);
 
-        Assert.True(people.IsHeldByTheBook(person: 0, stopsInM: 0f));
+        Assert.True(people.IsHeldByTheClaims(person: 0, stopsInM: 0f));
     }
 
     /// <summary>
@@ -80,11 +80,11 @@ public class HeldByTheBookTests
     /// than where the pavement ran out, and it may still walk back to the stand-off while it waits.
     /// </summary>
     [Fact]
-    public void AWalkerHeldAtAKerbIsNotHeldByTheBook()
+    public void AWalkerHeldAtAKerbIsNotHeldByTheClaims()
     {
         var people = OneWalkerGranted(-0.2f);
         people.HeldAtTheKerb[0] = true;
 
-        Assert.False(people.IsHeldByTheBook(person: 0, StopsFromPaceM));
+        Assert.False(people.IsHeldByTheClaims(person: 0, StopsFromPaceM));
     }
 }

@@ -40,3 +40,28 @@ return value.
 of a walker and half a car length ahead of a car at speed. It is capped at a share of the half-view
 because the lead is measured off the unit's speed and the picture is not — at 100 km/h and a framing
 close enough to read a number plate, an uncapped lead puts the subject off its own picture.
+
+## The follow eases in two places, over real time, and not one
+
+A follow used to put the camera exactly on the unit plus the lead the tick had just reported, which is
+rugged for two unrelated reasons — so it takes two eases and not one.
+
+**The camera closes on where it is going**, over a tenth of a second or so. The town is stepped at a fixed
+rate and drawn at the window's, so the followed unit's position is a staircase: some frames carry two ticks
+and some carry none. Anything nailed to that staircase steps the whole picture, and the follow camera is the
+one place it shows, since with a free camera every body steps together and by a pixel. **The alternative was
+interpolating the drawn position between ticks**, which is the same picture for one unit at the cost of a
+second position for every body in the town — the camera is the only consumer, so the filter belongs to it.
+
+**The lead swings round**, over about half a second, which is longer. It is smoothing something else
+entirely: the unit's own manoeuvring. A walker who stops at a kerb drops a metre and a half of offset in one
+tick and reverses it on the step off, and a car at the apex of a turn swings the offset through a right
+angle. That is a property of the body and not of the frame rate, so it wants its own span.
+
+**Both are real time, like the pan and unlike the tick.** At three times pace the unit covers three times
+the ground a second, and a camera that eased in sim time would close three times as fast on the same
+picture. The lag that costs at pace is a tenth of a second of travel, which the lead already covers.
+
+**A jump is stood on rather than eased to**, where the place the camera is going is off the picture it is
+showing: somebody getting into a car, or a selection asked for across the town. Easing a screen's length is
+a camera with nothing in it for as long as the ease takes.

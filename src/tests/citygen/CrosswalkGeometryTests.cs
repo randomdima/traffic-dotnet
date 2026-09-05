@@ -35,11 +35,11 @@ public class CrosswalkGeometryTests
     public void TheAxisIsTheWayAcrossAndTheSpanIsHowFar(string map)
     {
         var plan = Towns.Of(map);
-        var terrain = new TerrainGrid(plan, SimConfig.Shipped());
+        var terrain = new GroundLocator(plan, SimConfig.Shipped());
         var crossings = plan.Crosswalks;
         if (crossings.Count == 0) return;
 
-        var strideM = plan.CellSizeM;
+        var strideM = SimConfig.Shipped().Terrain.GroundStepM;
         for (var crossing = 0; crossing < crossings.Count; crossing++)
         {
             var centreM = crossings.CentreM[crossing];

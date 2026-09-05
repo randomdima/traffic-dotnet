@@ -51,7 +51,7 @@ other crossing (`GEN-4j`), so the traffic is held off it and the habit gets its 
 **Why the way is the town's and not the car's.** A line laid from whatever pose the car happens to be
 standing in is a different line every time it is asked for, so nothing about the ground it takes can be
 said until the car is on top of it — which is a manoeuvre no other driver can be held off. Laid once with
-the bay, it is a **way of the road's book** like a lane or a junction's join: the reservation runs along
+the bay, it is a **way of the road's own** like a lane or a junction's join: the claim runs along
 it, the traffic on the lane it crosses is cut by the town's own table of crossings, and the car converges
 onto it exactly as it converges onto every other line in the town. The template survives as the recovery,
 where there is no line to converge onto.

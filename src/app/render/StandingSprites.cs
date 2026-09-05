@@ -162,7 +162,7 @@ internal sealed class StandingSprites
         var diameterM = plan.Props.RadiusM[prop] * 2f;
         var variant = catalogue.Look(plan.Props.Kind[prop], diameterM, prop);
 
-        // <b>The picture fits inside the disc the town reserved for it</b> (GEN-6d): the longest side of the
+        // <b>The picture fits inside the disc the town kept for it</b> (GEN-6d): the longest side of the
         // sheet is the prop's own diameter and the other follows its aspect, so what is drawn is what a car
         // is held off. Drawn <em>diameterM tall</em> instead, a sheet half again as wide as it is high
         // reaches half a metre past its own girth and stands in the next prop along.

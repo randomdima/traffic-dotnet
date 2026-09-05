@@ -51,8 +51,8 @@ internal static class RoadStage
         CityPlan.BridgeArrays Bridges);
 
     public static Laid Lay(
-        TownLayout layout, Districts districts, TownBrief brief, GenRaster raster, GroundPainter painter,
-        SimConfig config, ref Rng shape, ref Rng signals)
+        TownLayout layout, Districts districts, TownBrief brief, SimConfig config, ref Rng shape,
+        ref Rng signals)
     {
         // One width for every road there is, arterial or street (GEN-15).
         var widthM = config.RoadWidthM;
@@ -64,8 +64,6 @@ internal static class RoadStage
 
         var junctions = Junctions(layout, Bends(layout, chains, config), brief, config, widthM, ref signals);
         var furniture = Furniture.Lay(layout, chains, junctions, config, widthM);
-
-        Paint(painter, chains, junctions, furniture, config, widthM);
 
         return new Laid(
             Roads(layout, chains, widthM),
@@ -484,54 +482,6 @@ internal static class RoadStage
             Road = [.. road], FromM = [.. fromM], ToM = [.. toM],
             DeckWidthM = [.. deckWidthM], PavementWidthM = [.. pavementWidthM],
         };
-    }
-
-    /// <summary>
-    /// The ground, in the order the strokes have to be laid: the pavement, the carriageway over it, the
-    /// ground each junction's arms share, the kerb fillets, and the paint last of all
-    /// (<see cref="GroundPainter"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>It is the order and the shapes <c>GroundMesh</c> draws</b>, piece for piece: a band either side
-    /// of every road and a disc round every node in pavement, the same two in carriageway over them, and a
-    /// fillet at every corner. Classified any other way, a town is drawn one shape and walked another —
-    /// tarmac under a drawn pavement at every junction, and grass under the walk that turns its corner.
-    /// </remarks>
-    static void Paint(
-        GroundPainter painter, ArcSeg[][] chains, CityPlan.JunctionArrays junctions,
-        Furniture.Laid furniture, SimConfig config, float widthM)
-    {
-        var halfM = widthM * 0.5f;
-        var walkM = config.PavementWidthM;
-        foreach (var chain in chains) painter.Verge(chain, halfM, halfM + walkM, Ground.Sidewalk);
-        for (var junction = 0; junction < junctions.Count; junction++)
-        {
-            painter.Disc(junctions.CentreM[junction], junctions.RadiusM[junction] + walkM, Ground.Sidewalk);
-        }
-
-        foreach (var chain in chains) painter.Road(chain, widthM);
-
-        for (var junction = 0; junction < junctions.Count; junction++)
-        {
-            painter.Disc(junctions.CentreM[junction], junctions.RadiusM[junction], Ground.Intersection);
-        }
-
-        for (var corner = 0; corner < furniture.Corners.Count; corner++)
-        {
-            painter.Fillet(
-                furniture.Corners.CornerM[corner], furniture.Corners.TangentAM[corner],
-                furniture.Corners.TangentBM[corner], furniture.Corners.ArcCentreM[corner],
-                furniture.Corners.RadiusM[corner]);
-        }
-
-        // A crossing spans the road it is painted on and nothing narrower, which here is every road there
-        // is (GEN-15).
-        for (var crossing = 0; crossing < furniture.Crosswalks.Count; crossing++)
-        {
-            painter.Crossing(
-                furniture.Crosswalks.CentreM[crossing], furniture.Crosswalks.Axis[crossing],
-                furniture.Crosswalks.DepthM[crossing], widthM);
-        }
     }
 
     public static float Facing(Vector2 unit) => MathF.Atan2(unit.Y, unit.X);

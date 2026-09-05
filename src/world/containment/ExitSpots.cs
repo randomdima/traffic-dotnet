@@ -54,7 +54,7 @@ internal static class ExitSpots
     /// ground.
     /// </param>
     public static bool TryFind(
-        SimConfig config, TerrainGrid terrain, PhysicsWorld physics, BucketGrid nearby, Standing standing,
+        SimConfig config, GroundLocator terrain, PhysicsWorld physics, BucketGrid nearby, Standing standing,
         Vector2 wayOutM, Vector2 towardsM, Span<int> scratch, out Vector2 spotM, bool anyGround = false)
     {
         var bodyM = config.PersonDiameterM;
@@ -83,7 +83,7 @@ internal static class ExitSpots
 
     /// <summary>Walkable ground, nobody standing on it, and nothing immovable inside the body's own footprint.</summary>
     static bool IsFree(
-        SimConfig config, TerrainGrid terrain, PhysicsWorld physics, BucketGrid nearby, Standing standing,
+        SimConfig config, GroundLocator terrain, PhysicsWorld physics, BucketGrid nearby, Standing standing,
         Vector2 atM, Span<int> scratch, bool anyGround)
     {
         if (!terrain.Contains(atM)) return false;

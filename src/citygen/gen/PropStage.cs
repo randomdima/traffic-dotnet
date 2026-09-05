@@ -32,16 +32,16 @@ namespace TrafficSimulation.CityGen.Gen;
 internal static class PropStage
 {
     public static CityPlan.PropArrays Lay(
-        TownBrief brief, ArcSeg[][] chains, CityPlan.ParkingLotArrays lots, GenRaster raster,
+        TownBrief brief, ArcSeg[][] chains, CityPlan.ParkingLotArrays lots, GroundShapes ground,
         GenClaims claims, SimConfig config, ref Rng draw)
     {
         var acrossM = new Vector2(brief.WidthM, brief.HeightM);
         var widestM = MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM);
         var scatter = PropScatter.Over(acrossM, widestM, config.CityGen.PropApartM);
 
-        AlongTheKerbs(chains, raster, claims, config, scatter, ref draw);
-        AroundTheLots(lots, raster, claims, config, scatter, ref draw);
-        OverWhatIsLeft(acrossM, raster, claims, config, scatter, ref draw);
+        AlongTheKerbs(chains, ground, claims, config, scatter, ref draw);
+        AroundTheLots(lots, ground, claims, config, scatter, ref draw);
+        OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
 
         return new CityPlan.PropArrays
         {
@@ -59,7 +59,7 @@ internal static class PropStage
     /// the compass. The ends the walk leaves out are the stub every junction lays its own ground across.
     /// </summary>
     static void AlongTheKerbs(
-        ArcSeg[][] chains, GenRaster raster, GenClaims claims, SimConfig config, PropScatter scatter,
+        ArcSeg[][] chains, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
         ref Rng draw)
     {
         var kerbM = (config.RoadWidthM * 0.5f) + config.PavementWidthM;
@@ -86,17 +86,11 @@ internal static class PropStage
 
                     var on = Spline.SampleAt(chains[road], stationM);
                     var atM = on.PositionM + (on.Right * hand * (kerbM + nearM + (draw.NextFloat() * bandM)));
-                    if (raster.At(atM) != Ground.Grass) continue;
+                    if (ground.At(atM) != Ground.Grass) continue;
 
-                    var kind = OnAVerge(Holds(raster.GroundsUnder(atM, lotReachM), Ground.Parking), config, ref draw);
+                    var kind = OnAVerge(ground.ParkingWithin(atM, lotReachM), config, ref draw);
                     var reachM = draw.NextFloat(config.CityGen.PropDiameterMinM, WidestM(kind, config)) * 0.5f;
-
-                    // <b>Its girth and no collar</b> (GEN-6a): this prop is not cleared against the cells
-                    // alone. It stands a known distance off the pavement of the road it was laid from, and
-                    // the walk began past the stub every junction lays its own ground and fillets across —
-                    // so the drawn kerb corner a collar is there to keep a blind candidate out of is
-                    // nowhere near it.
-                    if (!Stands(atM, reachM, 0f, raster, claims, scatter)) continue;
+                    if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
 
                     scatter.Add(atM, reachM, on.HeadingRad, kind);
                 }
@@ -112,7 +106,7 @@ internal static class PropStage
     /// axis and its extent and never which of its sides the road was on.
     /// </summary>
     static void AroundTheLots(
-        CityPlan.ParkingLotArrays lots, GenRaster raster, GenClaims claims, SimConfig config,
+        CityPlan.ParkingLotArrays lots, GroundShapes ground, GenClaims claims, SimConfig config,
         PropScatter scatter, ref Rng draw)
     {
         for (var lot = 0; lot < lots.Count; lot++)
@@ -126,10 +120,10 @@ internal static class PropStage
             {
                 AlongAnEdge(
                     centreM + (across * (halfM.Y * side)), along, across * side, halfM.X,
-                    raster, claims, config, scatter, ref draw);
+                    ground, claims, config, scatter, ref draw);
                 AlongAnEdge(
                     centreM + (along * (halfM.X * side)), across, along * side, halfM.Y,
-                    raster, claims, config, scatter, ref draw);
+                    ground, claims, config, scatter, ref draw);
             }
         }
     }
@@ -145,7 +139,7 @@ internal static class PropStage
     /// stands in — the walk, then the band — measured off a rectangle instead of off a curve.
     /// </remarks>
     static void AlongAnEdge(
-        Vector2 middleM, Vector2 tangent, Vector2 outward, float halfM, GenRaster raster, GenClaims claims,
+        Vector2 middleM, Vector2 tangent, Vector2 outward, float halfM, GroundShapes ground, GenClaims claims,
         SimConfig config, PropScatter scatter, ref Rng draw)
     {
         var wrapM = config.PavementWidthM;
@@ -161,11 +155,11 @@ internal static class PropStage
 
             var atM = middleM + (tangent * stationM)
                       + (outward * (wrapM + nearM + (draw.NextFloat() * bandM)));
-            if (raster.At(atM) != Ground.Grass) continue;
+            if (ground.At(atM) != Ground.Grass) continue;
 
             var kind = OnAVerge(true, config, ref draw);
             var reachM = draw.NextFloat(config.CityGen.PropDiameterMinM, WidestM(kind, config)) * 0.5f;
-            if (!Stands(atM, reachM, 0f, raster, claims, scatter)) continue;
+            if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
 
             scatter.Add(atM, reachM, bearingRad, kind);
         }
@@ -178,7 +172,7 @@ internal static class PropStage
     /// <b>Nothing here is laid on a bearing</b>: what the wild set holds has no front to turn.
     /// </summary>
     static void OverWhatIsLeft(
-        Vector2 acrossM, GenRaster raster, GenClaims claims, SimConfig config, PropScatter scatter,
+        Vector2 acrossM, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
         ref Rng draw)
     {
         var spacingM = config.CityGen.PropSpacingM;
@@ -196,45 +190,42 @@ internal static class PropStage
 
                 // The cell the candidate stands on is the cheapest corner of the tests below, and most of a
                 // town is not grass: reading the ground around one that has already failed buys nothing.
-                if (raster.At(atM) != Ground.Grass) continue;
+                if (ground.At(atM) != Ground.Grass) continue;
 
-                var beside = raster.GroundsUnder(atM, standOffM);
-                if (Holds(beside, Ground.Sidewalk) || Holds(beside, Ground.Parking)) continue;
+                if (ground.PavingWithin(atM, standOffM)) continue;
 
                 var reachM = draw.NextFloat(
                     config.CityGen.PropDiameterMinM, config.CityGen.PropWildDiameterMaxM) * 0.5f;
-                if (!Stands(atM, reachM, config.PavementCornerRadiusM, raster, claims, scatter)) continue;
+                if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
 
                 scatter.Add(atM, reachM, 0f, PropKind.WildNature);
             }
         }
     }
 
-    /// <summary>
-    /// Whether a prop of this girth stands here at all, keeping whatever collar its pass owes.
-    /// </summary>
+    /// <summary>Whether a prop of this girth stands here at all.</summary>
     /// <remarks>
     /// <para>
-    /// <b>Its whole girth on grass</b> (GEN-6a). Grass is what is left over — everything laid before this
-    /// painted its own ground, and everything standing on grass claimed it — and the same test is what keeps
-    /// a prop on the map (GEN-2b): off the grid is not grass.
+    /// <b>Its whole girth on grass</b> (GEN-6a). Grass is what is left over — every shape laid before this
+    /// answers for its own ground, and everything standing on grass claimed it — and the same test is what
+    /// keeps a prop on the map (GEN-2b): off the town is not grass.
     /// </para>
     /// <para>
-    /// <b>The collar is the sweep's and not the verge's.</b> The ground is classified cell by cell where the
-    /// walk is <em>drawn</em> as one union with its re-entrant corners rounded off (TER-3c.4), so a
-    /// candidate whose only knowledge of the pavement is the cells can be standing in the middle of a drawn
-    /// kerb corner — and keeps the radius the pavement turns those on. A prop laid off a road's own line
-    /// knows exactly where that pavement is and never walks the stub the corners are inside of.
+    /// <b>And no collar</b>, because the ground answered here is the ground that is drawn (TER-7). Every
+    /// pass used to owe one: the walk is drawn as a union with its re-entrant corners rounded off
+    /// (TER-3c.4), and a candidate reading a raster painted from the pieces alone could stand in the middle
+    /// of a corner nothing had stamped. The corners are in the answer now, so a candidate cleared against
+    /// it is clear — and a collar over that would only hold the verge back from the street it is a verge of.
     /// </para>
     /// <para>
-    /// <b>And clear of the props already laid</b> (GEN-6c). The ground test cannot see them: a prop paints
-    /// no cell and claims none, because the only thing that ever has to know where one stands is the next
-    /// candidate along.
+    /// <b>And clear of the props already laid</b> (GEN-6c). The ground cannot see them: a prop is no shape
+    /// of the town's and claims nothing, because the only thing that ever has to know where one stands is
+    /// the next candidate along.
     /// </para>
     /// </remarks>
     static bool Stands(
-        Vector2 atM, float reachM, float collarM, GenRaster raster, GenClaims claims, PropScatter scatter) =>
-        raster.IsAll(atM, reachM + collarM, Ground.Grass)
+        Vector2 atM, float reachM, float stepM, GroundShapes ground, GenClaims claims, PropScatter scatter) =>
+        ground.IsAll(atM, reachM, stepM, Ground.Grass)
         && claims.IsFree(atM, reachM)
         && !scatter.Reaches(atM, reachM);
 
@@ -251,8 +242,6 @@ internal static class PropStage
         // catalogue of the things a town plants, laid out along the kerb.
         return draw.NextFloat() < config.CityGen.PropWildOnAVergeShare ? PropKind.WildNature : PropKind.UrbanNature;
     }
-
-    static bool Holds(int grounds, Ground ground) => (grounds & (1 << (int)ground)) != 0;
 
     /// <summary>The widest a prop of one kind is drawn: only the wild set holds art authored past the ordinary band (GEN-6b).</summary>
     static float WidestM(PropKind kind, SimConfig config) =>

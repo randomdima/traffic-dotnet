@@ -13,8 +13,8 @@ namespace TrafficSimulation.Tests.World;
 
 /// <summary>
 /// What the parking slice is once the ways are the town's: <b>where a bay stands, where a walk to it is
-/// aimed, and which bays a trip may choose from</b>. The booking is the register asserted here; the ground
-/// a car takes getting to the bay is the road's book and is asserted with the rest of the road.
+/// aimed, and which bays a trip may choose from</b>. The claim on a bay is the register asserted here; the
+/// ground a car takes getting to the bay is the road's and is asserted with the rest of the road.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 public class ParkingTests
@@ -30,57 +30,57 @@ public class ParkingTests
     }
 
     /// <summary>
-    /// <b>A bay is booked by one leg at a time</b>: the second car to ask for it is refused, and the bay
+    /// <b>A bay is claimed by one leg at a time</b>: the second car to ask for it is refused, and the bay
     /// comes back the moment the first gives it up.
     /// </summary>
     [Fact]
-    public void ABayIsBookedByOneLegAtATime()
+    public void ABayIsClaimedByOneLegAtATime()
     {
         var registry = RegistryOf(Towns.Fixture, out _);
 
         Assert.True(registry.IsFree(0));
-        Assert.True(registry.Book(car: 1, bay: 0));
+        Assert.True(registry.Claim(car: 1, bay: 0));
         Assert.False(registry.IsFree(0));
-        Assert.False(registry.Book(car: 2, bay: 0));
-        Assert.Equal(0, registry.BookingOf(1));
+        Assert.False(registry.Claim(car: 2, bay: 0));
+        Assert.Equal(0, registry.ClaimedBayOf(1));
 
         registry.Release(1);
         Assert.True(registry.IsFree(0));
-        Assert.True(registry.Book(car: 2, bay: 0));
+        Assert.True(registry.Claim(car: 2, bay: 0));
     }
 
     /// <summary>
-    /// <b>A car is aimed at one place at a time.</b> Booking a second bay gives the first one back, which is
+    /// <b>A car is aimed at one place at a time.</b> Claiming a second bay gives the first one back, which is
     /// what a retarget is — a place held by a car that has gone elsewhere is a place removed from the town.
     /// </summary>
     [Fact]
-    public void BookingASecondBayGivesTheFirstOneBack()
+    public void ClaimingASecondBayGivesTheFirstOneBack()
     {
         var registry = RegistryOf(Towns.Fixture, out _);
 
-        Assert.True(registry.Book(car: 1, bay: 0));
-        Assert.True(registry.Book(car: 1, bay: 1));
+        Assert.True(registry.Claim(car: 1, bay: 0));
+        Assert.True(registry.Claim(car: 1, bay: 1));
 
         Assert.True(registry.IsFree(0));
-        Assert.Equal(1, registry.BookingOf(1));
+        Assert.Equal(1, registry.ClaimedBayOf(1));
     }
 
     /// <summary>
-    /// <b>The booking becomes an occupancy</b> where the leg arrives: what holds the bay from then on is the
+    /// <b>The claim becomes an occupancy</b> where the leg arrives: what holds the bay from then on is the
     /// body standing in it, and it is given back where the car is driven out.
     /// </summary>
     [Fact]
-    public void ArrivingTurnsTheBookingIntoAnOccupancy()
+    public void ArrivingTurnsTheClaimIntoAnOccupancy()
     {
         var registry = RegistryOf(Towns.Fixture, out _);
 
-        Assert.True(registry.Book(car: 1, bay: 0));
+        Assert.True(registry.Claim(car: 1, bay: 0));
         registry.Occupy(bay: 0, car: 1);
 
-        Assert.Equal(ParkingRegistry.NoBay, registry.BookingOf(1));
+        Assert.Equal(ParkingRegistry.NoBay, registry.ClaimedBayOf(1));
         Assert.Equal(0, registry.BayOf(1));
         Assert.False(registry.IsFree(0));
-        Assert.False(registry.Book(car: 2, bay: 0));
+        Assert.False(registry.Claim(car: 2, bay: 0));
 
         registry.Vacate(1);
         Assert.True(registry.IsFree(0));
@@ -88,7 +88,7 @@ public class ParkingTests
 
     /// <summary>
     /// The choice layer: the bays near a place come back <b>nearest first</b>, none of them further off
-    /// than the walk that was asked for, and a bay somebody has booked is not one of them.
+    /// than the walk that was asked for, and a bay somebody has claimed is not one of them.
     /// </summary>
     [Fact]
     public void TheBaysNearAPlaceComeBackNearestFirstAndInsideTheWalk()
@@ -110,7 +110,7 @@ public class ParkingTests
         }
 
         var taken = found[0];
-        Assert.True(registry.Book(car: 3, bay: taken));
+        Assert.True(registry.Claim(car: 3, bay: taken));
 
         var again = registry.BaysNear(fromM, Config.PersonWalkWorthM, found);
         for (var slot = 0; slot < again; slot++) Assert.NotEqual(taken, found[slot]);
@@ -173,34 +173,34 @@ public class ParkingTests
     {
         var registry = RegistryOf(Towns.Fixture, out _);
 
-        Assert.True(registry.Book(car: 1, bay: 0));
+        Assert.True(registry.Claim(car: 1, bay: 0));
         Assert.True(registry.TakeTheTurn(car: 1, bay: 1));
 
-        Assert.Equal(0, registry.BookingOf(1));
+        Assert.Equal(0, registry.ClaimedBayOf(1));
         Assert.Equal(1, registry.TurnOf(1));
         Assert.False(registry.IsFree(1));
         Assert.False(registry.IsFreeFor(car: 2, bay: 1));
         Assert.True(registry.IsFreeFor(car: 1, bay: 1));
 
-        // Out of it, and the bay is the town's again — with the place still booked.
+        // Out of it, and the bay is the town's again — with the place still claimed.
         registry.LeaveTheTurn(car: 1);
         Assert.True(registry.IsFree(1));
         Assert.Equal(ParkingRegistry.NoBay, registry.TurnOf(1));
-        Assert.Equal(0, registry.BookingOf(1));
+        Assert.Equal(0, registry.ClaimedBayOf(1));
     }
 
-    /// <summary>And a bay somebody else is turning in is one no leg may book, which is the same one question.</summary>
+    /// <summary>And a bay somebody else is turning in is one no leg may claim, which is the same one question.</summary>
     [Fact]
     public void ABayBeingTurnedInIsRefusedToEverybodyElse()
     {
         var registry = RegistryOf(Towns.Fixture, out _);
 
         Assert.True(registry.TakeTheTurn(car: 1, bay: 2));
-        Assert.False(registry.Book(car: 2, bay: 2));
+        Assert.False(registry.Claim(car: 2, bay: 2));
         Assert.False(registry.TakeTheTurn(car: 2, bay: 2));
 
         registry.LeaveTheTurn(car: 1);
-        Assert.True(registry.Book(car: 2, bay: 2));
+        Assert.True(registry.Claim(car: 2, bay: 2));
     }
 
     /// <summary>
@@ -238,6 +238,130 @@ public class ParkingTests
                     $"car {car} is {world.Cars.OffLineM[car]:0.0} m off a line finishing at a bay it cannot reach");
             }
         }
+    }
+
+    /// <summary>
+    /// <b>A car standing in a bay holds that bay's ways and none of the street</b> (TER-4c.2, GEN-4i). It is
+    /// laid from its own box like every other body in the town, and a bay's mouth stands off the carriageway,
+    /// so what it covers is the bay's own ground: a parked car that cut the lane it was parked beside would
+    /// stop the traffic there for as long as it stood.
+    /// </summary>
+    [Fact]
+    public void ACarStandingInABayHoldsTheBayAndNoneOfTheStreet()
+    {
+        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        new SimLoop<TownWorld>(world, Config).Advance(1);
+
+        Span<LaneClaim> slots = stackalloc LaneClaim[64];
+        var stood = 0;
+        for (var bay = 0; bay < world.BayWays.BayCount; bay++)
+        {
+            var car = world.Parking.CarInBay(bay);
+            if (car == ParkingRegistry.Nobody || world.Cars.Driven[car]) continue;
+
+            stood++;
+            Assert.True(
+                HoldsAnyOf(world, world.BayWays.WaysOf(bay), car, LaneRoster.Driving, slots),
+                $"car {car} is standing in bay {bay} and holds no metre of any way that bay is worked off");
+        }
+
+        Assert.True(stood > 0, "no car in Odesa is standing in a bay");
+
+        for (var lane = 0; lane < world.Roads.LaneCount; lane++)
+        {
+            var count = world.Occupancy.CopyTo(world.Ways.OfRoadLane(lane), slots);
+            for (var at = 0; at < count; at++)
+            {
+                var held = slots[at];
+                if (held.Of != LaneRoster.Driving) continue;
+
+                var bay = world.Parking.CarInBay(world.Parking.BayOf(held.Occupant));
+                Assert.False(
+                    bay == held.Occupant && !world.Cars.Driven[held.Occupant],
+                    $"car {held.Occupant} is standing in a bay and holds {held.FromM:0.00}–{held.ToM:0.00} m "
+                    + $"of lane {lane}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>And a person standing in a bay holds it on exactly those terms</b> (TER-4c.2, GEN-4f). A bay is a
+    /// lane, so what is on it is a fact about the ground and never about which roster the body standing there
+    /// is in — walked only over the carriageway, a body in a space claimed nothing any driver aiming at that
+    /// space reads, and the town went on offering the space to park in.
+    /// </summary>
+    /// <remarks>
+    /// <b>Stood at the back of the space, which is where the hole was.</b> A bay's way used to stop at the
+    /// pose a car comes to rest in, so the deepest metres of the space — most of it, and all of the ground a
+    /// nose-in car's own bonnet stands over — were on no way at all; the way now runs on to the end of the
+    /// space (<see cref="BayWays.LengthM"/>), and a body anywhere in it claims it.
+    /// </remarks>
+    [Fact]
+    public void APersonStandingInABayHoldsThatBaysWays()
+    {
+        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+
+        // Long enough for the town to have put somebody on the street: at the first tick the whole roster is
+        // still indoors, and a body inside a container is no body at all (PHY-7).
+        new SimLoop<TownWorld>(world, Config).Advance(600);
+
+        var bay = ABayNobodyIsIn(world);
+        Assert.True(bay >= 0, "no bay in Odesa is standing empty");
+
+        // Somebody actually in the world, off its own walk: a body inside a container is no body at all
+        // (PHY-7), and one walking a crossing takes that crossing's bands instead of the ground under it.
+        var person = SomebodyOutside(world);
+        Assert.True(person >= 0, "a town of walkers had nobody standing outside a building");
+
+        var headingRad = world.Parking.HeadingRad(bay);
+        world.People.Walking[person] = false;
+        world.People.PositionM[person] = world.Parking.CentreM(bay)
+                                         + (Heading.Unit(headingRad) * (Config.ParkingSpaceLengthM * 0.5f))
+                                         - (Heading.Unit(headingRad) * world.People.RadiusM[person]);
+        world.People.VelocityMps[person] = Vector2.Zero;
+        world.RebuildProximityIndex();
+
+        Span<LaneClaim> slots = stackalloc LaneClaim[64];
+        Assert.True(
+            HoldsAnyOf(world, world.BayWays.WaysOf(bay), person, LaneRoster.Walking, slots),
+            $"person {person} is standing in bay {bay} and holds no metre of any way it is worked off");
+    }
+
+    /// <summary>A bay with no car registered in it, so what is claimed of it afterwards is the walker's.</summary>
+    static int ABayNobodyIsIn(TownWorld world)
+    {
+        for (var bay = 0; bay < world.BayWays.BayCount; bay++)
+        {
+            if (world.Parking.CarInBay(bay) == ParkingRegistry.Nobody) return bay;
+        }
+
+        return -1;
+    }
+
+    static int SomebodyOutside(TownWorld world)
+    {
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            if (!world.People.Inside[person].Any) return person;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Whether one occupant has a stretch on any of these ways, which is the claims' own answer and not a size.</summary>
+    static bool HoldsAnyOf(
+        TownWorld world, ReadOnlySpan<int> ways, int occupant, LaneRoster of, Span<LaneClaim> slots)
+    {
+        foreach (var way in ways)
+        {
+            var count = world.Occupancy.CopyTo(way, slots);
+            for (var at = 0; at < count; at++)
+            {
+                if (slots[at].Occupant == occupant && slots[at].Of == of) return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>The bar the road holds a car to before it calls the line lost (CAR-10a), which is where the fault shows.</summary>
