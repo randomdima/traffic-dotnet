@@ -86,8 +86,8 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// The town's own graphs, laid into the cache: the global nodes under the nodes switch, which is
-    /// not switched with a body.
+    /// The town's own graphs, laid into the cache: the lanes and their connectors under the nodes switch,
+    /// which is not switched with a body.
     /// </summary>
     void RelayIfStale(
         TownWorld world, SimConfig config, DebugSwitches switches, Vector2 viewCentreM, Vector2 viewSpanM,
@@ -112,26 +112,28 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// The nodes switch: both networks' <em>global</em> nodes and the links between them — the places
-    /// a body can go more than one way, which is what the router plans over.
+    /// The nodes switch: both networks as what they are — every lane, and every connector between two of
+    /// them, which is the whole of what the router plans over.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A link is drawn as the ground it is travelled over, not as the straight line between its ends: a
-    /// link contracts many pieces, and the straight runs through buildings, over verges and across
-    /// junction boxes. What is walked is the run's own pieces, which are the lanes the follower holds.
+    /// <b>There is no disc for a junction, because the town holds none.</b> What the layer used to draw
+    /// there was the anchor of a contracted travel node, and a picture with a dot in the middle of every
+    /// box says the router plans between intersections when it plans between ways
+    /// (<see cref="World.Routing.TravelGraph"/>). What is left is the lanes and the connectors, which is
+    /// what a body actually chooses between.
     /// </para>
     /// <para>
-    /// The driving network's junctions carry the movements as well as the node — the arcs a car may
-    /// drive through the box, on the same biarc the assembler lays. Without them the layer says a car
-    /// crosses a junction by teleporting between two lane ends.
+    /// A movement is drawn as the ground it is travelled over, not as the straight line between its ends:
+    /// what is driven is the connector's own biarc, the one the assembler lays, and the straight would run
+    /// through the box. Without them the layer says a car crosses a junction by teleporting between two
+    /// lane ends.
     /// </para>
     /// </remarks>
     void Nodes(
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        const float discM = NodeDiscM;
         var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
 
@@ -161,9 +163,6 @@ internal sealed partial class DebugOverlay
         }
 
         Mitres(ref draw, world, sagM, pitchM, Theme.WalkingNodes, viewCentreM, viewSpanM);
-
-        Discs(ref draw, world.Driving.Graph, discM, Theme.DrivingNodes, viewCentreM, viewSpanM);
-        Discs(ref draw, world.Walking.Graph, discM * 0.8f, Theme.WalkingNodes, viewCentreM, viewSpanM);
     }
 
     /// <summary>
@@ -279,19 +278,6 @@ internal sealed partial class DebugOverlay
             Link(
                 ref draw, ways.ArcsOf(way), sagM, pitchM, bothWays: false,
                 ways.IsDrivenInReverse(way) ? Theme.DrivingReverse : colour, viewCentreM, viewSpanM);
-        }
-    }
-
-    static void Discs(
-        ref ScreenDraw draw, World.Routing.TravelGraph graph, float discM, Vector4 colour, Vector2 viewCentreM,
-        Vector2 viewSpanM)
-    {
-        for (var node = 0; node < graph.NodeCount; node++)
-        {
-            var atM = graph.AnchorOf(node);
-            if (!OnScreen(atM, viewCentreM, viewSpanM, discM)) continue;
-
-            draw.DiscM(atM, discM, colour);
         }
     }
 

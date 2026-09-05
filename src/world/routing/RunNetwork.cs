@@ -39,13 +39,13 @@ internal interface IEdgeTurnPricer
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A node is a place a body can go more than one way, or a place it can be sent to, and nothing else is
-/// a node.</b> A line, however it bends, produces no nodes: a plan cuts a street wherever it wants a
-/// junction disc, and a body arriving at one of those has exactly one way on, so no decision can be made
-/// there. Everything between two decisions is therefore one link — which is what stops the search asking a
-/// question at every bend in the town, and what makes a turn price mean something when it is asked. The
-/// second clause is <see cref="IFineGraph.EndsARun"/>, and it is the ends of a parking section: nothing
-/// is decided at one, but a leg has to be able to name it.
+/// <b>A link ends where a body can go more than one way, or where it can be sent to, and nowhere else.</b>
+/// A line, however it bends, ends no link: a plan cuts a street wherever it wants a junction disc, and a
+/// body arriving at one of those has exactly one way on, so no decision can be made there. Everything
+/// between two decisions is therefore one link — which is what stops the search asking a question at every
+/// bend in the town, and what makes a turn price mean something when it is asked. The second clause is
+/// <see cref="IFineGraph.EndsARun"/>, and it is the ends of a parking section: nothing is decided at one,
+/// but a leg has to be able to name it.
 /// </para>
 /// <para>
 /// <b>A closed run with no split anywhere on it would contract to nothing</b> — the band a car park is
@@ -62,11 +62,10 @@ internal sealed class RunNetwork
     readonly int[] _pieces;
     readonly float[] _stationM;
     readonly float[] _lengthM;
-    readonly int[] _placeOf;
     readonly LanePlaces _places;
 
     RunNetwork(
-        TravelGraph graph, int[] pieceOffsets, int[] pieces, float[] stationM, float[] lengthM, int[] placeOf,
+        TravelGraph graph, int[] pieceOffsets, int[] pieces, float[] stationM, float[] lengthM,
         LanePlaces places)
     {
         Graph = graph;
@@ -75,7 +74,6 @@ internal sealed class RunNetwork
         _pieces = pieces;
         _stationM = stationM;
         _lengthM = lengthM;
-        _placeOf = placeOf;
     }
 
     public TravelGraph Graph { get; }
@@ -93,12 +91,10 @@ internal sealed class RunNetwork
     /// <summary>The run's own length on the ground, which is not its weight: a weight also carries what its turns cost.</summary>
     public float LengthM(int link) => _lengthM[link];
 
-    /// <summary>The place a travel node stands at, for a caller that has to get back to the geometry.</summary>
-    public int PlaceOf(int node) => _placeOf[node];
-
     /// <summary>
-    /// <b>Where the network's lanes meet</b> (<see cref="LanePlaces"/>). It is what a link's two travel
-    /// nodes stand at, and the only sense in which this network has junctions at all.
+    /// <b>Where the network's lanes meet</b> (<see cref="LanePlaces"/>). It is where a link's two ends
+    /// stand, and the only sense in which this network has junctions at all — the coarse graph keeps no
+    /// record of them, only of which link may be left for which.
     /// </summary>
     public int PlaceCount => _places.Count;
 
@@ -110,6 +106,9 @@ internal sealed class RunNetwork
 
     /// <summary>The lanes that set off from a place.</summary>
     public ReadOnlySpan<int> LanesLeaving(int place) => _places.LanesLeaving(place);
+
+    /// <summary>Where a place stands, which is where every link leaving or arriving at it has its own end.</summary>
+    public Vector2 AnchorM(int place) => _places.AnchorM(place);
 
     /// <summary>How far into the link a place on one of its pieces stands.</summary>
     public float PlaceOfM(int link, int slot, float alongPieceM) => StationsOf(link)[slot] + alongPieceM;
@@ -146,10 +145,9 @@ internal sealed class RunNetwork
         var places = LanePlaces.Of(fine);
         var decision = Decisions(fine, places);
 
-        var travelNodeOf = new int[places.Count];
-        Array.Fill(travelNodeOf, -1);
-        var placeOf = new List<int>();
         var builder = new TravelGraph.Builder();
+        var linkFromPlace = new List<int>();
+        var linkToPlace = new List<int>();
 
         var covered = new bool[fine.LaneCount];
         var pieceOffsets = new List<int> { 0 };
@@ -183,9 +181,11 @@ internal sealed class RunNetwork
             WalkFrom(promote);
         }
 
+        JoinTheLinks();
+
         return new RunNetwork(
             builder.Build(new BoundaryPricer<TPricer>(pricer, [.. firstEdge], [.. lastEdge])),
-            [.. pieceOffsets], [.. pieces], [.. stationM], [.. lengthM], [.. placeOf], places);
+            [.. pieceOffsets], [.. pieces], [.. stationM], [.. lengthM], places);
 
         void WalkFrom(int startPlace)
         {
@@ -216,11 +216,35 @@ internal sealed class RunNetwork
                     lane = onward;
                 }
 
-                builder.AddLink(TravelNode(startPlace), TravelNode(places.Arriving(lane)), runLengthM + weightM);
+                var arrivedAtPlace = places.Arriving(lane);
+                builder.AddLink(
+                    places.AnchorM(startPlace), places.AnchorM(arrivedAtPlace), runLengthM + weightM);
+                linkFromPlace.Add(startPlace);
+                linkToPlace.Add(arrivedAtPlace);
                 pieceOffsets.Add(pieces.Count);
                 lengthM.Add(runLengthM);
                 firstEdge.Add(start);
                 lastEdge.Add(lane);
+            }
+        }
+
+        // <b>What the coarse graph is told is which link may be left for which</b>, never that some set of
+        // them meets somewhere: a place is how the joins are worked out here and is then done with, the way
+        // the plan's junctions are done with once the lanes are laid.
+        void JoinTheLinks()
+        {
+            var leavingAt = new int[places.Count + 1];
+            foreach (var place in linkFromPlace) leavingAt[place + 1]++;
+            for (var place = 1; place <= places.Count; place++) leavingAt[place] += leavingAt[place - 1];
+
+            var cursor = (int[])leavingAt.Clone();
+            var leaving = new int[linkFromPlace.Count];
+            for (var link = 0; link < linkFromPlace.Count; link++) leaving[cursor[linkFromPlace[link]]++] = link;
+
+            for (var link = 0; link < linkToPlace.Count; link++)
+            {
+                var place = linkToPlace[link];
+                for (var at = leavingAt[place]; at < leavingAt[place + 1]; at++) builder.Join(link, leaving[at]);
             }
         }
 
@@ -237,15 +261,6 @@ internal sealed class RunNetwork
             }
 
             return fallback;
-        }
-
-        int TravelNode(int place)
-        {
-            if (travelNodeOf[place] >= 0) return travelNodeOf[place];
-
-            travelNodeOf[place] = builder.AddNode(places.AnchorM(place));
-            placeOf.Add(place);
-            return travelNodeOf[place];
         }
     }
 

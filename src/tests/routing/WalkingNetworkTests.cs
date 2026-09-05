@@ -54,26 +54,30 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// <b>A node is a place a walker can go more than one way, and nothing else is a node.</b> Asked both
-    /// ways round: a bend on the network is a decision nobody makes, and a split off it is a way no route
-    /// could ever plan.
+    /// <b>A link ends at a place a walker can go more than one way, and nowhere else.</b> Asked both
+    /// ways round: a bend a link ends at is a decision nobody makes, and a split no link ends at is a way no
+    /// route could ever plan.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ANetworkNodeIsExactlyAPlaceTheFootwaySplits(string map)
+    public void ALinkEndsExactlyAtAPlaceTheFootwaySplits(string map)
     {
         var (foot, network) = Of(map);
         var runs = network.Runs;
         var onNetwork = new bool[runs.PlaceCount];
 
-        for (var node = 0; node < runs.Graph.NodeCount; node++)
+        for (var link = 0; link < runs.LinkCount; link++)
         {
-            var place = runs.PlaceOf(node);
-            onNetwork[place] = true;
-            Assert.True(
-                runs.LanesLeaving(place).Length != 2,
-                $"{map}: place {place} at {At(foot, runs, place)} carries a walk straight through and is on "
-                + "the network");
+            var edges = runs.PiecesOf(link);
+            foreach (var place in (ReadOnlySpan<int>)
+                     [runs.PlaceLeaving(edges[0]), runs.PlaceArriving(edges[^1])])
+            {
+                onNetwork[place] = true;
+                Assert.True(
+                    runs.LanesLeaving(place).Length != 2,
+                    $"{map}: place {place} at {At(foot, runs, place)} carries a walk straight through and is on "
+                    + "the network");
+            }
         }
 
         for (var place = 0; place < runs.PlaceCount; place++)
@@ -144,8 +148,8 @@ public class WalkingNetworkTests(ITestOutputHelper output)
                 Assert.Equal(runs.PlaceArriving(edges[slot - 1]), runs.PlaceLeaving(edges[slot]));
             }
 
-            Assert.Equal(runs.PlaceOf(runs.Graph.FromNode(link)), runs.PlaceLeaving(edges[0]));
-            Assert.Equal(runs.PlaceOf(runs.Graph.ToNode(link)), runs.PlaceArriving(edges[^1]));
+            Assert.Equal(runs.AnchorM(runs.PlaceLeaving(edges[0])), runs.Graph.StartAnchorM(link));
+            Assert.Equal(runs.AnchorM(runs.PlaceArriving(edges[^1])), runs.Graph.EndAnchorM(link));
         }
     }
 
@@ -757,7 +761,9 @@ public class WalkingNetworkTests(ITestOutputHelper output)
 
             for (var step = 1; step < written; step++)
             {
-                Assert.Equal(network.Graph.ToNode(route[step - 1]), network.Graph.FromNode(route[step]));
+                Assert.True(
+                    network.Graph.TurnsFrom(route[step - 1]).Contains(route[step]),
+                    $"{map}: run {route[step]} is no way on from run {route[step - 1]}");
             }
 
             planned++;

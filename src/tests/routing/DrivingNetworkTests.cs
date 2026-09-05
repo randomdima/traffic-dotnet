@@ -50,9 +50,10 @@ public class DrivingNetworkTests
     }
 
     /// <summary>
-    /// <b>A node is a place a driver can go more than one way or a place a leg can be sent to, and nothing
-    /// else is a node.</b> Asked both ways round, because each direction catches a different fault: a bend
-    /// on the network is a decision nobody makes, and a junction off it is a turn no route could ever plan.
+    /// <b>A link ends at a place a driver can go more than one way or a place a leg can be sent to, and
+    /// nowhere else.</b> Asked both ways round, because each direction catches a different fault: a bend a
+    /// link ends at is a decision nobody makes, and a junction no link ends at is a turn no route could ever
+    /// plan.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -61,7 +62,7 @@ public class DrivingNetworkTests
     /// that car park is routed to it and a place the search cannot name is a place no route can end at.
     /// </para>
     /// <para>
-    /// <b>The one bend that is a node is a ring's own anchor.</b> A closed run nothing splits — the band a
+    /// <b>The one bend a link ends at is a ring's own anchor.</b> A closed run nothing splits — the band a
     /// car park is wrapped in, a circuit of the test track — would contract to nothing at all, so
     /// <see cref="RunNetwork"/> promotes one of its bends and the ring becomes two links leaving and
     /// returning to that one place. Exactly one, and only where the ring really has no choice on it.
@@ -69,7 +70,7 @@ public class DrivingNetworkTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ANetworkNodeIsExactlyAPlaceWithAChoiceAtItOrAPlaceALegIsAimedAt(string map)
+    public void ALinkEndsExactlyAtAPlaceWithAChoiceAtItOrAPlaceALegIsAimedAt(string map)
     {
         var (roads, network) = Of(map);
         var runs = network.Runs;
@@ -78,16 +79,22 @@ public class DrivingNetworkTests
         var ringOf = Rings(roads, runs, out var hasAChoice);
         var anchors = new int[runs.PlaceCount];
 
-        for (var node = 0; node < runs.Graph.NodeCount; node++)
+        for (var link = 0; link < runs.LinkCount; link++)
         {
-            var place = runs.PlaceOf(node);
-            onNetwork[place] = true;
-            if (!IsABend(roads, runs, arriving, place)) continue;
+            var lanes = runs.PiecesOf(link);
+            foreach (var place in (ReadOnlySpan<int>)
+                     [runs.PlaceLeaving(lanes[0]), runs.PlaceArriving(lanes[^1])])
+            {
+                if (onNetwork[place]) continue;
 
-            Assert.False(
-                hasAChoice[ringOf[place]],
-                $"{map}: place {place} is a bend on a road with a choice on it, and is on the network");
-            anchors[ringOf[place]]++;
+                onNetwork[place] = true;
+                if (!IsABend(roads, runs, arriving, place)) continue;
+
+                Assert.False(
+                    hasAChoice[ringOf[place]],
+                    $"{map}: place {place} is a bend on a road with a choice on it, and is on the network");
+                anchors[ringOf[place]]++;
+            }
         }
 
         for (var place = 0; place < runs.PlaceCount; place++)
@@ -231,8 +238,8 @@ public class DrivingNetworkTests
                 Assert.Equal(runs.PlaceArriving(lanes[slot - 1]), runs.PlaceLeaving(lanes[slot]));
             }
 
-            Assert.Equal(runs.PlaceOf(runs.Graph.FromNode(link)), runs.PlaceLeaving(lanes[0]));
-            Assert.Equal(runs.PlaceOf(runs.Graph.ToNode(link)), runs.PlaceArriving(lanes[^1]));
+            Assert.Equal(runs.AnchorM(runs.PlaceLeaving(lanes[0])), runs.Graph.StartAnchorM(link));
+            Assert.Equal(runs.AnchorM(runs.PlaceArriving(lanes[^1])), runs.Graph.EndAnchorM(link));
         }
     }
 
@@ -298,7 +305,9 @@ public class DrivingNetworkTests
 
             for (var step = 1; step < written; step++)
             {
-                Assert.Equal(network.Graph.ToNode(route[step - 1]), network.Graph.FromNode(route[step]));
+                Assert.True(
+                    network.Graph.TurnsFrom(route[step - 1]).Contains(route[step]),
+                    $"{map}: run {route[step]} is no way on from run {route[step - 1]}");
             }
 
             planned++;

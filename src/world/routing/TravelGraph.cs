@@ -9,8 +9,8 @@ internal interface ITurnPricer
 }
 
 /// <summary>
-/// The global tier: <b>a standalone abstract weighted directed graph and nothing more</b> — nodes,
-/// directed links, a weight on each link and a price on each turn out of one.
+/// The global tier: <b>a standalone abstract weighted directed graph of links and nothing more</b> —
+/// directed links, a weight on each, the links each may be left for, and a price on each of those turns.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,56 +20,54 @@ internal interface ITurnPricer
 /// tier's — see <see cref="RunNetwork"/>, which is this graph plus the pieces each link is walked as.
 /// </para>
 /// <para>
-/// <b>The one geometric fact a node holds is its anchor</b>, used for exactly two things: finding the
-/// node nearest a place, and bounding the search. The second is why
-/// <see cref="Builder.AddLink"/> holds a link's weight up to the span between its two anchors — the
-/// straight line is only an admissible heuristic while no link is priced below it, and a search whose
-/// bound is not admissible returns routes that are not the cheapest without ever looking wrong.
+/// <b>There is no node table.</b> A link says which links it may be left for, the way a lane says which
+/// lanes it may be left for (<see cref="Road.ILaneEnds"/>); where several of them meet is not a record
+/// this graph keeps. A junction is what a set of crossed ways happens to make (TER-5d), and a search that
+/// could name one would be entitled to settle it — which is the bug this shape refuses (see
+/// <see cref="RoutePlanner"/>).
+/// </para>
+/// <para>
+/// <b>The one geometric fact a link holds is its own two ends</b>, used for exactly two things: aiming a
+/// search and bounding it. The second is why <see cref="Builder.AddLink"/> holds a link's weight up to the
+/// span between them and <see cref="Builder.Join"/> refuses a join between ends that are not the same
+/// point — the straight line is only an admissible heuristic while no link is priced below it and the
+/// links of a route meet end to end, and a search whose bound is not admissible returns routes that are
+/// not the cheapest without ever looking wrong.
 /// </para>
 /// </remarks>
 internal sealed class TravelGraph
 {
     public const int NoLink = -1;
 
-    readonly Vector2[] _nodeAnchorM;
-    readonly int[] _linkFromNode;
-    readonly int[] _linkToNode;
+    readonly Vector2[] _linkStartM;
+    readonly Vector2[] _linkEndM;
     readonly float[] _linkWeightM;
     readonly int[] _turnOffsets;
     readonly int[] _turnToLink;
     readonly float[] _turnPriceM;
 
     TravelGraph(
-        Vector2[] nodeAnchorM, int[] linkFromNode, int[] linkToNode, float[] linkWeightM,
-        int[] turnOffsets, int[] turnToLink, float[] turnPriceM)
+        Vector2[] linkStartM, Vector2[] linkEndM, float[] linkWeightM, int[] turnOffsets, int[] turnToLink,
+        float[] turnPriceM)
     {
-        _nodeAnchorM = nodeAnchorM;
-        _linkFromNode = linkFromNode;
-        _linkToNode = linkToNode;
+        _linkStartM = linkStartM;
+        _linkEndM = linkEndM;
         _linkWeightM = linkWeightM;
         _turnOffsets = turnOffsets;
         _turnToLink = turnToLink;
         _turnPriceM = turnPriceM;
     }
 
-    public int NodeCount => _nodeAnchorM.Length;
-
     public int LinkCount => _linkWeightM.Length;
-
-    public Vector2 AnchorOf(int node) => _nodeAnchorM[node];
-
-    public int FromNode(int link) => _linkFromNode[link];
-
-    public int ToNode(int link) => _linkToNode[link];
 
     public float WeightM(int link) => _linkWeightM[link];
 
     /// <summary>Where a link leaves from and where it arrives, which is the whole of its geometry here.</summary>
-    public Vector2 StartAnchorM(int link) => _nodeAnchorM[_linkFromNode[link]];
+    public Vector2 StartAnchorM(int link) => _linkStartM[link];
 
-    public Vector2 EndAnchorM(int link) => _nodeAnchorM[_linkToNode[link]];
+    public Vector2 EndAnchorM(int link) => _linkEndM[link];
 
-    /// <summary>The links a body on this one may leave for, at the node this one arrives at.</summary>
+    /// <summary>The links a body on this one may leave for, where this one ends.</summary>
     public ReadOnlySpan<int> TurnsFrom(int link) =>
         _turnToLink.AsSpan(_turnOffsets[link], _turnOffsets[link + 1] - _turnOffsets[link]);
 
@@ -78,68 +76,68 @@ internal sealed class TravelGraph
         _turnPriceM.AsSpan(_turnOffsets[link], _turnOffsets[link + 1] - _turnOffsets[link]);
 
     /// <summary>
-    /// Lays the graph a link at a time. Build-time only: it allocates freely, and nothing it produces is
-    /// written to again.
+    /// Lays the graph a link and a join at a time. Build-time only: it allocates freely, and nothing it
+    /// produces is written to again.
     /// </summary>
     internal sealed class Builder
     {
-        readonly List<Vector2> _anchorM = [];
-        readonly List<int> _fromNode = [];
-        readonly List<int> _toNode = [];
+        readonly List<Vector2> _startM = [];
+        readonly List<Vector2> _endM = [];
         readonly List<float> _weightM = [];
-
-        public int NodeCount => _anchorM.Count;
+        readonly List<int> _joinFrom = [];
+        readonly List<int> _joinTo = [];
 
         public int LinkCount => _weightM.Count;
 
-        public int AddNode(Vector2 anchorM)
-        {
-            _anchorM.Add(anchorM);
-            return _anchorM.Count - 1;
-        }
-
         /// <summary>
-        /// A directed way on, priced at least at the span between the two anchors it joins — which is
+        /// A directed way on between two points, priced at least at the span between them — which is
         /// the relation the search's bound rests on, enforced here rather than asserted later.
         /// </summary>
-        public int AddLink(int fromNode, int toNode, float weightM)
+        public int AddLink(Vector2 startM, Vector2 endM, float weightM)
         {
-            _fromNode.Add(fromNode);
-            _toNode.Add(toNode);
-            _weightM.Add(MathF.Max(weightM, (_anchorM[toNode] - _anchorM[fromNode]).Length()));
+            _startM.Add(startM);
+            _endM.Add(endM);
+            _weightM.Add(MathF.Max(weightM, (endM - startM).Length()));
             return _weightM.Count - 1;
         }
 
-        public Vector2 AnchorOf(int node) => _anchorM[node];
+        /// <summary>
+        /// A way on from the end of one link onto the start of another. <b>They have to be the same
+        /// point</b>: the heuristic is the straight line from where a link ends to where the trip is going,
+        /// and a route whose links do not meet is a route whose remaining spans no longer add up to at least
+        /// that line, which is an inadmissible bound and a silently dearer route.
+        /// </summary>
+        public void Join(int fromLink, int toLink)
+        {
+            if (_endM[fromLink] != _startM[toLink])
+            {
+                throw new ArgumentException(
+                    $"link {fromLink} ends at {_endM[fromLink]} and link {toLink} starts at {_startM[toLink]}");
+            }
+
+            _joinFrom.Add(fromLink);
+            _joinTo.Add(toLink);
+        }
 
         public TravelGraph Build<TPricer>(TPricer pricer) where TPricer : ITurnPricer
         {
             var linkCount = _weightM.Count;
-            var outOf = new List<int>[_anchorM.Count];
-            for (var node = 0; node < outOf.Length; node++) outOf[node] = [];
-            for (var link = 0; link < linkCount; link++) outOf[_fromNode[link]].Add(link);
-
             var turnOffsets = new int[linkCount + 1];
-            for (var link = 0; link < linkCount; link++)
-            {
-                turnOffsets[link + 1] = turnOffsets[link] + outOf[_toNode[link]].Count;
-            }
+            foreach (var from in _joinFrom) turnOffsets[from + 1]++;
+            for (var link = 1; link <= linkCount; link++) turnOffsets[link] += turnOffsets[link - 1];
 
-            var turnToLink = new int[turnOffsets[linkCount]];
-            var turnPriceM = new float[turnOffsets[linkCount]];
-            for (var link = 0; link < linkCount; link++)
+            var slot = (int[])turnOffsets.Clone();
+            var turnToLink = new int[_joinTo.Count];
+            var turnPriceM = new float[_joinTo.Count];
+            for (var join = 0; join < _joinTo.Count; join++)
             {
-                var slot = turnOffsets[link];
-                foreach (var leaving in outOf[_toNode[link]])
-                {
-                    turnToLink[slot] = leaving;
-                    turnPriceM[slot] = pricer.PriceM(link, leaving);
-                    slot++;
-                }
+                var at = slot[_joinFrom[join]]++;
+                turnToLink[at] = _joinTo[join];
+                turnPriceM[at] = pricer.PriceM(_joinFrom[join], _joinTo[join]);
             }
 
             return new TravelGraph(
-                [.. _anchorM], [.. _fromNode], [.. _toNode], [.. _weightM], turnOffsets, turnToLink, turnPriceM);
+                [.. _startM], [.. _endM], [.. _weightM], turnOffsets, turnToLink, turnPriceM);
         }
     }
 }

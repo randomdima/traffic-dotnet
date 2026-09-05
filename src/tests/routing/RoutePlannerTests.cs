@@ -15,19 +15,33 @@ public class RoutePlannerTests
 {
     /// <summary>
     /// The relation the search's bound rests on: a link is never priced below the span between its own
-    /// two anchors, enforced where a link is laid rather than asserted afterwards.
+    /// two ends, enforced where a link is laid rather than asserted afterwards.
     /// </summary>
     [Fact]
     public void ALinkIsNeverPricedBelowTheSpanBetweenItsAnchors()
     {
         var builder = new TravelGraph.Builder();
-        var from = builder.AddNode(Vector2.Zero);
-        var to = builder.AddNode(new Vector2(100f, 0f));
-        builder.AddLink(from, to, 1f);
+        builder.AddLink(Vector2.Zero, new Vector2(100f, 0f), 1f);
 
         var graph = builder.Build(new FreeTurns());
 
         Assert.Equal(100f, graph.WeightM(0), 3);
+    }
+
+    /// <summary>
+    /// The other half of that bound: <b>the links of a route meet end to end</b>, so the spans a route is
+    /// made of add up to at least the straight line the heuristic reads. A join between ends that are not
+    /// the same point is refused where it is stated rather than costing routes that are quietly not the
+    /// cheapest.
+    /// </summary>
+    [Fact]
+    public void AJoinBetweenLinksThatDoNotMeetIsRefused()
+    {
+        var builder = new TravelGraph.Builder();
+        var into = builder.AddLink(Vector2.Zero, new Vector2(100f, 0f), 100f);
+        var away = builder.AddLink(new Vector2(150f, 0f), new Vector2(250f, 0f), 100f);
+
+        Assert.Throws<ArgumentException>(() => builder.Join(into, away));
     }
 
     /// <summary>
@@ -148,12 +162,8 @@ public class RoutePlannerTests
     public void AGoalOnAnotherPieceOfTheNetworkIsRefused()
     {
         var builder = new TravelGraph.Builder();
-        var here = builder.AddNode(Vector2.Zero);
-        var alsoHere = builder.AddNode(new Vector2(50f, 0f));
-        var away = builder.AddNode(new Vector2(900f, 0f));
-        var farther = builder.AddNode(new Vector2(950f, 0f));
-        var near = builder.AddLink(here, alsoHere, 50f);
-        var far = builder.AddLink(away, farther, 50f);
+        var near = builder.AddLink(Vector2.Zero, new Vector2(50f, 0f), 50f);
+        var far = builder.AddLink(new Vector2(900f, 0f), new Vector2(950f, 0f), 50f);
 
         var planner = new RoutePlanner(builder.Build(new FreeTurns()));
         Span<int> route = stackalloc int[8];
@@ -223,18 +233,21 @@ public class RoutePlannerTests
         public float PriceM(int fromLink, int toLink) => priceM.GetValueOrDefault((fromLink, toLink), 0f);
     }
 
-    /// <summary>Two nodes, one stretch each way, and one link arriving at the first of them.</summary>
+    /// <summary>One stretch each way between two points, and one link arriving at the first of them.</summary>
     readonly record struct LineTown(TravelGraph Graph, int IntoStart, int Out);
 
     static LineTown Line()
     {
+        var behindM = new Vector2(-50f, 0f);
+        var endM = new Vector2(100f, 0f);
+
         var builder = new TravelGraph.Builder();
-        var behind = builder.AddNode(new Vector2(-50f, 0f));
-        var start = builder.AddNode(Vector2.Zero);
-        var end = builder.AddNode(new Vector2(100f, 0f));
-        var into = builder.AddLink(behind, start, 50f);
-        var onward = builder.AddLink(start, end, 100f);
-        builder.AddLink(end, start, 100f);
+        var into = builder.AddLink(behindM, Vector2.Zero, 50f);
+        var onward = builder.AddLink(Vector2.Zero, endM, 100f);
+        var back = builder.AddLink(endM, Vector2.Zero, 100f);
+        builder.Join(into, onward);
+        builder.Join(onward, back);
+        builder.Join(back, onward);
 
         return new LineTown(builder.Build(new FreeTurns()), into, onward);
     }
@@ -244,17 +257,24 @@ public class RoutePlannerTests
 
     static BlockTown Block(float turnAroundM)
     {
-        var builder = new TravelGraph.Builder();
-        var southWest = builder.AddNode(Vector2.Zero);
-        var southEast = builder.AddNode(new Vector2(100f, 0f));
-        var northEast = builder.AddNode(new Vector2(100f, 100f));
-        var northWest = builder.AddNode(new Vector2(0f, 100f));
+        var southWestM = Vector2.Zero;
+        var southEastM = new Vector2(100f, 0f);
+        var northEastM = new Vector2(100f, 100f);
+        var northWestM = new Vector2(0f, 100f);
 
-        var south = builder.AddLink(southWest, southEast, 100f);
-        var back = builder.AddLink(southEast, southWest, 100f);
-        var east = builder.AddLink(southEast, northEast, 100f);
-        var north = builder.AddLink(northEast, northWest, 100f);
-        var west = builder.AddLink(northWest, southWest, 100f);
+        var builder = new TravelGraph.Builder();
+        var south = builder.AddLink(southWestM, southEastM, 100f);
+        var back = builder.AddLink(southEastM, southWestM, 100f);
+        var east = builder.AddLink(southEastM, northEastM, 100f);
+        var north = builder.AddLink(northEastM, northWestM, 100f);
+        var west = builder.AddLink(northWestM, southWestM, 100f);
+
+        builder.Join(south, back);
+        builder.Join(south, east);
+        builder.Join(back, south);
+        builder.Join(east, north);
+        builder.Join(north, west);
+        builder.Join(west, south);
 
         var prices = new Dictionary<(int, int), float>
         {
@@ -273,16 +293,19 @@ public class RoutePlannerTests
 
     static ForkTown Fork(float acrossM)
     {
-        var builder = new TravelGraph.Builder();
-        var start = builder.AddNode(Vector2.Zero);
-        var middle = builder.AddNode(new Vector2(50f, 0f));
-        var end = builder.AddNode(new Vector2(100f, 0f));
-        var off = builder.AddNode(new Vector2(50f, 50f));
+        var middleM = new Vector2(50f, 0f);
+        var endM = new Vector2(100f, 0f);
+        var offM = new Vector2(50f, 50f);
 
-        var approach = builder.AddLink(start, middle, 50f);
-        var straight = builder.AddLink(middle, end, 50f);
-        var turn = builder.AddLink(middle, off, 50f);
-        var rejoin = builder.AddLink(off, end, ForkTown.DiagonalM);
+        var builder = new TravelGraph.Builder();
+        var approach = builder.AddLink(Vector2.Zero, middleM, 50f);
+        var straight = builder.AddLink(middleM, endM, 50f);
+        var turn = builder.AddLink(middleM, offM, 50f);
+        var rejoin = builder.AddLink(offM, endM, ForkTown.DiagonalM);
+
+        builder.Join(approach, straight);
+        builder.Join(approach, turn);
+        builder.Join(turn, rejoin);
 
         var prices = new Dictionary<(int, int), float> { [(approach, straight)] = acrossM };
         return new ForkTown(builder.Build(new PricedTurns(prices)), approach, straight, turn, rejoin);

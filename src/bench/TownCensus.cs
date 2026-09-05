@@ -9,6 +9,7 @@ using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Routing;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
 
@@ -256,7 +257,7 @@ internal static class TownCensus
         Console.WriteLine($"  driving        {roads.LaneCount,7}  lanes meeting at {roads.Places.Count} places, " +
                           $"{plan.Junctions.Count} of them the plan's junctions and {cut} lane ends cut for car " +
                           $"parks, laid in {elapsed.TotalMilliseconds:F0} ms");
-        Console.WriteLine($"  contracted to  {runs.LinkCount,7}  runs over {runs.Graph.NodeCount} nodes; " +
+        Console.WriteLine($"  contracted to  {runs.LinkCount,7}  runs joined {WaysOn(runs.Graph)} ways on; " +
                           $"mean {(runs.LinkCount == 0 ? 0f : totalM / runs.LinkCount):F0} m, longest {longestM:F0} m, most lanes in one {mostPieces}");
         Joins(roads, config);
 
@@ -290,10 +291,22 @@ internal static class TownCensus
         var stretches = foot.EdgeCount / 2;
         Console.WriteLine($"  walking        {stretches,7}  stretches over {foot.NodeCount} fine nodes, {footM / 1000f:F2} km, " +
                           $"{crossings} of them crossings, laid in {footElapsed.TotalMilliseconds:F0} ms");
-        Console.WriteLine($"  contracted to  {walkRuns.LinkCount,7}  runs over {walkRuns.Graph.NodeCount} nodes; " +
+        Console.WriteLine($"  contracted to  {walkRuns.LinkCount,7}  runs joined {WaysOn(walkRuns.Graph)} ways on; " +
                           $"mean {(walkRuns.LinkCount == 0 ? 0f : totalWalkM / walkRuns.LinkCount):F0} m, longest {longestWalkM:F0} m, " +
                           $"mean lane offset {(stretches == 0 ? 0f : keptM / stretches):F2} m of " +
                           $"{config.WalkingLaneOffsetM:F2}, in {walkElapsed.TotalMilliseconds:F0} ms");
+    }
+
+    /// <summary>
+    /// How branchy the contracted graph came out: every way on from a link onto another, which is the whole
+    /// of what a search has to choose between once the runs are laid.
+    /// </summary>
+    static int WaysOn(TravelGraph graph)
+    {
+        var ways = 0;
+        for (var link = 0; link < graph.LinkCount; link++) ways += graph.TurnsFrom(link).Length;
+
+        return ways;
     }
 
     /// <summary>

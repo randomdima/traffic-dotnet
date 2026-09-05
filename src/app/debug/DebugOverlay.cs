@@ -65,13 +65,6 @@ internal sealed partial class DebugOverlay
     const float CollisionLineFloorPx = 1.5f;
 
     /// <summary>
-    /// A node stands on the ground its network joins over, so it is drawn at the size of that ground
-    /// rather than at a size on screen — but only as much of it as marks the place. At the width of the
-    /// junction it stands in it covered the movements through it, which are the thing worth seeing there.
-    /// </summary>
-    const float NodeDiscM = 0.5f;
-
-    /// <summary>
     /// How many pieces of its own route an agent is drawn: the one it is on, and the one it has planned to
     /// take off the end of it. <b>Two, whatever the pieces are</b> — a lane and the junction off it, a
     /// junction and the lane it lands on, a pavement and the crossing at the kerb — because one piece

@@ -9,19 +9,22 @@ namespace TrafficSimulation.World.Routing;
 /// <remarks>
 /// <b>The stretch already covered is spent</b> — charging for it again lets a route that turns round at
 /// the next junction look cheaper than carrying on. For a body standing still the caller offers the links
-/// out of the nearest node with the whole of each ahead of it; for a body under way it offers the link it
-/// is already committed to.
+/// nearest it with the whole of each ahead of it; for a body under way it offers the link it is already
+/// committed to.
 /// </remarks>
 internal readonly record struct RouteEntry(int Link, float AlongM, float RemainingM);
 
-/// <summary>A destination: <b>a place on a link</b>, which is what a destination always is. Never a node.</summary>
+/// <summary>
+/// A destination: <b>a place on a link</b>, which is what a destination always is. Never a junction.
+/// </summary>
 internal readonly record struct RouteGoal(int Link, float AlongM);
 
 /// <summary>
-/// One A* over an abstract weighted graph, used by both agent kinds. <b>The search state is
-/// a directed link, never a node</b>, because what a turn costs depends on the way the body arrived as
-/// well as the way it leaves — settle nodes and the planner quietly returns routes that are not the
-/// cheapest, which is not visibly wrong, just wrong.
+/// One A* over an abstract weighted graph, used by both agent kinds. <b>The search state is a directed
+/// link, and the graph offers nothing else to settle</b> (<see cref="TravelGraph"/>), because what a turn
+/// costs depends on the way the body arrived as well as the way it leaves — settle where the ways meet
+/// instead and the planner quietly returns routes that are not the cheapest, which is not visibly wrong,
+/// just wrong.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -173,8 +176,9 @@ internal sealed class RoutePlanner
 
     /// <summary>
     /// The straight line from where this link arrives to where the destination stands. Admissible because
-    /// no link is priced below the span between its own two anchors (<see cref="TravelGraph.Builder"/>),
-    /// so no continuation can undercut it.
+    /// no link is priced below the span between its own two ends and no two links are joined unless one
+    /// ends where the other starts (<see cref="TravelGraph.Builder"/>), so a continuation's spans are a
+    /// chain from here to there and cannot undercut the line across it.
     /// </summary>
     float Heuristic(int link, Vector2 goalPointM) => (_graph.EndAnchorM(link) - goalPointM).Length();
 
