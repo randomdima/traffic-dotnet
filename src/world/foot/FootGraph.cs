@@ -168,8 +168,11 @@ internal sealed partial class FootGraph : IFineGraph
         {
             var kerbs = Kerbs.Of(plan.Ground, LaneLines.Of(plan.Ground, config));
             Wrap(kerbs, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);
-            builder.DropTheLinesThatLeadNowhere();
+
+            // Stitched first: a line leads somewhere when the walk carries on at both of its ends, and two
+            // lines that graze hand over across a notch rather than at a node (TER-3c.6).
             builder.Stitch(config.PersonDiameterM, bandM);
+            builder.DropTheLinesThatLeadNowhere();
             Crossings(plan, kerbs, builder, bandM);
         }
 

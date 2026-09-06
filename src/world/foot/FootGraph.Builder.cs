@@ -115,11 +115,24 @@ internal sealed partial class FootGraph
         /// stand further apart than before. What is ill-conditioned is the crossing of two curves that graze;
         /// what is not is the distance between the two ends once they are cut.
         /// </para>
+        /// <para>
+        /// <b>And where the two lines graze rather than cross, one of them runs on past the other's cut</b>
+        /// and its end lands <em>on</em> the line it should have handed over to. Such an end is that line's
+        /// node too: the line is split under it and the two weld, so what is left over is a stub of one of
+        /// them and not a second line laid along the other (TER-3c.6). Joined end to end instead, the join
+        /// itself is the doubled line.
+        /// </para>
         /// </remarks>
         public void Stitch(float acrossM, float bandM)
         {
             var ends = new List<int>();
             var ways = Ways();
+            for (var node = 0; node < ways.Length; node++)
+            {
+                if (ways[node] == 1) Land(node);
+            }
+
+            ways = Ways();
             for (var node = 0; node < ways.Length; node++)
             {
                 if (ways[node] == 1) ends.Add(node);
@@ -152,6 +165,43 @@ internal sealed partial class FootGraph
                     from, to, new ArcSeg(_nodeM[from], MathF.Atan2(lineM.Y, lineM.X), apartM, 0f), bandM,
                     FootEdgeKind.Pavement);
             }
+        }
+
+        /// <summary>
+        /// <b>Splits the line a loose end stands on under that end</b>, so the two become one node. Nothing
+        /// is added: the split's own node welds onto the end, and whatever the end's stretch ran on past the
+        /// crossing is a stub for the prune to take.
+        /// </summary>
+        void Land(int node)
+        {
+            var pointM = _nodeM[node];
+            var best = -1;
+            var bestAlongM = 0f;
+            var bestM = weldM;
+
+            for (var edge = 0; edge < _edgeFrom.Count; edge += 2)
+            {
+                if (!_edgeAlive[edge] || _edgeFrom[edge] == node || _edgeTo[edge] == node) continue;
+
+                var lengthM = _edgeLengthM[edge];
+                var fromEndM = (_nodeM[_edgeFrom[edge]] - pointM).Length();
+                var toEndM = (_nodeM[_edgeTo[edge]] - pointM).Length();
+                if (MathF.Min(fromEndM, toEndM) - lengthM > bestM) continue;
+
+                var arcs = ArcsOf(edge);
+                var alongM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
+                var offM = (Spline.SampleAt(arcs, alongM).PositionM - pointM).Length();
+                if (offM >= bestM) continue;
+
+                bestM = offM;
+                bestAlongM = alongM;
+                best = edge;
+            }
+
+            // Landing on an end of it is the weld's own business, and it has already had its say.
+            if (best < 0 || bestAlongM <= weldM || bestAlongM >= _edgeLengthM[best] - weldM) return;
+
+            SplitAt(best, bestAlongM);
         }
 
         /// <summary>

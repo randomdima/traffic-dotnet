@@ -113,6 +113,15 @@ other and back at every corner, and four hundred stubs of kerb leading nowhere o
 says whether it is the outside of the tarmac or the inside of something, and the walk is laid off whichever
 lines are left.
 
+**TER-3c.6** **A piece offers the whole of the line that stands outside it, the ends of it included.** A
+band offered its two sides and nothing across the end it stops at — so wherever the town's kerb turns a
+corner that no other piece stands beside, the shell had no line there to be cut from and the pavement
+simply stopped: a street meeting a wider street, a street stopping at a car park, a dead end's head. The
+end of a band is square (TER-7a), so what stands the offset outside it is a quarter turn about each of its
+two corners and the straight between them, and the three of them start and finish where the band's own
+side lines do. **A shell has no ends**: every metre of the outside of a piece is offered, and which metres
+of it are pavement is settled by the one rule and nothing else.
+
 ## Water and bridges
 
 **TER-3b** A carriageway crossing ground legal to nobody carries a **bridge**: a deck wider than the

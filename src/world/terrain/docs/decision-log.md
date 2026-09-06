@@ -1,5 +1,34 @@
 # Terrain — decision log
 
+## 2026-09-06 — a shell has no ends
+
+**A band offered its two sides and nothing across the end it stops at**, so wherever the town's kerb turned
+a corner no other piece stood beside, the shell had no line there to be cut from and the pavement simply
+stopped. It is the corner a street makes meeting a wider street, the head of a dead end, the end of a
+street at a car park — and what it left was a hole of a few metres in a footway that is drawn continuous:
+the concrete runs on, the lanes on it do not, and a walk that reaches the hole has nowhere to go. A band
+ends square (TER-7a), so what stands the offset outside one of its ends is a quarter turn about each of its
+two corners and the straight between them, offered like any other line and cut by the one rule
+(TER-3c.6).
+
+**Ends are joined before what leads nowhere is dropped, and not after.** A line the box only offers where
+it closes a gap has to be able to see the gap closed: both its ends joined. Where two lines *graze* rather
+than cross, the ends they are cut to stand a few centimetres apart, so the line that closes the gap read as
+dead-ending and was dropped before the stitch that would have joined it ever ran.
+
+**And where they graze, one of them runs on past the other's cut and its end lands on the line it should
+have handed over to.** Such an end is that line's node too: the line is split under it and the two weld —
+nothing is added, and what is left over is a stub of one of them for the prune. Joined end to end instead,
+the join itself is a third of a metre of pavement laid along a line that was already there.
+
+    dead ends in the pavement   Odesa 406 -> 18   River 311 -> 12   Test 30 -> 2
+
+**What is left is a pinch and not a hole.** Where two pieces of tarmac meet at a shallow angle with no
+fillet between them — a car park's mouth against the street it opens off — the wedge between them is
+narrower than a walk, and no line anywhere in it stands half a walk clear of both. The shell is cut on both
+sides of such a place and the pavement drawn through it carries no lane. It is the tarmac's own corner
+that is unrounded there, not the walk's.
+
 ## 2026-09-06 — the pavement wraps the outside of the tarmac, and a band ends where its line does
 
 **The walk was laid off every piece of tarmac, and a piece inside the box is not the outside of anything.**

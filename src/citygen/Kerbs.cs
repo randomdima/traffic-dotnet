@@ -129,9 +129,10 @@ internal sealed class Kerbs
 
     /// <summary>
     /// <b>Every line that stands <paramref name="outM"/> outside one piece of the tarmac</b>: a road's
-    /// own arcs offset both ways, a connector's offset both ways, the arc round a kerb fillet, and the
-    /// rounded box round a car park or a slab. <b>The corner of a box is turned on the offset itself</b>,
-    /// which is what keeps the line the same distance out all the way round it.
+    /// own arcs offset both ways <b>and turned round each end of it</b> (TER-3c.6), a connector's the same,
+    /// the arc round a kerb fillet, and the rounded box round a car park or a slab. <b>The corner of a box
+    /// is turned on the offset itself</b>, which is what keeps the line the same distance out all the way
+    /// round it.
     /// </summary>
     /// <remarks>
     /// <b>The town's own kerb comes first and what only fills its gaps comes after</b>, so a caller that
@@ -165,6 +166,9 @@ internal sealed class Kerbs
                         Runs(at, open, offset.AsSpan(0, arcs.Length), into);
                     }
 
+                    var last = arcs[^1];
+                    Runs(at, open, Ending(arcs[0].StartM, arcs[0].HeadingRad + MathF.PI, piece.HalfM.X, outM), into);
+                    Runs(at, open, Ending(last.EndM, last.HeadingAtRad(last.LengthM), piece.HalfM.X, outM), into);
                     break;
 
                 case Kind.Fillet:
@@ -220,6 +224,29 @@ internal sealed class Kerbs
     /// reader could see.
     /// </summary>
     const float JoinedM = 0.01f;
+
+    /// <summary>
+    /// <b>The line that stands <paramref name="outM"/> outside one end of a band</b> (TER-3c.6): a quarter
+    /// turn about the corner the end makes with one side, the straight across, and the quarter turn about
+    /// the other corner — which is what standing that far outside a square end (TER-7a) is.
+    /// </summary>
+    /// <remarks>
+    /// It starts and finishes where the band's two side lines do, so the three of them are one line round
+    /// the end of the band and a walk laid off them has nothing to bridge.
+    /// </remarks>
+    static ArcSeg[] Ending(Vector2 endM, float outwardRad, float halfM, float outM)
+    {
+        Heading.Frame(outwardRad, out var outward, out var across);
+        var rightM = endM + (across * halfM);
+        var leftM = endM - (across * halfM);
+
+        return
+        [
+            Around(rightM, outM, rightM + (across * outM), rightM + (outward * outM)),
+            new ArcSeg(rightM + (outward * outM), Bearing(-across), halfM * 2f, 0f),
+            Around(leftM, outM, leftM + (outward * outM), leftM - (across * outM)),
+        ];
+    }
 
     /// <summary>The arc about a centre between the bearings of two points, the short way round.</summary>
     static ArcSeg Around(Vector2 centreM, float radiusM, Vector2 fromM, Vector2 toM)

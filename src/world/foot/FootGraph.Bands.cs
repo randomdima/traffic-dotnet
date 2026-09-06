@@ -28,9 +28,9 @@ internal sealed partial class FootGraph
     /// <para>
     /// <b>A junction is not a case.</b> The band round a kerb corner is the fillet's own arc read in by
     /// half a walk; the band past a car park is the box's; the band round a dead end is the road's own,
-    /// ending where the road does. Each is cut by the one rule, and each meets its neighbours at the
-    /// point their two lines cross — which is the point both are half a walk from both pieces, so nothing
-    /// has to be matched to anything, pushed onto anything, or joined across a gap.
+    /// turned round the square end the road stops at (TER-3c.6). Each is cut by the one rule, and each
+    /// meets its neighbours at the point their two lines cross — which is the point both are half a walk
+    /// from both pieces, so nothing has to be matched to anything or pushed onto anything.
     /// </para>
     /// <para>
     /// <b>What a box is walked round is the arms that meet at it</b> (TER-3c.5). The lines cars are turned
