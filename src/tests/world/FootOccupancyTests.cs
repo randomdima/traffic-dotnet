@@ -481,10 +481,22 @@ public class FootOccupancyTests
         // own movement picks, and a car sitting on the aim is answered by neither of them.
         WalkOnPast(world, person, line, alongM);
 
-        world.Cars.VelocityMps[car] = Heading.Unit(world.Cars.HeadingRad[car]) * Config.PersonWalkSpeedMps;
+        // <b>Coming at the body and not merely square to it.</b> What tells a car coming through from one
+        // to be stepped round is how fast it is going *along* the way (`TownWorld.IsComingThrough`), and a
+        // car exactly square to a way makes that nought — so which side of nought a bend's own degree or two
+        // leaves it decides the answer, and the fixture would be asking about a rounding.
+        world.Cars.VelocityMps[car] =
+            Vector2.Normalize(world.People.PositionM[person] - world.Cars.PositionM[car])
+            * Config.PersonWalkSpeedMps;
         world.RebuildProximityIndex();
 
-        Assert.Equal(car, world.People.HeldBy[person]);
+        var way = world.Ways.OfFootway(lane);
+        var where = $"walker {person} at {world.People.OnWayM[person]:0.00} m of {world.Walking.LaneLengthM(lane):0.00}, "
+            + $"asking {world.People.ClaimAheadM[person]:0.00} m, car {car} standing at {alongM:0.00} m, "
+            + $"way {way} at the car held by {HolderOn(world.Occupancy, way, alongM)}, "
+            + $"walker still on way {world.People.OnWay[person]}, stepping round {world.People.StepsRound[person]}, "
+            + $"car on any walk {OnAnyWayOf(world.Occupancy, car)}";
+        Assert.True(car == world.People.HeldBy[person], $"held by {world.People.HeldBy[person]}: {where}");
         Assert.Equal(LaneRoster.Driving, world.People.HeldByOf[person]);
         Assert.Equal(PersonFleet.NoBody, world.People.StepsRound[person]);
 
@@ -814,15 +826,21 @@ public class FootOccupancyTests
 
     /// <summary>
     /// A stretch of the walking network of one kind that is long enough to stand a body in the middle of
-    /// without the ends of it deciding the answer, and that nobody is on.
+    /// without the ends of it deciding the answer — <b>half a car clear at either end of a car</b> — and
+    /// that nobody is on.
     /// </summary>
+    /// <remarks>
+    /// <b>A crossing's own lane is the paint and no more</b>, so the longest one a town has is its widest
+    /// carriageway: 7.2 m on Odesa, which a whole car's clearance at either end asks more of than the town
+    /// has to give.
+    /// </remarks>
     static int AStretchOfItsOwn(TownWorld world, FootEdgeKind kind)
     {
         Span<LaneClaim> slots = stackalloc LaneClaim[1];
         for (var edge = 0; edge < world.Walking.Foot.EdgeCount; edge++)
         {
             if (world.Walking.Foot.KindOf(edge) != kind) continue;
-            if (world.Walking.LaneLengthM(edge) < Config.Car.LengthM * 2f) continue;
+            if (world.Walking.LaneLengthM(edge) < Config.Car.LengthM * 1.5f) continue;
             if (world.Occupancy.CopyTo(world.Ways.OfFootway(edge), slots) != 0) continue;
 
             return edge;

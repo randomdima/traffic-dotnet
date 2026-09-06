@@ -19,12 +19,101 @@ namespace TrafficSimulation.Tests.Routing;
 [Trait(Tier.Key, Tier.Town)]
 public class FootGraphTests
 {
-    public static TheoryData<string> Maps => Towns.EveryTown();
+    /// <summary>
+    /// Every town, <b>and the lattice the walking exam is staged on</b>: it is a map whose whole purpose is
+    /// the pavement, and a sweep of the pavement that skipped it would be leaving out the one place the
+    /// network is looked at hardest.
+    /// </summary>
+    public static TheoryData<string> Maps
+    {
+        get
+        {
+            var maps = Towns.EveryTown();
+            maps.Add(FootwayPlan.Name);
+            return maps;
+        }
+    }
 
     /// <summary>One map's foot graph, built once and read by every claim about it.</summary>
     static FootGraph Of(string map) => Built.GetOrAdd(map, at => FootGraph.Build(Towns.Of(at), SimConfig.Shipped()));
 
     static readonly ConcurrentDictionary<string, FootGraph> Built = new();
+
+    /// <summary>
+    /// <b>Every metre of pavement stands half a walk from the tarmac</b> (TER-3c.3) — which is the whole of
+    /// what laying it by wrapping the carriageway claims, and the one thing a junction, a car park and a
+    /// straight street all have to answer the same.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of the ground the town answers with and not of the shapes the line was cut by.</b> Put to
+    /// <see cref="Kerbs"/> it would be the derivation restated (VER-12): the wrap keeps exactly the stations
+    /// that pass it. Put to <see cref="GroundShapes"/> it is the other book, and what it catches is a line
+    /// laid off a record the ground disagrees with — which is what a pavement pieced together at the
+    /// junctions was, everywhere it was pieced.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void EveryStretchOfPavementStandsHalfAWalkFromTheTarmac(string map)
+    {
+        var plan = Towns.Of(map);
+        var shapes = new GroundShapes(plan.Ground, SimConfig.Shipped());
+        var foot = Of(map);
+        var wantedM = plan.PavementWidthM * 0.5f;
+
+        var tooNear = new SortedDictionary<string, (int Count, Vector2 First)>();
+        var tooFar = new SortedDictionary<string, (int Count, Vector2 First)>();
+        for (var edge = 0; edge < foot.EdgeCount; edge += 2)
+        {
+            if (foot.KindOf(edge) != FootEdgeKind.Pavement) continue;
+
+            var arcs = foot.ArcsOf(edge);
+            var lengthM = foot.LengthM(edge);
+            var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / StationM));
+            for (var station = 0; station <= stations; station++)
+            {
+                var atM = Spline.SampleAt(arcs, lengthM * station / stations).PositionM;
+                var key = $"{foot.LengthM(edge):F1} m from {foot.AnchorM(foot.FromNode(edge))}";
+                if (AnyTarmacRound(shapes, atM, wantedM - SlackM))
+                {
+                    tooNear[key] = tooNear.TryGetValue(key, out var near) ? (near.Count + 1, near.First) : (1, atM);
+                }
+
+                if (!AnyTarmacRound(shapes, atM, wantedM + SlackM))
+                {
+                    tooFar[key] = tooFar.TryGetValue(key, out var far) ? (far.Count + 1, far.First) : (1, atM);
+                }
+            }
+        }
+
+        Assert.True(tooNear.Count == 0, $"{map}: pavement inside half a walk of the tarmac — {Breakdown(tooNear)}");
+        Assert.True(tooFar.Count == 0, $"{map}: pavement with no tarmac half a walk off it — {Breakdown(tooFar)}");
+    }
+
+    /// <summary>How finely a stretch is stationed when the ground round it is read.</summary>
+    const float StationM = 0.5f;
+
+    /// <summary>
+    /// How much either way of half a walk the reading is allowed: <b>a body's width</b>. It is a coarse
+    /// instrument on purpose — what it is here to catch is a pavement laid off something other than the
+    /// kerb beside it, which is metres out and not centimetres. Two things go into the figure: the ring's
+    /// own coarseness, and that the two books measure a bend differently — the ground answers a road as an
+    /// offset across the frame of the point it projects onto, and the wrap as a distance to the arc.
+    /// </summary>
+    static float SlackM => SimConfig.Shipped().PersonDiameterM;
+
+    const int Bearings = 32;
+
+    /// <summary>Whether any of the town's tarmac stands on the ring of one radius about a point.</summary>
+    static bool AnyTarmacRound(GroundShapes shapes, Vector2 atM, float radiusM)
+    {
+        for (var bearing = 0; bearing < Bearings; bearing++)
+        {
+            var on = shapes.At(atM + (radiusM * Heading.Unit(MathF.Tau * bearing / Bearings)));
+            if (on is Ground.Road or Ground.Intersection or Ground.Parking or Ground.Crosswalk) return true;
+        }
+
+        return false;
+    }
 
     /// <summary>Every edge's own line stands on ground a person may stand on, sampled the whole way along it.</summary>
     [Theory]

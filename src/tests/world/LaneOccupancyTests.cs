@@ -781,8 +781,11 @@ public class LaneOccupancyInATownTests
         world.RebuildProximityIndex();
         var acrossTheLaneM = LengthHeldOn(world, world.Ways.OfRoadLane(lane), car);
 
-        Assert.Equal(build.LengthM, alongTheLaneM, 1);
-        Assert.Equal(build.WidthM, acrossTheLaneM, 1);
+        // To the centimetre and not to a decimal place: rounded, a width of 1.85 m read back as 1.849998
+        // is a whole tenth adrift of the same figure rounded the other way, and this fails on which car
+        // the town happened to let out of a bay first (VER-12).
+        Assert.Equal(build.LengthM, alongTheLaneM, Tolerance);
+        Assert.Equal(build.WidthM, acrossTheLaneM, Tolerance);
     }
 
     /// <summary>

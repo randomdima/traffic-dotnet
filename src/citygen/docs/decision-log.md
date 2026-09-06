@@ -14,10 +14,13 @@ on, and nothing fails until somebody looks.
 restructure is exactly behaviour-preserving and was checked as such — the same two framings on Odesa and
 the fixture come back byte-identical, which is the only test that could have said so.
 
-**What it is not yet is laid off the lanes.** The pieces are still offset from a road's own centreline and
-a junction's own disc rather than from the carriageway the lanes make. That is the next step and this is
-what it needed first: with one list there is one place to change, where before there were two that had to
-be changed together and could not be checked against each other.
+**What was still owed was laying it off the lanes**, and `Kerbs` is where that is now stated: the town's
+tarmac as one shape — every carriageway at its own width, every junction's own ground, every kerb fillet,
+every car park and every slab — answering how far a point stands off the nearest of it, and offering the
+line that stands a given distance outside each piece. **The walking side reads it and the drawn ground does
+not yet**, which is the one figure still in two places: `Paving` grows each piece by a walk and this offsets
+each piece by half of one, so the two agree wherever the pieces do and part company at a junction corner,
+where the ring is a disc and the kerb is a fillet.
 
 **A junction's ring is a disc and its kerb is not, and that turns out not to matter.** Carrying each kerb
 corner round at the band's width — the arc a turning car takes (TER-5) grown by the walk — was laid, drawn

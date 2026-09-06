@@ -4,6 +4,77 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-05 — the pavement is the tarmac wrapped, and a junction is not a case
+
+**The walking network was six constructions and not one of them was the pavement.** Strips offset from
+each road's own centreline and cut at the junction discs; kerb corners read off the plan's fillets and
+*matched* to the nearest end of the nearest strip within a band, then pushed onto it; a straight laid
+between whichever two ends of a junction had nothing standing between them; a ring round a dead end's
+head; a three-sided band round each car park, and the severing that made room for it. **Five of the six
+were the junctions and the sixth was the car parks** — and what they had in common was that each was laid
+off a *record* rather than off the ground beside it: a centreline, a disc, a fillet, a box. Where the
+records and the ground agreed the answer was right, and where they did not nothing said so. What that
+looked like on Odesa was a band laid ten metres straight across a kerb corner because the two ends of it
+happened to have pavement between them, a lot's band swinging five metres off the kerb it was meant to run
+beside, and a corner arc drawn with a fillet's curvature from a point that was not on the fillet's circle.
+
+**It is now one construction and one rule** (TER-3c.3). `Kerbs` states the town's tarmac as one shape and
+answers how far a point stands off the nearest of it. Every piece of that shape offers the line that stands
+half a walk outside itself, and **a metre of such a line is pavement exactly where nothing else stands
+nearer than that**. Two lines give way to one another at the point they cross, which is the point both are
+half a walk from both pieces — so nothing is matched to anything, pushed onto anything, or joined across a
+gap. A junction's corner is the fillet's own arc read in by half a walk; a dead end's head is the disc's
+circle read out by it; the way past a car park is the box's; a street lying inside a car park's mouth is
+cut away over the whole of it. **None of them is a case**, `FootEdgeKind.JunctionCorner` is gone with the
+constructions that made them, and the severing and the dead-edge list went with the wrap round the lots.
+
+**Where two carriageways merge, the outer edge of the pair is what is wrapped**, because each one's line
+runs on into the other's tarmac and is cut there. It is the same rule reaching a second answer rather than
+a second rule, which is what the old arm bands, head bands and lot bands each were.
+
+**The offset is compared with a rounding's grace, and the grace is the whole of what makes the wrap exist.**
+A line stands the offset from its own piece exactly — and, wherever two pieces are tangent, from a second
+piece exactly as well. That case is not rare but the common one: **a junction's disc is drawn to the width
+of the arms that leave it**, so the disc and each arm's band touch, and the circle that wraps the disc runs
+half a walk from both of them for the whole of its length. Compared exactly, whether metres of pavement
+exist at all is the last bit of a float, and what that cost was the apron round every such junction — six
+metres of a corner standing at exactly half a walk, on walkable ground, with no line laid on it, and Odesa's
+pavement in two halves that no walk could get between.
+
+**A rounding, though, and never a tolerance.** A tolerance ε lets a line that meets another *tangentially* —
+which at a kerb fillet is how they always meet — run <b>√(2·R·ε)</b> past the point the two cross: at five
+centimetres that is better than half a metre each, their ends then stand a metre apart with no node between
+them, and the pavement comes apart into a piece per corner (ninety-seven of them on the exam lattice, where
+there should be one). At a millimetre the overshoot is centimetres and the stitch below closes what is left.
+
+**And the ends of the wrap are stitched, because a tangency cannot be cut cleanly either way.** Where the
+two pieces do *not* quite touch — a fillet's tangent point sitting a millimetre off the kerb it was drawn to
+— the envelope dips inside the offset over half a metre of itself, both lines are cut at that dip, and
+neither covers it. What is ill-conditioned is the crossing of two curves that graze; what is not is the
+distance between the two ends once they are cut. So the loose ends of the wrap that stand within a body of
+each other are joined by the stretch that runs between them (`FootGraph.Builder.Stitch`). Without it Odesa
+comes out in eighteen pieces and River in twelve; with it each town's pavement is one.
+
+**Three things it turned up that were already true and could not be seen.** A walker with no walked point
+behind it was stationed at its first point's distance along a way less however far it stood from that
+point, and only the distance coming out negative ever refused it — which it did while a stretch was short
+enough for the first point to stand near the start of one. On a stretch long enough it did not, and a body
+that had walked none of its line claimed ground across a field (`TownWorld.IsAfoot`). **The bar has to be
+held to the way and not to the one metre**, because stepping back from the first point by the straight to it
+takes a body's whole sideways distance off its place as well: a paramedic that has just got out of a cab
+reads metres off a line it is standing on, and refused on that reading the crew never reached a casualty at
+all. A crossing that
+reaches no pavement used to split whatever pavement lay within a walk of where its own span gave up, which
+left a stretch ending half a metre off a car park's kerb. And **offsetting a chain joins it only where the
+chain is smooth**: where two pieces meet at an angle their offsets meet at a gap of that angle times the
+offset, and a chain walked as one line across such a gap lies about where its own metres are — a station a
+quarter-metre from the end of one stood a metre and a half away, and the clip that had walked it passed it.
+
+**What is checked is the claim itself** and not the derivation restated: every metre of pavement has no
+tarmac inside half a walk of it and has tarmac within half a walk of it, asked of the ground the town
+answers with rather than of the shapes the line was cut by
+(`FootGraphTests.EveryStretchOfPavementStandsHalfAWalkFromTheTarmac`, VER-12).
+
 ## 2026-09-05 — a connector is an object, and where lanes meet is worked out from them
 
 **A movement used to be a lane paired with an index into that lane's slots**, and the pair travelled

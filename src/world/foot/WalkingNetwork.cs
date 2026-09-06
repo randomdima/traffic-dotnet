@@ -491,7 +491,7 @@ internal sealed class WalkingNetwork
     /// a centimetre rather than the graph's quarter-metre weld: a node welded onto another leaves a step
     /// of a few centimetres between two lanes that are otherwise one line, and a step is still a step.
     /// </summary>
-    const float SamePlaceM = 0.01f;
+    internal const float SamePlaceM = 0.01f;
 
     static Joins LayJoins(FootGraph foot, Lanes offset, SimConfig config)
     {

@@ -656,11 +656,14 @@ internal sealed partial class TownWorld
     /// the way it is on begins — and every grant taken against it is then a grant over ground nobody is on.
     /// </para>
     /// <para>
-    /// <b>The first point of a line is walked at like any other.</b> There is no point behind it to measure
-    /// across, so the off-the-line test simply has nothing to say — and a body standing before the way that
-    /// point is on has no way behind it to fall back to and is on none. Refused outright instead, every walk
-    /// in the town began with its walker on no way at all, which is the one state the pavement's own grant
-    /// could not answer for (<see cref="GrantWhereItStands"/>).
+    /// <b>The first point of a line is walked at like any other, and it is the ground that says so.</b>
+    /// There is no point behind it for the off-the-line test to measure across, so the same bar is put to
+    /// the way itself instead (<see cref="OffTheWayM"/>) — a body standing where it would be stationed is
+    /// on that way, and one standing across a field from it is on none. Refused outright, every walk in the
+    /// town began with its walker on no way at all, which is the one state the pavement's own grant could
+    /// not answer for (<see cref="GrantWhereItStands"/>); admitted on the distance alone it was a body's
+    /// place read off a line it had never been near. A body standing before the way that point is on still
+    /// has no way behind it to fall back to and is on none.
     /// </para>
     /// </remarks>
     bool IsAfoot(int person, out int way, out float alongM)
@@ -687,9 +690,9 @@ internal sealed partial class TownWorld
         // side of it is standing somewhere else, whatever its line still says. Reading one of those as a
         // walker on a lane claims ground nobody is on and queues a pavement behind it.
         //
-        // <b>With no point behind it there is no stretch to measure against</b>, and a line freshly laid
-        // from where a body got to says nothing about where that body stands across it — so it is not
-        // placed until it has walked a point, which is the same answer the negative-distance case gives.
+        // <b>With no point behind it there is no stretch of its own walk to measure against</b>, so the
+        // same bar is held to the way instead, below — a line freshly laid from wherever a body got to says
+        // nothing about where that body stands across it.
         if (at > 0
             && OffTheWalkM(points[at - 1], points[at], positionM) > _config.WalkerOffLaneM * OffLineTolerance)
         {
@@ -717,7 +720,42 @@ internal sealed partial class TownWorld
 
         way = on;
         alongM = MathF.Min(alongM, _occupancy.WayLengthM(way));
-        return true;
+        return at > 0 || OffTheWayM(way, positionM, alongM, toPointM) <= _config.WalkerOffLaneM * OffLineTolerance;
+    }
+
+    /// <summary>
+    /// <b>Where on this way the body actually stands, and how far off it</b> — the same bar as
+    /// <see cref="OffTheWalkM"/> put to the ground rather than to the walk, for the one body that has no
+    /// stretch of its own walk behind it to be measured against.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// What it refuses is a body standing nowhere near the way its freshly laid line names. The distance
+    /// alone used to say so — a first point near the start of its own way leaves a body short of it a
+    /// negative distance along — but only while a stretch was short enough for that to be true of it. On a
+    /// pavement laid in one piece from junction to junction the first point stands eighty metres along one,
+    /// and a body that had walked none of its line claimed ground across a field.
+    /// </para>
+    /// <para>
+    /// <b>The line is searched and not sampled at the one metre</b>, and that is what makes the bar honest.
+    /// Stepping back from the first point by the straight to it reads the walk's own metres, and a body
+    /// standing <em>beside</em> that point — a paramedic that has just got out of a cab — has its whole
+    /// sideways distance taken off its place on the way as well. Read at that metre alone the body stands
+    /// metres from a line it is on, so the subtraction only seeds a window and the way itself is searched
+    /// in it. <b>The metre is left as it was</b>: a way's metres are its lane's, and this line is the
+    /// stretch the lane is offset from, so a place found along it is not a place along the way.
+    /// </para>
+    /// </remarks>
+    float OffTheWayM(int way, Vector2 atM, float aroundM, float windowM)
+    {
+        var arcs = _ways.KindOf(way) == WayKind.Footway
+            ? _pavement.ArcsOf(_ways.FootwayOf(way))
+            : _pavement.ConnectorArcs(_ways.MitreOf(way));
+        if (arcs.Length == 0) return 0f;
+
+        var alongM = Spline.ProjectM(arcs, atM, aroundM, windowM + _config.WalkerOffLaneM);
+
+        return (Spline.SampleAt(arcs, alongM).PositionM - atM).Length() - _config.WalkerOffLaneM;
     }
 
     /// <summary>How far a body stands off the stretch of its walk it is on, which is the walking side's own off-line.</summary>

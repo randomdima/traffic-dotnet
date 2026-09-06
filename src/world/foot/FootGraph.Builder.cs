@@ -19,27 +19,11 @@ internal sealed partial class FootGraph
         readonly List<float> _edgeLengthM = [];
         readonly List<float> _edgeBandM = [];
         readonly List<FootEdgeKind> _edgeKind = [];
-        readonly List<bool> _dead = [];
         // One array per edge while building, flattened once at the end: a stretch that a crossing splits
         // has its line replaced, and a flat store with offsets in it cannot be written to in place.
         readonly List<ArcSeg[]> _edgeArcs = [];
 
         public Vector2 PositionOf(int node) => _nodeM[node];
-
-        /// <summary>Whether these two already have a stretch between them, so a fallback band knows to stay out of the way.</summary>
-        public bool Joined(int fromNode, int toNode)
-        {
-            for (var edge = 0; edge < _edgeFrom.Count; edge++)
-            {
-                if (_edgeFrom[edge] == fromNode && _edgeTo[edge] == toNode) return true;
-            }
-
-            return false;
-        }
-
-        public int FromNode(int edge) => _edgeFrom[edge];
-
-        public int ToNode(int edge) => _edgeTo[edge];
 
         public int AddStrand(ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind) =>
             AddPair(NodeAt(arcs[0].StartM), NodeAt(arcs[^1].EndM), arcs, bandM, kind);
@@ -47,31 +31,10 @@ internal sealed partial class FootGraph
         public int AddArc(int fromNode, int toNode, ArcSeg arc, float bandM, FootEdgeKind kind) =>
             AddPair(fromNode, toNode, new ReadOnlySpan<ArcSeg>(in arc), bandM, kind);
 
-        /// <summary>A stretch between two nodes that already stand, whose line bends more than once on the way.</summary>
-        public int AddChain(int fromNode, int toNode, ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind) =>
-            AddPair(fromNode, toNode, arcs, bandM, kind);
-
-        /// <summary>
-        /// Refuses every stretch of pavement whose own middle stands somewhere the network may not go.
-        /// Only the pavement is asked: a crossing and a kerb corner are laid where the plan puts them and
-        /// are not a derivation's to withdraw.
-        /// </summary>
-        public void KillPavementWhere(Func<Vector2, bool> refused)
-        {
-            for (var edge = 0; edge < _edgeFrom.Count; edge += 2)
-            {
-                if (_dead[edge] || _edgeKind[edge] != FootEdgeKind.Pavement) continue;
-                if (!refused(Spline.SampleAt(_edgeArcs[edge], _edgeLengthM[edge] * 0.5f).PositionM)) continue;
-
-                _dead[edge] = true;
-                _dead[edge + 1] = true;
-            }
-        }
-
         /// <summary>
         /// The stretch whose own line passes nearest a point, split there so the point becomes a node —
         /// which is what makes stepping off a kerb a split like any other, and what stops a crossing being
-        /// spliced onto the end of a strip it actually meets the middle of.
+        /// spliced onto the end of a stretch it actually meets the middle of.
         /// </summary>
         public int SplitNearest(Vector2 pointM, float reachM)
         {
@@ -81,8 +44,6 @@ internal sealed partial class FootGraph
 
             for (var edge = 0; edge < _edgeFrom.Count; edge += 2)
             {
-                if (_dead[edge]) continue;
-
                 var lengthM = _edgeLengthM[edge];
 
                 // No station of a stretch is further from one of its own ends than the stretch is long,
@@ -110,14 +71,89 @@ internal sealed partial class FootGraph
         }
 
         /// <summary>
-        /// Drops the dead-end stubs nothing walks — under a stride long, and in the reference towns every
-        /// one of them stood at a lot. Repeated until nothing is left to drop, because cutting one stub
-        /// can leave the stretch behind it a stub in its turn.
+        /// <b>Joins the loose ends of the wrap that stand within <paramref name="acrossM"/> of one another</b>,
+        /// nearest pair first, with the stretch of pavement that runs between them.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>What it closes is a notch and not a gap.</b> Two wrapping lines that hand over at a kerb
+        /// fillet meet <em>tangentially</em>, and the two pieces they came off do not quite touch — a
+        /// fillet's tangent point sits a millimetre off the kerb it was drawn to, a junction's disc stands a
+        /// millimetre proud of the arm's band. So the envelope dips a few millimetres inside the offset over
+        /// half a metre of itself, both lines are cut at that dip, and neither covers it: the pavement is
+        /// interrupted by a notch of tarmac two centimetres deep, which is nothing a person walks round.
+        /// </para>
+        /// <para>
+        /// <b>It cannot be answered by asking the tarmac more kindly.</b> A tolerance on the offset moves
+        /// the cut by the square root of twice the radius times the tolerance — a metre of overshoot for a
+        /// centimetre of grace — so the two lines then run <em>past</em> each other instead and the ends
+        /// stand further apart than before. What is ill-conditioned is the crossing of two curves that graze;
+        /// what is not is the distance between the two ends once they are cut.
+        /// </para>
+        /// </remarks>
+        public void Stitch(float acrossM, float bandM)
+        {
+            var ends = new List<int>();
+            var ways = new int[_nodeM.Count];
+            for (var edge = 0; edge < _edgeFrom.Count; edge += 2)
+            {
+                ways[_edgeFrom[edge]]++;
+                ways[_edgeTo[edge]]++;
+            }
+
+            for (var node = 0; node < ways.Length; node++)
+            {
+                if (ways[node] == 1) ends.Add(node);
+            }
+
+            var pairs = new List<(float M, int From, int To)>();
+            for (var one = 0; one < ends.Count; one++)
+            {
+                for (var two = one + 1; two < ends.Count; two++)
+                {
+                    var apartM = (_nodeM[ends[one]] - _nodeM[ends[two]]).Length();
+                    if (apartM <= acrossM) pairs.Add((apartM, ends[one], ends[two]));
+                }
+            }
+
+            pairs.Sort((first, second) => first.M.CompareTo(second.M));
+
+            // One join an end, nearest pair first: an end already carried on is no longer loose, and joined
+            // to a second neighbour as well it is a place the walk can arrive at and leave by the same
+            // stretch (<see cref="WalkingNetwork"/> has no corner to lay between a line and itself).
+            var joined = new bool[_nodeM.Count];
+            foreach (var (apartM, from, to) in pairs)
+            {
+                if (joined[from] || joined[to] || AlreadyRun(from, to)) continue;
+
+                joined[from] = true;
+                joined[to] = true;
+                var lineM = _nodeM[to] - _nodeM[from];
+                AddArc(
+                    from, to, new ArcSeg(_nodeM[from], MathF.Atan2(lineM.Y, lineM.X), apartM, 0f), bandM,
+                    FootEdgeKind.Pavement);
+            }
+        }
+
+        /// <summary>Whether these two ends are already the two ends of one stretch, which is a loop and not a join.</summary>
+        bool AlreadyRun(int from, int to)
+        {
+            for (var edge = 0; edge < _edgeFrom.Count; edge++)
+            {
+                if (_edgeFrom[edge] == from && _edgeTo[edge] == to) return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Drops the dead-end stubs nothing walks — under a stride long. Repeated until nothing is left to
+        /// drop, because cutting one stub can leave the stretch behind it a stub in its turn.
         /// </summary>
         public FootGraph Prune(float stubM, float nearestCellM)
         {
             var alive = new bool[_edgeFrom.Count];
-            for (var edge = 0; edge < alive.Length; edge++) alive[edge] = !_dead[edge];
+            Array.Fill(alive, true);
 
             bool cut;
             do
@@ -207,7 +243,6 @@ internal sealed partial class FootGraph
             _edgeBandM.Add(bandM);
             _edgeKind.Add(kind);
             _edgeArcs.Add(arcs);
-            _dead.Add(false);
         }
 
         int NodeAt(Vector2 pointM)

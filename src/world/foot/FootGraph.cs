@@ -10,28 +10,29 @@ namespace TrafficSimulation.World.Foot;
 /// <summary>What a stretch of the foot graph is, for whoever has to tell a kerb from a zebra.</summary>
 internal enum FootEdgeKind : byte
 {
-    /// <summary>A band of pavement running beside a carriageway.</summary>
+    /// <summary>
+    /// A band of pavement wrapping the carriageway. <b>The corner round a junction is one of these</b>
+    /// and not a kind of its own: it is the same line at the same distance from the same tarmac, and the
+    /// only thing that ever differed was which record it was derived from.
+    /// </summary>
     Pavement,
-
-    /// <summary>The band round a junction, joining the pavements of the arms that meet at it.</summary>
-    JunctionCorner,
 
     /// <summary>The one kind of edge that touches a carriageway, which is what makes crossing at a crossing structural.</summary>
     Crossing,
 }
 
 /// <summary>
-/// The fine walking graph: <b>every stretch of pavement, every band round a junction and every crossing,
-/// derived from the plan and never re-traced</b>. Nothing here re-discovers where a kerb is —
-/// a carriageway contributes the two bands either side of it, a junction contributes the band that joins
-/// them, and a crossing contributes the one edge that touches a road.
+/// The fine walking graph: <b>the pavement as the tarmac wrapped half a walk out, and every crossing</b>.
+/// Nothing here re-discovers where a kerb is and nothing pieces a junction back together — the
+/// carriageway is one shape (<see cref="Kerbs"/>), the line that stands half a walk outside it is one
+/// line, and a crossing contributes the one edge that touches a road.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The line is the pavement's own line, and there is only one of it.</b> A walk along a stretch is
 /// that stretch's own curve — the kerb's points, at the kerb's own distance, with the kerb's own
 /// curvature — and both directions hold it. <em>Half a band in is the middle of the band, not near it.</em>
-/// A junction's band is the arc at the same distance outside its disc; a crossing is its own band's middle.
+/// A crossing is its own band's middle.
 /// </para>
 /// <para>
 /// <b>A join is not a place.</b> Both edges end at the node they share and the line is read off that node,
@@ -165,15 +166,10 @@ internal sealed partial class FootGraph : IFineGraph
         // laying one down the middle of its roads.
         if (bandM > 0f)
         {
-            var terrain = new GroundLocator(plan, config);
-            var strips = Strips(plan, config, bandM);
-            var corners = Corners(plan, strips, bandM);
-            var ends = Lay(builder, strips, bandM);
-            KerbCorners(plan, builder, corners, ends, bandM);
-            ArmBands(plan, terrain, config, builder, ends, bandM);
-            HeadBands(plan, config, builder, ends, bandM);
-            LotBands(plan, terrain, builder, bandM);
-            Crossings(plan, builder, bandM);
+            var kerbs = Kerbs.Of(plan.Ground);
+            Wrap(kerbs, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);
+            builder.Stitch(config.PersonDiameterM, bandM);
+            Crossings(plan, kerbs, builder, bandM);
         }
 
         return builder.Prune(config.Network.FootGraphStubPruneM, config.NearestChainCellM);

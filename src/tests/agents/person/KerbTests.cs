@@ -320,7 +320,10 @@ public class KerbTests
         at.PutARescueOn(at.First, atMps: 0f);
         at.PutARescueOn(at.First, Config.PersonWalkSpeedMps * 2f);
 
-        Assert.True(at.ARescueIsComingThrough);
+        Assert.True(
+            at.ARescueIsComingThrough,
+            $"crossing way {at.Edge} over lane {at.First.Lane} at {at.First.AlongLaneM:0.00} m, "
+            + $"claim {at.ClaimM:0.00} m, {at.Under.Length} lanes under it");
     }
 
     /// <summary>
