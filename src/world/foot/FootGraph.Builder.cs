@@ -19,14 +19,37 @@ internal sealed partial class FootGraph
         readonly List<float> _edgeLengthM = [];
         readonly List<float> _edgeBandM = [];
         readonly List<FootEdgeKind> _edgeKind = [];
+
+        /// <summary>
+        /// Which stretches were laid on the condition that they lead somewhere — the lines a box offers,
+        /// which are pavement only where the arms left the shell open
+        /// (<see cref="DropTheLinesThatLeadNowhere"/>).
+        /// </summary>
+        readonly List<bool> _edgeConditional = [];
+
+        /// <summary>What is still in the graph — everything, until a drop takes something out of it.</summary>
+        readonly List<bool> _edgeAlive = [];
+
         // One array per edge while building, flattened once at the end: a stretch that a crossing splits
         // has its line replaced, and a flat store with offsets in it cannot be written to in place.
         readonly List<ArcSeg[]> _edgeArcs = [];
 
         public Vector2 PositionOf(int node) => _nodeM[node];
 
-        public int AddStrand(ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind) =>
-            AddPair(NodeAt(arcs[0].StartM), NodeAt(arcs[^1].EndM), arcs, bandM, kind);
+        /// <summary>
+        /// One line, laid between the nodes its two ends stand at. <b>A line whose two ends are one node is
+        /// not laid</b>: a stretch running from a node to itself is ground no walk can be stationed along
+        /// and a corner nothing can be turned on (<c>WalkingNetwork</c> has none to lay between a line and
+        /// itself). Both ends welding onto one node that was already there is how a line a third of a metre
+        /// long becomes a loop.
+        /// </summary>
+        public int AddStrand(
+            ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind, bool onlyIfItLeadsSomewhere = false)
+        {
+            var from = NodeAt(arcs[0].StartM);
+            var to = NodeAt(arcs[^1].EndM);
+            return from == to ? NoStretch : AddPair(from, to, arcs, bandM, kind, onlyIfItLeadsSomewhere);
+        }
 
         public int AddArc(int fromNode, int toNode, ArcSeg arc, float bandM, FootEdgeKind kind) =>
             AddPair(fromNode, toNode, new ReadOnlySpan<ArcSeg>(in arc), bandM, kind);
@@ -44,6 +67,8 @@ internal sealed partial class FootGraph
 
             for (var edge = 0; edge < _edgeFrom.Count; edge += 2)
             {
+                if (!_edgeAlive[edge]) continue;
+
                 var lengthM = _edgeLengthM[edge];
 
                 // No station of a stretch is further from one of its own ends than the stretch is long,
@@ -78,8 +103,8 @@ internal sealed partial class FootGraph
         /// <para>
         /// <b>What it closes is a notch and not a gap.</b> Two wrapping lines that hand over at a kerb
         /// fillet meet <em>tangentially</em>, and the two pieces they came off do not quite touch — a
-        /// fillet's tangent point sits a millimetre off the kerb it was drawn to, a junction's disc stands a
-        /// millimetre proud of the arm's band. So the envelope dips a few millimetres inside the offset over
+        /// fillet's tangent point sits a millimetre off the kerb it was drawn to, and a movement's band runs
+        /// a millimetre proud of the arm's. So the envelope dips a few millimetres inside the offset over
         /// half a metre of itself, both lines are cut at that dip, and neither covers it: the pavement is
         /// interrupted by a notch of tarmac two centimetres deep, which is nothing a person walks round.
         /// </para>
@@ -94,13 +119,7 @@ internal sealed partial class FootGraph
         public void Stitch(float acrossM, float bandM)
         {
             var ends = new List<int>();
-            var ways = new int[_nodeM.Count];
-            for (var edge = 0; edge < _edgeFrom.Count; edge += 2)
-            {
-                ways[_edgeFrom[edge]]++;
-                ways[_edgeTo[edge]]++;
-            }
-
+            var ways = Ways();
             for (var node = 0; node < ways.Length; node++)
             {
                 if (ways[node] == 1) ends.Add(node);
@@ -135,15 +154,69 @@ internal sealed partial class FootGraph
             }
         }
 
-        /// <summary>Whether these two ends are already the two ends of one stretch, which is a loop and not a join.</summary>
-        bool AlreadyRun(int from, int to)
+        /// <summary>
+        /// Whether some other stretch already runs between these two ends — for a join, a loop rather than
+        /// a join; for a line the shell only wanted where it led somewhere, somewhere the walk goes anyway.
+        /// </summary>
+        bool AlreadyRun(int from, int to, int besides = NoStretch)
         {
             for (var edge = 0; edge < _edgeFrom.Count; edge++)
             {
+                if (edge == besides || edge == besides + 1 || !_edgeAlive[edge]) continue;
                 if (_edgeFrom[edge] == from && _edgeTo[edge] == to) return true;
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// No stretch: what a line that was not laid answers with, and what a caller asking about a pair of
+        /// ends alone leaves out of the question.
+        /// </summary>
+        const int NoStretch = -2;
+
+        /// <summary>
+        /// <b>Drops the lines that were laid on the condition that they lead somewhere and do not.</b> A
+        /// line a box offers is the shell where it closes a gap the arms left open, which is to say where
+        /// the pavement carries on at both of its ends; standing on one end or on neither, it is a second
+        /// line up the middle of a pavement that is already laid.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>And a line between two places the walk already runs between leads nowhere either</b>, however
+        /// well joined its ends are. A movement straight through a place where a one-way street is merely
+        /// cut is drawn on the street's own centreline at the street's own width, so the line that wraps it
+        /// is the street's line to the last bit of the float — two stretches over one piece of ground,
+        /// between one pair of nodes, which is a way a walk can be sent down and a corner nothing can be
+        /// laid between.
+        /// </para>
+        /// <para>
+        /// Repeated, because two of them can hold each other up: a pair that meets in the middle of a
+        /// pavement leads somewhere at one end apiece until the first is dropped.
+        /// </para>
+        /// </remarks>
+        public void DropTheLinesThatLeadNowhere()
+        {
+            bool cut;
+            do
+            {
+                cut = false;
+                var ways = Ways();
+                for (var edge = 0; edge < _edgeAlive.Count; edge += 2)
+                {
+                    if (!_edgeAlive[edge] || !_edgeConditional[edge]) continue;
+                    if (ways[_edgeFrom[edge]] > 1 && ways[_edgeTo[edge]] > 1
+                        && !AlreadyRun(_edgeFrom[edge], _edgeTo[edge], besides: edge))
+                    {
+                        continue;
+                    }
+
+                    _edgeAlive[edge] = false;
+                    _edgeAlive[edge + 1] = false;
+                    cut = true;
+                }
+            }
+            while (cut);
         }
 
         /// <summary>
@@ -152,8 +225,7 @@ internal sealed partial class FootGraph
         /// </summary>
         public FootGraph Prune(float stubM, float nearestCellM)
         {
-            var alive = new bool[_edgeFrom.Count];
-            Array.Fill(alive, true);
+            var alive = _edgeAlive.ToArray();
 
             bool cut;
             do
@@ -183,6 +255,21 @@ internal sealed partial class FootGraph
             return Lay(alive, nearestCellM);
         }
 
+        /// <summary>How many stretches still in the graph each node stands on.</summary>
+        int[] Ways()
+        {
+            var ways = new int[_nodeM.Count];
+            for (var edge = 0; edge < _edgeAlive.Count; edge += 2)
+            {
+                if (!_edgeAlive[edge]) continue;
+
+                ways[_edgeFrom[edge]]++;
+                ways[_edgeTo[edge]]++;
+            }
+
+            return ways;
+        }
+
         ReadOnlySpan<ArcSeg> ArcsOf(int edge) => _edgeArcs[edge];
 
         /// <summary>
@@ -204,7 +291,7 @@ internal sealed partial class FootGraph
             var middle = NodeAt(head[headCount - 1].EndM);
 
             Rewrite(edge, _edgeFrom[edge], middle, head.AsSpan(0, headCount));
-            AddPair(middle, to, tail.AsSpan(0, tailCount), bandM, kind);
+            AddPair(middle, to, tail.AsSpan(0, tailCount), bandM, kind, _edgeConditional[edge]);
             return middle;
         }
 
@@ -223,25 +310,31 @@ internal sealed partial class FootGraph
             _edgeArcs[edge + 1] = reversed;
         }
 
-        int AddPair(int fromNode, int toNode, ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind)
+        int AddPair(
+            int fromNode, int toNode, ReadOnlySpan<ArcSeg> arcs, float bandM, FootEdgeKind kind,
+            bool conditional = false)
         {
             var forward = _edgeFrom.Count;
             var lengthM = Spline.TotalLengthM(arcs);
             var reversed = new ArcSeg[arcs.Length];
             Spline.ReverseInto(arcs, reversed);
 
-            Add(fromNode, toNode, arcs.ToArray(), lengthM, bandM, kind);
-            Add(toNode, fromNode, reversed, lengthM, bandM, kind);
+            Add(fromNode, toNode, arcs.ToArray(), lengthM, bandM, kind, conditional);
+            Add(toNode, fromNode, reversed, lengthM, bandM, kind, conditional);
             return forward;
         }
 
-        void Add(int fromNode, int toNode, ArcSeg[] arcs, float lengthM, float bandM, FootEdgeKind kind)
+        void Add(
+            int fromNode, int toNode, ArcSeg[] arcs, float lengthM, float bandM, FootEdgeKind kind,
+            bool conditional)
         {
             _edgeFrom.Add(fromNode);
             _edgeTo.Add(toNode);
             _edgeLengthM.Add(lengthM);
             _edgeBandM.Add(bandM);
             _edgeKind.Add(kind);
+            _edgeConditional.Add(conditional);
+            _edgeAlive.Add(true);
             _edgeArcs.Add(arcs);
         }
 

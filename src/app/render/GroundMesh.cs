@@ -227,9 +227,7 @@ internal sealed partial class GroundMesh
                 var line = lanes.ArcsOfConnector(turn);
                 if (line.Length == 0) continue;
 
-                mesh.Ribbon(
-                    line, (lanes.LaneWidthM[lanes.ConnectorToLane[turn]] * 0.5f) - inset, Surface.Tarmac, tint,
-                    periods);
+                mesh.Ribbon(line, (lanes.ConnectorWidthM(turn) * 0.5f) - inset, Surface.Tarmac, tint, periods);
             }
 
             for (var corner = 0; corner < plan.JunctionCorners.Count; corner++)

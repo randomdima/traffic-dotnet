@@ -168,6 +168,7 @@ internal sealed partial class FootGraph : IFineGraph
         {
             var kerbs = Kerbs.Of(plan.Ground, LaneLines.Of(plan.Ground, config));
             Wrap(kerbs, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);
+            builder.DropTheLinesThatLeadNowhere();
             builder.Stitch(config.PersonDiameterM, bandM);
             Crossings(plan, kerbs, builder, bandM);
         }

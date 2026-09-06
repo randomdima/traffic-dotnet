@@ -4,6 +4,19 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-06 — a movement is as wide as the narrower lane it joins, and one figure says so
+
+**Three readers were each computing a movement's width, and all three took it off the lane it arrives on.**
+That is fine while every lane in a town is the same width, which is why it survived Odesa and River without
+a mark; on a hand-authored map where a four-metre street meets a five-metre one it put half a metre of
+tarmac past the narrow street's own kerb, standing in the pavement. The narrower of the two lanes is the
+only width a single band can have that never claims ground outside either arm (TER-5d.1), and it is now
+answered once by `LaneLines.ConnectorWidthM` — the tarmac's shape, the ground under a point and the picture
+read that one.
+
+**Which lane a movement leaves went down with it.** `RoadGraph` folded that out of `ConnectorAt` for its own
+callers; it is a fact about the lines, the width needs it, and it is on `LaneLines` now.
+
 ## 2026-09-06 — the graph reads the lines rather than drawing them
 
 **`RoadGraph` used to be two jobs in one type.** It cut the roads, offset the lanes, settled every lane end's

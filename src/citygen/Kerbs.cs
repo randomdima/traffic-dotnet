@@ -33,6 +33,13 @@ namespace TrafficSimulation.CityGen;
 /// offset distance from both pieces.
 /// </para>
 /// <para>
+/// <b>And a piece is not always the outside of the tarmac.</b> A line a car is turned through a box on is
+/// tarmac that the arms enclose, so what stands the offset outside <em>it</em> can stand the offset outside
+/// everything else as well and still be a line up the middle of the pavement. Such a piece offers its line
+/// only where the kerb is open (<see cref="Piece.WalkedPast"/>), and the caller is handed the town's own
+/// kerb first so that it knows (TER-3c.5).
+/// </para>
+/// <para>
 /// <b>Build-time work.</b> It allocates freely and answers thousands of points while a town is laid; it
 /// is never asked anything on a tick.
 /// </para>
@@ -115,21 +122,36 @@ internal sealed class Kerbs
     }
 
     /// <summary>
+    /// One wrapping line, the piece of tarmac it stands that far outside, and whether that piece is the
+    /// outside of the town's tarmac or only the inside of a box (<see cref="Piece.WalkedPast"/>).
+    /// </summary>
+    public readonly record struct Wrap(int Piece, ArcSeg[] Line, bool OnlyWhereTheKerbIsOpen);
+
+    /// <summary>
     /// <b>Every line that stands <paramref name="outM"/> outside one piece of the tarmac</b>: a road's
     /// own arcs offset both ways, a connector's offset both ways, the arc round a kerb fillet, and the
     /// rounded box round a car park or a slab. <b>The corner of a box is turned on the offset itself</b>,
     /// which is what keeps the line the same distance out all the way round it.
     /// </summary>
-    /// <summary>One wrapping line, and the piece of tarmac it stands that far outside.</summary>
-    public readonly record struct Wrap(int Piece, ArcSeg[] Line);
-
+    /// <remarks>
+    /// <b>The town's own kerb comes first and what only fills its gaps comes after</b>, so a caller that
+    /// keeps a line where nothing else runs has already seen everything that could stand in its way by the
+    /// time it is asked (TER-3c.5).
+    /// </remarks>
     public void Wrapping(float outM, List<Wrap> into)
     {
+        Wrapping(outM, WalkedPast.Always, into);
+        Wrapping(outM, WalkedPast.WhereTheKerbIsOpen, into);
+    }
+
+    void Wrapping(float outM, WalkedPast when, List<Wrap> into)
+    {
         var offset = new ArcSeg[32];
+        var open = when == WalkedPast.WhereTheKerbIsOpen;
         for (var at = 0; at < _pieces.Count; at++)
         {
             var piece = _pieces[at];
-            if (!piece.Wrapped) continue;
+            if (piece.WalkedPast != when) continue;
 
             switch (piece.Kind)
             {
@@ -140,7 +162,7 @@ internal sealed class Kerbs
                     foreach (var sideM in (ReadOnlySpan<float>)[piece.HalfM.X + outM, -(piece.HalfM.X + outM)])
                     {
                         Spline.OffsetInto(arcs, sideM, offset);
-                        Runs(at, offset.AsSpan(0, arcs.Length), into);
+                        Runs(at, open, offset.AsSpan(0, arcs.Length), into);
                     }
 
                     break;
@@ -153,11 +175,12 @@ internal sealed class Kerbs
                     if (piece.RadiusM <= outM) break;
 
                     into.Add(new Wrap(
-                        at, [Around(piece.CentreM, piece.RadiusM - outM, piece.TangentAM, piece.TangentBM)]));
+                        at, [Around(piece.CentreM, piece.RadiusM - outM, piece.TangentAM, piece.TangentBM)], open));
                     break;
 
                 default:
-                    into.Add(new Wrap(at, Box(piece.CentreM, piece.Axis, piece.HalfM + new Vector2(outM), outM)));
+                    into.Add(new Wrap(
+                        at, Box(piece.CentreM, piece.Axis, piece.HalfM + new Vector2(outM), outM), open));
                     break;
             }
         }
@@ -174,7 +197,7 @@ internal sealed class Kerbs
     /// are</b> — a station a quarter-metre from its end stood a metre and a half away — and everything laid
     /// off those metres inherits it. Cut here, each run is a line whose distance along it is where it says.
     /// </remarks>
-    static void Runs(int piece, ReadOnlySpan<ArcSeg> line, List<Wrap> into)
+    static void Runs(int piece, bool open, ReadOnlySpan<ArcSeg> line, List<Wrap> into)
     {
         var from = 0;
         for (var arc = 0; arc <= line.Length; arc++)
@@ -185,7 +208,7 @@ internal sealed class Kerbs
                 || (arc > from && Vector2.Distance(line[arc - 1].EndM, line[arc].StartM) > JoinedM);
             if (!breaks) continue;
 
-            if (arc > from) into.Add(new Wrap(piece, line[from..arc].ToArray()));
+            if (arc > from) into.Add(new Wrap(piece, line[from..arc].ToArray(), open));
 
             from = folded ? arc + 1 : arc;
         }
@@ -285,7 +308,24 @@ internal sealed class Kerbs
             default:
                 var one = piece.Arcs.Span.Slice(arc, 1);
                 var alongM = Spline.ProjectM(one, pointM, 0f, float.MaxValue);
-                return (Spline.SampleAt(one, alongM).PositionM - pointM).Length() - piece.HalfM.X;
+                var on = Spline.SampleAt(one, alongM);
+                var offsetM = pointM - on.PositionM;
+                var asideM = MathF.Abs(Vector2.Dot(offsetM, on.Right)) - piece.HalfM.X;
+
+                // <b>A band ends where its line does</b> (TER-7a). Measured radially from the last
+                // station it would end in a half-disc of its own half-width instead, and a line a car is
+                // turned on — which begins in the middle of the lane it leaves — then carried a bulge of
+                // tarmac half a lane past that point, out under the pavement corner beside it. What that
+                // ate was the corner: the fillet's own wrapping line was cut where the bulge reached it and
+                // the pavement came apart at the mouth. It is also what <c>GroundShapes</c> has always
+                // answered, so the two readings of one shape now agree.
+                var beyondM = alongM <= 0f || alongM >= one[0].LengthM
+                    ? MathF.Abs(Vector2.Dot(offsetM, on.Direction))
+                    : 0f;
+                if (beyondM <= 0f) return asideM;
+
+                var outM = MathF.Max(asideM, 0f);
+                return MathF.Sqrt((outM * outM) + (beyondM * beyondM));
         }
     }
 
@@ -309,7 +349,8 @@ internal sealed class Kerbs
             var arcs = lanes.ArcsOfConnector(connector);
             if (arcs.Length == 0) continue;
 
-            pieces.Add(Piece.Band(arcs.ToArray(), lanes.LaneWidthM[lanes.ConnectorToLane[connector]] * 0.5f));
+            pieces.Add(Piece.Band(
+                arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f, WalkedPast.WhereTheKerbIsOpen));
         }
 
         var corners = plan.JunctionCorners;
@@ -331,7 +372,7 @@ internal sealed class Kerbs
         {
             pieces.Add(Piece.Box(
                 areas.MinM[area] + (areas.SizeM[area] * 0.5f), Vector2.UnitX, areas.SizeM[area] * 0.5f,
-                wrapped: false));
+                WalkedPast.Never));
         }
 
         return pieces;
@@ -345,22 +386,48 @@ internal sealed class Kerbs
     }
 
     /// <summary>
+    /// <b>When a piece of tarmac offers the line that stands outside it</b> — which is not the same question
+    /// as whether it is tarmac at all (TER-3c.5).
+    /// </summary>
+    enum WalkedPast : byte
+    {
+        /// <summary>
+        /// Never: a slab is a place to walk rather than a thing to walk past, so it holds the pavement off
+        /// itself without asking for a band of its own (TER-3c).
+        /// </summary>
+        Never,
+
+        /// <summary>
+        /// Always: a carriageway, the fillet that rounds a wedge between two of them, and a car park are
+        /// the outside of the town's tarmac, and the outside is what the pavement wraps.
+        /// </summary>
+        Always,
+
+        /// <summary>
+        /// <b>Only where the kerb leaves a gap</b>: a line a car is turned through a box on runs
+        /// <em>inside</em> the box, and what a box is walked round is the arms that meet at it. Offered
+        /// unconditionally it lays a second pavement line beside the arm's own, half a metre off it — two
+        /// lanes threaded between two, and a stub of dead-ended kerb at every mouth in the town.
+        /// </summary>
+        WhereTheKerbIsOpen,
+    }
+
+    /// <summary>
     /// One piece of tarmac. <see cref="HalfM"/> carries what each kind is measured by — a band's
     /// half-width, a box's half-extent, and a fillet's arc as the bearing it starts at and the angle it
     /// sweeps — so one distance function serves all four.
     /// </summary>
     /// <remarks>
-    /// <b><see cref="Wrapped"/> is what the town lays a walk beside</b>, and it is not everything the town
-    /// paves (TER-3c): a slab is a place to walk rather than a thing to walk past, so it holds the
-    /// pavement off itself without asking for a band of its own. Every other piece asks for one.
+    /// <b><see cref="WalkedPast"/> is what the town lays a walk beside</b>, and it is not everything the
+    /// town paves (TER-3c).
     /// </remarks>
     readonly record struct Piece(
         Kind Kind, Vector2 CentreM, Vector2 Axis, Vector2 HalfM, float RadiusM, float SpanM, Vector2 TangentAM,
-        Vector2 TangentBM, ReadOnlyMemory<ArcSeg> Arcs, bool Wrapped = true)
+        Vector2 TangentBM, ReadOnlyMemory<ArcSeg> Arcs, WalkedPast WalkedPast = WalkedPast.Always)
     {
-        public static Piece Band(ArcSeg[] arcs, float halfWidthM) =>
+        public static Piece Band(ArcSeg[] arcs, float halfWidthM, WalkedPast walkedPast = WalkedPast.Always) =>
             new(Kind.Band, Vector2.Zero, Vector2.UnitX, new Vector2(halfWidthM), 0f, 0f, Vector2.Zero,
-                Vector2.Zero, arcs);
+                Vector2.Zero, arcs, walkedPast);
 
         /// <summary><see cref="SpanM"/> is how far the corner stands from the arc's centre, which is how far out the wedge is tarmac.</summary>
         public static Piece Fillet(
@@ -373,9 +440,10 @@ internal sealed class Kerbs
                 (cornerM - arcCentreM).Length(), tangentAM, tangentBM, default);
         }
 
-        public static Piece Box(Vector2 centreM, Vector2 axis, Vector2 halfM, bool wrapped = true) =>
+        public static Piece Box(
+            Vector2 centreM, Vector2 axis, Vector2 halfM, WalkedPast walkedPast = WalkedPast.Always) =>
             new(Kind.Box, centreM, axis.LengthSquared() > 0f ? Vector2.Normalize(axis) : Vector2.UnitX, halfM, 0f,
-                0f, Vector2.Zero, Vector2.Zero, default, wrapped);
+                0f, Vector2.Zero, Vector2.Zero, default, walkedPast);
     }
 
     /// <summary>

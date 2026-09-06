@@ -54,11 +54,19 @@ readers of that record, the picture and the query, take it off the one array.
 stage can ask what has been laid where; it agrees with the shapes only to within a cell, it is never
 shipped, and no rule about a finished town may be argued from it.
 
+**TER-7a** **A band of ground ends where its own line ends**, square across, and not in a half-disc of its
+own half-width past the last point. It is the difference between a shape and the arithmetic that is
+cheapest to measure it by, and the two readers of a band had settled it differently: the answer at a point
+said square and the tarmac's own outline said round. What the round end put into the town was tarmac
+nothing is drawn on and nothing drives over — half a lane of it past the point a movement starts at, which
+is inside the box and therefore invisible, until it reached out under the pavement corner beside the mouth
+and took the corner's own line away with it.
+
 ## The pavement
 
 **TER-3c** A town is laid with a **pavement**: a band of preferred walkable ground running the whole
-length of every carriageway on both sides, touching the kerb, ringing every junction and wrapping every
-lot. **It is stamped by what it is not** — it takes only ground nothing else has claimed, so the
+length of every carriageway on both sides, touching the kerb, turning the corner of every junction and
+wrapping every lot. **It is stamped by what it is not** — it takes only ground nothing else has claimed, so the
 carriageway, the crossings, the corner flares and the bridge decks keep their own cells and the band
 falls out as the two strips either side, without anything having to know where a kerb is.
 
@@ -90,6 +98,20 @@ solved against the finished ground rather than enumerated per kind of neighbour 
 generator has never put together before is rounded the first time it appears, and a map recording no
 corners of its own is rounded exactly as one that does. **The build solves them**, from the pieces it
 lays the pavement out of, and reads no list of them from anywhere.
+
+**TER-3c.5** **The pavement is the outside of the tarmac, and only the outside.** Every piece of tarmac
+offers the line that stands half a walk beyond it and a metre of such a line is pavement where nothing
+stands nearer than that — but a piece the rest of the tarmac encloses passes that test in the middle of a
+pavement that is already laid. **The lines a car is turned through a box on are such pieces**: what a box
+is walked round is the arms that meet at it, so a movement's line is pavement only **where it leads
+somewhere** — joined to the rest of the walk at both of its ends, closing a gap the arms left open.
+Dead-ending, it is the same pavement said twice, and what it laid was a second line up the middle of every
+mouth in the town: two lanes threaded between two, a walk crossing from one side of the pavement to the
+other and back at every corner, and four hundred stubs of kerb leading nowhere on one map.
+
+**It is one rule for a shell and not a case for junctions**, and nothing here knows what a box is: a piece
+says whether it is the outside of the tarmac or the inside of something, and the walk is laid off whichever
+lines are left.
 
 ## Water and bridges
 

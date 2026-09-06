@@ -619,8 +619,8 @@ internal sealed class WalkingNetwork
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A stretch ends where the ground stops being its own</b>, exactly as a lane is cut back from a
-    /// junction disc on the road side. Where a zebra meets a pavement the two bands overlap over a whole
+    /// <b>A stretch ends where the ground stops being its own</b>, exactly as a lane is cut back to where
+    /// its movements hand over on the road side. Where a zebra meets a pavement the two bands overlap over a whole
     /// pavement's width: the crossing's own edge is laid from one pavement's line to the other's, so half
     /// a band at each end of it is pavement, and drawn whole it is a zebra lying over the junction it
     /// arrives at. Cut by the box, the crossing's lane is the paint and the pavement's stops at the

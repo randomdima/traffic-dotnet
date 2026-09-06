@@ -112,7 +112,7 @@ internal sealed partial class GroundShapes
             foreach (var arc in line) arcs.Add(arc);
 
             _turnArcAt[turn + 1] = arcs.Count;
-            _turnHalfM[turn] = lanes.LaneWidthM[lanes.ConnectorToLane[connector]] * 0.5f;
+            _turnHalfM[turn] = lanes.ConnectorWidthM(connector) * 0.5f;
             _turnLengthM[turn] = lanes.ConnectorLengthM[connector];
             _farthestTurnM = MathF.Max(_farthestTurnM, _turnHalfM[turn]);
             index.Add(turn, line, _turnLengthM[turn]);

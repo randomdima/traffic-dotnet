@@ -88,6 +88,14 @@ internal sealed class LaneLines
         ConnectorArcOffsets = connectorArcOffsets;
         ConnectorArcs = connectorArcs;
         ConnectorLengthM = connectorLengthM;
+
+        // Which lane a connector leaves is the run it stands in, so it is folded out once rather than
+        // searched for: a caller holding an id asks both its ends the same way.
+        ConnectorFromLane = new int[connectorToLane.Length];
+        for (var lane = 0; lane < LaneCount; lane++)
+        {
+            for (var id = connectorAt[lane]; id < connectorAt[lane + 1]; id++) ConnectorFromLane[id] = lane;
+        }
     }
 
     /// <summary>How many intersections the plan named, which is the block the cut nodes start with.</summary>
@@ -135,6 +143,9 @@ internal sealed class LaneLines
 
     public int[] ConnectorToLane { get; }
 
+    /// <summary>And the lane it leaves, folded out of <see cref="ConnectorAt"/> once.</summary>
+    public int[] ConnectorFromLane { get; }
+
     public LaneTurn[] ConnectorKind { get; }
 
     public int[] ConnectorArcOffsets { get; }
@@ -150,6 +161,20 @@ internal sealed class LaneLines
     /// <summary>The line one lane is driven on, in its own direction of travel, already cut back at both ends.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) =>
         LaneArcs.AsSpan(LaneArcOffsets[lane], LaneArcOffsets[lane + 1] - LaneArcOffsets[lane]);
+
+    /// <summary>
+    /// <b>How wide the ground a movement is driven over is: the narrower of the two lanes it joins</b>
+    /// (TER-5d.1). One figure, read by everything that has to know what a box is paved with — the tarmac's
+    /// own shape (<c>Kerbs</c>), the ground under a point (<c>GroundShapes</c>) and the picture.
+    /// </summary>
+    /// <remarks>
+    /// <b>The narrower, because a band is one width and the two ends are not.</b> Drawn at the arriving
+    /// lane's width all the way back, a movement onto a wide road out of a narrow one reaches past the
+    /// narrow one's own kerb at the mouth — half a metre of tarmac standing in the pavement, which cut the
+    /// corner's wrapping line and left the pavement in two pieces either side of the junction.
+    /// </remarks>
+    public float ConnectorWidthM(int connector) =>
+        MathF.Min(LaneWidthM[ConnectorFromLane[connector]], LaneWidthM[ConnectorToLane[connector]]);
 
     /// <summary>The line one connector is driven on, which is empty where the two lanes butt.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOfConnector(int connector) =>

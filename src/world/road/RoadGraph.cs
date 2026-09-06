@@ -48,7 +48,6 @@ internal sealed class RoadGraph : ILaneEnds
     readonly int[] _junctionOutLanes;
     readonly int[] _junctionInOffsets;
     readonly int[] _junctionInLanes;
-    readonly int[] _connectorFromLane;
 
     /// <summary>The lanes over a grid, which is the whole of what <see cref="NearestLane"/> is.</summary>
     readonly ChainIndex _nearest;
@@ -64,17 +63,6 @@ internal sealed class RoadGraph : ILaneEnds
         _junctionOutLanes = junctionOutLanes;
         _junctionInOffsets = junctionInOffsets;
         _junctionInLanes = junctionInLanes;
-
-        // Which lane a connector leaves is the run it stands in, so it is folded out once rather than
-        // searched for: a caller holding an id asks both its ends the same way.
-        _connectorFromLane = new int[lines.ConnectorCount];
-        for (var lane = 0; lane < lines.LaneCount; lane++)
-        {
-            for (var id = lines.ConnectorAt[lane]; id < lines.ConnectorAt[lane + 1]; id++)
-            {
-                _connectorFromLane[id] = lane;
-            }
-        }
 
         var builder = new ChainIndex.Builder();
         for (var lane = 0; lane < lines.LaneCount; lane++)
@@ -215,7 +203,7 @@ internal sealed class RoadGraph : ILaneEnds
             _lines.ConnectorAt[lane], _lines.ConnectorAt[lane + 1] - _lines.ConnectorAt[lane]);
 
     /// <summary>The lane a connector leaves.</summary>
-    public int ConnectorFrom(int connector) => _connectorFromLane[connector];
+    public int ConnectorFrom(int connector) => _lines.ConnectorFromLane[connector];
 
     /// <summary>And the lane it arrives on.</summary>
     public int ConnectorTo(int connector) => _lines.ConnectorToLane[connector];

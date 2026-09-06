@@ -304,6 +304,80 @@ public class FootGraphTests
         }
     }
 
+    /// <summary>
+    /// <b>No stretch of pavement runs alongside another one</b> (TER-3c.5). The walk is the outside of the
+    /// tarmac and the outside is one line, so a stretch every metre of which lies inside another stretch's
+    /// band is the same pavement laid twice — two more lanes down a footway that already has two, and a
+    /// walk that crosses from one side of the band to the other to get onto them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Against the other line's middle and not its whole length</b>, because a stretch that closes a gap
+    /// between two others necessarily begins and ends at their ends — that is what a gap is — and measured
+    /// against a whole line every corner of the town reads as doubled.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NoStretchOfPavementIsLaidAlongsideAnother(string map)
+    {
+        var foot = Of(map);
+        var bandM = SimConfig.Shipped().PavementWidthM;
+
+        for (var edge = 0; edge < foot.EdgeCount; edge += 2)
+        {
+            if (foot.KindOf(edge) != FootEdgeKind.Pavement) continue;
+
+            // The furthest any station of it stands from the nearest other line: a stretch is the same
+            // pavement twice only where every metre of it lies inside another's band, so it is the metre
+            // that stands clearest that answers.
+            var clearestM = 0f;
+            var alongside = -1;
+            foreach (var atM in Along(foot, edge, bandM * 0.25f))
+            {
+                var nearestM = NearestOtherLineM(foot, edge, atM, out var other);
+                if (nearestM <= clearestM) continue;
+
+                clearestM = nearestM;
+                alongside = other;
+            }
+
+            Assert.True(
+                clearestM > bandM * 0.5f,
+                $"{map}: no metre of stretch {edge} from {foot.AnchorM(foot.FromNode(edge))} stands further "
+                + $"than {clearestM:F2} m from the middle of another line ({alongside} at its clearest), "
+                + "which is the same pavement twice");
+        }
+    }
+
+    /// <summary>
+    /// How far a point stands from the nearest <em>middle</em> of another stretch's line — a projection that
+    /// lands on an end is a line this one runs up to rather than one it runs beside.
+    /// </summary>
+    static float NearestOtherLineM(FootGraph foot, int edge, Vector2 pointM, out int other)
+    {
+        other = -1;
+        var nearestM = float.MaxValue;
+        for (var at = 0; at < foot.EdgeCount; at += 2)
+        {
+            if (at == edge || foot.KindOf(at) != FootEdgeKind.Pavement) continue;
+
+            var lengthM = foot.LengthM(at);
+            var arcs = foot.ArcsOf(at);
+            var alongM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
+            if (alongM <= EndM || alongM >= lengthM - EndM) continue;
+
+            var apartM = (Spline.SampleAt(arcs, alongM).PositionM - pointM).Length();
+            if (apartM >= nearestM) continue;
+
+            nearestM = apartM;
+            other = at;
+        }
+
+        return nearestM;
+    }
+
+    /// <summary>How near a projection has to land to a line's end to be that end rather than its middle.</summary>
+    const float EndM = 0.01f;
+
     /// <summary>What went wrong and where, so a sweep failure names the shape at fault rather than one point of it.</summary>
     static string Breakdown(SortedDictionary<string, (int Count, Vector2 First)> where) =>
         string.Join("; ", where.Select(row => $"{row.Value.Count}× {row.Key} (first at {row.Value.First})"));

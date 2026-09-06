@@ -27,10 +27,20 @@ internal sealed partial class FootGraph
     /// <remarks>
     /// <para>
     /// <b>A junction is not a case.</b> The band round a kerb corner is the fillet's own arc read in by
-    /// half a walk; the band round a dead end's head is the disc's circle read out by the same; the band
-    /// past a car park is the box's. Each is cut by the one rule, and each meets its neighbours at the
+    /// half a walk; the band past a car park is the box's; the band round a dead end is the road's own,
+    /// ending where the road does. Each is cut by the one rule, and each meets its neighbours at the
     /// point their two lines cross — which is the point both are half a walk from both pieces, so nothing
     /// has to be matched to anything, pushed onto anything, or joined across a gap.
+    /// </para>
+    /// <para>
+    /// <b>What a box is walked round is the arms that meet at it</b> (TER-3c.5). The lines cars are turned
+    /// through it on are tarmac the arms enclose, and half a walk outside one of those is usually the
+    /// middle of the pavement rather than the edge of it — so such a line is pavement only where it
+    /// <b>leads somewhere</b>: joined to the rest of the shell at both ends it closes a gap the arms left
+    /// open, and dead-ending it is the same pavement said twice
+    /// (<see cref="Builder.DropTheLinesThatLeadNowhere"/>). Kept whatever it did, it laid a second line
+    /// beside the arm's own at every mouth in the town, and a walk down the pavement crossed from one lane
+    /// to the other and back.
     /// </para>
     /// <para>
     /// <b>Where two carriageways merge, the outer edge of the pair is what is wrapped</b>, because each
@@ -53,7 +63,7 @@ internal sealed partial class FootGraph
 
         var run = new ArcSeg[2];
         var runs = new List<(float FromM, float ToM)>();
-        foreach (var (_, line) in wraps)
+        foreach (var (_, line, onlyWhereTheKerbIsOpen) in wraps)
         {
             var lengthM = Spline.TotalLengthM(line);
             if (lengthM <= 0f) continue;
@@ -64,7 +74,10 @@ internal sealed partial class FootGraph
             foreach (var (fromM, toM) in runs)
             {
                 var arcCount = Spline.SubChainInto(line, fromM, toM, run);
-                if (arcCount > 0) builder.AddStrand(run.AsSpan(0, arcCount), bandM, FootEdgeKind.Pavement);
+                if (arcCount == 0) continue;
+
+                builder.AddStrand(
+                    run.AsSpan(0, arcCount), bandM, FootEdgeKind.Pavement, onlyWhereTheKerbIsOpen);
             }
         }
     }
@@ -149,8 +162,8 @@ internal sealed partial class FootGraph
     /// <b>Asked with a rounding's grace and no more.</b> A wrapping line stands the offset from its own
     /// piece exactly, and where two pieces are tangent it stands the offset from both of them exactly
     /// (<see cref="Kerbs.OffTheTarmacM"/>) — so compared without the grace, whether metres of pavement exist
-    /// is settled by the last bit of a float, and the apron round every junction whose disc is drawn to the
-    /// width of its arms came out bare. <b>And a rounding and not a tolerance</b>, because a tolerance ε lets
+    /// is settled by the last bit of a float, and the apron round every junction whose movements run edge to
+    /// edge with its arms came out bare. <b>And a rounding and not a tolerance</b>, because a tolerance ε lets
     /// a line that meets another <em>tangentially</em> run √(2·R·ε) past the point they cross: at five
     /// centimetres that is better than half a metre each, which is how the pavement came apart into a piece
     /// per corner the first time round.

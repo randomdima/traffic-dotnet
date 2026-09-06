@@ -114,6 +114,13 @@ what the corner takes is **cut off the lane** rather than marked on it. It is ne
 can spare, because a lane cut away is a lane the town has not got. Every movement in the reckoning reaches
 a radius, because the one that never could is not a movement (TER-5f).
 
+**TER-5d.1** **The ground a movement is driven over is as wide as the narrower of the two lanes it
+joins**, and that is one figure the whole town reads — the tarmac's own shape, the answer at a point and
+the picture. Its two ends are on lanes that need not be the same width and a band has only one, so the
+narrower is the only choice that never claims ground outside the arm it leaves or the arm it arrives on:
+drawn at the arriving lane's width, a movement out of a narrow street onto a wide one stood half a metre
+past the narrow street's own kerb, in the pavement.
+
 **TER-5f** **No box admits a movement that reverses the direction of travel.** A pair of lanes that would
 face each other across an intersection is not joined at all: no turn is classified between them, no line is
 drawn, no ground is measured against it and no route may be handed one. The arithmetic is why — the line

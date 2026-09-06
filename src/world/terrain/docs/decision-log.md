@@ -1,5 +1,37 @@
 # Terrain — decision log
 
+## 2026-09-06 — the pavement wraps the outside of the tarmac, and a band ends where its line does
+
+**The walk was laid off every piece of tarmac, and a piece inside the box is not the outside of anything.**
+Once a junction stopped being a shape, the ground inside a box became the lines cars are turned through it
+on, and those lines went into the tarmac beside the carriageways and the fillets. Each offers the line that
+stands half a walk outside it, each such line is kept where nothing stands nearer than that — and a
+movement's line passed that test while running up the middle of a pavement the arms had already laid. What
+the picture showed was two pavement lanes threaded between two more, a walk crossing from one side of the
+band to the other and back at every mouth, and a stub of kerb dead-ending into the middle of the footway.
+Odesa carried 406 dead ends in its pavement and 153 nodes where four stretches met; 46 stretches lay wholly
+inside another one's band.
+
+**A piece now says whether it is the outside of the tarmac or the inside of something** (TER-3c.5), and a
+line the inside offers is kept only where it *leads somewhere*: joined to the rest of the walk at both
+ends, which is what closing a gap the arms left open looks like. Dead-ending, it is dropped. This is one
+rule about a shell rather than a case about junctions — nothing in it knows what a box is — and it took
+Odesa to 82 dead ends, 0 four-way nodes and 0 doubled stretches.
+
+**Dropped in the graph rather than refused at the wrap, because the two are not the same question asked
+twice.** Whether a line runs alongside one already laid cannot be settled by measuring how near it passes:
+a line that closes a gap is near the two ends the gap is between, and one that duplicates a pavement runs
+past a place where two kerb lines meet end to end, which reads the same. Whether it leads anywhere is not
+a measurement at all — it is what the graph says once every line is in it.
+
+**And a band of tarmac ends square, where its own line ends** (TER-7a). Measured radially from the last
+station it ended in a half-disc of its own half-width, which is tarmac nothing draws and nothing drives
+over. Inside a box that never showed, because everything around it is tarmac too — but a movement starts
+in the middle of the lane it leaves, so its disc reached out past the arm's kerb, under the pavement corner
+at the mouth, and cut the corner's own wrapping line in half. The corner then had no line at all: two
+metres of pavement missing at a junction of two streets, on every map. `GroundShapes` had always answered
+square; the two readings of one band now agree.
+
 ## 2026-09-03 — the cell grid is gone and the ground is solved against the shapes
 
 **There were two answers about one ground and they disagreed by design.** A map carried its shapes *and* a
