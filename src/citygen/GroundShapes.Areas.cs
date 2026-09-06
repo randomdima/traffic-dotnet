@@ -15,9 +15,8 @@ internal interface IGroundShape
 }
 
 /// <summary>
-/// The pieces of ground that belong to no road and to no line through a box: the head a road stops at, the
-/// wedge a junction's kerbs turn on, the rectangles a car park and a slab of paving are, and the rings the
-/// water is cut from.
+/// The pieces of ground that belong to no road and to no line through a box: the wedge a junction's kerbs
+/// turn on, the rectangles a car park and a slab of paving are, and the rings the water is cut from.
 /// </summary>
 internal sealed partial class GroundShapes
 {
@@ -28,12 +27,9 @@ internal sealed partial class GroundShapes
     /// </summary>
     const int MostShapesNear = 32;
 
-    BucketGrid _headIndex = null!;
     BucketGrid _kerbIndex = null!;
     BucketGrid _walkIndex = null!;
     BucketGrid _lotIndex = null!;
-
-    TurningHeads _heads;
 
     Fillets _kerbs;
     Fillets _walks;
@@ -138,16 +134,6 @@ internal sealed partial class GroundShapes
                 MathF.Max((tangentAM[corner] - middleM).Length(), (tangentBM[corner] - middleM).Length()));
             var withinM = roundM + reachM;
             return (pointM - middleM).LengthSquared() <= withinM * withinM;
-        }
-    }
-
-    /// <summary>The head a road stops at, or the pavement that runs round the outside of it (TER-5a).</summary>
-    readonly struct Discs(Vector2[] centreM, float[] radiusM, float outM) : IGroundShape
-    {
-        public bool Covers(int shape, Vector2 pointM)
-        {
-            var reachM = radiusM[shape] + outM;
-            return (pointM - centreM[shape]).LengthSquared() <= reachM * reachM;
         }
     }
 
@@ -317,10 +303,6 @@ internal sealed partial class GroundShapes
         var walkM = paving.WalkM;
         var bucketM = config.Terrain.GroundBucketM;
 
-        _heads = paving.Heads;
-        _headIndex = BucketGrid.Build(
-            plan.WorldSizeM, bucketM, _heads.CentreM, Grown(_heads.RadiusM, walkM));
-
         _kerbs = new Fillets(
             plan.JunctionCorners.CornerM, plan.JunctionCorners.TangentAM, plan.JunctionCorners.TangentBM,
             plan.JunctionCorners.ArcCentreM, plan.JunctionCorners.RadiusM);
@@ -361,13 +343,5 @@ internal sealed partial class GroundShapes
 
         _water = Rings.Boxed(plan.Water.Outline);
         _shore = Rings.Boxed(plan.Water.Shore);
-    }
-
-    static float[] Grown(float[] radiusM, float byM)
-    {
-        var grown = new float[radiusM.Length];
-        for (var index = 0; index < grown.Length; index++) grown[index] = radiusM[index] + byM;
-
-        return grown;
     }
 }

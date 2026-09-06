@@ -54,7 +54,7 @@ internal sealed partial class GroundShapes
     /// A point past either end of a road is not on it, however near the end it stands. The projection
     /// clamps to the chain's own ends, so what is left of the offset along the road's direction is what
     /// says the point is beyond it — which squares the end of every road off, exactly as the ribbon that
-    /// draws it is squared off, and leaves the ground a road runs into to the junction that owns it.
+    /// draws it is squared off.
     /// </remarks>
     RoadGround Roads(Vector2 pointM)
     {

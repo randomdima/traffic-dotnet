@@ -6,8 +6,8 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>The town's tarmac as one shape</b> — every carriageway, every line a car is turned through a box on,
-/// every head a road stops at, every kerb fillet, every car park and every slab — answered as a single
-/// distance from a point, and offered as the <b>lines that stand a given distance outside all of it</b>.
+/// every kerb fillet, every car park and every slab — answered as a single distance from a point, and
+/// offered as the <b>lines that stand a given distance outside all of it</b>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -21,8 +21,8 @@ namespace TrafficSimulation.CityGen;
 /// <b>A junction is not a piece of it.</b> What a box is made of is the lines cars are driven through it on
 /// (<see cref="LaneLines"/>) and the fillets that round the wedges between its arms — so a box that is
 /// skewed, one-way, five-armed or barely a bend is wrapped by following those lines, and nothing here has
-/// to know what shape they made (TER-5). The one shape left is the head a road stops at
-/// (<see cref="TurningHeads"/>), which is the one piece of tarmac no movement sweeps.
+/// to know what shape they made (TER-5). <b>A dead end has none either</b>: what is there is the road that
+/// stops, and a band ends where its own line does (TER-5a).
 /// </para>
 /// <para>
 /// <b>A wrapping line is a candidate and not an answer.</b> Each is the outward offset of one piece, so
@@ -57,12 +57,9 @@ internal sealed class Kerbs
         _grid = grid;
     }
 
-    public static Kerbs Of(GroundPieces plan, LaneLines lanes) =>
-        Of(plan, lanes, TurningHeads.Of(plan));
-
-    public static Kerbs Of(GroundPieces plan, LaneLines lanes, TurningHeads heads)
+    public static Kerbs Of(GroundPieces plan, LaneLines lanes)
     {
-        var pieces = Lay(plan, lanes, heads);
+        var pieces = Lay(plan, lanes);
         var shards = Shatter(pieces);
         return new Kerbs(pieces, shards, new ShardGrid(pieces, shards, plan.WorldSizeM));
     }
@@ -119,8 +116,7 @@ internal sealed class Kerbs
 
     /// <summary>
     /// <b>Every line that stands <paramref name="outM"/> outside one piece of the tarmac</b>: a road's
-    /// own arcs offset both ways, a connector's offset both ways, the circle round the head a road stops at,
-    /// the arc round a kerb fillet, and the
+    /// own arcs offset both ways, a connector's offset both ways, the arc round a kerb fillet, and the
     /// rounded box round a car park or a slab. <b>The corner of a box is turned on the offset itself</b>,
     /// which is what keeps the line the same distance out all the way round it.
     /// </summary>
@@ -147,10 +143,6 @@ internal sealed class Kerbs
                         Runs(at, offset.AsSpan(0, arcs.Length), into);
                     }
 
-                    break;
-
-                case Kind.Disc:
-                    into.Add(new Wrap(at, Circle(piece.CentreM, piece.RadiusM + outM)));
                     break;
 
                 case Kind.Fillet:
@@ -205,21 +197,6 @@ internal sealed class Kerbs
     /// reader could see.
     /// </summary>
     const float JoinedM = 0.01f;
-
-    /// <summary>A whole circle, as the four quarters a chain can be walked round.</summary>
-    static ArcSeg[] Circle(Vector2 centreM, float radiusM)
-    {
-        var arcs = new ArcSeg[4];
-        for (var quarter = 0; quarter < 4; quarter++)
-        {
-            var atRad = MathF.PI * 0.5f * quarter;
-            arcs[quarter] = new ArcSeg(
-                centreM + (radiusM * Heading.Unit(atRad)), atRad + (MathF.PI * 0.5f), radiusM * MathF.PI * 0.5f,
-                1f / radiusM);
-        }
-
-        return arcs;
-    }
 
     /// <summary>The arc about a centre between the bearings of two points, the short way round.</summary>
     static ArcSeg Around(Vector2 centreM, float radiusM, Vector2 fromM, Vector2 toM)
@@ -285,9 +262,6 @@ internal sealed class Kerbs
     {
         switch (piece.Kind)
         {
-            case Kind.Disc:
-                return (pointM - piece.CentreM).Length() - piece.RadiusM;
-
             case Kind.Fillet:
                 var offM = pointM - piece.CentreM;
                 var radialM = offM.Length();
@@ -319,7 +293,7 @@ internal sealed class Kerbs
     /// Every piece the tarmac is made of. <b>Nothing here is grown by anything</b>: it is the ground a car
     /// drives on at the size it is drawn, and what stands beside it is the caller's offset to ask for.
     /// </summary>
-    static List<Piece> Lay(GroundPieces plan, LaneLines lanes, TurningHeads heads)
+    static List<Piece> Lay(GroundPieces plan, LaneLines lanes)
     {
         var pieces = new List<Piece>();
         for (var road = 0; road < plan.Roads.Count; road++)
@@ -336,11 +310,6 @@ internal sealed class Kerbs
             if (arcs.Length == 0) continue;
 
             pieces.Add(Piece.Band(arcs.ToArray(), lanes.LaneWidthM[lanes.ConnectorToLane[connector]] * 0.5f));
-        }
-
-        for (var head = 0; head < heads.Count; head++)
-        {
-            pieces.Add(Piece.Disc(heads.CentreM[head], heads.RadiusM[head]));
         }
 
         var corners = plan.JunctionCorners;
@@ -371,7 +340,6 @@ internal sealed class Kerbs
     enum Kind : byte
     {
         Band,
-        Disc,
         Fillet,
         Box,
     }
@@ -393,10 +361,6 @@ internal sealed class Kerbs
         public static Piece Band(ArcSeg[] arcs, float halfWidthM) =>
             new(Kind.Band, Vector2.Zero, Vector2.UnitX, new Vector2(halfWidthM), 0f, 0f, Vector2.Zero,
                 Vector2.Zero, arcs);
-
-        public static Piece Disc(Vector2 centreM, float radiusM) =>
-            new(Kind.Disc, centreM, Vector2.UnitX, new Vector2(radiusM), radiusM, 0f, Vector2.Zero, Vector2.Zero,
-                default);
 
         /// <summary><see cref="SpanM"/> is how far the corner stands from the arc's centre, which is how far out the wedge is tarmac.</summary>
         public static Piece Fillet(
@@ -479,8 +443,6 @@ internal sealed class Kerbs
         {
             var reachM = piece.Kind switch
             {
-                Kind.Disc => new Vector2(piece.RadiusM + ReachM),
-
                 // A fillet reaches from its arc out to the corner the two kerbs cross at, and it is that
                 // and not the arc's own radius that says how far from the centre it can be met.
                 Kind.Fillet => new Vector2(MathF.Max(piece.RadiusM, piece.SpanM) + ReachM),

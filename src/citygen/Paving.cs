@@ -5,8 +5,8 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>The pavement, laid once as the pieces it is made of</b> (TER-3c): a band along every carriageway, a
-/// ring round every head a road stops at, a wrap round every lot, and the fillet that turns each inner
-/// corner where two of those run into one another (TER-3c.4).
+/// wrap round every lot, and the fillet that turns each inner corner where two of those run into one
+/// another (TER-3c.4).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,8 +27,7 @@ namespace TrafficSimulation.CityGen;
 /// <b>A junction has no piece here, because a junction has no shape</b> (TER-5): the ground inside a box is
 /// the ground its own movements take (<see cref="LaneLines"/>), and every one of those movements runs
 /// between two arms whose own bands already carry the walk past it. What a box is walked round is the arms
-/// that meet at it. The one ring left is the head a road stops at (<see cref="TurningHeads"/>) — the one
-/// piece of tarmac no movement sweeps, and so the one that has no arm to be walked round by.
+/// that meet at it, and a dead end is walked round by the one arm it has (TER-5a).
 /// </para>
 /// <para>
 /// <b>The pieces are a union and the order among them says nothing.</b> Where two overlap the ground is
@@ -40,7 +39,7 @@ internal sealed class Paving
 {
     Paving(
         float walkM, float[] ribbonHalfM, Vector2[] wrapHalfM, float wrapCornerM,
-        IReadOnlyList<PavementCorner> corners, GroundPieces pieces, LaneLines lanes, TurningHeads heads)
+        IReadOnlyList<PavementCorner> corners, GroundPieces pieces, LaneLines lanes)
     {
         WalkM = walkM;
         RibbonHalfM = ribbonHalfM;
@@ -49,7 +48,6 @@ internal sealed class Paving
         Corners = corners;
         Of = pieces;
         Lanes = lanes;
-        Heads = heads;
     }
 
     /// <summary>The shapes the pavement was laid off, for a reader that wants the road a ribbon belongs to.</summary>
@@ -60,9 +58,6 @@ internal sealed class Paving
     /// own shape rather than the records it was drawn from.
     /// </summary>
     public LaneLines Lanes { get; }
-
-    /// <summary>The heads roads stop at, which are the one shape a junction record still supplies (TER-5a).</summary>
-    public TurningHeads Heads { get; }
 
     /// <summary>
     /// How wide the band is. <b>The map's own figure where it has one</b>, and the town's where it does not,
@@ -106,10 +101,9 @@ internal sealed class Paving
         }
 
         var lanes = LaneLines.Of(pieces, config);
-        var heads = TurningHeads.Of(pieces);
 
         return new Paving(
             walkM, ribbonHalfM, wrapHalfM, config.PavementCornerRadiusM,
-            PavementCorners.Solve(pieces, lanes, heads, config), pieces, lanes, heads);
+            PavementCorners.Solve(pieces, lanes, config), pieces, lanes);
     }
 }

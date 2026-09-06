@@ -109,7 +109,6 @@ internal sealed partial class GroundMesh
         // have to be kept in step by whoever remembers.
         var paving = Paving.Lay(plan.Ground, config);
         var lanes = paving.Lanes;
-        var heads = paving.Heads;
         var walkM = paving.WalkM;
         var edgeM = config.Road.EdgeLineWidthM;
 
@@ -139,13 +138,7 @@ internal sealed partial class GroundMesh
 
             // <b>A junction is not drawn</b>: what a box is on the ground is the lines cars are turned
             // through it on (TER-5), so the pavement round one is the band beside those lines and the
-            // ribbons of the arms that meet there. There is no ring, because there is no disc — except
-            // round the head a road stops at (TER-5a), which no movement sweeps.
-            for (var head = 0; head < heads.Count; head++)
-            {
-                mesh.Disc(
-                    heads.CentreM[head], heads.RadiusM[head] + walkM - inset, Surface.Pavement, tint, periods);
-            }
+            // ribbons of the arms that meet there. There is no ring, because there is no disc.
 
             // TER-3c.3: a lot turns a right angle of its own, so its wrap turns on half the walk —
             // which stands the corner 4.83 m deep against the straight's 4 m. Rounded on the full
@@ -227,11 +220,6 @@ internal sealed partial class GroundMesh
             {
                 mesh.Ribbon(plan.Roads.SegmentsOf(road), (plan.Roads.WidthM[road] * 0.5f) - inset,
                     Surface.Tarmac, tint, periods);
-            }
-
-            for (var head = 0; head < heads.Count; head++)
-            {
-                mesh.Disc(heads.CentreM[head], heads.RadiusM[head] - inset, Surface.Tarmac, tint, periods);
             }
 
             for (var turn = 0; turn < lanes.ConnectorCount; turn++)

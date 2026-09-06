@@ -69,16 +69,15 @@ internal static class PavementCorners
 
     /// <summary>The same, for a caller that holds no lines of its own and wants them laid off the plan.</summary>
     public static List<PavementCorner> Solve(GroundPieces plan, SimConfig config) =>
-        Solve(plan, LaneLines.Of(plan, config), TurningHeads.Of(plan), config);
+        Solve(plan, LaneLines.Of(plan, config), config);
 
-    public static List<PavementCorner> Solve(
-        GroundPieces plan, LaneLines lanes, TurningHeads heads, SimConfig config)
+    public static List<PavementCorner> Solve(GroundPieces plan, LaneLines lanes, SimConfig config)
     {
         var corners = new List<PavementCorner>();
         var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
         if (walkM <= 0f) return corners;
 
-        var pieces = Lay(plan, lanes, heads, config, walkM);
+        var pieces = Lay(plan, lanes, config, walkM);
         if (pieces.Count < 2) return corners;
 
         var grid = new PieceGrid(pieces, plan.WorldSizeM);
@@ -251,16 +250,12 @@ internal static class PavementCorners
 
     /// <summary>
     /// How far a point stands outside a piece of pavement, negative within it. A band is its centreline
-    /// grown by a half-width, a disc is the walk round a road's head, and a wrap is the rounded rectangle a
-    /// car park's walk is.
+    /// grown by a half-width, and a wrap is the rounded rectangle a car park's walk is.
     /// </summary>
     static float Distance(in Piece piece, Vector2 pointM)
     {
         switch (piece.Kind)
         {
-            case Kind.Disc:
-                return (pointM - piece.CentreM).Length() - piece.HalfM.X;
-
             case Kind.Wrap:
                 var local = new Vector2(
                     Vector2.Dot(pointM - piece.CentreM, piece.Axis),
@@ -290,19 +285,6 @@ internal static class PavementCorners
         into.Clear();
         runs.Clear();
         runs.Add(0);
-
-        if (piece.Kind == Kind.Disc)
-        {
-            var steps = Math.Max(8, (int)MathF.Ceiling(MathF.Tau * piece.HalfM.X / StepM));
-            for (var step = 0; step <= steps; step++)
-            {
-                var angleRad = MathF.Tau * step / steps;
-                into.Add(piece.CentreM + (piece.HalfM.X * new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad))));
-            }
-
-            runs.Add(into.Count);
-            return;
-        }
 
         if (piece.Kind == Kind.Wrap)
         {
@@ -343,22 +325,17 @@ internal static class PavementCorners
     }
 
     /// <summary>
-    /// Every piece of pavement the ground is drawn from, in the shape it is drawn in: the band either
-    /// side of each carriageway, the band either side of each line through a box, the ring round each head a
-    /// road stops at, the walk a bridge deck carries over and the wrap round each car park.
+    /// Every piece of pavement the ground is drawn from, in the shape it is drawn in: the band round each
+    /// carriageway, the walk a bridge deck carries over and the wrap round each car park. <b>Nothing is laid
+    /// at a junction</b>, because a junction has no ground of its own to be walked round (TER-5).
     /// </summary>
     static List<Piece> Lay(
-        GroundPieces plan, LaneLines lanes, TurningHeads heads, SimConfig config, float walkM)
+        GroundPieces plan, LaneLines lanes, SimConfig config, float walkM)
     {
         var pieces = new List<Piece>();
         for (var road = 0; road < plan.Roads.Count; road++)
         {
             pieces.Add(Piece.Band(plan.Roads.SegmentsOf(road).ToArray(), (plan.Roads.WidthM[road] * 0.5f) + walkM));
-        }
-
-        for (var head = 0; head < heads.Count; head++)
-        {
-            pieces.Add(Piece.Disc(heads.CentreM[head], heads.RadiusM[head] + walkM));
         }
 
         for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
@@ -385,22 +362,18 @@ internal static class PavementCorners
     enum Kind : byte
     {
         Band,
-        Disc,
         Wrap,
     }
 
     /// <summary>
     /// One piece of the pavement. <see cref="HalfM"/> carries what each kind is measured by — a band's
-    /// half-width, a disc's radius, a wrap's half-extent — so one distance function serves all three.
+    /// half-width and a wrap's half-extent — so one distance function serves both.
     /// </summary>
     readonly record struct Piece(Kind Kind, Vector2 CentreM, Vector2 Axis, Vector2 HalfM, float RadiusM,
         ReadOnlyMemory<ArcSeg> Arcs)
     {
         public static Piece Band(ArcSeg[] arcs, float halfWidthM) =>
             new(Kind.Band, Vector2.Zero, Vector2.UnitX, new Vector2(halfWidthM), 0f, arcs);
-
-        public static Piece Disc(Vector2 centreM, float radiusM) =>
-            new(Kind.Disc, centreM, Vector2.UnitX, new Vector2(radiusM), radiusM, default);
 
         public static Piece Wrap(Vector2 centreM, Vector2 axis, Vector2 halfM, float radiusM) =>
             new(Kind.Wrap, centreM, axis.LengthSquared() > 0f ? Vector2.Normalize(axis) : Vector2.UnitX,
@@ -427,8 +400,8 @@ internal static class PavementCorners
 
             for (var piece = 0; piece < pieces.Count; piece++)
             {
-                // One box for a disc or a wrap, and one per arc for a band: a road's own box is most of a
-                // district and would put every road in every square it bends anywhere near.
+                // One box for a wrap, and one per arc for a band: a road's own box is most of a district and
+                // would put every road in every square it bends anywhere near.
                 if (pieces[piece].Kind != Kind.Band)
                 {
                     Fill(piece, Box(pieces[piece]));
@@ -473,11 +446,9 @@ internal static class PavementCorners
 
         static (Vector2 LeastM, Vector2 MostM) Box(in Piece piece)
         {
-            var reachM = piece.Kind == Kind.Disc
-                ? new Vector2(piece.HalfM.X)
-                : new Vector2(
-                    (MathF.Abs(piece.Axis.X) * piece.HalfM.X) + (MathF.Abs(piece.Axis.Y) * piece.HalfM.Y),
-                    (MathF.Abs(piece.Axis.Y) * piece.HalfM.X) + (MathF.Abs(piece.Axis.X) * piece.HalfM.Y));
+            var reachM = new Vector2(
+                (MathF.Abs(piece.Axis.X) * piece.HalfM.X) + (MathF.Abs(piece.Axis.Y) * piece.HalfM.Y),
+                (MathF.Abs(piece.Axis.Y) * piece.HalfM.X) + (MathF.Abs(piece.Axis.X) * piece.HalfM.Y));
 
             return (piece.CentreM - reachM, piece.CentreM + reachM);
         }

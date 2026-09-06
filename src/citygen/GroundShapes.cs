@@ -81,7 +81,6 @@ internal sealed partial class GroundShapes
         if (roads.Crossing) return Ground.Crosswalk;
         if (AnyReaches(_kerbIndex, _kerbs.Count, pointM, _kerbs)) return Ground.Intersection;
         if (Turns(pointM, 0f)) return Ground.Intersection;
-        if (AnyReaches(_headIndex, _heads.Count, pointM, HeadsOut(0f))) return Ground.Intersection;
         if (roads.Carriageway) return Ground.Road;
         if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(0f))) return Ground.Parking;
         if (SlabReaches(pointM)) return Ground.Parking;
@@ -89,7 +88,6 @@ internal sealed partial class GroundShapes
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
         if (roads.Walk) return Ground.Sidewalk;
-        if (AnyReaches(_headIndex, _heads.Count, pointM, HeadsOut(_walkM))) return Ground.Sidewalk;
         if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM))) return Ground.Sidewalk;
         if (AnyReaches(_walkIndex, _walks.Count, pointM, _walks)) return Ground.Sidewalk;
 
@@ -171,7 +169,6 @@ internal sealed partial class GroundShapes
     public bool PavingWithin(Vector2 pointM, float reachM) =>
         RoadPavingWithin(pointM, reachM)
         || Turns(pointM, reachM)
-        || AnyReaches(_headIndex, _heads.Count, pointM, HeadsOut(_walkM + reachM))
         || AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM + reachM))
         || _kerbs.AnyWithin(_kerbIndex, pointM, reachM)
         || _walks.AnyWithin(_walkIndex, pointM, reachM)
@@ -189,8 +186,6 @@ internal sealed partial class GroundShapes
     /// is what a body pushed off the map needs.
     /// </summary>
     bool Is(Vector2 pointM, Ground ground) => Contains(pointM) && At(pointM) == ground;
-
-    Discs HeadsOut(float outM) => new(_heads.CentreM, _heads.RadiusM, outM);
 
     Lots LotsOut(float outM) => new(_lotCentreM, _lotAxis, _lotHalfM, outM, _lotCornerM);
 }

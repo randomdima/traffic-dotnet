@@ -72,21 +72,23 @@ the driven half of a carriageway is one kerb nearer its neighbour and the other 
 their kerbs are parallel and cross behind the mouth if they cross anywhere, which is a road narrowing at a
 junction — a step in the kerb, and nothing for a fillet to be tangent to.
 
-**A junction is not sized around a car's turning circle.** Turning geometry is the controller's problem.
-There is exactly one exception:
+**A junction is not sized around a car's turning circle**, and there is no exception. Turning geometry is
+the controller's problem.
 
-**TER-5a** A **dead end** is an intersection with a single arm, and it is the one junction sized around a
-turning circle: its **head** must hold a car working itself round on the spot (`P-19`) with the car's width
-clear of the kerb, because there is no other arm to overrun into and no car park promised there. It is
-therefore **the one place a junction's radius is a shape** — the ground round the last point of the road
-that stops there, laid, answered for and drawn as a disc of it, because the turn that takes a car back out
-is a manoeuvre and not a movement (TER-5f) and so sweeps no band of its own. A dead
-end too small to turn in is a place nothing that drives into it can leave. It carries no crossing and no
-lights.
+**TER-5a** A **dead end** is an intersection with a single arm, and **it has no ground of its own** like
+every other junction: what is there is the road that stops, and the road stops where its own last point is.
+It carries no crossing and no lights.
+
+**A dead end is therefore not a place a car can turn round in**, which is a change from what this rule used
+to promise: there is no head, and a car working itself round on the spot (`P-19`) has only the width of its
+own road to do it in. A leg that has to come back the way it came does it in a car park's bay (`GEN-4l`), and
+a dead end with no bay off it is a place nothing that drives in can leave. **A map that wants a turning head
+has to lay it** — as paved ground of its own, which the plan already carries and every reading of the ground
+already answers for.
 
 **TER-5b** An **inline junction** has exactly two arms leaving in opposite directions — a place *on* a
 road rather than a place roads meet. The two carriageways must align exactly, so a driver sees
-uninterrupted road, and it is the one intersection that **paves no ground of its own**. It exists to
+uninterrupted road. It exists to
 carry one pedestrian crossing and the signals that govern it, which is what makes a lit mid-block
 crossing possible at all.
 
