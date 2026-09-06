@@ -5,8 +5,8 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>The pavement, laid once as the pieces it is made of</b> (TER-3c): a band along every carriageway, a
-/// ring round every junction, a wrap round every lot, and the fillet that turns each inner corner where two
-/// of those run into one another (TER-3c.4).
+/// ring round every head a road stops at, a wrap round every lot, and the fillet that turns each inner
+/// corner where two of those run into one another (TER-3c.4).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,8 +20,15 @@ namespace TrafficSimulation.CityGen;
 /// <para>
 /// <b>Every piece is offset from what it runs beside, at the walk's own width</b> (TER-3c.3), so the
 /// pavement keeps its width round whatever curve the thing it wraps takes. Nothing here is a shape in its
-/// own right: a ribbon is a road's own arcs, a ring is a junction's own disc and a wrap is a lot's own
-/// rectangle, each grown by the one figure.
+/// own right: a ribbon is a road's own arcs and a wrap is a lot's own rectangle, each grown by the one
+/// figure.
+/// </para>
+/// <para>
+/// <b>A junction has no piece here, because a junction has no shape</b> (TER-5): the ground inside a box is
+/// the ground its own movements take (<see cref="LaneLines"/>), and every one of those movements runs
+/// between two arms whose own bands already carry the walk past it. What a box is walked round is the arms
+/// that meet at it. The one ring left is the head a road stops at (<see cref="TurningHeads"/>) — the one
+/// piece of tarmac no movement sweeps, and so the one that has no arm to be walked round by.
 /// </para>
 /// <para>
 /// <b>The pieces are a union and the order among them says nothing.</b> Where two overlap the ground is
@@ -32,20 +39,30 @@ namespace TrafficSimulation.CityGen;
 internal sealed class Paving
 {
     Paving(
-        float walkM, float[] ribbonHalfM, float[] ringRadiusM, Vector2[] wrapHalfM, float wrapCornerM,
-        IReadOnlyList<PavementCorner> corners, GroundPieces pieces)
+        float walkM, float[] ribbonHalfM, Vector2[] wrapHalfM, float wrapCornerM,
+        IReadOnlyList<PavementCorner> corners, GroundPieces pieces, LaneLines lanes, TurningHeads heads)
     {
         WalkM = walkM;
         RibbonHalfM = ribbonHalfM;
-        RingRadiusM = ringRadiusM;
         WrapHalfM = wrapHalfM;
         WrapCornerM = wrapCornerM;
         Corners = corners;
         Of = pieces;
+        Lanes = lanes;
+        Heads = heads;
     }
 
     /// <summary>The shapes the pavement was laid off, for a reader that wants the road a ribbon belongs to.</summary>
     public GroundPieces Of { get; }
+
+    /// <summary>
+    /// <b>The lines the town is driven on</b>, laid once here and read by everything that needs the tarmac's
+    /// own shape rather than the records it was drawn from.
+    /// </summary>
+    public LaneLines Lanes { get; }
+
+    /// <summary>The heads roads stop at, which are the one shape a junction record still supplies (TER-5a).</summary>
+    public TurningHeads Heads { get; }
 
     /// <summary>
     /// How wide the band is. <b>The map's own figure where it has one</b>, and the town's where it does not,
@@ -55,9 +72,6 @@ internal sealed class Paving
 
     /// <summary>How far each road's band reaches from its own centreline: half the carriageway and a walk.</summary>
     public float[] RibbonHalfM { get; }
-
-    /// <summary>And how far each junction's ring reaches from its centre.</summary>
-    public float[] RingRadiusM { get; }
 
     /// <summary>Each lot's wrap, as the half extent it reaches to.</summary>
     public Vector2[] WrapHalfM { get; }
@@ -85,20 +99,17 @@ internal sealed class Paving
             ribbonHalfM[road] = (pieces.Roads.WidthM[road] * 0.5f) + walkM;
         }
 
-        var ringRadiusM = new float[pieces.Junctions.Count];
-        for (var junction = 0; junction < ringRadiusM.Length; junction++)
-        {
-            ringRadiusM[junction] = pieces.Junctions.RadiusM[junction] + walkM;
-        }
-
         var wrapHalfM = new Vector2[pieces.ParkingLots.Count];
         for (var lot = 0; lot < wrapHalfM.Length; lot++)
         {
             wrapHalfM[lot] = pieces.ParkingLots.HalfExtentM[lot] + new Vector2(walkM);
         }
 
+        var lanes = LaneLines.Of(pieces, config);
+        var heads = TurningHeads.Of(pieces);
+
         return new Paving(
-            walkM, ribbonHalfM, ringRadiusM, wrapHalfM, config.PavementCornerRadiusM,
-            PavementCorners.Solve(pieces, config), pieces);
+            walkM, ribbonHalfM, wrapHalfM, config.PavementCornerRadiusM,
+            PavementCorners.Solve(pieces, lanes, heads, config), pieces, lanes, heads);
     }
 }

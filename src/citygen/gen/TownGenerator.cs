@@ -83,7 +83,7 @@ internal static class TownGenerator
         var roads = RoadStage.Lay(layout, districts, brief, config, ref shape, ref signals);
 
         var paved = bare.With(water.Rings).With(
-            roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Crosswalks);
+            roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Crosswalks, roads.StopLines);
         var streets = new GroundShapes(paved, config);
 
         var slot = new Rng(brief.Seed, SlotStream);

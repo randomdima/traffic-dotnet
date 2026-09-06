@@ -5,9 +5,9 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>What is on the ground at a point</b>, solved against the shapes the town is drawn from — the road's
-/// own curve, the disc a junction's arms share, the wedge its kerbs turn on, the rectangles a car park is,
-/// and the rings the water is cut from. There is one geometry and this reads it (TER-7); nothing here is
-/// quantised, so a kerb running at 40° is a kerb running at 40°.
+/// own curve, the lines a car is turned through a box on, the wedge its kerbs turn on, the rectangles a car
+/// park is, and the rings the water is cut from. There is one geometry and this reads it (TER-7); nothing
+/// here is quantised, so a kerb running at 40° is a kerb running at 40°.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -67,6 +67,7 @@ internal sealed partial class GroundShapes
         _worldSizeM = pieces.WorldSizeM;
         _walkM = paving.WalkM;
         LayTheRoads(pieces, config, paving.WalkM);
+        LayTheTurns(paving.Lanes, pieces.WorldSizeM, config);
         LayTheShapes(paving, config);
     }
 
@@ -79,7 +80,8 @@ internal sealed partial class GroundShapes
         var roads = Roads(pointM);
         if (roads.Crossing) return Ground.Crosswalk;
         if (AnyReaches(_kerbIndex, _kerbs.Count, pointM, _kerbs)) return Ground.Intersection;
-        if (AnyReaches(_junctionIndex, _junctionCentreM.Length, pointM, JunctionsOut(0f))) return Ground.Intersection;
+        if (Turns(pointM, 0f)) return Ground.Intersection;
+        if (AnyReaches(_headIndex, _heads.Count, pointM, HeadsOut(0f))) return Ground.Intersection;
         if (roads.Carriageway) return Ground.Road;
         if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(0f))) return Ground.Parking;
         if (SlabReaches(pointM)) return Ground.Parking;
@@ -87,7 +89,7 @@ internal sealed partial class GroundShapes
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
         if (roads.Walk) return Ground.Sidewalk;
-        if (AnyReaches(_junctionIndex, _junctionCentreM.Length, pointM, JunctionsOut(_walkM))) return Ground.Sidewalk;
+        if (AnyReaches(_headIndex, _heads.Count, pointM, HeadsOut(_walkM))) return Ground.Sidewalk;
         if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM))) return Ground.Sidewalk;
         if (AnyReaches(_walkIndex, _walks.Count, pointM, _walks)) return Ground.Sidewalk;
 
@@ -168,7 +170,8 @@ internal sealed partial class GroundShapes
     /// </remarks>
     public bool PavingWithin(Vector2 pointM, float reachM) =>
         RoadPavingWithin(pointM, reachM)
-        || AnyReaches(_junctionIndex, _junctionCentreM.Length, pointM, JunctionsOut(_walkM + reachM))
+        || Turns(pointM, reachM)
+        || AnyReaches(_headIndex, _heads.Count, pointM, HeadsOut(_walkM + reachM))
         || AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM + reachM))
         || _kerbs.AnyWithin(_kerbIndex, pointM, reachM)
         || _walks.AnyWithin(_walkIndex, pointM, reachM)
@@ -187,7 +190,7 @@ internal sealed partial class GroundShapes
     /// </summary>
     bool Is(Vector2 pointM, Ground ground) => Contains(pointM) && At(pointM) == ground;
 
-    Discs JunctionsOut(float outM) => new(_junctionCentreM, _junctionRadiusM, outM);
+    Discs HeadsOut(float outM) => new(_heads.CentreM, _heads.RadiusM, outM);
 
     Lots LotsOut(float outM) => new(_lotCentreM, _lotAxis, _lotHalfM, outM, _lotCornerM);
 }

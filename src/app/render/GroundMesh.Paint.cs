@@ -195,7 +195,7 @@ internal sealed partial class GroundMesh
                 // Within half a bay's length of where the stroke ends, and no further: a stroke behind
                 // another row of bays stands a whole bay from the kerb, so it is never the one dragged out
                 // to it, and the ground between a mouth and the kerb it fronts is never anything else.
-                var reachM = RoadFrontages.ReachToTheKerbM(plan, kerb.Value, endM, -along, halfLengthM);
+                var reachM = RoadFrontages.ReachToTheKerbM(plan.Ground, kerb.Value, endM, -along, halfLengthM);
                 return reachM is null ? endM : endM - along * (reachM.Value + ChordSagM);
             }
 

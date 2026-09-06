@@ -108,6 +108,8 @@ internal sealed partial class GroundMesh
         // (<see cref="GroundShapes"/>). Derived again here, the picture and the answer are two readings that
         // have to be kept in step by whoever remembers.
         var paving = Paving.Lay(plan.Ground, config);
+        var lanes = paving.Lanes;
+        var heads = paving.Heads;
         var walkM = paving.WalkM;
         var edgeM = config.Road.EdgeLineWidthM;
 
@@ -135,11 +137,14 @@ internal sealed partial class GroundMesh
                     periods);
             }
 
-            for (var junction = 0; junction < plan.Junctions.Count; junction++)
+            // <b>A junction is not drawn</b>: what a box is on the ground is the lines cars are turned
+            // through it on (TER-5), so the pavement round one is the band beside those lines and the
+            // ribbons of the arms that meet there. There is no ring, because there is no disc — except
+            // round the head a road stops at (TER-5a), which no movement sweeps.
+            for (var head = 0; head < heads.Count; head++)
             {
                 mesh.Disc(
-                    plan.Junctions.CentreM[junction], paving.RingRadiusM[junction] - inset, Surface.Pavement,
-                    tint, periods);
+                    heads.CentreM[head], heads.RadiusM[head] + walkM - inset, Surface.Pavement, tint, periods);
             }
 
             // TER-3c.3: a lot turns a right angle of its own, so its wrap turns on half the walk —
@@ -224,10 +229,19 @@ internal sealed partial class GroundMesh
                     Surface.Tarmac, tint, periods);
             }
 
-            for (var junction = 0; junction < plan.Junctions.Count; junction++)
+            for (var head = 0; head < heads.Count; head++)
             {
-                mesh.Disc(plan.Junctions.CentreM[junction], plan.Junctions.RadiusM[junction] - inset,
-                    Surface.Tarmac, tint, periods);
+                mesh.Disc(heads.CentreM[head], heads.RadiusM[head] - inset, Surface.Tarmac, tint, periods);
+            }
+
+            for (var turn = 0; turn < lanes.ConnectorCount; turn++)
+            {
+                var line = lanes.ArcsOfConnector(turn);
+                if (line.Length == 0) continue;
+
+                mesh.Ribbon(
+                    line, (lanes.LaneWidthM[lanes.ConnectorToLane[turn]] * 0.5f) - inset, Surface.Tarmac, tint,
+                    periods);
             }
 
             for (var corner = 0; corner < plan.JunctionCorners.Count; corner++)
@@ -247,7 +261,7 @@ internal sealed partial class GroundMesh
         // short of either end of that: the kerb line runs to the far face of the lot's outermost bay
         // stroke, so the corner the two turn is painted exactly once. It is the same end-to-end rule the
         // bay's own three strokes are laid by, with the kerb line as the fourth.
-        var frontages = RoadFrontages.Lay(plan, config);
+        var frontages = RoadFrontages.Lay(plan.Ground, config);
         foreach (var front in frontages.All)
         {
             if (!front.FrontsTheKerb) continue;

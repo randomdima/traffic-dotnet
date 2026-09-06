@@ -72,11 +72,12 @@ internal sealed class CentrelineRuns
         var roads = plan.Roads;
         if (roads.Count == 0) return new CentrelineRuns([], None);
 
-        var lengthM = RoadFrontages.RoadLengthsM(plan);
+        var ground = plan.Ground;
+        var lengthM = RoadFrontages.RoadLengthsM(ground);
         var blocked = Blocked(plan, lengthM);
         var closes = ClosesTheGroundBehindItsPaint(plan);
-        var reachM = RoadCuts.ReachesM(plan, config);
-        var discs = RoadCuts.JunctionIndex(plan, paddingM: 0f);
+        var reachM = RoadCuts.ReachesM(ground, config);
+        var discs = RoadCuts.JunctionIndex(ground, paddingM: 0f);
         var cuts = new List<RoadCut>();
         var offsets = new int[roads.Count + 1];
         var runs = new List<RoadStretch>();
@@ -92,7 +93,7 @@ internal sealed class CentrelineRuns
 
             var spans = blocked[road] ??= [];
             RoadCuts.Along(
-                plan, discs, centreline, lengthM[road], paddingM: 0f, roads.FromJunction[road],
+                ground, discs, centreline, lengthM[road], paddingM: 0f, roads.FromJunction[road],
                 roads.ToJunction[road], cuts);
             // <b>A junction takes the ground it reaches and not the disc it is drawn on</b>: the box is the
             // disc plus the corners flared off it, and an arm carrying no paint has nothing else to stop its
@@ -164,7 +165,7 @@ internal sealed class CentrelineRuns
     static bool[] ClosesTheGroundBehindItsPaint(CityPlan plan)
     {
         var closes = new bool[plan.Junctions.Count];
-        var arms = RoadCuts.ArmsPerJunction(plan);
+        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
         for (var junction = 0; junction < closes.Length && junction < arms.Length; junction++)
         {
             closes[junction] = arms[junction] >= 3;
@@ -198,7 +199,8 @@ internal sealed class CentrelineRuns
         var spans = new List<ClosedStretch>?[plan.Roads.Count];
         for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
         {
-            var road = RoadFrontages.Nearest(plan, lengthM, plan.Crosswalks.CentreM[crossing], out var alongM, out _);
+            var road = RoadFrontages.Nearest(
+                plan.Ground, lengthM, plan.Crosswalks.CentreM[crossing], out var alongM, out _);
             if (road < 0) continue;
 
             var reachM = plan.Crosswalks.DepthM[crossing] * 0.5f;

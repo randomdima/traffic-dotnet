@@ -30,6 +30,7 @@ internal readonly record struct GroundPieces(
     CityPlan.ParkingLotArrays ParkingLots,
     CityPlan.PavedAreaArrays PavedAreas,
     CityPlan.CrosswalkArrays Crosswalks,
+    CityPlan.StopLineArrays StopLines,
     CityPlan.WaterArrays Water)
 {
     /// <summary>Bare ground of the size given: grass everywhere, which is what a town starts as.</summary>
@@ -53,6 +54,10 @@ internal readonly record struct GroundPieces(
             },
             CityPlan.PavedAreaArrays.None,
             new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
+            new CityPlan.StopLineArrays
+            {
+                CentreM = [], Approach = [], SpanM = [], ThicknessM = [], Junction = [], Road = [],
+            },
             CityPlan.WaterArrays.None);
 
     /// <summary>The same ground with its water laid, which is the first thing a town gets.</summary>
@@ -61,11 +66,12 @@ internal readonly record struct GroundPieces(
     /// <summary>And with its roads on it — the carriageways, what each junction shares, and the kerb corners.</summary>
     public GroundPieces With(
         CityPlan.RoadArrays roads, CityPlan.BridgeArrays bridges, CityPlan.JunctionArrays junctions,
-        CityPlan.JunctionCornerArrays corners, CityPlan.CrosswalkArrays crosswalks) =>
+        CityPlan.JunctionCornerArrays corners, CityPlan.CrosswalkArrays crosswalks,
+        CityPlan.StopLineArrays stopLines) =>
         this with
         {
             Roads = roads, Bridges = bridges, Junctions = junctions, JunctionCorners = corners,
-            Crosswalks = crosswalks,
+            Crosswalks = crosswalks, StopLines = stopLines,
         };
 
     /// <summary>And with the car parks the slot stage laid.</summary>

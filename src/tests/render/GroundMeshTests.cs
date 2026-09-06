@@ -169,7 +169,7 @@ public class GroundMeshTests
     public void NoDashIsLaidInAJunctionOrOnACrossing(string map)
     {
         var plan = Towns.Of(map);
-        var arms = RoadCuts.ArmsPerJunction(plan);
+        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
 
         foreach (var markM in Marks(Ground(map)))
         {
@@ -208,7 +208,7 @@ public class GroundMeshTests
     public void NoDashIsLaidBetweenAStopBarAndItsJunction(string map)
     {
         var plan = Towns.Of(map);
-        var arms = RoadCuts.ArmsPerJunction(plan);
+        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
 
         foreach (var markM in Marks(Ground(map)))
         {
@@ -249,7 +249,7 @@ public class GroundMeshTests
     public void NoDashIsLaidBetweenACrossingAndTheJunctionItApproaches(string map)
     {
         var plan = Towns.Of(map);
-        var arms = RoadCuts.ArmsPerJunction(plan);
+        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
 
         foreach (var markM in Marks(Ground(map)))
         {
@@ -479,7 +479,7 @@ public class GroundMeshTests
         var halfLengthM = config.ParkingSpaceLengthM * 0.5f;
         var halfWidthM = config.ParkingSpaceWidthM * 0.5f;
 
-        foreach (var front in RoadFrontages.Lay(plan, config).All)
+        foreach (var front in RoadFrontages.Lay(plan.Ground, config).All)
         {
             if (!front.FrontsTheKerb) continue;
 

@@ -1,5 +1,44 @@
 # CityGen — decision log
 
+## 2026-09-06 — a junction has no shape, and the lines a car is driven on are laid with the town
+
+**The driving geometry is the plan's now.** `LaneLines` lays every lane and every connector when a map is
+generated — off the roads, the junctions they are cut at, and the figures on `SimConfig` — which is the whole
+of the geometry `RoadGraph` used to build for itself when a town was opened. The graph reads those lines and
+adds only the rules over them: where lanes meet, what each movement takes off the others, and the index a
+body is stood up against. `RoadCuts`, `ParkingSections` and `RoadFrontages` came down with it, since all
+three only ever asked the plan anyway. The point of the move is that the surface and the network can no
+longer be two answers: **the tarmac is the lines, so the ground under a movement and the movement are one
+record.**
+
+**So the disc is gone.** A junction used to be a circle of ground its arms were declared to share, sized on
+the arm that reached furthest and tangent to all of them, laid in `Kerbs`, answered in `GroundShapes` and
+drawn in `GroundMesh`. What a box is on the ground is now the band its own connectors sweep, with the kerb
+fillets rounding the wedges between the arms — and nothing has to recognise a junction to get it right. A
+box that is skewed, one-way, five-armed or barely a bend comes out correct because each of its movements was
+drawn where a car actually goes. The stored radius survives as planning only: how far back the arms are cut,
+and what a crossing or a lot measures from (TER-5).
+
+**Two things the disc had been hiding came back with it.**
+
+- **A band has to be read the way a road's is** — squared at both ends, and outside it only where the
+  projection had to clamp to one of them. Asked as a bare distance along the line instead, every point on a
+  bend answers a little off perpendicular, and the band reads as standing outside itself: the first cut of
+  this answered grass over most of every box, and the road's own centreline came out as pavement.
+- **A dead end is the one junction whose ground no movement sweeps** (TER-5a). The turn that takes a car
+  back out of one is a manoeuvre and not a movement (TER-5f), so there is no line to lay a band beside and
+  the head has to be a shape. It is `TurningHeads`, and it belongs to the road that stops there rather than
+  to a junction record — **read off the arms**, so a map that joins a second road to a former dead end stops
+  having one without anything being edited. The exam lattices build these on purpose; taking the head out
+  cost four `RecoveryTests`, the walking exam's Zebras corners and the driving exam's own card 35, which is
+  called *Shunting round at a dead end*.
+
+**The pavement round a box is the arms' and not the movements'.** Laying a walk beside every connector as
+well was tried and taken out again. Every movement runs between two arms whose own bands already carry the
+walk past the box, so the second band adds no ground — only another edge for the corner solver to find,
+which it turned into a fillet standing over the carriageway. **Tarmac from the movements, walk from the
+arms.**
+
 ## 2026-09-05 — the pavement is laid once, and the picture and the answer read that laying
 
 **The shape of the pavement used to be written down twice.** `GroundMesh.Build` laid it as draw calls —
@@ -15,20 +54,17 @@ restructure is exactly behaviour-preserving and was checked as such — the same
 the fixture come back byte-identical, which is the only test that could have said so.
 
 **What was still owed was laying it off the lanes**, and `Kerbs` is where that is now stated: the town's
-tarmac as one shape — every carriageway at its own width, every junction's own ground, every kerb fillet,
-every car park and every slab — answering how far a point stands off the nearest of it, and offering the
-line that stands a given distance outside each piece. **The walking side reads it and the drawn ground does
-not yet**, which is the one figure still in two places: `Paving` grows each piece by a walk and this offsets
-each piece by half of one, so the two agree wherever the pieces do and part company at a junction corner,
-where the ring is a disc and the kerb is a fillet.
+tarmac as one shape — every carriageway at its own width, every line through a box, every kerb fillet, every
+car park and every slab — answering how far a point stands off the nearest of it, and offering the line that
+stands a given distance outside each piece.
 
-**A junction's ring is a disc and its kerb is not, and that turns out not to matter.** Carrying each kerb
-corner round at the band's width — the arc a turning car takes (TER-5) grown by the walk — was laid, drawn
-and answered from, on the suspicion that round a corner the band was whatever the circle happened to leave.
-It is not: the ring and the inner corners (TER-3c.4) already cover every one of them. The wrap cost 836
-triangles on the fixture and 22,790 on Odesa and moved two pixels in a frame 711 m across, which is the
-seam noise of drawing the same ground twice. It was taken out again. **The corner coverage is not where
-the pavement is wrong**, and the next reader looking at a junction can start somewhere else.
+**A kerb corner needs no wrap of its own, and that is worth knowing before trying it.** Carrying each corner
+round at the band's width — the arc a turning car takes (TER-5) grown by the walk — was laid, drawn and
+answered from, on the suspicion that round a corner the band was whatever the neighbouring pieces happened
+to leave. It is not: the arms' own bands and the inner corners (TER-3c.4) already cover every one of them.
+The wrap cost 836 triangles on the fixture and 22,790 on Odesa and moved two pixels in a frame 711 m across,
+which is the seam noise of drawing the same ground twice. It was taken out again. **The corner coverage is
+not where the pavement is wrong**, and the next reader looking at a junction can start somewhere else.
 
 ## 2026-09-05 — the grid in the middle runs one way, and keeps what it can be driven with
 

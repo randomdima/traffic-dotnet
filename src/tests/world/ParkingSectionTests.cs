@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -50,8 +51,8 @@ public class ParkingSectionTests
     public void EveryLotFrontsTheKerbOfARoadItStandsOn(string map)
     {
         var plan = Towns.Of(map);
-        var lengthM = RoadFrontages.RoadLengthsM(plan);
-        var fronts = RoadFrontages.Lay(plan, Config);
+        var lengthM = RoadFrontages.RoadLengthsM(plan.Ground);
+        var fronts = RoadFrontages.Lay(plan.Ground, Config);
 
         Assert.Equal(plan.ParkingLots.Count, fronts.All.Length);
         foreach (var front in fronts.All)

@@ -1,26 +1,32 @@
 using System.Numerics;
-using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
-namespace TrafficSimulation.World.Road;
+namespace TrafficSimulation.CityGen;
 
-/// <summary>Where one junction's disc takes a bite out of one chain: the node, and the two distances along the chain.</summary>
+/// <summary>Where one junction's reach takes a bite out of one chain: the node, and the two distances along the chain.</summary>
 internal readonly record struct RoadCut(int Junction, float EnterM, float ExitM);
 
 /// <summary>
 /// Where a line running along a road is cut by the junctions that road passes through — <b>which is what
-/// makes a lane the stretch between two junction discs rather than a whole road</b>, and what makes an
-/// inline junction a place the graph has heard of.
+/// makes a lane the stretch between two junctions rather than a whole road</b>, and what makes an
+/// inline junction a place the network has heard of.
 /// </summary>
 /// <remarks>
-/// <b>Both networks are cut by this one piece of arithmetic</b>, which is why it stands apart from
-/// <see cref="RoadGraph"/>: the carriageway's lanes against the discs themselves, and the pavement's
-/// strips against those discs read out by half a walk. So a stretch of road and the two stretches of
-/// pavement beside it are interrupted by the same junctions, and a change to how a junction bites can
-/// only move all three together. What the padding is <em>not</em> is the kerb — <b>a junction's disc is
-/// not its kerb</b>, and where a pavement actually stops is the fillet the plan carries, which stands
-/// well outside the padded disc and which the walking network pushes its strips back to.
+/// <para>
+/// <b>The circle it bites with is a planning figure and not a piece of ground</b> (TER-5). A junction has
+/// no shape: what a box is made of is the lines its own movements sweep (<see cref="LaneLines"/>), and this
+/// is only how far back the arms are cut so those lines have room to be drawn. Nothing here says what is on
+/// the ground anywhere.
+/// </para>
+/// <para>
+/// <b>Both networks are cut by this one piece of arithmetic</b>: the carriageway's lanes against the radii
+/// themselves, and the pavement's strips against those radii read out by half a walk. So a stretch of road
+/// and the two stretches of pavement beside it are interrupted by the same junctions, and a change to how a
+/// junction bites can only move all three together. What the padding is <em>not</em> is the kerb, and where
+/// a pavement actually stops is the fillet the plan carries, which stands well outside the padded circle
+/// and which the walking network pushes its strips back to.
+/// </para>
 /// </remarks>
 internal static class RoadCuts
 {
@@ -33,17 +39,17 @@ internal static class RoadCuts
 
     const int BisectionRounds = 12;
 
-    public static BucketGrid JunctionIndex(CityPlan plan, float paddingM)
+    public static BucketGrid JunctionIndex(GroundPieces ground, float paddingM)
     {
-        var junctions = plan.Junctions;
+        var junctions = ground.Junctions;
         var bucketM = 0f;
         foreach (var radiusM in junctions.RadiusM) bucketM = MathF.Max(bucketM, radiusM + paddingM);
 
         // A map with no junctions on it has nothing to bin, and one bucket over the whole town is the index
         // that says so. A bucket has a size, and there is no junction here to take one off.
-        if (bucketM <= 0f) bucketM = MathF.Max(plan.WorldSizeM.X, plan.WorldSizeM.Y);
+        if (bucketM <= 0f) bucketM = MathF.Max(ground.WorldSizeM.X, ground.WorldSizeM.Y);
 
-        return BucketGrid.Build(plan.WorldSizeM, bucketM, junctions.CentreM, junctions.RadiusM);
+        return BucketGrid.Build(ground.WorldSizeM, bucketM, junctions.CentreM, junctions.RadiusM);
     }
 
     /// <summary>
@@ -68,7 +74,7 @@ internal static class RoadCuts
     /// too short to drive is worse than one node fewer.
     /// </param>
     public static void Along(
-        CityPlan plan, BucketGrid discs, ReadOnlySpan<ArcSeg> chain, float lengthM, float paddingM,
+        GroundPieces ground, BucketGrid discs, ReadOnlySpan<ArcSeg> chain, float lengthM, float paddingM,
         int fromJunction, int toJunction, List<RoadCut> into, ReadOnlySpan<SectionCut> alsoAt = default,
         float shortestStretchM = 0f)
     {
@@ -76,8 +82,8 @@ internal static class RoadCuts
 
         // Every junction in the town: a query truncated to a fixed buffer is a superset silently made
         // a subset (BucketGrid), and the one thing this must not miss is a disc a road passes through.
-        var nearby = new int[Math.Max(1, plan.Junctions.Count)];
-        var junctions = plan.Junctions;
+        var nearby = new int[Math.Max(1, ground.Junctions.Count)];
+        var junctions = ground.Junctions;
 
         var seen = new Dictionary<int, (float FirstM, float LastM)>();
         for (var stepM = 0f; stepM <= lengthM; stepM += SampleStepM)
@@ -108,8 +114,8 @@ internal static class RoadCuts
         // at still arrives there.
         into.RemoveAll(cut => cut.Junction == fromJunction || cut.Junction == toJunction);
         into.Sort(static (left, right) => left.EnterM.CompareTo(right.EnterM));
-        into.Insert(0, new RoadCut(fromJunction, 0f, EndCutM(plan, chain, fromJunction, paddingM, 0f, lengthM, forward: true)));
-        into.Add(new RoadCut(toJunction, EndCutM(plan, chain, toJunction, paddingM, lengthM, lengthM, forward: false), lengthM));
+        into.Insert(0, new RoadCut(fromJunction, 0f, EndCutM(ground, chain, fromJunction, paddingM, 0f, lengthM, forward: true)));
+        into.Add(new RoadCut(toJunction, EndCutM(ground, chain, toJunction, paddingM, lengthM, lengthM, forward: false), lengthM));
 
         // Taken in the order they stand, so a pair of them too close together drops the second and not
         // whichever the loop happened to reach first. <b>Where a cut may stand is the asker's</b> — it is
@@ -137,11 +143,11 @@ internal static class RoadCuts
     /// arms are stretches too short to carry a line still has those arms, and a construction that counted
     /// what survived would lay a turning head across the mouth of a four-armed crossroads.
     /// </remarks>
-    public static int[] ArmsPerJunction(CityPlan plan)
+    public static int[] ArmsPerJunction(GroundPieces ground)
     {
-        var roads = plan.Roads;
-        var discs = JunctionIndex(plan, paddingM: 0f);
-        var arms = new int[plan.Junctions.Count];
+        var roads = ground.Roads;
+        var discs = JunctionIndex(ground, paddingM: 0f);
+        var arms = new int[ground.Junctions.Count];
         var cuts = new List<RoadCut>();
 
         for (var road = 0; road < roads.Count; road++)
@@ -150,7 +156,7 @@ internal static class RoadCuts
             if (centreline.Length == 0) continue;
 
             Along(
-                plan, discs, centreline, Spline.TotalLengthM(centreline), paddingM: 0f,
+                ground, discs, centreline, Spline.TotalLengthM(centreline), paddingM: 0f,
                 roads.FromJunction[road], roads.ToJunction[road], cuts);
             for (var cut = 0; cut < cuts.Count; cut++)
             {
@@ -173,38 +179,38 @@ internal static class RoadCuts
     /// arm has to keep off that ground with no paint to measure against: a lane line with no bar or crossing
     /// on its arm, and the node a car park asks to be cut at.
     /// </remarks>
-    public static float[] ReachesM(CityPlan plan, SimConfig config)
+    public static float[] ReachesM(GroundPieces ground, SimConfig config)
     {
-        var bearings = new List<(float Rad, float HalfM, float StandsOffM)>[plan.Junctions.Count];
+        var bearings = new List<(float Rad, float HalfM, float StandsOffM)>[ground.Junctions.Count];
         var bendM = new float[bearings.Length];
         for (var junction = 0; junction < bearings.Length; junction++) bearings[junction] = [];
 
-        for (var road = 0; road < plan.Roads.Count; road++)
+        for (var road = 0; road < ground.Roads.Count; road++)
         {
-            var chain = plan.Roads.SegmentsOf(road);
+            var chain = ground.Roads.SegmentsOf(road);
             if (chain.Length == 0) continue;
 
             // <b>Each arm with its own half beside it, and with however far off the node it stands</b>:
             // where the kerbs of two arms cross is a fact about both their widths, and a one-way street is
             // half a road wide and stands on the half of that road it is driven (TER-4d).
-            var halfM = plan.Roads.WidthM[road] * 0.5f;
+            var halfM = ground.Roads.WidthM[road] * 0.5f;
             var from = Spline.SampleAt(chain, 0f);
             var to = Spline.SampleAt(chain, Spline.TotalLengthM(chain));
             var outOfFrom = from.Direction;
             var outOfTo = -to.Direction;
-            bearings[plan.Roads.FromJunction[road]].Add((
+            bearings[ground.Roads.FromJunction[road]].Add((
                 MathF.Atan2(outOfFrom.Y, outOfFrom.X), halfM,
-                StandsOffM(from.PositionM - plan.Junctions.CentreM[plan.Roads.FromJunction[road]], outOfFrom)));
-            bearings[plan.Roads.ToJunction[road]].Add((
+                StandsOffM(from.PositionM - ground.Junctions.CentreM[ground.Roads.FromJunction[road]], outOfFrom)));
+            bearings[ground.Roads.ToJunction[road]].Add((
                 MathF.Atan2(outOfTo.Y, outOfTo.X), halfM,
-                StandsOffM(to.PositionM - plan.Junctions.CentreM[plan.Roads.ToJunction[road]], outOfTo)));
+                StandsOffM(to.PositionM - ground.Junctions.CentreM[ground.Roads.ToJunction[road]], outOfTo)));
 
             // A node with no fork has no corner to flare, and the ground it takes is the bend the two arms
             // were swept into instead (TER-5b) — which is as much of that arm as anything must stand off.
-            bendM[plan.Roads.FromJunction[road]] =
-                MathF.Max(bendM[plan.Roads.FromJunction[road]], Spline.BendAtTheEndM(chain, atStart: true));
-            bendM[plan.Roads.ToJunction[road]] =
-                MathF.Max(bendM[plan.Roads.ToJunction[road]], Spline.BendAtTheEndM(chain, atStart: false));
+            bendM[ground.Roads.FromJunction[road]] =
+                MathF.Max(bendM[ground.Roads.FromJunction[road]], Spline.BendAtTheEndM(chain, atStart: true));
+            bendM[ground.Roads.ToJunction[road]] =
+                MathF.Max(bendM[ground.Roads.ToJunction[road]], Spline.BendAtTheEndM(chain, atStart: false));
         }
 
         var reachM = new float[bearings.Length];
@@ -212,8 +218,8 @@ internal static class RoadCuts
         {
             var round = bearings[junction];
             reachM[junction] = round.Count == 2
-                ? MathF.Max(plan.Junctions.RadiusM[junction], bendM[junction])
-                : plan.Junctions.RadiusM[junction];
+                ? MathF.Max(ground.Junctions.RadiusM[junction], bendM[junction])
+                : ground.Junctions.RadiusM[junction];
 
             if (round.Count < 2) continue;
 
@@ -249,9 +255,9 @@ internal static class RoadCuts
 
     /// <summary>How far into its own end junction a chain reaches, which is where the stretch on it starts or stops.</summary>
     static float EndCutM(
-        CityPlan plan, ReadOnlySpan<ArcSeg> chain, int junction, float paddingM, float fromM, float lengthM, bool forward)
+        GroundPieces ground, ReadOnlySpan<ArcSeg> chain, int junction, float paddingM, float fromM, float lengthM, bool forward)
     {
-        var junctions = plan.Junctions;
+        var junctions = ground.Junctions;
         var stepM = forward ? SampleStepM : -SampleStepM;
         var alongM = fromM;
         while (alongM >= 0f && alongM <= lengthM && Inside(junctions, junction, paddingM, Spline.SampleAt(chain, alongM).PositionM))

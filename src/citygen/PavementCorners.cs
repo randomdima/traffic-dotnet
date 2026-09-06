@@ -67,13 +67,18 @@ internal static class PavementCorners
     /// <summary>Nearly folded back on itself, where the arc's centre runs away and the wedge is a hairline.</summary>
     const float FoldedDot = -0.95f;
 
-    public static List<PavementCorner> Solve(GroundPieces plan, SimConfig config)
+    /// <summary>The same, for a caller that holds no lines of its own and wants them laid off the plan.</summary>
+    public static List<PavementCorner> Solve(GroundPieces plan, SimConfig config) =>
+        Solve(plan, LaneLines.Of(plan, config), TurningHeads.Of(plan), config);
+
+    public static List<PavementCorner> Solve(
+        GroundPieces plan, LaneLines lanes, TurningHeads heads, SimConfig config)
     {
         var corners = new List<PavementCorner>();
         var walkM = plan.PavementWidthM > 0f ? plan.PavementWidthM : config.PavementWidthM;
         if (walkM <= 0f) return corners;
 
-        var pieces = Lay(plan, config, walkM);
+        var pieces = Lay(plan, lanes, heads, config, walkM);
         if (pieces.Count < 2) return corners;
 
         var grid = new PieceGrid(pieces, plan.WorldSizeM);
@@ -246,7 +251,8 @@ internal static class PavementCorners
 
     /// <summary>
     /// How far a point stands outside a piece of pavement, negative within it. A band is its centreline
-    /// grown by a half-width, a disc is a disc, and a wrap is the rounded rectangle a car park's walk is.
+    /// grown by a half-width, a disc is the walk round a road's head, and a wrap is the rounded rectangle a
+    /// car park's walk is.
     /// </summary>
     static float Distance(in Piece piece, Vector2 pointM)
     {
@@ -275,8 +281,9 @@ internal static class PavementCorners
     /// </summary>
     /// <remarks>
     /// <b>A band is two runs and not one loop, because its ends are left off.</b> A road runs into the
-    /// disc at each of its junctions, so a cap is ground already inside the union — and a segment drawn
-    /// straight across the carriageway from one side's end to the other's is not on the outline at all.
+    /// lines a box is turned on at each of its junctions, so a cap is ground already inside the union — and
+    /// a segment drawn straight across the carriageway from one side's end to the other's is not on the
+    /// outline at all.
     /// </remarks>
     static void Outline(in Piece piece, List<Vector2> into, List<int> runs)
     {
@@ -337,10 +344,11 @@ internal static class PavementCorners
 
     /// <summary>
     /// Every piece of pavement the ground is drawn from, in the shape it is drawn in: the band either
-    /// side of each carriageway, the ring round each junction, the walk a bridge deck carries over and the
-    /// wrap round each car park.
+    /// side of each carriageway, the band either side of each line through a box, the ring round each head a
+    /// road stops at, the walk a bridge deck carries over and the wrap round each car park.
     /// </summary>
-    static List<Piece> Lay(GroundPieces plan, SimConfig config, float walkM)
+    static List<Piece> Lay(
+        GroundPieces plan, LaneLines lanes, TurningHeads heads, SimConfig config, float walkM)
     {
         var pieces = new List<Piece>();
         for (var road = 0; road < plan.Roads.Count; road++)
@@ -348,9 +356,9 @@ internal static class PavementCorners
             pieces.Add(Piece.Band(plan.Roads.SegmentsOf(road).ToArray(), (plan.Roads.WidthM[road] * 0.5f) + walkM));
         }
 
-        for (var junction = 0; junction < plan.Junctions.Count; junction++)
+        for (var head = 0; head < heads.Count; head++)
         {
-            pieces.Add(Piece.Disc(plan.Junctions.CentreM[junction], plan.Junctions.RadiusM[junction] + walkM));
+            pieces.Add(Piece.Disc(heads.CentreM[head], heads.RadiusM[head] + walkM));
         }
 
         for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)

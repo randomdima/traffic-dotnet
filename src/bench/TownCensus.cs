@@ -197,7 +197,7 @@ internal static class TownCensus
     static int Fronting(CityPlan plan, SimConfig config)
     {
         var fronting = 0;
-        foreach (var front in RoadFrontages.Lay(plan, config).All)
+        foreach (var front in RoadFrontages.Lay(plan.Ground, config).All)
         {
             if (front.FrontsTheKerb) fronting++;
         }

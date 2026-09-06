@@ -1,9 +1,8 @@
 using System.Numerics;
-using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
-namespace TrafficSimulation.World.Road;
+namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// Where one car park meets the road it hangs off: the stretch of that road's own metres its rectangle
@@ -65,13 +64,13 @@ internal sealed class RoadFrontages
     public ReadOnlySpan<LotFrontage> On(int road) =>
         _offsets.Length == 0 ? None : _fronts.AsSpan(_offsets[road], _offsets[road + 1] - _offsets[road]);
 
-    public static RoadFrontages Lay(CityPlan plan, SimConfig config)
+    public static RoadFrontages Lay(GroundPieces ground, SimConfig config)
     {
-        var lots = plan.ParkingLots;
-        var roads = plan.Roads;
+        var lots = ground.ParkingLots;
+        var roads = ground.Roads;
         if (lots.Count == 0 || roads.Count == 0) return new RoadFrontages([], None);
 
-        var lengthM = RoadLengthsM(plan);
+        var lengthM = RoadLengthsM(ground);
         var found = new List<LotFrontage>(lots.Count);
 
         // The lot's four corners as they walk its rectangle, so each consecutive pair is one of its edges.
@@ -79,7 +78,7 @@ internal sealed class RoadFrontages
         Span<float> atCornerM = stackalloc float[4];
         for (var lot = 0; lot < lots.Count; lot++)
         {
-            var road = Nearest(plan, lengthM, lots.CentreM[lot], out var alongM, out var offM);
+            var road = Nearest(ground, lengthM, lots.CentreM[lot], out var alongM, out var offM);
             if (road < 0) continue;
 
             var at = Spline.SampleAt(roads.SegmentsOf(road), alongM);
@@ -163,10 +162,10 @@ internal sealed class RoadFrontages
     /// it rather than measured off the rectangle a second time.
     /// </remarks>
     public static float? ReachToTheKerbM(
-        CityPlan plan, in LotFrontage front, Vector2 fromM, Vector2 towards, float withinM)
+        GroundPieces ground, in LotFrontage front, Vector2 fromM, Vector2 towards, float withinM)
     {
-        var arcs = plan.Roads.SegmentsOf(front.Road);
-        var edgeM = front.Side * plan.Roads.WidthM[front.Road] * 0.5f;
+        var arcs = ground.Roads.SegmentsOf(front.Road);
+        var edgeM = front.Side * ground.Roads.WidthM[front.Road] * 0.5f;
         var at = Spline.SampleAt(arcs, Spline.ProjectM(
             arcs, fromM, (front.MouthFromM + front.MouthToM) * 0.5f, front.MouthToM - front.MouthFromM));
 
@@ -178,21 +177,21 @@ internal sealed class RoadFrontages
         return MathF.Abs(reachM) <= withinM ? reachM : null;
     }
 
-    public static float[] RoadLengthsM(CityPlan plan)
+    public static float[] RoadLengthsM(GroundPieces ground)
     {
-        var lengthM = new float[plan.Roads.Count];
+        var lengthM = new float[ground.Roads.Count];
         for (var road = 0; road < lengthM.Length; road++)
         {
-            lengthM[road] = Spline.TotalLengthM(plan.Roads.SegmentsOf(road));
+            lengthM[road] = Spline.TotalLengthM(ground.Roads.SegmentsOf(road));
         }
 
         return lengthM;
     }
 
     /// <summary>The road whose centreline passes nearest a place, how far along it that is, and how far off it stands.</summary>
-    public static int Nearest(CityPlan plan, float[] lengthM, Vector2 pointM, out float alongM, out float offM)
+    public static int Nearest(GroundPieces ground, float[] lengthM, Vector2 pointM, out float alongM, out float offM)
     {
-        var roads = plan.Roads;
+        var roads = ground.Roads;
         var best = -1;
         alongM = 0f;
         offM = float.PositiveInfinity;

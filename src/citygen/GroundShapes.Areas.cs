@@ -15,8 +15,9 @@ internal interface IGroundShape
 }
 
 /// <summary>
-/// The pieces of ground that belong to no road: the disc a junction's arms share, the wedge its kerbs
-/// turn on, the rectangles a car park and a slab of paving are, and the rings the water is cut from.
+/// The pieces of ground that belong to no road and to no line through a box: the head a road stops at, the
+/// wedge a junction's kerbs turn on, the rectangles a car park and a slab of paving are, and the rings the
+/// water is cut from.
 /// </summary>
 internal sealed partial class GroundShapes
 {
@@ -27,13 +28,12 @@ internal sealed partial class GroundShapes
     /// </summary>
     const int MostShapesNear = 32;
 
-    BucketGrid _junctionIndex = null!;
+    BucketGrid _headIndex = null!;
     BucketGrid _kerbIndex = null!;
     BucketGrid _walkIndex = null!;
     BucketGrid _lotIndex = null!;
 
-    Vector2[] _junctionCentreM = [];
-    float[] _junctionRadiusM = [];
+    TurningHeads _heads;
 
     Fillets _kerbs;
     Fillets _walks;
@@ -75,16 +75,6 @@ internal sealed partial class GroundShapes
         }
 
         return false;
-    }
-
-    /// <summary>The ground a junction's arms share, or the pavement that runs round the outside of it.</summary>
-    readonly struct Discs(Vector2[] centreM, float[] radiusM, float outM) : IGroundShape
-    {
-        public bool Covers(int shape, Vector2 pointM)
-        {
-            var reachM = radiusM[shape] + outM;
-            return (pointM - centreM[shape]).LengthSquared() <= reachM * reachM;
-        }
     }
 
     /// <summary>
@@ -148,6 +138,16 @@ internal sealed partial class GroundShapes
                 MathF.Max((tangentAM[corner] - middleM).Length(), (tangentBM[corner] - middleM).Length()));
             var withinM = roundM + reachM;
             return (pointM - middleM).LengthSquared() <= withinM * withinM;
+        }
+    }
+
+    /// <summary>The head a road stops at, or the pavement that runs round the outside of it (TER-5a).</summary>
+    readonly struct Discs(Vector2[] centreM, float[] radiusM, float outM) : IGroundShape
+    {
+        public bool Covers(int shape, Vector2 pointM)
+        {
+            var reachM = radiusM[shape] + outM;
+            return (pointM - centreM[shape]).LengthSquared() <= reachM * reachM;
         }
     }
 
@@ -317,10 +317,9 @@ internal sealed partial class GroundShapes
         var walkM = paving.WalkM;
         var bucketM = config.Terrain.GroundBucketM;
 
-        _junctionCentreM = plan.Junctions.CentreM;
-        _junctionRadiusM = plan.Junctions.RadiusM;
-        _junctionIndex = BucketGrid.Build(
-            plan.WorldSizeM, bucketM, _junctionCentreM, Grown(_junctionRadiusM, walkM));
+        _heads = paving.Heads;
+        _headIndex = BucketGrid.Build(
+            plan.WorldSizeM, bucketM, _heads.CentreM, Grown(_heads.RadiusM, walkM));
 
         _kerbs = new Fillets(
             plan.JunctionCorners.CornerM, plan.JunctionCorners.TangentAM, plan.JunctionCorners.TangentBM,

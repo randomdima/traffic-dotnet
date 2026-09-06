@@ -1,9 +1,8 @@
 using System.Numerics;
-using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
-namespace TrafficSimulation.World.Road;
+namespace TrafficSimulation.CityGen;
 
 /// <summary>One place a car park asks its road to be cut: how far along the road's own centreline, and which node it becomes.</summary>
 internal readonly record struct SectionCut(float AlongM, int Node);
@@ -57,19 +56,19 @@ internal sealed class ParkingSections
     public ReadOnlySpan<SectionCut> On(int road) =>
         _offsets.Length == 0 ? None : _cuts.AsSpan(_offsets[road], _offsets[road + 1] - _offsets[road]);
 
-    public static ParkingSections Lay(CityPlan plan, SimConfig config, int firstNode)
+    public static ParkingSections Lay(GroundPieces ground, SimConfig config, int firstNode)
     {
-        var lots = plan.ParkingLots;
-        var roads = plan.Roads;
+        var lots = ground.ParkingLots;
+        var roads = ground.Roads;
         if (lots.Count == 0 || roads.Count == 0) return new ParkingSections([], None, []);
 
         var setbackM = config.ParkingSectionSetbackM;
         var frontage = new List<(float FromM, float ToM)>[roads.Count];
-        var lengthM = RoadFrontages.RoadLengthsM(plan);
+        var lengthM = RoadFrontages.RoadLengthsM(ground);
 
         // Near enough to the road to be reached off it, measured against the lot's own diagonal so the
         // test does not turn on which way round the rectangle was laid.
-        foreach (var front in RoadFrontages.Lay(plan, config).All)
+        foreach (var front in RoadFrontages.Lay(ground, config).All)
         {
             var reachM = (roads.WidthM[front.Road] * 0.5f) + config.PavementWidthM +
                          lots.HalfExtentM[front.Lot].Length();
@@ -79,7 +78,7 @@ internal sealed class ParkingSections
         }
 
         var shortestM = config.ParkingSectionShortestStretchM;
-        var blocked = Blocked(plan, config, lengthM, shortestM);
+        var blocked = Blocked(ground, config, lengthM, shortestM);
         var offsets = new int[roads.Count + 1];
         var cuts = new List<SectionCut>();
         var centreM = new List<Vector2>();
@@ -120,7 +119,7 @@ internal sealed class ParkingSections
             if (alongM <= 0f || alongM >= lengthM[road]) return;
 
             cuts.Add(new SectionCut(alongM, firstNode + centreM.Count));
-            centreM.Add(Spline.SampleAt(plan.Roads.SegmentsOf(road), alongM).PositionM);
+            centreM.Add(Spline.SampleAt(ground.Roads.SegmentsOf(road), alongM).PositionM);
         }
     }
 
@@ -165,13 +164,13 @@ internal sealed class ParkingSections
     /// junction is the opposite case and the same answer: it is a node already, and a second one inside its
     /// disc would be a stretch of no length between them.
     /// </remarks>
-    static List<(float FromM, float ToM)>[] Blocked(CityPlan plan, SimConfig config, float[] lengthM, float shortestM)
+    static List<(float FromM, float ToM)>[] Blocked(GroundPieces ground, SimConfig config, float[] lengthM, float shortestM)
     {
-        var roads = plan.Roads;
+        var roads = ground.Roads;
         var painted = new List<(float FromM, float ToM)>[roads.Count];
 
-        var discs = RoadCuts.JunctionIndex(plan, paddingM: 0f);
-        var reachM = RoadCuts.ReachesM(plan, config);
+        var discs = RoadCuts.JunctionIndex(ground, paddingM: 0f);
+        var reachM = RoadCuts.ReachesM(ground, config);
         var junctionCuts = new List<RoadCut>();
         for (var road = 0; road < roads.Count; road++)
         {
@@ -179,40 +178,40 @@ internal sealed class ParkingSections
             if (centreline.Length == 0) continue;
 
             RoadCuts.Along(
-                plan, discs, centreline, lengthM[road], paddingM: 0f, roads.FromJunction[road],
+                ground, discs, centreline, lengthM[road], paddingM: 0f, roads.FromJunction[road],
                 roads.ToJunction[road], junctionCuts);
             foreach (var cut in junctionCuts)
             {
                 // <b>Clear of the ground the junction reaches and not of the disc it is drawn on</b>: the
                 // corner an arm flares back through, or the bend a node with no fork was swept into, is
                 // ground a section standing on it would put a bay's mouth on.
-                var flareM = shortestM + reachM[cut.Junction] - plan.Junctions.RadiusM[cut.Junction];
+                var flareM = shortestM + reachM[cut.Junction] - ground.Junctions.RadiusM[cut.Junction];
                 (painted[road] ??= []).Add((cut.EnterM - flareM, cut.ExitM + flareM));
             }
         }
 
-        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+        for (var crossing = 0; crossing < ground.Crosswalks.Count; crossing++)
         {
-            Note(plan.Crosswalks.CentreM[crossing], plan.Crosswalks.DepthM[crossing] * 0.5f);
+            Note(ground.Crosswalks.CentreM[crossing], ground.Crosswalks.DepthM[crossing] * 0.5f);
         }
 
-        for (var bar = 0; bar < plan.StopLines.Count; bar++)
+        for (var bar = 0; bar < ground.StopLines.Count; bar++)
         {
-            var road = plan.StopLines.Road[bar];
+            var road = ground.StopLines.Road[bar];
             if (road < 0 || road >= roads.Count) continue;
 
             var centreline = roads.SegmentsOf(road);
             if (centreline.Length == 0) continue;
 
-            var atM = Spline.ProjectM(centreline, plan.StopLines.CentreM[bar], lengthM[road] * 0.5f, lengthM[road]);
-            Keep(road, atM, plan.StopLines.ThicknessM[bar] * 0.5f);
+            var atM = Spline.ProjectM(centreline, ground.StopLines.CentreM[bar], lengthM[road] * 0.5f, lengthM[road]);
+            Keep(road, atM, ground.StopLines.ThicknessM[bar] * 0.5f);
         }
 
         return painted;
 
         void Note(Vector2 atM, float reachM)
         {
-            var road = RoadFrontages.Nearest(plan, lengthM, atM, out var alongM, out _);
+            var road = RoadFrontages.Nearest(ground, lengthM, atM, out var alongM, out _);
             if (road < 0) return;
 
             Keep(road, alongM, reachM);

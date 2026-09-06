@@ -50,13 +50,19 @@ means, which is why it is here and not a second mechanism.
 
 ## Junctions
 
-**TER-5** An intersection is a **disc** — the ground its arms share, the same shape from every bearing —
-with the wedge between each pair of neighbouring arms paved back to an **arc tangent to both
-carriageways**, which is the line a turning car takes. Each arm is stamped out to its tangent point so
-disc, mouths and fillets come out as one region. **"How far the junction reaches"** — what crossings and
-lots measure from — is half the disc plus the corner radius, not the disc's edge.
+**TER-5** An intersection **has no shape of its own**. The ground inside one is **the ground its own
+movements take** — the band every connector between its arms sweeps (TER-5d) — with the wedge between each
+pair of neighbouring arms paved back to an **arc tangent to both carriageways**, which is the line a turning
+car takes. Arms, movements and fillets come out as one region because each of them is drawn where a car
+actually goes, so a box that is skewed, one-way, five-armed or barely a bend is right without anything
+having to recognise which of those it is.
 
-**The disc is sized on the arm whose ground reaches furthest from the node — its own half and however far
+**A junction's radius is a planning figure and never a piece of ground.** It says how far back the arms are
+cut so the movements have room to be drawn, and it is what crossings and lots measure from — **"how far the
+junction reaches"** being that radius plus the corner radius. Nothing reads it as a surface: no ground is
+answered from it, no pavement is laid round it, and none is drawn.
+
+**The radius is sized on the arm whose ground reaches furthest from the node — its own half and however far
 off the node its road stands — and a corner is solved on the two it stands between** (TER-4d). Where a
 one-way street meets a full carriageway their kerbs cross off the bisector, further out along the narrow
 arm than along the wide one, and each arm is reached as far as its own tangent point rather than to one
@@ -70,8 +76,11 @@ junction — a step in the kerb, and nothing for a fillet to be tangent to.
 There is exactly one exception:
 
 **TER-5a** A **dead end** is an intersection with a single arm, and it is the one junction sized around a
-turning circle: its disc must hold a car working itself round on the spot (`P-19`) with the car's width
-clear of the kerb, because there is no other arm to overrun into and no car park promised there. A dead
+turning circle: its **head** must hold a car working itself round on the spot (`P-19`) with the car's width
+clear of the kerb, because there is no other arm to overrun into and no car park promised there. It is
+therefore **the one place a junction's radius is a shape** — the ground round the last point of the road
+that stops there, laid, answered for and drawn as a disc of it, because the turn that takes a car back out
+is a manoeuvre and not a movement (TER-5f) and so sweeps no band of its own. A dead
 end too small to turn in is a place nothing that drives into it can leave. It carries no crossing and no
 lights.
 

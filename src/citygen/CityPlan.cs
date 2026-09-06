@@ -79,7 +79,7 @@ internal sealed class CityPlan
     /// </summary>
     public GroundPieces Ground => new(
         WorldSizeM, PavementWidthM, Roads, Bridges, Junctions, JunctionCorners, ParkingLots, PavedAreas,
-        Crosswalks, Water);
+        Crosswalks, StopLines, Water);
 
     /// <summary>
     /// How far a zebra reaches across the road, kerb to kerb: <b>the width of the road it is painted on,

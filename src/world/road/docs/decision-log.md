@@ -4,6 +4,22 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-06 — the graph reads the lines rather than drawing them
+
+**`RoadGraph` used to be two jobs in one type.** It cut the roads, offset the lanes, settled every lane end's
+cut back, drew every connector — and then laid the rules over what it had drawn: where the lanes meet, what
+each movement takes off the others, the index a body is stood up against. Only the second half is this
+slice's. The first half is the town's own geometry, wanted just as much by the ground as by the traffic, and
+it is `CityGen.LaneLines` now — laid when the map is generated, off the plan alone. `RoadCuts`,
+`ParkingSections` and `RoadFrontages` went down with it; each only ever asked the plan, and each was sitting
+here because that is where its first caller happened to live.
+
+**What the move buys is that the tarmac and the network cannot disagree.** The ground a car may drive on is
+the ground under these lines, answered off the same arrays the follower is steered by — so a junction needs
+no shape of its own (TER-5), and the question of whether the surface and the graph were laid to the same
+figures cannot be asked. The graph's own public surface did not move: every property a caller reads is the
+same name over the same array.
+
 ## 2026-09-05 — the pavement is the tarmac wrapped, and a junction is not a case
 
 **The walking network was six constructions and not one of them was the pavement.** Strips offset from
