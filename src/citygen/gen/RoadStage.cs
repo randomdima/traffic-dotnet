@@ -165,9 +165,40 @@ internal static class RoadStage
     /// <b>Tangent continuous by construction</b>: each arc leaves the straight before it on that straight's
     /// own bearing, which is what a follower reads off the road and what keeps a drawn ribbon from creasing.
     /// </summary>
+    /// <remarks>
+    /// <b>A vertex the road cannot turn is dropped from the line and the line is laid again</b> (GEN-12),
+    /// never stepped over while it is being laid. The arc before a vertex is aimed <em>at</em> that vertex,
+    /// so giving one up half way along leaves the straight after it setting off on a bearing nothing arrives
+    /// on — a crease in the carriageway of the whole deflection given up. <b>And a crease breaks the line
+    /// that wraps it</b>: offsetting a chain moves every piece of it sideways by the same figure, so a kink
+    /// opens the offset by the kink times the offset, and the pavement beside a road that creased came apart
+    /// over three metres of itself with a walking lane dead-ending either side of the hole.
+    /// </remarks>
     static ArcSeg[] Rounded(ReadOnlySpan<Vector2> pointsM, float floorRadiusM)
     {
+        Span<Vector2> turnedM = stackalloc Vector2[pointsM.Length];
+        pointsM.CopyTo(turnedM);
+
         var chain = new List<ArcSeg>((pointsM.Length * 2) - 1);
+        var count = pointsM.Length;
+        while (true)
+        {
+            var givenUp = Turning(turnedM[..count], floorRadiusM, chain);
+            if (givenUp < 0) return [.. chain];
+
+            turnedM[(givenUp + 1)..count].CopyTo(turnedM[givenUp..]);
+            count--;
+        }
+    }
+
+    /// <summary>
+    /// The line laid as the straights and arcs it is driven along, or <b>the first vertex the road cannot
+    /// turn</b> — one whose corner is tighter than the class's floor, and one too slight to be a corner at
+    /// all. What it laid before reaching that vertex is the caller's to throw away.
+    /// </summary>
+    static int Turning(ReadOnlySpan<Vector2> pointsM, float floorRadiusM, List<ArcSeg> chain)
+    {
+        chain.Clear();
         var atM = pointsM[0];
         for (var vertex = 1; vertex + 1 < pointsM.Length; vertex++)
         {
@@ -175,12 +206,15 @@ internal static class RoadStage
             var outOfM = pointsM[vertex + 1] - pointsM[vertex];
             var intoLengthM = intoM.Length();
             var outOfLengthM = outOfM.Length();
-            if (intoLengthM <= 0f || outOfLengthM <= 0f) continue;
+            if (intoLengthM <= 0f || outOfLengthM <= 0f) return vertex;
 
             var into = intoM / intoLengthM;
             var outOf = outOfM / outOfLengthM;
-            var deflection = MathF.Asin(Math.Clamp(Cross(into, outOf), -1f, 1f));
-            if (MathF.Abs(deflection) < StraightThroughRad) continue;
+
+            // The turn itself and not its sine: past a quarter turn the two read as different corners, and
+            // the arc a sine lays there arrives on a bearing the next piece does not leave on.
+            var deflection = MathF.Atan2(Cross(into, outOf), Vector2.Dot(into, outOf));
+            if (MathF.Abs(deflection) < StraightThroughRad) return vertex;
 
             // <b>A corner too tight for the class is not rounded harder, it is not turned at all</b>: the
             // road runs straight through the vertex and the wander it asked for is given up. Rounding it at
@@ -188,7 +222,7 @@ internal static class RoadStage
             // what that lays is a road that leaves its own carriageway.
             var tangentM = TangentShareOfSegment * MathF.Min(intoLengthM, outOfLengthM);
             var radiusM = tangentM / MathF.Tan(MathF.Abs(deflection) * 0.5f);
-            if (radiusM < floorRadiusM) continue;
+            if (radiusM < floorRadiusM) return vertex;
 
             var startsM = pointsM[vertex] - (into * tangentM);
             var straightM = (startsM - atM).Length();
@@ -203,7 +237,7 @@ internal static class RoadStage
         var runM = lastM.Length();
         if (runM > 0f) chain.Add(new ArcSeg(atM, Facing(lastM / runM), runM, 0f));
 
-        return [.. chain];
+        return -1;
     }
 
     /// <summary>

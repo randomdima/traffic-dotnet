@@ -46,7 +46,7 @@ internal sealed partial class GroundMesh
         var along = axis.LengthSquared() > 0f ? Vector2.Normalize(axis) : Vector2.UnitX;
         var across = new Vector2(-along.Y, along.X);
         var straightM = halfM - new Vector2(radius);
-        var steps = Steps(radius * MathF.PI * 0.5f);
+        var steps = Steps(radius, MathF.PI * 0.5f);
         var baseRad = MathF.Atan2(along.Y, along.X);
         var centre = Vertex(centreM, surface, tint, periods);
         var written = 0;
@@ -76,6 +76,11 @@ internal sealed partial class GroundMesh
     /// a metre of chord bow — well under a lane width, and
     /// what keeps a ribbon from showing a facet at every piece.
     /// </summary>
+    /// <remarks>
+    /// <b>A piece's first station is the last station of the piece before it</b>, so it is sampled once and
+    /// not twice. Laid twice, a chain of more than one piece carries a strip of no width at every joint —
+    /// triangles that draw nothing and that anything reading the mesh back has to know to throw away.
+    /// </remarks>
     void Ribbon(ReadOnlySpan<ArcSeg> arcs, float halfWidthM, Surface surface, Vector3 tint, float[] periods)
     {
         if (halfWidthM <= 0f) return;
@@ -84,7 +89,7 @@ internal sealed partial class GroundMesh
         foreach (var arc in arcs)
         {
             var steps = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / StepM(arc.Curvature)));
-            for (var step = 0; step <= steps; step++)
+            for (var step = previous < 0 ? 0 : 1; step <= steps; step++)
             {
                 var distanceM = arc.LengthM * step / steps;
                 var headingRad = arc.HeadingAtRad(distanceM);
@@ -96,6 +101,42 @@ internal sealed partial class GroundMesh
                 if (previous >= 0) Strip(previous, left);
                 previous = left;
             }
+        }
+    }
+
+    /// <summary>
+    /// <b>The ground between two offsets of one line</b>, either or both of which may be to either side of
+    /// it: the pavement as the band about the line it is walked down, and each of the two rims on it.
+    /// </summary>
+    /// <remarks>
+    /// A ribbon that need not be centred, and the shape the pavement is (TER-3c.3). Struck at the arcs' own
+    /// samples like every other strip here, so two skirts on one line — the band and the kerb line inside it
+    /// — meet along the same chords rather than a sag apart.
+    /// </remarks>
+    void Skirt(
+        ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, Surface surface, Vector3 tint, float[] periods)
+    {
+        if (fromM == toM) return;
+
+        var previous = -1;
+        foreach (var arc in arcs)
+        {
+            var steps = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / StepM(arc.Curvature)));
+            for (var step = previous < 0 ? 0 : 1; step <= steps; step++)
+            {
+                var distanceM = arc.LengthM * step / steps;
+                previous = Station(arc.PointAtM(distanceM), arc.HeadingAtRad(distanceM), previous);
+            }
+        }
+
+        int Station(Vector2 onM, float headingRad, int previous)
+        {
+            var across = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad));
+            var near = Vertex(onM + (across * fromM), surface, tint, periods);
+            Vertex(onM + (across * toM), surface, tint, periods);
+            if (previous >= 0) Strip(previous, near);
+
+            return near;
         }
     }
 
@@ -226,13 +267,68 @@ internal sealed partial class GroundMesh
     {
         if (radiusM <= 0f) return;
 
-        var steps = Steps(radiusM * MathF.Tau);
+        var steps = Steps(radiusM, MathF.Tau);
         var centre = Vertex(centreM, surface, tint, periods);
         for (var step = 0; step <= steps; step++)
         {
             var angleRad = MathF.Tau * step / steps;
             Vertex(centreM + radiusM * new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad)), surface, tint, periods);
             if (step > 0) Triangle(centre, centre + step, centre + step + 1);
+        }
+    }
+
+    /// <summary>
+    /// <b>A band of tarmac grown by a distance</b>: the ribbon <paramref name="outM"/> wider on each side
+    /// and the two square ends turned on the same figure (TER-3c.6). It is the pavement beside one piece
+    /// of the town's tarmac, and the whole of it.
+    /// </summary>
+    void Band(
+        ReadOnlySpan<ArcSeg> arcs, float halfM, float outM, Surface surface, Vector3 tint, float[] periods)
+    {
+        if (arcs.Length == 0) return;
+
+        Ribbon(arcs, halfM + outM, surface, tint, periods);
+
+        var last = arcs[^1];
+        Cap(arcs[0].StartM, -arcs[0].StartUnit, halfM, outM, surface, tint, periods);
+        Cap(last.EndM, Heading.Unit(last.HeadingAtRad(last.LengthM)), halfM, outM, surface, tint, periods);
+    }
+
+    /// <summary>
+    /// <b>The ground that turns the square end of a band</b> (TER-3c.6): everything past that end and
+    /// within <paramref name="outM"/> of it, which is the end grown by a distance — a straight run out,
+    /// and a quarter turn about each of the two corners.
+    /// </summary>
+    /// <remarks>
+    /// A fan from the middle of the end, which the shape is star-shaped about. It is the pavement's own
+    /// answer drawn (<c>CityGen.GroundShapes.OffTheBandM</c>): a band grown by a distance turns its
+    /// corners on that distance, so a ribbon squared off and left there is a bite of verge exactly where
+    /// the walk wraps round.
+    /// </remarks>
+    void Cap(Vector2 endM, Vector2 outward, float halfM, float outM, Surface surface, Vector3 tint,
+        float[] periods)
+    {
+        if (outM <= 0f) return;
+
+        var right = new Vector2(-outward.Y, outward.X);
+        var quarter = MathF.PI * 0.5f;
+        var steps = Steps(outM, quarter);
+        var middle = Vertex(endM, surface, tint, periods);
+        var laid = 0;
+
+        // Each corner in turn, and the boundary walked once from one side of the end to the other: the
+        // corner to the left from square across the end round to straight out of it, the straight run
+        // between the two, then the corner to the right on round to square across the other way.
+        foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
+        {
+            var cornerM = endM + (halfM * side * right);
+            for (var step = 0; step <= steps; step++)
+            {
+                var angleRad = quarter * (side < 0f ? step : steps - step) / steps;
+                var atM = cornerM + (outM * ((MathF.Sin(angleRad) * outward) + (MathF.Cos(angleRad) * side * right)));
+                Vertex(atM, surface, tint, periods);
+                if (++laid > 1) Triangle(middle, middle + laid - 1, middle + laid);
+            }
         }
     }
 
@@ -264,7 +360,7 @@ internal sealed partial class GroundMesh
 
         var apexM = Vector2.Lerp(cornerM, arcCentreM, -insetM / radiusM);
         var insetRadiusM = radiusM + insetM;
-        var steps = Steps(insetRadiusM * MathF.Abs(sweep));
+        var steps = Steps(insetRadiusM, sweep);
         var corner = Vertex(apexM, surface, tint, periods);
         for (var step = 0; step <= steps; step++)
         {
@@ -330,7 +426,22 @@ internal sealed partial class GroundMesh
         return radiusM > 1e5f ? float.MaxValue : MathF.Max(0.5f, MathF.Sqrt(8f * ChordSagM * radiusM));
     }
 
-    static int Steps(float lengthM) => Math.Clamp((int)MathF.Ceiling(lengthM * 2f), 8, 96);
+    /// <summary>
+    /// How many chords an arc of this radius and sweep is drawn as: <b>as few as bow within the same
+    /// tolerance a ribbon is sampled to</b> (<see cref="ChordSagM"/>, <see cref="StepM"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Off the sag and not off the arc's length</b>, because the two say different things about a small
+    /// circle and the town is made of small circles: every band's two ends are turned on a walk, and so is
+    /// every corner of every car park. Counted by length at two to the metre with a floor of eight, a
+    /// quarter turn of a walk came out twice as fine as the straight it joins and a fifth of the city's
+    /// ground went on the difference.
+    /// </remarks>
+    static int Steps(float radiusM, float sweepRad)
+    {
+        var stepRad = 2f * MathF.Acos(Math.Clamp(1f - (ChordSagM / MathF.Max(radiusM, 1e-4f)), -1f, 1f));
+        return Math.Clamp((int)MathF.Ceiling(MathF.Abs(sweepRad) / stepRad), 3, 96);
+    }
 
     static float SignedArea(ReadOnlySpan<Vector2> polygon)
     {

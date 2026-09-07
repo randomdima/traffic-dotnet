@@ -348,27 +348,30 @@ public class GroundMeshTests
     }
 
     /// <summary>
-    /// Every bay is drawn on three sides — <b>its mouth is open</b>, so a row of them leaves no line
-    /// between the lot and the road for a car entering it to drive across — and <b>the line two bays
-    /// share is painted once</b>: paint is the tarmac drawn brighter through a multiplying tint, so a
-    /// stroke laid twice reads brighter than its neighbours and a lot drawn bay by bay would show it
-    /// down every interior line.
+    /// <b>A line two bays share is painted exactly once, and a line only one bay has is not painted at
+    /// all</b> (GEN-4m). Paint is the tarmac drawn brighter through a multiplying tint, so a line laid
+    /// twice is visibly brighter than its neighbours; and the outside of a row is the kerb line the
+    /// pavement already carries there.
     /// </summary>
+    /// <remarks>
+    /// The neighbour is looked for where a bay's own size says it would stand, so this is a claim about
+    /// what a car park looks like rather than the drawing rule written out again (VER-12).
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryBayIsDrawnOnThreeSidesAndASharedStrokeIsPaintedOnce(string map)
+    public void EveryLineTwoBaysShareIsPaintedExactlyOnce(string map)
     {
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
         var lots = plan.ParkingLots;
         if (lots.SpaceCount == 0) return;
 
-        // <b>A stroke is counted where it lies and not where its middle is.</b> A side stroke reaches
-        // past the mouth to the kerb line the lot fronts, so its middle stands off the middle of the
-        // edge it is drawn on by however far it was dragged — and a window round that middle finds
-        // nothing while the line is plainly there. The three edge middles are a bay apart and every
-        // stroke is a line's width across, so what covers one of them covers nothing else.
         var painted = Quads(Ground(map));
+        var halfLengthM = config.ParkingSpaceLengthM * 0.5f;
+        var halfWidthM = config.ParkingSpaceWidthM * 0.5f;
+
+        var standing = new HashSet<(int X, int Y)>();
+        for (var space = 0; space < lots.SpaceCount; space++) standing.Add(Cell(lots.SpacePositionM[space]));
 
         for (var space = 0; space < lots.SpaceCount; space++)
         {
@@ -377,175 +380,151 @@ public class GroundMeshTests
             var along = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
             var across = new Vector2(-along.Y, along.X);
 
-            var halfLengthM = config.ParkingSpaceLengthM * 0.5f;
-            var halfWidthM = config.ParkingSpaceWidthM * 0.5f;
+            foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
+            {
+                Owed(centreM + (across * (halfWidthM * side)), centreM + (across * (halfWidthM * 2f * side)));
+            }
 
-            Assert.Equal(1, Strokes(centreM - across * halfWidthM));
-            Assert.Equal(1, Strokes(centreM + across * halfWidthM));
-            Assert.Equal(1, Strokes(centreM + along * halfLengthM));
-            Assert.Equal(0, Strokes(centreM - along * halfLengthM));
+            Owed(centreM + (along * halfLengthM), centreM + (along * (halfLengthM * 2f)));
+
+            // The mouth is never a line: a bay is entered across it, and where two bays are mouth to mouth
+            // the aisle between them is what they are entered from.
+            Assert.Equal(0, Strokes(centreM - (along * halfLengthM)));
+
+            void Owed(Vector2 lineM, Vector2 neighbourM) =>
+                Assert.Equal(Standing(neighbourM) ? 1 : 0, Strokes(lineM));
         }
 
-        int Strokes(Vector2 edgeM)
+        int Strokes(Vector2 lineM)
         {
             var strokes = 0;
             foreach (var quad in painted)
             {
-                if (Covers(quad, edgeM)) strokes++;
+                if (Covers(quad, lineM)) strokes++;
             }
 
             return strokes;
         }
-    }
 
-
-    /// <summary>
-    /// <b>A bay's strokes are laid end to end and each corner is painted exactly once.</b> Laid to the
-    /// bay's own size instead, each stroke stops on the line the next one is <em>centred</em> on — which
-    /// leaves half a stroke of the corner painted twice and half of it not painted at all, a bright
-    /// square and a notch, both of them plain at close range.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void ABayCornerIsPaintedExactlyOnce(string map)
-    {
-        var plan = Towns.Of(map);
-        var config = SimConfig.Shipped();
-        var lots = plan.ParkingLots;
-        if (lots.SpaceCount == 0) return;
-
-        var quads = Quads(Ground(map));
-        var halfStrokeM = config.Road.PaintLineWidthM * 0.5f;
-        var quarterStrokeM = config.Road.PaintLineWidthM * 0.25f;
-        var halfLengthM = config.ParkingSpaceLengthM * 0.5f;
-        var halfWidthM = config.ParkingSpaceWidthM * 0.5f;
-
-        for (var space = 0; space < lots.SpaceCount; space++)
+        // Within half a metre of where a bay's own size says its neighbour would stand: bays are laid
+        // along a kerb and two of them agree about the line between them to a rounding, not to the bit.
+        bool Standing(Vector2 atM)
         {
-            var centreM = lots.SpacePositionM[space];
-            var headingRad = lots.SpaceHeadingRad[space];
-            var along = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
-            var across = new Vector2(-along.Y, along.X);
-
-            // Where the three strokes actually landed — the lot's own edge as often as the bay's size:
-            // the corner is asked about from the paint rather than from what it was laid to.
-            var headM = Vector2.Dot(Nearest(quads, centreM + along * halfLengthM) - centreM, along);
-
-            foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
+            var cell = Cell(atM);
+            for (var x = -1; x <= 1; x++)
             {
-                var sideM = Vector2.Dot(Nearest(quads, centreM + across * (halfWidthM * side)) - centreM, across);
-
-                // A quarter of a stroke either side of the seam the head runs up to, on the head's own
-                // centreline: the near one is the ground the two would overlap on and the far one is the
-                // ground neither would reach.
-                foreach (var pastM in (ReadOnlySpan<float>)[-quarterStrokeM, quarterStrokeM])
+                for (var y = -1; y <= 1; y++)
                 {
-                    var atM = centreM + along * headM + across * (sideM - ((halfStrokeM - pastM) * side));
-                    var covering = 0;
-                    foreach (var quad in quads)
-                    {
-                        if (Covers(quad, atM)) covering++;
-                    }
-
-                    Assert.Equal(1, covering);
+                    if (standing.Contains((cell.X + x, cell.Y + y))) return true;
                 }
             }
+
+            return false;
         }
+
+        static (int X, int Y) Cell(Vector2 atM) => ((int)MathF.Round(atM.X * 2f), (int)MathF.Round(atM.Y * 2f));
     }
 
+
+
     /// <summary>
-    /// <b>A car park's paint meets the road's.</b> Every stroke running to the mouth of a lot that fronts
-    /// the kerb ends on the carriageway's own edge — the line the kerb line's outer face stands on — and
-    /// not on the lot's rectangle, which is a chord of that edge and stands up to its sag inside it. A
-    /// stroke ended on the rectangle stops short of the kerb line it turns into, which is a gap of most of
-    /// a line's width at the one place a driver is looking.
+    /// <b>A bay paints the line it shares with the next bay and no other</b> (GEN-4m). Where the ground a
+    /// bay's width beyond a bay's own side line is not a car park, that side is the outside of the row: the
+    /// kerb line the pavement carries there is what stands on it, and a stroke laid against that is the
+    /// same line painted twice.
     /// </summary>
     /// <remarks>
-    /// It is asked of the paint and not of what the paint was laid to, and it is bounded on both sides: a
-    /// stroke that crossed the kerb line rather than meeting it would be a bay marking laid down the
-    /// carriageway.
+    /// Asked of the ground rather than of the neighbour, so it is a statement about what a car park looks
+    /// like and not the drawing rule written out a second time (VER-12). A bay's width out, because that is
+    /// where the next bay's middle would be.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryStrokeAtTheMouthOfAKerbedLotEndsOnTheCarriagewaysOwnEdge(string map)
+    public void ABaysOutermostSideCarriesNoStrokeOfItsOwn(string map)
     {
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
         var lots = plan.ParkingLots;
         if (lots.SpaceCount == 0) return;
 
+        var ground = new GroundLocator(plan, config);
         var quads = Quads(Ground(map));
         var strokeM = config.Road.PaintLineWidthM;
         var halfLengthM = config.ParkingSpaceLengthM * 0.5f;
         var halfWidthM = config.ParkingSpaceWidthM * 0.5f;
+        var asked = 0;
 
-        foreach (var front in RoadFrontages.Lay(plan.Ground, config).All)
+        for (var space = 0; space < lots.SpaceCount; space++)
         {
-            if (!front.FrontsTheKerb) continue;
+            var along = new Vector2(
+                MathF.Cos(lots.SpaceHeadingRad[space]), MathF.Sin(lots.SpaceHeadingRad[space]));
+            var across = new Vector2(-along.Y, along.X);
+            var middleM = lots.SpacePositionM[space] + (along * (halfLengthM * 0.5f));
 
-            var edgeM = plan.Roads.WidthM[front.Road] * 0.5f;
-            for (var space = lots.SpaceOffsets[front.Lot]; space < lots.SpaceOffsets[front.Lot + 1]; space++)
+            foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
             {
-                var along = new Vector2(
-                    MathF.Cos(lots.SpaceHeadingRad[space]), MathF.Sin(lots.SpaceHeadingRad[space]));
-                var across = new Vector2(-along.Y, along.X);
-                var mouthM = lots.SpacePositionM[space] - (along * halfLengthM);
+                var nextM = middleM + (across * (side * halfWidthM * 2f));
+                if (ground.GroundAt(nextM) == TrafficSimulation.CityGen.Ground.Parking) continue;
 
-                // A bay of a kerbed lot whose own mouth is nowhere near the kerb — a second row facing an
-                // aisle — has nothing at that end to meet. Half a bay is the reach the paint is laid by.
-                if (OffTheCentrelineM(plan, front, mouthM) - edgeM > halfLengthM) continue;
-
-                foreach (var side in (ReadOnlySpan<float>)[-1f, 1f])
-                {
-                    var strokeAtM = NearestQuad(quads, mouthM + (across * (halfWidthM * side)));
-                    var reachM = float.NegativeInfinity;
-                    foreach (var cornerM in strokeAtM)
-                    {
-                        reachM = MathF.Max(reachM, edgeM - OffTheCentrelineM(plan, front, cornerM));
-                    }
-
-                    Assert.InRange(reachM, 0f, strokeM);
-                }
+                asked++;
+                var atM = middleM + (across * (side * halfWidthM));
+                Assert.False(
+                    (Nearest(quads, atM) - atM).Length() <= strokeM,
+                    $"{map}: a stroke stands on the outside of the row at {atM}");
             }
         }
-    }
 
-    /// <summary>How far off its road's centreline a place stands, measured over the lot's own frontage.</summary>
-    static float OffTheCentrelineM(CityPlan plan, in LotFrontage front, Vector2 pointM)
-    {
-        var arcs = plan.Roads.SegmentsOf(front.Road);
-        var at = Spline.SampleAt(arcs, Spline.ProjectM(
-            arcs, pointM, (front.MouthFromM + front.MouthToM) * 0.5f, front.MouthToM - front.MouthFromM));
-
-        return MathF.Abs(Vector2.Dot(pointM - at.PositionM, at.Right));
+        Assert.True(asked > 0, $"{map}: no car park has an outermost side to ask about");
     }
 
     /// <summary>
-    /// TER-3c.4 — every re-entrant corner the ground is solved to have is turned on its arc: the spike
-    /// between the two pieces is paved, and the disc the arc is struck about is left as verge.
+    /// <b>The pavement drawn is the band the walk runs down</b> (TER-3c.3): a walk wide about the line the
+    /// town's outline was cut at, and the concrete says the same as the answer at both of its edges.
     /// </summary>
     /// <remarks>
-    /// The pair is what makes it a rounding rather than either extreme. Paving nothing leaves the right
-    /// angle the corner exists to cut off; paving the whole wedge fills in the verge behind it, and the
-    /// arc's own centre stands a radius clear of both edges, so it is verge under any rounding. The spike
-    /// is sampled midway between the arc and the apex, which is the deepest point of it and the one place
-    /// no edge line's own inset can reach.
+    /// Asked at the line, a hair inside its outer edge and a hair beyond it, and only where the ground
+    /// answers pavement and grass respectively — a deck, a shore and a slab are drawn on the same surface
+    /// and are nobody's business here (TER-7).
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryInnerCornerTheGroundHasIsTurnedOnItsArc(string map)
+    public void ThePavementIsDrawnAsTheBandTheWalkRunsDown(string map)
     {
+        const float HairM = 0.05f;
+        const int Stations = 24;
+
+        var plan = Towns.Of(map);
+        var config = SimConfig.Shipped();
+        var paving = plan.Paving(config);
+        var halfWalkM = paving.WalkM * 0.5f;
+        if (halfWalkM <= 0f) return;
+
+        var ground = new GroundLocator(plan, config);
         var pavement = Triangles(Ground(map), Surface.Pavement);
+        var runs = paving.Walk;
+        var asked = 0;
 
-        foreach (var corner in PavementCorners.Solve(Towns.Of(map).Ground, SimConfig.Shipped()))
+        for (var run = 0; run < runs.Length; run++)
         {
-            var arcCentreM = corner.ArcCentreM;
-            var deepM = (corner.RadiusM + Vector2.Distance(arcCentreM, corner.CornerM)) * 0.5f;
-            var spikeM = arcCentreM + (deepM * Vector2.Normalize(corner.CornerM - arcCentreM));
+            if (run % Math.Max(1, runs.Length / Stations) != 0) continue;
 
-            Assert.True(Covered(pavement, spikeM), $"{map} leaves the spike at {corner.CornerM} unpaved");
-            Assert.False(Covered(pavement, arcCentreM), $"{map} paves the verge behind the corner at {corner.CornerM}");
+            var atM = Spline.SampleAt(runs[run].Line, runs[run].LengthM * 0.5f);
+            var outward = atM.Right * -runs[run].RoadSide;
+            var onM = atM.PositionM;
+            var rimM = onM + (outward * (halfWalkM - HairM));
+            var beyondM = onM + (outward * (halfWalkM + HairM));
+
+            if (ground.GroundAt(onM) != TrafficSimulation.CityGen.Ground.Sidewalk) continue;
+            if (ground.GroundAt(rimM) != TrafficSimulation.CityGen.Ground.Sidewalk) continue;
+            if (ground.GroundAt(beyondM) != TrafficSimulation.CityGen.Ground.Grass) continue;
+
+            asked++;
+            Assert.True(Covered(pavement, onM), $"{map} draws no pavement on the walk's own line at {onM}");
+            Assert.True(Covered(pavement, rimM), $"{map} draws no pavement a hair inside the shell at {onM}");
+            Assert.False(Covered(pavement, beyondM), $"{map} draws pavement a hair outside the shell at {onM}");
         }
+
+        Assert.True(asked > 0, $"{map} offered no band to ask about");
     }
 
     /// <summary>
@@ -861,9 +840,11 @@ public class GroundMeshTests
     {
         var mesh = Ground("Odesa");
 
-        // One indexed draw over the whole city, and the whole of it fits in a couple of megabytes:
-        // the point of laying ground from shapes rather than from a three-million-cell grid.
-        Assert.InRange(mesh.Vertices.Length, 1_000, 500_000);
+        // One indexed draw over the whole city, and the whole of it fits in a few tens of megabytes: the
+        // point of laying ground from shapes rather than from a three-million-cell grid, which would be
+        // twenty times this. Half a million is a city's worth of band and kerb with the turn round every
+        // corner two runs give way at (<c>Paving.Corners</c>), which is nine hundred of them.
+        Assert.InRange(mesh.Vertices.Length, 1_000, 600_000);
         Assert.True(mesh.Indices.Length > Ground(Towns.Fixture).Indices.Length,
             "the city lays no more ground than the fixture map");
     }

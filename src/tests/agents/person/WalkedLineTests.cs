@@ -83,7 +83,7 @@ public class WalkedLineTests
     {
         var found = Of(map);
 
-        Assert.Null(found.OffWalkableGround);
+        Assert.True(found.OffWalkableGround is null, found.OffWalkableGround);
 
         // A walked line is a route over the pavement's own network, so a map with no pavement lays none:
         // the proving ground is roads and cars and the people beside them walk straight at where they are
@@ -193,7 +193,11 @@ public class WalkedLineTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void NoWalkCrossesACarriagewayOffThePaint(string map) => Assert.Null(Of(map).OffThePaint);
+    public void NoWalkCrossesACarriagewayOffThePaint(string map)
+    {
+        var offThePaint = Of(map).OffThePaint;
+        Assert.True(offThePaint is null, offThePaint);
+    }
 
     /// <summary>What <see cref="NoWalkCrossesACarriagewayOffThePaint"/> watches for.</summary>
     static void NoWalkCrossesOffThePaint(TownWorld world, string map, Watched found)

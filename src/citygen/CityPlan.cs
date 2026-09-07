@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen;
@@ -45,10 +46,10 @@ internal sealed class CityPlan
     public required JunctionCornerArrays JunctionCorners { get; init; }
 
     /// <summary>
-    /// The pavement's inner corners as the map that arrived recorded them. <b>Nothing draws from this</b>
-    /// — a corner is a fact about the pair of shapes the walk is laid from, so the build solves them
-    /// itself (TER-3c.4). It is here because a shipped `.town` carries the field and the round trip over
-    /// every one of them is what holds the reader and the writer to each other.
+    /// The pavement's inner corners as the map that arrived recorded them. <b>Nothing reads this and
+    /// nothing writes it</b>: the walk turns no corner of its own any more, being the tarmac grown by one
+    /// figure (TER-3c.3). It is here because a shipped `.town` carries the field, and the round trip over
+    /// it is what holds the reader and the writer to each other.
     /// </summary>
     public required PavementCornerArrays PavementCorners { get; init; }
 
@@ -74,12 +75,21 @@ internal sealed class CityPlan
     public required WaterArrays Water { get; init; }
 
     /// <summary>
-    /// The shapes the ground is cut from, as the one bundle both readings of the town's surface take
-    /// (<see cref="GroundShapes"/>, <see cref="PavementCorners"/>).
+    /// The shapes the ground is cut from, as the one bundle every reading of the town's surface takes
+    /// (<see cref="GroundShapes"/>).
     /// </summary>
     public GroundPieces Ground => new(
         WorldSizeM, PavementWidthM, Roads, Bridges, Junctions, JunctionCorners, ParkingLots, PavedAreas,
         Crosswalks, StopLines, Water);
+
+    Paving? _paving;
+
+    /// <summary>
+    /// <b>The pavement of this plan, laid once</b> (<see cref="Paving"/>). The ground answers off it, the
+    /// mesh draws off it and the walking graph is cut from it, and a finished plan does not change — so the
+    /// three of them share one construction rather than each wrapping the tarmac again.
+    /// </summary>
+    public Paving Paving(SimConfig config) => _paving ??= CityGen.Paving.Lay(Ground, config);
 
     /// <summary>
     /// How far a zebra reaches across the road, kerb to kerb: <b>the width of the road it is painted on,

@@ -37,11 +37,11 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 /// <remarks>
 /// <para>
 /// The order the triangles are laid in is the order they are painted in: grass over the whole world;
-/// the pavement, which is every road ribbon, junction disc and lot read out a walk's width bigger and
-/// drawn twice for its edge line; the water; the decks; the paved slabs; the lots; the carriageway;
-/// the junction discs; the corner fillets. There is no depth buffer and nothing to sort — one indexed
-/// draw in one pass, and the pavement band falls out as the two strips either side of what is drawn
-/// over it, without anything having to know where a kerb is.
+/// the pavement, which is every piece of the tarmac grown by a walk and drawn twice for its edge line;
+/// the water; the decks; the paved slabs; the lots; the carriageway; the lines through the boxes; the
+/// corner fillets. There is no depth buffer and nothing to sort — one indexed draw in one pass, and the
+/// pavement band falls out as what is left showing round what is drawn over it, without anything having
+/// to know where a kerb is.
 /// </para>
 /// <para>
 /// What is <b>not</b> here is anything that is not ground: buildings, props, agents and their sprites
@@ -103,11 +103,13 @@ internal sealed partial class GroundMesh
     {
         var mesh = new GroundMesh();
         var periods = Periods(config);
-        // <b>The pavement is a step and not a shape this pass works out for itself</b> (TER-3c): what is
-        // drawn here is the list that town was laid with, which is the same list the ground is answered off
-        // (<see cref="GroundShapes"/>). Derived again here, the picture and the answer are two readings that
-        // have to be kept in step by whoever remembers.
-        var paving = Paving.Lay(plan.Ground, config);
+        // <b>The pavement is a step and not a shape this pass works out for itself</b> (TER-3c): the walk
+        // and the lines a car is driven on are the town's own (<see cref="Paving"/>), and what is drawn
+        // beside them is the tarmac at the size it is drawn, grown by that one figure — which is the same
+        // construction the ground is answered off (<see cref="GroundShapes"/>) and the same one the walking
+        // lanes are cut from. Derived again here, the picture and the answer are two readings that have to
+        // be kept in step by whoever remembers.
+        var paving = plan.Paving(config);
         var lanes = paving.Lanes;
         var walkM = paving.WalkM;
         var edgeM = config.Road.EdgeLineWidthM;
@@ -118,48 +120,90 @@ internal sealed partial class GroundMesh
         var edge = Shade(0.58f, 0.58f, 0.62f);
         var paint = Shade(2.6f, 2.6f, 2.5f);
         var kerbM = config.Road.PaintLineWidthM;
-        var cornerM = paving.WrapCornerM;
-        var corners = paving.Corners;
 
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
-        // The pavement, twice: once at full size in the edge shade, then a line's width smaller in
-        // the surface shade over the top. Since every fill follows every rim, what survives is a rim
-        // on the union's own outer boundary and nowhere two pieces meet.
+        // <b>The town out to a walk beyond its own tarmac, as tarmac</b>, piece by piece: growing a union
+        // one piece at a time is growing the union, so this one pass covers every square metre the town
+        // paves — carriageway, junction, car park, and the pockets the pieces leave between them.
+        //
+        // The pavement is the band laid over it below, so what is left showing here is exactly the ground
+        // inside the kerb (TER-3c.7). Drawn the other way round — the tarmac at its own size, the pavement
+        // filling out to a walk — the kerb was the tarmac's own outline, and it stepped and chamfered its
+        // way round every mouth where a movement is narrower than the arm it leaves while the shell and the
+        // walking lane beside it ran straight past.
+        //
+        // Twice: once at full size in the pavement's edge shade, then a line's width smaller as tarmac over
+        // the top. What survives of the first is a rim on the union's own outer boundary — the shell's
+        // shadow on the grass. <b>Drawn off the union and not off the runs the band is drawn off</b>: a run
+        // knows whether it reaches the outside of the town only by asking, and asked run by run the shadow
+        // came out with a stub up the middle of the pavement wherever the answer was wrong and a gap at the
+        // corner wherever two runs gave way to one another.
         foreach (var inset in (ReadOnlySpan<float>)[0f, edgeM])
         {
             var tint = inset == 0f ? edge : Plain;
-            for (var road = 0; road < plan.Roads.Count; road++)
-            {
-                mesh.Ribbon(
-                    plan.Roads.SegmentsOf(road), paving.RibbonHalfM[road] - inset, Surface.Pavement, tint,
-                    periods);
-            }
+            var surface = inset == 0f ? Surface.Pavement : Surface.Tarmac;
+            mesh.Grown(plan, lanes, walkM - inset, surface, tint, periods);
+        }
 
-            // <b>A junction is not drawn</b>: what a box is on the ground is the lines cars are turned
-            // through it on (TER-5), so the pavement round one is the band beside those lines and the
-            // ribbons of the arms that meet there. There is no ring, because there is no disc.
+        // <b>The pavement is the band the walk runs down</b> (TER-3c.3): everything within half a walk of
+        // <c>Paving.Walk</c> — the town's outline at half a walk, cut to the runs of it that are really the
+        // outside. Both its edges are offsets of that one curve, so the kerb turns a corner the way the
+        // shell against the grass does and the way the lane between them does; and a run's end is closed
+        // with the half-round the answer measures there (<c>GroundShapes.Paved</c>), which is what fills the
+        // wedge where two runs give way to one another.
+        //
+        // It stops a line's width short of the outside, which is what leaves the shell's shadow standing.
+        var halfWalkM = walkM * 0.5f;
+        var rounded = new HashSet<(int X, int Y)>();
+        foreach (var run in paving.Walk)
+        {
+            var outerM = run.Outline ? halfWalkM - edgeM : halfWalkM;
+            mesh.Skirt(run.Line, -run.RoadSide * outerM, run.RoadSide * halfWalkM, Surface.Pavement, Plain, periods);
 
-            // TER-3c.3: a lot turns a right angle of its own, so its wrap turns on half the walk —
-            // which stands the corner 4.83 m deep against the straight's 4 m. Rounded on the full
-            // width the band would be 4 m everywhere and read pinched; square takes a bite of verge.
-            for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
+            // Once per place and not once per end. Runs give way to one another at a point both of them
+            // stop at, so a town's worth of half-rounds is drawn twice over unless the place is what is
+            // remembered — a tenth of a metre, which is a hundred times the rounding two bisections of one
+            // crossing land apart and a hundredth of the round itself.
+            foreach (var endM in (ReadOnlySpan<Vector2>)[run.Line[0].StartM, run.Line[^1].EndM])
             {
-                mesh.RoundedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
-                    paving.WrapHalfM[lot] - new Vector2(inset), cornerM - inset,
-                    Surface.Pavement, tint, periods);
+                if (rounded.Add(((int)MathF.Round(endM.X * 10f), (int)MathF.Round(endM.Y * 10f))))
+                {
+                    mesh.Disc(endM, outerM, Surface.Pavement, Plain, periods);
+                }
             }
+        }
 
-            // TER-3c.4: where two of the pieces above run into one another they leave a re-entrant spike
-            // of verge, and it is turned on an arc like any other corner. The fillet is the same piece a
-            // kerb fillet is — apex, arc, two tangent points — and it insets the same way: the arc is the
-            // union's own boundary here and draws in, the two straight sides are the neighbours' seen
-            // from inside and draw out to meet where those have drawn back to.
-            foreach (var corner in corners)
-            {
-                mesh.Fillet(corner.CornerM, corner.ArcCentreM, corner.RadiusM, corner.TangentAM, corner.TangentBM,
-                    inset, Surface.Pavement, tint, periods);
-            }
+        // The round is one radius and the band is not centred, so on a run that reaches the outside of the
+        // town the round stops a line's width inside the kerb it is supposed to reach. That much of the
+        // corner is band and not shadow: it is within half a walk of the line, which is the whole of what
+        // makes ground pavement (<c>GroundShapes.Paved</c>). It reaches a chord's own sag past the round it
+        // meets, because two arcs of one circle struck at different phases stand that far apart at worst and
+        // a line of tarmac left showing between them reads as a crack in the pavement.
+        foreach (var corner in paving.Corners)
+        {
+            mesh.Skirt(corner, edgeM + ChordSagM, 0f, Surface.Pavement, Plain, periods);
+        }
+
+        // The kerb line, after every fill. <b>It stands on the kerb and not in the lane</b> (TER-3d) — it is
+        // the innermost stroke of the pavement, so every lane keeps the whole width of asphalt the town was
+        // laid at. Struck along every run and not only the ones that reach the outside of the town: a run
+        // that gives way to another at a corner has tarmac on its inner side all the same, and gated on the
+        // outside the line broke at every corner in the town.
+        foreach (var run in paving.Walk)
+        {
+            mesh.Skirt(run.Line, run.RoadSide * (halfWalkM - kerbM), run.RoadSide * halfWalkM, Surface.Tarmac,
+                paint, periods);
+        }
+
+        // <b>And round the corner, where one run gives way to another.</b> A kerb is the band's inner edge and
+        // an edge is an offset, so at a place two runs hand over at an angle each one's stops half a walk
+        // short of the corner along its own arm — an L of missing kerb two metres on a side at every car park
+        // in the town. What carries it round is the rim of the half-round the band is closed with
+        // (<see cref="Paving.Corners"/>), and a turn starts where the last kerb ended.
+        foreach (var corner in paving.Corners)
+        {
+            mesh.Skirt(corner, kerbM, 0f, Surface.Tarmac, paint, periods);
         }
 
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
@@ -204,58 +248,34 @@ internal sealed partial class GroundMesh
                 plan.ParkingLots.HalfExtentM[lot], Surface.Tarmac, Plain, periods);
         }
 
-        // The carriageway, twice, for its kerb line — the same trick the pavement's edge line is drawn
-        // by: a stroke laid on the carriageway's own offset curve, broken exactly where a road runs into
-        // a junction rather than walked or probed for.
+        // The carriageway at its own size, last of the ground. <b>It wears no kerb line of its own</b> — the
+        // kerb is the pavement's inner rim now — but it is still what keeps that line out of the lane
+        // (TER-3d): a line half a walk outside one piece of tarmac can stand half a walk outside nothing
+        // else and still run up the middle of a junction, and the stroke such a run carries is over asphalt
+        // a car drives on. Drawn back over it, the only strokes left standing are the ones on a kerb.
         //
-        // <b>The line stands on the kerb and not in the lane</b> (TER-3d): the paint is struck a line's
-        // width <em>outside</em> the carriageway and the surface drawn back over it at full size, so what
-        // survives is a rim on the walk's inner edge and every lane keeps the whole width of asphalt the
-        // town was laid at. Struck inside, a lane measured off the picture comes out a line short of the
-        // figure every other part of the build quotes.
-        foreach (var inset in (ReadOnlySpan<float>)[-kerbM, 0f])
+        // It is also the road over the water a bridge carries it across, and over the deck laid there.
+        for (var road = 0; road < plan.Roads.Count; road++)
         {
-            var tint = inset < 0f ? paint : Plain;
-            for (var road = 0; road < plan.Roads.Count; road++)
-            {
-                mesh.Ribbon(plan.Roads.SegmentsOf(road), (plan.Roads.WidthM[road] * 0.5f) - inset,
-                    Surface.Tarmac, tint, periods);
-            }
-
-            for (var turn = 0; turn < lanes.ConnectorCount; turn++)
-            {
-                var line = lanes.ArcsOfConnector(turn);
-                if (line.Length == 0) continue;
-
-                mesh.Ribbon(line, (lanes.ConnectorWidthM(turn) * 0.5f) - inset, Surface.Tarmac, tint, periods);
-            }
-
-            for (var corner = 0; corner < plan.JunctionCorners.Count; corner++)
-            {
-                mesh.Fillet(plan.JunctionCorners.CornerM[corner], plan.JunctionCorners.ArcCentreM[corner],
-                    plan.JunctionCorners.RadiusM[corner], plan.JunctionCorners.TangentAM[corner],
-                    plan.JunctionCorners.TangentBM[corner], inset, Surface.Tarmac, tint, periods);
-            }
-        }
-
-        // The kerb line stops where the kerb does. A car park hangs off the kerb it is laid along, so over
-        // its frontage the ground the line stands on is the lot's own tarmac and not a walk — and a line
-        // painted there is one every car entering the lot drives across. The pavement's edge line is
-        // untouched: the lot's wrap is part of the union that one is a rim on, so it already rounds the
-        // outside of the lot rather than running between the lot and the street.
-        // It is broken over the lot's mouth and not over its whole shadow, and it stops a line's width
-        // short of either end of that: the kerb line runs to the far face of the lot's outermost bay
-        // stroke, so the corner the two turn is painted exactly once. It is the same end-to-end rule the
-        // bay's own three strokes are laid by, with the kerb line as the fourth.
-        var frontages = RoadFrontages.Lay(plan.Ground, config);
-        foreach (var front in frontages.All)
-        {
-            if (!front.FrontsTheKerb) continue;
-
-            mesh.EdgeStrip(plan.Roads.SegmentsOf(front.Road), front.MouthFromM + kerbM, front.MouthToM - kerbM,
-                front.Side * ((plan.Roads.WidthM[front.Road] * 0.5f) + kerbM), kerbM, Surface.Tarmac, Plain,
+            mesh.Ribbon(plan.Roads.SegmentsOf(road), plan.Roads.WidthM[road] * 0.5f, Surface.Tarmac, Plain,
                 periods);
         }
+
+        for (var turn = 0; turn < lanes.ConnectorCount; turn++)
+        {
+            var line = lanes.ArcsOfConnector(turn);
+            if (line.Length == 0) continue;
+
+            mesh.Ribbon(line, lanes.ConnectorWidthM(turn) * 0.5f, Surface.Tarmac, Plain, periods);
+        }
+
+        for (var corner = 0; corner < plan.JunctionCorners.Count; corner++)
+        {
+            mesh.Fillet(plan.JunctionCorners.CornerM[corner], plan.JunctionCorners.ArcCentreM[corner],
+                plan.JunctionCorners.RadiusM[corner], plan.JunctionCorners.TangentAM[corner],
+                plan.JunctionCorners.TangentBM[corner], 0f, Surface.Tarmac, Plain, periods);
+        }
+
 
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh.LaneDashes(plan, config, paint, periods);
@@ -278,9 +298,54 @@ internal sealed partial class GroundMesh
                 Surface.Tarmac, paint, periods);
         }
 
-        mesh.BayStrokes(plan, config, paint, periods, frontages);
+        mesh.BayStrokes(plan, config, paint, periods);
 
         return mesh;
+    }
+
+    /// <summary>
+    /// <b>Every piece of the town's tarmac grown by one distance</b> — a band by its ends as well as its
+    /// sides (TER-3c.6), a kerb fillet by reading its arc in, a car park by turning its box's corners on
+    /// the distance itself. Growing a union one piece at a time is growing the union, so this covers every
+    /// square metre within that distance of the tarmac and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <b>A junction has no piece here, because a junction has no shape</b> (TER-5): what a box is on the
+    /// ground is the lines cars are turned through it on and the fillets that round the wedges between its
+    /// arms, and the band beside the movements is not the arms' own because a movement swings wider than
+    /// either arm it runs between (<see cref="CityGen.GroundShapes.Turns"/>). Under the distance a fillet
+    /// cannot be read in at all and its corner is left to the arms — the one call <c>Kerbs.Wrapping</c>
+    /// makes about the same shape.
+    /// </remarks>
+    void Grown(
+        CityPlan plan, LaneLines lanes, float outM, Surface surface, Vector3 tint, float[] periods)
+    {
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            Band(plan.Roads.SegmentsOf(road), plan.Roads.WidthM[road] * 0.5f, outM, surface, tint, periods);
+        }
+
+        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
+        {
+            Band(
+                lanes.ArcsOfConnector(connector), lanes.ConnectorWidthM(connector) * 0.5f, outM, surface,
+                tint, periods);
+        }
+
+        for (var corner = 0; corner < plan.JunctionCorners.Count; corner++)
+        {
+            if (plan.JunctionCorners.RadiusM[corner] <= outM) continue;
+
+            Fillet(plan.JunctionCorners.CornerM[corner], plan.JunctionCorners.ArcCentreM[corner],
+                plan.JunctionCorners.RadiusM[corner], plan.JunctionCorners.TangentAM[corner],
+                plan.JunctionCorners.TangentBM[corner], -outM, surface, tint, periods);
+        }
+
+        for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
+        {
+            RoundedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
+                plan.ParkingLots.HalfExtentM[lot] + new Vector2(outM), outM, surface, tint, periods);
+        }
     }
 
     /// <summary>Every ring of one of the water's own sets, laid as the one shape it is.</summary>

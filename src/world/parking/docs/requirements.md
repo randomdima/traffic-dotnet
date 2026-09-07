@@ -55,8 +55,8 @@ anybody waiting to turn out; and clear of the next lot, claimed along the lot's 
 tested both ways round the pair — two lots facing each other across a carriageway are the two sides of a
 street and stay legal, while two sharing a kerb read as one long apron and do not. **What "clear" is worth
 is the walk that wraps a lot** (TER-3c.3): two standing closer than two of those have one wrap between
-them, which is the apron this refuses — and the verge they pinch out between them is a cusp rather than a
-corner the walk can turn (TER-3c.4).
+them, which is the apron this refuses — and the verge they pinch out between them is a cusp nothing can be
+given ground on.
 
 That every space is demonstrably enterable and leavable is `VER-2`, in
 [docs/verification.md](../../../../docs/verification.md#the-verification-intentions).
@@ -164,6 +164,14 @@ junction admits a movement that reverses the direction of travel (TER-5f), so th
 - **What the router knows is which stretches lay the pair of ways at all**, and never which bay is free:
   the first is a fact about the town, laid with it; the second is a fact about this moment, and it is
   asked at the frontage by the leg that has got there.
+
+**GEN-4m** **A bay paints the line it shares with the next bay, and nothing else.** A car park is a piece
+of the town's tarmac like any other: the walk wraps it like any other, and the line round the outside of a
+row of bays is the kerb line the pavement carries there
+([world/terrain](../../terrain/docs/requirements.md) TER-3c.3, TER-3d). A stroke laid against that is the
+same line painted twice, in the one place a driver is looking. What is left for a bay to say is the
+boundary it shares with a neighbour — two side by side, two rows head to head — because the town's own
+geometry says that nowhere. It is offered by both bays and painted once.
 
 **GEN-4k** **A special building's bays are held for its own vehicles and for nobody else.** A hospital and
 a police station ([agents/ambulance](../../../agents/ambulance/docs/requirements.md),

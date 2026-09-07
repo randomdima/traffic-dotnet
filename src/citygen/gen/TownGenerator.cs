@@ -105,8 +105,8 @@ internal static class TownGenerator
             Junctions = roads.Junctions,
             JunctionCorners = roads.Corners,
 
-            // The pavement's own inner corners are solved against the finished ground when the town is
-            // built (TER-3c.4). A generated map carries none, as the maps this build lays never have.
+            // The pavement turns no corner of its own — every one it turns belongs to the tarmac it wraps
+            // (TER-3c.3) — so a generated map carries none, as the maps this build lays never have.
             PavementCorners = new CityPlan.PavementCornerArrays
             {
                 CornerM = [], NormalA = [], NormalB = [], RadiusM = [],

@@ -8,13 +8,6 @@ namespace TrafficSimulation.World.Foot;
 /// <summary>The pavement, laid by wrapping the tarmac — the whole of it, in one construction.</summary>
 internal sealed partial class FootGraph
 {
-    /// <summary>
-    /// How finely a wrapping line is walked when asking what it runs past. A quarter-metre is the road
-    /// tolerance, and where the answer changes between two stations the crossing is bisected off it — so
-    /// what decides where a stretch ends is a millimetre and not a station.
-    /// </summary>
-    const float StationM = 0.25f;
-
     const int BisectionRounds = 12;
 
 
@@ -56,123 +49,21 @@ internal sealed partial class FootGraph
     /// </remarks>
     static void Wrap(Kerbs kerbs, GroundLocator terrain, Builder builder, float bandM, float weldM)
     {
-        var outM = bandM * 0.5f;
+        var runs = new List<Kerbs.Wrap>();
+        kerbs.Shell(bandM * 0.5f, weldM, pointM => terrain.At(pointM).Walkable, runs);
 
-        var wraps = new List<Kerbs.Wrap>();
-        kerbs.Wrapping(outM, wraps);
-
-        var run = new ArcSeg[2];
-        var runs = new List<(float FromM, float ToM)>();
-        foreach (var (_, line, onlyWhereTheKerbIsOpen) in wraps)
+        foreach (var (_, line, onlyWhereTheKerbIsOpen) in runs)
         {
-            var lengthM = Spline.TotalLengthM(line);
-            if (lengthM <= 0f) continue;
-
-            Spans(kerbs, terrain, line, lengthM, outM, weldM, runs);
-            if (run.Length < line.Length + 2) run = new ArcSeg[line.Length + 2];
-
-            foreach (var (fromM, toM) in runs)
-            {
-                var arcCount = Spline.SubChainInto(line, fromM, toM, run);
-                if (arcCount == 0) continue;
-
-                builder.AddStrand(
-                    run.AsSpan(0, arcCount), bandM, FootEdgeKind.Pavement, onlyWhereTheKerbIsOpen);
-            }
+            builder.AddStrand(line, bandM, FootEdgeKind.Pavement, onlyWhereTheKerbIsOpen);
         }
     }
 
     /// <summary>
-    /// The spans of one wrapping line that are pavement, as distances along it. <b>A line that is clear
-    /// end to end comes back cut in two</b>: a circle round a dead end and a box round a car park close on
-    /// themselves, and a stretch whose two ends are one node is a piece no walk can be stationed along.
+    /// The most a joint may be open by before two stretches are no longer one line
+    /// (<see cref="Builder.RunOn"/>) — the same rounding the outline itself is cut with
+    /// (<see cref="Kerbs.RoundingM"/>).
     /// </summary>
-    static void Spans(
-        Kerbs kerbs, GroundLocator terrain, ReadOnlySpan<ArcSeg> line, float lengthM, float outM,
-        float weldM, List<(float FromM, float ToM)> into)
-    {
-        into.Clear();
-
-        var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / StationM));
-        var was = Stands(kerbs, terrain, line, 0f, outM);
-        var openedAtM = was ? 0f : -1f;
-        for (var station = 1; station <= stations; station++)
-        {
-            var alongM = lengthM * station / stations;
-            var stands = Stands(kerbs, terrain, line, alongM, outM);
-            if (stands == was) continue;
-
-            var edgeM = Crossing(
-                kerbs, terrain, line, outM, lengthM * (station - 1) / stations, alongM, stands);
-            if (stands) openedAtM = edgeM;
-            else Keep(into, openedAtM, edgeM, weldM);
-
-            was = stands;
-        }
-
-        if (was) Keep(into, openedAtM, lengthM, weldM);
-
-        // Nothing gave way anywhere along it, so it is a closed line and both its ends are the same node.
-        if (into.Count == 1 && into[0].FromM <= 0f && into[0].ToM >= lengthM)
-        {
-            into[0] = (0f, lengthM * 0.5f);
-            into.Add((lengthM * 0.5f, lengthM));
-        }
-    }
-
-    /// <summary>
-    /// One span, kept unless it is shorter than the graph's own weld — in which case its two ends are the
-    /// same node and what it would lay is a stretch running from a node to itself.
-    /// </summary>
-    static void Keep(List<(float FromM, float ToM)> into, float fromM, float toM, float weldM)
-    {
-        if (fromM >= 0f && toM - fromM > weldM) into.Add((fromM, toM));
-    }
-
-    /// <summary>Where along the line the answer changed, bisected between the two stations it changed between.</summary>
-    static float Crossing(
-        Kerbs kerbs, GroundLocator terrain, ReadOnlySpan<ArcSeg> line, float outM, float wasM,
-        float isM, bool standsAtIs)
-    {
-        for (var halving = 0; halving < BisectionRounds; halving++)
-        {
-            var middleM = (wasM + isM) * 0.5f;
-            if (Stands(kerbs, terrain, line, middleM, outM) == standsAtIs) isM = middleM;
-            else wasM = middleM;
-        }
-
-        return (wasM + isM) * 0.5f;
-    }
-
-    /// <summary>
-    /// Whether one metre of a wrapping line is pavement: <b>no tarmac nearer than the offset it
-    /// was laid at</b>, and ground a person may stand on.
-    /// </summary>
-    static bool Stands(
-        Kerbs kerbs, GroundLocator terrain, ReadOnlySpan<ArcSeg> line, float alongM, float outM)
-    {
-        var atM = Spline.SampleAt(line, alongM).PositionM;
-        return Clear(kerbs, atM, outM) && terrain.At(atM).Walkable;
-    }
-
-    /// <summary>
-    /// Whether a point stands the offset clear of every piece of tarmac — the one rule, asked of one point.
-    /// </summary>
-    /// <remarks>
-    /// <b>Asked with a rounding's grace and no more.</b> A wrapping line stands the offset from its own
-    /// piece exactly, and where two pieces are tangent it stands the offset from both of them exactly
-    /// (<see cref="Kerbs.OffTheTarmacM"/>) — so compared without the grace, whether metres of pavement exist
-    /// is settled by the last bit of a float, and the apron round every junction whose movements run edge to
-    /// edge with its arms came out bare. <b>And a rounding and not a tolerance</b>, because a tolerance ε lets
-    /// a line that meets another <em>tangentially</em> run √(2·R·ε) past the point they cross: at five
-    /// centimetres that is better than half a metre each, which is how the pavement came apart into a piece
-    /// per corner the first time round.
-    /// </remarks>
-    static bool Clear(Kerbs kerbs, Vector2 pointM, float outM) =>
-        kerbs.OffTheTarmacM(pointM) >= outM - RoundingM;
-
-    /// <summary>A millimetre: what offsetting a chain and measuring back to it disagree by, and nothing else.</summary>
-    const float RoundingM = 0.001f;
+    const float RoundingM = Kerbs.RoundingM;
 
     /// <summary>
     /// <b>Where the pavement stands on one side of a crossing</b>: out along the crossing's own square,
@@ -200,7 +91,7 @@ internal sealed partial class FootGraph
         var insideM = 0f;
         for (var outwardM = StepM; outwardM <= mostM; outwardM += StepM)
         {
-            if (!Clear(kerbs, centreM + (alongM * outwardM), outM))
+            if (!kerbs.Clear(centreM + (alongM * outwardM), outM))
             {
                 insideM = outwardM;
                 continue;
@@ -210,7 +101,7 @@ internal sealed partial class FootGraph
             for (var halving = 0; halving < BisectionRounds; halving++)
             {
                 var middleM = (insideM + outsideM) * 0.5f;
-                if (Clear(kerbs, centreM + (alongM * middleM), outM)) outsideM = middleM;
+                if (kerbs.Clear(centreM + (alongM * middleM), outM)) outsideM = middleM;
                 else insideM = middleM;
             }
 

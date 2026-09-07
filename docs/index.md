@@ -63,12 +63,12 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `OBJ-1…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
 | `AGT-1…5`, `AGT-7` | What an agent is; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
 | `VER-1…11` | What must be demonstrated | [verification.md](verification.md) |
-| `TER-1…3a`, `TER-3b…3c.4`, `TER-7`, `PHY-8` | The ground, the pavement, water and bridges | [world/terrain](../src/world/terrain/docs/requirements.md) |
+| `TER-1…3a`, `TER-3b…3c.6`, `TER-7`, `PHY-8` | The ground, the pavement, water and bridges | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4…6` | Roads, junctions, what a movement takes off another, right of way, crossings, paint | [world/road](../src/world/road/docs/requirements.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
-| `GEN-4…4l` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
+| `GEN-4…4m` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
 | `GEN-1…3`, `GEN-5…18a` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, and that no lane dangles | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1…11`, `PER-13…18`, `PER-23` | The walker, the trip, what it follows, how it crosses, when it takes a car and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |

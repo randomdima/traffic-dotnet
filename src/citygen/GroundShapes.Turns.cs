@@ -28,10 +28,11 @@ internal sealed partial class GroundShapes
     /// junction is answered for correctly without anything here knowing what shape it made.
     /// </summary>
     /// <remarks>
-    /// <b>Tarmac and never a walk.</b> Every movement runs between two arms, and those arms' own bands carry
-    /// the pavement past the box already — so asking for the walk beside a line through a box adds nothing
-    /// but a second edge for the corner solver to find, which it turns into a fillet over the carriageway.
-    /// The pavement round a junction is the pavement of the arms that meet at it.
+    /// <b>Asked at nought for the tarmac and at a walk for the pavement beside it</b> (TER-3c.3). A
+    /// movement swings wider than either of the arms it runs between, so the arms' own bands do not carry
+    /// the pavement past the box: what the walk is laid off is the tarmac, and a box's tarmac is these
+    /// lines. Left out, the pavement the town walks turned a junction's corner over open grass, because
+    /// the wrap follows the movement and the drawn band followed the arms.
     /// </remarks>
     bool Turns(Vector2 pointM, float outM)
     {
@@ -63,10 +64,11 @@ internal sealed partial class GroundShapes
     /// is asked.
     /// </summary>
     /// <remarks>
-    /// <b>A line is squared off at both ends and not capped</b>, the way a road is (<see cref="Weigh"/>):
-    /// what is past the end of a movement is the lane it hands over to. Only a projection the chain had to
-    /// clamp says the point is beyond the line at all — asked as a bare distance along, every point on a
-    /// bend answers a little off perpendicular and the whole band reads as outside itself.
+    /// <b>The tarmac is squared off at both ends and the offset turns that end</b>, the way a road's is
+    /// (<see cref="Weigh"/>): a band ends where its own line does (TER-7a), and what stands a distance
+    /// outside a square end is that end grown by the distance. Only a projection the chain had to clamp
+    /// says the point is beyond the line at all — asked as a bare distance along, every point on a bend
+    /// answers a little off perpendicular and the whole band reads as outside itself.
     /// </remarks>
     bool Sweeps(int turn, float atM, Vector2 pointM, float outM)
     {
@@ -76,9 +78,9 @@ internal sealed partial class GroundShapes
         var beyondM = atM <= 0f
             ? MathF.Max(0f, -alongM)
             : atM >= _turnLengthM[turn] ? MathF.Max(0f, alongM) : 0f;
-        if (beyondM > outM) return false;
 
-        return MathF.Abs(Vector2.Dot(offsetM, on.Right)) <= _turnHalfM[turn] + outM;
+        var acrossM = MathF.Abs(Vector2.Dot(offsetM, on.Right)) - _turnHalfM[turn];
+        return OffTheBandM(acrossM, beyondM) <= outM;
     }
 
     ReadOnlySpan<ArcSeg> ArcsOfTurn(int turn) =>

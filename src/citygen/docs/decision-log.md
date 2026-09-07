@@ -1,5 +1,122 @@
 # CityGen — decision log
 
+## 2026-09-07 — a walking lane that stops in mid-pavement is a corner nothing wrapped
+
+**The walk was dead-ending in the open, thirty times over two towns**, and both causes were the same thing:
+a corner in the carriageway that is not really there. The line that stops is half a walk from the kerb, is
+drawn as pavement and stands on ground a person may stand on, so every sweep the walking side had passed it;
+what is wrong with it is only that a walker sent down that pavement arrives at nothing and turns round.
+**Nothing here is a change to the wrap** — the wrap was reading the tarmac correctly both times.
+
+**A road that creases offsets open by the crease times the offset.** `RoadStage.Rounded` gave up a vertex
+whose corner was tighter than the class's floor *while it was laying the chain* — but the arc before that
+vertex had already been aimed at it, so the straight after set off on a bearing nothing arrived on. A fifth
+of a turn, at five and a half metres out, is three and a half metres of pavement that was never laid. **The
+vertex is now dropped from the line and the line laid again**, which is what running straight through it
+always meant; and the deflection is read as the turn rather than as its sine, since past a quarter turn the
+two are different corners.
+
+**And a corner struck where two kerb *lines* cross is a corner neither kerb turns.** `JunctionTurnsACorner`
+asked how far out the crossing stood and not which side of the arms it stood on, so where one arm's kerb runs
+*behind* its own node the crossing fell on the far side of the junction — the two kerbs had not met there,
+they were still running apart. It takes a kerb through the node to reach that far, which is what a one-way
+street has (TER-4d): it stands its own half off, so the kerb on the half it gave up is the node's own line,
+and against a neighbour more than a right angle round the crossing lands behind the neighbour. **The crossing
+must now stand out along both arms.** What one such fillet was is a lens of carriageway hanging 0.43 m off
+the kerb, nine metres out in the middle of a street with no tarmac under it — and the pavement wrapped it, so
+one junction's apron carried two steps in its kerb and a walking lane that wandered through both, with the
+shell coming apart where the lens ended.
+
+    Odesa   walking lanes with a free end   18 -> 0        River   12 -> 0
+    Odesa   roads creasing in the middle     9 -> 0        Test     2, and both are the yard taking over
+    Odesa   the worst fillet off the kerb  0.43 -> 0.07 m   29 phantom corners of 390 dropped; River 4 of 276
+    also    every car's line through every turn is continuous again, on both towns
+
+**Three gates and no new rule about the wrap.** The walk may stop only where the pavement gives way to a slab
+— the one piece of tarmac that takes the ground without offering a line beside it (`FootGraphTests`); every
+joint of a road carries the bearing the piece before it arrives on (`GeneratorTests`); and every kerb fillet
+stands on the kerbs it rounds, asked of the tarmac with the fillets left out of it so that one cannot answer
+for itself (`JunctionCornerGeometryTests`). Each is a defect in the carriageway before it is one in the
+pavement, which is why none of them is a gate on the wrap.
+
+## 2026-09-06 — the kerb line is carried round the corner by the rounds the band is closed with
+
+**A kerb is the band's inner edge, and an edge is an offset.** Where the tarmac turns a concave corner — a
+car park set back off the street it fronts, a mouth between two arms — the wrap at half a walk turns the same
+corner sharply, and the two runs that give way there each stop *half a walk short of the corner* along their
+own arm. Struck run by run, the kerb line came out missing an L of itself, two metres on a side, at every car
+park in the town: the pavement was drawn and answered correctly and only the stroke on its inner edge was
+absent.
+
+**The band itself never was**, because a run's end is closed with the half-round the answer measures there —
+so what carries the kerb round is *that round's own rim*, and `Paving.Corners` is it. It is worked out from
+the two runs' own ends and their own bearings, and it starts exactly where one run's kerb stops and ends
+exactly where the next one's starts.
+
+**Two rounds and not one arc through both ends.** The two runs do not stop at one point: a line is cut a
+rounding late, and one meeting another tangentially runs √(2·R·ε) past the crossing before it is that much
+inside — a tenth of a metre at the radius a kerb fillet is turned on (`Kerbs.OnePlaceM`). An arc laid
+through both ends is then as much as half that outside the band in the middle, and the pavement drawn is
+wider than the pavement answered, which is the one thing this slice exists to prevent. Two arcs of half a
+walk about the two places, changing over where the two rounds cross, are inside the band by construction and
+still chain exactly.
+
+**And which kerb a turn hands over to is judged by the way round it goes, not by the two bearings.** Two
+runs that lie along one another stand at one bearing, so by their bearings they hand over through nothing —
+but where the next kerb starts *behind* the one this ends, the edge that joins the two goes the whole way
+round the place. What that drew was a ring of kerb sitting on the open pavement beside every crossing in the
+town. A turn crosses the wedge of tarmac between two runs, which is under half the circle however sharply
+they meet, so anything further is not a corner and no turn is laid.
+
+    Odesa    turns   2216 laid by the bearings, 1314 of them rings -> 913, the widest 1.67 rad
+             ground  the kerb stops dead nowhere two runs of the wrap give way to one another
+             mesh    521 k vertices against 499 k, which is nine hundred turns' worth of stroke
+
+## 2026-09-06 — the pavement is the tarmac grown by a walk, movements and squared ends included
+
+**The walk was laid off the tarmac and drawn off the roads, and the two are not the same shape.** The wrap
+the town is walked on stands half a walk outside every piece of tarmac there is — a carriageway, a line a
+car is turned through a box on, a kerb fillet, a car park. The ground answered and drew a band round each
+road's own centreline and nothing beside a movement, on the reasoning that a box's arms carry the pavement
+past it. They do not: **a movement swings wider than either arm it runs between**, so the wrap followed the
+movement out and the drawn band stayed with the arms, and 109 sampled metres of Odesa's footway turned its
+junction corners over open grass. Grass is walkable, so nothing refused it — a walker was simply walked over
+a verge the picture showed it standing on.
+
+**The end of a band is turned the same way** (TER-3c.6). A ribbon is squared off where its road stops and
+the walk is what stands within a walk of the tarmac, so past that end the band is the square end grown by a
+walk and its two corners are arcs. A distance turns a corner; only a half-width squares one.
+
+    Odesa's pavement   109 sampled metres over grass -> 0, on every shipped map and the fixtures
+
+**The two readings are still one list** (TER-7): what `GroundShapes` answers and what `GroundMesh` draws are
+the same pieces at the same offsets, and a gate walks every metre of the walked pavement and asks the ground
+what it is drawn as.
+
+**And the inner-corner solver is gone, rather than fixed** (`PavementCorners`, 460 lines). It rounded the
+re-entrant spikes between pavement pieces by walking every piece's outline, bisecting each crossing into
+the rest and laying a fillet over the wedge — a second description of a shape that already had one, and
+laid off the roads and the lots alone, so at a junction it rounded corners against a boundary the town no
+longer has. What that drew was a thin wedge of pavement standing out into the verge at some junction
+corners, and where a third piece stood within a radius it halved the arc until the arc's centre was verge
+and then gave up, which is a chunk of concrete in the grass with nothing to say for itself. Handing it the
+movements does not settle it: the corners it then finds have the same trouble one shape further on.
+
+**There is nothing for it to round, because a spike between two pieces is the tarmac's own corner**
+(TER-3c.3). Growing each piece of tarmac by one figure and taking the union is growing the union, so the
+shell has exactly the corners the tarmac has: a car park's mouth against the street it opens off pinches
+the walk because *that* corner is unrounded, and an arc laid over the verge to hide it is pavement no
+walker can be given ground on — the wrap the town is walked on has no such arc, and did not before.
+
+    Odesa    load    the solve was 33 ms of it, and 60 km of outline walked; the shell costs nothing
+             ground  the walk is drawn and answered as one union of pieces, and a gate asks the drawn
+                     pavement whether it stops exactly a walk off the nearest tarmac
+
+**A lot's wrap turns on the walk and not on half of it.** It was half, on the reading that a band 4 m wide
+all the way round a corner "reads pinched"; but half is not the ground within a walk of the box, and the
+lanes on it — laid half a walk out, turning on half a walk — sat off the concrete they are drawn on. The
+corner is the one the wrap already had.
+
 ## 2026-09-06 — a junction has no shape, and the lines a car is driven on are laid with the town
 
 **The driving geometry is the plan's now.** `LaneLines` lays every lane and every connector when a map is
@@ -57,14 +174,6 @@ the fixture come back byte-identical, which is the only test that could have sai
 tarmac as one shape — every carriageway at its own width, every line through a box, every kerb fillet, every
 car park and every slab — answering how far a point stands off the nearest of it, and offering the line that
 stands a given distance outside each piece.
-
-**A kerb corner needs no wrap of its own, and that is worth knowing before trying it.** Carrying each corner
-round at the band's width — the arc a turning car takes (TER-5) grown by the walk — was laid, drawn and
-answered from, on the suspicion that round a corner the band was whatever the neighbouring pieces happened
-to leave. It is not: the arms' own bands and the inner corners (TER-3c.4) already cover every one of them.
-The wrap cost 836 triangles on the fixture and 22,790 on Odesa and moved two pixels in a frame 711 m across,
-which is the seam noise of drawing the same ground twice. It was taken out again. **The corner coverage is
-not where the pavement is wrong**, and the next reader looking at a junction can start somewhere else.
 
 ## 2026-09-05 — the grid in the middle runs one way, and keeps what it can be driven with
 

@@ -41,6 +41,13 @@ internal enum FootEdgeKind : byte
 /// the wrong side of its own node and a line laid through those stations steps backwards and crosses itself.
 /// </para>
 /// <para>
+/// <b>And a node is a place a walk chooses between ways, never a seam in the construction.</b> The wrap is
+/// cut into a piece per band, per fillet and per box and cut again wherever the one rule opens and closes,
+/// and where two of those pieces are one line where they meet they are laid as one stretch
+/// (<see cref="Builder.RunOn"/>). What keeps a node is a corner the pavement really turns or a step the
+/// weld really left.
+/// </para>
+/// <para>
 /// Directed edges are laid in pairs, so <c>edge ^ 1</c> is the same stretch walked the other way and the
 /// contraction gets its reverse for nothing.
 /// </para>
@@ -166,7 +173,7 @@ internal sealed partial class FootGraph : IFineGraph
         // laying one down the middle of its roads.
         if (bandM > 0f)
         {
-            var kerbs = Kerbs.Of(plan.Ground, LaneLines.Of(plan.Ground, config));
+            var kerbs = plan.Paving(config).Kerbs;
             Wrap(kerbs, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);
 
             // Stitched first: a line leads somewhere when the walk carries on at both of its ends, and two
@@ -176,6 +183,19 @@ internal sealed partial class FootGraph : IFineGraph
             Crossings(plan, kerbs, builder, bandM);
         }
 
-        return builder.Prune(config.Network.FootGraphStubPruneM, config.NearestChainCellM);
+        builder.Prune(config.Network.FootGraphStubPruneM);
+
+        // Run together after the prune and not before it: dropping a stub is what leaves the node behind it
+        // forking nothing. The kink allowed is the one that opens a lane by the rounding at the offset the
+        // lane is laid at, which is the whole of why it is a figure and not a taste.
+        builder.RunOn(RoundingM, RoundingM / config.WalkingLaneOffsetM);
+
+        // And a pavement laid twice is one way out of a node only once the seams inside it are gone, so
+        // what it is dropped by runs after the first pass — and the prune and the pass run again after it,
+        // because what a doubled line hung off is a stub and what a stub hung off forks nothing.
+        builder.DropThePavementSaidTwice(config.PersonDiameterM);
+        builder.Prune(config.Network.FootGraphStubPruneM);
+        builder.RunOn(RoundingM, RoundingM / config.WalkingLaneOffsetM);
+        return builder.Lay(config.NearestChainCellM);
     }
 }

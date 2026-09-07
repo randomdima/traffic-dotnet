@@ -316,9 +316,8 @@ internal static class SlotStage
     /// its bays and the street.
     /// <para>
     /// <b>And a lot claims the walk that wraps it</b> (TER-3c.3), not a share of its own size (GEN-4d): the
-    /// pavement is drawn a walk's width round every lot, so two standing closer than two walks apart have one
-    /// wrap between them and the verge they pinch out is a cusp rather than a corner the walk can turn
-    /// (TER-3c.4).
+    /// pavement is drawn a walk's width round every lot, so two standing closer than two walks apart have
+    /// one wrap between them and the verge they pinch out is a cusp nothing can be given ground on.
     /// </para>
     /// </remarks>
     static bool Stands(LotShape shape, GroundShapes ground, GenClaims claims, SimConfig config) =>

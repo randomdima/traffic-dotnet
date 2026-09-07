@@ -37,7 +37,6 @@ internal sealed partial class GroundShapes
     Vector2[] _lotCentreM = [];
     Vector2[] _lotAxis = [];
     Vector2[] _lotHalfM = [];
-    float _lotCornerM;
 
     Vector2[] _slabMinM = [];
     Vector2[] _slabSizeM = [];
@@ -76,7 +75,8 @@ internal sealed partial class GroundShapes
     /// <summary>
     /// The wedge between two kerbs, paved back to the arc tangent to both (TER-5): the triangle they make
     /// with the chord between their tangent points, less what the arc cuts off it. The same piece
-    /// <c>GroundMesh.Fillet</c> draws, and the same one at a car park's re-entrant corners (TER-3c.4).
+    /// <c>GroundMesh.Fillet</c> draws, and the same one <see cref="Grown"/> hands back for the pavement
+    /// that turns the corner outside it.
     /// </summary>
     readonly struct Fillets(
         Vector2[] cornerM, Vector2[] tangentAM, Vector2[] tangentBM, Vector2[] arcCentreM, float[] radiusM)
@@ -137,13 +137,16 @@ internal sealed partial class GroundShapes
         }
     }
 
-    /// <summary>A car park's own tarmac, or the pavement wrap that turns the corners of it.</summary>
-    readonly struct Lots(Vector2[] centreM, Vector2[] axis, Vector2[] halfM, float outM, float cornerM)
-        : IGroundShape
+    /// <summary>
+    /// A car park's own tarmac, or the ground within <paramref name="outM"/> of it — <b>which turns its
+    /// corners on that same figure</b>, because a box grown by a distance is a box with the distance for a
+    /// corner radius and nothing else.
+    /// </summary>
+    readonly struct Lots(Vector2[] centreM, Vector2[] axis, Vector2[] halfM, float outM) : IGroundShape
     {
         public bool Covers(int shape, Vector2 pointM) =>
             outM > 0f
-                ? InRoundedRect(pointM, centreM[shape], axis[shape], halfM[shape] + new Vector2(outM), cornerM)
+                ? InRoundedRect(pointM, centreM[shape], axis[shape], halfM[shape] + new Vector2(outM), outM)
                 : InRect(pointM, centreM[shape], axis[shape], halfM[shape]);
     }
 
@@ -252,6 +255,50 @@ internal sealed partial class GroundShapes
         return false;
     }
 
+    /// <summary>
+    /// <b>The kerb fillets grown by a walk</b> — the pavement that turns each corner of each junction
+    /// (TER-3c.3). A fillet grown by a distance is the whole wedge scaled about its own arc centre until
+    /// the arc is that much tighter: the two straight sides are the arms' kerbs, and scaling carries each
+    /// of them exactly the distance into the verge, which is where the walk beside that arm reaches to.
+    /// </summary>
+    /// <remarks>
+    /// <b>A corner tighter than the walk is wide has no grown fillet at all</b>, because there is no
+    /// reading its arc in that far, and what stands round it is the two arms' own bands. It is the one
+    /// call <see cref="Kerbs.Wrapping"/> makes about the same shape, so the concrete and the lines on it
+    /// give way at the same corners.
+    /// </remarks>
+    static Fillets Grown(CityPlan.JunctionCornerArrays kerbs, float walkM)
+    {
+        var kept = 0;
+        for (var corner = 0; corner < kerbs.Count; corner++)
+        {
+            if (kerbs.RadiusM[corner] > walkM) kept++;
+        }
+
+        var cornerM = new Vector2[kept];
+        var tangentAM = new Vector2[kept];
+        var tangentBM = new Vector2[kept];
+        var arcCentreM = new Vector2[kept];
+        var radiusM = new float[kept];
+        var at = 0;
+        for (var corner = 0; corner < kerbs.Count; corner++)
+        {
+            var wasM = kerbs.RadiusM[corner];
+            if (wasM <= walkM) continue;
+
+            var centreM = kerbs.ArcCentreM[corner];
+            var inwards = walkM / wasM;
+            cornerM[at] = Vector2.Lerp(kerbs.CornerM[corner], centreM, inwards);
+            tangentAM[at] = Vector2.Lerp(kerbs.TangentAM[corner], centreM, inwards);
+            tangentBM[at] = Vector2.Lerp(kerbs.TangentBM[corner], centreM, inwards);
+            arcCentreM[at] = centreM;
+            radiusM[at] = wasM - walkM;
+            at++;
+        }
+
+        return new Fillets(cornerM, tangentAM, tangentBM, arcCentreM, radiusM);
+    }
+
     /// <summary>Whether a point stands inside a triangle, by the side of each edge it falls on.</summary>
     static bool InTriangle(Vector2 pointM, Vector2 aM, Vector2 bM, Vector2 cM)
     {
@@ -303,33 +350,17 @@ internal sealed partial class GroundShapes
         var walkM = paving.WalkM;
         var bucketM = config.Terrain.GroundBucketM;
 
+        var kerbs = plan.JunctionCorners;
         _kerbs = new Fillets(
-            plan.JunctionCorners.CornerM, plan.JunctionCorners.TangentAM, plan.JunctionCorners.TangentBM,
-            plan.JunctionCorners.ArcCentreM, plan.JunctionCorners.RadiusM);
+            kerbs.CornerM, kerbs.TangentAM, kerbs.TangentBM, kerbs.ArcCentreM, kerbs.RadiusM);
         _kerbIndex = _kerbs.Index(plan.WorldSizeM, bucketM);
 
-        var corners = paving.Corners;
-        var cornerM = new Vector2[corners.Count];
-        var tangentAM = new Vector2[corners.Count];
-        var tangentBM = new Vector2[corners.Count];
-        var arcCentreM = new Vector2[corners.Count];
-        var radiusM = new float[corners.Count];
-        for (var corner = 0; corner < corners.Count; corner++)
-        {
-            cornerM[corner] = corners[corner].CornerM;
-            tangentAM[corner] = corners[corner].TangentAM;
-            tangentBM[corner] = corners[corner].TangentBM;
-            arcCentreM[corner] = corners[corner].ArcCentreM;
-            radiusM[corner] = corners[corner].RadiusM;
-        }
-
-        _walks = new Fillets(cornerM, tangentAM, tangentBM, arcCentreM, radiusM);
+        _walks = Grown(kerbs, walkM);
         _walkIndex = _walks.Index(plan.WorldSizeM, bucketM);
 
         _lotCentreM = plan.ParkingLots.CentreM;
         _lotAxis = plan.ParkingLots.Axis;
         _lotHalfM = plan.ParkingLots.HalfExtentM;
-        _lotCornerM = paving.WrapCornerM;
         var lotReachM = new float[_lotCentreM.Length];
         for (var lot = 0; lot < lotReachM.Length; lot++)
         {

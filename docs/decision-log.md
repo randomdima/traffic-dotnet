@@ -22,7 +22,7 @@ or *whatever keeps* something inside something else, is a comment standing in fo
   grip is what keeps a stop inside a fifth of the body's own diameter" — and then authored as a number
   anyway, with a test checking it had not drifted. The fifth is now `Person.StopsWithinDiameters` and the
   grip is derived: 108.9 m/s², a per cent off what had been hand-held.
-- **`PavementCornerRadiusM` 2** was "half the walk" beside a 4 m walk.
+- **`PavementCornerReachM` 2** was "half the walk" beside a 4 m walk.
 - **`Car.BrakingMps2` 27** was a deceleration whose entire purpose was to stand clear of the tyres. Now
   `Car.BrakePedalInTyreGrips` 3 — a pedal that can lock a wheel at any load, which is what brakes are — so
   it **tracks the rubber** instead of sitting where it was put. It had already gone stale once: the grip

@@ -156,8 +156,12 @@ internal sealed partial class SimConfig
     /// </summary>
     public float WalkPassableAsideM => PersonDiameterM * 0.5f;
 
-    /// <summary>Half the walk, which is what stands a corner 4.83 m deep against the straight's 4 m.</summary>
-    public float PavementCornerRadiusM => PavementWidthM * 0.5f;
+    /// <summary>
+    /// <b>How much deeper into the verge the walk reaches at a corner than down a straight</b>: half a
+    /// walk, which covers the 0.41 of one a right angle grown on the full width actually stands proud by
+    /// (TER-3c.3). It is what something laid near a kerb is asked to stand clear of (GEN-6a).
+    /// </summary>
+    public float PavementCornerReachM => PavementWidthM * 0.5f;
 
     /// <summary>
     /// The clear ground between one walker's claimed stretch and the next one's, which is what a queue on
@@ -289,16 +293,29 @@ internal sealed partial class SimConfig
     /// than a line is wide leaves a spike nothing can see and no cell can hold.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>The spike is measured off the nearer of the two kerbs</b>, which is the mouth the wedge is a spike
     /// out of: measured off the further one, a street half a road wide meeting a full carriageway obliquely
     /// reads as no corner at all, and the pavement that ought to stop at its kerb runs on over the
     /// carriageway instead.
+    /// </para>
+    /// <para>
+    /// <b>And the crossing has to stand out along <em>both</em> arms.</b> Behind an arm the two kerbs have
+    /// not met yet — they are still running apart — so what crosses there is the two <em>lines</em> and not
+    /// the two kerbs, and the arm has no tarmac to be tangent to. It happens where a kerb passes through the
+    /// node: a one-way street stands its own half off (TER-4d), so the kerb on the half it gave up is the
+    /// node's own line, and against a neighbour more than a right angle away the crossing of that line falls
+    /// on the far side of the junction. What a fillet laid there is is a lens of carriageway hanging half a
+    /// metre off the kerb in the middle of a street, with the pavement wrapping it.
+    /// </para>
     /// </remarks>
     public bool JunctionTurnsACorner(float armsApartRad, float kerbM, float neighbourKerbM)
     {
         if (armsApartRad >= MathF.PI) return false;
 
         var alongM = JunctionCornerAlongM(armsApartRad, kerbM, neighbourKerbM);
+        if (alongM < 0f || JunctionCornerAlongM(armsApartRad, neighbourKerbM, kerbM) < 0f) return false;
+
         var offM = MathF.Sqrt((alongM * alongM) + (kerbM * kerbM));
         return offM <= JunctionArmReachMaxM
                && offM - MathF.Min(kerbM, neighbourKerbM) >= Road.PaintLineWidthM;

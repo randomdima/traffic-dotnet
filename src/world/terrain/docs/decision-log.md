@@ -1,5 +1,84 @@
 # Terrain — decision log
 
+## 2026-09-06 — the pavement is the band the walk runs down, and the carriageway ends at its inner edge
+
+**The kerb followed the tarmac and the shell followed the walk, and those are two shapes.** The pavement
+was the union of every piece of tarmac grown by a walk, drawn over the tarmac at its own size — so its
+outer edge was a dilation, which rounds a convex corner and swallows any notch narrower than what it grew
+by, while its inner edge was the tarmac's raw outline, which does neither. Wherever the town's pieces meet
+at different widths — a movement is one lane wide where the arm it leaves is a street, a car park is set
+back off the street it fronts, a street runs into a wider one — the outline steps and the dilation does
+not. The band came out a different width at every mouth in the town, and the kerb read as a chamfer cut
+across a corner that the shell and the walking lane beside it turned smoothly.
+
+**So the band is struck on one curve and both its edges are offsets of that curve.** The curve is the one
+the walking lanes were already laid on: the tarmac's outline at half a walk, cut to the runs no piece
+stands nearer to. Pavement is everything within half a walk of it — which is one distance to answer, one
+skirt either side to draw, and a half-round at a run's end that is exactly what fills the wedge where two
+runs give way to one another. The cutting moved down into `Kerbs` so that the ground, the mesh and the foot
+graph share it rather than each cutting its own (TER-7).
+
+**What that gives back to the carriageway is deliberate.** Everything inside the kerb is tarmac now,
+pockets included, so the apron a junction's own movements leave between them is asphalt rather than a bay
+of concrete no walker can be given ground on. It is the shape the town already had, drawn honestly.
+
+## 2026-09-06 — a pavement laid twice is dropped down to one
+
+**Two pieces of tarmac that lie along one another wrap into two lines that lie along one another**, and
+where neither piece is the inside of anything there is nothing to condition either on. What that costs is
+not the wasted stretch: the two are laid in whatever directions their pieces ran, so a walk from one onto
+the other is a corner the town lays, draws and offers — a loop hanging off the middle of a footway, turning
+a body round to send it back the way it came.
+
+**It is asked of a shared node and not of a shared pair of ends.** The two lines are cut by what each was
+laid off and rarely stop in the same place: the loop this was found on was 3.8 m of pavement lying inside
+4.6 m of it, with the leftover 0.7 m closing the ring — one node in common and neither of the other two.
+So what is dropped is a way out of a node that sets off along another way out of that same node and never
+leaves it.
+
+**Both halves of that, because either alone is wrong.** A pavement that closes on itself — round the head
+of a dead end, round a car park — also leaves one node by two ways, so the shared node is not enough; and
+two short pieces of one footway meeting end to end each lie within a body's width of the other, since a
+body's width is longer than either of them, so the measurement is not enough either. What tells them apart
+is that a doubled way **ends further down the other's line than it set off**, and a way that carries on
+ends back at the node it left.
+
+    Odesa's pavement   116 stretches lay inside another -> 0, and no turn in the town passes 120°
+
+**Asked after the seams are run together**, since the two lines are cut into pieces of their own and are
+only one stretch each once those are gone; and the prune and the pass run again after it, since what a
+doubled line hung off is a stub and what a stub hung off forks nothing.
+
+## 2026-09-06 — a node of the pavement is a place a walk chooses, not a seam in the construction
+
+**The pavement is cut into pieces by what it is laid off, and most of those cuts fall where nothing
+joins.** A piece per band, per fillet and per box, cut again wherever the one rule opens and closes — so
+Odesa's footway came out as 4 896 stretches meeting at 4 384 nodes, of which 3 313 forked nothing at all.
+Every fork in the whole town was a crossing's mouth (1 048 three-way nodes against 513 crossings), which is
+what the pavement is: a shell with zebras cut into it.
+
+**Two stretches that are one line where they meet are now laid as one stretch.** The joint is read in the
+line's own frame and the two directions answer to different figures. **Across** the line nothing may move:
+a step sideways is a step whatever it is called, so the grace is the rounding, and so is the kink — divided
+by the offset the lanes are laid at, because a kink the centre closes opens on the lane outside it by the
+kink times the offset. **Along** the line the weld has already had its say: two ends it welded onto one
+node are one place, so a joint may be open along itself by as much as the weld put it, and the join shuts
+it — running the first chain on past the gap, cutting it back where the two overran.
+
+**The overrun is what nearly all of them were**, and it is the grazing case the stitch was built for read
+one turn further on. Two pieces of the shell that meet tangentially are cut by two bisections of their own,
+so where they graze rather than cross one runs past the other's cut — by up to 17 cm, dead straight, with
+nothing across the line at all. Landed on a loose end that is a stub for the prune; welded into a node it
+was a seam in the middle of a straight footway, kept for a step nobody put there.
+
+    Odesa's pavement   4 896 stretches over 4 384 nodes -> 2 748 over 2 244, 107.00 km -> 106.85
+
+**Every fork in the town is a crossing's mouth, and that is the check.** The 1 026 three-way nodes are
+exactly the 1 026 nodes a crossing stands on: what a pavement is, once the seams are gone, is a shell with
+zebras cut into it. Of the rest, 18 are dead ends and 1 200 are corners the pavement really turns — 1 142
+of them kink past a degree, by up to 96° where the wrap turns the end of a band. Those keep their nodes and
+the walking side mitres them, 8 468 mitres over 14 052 ways on.
+
 ## 2026-09-06 — a shell has no ends
 
 **A band offered its two sides and nothing across the end it stops at**, so wherever the town's kerb turned
@@ -129,38 +208,3 @@ a dot product — and that is a change to the physics rather than to the ground.
 **Format 4 drops both blocks and there is a writer now.** The two fixtures still carried as files were
 re-baked through `TownWriter`, which the format never had — a `.town` that could be read and not written is
 a format that cannot move. `Test.town` went from 235 KiB to 28.
-
-## 2026-08-29 — the pavement's inner corners are solved and no longer read off the map
-
-**Every shipped map records fewer of them than it has.** The rule said the plan carried the list, and the
-build drew from it: Odesa's file names 916 corners, and the ground it lays has around 1150. A scan of the
-drawn pavement for sharp notches — a point of verge with more than seven tenths of a 2.5 m ring round it
-paved — found 205 left standing on Odesa, 79 on River and 122 on the exam lattice, which records none at
-all and was therefore square at every junction it has.
-
-**The largest family is a shape the exporter never saw.** A car park's walk is a wrap the *build* lays,
-`halfExtent + walk` rounded on half the walk (TER-3c.3), and where it runs into the street's own band it
-leaves two right angles nothing had a record for — 112 of Odesa's 197 unrecorded notches and 49 of River's
-69. The rest are roads meeting at angles the exporter's list skipped.
-
-**So the build solves them, which is what the rule already said the corner was.** TER-3c.4 has always
-held that a corner is a fact about the pair of shapes and nothing else, solved against the finished ground
-rather than enumerated per kind of neighbour; the only part that has changed is who does the solving. Each
-piece of pavement — a road's band, a junction's ring, a bridge's walk, a car park's wrap — has its outline
-walked, and every crossing into another piece is a corner, measured off the two outward normals there.
-Nothing in it knows a band from a wrap, so the day the generator puts a new pair together they are rounded
-without a line moving.
-
-**Signed distance is the whole of it.** Inside is negative, the outward normal is the gradient, and the
-three kinds of piece differ in that one function — which is what lets the crossing search, the normals and
-the spike test be written once each rather than per pair. A crossing becomes a corner only if the ground
-round it is mostly paved: two pieces meeting leave a spike of verge or a corner of pavement, and reading
-which off the ground itself is what keeps the answer independent of how either outline was wound.
-
-**It is load-time work and it is not free**: 33 ms over Odesa, against 64 ms for the whole mesh. That is
-the price of not enumerating, and it is paid once when the ground is laid.
-
-**The file format still carries the field.** A shipped `.town` has the bytes and the reader-writer round
-trip over every shipped map is what makes a plan a map rather than a second kind of thing, so the array
-survives on `CityPlan` with nothing reading it. The census prints both numbers, which is where the gap
-between what a map claims and what its ground has stays visible.

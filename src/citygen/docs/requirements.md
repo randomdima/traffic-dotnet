@@ -12,10 +12,10 @@ Bay geometry is [world/parking](../../world/parking/docs/requirements.md); the g
 ## Rules the structure enforces
 
 - **A junction's kerb fillets are carried, not re-derived.** A kerb fillet cannot be read back off any
-  other shape, so it is a record. **The pavement's own inner fillets are not**: they fall out of the pieces
-  the walk is laid from, and the build solves them against the finished ground (TER-3c.4). The structure
+  other shape, so it is a record. **The pavement has no corners of its own to carry**: it is the tarmac
+  grown by one figure and every corner it turns is a corner of the thing it wraps (TER-3c.3). The structure
   still carries a list of them, because the two fixture maps that arrive as files carry one; nothing reads
-  it.
+  it and nothing writes it.
 - **The stop bars carried are the ones that were *painted*, not the ones the plan called for.** A bar
   whose arm is too short to hold one is dropped, and a bar nobody painted is a bar nobody stops at.
 - **Lane directions are sparse in the file and dense in memory**, because direction exists only on

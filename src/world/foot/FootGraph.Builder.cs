@@ -270,39 +270,263 @@ internal sealed partial class FootGraph
         }
 
         /// <summary>
+        /// <b>Drops a stretch that is another one said twice</b>: a way out of a node that sets off along
+        /// another way out of that same node and never leaves it (<see cref="SaidTwice"/>).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Two pieces of tarmac that lie along one another offer wrapping lines that lie along one another,
+        /// and where neither is the inside of anything there is nothing to condition them on
+        /// (<see cref="DropTheLinesThatLeadNowhere"/>) — so the pavement was laid twice over one piece of
+        /// ground. What that costs is not a wasted stretch but a turn: the two are laid in whatever
+        /// directions their pieces ran, so a walk down one and back up the other is a corner the town lays
+        /// and draws — a loop hanging off the middle of a footway, turning a body round to send it back the
+        /// way it came.
+        /// </para>
+        /// <para>
+        /// <b>Both halves of the question, because either alone is wrong.</b> A pavement that closes on
+        /// itself — round the head of a dead end, round a car park — leaves one node by two ways that are
+        /// not doubled ground at all, so a shared node is not enough; and two lines that never stand a
+        /// body's width apart are the two sides of a street too narrow to have any, until it is one node
+        /// they both set off from, so the measurement is not enough either.
+        /// </para>
+        /// <para>
+        /// <b>Asked of a shared node rather than of a shared pair of ends</b>, because the two are cut by
+        /// what each was laid off and rarely stop in the same place: the loop that put this here was 3.8 m
+        /// of pavement lying inside 4.6 m of it, with the leftover 0.7 m closing the ring.
+        /// </para>
+        /// </remarks>
+        public void DropThePavementSaidTwice(float apartM)
+        {
+            var ways = new List<int>?[_nodeM.Count];
+            for (var edge = 0; edge < _edgeAlive.Count; edge += 2)
+            {
+                if (!_edgeAlive[edge]) continue;
+
+                (ways[_edgeFrom[edge]] ??= []).Add(edge);
+                (ways[_edgeTo[edge]] ??= []).Add(edge);
+            }
+
+            for (var node = 0; node < ways.Length; node++)
+            {
+                var here = ways[node];
+                if (here is null) continue;
+
+                foreach (var keep in here)
+                {
+                    foreach (var drop in here)
+                    {
+                        if (drop == keep || !_edgeAlive[keep] || !_edgeAlive[drop]) continue;
+                        if (_edgeKind[drop] != _edgeKind[keep] || _edgeLengthM[drop] > _edgeLengthM[keep]) continue;
+                        if (!SaidTwice(keep, drop, node, apartM)) continue;
+
+                        _edgeAlive[drop] = false;
+                        _edgeAlive[drop + 1] = false;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether one way out of a node is another way out of it said twice: every metre of the shorter
+        /// stands within <paramref name="apartM"/> of the longer's line, <b>and it ends further down that
+        /// line than it set off</b>.
+        /// </summary>
+        /// <remarks>
+        /// The second half is what tells a line laid over another from one that carries on out of the same
+        /// node the other way: two short pieces of one footway meeting end to end each lie within a body's
+        /// width of the other, since a body's width is longer than either of them, and only the direction
+        /// they leave by says which is which. Walked at the same figure it is measured by, so nothing
+        /// between two stations is missed.
+        /// </remarks>
+        bool SaidTwice(int keep, int drop, int node, float apartM)
+        {
+            var along = Leaving(keep, node);
+            var alongLengthM = _edgeLengthM[keep];
+            var doubled = Leaving(drop, node);
+            var doubledLengthM = _edgeLengthM[drop];
+            var stations = Math.Max(1, (int)MathF.Ceiling(doubledLengthM / apartM));
+
+            var alongM = 0f;
+            for (var station = 1; station <= stations; station++)
+            {
+                var atM = Spline.SampleAt(doubled, doubledLengthM * station / stations).PositionM;
+                alongM = Spline.ProjectM(along, atM, alongLengthM * 0.5f, alongLengthM);
+                if ((Spline.SampleAt(along, alongM).PositionM - atM).Length() > apartM) return false;
+            }
+
+            return alongM > 0f;
+        }
+
+        /// <summary>
         /// Drops the dead-end stubs nothing walks — under a stride long. Repeated until nothing is left to
         /// drop, because cutting one stub can leave the stretch behind it a stub in its turn.
         /// </summary>
-        public FootGraph Prune(float stubM, float nearestCellM)
+        public void Prune(float stubM)
         {
-            var alive = _edgeAlive.ToArray();
-
             bool cut;
             do
             {
                 cut = false;
-                var ways = new int[_nodeM.Count];
-                for (var edge = 0; edge < alive.Length; edge += 2)
+                var ways = Ways();
+                for (var edge = 0; edge < _edgeAlive.Count; edge += 2)
                 {
-                    if (!alive[edge]) continue;
-
-                    ways[_edgeFrom[edge]]++;
-                    ways[_edgeTo[edge]]++;
-                }
-
-                for (var edge = 0; edge < alive.Length; edge += 2)
-                {
-                    if (!alive[edge] || _edgeLengthM[edge] >= stubM) continue;
+                    if (!_edgeAlive[edge] || _edgeLengthM[edge] >= stubM) continue;
                     if (ways[_edgeFrom[edge]] != 1 && ways[_edgeTo[edge]] != 1) continue;
 
-                    alive[edge] = false;
-                    alive[edge + 1] = false;
+                    _edgeAlive[edge] = false;
+                    _edgeAlive[edge + 1] = false;
                     cut = true;
                 }
             }
             while (cut);
+        }
 
-            return Lay(alive, nearestCellM);
+        /// <summary>
+        /// <b>Runs two stretches into one wherever the node between them forks nothing and the two are one
+        /// line</b>, so that a node is a place a walk chooses between and never a seam in the construction.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The pavement is cut into pieces by what it is laid off — a piece per band, per fillet and per
+        /// box, cut again wherever the one rule opens and closes (<see cref="Wrap"/>) — and most of those
+        /// cuts fall in the middle of a footway nothing joins. Such a node stands for nothing: the walking
+        /// side lays no corner at it (<c>WalkingNetwork.SamePlaceAt</c>) and gives up no ground for one, so
+        /// what it costs is a node, a pair of edges, four turns nobody chooses between and a stretch's worth
+        /// of every table laid per stretch.
+        /// </para>
+        /// <para>
+        /// <b>Only where the joint is inside the rounding, and that is the point of the figures.</b> A
+        /// chain walked as one line lies about where its own metres are by whatever its joints are open by
+        /// (<c>Kerbs.Runs</c>), and a kink of one line closes at the centre opens by the kink times the
+        /// offset on the lane laid outside it — so what may be run together is a joint that moves neither
+        /// the line nor either lane further than offsetting the chain moved it anyway. Everything else is a
+        /// corner the pavement really turns or a step the weld really left, and it keeps its node and its
+        /// mitre.
+        /// </para>
+        /// <para>
+        /// Repeated, because running two stretches together can leave the node at the far end of the second
+        /// one forking nothing in its turn.
+        /// </para>
+        /// </remarks>
+        public void RunOn(float sameM, float straightRad)
+        {
+            bool ran;
+            do
+            {
+                ran = false;
+                var ways = new int[_nodeM.Count];
+                var first = new int[_nodeM.Count];
+                var second = new int[_nodeM.Count];
+                for (var edge = 0; edge < _edgeAlive.Count; edge += 2)
+                {
+                    if (!_edgeAlive[edge]) continue;
+
+                    Stand(_edgeFrom[edge], edge, ways, first, second);
+                    Stand(_edgeTo[edge], edge, ways, first, second);
+                }
+
+                for (var node = 0; node < ways.Length; node++)
+                {
+                    if (ways[node] != 2 || first[node] == second[node]) continue;
+                    if (!OneLine(first[node], second[node], node, sameM, straightRad, out var openM)) continue;
+
+                    Run(first[node], second[node], node, openM);
+                    ran = true;
+                }
+            }
+            while (ran);
+        }
+
+        static void Stand(int node, int edge, int[] ways, int[] first, int[] second)
+        {
+            if (ways[node] == 0) first[node] = edge;
+            else if (ways[node] == 1) second[node] = edge;
+
+            ways[node]++;
+        }
+
+        /// <summary>
+        /// Whether the two stretches meeting at a node are one line there: the same ground, the same width,
+        /// and a joint inside the figures. <b>Read off the pair as it stands now</b>, since an earlier join
+        /// in the same sweep may have taken one of them or carried it away from this node.
+        /// </summary>
+        /// <remarks>
+        /// <b>The joint is read in the line's own frame, and the two directions answer to different
+        /// figures.</b> Across the line nothing may move: a step sideways is a step whatever it is called,
+        /// and the grace is the rounding. Along the line the weld has already had its say — two ends it
+        /// welded onto one node are one place, and where two grazing pieces of the shell overrun each other
+        /// the leftover is the overlap and not a corner. So <paramref name="openM"/> comes back as what the
+        /// joint is open by along itself, for <see cref="Run"/> to shut.
+        /// </remarks>
+        bool OneLine(int into, int onward, int node, float sameM, float straightRad, out float openM)
+        {
+            openM = 0f;
+            if (!_edgeAlive[into] || !_edgeAlive[onward]) return false;
+            if (!At(into, node) || !At(onward, node)) return false;
+            if (_edgeKind[into] != _edgeKind[onward] || _edgeBandM[into] != _edgeBandM[onward]) return false;
+
+            var last = Arriving(into, node)[^1];
+            var starts = Leaving(onward, node)[0];
+            var headingRad = last.HeadingAtRad(last.LengthM);
+            if (MathF.Abs(Spline.WrapRad(starts.HeadingRad - headingRad)) > straightRad) return false;
+
+            Heading.Frame(headingRad, out var ahead, out var right);
+            var opening = starts.StartM - last.EndM;
+            openM = Vector2.Dot(opening, ahead);
+            return MathF.Abs(Vector2.Dot(opening, right)) <= sameM && MathF.Abs(openM) <= weldM;
+        }
+
+        bool At(int edge, int node) => _edgeFrom[edge] == node || _edgeTo[edge] == node;
+
+        /// <summary>The stretch's arcs read the way they arrive at a node, and the way they leave it.</summary>
+        ReadOnlySpan<ArcSeg> Arriving(int edge, int node) => _edgeArcs[_edgeTo[edge] == node ? edge : edge + 1];
+
+        ReadOnlySpan<ArcSeg> Leaving(int edge, int node) => _edgeArcs[_edgeFrom[edge] == node ? edge : edge + 1];
+
+        /// <summary>
+        /// Lays the two as one stretch, <b>shut at the joint</b>. The first keeps the pair's own index and
+        /// takes both sets of arcs; the second is dropped, and the node between them is left for
+        /// <see cref="Lay"/> to leave out.
+        /// </summary>
+        void Run(int into, int onward, int node, float openM)
+        {
+            var fromNode = _edgeTo[into] == node ? _edgeFrom[into] : _edgeTo[into];
+            var toNode = _edgeFrom[onward] == node ? _edgeTo[onward] : _edgeFrom[onward];
+
+            // Run together, a pavement that closes on itself is a stretch from a node to itself: ground no
+            // walk can be stationed along, exactly as it is when a line is laid (<see cref="AddStrand"/>).
+            if (fromNode == toNode) return;
+
+            var arriving = Arriving(into, node);
+            var leaving = Leaving(onward, node);
+            var arcs = new ArcSeg[arriving.Length + leaving.Length];
+            var shut = Shut(arriving, openM, arcs);
+            if (shut == 0) return;
+
+            leaving.CopyTo(arcs.AsSpan(shut));
+
+            Rewrite(into, fromNode, toNode, arcs.AsSpan(0, shut + leaving.Length));
+            _edgeAlive[onward] = false;
+            _edgeAlive[onward + 1] = false;
+        }
+
+        /// <summary>
+        /// The arriving chain with its far end carried along itself to where the next one begins — run on
+        /// past it where the joint was open, cut back where the two overran each other.
+        /// </summary>
+        /// <remarks>
+        /// A gap is closed on the last piece, which carries the line's own curvature into it; an overlap is
+        /// taken off by <see cref="Spline.SubChainInto"/>, since it can be longer than the piece that
+        /// carries it. Left in, the joint is a step of up to the weld inside a line that claims to be one.
+        /// </remarks>
+        static int Shut(ReadOnlySpan<ArcSeg> arcs, float openM, Span<ArcSeg> into)
+        {
+            if (openM < 0f) return Spline.SubChainInto(arcs, 0f, Spline.TotalLengthM(arcs) + openM, into);
+
+            arcs.CopyTo(into);
+            into[arcs.Length - 1] = arcs[^1] with { LengthM = arcs[^1].LengthM + openM };
+            return arcs.Length;
         }
 
         /// <summary>How many stretches still in the graph each node stands on.</summary>
@@ -413,8 +637,32 @@ internal sealed partial class FootGraph
         (int X, int Y) Cell(Vector2 pointM) =>
             ((int)MathF.Floor(pointM.X / weldM), (int)MathF.Floor(pointM.Y / weldM));
 
-        FootGraph Lay(bool[] alive, float nearestCellM)
+        /// <summary>
+        /// The graph as it stands, with what a drop or a join left out of it: <b>a node nothing stands on
+        /// is not a node</b>, so the places are numbered from what is still there rather than from what was
+        /// laid at some point.
+        /// </summary>
+        public FootGraph Lay(float nearestCellM)
         {
+            var nodeM = new List<Vector2>();
+            var nodeOf = new int[_nodeM.Count];
+            Array.Fill(nodeOf, -1);
+            for (var edge = 0; edge < _edgeAlive.Count; edge++)
+            {
+                if (!_edgeAlive[edge]) continue;
+
+                nodeOf[_edgeFrom[edge]] = 0;
+                nodeOf[_edgeTo[edge]] = 0;
+            }
+
+            for (var node = 0; node < nodeOf.Length; node++)
+            {
+                if (nodeOf[node] < 0) continue;
+
+                nodeOf[node] = nodeM.Count;
+                nodeM.Add(_nodeM[node]);
+            }
+
             var edgeFrom = new List<int>();
             var edgeTo = new List<int>();
             var edgeLengthM = new List<float>();
@@ -423,12 +671,12 @@ internal sealed partial class FootGraph
             var edgeArcOffsets = new List<int> { 0 };
             var edgeArcs = new List<ArcSeg>();
 
-            for (var edge = 0; edge < alive.Length; edge++)
+            for (var edge = 0; edge < _edgeAlive.Count; edge++)
             {
-                if (!alive[edge]) continue;
+                if (!_edgeAlive[edge]) continue;
 
-                edgeFrom.Add(_edgeFrom[edge]);
-                edgeTo.Add(_edgeTo[edge]);
+                edgeFrom.Add(nodeOf[_edgeFrom[edge]]);
+                edgeTo.Add(nodeOf[_edgeTo[edge]]);
                 edgeLengthM.Add(_edgeLengthM[edge]);
                 edgeBandM.Add(_edgeBandM[edge]);
                 edgeKind.Add(_edgeKind[edge]);
@@ -436,7 +684,7 @@ internal sealed partial class FootGraph
                 edgeArcOffsets.Add(edgeArcs.Count);
             }
 
-            var outOffsets = new int[_nodeM.Count + 1];
+            var outOffsets = new int[nodeM.Count + 1];
             foreach (var node in edgeFrom) outOffsets[node + 1]++;
             for (var node = 1; node < outOffsets.Length; node++) outOffsets[node] += outOffsets[node - 1];
 
@@ -445,7 +693,7 @@ internal sealed partial class FootGraph
             for (var edge = 0; edge < edgeFrom.Count; edge++) outEdges[cursor[edgeFrom[edge]]++] = edge;
 
             return new FootGraph(
-                [.. _nodeM], [.. edgeFrom], [.. edgeTo], [.. edgeLengthM], [.. edgeBandM], [.. edgeKind],
+                [.. nodeM], [.. edgeFrom], [.. edgeTo], [.. edgeLengthM], [.. edgeBandM], [.. edgeKind],
                 [.. edgeArcOffsets], [.. edgeArcs], outOffsets, outEdges, nearestCellM);
         }
     }

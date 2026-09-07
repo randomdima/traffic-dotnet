@@ -148,35 +148,6 @@ internal sealed class RoadFrontages
         return new RoadFrontages(offsets, fronts);
     }
 
-    /// <summary>
-    /// How far a line running out of a car park has to go to meet <b>the kerb it fronts</b> — the
-    /// carriageway's own edge curve, which is the line the kerb line's outer face stands on — signed along
-    /// <paramref name="towards"/>, or <c>null</c> where the kerb is not within <paramref name="withinM"/>
-    /// of where the line ends.
-    /// </summary>
-    /// <remarks>
-    /// <b>A lot is a rectangle and a kerb is a curve</b> (GEN-4b), so the lot's own mouth edge stands off
-    /// the carriageway's by up to the sag of the chord it was laid along. Paint ended on the lot's edge
-    /// stops that far short of the kerb line at the mouth, which is a gap of most of a line's width in the
-    /// one place a driver is looking. What the road owns is the road's to answer, so the ends are asked of
-    /// it rather than measured off the rectangle a second time.
-    /// </remarks>
-    public static float? ReachToTheKerbM(
-        GroundPieces ground, in LotFrontage front, Vector2 fromM, Vector2 towards, float withinM)
-    {
-        var arcs = ground.Roads.SegmentsOf(front.Road);
-        var edgeM = front.Side * ground.Roads.WidthM[front.Road] * 0.5f;
-        var at = Spline.SampleAt(arcs, Spline.ProjectM(
-            arcs, fromM, (front.MouthFromM + front.MouthToM) * 0.5f, front.MouthToM - front.MouthFromM));
-
-        // A line running along the kerb rather than out at it never meets it.
-        var stepM = Vector2.Dot(towards, at.Right);
-        if (MathF.Abs(stepM) < 1e-3f) return null;
-
-        var reachM = (edgeM - Vector2.Dot(fromM - at.PositionM, at.Right)) / stepM;
-        return MathF.Abs(reachM) <= withinM ? reachM : null;
-    }
-
     public static float[] RoadLengthsM(GroundPieces ground)
     {
         var lengthM = new float[ground.Roads.Count];

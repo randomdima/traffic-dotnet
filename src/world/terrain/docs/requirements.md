@@ -85,19 +85,22 @@ padding, so nothing is built on the walk and a doorstep opens onto it. Street pl
 verge behind the walk for the same reason — a trunk in the middle of a four-metre pavement is a trunk
 everyone on that street goes round.
 
-**TER-3c.3** The pavement turns every corner on the curve of what it runs beside and stays its own width
-doing it: the ground within a width of that thing, at every angle two arms can meet at. Where the thing
-it wraps turns a right angle of its own, **the walk turns it on half its own width** — rounded on the
-full width the band reads pinched, because a walker rounding a corner has further to go across it, and
-square takes a bite of verge.
+**TER-3c.3** **The pavement is the ground within half a walk of the line it is walked down, and it is
+nothing else**, at every angle two arms can meet at. That line is the tarmac's own outline at half a walk —
+every piece offering the line that stands that far beyond it, cut to the runs no piece stands nearer to
+(TER-3c.5) — so the band is a walk wide the whole way round, **both of its edges are offsets of one
+curve**, and a walker walks down the middle of it. Where the thing it wraps turns a corner of its own, the
+walk turns that corner on the walk itself: a right angle of tarmac on half the width to the line and half
+again to the shell, a kerb fillet by reading its arc in. Nothing is smoothed, patched or rounded on top of
+it, and nothing is measured twice — the concrete, the kerb line and the lane a walker follows are one
+construction read at one offset.
 
-**TER-3c.4** It turns its inner corners too. Where two pieces of it run into one another they leave a
-re-entrant spike of verge, rounded on an arc tangent to both edges at half the walk and bounded by how far
-the fillet would reach in. **A corner is a fact about the pair of shapes and nothing else**, so it is
-solved against the finished ground rather than enumerated per kind of neighbour or per map — a pair the
-generator has never put together before is rounded the first time it appears, and a map recording no
-corners of its own is rounded exactly as one that does. **The build solves them**, from the pieces it
-lays the pavement out of, and reads no list of them from anywhere.
+**TER-3c.7** **The carriageway ends where the pavement starts.** Everything inside the kerb is tarmac —
+carriageway, junction and car park, and the pockets the town's own pieces leave between them: a movement
+narrower than the arm it leaves, a car park set back off the street it fronts, a street meeting a wider
+street. Such a pocket is not a bay of concrete. Drawn as the tarmac's own outline instead, the kerb stepped
+and chamfered its way round every mouth in the town while the shell against the grass and the lane between
+them ran smoothly past, and the band came out a different width at each of them.
 
 **TER-3c.5** **The pavement is the outside of the tarmac, and only the outside.** Every piece of tarmac
 offers the line that stands half a walk beyond it and a metre of such a line is pavement where nothing
@@ -141,12 +144,15 @@ the ground comes through both. Drawn as every piece of pavement twice — once a
 shade, once a line's width smaller in the surface shade over it — so what survives is a rim on the
 union's own outer boundary and nowhere two pieces meet. Nothing walks an edge or probes a region.
 
-**TER-3d** **The kerb line stands on the kerb and not in the lane.** It is struck a line's width
-*outside* the carriageway and the road drawn back over it at its full width, so the asphalt from the
-kerb line to the centreline is the lane the town is laid at (GEN-15) and the paint stands on the
-innermost strip of the walk. Struck inside the carriageway — the way an edge shade is struck inside the
-surface it rims — the line takes its own width off the lane it marks, and every lane measured off a
-picture comes out short of the figure the rest of the build quotes, on the bends as on the straights.
+**TER-3d** **The kerb line stands on the kerb and not in the lane.** It is the innermost stroke of the
+pavement — struck on the same curve the band's two edges are struck on (TER-3c.3), a line's width
+*outside* the carriageway — so the asphalt from the kerb line to the centreline is the lane the town is
+laid at (GEN-15). Struck inside the carriageway — the way an edge shade is struck inside the surface it
+rims — the line takes its own width off the lane it marks, and every lane measured off a picture comes out
+short of the figure the rest of the build quotes, on the bends as on the straights. **And struck on the
+walk's own curve rather than on the tarmac's outline**, because those are two shapes: the outline steps
+wherever one piece of tarmac is narrower than the one it meets, and a kerb line that follows those steps
+reads as a chamfer cut across a corner the pavement beside it turns smoothly.
 
 ## What this slice must produce
 

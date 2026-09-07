@@ -215,10 +215,10 @@ internal static class PropStage
     /// </para>
     /// <para>
     /// <b>And no collar</b>, because the ground answered here is the ground that is drawn (TER-7). Every
-    /// pass used to owe one: the walk is drawn as a union with its re-entrant corners rounded off
-    /// (TER-3c.4), and a candidate reading a raster painted from the pieces alone could stand in the middle
-    /// of a corner nothing had stamped. The corners are in the answer now, so a candidate cleared against
-    /// it is clear — and a collar over that would only hold the verge back from the street it is a verge of.
+    /// pass used to owe one: the walk is drawn as a union of pieces grown by one figure (TER-3c.3), and a
+    /// candidate reading a raster painted from the pieces alone could stand in the middle of a corner
+    /// nothing had stamped. The corners are in the answer now, so a candidate cleared against it is
+    /// clear — and a collar over that would only hold the verge back from the street it is a verge of.
     /// </para>
     /// <para>
     /// <b>And clear of the props already laid</b> (GEN-6c). The ground cannot see them: a prop is no shape

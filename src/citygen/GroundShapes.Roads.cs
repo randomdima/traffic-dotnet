@@ -51,10 +51,12 @@ internal sealed partial class GroundShapes
     /// deck and a zebra are four intervals in a frame with no bend left in it.
     /// </summary>
     /// <remarks>
-    /// A point past either end of a road is not on it, however near the end it stands. The projection
-    /// clamps to the chain's own ends, so what is left of the offset along the road's direction is what
-    /// says the point is beyond it — which squares the end of every road off, exactly as the ribbon that
-    /// draws it is squared off.
+    /// A point past either end of a road is not on its carriageway, however near the end it stands. The
+    /// projection clamps to the chain's own ends, so what is left of the offset along the road's direction
+    /// is what says the point is beyond it — which squares the end of every road off, exactly as the ribbon
+    /// that draws it is squared off. <b>The walk turns that end</b> (TER-3c.6): it is the ground within a
+    /// walk of the tarmac and the tarmac stops square, so past the end the band is the square end grown by
+    /// a walk and the corner of it is an arc.
     /// </remarks>
     RoadGround Roads(Vector2 pointM)
     {
@@ -96,23 +98,28 @@ internal sealed partial class GroundShapes
         var on = Spline.SampleAt(arcs, atM);
         var offsetM = pointM - on.PositionM;
 
-        // Past an end the projection had to clamp to, and so past the road.
-        var beyondM = Vector2.Dot(offsetM, on.Direction);
-        if ((atM <= 0f && beyondM < 0f) || (atM >= _roadLengthM[road] && beyondM > 0f)) return;
+        // How far past an end the projection had to clamp to the point stands, which is nought anywhere
+        // along the road itself.
+        var alongM = Vector2.Dot(offsetM, on.Direction);
+        var pastM = atM <= 0f
+            ? MathF.Max(0f, -alongM)
+            : atM >= _roadLengthM[road] ? MathF.Max(0f, alongM) : 0f;
 
         var acrossM = MathF.Abs(Vector2.Dot(offsetM, on.Right));
         if (acrossM > _roadReachM[road]) return;
 
         var halfM = _roadHalfM[road];
-        if (acrossM <= halfM)
+        if (pastM <= 0f && acrossM <= halfM)
         {
             carriageway = true;
             crossing |= Covers(_paintAt, _paintFromM, _paintToM, road, atM);
         }
-        else if (acrossM <= halfM + _walkM)
+        else if (OffTheBandM(acrossM - halfM, pastM) <= _walkM)
         {
             walk = true;
         }
+
+        if (pastM > 0f) return;
 
         for (var run = _deckAt[road]; run < _deckAt[road + 1]; run++)
         {
@@ -120,6 +127,17 @@ internal sealed partial class GroundShapes
 
             deck = true;
         }
+    }
+
+    /// <summary>
+    /// How far a point stands off a band, given how far it is outside the band's own half-width and how far
+    /// past its end. <b>The corner is an arc and not a right angle</b>, because the band is grown by a
+    /// distance and a distance turns a corner (<see cref="Kerbs"/> wraps the same shape the same way).
+    /// </summary>
+    static float OffTheBandM(float acrossM, float pastM)
+    {
+        var outM = MathF.Max(0f, acrossM);
+        return pastM <= 0f ? outM : MathF.Sqrt((outM * outM) + (pastM * pastM));
     }
 
     /// <summary>

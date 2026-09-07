@@ -40,7 +40,7 @@ internal sealed class GroundLocator
     GroundCatalog _catalog;
 
     public GroundLocator(CityPlan plan, SimConfig config)
-        : this(new GroundShapes(plan.Ground, config), config)
+        : this(new GroundShapes(plan.Paving(config), config), config)
     {
     }
 

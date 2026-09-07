@@ -113,8 +113,6 @@ internal static class TownCensus
         Console.WriteLine($"  junctions      {plan.Junctions.Count,7}  {lit} lit, {JunctionsWith(plan, 2)} with no fork, " +
                           $"{JunctionsWith(plan, 1)} dead ends, {plan.JunctionCorners.Count} kerb corners, " +
                           $"reach {Mean(plan.Junctions.RadiusM):F2} m");
-        Console.WriteLine($"  pavement       {PavementCorners.Solve(plan.Ground, config).Count,7}  inner corners solved, " +
-                          $"{plan.PavementCorners.Count} carried by the map");
         Console.WriteLine($"  bridges        {plan.Bridges.Count,7}  paved areas {plan.PavedAreas.Count}");
         // A zebra has no span of its own to print: what it reaches is solved off the road it is painted on
         // (TER-6), and the widest is the one laid furthest off square.
@@ -190,9 +188,9 @@ internal static class TownCensus
     }
 
     /// <summary>
-    /// How many car parks stand against the carriageway itself rather than behind a walk, which is the
-    /// count of kerb lines <see cref="RoadFrontages"/> breaks. A town where it is far below the lot count
-    /// is a town whose lots were laid off the kerb they were meant to hang off (GEN-4b).
+    /// How many car parks stand against the carriageway itself rather than behind a walk. A town where it
+    /// is far below the lot count is a town whose lots were laid off the kerb they were meant to hang off
+    /// (GEN-4b).
     /// </summary>
     static int Fronting(CityPlan plan, SimConfig config)
     {

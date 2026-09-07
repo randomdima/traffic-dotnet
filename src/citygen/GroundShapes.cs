@@ -69,12 +69,21 @@ internal sealed partial class GroundShapes
         LayTheRoads(pieces, config, paving.WalkM);
         LayTheTurns(paving.Lanes, pieces.WorldSizeM, config);
         LayTheShapes(paving, config);
+        LayThePaving(paving, config);
     }
 
     /// <summary>
     /// The last piece of ground laid over the point, found by asking the pieces in the reverse of the
     /// order they are laid in and taking the first that covers it.
     /// </summary>
+    /// <remarks>
+    /// <b>The pavement is one question and the tarmac is the rest of the town</b> (TER-3c.3, TER-3c.7):
+    /// <see cref="Paved"/> is half a walk off the line the pavement is walked down, and everything the town
+    /// grew by a walk that the band does not cover is carriageway, junction or car park rather than
+    /// pavement. That is what makes the kerb an offset of the same curve the shell and the walking lane are
+    /// offsets of — and what leaves no pocket of concrete where a movement is narrower than the arm it
+    /// leaves.
+    /// </remarks>
     public Ground At(Vector2 pointM)
     {
         var roads = Roads(pointM);
@@ -87,9 +96,11 @@ internal sealed partial class GroundShapes
         if (roads.Deck) return Ground.Sidewalk;
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
-        if (roads.Walk) return Ground.Sidewalk;
-        if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM))) return Ground.Sidewalk;
-        if (AnyReaches(_walkIndex, _walks.Count, pointM, _walks)) return Ground.Sidewalk;
+        if (Paved(pointM)) return Ground.Sidewalk;
+        if (AnyReaches(_walkIndex, _walks.Count, pointM, _walks)) return Ground.Intersection;
+        if (Turns(pointM, _walkM)) return Ground.Intersection;
+        if (roads.Walk) return Ground.Road;
+        if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM))) return Ground.Parking;
 
         return Ground.Grass;
     }
@@ -172,6 +183,7 @@ internal sealed partial class GroundShapes
         || AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM + reachM))
         || _kerbs.AnyWithin(_kerbIndex, pointM, reachM)
         || _walks.AnyWithin(_walkIndex, pointM, reachM)
+        || PavedWithin(pointM, reachM)
         || SlabWithin(pointM, reachM)
         || _shore.Within(pointM, reachM);
 
@@ -187,5 +199,5 @@ internal sealed partial class GroundShapes
     /// </summary>
     bool Is(Vector2 pointM, Ground ground) => Contains(pointM) && At(pointM) == ground;
 
-    Lots LotsOut(float outM) => new(_lotCentreM, _lotAxis, _lotHalfM, outM, _lotCornerM);
+    Lots LotsOut(float outM) => new(_lotCentreM, _lotAxis, _lotHalfM, outM);
 }

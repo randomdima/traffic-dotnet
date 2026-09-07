@@ -523,6 +523,45 @@ public class GeneratorTests
         }
     }
 
+    /// <summary>
+    /// <b>A road is one line and not a row of them</b> (GEN-12): every joint in its chain sets off on the
+    /// bearing the piece before it arrives on, which is what a follower reads off the road and what lets the
+    /// pavement beside it be one offset of one curve.
+    /// </summary>
+    /// <remarks>
+    /// A crease is not a small thing beside the road. Offsetting moves every piece of a chain sideways by the
+    /// same figure, so a joint open by an angle offsets open by that angle times the offset — a fifth of a
+    /// turn at half a walk outside a carriageway is three and a half metres of pavement that was never laid,
+    /// with a walking lane dead-ending either side of the hole.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void EveryRoadIsOneLineWithNoCreaseInIt(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var arcs = plan.Roads.SegmentsOf(road);
+            for (var joint = 1; joint < arcs.Length; joint++)
+            {
+                var arrives = arcs[joint - 1];
+                var creaseRad = Spline.WrapRad(arcs[joint].HeadingRad - arrives.HeadingAtRad(arrives.LengthM));
+                Assert.True(
+                    MathF.Abs(creaseRad) <= CreaseRad,
+                    $"road {road} creases by {creaseRad:F4} rad at {arcs[joint].StartM}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// How open a joint may read and still be one line: <b>the angle that moves the pavement's own line by
+    /// the rounding two computations of one distance disagree by</b> (<see cref="Kerbs.RoundingM"/>), at the
+    /// offset that line is laid at. It is float slop over a chain of arcs and nothing else — a road that
+    /// really creases does so by tenths of a radian.
+    /// </summary>
+    static float CreaseRad => Kerbs.RoundingM / ((Config.LaneWidthM * SimConfig.LanesPerCarriageway * 0.5f)
+                                                 + (Config.PavementWidthM * 0.5f));
+
     /// <summary>Nothing a town stands is laid on its water (GEN-5), which the ground is the authority on.</summary>
     [Theory]
     [MemberData(nameof(Seeds))]
@@ -874,11 +913,11 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// <b>And one the sweep laid stands the pavement's own corner radius clear of it too</b> (GEN-6a) —
-    /// which follows from the stand-off that pass keeps and is asserted separately because the two are
-    /// different figures: the day the stand-off drops below a corner radius, a wild prop can stand in a
-    /// wedge of verge the walk is drawn round (TER-3c.4). Which props those are is read back off where they
-    /// stand: one on no paved edge's verge is one no edge walk put there.
+    /// <b>And one the sweep laid stands the walk's own corner reach clear of it too</b> (GEN-6a) — which
+    /// follows from the stand-off that pass keeps and is asserted separately because the two are different
+    /// figures: the day the stand-off drops below that reach, a wild prop can stand where the shell turns a
+    /// corner (TER-3c.3). Which props those are is read back off where they stand: one on no paved edge's
+    /// verge is one no edge walk put there.
     /// </summary>
     [Theory]
     [MemberData(nameof(Seeds))]
@@ -893,7 +932,7 @@ public class GeneratorTests
             if (edges.InAVerge(plan.Props.CentreM[prop], Config)) continue;
 
             swept++;
-            AllGrassWithin(plan, prop, plan.Props.RadiusM[prop] + Config.PavementCornerRadiusM);
+            AllGrassWithin(plan, prop, plan.Props.RadiusM[prop] + Config.PavementCornerReachM);
         }
 
         Assert.True(swept > 0, "a town whose props are all on a verge asks this of nothing");

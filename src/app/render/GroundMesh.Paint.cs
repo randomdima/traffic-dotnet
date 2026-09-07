@@ -97,38 +97,27 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// Every bay in every car park, drawn. A bay is the parking space at its own size and heading, and
-    /// what is drawn is three strokes round it: its two sides and its head, never its mouth.
+    /// <b>The line between one bay and the next, and nothing else</b> (GEN-4m). A bay is the parking space
+    /// at its own size and heading; each offers the three lines it would be drawn inside — its two sides and
+    /// its head, never its mouth — and a line is painted only where two bays offer the same one.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Two bays side by side share the line between them, and it is painted once.</b> Paint is the
-    /// tarmac drawn brighter through a multiplying tint, so a line laid twice is visibly brighter than
-    /// its neighbours — which is what a lot drawn bay by bay would show down every interior line.
+    /// <b>A car park is not a case, and the outside of one is nobody's to paint.</b> Every edge of a lot is
+    /// a kerb, because a lot is a piece of the town's tarmac like any other and the walk wraps it like any
+    /// other (TER-3c.3): the line round the outside of a row of bays is the kerb line the pavement carries
+    /// there, and a stroke laid against it is that line painted twice. What is left for a bay to say is the
+    /// boundary it shares with its neighbour — which the town's own geometry does not say anywhere.
     /// </para>
     /// <para>
-    /// <b>The three strokes are laid end to end and not each to the bay's own size.</b> Three strokes at
-    /// the bay's size each stop on the line the next is <em>centred</em> on, which leaves half a stroke
-    /// painted twice at the corner and half of it not painted at all — a notch and a bright square, both
-    /// of them a half line wide and both visible at close range.
-    /// </para>
-    /// <para>
-    /// <b>A stroke within a line's width of the lot's own edge is laid against it, inside it</b> — its
-    /// outer face on the edge — which is the same tolerance a frontage is measured by
-    /// (<see cref="LotFrontage.FrontsTheKerb"/>). The bays fill their lot, so every outermost line of a
-    /// row is on that edge: centred on it, half of each would hang over the kerb line the lot's edge is
-    /// against and the other half would leave the line short of it. A stroke further in than a line's
-    /// width is one between two bays and stays centred on the boundary the two share.
-    /// </para>
-    /// <para>
-    /// <b>At the mouth of a lot that fronts the kerb, the edge the strokes end on is the road's and not
-    /// the lot's</b> (<see cref="RoadFrontages.AtTheKerb"/>). The two are a chord and its curve, so ending
-    /// on the rectangle leaves the row of mouths standing a sag short of the kerb line it is meant to
-    /// meet. Each stroke is asked for its own end, because two lines a bay's width apart cross a curve at
-    /// two different points.
+    /// <b>Offered twice is what "between two bays" means</b>, and it is asked of the bays rather than of the
+    /// lot they stand in: two rows head to head share their heads, two bays side by side share a side, and a
+    /// row's outermost side is offered once. Nothing here reads the lot's rectangle, its frontage, or the
+    /// road it opens off. Half-metre cells with their neighbours checked, because two bays laid off one line
+    /// agree to a rounding and the nearest two lines that are genuinely different are a bay apart.
     /// </para>
     /// </remarks>
-    void BayStrokes(CityPlan plan, SimConfig config, Vector3 tint, float[] periods, RoadFrontages frontages)
+    void BayStrokes(CityPlan plan, SimConfig config, Vector3 tint, float[] periods)
     {
         var lots = plan.ParkingLots;
         var strokeM = config.Road.PaintLineWidthM;
@@ -137,116 +126,49 @@ internal sealed partial class GroundMesh
         var halfStrokeM = strokeM * 0.5f;
         var halfLengthM = config.ParkingSpaceLengthM * 0.5f;
         var halfWidthM = config.ParkingSpaceWidthM * 0.5f;
-        var laid = new HashSet<(int X, int Y)>();
+        var offered = new Dictionary<(int X, int Y), (Vector2 FromM, Vector2 ToM, int Times)>();
 
-        // The frontage of every lot whose paint runs up to a kerb line, by lot: the frontages come out
-        // grouped by road, and what is asked here is one lot at a time.
-        var kerbOf = new LotFrontage?[lots.Count];
-        foreach (var front in frontages.All)
+        for (var space = 0; space < lots.SpaceCount; space++)
         {
-            if (front.FrontsTheKerb) kerbOf[front.Lot] = front;
+            var centreM = lots.SpacePositionM[space];
+            var headingRad = lots.SpaceHeadingRad[space];
+            var along = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
+            var across = new Vector2(-along.Y, along.X) * halfWidthM;
+            var mouthM = centreM - (along * halfLengthM);
+            var headM = centreM + (along * halfLengthM);
+
+            Offer(mouthM - across, headM - across);
+            Offer(mouthM + across, headM + across);
+            Offer(headM - across, headM + across);
         }
 
-        for (var lot = 0; lot < lots.Count; lot++)
+        foreach (var (fromM, toM, times) in offered.Values)
         {
-            var lotCentreM = lots.CentreM[lot];
-            var lotAxis = Vector2.Normalize(lots.Axis[lot]);
-            var lotHalfM = lots.HalfExtentM[lot];
-            var kerb = kerbOf[lot];
+            if (times < 2) continue;
 
-            for (var space = lots.SpaceOffsets[lot]; space < lots.SpaceOffsets[lot + 1]; space++)
-            {
-                var centreM = lots.SpacePositionM[space];
-                var headingRad = lots.SpaceHeadingRad[space];
-                var along = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
-                var across = new Vector2(-along.Y, along.X);
-
-                var headOutM = Reach(centreM + along * halfLengthM, along, halfStrokeM);
-                var headM = centreM + along * (halfLengthM + headOutM);
-
-                // The sides own both corners: each runs from the mouth to the head stroke's far face, and
-                // the head runs between their near faces.
-                var leftOutM = Reach(centreM - across * halfWidthM, -across, halfStrokeM);
-                var rightOutM = Reach(centreM + across * halfWidthM, across, halfStrokeM);
-                var leftM = -(halfWidthM + leftOutM - halfStrokeM);
-                var rightM = halfWidthM + rightOutM - halfStrokeM;
-                Stroke(Mouth(centreM + across * leftM, along), headM + across * leftM);
-                Stroke(Mouth(centreM + across * rightM, along), headM + across * rightM);
-
-                var headCentreM = headM - along * halfStrokeM;
-                Stroke(headCentreM + across * (leftM + halfStrokeM), headCentreM + across * (rightM - halfStrokeM));
-            }
-
-            // The mouth end of one side stroke, on that stroke's own line. A bay's heading points into it,
-            // so the end with no stroke across it is the one behind its centre — a row of bays laid side by
-            // side would otherwise run their mouths into one unbroken line between the lot and the road
-            // that every car entering the lot drives across, which is the line the kerb's own is broken for.
-            Vector2 Mouth(Vector2 lineM, Vector2 along)
-            {
-                var mouthM = lineM - along * halfLengthM;
-                var endM = mouthM - along * Reach(mouthM, -along, 0f);
-                if (kerb is null) return endM;
-
-                // A chord's sag past the kerb's own line, which is the reach the strip that breaks the kerb
-                // line takes and is taken here for the same reason: the line is drawn as chords of its arc,
-                // and a stroke ended on the arc itself leaves a hair of tarmac showing wherever the chord
-                // fell inside it. The ground a sag either way is the same tarmac, and paint over paint is
-                // paint — the ground carries no blending and every texture is anchored to the world.
-                // Within half a bay's length of where the stroke ends, and no further: a stroke behind
-                // another row of bays stands a whole bay from the kerb, so it is never the one dragged out
-                // to it, and the ground between a mouth and the kerb it fronts is never anything else.
-                var reachM = RoadFrontages.ReachToTheKerbM(plan.Ground, kerb.Value, endM, -along, halfLengthM);
-                return reachM is null ? endM : endM - along * (reachM.Value + ChordSagM);
-            }
-
-            // How much further the lot reaches past one end of a bay, where that is near enough to be the
-            // end the bay was meant to stand at, and the fallback otherwise.
-            float Reach(Vector2 fromM, Vector2 towards, float fallbackM)
-            {
-                var offsetM = fromM - lotCentreM;
-                var localM = new Vector2(
-                    Vector2.Dot(offsetM, lotAxis), (offsetM.Y * lotAxis.X) - (offsetM.X * lotAxis.Y));
-                var stepM = new Vector2(
-                    Vector2.Dot(towards, lotAxis), (towards.Y * lotAxis.X) - (towards.X * lotAxis.Y));
-
-                var reachM = float.PositiveInfinity;
-                for (var axis = 0; axis < 2; axis++)
-                {
-                    var step = axis == 0 ? stepM.X : stepM.Y;
-                    if (MathF.Abs(step) < 1e-4f) continue;
-
-                    var half = axis == 0 ? lotHalfM.X : lotHalfM.Y;
-                    var local = axis == 0 ? localM.X : localM.Y;
-                    reachM = MathF.Min(reachM, ((step > 0f ? half : -half) - local) / step);
-                }
-
-                return MathF.Abs(reachM) <= strokeM ? reachM : fallbackM;
-            }
-        }
-
-        // One stroke of the outline, from end to end of its own centreline.
-        void Stroke(Vector2 fromM, Vector2 toM)
-        {
             var run = toM - fromM;
-            var lengthM = run.Length();
-            if (lengthM <= 0f) return;
+            OrientedRect(
+                (fromM + toM) * 0.5f, run / run.Length(), new Vector2(run.Length() * 0.5f, halfStrokeM),
+                Surface.Tarmac, tint, periods);
+        }
 
+        void Offer(Vector2 fromM, Vector2 toM)
+        {
             var atM = (fromM + toM) * 0.5f;
-
-            // Half-metre cells, and the neighbours checked as well as the cell itself: two bays laid off
-            // the same line agree to a rounding rather than to the bit, and the nearest two strokes that
-            // are genuinely different are a bay apart.
             var cell = ((int)MathF.Round(atM.X * 2f), (int)MathF.Round(atM.Y * 2f));
             for (var x = -1; x <= 1; x++)
             {
                 for (var y = -1; y <= 1; y++)
                 {
-                    if (laid.Contains((cell.Item1 + x, cell.Item2 + y))) return;
+                    var near = (cell.Item1 + x, cell.Item2 + y);
+                    if (!offered.TryGetValue(near, out var line)) continue;
+
+                    offered[near] = (line.FromM, line.ToM, line.Times + 1);
+                    return;
                 }
             }
 
-            laid.Add(cell);
-            OrientedRect(atM, run / lengthM, new Vector2(lengthM * 0.5f, halfStrokeM), Surface.Tarmac, tint, periods);
+            offered[cell] = (fromM, toM, 1);
         }
     }
 }

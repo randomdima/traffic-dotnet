@@ -97,6 +97,168 @@ internal sealed class Kerbs
     }
 
     /// <summary>
+    /// <b>Whether a point stands the offset clear of every piece of tarmac</b> — the one rule the outline
+    /// is cut by, asked of one point.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked with a rounding's grace and no more.</b> A wrapping line stands the offset from its own
+    /// piece exactly, and where two pieces are tangent it stands the offset from both of them exactly
+    /// (<see cref="OffTheTarmacM"/>) — so compared without the grace, whether metres of pavement exist is
+    /// settled by the last bit of a float, and the apron round every junction whose movements run edge to
+    /// edge with its arms came out bare. <b>And a rounding and not a tolerance</b>, because a tolerance ε
+    /// lets a line that meets another <em>tangentially</em> run √(2·R·ε) past the point they cross: at five
+    /// centimetres that is better than half a metre each, which is how the pavement came apart into a piece
+    /// per corner the first time round.
+    /// </remarks>
+    public bool Clear(Vector2 pointM, float outM) => OffTheTarmacM(pointM) >= outM - RoundingM;
+
+    /// <summary>
+    /// A millimetre: <b>what two computations of one distance disagree by</b>. Offsetting a chain and
+    /// measuring back to what it was offset from are different arithmetic, so a line laid exactly the offset
+    /// out reads a hair inside it; and two wrapping lines cut where they cross are cut by two bisections of
+    /// their own, so the ends that meet at a node are two points and not one point twice.
+    /// </summary>
+    public const float RoundingM = 0.001f;
+
+    /// <summary>
+    /// <b>How far the two ends that meet at a crossing can stand apart</b>, which is what anybody wanting
+    /// them as one place has to allow.
+    /// </summary>
+    /// <remarks>
+    /// A line is cut a rounding late, and a line meeting another <em>tangentially</em> runs √(2·R·ε) past
+    /// the point they cross before it is a rounding inside it (<see cref="RoundingM"/>) — a tenth of a metre
+    /// at the radius a kerb fillet is turned on, and a twentieth at the radius a car park's corner is. It is
+    /// the bound and not a measurement: the ends that actually meet at a right angle stand a millimetre
+    /// apart.
+    /// </remarks>
+    public const float OnePlaceM = 0.15f;
+
+    /// <summary>
+    /// How finely a wrapping line is walked when asking what it runs past. A quarter-metre is the road
+    /// tolerance, and where the answer changes between two stations the crossing is bisected off it — so
+    /// what decides where a run ends is a millimetre and not a station.
+    /// </summary>
+    const float StationM = 0.25f;
+
+    const int BisectionRounds = 12;
+
+    /// <summary>
+    /// <b>The town's outline at a distance out</b>: every wrapping line cut to the runs of it that are
+    /// really the outside, which are the spans where <b>no tarmac stands nearer than the offset</b> and
+    /// <paramref name="allowed"/> — the ground's own veto, where the caller has one — says the run may
+    /// stand there (TER-3c.3).
+    /// </summary>
+    /// <remarks>
+    /// <b>One construction, three readers.</b> The line this hands back at half a walk is the middle of the
+    /// pavement: it is what the walking lanes are laid on, what the pavement is drawn as a band about, and
+    /// what the ground answers <em>sidewalk</em> within half a walk of. Cut here rather than three times,
+    /// the concrete, the kerb line and the lane a walker follows cannot disagree about where the pavement is
+    /// (TER-7).
+    /// </remarks>
+    public void Shell(float outM, float weldM, Func<Vector2, bool>? allowed, List<Wrap> into)
+    {
+        var wraps = new List<Wrap>();
+        Wrapping(outM, wraps);
+
+        var spans = new List<(float FromM, float ToM)>();
+        var run = new ArcSeg[2];
+        foreach (var (piece, line, open) in wraps)
+        {
+            var lengthM = Spline.TotalLengthM(line);
+            if (lengthM <= 0f) continue;
+
+            Spans(line, lengthM, outM, weldM, allowed, spans);
+            if (run.Length < line.Length + 2) run = new ArcSeg[line.Length + 2];
+
+            foreach (var (fromM, toM) in spans)
+            {
+                var arcs = Spline.SubChainInto(line, fromM, toM, run);
+                if (arcs > 0) into.Add(new Wrap(piece, run.AsSpan(0, arcs).ToArray(), open));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The spans of one wrapping line that are the outline, as distances along it. <b>A line that is clear
+    /// end to end comes back cut in two</b>: a circle round a dead end and a box round a car park close on
+    /// themselves, and a run whose two ends are one point is a piece nothing can be stationed along.
+    /// </summary>
+    void Spans(
+        ReadOnlySpan<ArcSeg> line, float lengthM, float outM, float weldM, Func<Vector2, bool>? allowed,
+        List<(float FromM, float ToM)> into)
+    {
+        into.Clear();
+
+        var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / StationM));
+        var was = Stands(line[0].StartM, outM, allowed);
+        var openedAtM = was ? 0f : -1f;
+
+        // Walked arc by arc rather than projected station by station: a street's offset is a chain of a
+        // hundred pieces and a thousand stations, and asking the chain where each of those metres is from
+        // its own start again is the square of that. It is the same walk <see cref="Spline"/> would do,
+        // done once.
+        var arc = 0;
+        var toArcM = 0f;
+        for (var station = 1; station <= stations; station++)
+        {
+            var alongM = lengthM * station / stations;
+            while (arc + 1 < line.Length && alongM > toArcM + line[arc].LengthM)
+            {
+                toArcM += line[arc].LengthM;
+                arc++;
+            }
+
+            var stands = Stands(
+                line[arc].PointAtM(Math.Clamp(alongM - toArcM, 0f, line[arc].LengthM)), outM, allowed);
+            if (stands == was) continue;
+
+            var edgeM = Crossing(line, outM, allowed, lengthM * (station - 1) / stations, alongM, stands);
+            if (stands) openedAtM = edgeM;
+            else Keep(into, openedAtM, edgeM, weldM);
+
+            was = stands;
+        }
+
+        if (was) Keep(into, openedAtM, lengthM, weldM);
+
+        // Nothing gave way anywhere along it, so it is a closed line and both its ends are the same point.
+        if (into.Count == 1 && into[0].FromM <= 0f && into[0].ToM >= lengthM)
+        {
+            into[0] = (0f, lengthM * 0.5f);
+            into.Add((lengthM * 0.5f, lengthM));
+        }
+    }
+
+    /// <summary>
+    /// One span, kept unless it is shorter than the weld the caller welds by — in which case its two ends
+    /// are one place and what it would lay is a run from a point to itself.
+    /// </summary>
+    static void Keep(List<(float FromM, float ToM)> into, float fromM, float toM, float weldM)
+    {
+        if (fromM >= 0f && toM - fromM > weldM) into.Add((fromM, toM));
+    }
+
+    /// <summary>Where along the line the answer changed, bisected between the two stations it changed between.</summary>
+    float Crossing(
+        ReadOnlySpan<ArcSeg> line, float outM, Func<Vector2, bool>? allowed, float wasM, float isM,
+        bool standsAtIs)
+    {
+        for (var halving = 0; halving < BisectionRounds; halving++)
+        {
+            var middleM = (wasM + isM) * 0.5f;
+            var atM = Spline.SampleAt(line, middleM).PositionM;
+            if (Stands(atM, outM, allowed) == standsAtIs) isM = middleM;
+            else wasM = middleM;
+        }
+
+        return (wasM + isM) * 0.5f;
+    }
+
+    /// <summary>Whether one metre of a wrapping line is the outline: nothing nearer, and nothing vetoing it.</summary>
+    bool Stands(Vector2 atM, float outM, Func<Vector2, bool>? allowed) =>
+        Clear(atM, outM) && (allowed is null || allowed(atM));
+
+    /// <summary>
     /// <b>One piece of one piece</b>: the unit the index bins and a distance is measured against. Every
     /// kind but a road is one of these whole; <b>a road is one per arc</b>, because a street's own box is
     /// most of a district and asking a point about it means walking every bend the street ever takes.
