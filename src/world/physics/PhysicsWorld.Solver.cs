@@ -104,9 +104,11 @@ internal sealed partial class PhysicsWorld
     public BeganTouching BeganTouchingThisStep() => new(this);
 
     /// <summary>
-    /// The nearest body a ray meets, and how fast it is going. A ray whose origin lies inside a shape
-    /// does not report that shape (<see cref="Shape.CastSegment"/>), and the caster is excluded by name
-    /// anyway, so the guarantee a caster leans on is this method's and not the geometry's (`SOL-19`).
+    /// The nearest body a ray meets, and how fast it is going — the whole of the cast this engine
+    /// offers (`SOL-7`): nearest hit, filtered by mask, with one named body excluded. A ray whose origin
+    /// lies inside a shape does not report that shape (<see cref="Shape.CastSegment"/>), and the caster
+    /// is excluded by name anyway, so the guarantee a caster leans on is this method's and not the
+    /// geometry's (`SOL-19`).
     /// </summary>
     /// <param name="statics">
     /// Whether the town's furniture is in the ray's question at all. Saying no is a narrower question and

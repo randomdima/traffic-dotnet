@@ -14,7 +14,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <b>A slot is legal before anything is put in it.</b> It is cut at a fixed stand-off from the kerb, on the
 /// road's own bearing, with the walkable padding GEN-3 wants already inside the ground it claims — so a slot
 /// that was cut is a slot that can be filled, and a slot that could not be cut simply is not there. Nothing
-/// is placed and taken back.
+/// is placed and taken back. <b>That stand-off is the building line</b> (TER-3c.2): a wall set back from the
+/// kerb by the pavement plus its padding, so nothing is ever built on the walk and a doorstep opens onto it.
 /// </para>
 /// <para>
 /// <b>A car park is a slot with bays in it</b> and not a second kind of placement (GEN-4b): the share of

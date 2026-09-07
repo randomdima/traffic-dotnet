@@ -360,11 +360,11 @@ public class MenuLayoutTests
         menu.Click(menu.LineMiddlePx(4), switches, new TrimFigures());
         Assert.True(switches.Collision);
 
-        menu.Click(menu.LineMiddlePx(5), switches, new TrimFigures());
+        menu.Click(menu.LineMiddlePx(6), switches, new TrimFigures());
         Assert.True(switches.TurnCircles);
 
         // And the one that starts on goes off, which no other row can be mistaken for.
-        menu.Click(menu.LineMiddlePx(7), switches, new TrimFigures());
+        menu.Click(menu.LineMiddlePx(8), switches, new TrimFigures());
         Assert.False(switches.TrackFigures);
     }
 

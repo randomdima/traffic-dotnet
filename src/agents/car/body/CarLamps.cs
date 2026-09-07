@@ -141,6 +141,9 @@ internal static class CarLamps
         // <see cref="CarFleet.Driven"/> while its crew is still aboard.
         if (cars.Broken[car] || (!cars.Driven[car] && !handAtTheWheel)) return CarLampSet.None;
 
+        // Off the command and never off the body: the brake lamps are the pedal (CAR-14.2) and the
+        // reversing lamps the gear (CAR-14.3), so a car held on its handbrake with nobody's foot down
+        // shows neither, and one shoved backwards does not show reverse.
         var command = cars.Command[car];
         var set = CarLampSet.None;
         if (command.BrakeMps2 > config.Lamps.BrakeMps2) set |= CarLampSet.Brake;

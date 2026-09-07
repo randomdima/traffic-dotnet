@@ -216,19 +216,10 @@ round in a dead end (`P-19`), which are the two ways round there are (TER-5f).
 permanently stuck**: every agent either progresses toward a goal, is legitimately idling, or is in a
 terminal state. Abandoned cars are not agents and are exempt.
 
-**VER-4** Agents are observed to obey their soft rules in the ordinary case — every walker rule and every
-driver rule, plus the yield.
-
-**VER-5** Soft rule violations recover: a pedestrian pushed onto a road returns to valid terrain, and a
-car forced off-road returns to drivable terrain or is abandoned.
-
 **VER-6** Damage outcomes are the energy arithmetic **and nothing else**, for every ordered pair of
 participant kinds and every band of contact energy — including that the same contact may break one
 participant and not the other — plus the three exemptions, the spent-body rules, and that the band a
 person is put down at is the slide it leaves in them.
-
-**VER-7** Reproducibility: the same world seed regenerates the same city; the same agent seed with a
-different world seed still produces a valid simulation, and vice versa.
 
 **VER-8** A whole trip completes end to end.
 

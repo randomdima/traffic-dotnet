@@ -91,6 +91,7 @@ public class CrossingGateTests
         ui.Switches.Toggle(ref ui.Switches.Collision);
         ui.Switches.Toggle(ref ui.Switches.Nodes);
         ui.Switches.Toggle(ref ui.Switches.Claims);
+        ui.Switches.Toggle(ref ui.Switches.Wireframe);
         ui.Switches.Toggle(ref ui.Switches.Ruler);
         ui.Ruler.Click(camera.CentreM);
         ui.Ruler.Click(camera.CentreM + new Vector2(40f, 10f));
@@ -100,6 +101,7 @@ public class CrossingGateTests
         var frame = new InterfaceFrame
         {
             World = world,
+            Ground = GroundMesh.Build(world.Plan, config),
             Config = config,
             Camera = camera,
             UiPx = uiPx,

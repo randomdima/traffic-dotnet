@@ -327,7 +327,7 @@ internal sealed class WalkingNetwork
 
         var laneOffsetM = LaneOffsets(foot, terrain, config);
         var offset = LayLanes(foot, laneOffsetM);
-        var joins = LayJoins(foot, offset, config);
+        var joins = LayJoins(foot, offset, laneOffsetM, config);
         var lanes = Carrying(foot, offset, joins);
         return new WalkingNetwork(foot, runs, linkOfEdge, slotOfEdge, laneOffsetM, lanes, OnTheLanes(foot, joins, lanes));
     }
@@ -493,7 +493,7 @@ internal sealed class WalkingNetwork
     /// </summary>
     internal const float SamePlaceM = 0.01f;
 
-    static Joins LayJoins(FootGraph foot, Lanes offset, SimConfig config)
+    static Joins LayJoins(FootGraph foot, Lanes offset, float[] laneOffsetM, SimConfig config)
     {
         var drawn = new ArcSeg[2];
 
@@ -512,8 +512,8 @@ internal sealed class WalkingNetwork
 
         // What every corner at one end of a stretch gives up of it — one figure per end and not one per
         // turn, so a stretch hands over at a place and not at a place per way off it.
-        var takenAtTheStartM = Margins(foot, offset, config, leaving: false);
-        var takenAtTheEndM = Margins(foot, offset, config, leaving: true);
+        var takenAtTheStartM = Margins(foot, offset, laneOffsetM, config, leaving: false);
+        var takenAtTheEndM = Margins(foot, offset, laneOffsetM, config, leaving: true);
         LeaveALaneToWalk(foot, offset, takenAtTheStartM, takenAtTheEndM);
 
         var laneFromM = new float[foot.EdgeCount];
@@ -613,18 +613,30 @@ internal sealed class WalkingNetwork
     }
 
     /// <summary>
-    /// What every corner at one end of each stretch gives up of its lane: <b>one figure per end</b>, and
-    /// it is <b>the size of the junction that end stands in</b> — half the band of the widest stretch
-    /// running across it.
+    /// What every corner at one end of each stretch gives up of its lane: <b>one figure per end</b>, and it
+    /// is <b>the ground that end's sharpest corner is turned on</b> — the tangent of an arc of the lane's
+    /// own offset, which is the corner the pavement itself turns there. A crossing is the exception and
+    /// gives up the band it lies across.
     /// </summary>
     /// <remarks>
     /// <para>
+    /// <b>A lane turns the corner its own line turns, at the radius its own offset gives it.</b> Two lanes
+    /// half a walk either side of a bending pavement are that bend offset both ways, so the outer one turns
+    /// at the bend plus the offset and the inner at the bend less it — and an arc of the offset about the
+    /// bend itself is that corner to within the bend's own radius. What it costs the lane is the arc's
+    /// tangent, <c>offset × tan(half the turn)</c>, which is nothing where the pavement runs straight on and
+    /// grows only as the corner sharpens. <b>Given up a fixed half-band instead</b>, every lane in the town
+    /// stopped two metres short of every corner and a chord cut across it: the walk left the kerb it was
+    /// laid off, the two directions' chords crossed in the middle of the corner, and the outside of every
+    /// bend was pavement no lane reached.
+    /// </para>
+    /// <para>
     /// <b>A stretch ends where the ground stops being its own</b>, exactly as a lane is cut back to where
-    /// its movements hand over on the road side. Where a zebra meets a pavement the two bands overlap over a whole
-    /// pavement's width: the crossing's own edge is laid from one pavement's line to the other's, so half
-    /// a band at each end of it is pavement, and drawn whole it is a zebra lying over the junction it
-    /// arrives at. Cut by the box, the crossing's lane is the paint and the pavement's stops at the
-    /// zebra's mouth.
+    /// its movements hand over on the road side — and <b>a crossing is where that really is a band and not a
+    /// corner</b>. Where a zebra meets a pavement the two bands overlap over a whole pavement's width: the
+    /// crossing's own edge is laid from one pavement's line to the other's, so half a band at each end of it
+    /// is pavement, and drawn whole it is a zebra lying over the junction it arrives at. Cut by the band,
+    /// the crossing's lane is the paint and the pavement's stops at the zebra's mouth.
     /// </para>
     /// <para>
     /// <b>It is a fact about an end and not about a turn</b> — the same rule the road side settled on for
@@ -632,9 +644,9 @@ internal sealed class WalkingNetwork
     /// what the picture showed at a kerb was four points where the walk has one.
     /// </para>
     /// <para>
-    /// <b>A way that runs straight on adds no box</b>, because two stretches of one line do not cross:
-    /// the overlap of their bands is the whole of both, and cutting either back for it would take ground
-    /// nothing is coming through. What such a way is given is the room to round the step between them.
+    /// <b>A way that runs straight on gives up nothing of its own</b>, because two stretches of one line do
+    /// not cross: the overlap of their bands is the whole of both, and cutting either back for it would take
+    /// ground nothing is coming through. What such a way is given is the room to round the step between them.
     /// </para>
     /// <para>
     /// Bounded by half of the shortest lane at that end — every one of them and not only the two a corner
@@ -644,13 +656,13 @@ internal sealed class WalkingNetwork
     /// lane is walked, and counted it pulled a lane's start back behind the corner landing bodies on it.
     /// </para>
     /// </remarks>
-    static float[] Margins(FootGraph foot, Lanes offset, SimConfig config, bool leaving)
+    static float[] Margins(FootGraph foot, Lanes offset, float[] laneOffsetM, SimConfig config, bool leaving)
     {
         var takenM = new float[foot.EdgeCount];
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
             var atM = float.PositiveInfinity;
-            var boxM = 0f;
+            var wantedM = 0f;
             var anythingToLay = false;
             var walked = leaving ? edge : foot.Reverse(edge);
             foreach (var onto in foot.EdgesOut(foot.ToNode(walked)))
@@ -669,19 +681,37 @@ internal sealed class WalkingNetwork
                 if (SamePlace(offset.Of(from), offset.LengthM[from], offset.Of(to))) continue;
 
                 anythingToLay = true;
-                if (!RunsStraightOn(offset.Of(from), offset.LengthM[from], offset.Of(to)))
-                {
-                    boxM = MathF.Max(boxM, foot.BandM(other) * 0.5f);
-                }
+                if (RunsStraightOn(offset.Of(from), offset.LengthM[from], offset.Of(to))) continue;
+
+                wantedM = MathF.Max(
+                    wantedM,
+                    foot.KindOf(edge) == FootEdgeKind.Crossing || foot.KindOf(other) == FootEdgeKind.Crossing
+                        ? foot.BandM(other) * 0.5f
+                        : TurnedOnM(offset, from, to, laneOffsetM[edge >> 1]));
             }
 
             // Never less than the turn itself needs, or a step between two lanes of one line has no room
             // to be rounded over.
-            var marginM = MathF.Max(2f * config.WalkerTightestTurnM, boxM);
+            var marginM = MathF.Max(2f * config.WalkerTightestTurnM, wantedM);
             takenM[edge] = float.IsFinite(atM) && anythingToLay ? MathF.Min(marginM, atM) : 0f;
         }
 
         return takenM;
+    }
+
+    /// <summary>
+    /// How much of a lane an arc of <paramref name="offsetM"/> takes to turn the corner between two of them:
+    /// the arc's own tangent. <b>It runs away as the corner approaches a hairpin</b>, which is what the bound
+    /// on half the shorter lane is there for.
+    /// </summary>
+    static float TurnedOnM(Lanes offset, int from, int to, float offsetM)
+    {
+        var turnRad = MathF.Abs(
+            Spline.WrapRad(
+                Spline.SampleAt(offset.Of(to), 0f).HeadingRad
+                - Spline.SampleAt(offset.Of(from), offset.LengthM[from]).HeadingRad));
+
+        return offsetM * MathF.Tan(turnRad * 0.5f);
     }
 
     /// <summary>
@@ -785,13 +815,13 @@ internal sealed class WalkingNetwork
         for (var edge = 0; edge < foot.EdgeCount; edge += 2)
         {
             var arcs = foot.ArcsOf(edge);
-            var lengthM = foot.LengthM(edge);
-            var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / stationM));
+            var (fromM, toM) = Walked(foot, edge, bodyM);
+            var stations = Math.Max(1, (int)MathF.Ceiling((toM - fromM) / stationM));
             var edgeM = fullM;
 
             for (var station = 0; station <= stations && edgeM > 0f; station++)
             {
-                var at = Spline.SampleAt(arcs, lengthM * station / stations);
+                var at = Spline.SampleAt(arcs, fromM + ((toM - fromM) * station / stations));
                 while (edgeM > 0f && !Clear(terrain, at, edgeM, bodyM)) edgeM -= fullM / OffsetRungs;
             }
 
@@ -799,6 +829,46 @@ internal sealed class WalkingNetwork
         }
 
         return keptM;
+    }
+
+    /// <summary>
+    /// The span of a stretch the ground is asked about. <b>A crossing's is its own paint</b>, from the first
+    /// metre of it a body stands wholly on: its line is laid from one pavement's line to the other's, so half
+    /// a band at each end is the pavement's ground and is given up to it (<see cref="Margins"/>), and the
+    /// kerb itself is a place a body straddles by definition.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the whole line instead, a crossing was refused any offset at all by the one station standing
+    /// on its kerb — where a step sideways runs <em>along</em> that kerb and lands on whatever the pavement
+    /// gives way to, a junction mouth as often as not. What that says about the paint is nothing, and what it
+    /// cost was the lane: the two directions fell onto one line down the middle of the zebra, seven times over
+    /// on Odesa with fifty more walked at less than a lane.
+    /// </remarks>
+    static (float FromM, float ToM) Walked(FootGraph foot, int edge, float bodyM)
+    {
+        var lengthM = foot.LengthM(edge);
+        if (foot.KindOf(edge) != FootEdgeKind.Crossing) return (0f, lengthM);
+
+        var fromM = ThePavementsGroundM(foot, foot.Reverse(edge)) + bodyM;
+        var toM = lengthM - ThePavementsGroundM(foot, edge) - bodyM;
+        return fromM < toM ? (fromM, toM) : (lengthM * 0.5f, lengthM * 0.5f);
+    }
+
+    /// <summary>
+    /// How much of a crossing's line at one end of it is the pavement's ground: half the band of the widest
+    /// stretch running across that end, and never more than half the crossing.
+    /// </summary>
+    static float ThePavementsGroundM(FootGraph foot, int edge)
+    {
+        var takenM = 0f;
+        foreach (var onto in foot.EdgesOut(foot.ToNode(edge)))
+        {
+            if (onto == foot.Reverse(edge)) continue;
+
+            takenM = MathF.Max(takenM, foot.BandM(onto) * 0.5f);
+        }
+
+        return MathF.Min(takenM, foot.LengthM(edge) * 0.5f);
     }
 
     /// <summary>Whether a body walking either lane of this stretch stands on walkable ground on both hands.</summary>

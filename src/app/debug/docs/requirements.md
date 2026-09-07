@@ -13,7 +13,7 @@ what it costs to gather is not paid while its body is shut
 ([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
 **OBS-2c** **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
-anything a second one owns.** Eight of them. **A layer covers one kind of body entirely** — its geometry and its
+anything a second one owns.** Nine of them. **A layer covers one kind of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
 to the *town* rather than to a body is not switched with a body at all**.
 
@@ -134,6 +134,31 @@ wheels are straight there is no centre to draw and nothing is drawn.
 own rather than a mark on the car layer: that one draws what the world did to a driver, and the daylight
 between this circle and the tracks under it is the whole of what the skidpad exists to show
 ([citygen](../../../citygen/docs/requirements.md#where-a-town-comes-from)).
+
+**OBS-2o** **The one layer that is about the picture rather than about the town is the ground's own
+triangulation**, drawn as the edges the mesh has. It is the only way to look at the thing
+[TER-7](../../../world/terrain/docs/requirements.md) says must be invisible: every surface is textured
+from the world origin so that cutting a shape into triangles differently does not change the picture — and
+a shape cut wrong therefore draws exactly like one cut right, until something else in the frame disagrees
+with it.
+
+**It reads the mesh the renderer was handed** (`GroundMesh`) and lays no triangulation of its own, which is
+the same rule the rest of this slice is written to: an outline drawn round a shape nothing on screen was
+cut from is a picture of the layer.
+
+**Every triangle that mesh holds, and not a class of them** — the ground, the kerb rims, the dashes and the
+zebra stripes alike. The mesh knows where the paint starts (`GroundMesh.FirstMarkVertex`) and this layer
+does not ask, because a wireframe over a subset is a picture of the filter.
+
+**A triangle smaller than a few pixels on the glass is not drawn.** Under that a mesh is a wash rather than
+a wireframe: nothing about where the cuts fell can be read out of it, and at a town-wide framing it would
+cost the whole buffer to say so. Pulling the camera back thins the picture out instead of filling it, which
+is also the honest answer to whether the question can be asked from here.
+
+**It is laid with the town's own graphs, and last of them.** The mesh does not move once the town is laid,
+so it is cached and re-emitted on the same terms the nodes layer is — and laid after that layer, because a
+city's triangulation is more quads than the cache holds at any framing that admits it, and laid first it
+would leave a switch on beside it drawing nothing.
 
 ## Two performance rules this layer taught
 

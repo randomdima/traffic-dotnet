@@ -289,6 +289,32 @@ internal static class InterfaceScenarios
             ExpectedNote: AdHocReference),
 
         new(
+            Name: "debug-wireframe",
+            Group: "wider",
+            Map: "Test",
+            Subject: "The lit crossroads with the ground's own triangulation switched on (OBS-2o) — the "
+                     + "one layer here that draws how the picture is made rather than what the town is "
+                     + "doing. It is the only way to look at what TER-7 says must be invisible: every "
+                     + "surface is textured from the world origin, so a shape cut into triangles wrongly "
+                     + "draws exactly like one cut rightly.",
+            FrameWidthM: 40f, FinestFeatureM: 0.15f,
+            AtM: new Vector2(270f, 165f), Seconds: 30, Ui: ["wireframe"],
+            Expect:
+            [
+                "Every paved surface in the frame carries a mesh of triangles over it — the carriageway, "
+                + "the pavement band beside it and the junction — and no paved surface is left bare.",
+                "The edges of the mesh follow the edges of the ground they are drawn on: a triangle's "
+                + "side runs along a kerb, a road edge or a crossing's outline rather than straying "
+                + "across one onto the surface beyond it.",
+                "Each curved piece — a junction's rounded corner, the turn of a kerb — is drawn as a fan "
+                + "of narrow triangles round one point, not as a single flat-sided shape.",
+                "The whole layer is drawn in one pale hairline colour and no other, and the town "
+                + "underneath it is still legible through it.",
+                "Open grass carries no mesh of its own: at most a few long straight edges cross it, "
+                + "which are the sides of the two triangles the whole world's grass is drawn as.",
+            ]),
+
+        new(
             Name: "debug-turn-circles",
             Group: "wider",
             Map: "Skidpad",

@@ -104,15 +104,19 @@ internal sealed partial class DebugOverlay
     /// anybody standing on it. A claim is a stretch of road and a network is the road itself, so a
     /// car has to read over both; drawn with the rest, the wash tints every sprite it covers.
     /// </param>
+    /// <param name="mesh">
+    /// The ground the renderer was handed, for the one layer that draws how the town is <em>made</em>
+    /// rather than what it is doing (OBS-2o). Null where nothing has been laid yet.
+    /// </param>
     public void Draw(
-        ref ScreenDraw draw, ref ScreenDraw ground, TownWorld world, SimConfig config, DebugSwitches switches,
-        Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+        ref ScreenDraw draw, ref ScreenDraw ground, TownWorld world, GroundMesh? mesh, SimConfig config,
+        DebugSwitches switches, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         Relaid = false;
 
-        if (switches.NeedsNetworks)
+        if (switches.NeedsTownGeometry)
         {
-            RelayIfStale(world, config, switches, viewCentreM, viewSpanM, pixelsPerMetre);
+            RelayIfStale(world, mesh, config, switches, viewCentreM, viewSpanM, pixelsPerMetre);
             ground.Take(_town.AsSpan(0, _townQuads));
         }
 

@@ -67,25 +67,12 @@ pair pointing both ways. Run it when a slice gains a dependency, not on a schedu
 - **A stale `using` nobody removed.** It costs nothing at run time and makes a slice look coupled to
   something it stopped needing, which is how a false break survives a real audit.
 
-## Where a document goes
+## Where a document, a number and an asset go
 
-The same rule, applied to prose:
-
-- **A rule about one feature is that feature's `docs/requirements.md`.** Only what belongs to no single
-  slice is in [docs/](index.md).
-- **Why it reads that way is the nearest `decision-log.md`** — the slice's own where the decision is the
-  slice's, the root one where it is the project's.
-- **How a type works is that type's XML docs**, and nowhere else.
-- **A slice's `docs/` gets an `index.md` only once it holds more than two documents.** Below that the
-  file names are the index.
-
-## Where a number and an asset go
-
-- **Every figure is on `SimConfig`**, authored in the nested groups and derived on the root
-  ([core](../src/core/docs/requirements.md#where-a-figure-lives)). A literal in behaviour code is a defect.
-- **`assets/` mirrors the code tree** — `assets/agents/car/variants/`, `assets/world/terrain/ground/` —
-  so the art for a slice sits at the same path under `assets/` as the code that reads it.
-- **`towns/` is input, not an asset**: exported plans, read at startup, belonging to no slice.
+The same rule applied to prose, to figures and to art, and it is stated in
+[CLAUDE.md](../CLAUDE.md#everything-is-a-vertical-slice) — which is read before the first edit, so
+saying it twice here only gives the two copies somewhere to disagree. What is this page's own is
+below: which way a dependency may point, and where the code does not yet comply.
 
 ## The couplings that are deliberate
 

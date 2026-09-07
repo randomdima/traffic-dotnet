@@ -21,6 +21,8 @@ namespace TrafficSimulation.Tests.Physics;
 /// differ on them.
 /// </para>
 /// <para>
+/// This is what `SOL-15` asks for: the reference collision model is what the picture is matched against,
+/// so a disagreement here is this engine's to explain rather than a difference to be talked round.
 /// The reference is a test-only package reference and reaches no shipped assembly. Rotations are handed
 /// over as the pair of numbers rather than as an angle for the reason
 /// <see cref="CastDifferenceTests.TheReferenceRoundsAnAngleAndThisEngineDoesNot"/> records.

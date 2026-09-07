@@ -23,7 +23,8 @@ internal enum CollisionLayer : ulong
 }
 
 /// <summary>
-/// The layers and masks, under one rule: <b>two bodies interact when <em>either</em> scans the other.</b>
+/// The layers and masks, under one rule: <b>two bodies interact when <em>either</em> scans the other</b>
+/// (SOL-5).
 /// </summary>
 /// <remarks>
 /// <para>

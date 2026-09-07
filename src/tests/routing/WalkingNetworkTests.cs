@@ -21,6 +21,21 @@ public class WalkingNetworkTests(ITestOutputHelper output)
 {
     public static TheoryData<string> Maps => Towns.EveryMapWithAFootway();
 
+    /// <summary>The same, less the hand-written fixtures: the towns the generator actually lays.</summary>
+    public static TheoryData<string> LaidMaps
+    {
+        get
+        {
+            var maps = new TheoryData<string>();
+            foreach (var map in Towns.EveryMapWithAFootway())
+            {
+                if (TrafficSimulation.CityGen.Maps.IsGenerated(map)) maps.Add(map);
+            }
+
+            return maps;
+        }
+    }
+
     /// <summary>One map's pavement and the network contracted over it, built once and read by every claim.</summary>
     static (FootGraph Foot, WalkingNetwork Network) Of(string map) => Built.GetOrAdd(map, at =>
     {
@@ -643,6 +658,209 @@ public class WalkingNetworkTests(ITestOutputHelper output)
         Assert.True(
             cut * 100 <= corners,
             $"{map}: {cut} of {corners} corners are cut rather than turned, worst {worstDeg:F0}° at {worst}");
+    }
+
+    /// <summary>
+    /// <b>Nothing crosses anything where the pavement merely bends.</b> A node the walk only passes through
+    /// carries four lines — a lane each way and the corner each of them turns — and the four are two nested
+    /// paths on their own sides of the band. Two of them crossing is a walker sent over the line somebody
+    /// coming the other way is held on, at a place where nobody is choosing anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of a bend and not of a fork.</b> Where three ways meet, a walker turning one way really does
+    /// cross the path of one turning the other, exactly as two movements through a junction do — so a
+    /// crossing there is the town and not a defect. What a bend has is no choice to make, and therefore
+    /// nothing to cross. It is the shape a corner cut across by a chord breaks: the two chords are laid
+    /// between the same two setbacks from opposite sides and meet in the middle of the corner.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NothingCrossesAnythingWhereThePavementOnlyBends(string map)
+    {
+        var (foot, network) = Of(map);
+        var ways = new int[foot.NodeCount];
+        for (var edge = 0; edge < foot.EdgeCount; edge += 2)
+        {
+            ways[foot.FromNode(edge)]++;
+            ways[foot.ToNode(edge)]++;
+        }
+
+        // Gathered by the node the lines meet at, since only lines that meet there can be nested wrongly.
+        var atNode = new List<(int From, int To, Vector2[] Points)>[foot.NodeCount];
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
+        {
+            var node = foot.ToNode(edge);
+            if (ways[node] != 2) continue;
+
+            var lane = network.LaneOf(edge);
+            atNode[node] ??= [];
+            if (lane.Length > 0) atNode[node].Add((edge, edge, Walked(lane)));
+
+            var turns = network.TurnsFrom(edge);
+            for (var turn = 0; turn < turns.Length; turn++)
+            {
+                var mitre = network.JoinArcs(network.TurnSlotAt(edge, turn));
+                if (mitre.Length > 0) atNode[node].Add((edge, turns[turn], Walked(mitre)));
+            }
+        }
+
+        foreach (var lines in atNode)
+        {
+            if (lines is null) continue;
+
+            for (var one = 0; one < lines.Count; one++)
+            {
+                for (var two = one + 1; two < lines.Count; two++)
+                {
+                    var a = lines[one];
+                    var b = lines[two];
+
+                    // Two lines a walker follows one after the other meet end to end by construction; what
+                    // is asked about is the pairs that share neither lane.
+                    if (a.From == b.From || a.To == b.To || a.From == b.To || a.To == b.From) continue;
+                    if (!Meet(a.Points, b.Points, out var atM)) continue;
+
+                    Assert.Fail($"{map}: the walk crosses itself at {atM} where the pavement only bends");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>A lane never strays further from the pavement's own line than the offset it is laid at</b>, corners
+    /// included. On a straight that is the offset exactly; round a corner it is less, because an arc of the
+    /// offset about the bend is nearer both of the lines it joins than the offset. It is the whole of what
+    /// following the pavement means, asked of every metre a walk covers.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the corner that this is about.</b> A lane cut back by a fixed setback and bridged from there
+    /// left the pavement's line by however much more than its own offset the setback was — a metre at a
+    /// square corner, on a band four metres wide — so the walk crossed the middle of the band, the outside of
+    /// every bend was pavement no lane reached, and the two directions' bridges met in the middle.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void ALaneFollowsThePavementRoundACorner(string map)
+    {
+        var (foot, network) = Of(map);
+        var strideM = SimConfig.Shipped().PersonDiameterM;
+
+        var worstM = 0f;
+        var worst = string.Empty;
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
+        {
+            var lane = network.LaneOf(edge);
+            if (lane.Length == 0) continue;
+
+            var lengthM = network.LaneLengthM(edge);
+            var steps = Math.Max(1, (int)MathF.Ceiling(lengthM / strideM));
+            for (var step = 0; step <= steps; step++)
+            {
+                var atM = Spline.SampleAt(lane, lengthM * step / steps).PositionM;
+                var onto = foot.NearestEdge(atM, out var alongM);
+                if (onto < 0) continue;
+
+                var offM = (Spline.SampleAt(foot.ArcsOf(onto), alongM).PositionM - atM).Length();
+                var allowedM = MathF.Max(network.LaneOffsetM(edge), network.LaneOffsetM(onto));
+                if (offM - allowedM <= worstM) continue;
+
+                worstM = offM - allowedM;
+                worst = $"lane {edge} stands {offM:F2} m off the pavement's line at {atM}, laid at {allowedM:F2} m";
+            }
+        }
+
+        // The grace is the tolerance a walked line is sampled at: a corner rounded over the step between two
+        // stretches bulges off the pavement's line by the rounding and no more.
+        Assert.True(
+            worstM <= SimConfig.Shipped().Network.SplineToleranceWalkedM,
+            $"{map}: {worst}, which is {worstM:F2} m past what it is laid at");
+    }
+
+    /// <summary>
+    /// <b>A crossing is walked a lane each way like anything else.</b> Its paint is a band wide and nothing
+    /// can stand on it, so the offset the ground allows there is the whole of it — and the two directions are
+    /// two lines rather than one line down the middle of the zebra.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The ground used to be asked of the crossing's whole line, kerb to kerb, and the station standing on
+    /// the kerb refused every offset: a step sideways there runs <em>along</em> that kerb and lands on
+    /// whatever the pavement gives way to. Seven of Odesa's zebras were walked on one line because of it and
+    /// fifty more at less than a lane, which is two bodies passing head-on with nowhere to pass.
+    /// </para>
+    /// <para>
+    /// <b>Of the towns the generator lays and not of the hand-written fixtures</b>, which carry whatever they
+    /// were authored with: one of <c>Test</c>'s zebras is drawn half the width its record claims and one of
+    /// <c>Zebras</c>' runs skew enough that its own paint leaves the lane, and neither is something the town
+    /// this asks about can produce.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(LaidMaps))]
+    public void ACrossingIsWalkedALaneEachWay(string map)
+    {
+        var (foot, network) = Of(map);
+        var fullM = SimConfig.Shipped().WalkingLaneOffsetM;
+
+        var crossings = 0;
+        for (var edge = 0; edge < foot.EdgeCount; edge += 2)
+        {
+            if (foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
+
+            crossings++;
+            Assert.True(
+                network.LaneOffsetM(edge) >= fullM - ToleranceM,
+                $"{map}: the crossing at {foot.AnchorM(foot.FromNode(edge))} is walked at "
+                + $"{network.LaneOffsetM(edge):F2} m off its own line, not the {fullM:F2} m a lane is");
+        }
+
+        Assert.True(crossings > 0, $"{map}: not one crossing to ask about");
+    }
+
+    /// <summary>One walked line as the points a picture of it joins up, a body's width apart.</summary>
+    static Vector2[] Walked(ReadOnlySpan<ArcSeg> arcs)
+    {
+        var lengthM = Spline.TotalLengthM(arcs);
+        var steps = Math.Max(1, (int)MathF.Ceiling(lengthM / SimConfig.Shipped().PersonDiameterM));
+        var points = new Vector2[steps + 1];
+        for (var step = 0; step <= steps; step++)
+        {
+            points[step] = Spline.SampleAt(arcs, lengthM * step / steps).PositionM;
+        }
+
+        return points;
+    }
+
+    /// <summary>Where two walked lines cross, if they do.</summary>
+    static bool Meet(Vector2[] one, Vector2[] two, out Vector2 atM)
+    {
+        for (var a = 0; a + 1 < one.Length; a++)
+        {
+            for (var b = 0; b + 1 < two.Length; b++)
+            {
+                if (Meet(one[a], one[a + 1], two[b], two[b + 1], out atM)) return true;
+            }
+        }
+
+        atM = Vector2.Zero;
+        return false;
+    }
+
+    static bool Meet(Vector2 a, Vector2 b, Vector2 c, Vector2 d, out Vector2 atM)
+    {
+        atM = Vector2.Zero;
+        var ab = b - a;
+        var cd = d - c;
+        var turn = (ab.X * cd.Y) - (ab.Y * cd.X);
+        if (MathF.Abs(turn) < 1e-9f) return false;
+
+        var ac = c - a;
+        var along = ((ac.X * cd.Y) - (ac.Y * cd.X)) / turn;
+        var across = ((ac.X * ab.Y) - (ac.Y * ab.X)) / turn;
+        if (along is <= 0f or >= 1f || across is <= 0f or >= 1f) return false;
+
+        atM = a + (ab * along);
+        return true;
     }
 
     /// <summary>How far a heading steps at a seam, in degrees, which is nought where one line carries on into the next.</summary>

@@ -2,7 +2,7 @@
 
 A hand that can take over the units it has picked out. This is a debugging instrument with an interface,
 not a game: it changes what those agents *want*, and in one place what they *do*, and nothing else in the
-town.
+town. Why it reads this way is [decision-log.md](decision-log.md).
 
 **CTL-1 — Selection.** Left-click selects a single unit, person or car; left-click elsewhere reselects or
 deselects. The selection is **marked on the town by a shape and never by a change to the unit's own

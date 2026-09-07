@@ -14,6 +14,13 @@ internal readonly ref struct InterfaceFrame
 {
     public required TownWorld? World { get; init; }
 
+    /// <summary>
+    /// The ground the renderer was handed, which the wireframe layer draws the triangles of (OBS-2o). It
+    /// is the run's own mesh and never a second one built for the picture: a layer that laid its own
+    /// triangulation would be drawing a shape nothing on screen was cut from.
+    /// </summary>
+    public GroundMesh? Ground { get; init; }
+
     public required SimConfig Config { get; init; }
 
     public required Camera.Camera2D Camera { get; init; }
@@ -192,6 +199,9 @@ internal sealed class Interface(TrimFigures trims)
                 case "turn-circles":
                     Switches.Toggle(ref Switches.TurnCircles);
                     break;
+                case "wireframe":
+                    Switches.Toggle(ref Switches.Wireframe);
+                    break;
                 case "ruler":
                     Switches.Toggle(ref Switches.Ruler);
                     break;
@@ -205,7 +215,7 @@ internal sealed class Interface(TrimFigures trims)
                     throw new ArgumentException(
                         $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
                         "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
-                        "claims, collision, turn-circles, ruler, track.");
+                        "claims, collision, turn-circles, wireframe, ruler, track.");
             }
         }
     }
@@ -382,7 +392,7 @@ internal sealed class Interface(TrimFigures trims)
         if (world is not null)
         {
             Overlay.Draw(
-                ref draw, ref ground, world, frame.Config, Switches, frame.Camera.CentreM,
+                ref draw, ref ground, world, frame.Ground, frame.Config, Switches, frame.Camera.CentreM,
                 frame.Camera.CullSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
 
             underWritten = ground.Written;

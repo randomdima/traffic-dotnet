@@ -51,7 +51,9 @@ internal enum TrackLap
 /// it, and its only junctions are the ten the lap is cut at. Every other map arrives as a file exported by
 /// whatever generated it (GEN-1), and this one would too if a proving ground were a town — but the whole
 /// value of it is that its geometry is <em>chosen</em>, so it is written where the figures it is chosen
-/// against live and exported through the same format.
+/// against live and exported through the same format. <b>Which is what makes it the same kind of thing</b>
+/// (GEN-1a): a map laid in code and a map generated are one plan from here on, and nothing downstream may
+/// ask which of the two it is looking at.
 /// </para>
 /// <para>
 /// <b>One lap, and every car on it.</b> Four separate circuits measured four shapes with one car apiece

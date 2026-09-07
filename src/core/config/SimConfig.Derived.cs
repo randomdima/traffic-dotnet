@@ -350,6 +350,12 @@ internal sealed partial class SimConfig
     /// arm however skew its junctions came out, and a wider carriageway lengthens the stub rather than pushing
     /// its own paint onto the bend.
     /// </summary>
+    /// <remarks>
+    /// <b>The setback is counted once whatever the node turned out to be.</b> At a fork it is the crossing
+    /// that stands the stride past the junction's ground; at a node with no fork it is the bar of the
+    /// traffic leaving the bend (<c>Furniture.ThroughCrossingSetbackM</c>), and the deepest bundle either
+    /// way lies wholly on this.
+    /// </remarks>
     public float StraightStubM =>
         JunctionArmReachMaxM + Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM
         + Road.StopBarThicknessM;

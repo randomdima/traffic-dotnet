@@ -346,17 +346,24 @@ internal static class Furniture
         config.Road.CrossingSetbackM + (config.Road.CrossingDepthM * 0.5f);
 
     /// <summary>
-    /// And the same at a junction with no fork, where <b>the bundle begins where the corner's ground ends</b>
-    /// rather than a setback past it: what is behind the paint there is road and not a junction, so the first
-    /// thing on it is the bar of the traffic leaving the corner, and the crossing stands that bar's own
-    /// thickness and setback beyond.
+    /// And the same at a junction with no fork, where <b>what is behind the paint is road and not a
+    /// junction</b>: the first thing on it is the bar of the traffic leaving the corner, and the crossing
+    /// stands that bar's own thickness and setback beyond it.
     /// </summary>
     /// <remarks>
+    /// <b>The bundle stands off the corner's ground by the same stride a crossing does off a junction's</b>
+    /// (<see cref="RoadFigures.CrossingSetbackM"/>), and for the same reason: the paint has to lie on straight
+    /// kerb rather than on the corner's own arc. Begun where the corner's ground ends instead, the first bar
+    /// sat on the bend and the zebra behind it had a metre and a half of square road — the tightest crossings
+    /// in either shipped town, and the only ones that read as laid on a curve.
+    /// <para>
     /// It puts the far bar's outer edge exactly on <see cref="SimConfig.StraightStubM"/>, so the deepest
     /// bundle in the town still lies wholly on the straight a road leaves its junctions on (GEN-12).
+    /// </para>
     /// </remarks>
     static float ThroughCrossingSetbackM(SimConfig config) =>
-        (config.Road.StopBarThicknessM * 0.5f) + config.Road.StopBarSetbackM + (config.Road.CrossingDepthM * 0.5f);
+        config.Road.CrossingSetbackM + (config.Road.StopBarThicknessM * 0.5f) + config.Road.StopBarSetbackM
+        + (config.Road.CrossingDepthM * 0.5f);
 
     /// <summary>How far off the crossing its bar stands, centre to centre, on whichever side is stopping at it.</summary>
     static float BarOffTheCrossingM(SimConfig config) =>

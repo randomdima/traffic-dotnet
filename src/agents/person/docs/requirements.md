@@ -12,16 +12,11 @@ a gap, recorded in [docs/index.md](../../../../docs/index.md), not a decision.
 **PER-1** A person is an agent **at all times**. Containment does not remove agency — it replaces the
 action set.
 
-**PER-2** Actions: turn in place at a constant angular rate; move forward at a constant speed; idle;
-enter and exit a container.
-
 **PER-3** Forward speed is **constant when moving**, modulated by the occupied terrain. There is **no
 acceleration profile** above the foot friction that produces it.
 
 **PER-4** A person may only enter a car that is **free, stopped and intact**.
 
-**PER-5** A car may name an **owner**, and ownership is a property of the map (world seed), never of the
-behaviour.
 
 **PER-6** While inside a building the only available action is exiting it; while inside a car, exiting it
 and driving it.

@@ -60,6 +60,13 @@ internal sealed class DebugSwitches
     /// </summary>
     public bool TurnCircles;
 
+    /// <summary>
+    /// <b>The triangles the ground is drawn out of</b> (OBS-2o), as the edges each one has. It is the one
+    /// switch here that is about the picture rather than about the town: everything else draws something
+    /// the simulation produced, and this draws what the renderer was handed.
+    /// </summary>
+    public bool Wireframe;
+
     /// <summary>The measuring tool, which takes the mouse for as long as it is ticked.</summary>
     public bool Ruler;
 
@@ -74,8 +81,11 @@ internal sealed class DebugSwitches
     /// </remarks>
     public bool TrackFigures = true;
 
-    /// <summary>Whether anything is drawn about the town's own graphs, which is what decides if they are laid at all.</summary>
-    public bool NeedsNetworks => Nodes;
+    /// <summary>
+    /// Whether anything the town holds still is drawn at all, which is what decides whether the cache
+    /// behind those layers is laid. Both of them are geometry that does not move once the town is laid.
+    /// </summary>
+    public bool NeedsTownGeometry => Nodes || Wireframe;
 
     /// <summary>
     /// A number that changes whenever a switch does. The town's own graphs are re-emitted on it

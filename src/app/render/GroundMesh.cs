@@ -155,23 +155,21 @@ internal sealed partial class GroundMesh
         //
         // It stops a line's width short of the outside, which is what leaves the shell's shadow standing.
         var halfWalkM = walkM * 0.5f;
-        var rounded = new HashSet<(int X, int Y)>();
         foreach (var run in paving.Walk)
         {
             var outerM = run.Outline ? halfWalkM - edgeM : halfWalkM;
             mesh.Skirt(run.Line, -run.RoadSide * outerM, run.RoadSide * halfWalkM, Surface.Pavement, Plain, periods);
+        }
 
-            // Once per place and not once per end. Runs give way to one another at a point both of them
-            // stop at, so a town's worth of half-rounds is drawn twice over unless the place is what is
-            // remembered — a tenth of a metre, which is a hundred times the rounding two bisections of one
-            // crossing land apart and a hundredth of the round itself.
-            foreach (var endM in (ReadOnlySpan<Vector2>)[run.Line[0].StartM, run.Line[^1].EndM])
-            {
-                if (rounded.Add(((int)MathF.Round(endM.X * 10f), (int)MathF.Round(endM.Y * 10f))))
-                {
-                    mesh.Disc(endM, outerM, Surface.Pavement, Plain, periods);
-                }
-            }
+        // And the rounds that close the runs that really stop (<see cref="Paving.Caps"/>). <b>Half a round
+        // apiece and facing out</b>: the other half stands where the skirt above already laid concrete, and
+        // struck as whole circles they were a fan of triangles buried inside the band at every seam in the
+        // town.
+        foreach (var cap in paving.Caps)
+        {
+            var run = paving.Walk[cap.Run];
+            mesh.HalfRound(cap.PlaceM, run.Outline ? halfWalkM - edgeM : halfWalkM, cap.OutwardM,
+                Surface.Pavement, Plain, periods);
         }
 
         // The round is one radius and the band is not centred, so on a run that reaches the outside of the

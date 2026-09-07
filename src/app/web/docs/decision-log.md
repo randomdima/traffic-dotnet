@@ -4,371 +4,151 @@ Why this slice reads as it does. The rules themselves are [requirements.md](requ
 
 ## 2026-08-30 — the callback is handed over before any town is opened
 
-**The page now opens on a town it was not asked for** — the idle ring behind the start menu (GEN-1b) —
-and the obvious way to do that was the way a named map was already done: open it, then hand the browser
-the animation callback. That is exactly backwards for this head. A desktop run has its plan and its art
-on the disk it started from, so opening before the first frame costs nothing; a page has neither, so it
-would have shown a blank canvas through a plan and three megabytes of archive before drawing anything at
-all — and how long a page looks broken for is the figure that matters most about it.
-
-**So the order is the other one, for a named map too.** `WebGpu.Ticker` is handed `Game.Step` as soon as
-the engine is running, and the town — the ring, or the one the query string named — is opened after it
-from the boot's own `await`, which is where a browser run is allowed to wait. The menu is drawn from what
-`Data.Boot` already fetched, so what stands between the page opening and something to look at is
-unchanged, and what used to stand in front of a named map's first frame now happens behind a menu the
-reader can already use. **The only thing given up is that `?map=Odesa` no longer has its town in the
-first frame** — it has a menu in the first frame and the town a moment later, which is the trade this
-head makes everywhere else too.
+A desktop run has its plan and art on disk, so opening before the first frame costs nothing; a page has
+neither, and would show a blank canvas through a plan and three megabytes of archive. `WebGpu.Ticker` is
+handed `Game.Step` as soon as the engine runs and the town is opened after it from the boot's own `await`.
+The only thing given up is that `?map=Odesa` has a menu in the first frame and its town a moment later.
 
 ## 2026-08-30 — nothing waits for what it does not need yet
 
-Everything the page fetched, it fetched in the order it happened to read, and the order it happened to
-read was one thing at a time. Measured against the published page on a host with no latency at all —
-where only the sequencing shows — the art was not asked for until 237 ms, which was after the last byte
-of the runtime; the plan of the map not until 544, which was after the art had been decoded; and the
-two files the menu stands on cost a round trip each, one after the other, for 229 bytes between them.
-On a host with a real round trip every one of those is a wait behind something that was already
-finished.
-
-**The art and the engine are the pairing that matters**: about three megabytes each and neither needs
-the other, so asked for in turn a page waits for the sum. `main.js` starts the archive before the
-runtime it will be asked for by, and `grab` reads it out of `held` exactly as it reads an unpacked
-file — `unpack` grabs rather than fetches now, which is what stopped it downloading the archive a
-second time when the prefetch was first tried.
-
-**It is conditional on a map having been named**, and that is not a hedge. A run that named one has the
-town as its destination; a run that did not is going to put a menu up, and **a menu waits for nothing**
-— not even for a fetch nobody is awaiting, because three megabytes on the same link as the 229 bytes it
-stands on is a menu that comes up later. So the art starts beside the engine where a town was asked
-for, and where one was not it is asked for after the first frame, with everything else that can wait.
-**Nothing at all starts before the four questions are answered**, which is the same rule that made the
-runtime import dynamic.
-
-The other two are cheaper and follow the same shape: the listing and the figures go out together
-because neither reads the other, and the plan of a picked map goes out before the art is decoded
-because one is the wire and the other is the processor.
-
-**The decode was the other half of it.** `Data` awaited one `createImageBitmap` per file, which is one
-decode at a time on a page that has no threads to spare — 216 ms for the town's 174 sheets against
-57 ms for the same set asked for together. It is one call across the wall now, and the browser does
-them as it pleases. Nothing above it moved: the split between making a bitmap and reading its texels
-out is exactly where it was, because that split is about what a frame can wait for.
-
-**And the other eight plans come down once the page is being looked at.** That reads like the boot
-fetching all nine again, which is refused below, and the difference is the whole of why it is allowed:
-that was 3.4 MB standing between a reader and a menu, and this is the same 3.4 MB behind a picture that
-is already drawing. It is asked for *after* the animation callback has been handed over — before it
-would put the bytes inside the figure WEB-6 quotes, which is about what a page waits on. Seven of the
-nine are under 210 KB and Odesa and River are 2.9 MB of the total, so what it trades is a town's worth
-of bytes nobody may ask for against a second pick that opens with no wait in it at all.
-
-**Two things went while this was being done.** `WebGpu.Warm` had had no caller since the art became one
-archive, and it is what the prefetch replaced rather than joined. And the adapter was being asked for
-twice — once by the page before it downloaded the engine and once by the run when it started — which
-is the same question asked of the same browser, so `town.js` owns the promise and both read it.
-
-**What was measured and thrown away.** `EventSourceSupport`, `MetadataUpdaterSupport` and
-`DebuggerSupport` were switched off and the published framework did not move: 2.707 MB of brotli
-before, and the same after allowing for the code added here. They are not in the project file, because
-a knob that buys nothing is a knob somebody has to read.
+Everything was fetched in the order it happened to be read, one thing at a time: measured with no latency,
+the art was not asked for until 237 ms and the plan not until 544. The art and the engine are the pairing
+that matters — about three megabytes each, neither needing the other — so `main.js` starts the archive
+before the runtime asks for it. It is conditional on a map having been named, because a menu waits for
+nothing, not even a fetch nobody is awaiting. The decode was the other half: one awaited
+`createImageBitmap` per file cost 216 ms for 174 sheets against 57 asked for together. The other eight
+plans come down after the callback is handed over, which is 3.4 MB behind a picture that is already
+drawing rather than in front of a menu. `EventSourceSupport`, `MetadataUpdaterSupport` and
+`DebuggerSupport` were switched off, moved nothing, and are not in the project file — a knob that buys
+nothing is a knob somebody has to read.
 
 ## 2026-08-30 — four questions before the runtime, and a card while it comes
 
-Everything the page could refuse, it refused *after* downloading four megabytes of engine: a browser
-without WebGPU spent the whole wait to be told the wait had been pointless. All four questions —
-WebAssembly, WebAssembly SIMD, the WebGPU API, an adapter it will actually hand out — are answerable in
-milliseconds against nothing, so they are asked first and the runtime import became dynamic to let
-them be. A static import is fetched before the first line of the file runs, which is the whole reason
-that import reads the way it does.
-
-**The refusal inside the run stays where it is.** `WebGpu.Start` still fails on a device that was there
-a moment ago, and that is not the same question as whether this browser has the API — one is about the
-browser, the other about what it gave out. Two checks, not one check in two places.
-
-**And the bar sweeps when it cannot count.** The runtime is fetched by the loader itself, so the page
-does not know how much of it there is; a bar sitting at nought for it reads as a page that has stopped.
-Bytes are counted off a `fetch` wrapper for that stage alone and the bar sweeps, and the batches — which
-do know how many files they asked for — fill it.
+A browser without WebGPU spent the whole four-megabyte wait to be told the wait was pointless. All four
+questions are answerable in milliseconds, so the runtime import became dynamic to let them be asked first —
+a static import is fetched before the first line of the file runs. The refusal inside the run stays: what
+this browser has and what it gave out are two questions. The bar sweeps for the runtime stage, whose size
+the page cannot know, and the batches fill it.
 
 ## 2026-08-30 — the art is one archive, and the runtime is not discovered
 
-The menu came up on six files and the town still cost three hundred and thirteen fetches, thirty-two at
-a time — ten waves of latency for four megabytes that download in two seconds. So the build packs
-`assets/` and the page unpacks it: **a plain tar**, because the format is somebody else's and thirty
-lines read it, gzipped because a fifth of the archive is catalogues and the WebP is incompressible. The
-browser undoes the gzip with `DecompressionStream`, which is the one decompressor a page has that its
-.NET runtime does not — the same fact that keeps the towns on gzip rather than brotli. Above the fetch
-nothing changed: an unpacked file is held exactly as a prefetched one is, and `grab` reads it out.
-
-Two smaller things came with it.
-
-**The menu's six files became one.** Five of them were the ground surfaces, and the menu draws no
-ground — so the renderer it draws through takes 1×1 stand-ins for those bindings, exactly as it already
-did for the tile sampler. Only the figures are left. On the desktop the pictures are on the disk and
-this is worth nothing; in a page every one of them was a round trip.
-
-**And the chain to the runtime is preloaded.** The browser learned of `town.js` by parsing `main.js`
-and of the runtime by running it — four round trips before the engine was asked for. `modulepreload`
-makes them one wave. The nine megabytes behind `dotnet.js` are deliberately *not* preloaded: a browser
-that cannot run this page should not spend them to be told so.
-
-`WasmStripILAfterAOT` is on as well. Ahead-of-time compiled, the bytecode beside the native code is a
-second copy of the program nothing reads, and dropping it takes about a third off the smaller
-assemblies. It was measured rather than assumed: the town stands and draws with it on.
+The town cost 313 fetches, thirty-two at a time — ten waves of latency for four megabytes. The build packs
+`assets/` as a plain tar, gzipped because a fifth of it is catalogues and the WebP is incompressible; the
+browser undoes it with `DecompressionStream`, the one decompressor a page has that its .NET runtime does
+not. The menu's six files became one, five having been ground surfaces a menu does not draw. The chain to
+the runtime is `modulepreload`ed into one wave, but the nine megabytes behind `dotnet.js` deliberately are
+not: a browser that cannot run this page should not spend them to be told so.
 
 ## 2026-08-30 — the menu stands on what it draws
 
-Deployed to a static host, the page took about a minute to put a menu up. Neither the size of the
-runtime nor the size of the art accounted for it: the framework is 13 MB raw and the host gzips it to
-3.1, and the art is 4.2 MB. **What accounted for it was three hundred and nineteen round trips, taken
-one after the next.** At 185 ms each that is a minute of waiting on a connection that was idle for
-almost all of it.
-
-Two things were wrong and they are separate. The first was that `Data` fetched a file, awaited it,
-wrote it, and fetched the next — three hundred times; that is the archive's entry above, which is where
-it ended up.
-
-**The menu was waiting for the town.** `Game`'s constructor read the catalogues, and the renderer it
-built for the menu packed every sheet in the town into an atlas — so a page could not draw a list of
-map names until it had fetched, decoded and packed all of the art it was not going to draw. The
-catalogues are read at the first `Open` now, and the menu's renderer is laid for no sheets at all,
-which the atlas, the tile binding and the shader table already allowed for. So the boot fetches what
-the menu draws and the rest arrives behind the click that asked for a town.
-
-**This is a saving on the desktop too**, where it was invisible: the atlas was packed twice, once for
-a menu that drew none of it and once for the town.
-
-`_looks` became nullable, which is the one cost. It is set with `_world` in `Open` and the frame
-reaches it behind the same guard, so the two invariants are one invariant and the pattern in `Draw`
-binds both.
+A static host took about a minute to put a menu up, and what accounted for it was 319 round trips at
+185 ms. `Game`'s constructor read the catalogues and packed every sheet in the town into an atlas, so a
+page could not draw a list of map names until it had fetched, decoded and packed art it was not going to
+draw. The catalogues are read at the first `Open` and the menu's renderer is laid for no sheets at all.
+It is a saving on the desktop too, where the atlas was being packed twice.
 
 ## 2026-08-30 — a map picked is a name written down, not a town opened
 
-The page fetched all nine maps at boot: 3.4 MB of the 10 it downloaded, to open one of them. The
-obstacle was never the fetching — it was that `Open` is reached from `ReadInput`, inside `Game.Step`,
-which in a browser *is* the animation callback. A frame cannot await, so the plan had to be on disk
-before any frame ran, so every plan had to be.
-
-`PickMap` is the seam, and it is a partial of the same kind as `Boot` and `NewRenderer`. The desktop's
-half opens the map where it stands, because its plan is on the disk the run started from. The browser's
-half writes the name down and returns, and **the boot's own wait loop is what drains it** — the loop
-that was already there keeping `Main` alive is the one place in a browser run where waiting is allowed,
-so it fetches the plan and calls `Game.Start`. Nothing above knows: `Open` is unchanged, and by the time
-it runs the file is where `ProjectPaths` looks for it.
-
-**A map's name and a map's bytes came apart, and the menu wanted the name.** `ProjectPaths.ShippedMaps`
-reads the `towns/` folder, so a map nothing had fetched would not be on the menu to pick. `Data` lays an
-empty file per map at boot for that reason — the listing is the name, and the bytes land under it when
-something asks. It is the only place in this engine where a file on disk is not yet what it claims to
-be, and it is never read in that state: the fetch is what stands between the click and the open.
+The page fetched all nine maps at boot to open one. The obstacle was never the fetching: `Open` is reached
+from inside `Game.Step`, which in a browser *is* the animation callback, and a frame cannot await.
+`PickMap` is the seam — the desktop's half opens the map where it stands, the browser's writes the name
+down and lets the boot's own wait loop drain it. `Data` lays an empty file per map at boot, because
+`ProjectPaths.ShippedMaps` reads the folder and the listing is the name; it is the one place here where a
+file on disk is not yet what it claims, and it is never read in that state.
 
 ## 2026-08-30 — the towns stay gzipped, because a page cannot unpack brotli
 
-Brotli is a quarter smaller than gzip over these nine plans — 2.5 MB against 3.4, and 1.07 against 1.34
-on Odesa alone — and every other byte the page fetches is already brotli. It was tried and refused, and
-the reason is not a trade: **`BrotliStream` does not work in a browser.** The runtime's wasm build
-carries zlib and no brotli at all; the API is annotated unsupported on this platform (CA1416) and there
-is not one brotli symbol in `dotnet.native.wasm`. `DecompressionStream` in the page has no brotli
-either.
-
-The only brotli a page can read is one the *server* marks `Content-Encoding: br` and the browser unwraps
-before the fetch resolves — which is exactly what `_framework` relies on, and is a fact about the host
-rather than about this build. Making a town depend on it would mean a page that half-loads on a host
-nobody configured, to save 270 KB on the heaviest map now that only one map is fetched. Gzip stays.
+Brotli is a quarter smaller over these plans and was refused, not as a trade: `BrotliStream` does not work
+in a browser — the wasm build carries zlib and no brotli symbol at all — and `DecompressionStream` has
+none either. The only brotli a page can read is one the *server* marks `Content-Encoding: br`, which is a
+fact about the host. Depending on it would half-load on a host nobody configured, to save 270 KB.
 
 ## 2026-08-30 — the timezone database is not something this town reads
 
-`InvariantTimezone` was left at its default, so the whole tz database was linked into the native blob —
-290 `America/*` zones and the rest — for an engine whose only clocks are a tick count and a `Stopwatch`.
-Switched off it is 244 KB of the blob and 91 KB brotli, for a question nothing here asks.
-`InvariantGlobalization` was already on and is the same argument about ICU.
+`InvariantTimezone` at its default linked the whole tz database into the native blob for an engine whose
+only clocks are a tick count and a `Stopwatch`. Switched off it is 244 KB of blob and 91 KB brotli.
 
 ## 2026-08-30 — no image codec on this head, because the browser is one
 
-ImageSharp was 205 KB brotli of IL and dragged `System.Text.Encoding.CodePages` behind it — 698 KB of
-code-page tables for a TIFF decoder nothing calls — but on this head that understates it by a long way:
-it was 4.56 MB of the 27 MB of object code the ahead-of-time compiler emitted, and it is generic over
-its pixel type, so an unknown further share of the 10.9 MB of generic instantiations was its too. **An
-assembly here is priced by what it makes that compiler emit, not by what it weighs on the wire.**
-
-Narrowing it was tried first and does nothing. Handing every call a `Configuration` holding the PNG and
-WebP modules alone should let the trimmer drop the other seven codecs; **it was written, measured and
-reverted.** `DecoderOptions` initialises its `Configuration` from `Configuration.Default`, and every
-`Load` and `Identify` overload constructs one, so the factory that news up all nine modules is rooted
-whatever you pass. `TiffDecoder` and `CodePages` shipped byte for byte.
-
-So the cut was the whole library, and it went in three pieces:
-
-- **A size comes off the header.** `ImageHeader` reads PNG's IHDR and WebP's three chunk shapes, which
-  is forty lines and no dependency at all. It is shared, so the desktop's car catalogue stopped calling
-  `Image.Identify` too, and it is checked against ImageSharp over every picture the town ships — the
-  same independent-implementation arrangement the physics has against Box2D.
-- **`Rgba32` became `Texel`**, this project's own four bytes, because the packer and the mip chain are
-  shared with a desktop that keeps the library for writing shots. Both are RGBA in that order, so the
-  desktop meets it as a cast at the one point a decode hands pixels over.
-- **The decode became the page's own**, and that is the part with a real difficulty in it.
-
-**The difficulty is that only half a browser decode can wait.** `createImageBitmap` is a promise, and
-the atlas is packed inside `Game.Start`, which is reached from a frame — and a frame cannot await. But
-`drawImage` and `getImageData` are *synchronous*. So the two halves go in different places: `Data` makes
-every bitmap at boot, where waiting is already allowed and where the bytes are already parked from the
-fetch, and `Texels.Web` reads one sheet's texels out where the packer stands. **Nothing above either of
-them changed** — `SheetAtlas`, the gutter, the mip chain and the page-at-a-time discipline are the
-desktop's own code, and the browser never learned what an atlas is.
-
-Two things fell out of doing it that way. `parked` on the JavaScript side became a slot that either a
-fetch or the run can fill and either a copy or a decode can read, so the art is fetched once and decoded
-where it lies — no bytes move twice. And the bitmaps are kept for the run rather than dropped once the
-atlas is built, because the art is every town's: picking a second map packs the atlas again, and a
-bitmap closed after the first one would be a decode that had to happen inside a frame.
-
-**The options on `createImageBitmap` are load-bearing.** Left to itself the browser premultiplies alpha
-and may put the display's colour profile through the texels; this town's art is alpha-cut sprites drawn
-at their own texel grid, and either one is a sheet that no longer matches what the desktop draws.
+ImageSharp was 205 KB brotli of IL and 4.56 MB of the 27 MB of object code the AOT compiler emitted, plus
+an unknown share of generic instantiations. Narrowing it was written, measured and reverted:
+`DecoderOptions` initialises its `Configuration` from `Configuration.Default`, so the factory that news up
+all nine modules is rooted whatever you pass. The cut went in three pieces — `ImageHeader` reads PNG's
+IHDR and WebP's chunks in forty lines, checked against ImageSharp over every shipped picture; `Rgba32`
+became this project's own `Texel`; and the decode became the page's own. Only half a browser decode can
+wait, so `Data` makes every bitmap at boot and `Texels.Web` reads a sheet's texels out synchronously where
+the packer stands — nothing above either changed. Bitmaps are kept for the run, since picking a second map
+packs the atlas again. The options on `createImageBitmap` are load-bearing: premultiplied alpha or a
+colour profile is a sheet that no longer matches what the desktop draws. **On this head an assembly is
+priced by what it makes the AOT compiler emit, not by what it weighs on the wire.**
 
 ## 2026-08-30 — the publish is the deployment, so it holds real files
 
-`wwwroot/assets` was a symlink into the working copy, made because the art was thirty megabytes of PNG
-and a build that copied it was a build nobody ran twice. That reason went when the art became 2.8 MB of
-WebP, and the arrangement was always wrong for the thing it is now aimed at: a stateless static host is
-handed the published folder and nothing else, and a link into somebody's home directory is a page that
-serves on one machine.
-
-Everything is copied now, by `dotnet build` and `dotnet publish` alike, so what is served in development
-is what is deployed. The guard that unlinks a stale `wwwroot/assets` or `wwwroot/towns` before copying
-is not tidiness: a tree carrying one of those from an earlier build would have taken the copy *through*
-the link and written the whole publish into `assets/` and `towns/` themselves.
-
-**Brotli is the one thing the build cannot finish.** The publish writes a `.br` beside each framework
-file — 3.6 MB against 16.3 raw — but only the host can serve them, because the loader fetches the
-framework itself and a browser runtime has no brotli to unpack one with. A host that does not negotiate
-encodings serves the raw copies, and WEB-6's figure is a claim about a host that does.
+`wwwroot/assets` was a symlink made when the art was thirty megabytes of PNG, and a link into somebody's
+home directory is a page that serves on one machine. Everything is copied by build and publish alike. The
+guard that unlinks a stale link first is not tidiness: the copy would otherwise go *through* it and write
+the whole publish into `assets/`. Brotli is the one thing the build cannot finish — only the host can
+serve the `.br` copies, so WEB-6's figure is a claim about a host that negotiates encodings.
 
 ## 2026-08-30 — the page's own fetch, not an HttpClient
 
-`Data` fetched the manifest and its 328 files through an `HttpClient`, which is the familiar API and on
-this machine is a shim over the very `fetch` the page already has — reached through the very interop
-`WebGpu` already owns. So the build carried a whole HTTP stack, and its handler pipeline, header
-collections and URI parser, to make 328 GETs of static files sitting beside the page.
-
-It is two imports on the wall instead: `grab` fetches one file and answers its length, `take` copies the
-bytes into an array made at that length. **Two calls and not one, and the reason is the wall's own third
-rule** — a `MemoryView` is a window onto the WebAssembly heap handed *out*, and there is no shape that
-hands one back, so the length has to come first. `WebGpu.Origin` went with it: `fetch` resolves a
-relative path against the document, which is what a path in the manifest was always written against, so
-the crossing that asked the page where it was is gone rather than replaced.
-
-**It was worth more than the three assemblies it names.** `System.Net.Http`, `System.Private.Uri` and
-`System.Net.Primitives` are 58 KB brotli between them, but what they drag through the ahead-of-time
-compiler is a megabyte of object code and a wider slice of `CoreLib` — the published runtime came down
-327 KB brotli, of which 240 is the native blob and 25 is `CoreLib` alone. **The lesson is that on this
-head an assembly is priced by what it makes the AOT compiler emit, not by what it weighs on the wire.**
+An `HttpClient` on this machine is a shim over the very `fetch` the page has, reached through the interop
+`WebGpu` already owns — so the build carried a whole HTTP stack to make 328 GETs of static files beside
+the page. It is two imports on the wall: `grab` fetches and answers a length, `take` copies into an array
+made at that length. Two calls and not one, because a `MemoryView` is a window handed *out* and nothing
+hands one back. The three assemblies are 58 KB brotli but drag a megabyte of object code, and the
+published runtime came down 327 KB brotli.
 
 ## 2026-08-30 — whether the run is over is not something the page saw
 
-Exit did nothing. The input the town reads is two arrays the page owns and a frame copies across, and
-whether the window was closing was an eleventh axis in one of them — so the menu set it, and the pump
-at the top of the very next frame copied the page's own copy straight over the top of it. **The page
-has no opinion about whether the run is over**, so the slot it kept for one was always a zero, and the
-way out of the game was a flag that lived for eight milliseconds.
-
-It is a field now, set once and by nothing else, and the axis is gone from both sides. **The shape is
-the lesson rather than the bug**: an axis is by definition what the page saw, so anything the run
-decides for itself cannot be one of them. There is no third thing in those arrays to check — the keys
-and the pointer are the page's all the way down.
-
-It also made a liar of the last diagnosis. Exit was read as working but invisible, and a banner was
-added on that basis; the banner is worth having and stays, but what was actually wrong was this, and
-the picture that proved it was the one that came back with the tab still open and nothing said.
+Exit was an eleventh axis in the input arrays the page owns, so the pump at the top of the next frame
+copied the page's zero over it and the way out lived for eight milliseconds. It is a field now. The shape
+is the lesson: an axis is by definition what the page saw, so anything the run decides for itself cannot
+be one.
 
 ## 2026-08-30 — the frame is timed around the wait, not through it
 
-The read-out on the page quoted three hundred frames a second on a display doing a hundred and twenty,
-because the frame was timed from the top of `Game.Step` to the bottom of it. On the desktop that is the
-whole frame — the wait for the display happens inside the submit, where the renderer times it — and in
-a page it is only the work: a browser paces by choosing when to ask for the next frame, so the wait
-falls *between* two of them and was being timed by nobody. The same span is the step the hands are read
-over, so the camera panned at a fifth of its speed as well.
-
-**The obvious home for it was the web renderer**, beside the desktop's fence. It was refused: the
-renderer would have had to report a wait it did not do and that ended before it was called, and the
-frame subtracts a renderer's blocked time out of the submit it happened inside. So `Game.Step` times
-what a frame waited before it began, which is nothing on a machine with a loop and the whole of the
-pacing in a page, and both machines say `blocked` and mean it.
-
-**A hidden tab is what makes that a rule rather than a subtraction.** The animation callback stops
-when nobody is looking, and the frame that resumes has waited forty-five seconds — which went straight
-into the read-out's window and published nought frames a second. The line between a wait and a stall is
-not a new number: `SimClock` already caps how far behind it will chase and drops the time it could not
-simulate, and past that bound the clock has stopped calling the gap time the town lived through. The
-read-out stops there too, and the stall gives `SimClock.Resynchronise` the caller it never had.
+Timing from the top of `Game.Step` to the bottom quoted 300 fps on a 120 Hz display, because a browser
+paces by choosing when to ask for the next frame, so the wait falls *between* two of them. The same span
+is the step the hands are read over, so the camera panned at a fifth speed. Putting it in the web renderer
+was refused — it would have to report a wait it did not do and that ended before it was called — so
+`Game.Step` times what a frame waited before it began. A hidden tab makes that a rule rather than a
+subtraction: a resumed frame has waited forty-five seconds. The bound is `SimClock`'s own cap, and the
+stall gives `SimClock.Resynchronise` the caller it never had.
 
 ## 2026-08-30 — WebGPU, and not WebGL2
 
-WebGL2 was the compatibility floor and it was refused, because it cannot hold the shape this engine is
-built around. It has no indirect draw and no way to record a pass once: a frame would have to be
-re-issued call by call, with the counts as arguments, and "the recording is written once and a frame
-changes a number" would have become a sentence that was true on one machine and not the other.
-
-WebGPU keeps both. `drawIndirect` is there, and it wants `firstInstance` to be zero — which is the
-feature this project already declined to ask Vulkan for, so the four draws ported without a change. A
-render bundle is a command buffer recorded once, replayed with `executeBundles`. The desktop's shape
-survived intact, which is the whole reason it was worth the narrower support.
-
-**What did not survive** is mapped memory. There is no buffer the CPU writes into while the GPU holds
-it, so a frame copies — one `writeBuffer` a stream, out of the same managed arrays the simulation
-filled. It is the one place the two machines genuinely differ in kind rather than in spelling.
+WebGL2 cannot hold the shape this engine is built around: no indirect draw and no way to record a pass
+once, so "the recording is written once and a frame changes a number" would have been true on one machine
+and not the other. WebGPU has `drawIndirect` wanting `firstInstance` zero — the feature this project
+already declined to ask Vulkan for — and render bundles, so the four draws ported unchanged. What did not
+survive is mapped memory: a frame copies through `writeBuffer`, which is the one place the two machines
+differ in kind.
 
 ## 2026-08-30 — the module is a renderer, not a binding
 
-The obvious shape for `town.js` was a thin binding: `createBuffer`, `setPipeline`, `draw`, one JavaScript
-function per WebGPU call, with the frame written in C# exactly as the Vulkan one is. It would have read
-the same on both sides.
-
-It was refused because **the wall is not free and a binding puts a frame's worth of calls through it**.
-Fifteen crossings a frame is still O(1) in the size of the town, so it would not have broken rule 1 on
-paper — but it would have made the browser head's frame cost a function of how the renderer was written
-rather than of what the town holds, and the whole point of counting crossings is that the number is
-small and stated. So `town.js` knows what a town is made of: three pipelines, four draws, one bundle.
-`frame` takes three counts and the memory behind them, and everything else happens on the far side.
+A thin binding would read the same on both sides and puts a frame's worth of calls through the wall.
+Fifteen crossings a frame is still O(1), so it would not break rule 1 on paper — but it makes the frame
+cost a function of how the renderer was written rather than of what the town holds. `town.js` knows what a
+town is made of: three pipelines, four draws, one bundle.
 
 ## 2026-08-30 — every view onto the heap is an argument
 
-The first cut handed JavaScript a `Uint8Array` over each instance buffer once, at startup, and kept it
-for the run: no marshalling at all, and a frame that passed three integers.
-
-It is wrong, and quietly. **A view onto the WebAssembly heap is detached the moment the runtime grows
-its memory**, and the runtime grows its memory when the town does — so the page would have run
-perfectly until whichever frame followed an allocation that crossed a page boundary, and then thrown
-from inside `writeBuffer`. The views are arguments now, made fresh by the interop layer on each call
-and dead when it returns. It costs nothing on this side: the managed array is not copied either way.
+Handing JavaScript a `Uint8Array` over each instance buffer once at startup is wrong quietly: a view onto
+the WebAssembly heap is detached the moment the runtime grows its memory, which happens when the town
+does. The views are made fresh per call and dead when it returns, and it costs nothing — the managed array
+is not copied either way.
 
 ## 2026-08-30 — a picture of the page needs a window, and this is why
 
-`qq web --shot` opens a real browser window, which sits badly beside a project whose whole visual
-tier is taken with no window, no compositor and no desktop. It is not laziness, and the finding is
-worth keeping because it costs an afternoon to rediscover.
-
-**Headless Chromium runs all of this correctly except the last step.** It has WebGPU, it hands out an
-adapter, the WGSL compiles, the atlas uploads, the town stands up, the bundle records and the draws
-submit — every one of those was watched happening. What it cannot do is present to a WebGPU canvas:
-the first frame that reaches `getCurrentTexture` loses the device, with no validation error and no
-exception, and the page goes white. Rendering the same frame into an offscreen texture instead, in
-the same headless browser, works.
-
-So the shot is taken through the DevTools protocol against a window that is opened, photographed and
-closed. The tool says so, and so does this, because "why not headless" is the first question anybody
-will have.
+Headless Chromium runs all of this correctly except the last step: it has WebGPU, the WGSL compiles, the
+atlas uploads and the draws submit — but the first frame that reaches `getCurrentTexture` loses the
+device, with no validation error and no exception. Rendering into an offscreen texture in the same
+headless browser works. The shot is taken through the DevTools protocol against a real window, and this is
+written down because it costs an afternoon to rediscover.
 
 ## 2026-08-30 — the files go into the file system, not through a provider
 
-Everything above the machine reads `assets/` and `towns/` by walking up from where the binary landed.
-The tidy-looking answer for a page was an asset provider — an interface with two implementations,
-threaded through the catalogues, the variant files, the town reader and the sheet decode.
-
-That is fifteen call sites changed on both heads to serve one, and a second way of saying where a file
-is. The runtime has a file system; the page writes into it. `ProjectPaths` then finds the root exactly
-as it does beside a binary, and **not one reader above knows which machine it is on**.
-
-The price was that the page downloaded every map rather than the one it opened, because a town is
-opened from inside the loop and a loop cannot await. That is paid off below.
+An asset provider is fifteen call sites changed on both heads to serve one, and a second way of saying
+where a file is. The runtime has a file system and the page writes into it, so `ProjectPaths` finds the
+root exactly as it does beside a binary and not one reader above knows which machine it is on.

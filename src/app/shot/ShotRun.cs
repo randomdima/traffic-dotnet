@@ -113,6 +113,7 @@ internal static class ShotRun
         var quads = bare ? 0 : ui.Draw(renderer.Overlay, renderer.Underlay, new InterfaceFrame
         {
             World = world,
+            Ground = mesh,
             Config = config,
             Camera = camera,
             UiPx = uiPx,

@@ -40,7 +40,9 @@ namespace TrafficSimulation.CityGen;
 /// </remarks>
 internal sealed class Paving
 {
-    Paving(float walkM, GroundPieces pieces, LaneLines lanes, Kerbs kerbs, PavedRun[] walk, ArcSeg[][] corners)
+    Paving(
+        float walkM, GroundPieces pieces, LaneLines lanes, Kerbs kerbs, PavedRun[] walk, ArcSeg[][] corners,
+        PavedCap[] caps)
     {
         WalkM = walkM;
         Of = pieces;
@@ -48,6 +50,7 @@ internal sealed class Paving
         Kerbs = kerbs;
         Walk = walk;
         Corners = corners;
+        Caps = caps;
     }
 
     /// <summary>The shapes the pavement was laid off, for a reader that wants the road a band belongs to.</summary>
@@ -92,6 +95,19 @@ internal sealed class Paving
     public ArcSeg[][] Corners { get; }
 
     /// <summary>
+    /// <b>The ends the band really stops at, and the way it faces there</b>: what closes a run with the
+    /// half-round the answer measures past it (<c>GroundShapes.Paved</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>An end another run sets off from is not one of them.</b> Most of the ends in a town are seams and
+    /// not stops — a wrapping line that closes on itself is cut in two so that it can be walked
+    /// (<c>Kerbs.Spans</c>), and a line cut where it dives inside a neighbour resumes where it comes back
+    /// out — and a round struck at a seam is a circle of pavement laid inside pavement, which is nothing on
+    /// the ground and a full fan in the mesh.
+    /// </remarks>
+    public PavedCap[] Caps { get; }
+
+    /// <summary>
     /// How wide the band is. <b>The map's own figure where it has one</b>, and the town's where it does not,
     /// so a map laid without a pavement of its own is walked at the same width it is drawn.
     /// </summary>
@@ -103,8 +119,13 @@ internal sealed class Paving
         var lanes = LaneLines.Of(pieces, config);
         var kerbs = Kerbs.Of(pieces, lanes);
 
+        // <b>Welded at one place and not at a rounding</b> (<see cref="Kerbs.OnePlaceM"/>). A wrapping line
+        // that meets another tangentially runs that far past the point they cross before it is a rounding
+        // inside it, so every graze in the town left a span of a few centimetres standing as outline — a run
+        // whose two ends are one place, which is a walk-wide round of pavement struck off nothing. Odesa laid
+        // thirteen hundred of them, a third of all its runs, for a tenth of a percent of its pavement.
         var wraps = new List<Kerbs.Wrap>();
-        kerbs.Shell(walkM * 0.5f, Kerbs.RoundingM, null, wraps);
+        kerbs.Shell(walkM * 0.5f, Kerbs.OnePlaceM, null, wraps);
 
         var walk = new PavedRun[wraps.Count];
         for (var run = 0; run < wraps.Count; run++)
@@ -122,7 +143,8 @@ internal sealed class Paving
                 kerbs.OffTheTarmacM(on.PositionM - (on.Right * side * ((walkM * 0.5f) + AHairM))) > walkM);
         }
 
-        return new Paving(walkM, pieces, lanes, kerbs, walk, Corner.Turns(walk, walkM * 0.5f));
+        return new Paving(
+            walkM, pieces, lanes, kerbs, walk, Corner.Turns(walk, walkM * 0.5f), Corner.Stops(walk));
     }
 
     /// <summary>
@@ -144,7 +166,7 @@ internal sealed class Paving
 /// line, that is the turn's own direction where the road lies a quarter turn <em>behind</em> the way the
 /// run sets off, and against it where the road lies ahead.
 /// </remarks>
-readonly record struct Corner(Vector2 PlaceM, Vector2 RoadwardM, bool SetsOff)
+readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector2 AwayM, bool SetsOff)
 {
     /// <summary>
     /// <b>Half a turn is not a corner between two runs.</b> Two runs that hand over make a wedge of tarmac
@@ -153,26 +175,21 @@ readonly record struct Corner(Vector2 PlaceM, Vector2 RoadwardM, bool SetsOff)
     /// </summary>
     const float MostRad = MathF.PI;
 
+    /// <summary>
+    /// <b>How far two bearings may stand apart and still be one bearing</b>, as the length of the two unit
+    /// vectors' sum where they face opposite ways. A wrap and the runs it is cut into are one line, so two
+    /// runs that carry on from one another agree to the last bits of a float — a thousandth is a couple of
+    /// hundred times that, and still a hundredth of the way to the nearest pair that only <em>nearly</em>
+    /// line up. What it costs where it is wrong is half a walk times this: two millimetres of wedge.
+    /// </summary>
+    const float OneBearing = 0.001f;
+
     public static ArcSeg[][] Turns(PavedRun[] walk, float halfWalkM)
     {
         if (halfWalkM <= 0f) return [];
 
-        var ends = new List<Corner>(walk.Length * 2);
-        foreach (var run in walk)
-        {
-            var head = run.Line[0];
-            var tail = run.Line[^1];
-            ends.Add(At(run, head.StartM, head.HeadingRad, alongTheRun: 1f));
-            ends.Add(At(run, tail.EndM, tail.HeadingAtRad(tail.LengthM), alongTheRun: -1f));
-        }
-
-        var places = new Dictionary<(int X, int Y), List<int>>();
-        for (var end = 0; end < ends.Count; end++)
-        {
-            var cell = Cell(ends[end].PlaceM);
-            if (!places.TryGetValue(cell, out var here)) places[cell] = here = [];
-            here.Add(end);
-        }
+        var ends = EveryEnd(walk);
+        var places = PlacesOf(ends);
 
         // <b>An end is turned onto once.</b> Four runs meet at a place where two streets and a car park's
         // wrap all give way together, and two of them left to pick the shortest turn each picked the same
@@ -195,11 +212,97 @@ readonly record struct Corner(Vector2 PlaceM, Vector2 RoadwardM, bool SetsOff)
         return turns.ToArray();
     }
 
-    static Corner At(in PavedRun run, Vector2 placeM, float headingRad, float alongTheRun)
+    /// <summary>
+    /// <b>The rounds that close the band</b>, one for every end a run really stops at
+    /// (<see cref="Paving.Caps"/>) — which is every end no other run sets off from.
+    /// </summary>
+    public static PavedCap[] Stops(PavedRun[] walk)
+    {
+        var ends = EveryEnd(walk);
+        var places = PlacesOf(ends);
+        var caps = new List<PavedCap>(ends.Count);
+        foreach (var end in ends)
+        {
+            if (!end.CarriedOn(walk, ends, places)) caps.Add(new PavedCap(end.Run, end.PlaceM, -end.AwayM));
+        }
+
+        return caps.ToArray();
+    }
+
+    /// <summary>
+    /// <b>Whether the band runs on through this end</b>: another run setting off from the place this one
+    /// stops at, along the line this one arrived on, with the road on the same side and the same much or
+    /// little of it left for the shell's shadow. The two are one line cut in two, and what closes this end
+    /// is the next run's own concrete.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both the place and the bearing are asked to a rounding and no more</b>
+    /// (<see cref="Kerbs.RoundingM"/>, <see cref="OneBearing"/>). Two runs cut from one line at one point
+    /// stand at one point and set off along one bearing to the last bit of a float; two that <em>meet</em>
+    /// stand as much as <see cref="Kerbs.OnePlaceM"/> apart and leave a wedge between them that only a round
+    /// fills. Read with a place's worth of grace instead, a run that resumed a few centimetres past a graze
+    /// lost the round that closes the gap.
+    /// </remarks>
+    bool CarriedOn(PavedRun[] walk, List<Corner> ends, Dictionary<(int X, int Y), List<int>> places)
+    {
+        var cell = Cell(PlaceM);
+        for (var x = -1; x <= 1; x++)
+        {
+            for (var y = -1; y <= 1; y++)
+            {
+                if (!places.TryGetValue((cell.X + x, cell.Y + y), out var here)) continue;
+
+                foreach (var end in here)
+                {
+                    var other = ends[end];
+                    if (other.Run == Run) continue;
+                    if ((other.PlaceM - PlaceM).Length() > Kerbs.RoundingM) continue;
+                    if ((other.AwayM + AwayM).Length() > OneBearing) continue;
+                    if (Vector2.Dot(other.RoadwardM, RoadwardM) <= 0f) continue;
+                    if (walk[other.Run].Outline != walk[Run].Outline) continue;
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Both ends of every run, as the kerb each of them hands over.</summary>
+    static List<Corner> EveryEnd(PavedRun[] walk)
+    {
+        var ends = new List<Corner>(walk.Length * 2);
+        for (var run = 0; run < walk.Length; run++)
+        {
+            var head = walk[run].Line[0];
+            var tail = walk[run].Line[^1];
+            ends.Add(At(run, walk[run], head.StartM, head.HeadingRad, alongTheRun: 1f));
+            ends.Add(At(run, walk[run], tail.EndM, tail.HeadingAtRad(tail.LengthM), alongTheRun: -1f));
+        }
+
+        return ends;
+    }
+
+    /// <summary>The ends binned by the place they stand at, so a question about one is asked of its own.</summary>
+    static Dictionary<(int X, int Y), List<int>> PlacesOf(List<Corner> ends)
+    {
+        var places = new Dictionary<(int X, int Y), List<int>>();
+        for (var end = 0; end < ends.Count; end++)
+        {
+            var cell = Cell(ends[end].PlaceM);
+            if (!places.TryGetValue(cell, out var here)) places[cell] = here = [];
+            here.Add(end);
+        }
+
+        return places;
+    }
+
+    static Corner At(int run, in PavedRun walk, Vector2 placeM, float headingRad, float alongTheRun)
     {
         var awayM = Heading.Unit(headingRad) * alongTheRun;
-        var roadwardM = Heading.RightOf(Heading.Unit(headingRad)) * run.RoadSide;
-        return new Corner(placeM, roadwardM, Cross(roadwardM, awayM) < 0f);
+        var roadwardM = Heading.RightOf(Heading.Unit(headingRad)) * walk.RoadSide;
+        return new Corner(run, placeM, roadwardM, awayM, Cross(roadwardM, awayM) < 0f);
     }
 
     /// <summary>
@@ -332,3 +435,10 @@ readonly record struct Corner(Vector2 PlaceM, Vector2 RoadwardM, bool SetsOff)
 /// reaches the outside of the town at all.
 /// </summary>
 internal readonly record struct PavedRun(ArcSeg[] Line, float LengthM, float RoadSide, bool Outline);
+
+/// <summary>
+/// <b>One end the band stops at</b>: the run that stops there, the place it stops at and the way it faces
+/// past it. The band is closed with the half-round the answer measures there, and the half it faces is the
+/// half the run's own concrete does not already cover.
+/// </summary>
+internal readonly record struct PavedCap(int Run, Vector2 PlaceM, Vector2 OutwardM);

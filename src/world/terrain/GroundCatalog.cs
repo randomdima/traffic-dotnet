@@ -6,7 +6,8 @@ namespace TrafficSimulation.World.Terrain;
 /// <summary>
 /// What each kind of ground declares: who is permitted on it, whether it is directional, and what it
 /// does to a body travelling over it. The only place a member of <see cref="Ground"/> is named —
-/// everything above it asks for a permission set.
+/// everything above it asks for a permission set. The kinds it must tell apart are TER-3, and the
+/// catalogue is data, so a kind added here is a row rather than a branch anywhere above.
 /// </summary>
 /// <remarks>
 /// The permissions are the catalogue's own; the coefficient is <see cref="SimConfig"/>'s, so a retune

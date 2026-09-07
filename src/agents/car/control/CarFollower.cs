@@ -434,6 +434,9 @@ internal static class CarFollower
         SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float dtS,
         float lastMps2 = 0f)
     {
+        // Both terms, and not just the target: the handbrake is the car's own (CTL-5a), pulled on a dead
+        // stop it has already made and never on the way down to one, so a car waiting holds its spot
+        // instead of creeping.
         if (targetMps <= config.Driving.StopSpeedMps && MathF.Abs(alongMps) <= config.Driving.StopSpeedMps)
         {
             return new DriveCommand(steerRad, 0f, 0f, Handbrake: true, Reverse: false);

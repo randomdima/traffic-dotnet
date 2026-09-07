@@ -129,6 +129,14 @@ internal static class Theme
     /// </summary>
     public static readonly Vector4 LaneObstruction = new(0.74f, 0.42f, 0.98f, 0.95f);
 
+    /// <summary>
+    /// The triangles the ground is drawn out of (OBS-2o). <b>The one layer with no hue</b>, because it is
+    /// the one thing here that is not about the town: every colour above says whose a piece of the town is,
+    /// and a mesh belongs to nobody. A near-white hairline also reads over all five surfaces at once, which
+    /// a hue picked to stand off the tarmac would not do over the grass beside it.
+    /// </summary>
+    public static readonly Vector4 Wireframe = new(0.98f, 0.99f, 1f, 0.35f);
+
     public static readonly Vector4 RulerTape = new(1f, 0.95f, 0.35f, 1f);
 
     /// <summary>The brackets round the selected unit — the chrome's own accent, so the one mark standing on the town reads as the interface talking rather than as something the town is doing.</summary>

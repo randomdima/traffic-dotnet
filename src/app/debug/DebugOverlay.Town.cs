@@ -86,12 +86,13 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
-    /// The town's own graphs, laid into the cache: the lanes and their connectors under the nodes switch,
-    /// which is not switched with a body.
+    /// The geometry the town holds still, laid into the cache: the lanes and their connectors under the
+    /// nodes switch, and the ground's own triangles under the wireframe. Neither is switched with a body
+    /// and neither moves once the town is laid, which is what they are cached for.
     /// </summary>
     void RelayIfStale(
-        TownWorld world, SimConfig config, DebugSwitches switches, Vector2 viewCentreM, Vector2 viewSpanM,
-        float pixelsPerMetre)
+        TownWorld world, GroundMesh? mesh, SimConfig config, DebugSwitches switches, Vector2 viewCentreM,
+        Vector2 viewSpanM, float pixelsPerMetre)
     {
         var marginM = viewSpanM * MarginFraction;
         var inside = Vector2.Abs(viewCentreM - _drawnCentreM) + viewSpanM * 0.5f;
@@ -108,6 +109,16 @@ internal sealed partial class DebugOverlay
 
         var into = new ScreenDraw(_town);
         if (switches.Nodes) Nodes(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+
+        // <b>Last, so a mesh dense enough to fill the buffer takes no quads off the layer beside it.</b> A
+        // city's triangulation is more quads than the cache holds at any framing that admits it, and laid
+        // first it would leave the nodes switch on and drawing nothing. The cost is that the hairlines
+        // stand over the chevrons rather than under them, which at this weight is nothing to read.
+        if (switches.Wireframe && mesh is not null)
+        {
+            Wireframe(ref into, mesh, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+        }
+
         _townQuads = into.Written;
     }
 

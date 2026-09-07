@@ -51,9 +51,7 @@ answer by a test.
 **SOL-13** Coulomb friction, no bounce.
 **SOL-14** An impulse off the centre spins the body it hits, unless that body's rotation is locked.
 **SOL-15** The reference collision model is what the picture is matched against.
-**SOL-16** Static bodies are immovable, undamageable and never integrated (PHY-2).
 **SOL-17** Nothing is swept: a fast body can pass through a thin one.
-**SOL-18** The solver is not asked what an impact was worth — that is the damage component's (PHY-4).
 **SOL-19** Whether a ray reports the shape its origin lies inside is **stated and tested**.
 **SOL-35** The same town, seed and tick count produce the same digest, on one machine.
 **SOL-36** Whether the digest holds across machines and architectures is a claim to be tested, never
@@ -66,18 +64,13 @@ bodies touch and separate. A world whose bodies never meet allocates nothing in 
 finds a growing array is a contact set that turns over.
 **SOL-21** No structure over static geometry is rebuilt after load.
 **SOL-22** Per-tick work is linear in the moving roster and never in the static population.
-**SOL-23** A query is priced by what it can reach.
-**SOL-24** No per-call cost that scales with a capacity rather than with a use.
-**SOL-25** A box query over the moving roster is one traversal.
-**SOL-26** A budget, and it is a relation before it is a number: the physics phase must not be the tick.
 
 ## How it is written
 
-**SOL-27** Structure of arrays of blittable structs: no reference type per body, shape or contact.
-**SOL-28** No interface dispatch, delegate, closure or boxed context in a tick.
-**SOL-29** `System.Numerics.Vector2` is the vector type, because the JIT already knows it.
-**SOL-30** Scratch is owned or stack-allocated, and never zeroed to be used.
-**SOL-31** Spans over arrays, with bounds checks removed by shape rather than by `Unsafe`.
-**SOL-32** Nothing in the tick the JIT cannot see through: no LINQ, no iterator, no `params`.
-**SOL-33** Single-threaded; threading is a measured change with its determinism cost stated first.
-**SOL-34** SIMD only where measured, and never where it changes an answer.
+**Nothing, and that is deliberate.** How the tick is written — structure of arrays, no interface
+dispatch, no LINQ, scratch from a pool or the stack, one thread — is
+[CLAUDE.md](../../../../CLAUDE.md#the-two-rules-everything-else-answers-to) rule 2 and
+[goals.md](../../../../docs/goals.md#what-is-pinned-and-what-is-left-open), which hold it for the whole
+project and gate it. Restating it here made the solver the one slice with a second copy of the
+engineering rules, and a technique named as a requirement is a technique nothing may be measured against.
+What the solver owes on top of that is `SOL-20` and `SOL-22`, which are its own and are gated as its own.

@@ -12,21 +12,9 @@ way.
 
 ## Purpose and scope
 
-**PUR-1** The product is a multi-agent traffic simulation of a small town, viewed top-down, whose purpose
-is to make emergent agent behaviour observable.
-
-**PUR-2** Pedestrians, cars and traffic lights are all active agents; none of the three is scenery driven
-by something else's script.
-
-**PUR-3** Non-goals: not a game (no player character, objective or score) and not a scientific simulation
-(no calibration against real traffic data, no accuracy targets). **Where realism and observability
-conflict, observability wins.**†
-
-**PUR-4** The quality bar is **plausibility, not fidelity**: a human watching should find the layout and
-the decisions unsurprising. That is what every judgement call is settled against, and it is why several
-figures are frankly unrealistic.†
-
-**SIM-5** The simulation runs continuously with no end condition. Trips turn over; nothing completes.
+**What this project is for, what it refuses to be, and the bar every judgement call is settled against
+are [goals.md](goals.md)** — stated there and nowhere else, because a purpose written twice is two
+purposes within a month.
 
 **TEC-1** The spec constrains no engine, language or renderer; this project settles it as C# on .NET 10
 with nothing under it ([goals.md](goals.md)).
@@ -35,9 +23,6 @@ with nothing under it ([goals.md](goals.md)).
 dynamic body is a rigid body driven only by traction-limited friction and drive impulses; pushes,
 stopping and terrain effects are **solver output, never scripted displacement**. Motion is continuous and
 vector-based: no grid quantisation of position, velocity or heading anywhere.
-
-**TEC-3** Terrain may be authored on a grid, but that structure **must not constrain agent positions**:
-it is a spatial classification only.†
 
 ## The two rule classes
 
@@ -77,8 +62,6 @@ Units, the two seeds, the tick and the decision clock are [core](../src/core/doc
 
 ## The object catalogue
 
-**OBJ-1** An object is static or dynamic.
-
 **OBJ-2** Five kinds, two shapes:
 
 **One shape**, an oriented box with its corners rounded, and the five kinds are what they set it to:
@@ -97,9 +80,6 @@ solver holds one shape and one narrow phase for all five (`SOL-1`).
 **A car collides as a shape fitted inside its picture** and not as the footprint that picture was drawn
 in (`CAR-12b`). A per-variant hull is still not what the town is laid against.
 
-**OBJ-3** Props differ only in size, sprite and **kind**; one static circular prop type with variants
-satisfies every kind of filler, and **a prop's kind decides where it may stand**.
-
 **OBJ-4** A building exposes at least one point on walkable terrain through which persons enter and exit
 ([world/containment](../src/world/containment/docs/requirements.md)).
 
@@ -114,18 +94,6 @@ is stood are one answer and cannot drift apart.
 against **the queries it joins**, not against what it draws.
 
 ## Agents
-
-**AGT-1** An agent is an object that acts on its own internal rules each simulation step.
-
-**AGT-2** Every agent has an **action set** (what it can physically do), a **soft rule set** (what it
-should prefer) and a **behaviour** (how it picks goals). The three are specified separately per agent
-type and **stay separable in the implementation**.†
-
-**AGT-3** Agents pursue a destination while continuously reacting to nearby objects, terrain and signals.
-Both concerns are required.
-
-**AGT-4** An agent whose soft rules conflict with its situation follows that agent type's recovery rule
-(PER-8, CAR-9, CAR-9a) rather than freezing indefinitely.†
 
 **AGT-5** An agent in a terminal state — a broken car, and nothing else — performs no further actions. A
 person knocked down takes no actions either, and is **not** terminal: an ambulance is coming for them

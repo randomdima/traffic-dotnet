@@ -21,7 +21,7 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [core/](../src/core/) — the kernel | [requirements](../src/core/docs/requirements.md) | [log](../src/core/docs/decision-log.md) |
 | [citygen/](../src/citygen/) — the plan | [requirements](../src/citygen/docs/requirements.md) | [log](../src/citygen/docs/decision-log.md) |
 | [world/terrain/](../src/world/terrain/) — the ground | [requirements](../src/world/terrain/docs/requirements.md) | [log](../src/world/terrain/docs/decision-log.md) |
-| [world/road/](../src/world/road/) — streets, junctions, paint | [requirements](../src/world/road/docs/requirements.md) | [log](../src/world/road/docs/decision-log.md) |
+| [world/road/](../src/world/road/) — streets, junctions, paint | [requirements](../src/world/road/docs/requirements.md) · [claims](../src/world/road/docs/claims.md) | [log](../src/world/road/docs/decision-log.md) |
 | [world/routing/](../src/world/routing/) — the two tiers | [requirements](../src/world/routing/docs/requirements.md) | [log](../src/world/routing/docs/decision-log.md) |
 | [world/physics/](../src/world/physics/) — the wall | [requirements](../src/world/physics/docs/requirements.md) · [solver](../src/world/physics/docs/solver.md) | [log](../src/world/physics/docs/decision-log.md) |
 | [world/containment/](../src/world/containment/) — being inside something | [requirements](../src/world/containment/docs/requirements.md) | — |
@@ -56,17 +56,18 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 
 | IDs | Subject | Document |
 |---|---|---|
-| `PUR-1…4`, `TEC-1…3`, `SIM-5` | Purpose, non-goals, technology | [requirements.md](requirements.md#purpose-and-scope) |
+| `TEC-1`, `TEC-2` | What no engine is taken for, and what the physics layer owes | [requirements.md](requirements.md#purpose-and-scope) |
 | `SIM-1`, `SIM-2`, `SIM-6`, `SIM-7` | Hard vs soft, body state, ban vs price, one mechanism | [requirements.md](requirements.md#the-two-rule-classes) |
 | `SIM-3`, `SIM-4`, `AGT-6` | Units, the two seeds, where randomness comes from | [core](../src/core/docs/requirements.md) |
 | `WEB-1…9` | The browser head: what is halved, the crossing budget, what a page does not carry, what it weighs, what a publish must hold, and what nothing waits for | [app/web](../src/app/web/docs/requirements.md) |
-| `OBJ-1…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
-| `AGT-1…5`, `AGT-7` | What an agent is; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
-| `VER-1…11` | What must be demonstrated | [verification.md](verification.md) |
+| `OBJ-2`, `OBJ-4…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
+| `AGT-5`, `AGT-7` | The terminal state; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
+| `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `TER-1…3a`, `TER-3b…3c.6`, `TER-7`, `PHY-8` | The ground, the pavement, water and bridges | [world/terrain](../src/world/terrain/docs/requirements.md) |
-| `TER-4…6` | Roads, junctions, what a movement takes off another, right of way, crossings, paint | [world/road](../src/world/road/docs/requirements.md) |
+| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5`…`TER-5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-6` | Roads, junctions, crossings, paint | [world/road](../src/world/road/docs/requirements.md) |
+| `TER-4c`…`TER-4c.3`, `TER-5c`…`TER-5c.2`, `TER-5e`, `TER-5g` | What a movement takes off another, right of way, what a claim is and what is standing on a lane | [world/road/claims](../src/world/road/docs/claims.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
-| `SOL-1…36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
+| `SOL-1…22`, `SOL-35`, `SOL-36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4m` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
 | `GEN-1…3`, `GEN-5…18a` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, and that no lane dangles | [citygen](../src/citygen/docs/requirements.md) |
@@ -78,7 +79,7 @@ stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
 | `OBS-1`, `OBS-1a` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
 | `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i`, `OBS-2k…2n` | The status panel and its claims, the menu, the legend, the ruler, the unit read-out, the card a map is opened behind | [app/hud](../src/app/hud/docs/requirements.md) |
-| `OBS-2b…2d`, `OBS-2h`, `OBS-2j` | The debug layers, the read-out and the turn circle | [app/debug](../src/app/debug/docs/requirements.md) |
+| `OBS-2b…2d`, `OBS-2h`, `OBS-2j`, `OBS-2o` | The debug layers, the read-out, the turn circle and the ground's own triangulation | [app/debug](../src/app/debug/docs/requirements.md) |
 | `CTL-1…8d` | Selection, orders, a car's four of them, hand driving, the unit's own action | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |
 | `P-*`, `E-*` | The driving manoeuvre catalogue — one page and one file per entry | [agents/car/maneuvers](../src/agents/car/maneuvers/docs/index.md) |

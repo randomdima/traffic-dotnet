@@ -92,9 +92,11 @@ internal sealed partial class TownWorld
             // stopped at the paint is standing on the very ground it stopped to give up, and whoever it
             // gave way to is refused by it for as long as it stands there (TER-5e).
             //
-            // <b>Only the courtesy is what a reckless driver drops</b> (CAR-13). Giving way to somebody
-            // still on the kerb is a stop owed to a person who has not started; a body already on the paint
-            // is a body, and no habit of the driver's makes it anything else.
+            // <b>Only the courtesy is what a reckless driver drops</b> (CAR-13), and it is the same
+            // courtesy a blue light drops (AMB-4.3). Giving way to somebody still on the kerb is a stop
+            // owed to a person who has not started; a body already on the paint is a body, and neither a
+            // habit of the driver's nor a rescue makes it anything else — which is why
+            // <see cref="AnybodyOnTheCrossing"/> is asked ahead of the pair of them and not beside them.
             var wouldRestOnIt = stopShortOfM + noseM < farEdgeM + Cars.BuildOf(car).LengthM;
             stopAtM = centreM < nearEdgeM
                       && (wouldRestOnIt || AnybodyOnTheCrossing(lane, painted.AlongM(slot))

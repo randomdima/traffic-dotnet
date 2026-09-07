@@ -400,7 +400,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>
     /// <b>How many of this town's people do not keep the driver's courtesies</b> (CAR-13) — the
     /// denominator <see cref="RedBarCrossings"/> is read against, and the reason a lit town no longer
-    /// reports zero of them.
+    /// reports zero of them. A red one of these crosses is a violation and is counted (CAR-13.3), which
+    /// is the whole of how they differ from an ambulance: AMB-4.2 exempts a rescue, so it breaches
+    /// nothing and adds to neither figure.
     /// </summary>
     public int RecklessDrivers { get; private set; }
 

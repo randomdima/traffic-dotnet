@@ -51,8 +51,6 @@ this project's figures may never be.
 **CAR-4** Steering changes heading **only as a function of travel and steering angle** — a stationary car
 does not rotate.
 
-**CAR-5** Reverse has its own much lower speed cap; acceleration and braking are bounded.
-
 **CAR-4a** Every driven line is a line for the **rear axle**, the one point on a car that travels the way
 the car is pointing, and every pose that meets a line is measured to it. The middle of the body crabs,
 and the tightest circle it can hold is `√(R² + d²)`. A template drawn through the middle of the car at

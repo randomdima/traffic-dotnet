@@ -26,9 +26,9 @@ internal static class SheetRun
 {
     /// <summary>
     /// How many distinct colours a cell has to carry before it is a picture of anything, sampled on a
-    /// coarse lattice. Below it the cell is reported and still written: a frame that came back flat is
-    /// nearly always a staging mistake, but a menu over an empty world is legitimately nearly flat and
-    /// refusing to write it would make the sheet unable to photograph the interface.
+    /// coarse lattice. Below it the cell is reported and still written (SHT-6): a frame that came back
+    /// flat is nearly always a staging mistake, but a menu over an empty world is legitimately nearly
+    /// flat and refusing to write it would make the sheet unable to photograph the interface.
     /// </summary>
     const int FewColours = 32;
 

@@ -72,6 +72,15 @@ internal sealed partial class Game : IDisposable
     Vector2 _uiPx;
 
     TownWorld? _world;
+
+    /// <summary>
+    /// The ground the renderer standing was laid from, kept because the wireframe layer draws its
+    /// triangles (OBS-2o). <b>The one the town is drawn out of and never a second one</b>: it is handed
+    /// to the renderer and to the layer from here, so what is on screen and what is outlined are cut the
+    /// same way.
+    /// </summary>
+    GroundMesh? _ground;
+
     SimLoop<TownWorld>? _loop;
 
     /// <summary>The proving ground's own instrument, on the proving ground and nowhere else.</summary>
@@ -569,6 +578,7 @@ internal sealed partial class Game : IDisposable
 
         _world?.Dispose();
         _world = world;
+        _ground = mesh;
         _loop = new SimLoop<TownWorld>(world, _config);
 
         // The watches are built with the town and not once it is running: one of them stages what its map
@@ -697,6 +707,7 @@ internal sealed partial class Game : IDisposable
     InterfaceFrame Describe() => new()
     {
         World = _world,
+        Ground = _ground,
         Config = _config,
         Camera = _camera,
         UiPx = _uiPx,

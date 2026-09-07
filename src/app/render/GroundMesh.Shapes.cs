@@ -258,20 +258,22 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// A disc: the ground a junction's arms share and the head a dead end turns in, and the pavement
-    /// round the outside of either. <b>Stepped along its own circumference</b>, as every other arc here
-    /// is — walked by its radius it comes out an octagon at the size a junction is, and a flat a quarter
-    /// of a metre deep is a notch cut into every carriageway that runs into the node.
+    /// <b>The half-round that closes the end of a band</b>: everything within a radius of the place it
+    /// stops at, on the side it faces. <b>Stepped along its own circumference</b>, as every other arc here
+    /// is — walked by its radius a round of a pavement's width comes out a hexagon, and the flats read as
+    /// a corner cut off the end of the concrete.
     /// </summary>
-    void Disc(Vector2 centreM, float radiusM, Surface surface, Vector3 tint, float[] periods)
+    void HalfRound(
+        Vector2 centreM, float radiusM, Vector2 outwardM, Surface surface, Vector3 tint, float[] periods)
     {
         if (radiusM <= 0f) return;
 
-        var steps = Steps(radiusM, MathF.Tau);
+        var steps = Steps(radiusM, MathF.PI);
+        var fromRad = MathF.Atan2(outwardM.Y, outwardM.X) - (MathF.PI * 0.5f);
         var centre = Vertex(centreM, surface, tint, periods);
         for (var step = 0; step <= steps; step++)
         {
-            var angleRad = MathF.Tau * step / steps;
+            var angleRad = fromRad + (MathF.PI * step / steps);
             Vertex(centreM + radiusM * new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad)), surface, tint, periods);
             if (step > 0) Triangle(centre, centre + step, centre + step + 1);
         }
