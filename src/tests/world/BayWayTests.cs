@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.World;
 /// is in no table is a car park nothing in the town can see.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class BayWayTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

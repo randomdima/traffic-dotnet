@@ -19,6 +19,7 @@ namespace TrafficSimulation.Tests.World;
 /// that there is room for it, and that it binds somebody.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P1)]
 public class CrossingTrafficTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -69,7 +70,7 @@ public class CrossingTrafficTests
     [Fact]
     public void TheTrafficGivesWayAtAnUncontrolledCrossing() =>
         Assert.True(
-            Of("Odesa").GaveWay > 0,
+            Of(Towns.City).GaveWay > 0,
             "no driver in a minute of Odesa gave way to somebody standing at an uncontrolled crossing");
 
     /// <summary>
@@ -85,7 +86,7 @@ public class CrossingTrafficTests
     /// what is refused here is a second record of ground the road's claim already answers for.
     /// </remarks>
     [Fact]
-    public void NoCarEverClaimsThePavementOnAZebra() => Assert.Null(Of("Odesa").CarInTheWalkersClaims);
+    public void NoCarEverClaimsThePavementOnAZebra() => Assert.Null(Of(Towns.City).CarInTheWalkersClaims);
 
     /// <summary>What <see cref="NoCarIsEverInThePavementsBookOnAZebra"/> watches for.</summary>
     static void NothingButWalkersIsOnTheWalksSideOfAZebra(TownWorld world, Watched found)
@@ -128,7 +129,7 @@ public class CrossingTrafficTests
     [Fact]
     public void ABodyRefusedALaneIsGrantedNoFurtherThanItsEdge()
     {
-        var run = Of("Odesa");
+        var run = Of(Towns.City);
 
         Assert.Null(run.GrantedPastTheEdge);
     }
@@ -167,7 +168,7 @@ public class CrossingTrafficTests
     [Fact]
     public void ABodyRefusedALaneWalksIntoItOnceItIsGranted() =>
         Assert.True(
-            Of("Odesa").GotIn > 0,
+            Of(Towns.City).GotIn > 0,
             "nobody in a minute of Odesa got into a lane of a crossing they were refused");
 
     /// <summary>What <see cref="ABodyRefusedALaneWalksIntoItOnceItIsGranted"/> watches for.</summary>

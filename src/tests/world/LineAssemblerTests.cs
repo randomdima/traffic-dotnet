@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.World;
 /// join through each junction, which is the only geometry in the town that no plan carries.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class LineAssemblerTests
 {
     public static TheoryData<string> Maps => Towns.EveryTown();

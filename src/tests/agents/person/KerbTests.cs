@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// is checked on a running town.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P1)]
 public class KerbTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

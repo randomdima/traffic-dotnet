@@ -5,6 +5,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Simulation;
 
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class SimClockTests
 {
     static SimClock Clock() => new(SimConfig.Shipped().TickSeconds, SimConfig.Shipped().Sim.SoakMaxTimeScale);

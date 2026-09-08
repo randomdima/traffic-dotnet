@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// steering angle a circle of a given radius needs, the distance a stop needs at a given speed.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class CarFollowerTests
 {
     static readonly SimConfig Figures = SimConfig.Shipped();

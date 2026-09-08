@@ -5,6 +5,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Geometry;
 
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class WorldScaleTests
 {
     [Fact]

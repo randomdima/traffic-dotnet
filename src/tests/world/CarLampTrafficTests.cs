@@ -9,11 +9,17 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// CAR-14 against a town being driven rather than against arithmetic: that the lamps are wired to the
-/// driving and not merely to a struct. Every lamp is a read of state something else sets, so the way
-/// this breaks is silently — the arithmetic keeps passing while nothing on screen ever lights up.
+/// CAR-14 and CTL-5c against a town rather than against arithmetic: the states a lamp is read from that
+/// only a standing world has — a car nobody has driven yet, and one a player has taken the wheel of.
 /// </summary>
+/// <remarks>
+/// <b>A minute of a city counting brake lamps used to be here and is not</b> (VER-12): what it asserted
+/// was <c>count &gt; 0</c> over driven traffic, which goes red the day a fixture is given room and says
+/// nothing about a rule. That both lamps follow the pedal and the line ahead is <c>CarLampTests</c>', from
+/// a command and a line, in microseconds.
+/// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P6)]
 public class CarLampTrafficTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -31,36 +37,6 @@ public class CarLampTrafficTests
         }
     }
 
-    /// <summary>
-    /// A minute of a city is a minute of cars braking for one another and turning at junctions, so both
-    /// lamps have to happen — and be seen to, since what lights them is read off the command and the
-    /// line rather than set anywhere.
-    /// </summary>
-    [Fact]
-    public void ADrivenTownBrakesAndIndicates()
-    {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        var braked = 0;
-        var indicated = 0;
-
-        // The minute is the bound on how long a city can take to show both, and not a window worth
-        // watching to the end of: the second that has seen each of them once is the whole answer.
-        for (var second = 0; second < 60 && (braked == 0 || indicated == 0); second++)
-        {
-            loop.Advance((int)MathF.Round(1f / Config.TickSeconds));
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                var showing = CarLamps.Showing(world.Cars, car, Config, Selection.Holds(world.HandDriven, SelectionKind.Car, car));
-                if ((showing & CarLampSet.Brake) != 0) braked++;
-                if ((showing & (CarLampSet.TurnLeft | CarLampSet.TurnRight)) != 0) indicated++;
-            }
-        }
-
-        Assert.True(braked > 0, "a minute of a city went by with nobody's brake lamps on");
-        Assert.True(indicated > 0, "a minute of a city went by with nobody indicating a turn");
-    }
 
     /// <summary>
     /// CTL-5c against a town: a police car is taken over from its apron, which is the state the
@@ -70,7 +46,7 @@ public class CarLampTrafficTests
     [Fact]
     public void APoliceCarTakenOverFromItsApronRunsItsBeacon()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var police = FirstPoliceCarIn(world);
 
         world.Select(new Selection(SelectionKind.Car, police));

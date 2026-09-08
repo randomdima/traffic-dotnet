@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.PlayerControl;
 /// let the hand's own tremor through would turn every click into a box round one unit.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class GestureTests
 {
     static readonly float ThresholdPx = SimConfig.Shipped().View.PointerDragPx;

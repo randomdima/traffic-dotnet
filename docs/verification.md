@@ -1,7 +1,8 @@
 # Verification
 
 **Four tiers, cheapest first. A claim is checked at the cheapest tier that can answer it**, and a claim
-no tier can answer has not been written falsifiably.
+no tier can answer has not been written falsifiably. A fifth run exists and is not one of them: `Maps`
+asks after somebody's shipped city rather than after this engine, and is never part of the suite.
 
 | Tier | Answers | Cost | Where |
 |---|---|---|---|
@@ -34,22 +35,81 @@ spends money, so no command reaches it by default and every route to the suite t
 ## The suite is selected by tier, not by folder
 
 **Cost does not follow the slice tree.** One feature's folder holds a microsecond of walker arithmetic
-beside two seconds of Odesa, so `tests/` goes on mirroring `src/` folder for folder and the cost lives
+beside a second of a whole town, so `tests/` goes on mirroring `src/` folder for folder and the cost lives
 in a trait: every test class carries exactly one `[Trait(Tier.Key, …)]`
 ([tests/Tier.cs](../src/tests/Tier.cs)), and `TierTests` fails the suite for one that carries none — a
 class in no tier's filter is never run again and nothing says so.
 
-| Tier | What it asks | Config |
-|---|---|---|
-| `Unit` | engine-free arithmetic, and the fixture map where a question needs a place | Release |
-| `Town` | a question asked of a *shipped* city — read, laid out over, or ticked | Release |
-| `Perf` | the four gates below: what is measured over a whole town | Release, and Debug for one class |
-| `E2E` | the visual tier, tier 4 above | Debug |
+| Tier | What it asks | Config | In `all` |
+|---|---|---|---|
+| `Unit` | engine-free arithmetic, and the fixture map where a question needs a place | Release | yes |
+| `Town` | a question asked of a town that is stood up — read, laid out over, or ticked | Release | yes |
+| `Perf` | the four gates below: what is measured over a whole town | Release, and Debug for one class | yes |
+| `Maps` | the shipped cities, asked for by name | Release | **no** |
+| `E2E` | the visual tier, tier 4 above | Debug | **no** |
 
 **Three multipliers separate a tier from the untiered suite**: Debug costs roughly four times Release
 across the whole suite, `Perf` is serialised on purpose, and a town is only ticked once however many
-claims are asked of that minute of it. **The unit tier is about a third of the cases and under a second of
-the time**, which is the whole reason it is the one run after every edit.
+claims are asked of that minute of it. **The unit tier stands no world up at all** — it is two
+seconds and about half the cases, which is the whole reason it is the one run after every edit.
+
+## The suite has five minutes, and a new test is paid for out of them
+
+**`qq tests all` may not cost more than five minutes**, and every run of it prints what it spent against
+that ([tests.py](../.qq/tests.py)). It is **reported and never asserted**: a wall clock measures the
+machine as much as the suite, and this project's own rule is that a bound is a figure on `SimConfig` and
+not a reading off a stopwatch. What the figure is for is the moment somebody wants to add a test.
+
+**When the budget is spent, what gives way is chosen from the bottom of a ladder and never from the top.**
+Every test class carries a rung as well as a tier — `[Trait(Priority.Key, Priority.P…)]`,
+[tests/Priority.cs](../src/tests/Priority.cs) — and the rung answers one question: *what is the town if
+this is wrong?*
+
+| Rung | What is wrong | Classes | Summed |
+|---|---|--:|--:|
+| `P0` | the engine is not one — the two rules, the solver, the clock | 14 | 23 s |
+| `P1` | the town is unsafe — bodies overlap, ground is granted twice, a body is hurt wrongly | 17 | 99 s |
+| `P2` | an agent does not do its job — a trip, a rescue, a recovery, a right of way | 33 | 271 s |
+| `P3` | the town is laid wrong — the generator, and the bar every map is held to | 13 | 32 s |
+| `P4` | something derived from the plan disagrees with it — graphs, networks, registries | 16 | 36 s |
+| `P5` | what is drawn is in the wrong place | 8 | 7 s |
+| `P6` | the player cannot do something | 20 | 22 s |
+| `P7` | an instrument lies | 6 | 11 s |
+| `P8` | authored data is malformed | 5 | 1 s |
+| `P9` | a detail is off | 5 | 1 s |
+
+**A tier is what a question costs; a rung is what its answer is worth**, and neither can be read off the
+other — the cheapest class in the suite guards the solver and one of the dearest checks where a lamp is
+drawn. `TierTests` fails the suite for a class naming neither, because a class in no filter is never run
+again and nothing says so.
+
+**`qq tests --upto=N` cuts a run at a rung.** `--upto=1` is every claim about the engine's integrity and
+the town's safety, which is a few seconds and is the cut worth taking while chasing a solver bug.
+
+## A shipped city is content, and content is not the suite's subject
+
+**Nothing in `all` asks a question of a shipped city.** The suite asks its questions of two towns of its
+own ([Towns](../src/tests/citygen/Towns.cs)): `Towns.Fixture`, the file every detailed check is staged on,
+and `Towns.City`, a whole town laid from a brief in that same file at a seed of its own — water, bridges,
+districts, frontages, bays, a hospital, a station, a depot and a crowd, at a fraction of what a shipped
+city costs to tick.
+
+**Three things between them leave nothing for a city to say.** What the generator owes whatever seed it is
+given is `GeneratorTests`', over four unrelated seeds and both kinds of water. What a map laid to measure
+one thing claims is that map's own watch. What this engine owes a town is asked of the town the suite laid.
+A build may ship any number of cities at any number of seeds, and a suite that gated on them would be a
+function of the content rather than of the code — green or red depending on whose map was added last.
+
+**`qq tests maps` is the whole of what is asked of them, and it is asked deliberately**: the shallow bar
+every town is held to, that the city can be driven round, that it declares the services this build would
+place, and that a minute of it leaves nobody stuck inside anybody. It is the run for the moment a city is
+added or its brief retuned, not for an edit to the engine. **The bar itself is one machine**
+([Conformance](../src/tests/citygen/Conformance.cs)), read by the town tier for the maps this build lays
+and by this tier for the cities somebody ships, so the two cannot disagree about what a town owes.
+
+**A gate is not an exception to this.** A gate is a question about the engine and a town is only the load
+it is put under, so what it wants is the worst load this build can stand up — `Towns.EveryMapWorthAGate`:
+the suite's own two, and the laboratories whose traffic actually piles up.
 
 **Two things want Debug and neither is a tier.** `CrossingGateTests` reads a counter that is
 `[Conditional("DEBUG")]`, so `qq tests perf` takes that one class in Debug and the rest of the gates in
@@ -58,8 +118,8 @@ frame. Everything else is measured in Release, where it asserts the same things 
 allocation is counted by `GC.GetAllocatedBytesForCurrentThread`, which counts the same bytes in either
 configuration, and this engine has no `Debug.Assert` anywhere.
 
-**A town is ticked once and every claim about that minute is read off the one run.** A shipped city is
-seconds and the questions to ask of it are dozens, so the classes that watch a running town keep a
+**A town is ticked once and every claim about that minute is read off the one run.** A town is seconds
+and the questions to ask of it are dozens, so the classes that watch a running town keep a
 memoised run per map — the shape [Towns](../src/tests/citygen/Towns.cs) already uses for plans, carried
 on to the towns those plans are stood up as. A claim that has to watch the ticks go past records what it
 saw *during* that one run rather than standing a second world, and where two claims want two different
@@ -72,9 +132,16 @@ one build of it however many claims there are.
 up rarely is caught, and what makes one turn up is traffic: the maps behind the scenario submenu are laid
 to put one behaviour under a microscope, so a ten-minute run over five streets with a walker apiece
 witnesses nothing the first ten seconds did not and costs the whole of the run to say so. Minutes of
-driving go to `Towns.EveryMapWorthASoak`; a claim answered off a plan, a graph or a town at rest goes on
-being asked of every shipped map, where a small map costs a tenth of a second and is the one that catches
-the odd shape.
+driving go to `Towns.City`; a claim answered off a plan, a graph or a town at rest goes on being asked of
+`Towns.EveryTown` and, where it is about the arrangement rather than about one place,
+`Towns.EveryLaidMap` — where a small map costs a tenth of a second and is the one that catches the odd
+shape.
+
+**A soak's subject is staged, and never waited for.** Whether a town knocks one of its own people down
+inside ten minutes is a fact about how crowded it is, so a claim about what happens to a casualty orders
+one the way the probe does and asserts what the town did with the order. A run that waited for the town to
+produce its own subject is one that quietly asserts nothing the day the town is given room — which is the
+same defect as `count > 0` below, arrived at from the other end.
 
 **A claim that something happened ends the run that shows it.** Where every assertion is existential — a
 mark reached the ground, a road was closed and a casualty still delivered, both lamps lit — the tick that
@@ -84,7 +151,7 @@ count that must stay zero has no such end and runs its length.
 
 ## What earns a test
 
-**VER-12** **A test states one exact behaviour or one stated requirement, and fails when that is wrong and
+**VER-12** `P4` **A test states one exact behaviour or one stated requirement, and fails when that is wrong and
 for nothing else.** Four shapes are not tests, and none of them may be added:
 
 - **The derivation written out twice.** Scaling a figure and asserting everything scaled with it, or
@@ -151,20 +218,22 @@ question and one the probe is entitled to answer for itself.
 **Every town the suite asks a question of is read once and handed out** — reading a city is a tenth of a
 second and there are a dozen questions to ask of it.
 
-**A shared plan must not be written to.** A test that breaks a town on purpose reads its own copy, and
-the day this project has a generator its two determinism tests take a fresh town twice on purpose:
+**A shared plan must not be written to.** A test that breaks a town on purpose reads its own copy
+(`Towns.Fresh`), and the generator's determinism cases lay their town twice on purpose (`Towns.LayFresh`):
 handed the shared one they would compare a town to itself and pass whatever the generator did.
 
 **Ask a whole city the shallow questions only**; detailed geometry is asked of named places on the
 fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 
 **A laboratory map is asked what it was laid to answer and nothing else.** A city's own questions — bays,
-pavements, crossings, stations, the beat — go to the cities and the fixture map (`Towns.EveryTown`),
-because a map laid to measure one thing holds whatever that question needed and no more: asked about
-parking, a proving ground answers over an empty set and reads like coverage. **What each of those maps is
-for, it claims itself** and its own tier reads that claim. What stays on `Towns.EveryShippedMap` is what is
-about the shipped set rather than about a town: that every file reads back as it was written, that every
-map conforms and draws, that every one of them is watched against something, and the two gates.
+pavements, crossings, stations, the beat — go to `Towns.EveryTown`, which is the fixture map and the town
+the suite lays, because a map laid to measure one thing holds whatever that question needed and no more:
+asked about parking, a proving ground answers over an empty set and reads like coverage. **What each of
+those maps is for, it claims itself** and its own tier reads that claim. What stays on
+`Towns.EveryLaidMap` is what is about the set of maps this build lays rather than about a town: that every
+file reads back as it was written, that every map conforms and draws, and that every one of them is
+watched against something. `Towns.EveryShippedMap` is for what is about the menu itself — that every map
+has a catalogue row and can be opened — and nothing else may use it.
 
 ## What a map claims about itself
 
@@ -205,25 +274,25 @@ as the probe does.
 
 Each is a *relation holding over a sample*, not a list of cases to tick off.
 
-**VER-1** A generated city satisfies the connectivity, spacing and parking rules for a large sample of
+**VER-1** `P8` A generated city satisfies the connectivity, spacing and parking rules for a large sample of
 world seeds, within the attempt bound. Internal rejection is not a failure; exhausting the bound is.
 
-**VER-2** Every parking space can be entered and left by a legal manoeuvre, reverse permitted, and a car
+**VER-2** `P8` Every parking space can be entered and left by a legal manoeuvre, reverse permitted, and a car
 that has to come back the way it came can do it — in a bay of a car park (`GEN-4l`) or by working itself
 round in a dead end (`P-19`), which are the two ways round there are (TER-5f).
 
-**VER-3** Over a long unattended run, **no dynamic body ends up overlapping another** and **no agent is
+**VER-3** `P8` Over a long unattended run, **no dynamic body ends up overlapping another** and **no agent is
 permanently stuck**: every agent either progresses toward a goal, is legitimately idling, or is in a
 terminal state. Abandoned cars are not agents and are exempt.
 
-**VER-6** Damage outcomes are the energy arithmetic **and nothing else**, for every ordered pair of
+**VER-6** `P8` Damage outcomes are the energy arithmetic **and nothing else**, for every ordered pair of
 participant kinds and every band of contact energy — including that the same contact may break one
 participant and not the other — plus the three exemptions, the spent-body rules, and that the band a
 person is put down at is the slide it leaves in them.
 
-**VER-8** A whole trip completes end to end.
+**VER-8** `P8` A whole trip completes end to end.
 
-**VER-11** **Every map states what it claims about itself, and every run of it says whether it kept it** —
+**VER-11** `P8` **Every map states what it claims about itself, and every run of it says whether it kept it** —
 in the panel a player is looking at and in the output a script reads, off one watch. A map laid to measure
 one thing claims that thing; every town, laid or traced, claims the three above it: `PHY-1`, that nothing
 goes on driving into ground it was refused (`TER-4c.1`), and that nothing stands still with no clock
@@ -236,11 +305,11 @@ says nothing about anybody driving on. Read as a run of ticks each deeper than t
 what it is for — and the run it allows is longer than any stop from town speed, because the ticks a body
 spends arriving at rest are the mechanism working rather than a body ignoring it.
 
-**VER-9** Claims about the picture that **can** be stated as a threshold — markings sit on the road, a
+**VER-9** `P8` Claims about the picture that **can** be stated as a threshold — markings sit on the road, a
 signal head hangs where its doctrine puts it and shows the lamp its cycle publishes — are checked on
 rendered frames, because every other kind of check answers them about the numbers instead.
 
-**VER-10** Claims about the picture that **cannot** be a threshold — that a dashed line is evenly pitched
+**VER-10** `P8` Claims about the picture that **cannot** be a threshold — that a dashed line is evenly pitched
 and runs down the middle of its road, that a texture tiles along a wheel rather than stretching and
 seaming, that a pavement sweeps round a corner rather than kinking, that traffic looks like traffic — are
 checked by **staging the scene, photographing it, and judging the photograph against expectations written
@@ -337,7 +406,8 @@ re-reads.
 **The documents have two instruments of their own**, for the same reason and read the same way.
 `qq doclint` asks whether every rule is stated exactly once and every ID the code cites resolves — a
 citation to a renumbered or retired rule compiles, passes and misleads, and nothing else in the suite can
-see it; it runs inside `qq checks`. `qq outline`, given no argument, prints the longest files in `src/`,
+see it; it runs inside `qq checks`, which builds the game and then takes the same three tiers `qq tests
+all` does, through that tool rather than through a copy of it. `qq outline`, given no argument, prints the longest files in `src/`,
 which is where "nothing grows past being readable" is checked rather than asserted.
 
 **A map laid to be hard claims less, not more.** The three proving grounds are one lap read against each

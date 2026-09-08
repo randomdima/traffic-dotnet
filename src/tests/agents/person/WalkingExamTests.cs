@@ -20,6 +20,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// a set that empties rather than a list nobody re-reads.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class WalkingExamTests : IClassFixture<FootwayRun>
 {
     readonly FootwayRun _run;

@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// every car in the town and nothing else in the suite would say so.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P8)]
 public class LampAtlasTests
 {
     static readonly CarCatalog Catalogue = CarCatalog.Shared;

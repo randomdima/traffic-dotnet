@@ -29,6 +29,7 @@ namespace TrafficSimulation.Tests.Physics;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class ManifoldDifferenceTests
 {
     /// <summary>Box2D v3's speculative distance is four linear slops, and so is this engine's — see SimConfig.SolverSpeculativeM.</summary>

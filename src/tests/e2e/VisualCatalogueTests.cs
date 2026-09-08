@@ -7,6 +7,7 @@ namespace TrafficSimulation.Tests.E2E;
 /// otherwise surface as a frame nobody can review, half an hour into a shot run.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P5)]
 public class VisualCatalogueTests
 {
     [Fact]

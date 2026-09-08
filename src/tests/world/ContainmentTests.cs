@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.World;
 /// kinds are the same rule, and what a body that is inside one is not.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P1)]
 public class ContainmentTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

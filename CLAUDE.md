@@ -62,11 +62,12 @@ A change that costs either of them is not a trade to be weighed in passing — i
 | Changing what the simulation *does* | the rule that owns it — the ID map in [docs/index.md](docs/index.md) says which document |
 | Adding a file, or wondering where something goes | [docs/slice-map.md](docs/slice-map.md) |
 | Changing a number | `SimConfig` in [core/](src/core/), never a literal at the call site |
-| Deciding how a change gets checked | [docs/verification.md](docs/verification.md) — four tiers, cheapest that can answer it |
+| Deciding how a change gets checked | [docs/verification.md](docs/verification.md) — four tiers, cheapest that can answer it, and one that is not in the suite |
 | Asking "why is it like this?" | the nearest `decision-log.md` — never the code, which carries no history |
 | Understanding how one type works | that type's XML docs. There is no second description of it anywhere |
 | Opening a file you have not read | `qq outline <file>` first — the members and their line ranges, so the read is a range |
-| Resolving a rule the code cites | `qq req TER-5c` — what it says, which document owns it, and everything citing it |
+| Resolving a rule the code cites | `qq req TER-5c` — what it says, whose it is, which document owns it, and everything citing it |
+| Weighing a rule against a change | its rung, and [docs/priority.md](docs/priority.md) — `P0` is not yours to trade |
 | Building, running, the command line | [readme.md](readme.md) |
 
 ## Where the documentation lives, and why there is so little of it
@@ -85,6 +86,28 @@ rules bind all of it.
 4. **Nothing about this project is remembered anywhere else.** No assistant memories, no private notes,
    no session logs. Write a finding into the document or the doc-comment that owns it, at the moment it
    is learned, or it goes nowhere.
+5. **Every rule carries a rung, and the rung says whose it is** — `**TER-3d** `P0` …`
+   ([docs/priority.md](docs/priority.md)). `qq doclint` fails on a rule that carries none.
+
+## Whose rule it is
+
+**`P0` and `P1` are the owner's; `P2`–`P9` are yours.** That split is what the rung is for, and it is the
+one thing about a rule you may not decide.
+
+- **`P0` bends for nothing** — not for an edge case, not for a test, not because it is expensive. **Find
+  one inconvenient and you report the conflict and stop**; you do not restate it in terms you can satisfy.
+- **`P1` bends at a genuine edge case or in a fixture, and the bend goes in the nearest `decision-log.md`.**
+- **`P2`–`P9` are ranked by what bending one costs**, and a rule that could be argued into two of them
+  takes the lower-numbered one.
+- **Nothing is ever argued upward into `P0` or `P1`.** They are granted by the owner saying so, in as many
+  words. A strongly worded document does not grant one and neither does your reading of what would
+  probably be wanted; **a rule you wrote is yours however sure you are of it**. Moving a rule out of that
+  band needs the owner exactly as much as moving it in.
+- **A `P0` the code does not meet is a gap named in [docs/index.md](docs/index.md#known-gaps)**, not a
+  rule quietly reworded to match the code.
+
+`qq req <ID>` prints the rung with the statement; `qq req --rungs` is the whole of the `P0`/`P1` register,
+read off the documents rather than kept beside them.
 
 **No document holds a list of what is unbuilt.** Such a list is stale the week after it is written: the
 instruments report it instead — the last line of `--bench maneuvers` is the set of catalogue entries
@@ -125,17 +148,36 @@ can be taken again.
 
 **Run the tier the change can have moved, and never the whole suite by habit.** `qq tests` selects by
 the `Tier` trait every test class carries ([tests/Tier.cs](src/tests/Tier.cs)); the untiered
-`dotnet test` is four minutes and is not a command to type here.
+`dotnet test` is minutes and is not a command to type here.
 
 | Ran | Costs | After |
 |---|---|---|
 | `qq tests` | 4 s | **every edit, no exceptions** |
 | `qq tests --changed` | what it picks | **any edit worth more than the unit tier** — it reads the tree and names the tiers those paths can have moved |
-| `qq tests unit town` | 45 s | a change to behaviour, before saying it works |
-| `qq tests all` | 1 m 15 s | touching the tick, the solver, a submit path — or before a commit |
-| `qq tests e2e` | 1 m 35 s | changing anything that draws, to look at the frames |
+| `qq tests unit town` | 55 s | a change to behaviour, before saying it works |
+| `qq tests all` | 1 m 25 s | touching the tick, the solver, a submit path — or before a commit |
+| `qq tests maps` | 25 s | **adding or retuning a shipped city** — never otherwise, and never as part of `all` |
+| `qq tests e2e` | 2 m 10 s | changing anything that draws, to look at the frames |
 | `qq tests e2e --judge` | **money**, ~30 min | a milestone, or when asked for by name — never unprompted |
+| `qq tests --upto=1 all` | 55 s | chasing a solver or a claims bug: the engine's integrity and the town's safety, and nothing else |
 | `qq tests --name=Kerb town` | — | one class or one case, while fixing it |
+
+**`qq tests all` has five minutes and prints what it spent of them.** It is a reading and not a gate — a
+wall clock measures the machine as much as the suite — but it is the figure a new test is weighed against,
+and **what gives way when it is spent is chosen from the bottom of the priority ladder and never from the
+top**. Every test class names a rung as well as a tier (`[Trait(Priority.Key, …)]`,
+[tests/Priority.cs](src/tests/Priority.cs)), answering one question: *what is the town if this is wrong?* —
+`P0` is the engine is not one, `P9` is a detail is off. `TierTests` fails the suite for a class naming
+neither, and `--upto=N` cuts a run at a rung.
+
+**The suite asks its questions of towns it lays for itself, and never of a shipped city.** There are two:
+`Towns.Fixture`, the file every detailed check is staged on, and `Towns.City`, a whole town laid from a
+brief in [tests/citygen/Towns.cs](src/tests/citygen/Towns.cs) at a seed of its own. What the generator owes
+whatever seed it was given is `GeneratorTests`' over four of them; what a laboratory map claims is that
+map's own watch. **A city is content** — a brief, a seed and whatever the generator made of them — so a
+build may ship any number of them at any number of seeds without that being a change to this engine, and a
+suite gating on one would be a function of the content. `qq tests maps` is the whole of what is asked of
+them, and it is asked deliberately.
 
 **A test run is waited for, never backgrounded and polled.** A poll is a round trip that costs more than
 waiting does; `--changed` is how a run is made short. And **`qq tests all` is still the commit's tier

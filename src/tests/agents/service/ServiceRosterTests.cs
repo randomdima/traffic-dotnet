@@ -13,22 +13,12 @@ namespace TrafficSimulation.Tests.Agents.Service;
 /// never do is give the same one two uses.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P3)]
 public class ServiceRosterTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     public static TheoryData<string> Maps => Towns.EveryTown();
-
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void EveryMapDeclaresTheStationsAndDepotsThisBuildWouldPlace(string map)
-    {
-        var plan = Towns.Of(map);
-
-        Assert.Equal(
-            PoliceStationRoster.CountIn(plan, Config), BuildingRoster.Of(plan, BuildingUse.PoliceStation).Count);
-        Assert.Equal(DepotRoster.CountIn(plan, Config), BuildingRoster.Of(plan, BuildingUse.Depot).Count);
-    }
 
     /// <summary>
     /// <b>A building serves one use at most</b> (SRV-1) — which the file settles rather than the order

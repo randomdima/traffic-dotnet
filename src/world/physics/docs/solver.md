@@ -28,42 +28,42 @@ library and is wrong here; adding one back is a change to this document first.
 
 ## What it presents
 
-**SOL-1** **One shape and no more** — an oriented box with a corner radius, dynamic or static. The
+**SOL-1** `P4` **One shape and no more** — an oriented box with a corner radius, dynamic or static. The
 half-extents it is held at are its *core*'s, and it reaches `extent + radius` along each of its own axes.
 A radius of zero is the square-cornered box a building part is; **a core of zero is a disc**, which is
 what a person and a prop are, and is not a second kind of thing. The narrow phase is written once for
 that shape; the closed forms the coreless cases take are optimisations of it and are held to its own
 answer by a test.
-**SOL-2** A body's pose and motion are readable and writable by the town.
-**SOL-3** Two ways to actuate a body and no others: an impulse at the centre of mass, and one at a point.
-**SOL-4** A body can be taken out of the world and put back keeping its identity.
-**SOL-5** Layers and masks under the town's rule: two bodies interact when *either* scans the other.
-**SOL-6** Which two bodies **began** touching in the step just taken, and the contact normal.
-**SOL-7** A nearest-hit ray cast, filtered by mask, able to exclude one named body.
-**SOL-8** Whether anything static stands inside an axis-aligned box.
-**SOL-9** How deep one body is into everything touching it, for the probe that measures PHY-1.
-**SOL-10** Counts of what it is carrying — static, dynamic, integrated, and the last step's contacts.
+**SOL-2** `P4` A body's pose and motion are readable and writable by the town.
+**SOL-3** `P4` Two ways to actuate a body and no others: an impulse at the centre of mass, and one at a point.
+**SOL-4** `P4` A body can be taken out of the world and put back keeping its identity.
+**SOL-5** `P4` Layers and masks under the town's rule: two bodies interact when *either* scans the other.
+**SOL-6** `P4` Which two bodies **began** touching in the step just taken, and the contact normal.
+**SOL-7** `P4` A nearest-hit ray cast, filtered by mask, able to exclude one named body.
+**SOL-8** `P4` Whether anything static stands inside an axis-aligned box.
+**SOL-9** `P4` How deep one body is into everything touching it, for the probe that measures PHY-1.
+**SOL-10** `P8` Counts of what it is carrying — static, dynamic, integrated, and the last step's contacts.
 
 ## What must be true of it
 
-**SOL-11** No gravity, and the world is a plane seen from above. The single largest simplifier.
-**SOL-12** An overlap is pushed out without the push becoming motion.
-**SOL-13** Coulomb friction, no bounce.
-**SOL-14** An impulse off the centre spins the body it hits, unless that body's rotation is locked.
-**SOL-15** The reference collision model is what the picture is matched against.
-**SOL-17** Nothing is swept: a fast body can pass through a thin one.
-**SOL-19** Whether a ray reports the shape its origin lies inside is **stated and tested**.
-**SOL-35** The same town, seed and tick count produce the same digest, on one machine.
-**SOL-36** Whether the digest holds across machines and architectures is a claim to be tested, never
+**SOL-11** `P3` No gravity, and the world is a plane seen from above. The single largest simplifier.
+**SOL-12** `P3` An overlap is pushed out without the push becoming motion.
+**SOL-13** `P3` Coulomb friction, no bounce.
+**SOL-14** `P3` An impulse off the centre spins the body it hits, unless that body's rotation is locked.
+**SOL-15** `P4` The reference collision model is what the picture is matched against.
+**SOL-17** `P4` Nothing is swept: a fast body can pass through a thin one.
+**SOL-19** `P4` Whether a ray reports the shape its origin lies inside is **stated and tested**.
+**SOL-35** `P3` The same town, seed and tick count produce the same digest, on one machine.
+**SOL-36** `P8` Whether the digest holds across machines and architectures is a claim to be tested, never
 assumed.
 
 ## What it costs
 
-**SOL-20** The steady state allocates **nothing** — on a standing town, including across contact churn as
+**SOL-20** `P2` The steady state allocates **nothing** — on a standing town, including across contact churn as
 bodies touch and separate. A world whose bodies never meet allocates nothing in almost any solver; what
 finds a growing array is a contact set that turns over.
-**SOL-21** No structure over static geometry is rebuilt after load.
-**SOL-22** Per-tick work is linear in the moving roster and never in the static population.
+**SOL-21** `P2` No structure over static geometry is rebuilt after load.
+**SOL-22** `P2` Per-tick work is linear in the moving roster and never in the static population.
 
 ## How it is written
 

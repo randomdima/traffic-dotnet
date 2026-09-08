@@ -23,6 +23,7 @@ namespace TrafficSimulation.Tests.Agents.Service;
 /// at the rank SRV-6 says it should be.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class ClosureTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -46,6 +47,47 @@ public class ClosureTests
     [Fact]
     public void ACasualtyBringsAPoliceCarWhoseOfficerClosesTheRoad()
     {
+        var staged = Staged.Value;
+        var got = $"the furthest any call got was {staged.Furthest}";
+
+        Assert.True(staged.Called, "nobody was ever sent to the scene (SRV-6)");
+        Assert.True(staged.Hurried, $"a police car drove to a scene without the priority that leg carries — {got}");
+        Assert.True(staged.OnFoot, $"an officer answered a call without getting out of the car (SRV-3) — {got}");
+        Assert.True(staged.Closed, $"an officer reached a scene and never closed the road (SRV-6) — {got}");
+    }
+
+    /// <summary>
+    /// <b>And every closure ends</b> (SRV-6): its scene stops being one, or its own bound does it. A lane
+    /// held out of the town for the rest of a run is the single failure a closure's claim can cause, so the
+    /// bound is watched rather than trusted.
+    /// </summary>
+    [Fact]
+    public void NoClosureOutlivesItsOwnBound()
+    {
+        // The bound plus the interval one decision spans: the clock is read on the patrol's own decision and
+        // can only be found spent one decision after it was.
+        Assert.True(
+            Staged.Value.LongestS <= Config.PoliceClosureLifeS + Config.Ladder.ObstructionWaitS,
+            $"a closure stood for {Staged.Value.LongestS:F1} s against a bound of {Config.PoliceClosureLifeS:F1} s (SRV-6)");
+    }
+
+    /// <summary>
+    /// <b>One staged casualty, and both claims about the closure it raises read off the one run.</b> The two
+    /// above stage the same body on the same town and watch the same officer answer it; a second world
+    /// answered nothing the first had not and was half of what this class cost.
+    /// </summary>
+    /// <remarks>
+    /// The bound is what fixes the length: an existential claim ends the run that shows it, and a maximum
+    /// has no such end.
+    /// </remarks>
+    static readonly Lazy<Watched> Staged = new(Stage);
+
+    /// <summary>What the staged call was seen to do, recorded as it went past rather than asserted inside it.</summary>
+    sealed record Watched(
+        bool Called, bool Hurried, bool OnFoot, bool Closed, PatrolStage Furthest, float LongestS);
+
+    static Watched Stage()
+    {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         Assert.True(world.PoliceCars > 0, "the fixture map stood no police car, so nothing here is being asked");
@@ -60,7 +102,8 @@ public class ClosureTests
         var closed = false;
         var onFoot = false;
         var furthest = PatrolStage.Standing;
-        for (var tick = 0; tick < Ticks && !closed; tick++)
+        var longestS = 0f;
+        for (var tick = 0; tick < Ticks; tick++)
         {
             loop.Advance(1);
             world.RebuildProximityIndex();
@@ -71,6 +114,7 @@ public class ClosureTests
 
                 called = true;
                 if (world.Beat.Stage[car] > furthest) furthest = world.Beat.Stage[car];
+                longestS = MathF.Max(longestS, world.Beat.ClosedForS[car]);
 
                 hurried |= world.Beat.Stage[car] == PatrolStage.Attending && world.Cars.BlueLight[car];
 
@@ -85,11 +129,7 @@ public class ClosureTests
             }
         }
 
-        var got = $"the furthest any call got was {furthest}";
-        Assert.True(called, "nobody was ever sent to the scene (SRV-6)");
-        Assert.True(hurried, $"a police car drove to a scene without the priority that leg carries — {got}");
-        Assert.True(onFoot, $"an officer answered a call without getting out of the car (SRV-3) — {got}");
-        Assert.True(closed, $"an officer reached a scene and never closed the road (SRV-6) — {got}");
+        return new Watched(called, hurried, onFoot, closed, furthest, longestS);
     }
 
     /// <summary>
@@ -113,7 +153,7 @@ public class ClosureTests
     [Fact]
     public void ATownClosingRoadsStillCollectsAndDelivers()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         Assert.True(world.PoliceCars > 0 && world.Ambulances > 0, "the map stood no service to ask this of");
 
@@ -147,41 +187,6 @@ public class ClosureTests
             world.CasualtiesDelivered > 0,
             $"{closures} roads were closed, {world.CasualtiesCollected} casualties were collected and none "
             + "reached a door (AMB-8)");
-    }
-
-    /// <summary>
-    /// <b>And every closure ends</b> (SRV-6): its scene stops being one, or its own bound does it. A lane
-    /// held out of the town for the rest of a run is the single failure a closure's claim can cause, so the
-    /// bound is watched rather than trusted.
-    /// </summary>
-    [Fact]
-    public void NoClosureOutlivesItsOwnBound()
-    {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        loop.Advance(WarmupTicks);
-        var casualty = Towns.NearestWalkerToARoad(world);
-        Assert.True(casualty >= 0, "the fixture town had nobody to knock down");
-        world.Apply(new BodyTag(BodyKind.Person, casualty), DamageOutcome.Wounded);
-
-        var longest = 0f;
-        for (var tick = 0; tick < Ticks; tick++)
-        {
-            loop.Advance(1);
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                if (!world.Beat.IsOnACall(car)) continue;
-
-                longest = MathF.Max(longest, world.Beat.ClosedForS[car]);
-            }
-        }
-
-        // The bound plus the interval one decision spans: the clock is read on the patrol's own decision and
-        // can only be found spent one decision after it was.
-        Assert.True(
-            longest <= Config.PoliceClosureLifeS + Config.Ladder.ObstructionWaitS,
-            $"a closure stood for {longest:F1} s against a bound of {Config.PoliceClosureLifeS:F1} s (SRV-6)");
     }
 
     /// <summary>

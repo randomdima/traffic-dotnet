@@ -1,4 +1,4 @@
-# `E-2` — emergency stop
+# `E-2` `P3` — emergency stop
 
 Code: [E02EmergencyStop.cs](../reactive/E02EmergencyStop.cs) · [catalogue](index.md)
 

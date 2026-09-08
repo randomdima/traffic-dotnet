@@ -8,6 +8,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// the one property the whole thing rests on — <b>it never stops early</b>.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class DrivingLadderTests
 {
     /// <summary>A car with every door open to it: nothing in the way, a place held, a route, and ground it may stand on.</summary>

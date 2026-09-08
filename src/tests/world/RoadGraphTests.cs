@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.World;
 /// compared with another, which would only prove the derivation consistent with itself.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class RoadGraphTests
 {
     /// <summary>How far off one another two headings may be and still be the same line: a degree.</summary>

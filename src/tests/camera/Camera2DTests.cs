@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Camera;
 /// shipped feel — and the one behaviour that is easy to get subtly wrong.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class Camera2DTests
 {
     static readonly Vector2 UiPx = new(1600f, 900f);

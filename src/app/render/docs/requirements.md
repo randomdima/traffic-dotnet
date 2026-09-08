@@ -23,10 +23,44 @@ triangles differently and the picture does not change.
 Every ground texture must be **wrap-seamless and mipmapped** — un-mipped tarmac shimmers the moment the
 camera pulls back.
 
-**Draw order is painter's work with nothing testing what is underneath**: the verge over the whole world;
-the pavement (every ribbon, disc, corner band and lot read out a walk's width bigger and drawn twice for
-its edge line); the water; the decks; the paved slabs; the lots; the carriageway; the junction discs; the
-corner fillets.
+**The ground mesh is a partition and not a stack** ([TER-7b](../../../world/terrain/docs/requirements.md#one-geometry)):
+no two of its triangles cover the same square metre, surfaces meet edge to edge along shared vertices,
+and every rim and edge line is a strip of its own rather than the residue of a larger piece repainted
+smaller. Depth does no work here — nothing is underneath anything — so the order the pieces are appended
+in decides nothing about the picture, and the wireframe
+([OBS-2o](../../debug/docs/requirements.md)) reads as the town's surfaces and their seams.
+
+**What keeps it, where it is kept, is one primitive**: a set of bands between consecutive offsets of one
+curve, **struck at one set of stations**. Two shapes laid separately are each sampled to their own
+curvature and meet along two different chains of chords, so they stand a chord's sag apart at worst —
+and the only ways to close that are to overlap them or to leave the ground beneath showing. Struck
+together they share the seam, because the seam is one offset evaluated once. **A road is laid this way
+end to end**: the carriageway, the kerb line either side of it, the two bands of pavement and the two
+rims are seven bands of one cross-section, and what each side carries over each stretch is the town's own
+answer rather than the picture's (`Paving.Sections`). **A band of no width is how a side says what it has
+not got**, so there is one shape and not a case per side.
+
+**The pavement's own runs are laid the same way** — a run that wraps anything but a road is the kerb line,
+the walk and the rim as three bands of one cross-section on the run's own line (`GroundMesh.Run`), the
+round that closes a run is that run's own concrete and carries no rim of its own, the corner two runs hand
+over at is the turn's own wedge, and a car park is its box and that band with nothing grown beneath either
+— the pocket at its mouth is the street's bare side, laid a whole walk out.
+
+**A junction is a box between its arms' cuts, laid once** (`Paving.Boxes`, `GroundMesh.Box`): each arm's
+section stops where the box takes over from it, and the box is the outline the pavement's own kerb line
+encloses, walked run to run and turn to turn round the corner. Nothing is grown under anything. **A
+junction the road runs through as one line has no box** (`Paving.Through`,
+[TER-5b](../../../world/road/docs/requirements.md)): its two sections meet edge to edge.
+
+**Where the ground is still painted over itself** — a junction whose outline crosses itself, a car park's
+mouth, a bridge, and the verge under all of it — that is the gap rather than the design
+([known gaps](../../../../docs/index.md#known-gaps)). **Union ground goes under the pavement and the
+carriageway over it**: the pocket beside a road with something standing against its kerb is laid before the
+rounds at a car park's mouth, on the road's own stations, and the carriageway is laid last of all (TER-3d).
+
+Marks are the one layer above the ground rather than in it — a dash, a bar, a stripe sits *on* the
+surface it belongs to (`TER-7`) — and they do not overlap one another either. `GroundMesh.FirstMarkVertex`
+is where the second layer starts.
 
 ## Paint
 

@@ -8,12 +8,12 @@ crossing *are* is [requirements.md](requirements.md); the ground itself is
 
 ## What a movement takes off another
 
-**TER-5c** A movement through an intersection is **driven over** the other movements through it: every
+**TER-5c** `P4` A movement through an intersection is **driven over** the other movements through it: every
 stretch of another movement's line that comes within a car's width of its own, on both sides of the
 measurement. The town works the table out once, from the lines themselves. A movement whose line goes near
 nothing crosses nothing.
 
-**TER-5c.1** **A body claims the ways it is going to be on, and no others.** The way under it and the
+**TER-5c.1** `P3` **A body claims the ways it is going to be on, and no others.** The way under it and the
 ways its plan takes it down are its own to hold; a way it is merely driven *over* is one it never writes to.
 What that ground costs it is instead **looked up**: a driver reads the table above for the way it is on,
 and asks each way named there — among that way's own claims, at that way's own metres — what is standing on
@@ -59,7 +59,7 @@ committed to — on the mover's *own* way, where the traffic crossing it reads i
 crossing points is driven over by nothing and is nobody's to hold, and the metres behind the body are the
 crossing already spent.
 
-**TER-5c.2** **A body holds one metre of one way once.** One body is one stretch: **the margin it keeps, the
+**TER-5c.2** `P3` **A body holds one metre of one way once.** One body is one stretch: **the margin it keeps, the
 body, and the road it is committed to**, in that order and in one interval of every way it is on. What the
 crossing adds is only the ground that stretch has not got to — the metres ahead of it — and never a second
 piece behind the tail, which would hold nothing the claim was not holding and would count one body as
@@ -115,7 +115,7 @@ ground however it got there. Two bodies in one box is PHY-1's question, not this
 
 ## Right of way
 
-**TER-5e** **Where two bodies come to one piece of the world, a right of way says which of them gives it
+**TER-5e** `P3` **Where two bodies come to one piece of the world, a right of way says which of them gives it
 up.** It is carried by the stretch and not by the body — one car is straight through on the lane it is
 leaving and a turn across the oncoming stream on the connector it is entering, and those are two stretches of two
 ways — and it is a fact about the movement, worked out once with the town from the turn that movement makes.
@@ -170,7 +170,7 @@ moment — so nobody is ever waved in front of a body that could not have stoppe
 
 ## Claims, and how strong they are
 
-**TER-5g** **Everything the road holds is a claim, and a claim is who is claiming, where, and at what
+**TER-5g** `P4` **Everything the road holds is a claim, and a claim is who is claiming, where, and at what
 priority.** A way is used when there is a claim on it and not otherwise; there is no second property
 saying what kind of thing a claim is, because everything a reader wants to know about one is worked out
 from those. Whether a body is standing in it is whether its body edge is past its near edge; whose it is,
@@ -268,13 +268,13 @@ does not stop**, and what happens then is the solver's (`PHY-1`) rather than a r
 
 ## The claims
 
-**TER-4c** **Everything that can be on a lane has claimed that lane.** A driver looks at the claims and
+**TER-4c** `P3` **Everything that can be on a lane has claimed that lane.** A driver looks at the claims and
 at nothing else: the traffic, **anybody on foot in the lane**, and **the town's own furniture**, which is
 projected onto the lanes it stands on once when the town is laid and never moves again. A thing a driver
 must be held off that nothing claims is a thing the driver cannot see, and there is no second mechanism —
 no ray, no cast — behind it to catch what the claims left out.
 
-**TER-4c.2** **A body holds the ground it stands on, whatever it is doing.** Every agent writes the space it
+**TER-4c.2** `P3` **A body holds the ground it stands on, whatever it is doing.** Every agent writes the space it
 occupies onto **every way that space obstructs**, and nothing about that write turns on whether anybody is
 driving it, whether it is broken, or on what a reader would call it. It is the one hold in the town that
 **cannot be given up or taken**: its holder is already there, so no right of way reaches it (TER-5e) and no
@@ -334,7 +334,7 @@ rule releases it — it is re-laid from the pose every tick and it is gone the t
   own grant is not cut at its own trailer, and the lane the trailer swings into as the pair turns is ground
   the town can see something in.
 
-**TER-4c.1** **Ground is asked for, answered, and then it is the asker's.** A body puts the stretch it
+**TER-4c.1** `P3` **Ground is asked for, answered, and then it is the asker's.** A body puts the stretch it
 wants — **the margin it keeps, itself, and the road from its nose to where it means to be able
 to stop** (TER-5c.2) — and what comes back is that stretch **cut at the first metre already somebody else's
 and at the first place a rule stops the asker**: a red, a bar, a crossing it must stop short of, the metre
@@ -387,7 +387,7 @@ SIM-7 is about; one that could grant the same metre twice would be no mechanism 
   is not committed to, and holding it queues the town further up the road than anybody is going to get —
   and, where the stop is short of a zebra, holds the crossing shut against the very people it was made for.
 
-**TER-4c.3** **No metre of any way is in two claims at once.** A stretch that would share ground with one
+**TER-4c.3** `P3` **No metre of any way is in two claims at once.** A stretch that would share ground with one
 already on the way is **cut back to where that one begins or ends** before it goes in, so the two abut on an
 exact metre and neither reaches into the other. There is no tolerance in it and no nearly: touching is the
 seam between two claims and is not overlap.

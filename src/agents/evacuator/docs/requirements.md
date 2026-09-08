@@ -12,11 +12,11 @@ the one thing in this project that couples two bodies together. Why it reads thi
 
 ## The call and the place
 
-**EVA-1** A car in its terminal state (`PHY-3`) is a **wreck**, and a wreck is a call. It is raised where
+**EVA-1** `P5` A car in its terminal state (`PHY-3`) is a **wreck**, and a wreck is a call. It is raised where
 the car breaks, so nothing searches the fleet for one, and it stays one until an evacuator has it on the
 bar. A wreck standing in a yard slot is not a call, and neither is one already somebody's.
 
-**EVA-2** Each depot keeps a **yard**: its evacuator's own bay, and a run of **slots** beside it held for
+**EVA-2** `P5` Each depot keeps a **yard**: its evacuator's own bay, and a run of **slots** beside it held for
 wrecks and for nobody else (`GEN-4k`). Three things follow.
 
 - **A yard slot is a hold that names no vehicle.** An apron bay is held for the one car that stands in it
@@ -30,7 +30,7 @@ wrecks and for nobody else (`GEN-4k`). Three things follow.
 
 ## The errand
 
-**EVA-3** The nearest evacuator with nothing else to do takes the nearest wreck nobody is on their way to,
+**EVA-3** `P5` The nearest evacuator with nothing else to do takes the nearest wreck nobody is on their way to,
 and **nearest is measured against every other free evacuator and not against every other wreck**: a crew
 that is not the nearest to the wreck it would have gone to takes nothing and asks again. **One wreck to a
 recovery and one recovery to a wreck.**
@@ -39,7 +39,7 @@ recovery and one recovery to a wreck.**
 because one that set off anyway would arrive with a wreck on the bar and nowhere to set it down, and would
 then stand at its own yard holding it for the rest of the run.
 
-**EVA-4** An evacuator **on its way to a wreck** carries the whole of an ambulance's priority (`AMB-4`):
+**EVA-4** `P5` An evacuator **on its way to a wreck** carries the whole of an ambulance's priority (`AMB-4`):
 the rank above every other movement and above the paint, the red that does not apply, the kerb it owes no
 stop to, the overtake it does not spend patience on, and a pace of its own. Two limits, and the second is
 the point of the rule.
@@ -52,7 +52,7 @@ the point of the rule.
   recovery is getting to the wreck; what is left afterwards is a slow vehicle with a load on the back, and
   a load on the back is the last thing that should be hurried through a town.
 
-**EVA-5** A wreck is **towed and never carried**. It stays a body in the world the whole way (`PHY-5`),
+**EVA-5** `P3` A wreck is **towed and never carried**. It stays a body in the world the whole way (`PHY-5`),
 and the tow is five things and no more:
 
 - **One action, worked by somebody standing at it.** The arm is **worked** — swung out onto whatever is
@@ -92,12 +92,12 @@ and the tow is five things and no more:
   trailer was a car the traffic beside it could not see; asking under its own number, it cut its own hauler's
   grant and the tow stopped dead on the first metre of road it stood on.
 
-**EVA-6** A wreck is **set down in a free yard slot** by the crew, once the evacuator is standing within
+**EVA-6** `P5` A wreck is **set down in a free yard slot** by the crew, once the evacuator is standing within
 their reach of one, **the man is out and standing at it** (`SRV-3`), and the hitching interval has been
 spent on it. It is the one placement in this errand — a container's own operation (`PHY-7a`) over the width
 of a parking space — and it is refused while no slot is within reach, which is a wait and not a failure.
 
-**EVA-7** A wreck standing in a yard slot is **restored** after the repair interval: put back together
+**EVA-7** `P5` A wreck standing in a yard slot is **restored** after the repair interval: put back together
 where it stands and left there, an ordinary parked car in an ordinary space, free for whoever walks past to
 drive away (`PER-4`). Two consequences.
 
@@ -108,7 +108,7 @@ drive away (`PER-4`). Two consequences.
   nobody has walked to is a depot that has stopped collecting, which is `EVA-2`'s own state and is counted
   rather than hidden.
 
-**EVA-8** **Every leg of a recovery is bounded.** A wreck the traffic never lets an evacuator reach is
+**EVA-8** `P5` **Every leg of a recovery is bounded.** A wreck the traffic never lets an evacuator reach is
 given up on and the evacuator goes home, so one unreachable wreck cannot hold a town's only evacuator out
 of service for the rest of the run. A **haul** that runs out of clock is drawn again from where the truck
 has got to — and only so many times: past that the wreck is **set down where it stands** and becomes a call

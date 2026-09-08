@@ -21,6 +21,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// mistake here: every coordinate is a plausible one.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class PointerSpaceTests
 {
     [Fact]

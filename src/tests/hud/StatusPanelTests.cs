@@ -18,6 +18,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// the clicks that land on it rather than letting them through to the town it is drawn over.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class StatusPanelTests
 {
     const float TitleRowPx = Theme.TextPx + 10f;

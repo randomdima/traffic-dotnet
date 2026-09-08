@@ -8,6 +8,7 @@ namespace TrafficSimulation.Tests.Physics;
 /// other</b> — and the closure that turns a solver's <c>&amp;&amp;</c> into it.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class CollisionLayerTests
 {
     /// <summary>

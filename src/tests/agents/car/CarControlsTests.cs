@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// the wheel's.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class CarControlsTests
 {
     static readonly SimConfig Figures = SimConfig.Shipped();

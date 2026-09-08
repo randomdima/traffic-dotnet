@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// or not the unit is on the picture.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class UnitPanelTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

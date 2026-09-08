@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.World;
 /// still the right art is the art.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P4)]
 public class BuildingPartsTests
 {
     static readonly BuildingCatalog Catalogue = BuildingCatalog.Load();

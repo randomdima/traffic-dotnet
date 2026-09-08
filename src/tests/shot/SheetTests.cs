@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Shot;
 /// — and never a sheet with nothing in it.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P7)]
 public class SheetTests
 {
     static readonly Rgba32 Gutter = new(255, 0, 255);

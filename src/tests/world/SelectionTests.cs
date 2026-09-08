@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.World;
 /// holding, and that it never holds more than the town laid room for.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class SelectionTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

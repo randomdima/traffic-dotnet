@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// instruments are graduated on one ladder of round numbers.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class ScaleLegendTests
 {
     [Theory]

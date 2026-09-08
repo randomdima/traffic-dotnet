@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.Routing;
 /// wrong thing.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P4)]
 public class RoutePlannerTests
 {
     /// <summary>

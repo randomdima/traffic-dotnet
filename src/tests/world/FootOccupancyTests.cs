@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.World;
 /// place its own line put it, and that the grant holds one body off the next exactly as the road's does.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P1)]
 public class FootOccupancyTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -28,7 +29,7 @@ public class FootOccupancyTests
     [Fact]
     public void EveryWalkerOnALineOfItsOwnHasClaimedIt()
     {
-        var world = Run("Odesa");
+        var world = Run(Towns.City);
 
         var onALine = 0;
         for (var person = 0; person < world.People.Count; person++)
@@ -170,7 +171,7 @@ public class FootOccupancyTests
     [Fact]
     public void NobodyIsGrantedGroundSomebodyElseWillStopOn()
     {
-        var world = Run("Odesa");
+        var world = Run(Towns.City);
         var claims = world.Occupancy;
 
         Span<LaneClaim> slots = stackalloc LaneClaim[64];
@@ -338,7 +339,7 @@ public class FootOccupancyTests
     [Fact]
     public void ABodyOnFootInAJunctionIsOnTheJoinsUnderIt()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
 
@@ -393,7 +394,7 @@ public class FootOccupancyTests
     [Fact]
     public void ACarStandingOnAFootwayHoldsTheGroundUnderIt()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(1);
 
@@ -419,7 +420,7 @@ public class FootOccupancyTests
     [Fact]
     public void ACarStandingBesideAWalkIsInItsWay()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
 
@@ -462,7 +463,7 @@ public class FootOccupancyTests
     [Fact]
     public void ACarComingAcrossAFootwayHoldsTheWalkUp()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
 
@@ -529,7 +530,7 @@ public class FootOccupancyTests
     [Fact]
     public void AWalkerOnNoWayIsHeldOffGroundABodyStandsOn()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
 
@@ -568,7 +569,7 @@ public class FootOccupancyTests
     [Fact]
     public void ACarOnACrossingHoldsTheLaneAndNotTheWalk()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(1);
 
@@ -596,7 +597,7 @@ public class FootOccupancyTests
     [Fact]
     public void ABodyOnFootOnACrossingHoldsTheWalkUnderIt()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
 
@@ -696,7 +697,7 @@ public class FootOccupancyTests
     [Fact]
     public void AWalkerPastTheKerbWhoseBodyReachesALaneHoldsAStretchOfIt()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(600);
 

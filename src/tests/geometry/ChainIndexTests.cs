@@ -19,6 +19,7 @@ namespace TrafficSimulation.Tests.Geometry;
 /// off the far edge of the grid is the one case the ring search cannot bound and has to fall back for.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class ChainIndexTests
 {
     /// <summary>Well under, about, and well over a road's own width.</summary>

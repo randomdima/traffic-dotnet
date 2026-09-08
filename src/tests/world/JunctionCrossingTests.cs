@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.World;
 /// shares ground is in it, and every pair left out really does clear the other.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class JunctionCrossingTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

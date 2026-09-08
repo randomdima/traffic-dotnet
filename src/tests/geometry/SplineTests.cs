@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Geometry;
 /// derivation against another.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class SplineTests
 {
     const float Tolerance = 1e-3f;

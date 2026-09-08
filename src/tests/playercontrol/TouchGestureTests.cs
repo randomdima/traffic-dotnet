@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.PlayerControl;
 /// of them happening does not take the others with it.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class TouchGestureTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

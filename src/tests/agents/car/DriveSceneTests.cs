@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// allowed to conclude about what is in front of it</b>, asked of the scene itself rather than of a town.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class DriveSceneTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

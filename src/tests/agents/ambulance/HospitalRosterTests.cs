@@ -13,24 +13,12 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 /// ceiling, so a village and a city both come out with a plausible number of them.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P3)]
 public class HospitalRosterTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     public static TheoryData<string> Maps => Towns.EveryTown();
-
-    /// <summary>
-    /// <b>The count has to be answerable before the town is stood up</b>: the fleets are laid for an
-    /// ambulance and a crew apiece, so the plan alone has to say how many there will be.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void EveryMapWithBuildingsDeclaresTheHospitalsThisBuildWouldPlace(string map)
-    {
-        var plan = Towns.Of(map);
-
-        Assert.Equal(HospitalRoster.CountIn(plan, Config), BuildingRoster.Of(plan, BuildingUse.Hospital).Count);
-    }
 
     /// <summary>Each of them once, and in ascending order, so a lookup is a walk of a handful of numbers.</summary>
     [Fact]

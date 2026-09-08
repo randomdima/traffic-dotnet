@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Camera;
 /// the moment the reader moves the camera themselves.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class FollowTests
 {
     static readonly Vector2 UiPx = new(1600f, 900f);

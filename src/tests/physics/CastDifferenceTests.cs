@@ -33,6 +33,7 @@ namespace TrafficSimulation.Tests.Physics;
 /// </remarks>
 [Collection(Simulation.SolverCollection.Name)]
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class CastDifferenceTests
 {
     const int Shapes = 40;

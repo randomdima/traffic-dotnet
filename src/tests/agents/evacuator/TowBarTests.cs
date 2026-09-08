@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.Agents.Evacuator;
 /// numbers, which is the whole reason it is a component rather than a passage of the town.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class TowBarTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -63,14 +64,20 @@ public class TowBarTests
     [Fact]
     public void EveryCarIsTakenHoldOfTheSameDistanceInsideWhicheverEndIsCaught()
     {
+        // <b>The same inset and not a stated one.</b> What EVA-5 is about is that the figure does not vary
+        // with the car or the end, so the first one seen is what the rest are held to — asserting each
+        // against the figure it was laid from would be that figure written out twice (VER-12) and would go
+        // red the day somebody retuned the arm rather than the day the arm stopped being even.
+        var insetM = float.NaN;
         var daylightM = float.NaN;
         foreach (var variant in CarCatalog.Shared.Variants)
         {
             var towed = CarBuild.Of(Config, variant);
             var noseM = TowBar.ForkM(towed, Standing(0f), byTheTail: false);
             var tailM = TowBar.ForkM(towed, Standing(0f), byTheTail: true);
-            Assert.Equal(Config.Evacuator.TowGripInsideTheEndM, towed.HalfLengthM - noseM.X, 4);
-            Assert.Equal(Config.Evacuator.TowGripInsideTheEndM, towed.HalfLengthM + tailM.X, 4);
+            if (float.IsNaN(insetM)) insetM = towed.HalfLengthM - noseM.X;
+            Assert.Equal(insetM, towed.HalfLengthM - noseM.X, 4);
+            Assert.Equal(insetM, towed.HalfLengthM + tailM.X, 4);
 
             var behindM = TowBar.SetDownBehindM(Evacuator, towed);
             var apartM = behindM - Evacuator.HalfLengthM - towed.HalfLengthM;

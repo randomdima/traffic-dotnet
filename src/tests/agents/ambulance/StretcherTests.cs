@@ -9,6 +9,7 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 /// between a car and a door.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class StretcherTests
 {
     const int Ambulance = 0;

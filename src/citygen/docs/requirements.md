@@ -155,14 +155,14 @@ check is staged on, and the crossings map. Neither may move when the generator d
 a fixture is for — they are on their way to being laid in code rather than generated, and nothing else is
 read from a file.
 
-**GEN-1** Generation is driven by the **world seed**, supplied manually or chosen randomly; the same
+**GEN-1** `P3` Generation is driven by the **world seed**, supplied manually or chosen randomly; the same
 world seed produces the same city.
 
-**GEN-1a** A city's streets are generated with everything else about it. A map that measures one thing is
+**GEN-1a** `P4` A city's streets are generated with everything else about it. A map that measures one thing is
 laid in code instead, and the two are one kind of thing from the plan onward: nothing downstream may ask
 which of them it is looking at.
 
-**GEN-1b** No city is built until one is picked: the game opens on a start menu listing the maps, and
+**GEN-1b** `P7` No city is built until one is picked: the game opens on a start menu listing the maps, and
 nothing a reader has not chosen is built. **What the menu is drawn over is the idle ring** (`IdlePlan`,
 `Game.IdleMap`) — the one map the game stands up without being asked, because it is laid to be looked at
 and costs a fraction of a city — and the menu stays up over it, in either configuration and on either
@@ -197,21 +197,21 @@ map instead, and the menu shuts onto it.
   all — the menu stands on the files the boot already fetched, and the town behind it comes down while
   the reader is looking at it (`WEB-6`, `WEB-9`).
 
-**GEN-2** Terrain, objects and agents are placed **plausibly**: the result must read as a small town, not
+**GEN-2** `P6` Terrain, objects and agents are placed **plausibly**: the result must read as a small town, not
 as noise.
 
-**GEN-2a** A building stands along the street it fronts, not along a compass axis, and its entry point
+**GEN-2a** `P6` A building stands along the street it fronts, not along a compass axis, and its entry point
 sits between its front wall and the kerb on walkable ground clear of both. On a town whose streets run at
 an angle the alternative reads as a field of sheds, and a door flush against a carriageway is one nobody
 can walk out of.
 
-**GEN-2b** **A map ends at its own edge, and nothing it carries stands past it.** The extent is the whole of
+**GEN-2b** `P3` **A map ends at its own edge, and nothing it carries stands past it.** The extent is the whole of
 the world: there is no ground beyond it to walk, drive, classify or draw, so anything laid outside is a shape
 hanging over the void. **What a stage draws through past the edge it cuts before the map carries it** — a
 shoreline is drawn well past the town because a bank that closed inside it would be a lake, and the outline
 the plan carries is that shape cut to the extent.
 
-**GEN-2c** **Water meets the land at a shore and never at the grass.** A strip of shore of the town's own
+**GEN-2c** `P6` **Water meets the land at a shore and never at the grass.** A strip of shore of the town's own
 width (`SimConfig.CityGen.ShoreWidthM`) runs along every bank, and **nothing the town scatters or builds
 stands on it** — it is not the grass those take. The bank it follows is **the same wave the water is drawn
 from**, laid a shore's width wider, so the strip is one width everywhere rather than a band anybody has to
@@ -229,14 +229,14 @@ cell nobody could stand on.
 many that is, is derived from the wave's own curvature and is never a count kept true by eye: a wild meander
 is drawn through more points and a straight coast through few.
 
-**GEN-3** Spacing must leave the city walkable: every building is surrounded by walkable padding, and no
+**GEN-3** `P6` Spacing must leave the city walkable: every building is surrounded by walkable padding, and no
 pocket is too narrow for a pedestrian to pass.
 
-**GEN-5** Connectivity is a hard constraint: the walkable terrain reachable by pedestrians forms **one
+**GEN-5** `P3` Connectivity is a hard constraint: the walkable terrain reachable by pedestrians forms **one
 connected region**, the drivable terrain likewise, and every building entrance and every parking space
 attaches to those regions.
 
-**GEN-5a** **No road of a generated town ends in nothing.** A junction of one arm is a dead end (TER-5a),
+**GEN-5a** `P6` **No road of a generated town ends in nothing.** A junction of one arm is a dead end (TER-5a),
 the one junction a town sizes around a turning circle rather than around a crossing, and a generated town
 lays every junction as the crossing its arms make — so a car driven into one could never leave it. The ends
 a lattice and a spoke leave over are therefore deleted, each with whatever is left hanging off it (GEN-8),
@@ -244,11 +244,11 @@ rather than grown on to meet something or kept as cul-de-sacs nothing planned. *
 carry one**, because it lays the ground that dead end needs along with it: the head a car works itself
 round in where something drives there (`ExamPlan`), and no head at all where nothing does (`SkidpadPlan`).
 
-**GEN-6** Counts are a property of the map, never of a rule. A map declares its own size and roster;
+**GEN-6** `P4` Counts are a property of the map, never of a rule. A map declares its own size and roster;
 everything else scales to the layout — props to the ground left over, parking to GEN-4b's relation, lights
 to what conflicts, crossings to where the walkable region would otherwise split.
 
-**GEN-6a** **A prop stands wholly on grass.** Its whole girth and not its centre, because a bench half over
+**GEN-6a** `P6` **A prop stands wholly on grass.** Its whole girth and not its centre, because a bench half over
 a kerb is a bench in the road; and the same test is what keeps a prop on the map (GEN-2b): off the town is
 not grass.
 
@@ -258,7 +258,7 @@ would only hold the verge back from the street it is a verge of. Every pass used
 ground was read off a raster painted from the pieces alone: the corners were in neither, and a prop cleared
 against the cells could be standing in the middle of a drawn one.
 
-**GEN-6b** **A prop's kind is a placement and not a picture, and the pass that laid it is what decides
+**GEN-6b** `P6` **A prop's kind is a placement and not a picture, and the pass that laid it is what decides
 which.** A stump and a planter are different kinds because they stand in different places, not because they
 look unalike. **The props are laid in two passes**, and everything they need — the roads, the pavement, the
 bays and the buildings — was laid before either of them runs.
@@ -306,7 +306,7 @@ bays and the buildings — was laid before either of them runs.
   art that could only ever stand somewhere a prop is not laid — a grate, a hatch, a patch of paving — is
   deleted rather than filed under the kind it is least wrong in.
 
-**GEN-6c** **Two props stand a clearance of grass apart, girth to girth**
+**GEN-6c** `P6` **Two props stand a clearance of grass apart, girth to girth**
 (`SimConfig.CityGen.PropApartM`). Sharing ground is the floor of it: two discs laid over each other are one
 obstacle drawn twice, and what a reader sees is a bush growing out of a tree. **Merely not touching is not
 enough either** — a prop is a picture as well as a disc, and a row of them laid rim to rim along a kerb reads
@@ -319,13 +319,13 @@ anything further off is further away than the rule can care about, whatever the 
 already laid is the one that stays**: nothing is nudged aside to make room, and a candidate that would come
 too near one is simply not a prop (GEN-8, GEN-10).
 
-**GEN-6d** **A prop's picture fits inside the disc the plan kept for it**, so the longest side of the
+**GEN-6d** `P6` **A prop's picture fits inside the disc the plan kept for it**, so the longest side of the
 sheet is the prop's own `diameterM` and the other follows the art's aspect. **What is drawn is what a car is
 held off**: a sheet drawn to its own height instead, half again as wide as it is high, reaches half a metre
 past the girth the town gave it — standing in the prop beside it, and in the road when it is laid along a
 kerb. The clearance in GEN-6c is grass between two pictures and not slack for one of them to spill into.
 
-**GEN-9** A building **declares what it is for**: ordinary, or one of the uses a service is stood at — a
+**GEN-9** `P4` A building **declares what it is for**: ordinary, or one of the uses a service is stood at — a
 hospital (AMB-1), a police station or a depot (SRV-1). It is a field of the record and therefore a fact
 about the map, the same for every run of it and for every agent seed, and it moves only when the map does.
 
@@ -340,7 +340,7 @@ hospital next door to the police station as often as anywhere else.
 declares none of them is a map whose services do nothing, and that is a state the census reports rather
 than a state anything papers over.
 
-**GEN-7** Initial state: cars start **stopped in parking spaces**, and **a person starts inside the
+**GEN-7** `P5` Initial state: cars start **stopped in parking spaces**, and **a person starts inside the
 building the map stood them at**, dwelling out the interval an arrival dwells (PER-11).
 
 **It closes the loop rather than adding a stage to it.** A trip ends by walking through a door and
@@ -352,31 +352,31 @@ standing at — so the format carries nothing to say it, exactly as the pacing a
 told apart by where they were put down (PER-16). A door with no room behind it leaves the body standing
 outside it, which is a state that already has a name.
 
-**GEN-8** **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the
+**GEN-8** `P6` **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the
 arrangement rather than a seed to throw away, and the gate that catches it is the suite. Where the ground
 cannot afford what the brief asked for, **the town is what fitted and the shortfall is reported** — by the
 census, as every other absence is — and where a piece of a town is left joined to nothing, that piece is
 deleted rather than linked up to whatever is nearest.
 
-**GEN-10** **Every stage of a generation runs once**, in the one order they can run in: the water before
+**GEN-10** `P4` **Every stage of a generation runs once**, in the one order they can run in: the water before
 the nodes that avoid it, the districts before the streets laid inside them, the roads before the frontage
 cut off them, the slots before the props that take what is left, and the bays before the cars standing in
 them. **A stage constrains the next rather than checking it afterwards** — which is what makes the
 properties GEN-3, GEN-4 and GEN-5 name true by construction rather than true on the attempt that happened
 to pass.
 
-**GEN-11** **Each stage draws on its own stream of the world seed.** Retuning what one stage does may not
+**GEN-11** `P4` **Each stage draws on its own stream of the world seed.** Retuning what one stage does may not
 move what an earlier one laid, so a change to the props cannot reshuffle the roads and a map is the same
 town every time it is opened.
 
-**GEN-12** **A road is a chord that may wander, bounded by three things and never by taste**: its two ends
+**GEN-12** `P6` **A road is a chord that may wander, bounded by three things and never by taste**: its two ends
 are straight for the length everything a junction lays across an arm stands on; its wander is bounded by
 the block spacing of the district it is in, so no street may reach the one a block over; and nothing bends
 tighter than the radius its own class's design speed affords on tarmac (`SimConfig.CarCorneringRadiusM`),
 which is derived from a speed and a grip and is never authored as a radius. A corner too tight for that
 floor is not laid at all: the road runs straight through it.
 
-**GEN-12a** **The corner at a node that forks nothing is the exception to both, and it is the same corner
+**GEN-12a** `P6` **The corner at a node that forks nothing is the exception to both, and it is the same corner
 either way.** Two arms and no fork is a road that bends (TER-5b), so the two roads meeting there are swept
 into **one arc arriving on one tangent** — each taking half the turn, the node standing at the middle of it
 — and that end of each road is therefore a bend rather than a straight. **The turn is the layout's and not
@@ -389,7 +389,7 @@ so does a bridge, which is straight and nothing else (GEN-14a). **What the arm c
 bend**: the paint of such a node is laid on the straight after the arc ends, exactly as everywhere else it is
 laid past the ground its junction reaches (TER-6).
 
-**GEN-15** **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is as
+**GEN-15** `P4` **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is as
 many lanes of the one standard width (`SimConfig.LaneWidthM`) as it has ways — two both ways and one
 one way (TER-4d) — and the walk beside it two walking lanes of theirs
 (`SimConfig.WalkingLaneWidthM`), whatever the road is for and wherever it stands: a town whose roads each
@@ -397,12 +397,12 @@ chose their own width is a town where nothing quoted against a lane — a line's
 span, the room a body has to step round another — means the same thing twice. A map laid to measure one
 thing may still lay ground of its own, because a pad driven in circles is a surface and not a street.
 
-**GEN-13** **A junction's arms stand square enough to be a junction.** An arm that would lie against one
+**GEN-13** `P6` **A junction's arms stand square enough to be a junction.** An arm that would lie against one
 already there is refused, because two carriageways meeting at a shallow angle overlap for tens of metres
 and the fillet, the crossing and the bar on either of them are then laid over the other. What that refusal
 leaves unreachable is deleted with its own piece (GEN-8).
 
-**GEN-17** **A junction is the only place two roads may touch.** No road crosses another, runs into the side
+**GEN-17** `P3` **A junction is the only place two roads may touch.** No road crosses another, runs into the side
 of another or lies along one: two roads that are not joined at a junction stand at least one road's whole
 width apart (`SimConfig.RoadFootprintM`), measured between the shapes they are drawn as and not between the
 lines they were joined on — a street strays off its chord by its own wander (GEN-12) and an arc by its
@@ -418,7 +418,7 @@ walks or claims a way across it has anything to say about who goes first.
 - It is a rule about **roads**, not about the paint or the ground: what a junction's own arms may do to each
   other is GEN-13's, and where the lots and the buildings stand is GEN-3's and GEN-16's.
 
-**GEN-18** **A grid town's middle is driven one way, and every one-way street it keeps is one the town can
+**GEN-18** `P6` **A grid town's middle is driven one way, and every one-way street it keeps is one the town can
 still be driven round.** Inside the orbital, a district laid as a strict lattice runs its own streets one
 way (TER-4d), **the two families alternating with their own index across the grid** — so every block is
 reached off the pair of streets round it, which a grid running all one way is not. Everything else runs
@@ -431,7 +431,7 @@ streets all ran inwards has a way out of every junction on it and is still somew
 never leaves. A street the deletions have left the town unable to afford **runs both ways again** (GEN-8),
 one at a time and in the order they were laid; nothing is laid twice and no seed is thrown away.
 
-**GEN-18a** **No lane dangles**: every lane the town lays is one a car can be driven onto and one it can be
+**GEN-18a** `P6` **No lane dangles**: every lane the town lays is one a car can be driven onto and one it can be
 driven off again. **A node that forks nothing may not change how many lanes there are** — where a road of
 two ways meets a road of one, the way back out of that node is a lane no movement ever arrives on, since
 the only thing that could reach it is the turn round in the road that TER-5f bans. It is a local fact and
@@ -439,7 +439,7 @@ not a connected one: a movement leaving a node needs some road other than its ow
 movement arriving needs some other road leaving. **A node of one arm is not what this is about** — a dead
 end is a place only turning round leaves, and dropping it is GEN-5a's.
 
-**GEN-16** **Two of a kind standing inside a locality of each other are one thing and not two**
+**GEN-16** `P6` **Two of a kind standing inside a locality of each other are one thing and not two**
 (`SimConfig.CityGen.LocalityM`). A town is laid at several spacings that know nothing of one another — an
 arterial's, a lattice's, a frontage's — and where two of them land almost on the same ground what comes out
 is a pair nothing downstream can make sense of: two junction boxes with their fillets, their crossings and
@@ -467,18 +467,18 @@ rule of its own — a building by the padding a walker gets past it (GEN-3), a p
 turns (GEN-6a) and by its own girth against the props already laid (GEN-6c) — and a second rule over that
 ground would be a second answer to it (SIM-7).
 
-**GEN-14** **Nothing a junction is made of stands on the water.** No node is placed on it, so no junction,
+**GEN-14** `P6` **Nothing a junction is made of stands on the water.** No node is placed on it, so no junction,
 no kerb fillet, no crossing and no bar is ever laid over it, and a town whose middle falls in its own river
 moves its middle to the bank rather than building there.
 
-**GEN-14a** **A road standing over water is a bridge, and a bridge is its own road**: one straight span
+**GEN-14a** `P6` **A road standing over water is a bridge, and a bridge is its own road**: one straight span
 between a bridgehead on each bank, no longer than the deck a town builds
 (`SimConfig.CityGen.BridgeDeckLongestM`), carrying that deck the whole of its length (TER-3b). Nothing else
 crosses — not a street, not a piece of the orbital's own arc, which is laid straight over its span or not at
 all. A crossing these bounds refuse is a road the town does not have, and whatever that leaves unreachable
 is deleted with its own piece (GEN-8) rather than reached some longer way round.
 
-**GEN-14b** **A bridge crosses a river and never the sea**, because a coast has one shore inside the town
+**GEN-14b** `P6` **A bridge crosses a river and never the sea**, because a coast has one shore inside the town
 and a deck laid over it reaches nothing. **And it crosses as squarely as the layout affords**: the wheel is
 turned so a spoke runs down the river's own normal, and an arterial meeting the water carries a node on each
 bank — so what spans it is the shortest run that path affords rather than the distance between whichever two

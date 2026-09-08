@@ -9,35 +9,35 @@ a gap, recorded in [docs/index.md](../../../../docs/index.md), not a decision.
 
 ## What a person is and does
 
-**PER-1** A person is an agent **at all times**. Containment does not remove agency — it replaces the
+**PER-1** `P4` A person is an agent **at all times**. Containment does not remove agency — it replaces the
 action set.
 
-**PER-3** Forward speed is **constant when moving**, modulated by the occupied terrain. There is **no
+**PER-3** `P3` Forward speed is **constant when moving**, modulated by the occupied terrain. There is **no
 acceleration profile** above the foot friction that produces it.
 
-**PER-4** A person may only enter a car that is **free, stopped and intact**.
+**PER-4** `P5` A person may only enter a car that is **free, stopped and intact**.
 
 
-**PER-6** While inside a building the only available action is exiting it; while inside a car, exiting it
+**PER-6** `P5` While inside a building the only available action is exiting it; while inside a car, exiting it
 and driving it.
 
 ## Soft rules
 
-**PER-7** The walker's soft rule set. Each is an intention it can fail to keep, and a failure has a
+**PER-7** `P5` The walker's soft rule set. Each is an intention it can fail to keep, and a failure has a
 defined recovery (PER-8) rather than a correction applied to the body.
 
-**PER-7.1** Do not intentionally collide with any object.
+**PER-7.1** `P5` Do not intentionally collide with any object.
 
-**PER-7.2** Move only on walkable terrain. This is a fact about the **shape of the network** rather than a
+**PER-7.2** `P5` Move only on walkable terrain. This is a fact about the **shape of the network** rather than a
 check run afterwards (TER-3c.1): there is no edge that touches a carriageway except a crossing.
 
-**PER-7.3** Do not cross a red pedestrian light. **Red means do not *begin* crossing** (TLT-2a).
+**PER-7.3** `P5` Do not cross a red pedestrian light. **Red means do not *begin* crossing** (TLT-2a).
 
-**PER-8** On a soft rule violation — pushed onto a road, say — move to the nearest valid space.
+**PER-8** `P5` On a soft rule violation — pushed onto a road, say — move to the nearest valid space.
 
 ## Following
 
-**PER-13** A walker is **granted the pavement in front of it** and walks only into ground it has been
+**PER-13** `P3` A walker is **granted the pavement in front of it** and walks only into ground it has been
 granted. The grant is the driver's, over the walking network's own ways: every walker asks for the lane
 from its own back to where it can come to rest at the pace it is walking, plus the gap it keeps, and is
 given what is left of that in front of the nearest body already on it **that is going somewhere**. **Nobody
@@ -128,7 +128,7 @@ standing in a lane is not an answer to that.
 
 ## Getting past
 
-**PER-24** A walker **steps round a body that is going nowhere rather than waiting behind it**. What counts
+**PER-24** `P5` A walker **steps round a body that is going nowhere rather than waiting behind it**. What counts
 as one is what a driver counts (`E-4`): a wreck, somebody knocked down, a walker standing about or shoved
 off its own line — and **never a body under way along the same lane**, who is followed and never stepped
 round.
@@ -197,7 +197,7 @@ pavement, and needs none of it.
 
 ## Crossing
 
-**PER-15** **A walker steps onto a crossing when the lane it is stepping into is inside nobody's road, and
+**PER-15** `P3` **A walker steps onto a crossing when the lane it is stepping into is inside nobody's road, and
 never on a gap in the traffic.** It is `PER-14`'s rule said of paint: a claim runs from a car's own
 tail to where that car is committed to being able to stop, so a car far enough away to stop for this body
 holds none of that ground and one that is not, does. **The time something would take to arrive is the
@@ -278,27 +278,27 @@ back then, it buys one tick of ground and the wait begins again.
 
 ## The trip
 
-**PER-9** Walk around the city from building to building. Destinations are drawn from the **agent seed**.
+**PER-9** `P5` Walk around the city from building to building. Destinations are drawn from the **agent seed**.
 
 **And a walker begins the round where it ends one** — inside a building, dwelling (GEN-7). There is no
 first leg that is different from the rest: building, a car where the trip is worth one, the place it was
 going, building.
 
-**PER-17** **Whether a trip is walked is structural and never a weighted coin.** It is walked when the
+**PER-17** `P5` **Whether a trip is walked is structural and never a weighted coin.** It is walked when the
 route to the destination never sets foot on a carriageway — the same block, however far round it is — or
 when the destination is inside the walk-worth distance; anything else is worth a car. The route the planner
 actually laid is what answers the first half, so "the same block" is a fact about that route rather than a
 reading taken off the distance, and a town's traffic is therefore a property of how it was laid out and
 comes out the same for the same seed.
 
-**PER-10** A car trip is: walk to this trip's car if it is free, stopped, intact and within a walk; enter
+**PER-10** `P5` A car trip is: walk to this trip's car if it is free, stopped, intact and within a walk; enter
 it; drive to a bay near the destination; park; walk the rest.
 
-**PER-10a** **No leg of a trip is a long walk, whether the trip chose the leg or not.** The bay a car aims
+**PER-10a** `P5` **No leg of a trip is a long walk, whether the trip chose the leg or not.** The bay a car aims
 at is claimed **within a walk of the destination and only once a route to it exists** — claiming first and
 routing afterwards strands the car at a bay nothing can reach.
 
-**PER-11** On arrival the person enters if the building has spare capacity and **dwells inside** before
+**PER-11** `P5` On arrival the person enters if the building has spare capacity and **dwells inside** before
 drawing the next destination.
 
 **Arriving is not a radius.** A search will happily prove that a body within some distance of a door has
@@ -306,7 +306,7 @@ arrived when it is on the wrong side of a wall; arrival is a fact about the leg 
 
 ## Nowhere to be
 
-**PER-14** A walker on a map with **nowhere to go and no pavement to walk along paces the road beside it**:
+**PER-14** `P5` A walker on a map with **nowhere to go and no pavement to walk along paces the road beside it**:
 out from where it was put down into the middle of the nearest lane, a stand, and back again. It is what the
 proving ground has instead of a light — nothing warns a driver it is coming, so the whole of what stops a
 car there is the driver looking at what is in front of it.
@@ -339,7 +339,7 @@ down. It sits under the driver's own blocked-road fuse
 ([agents/car](../../car/docs/requirements.md)), so a car that arrived at the start of a stand never walks
 the ladder around a body that is about to move off anyway.
 
-**PER-16** A walker on such a map that was put down **in a carriageway rather than beside one reels down
+**PER-16** `P5` A walker on such a map that was put down **in a carriageway rather than beside one reels down
 it**: a lurch a few seconds long further along the lane it is on, thrown anywhere across the width of that
 lane, and every few lurches a stand where it stopped. **Which of the two rules a body follows is the pose
 the map left it in and never a name**, so a scenario is a map rather than a special case in the agents.
@@ -364,7 +364,7 @@ than that wait and well under the blocked-road clock.
 
 ## Damage
 
-**PER-23** A person is **knocked down** by a vehicle when the contact carries enough energy to put a body
+**PER-23** `P3` A person is **knocked down** by a vehicle when the contact carries enough energy to put a body
 off its feet further than a stated distance along the ground — the work of sliding their own mass that far
 on the sliding grip, and nothing anybody chose in kilojoules. **A car is the only thing that can do it**
 (`PHY-4a`), and **who was moving carries no weight**: the closing speed and the two masses are the whole
@@ -378,7 +378,7 @@ casualties. Half again over the pace is what the shipped figures give.
 **There is no band above it.** The energy that breaks a car does no more to a person than the energy that
 just moves them, because a person has one tolerance like every other kind of body (`PHY-3`, `PHY-4`).
 
-**PER-18** And a person who is down is a **casualty**: lying where they fell, taking no actions of their
+**PER-18** `P5` And a person who is down is a **casualty**: lying where they fell, taking no actions of their
 own, off their feet, and waiting for an ambulance
 ([agents/ambulance](../../ambulance/docs/requirements.md)). **It is not a terminal state** (AGT-5) — a
 casualty is collected, treated and put back on the pavement free to draw a trip again. **Nothing that moves

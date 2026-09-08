@@ -26,6 +26,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P7)]
 public class SkidpadFiguresTests(ITestOutputHelper output)
 {
     static readonly SimConfig Config = SimConfig.Shipped();

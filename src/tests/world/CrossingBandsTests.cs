@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.World;
 /// bands of one way are the lanes in the order a body walking it meets them.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P1)]
 public class CrossingBandsTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -92,7 +93,7 @@ public class CrossingBandsTests
     [Fact]
     public void AZebraOverTwoLanesIsTwoBands()
     {
-        var (bands, _, walking, crossings) = Project("Odesa");
+        var (bands, _, walking, crossings) = Project(Towns.City);
 
         var many = 0;
         for (var crossing = 0; crossing < crossings; crossing++)

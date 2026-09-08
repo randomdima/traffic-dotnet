@@ -1,4 +1,4 @@
-# `E-6` — give up the target place
+# `E-6` `P5` — give up the target place
 
 Code: [E06GiveUpThePlace.cs](../reactive/E06GiveUpThePlace.cs) · [catalogue](index.md)
 

@@ -19,6 +19,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// a gate, and both are only ever seen by somebody who happened to be watching the start menu.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P3)]
 public class IdleRingTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

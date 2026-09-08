@@ -18,6 +18,7 @@ namespace TrafficSimulation.Tests.World;
 /// stretch its own section owns</b>.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class ParkingSectionTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.Routing;
 /// still drives, it merely drives somewhere nobody chose.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class DrivingNetworkTests
 {
     public static TheoryData<string> Maps => Towns.EveryTown();

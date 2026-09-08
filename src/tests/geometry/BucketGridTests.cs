@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.Geometry;
 /// ninety-odd thousand props rather than on a made-up scatter.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class BucketGridTests
 {
     /// <summary>Well under, about, and well over the spacing of a town's props.</summary>

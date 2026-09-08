@@ -19,6 +19,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// town for the rest.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class ManeuverExitTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

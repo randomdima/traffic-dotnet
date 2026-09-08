@@ -176,6 +176,12 @@ internal sealed class LaneLines
     public float ConnectorWidthM(int connector) =>
         MathF.Min(LaneWidthM[ConnectorFromLane[connector]], LaneWidthM[ConnectorToLane[connector]]);
 
+    /// <summary>
+    /// The plan's junction a movement crosses, or <see cref="CityPlan.NoRecord"/> where it joins two lanes
+    /// at a place a car park cut into their road (GEN-4h).
+    /// </summary>
+    public int JunctionOfConnector(int connector) => LaneToJunction[ConnectorFromLane[connector]];
+
     /// <summary>The line one connector is driven on, which is empty where the two lanes butt.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOfConnector(int connector) =>
         ConnectorArcs.AsSpan(

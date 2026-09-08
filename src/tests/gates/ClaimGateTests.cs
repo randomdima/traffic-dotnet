@@ -30,6 +30,7 @@ namespace TrafficSimulation.Tests.Gates;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
+[Trait(Priority.Key, Priority.P0)]
 [Collection(Simulation.SolverCollection.Name)]
 public class ClaimGateTests
 {
@@ -40,7 +41,7 @@ public class ClaimGateTests
     const int MostOnAWay = 64;
 
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
     public void NoMetreOfAnyWayIsEverInTwoClaims(string map)
     {
         var config = SimConfig.Shipped();

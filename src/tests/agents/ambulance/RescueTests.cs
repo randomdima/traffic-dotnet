@@ -23,6 +23,7 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 /// it.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class RescueTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

@@ -9,6 +9,7 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 /// takes only what a rank may take is asserted rather than assumed.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class RescuePriorityTests
 {
     /// <summary>Ground granted and not reached, at the rank its movement carries.</summary>

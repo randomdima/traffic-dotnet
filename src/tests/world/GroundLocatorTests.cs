@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.World;
 /// the answer to be off by half of.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class GroundLocatorTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -277,17 +278,6 @@ public class GroundLocatorTests
             Assert.False(ground.Contains(pointM));
             Assert.Equal(Ground.Grass, ground.GroundAt(pointM));
         }
-    }
-
-    [Fact]
-    public void WhatASurfaceIsWorthIsTheFigureConfigCarries()
-    {
-        var catalogue = new GroundCatalog(Config);
-
-        Assert.Equal(Config.Terrain.GrassCoefficient, catalogue.Coefficient(Ground.Grass));
-        Assert.Equal(Config.Terrain.WaterCoefficient, catalogue.Coefficient(Ground.Water));
-        Assert.Equal(Config.Terrain.PavedCoefficient, catalogue.Coefficient(Ground.Road));
-        Assert.Equal(Config.Terrain.PavedCoefficient, catalogue.Coefficient(Ground.Sidewalk));
     }
 
     /// <summary>

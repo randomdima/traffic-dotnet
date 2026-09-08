@@ -14,6 +14,7 @@ namespace TrafficSimulation.Tests.Debug;
 /// them, and how often it works them out.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P9)]
 public class WireframeTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

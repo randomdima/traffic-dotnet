@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
@@ -17,6 +18,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// test still passes.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class StepRoundTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -27,7 +29,7 @@ public class StepRoundTests
     [Fact]
     public void WalkersStepRoundWhatIsInTheirWay()
     {
-        var world = Run("Odesa");
+        var world = Run(Towns.City);
 
         Assert.True(world.StepsRound > 0, "nobody in a minute of a busy town stepped round anything");
     }
@@ -40,19 +42,25 @@ public class StepRoundTests
     [Fact]
     public void MostOfThemGoToTheRight()
     {
-        var world = Run("Odesa");
+        var world = Run(Towns.City);
 
         Assert.True(
             world.StepsRoundToTheLeft * 2 < world.StepsRound,
             $"{world.StepsRoundToTheLeft} of {world.StepsRound} steps round a body went to the left");
     }
 
-    static TownWorld Run(string map)
+    /// <summary>
+    /// The minute, run once however many claims are asked of it — both of these are read off the same
+    /// walkers meeting the same bodies, and standing a second town to ask the second question was the whole
+    /// of what the class cost.
+    /// </summary>
+    static TownWorld Run(string map) => Runs.GetOrAdd(map, at =>
     {
-        var world = new TownWorld(Towns.Of(map), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(Ticks);
+        var world = new TownWorld(Towns.Of(at), Config);
+        new SimLoop<TownWorld>(world, Config).Advance(Ticks);
 
         return world;
-    }
+    });
+
+    static readonly ConcurrentDictionary<string, TownWorld> Runs = new();
 }

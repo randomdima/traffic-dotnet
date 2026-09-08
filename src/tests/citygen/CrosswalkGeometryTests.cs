@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// across — a reader that guessed would lay every foot crossing along the road it was meant to cross.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P3)]
 public class CrosswalkGeometryTests
 {
     public static TheoryData<string> Maps => Towns.EveryTown();

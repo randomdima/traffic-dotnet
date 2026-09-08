@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// (<see cref="Paving.Corners"/>), or the kerb is missing an L of itself two metres on a side.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P3)]
 public class PavedCornerTests
 {
     public static TheoryData<string> Maps => Towns.EveryMapWithAFootway();

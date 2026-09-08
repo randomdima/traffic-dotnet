@@ -23,6 +23,7 @@ namespace TrafficSimulation.Tests.Agents.Service;
 /// is not a duty.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class ServiceVehicleTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

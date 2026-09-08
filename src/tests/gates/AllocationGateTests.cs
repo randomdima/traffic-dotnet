@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Bench;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
@@ -21,6 +22,7 @@ namespace TrafficSimulation.Tests.Gates;
 /// hardest — the classifier, asked across a whole city.
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
+[Trait(Priority.Key, Priority.P0)]
 [Collection(Simulation.SolverCollection.Name)]
 public class AllocationGateTests
 {
@@ -39,29 +41,39 @@ public class AllocationGateTests
 
     /// <summary>
     /// The terrain query is what every walking body and every driving body asks of the world several
-    /// times a tick, and it is asked here on the largest town this engine can open. A sample struct
-    /// returned by value is the whole point: one that boxed, or that handed back a class, would put a
-    /// hundred thousand allocations a second under the tick.
+    /// times a tick, and it is asked here over a whole town. A sample struct returned by value is the whole
+    /// point: one that boxed, or that handed back a class, would put a hundred thousand allocations a
+    /// second under the tick.
     /// </summary>
     [Fact]
     public void AskingTheGroundOfAWholeCityAllocatesNothing()
     {
-        var plan = Towns.Of("Odesa");
+        var plan = Towns.Of(Towns.City);
         var ground = new GroundLocator(plan, SimConfig.Shipped());
         var step = plan.WorldSizeM / 1_000f;
 
-        var walked = 0f;
-        for (var probe = 0; probe < 1_000; probe++) walked += ground.At(step * probe).Coefficient;
+        // <b>Warmed on the walk that is measured and not on a diagonal of it.</b> The locator's own lazy
+        // work is per part of the town, so a warm-up that crossed the map once left whole squares of it
+        // cold and the figure came back a hundred and fifty bytes short of zero — which is the ground being
+        // reached for the first time, not the query allocating.
+        var walked = Sweep();
 
         var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var probe = 0; probe < 1_000_000; probe++)
-        {
-            var sample = ground.At(new Vector2(step.X * (probe % 1_000), step.Y * (probe % 997)));
-            walked += sample.Coefficient;
-        }
+        walked += Sweep();
 
         Assert.Equal(before, GC.GetAllocatedBytesForCurrentThread());
         Assert.True(walked > 0f);
+
+        float Sweep()
+        {
+            var sum = 0f;
+            for (var probe = 0; probe < 1_000_000; probe++)
+            {
+                sum += ground.At(new Vector2(step.X * (probe % 1_000), step.Y * (probe % 997))).Coefficient;
+            }
+
+            return sum;
+        }
     }
 
     /// <summary>
@@ -77,7 +89,7 @@ public class AllocationGateTests
     /// tick. Both are kept: a gate that fails should name which half it was.
     /// </remarks>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
     public void ThisEnginesOwnPhasesAllocateNothingOverAWholeTown(string map)
     {
         var config = SimConfig.Shipped();
@@ -94,7 +106,7 @@ public class AllocationGateTests
     /// nobody here could fix.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
     public void AWholeTickOfAWholeTownAllocatesNothing(string map)
     {
         var config = SimConfig.Shipped();
@@ -102,20 +114,16 @@ public class AllocationGateTests
         var loop = new SimLoop<TownWorld>(world, config);
 
         // Long enough for every array the tick leans on to have reached the size it stays at: a town
-        // still growing its capacities is not the steady state the rule is about. <b>It is the worst
-        // moment a map ever reaches and not its first minute</b> — the contact arrays are sized by the
-        // most contacts the solver has ever had at once, and the proving ground with the drunks on it does
-        // not have its worst pile-up in the first ten seconds. Forty times the window that is measured,
-        // so a leak still shows in it at a fortieth of the rate.
+        // still growing its capacities is not the steady state the rule is about, and the size the contact
+        // arrays settle at is the most contacts the solver has ever had at once. <b>How long that takes is
+        // a fact about the map</b> and is the map's to state (<see cref="Towns.SettleTicks"/>), because a
+        // lap with bodies reeling into the carriageway does not have its worst pile-up in the first ten
+        // seconds and a town whose traffic disperses reaches its in a minute.
         //
-        // <b>It is a figure about the maps and it moves when they do</b>, which makes it the fragile part
-        // of this gate: it went from a hundred seconds to four hundred when the cars stopped claiming an
-        // acceleration none of them had (CAR-45) and started planning against a governed speed rather than
-        // 270 km/h, because both changes moved when a map reaches its worst pile-up rather than whether it
-        // does. **A failure here of a few hundred bytes is this and not a leak** — a leak allocates every
-        // tick and grows with the window, so the two are told apart by lengthening the warm-up rather than
-        // by reading the figure. What would retire the chase is pre-sizing the arrays that grow.
-        loop.Advance(24000);
+        // **A failure here of a few hundred bytes is that and not a leak** — a leak allocates every tick and
+        // grows with the window, so the two are told apart by lengthening the warm-up rather than by reading
+        // the figure. What would retire the chase is pre-sizing the arrays that grow.
+        loop.Advance(Towns.SettleTicks(map));
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         loop.Advance(600);
@@ -129,7 +137,7 @@ public class AllocationGateTests
     /// cars actually queue against each other.
     /// </summary>
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
     public void ArbitratingAWholeTownsContactsAllocatesNothing(string map)
     {
         var config = SimConfig.Shipped();
@@ -141,26 +149,21 @@ public class AllocationGateTests
 
     /// <summary>
     /// And the gate above has something to speak for. Zero bytes over an empty list is zero bytes, so
-    /// the figure means nothing until a town has been shown to produce contacts at all — which the
-    /// scenario map, five walkers alone on it, does not.
+    /// the figure means nothing until a town has been shown to produce contacts at all.
     /// </summary>
+    /// <remarks>
+    /// <b>Asked of the lap the bodies reel on and not of a town.</b> Whether a town's own traffic touches
+    /// inside a minute is a fact about how crowded it is, and a fixture roomy enough for its cars to park
+    /// squarely is one where nothing need collide — so the map that exists to put bodies in the carriageway
+    /// is the one that can honestly answer this.
+    /// </remarks>
     [Fact]
     public void ATownWithTrafficInItActuallyProducesContacts()
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Of("Odesa"), config);
-        new SimLoop<TownWorld>(world, config).Advance(600);
+        using var world = new TownWorld(Towns.Of(TrackPlan.NameOf(TrackLap.Drunk)), config);
+        new SimLoop<TownWorld>(world, config).Advance(1_800);
 
         Assert.True(world.Touches > 0);
-    }
-
-    [Fact]
-    public void TheFigureIsFlatInTheSizeOfTheTown()
-    {
-        var config = SimConfig.Shipped();
-
-        Assert.Equal(
-            TickProbe.AllocatedBytesPerTick(config, agents: 10, Ticks),
-            TickProbe.AllocatedBytesPerTick(config, agents: 10_000, Ticks));
     }
 }

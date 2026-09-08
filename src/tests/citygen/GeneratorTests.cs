@@ -21,71 +21,48 @@ namespace TrafficSimulation.Tests.CityGen;
 /// seeds, of the town that comes out. A failure is a defect in the arrangement rather than a seed to skip.
 /// </para>
 /// <para>
-/// <b>A small brief and not a city.</b> The properties are about the arrangement rather than about scale,
-/// and a town two kilometres across exercises every stage in a fraction of a second. <b>It is not smaller
-/// than a wheel</b>: below about that, the orbital and its spokes are most of what the ground holds, the
-/// lattice inside them is a handful of points, and what comes out is a chain of streets rather than a town
-/// with blocks in it — a fixture that answers questions about no arrangement anybody ships.
+/// <b>This is where a shipped city used to be asked its questions</b>, and it is why nothing else in the
+/// suite asks one (<see cref="Tier.Maps"/>). Whether a brief and a seed make a sound town is answered here,
+/// over four unrelated seeds and both kinds of water, of towns laid for the purpose — so a build may ship
+/// any number of cities without any of them being a subject the suite has an opinion about.
+/// </para>
+/// <para>
+/// <b>The town is <see cref="Towns.LaidFrom"/>'s and is laid once a seed.</b> Twenty-six properties over
+/// four seeds is a hundred and nine cases and eight towns; a lay per case was three quarters of the tier
+/// this project runs after every edit, which is why the class is in the town tier now — eight towns is not
+/// engine-free arithmetic however carefully it is memoised.
 /// </para>
 /// </remarks>
-[Trait(Tier.Key, Tier.Unit)]
+[Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P3)]
 public class GeneratorTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// The roofs a building may be sized to. <b>Two of them and not the catalogue's</b>: what is being asked
-    /// here is what the generator does with the footprints it is handed, and a test that read the art would
-    /// be a test of the art.
+    /// The brief and the town are <see cref="Towns"/>'s: the suite lays one town per seed and every property
+    /// below reads it. <b>Twenty-six properties over four seeds is a hundred and nine cases and eight
+    /// towns</b>, and a lay per case was three quarters of the tier this project runs after every edit.
     /// </summary>
-    static readonly Vector2[] RoofsM = [new(12f, 12f), new(18f, 16f)];
+    static CityPlan Lay(TownBrief brief) => Towns.LaidFrom(brief.Seed, brief.Water);
 
-    static CityPlan Lay(TownBrief brief) => TownGenerator.Lay(brief, Config, RoofsM);
-
-    static TownBrief Brief(ulong seed) => new()
-    {
-        Name = "Fixture",
-        Description = "A town laid to ask the generator its own questions",
-        Seed = seed,
-        WidthM = 2000f,
-        HeightM = 1500f,
-        Districts = 6,
-        Buildings = 120,
-        People = 40,
-        Cars = 40,
-        Water = WaterKind.River,
-        WaterBearingDeg = 20f,
-
-        // Narrow enough that the deck a town builds spans it (GEN-14a): a river this town cannot bridge is
-        // a town in two halves, and the half that is deleted takes the properties being asked about with it.
-        WaterShare = 0.06f,
-    };
+    static TownBrief Brief(ulong seed) => Towns.Brief(seed);
 
     /// <summary>The same town on a coast, which is the water a town may not bridge (GEN-14b).</summary>
-    static TownBrief Coast(ulong seed)
-    {
-        var brief = Brief(seed);
-        return new TownBrief
-        {
-            Name = brief.Name, Description = brief.Description, Seed = brief.Seed, WidthM = brief.WidthM,
-            HeightM = brief.HeightM, Districts = brief.Districts, Buildings = brief.Buildings,
-            People = brief.People, Cars = brief.Cars, Water = WaterKind.Coast,
-            WaterBearingDeg = brief.WaterBearingDeg, WaterShare = 0.2f,
-        };
-    }
+    static TownBrief Coast(ulong seed) => Towns.Brief(seed, WaterKind.Coast);
 
-    public static TheoryData<ulong> Seeds()
-    {
-        var seeds = new TheoryData<ulong>();
-        foreach (var seed in (ulong[])[1, 7, 4242, 0xDEADBEEF]) seeds.Add(seed);
-        return seeds;
-    }
+    public static TheoryData<ulong> Seeds() => Towns.Seeds();
 
+    /// <summary>
+    /// <b>Laid twice on purpose</b> (GEN-1). This is the one question in the file the shared town cannot
+    /// answer: handed it, both sides would be the same object and the case would pass whatever the
+    /// generator did.
+    /// </summary>
     [Fact]
     public void OneSeedLaysOneTown()
     {
-        var once = Lay(Brief(99));
-        var again = Lay(Brief(99));
+        var once = Towns.LayFresh(Brief(99));
+        var again = Towns.LayFresh(Brief(99));
 
         Assert.Equal(Shape(once), Shape(again));
     }
@@ -94,8 +71,8 @@ public class GeneratorTests
     public void AnotherSeedLaysAnotherTown()
     {
         Assert.NotEqual(
-            Shape(Lay(Brief(99))),
-            Shape(Lay(Brief(100))));
+            Shape(Towns.LayFresh(Brief(99))),
+            Shape(Towns.LayFresh(Brief(100))));
     }
 
     /// <summary>
@@ -106,16 +83,7 @@ public class GeneratorTests
     public void RetuningALaterStageLeavesTheRoadsWhereTheyWere()
     {
         var town = Lay(Brief(3));
-        var brief = Brief(3);
-        var other = Lay(
-            new TownBrief
-            {
-                Name = brief.Name, Description = brief.Description, Seed = brief.Seed, WidthM = brief.WidthM,
-                HeightM = brief.HeightM, Districts = brief.Districts, Buildings = brief.Buildings,
-                People = brief.People, Cars = brief.Cars, Water = brief.Water,
-                WaterBearingDeg = brief.WaterBearingDeg, WaterShare = brief.WaterShare,
-                ParkingSlotShare = brief.ParkingSlotShare * 0.5f,
-            });
+        var other = Towns.LayFresh(Towns.Brief(3, parkingSlotShare: 0.15f));
 
         Assert.Equal(town.Roads.Count, other.Roads.Count);
         Assert.Equal(town.Junctions.Count, other.Junctions.Count);
@@ -240,10 +208,14 @@ public class GeneratorTests
         // And the shore is what the water is met at: no water anywhere in the town has grass a step from it.
         // What may touch it is what the town laid over the shore afterwards — a bridge's own deck reaches
         // the water by design.
+        // Swept over the water and not over the town: only a cell that is water can have grass against it,
+        // and the water of a river town is a twentieth of its ground. A whole-map sweep at the ground's own
+        // step is four million classifications a seed, and all but a few thousand of them are inland.
         var stepM = Config.Terrain.GroundStepM;
-        for (var y = stepM * 0.5f; y < plan.WorldSizeM.Y; y += stepM)
+        var (fromM, toM) = WetBounds(plan, stepM);
+        for (var y = fromM.Y; y < toM.Y; y += stepM)
         {
-            for (var x = stepM * 0.5f; x < plan.WorldSizeM.X; x += stepM)
+            for (var x = fromM.X; x < toM.X; x += stepM)
             {
                 var atM = new Vector2(x, y);
                 if (GroundAt(plan, atM) != Ground.Water) continue;
@@ -261,8 +233,39 @@ public class GeneratorTests
         }
     }
 
-    static void AssertNotGrass(CityPlan plan, Vector2 atM) =>
-        Assert.True(GroundAt(plan, atM) != Ground.Grass, $"grass at {atM.X:F1},{atM.Y:F1} stands against the water");
+    static void AssertNotGrass(CityPlan plan, Vector2 atM)
+    {
+        if (GroundAt(plan, atM) != Ground.Grass) return;
+
+        Assert.Fail($"grass at {atM.X:F1},{atM.Y:F1} stands against the water");
+    }
+
+    /// <summary>
+    /// The box every wet cell stands inside, a step proud of the water's own outline so the dry side of the
+    /// edge is swept too. A town with no water at all has no box and nothing to sweep.
+    /// </summary>
+    static (Vector2 FromM, Vector2 ToM) WetBounds(CityPlan plan, float stepM)
+    {
+        var fromM = new Vector2(float.PositiveInfinity);
+        var toM = new Vector2(float.NegativeInfinity);
+        foreach (var (_, rings) in Towns.WaterRingsOf(plan.Water))
+        {
+            for (var ring = 0; ring < rings.Count; ring++)
+            {
+                foreach (var pointM in rings.RingOf(ring))
+                {
+                    fromM = Vector2.Min(fromM, pointM);
+                    toM = Vector2.Max(toM, pointM);
+                }
+            }
+        }
+
+        if (float.IsInfinity(fromM.X)) return (Vector2.Zero, Vector2.Zero);
+
+        var proudM = new Vector2(stepM * 2f);
+        return (Vector2.Max(fromM - proudM, new Vector2(stepM * 0.5f)),
+                Vector2.Min(toM + proudM, plan.WorldSizeM));
+    }
 
     /// <summary>
     /// <b>A town with one-way streets in it can still be driven round</b> (GEN-18): from every lane there
@@ -334,21 +337,46 @@ public class GeneratorTests
     {
         var plan = Lay(Brief(seed));
         var walked = Walked(plan);
+        var footprintM = Config.RoadFootprintM;
+
+        // Every pair of points on every pair of roads is a hundred million comparisons on a town this size,
+        // and all but a handful of them are half a kilometre apart. The points are dropped into squares of
+        // the footprint being asked about, so a point is compared against the nine squares that could hold
+        // anything close enough to be an offence and against nothing else.
+        var squares = new Dictionary<(int Column, int Row), List<(int Road, Vector2 AtM)>>();
         for (var road = 0; road < walked.Length; road++)
         {
-            for (var other = road + 1; other < walked.Length; other++)
+            foreach (var atM in walked[road])
             {
-                if (SharesAJunction(plan, road, other)) continue;
+                var key = ((int)MathF.Floor(atM.X / footprintM), (int)MathF.Floor(atM.Y / footprintM));
+                if (!squares.TryGetValue(key, out var here)) squares[key] = here = [];
+                here.Add((road, atM));
+            }
+        }
 
-                foreach (var atM in walked[road])
+        for (var road = 0; road < walked.Length; road++)
+        {
+            foreach (var atM in walked[road])
+            {
+                var column = (int)MathF.Floor(atM.X / footprintM);
+                var row = (int)MathF.Floor(atM.Y / footprintM);
+                for (var overM = -1; overM <= 1; overM++)
                 {
-                    foreach (var elseM in walked[other])
+                    for (var downM = -1; downM <= 1; downM++)
                     {
-                        var apartM = (atM - elseM).Length();
-                        Assert.True(
-                            apartM >= Config.RoadFootprintM,
-                            $"roads {road} and {other} meet no junction yet pass {apartM:F1} m apart at " +
-                            $"{atM.X:F0},{atM.Y:F0}, inside the {Config.RoadFootprintM:F1} m one road takes");
+                        if (!squares.TryGetValue((column + overM, row + downM), out var here)) continue;
+
+                        foreach (var (other, elseM) in here)
+                        {
+                            if (other <= road || SharesAJunction(plan, road, other)) continue;
+
+                            var apartM = (atM - elseM).Length();
+                            if (apartM >= footprintM) continue;
+
+                            Assert.Fail(
+                                $"roads {road} and {other} meet no junction yet pass {apartM:F1} m apart at " +
+                                $"{atM.X:F0},{atM.Y:F0}, inside the {footprintM:F1} m one road takes");
+                        }
                     }
                 }
             }

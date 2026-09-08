@@ -105,9 +105,17 @@ internal static class RescueProbe
 
     static string Metres(float m) => float.IsPositiveInfinity(m) ? "—" : $"{m:F1}";
 
-    public static RescueRow Sample(string map, SimConfig config)
+    public static RescueRow Sample(string map, SimConfig config) =>
+        Sample(map, Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
+
+    /// <summary>
+    /// The same reading taken of a town already in hand. <b>A plan is what this measures</b>, and a caller
+    /// that has laid one — the suite, which asks its questions of towns of its own — should not have to put
+    /// a name on the menu to be read by it.
+    /// </summary>
+    public static RescueRow Sample(string map, CityPlan plan, SimConfig config)
     {
-        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
+        using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 

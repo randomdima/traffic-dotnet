@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Render;
 /// another, and that the one sheet which tiles was kept out of the pages altogether.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P5)]
 public class SheetAtlasTests
 {
     static SheetSource Sized(int width, int height) => SheetSource.Generated(new byte[width * height * 4], width, height);

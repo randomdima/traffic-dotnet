@@ -21,11 +21,12 @@ namespace TrafficSimulation.Tests.Bench;
 /// writes nothing, or a scenario map with no claims of its own are all faults of the same kind.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P7)]
 public class ScenarioTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryLaidMap();
 
     static readonly ConcurrentDictionary<string, TownWorld> AtRest = new();
 
@@ -69,7 +70,9 @@ public class ScenarioTests
         var watching = Scenarios.For(Standing(map), Config);
         var ownClaims = Array.Exists(watching, watch => watch is not TownWatch);
 
-        var kind = MapCatalogue.Describe(map).Kind;
+        // The suite's own town is a place and is on no menu, so the catalogue has no row for it and reads it
+        // as a scenario by default; what it is laid for is to be a city, which is exactly the branch below.
+        var kind = map == Towns.City ? MapKind.Place : MapCatalogue.Describe(map).Kind;
         if (kind == MapKind.Place || map == Towns.Fixture || map == IdlePlan.Name)
         {
             Assert.False(ownClaims, $"{map} is not laid to measure one thing but carries claims of its own");

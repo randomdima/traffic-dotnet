@@ -5,10 +5,10 @@ always on screen. What all of it is drawn with is [app/screen](../../screen/docs
 layers and the switches are [app/debug](../../debug/docs/requirements.md) — **this slice draws a switch
 and does not own one**; the camera is [app/camera](../../camera/docs/requirements.md).
 
-**OBS-2** The **menu picks the map**, and **what a run is stays visible while it runs**: its frame rate,
+**OBS-2** `P7` The **menu picks the map**, and **what a run is stays visible while it runs**: its frame rate,
 its town and its pace, in one line that is never not on screen.
 
-**OBS-2a** Every map the project ships is **reachable from the menu**, not only from the command line, and
+**OBS-2a** `P7` Every map the project ships is **reachable from the menu**, not only from the command line, and
 **the list the menu reads is the list the command line reads**. Guard the list in both directions: every
 entry names something that exists, and everything that exists appears in the list.
 
@@ -19,7 +19,7 @@ laboratory, and a mis-click on the row under a city should not lose somebody's g
 on both** (`GEN-1b`) — nothing is running behind it, so a mis-click costs nobody a game, and reading the
 whole catalogue is what somebody is at it for.
 
-**OBS-2n** **A map picked says so until it is standing.** Opening one is a plan read, a ground laid and a
+**OBS-2n** `P7` **A map picked says so until it is standing.** Opening one is a plan read, a ground laid and a
 fleet stood up — and in a page a fetch before any of that — so the click is answered by a card in the
 middle of the window naming the map, from the press until the town it names is running.
 
@@ -34,12 +34,12 @@ middle of the window naming the map, from the press until the town it names is r
   nothing takes a click — a map list still standing under the card is a second map waiting to be picked
   while the first is on the wire, and what arrived while the wait was on is dropped rather than banked.
 
-**OBS-2g** **Escape opens and shuts the settings popup, and the way out of the game is the button inside
+**OBS-2g** `P7` **Escape opens and shuts the settings popup, and the way out of the game is the button inside
 it.** A scene with no such panel keeps Escape as its own way out. The popup holds which map to open and
 the debug switches, and nothing else. **The start menu is the exception and not such a scene** (`GEN-1b`):
 it cannot be shut, so Escape does nothing at it and the way out is the tab that says so.
 
-**OBS-2e** **How big the town is, is on screen at all times**: a graduated scale legend in the
+**OBS-2e** `P7` **How big the town is, is on screen at all times**: a graduated scale legend in the
 bottom-right corner.
 
 - **Its length is held and its marks answer the zoom.** The graduations stand at a round number of metres
@@ -51,7 +51,7 @@ bottom-right corner.
 - It reads the zoom off the viewport transform and metres off the conversion helper, so it is handed
   nothing and cannot be pointed at the wrong camera.
 
-**OBS-2i** **What the map on screen claims about itself, and whether it is keeping it, is on screen while
+**OBS-2i** `P8` **What the map on screen claims about itself, and whether it is keeping it, is on screen while
 it runs**: the last section of the status panel, a row a claim with the figures behind its verdict under
 it.
 
@@ -71,7 +71,7 @@ it.
 - **Nothing here is about one body.** A claim is a statement about the town; what a watch has to say about
   one unit is a row on that unit's own panel (`OBS-2m`), beside the figures it is a finding about.
 
-**OBS-2f** A distance between two places is measurable **without a rebuild**:
+**OBS-2f** `P7` A distance between two places is measurable **without a rebuild**:
 
 - It is a debug switch like the layers, and **it takes the mouse for as long as it is ticked** — a click
   then measures rather than selecting or ordering, and input is offered to it **before** the selection
@@ -130,7 +130,7 @@ section per shape:
 
 ## The unit read-out
 
-**OBS-2m** **The bottom-left corner is the selection, and it is the only place the interface writes about
+**OBS-2m** `P7` **The bottom-left corner is the selection, and it is the only place the interface writes about
 it**: a title naming what is picked out over a body of rows — what the unit is, what it is doing, how
 fast, what is claimed in front of it, how much room that leaves, how much of its trip is left, and what
 the run's watches have against it.
@@ -201,7 +201,7 @@ zoom does not resize the interface and a scale factor does not have to be thread
 measurement. A pointer position is converted **once**, at the boundary, and everything downstream is in
 one space. A turned town does not turn them either (`OBS-1c`): they are the reader's furniture.
 
-**OBS-2k — A label is drawn at the size it was designed, and it is the panel that gives way.** How dense an
+**OBS-2k** `P7` **A label is drawn at the size it was designed, and it is the panel that gives way.** How dense an
 interface pixel is drawn is the display's own factor — a 4K screen would otherwise write a 15-pixel label
 at a third of its designed size, and a handset reporting three device pixels to the point would write it at
 two thirds. **Where a panel wants more room than the window has, the panel is laid narrower**, and the
@@ -221,7 +221,7 @@ density is left where the display put it.
   the window when the window is narrower than that: what does not fit is cut where the line is drawn, or
   wrapped where the panel wraps, and reads as a line with more behind it.
 
-**OBS-2l — The window fills the screen from a button as well as from a key.** `F11` is the key and it is on
+**OBS-2l** `P7` **The window fills the screen from a button as well as from a key.** `F11` is the key and it is on
 the legend; the button is the same lever for a reader who has not got one, which on a handset is every
 reader — and a handset is where it is worth most, since the browser's own furniture is a third of a screen
 that is already small.

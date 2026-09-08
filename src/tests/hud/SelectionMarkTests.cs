@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// on a walker.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class SelectionMarkTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

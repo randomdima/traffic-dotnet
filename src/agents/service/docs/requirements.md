@@ -13,7 +13,7 @@ way is [decision-log.md](decision-log.md).
 
 ## The places
 
-**SRV-1** Some of a town's buildings are **police stations** and some are **depots**. Which ones is a
+**SRV-1** `P4` Some of a town's buildings are **police stations** and some are **depots**. Which ones is a
 property of the map — **declared in the file** (GEN-9), never by behaviour and never by a run — so a
 map's are the same every time it is opened, exactly as a hospital's are (AMB-1). **A building serves one
 use at most**, which one field settles rather than the order anything is read in. A town with a building
@@ -21,20 +21,20 @@ on it has one of each.
 
 ## The vehicles
 
-**SRV-1a** A police station **wears the police station's own roof** with its door to the pavement, and a
+**SRV-1a** `P6` A police station **wears the police station's own roof** with its door to the pavement, and a
 depot wears the **repair shop's**; no other building may wear either — the whole of AMB-1a said of a
 station and of a depot. A depot's roof is the one that says what its yard is for: the wrecks standing in
 it are cars waiting on the workshop behind that shutter (EVA-7), and a yard of broken cars behind an
 ordinary front door is the town showing the errand without naming it.
 
-**SRV-2** Each police station stands an **apron** of police cars — the bays nearest it along its own kerb,
+**SRV-2** `P5` Each police station stands an **apron** of police cars — the bays nearest it along its own kerb,
 held for them for the whole run (GEN-4k), with one car and its crew standing in each — and each depot
 **one evacuator**, in a bay held for it on the same terms, from before the first tick. A building with
 fewer free bays near it than the apron asks for stands fewer, and one with none stands none: the terms
 AMB-2 stands a hospital's ambulances on. **A depot's apron is its evacuator's bay and its yard's slots
 besides**, and what a yard is for is [agents/evacuator](../../evacuator/docs/requirements.md) (EVA-2).
 
-**SRV-3** A service vehicle is an ordinary car with two facts about it: it wears a variant from the
+**SRV-3** `P5` A service vehicle is an ordinary car with two facts about it: it wears a variant from the
 **service list** rather than one of the fleet's, and it carries a **crew** — a driver who keeps the wheel,
 and a **hand whose whole job is to get out and do the work in the street**. Every errand in this town is
 worked in human form: the paramedic walks to the casualty (AMB-10), the recovery man stands at the arm
@@ -56,7 +56,7 @@ worked in human form: the paramedic walks to the casualty (AMB-10), the recovery
   **placed at its own door** — the winch's fallback (`EVA-5`) said of a person, and named rather than
   hidden.
 
-**SRV-3a** A crew wears **its own service's uniform** — the paramedic's aboard an ambulance, the
+**SRV-3a** `P6` A crew wears **its own service's uniform** — the paramedic's aboard an ambulance, the
 officer's in a police car, the recovery man's in an evacuator — and **nobody else in the town may wear
 one**. The uniforms are a second list in the person catalogue on the terms SRV-3's service list is the
 fleet's: a walker's look is drawn by wrapping the ordinary list, and that wrap cannot reach past it, so a
@@ -64,7 +64,7 @@ uniform is worn only by somebody named to wear it. It is what a service vehicle'
 body rather than the car — a crew put out of its own wreck (PHY-6) is read as the crew and not as a
 passer-by who stopped to look.
 
-**SRV-4** **A service vehicle breaks like every other car** (PHY-3), the evacuator included. **Its whole
+**SRV-4** `P5` **A service vehicle breaks like every other car** (PHY-3), the evacuator included. **Its whole
 crew goes down beside it** on PHY-6's terms — the driver and the hand alike, and one already out in the
 street is struck off the crew where it stands rather than waited for. Three more things follow from the one
 that can be towing something when it happens.
@@ -81,7 +81,7 @@ that can be towing something when it happens.
 
 ## The beat
 
-**SRV-5** A police car **patrols**: it stands on its station's apron for a drawn interval, then drives to
+**SRV-5** `P5` A police car **patrols**: it stands on its station's apron for a drawn interval, then drives to
 a drawn place in the town, then to another, for a drawn number of places, and then home to its own bay to
 stand again. Five things follow, and the third is the point of the rule:
 
@@ -103,7 +103,7 @@ stand again. Five things follow, and the third is the point of the rule:
 
 ## The closure
 
-**SRV-6** **A scene is a call, and an officer closes the road round it.** A casualty lying in the street
+**SRV-6** `P5` **A scene is a call, and an officer closes the road round it.** A casualty lying in the street
 (`AMB-5`) and a wreck standing in one (`EVA-1`) each raise one, taken on the terms a rescue and a recovery
 take theirs: the nearest free patrol, **nearest measured against every other free patrol and not against
 every other scene**, one call to a scene and one scene to a call. Six things follow, and the third is the

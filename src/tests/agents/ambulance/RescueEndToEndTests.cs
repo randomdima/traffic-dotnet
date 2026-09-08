@@ -24,12 +24,13 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class RescueEndToEndTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>One staged rescue per map, taken once however many claims are asked of it.</summary>
-    static RescueRow Of(string map) => Runs.GetOrAdd(map, at => RescueProbe.Sample(at, Config));
+    static RescueRow Of(string map) => Runs.GetOrAdd(map, at => RescueProbe.Sample(at, Towns.Of(at), Config));
 
     static readonly System.Collections.Concurrent.ConcurrentDictionary<string, RescueRow> Runs = new();
 

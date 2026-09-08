@@ -23,6 +23,7 @@ namespace TrafficSimulation.Tests.Agents.Service;
 /// not a claim about this engine (<see cref="Bench.Scenario"/>).
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class PatrolTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

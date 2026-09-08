@@ -4,7 +4,7 @@ A hand that can take over the units it has picked out. This is a debugging instr
 not a game: it changes what those agents *want*, and in one place what they *do*, and nothing else in the
 town. Why it reads this way is [decision-log.md](decision-log.md).
 
-**CTL-1 — Selection.** Left-click selects a single unit, person or car; left-click elsewhere reselects or
+**CTL-1** `P7` **Selection.** Left-click selects a single unit, person or car; left-click elsewhere reselects or
 deselects. The selection is **marked on the town by a shape and never by a change to the unit's own
 picture** — corner brackets standing outside its box, laid in the frame that box is drawn in.
 
@@ -21,7 +21,7 @@ picture** — corner brackets standing outside its box, laid in the frame that b
   either — a read-out that stood on the town could say nothing about any of them, and one in a corner has
   nothing to point at and so nothing to lose.
 
-**CTL-1b — One unit or many, and the left button moves the town.** A selection holds **a set of units and
+**CTL-1b** `P7` **One unit or many, and the left button moves the town.** A selection holds **a set of units and
 not one**, and everything the interface does to a selection it does to every unit in it: the brackets, the
 paths, the orders, the keys and the lever.
 
@@ -47,7 +47,7 @@ paths, the orders, the keys and the lever.
 - **A group is counted, not described.** A single unit's behaviour state shows as CTL-1 says; several show
   as a count of each kind, because thirty cars have no speed, no destination and no manoeuvre between them.
 
-**CTL-1a — Where it is going, drawn whole.** The selection carries a second mark: **the whole of the route
+**CTL-1a** `P7` **Where it is going, drawn whole.** The selection carries a second mark: **the whole of the route
 the unit is holding**, from under its own body to the end of what it has planned, as one chevronned line
 in the interface's own colour — and **a mark on the goal at the end of it**. A place on the ground is
 crossed; **a thing rather than a place is wrapped in the same brackets the unit itself wears** — the
@@ -75,7 +75,7 @@ route says and no further.
 **A hand at the wheel has no path** (CTL-5): the behaviour is substituted wholesale, so there is no goal
 under the unit and nothing to draw — which is also how the picture tells an ordered unit from a driven one.
 
-**CTL-2 — Manual goals.** Right-click orders every selected unit by **pinning the goal its behaviour would
+**CTL-2** `P7` **Manual goals.** Right-click orders every selected unit by **pinning the goal its behaviour would
 otherwise pick itself**. **Everything below goal selection is untouched** — same action set, routing,
 soft rules, recovery and physics. The control layer substitutes only the behaviour concern's goal choice.
 
@@ -83,10 +83,10 @@ One click is **one point and one order each**: the units are all sent to the sam
 it as itself, since a group that was given a formation would be the control layer deciding where a body
 goes rather than which goal it holds.
 
-**CTL-3 — Context orders.** With a person selected, right-clicking a building or a car walks there and
+**CTL-3** `P7` **Context orders.** With a person selected, right-clicking a building or a car walks there and
 enters. **All containment checks bind unchanged** (PHY-7a).
 
-**CTL-8 — A car's four orders, and the pointer decides which.** With a car selected, one right-click is
+**CTL-8** `P7` **A car's four orders, and the pointer decides which.** With a car selected, one right-click is
 one goal, and **what the pointer was over is the whole of what says which goal it is**. There is no mode
 to be in and no key to hold: the town under the cursor already says what a driver sent there would do.
 
@@ -102,7 +102,7 @@ catalogue, the same route search, the same road and the same tyres that carry a 
 queues, gives way, is held at a red, recovers up the ladder and is bounded by it exactly as any other.
 **No order is a manoeuvre**, and none of them is a new entry of the catalogue.
 
-**CTL-8a — A place on the road is arrived at along the lane that reaches it.** The leg is aimed at the
+**CTL-8a** `P7` **A place on the road is arrived at along the lane that reaches it.** The leg is aimed at the
 point rather than at a bay, so the route search picks whichever direction of the stretch it reaches first
 and the car comes to rest driving that lane. **Aligning to the lane is the line and never a correction
 applied after it** — nothing turns the body to face anywhere.
@@ -111,7 +111,7 @@ It is `P-18` that stops the car there, which is the same entry that stops a resc
 a recovery beside its wreck: one entry, three errands and a hand. The order is finished when the car is at
 rest within reach of the place — and, like every other order, when the leg ends any other way (CTL-4).
 
-**CTL-8b — Parking is the bay machinery, and a place off the road is a park and then a walk.** A park
+**CTL-8b** `P7` **Parking is the bay machinery, and a place off the road is a park and then a walk.** A park
 order claims a bay and drives the ordinary leg to it. **The bay is the free one nearest the point**, over
 the whole town rather than within a walk of it: a trip is bounded because nobody parks a mile from the
 door they are going to (PER-10a), while a player who clicked a full car park asked for the nearest free
@@ -126,7 +126,7 @@ because there is no one to walk.
 idles at the wheel awaiting the next order (CTL-4), which is what stops a car told to stop in the street
 emptying itself onto the pavement.
 
-**CTL-8c — Following is a goal that moves.** The leg is aimed at a place a set gap back along the road
+**CTL-8c** `P7` **Following is a goal that moves.** The leg is aimed at a place a set gap back along the road
 from the car being followed, and it is drawn again once that car has moved far enough to be worth a fresh
 route. **What holds the gap is the road and not the order** — the follower is granted what is left of the
 stretch in front of the car already on it and holds the speed that road affords, every tick (`S-2a`). The
@@ -139,7 +139,7 @@ it ends when the car being followed stops being one — wrecked, or on somebody'
 **A wreck is not a car to follow** (`CAR-1`), and neither is the car being ordered: a click on either
 falls through to the ground under it, so it reads as an order to drive to where that car stands.
 
-**CTL-8d — An order needs no driver.** `CAR-1` makes a driverless car furniture because nothing is
+**CTL-8d** `P7` **An order needs no driver.** `CAR-1` makes a driverless car furniture because nothing is
 choosing for it; **a hand giving it goals is exactly that choice**, and it is the same substitution CTL-5
 already makes at the wheel. So an empty car takes all four orders and drives itself to them, showing its
 lamps like any other car being driven (`CAR-14.5`).
@@ -151,7 +151,7 @@ than a car parked, and somebody who got into it would end the order by driving o
 goal it was given: the hand was the whole of what was choosing for it, and `CAR-1` is back the moment the
 hand lets go.
 
-**CTL-4 — Manual mode and reset.** An ordered unit is in manual mode: after finishing an order it idles
+**CTL-4** `P7` **Manual mode and reset.** An ordered unit is in manual mode: after finishing an order it idles
 awaiting the next, and **a failed order runs the normal recovery but ends in idle-awaiting-orders instead
 of a new random goal**. A reset returns the unit to autonomous behaviour. Terminal-state units take no
 orders.
@@ -167,7 +167,7 @@ still under orders; picking it out again and pressing the key is how it is hande
 a car leaves manual mode is **somebody getting in and driving it somewhere of their own** — a trip and an
 order cannot both say where a car goes.
 
-**CTL-5 — Direct control.** The keys drive the selected units by hand — throttle/brake and steering for a
+**CTL-5** `P7` **Direct control.** The keys drive the selected units by hand — throttle/brake and steering for a
 car, walk/turn for a person, with the handbrake on its own key. **One hand reaches all of them**: the same
 command is pushed through each unit's own seam, and each answers it with its own body, so a group under
 one hand is still a group of bodies. A unit in a terminal state takes no hand while the rest of the
@@ -183,12 +183,12 @@ the person's turn rate and constant walk speed, plus terrain effects, collisions
 states. **The rest of the world is not told** — other cars look, queue and yield around a hand-driven
 car exactly as around any other, and it still claims the crossing it is entering so they can.
 
-**CTL-5a — The handbrake is the car's own action, not the player's.** A car driving its route pulls it
+**CTL-5a** `P5` **The handbrake is the car's own action, not the player's.** A car driving its route pulls it
 whenever the speed profile asks for a dead stop it has **already made** — the end of the route, the car
 in front, a junction that is not yet its — so a waiting car holds its spot instead of creeping or being
 nudged into the crossing. **It is never asked for on the way down to a stop.**
 
-**CTL-5b — Holding a drive key takes the wheel and keeps it.** Releasing the keys **coasts**; it does not
+**CTL-5b** `P7` **Holding a drive key takes the wheel and keeps it.** Releasing the keys **coasts**; it does not
 hand the unit back. The wheel is given up by a right-click order, the reset, a change of selection, or a
 terminal state. The arrow keys pan the camera whenever no unit is being driven — and they pan it in the
 **window's** directions and not the town's (`OBS-1c`), so the up arrow moves the picture down the screen
@@ -198,13 +198,13 @@ however far the town is turned.
 behaviour concern and the order is part of what it substitutes, so the order stands and is picked up
 again from the pose the player leaves the car in.
 
-**CTL-5c — A hand at the wheel runs the beacon.** Every car under that hand whose art draws a beacon bar — the police car,
+**CTL-5c** `P7` **A hand at the wheel runs the beacon.** Every car under that hand whose art draws a beacon bar — the police car,
 the ambulance and the evacuator, and nothing else the town stands (CAR-14a) — runs it for as long as the
 player has its wheel, and it goes out with the wheel. **It buys nothing**: this is the picture and not the road, so
 there is no right of way, no exemption from a red or a bar and no pace of its own. A hand-driven rescue
 that is also answering a call carries AMB-4 because of the call and never because of the hand.
 
-**CTL-7 — The unit's own action.** `E` works each selected unit's **one action**, if it has one, and does
+**CTL-7** `P7` **The unit's own action.** `E` works each selected unit's **one action**, if it has one, and does
 nothing at all for the ones that have not. It is a **lever and not a pedal**: a press, taken once, on the vehicle's own
 machinery rather than on its controls — so it needs no hand at the wheel, and giving the wheel up does not
 give up what the vehicle is holding.
@@ -215,7 +215,7 @@ makes the recovery a thing that can be watched being done rather than a rule the
 player who has backed a truck onto a car can pick it up, and a crew that has not got its truck there
 cannot.
 
-**CTL-9 — A finger is a pointer, and two of them are the camera.** The town runs on a desktop, in a
+**CTL-9** `P7` **A finger is a pointer, and two of them are the camera.** The town runs on a desktop, in a
 browser and on a handset, and **there is one set of gestures and not two**: what a phone can do, a mouse
 can do, and the code underneath is the same code.
 
@@ -238,7 +238,7 @@ can do, and the code underneath is the same code.
   difference between two frames, and reading it is the run's; a browser is asked what it saw, exactly as
   it is for a key or a wheel.
 
-**CTL-6 — Implemented thin.** One slice owns picking, selection state, order translation and the drive
+**CTL-6** `P4` **Implemented thin.** One slice owns picking, selection state, order translation and the drive
 keys, and the interface draws the mark; **each agent slice exposes a goal seam and a direct seam**, and the input is pushed
 through the seam **each tick** so the agent loop cannot tell a hand-driven agent from any other. **Never
 drive the body behind its driver's back.**

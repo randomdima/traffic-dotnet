@@ -3,40 +3,52 @@ using Xunit;
 namespace TrafficSimulation.Tests;
 
 /// <summary>
-/// The suite's own gate: every test class names a tier, and names one that exists.
+/// The suite's own gate: every test class names a tier and a priority, and names ones that exist.
 /// </summary>
 /// <remarks>
+/// <para>
 /// An untiered class is the failure that reads as a pass. It is in no tier's filter, so no run takes
 /// it again and nothing says so — the tests are still there, still green in the report they were last
-/// in, and no longer being asked. Presence and spelling are all a machine can check here; that the
-/// tier named is the <em>right</em> one is what the definitions on <see cref="Tier"/> are for.
+/// in, and no longer being asked.
+/// </para>
+/// <para>
+/// A class with no priority is the same failure seen from the other side: <c>qq tests --upto</c> cuts by
+/// rung, so one that names none is dropped from every cut run and is only ever taken by a full one.
+/// </para>
+/// <para>
+/// Presence and spelling are all a machine can check here; that the tier and the rung named are the
+/// <em>right</em> ones is what the definitions on <see cref="Tier"/> and <see cref="Priority"/> are for.
+/// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class TierTests
 {
-    static readonly string[] Known = [Tier.Unit, Tier.Town, Tier.Perf, Tier.E2E];
+    static readonly string[] Tiers = [Tier.Unit, Tier.Town, Tier.Perf, Tier.Maps, Tier.E2E];
 
     [Fact]
-    public void EveryTestClassNamesItsTier()
-    {
-        var untiered = new List<string>();
-        foreach (var type in typeof(Tier).Assembly.GetTypes())
-            if (HoldsTests(type) && TierOf(type) is null)
-                untiered.Add(type.FullName!);
-
-        Assert.True(untiered.Count == 0,
-            $"no [Trait(Tier.Key, …)] on: {string.Join(", ", untiered)}");
-    }
+    public void EveryTestClassNamesItsTier() => EveryTestClassNames(Tier.Key, Tiers);
 
     [Fact]
-    public void NoTestClassNamesATierThatDoesNotExist()
+    public void EveryTestClassNamesItsPriority() => EveryTestClassNames(Priority.Key, Priority.Ladder);
+
+    static void EveryTestClassNames(string key, string[] known)
     {
+        var unnamed = new List<string>();
         var wrong = new List<string>();
         foreach (var type in typeof(Tier).Assembly.GetTypes())
-            if (HoldsTests(type) && TierOf(type) is { } tier && Array.IndexOf(Known, tier) < 0)
-                wrong.Add($"{type.FullName} says '{tier}'");
+        {
+            if (!HoldsTests(type)) continue;
 
-        Assert.True(wrong.Count == 0, $"unknown tier: {string.Join(", ", wrong)}");
+            switch (TraitOf(type, key))
+            {
+                case null: unnamed.Add(type.FullName!); break;
+                case { } named when Array.IndexOf(known, named) < 0: wrong.Add($"{type.FullName} says '{named}'"); break;
+            }
+        }
+
+        Assert.True(unnamed.Count == 0, $"no [Trait({key}, …)] on: {string.Join(", ", unnamed)}");
+        Assert.True(wrong.Count == 0, $"unknown {key}: {string.Join(", ", wrong)}");
     }
 
     /// <summary>Theories included: <c>TheoryAttribute</c> is a <c>FactAttribute</c>.</summary>
@@ -48,13 +60,13 @@ public class TierTests
         return false;
     }
 
-    static string? TierOf(Type type)
+    static string? TraitOf(Type type, string key)
     {
         foreach (var attribute in type.GetCustomAttributesData())
         {
             if (attribute.AttributeType != typeof(TraitAttribute)) continue;
             if (attribute.ConstructorArguments.Count == 2
-                && (string?)attribute.ConstructorArguments[0].Value == Tier.Key)
+                && (string?)attribute.ConstructorArguments[0].Value == key)
                 return (string?)attribute.ConstructorArguments[1].Value;
         }
 

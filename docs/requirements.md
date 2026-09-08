@@ -5,7 +5,9 @@
 
 **A rule states a relation. A number is not a rule** — every figure is on `SimConfig`
 ([core](../src/core/docs/requirements.md#where-a-figure-lives)). **No ID is ever renumbered** and a retired
-number is never reused, because the code cites these codes.
+number is never reused, because the code cites these codes. **Every rule carries a rung** — `P0` and `P1`
+are the owner's and bend for nothing and for very little; `P2`–`P9` are the assistant's, ranked by what
+bending one costs ([priority.md](priority.md)).
 
 `†` formalises a consequence of the original brief; `‡` is a design decision that could have gone another
 way.
@@ -16,17 +18,17 @@ way.
 are [goals.md](goals.md)** — stated there and nowhere else, because a purpose written twice is two
 purposes within a month.
 
-**TEC-1** The spec constrains no engine, language or renderer; this project settles it as C# on .NET 10
+**TEC-1** `P2` The spec constrains no engine, language or renderer; this project settles it as C# on .NET 10
 with nothing under it ([goals.md](goals.md)).
 
-**TEC-2** The physics layer provides collision, contact resolution **and motion integration**. Every
+**TEC-2** `P3` The physics layer provides collision, contact resolution **and motion integration**. Every
 dynamic body is a rigid body driven only by traction-limited friction and drive impulses; pushes,
 stopping and terrain effects are **solver output, never scripted displacement**. Motion is continuous and
 vector-based: no grid quantisation of position, velocity or heading anywhere.
 
 ## The two rule classes
 
-**SIM-1** Two classes exist and **must stay distinct in the implementation**:
+**SIM-1** `P3` Two classes exist and **must stay distinct in the implementation**:
 
 | | Hard rules | Soft rules |
 |---|---|---|
@@ -38,10 +40,10 @@ vector-based: no grid quantisation of position, velocity or heading anywhere.
 Hard rules live in the physics layer and the damage resolver only. **Soft rules never touch the physics
 layer**: nothing may teleport, snap, clamp or nudge a body because it is somewhere illegal.
 
-**SIM-2** Every dynamic body carries at least: position, heading, velocity, the terrain it currently
+**SIM-2** `P4` Every dynamic body carries at least: position, heading, velocity, the terrain it currently
 occupies, and its liveness state.
 
-**SIM-6** A soft rule binds in exactly one of two ways, and **which one is part of the rule**:
+**SIM-6** `P5` A soft rule binds in exactly one of two ways, and **which one is part of the rule**:
 
 - **As a ban**, where the agent *chooses* — in route planning, target selection, plan derivation. A
   banned option is not costed, it is **absent**.
@@ -52,7 +54,7 @@ worse than being illegal — and it lifts for that agent, on that plan, never in
 lifted the *manner* of the act is unchanged: it is still performed by the manoeuvre that owns it, with
 that manoeuvre's own guards. **Hard rules never lift**, in planning or in recovery.
 
-**SIM-7** Where a decision has already been taken by one mechanism, **no second mechanism may guard it**.
+**SIM-7** `P4` Where a decision has already been taken by one mechanism, **no second mechanism may guard it**.
 A duplicate gate does not make the town safer; it makes the first mechanism useless. **Before adding a
 check that refuses a movement, name what has already refused it.** The measured symptom is in
 [decision-log.md](decision-log.md).
@@ -62,7 +64,7 @@ Units, the two seeds, the tick and the decision clock are [core](../src/core/doc
 
 ## The object catalogue
 
-**OBJ-2** Five kinds, two shapes:
+**OBJ-2** `P4` Five kinds, two shapes:
 
 **One shape**, an oriented box with its corners rounded, and the five kinds are what they set it to:
 
@@ -80,12 +82,12 @@ solver holds one shape and one narrow phase for all five (`SOL-1`).
 **A car collides as a shape fitted inside its picture** and not as the footprint that picture was drawn
 in (`CAR-12b`). A per-variant hull is still not what the town is laid against.
 
-**OBJ-4** A building exposes at least one point on walkable terrain through which persons enter and exit
+**OBJ-4** `P5` A building exposes at least one point on walkable terrain through which persons enter and exit
 ([world/containment](../src/world/containment/docs/requirements.md)).
 
-**OBJ-5** Building capacity scales with footprint.
+**OBJ-5** `P6` Building capacity scales with footprint.
 
-**OBJ-5a** **A building is collided as the rectangles its roof is drawn of and not as the box that roof
+**OBJ-5a** `P3` **A building is collided as the rectangles its roof is drawn of and not as the box that roof
 was drawn in.** An L, a courtyard, a cut corner and a porch are all one defect otherwise — metres of
 empty box that stop a car in the open — and the parts are the picture's own, so what is drawn and what
 is stood are one answer and cannot drift apart.
@@ -95,11 +97,11 @@ against **the queries it joins**, not against what it draws.
 
 ## Agents
 
-**AGT-5** An agent in a terminal state — a broken car, and nothing else — performs no further actions. A
+**AGT-5** `P5` An agent in a terminal state — a broken car, and nothing else — performs no further actions. A
 person knocked down takes no actions either, and is **not** terminal: an ambulance is coming for them
 (PER-18), and a state something else can end is not one an agent is in for good.
 
-**AGT-7** Everything an agent does is a **named manoeuvre from a closed catalogue** per agent type, every
+**AGT-7** `P4` Everything an agent does is a **named manoeuvre from a closed catalogue** per agent type, every
 failure exit names its successor, and every entry is bounded by time, distance or attempts. **A situation
 the catalogue does not cover is a gap in the catalogue, never a licence to improvise.** A stuck agent
 walks **one** ordered escalation ladder that ends, always, at "get as close as your actions allow and take

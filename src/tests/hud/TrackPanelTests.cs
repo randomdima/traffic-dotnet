@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// land on it rather than letting them through to the track it is drawn over.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class TrackPanelTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

@@ -14,6 +14,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// through a panel looks exactly like a town somebody meant to select.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class InterfaceClickTests
 {
     static readonly Vector2 Window = new(1600f, 1000f);

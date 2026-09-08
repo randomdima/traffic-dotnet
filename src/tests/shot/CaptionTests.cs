@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.Shot;
 /// same picture would have to be asked for again with.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P7)]
 public class CaptionTests
 {
     static ShotCaption ACaption(string? note = null) => new()

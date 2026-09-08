@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// the road actually joins.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class CarRouteTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

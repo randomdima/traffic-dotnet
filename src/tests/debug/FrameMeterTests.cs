@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Debug;
 /// the rows it publishes add up to the frame they are rows of.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P7)]
 public class FrameMeterTests
 {
     static PhaseTimes OverTicks(long ticks) => new() { Ticks = ticks, AgentTicks = 1, WholeTicks = 1 };

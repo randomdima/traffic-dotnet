@@ -3,11 +3,11 @@
 What "inside something" means, and the one rule both container kinds share. The building and car bodies
 themselves are [world/statics](../../statics/) and [agents/car](../../../agents/car/docs/requirements.md).
 
-**PHY-7** An object inside a container is **not rendered, has no collision shape and is not physically
+**PHY-7** `P3` An object inside a container is **not rendered, has no collision shape and is not physically
 simulated**. Only the container is. A contained object's only available actions are those its container
 relationship defines (PER-6).
 
-**PHY-7a** On exit, a contained person is placed at the nearest unoccupied walkable position within the
+**PHY-7a** `P3` On exit, a contained person is placed at the nearest unoccupied walkable position within the
 exit search radius of the exit point, and **while no such position exists the exit action is
 unavailable**. One rule, both container kinds.
 

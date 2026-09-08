@@ -32,6 +32,7 @@ namespace TrafficSimulation.Tests.Gates;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
+[Trait(Priority.Key, Priority.P0)]
 [Collection(Simulation.SolverCollection.Name)]
 public class OverlapGateTests
 {
@@ -39,7 +40,7 @@ public class OverlapGateTests
     const int Ticks = 600;
 
     [Theory]
-    [MemberData(nameof(Towns.EveryShippedMap), MemberType = typeof(Towns))]
+    [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
     public void NoBodyInAStandingTownIsLeftInsideAnother(string map)
     {
         var config = SimConfig.Shipped();

@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// so the walking network's band round a junction is laid off whichever side this says.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P3)]
 public class JunctionCornerGeometryTests
 {
     public static TheoryData<string> Maps => Towns.EveryTown();
@@ -72,7 +73,7 @@ public class JunctionCornerGeometryTests
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
             },
             plan.Ground.Crosswalks, plan.Ground.StopLines);
-        var tarmac = Kerbs.Of(bare, LaneLines.Of(plan.Ground, SimConfig.Shipped()));
+        var tarmac = Kerbs.Of(bare, LaneLines.Of(plan.Ground, SimConfig.Shipped()), RoadCuts.RunsThrough(bare));
 
         for (var corner = 0; corner < corners.Count; corner++)
         {

@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Physics;
 /// step, and the terminal state that comes out the other side.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class CrashCaseTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

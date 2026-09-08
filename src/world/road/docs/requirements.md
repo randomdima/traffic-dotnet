@@ -7,17 +7,17 @@ claim is — is [claims.md](claims.md).** The ground itself is
 
 ## Roads
 
-**TER-4** A road runs between **two named intersections and touches no third**; nothing infers topology
+**TER-4** `P4` A road runs between **two named intersections and touches no third**; nothing infers topology
 from geometry. Its shape is an **arc spline** — a chain of constant-curvature pieces — so a straight is
 the same record at zero curvature and not a separate kind. **A road declares its own width**, and
 everything derived from it follows the road's own rather than the catalogue default.
 
-**TER-4a** Traffic keeps right: a road's two lanes are assigned by heading, and left turns cross oncoming
+**TER-4a** `P4` Traffic keeps right: a road's two lanes are assigned by heading, and left turns cross oncoming
 traffic and must yield — which is a right of way and is stated as one (TER-5e). **The side of the road is a
 single global constant** — lane offset, turn classification, keep-right on foot and which flank a car door is
 on all read that one.
 
-**TER-4d** **A road runs one way or both ways, and a one-way road is the narrower for it.** A carriageway
+**TER-4d** `P6` **A road runs one way or both ways, and a one-way road is the narrower for it.** A carriageway
 is as many lanes as it has ways, laid at the one lane width either way (GEN-15): two lanes where traffic
 runs both ways, and **one lane down the middle of half a road** where it runs one. **That half is the half
 its traffic drives, and the road stands on it**: its own half to the driving side of the line its two
@@ -33,7 +33,7 @@ intersection to the other and may be driven either way along that (`RoadFlow`); 
 width, because a narrow road is not necessarily a one-way one and nothing infers topology from geometry
 (TER-4).
 
-**TER-4b** Two carriageways coming within a pavement's width of one another **must both name an
+**TER-4b** `P3` Two carriageways coming within a pavement's width of one another **must both name an
 intersection there** — nearer than that and no pavement fits between them, so their tarmac is one surface
 and a walker has no way past on foot.
 
@@ -52,7 +52,7 @@ means, which is why it is here and not a second mechanism.
 
 ## Junctions
 
-**TER-5** An intersection **has no shape of its own**. The ground inside one is **the ground its own
+**TER-5** `P4` An intersection **has no shape of its own**. The ground inside one is **the ground its own
 movements take** — the band every connector between its arms sweeps (TER-5d) — with the wedge between each
 pair of neighbouring arms paved back to an **arc tangent to both carriageways**, which is the line a turning
 car takes. Arms, movements and fillets come out as one region because each of them is drawn where a car
@@ -77,7 +77,7 @@ junction — a step in the kerb, and nothing for a fillet to be tangent to.
 **A junction is not sized around a car's turning circle**, and there is no exception. Turning geometry is
 the controller's problem.
 
-**TER-5a** A **dead end** is an intersection with a single arm, and **it has no ground of its own** like
+**TER-5a** `P6` A **dead end** is an intersection with a single arm, and **it has no ground of its own** like
 every other junction: what is there is the road that stops, and the road stops where its own last point is.
 It carries no crossing and no lights.
 
@@ -88,7 +88,7 @@ a dead end with no bay off it is a place nothing that drives in can leave. **A m
 has to lay it** — as paved ground of its own, which the plan already carries and every reading of the ground
 already answers for.
 
-**TER-5b** An **inline junction** has exactly two arms leaving in opposite directions — a place *on* a
+**TER-5b** `P6` An **inline junction** has exactly two arms leaving in opposite directions — a place *on* a
 road rather than a place roads meet. The two carriageways must align exactly, so a driver sees
 uninterrupted road. It exists to
 carry one pedestrian crossing and the signals that govern it, which is what makes a lit mid-block
@@ -103,7 +103,7 @@ carriageways; neither arm is the outside of a turn, so the disc's own corner is 
 the same radius; one arm is a straight kerb running on, and nothing is drawn. Both kinds pave their
 square whole first and then take the ground back along the arc.
 
-**TER-5d** **A junction is a set of connection points, and the connectors are what run between them.** Every
+**TER-5d** `P4` **A junction is a set of connection points, and the connectors are what run between them.** Every
 movement out of a lane starts at that lane's own last point and every movement into one lands on its own
 first point, so a lane's line is the whole of what is driven along it and the ground past either end is the
 junction's alone. **Nothing runs over a connection point**: no lane carries a spur into the box for a
@@ -116,14 +116,14 @@ what the corner takes is **cut off the lane** rather than marked on it. It is ne
 can spare, because a lane cut away is a lane the town has not got. Every movement in the reckoning reaches
 a radius, because the one that never could is not a movement (TER-5f).
 
-**TER-5d.1** **The ground a movement is driven over is as wide as the narrower of the two lanes it
+**TER-5d.1** `P4` **The ground a movement is driven over is as wide as the narrower of the two lanes it
 joins**, and that is one figure the whole town reads — the tarmac's own shape, the answer at a point and
 the picture. Its two ends are on lanes that need not be the same width and a band has only one, so the
 narrower is the only choice that never claims ground outside the arm it leaves or the arm it arrives on:
 drawn at the arriving lane's width, a movement out of a narrow street onto a wide one stood half a metre
 past the narrow street's own kerb, in the pavement.
 
-**TER-5f** **No box admits a movement that reverses the direction of travel.** A pair of lanes that would
+**TER-5f** `P5` **No box admits a movement that reverses the direction of travel.** A pair of lanes that would
 face each other across an intersection is not joined at all: no turn is classified between them, no line is
 drawn, no ground is measured against it and no route may be handed one. The arithmetic is why — the line
 between two opposing lanes a lane's width apart is a semicircle of a metre and a half, tighter than any
@@ -133,7 +133,7 @@ which are manoeuvres a driver makes and not movements a junction offers.**
 
 ## Crossings
 
-**TER-6** Crossings and parking are variants of the road/intersection family and need only a type tag
+**TER-6** `P6` Crossings and parking are variants of the road/intersection family and need only a type tag
 beyond their terrain attributes.
 
 - A crossing is **a band of the same carriageway pedestrians may walk over**. It is a plan entity of its

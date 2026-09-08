@@ -5,6 +5,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Simulation;
 
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class SimLoopTests
 {
     static SimConfig Clocked(float intervalS) => new() { Sim = new SimFigures { AgentDecisionIntervalS = intervalS } };

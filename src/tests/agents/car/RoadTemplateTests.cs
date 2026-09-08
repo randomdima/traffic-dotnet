@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// template that ends anywhere else hands `P-4` a car it has to recover rather than drive.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P4)]
 public class RoadTemplateTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

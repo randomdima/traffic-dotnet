@@ -20,6 +20,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// somebody is looking at.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P6)]
 public class CatalogueTests
 {
     /// <summary>
@@ -108,11 +109,16 @@ public class CatalogueTests
     /// are printed to a console as well, where a superscript is free, so the one place it costs anything is
     /// the one place nothing checks it by eye.
     /// </summary>
+    /// <remarks>
+    /// <b>Over the maps this build lays and not over every town it can open.</b> What is being read is the
+    /// strings a watch writes, and every watch this build has is on one of these — a city adds a `TownWatch`
+    /// that six other maps already carry, and standing one up cost more than the rest of the class together.
+    /// </remarks>
     [Fact]
     public void EveryWordAClaimDrawsIsPrintableAscii()
     {
         var config = SimConfig.Shipped();
-        foreach (var map in Maps.Shipped())
+        foreach (var map in Towns.LaidMaps)
         {
             using var world = new TownWorld(Towns.Of(map), config);
             foreach (var watch in Scenarios.For(world, config))

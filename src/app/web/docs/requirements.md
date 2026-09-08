@@ -7,7 +7,7 @@ already looks for them. **What the picture must look like is
 
 ## What the browser head is
 
-**WEB-1 — the same town, from the same code.** The browser build compiles `src/` exactly as the desktop
+**WEB-1** `P4` **The same town, from the same code.** The browser build compiles `src/` exactly as the desktop
 build does. What differs is the machine: a canvas in place of a window, WebGPU in place of Vulkan, and
 an animation callback in place of a loop. **A file under `src/**/web/` is the browser's half of
 something the desktop has too**, and there is no `#if` anywhere in the shared code — the two project
@@ -29,21 +29,21 @@ a pump would put the page's own copy straight back over the top of it, and the p
 thing it never saw. [`AppWindow.IsClosing`](../../../runtime/web/AppWindow.Web.cs) is the one such
 thing there is, and it is a latch beside the arrays rather than a slot in them.
 
-**WEB-2 — the crossing budget holds, in the browser's own terms.** A standing town crosses the wall
+**WEB-2** `P2` **The crossing budget holds, in the browser's own terms.** A standing town crosses the wall
 between managed code and the page **three times a frame** and never a fourth: the animation callback
 coming in, the input going out, and the frame. Everything inside a frame — the render pass, the
 bundle, the queue, the submit — is on the far side of one call, and none of the three takes the size of
 the town as an argument. This is rule 1 of [goals.md](../../../../docs/goals.md), and it is what
 [`WebGpu.Crossings`](../../../runtime/web/WebGpu.cs) counts.
 
-**WEB-3 — the page carries the visual layers and none of the instruments.** The interface, the debug
+**WEB-3** `P4` **The page carries the visual layers and none of the instruments.** The interface, the debug
 layers, the scenario panel and the figures page are the town's own picture and are all here. **The
 offscreen picture, the sheet, the probes and the workshop steps are not**: `--shot`, `--sheet`,
 `--bench` and `--lamps` are how a run is *measured*, they need a file system and a
 process that can exit, and a page has neither. A browser is where the town is watched; the desktop is
 where it is answered for.
 
-**WEB-4 — everything a frame reads is there before that frame.** A frame cannot wait on a fetch, so
+**WEB-4** `P4` **Everything a frame reads is there before that frame.** A frame cannot wait on a fetch, so
 [`Data`](../../main/web/Data.cs) writes `assets/` and `towns/` into the runtime's own file system and
 every reader above is untouched (<see cref="ProjectPaths"/> finds them exactly as it does beside a
 binary). **There is no second asset story**: no provider threaded through fifteen call sites, and no
@@ -80,7 +80,7 @@ the browser unpacks it ([`WebGpu.Unpack`](../../../runtime/web/WebGpu.cs)): **a 
 because the format is somebody else's and `DecompressionStream` is the one decompressor a page has
 that its .NET runtime does not.
 
-**WEB-9 — nothing waits for something it does not need.** A page that fetches in the order it happens
+**WEB-9** `P7` **Nothing waits for something it does not need.** A page that fetches in the order it happens
 to read waits for the sum of what it asked for, and three of those waits were for files nobody needed
 yet. So a file is asked for at the first moment it is *known about* rather than the first moment it is
 wanted ([`WebGpu.Prefetch`](../../../runtime/web/WebGpu.cs)), and above it nothing changed — `grab`
@@ -125,7 +125,7 @@ trips before the engine is asked for; the `modulepreload` links in
 [`index.html`](../wwwroot/index.html) make them one wave. **The nine megabytes behind `dotnet.js` are
 not preloaded** — a browser that cannot run this page should not spend them to find that out.
 
-**WEB-6 — a page is the size of its town, and the town is the size of what it draws.** What a browser
+**WEB-6** `P7` **A page is the size of its town, and the town is the size of what it draws.** What a browser
 fetches before the first frame is **under six megabytes** for the fixture map and never over eight for
 the heaviest: the .NET runtime ahead-of-time compiled and served brotli, 2.8 MB of art, 40 KB of page,
 and one map. **What it fetches before the menu is one file**, which is the figure that decides how
@@ -163,7 +163,7 @@ marks `Content-Encoding` — which is a fact about the host, and is what `_frame
 publish replaces it, so `_framework` is cleared before a publish and only brotli is emitted — the two
 together are the difference between 21 MB on disk and 93.
 
-**WEB-7 — what `dotnet publish` writes is the whole of what gets deployed.** The target is a stateless
+**WEB-7** `P4` **What `dotnet publish` writes is the whole of what gets deployed.** The target is a stateless
 static host: the folder is handed over and nothing of ours runs beside it. So **every file in it is a
 real file** — no symlink into a working copy, which is a page that only serves on the machine it was
 built on — and everything the page will ask for is prepared by the build: the art packed, the towns
@@ -177,7 +177,7 @@ has no brotli to unpack one with (which is the same fact that keeps the towns on
 does not negotiate encodings serves the raw copies**, and the figure in WEB-6 is a claim about a host
 that does.
 
-**WEB-8 — the page says what it is doing while it does it.** The opening is a card in front of the
+**WEB-8** `P7` **The page says what it is doing while it does it.** The opening is a card in front of the
 canvas ([`loading.js`](../wwwroot/loading.js)): the name, what this is, a bar and the stage it is in.
 **A stage that can be counted fills the bar** — a batch knows how many files it asked for — and a stage
 that cannot sweeps it, because a bar sitting at nought while the runtime comes down reads as a page
@@ -186,7 +186,7 @@ gone**, so an empty line is the boot saying the town is standing and the card is
 and **what the opening cost is said on the way out**, because it is the one figure a picture cannot
 carry and the one every change to the boot is judged on.
 
-**WEB-5 — the query string is the command line.** `?map=Test&ui=nodes,paths` is `--map Test --ui
+**WEB-5** `P7` **The query string is the command line.** `?map=Test&ui=nodes,paths` is `--map Test --ui
 nodes,paths`. The words are the desktop's, and the ones a page cannot answer are not offered.
 
 ## How it is checked

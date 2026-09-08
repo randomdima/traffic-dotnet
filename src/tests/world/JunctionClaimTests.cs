@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -18,6 +19,7 @@ namespace TrafficSimulation.Tests.World;
 /// traffic crossing a box off a body standing in one that is making no movement at all.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P1)]
 public class JunctionClaimTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -45,7 +47,7 @@ public class JunctionClaimTests
         get
         {
             var maps = new TheoryData<string>();
-            foreach (var map in Towns.Shipped)
+            foreach (var map in (string[])[Towns.Fixture, Towns.City])
             {
                 if (!Towns.AnythingDrives(map)) continue;
                 if (WhereTwoMovementsCross(RoadGraph.Build(Towns.Of(map), Config)) is not null) maps.Add(map);
@@ -54,6 +56,14 @@ public class JunctionClaimTests
             return maps;
         }
     }
+
+    /// <summary>
+    /// <b>The towns where two movements of different rank are actually ordered into a box together</b>: the
+    /// suite's own pair, and the driving exam, whose whole arrangement is a lattice of junctions with the
+    /// movements staged across each other. A city left to itself produces the exchange by coincidence, so on
+    /// a town small enough to be cheap it may not produce one at all.
+    /// </summary>
+    static readonly string[] Staged = [Towns.Fixture, Towns.City, ExamPlan.Name];
 
     /// <summary>How finely two joins are measured against each other — well under the width they are compared at.</summary>
     const float StepM = 0.25f;
@@ -209,10 +219,16 @@ public class JunctionClaimTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Counted over the shipped towns rather than one of them</b>, because the exchange is a coincidence
-    /// of two streams: a turn across the oncoming traffic and the traffic it crosses share one green phase,
-    /// and which pair of cars meets in it is a fact about a fleet whose cars arrive at their own speeds
-    /// (CAR-11).
+    /// <b>Counted over both of the suite's towns rather than one of them</b>, because the exchange is a
+    /// coincidence of two streams: a turn across the oncoming traffic and the traffic it crosses share one
+    /// green phase, and which pair of cars meets in it is a fact about a fleet whose cars arrive at their own
+    /// speeds (CAR-11).
+    /// </para>
+    /// <para>
+    /// <b>It is a census and is owed a staged case</b> (VER-12): a count over a driven minute goes red when
+    /// the town moves and says nothing about the rule. What retires it is a card on the driving exam that
+    /// orders the two movements into the box together, and until there is one this is what says the rank is
+    /// read at all.
     /// </para>
     /// <para>
     /// <b>One direction of the trade is asserted and the other is only counted.</b> The takeback is the
@@ -227,9 +243,11 @@ public class JunctionClaimTests
     public void ACrossingIsTakenFromAMovementThatGivesWayToIt()
     {
         var taken = 0;
-        foreach (var map in Towns.Shipped) taken += Of(map).TakenFromAWeakerMovement;
+        foreach (var map in Staged) taken += Of(map).TakenFromAWeakerMovement;
 
-        Assert.True(taken > 0, "no car in the shipped towns took a crossing off a movement that gives way to it");
+        Assert.True(
+            taken > 0,
+            $"no car on {string.Join(", ", Staged)} took a crossing off a movement that gives way to it");
     }
 
     /// <summary>What <see cref="NothingOnTheApproachIsGivenGroundAnotherCarIsCrossingOn"/> watches for.</summary>

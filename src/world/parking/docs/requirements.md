@@ -9,17 +9,17 @@ The `GEN-` rules below are laid by whatever generates a town. **This project rea
 them** ([citygen](../../../citygen/docs/requirements.md)), so they bind the exporter and are checked here
 only in the sense that a bay which fails them cannot be used.
 
-**GEN-4** Every parking space is reachable by car from the road network and by pedestrians from walkable
+**GEN-4** `P6` Every parking space is reachable by car from the road network and by pedestrians from walkable
 terrain, and is **enterable *and* exitable by a legal manoeuvre**, reverse permitted.
 
-**GEN-4e** **The way in is the bay's and not the car's**: where a walker is aimed to reach a car parked in
+**GEN-4e** `P4` **The way in is the bay's and not the car's**: where a walker is aimed to reach a car parked in
 a space is a fact about that space, settled with the ground it was painted on, and it is the ground off the
 driver's door of a body standing square in it. Read instead off wherever the car has actually come to rest,
 the point moves whenever anything nudges the body, and a walk already under way is re-planned round the lot
 by a shove nobody chose. A space has one such point per standing (`GEN-4j`), on opposite flanks, and which
 of them a walk aims at is the way round the car is facing.
 
-**GEN-4b** Parking is laid as **lots** — a handful of spaces each, every space square to its kerb — and
+**GEN-4b** `P6` Parking is laid as **lots** — a handful of spaces each, every space square to its kerb — and
 the count is whatever satisfies the relation that matters: **every building stands within a walking
 distance of a lot**. A lot is an oriented rectangle laid along the chord of the kerb it hangs off, offered
 only where that kerb stays close to its own chord over the lot's length. The promise is not "a lot per
@@ -34,13 +34,13 @@ the street's own frontage should be, and nothing in the town ever fills it. The 
 end of the same statement: a rectangle of tarmac holding one or two cars is a lay-by that cost a lot's
 whole clearance (GEN-4d).
 
-**GEN-4c** A parking space exceeds the car footprint by the clearance margin on all sides, and all of
+**GEN-4c** `P6` A parking space exceeds the car footprint by the clearance margin on all sides, and all of
 that ground is the lot's. **A rank of them stands side by side at that width, sharing the line between
 each pair** — the room between two parked cars is the margin each of their bays already carries, and a
 lot that counted it twice would be a row of detached bays with a stripe of bare tarmac down every join
 and no line either of them shares.
 
-**GEN-4i** **A car stands square in the middle of its bay**, the clearance the space carries along its own
+**GEN-4i** `P6` **A car stands square in the middle of its bay**, the clearance the space carries along its own
 length shared between its nose and its tail. It is the pose the bay's ways end at, so it is what the
 manoeuvres are solved *to* and not a matter of comfort, and where the walk to that car is aimed (`GEN-4e`)
 is off the body at that pose. **The body stands over the same ground either way round and the axle does
@@ -49,7 +49,7 @@ wheelbase's half deeper into it. **What the depth behind the tail has to be wort
 crossing**: the outermost metres of a bay are ground the lane beside it is driven over, and a body standing
 inside that ground would cut the street it is parked beside rather than being clear of it.
 
-**GEN-4d** A lot keeps its distance, both figures measured **along the kerb it hangs off**: clear of a
+**GEN-4d** `P6` A lot keeps its distance, both figures measured **along the kerb it hangs off**: clear of a
 junction, on top of everything the junction already takes, so a car park's flank is not in the face of
 anybody waiting to turn out; and clear of the next lot, claimed along the lot's own bearing only and
 tested both ways round the pair — two lots facing each other across a carriageway are the two sides of a
@@ -63,7 +63,7 @@ That every space is demonstrably enterable and leavable is `VER-2`, in
 
 ## The ways at a bay, and which way round a car stands in it
 
-**GEN-4f** **A bay is reached over the town's own ways, and the way in is the way out.** One shape is
+**GEN-4f** `P4` **A bay is reached over the town's own ways, and the way in is the way out.** One shape is
 solved per standing and per lane the bay can be worked off — **laid once with the town and not per car**,
 like the join across a junction — and it is carried as the pair of ways that shape is driven as: in from
 the lane, and out to it. Every one of them is drawn for the rear axle, carries metres of its own, and is in
@@ -109,7 +109,7 @@ Six consequences, and the last three are the reason for the rule:
   way for the join. There is no gap looked at, no patience spent and no wait of its own, because a bay is a
   place a car gives way at and the town already knows how one of those works.
 
-**GEN-4j** **A car stands in a bay one of two ways round, and reversing happens between that bay and the
+**GEN-4j** `P5` **A car stands in a bay one of two ways round, and reversing happens between that bay and the
 lane beside it and nowhere else.** Nose first, it drove in and must reverse out; backed in, it reversed in
 and drives out. The two are different shapes rather than one shape driven differently — the axle they end
 at is a wheelbase's half either side of the middle of the space, and the approach runs up the lane for one
@@ -143,7 +143,7 @@ reverse.
 
 ## Turning round in a bay
 
-**GEN-4l** **A car that has to come back the way it came turns in a bay: it parks and it unparks.** No
+**GEN-4l** `P5` **A car that has to come back the way it came turns in a bay: it parks and it unparks.** No
 junction admits a movement that reverses the direction of travel (TER-5f), so this and a dead end
 (`P-19`) are the two ways round a town has, and this is the one an ordinary street offers.
 
@@ -165,7 +165,7 @@ junction admits a movement that reverses the direction of travel (TER-5f), so th
   the first is a fact about the town, laid with it; the second is a fact about this moment, and it is
   asked at the frontage by the leg that has got there.
 
-**GEN-4m** **A bay paints the line it shares with the next bay, and nothing else.** A car park is a piece
+**GEN-4m** `P6` **A bay paints the line it shares with the next bay, and nothing else.** A car park is a piece
 of the town's tarmac like any other: the walk wraps it like any other, and the line round the outside of a
 row of bays is the kerb line the pavement carries there
 ([world/terrain](../../terrain/docs/requirements.md) TER-3c.3, TER-3d). A stroke laid against that is the
@@ -173,7 +173,7 @@ same line painted twice, in the one place a driver is looking. What is left for 
 boundary it shares with a neighbour — two side by side, two rows head to head — because the town's own
 geometry says that nowhere. It is offered by both bays and painted once.
 
-**GEN-4k** **A special building's bays are held for its own vehicles and for nobody else.** A hospital and
+**GEN-4k** `P5` **A special building's bays are held for its own vehicles and for nobody else.** A hospital and
 a police station ([agents/ambulance](../../../agents/ambulance/docs/requirements.md),
 [agents/service](../../../agents/service/docs/requirements.md)) each keep an **apron** — the free bays
 nearest them, up to the figure — and each bay of one is held for the single vehicle stood in it, for the
@@ -201,7 +201,7 @@ whole run and not only while that vehicle is in it. Three consequences:
   for stands fewer vehicles, and one with none stands none — which is a real state and is reported
   (`AMB-2`, `SRV-2`).
 
-**GEN-4h** **A parking section is a stretch of the road network in its own right.** The road it hangs off
+**GEN-4h** `P4` **A parking section is a stretch of the road network in its own right.** The road it hangs off
 is cut at either end of it, so the frontage its bays are reached over is bounded by two nodes of the graph
 and a leg aimed at one of those bays is routed to a node like every other leg. Three consequences:
 
@@ -221,7 +221,7 @@ and a leg aimed at one of those bays is routed to a node like every other leg. T
   between the cut and the first bay are the run-in that bay's way in is staged over. A section with no room
   on its road for either cut keeps the node the road already ends at.
 
-**GEN-4g** **Which bay a leg is aimed at is a claim, and it lives in a register.** It is the one hold in
+**GEN-4g** `P4` **Which bay a leg is aimed at is a claim, and it lives in a register.** It is the one hold in
 the town that is not a piece of road, and it is a register because it has to be: the hold begins when the
 trip picks the bay and the walker sets off, which is minutes before anybody is at the wheel and over ground
 the car has no line to. It says which bay and nothing more — a bay is free when nobody has claimed it and

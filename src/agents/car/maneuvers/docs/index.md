@@ -103,24 +103,24 @@ is an index, and everything about what it is doing lives in the fleet's arrays.
 
 ### 1.3 Planning rules
 
-- **MAN-1 — Chaining.** A chain is valid only if each step's `Sb` satisfies the next one's `Sa`. It is
+- **MAN-1** `P4` **Chaining.** A chain is valid only if each step's `Sb` satisfies the next one's `Sa`. It is
   not asserted, it is *checked*: a successor whose `Sa` does not hold is re-derived rather than driven.
-- **MAN-2 — Partial plans are normal.** [`DrivePlan`](../framework/DrivePlan.cs) carries the leg's
+- **MAN-2** `P4` **Partial plans are normal.** [`DrivePlan`](../framework/DrivePlan.cs) carries the leg's
   **skeleton** — leave this bay, run the route, park in that bay, stand in it — and nothing about the
   queues, junctions and crossings between them. Those are reached from `P-4`'s own exits as the road
   produces them, because everything past the next junction is a prediction about other agents.
-- **MAN-3 — Replanning.** The chain is re-derived, never patched, and **always from the car's actual
+- **MAN-3** `P4` **Replanning.** The chain is re-derived, never patched, and **always from the car's actual
   pose**: when a place is retargeted, when a road is priced up, and after anything that drove geometry
   of its own.
-- **MAN-4 — Bounded by construction.** Every entry carries a time bound, a distance bound or an attempt
+- **MAN-4** `P4` **Bounded by construction.** Every entry carries a time bound, a distance bound or an attempt
   count. No entry may wait indefinitely; one that would stand still forever takes the next rung.
-- **MAN-5 — No undefined failure.** Every failure names its successor. `E-9` and `E-10` are the terminal
+- **MAN-5** `P4` **No undefined failure.** Every failure names its successor. `E-9` and `E-10` are the terminal
   ones and every ladder ends at them.
-- **MAN-6 — Retry from a different pose.** A manoeuvre that failed may not be re-attempted from the pose
+- **MAN-6** `P5` **Retry from a different pose.** A manoeuvre that failed may not be re-attempted from the pose
   the failed attempt ended in. Two poses on one line are joined by a straight, a straight has no
   curvature, and a car driven along one arrives at exactly the angle it left at. Only a bay needs a
   procedure for this (`P-16`); everywhere else `P-4` draws its line from the pose the car is actually in.
-- **MAN-7 — The line, not the route.** Going round an obstruction is a change to the *driven line*; the
+- **MAN-7** `P4` **The line, not the route.** Going round an obstruction is a change to the *driven line*; the
   route, the progress measure and the junction claims stay exactly as they were.
 
 ### 1.4 Arbitration
@@ -154,13 +154,13 @@ re-derived (MAN-3). Only one interruption deep — a reactive entry that itself 
 These run underneath *every* entry. **They are not manoeuvres and are never selected**; they are how a
 car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No entry repeats them.
 
-- **S-1** Hold the driven line, measured at the rear axle, aiming a speed-scaled distance ahead and
+- **S-1** `P5` Hold the driven line, measured at the rear axle, aiming a speed-scaled distance ahead and
   never further than the corner being driven is wide.
-- **S-2** Speed is the minimum of every constraint — the gear cap, the corners, the end of the line, the
+- **S-2** `P5` Speed is the minimum of every constraint — the gear cap, the corners, the end of the line, the
   headway, **the road the car was granted**, the stop point, the stop short of a crossing, **and whatever
   the entry in charge asked for** — every distance taken a lead ahead of where the car is, against *usable* grip. The
   lead is the staleness of the driver's own decision and the travel of the pedal that answers it.
-- **S-2a** **Take the road ahead before driving down it.** Every tick, a driver asks for the stretch of
+- **S-2a** `P3` **Take the road ahead before driving down it.** Every tick, a driver asks for the stretch of
   its own way from a margin behind its tail (`TER-5c.2`) to where it plans to be able to stop, and is
   granted what is left of it in front of the nearest car already on it. Nobody is granted ground another car will still be standing on
   once that car has stopped, and **that is the whole of following**: the car behind has less road to stop
@@ -175,7 +175,7 @@ car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No
   ground across a junction and not only along a lane. **What is asked for stops where a rule stops the
   car** (`TER-4c.1`) — a red, a bar, a zebra it must stop short of — the gap it keeps included, so a car
   standing at a stop holds the ground it is on and none of what it stopped for.
-- **S-3** Watch ahead along the line actually being driven, in the gear it is being driven in. **Every
+- **S-3** `P5` Watch ahead along the line actually being driven, in the gear it is being driven in. **Every
   tick, and out of the town's own claims** — what is in front, what it is and how far off it is are one walk
   of the ways being driven, over the same stretches the grant in `S-2a` was taken against, so the reading
   and the road the car was given can never disagree ([the car's log](../../docs/decision-log.md)).
@@ -183,7 +183,7 @@ car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No
   own furniture (`TER-4c`). **What is found is named and never guessed at from its speed.** A car under
   geometry of its own is the one exception — its ways are not the ways it is driving, so what it finds
   there is named unknown and unknown is never driven round.
-- **S-4** Take up the ground **on your own way through** the box ahead, at the places the other movements
+- **S-4** `P3` Take up the ground **on your own way through** the box ahead, at the places the other movements
   cross it, and give back the box behind (`TER-5c`). Every tick, never on the clock — a red can change
   under an entry, and nothing here is a claim on the junction. **What another movement's ground costs you
   is looked up and never marked** (`TER-5c.1`): a car claims the ways it is going to be on, and reads the
@@ -192,10 +192,10 @@ car is driven at all, and they live in `src/world/town/TownWorld.Driving.cs`. No
   held by a body past the point it could stop short is ground nobody's rank takes. A crossing already taken
   is **given back** when something with the right of way over it asks for the same ground — while this car
   can still stop short of the box, and never after.
-- **S-5** Hold a stop you have already made: the handbrake is pulled only at rest.
-- **S-6** Hard rules bind everywhere, including inside a recovery. Only lane legality and the no-idling
+- **S-5** `P5` Hold a stop you have already made: the handbrake is pulled only at rest.
+- **S-6** `P3` Hard rules bind everywhere, including inside a recovery. Only lane legality and the no-idling
   rule may be suspended, and only where an entry's page says so.
-- **S-7** A hand at the wheel suspends all of it.
+- **S-7** `P7` A hand at the wheel suspends all of it.
 
 ### 1.8 The escalation ladder
 

@@ -19,6 +19,7 @@ namespace TrafficSimulation.Tests.PlayerControl;
 /// park to aim at, and a car standing in it with nobody in it (CTL-8d).
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P6)]
 public class CarOrderTests
 {
     static readonly SimConfig Figures = SimConfig.Shipped();

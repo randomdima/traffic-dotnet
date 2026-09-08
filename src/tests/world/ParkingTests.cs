@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.World;
 /// ground a car takes getting to the bay is the road's and is asserted with the rest of the road.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class ParkingTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -149,10 +150,16 @@ public class ParkingTests
     {
         var registry = RegistryOf(Towns.Fixture, out _);
 
+        // <b>The same stand-off at every bay, and not the expression it was laid from.</b> How far off the
+        // flank a door is is half a car and a body; writing that out again would be the derivation twice
+        // (VER-12), where what GEN-4e is about is that the figure is a fact about a bay rather than about
+        // whatever is standing in it.
+        var standOffM = float.NaN;
         for (var bay = 0; bay < registry.BayCount; bay++)
         {
             var offsetM = registry.WayInM(bay, noseIn: true) - registry.CentreM(bay);
-            Assert.Equal((Config.Car.WidthM * 0.5f) + Config.PersonDiameterM, offsetM.Length(), 3);
+            if (float.IsNaN(standOffM)) standOffM = offsetM.Length();
+            Assert.Equal(standOffM, offsetM.Length(), 3);
 
             var forward = new Vector2(MathF.Cos(registry.HeadingRad(bay)), MathF.Sin(registry.HeadingRad(bay)));
             Assert.True(MathF.Abs(Vector2.Dot(Vector2.Normalize(offsetM), forward)) < 1e-3f, "the door is off the flank");
@@ -218,8 +225,7 @@ public class ParkingTests
     /// a fixture can be posed into.
     /// </remarks>
     [Theory]
-    [InlineData("Odesa")]
-    [InlineData("River")]
+    [InlineData(Towns.City)]
     public void NoCarHoldsALineIntoABayItHasDrivenPast(string map)
     {
         using var world = new TownWorld(Towns.Of(map), Config);
@@ -249,7 +255,7 @@ public class ParkingTests
     [Fact]
     public void ACarStandingInABayHoldsTheBayAndNoneOfTheStreet()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         new SimLoop<TownWorld>(world, Config).Advance(1);
 
         Span<LaneClaim> slots = stackalloc LaneClaim[64];
@@ -299,7 +305,7 @@ public class ParkingTests
     [Fact]
     public void APersonStandingInABayHoldsThatBaysWays()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
 
         // Long enough for the town to have put somebody on the street: at the first tick the whole roster is
         // still indoors, and a body inside a container is no body at all (PHY-7).

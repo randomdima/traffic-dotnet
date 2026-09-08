@@ -19,6 +19,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// walk asked for again from an offset across the way, so there is no geometry here to check it against.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class StepAroundTests
 {
     /// <summary>

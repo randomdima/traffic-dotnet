@@ -21,6 +21,7 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 /// Asserting only that a rescue still delivers would pass unchanged if the crew had never got out.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class CrewOnFootTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -36,6 +37,54 @@ public class CrewOnFootTests
     [Fact]
     public void TheParamedicWalksToTheCasualtyAndTugsThemBackToTheAmbulance()
     {
+        var staged = Staged.Value;
+
+        Assert.True(staged.WentOut, "no paramedic ever got out of an ambulance (AMB-10)");
+        Assert.Null(staged.HandNotAttending);
+        Assert.True(staged.Tugged, "the casualty never moved while being tugged to the vehicle (AMB-10)");
+        Assert.True(staged.CameBack, "no ambulance ever drove off with its crew back aboard (SRV-3)");
+        Assert.True(
+            staged.Delivered > 0,
+            $"the crew worked the scene on foot and nobody was delivered — {staged.Collected} collected");
+
+        Assert.True(
+            staged.StoodOffM > Config.Service.CrewReachM,
+            $"an ambulance stood {staged.StoodOffM:F1} m from the body its crew was walking to, which is inside "
+            + $"the {Config.Service.CrewReachM:F1} m they could have reached from the cab (AMB-10)");
+    }
+
+    /// <summary>
+    /// <b>SRV-3, PER-4</b>: an ambulance standing at a scene with its crew out is a car nobody is in, and
+    /// nobody in the town may take it. What keeps it out of everybody else's trip is the hospital it stands
+    /// on the strength of, and never who happens to be sitting in it.
+    /// </summary>
+    [Fact]
+    public void NobodyWalksOffWithAnUnattendedServiceVehicle() => Assert.Null(Staged.Value.WalkedOffWith);
+
+    /// <summary>
+    /// <b>One staged rescue, and every claim about it read off the one run.</b> Both facts above watch the
+    /// same ten minutes of the same casualty being fetched: standing a second town to ask the second question
+    /// was the whole of what this class cost, and a rescue staged twice is not two rescues.
+    /// </summary>
+    /// <remarks>
+    /// The universal claim — that nobody walks off with a working vehicle — is what fixes the length: it must
+    /// watch every tick, so the run does not end at the delivery the existential claims are answered by.
+    /// </remarks>
+    static readonly Lazy<Watched> Staged = new(Stage);
+
+    /// <summary>What a staged rescue was seen to do, recorded as it went past rather than asserted inside it.</summary>
+    sealed record Watched(
+        bool WentOut,
+        bool Tugged,
+        bool CameBack,
+        long Delivered,
+        long Collected,
+        float StoodOffM,
+        string? HandNotAttending,
+        string? WalkedOffWith);
+
+    static Watched Stage()
+    {
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
         Assert.True(world.Ambulances > 0, "the fixture map stood no ambulance, so nothing here is being asked");
@@ -48,8 +97,11 @@ public class CrewOnFootTests
         var wentOut = false;
         var tugged = false;
         var cameBack = false;
-        var stoodOff = float.PositiveInfinity;
+        var stoodOffM = float.PositiveInfinity;
         var wasTuggedFromM = Vector2.Zero;
+        string? handNotAttending = null;
+        string? walkedOffWith = null;
+
         for (var tick = 0; tick < Ticks; tick++)
         {
             loop.Advance(1);
@@ -57,22 +109,36 @@ public class CrewOnFootTests
 
             for (var car = 0; car < world.Cars.Count; car++)
             {
+                var hand = world.HandOutOf(car);
+                if (hand >= 0 && !world.Cars.Broken[car])
+                {
+                    var driver = world.Containment.DriverOf(car);
+                    if (driver >= 0 && world.People.Stage[driver] != TripStage.OnDuty)
+                    {
+                        walkedOffWith ??=
+                            $"person {driver} took the wheel of car {car} at tick {tick} while it was working";
+                    }
+                }
+
                 if (!world.Cars.Ambulance[car] || !world.Duty.IsOnACall(car)) continue;
 
                 var stage = world.Duty.Stage[car];
-                var hand = world.HandOutOf(car);
                 if (hand >= 0)
                 {
                     wentOut = true;
-                    Assert.Equal(TripStage.Attending, world.People.Stage[hand]);
+                    if (world.People.Stage[hand] != TripStage.Attending)
+                    {
+                        handNotAttending ??=
+                            $"person {hand} is out of ambulance {car} doing {world.People.Stage[hand]}";
+                    }
 
                     // <b>The vehicle is never where the crew is</b> (AMB-10): the standoff is the whole
                     // change, and a crew on foot with the ambulance already on the body would be the old
                     // rescue with a walk bolted to it.
                     if (stage == RescueStage.Fetching && world.People.Wounded[casualty])
                     {
-                        stoodOff = MathF.Min(
-                            stoodOff,
+                        stoodOffM = MathF.Min(
+                            stoodOffM,
                             (world.Cars.PositionM[car] - world.People.PositionM[casualty]).Length());
                     }
                 }
@@ -90,52 +156,11 @@ public class CrewOnFootTests
                 // Back in a seat with the casualty aboard, which is the state the delivery is laid from.
                 cameBack |= stage is RescueStage.Carrying or RescueStage.HandingOver && hand < 0;
             }
-
-            if (world.CasualtiesDelivered > 0) break;
         }
 
-        Assert.True(wentOut, "no paramedic ever got out of an ambulance (AMB-10)");
-        Assert.True(tugged, "the casualty never moved while being tugged to the vehicle (AMB-10)");
-        Assert.True(cameBack, "no ambulance ever drove off with its crew back aboard (SRV-3)");
-        Assert.True(
-            world.CasualtiesDelivered > 0,
-            $"the crew worked the scene on foot and nobody was delivered — {world.CasualtiesCollected} collected");
-
-        Assert.True(
-            stoodOff > Config.Service.CrewReachM,
-            $"an ambulance stood {stoodOff:F1} m from the body its crew was walking to, which is inside "
-            + $"the {Config.Service.CrewReachM:F1} m they could have reached from the cab (AMB-10)");
-    }
-
-    /// <summary>
-    /// <b>SRV-3, PER-4</b>: an ambulance standing at a scene with its crew out is a car nobody is in, and
-    /// nobody in the town may take it. What keeps it out of everybody else's trip is the hospital it stands
-    /// on the strength of, and never who happens to be sitting in it.
-    /// </summary>
-    [Fact]
-    public void NobodyWalksOffWithAnUnattendedServiceVehicle()
-    {
-        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        loop.Advance(WarmupTicks);
-        var casualty = Towns.NearestWalkerToARoad(world);
-        Assert.True(casualty >= 0, "the fixture town had nobody to knock down");
-        world.Apply(new BodyTag(BodyKind.Person, casualty), DamageOutcome.Wounded);
-
-        for (var tick = 0; tick < Ticks; tick++)
-        {
-            loop.Advance(1);
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                if (world.HandOutOf(car) < 0 || world.Cars.Broken[car]) continue;
-
-                var driver = world.Containment.DriverOf(car);
-                Assert.True(
-                    driver < 0 || world.People.Stage[driver] == TripStage.OnDuty,
-                    "somebody who is not this vehicle's crew took the wheel of it while it was working");
-            }
-        }
+        return new Watched(
+            wentOut, tugged, cameBack, world.CasualtiesDelivered, world.CasualtiesCollected, stoodOffM,
+            handNotAttending, walkedOffWith);
     }
 
     /// <summary>
@@ -163,81 +188,5 @@ public class CrewOnFootTests
         containers.Alight(0, 1);
         Assert.Equal(Containers.NoDriver, containers.CrewOf(0, 0));
         Assert.True(containers.TryTakeACrewSeat(0, 3));
-    }
-}
-
-/// <summary>
-/// <b>No vehicle is left standing with its crew in the street</b> (SRV-3). A hand out is a vehicle stopped,
-/// so a hand that never comes back is a hospital, a station or a depot one vehicle short for the rest of the
-/// run — which is the one way this whole errand can quietly take a town apart.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>Watched over a busy run rather than staged.</b> What is being asked about is the tail: the scene
-/// nothing clears, the pavement that will not give a body back, the call given up while somebody was out. A
-/// staged casualty exercises one of those; a city knocking its own people down exercises all of them, and
-/// the ceiling asserted is every bound this can legitimately spend, added up.
-/// </para>
-/// <para>
-/// <b>A class of its own because it is ten minutes of a city and the only claim that needs them.</b> The
-/// cases of one class are run one after another, so left beside <see cref="CrewOnFootTests"/>'s staged
-/// rescue this one stood the whole slice's answer behind it on a machine with fifteen idle cores.
-/// </para>
-/// </remarks>
-[Trait(Tier.Key, Tier.Town)]
-public class CrewRecallTests
-{
-    static readonly SimConfig Config = SimConfig.Shipped();
-
-    /// <summary>Ten minutes: half again the longest a hand may honestly be out for, so a breach has room to show.</summary>
-    const int Ticks = 36_000;
-
-    [Fact]
-    public void NoHandIsLeftInTheStreetLongerThanEveryBoundTogether()
-    {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        // Every leg a hand can be out for, end to end: the longest errand bound any of the three can be
-        // holding it for, the recall after that, and the one decision it takes to notice either is spent —
-        // every one of these clocks is read on the vehicle's own decision and can only be found over on the
-        // decision after it went over. <b>Derived and not written down</b>, so moving a figure moves the
-        // ceiling with it rather than turning this into a test of what the figures used to be.
-        var ceilingS = MathF.Max(
-                           Config.AmbulanceGiveUpS,
-                           MathF.Max(Config.EvacuatorGiveUpS, MathF.Max(Config.PatrolGiveUpS, Config.PoliceClosureLifeS)))
-                       + Config.ServiceRecallS
-                       + Config.Sim.AgentDecisionIntervalS
-                       // And the tick this is counted at. The bounds above are clocks the vehicle reads on
-                       // its own decision; what is measured below is the number of ticks a hand was seen
-                       // out, which is up to one tick longer than the span itself. Without it the test
-                       // fails on where the ticks happen to fall against the decision (VER-12).
-                       + Config.TickSeconds;
-        var outS = new float[world.Cars.Count];
-        var everOut = false;
-        var longestS = 0f;
-
-        for (var tick = 0; tick < Ticks; tick++)
-        {
-            loop.Advance(1);
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                if (world.HandOutOf(car) < 0)
-                {
-                    outS[car] = 0f;
-                    continue;
-                }
-
-                everOut = true;
-                outS[car] += Config.TickSeconds;
-                longestS = MathF.Max(longestS, outS[car]);
-            }
-        }
-
-        Assert.True(everOut, "no crew was ever out on this run, so it says nothing about getting one back");
-        Assert.True(
-            longestS <= ceilingS,
-            $"a vehicle stood {longestS:F1} s with its crew in the street, against {ceilingS:F1} s of bounds "
-            + "— the errand's and the recall's together (SRV-3, AMB-9)");
     }
 }

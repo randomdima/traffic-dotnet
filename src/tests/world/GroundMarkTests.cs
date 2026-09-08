@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.World;
 /// standing still writes nothing, and that one being driven writes something.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class GroundMarkTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -37,7 +38,7 @@ public class GroundMarkTests
     [Fact]
     public void ADrivenTownWritesOnTheGround()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
         // The minute is how long a city may take to write its first mark, not how long this watches for:

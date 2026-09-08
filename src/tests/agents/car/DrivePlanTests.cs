@@ -9,6 +9,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// being a skeleton.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class DrivePlanTests
 {
     [Fact]

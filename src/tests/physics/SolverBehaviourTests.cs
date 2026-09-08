@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Physics;
 /// failure would show up there as a town that wrecks itself rather than as anything a reader could name.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class SolverBehaviourTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

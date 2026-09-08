@@ -9,6 +9,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// signed off a wrong row that way.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P8)]
 public class PersonCatalogTests
 {
     /// <summary>

@@ -14,6 +14,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// what the test stages is geometry and never an entry of the catalogue.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P9)]
 public class CarLampTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

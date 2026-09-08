@@ -12,14 +12,15 @@ using Xunit;
 namespace TrafficSimulation.Tests.Render;
 
 /// <summary>
-/// The ground's triangles, asked of every shipped map without a GPU in the room. What a picture can
+/// The ground's triangles, asked of every map this build lays without a GPU in the room. What a picture can
 /// only be judged on — a dashed line's pitch, whether the paint sits on the road — is the render and
 /// agent tiers' job; what is asserted here is everything about the mesh that <em>is</em> a fact.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P5)]
 public class GroundMeshTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryLaidMap();
 
     static readonly ConcurrentDictionary<string, GroundMesh> Laid = new();
 
@@ -32,7 +33,7 @@ public class GroundMeshTests
 
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryShippedMapLaysGroundThatIsWellFormed(string map)
+    public void EveryLaidMapLaysGroundThatIsWellFormed(string map)
     {
         var mesh = Ground(map);
 
@@ -571,6 +572,487 @@ public class GroundMeshTests
     }
 
     /// <summary>
+    /// <b>TER-7b — a road's ground is covered once.</b> Across the whole section — the carriageway, the
+    /// kerb line either side of it, the pavement and its rim — exactly one triangle of the mesh stands over
+    /// every point, so the picture of a road is a partition of the ground it covers rather than a stack of
+    /// shapes painted over one another.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Asked over the stretches where a section is the whole story</b>: clear of either end of the road,
+    /// where a box's own ground, the turns that carry a kerb round a corner and the rounds that close a band
+    /// are still painter's work — the region TER-7b is not yet kept over, and the one named in
+    /// <c>docs/index.md</c>. A side with something standing against its kerb is skipped for the same reason:
+    /// what is there is a pocket of the union rather than the road's own offset.
+    /// </para>
+    /// <para>
+    /// <b>The verge is not counted</b>, being the ground everything else is cut out of rather than a
+    /// neighbour of any of it, and the marks are not either — a dash is meant to be on the road.
+    /// <b>Nothing is sampled on a seam</b>: two bands that abut exactly both contain the metre they share,
+    /// and a point on one would be covered twice by a mesh that is right.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void ARoadsGroundIsCoveredOnce()
+    {
+        const int Along = 2;
+        const int Sections = 24;
+
+        // The suite's own city rather than the fixture: a road is asked about clear of both its ends, and
+        // every road on the fixture is shorter than the two junctions at its ends reach into it.
+        var plan = Towns.Of(Towns.City);
+        var config = SimConfig.Shipped();
+        var paving = plan.Paving(config);
+        var mesh = Ground(Towns.City);
+        var walkM = paving.WalkM;
+
+        // Far enough from a road's own ends to clear everything the box beside it lays: the movements
+        // through it and the fillets that round it, each grown by a walk, and the rounds and turns that
+        // close the band where one run hands over to the next.
+        var clearM = walkM * 4f;
+        var asked = new List<(Vector2 AtM, int Road, float AlongM, float AcrossM)>();
+
+        // A road carried over water is not asked about: what is under it there is the deck, the margin, the
+        // shore and the water, each drawn at its own size over the one before it (TER-3b.1), and that stack
+        // is the bridge's rather than the road's.
+        var carried = new HashSet<int>();
+        for (var bridge = 0; bridge < plan.Bridges.Count; bridge++) carried.Add(plan.Bridges.Road[bridge]);
+
+        var wanted = 0;
+        foreach (var section in paving.Sections)
+        {
+            if (carried.Contains(section.Road)) continue;
+
+            var arcs = plan.Roads.SegmentsOf(section.Road);
+            var lengthM = Spline.TotalLengthM(arcs);
+            var fromM = MathF.Max(section.FromM, clearM);
+            var toM = MathF.Min(section.ToM, lengthM - clearM);
+            if (toM <= fromM) continue;
+            if (wanted++ % Math.Max(1, paving.Sections.Length / Sections) != 0) continue;
+
+            var halfM = plan.Roads.WidthM[section.Road] * 0.5f;
+            for (var station = 0; station < Along; station++)
+            {
+                // Off the stations the bands are struck on, so nothing is asked on the seam between two
+                // quads of one band either.
+                var alongM = fromM + ((toM - fromM) * (station + 0.37f) / Along);
+                var on = Spline.SampleAt(arcs, alongM);
+
+                foreach (var (edge, side) in (ReadOnlySpan<(PavedEdge, float)>)
+                         [(section.Left, -1f), (section.Right, 1f)])
+                {
+                    if (edge == PavedEdge.None) continue;
+
+                    var outward = on.Right * side;
+                    foreach (var acrossM in Across(
+                                 halfM, walkM, config.Road.PaintLineWidthM, config.Road.EdgeLineWidthM, edge))
+                    {
+                        var atM = on.PositionM + (outward * acrossM);
+                        if (Beside(plan, atM, walkM)) continue;
+
+                        asked.Add((atM, section.Road, alongM, side * acrossM));
+                    }
+                }
+            }
+        }
+
+        // A floor on the asking, so that a filter tightened by mistake cannot leave this passing on nothing.
+        Assert.True(
+            asked.Count >= 100,
+            $"only {asked.Count} points of the city's roads were clear enough of a box, a car park and a "
+            + "bridge to be asked about");
+
+        var over = CoveringGround(mesh, asked.Select(point => point.AtM).ToArray());
+        for (var at = 0; at < asked.Count; at++)
+        {
+            var (_, road, alongM, acrossM) = asked[at];
+            Assert.True(
+                over[at] == 1,
+                $"road {road} at {alongM:F1} m along and {acrossM:F2} m across is covered {over[at]} times "
+                + $"and not once, by {Covering(mesh, asked[at].AtM)}");
+        }
+    }
+
+    /// <summary>
+    /// <b>A junction the road runs through as one line lays no ground of its own</b> (TER-5b,
+    /// <see cref="Paving.Through"/>): inside the disc such a node bites its arms with, every point of either
+    /// arm's cross-section is covered exactly once — by that arm's section, and not by an end turned on a
+    /// walk, a movement's band or a second run of pavement as well.
+    /// </summary>
+    /// <remarks>
+    /// The same asking as <see cref="ARoadsGroundIsCoveredOnce"/>, taken exactly where that one keeps clear
+    /// of: within the node's own reach along both arms, off the stations and off the seam. A node that is
+    /// not such a place is still a box, and is not asked.
+    /// </remarks>
+    [Theory]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
+    public void AJunctionTheRoadRunsThroughLaysNoGroundOfItsOwn(string map)
+    {
+        const int Along = 3;
+
+        var plan = Towns.Of(map);
+        var config = SimConfig.Shipped();
+        var paving = plan.Paving(config);
+        var mesh = Ground(map);
+        var walkM = paving.WalkM;
+
+        var carried = new HashSet<int>();
+        for (var bridge = 0; bridge < plan.Bridges.Count; bridge++) carried.Add(plan.Bridges.Road[bridge]);
+
+        var asked = new List<(Vector2 AtM, int Road, float AlongM, float AcrossM)>();
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            if (carried.Contains(road)) continue;
+
+            var arcs = plan.Roads.SegmentsOf(road);
+            var lengthM = Spline.TotalLengthM(arcs);
+            var halfM = plan.Roads.WidthM[road] * 0.5f;
+            foreach (var (junction, atStart) in (ReadOnlySpan<(int, bool)>)
+                     [(plan.Roads.FromJunction[road], true), (plan.Roads.ToJunction[road], false)])
+            {
+                if (!paving.Through[junction]) continue;
+
+                // Into the road from the node, as far as the box would have reached and the walk it was
+                // grown by, and never near the road's other end, whose own box is not the question.
+                var reachM = plan.Junctions.RadiusM[junction] + walkM;
+                for (var station = 0; station < Along; station++)
+                {
+                    var inM = reachM * (station + 0.37f) / Along;
+                    var alongM = atStart ? inM : lengthM - inM;
+                    if (inM > lengthM - (walkM * 4f)) continue;
+
+                    var on = Spline.SampleAt(arcs, alongM);
+                    var section = paving.Sections.First(
+                        cut => cut.Road == road && cut.FromM <= alongM && alongM <= cut.ToM);
+                    foreach (var (edge, side) in (ReadOnlySpan<(PavedEdge, float)>)
+                             [(section.Left, -1f), (section.Right, 1f)])
+                    {
+                        if (edge == PavedEdge.None) continue;
+
+                        var outward = on.Right * side;
+                        foreach (var acrossM in Across(
+                                     halfM, walkM, config.Road.PaintLineWidthM, config.Road.EdgeLineWidthM, edge))
+                        {
+                            var atM = on.PositionM + (outward * acrossM);
+                            if (Beside(plan, atM, walkM)) continue;
+
+                            asked.Add((atM, road, alongM, side * acrossM));
+                        }
+                    }
+                }
+            }
+        }
+
+        Assert.True(asked.Count > 0, $"{map} has no junction a road runs through that could be asked about");
+
+        var over = CoveringGround(mesh, asked.Select(point => point.AtM).ToArray());
+        for (var at = 0; at < asked.Count; at++)
+        {
+            var (_, road, alongM, acrossM) = asked[at];
+            Assert.True(
+                over[at] == 1,
+                $"{map}: road {road} at {alongM:F1} m along and {acrossM:F2} m across is covered {over[at]} "
+                + $"times and not once, by {Covering(mesh, asked[at].AtM)}");
+        }
+    }
+
+    /// <summary>
+    /// <b>A junction's box is covered once</b> (TER-7b, <see cref="Paving.Boxes"/>): inside the outline a
+    /// box is laid as, exactly one triangle of the mesh stands over every point — the box's own, and neither
+    /// an arm's section run on to the node nor anything grown under it.
+    /// </summary>
+    /// <remarks>
+    /// Asked a walk inside the outline, so that nothing is sampled on the seam between the box and the
+    /// arms' cuts or the runs round it, and off the metre grid so that nothing lands on a triangle's edge.
+    /// </remarks>
+    [Theory]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
+    public void AJunctionsBoxIsCoveredOnce(string map)
+    {
+        var plan = Towns.Of(map);
+        var config = SimConfig.Shipped();
+        var paving = plan.Paving(config);
+        var mesh = Ground(map);
+        var walkM = paving.WalkM;
+
+        // A box one of whose arms is carried over water is not asked about: the deck, the margin, the
+        // shore and the water are drawn at four sizes over one another there (TER-3b.1), and that stack is
+        // the bridge's rather than the box's.
+        var carried = new HashSet<int>();
+        for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
+        {
+            var road = plan.Bridges.Road[bridge];
+            if (road < 0) continue;
+
+            carried.Add(plan.Roads.FromJunction[road]);
+            carried.Add(plan.Roads.ToJunction[road]);
+        }
+
+        var asked = new List<(Vector2 AtM, int Junction)>();
+        foreach (var box in paving.Boxes)
+        {
+            if (carried.Contains(box.Junction)) continue;
+
+            var outline = new List<Vector2>();
+            foreach (var arc in box.Outline)
+            {
+                var steps = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / (walkM * 0.25f)));
+                for (var step = 0; step < steps; step++) outline.Add(arc.PointAtM(arc.LengthM * step / steps));
+            }
+
+            if (outline.Count < 3) continue;
+
+            var leastM = outline.Aggregate(Vector2.Min);
+            var mostM = outline.Aggregate(Vector2.Max);
+            for (var y = leastM.Y + 0.37f; y < mostM.Y; y += 1f)
+            {
+                for (var x = leastM.X + 0.63f; x < mostM.X; x += 1f)
+                {
+                    var atM = new Vector2(x, y);
+                    if (!Within(outline, atM) || Nearest(outline, atM) < walkM) continue;
+
+                    asked.Add((atM, box.Junction));
+                }
+            }
+        }
+
+        Assert.True(asked.Count >= 20, $"{map}: only {asked.Count} points inside a box could be asked about");
+
+        var over = CoveringGround(mesh, asked.Select(point => point.AtM).ToArray());
+        for (var at = 0; at < asked.Count; at++)
+        {
+            Assert.True(
+                over[at] == 1,
+                $"{map}: junction {asked[at].Junction}'s box at {asked[at].AtM} is covered {over[at]} times and not once, "
+                + $"by {Covering(mesh, asked[at].AtM)}");
+        }
+    }
+
+    static bool Within(List<Vector2> outline, Vector2 atM)
+    {
+        var inside = false;
+        for (int i = 0, j = outline.Count - 1; i < outline.Count; j = i++)
+        {
+            var a = outline[i];
+            var b = outline[j];
+            if ((a.Y > atM.Y) != (b.Y > atM.Y) && atM.X < ((b.X - a.X) * (atM.Y - a.Y) / (b.Y - a.Y)) + a.X) inside = !inside;
+        }
+
+        return inside;
+    }
+
+    static float Nearest(List<Vector2> outline, Vector2 atM)
+    {
+        var nearestM = float.MaxValue;
+        for (int i = 0, j = outline.Count - 1; i < outline.Count; j = i++)
+        {
+            var a = outline[j];
+            var b = outline[i];
+            var ab = b - a;
+            var t = ab.LengthSquared() > 0f ? Math.Clamp(Vector2.Dot(atM - a, ab) / ab.LengthSquared(), 0f, 1f) : 0f;
+            nearestM = MathF.Min(nearestM, Vector2.Distance(atM, a + (ab * t)));
+        }
+
+        return nearestM;
+    }
+
+    /// <summary>
+    /// <b>The band round a car park is covered once</b> (TER-7b): along every run that wraps anything but a
+    /// road, the kerb line, the walk and the rim are three bands of one cross-section on the run's own
+    /// stations, and nothing else — no box grown by a walk beneath them, no stroke painted over them —
+    /// stands on the same ground.
+    /// </summary>
+    /// <remarks>
+    /// Asked away from a run's two ends, where the rounds that close it and the turn onto the next run are
+    /// still union ground, and only of runs standing beside a car park — a movement's run at a junction
+    /// mouth stands over the box's own grown ground, which is the region TER-7b is not yet kept over.
+    /// </remarks>
+    [Theory]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
+    public void ACarParksBandIsCoveredOnce(string map)
+    {
+        var plan = Towns.Of(map);
+        var config = SimConfig.Shipped();
+        var paving = plan.Paving(config);
+        var mesh = Ground(map);
+        var walkM = paving.WalkM;
+        var halfWalkM = walkM * 0.5f;
+        var kerbM = config.Road.PaintLineWidthM;
+        var edgeM = config.Road.EdgeLineWidthM;
+
+        var asked = new List<(Vector2 AtM, int Run, float AlongM, float AcrossM)>();
+        for (var at = 0; at < paving.Walk.Length; at++)
+        {
+            var run = paving.Walk[at];
+            if (run.AlongARoad || run.LengthM <= walkM * 3f) continue;
+
+            var middle = Spline.SampleAt(run.Line, run.LengthM * 0.5f);
+            if (!Beside(plan, middle.PositionM, walkM)) continue;
+
+            // Inside each band the run carries, off the seams between them; off the stations too, and off
+            // the middle of a band, since a quad's diagonal passes through its centre and a point on it is
+            // in both of the quad's triangles.
+            var rimM = run.Outline ? halfWalkM - edgeM : halfWalkM;
+            Span<float> acrossM = run.Outline
+                ? [halfWalkM - (kerbM * 0.4f), halfWalkM - kerbM - ((halfWalkM - kerbM + rimM) * 0.4f), -(rimM + (edgeM * 0.4f))]
+                : [halfWalkM - (kerbM * 0.4f), halfWalkM - kerbM - ((halfWalkM - kerbM + rimM) * 0.4f)];
+            foreach (var share in (ReadOnlySpan<float>)[0.37f, 0.53f, 0.71f])
+            {
+                var alongM = run.LengthM * share;
+                var on = Spline.SampleAt(run.Line, alongM);
+                foreach (var offM in acrossM)
+                {
+                    asked.Add((on.PositionM + (on.Right * run.RoadSide * offM), at, alongM, offM));
+                }
+            }
+        }
+
+        Assert.True(asked.Count >= 30, $"{map}: only {asked.Count} points of pavement beside a car park could be asked about");
+
+        var over = CoveringGround(mesh, asked.Select(point => point.AtM).ToArray());
+        for (var at = 0; at < asked.Count; at++)
+        {
+            var (atM, run, alongM, acrossM) = asked[at];
+            Assert.True(
+                over[at] == 1,
+                $"{map}: run {run} at {alongM:F1} m along and {acrossM:F2} m across is covered {over[at]} times "
+                + $"and not once, by {Covering(mesh, atM)}");
+        }
+    }
+
+    /// <summary>
+    /// Whether a car park or a slab stands near enough to reach this point when it is grown by a walk.
+    /// Such ground is a union of pieces laid one over another, which is the region TER-7b is not yet kept
+    /// over — the road's own section is right there, and what is under it is not the road's to answer for.
+    /// </summary>
+    static bool Beside(CityPlan plan, Vector2 pointM, float walkM)
+    {
+        for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
+        {
+            var axis = plan.ParkingLots.Axis[lot];
+            var reach = plan.ParkingLots.CentreM[lot] - pointM;
+            var alongM = MathF.Abs((reach.X * axis.X) + (reach.Y * axis.Y));
+            var acrossM = MathF.Abs((reach.X * -axis.Y) + (reach.Y * axis.X));
+            var halfM = plan.ParkingLots.HalfExtentM[lot];
+            if (alongM < halfM.X + walkM && acrossM < halfM.Y + walkM) return true;
+        }
+
+        for (var area = 0; area < plan.PavedAreas.Count; area++)
+        {
+            var leastM = plan.PavedAreas.MinM[area] - new Vector2(walkM);
+            var mostM = plan.PavedAreas.MinM[area] + plan.PavedAreas.SizeM[area] + new Vector2(walkM);
+            if (pointM.X > leastM.X && pointM.X < mostM.X && pointM.Y > leastM.Y && pointM.Y < mostM.Y)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Where across a road's own half a section is asked about: the middle of every band it carries, and
+    /// never an edge of one.
+    /// </summary>
+    static float[] Across(float halfM, float walkM, float kerbM, float edgeM, PavedEdge edge)
+    {
+        // The carriageway, a hair inside the kerb, the kerb line, and the walk between the kerb line and
+        // whatever ends it — the rim where there is one and the grass where there is not.
+        var walkEndsM = edge == PavedEdge.WalkAndRim ? halfM + walkM - edgeM : halfM + walkM;
+        float[] across =
+        [
+            halfM * 0.5f,
+            halfM - (kerbM * 0.5f),
+            halfM + (kerbM * 0.5f),
+            (halfM + kerbM + walkEndsM) * 0.5f,
+        ];
+
+        return edge == PavedEdge.WalkAndRim ? [.. across, halfM + walkM - (edgeM * 0.5f)] : across;
+    }
+
+    /// <summary>
+    /// How many of the ground's own triangles stand over a point — the marks and the verge aside, since
+    /// neither is a neighbour of the surfaces a road is made of.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every point in one walk of the mesh</b>, with a box test in front of the corner test: a city's
+    /// ground is a quarter of a million triangles and a walk apiece would be a minute of the suite's five.
+    /// </remarks>
+    static int[] CoveringGround(GroundMesh mesh, Vector2[] pointsM)
+    {
+        var vertices = mesh.Vertices;
+        var indices = mesh.Indices;
+        var over = new int[pointsM.Length];
+        for (var index = 0; index + 2 < indices.Length; index += 3)
+        {
+            var first = (int)indices[index];
+            if (first >= mesh.FirstMarkVertex) break;
+            if (vertices[first].Surface == Surface.Grass) continue;
+
+            var a = vertices[first].PositionM;
+            var b = vertices[(int)indices[index + 1]].PositionM;
+            var c = vertices[(int)indices[index + 2]].PositionM;
+
+            // A triangle of no area covers no ground, and every point of the plane is "inside" it by the
+            // sign test below. A fan and a strip both lay a few, and counted they would each cover the town.
+            if (MathF.Abs(Turn(a, b, c)) <= 1e-6f) continue;
+
+            var leastM = Vector2.Min(a, Vector2.Min(b, c));
+            var mostM = Vector2.Max(a, Vector2.Max(b, c));
+
+            for (var at = 0; at < pointsM.Length; at++)
+            {
+                var pointM = pointsM[at];
+                if (pointM.X < leastM.X || pointM.X > mostM.X || pointM.Y < leastM.Y || pointM.Y > mostM.Y)
+                {
+                    continue;
+                }
+
+                if (Inside(a, b, c, pointM)) over[at]++;
+            }
+        }
+
+        return over;
+    }
+
+    /// <summary>What stands over one point, named, so a count that is wrong says what is on top of what.</summary>
+    static string Covering(GroundMesh mesh, Vector2 pointM)
+    {
+        var vertices = mesh.Vertices;
+        var indices = mesh.Indices;
+        var said = new List<string>();
+        for (var index = 0; index + 2 < indices.Length; index += 3)
+        {
+            var first = (int)indices[index];
+            if (first >= mesh.FirstMarkVertex) break;
+            if (vertices[first].Surface == Surface.Grass) continue;
+
+            var a = vertices[first].PositionM;
+            var b = vertices[(int)indices[index + 1]].PositionM;
+            var c = vertices[(int)indices[index + 2]].PositionM;
+            if (MathF.Abs(Turn(a, b, c)) <= 1e-6f || !Inside(a, b, c, pointM)) continue;
+
+            said.Add($"{vertices[first].Surface}@{first} tint {vertices[first].Tint.X:F2}");
+        }
+
+        return string.Join(", ", said);
+    }
+
+    static bool Inside(Vector2 a, Vector2 b, Vector2 c, Vector2 pointM)
+    {
+        var first = Turn(a, b, pointM);
+        var second = Turn(b, c, pointM);
+        var third = Turn(c, a, pointM);
+        return (first >= 0f && second >= 0f && third >= 0f) || (first <= 0f && second <= 0f && third <= 0f);
+    }
+
+    static float Turn(Vector2 from, Vector2 to, Vector2 pointM) =>
+        ((to.X - from.X) * (pointM.Y - from.Y)) - ((to.Y - from.Y) * (pointM.X - from.X));
+
+    /// <summary>
     /// <b>TER-3d — the kerb line stands on the kerb, so a lane keeps the whole width it was laid at.</b>
     /// The ground a hair inside either edge of every carriageway is the surface as itself: a line struck
     /// inside the road would be painted over exactly that strip, and a lane measured off the picture would
@@ -838,7 +1320,7 @@ public class GroundMeshTests
     [Fact]
     public void TheLargestTownsGroundIsLaidOnceAndIsNotEnormous()
     {
-        var mesh = Ground("Odesa");
+        var mesh = Ground(Towns.City);
 
         // One indexed draw over the whole city, and the whole of it fits in a few tens of megabytes: the
         // point of laying ground from shapes rather than from a three-million-cell grid, which would be

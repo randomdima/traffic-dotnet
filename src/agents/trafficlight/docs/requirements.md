@@ -7,16 +7,16 @@ that table.
 
 ## The rules
 
-**TLT-1** A traffic light is a **timer-driven agent** that cycles signal states for the directions of one
+**TLT-1** `P5` A traffic light is a **timer-driven agent** that cycles signal states for the directions of one
 intersection. **It takes no input from traffic** — no detection loops, no demand, no adaptive timing.
 
-**TLT-2** Signals are **published per direction** and read by both car agents and person agents. A car
+**TLT-2** `P5` Signals are **published per direction** and read by both car agents and person agents. A car
 signal has three states: green, **amber** — the last stretch of its own green, during which the box may
 no longer be taken — and red. A pedestrian signal has two, because "do not *begin* crossing" already
 carries the whole of the warning, and a crossing shows green only against a road that is **fully red**,
 so a walker is never shown an amber to interpret.
 
-**TLT-3** An intersection carries **exactly one light bundle if and only if it admits conflicting
+**TLT-3** `P6` An intersection carries **exactly one light bundle if and only if it admits conflicting
 movements** (TER-5c), which is read off the shape of the junction rather than taken on trust from the map.
 **A crossing does not qualify one on its own**: an intersection of fewer than three arms admits no crossing
 car movements, so a dead end and an inline junction (TER-5b) carry no bundle, and the crossing an inline
@@ -25,7 +25,7 @@ junction exists for is an **uncontrolled** one — governed by the walker's righ
 waiting for. **Placement is not randomised**; each bundle's initial phase offset is drawn from the world
 seed.
 
-**TLT-4** A bundle shares a single cycle whose phases green an **axis** rather than a list of directions,
+**TLT-4** `P3` A bundle shares a single cycle whose phases green an **axis** rather than a list of directions,
 so **conflicting greens are impossible by the shape of the table** rather than by a runtime check, and
 both ends of a road always show the same colour. **There is no all-red phase**: the box is emptied by the
 amber tail and by yielding, not by a clearance interval.
@@ -43,7 +43,7 @@ always agree.
 
 ## What obedience means
 
-**TLT-2a** A light governs the traffic **outside** the box. Three things follow, and they are the whole
+**TLT-2a** `P5` A light governs the traffic **outside** the box. Three things follow, and they are the whole
 of it:
 
 1. **Nobody begins on anything but green.** For a car, amber is not green; for a walker, anything but

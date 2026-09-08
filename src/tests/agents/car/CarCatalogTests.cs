@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// past the end of it that can only be reached by name.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P8)]
 public class CarCatalogTests
 {
     static readonly CarCatalog Catalogue = CarCatalog.Load();

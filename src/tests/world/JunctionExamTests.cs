@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.World;
 /// <c>--bench exam</c> prints — the instrument and the test read one run of one machine.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class JunctionExamTests : IClassFixture<ExamRun>
 {
     readonly ExamRun _run;

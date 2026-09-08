@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// one is what space the pointer arrives in, this one is how big that space is.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class InterfaceScaleTests
 {
     static readonly Vector2 LeastUiPx =

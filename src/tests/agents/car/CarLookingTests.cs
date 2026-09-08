@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// under each place along it is looked up and the claims say who has it (<see cref="GroundAhead"/>).
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class CarLookingTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -175,6 +176,7 @@ public class CarLookingTests
 /// on a lane was in it.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class CarLookingInATownTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -193,7 +195,7 @@ public class CarLookingInATownTests
     [Fact]
     public void ADriverSeesSomebodyOnFootAsSomebodyOnFoot()
     {
-        using var world = new TownWorld(Towns.Of("Odesa"), Config);
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
         for (var tick = 0; tick < 3_600; tick++)

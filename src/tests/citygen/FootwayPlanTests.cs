@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// card that was mis-written.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P3)]
 public class FootwayPlanTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

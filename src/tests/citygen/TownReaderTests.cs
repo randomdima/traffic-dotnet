@@ -12,13 +12,14 @@ namespace TrafficSimulation.Tests.CityGen;
 /// with its offsets beside it.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P3)]
 public class TownReaderTests
 {
-    public static TheoryData<string> Maps => Towns.EveryShippedMap();
+    public static TheoryData<string> Maps => Towns.EveryLaidMap();
 
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryShippedMapLoads(string map)
+    public void EveryLaidMapLoads(string map)
     {
         var plan = Towns.Of(map);
 

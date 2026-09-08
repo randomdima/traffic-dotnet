@@ -8,7 +8,7 @@ walks the bytes.
 
 ## Units and coordinates
 
-**SIM-3** Units are **metric throughout**: metres, seconds, metres per second and per second squared,
+**SIM-3** `P3` Units are **metric throughout**: metres, seconds, metres per second and per second squared,
 radians or degrees stated in the name.
 
 - **A field's unit is part of its name** — `…M`, `…Mps`, `…Mps2`, `…S`, `…Deg` for authored figures and
@@ -33,7 +33,7 @@ with itself.
 
 ## The two random streams
 
-**SIM-4** Exactly **two independent, seeded, reproducible streams**, and which one a draw comes from is
+**SIM-4** `P3` Exactly **two independent, seeded, reproducible streams**, and which one a draw comes from is
 part of the specification of that draw:
 
 | Stream | Owns |
@@ -44,7 +44,7 @@ part of the specification of that draw:
 Both are settable independently, so a layout can be replayed with different behaviour and the same
 behaviour tried on a different layout.
 
-**AGT-6** All agent randomness draws from the agent stream, and **nothing else in the program holds an
+**AGT-6** `P3` All agent randomness draws from the agent stream, and **nothing else in the program holds an
 unseeded generator**. Each placement pass takes its own derived sub-stream, so adding a pass does not
 shift the draws of the passes after it.
 

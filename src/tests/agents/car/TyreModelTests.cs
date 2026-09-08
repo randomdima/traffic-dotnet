@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// is a function of a pose rather than a method on a body.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class TyreModelTests
 {
     static readonly SimConfig Figures = SimConfig.Shipped();

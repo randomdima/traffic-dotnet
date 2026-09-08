@@ -9,6 +9,7 @@ namespace TrafficSimulation.Tests.Shot;
 /// member the schema does not carry is refused rather than ignored.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P7)]
 public class SheetRequestTests
 {
     const string Junctions = """

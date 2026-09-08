@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.Render;
 /// rather than by looking at a town.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P9)]
 public class LampSpriteTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

@@ -18,6 +18,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// plainly wrong in a picture produces no error anywhere.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class MenuLayoutTests
 {
     static readonly Vector2 Window = new(1600f, 1000f);

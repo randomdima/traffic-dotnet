@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.Debug;
 /// its own, and the only place in the codebase where a turn centre is computed at all.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P9)]
 public class TurnCircleTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.Render;
 /// nothing but its strength.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P5)]
 public class MarkSpriteTests
 {
     const int Rubber = 3;

@@ -30,6 +30,7 @@ namespace TrafficSimulation.Tests.Gates;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Perf)]
+[Trait(Priority.Key, Priority.P0)]
 [Collection(Simulation.SolverCollection.Name)]
 public class CrossingGateTests
 {

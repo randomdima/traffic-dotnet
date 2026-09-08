@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// town — and both look identical from the outside until somebody counts.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class RecklessDrawTests
 {
     const int Roster = 20_000;

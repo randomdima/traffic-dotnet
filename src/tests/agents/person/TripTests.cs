@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// town (VER-8).
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class TripTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.Screen;
 /// rather than grows.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P5)]
 public class ScreenDrawTests
 {
     /// <summary>

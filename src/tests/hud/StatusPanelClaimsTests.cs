@@ -23,6 +23,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// about the read-out, which is why a stub watch and the fixture map will do.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class StatusPanelClaimsTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

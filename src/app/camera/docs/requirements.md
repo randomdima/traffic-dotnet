@@ -1,9 +1,9 @@
 # The camera — requirements
 
-**OBS-1** Top-down, pannable, zoomable and turnable, so that **both the whole town and individual agents
+**OBS-1** `P7` Top-down, pannable, zoomable and turnable, so that **both the whole town and individual agents
 can be watched**.
 
-**OBS-1a — The camera stands on the one unit that is picked out.** A selection of **exactly one** unit is
+**OBS-1a** `P7` **The camera stands on the one unit that is picked out.** A selection of **exactly one** unit is
 followed, whether it is driven by a hand or driving itself; a selection of several is not, because a group
 spread over a district has no one place to stand. **A followed unit is led by its own speed and heading**,
 so the ground it is about to cover is on screen rather than the ground behind it, and **the lead is capped
@@ -27,7 +27,7 @@ the unit already picked out is how a reader asks to be put back on it.
 The zoom is about the **pointer**, and the view opens on a fixed span at the middle of the town rather
 than on a whole-town fit, which on a small map is unreadably small.
 
-**OBS-1b** A run **opens looking at the middle of the town, or at the nearest ground a car could be on**
+**OBS-1b** `P7` A run **opens looking at the middle of the town, or at the nearest ground a car could be on**
 where no road is in the frame there at all. The middle of a city is a street and the middle of a ring is
 the field inside it, so a camera left on the geometric centre opens on grass wherever a map's subject is
 not in the middle of its bounding box — anything laid around a park, a lake or a bay. **It is the nearest
@@ -42,7 +42,7 @@ themselves: a canvas that settles its size a moment after the town stood up, or 
 would otherwise leave what the reader opened on half off the screen. The first pan, zoom or turn is theirs
 and ends it (OBS-1a).
 
-**OBS-1c — The town turns.** A street runs the way it runs, and a reader following one along the bottom of
+**OBS-1c** `P7` **The town turns.** A street runs the way it runs, and a reader following one along the bottom of
 the window is reading it sideways. So the view carries a **turn**: how far the town is drawn clockwise from
 north-up, about **the point the turn is asked for at** — the world under that pixel is the one thing that
 does not move, exactly as it is under a zoom.

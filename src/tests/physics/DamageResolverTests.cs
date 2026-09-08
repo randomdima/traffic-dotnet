@@ -22,6 +22,7 @@ namespace TrafficSimulation.Tests.Physics;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class DamageResolverTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -147,22 +148,22 @@ public class DamageResolverTests
     }
 
     /// <summary>
-    /// PER-23 as arithmetic: <b>the tolerance is the work of sliding a body the authored distance</b>, so a
-    /// person struck at exactly it has exactly that much ground left in them. The reduced mass is what
-    /// makes it a little under half a metre rather than exactly half — a car is heavy, not infinite.
+    /// PER-23 as a figure to be looked at: <b>the closing speed a casualty costs is a town speed</b> — a car
+    /// meeting a standing body at about the pace this town's traffic runs at, rather than at a crawl or at a
+    /// motorway speed nothing here ever reaches.
     /// </summary>
+    /// <remarks>
+    /// <b>The band is the whole test.</b> Carrying the energy back through the slide arithmetic and
+    /// asserting it lands on <c>Damage.SlideToCasualtyM</c> is the derivation written out twice (VER-12):
+    /// the tolerance <em>is</em> that slide by definition, so the round trip can only fail on the day the
+    /// definition is changed deliberately.
+    /// </remarks>
     [Fact]
-    public void ThePersonsToleranceIsTheAuthoredSlide()
+    public void ThePersonsToleranceIsMetAtATownSpeed()
     {
         var closingMps = ClosingMps(Config.PersonCasualtyKj, Config.Person.MassKg, Config.Car.MassKg);
-        var carriedMps = closingMps * Config.Car.MassKg / (Config.Car.MassKg + Config.Person.MassKg);
-        var slideM = carriedMps * carriedMps / (2f * Config.PersonSlidingGripMps2);
 
-        // A band and not a fingerprint: what has to hold is that a casualty costs a car meeting a standing
-        // body at about the speed this town's traffic runs at, and the digits of it move whenever a raw
-        // term under the sliding grip does.
         Assert.InRange(closingMps, 9.5f, 11f);
-        Assert.Equal(Config.Damage.SlideToCasualtyM, slideM, 1);
     }
 
     /// <summary>

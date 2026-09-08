@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Render;
 /// about a number in an instance, and is therefore checked as one rather than by looking at a town.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P5)]
 public class CarSpriteTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -407,7 +408,10 @@ public class CarSpriteTests
         fleet.TreadPhaseM[1] = Config.Tyre.TreadPitchM * 0.5f;
         var drawn = Wheels(fleet);
 
-        Assert.Equal(Config.Tyre.WheelLengthM / Config.Tyre.TreadPitchM, drawn[0].UvSize.X, 1e-4f);
+        // Several pitches and not the quotient written out again (VER-12): what the drawing owes is that the
+        // picture tiles along the roll rather than being stretched once over the whole wheel, and the phase
+        // below is where the slice is actually taken from.
+        Assert.True(drawn[0].UvSize.X > 1f, $"a wheel is drawn as {drawn[0].UvSize.X:F2} pitches of the tread");
         Assert.Equal(1f, drawn[0].UvSize.Y);
         Assert.Equal(0f, drawn[0].UvMin.X);
         Assert.Equal(-0.5f, drawn[1].UvMin.X, 1e-4f);

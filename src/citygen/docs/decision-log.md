@@ -1,5 +1,91 @@
 # CityGen — decision log
 
+## 2026-09-08 — a box's outline never doubles back, and a jog at the node is not a side
+
+Nearly every crossroads in a laid city had no box, and its arms' sections ran to the node and crossed one
+another there. Two runs that carry on from one another overlap by up to a place at their weld, so the turn
+between them (`Corner.To`) is a straight step from the one kerb's end *back* to the other's start — along
+the kerb, not across it — and walked into the outline that stretch was laid out, back and out again, a hair
+off the line each time: an outline that crossed itself, and no box. `Boxes.TakeBackTheSteps` takes such a
+step out and cuts the kerb it doubles back along short by it; a step square across the kerb, which is two
+kerbs a place apart joined by a jog, stays. And what survives of the line round an arm's end at a kinked
+through road is a jog a hand wide at the node, which `Boxes.NearestEnd` read as the side's own run and cut
+the arm at the node with its fillet nine metres out; only a run along the side counts now.
+
+Three more things the walk round a box's corner turned up, once every box was one:
+
+- **A walk that loses its way closes from where it got to**, not from where it started: everything it laid
+  is kerb reached end to end from the arm, and the chord back to the arm's cut crossed the whole box.
+- **Two ends nothing hands over across are bridged** (`Boxes.LooseEndBeside`): a fillet's line resuming a
+  hand's width past where the arm's stopped, or two kerbs crossing at a kink, still stand end to end on the
+  ground. The kerb is carried on until it is abreast of the next and stepped square across (`Boxes.Bridge`),
+  since a chord between the two kerb ends cut the corner off the box; and two pieces that all but meet are
+  welded (`Boxes.Weld`), since a kerb resuming a millimetre behind the line before it crossed that line by a
+  hair, and a hair was no box. Odesa went from nine boxes walked round to all of them.
+- **Two ends that stop where their lines cross are one point** (`Corner.WeldTheEnds`). Each line is cut a
+  joining's width inside the other's band, which is up to root two of that apart at a right angle, and
+  `Corner.OnePlace` held them to one joining and a rounding: a kink at which they stopped a hair over that had
+  its two rounds cross square off the line between them, no turn was laid, both ends were capped and the wedge
+  between the bands was nobody's. Welded, the round about the one place meets the next band exactly, where a
+  round about one of two places left a sliver the width of their offset that nothing drew.
+
+## 2026-09-07 — a line offered only where the kerb is open stands only where the kerb is open
+
+`Piece.WalkedPast` said a movement's wrapping line counts only where the arms leave a gap, and nothing
+implemented it: `Kerbs.Shell` kept every station no tarmac stood nearer to than the offset, and a movement
+out of a lane that fills its road has an edge on the road's own kerb, so its line stood on the road's line
+to the last bit of a float and both were kept — a second run of pavement over the first through every box
+in the town, with a round at each end. Such a line now stands only where it is more than `Kerbs.JoinedM`
+further off every piece that is the outside of the town than the offset asks (`Kerbs.OffTheOutsideM`),
+which is the same figure that makes two pieces one line. The wraps that survive say which ends of which
+arms reach the outline at all (`Paving.OpenEnds`).
+
+## 2026-09-07 — the kerb line is one line the whole way round, and a box is what it encloses
+
+The picture needed a junction's ground as one outline, and the corners the plan carries do not describe it:
+a movement that swings wide of a fillet's arc is tarmac past the arc, and a kinked through road has its
+movements a hair past its kerbs. The pavement already knows all of that — each run stops where the next
+piece of tarmac takes over and hands over to the run that wraps it — so `Paving.Next` now carries which end
+each end hands over to, by carrying on or by a turn (`Paving.TurnFrom`), and `Boxes` walks it from arm to
+arm half a walk in on the road's side (`PavedBox`), cutting each arm where its further side gives way
+(`Paving.EnterM`, `Paving.ExitM`, `PavedStub`). Four things the pairing had been hiding came out:
+
+- **A hair against the way the round turns is nothing.** Two rounds about places a few centimetres apart
+  cross a hair to one side of the kerb's bearing, and read the way the round turns that leg was nearly a
+  full circle — the arm's kerb handing over to its fillet's at every other corner was closed with two rounds
+  instead of a turn. `Corner.SweepRad` reads that much, and no more, as nothing.
+- **Two places a centimetre and a rounding apart are one place** (`Corner.OnePlace`): a movement's run and
+  the arm's it takes over from stop exactly that centimetre apart by construction (`Kerbs.Shell`), and two
+  rounds about places that close cross wherever the rounding put them.
+- **Two runs lying along one another hand over straight from kerb to kerb** (`Corner.AlongOneAnother`): the
+  way round through their rounds' crossing is off to one side and was never a turn. Only where the kerbs
+  stand no further apart than the places and a place more — further, and a straight step would leave the
+  wedge between the bands open.
+- **Every turn arrives where the next kerb starts**: one round about this place ends a place short of it,
+  and a leg read as nothing ends a hair short, so the last of a turn is laid straight there.
+
+And the line that turns round a band's end stands only where it is strictly outside every other piece, as
+a movement's does (`Kerbs.Cut`): on the tie with the arm across it, a T's through arms had runs of pavement
+turning round ends nothing was open at, and were drawn as ends that reach the outline.
+
+## 2026-09-07 — an end a turn hands over is closed by the turn
+
+Every corner where two runs give way — both mouth corners of every car park — carried two half-rounds, one
+per end, and the kerb's turn over both: a rosette of three fans on one wedge. The turn's arc already rims
+exactly that wedge (`Corner.To`), so the wedge is the sector of the round the arc turns about, read in to
+the place, and `Corner.Stops` lays a round only for an end no run carries on from *and* no turn hands over.
+What the answer measures (`GroundShapes.Paved`) did not move; `EveryMetreOfPavementNearAnEndIsClosedByARound`
+now counts a turn's wedge as closing the band, as it always did in the picture.
+
+## 2026-09-07 — a movement through a node the road runs through is no piece of the outline
+
+Where a two-arm node's arms meet as one line (TER-5b), every movement across it lies inside the two arms'
+bands, so it can add nothing to the tarmac's outline — but offered, its wrap stood exactly on the arms'
+own wherever the lane fills the road, and `Kerbs.Shell` kept both: a second run of pavement over the
+first, with a round at each end and a kerb turned round each of those. `RoadCuts.RunsThrough` names such
+nodes off their kerb corners, held to `Kerbs.JoinedM`, and `Kerbs` lays no piece for a movement across one.
+The band answered is unchanged, being a union; what changed is that it is drawn once.
+
 ## 2026-09-07 — a graze is not a run, and a seam is not an end
 
 Both causes are the same mistake twice: treating a point where the band carries straight on as a place it

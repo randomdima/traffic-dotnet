@@ -19,10 +19,11 @@ namespace TrafficSimulation.Tests.World;
 /// behaviour rather than about this one, and would fail for reasons nothing here has touched.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class RecklessDriverTests
 {
     /// <summary>The map with the most lit junctions on it, which is the only kind of town that can answer this.</summary>
-    const string LitTown = "Odesa";
+    const string LitTown = Towns.City;
 
     const int Ticks = 3_600;
 

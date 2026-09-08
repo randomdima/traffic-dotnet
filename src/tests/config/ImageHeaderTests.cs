@@ -22,6 +22,7 @@ namespace TrafficSimulation.Tests.Config;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P8)]
 public class ImageHeaderTests
 {
     [Fact]

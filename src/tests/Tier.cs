@@ -7,29 +7,30 @@ namespace TrafficSimulation.Tests;
 /// <remarks>
 /// <para>
 /// <b>The cut is by what a class asks its question of, never by which feature it belongs to.</b> One
-/// slice's folder holds a microsecond of walker arithmetic beside two seconds of Odesa, so the folders
-/// go on mirroring <c>src/</c> and the cost lives in a trait. A tier is not a place.
+/// slice's folder holds a microsecond of walker arithmetic beside a second of a whole town, so the
+/// folders go on mirroring <c>src/</c> and the cost lives in a trait. A tier is not a place.
 /// </para>
 /// <para>
-/// The four are docs/verification.md's, and the whole point of naming them is that the cheap ones can be
+/// The five are docs/verification.md's, and the whole point of naming them is that the cheap ones can be
 /// run on every edit while the dear ones are asked for by name. <c>qq tests</c> is what turns a tier into
 /// a filter and a build configuration; what each one costs is CLAUDE.md's table and is not restated here.
 /// </para>
 /// </remarks>
 public static class Tier
 {
-    /// <summary>The trait key. One key for all four, so a tier can be selected and excluded by name.</summary>
+    /// <summary>The trait key. One key for all five, so a tier can be selected and excluded by name.</summary>
     public const string Key = "Tier";
 
     /// <summary>
     /// Engine-free arithmetic, and the fixture town where a question needs a place to be asked of.
-    /// Nothing here reads a shipped city, which is what makes it the tier run after every edit.
+    /// Nothing here stands a world up, which is what makes it the tier run after every edit.
     /// </summary>
     public const string Unit = "Unit";
 
     /// <summary>
-    /// A question asked of a <em>shipped</em> city — Odesa, River or Zebras — whether it is read, laid
-    /// out over, or ticked. Seconds, because the city is the size of the question.
+    /// A question asked of a town that is stood up — read, laid out over, or ticked. The towns are the
+    /// suite's own (<c>Towns.Fixture</c>, <c>Towns.City</c>) and the maps this build lays in code; a
+    /// shipped city is <em>not</em> among them.
     /// </summary>
     public const string Town = "Town";
 
@@ -47,6 +48,28 @@ public static class Tier
     /// taken over.
     /// </remarks>
     public const string Perf = "Perf";
+
+    /// <summary>
+    /// <b>The shipped cities, asked for by name and never run as part of the suite.</b> What is asserted
+    /// here is asserted of a map somebody authored — a brief, a seed and whatever the generator made of
+    /// them — rather than of this engine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A shipped city is content, and content is not a subject the suite has an opinion about.</b> The
+    /// generator's own properties are asked of towns the suite lays for itself
+    /// (<c>GeneratorTests</c>, over several seeds), and what a laboratory map claims is answered by the
+    /// map's own watch — between them there is nothing left for a city to say about the engine that a
+    /// generated town does not say faster and without a file. A build may ship any number of cities at any
+    /// number of seeds, and gating on them makes the suite a function of the content rather than of the code.
+    /// </para>
+    /// <para>
+    /// <b>It is still worth running before shipping one</b>, which is what it is for: <c>qq tests maps</c>
+    /// asks every shipped city the shallow bar and the two gates, so a city that was authored badly is
+    /// found deliberately rather than by a suite nobody could keep green.
+    /// </para>
+    /// </remarks>
+    public const string Maps = "Maps";
 
     /// <summary>
     /// The visual tier, whose verdict is an agent's. It costs money and about a minute a scenario, so

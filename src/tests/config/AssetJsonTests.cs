@@ -12,6 +12,7 @@ namespace TrafficSimulation.Tests.Config;
 /// format nobody is running.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P8)]
 public class AssetJsonTests
 {
     [Fact]

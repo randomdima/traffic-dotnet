@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// answer it is this one, and the proving ground is where what the traffic does about it is watched.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P4)]
 public class ReelTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

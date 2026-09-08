@@ -18,6 +18,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// entered, crossed where it is ground — and that a hand at the wheel is drawn no path at all.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class SelectionPathTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

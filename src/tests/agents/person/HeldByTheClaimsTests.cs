@@ -10,6 +10,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// over three fields.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P1)]
 public class HeldByTheClaimsTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

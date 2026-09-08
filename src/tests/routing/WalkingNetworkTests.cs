@@ -17,24 +17,13 @@ namespace TrafficSimulation.Tests.Routing;
 /// one of them is a fault in how that side feeds it.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class WalkingNetworkTests(ITestOutputHelper output)
 {
     public static TheoryData<string> Maps => Towns.EveryMapWithAFootway();
 
-    /// <summary>The same, less the hand-written fixtures: the towns the generator actually lays.</summary>
-    public static TheoryData<string> LaidMaps
-    {
-        get
-        {
-            var maps = new TheoryData<string>();
-            foreach (var map in Towns.EveryMapWithAFootway())
-            {
-                if (TrafficSimulation.CityGen.Maps.IsGenerated(map)) maps.Add(map);
-            }
-
-            return maps;
-        }
-    }
+    /// <summary>The same, less the hand-written fixture: the town the generator actually lays.</summary>
+    public static TheoryData<string> LaidMaps => Towns.EveryCity();
 
     /// <summary>One map's pavement and the network contracted over it, built once and read by every claim.</summary>
     static (FootGraph Foot, WalkingNetwork Network) Of(string map) => Built.GetOrAdd(map, at =>

@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// gearing are worth — and that the figures every decision is taken against follow from it.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P4)]
 public class CarBuildTests
 {
     static readonly SimConfig Figures = SimConfig.Shipped();

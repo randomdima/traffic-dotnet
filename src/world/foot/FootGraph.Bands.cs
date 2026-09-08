@@ -52,7 +52,7 @@ internal sealed partial class FootGraph
         var runs = new List<Kerbs.Wrap>();
         kerbs.Shell(bandM * 0.5f, weldM, pointM => terrain.At(pointM).Walkable, runs);
 
-        foreach (var (_, line, onlyWhereTheKerbIsOpen) in runs)
+        foreach (var (_, line, onlyWhereTheKerbIsOpen, _) in runs)
         {
             builder.AddStrand(line, bandM, FootEdgeKind.Pavement, onlyWhereTheKerbIsOpen);
         }

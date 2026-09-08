@@ -33,6 +33,7 @@ namespace TrafficSimulation.Tests.E2E;
 /// </para>
 /// </remarks>
 [Trait(Tier.Key, Tier.E2E)]
+[Trait(Priority.Key, Priority.P5)]
 public class VisualShotTests(ITestOutputHelper output)
 {
     static readonly SimConfig Config = SimConfig.Load();

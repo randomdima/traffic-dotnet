@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.Debug;
 /// the marks land on the same stones.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P9)]
 public class MarkCombTests
 {
     const float PitchM = 1.5f;

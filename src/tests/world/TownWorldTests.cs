@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.World;
 /// an order is obeyed and then let go of.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P1)]
 public class TownWorldTests
 {
     static TownWorld Open(string map, bool standStatics = true) =>

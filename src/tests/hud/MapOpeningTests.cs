@@ -14,6 +14,7 @@ namespace TrafficSimulation.Tests.Hud;
 /// second map.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P6)]
 public class MapOpeningTests
 {
     static readonly Vector2 Window = new(1600f, 1000f);

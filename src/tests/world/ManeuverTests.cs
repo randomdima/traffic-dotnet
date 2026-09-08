@@ -18,6 +18,7 @@ namespace TrafficSimulation.Tests.World;
 /// these tests can only see through the bodies.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class ManeuverTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -50,7 +51,7 @@ public class ManeuverTests
         using var fixture = Open(Towns.Fixture);
         new SimLoop<TownWorld>(fixture, Config).Advance(MeasuredTicks);
 
-        using var city = Open("Odesa");
+        using var city = Open(Towns.City);
         new SimLoop<TownWorld>(city, Config).Advance(MeasuredTicks);
 
         Maneuver[] built =
@@ -73,8 +74,8 @@ public class ManeuverTests
     /// has a hole in it.
     /// </summary>
     [Theory]
-    [InlineData("Test")]
-    [InlineData("River")]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
     public void NoCarStandsStillWithNothingRunningForIt(string map)
     {
         using var world = Open(map);
@@ -98,8 +99,8 @@ public class ManeuverTests
     /// the place up and the ones the plan stood there — three faults with three owners, none of them this.
     /// </remarks>
     [Theory]
-    [InlineData("Test")]
-    [InlineData("River")]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
     public void ACarThatHasParkedStandsSquareInItsBay(string map)
     {
         using var world = Open(map);

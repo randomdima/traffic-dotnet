@@ -6,18 +6,18 @@ them from here rather than the layers reaching back into the panel. The frame re
 it is furniture in the corner and is [app/hud](../../hud/docs/requirements.md)'s. What everything is drawn
 with is [app/screen](../../screen/docs/requirements.md).
 
-**OBS-2b** **The debug overlay is instrumentation and is priced as such**: it is **off by default**, what
+**OBS-2b** `P8` **The debug overlay is instrumentation and is priced as such**: it is **off by default**, what
 it costs to draw is measured on the same footing as what it measures, and **nothing is drawn about a body
 that is not on screen**. It binds the frame read-out too, which is furniture and cannot be switched off:
 what it costs to gather is not paid while its body is shut
 ([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
-**OBS-2c** **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
+**OBS-2c** `P8` **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
 anything a second one owns.** Nine of them. **A layer covers one kind of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
 to the *town* rather than to a body is not switched with a body at all**.
 
-**OBS-2d** **Between them the layers leave nothing out.** Everything that acts on an agent while it moves
+**OBS-2d** `P8` **Between them the layers leave nothing out.** Everything that acts on an agent while it moves
 is drawn by one of them: the ways it may travel, the movements a junction allows it, the nodes it plans
 over, the manoeuvre it is executing **with every place that manoeuvre owns**, the stretch of road the
 town's own claims say it is on or has taken, and the collision shape the solver gives it.
@@ -28,7 +28,7 @@ stretch a route travels it, since a body inside the setback at either end is wri
 with no line under it cannot be read at all: the block is the only thing on screen, and what it says about
 where its holder is standing cannot be checked against anything.
 
-**OBS-2h** **An agent layer draws the action the agent is taking, and not the plan behind it.** What is
+**OBS-2h** `P8` **An agent layer draws the action the agent is taking, and not the plan behind it.** What is
 drawn for a body is **two pieces of its own line**: the one it is on and the one it has planned to take off
 the end of it — the rest of this lane and the junction off it, the junction being crossed and the lane it
 lands on, the pavement and the crossing at the kerb, the lane and the bay template that takes the car off
@@ -120,7 +120,7 @@ into a label instead.
 run of pavement it calls the same routing code the agents use. A second copy of a shape eventually
 disagrees with the first — and when it does, the layer is the thing that lies about the town.
 
-**OBS-2j** **The one layer that computes rather than reads is the turn circle, and it says so.** Every
+**OBS-2j** `P8` **The one layer that computes rather than reads is the turn circle, and it says so.** Every
 other mark here is read off whatever produced it; **there is no producer for this one** — nothing in the
 simulation ever works out a centre of rotation, because a car turns by four contact patches spending four
 impulses. So the layer works the geometry out itself, from the axles under **that** body and the angle its
@@ -135,7 +135,7 @@ own rather than a mark on the car layer: that one draws what the world did to a 
 between this circle and the tracks under it is the whole of what the skidpad exists to show
 ([citygen](../../../citygen/docs/requirements.md#where-a-town-comes-from)).
 
-**OBS-2o** **The one layer that is about the picture rather than about the town is the ground's own
+**OBS-2o** `P8` **The one layer that is about the picture rather than about the town is the ground's own
 triangulation**, drawn as the edges the mesh has. It is the only way to look at the thing
 [TER-7](../../../world/terrain/docs/requirements.md) says must be invisible: every surface is textured
 from the world origin so that cutting a shape into triangles differently does not change the picture — and

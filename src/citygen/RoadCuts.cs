@@ -249,6 +249,63 @@ internal static class RoadCuts
         return reachM;
     }
 
+    /// <summary>
+    /// <b>The junctions a road runs through as one line</b>, one answer per junction: two arms and no fork
+    /// (TER-5b), and where two roads end there, the kerbs of the one stand where the kerbs of the other do.
+    /// A disc laid on a road nothing ends at is such a place by definition.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of the kerb corners and not of the node</b>: two ends at one place, facing opposite ways at
+    /// one width, are four corners standing pairwise where the other end's stand, and the figure they are
+    /// held to is the one that makes two pieces one line (<see cref="Kerbs.JoinedM"/>). A bend the roads
+    /// were swept into meets exactly; a node left unswept because its deflection was under the sweep's
+    /// notice creases the kerb by less than that; two arms of different widths, or a pair with room for
+    /// nothing better than the fillet (GEN-12a), do not meet and keep their junction.
+    /// </remarks>
+    public static bool[] RunsThrough(GroundPieces ground)
+    {
+        var arms = ArmsPerJunction(ground);
+        var ends = new List<(Vector2 PlaceM, Vector2 Outward, float HalfM)>[arms.Length];
+        for (var junction = 0; junction < ends.Length; junction++) ends[junction] = [];
+
+        var roads = ground.Roads;
+        for (var road = 0; road < roads.Count; road++)
+        {
+            var arcs = roads.SegmentsOf(road);
+            if (arcs.Length == 0) continue;
+
+            var last = arcs[^1];
+            var halfM = roads.WidthM[road] * 0.5f;
+            ends[roads.FromJunction[road]].Add((arcs[0].StartM, arcs[0].StartUnit, halfM));
+            ends[roads.ToJunction[road]].Add((last.EndM, -Heading.Unit(last.HeadingAtRad(last.LengthM)), halfM));
+        }
+
+        var through = new bool[arms.Length];
+        for (var junction = 0; junction < through.Length; junction++)
+        {
+            if (arms[junction] != 2) continue;
+
+            var at = ends[junction];
+            if (at.Count == 0)
+            {
+                through[junction] = true;
+                continue;
+            }
+
+            if (at.Count != 2) continue;
+
+            var (placeA, outA, halfA) = at[0];
+            var (placeB, outB, halfB) = at[1];
+            var acrossA = Heading.RightOf(outA) * halfA;
+            var acrossB = Heading.RightOf(outB) * halfB;
+            through[junction] =
+                Vector2.Distance(placeA + acrossA, placeB - acrossB) <= Kerbs.JoinedM
+                && Vector2.Distance(placeA - acrossA, placeB + acrossB) <= Kerbs.JoinedM;
+        }
+
+        return through;
+    }
+
     /// <summary>How far off the node an arm's own line stands, to the right of the way out along it.</summary>
     static float StandsOffM(Vector2 offTheNodeM, Vector2 outward) =>
         Vector2.Dot(offTheNodeM, Heading.RightOf(outward));

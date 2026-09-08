@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.Render;
 /// them.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P5)]
 public class StandingSpriteTests
 {
     static readonly BuildingCatalog Buildings = BuildingCatalog.Load();
@@ -179,8 +180,8 @@ public class StandingSpriteTests
     /// was painted.
     /// </summary>
     [Theory]
-    [InlineData("Test")]
-    [InlineData("Odesa")]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
     public void OnlyTheBuildingWhoseUseNamesACivicRoofWearsIt(string map)
     {
         var plan = Towns.Of(map);

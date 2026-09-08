@@ -19,6 +19,7 @@ namespace TrafficSimulation.Tests.World;
 /// it decides into the plan it is handed.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P3)]
 public class ServicePlacementTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -64,8 +65,8 @@ public class ServicePlacementTests
     /// apron that finds no bay is a hospital with no ambulances at it.
     /// </summary>
     [Theory]
-    [InlineData("Test")]
-    [InlineData("Odesa")]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
     public void EveryServiceBuildingHasSomewhereItsVehiclesCanStand(string map)
     {
         var plan = Placed(map);
@@ -95,7 +96,7 @@ public class ServicePlacementTests
     [Fact]
     public void TheServicesStandFurtherApartThanAShuffleWouldPutThem()
     {
-        var plan = Placed("Odesa");
+        var plan = Placed(Towns.City);
         var placedM = new List<Vector2>();
         for (var building = 0; building < plan.Buildings.Count; building++)
         {

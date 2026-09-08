@@ -6,7 +6,7 @@ somebody reviews. What is judged on those pictures is [verification.md](../../..
 [app/hud](../../hud/docs/requirements.md). **This slice stages, composes and annotates; it draws no
 town.**
 
-**SHT-1** **The frame is the game's own picture and carries nothing about itself.** Everything this
+**SHT-1** `P8` **The frame is the game's own picture and carries nothing about itself.** Everything this
 slice has to say about a frame — what it is of, where it was taken, when, at what scale — is composited
 **under** it as a band, never over it and never inside it.
 
@@ -16,7 +16,7 @@ slice has to say about a frame — what it is of, where it was taken, when, at w
 - A picture asked for without a caption is byte for byte the picture this build has always written, so
   a frame can still be laid beside another build's frame of the same ground.
 
-**SHT-2** **A picture for review says how to take it again.** The band carries the map, the label, the
+**SHT-2** `P8` **A picture for review says how to take it again.** The band carries the map, the label, the
 `--ui` words, the span in metres, the centre, the pixels per metre, the tick, the seconds and the seed,
 and a graduated bar for the scale.
 
@@ -29,11 +29,11 @@ and a graduated bar for the scale.
 - It is lettered from the interface's own glyph sheet, so a review picture needs no font installed and
   reads as part of the project.
 
-**SHT-3** **Several subjects are one sheet**, tiled in reading order, separated by a gutter in a colour
+**SHT-3** `P8` **Several subjects are one sheet**, tiled in reading order, separated by a gutter in a colour
 the town never draws. A sheet holds at most nine cells, all photographed at one size — cells at two
 framings are a comparison nobody can make — and **a sheet with no cell drawn into it is never written**.
 
-**SHT-4** **A sheet is asked for as a document, not as flags.** `--sheet FILE.json` and `--sheet -`
+**SHT-4** `P8` **A sheet is asked for as a document, not as flags.** `--sheet FILE.json` and `--sheet -`
 read it; the figures on the document are the defaults and a cell states only what it differs in.
 
 - **A member the schema does not carry is an error.** A misspelt `secondes` that quietly photographed
@@ -41,12 +41,12 @@ read it; the figures on the document are the defaults and a cell states only wha
 - A cell names what it is of and, where it helps, what a reviewer is being asked to look at.
 - Nothing the document can ask for is unavailable to `--shot`: it is the same request, several times.
 
-**SHT-5** **A picture is never separated from its provenance.** The same figures the band draws are
+**SHT-5** `P8` **A picture is never separated from its provenance.** The same figures the band draws are
 written into the PNG's own text chunks and into a report beside it — `<picture>.png.json`, the whole
 name with `.json` after it, because notes named by swapping the extension overwrite the document that
 asked for them.
 
-**SHT-6** **What could not be photographed is said, and what was photographed is still written.** A cell
+**SHT-6** `P8` **What could not be photographed is said, and what was photographed is still written.** A cell
 that comes back nearly flat is reported and kept: a staging mistake and a legitimately flat frame — the
 menu over an empty world — look identical from here, and refusing to write one of them would make the
 sheet unable to photograph the interface.

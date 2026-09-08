@@ -8,6 +8,7 @@ namespace TrafficSimulation.Tests.Agents.Car;
 /// that hands a car back and forth without it going anywhere.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P2)]
 public class ManeuverTraceTests
 {
     [Fact]

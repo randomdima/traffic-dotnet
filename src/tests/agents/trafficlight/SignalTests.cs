@@ -16,6 +16,7 @@ namespace TrafficSimulation.Tests.Agents.TrafficLight;
 /// whole cycle and not that some sampled instant looked right.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class SignalTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
@@ -49,10 +50,13 @@ public class SignalTests
             if (first == SignalColour.Green) greenS += stepS;
         }
 
-        // Half the cycle an axis, of which the last stretch is amber — time taken out of the green
-        // rather than added to it.
-        Assert.Equal(Config.Signals.AmberTailS, amberS, 1);
-        Assert.Equal((Config.Signals.CycleS / 2f) - Config.Signals.AmberTailS, greenS, 1);
+        // Half the cycle an axis, of which the last stretch is amber — <b>time taken out of the green
+        // rather than added to it</b>, which is the whole of what is being asked and is what survives the
+        // tail being retuned. Asserting each of the two against the figure it was laid from would be the
+        // derivation written out twice (VER-12): it could only ever fail on the day somebody moved the
+        // figure deliberately, and on that day it would be edited rather than read.
+        Assert.Equal(Config.Signals.CycleS / 2f, amberS + greenS, 1);
+        Assert.True(amberS > 0f, "an axis that is never amber goes straight from green to red");
     }
 
     /// <summary>A crossing is green exactly while its own road is fully red — amber included — and never amber itself.</summary>

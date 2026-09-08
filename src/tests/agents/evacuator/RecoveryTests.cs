@@ -23,6 +23,7 @@ namespace TrafficSimulation.Tests.Agents.Evacuator;
 /// longer report the thing it was written to find. What is asserted below is the machinery either side.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class RecoveryTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

@@ -15,6 +15,7 @@ namespace TrafficSimulation.Tests.Config;
 /// changes the derivation on purpose — and on that day it is edited to match rather than read.
 /// </remarks>
 [Trait(Tier.Key, Tier.Unit)]
+[Trait(Priority.Key, Priority.P0)]
 public class SimConfigTests
 {
     /// <summary>

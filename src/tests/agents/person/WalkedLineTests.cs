@@ -13,6 +13,7 @@ namespace TrafficSimulation.Tests.Agents.Person;
 /// points keep to ground a body may stand on, and that a carriageway is only ever crossed on the paint.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P2)]
 public class WalkedLineTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();

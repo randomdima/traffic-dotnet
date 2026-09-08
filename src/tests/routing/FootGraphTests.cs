@@ -17,6 +17,7 @@ namespace TrafficSimulation.Tests.Routing;
 /// that quietly walks people off the pavement.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
+[Trait(Priority.Key, Priority.P4)]
 public class FootGraphTests
 {
     /// <summary>
