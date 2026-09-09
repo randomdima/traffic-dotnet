@@ -155,6 +155,12 @@ beyond their terrain attributes.
   — and never the distance from the node, which is the same on every arm of every junction and right on
   none of them. The bar behind the crossing is set back from the same place, and so is everything hung off
   either of them.
+- **A roundabout's circulating carriageway is the one arm that carries none** (GEN-19). Its entries carry
+  theirs, which is where somebody getting round a roundabout crosses; a zebra on the ring itself is a walk
+  laid across the traffic the ring exists to keep moving, and what leaving it off leaves is an island
+  nobody walks onto. **Nor does it carry a bar**: a bar is where a driver holds when the junction refuses
+  them, and circulating traffic is never refused — the entries hold for it and it holds for nothing, so the
+  ring is a road with no paint on it at all.
 - **A junction that admits no fork carries one crossing and not one per arm, and none of the junction is in
   where it goes.** Two arms are one road: everything that arrives leaves the only other way, so the node is
   somewhere to cross rather than somewhere to choose, and a second zebra a few metres from the first is the

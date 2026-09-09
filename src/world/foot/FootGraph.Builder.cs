@@ -431,8 +431,11 @@ internal sealed partial class FootGraph
                     if (ways[node] != 2 || first[node] == second[node]) continue;
                     if (!OneLine(first[node], second[node], node, sameM, straightRad, out var openM)) continue;
 
-                    Run(first[node], second[node], node, openM);
-                    ran = true;
+                    // <b>Repeated only while something is really run together</b> (<see cref="Run"/>): a
+                    // footway that closes on itself — an island's — comes down to two stretches between two
+                    // nodes that are one line at both of them and that nothing may run together, so a sweep
+                    // that counted the attempt never stopped sweeping.
+                    ran |= Run(first[node], second[node], node, openM);
                 }
             }
             while (ran);
@@ -487,28 +490,30 @@ internal sealed partial class FootGraph
         /// <summary>
         /// Lays the two as one stretch, <b>shut at the joint</b>. The first keeps the pair's own index and
         /// takes both sets of arcs; the second is dropped, and the node between them is left for
-        /// <see cref="Lay"/> to leave out.
+        /// <see cref="Lay"/> to leave out. <b>False where the two are one line and still may not be run
+        /// together</b>, which is what tells <see cref="RunOn"/> that its sweep made no progress.
         /// </summary>
-        void Run(int into, int onward, int node, float openM)
+        bool Run(int into, int onward, int node, float openM)
         {
             var fromNode = _edgeTo[into] == node ? _edgeFrom[into] : _edgeTo[into];
             var toNode = _edgeFrom[onward] == node ? _edgeTo[onward] : _edgeFrom[onward];
 
             // Run together, a pavement that closes on itself is a stretch from a node to itself: ground no
             // walk can be stationed along, exactly as it is when a line is laid (<see cref="AddStrand"/>).
-            if (fromNode == toNode) return;
+            if (fromNode == toNode) return false;
 
             var arriving = Arriving(into, node);
             var leaving = Leaving(onward, node);
             var arcs = new ArcSeg[arriving.Length + leaving.Length];
             var shut = Shut(arriving, openM, arcs);
-            if (shut == 0) return;
+            if (shut == 0) return false;
 
             leaving.CopyTo(arcs.AsSpan(shut));
 
             Rewrite(into, fromNode, toNode, arcs.AsSpan(0, shut + leaving.Length));
             _edgeAlive[onward] = false;
             _edgeAlive[onward + 1] = false;
+            return true;
         }
 
         /// <summary>

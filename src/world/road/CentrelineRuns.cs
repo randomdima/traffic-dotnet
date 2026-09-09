@@ -28,9 +28,10 @@ internal readonly record struct ClosedStretch(float FromM, float ToM, int Juncti
 /// as a bright streak down the bars.
 /// </para>
 /// <para>
-/// <b>Every piece of paint that names a junction closes the ground back to it</b>, and not the bar alone: a
-/// junction the ranking governs carries no bar (TLT-3) and the same metres, so a rule written round the bar
-/// leaves the throat of every unlit junction in the town dashed up to its own mouth.
+/// <b>Every piece of paint that names a junction closes the ground back to it</b>, and not the bar alone: an
+/// arm with a zebra and no bar — the leaving lane of a one-way street (TER-4d), or an arm too short to hold
+/// the bar — has the same metres of turning ground behind its paint, and a rule written round the bar left
+/// its throat dashed up to its own mouth.
 /// </para>
 /// <para>
 /// <b>A junction that admits no fork closes nothing at all</b> (TER-6) — neither the ground behind its paint
@@ -189,9 +190,9 @@ internal sealed class CentrelineRuns
     /// it approaches, and found along the road the way a lot's frontage is.
     /// </summary>
     /// <remarks>
-    /// A crossing at a lit junction is inside the span that junction's bar already closes off. What the
-    /// junction it carries is for is the one at a junction the ranking governs, where there is no bar and
-    /// the crossing is the only paint the throat has (TLT-3); a crossing struck mid-block carries none
+    /// A crossing behind a bar is inside the span that bar already closes off. What the junction it carries
+    /// is for is the arm with no bar — a one-way street's leaving lane (TER-4d), an arm too short for one —
+    /// where the crossing is the only paint the throat has; a crossing struck mid-block carries none
     /// (TER-5b) and closes off nothing but its own bars.
     /// </remarks>
     static List<ClosedStretch>?[] Blocked(CityPlan plan, float[] lengthM)

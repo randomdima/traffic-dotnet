@@ -48,7 +48,8 @@ internal static class RoadStage
         CityPlan.JunctionCornerArrays Corners,
         CityPlan.CrosswalkArrays Crosswalks,
         CityPlan.StopLineArrays StopLines,
-        CityPlan.BridgeArrays Bridges);
+        CityPlan.BridgeArrays Bridges,
+        CityPlan.RoundaboutArrays Roundabouts);
 
     public static Laid Lay(
         TownLayout layout, Districts districts, TownBrief brief, SimConfig config, ref Rng shape,
@@ -77,7 +78,8 @@ internal static class RoadStage
             furniture.Corners,
             furniture.Crosswalks,
             furniture.StopLines,
-            Bridges(layout, chains, config));
+            Bridges(layout, chains, config),
+            Rings(layout));
     }
 
     /// <summary>
@@ -384,13 +386,26 @@ internal static class RoadStage
     /// at a node would come apart by the deflection between them. <b>A node its own two arms are all of goes
     /// with them</b> — the disc a junction is drawn on belongs on the road rather than beside it, and a node
     /// with a fork in it keeps the place the layout put it whatever its arms do (<see cref="Junctions"/>).
+    /// <para>
+    /// <b>Except a roundabout's ring, which is the whole of its own corridor</b> (GEN-19). A scattered
+    /// one-way street is half of the two ways it was laid as and belongs on the half it is driven; a ring
+    /// was laid one way round the circle <see cref="Roundabouts.RadiusM"/> sized, and moved half a lane off
+    /// it the carriageway leaves its own nodes — the arms then end on its far kerb, which stands exactly half
+    /// a walk from the line the pavement round the island runs down, and whether that pavement exists at each
+    /// entry comes down to the last bits of a float.
+    /// </para>
     /// </remarks>
     static void OntoTheDrivenHalf(
         TownLayout layout, ArcSeg[][] chains, Vector2[] centreM, float[] widthM, SimConfig config)
     {
         for (var road = 0; road < chains.Length; road++)
         {
-            if (chains[road].Length == 0 || layout.Edges[road].Flow == RoadFlow.BothWays) continue;
+            if (chains[road].Length == 0
+                || layout.Edges[road].Flow == RoadFlow.BothWays
+                || layout.Edges[road].Class == RoadClass.Roundabout)
+            {
+                continue;
+            }
 
             var halfM = widthM[road] * 0.5f * config.RoadSideSign;
             var moved = new ArcSeg[chains[road].Length];
@@ -416,9 +431,12 @@ internal static class RoadStage
     /// </summary>
     public static float FloorRadiusM(SimConfig config, RoadClass roadClass) =>
         config.CarCorneringRadiusM(
-            roadClass == RoadClass.Street
-                ? config.CityGen.StreetDesignSpeedMps
-                : config.CityGen.ArterialDesignSpeedMps,
+            roadClass switch
+            {
+                RoadClass.Street => config.CityGen.StreetDesignSpeedMps,
+                RoadClass.Roundabout => config.CityGen.RoundaboutDesignSpeedMps,
+                _ => config.CityGen.ArterialDesignSpeedMps,
+            },
             config.Terrain.PavedCoefficient);
 
     /// <summary>How much of each end of a road is one straight piece: everything a junction lays across an arm stands on it.</summary>
@@ -503,13 +521,19 @@ internal static class RoadStage
             radiusM[to] = MathF.Max(radiusM[to], halfM + StandsOffM(chains[road], atFromEnd: false, centreM[to]));
         }
 
+        // <b>Nothing on a roundabout's ring is lit</b> (GEN-19): a ring node is where circulating traffic is
+        // driven over what is entering (TER-5e), and a timetable over it would stop the circle to let the
+        // arm in — which is the one thing a roundabout is laid instead of.
+        var onARing = OnARing(layout);
+
         for (var junction = 0; junction < centreM.Length; junction++)
         {
 
             // <b>Only a junction that admits conflicting movements may be lit at all</b> (TLT-3), and a share
             // of those is left to the ranking instead (TER-5e) — drawn here, so a town lights the same way
             // every time it is opened and differently from the next town.
-            lit[junction] = arms[junction] >= 3 && draw.NextFloat() >= brief.UnregulatedJunctionShare;
+            lit[junction] = arms[junction] >= 3 && !onARing[junction]
+                            && draw.NextFloat() >= brief.UnregulatedJunctionShare;
             phaseOffsetS[junction] = draw.NextFloat(0f, config.Signals.CycleS);
         }
 
@@ -517,6 +541,87 @@ internal static class RoadStage
         {
             CentreM = centreM, RadiusM = radiusM, Lit = lit, PhaseOffsetS = phaseOffsetS,
         };
+    }
+
+    /// <summary>Which junctions stand on a roundabout's ring (GEN-19).</summary>
+    static bool[] OnARing(TownLayout layout)
+    {
+        var found = new bool[layout.NodeM.Count];
+        foreach (var edge in layout.Edges)
+        {
+            if (edge.Class != RoadClass.Roundabout) continue;
+
+            found[edge.From] = true;
+            found[edge.To] = true;
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// <b>The town's roundabouts, as which roads each one's ring is made of</b> (GEN-19) — the rings picked
+    /// out of the finished road list by the nodes they share, so a plan says which of its one-way roads are
+    /// somebody circulating and which are a street the scatter took (GEN-18).
+    /// </summary>
+    /// <remarks>
+    /// <b>Membership and no geometry.</b> Where a ring stands and how wide it is are its arcs' to say, and a
+    /// centre carried beside them would be a second answer that goes stale the moment either is laid again.
+    /// </remarks>
+    static CityPlan.RoundaboutArrays Rings(TownLayout layout)
+    {
+        var root = new int[layout.NodeM.Count];
+        for (var node = 0; node < root.Length; node++) root[node] = node;
+        foreach (var edge in layout.Edges)
+        {
+            if (edge.Class == RoadClass.Roundabout) Union(root, edge.From, edge.To);
+        }
+
+        var ringAt = new int[layout.NodeM.Count];
+        Array.Fill(ringAt, -1);
+
+        var road = new List<List<int>>();
+        for (var edge = 0; edge < layout.Edges.Count; edge++)
+        {
+            if (layout.Edges[edge].Class != RoadClass.Roundabout) continue;
+
+            var cluster = Find(root, layout.Edges[edge].From);
+            if (ringAt[cluster] < 0)
+            {
+                ringAt[cluster] = road.Count;
+                road.Add([]);
+            }
+
+            road[ringAt[cluster]].Add(edge);
+        }
+
+        var offsets = new int[road.Count + 1];
+        var flat = new List<int>();
+        for (var ring = 0; ring < road.Count; ring++)
+        {
+            offsets[ring] = flat.Count;
+            flat.AddRange(road[ring]);
+        }
+
+        offsets[^1] = flat.Count;
+        return new CityPlan.RoundaboutArrays { RingOffsets = offsets, Road = [.. flat] };
+    }
+
+    static int Find(int[] root, int node)
+    {
+        while (root[node] != node)
+        {
+            root[node] = root[root[node]];
+            node = root[node];
+        }
+
+        return node;
+    }
+
+    static void Union(int[] root, int a, int b)
+    {
+        a = Find(root, a);
+        b = Find(root, b);
+        if (a != b) root[b] = a;
     }
 
     /// <summary>

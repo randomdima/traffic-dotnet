@@ -1,17 +1,27 @@
+using System.Numerics;
+using TrafficSimulation.Core.Config;
+
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>Which of the one-way streets the layout proposed the town keeps</b> (GEN-18): the ones it can still
-/// be driven round with, and the ones that leave no lane dangling (GEN-18a). What lays a street says which
-/// way it would run (<see cref="Lattice"/>); this is where that proposal meets the town the deletions left,
-/// and a street the town cannot afford runs both ways again.
+/// <b>Which streets of the town run one way</b> (GEN-18): scattered across the whole of it, never two of
+/// them at one junction, and only the ones it can still be driven round with (GEN-18a). It runs on the
+/// layout the deletions left, so what it chooses is chosen against the town there actually is.
 /// </summary>
 /// <remarks>
 /// <para>
+/// <b>A one-way street is a street on its own.</b> Every one is entered and left by roads that admit both
+/// ways, which is what keeps a district off the sinks and the traps a grid of them falls into, and what
+/// leaves the choice of which streets local rather than a property of a whole lattice. The scatter is a
+/// spacing between the ones already taken (<see cref="CityGenFigures.OneWayApartMinM"/>) and a raster over
+/// the streets in the order they were laid — sequential inhibition, which spreads them across the town
+/// without a district's bearing or the ring deciding where they may be.
+/// </para>
+/// <para>
 /// <b>Drivable means every junction is reachable from every lane</b> — not merely that every junction has
-/// a way out of it. A car is on a lane and not at a node, so the question a one-way grid can answer no to
-/// is asked of the movements and never of the roads: a block whose streets all ran inwards has a way out
-/// of every junction on it and is still a place a car drives into and never leaves.
+/// a way out of it. A car is on a lane and not at a node, so the question is asked of the movements and
+/// never of the roads: a block whose streets all ran inwards has a way out of every junction on it and is
+/// still a place a car drives into and never leaves.
 /// </para>
 /// <para>
 /// <b>A car may not turn round in the road</b> (TER-5f), which is the whole reason this is not the
@@ -20,36 +30,111 @@ namespace TrafficSimulation.CityGen.Gen;
 /// so a junction of two arms with both of them running in is a trap, and the road graph is what says so.
 /// </para>
 /// <para>
-/// <b>Kept one at a time, and never searched for.</b> The whole proposal is tried first, which is what a
-/// grid the water left alone comes out as; where it does not stand, the streets are taken in the order they
-/// were laid and each is kept only if the town is still drivable with it. What that leaves is a grid with a
-/// handful of its streets opened again rather than a district with none — and, at worst, the town this
-/// generator laid before there were one-way streets at all.
+/// <b>Kept one at a time, and never searched for.</b> The whole scatter is tried first; where it does not
+/// stand, the streets are taken in the order they were chosen and each is kept only if the town is still
+/// drivable with it. Opening a street again can cost the scatter a member but never its shape — nothing is
+/// ever added back — so at worst this is the town this generator laid before there were one-way streets.
 /// </para>
 /// </remarks>
 internal static class OneWayStreets
 {
-    public static void Settle(TownLayout layout)
+    /// <remarks>
+    /// <b>Opening a street again puts back the way it was laid and not two ways</b>: a roundabout's own ring
+    /// was directed before this ran (GEN-19) and is none of the scatter's business, so what a street gives
+    /// up is its own choice rather than every direction on the layout.
+    /// </remarks>
+    public static void Lay(TownLayout layout, SimConfig config)
     {
-        var proposed = new RoadFlow[layout.Edges.Count];
-        var oneWays = 0;
-        for (var edge = 0; edge < layout.Edges.Count; edge++)
+        var laid = new RoadFlow[layout.Edges.Count];
+        for (var edge = 0; edge < laid.Length; edge++) laid[edge] = layout.Edges[edge].Flow;
+
+        var chosen = Scattered(layout, config.CityGen.OneWayApartMinM);
+
+        for (var edge = 0; edge < chosen.Length; edge++)
         {
-            proposed[edge] = layout.Edges[edge].Flow;
-            if (proposed[edge] != RoadFlow.BothWays) oneWays++;
+            if (chosen[edge] != RoadFlow.BothWays) layout.RunsOneWay(edge, chosen[edge]);
         }
 
-        if (oneWays == 0 || Stands(layout)) return;
+        if (Stands(layout)) return;
 
-        for (var edge = 0; edge < proposed.Length; edge++) layout.RunsOneWay(edge, RoadFlow.BothWays);
+        for (var edge = 0; edge < chosen.Length; edge++) layout.RunsOneWay(edge, laid[edge]);
 
-        for (var edge = 0; edge < proposed.Length; edge++)
+        for (var edge = 0; edge < chosen.Length; edge++)
         {
-            if (proposed[edge] == RoadFlow.BothWays) continue;
+            if (chosen[edge] == RoadFlow.BothWays) continue;
 
-            layout.RunsOneWay(edge, proposed[edge]);
-            if (!Stands(layout)) layout.RunsOneWay(edge, RoadFlow.BothWays);
+            layout.RunsOneWay(edge, chosen[edge]);
+            if (!Stands(layout)) layout.RunsOneWay(edge, laid[edge]);
         }
+    }
+
+    /// <summary>
+    /// The streets proposed to run one way, and which way each of them runs: <b>no two at one junction and
+    /// none within <paramref name="apartM"/> of one already taken</b> (GEN-18).
+    /// </summary>
+    /// <remarks>
+    /// <b>Streets alone, and only where both ends fork</b>. An arterial is how a district is reached and
+    /// runs both ways; a street at a node of fewer than three arms is a lane nothing could ever arrive on
+    /// (GEN-18a), so taking one there spends a place in the scatter on a street the settling would open
+    /// again. <b>Which way it runs is an alternation and nothing more</b> — a scattered street has no
+    /// family to align with, and both directions being drawn is all the town wants of it.
+    /// </remarks>
+    static RoadFlow[] Scattered(TownLayout layout, float apartM)
+    {
+        var chosen = new RoadFlow[layout.Edges.Count];
+        var arms = layout.Arms();
+        var taken = OnAnArterial(layout);
+        var apartSqM = apartM * apartM;
+        var middleM = new List<Vector2>();
+
+        for (var edge = 0; edge < chosen.Length; edge++)
+        {
+            var street = layout.Edges[edge];
+            if (street.Class != RoadClass.Street) continue;
+            if (taken[street.From] || taken[street.To]) continue;
+            if (arms[street.From] < 3 || arms[street.To] < 3) continue;
+
+            var atM = (layout.NodeM[street.From] + layout.NodeM[street.To]) * 0.5f;
+            if (StandsNearOne(middleM, atM, apartSqM)) continue;
+
+            taken[street.From] = true;
+            taken[street.To] = true;
+            chosen[edge] = (middleM.Count & 1) == 0 ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad;
+            middleM.Add(atM);
+        }
+
+        return chosen;
+    }
+
+    /// <summary>
+    /// The nodes no one-way street may hang off, to begin with: <b>the ones something other than a street
+    /// reaches</b>. A district is entered and left off the roads that carry the town between districts, and
+    /// taking one of them one way is how a whole district ends up drivable only one way round; a
+    /// roundabout's ring is directed already (GEN-19), and a second one-way road at one of its nodes is the
+    /// junction GEN-18 refuses.
+    /// </summary>
+    static bool[] OnAnArterial(TownLayout layout)
+    {
+        var found = new bool[layout.NodeM.Count];
+        foreach (var edge in layout.Edges)
+        {
+            if (edge.Class == RoadClass.Street) continue;
+
+            found[edge.From] = true;
+            found[edge.To] = true;
+        }
+
+        return found;
+    }
+
+    static bool StandsNearOne(List<Vector2> middleM, Vector2 atM, float apartSqM)
+    {
+        foreach (var takenM in middleM)
+        {
+            if (Vector2.DistanceSquared(takenM, atM) < apartSqM) return true;
+        }
+
+        return false;
     }
 
     /// <summary>Whether the town keeps both of the things a one-way street can cost it.</summary>

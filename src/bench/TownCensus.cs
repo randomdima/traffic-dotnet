@@ -114,6 +114,9 @@ internal static class TownCensus
                           $"{JunctionsWith(plan, 1)} dead ends, {plan.JunctionCorners.Count} kerb corners, " +
                           $"reach {Mean(plan.Junctions.RadiusM):F2} m");
         Console.WriteLine($"  bridges        {plan.Bridges.Count,7}  paved areas {plan.PavedAreas.Count}");
+        var ring = RingWidest(plan);
+        Console.WriteLine($"  roundabouts    {plan.Roundabouts.Count,7}  {plan.Roundabouts.Road.Length} roads circulating, " +
+                          $"{ring.WidestM:F1} m across at the widest, at {ring.AtM.X:F0},{ring.AtM.Y:F0}");
         // A zebra has no span of its own to print: what it reaches is solved off the road it is painted on
         // (TER-6), and the widest is the one laid furthest off square.
         Console.WriteLine($"  crossings      {plan.Crosswalks.Count,7}  {Mean(plan.Crosswalks.DepthM):F2} m deep, " +
@@ -157,7 +160,36 @@ internal static class TownCensus
     /// purpose, and the count of two says how much of the town is crossed once rather than once an arm
     /// (TER-6).
     /// </summary>
-    /// <summary>How many of the town's roads carry traffic one way only (TER-4d), which is how much of a grid town its middle is.</summary>
+    /// <summary>
+    /// How wide across the widest of the town's roundabouts is (GEN-19) and where it stands, measured on the
+    /// ground its ring nodes stand on — the point being to name a framing <c>--shot</c> can be pointed at.
+    /// <b>Read off the ring and never carried beside it</b>: a roundabout is the roads that circulate on it
+    /// and nothing else (<c>CityPlan.Roundabouts</c>).
+    /// </summary>
+    static (float WidestM, Vector2 AtM) RingWidest(CityPlan plan)
+    {
+        var widestM = 0f;
+        var atM = Vector2.Zero;
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
+        {
+            foreach (var road in plan.Roundabouts.RoadsOf(ring))
+            {
+                foreach (var other in plan.Roundabouts.RoadsOf(ring))
+                {
+                    var oneM = plan.Junctions.CentreM[plan.Roads.FromJunction[road]];
+                    var elseM = plan.Junctions.CentreM[plan.Roads.FromJunction[other]];
+                    if (Vector2.Distance(oneM, elseM) <= widestM) continue;
+
+                    widestM = Vector2.Distance(oneM, elseM);
+                    atM = (oneM + elseM) * 0.5f;
+                }
+            }
+        }
+
+        return (widestM, atM);
+    }
+
+    /// <summary>How many of the town's roads carry traffic one way only (TER-4d), scattered over the whole of it (GEN-18).</summary>
     static int OneWay(CityPlan plan)
     {
         var found = 0;

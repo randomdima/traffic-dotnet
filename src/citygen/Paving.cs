@@ -42,8 +42,8 @@ internal sealed class Paving
 {
     Paving(
         float walkM, GroundPieces pieces, LaneLines lanes, Kerbs kerbs, PavedRun[] walk, ArcSeg[][] corners,
-        PavedCap[] caps, PavedSection[] sections, bool[] through, bool[] openEnds,
-        PavedBox[] boxes, float[] enterM, float[] exitM, PavedStub[] stubs, int[] next, int[] turnFrom)
+        bool[] straight, PavedShellCorner[] shellCorners, PavedCap[] caps, PavedSection[] sections, bool[] through,
+        bool[] openEnds, PavedBox[] boxes, float[] enterM, float[] exitM, PavedStub[] stubs, int[] next, int[] turnFrom)
     {
         WalkM = walkM;
         Of = pieces;
@@ -51,6 +51,8 @@ internal sealed class Paving
         Kerbs = kerbs;
         Walk = walk;
         Corners = corners;
+        Straight = straight;
+        ShellCorners = shellCorners;
         Caps = caps;
         Sections = sections;
         Through = through;
@@ -103,6 +105,25 @@ internal sealed class Paving
     /// </para>
     /// </remarks>
     public ArcSeg[][] Corners { get; }
+
+    /// <summary>
+    /// <b>Which of <see cref="Corners"/> is a step and not a wedge</b>: the hand-over between two kerbs that
+    /// lie along one another (<c>Corner.AlongOneAnother</c>) — two roads meeting at a kink, a fillet's line
+    /// resuming past where the arm's stopped — laid straight from the one kerb to the other, one answer per
+    /// turn. A box walks it as kerb like any other turn; the picture lays no wedge on it and strikes the whole
+    /// band across the hand-over instead (<c>GroundMesh.Bridge</c>), because what is open there is not a
+    /// sector at the kerb but the ground between the two pieces' own end stations, rim to kerb.
+    /// </summary>
+    public bool[] Straight { get; }
+
+    /// <summary>
+    /// <b>Where the shell turns a corner</b>: at every place two runs hand over with the grass beyond both
+    /// of them, the point their outer edges meet at — where both their rims end (<see cref="PavedRun.RimFromM"/>)
+    /// — and the two ways in off it, square to each run. The outer edge is an offset exactly as the inner
+    /// one is, and the same L is missing from it: a line's width on a side rather than half a walk, since
+    /// what is drawn along it is the rim and not the band.
+    /// </summary>
+    public PavedShellCorner[] ShellCorners { get; }
 
     /// <summary>
     /// <b>The ends the band really stops at, and the way it faces there</b>: what closes a run with the
@@ -218,10 +239,17 @@ internal sealed class Paving
             // A run along a road's side is the road's own cross-section to draw; one that turns round a
             // road's end — a dead end's head — is a run like any other, and its concrete and rim are its own.
             var aRoad = wraps[run].Piece < kerbs.Roads;
+            var outline = kerbs.OffTheTarmacM(on.PositionM - (on.Right * side * ((walkM * 0.5f) + AHairM))) > walkM;
+            var (rimFromM, rimToM) = RimStretch(line, lengthM, side, kerbs, walkM);
+
+            // A short run whose line stands a joining's width inside a movement's offset (<see cref="Kerbs.JoinedM"/>)
+            // has an outer edge that is the outline by a hair and clear by nothing: read on the tie its rim
+            // is the whole of it, as it was before the stretch was asked for.
+            if (outline && rimToM <= rimFromM) (rimFromM, rimToM) = (0f, lengthM);
             walk[run] = new PavedRun(
-                line, lengthM, side,
-                kerbs.OffTheTarmacM(on.PositionM - (on.Right * side * ((walkM * 0.5f) + AHairM))) > walkM,
-                aRoad && wraps[run].End == Kerbs.Wrap.ASide, aRoad ? kerbs.IndexOf(wraps[run].Piece) : CityPlan.NoRecord);
+                line, lengthM, side, outline,
+                aRoad && wraps[run].End == Kerbs.Wrap.ASide, rimFromM, rimToM,
+                aRoad ? kerbs.IndexOf(wraps[run].Piece) : CityPlan.NoRecord);
         }
 
         // Which arms' ends reach the town's outline: an end is drawn grown by a walk only where the line
@@ -232,15 +260,16 @@ internal sealed class Paving
             if (wrap.Piece < kerbs.Roads && wrap.End != Kerbs.Wrap.ASide) openEnds[(kerbs.IndexOf(wrap.Piece) * 2) + wrap.End] = true;
         }
 
-        var corners = Corner.Turns(walk, walkM * 0.5f, out var turned, out var next, out var turnFrom);
+        var corners = Corner.Turns(walk, walkM * 0.5f, out var straight, out var turned, out var next, out var turnFrom);
         var caps = Corner.Stops(walk, turned, next);
+        var shellCorners = Corner.ShellCorners(walk, next, walkM);
         var enterM = new float[pieces.Roads.Count];
         var exitM = new float[pieces.Roads.Count];
         var stubs = new List<PavedStub>();
         var boxes = CityGen.Boxes.Lay(pieces, config, through, walk, corners, next, turnFrom, walkM * 0.5f, enterM, exitM, stubs);
         return new Paving(
-            walkM, pieces, lanes, kerbs, walk, corners, caps, Cut(pieces, kerbs, walkM), through, openEnds,
-            boxes, enterM, exitM, stubs.ToArray(), next, turnFrom);
+            walkM, pieces, lanes, kerbs, walk, corners, straight, shellCorners, caps, Cut(pieces, kerbs, walkM), through,
+            openEnds, boxes, enterM, exitM, stubs.ToArray(), next, turnFrom);
     }
 
 
@@ -285,6 +314,64 @@ internal sealed class Paving
         }
 
         return sections.ToArray();
+    }
+
+    /// <summary>
+    /// <b>The stretch of a run whose outer edge is the town's outline</b> (<see cref="PavedRun.RimFromM"/>):
+    /// from where, walked in from each end, the edge a whole walk off the tarmac first comes clear of every
+    /// other piece (<see cref="Kerbs.Clear"/>). Two runs that meet at a wedge stop where their lines cross,
+    /// and each one's outer edge runs on past the shell's corner inside the other's band — and a rim run on
+    /// with it stood half a walk deep in the next band. It is the question a road's rim is cut by
+    /// (<see cref="Sections"/>), asked along the run, so a run's rim and the rim of the road it hands over to
+    /// end at one point: the corner the shell turns (<see cref="ShellCorners"/>). Nothing, where the edge
+    /// comes clear nowhere.
+    /// </summary>
+    static (float FromM, float ToM) RimStretch(ArcSeg[] line, float lengthM, float side, Kerbs kerbs, float walkM)
+    {
+        var fromM = FirstClearM(line, lengthM, side, kerbs, walkM, fromStart: true);
+        if (fromM < 0f) return (0f, 0f);
+
+        var toM = lengthM - FirstClearM(line, lengthM, side, kerbs, walkM, fromStart: false);
+        return (fromM, MathF.Max(fromM, toM));
+    }
+
+    /// <summary>
+    /// How far in from one end a run's outer edge first comes clear, stationed and bisected the way the
+    /// runs themselves are cut (<see cref="Kerbs.Spans"/>); below nought where it never does.
+    /// </summary>
+    static float FirstClearM(ArcSeg[] line, float lengthM, float side, Kerbs kerbs, float walkM, bool fromStart)
+    {
+        if (OuterEdgeClear(line, lengthM, side, kerbs, walkM, fromStart, 0f)) return 0f;
+
+        var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / Kerbs.StationM));
+        var wasM = 0f;
+        for (var station = 1; station <= stations; station++)
+        {
+            var isM = lengthM * station / stations;
+            if (!OuterEdgeClear(line, lengthM, side, kerbs, walkM, fromStart, isM))
+            {
+                wasM = isM;
+                continue;
+            }
+
+            for (var round = 0; round < Kerbs.BisectionRounds; round++)
+            {
+                var middleM = (wasM + isM) * 0.5f;
+                if (OuterEdgeClear(line, lengthM, side, kerbs, walkM, fromStart, middleM)) isM = middleM;
+                else wasM = middleM;
+            }
+
+            return isM;
+        }
+
+        return -1f;
+    }
+
+    static bool OuterEdgeClear(
+        ArcSeg[] line, float lengthM, float side, Kerbs kerbs, float walkM, bool fromStart, float inM)
+    {
+        var on = Spline.SampleAt(line, fromStart ? inM : lengthM - inM);
+        return kerbs.Clear(on.PositionM - (on.Right * side * walkM * 0.5f), walkM);
     }
 
     /// <summary>What stands either side of one point of a road, read at that point and nowhere else.</summary>
@@ -358,7 +445,7 @@ public enum PavedEdge : byte
 /// line, that is the turn's own direction where the road lies a quarter turn <em>behind</em> the way the
 /// run sets off, and against it where the road lies ahead.
 /// </remarks>
-readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector2 AwayM, bool SetsOff)
+readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector2 AwayM, bool SetsOff, bool AtStart)
 {
     /// <summary>
     /// <b>Half a turn is not a corner between two runs.</b> Two runs that hand over make a wedge of tarmac
@@ -464,10 +551,11 @@ readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector
     /// Which of the runs' ends — both ends of every run, in <see cref="EveryEnd"/>'s order — a turn was
     /// laid from or onto. Such an end is closed by the turn's own wedge and not by a round of its own.
     /// </param>
+    /// <param name="straight">Which of the turns is a step between two kerbs that lie along one another (<see cref="Paving.Straight"/>).</param>
     /// <param name="next">Which end each turned end hands over to (<see cref="Paving.Next"/>), or <see cref="CityPlan.NoRecord"/>.</param>
     /// <param name="turnFrom">The turn laid from each end (<see cref="Paving.TurnFrom"/>), or <see cref="CityPlan.NoRecord"/>.</param>
     public static ArcSeg[][] Turns(
-        PavedRun[] walk, float halfWalkM, out bool[] turned, out int[] next, out int[] turnFrom)
+        PavedRun[] walk, float halfWalkM, out bool[] straight, out bool[] turned, out int[] next, out int[] turnFrom)
     {
         var ends = EveryEnd(walk);
         turned = new bool[ends.Count];
@@ -475,6 +563,7 @@ readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector
         turnFrom = new int[ends.Count];
         Array.Fill(next, CityPlan.NoRecord);
         Array.Fill(turnFrom, CityPlan.NoRecord);
+        straight = [];
         if (halfWalkM <= 0f) return [];
 
         var places = PlacesOf(ends);
@@ -484,6 +573,7 @@ readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector
         // one — which laid that corner twice and left the other kerb stopping dead.
         var taken = new bool[ends.Count];
         var turns = new List<ArcSeg[]>();
+        var steps = new List<bool>();
         for (var end = 0; end < ends.Count; end++)
         {
             if (!ends[end].SetsOff) continue;
@@ -500,14 +590,85 @@ readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector
             next[end] = onto;
             next[onto] = end;
 
-            var turn = ends[end].To(ends[onto], halfWalkM);
+            var turn = ends[end].To(ends[onto], halfWalkM, out var step);
             if (turn.Length == 0) continue;
 
             turnFrom[end] = turns.Count;
             turns.Add(turn);
+            steps.Add(step);
         }
 
+        straight = steps.ToArray();
         return turns.ToArray();
+    }
+
+    /// <summary>
+    /// <b>The corners the shell turns</b> (<see cref="Paving.ShellCorners"/>): wherever two rims end at one
+    /// point (<see cref="PavedRun.RimFromM"/>), the point and the way in off it square to each. The two are
+    /// the runs that hand over there, or the nearest runs with a rim either side of runs that carry none —
+    /// at a junction's corner the two arms' rims meet at the grass with the fillet's rimless run between
+    /// them, its outer edge folded in to the arc's centre (<c>GroundMesh.ShortOfTheCentre</c>).
+    /// </summary>
+    /// <remarks>
+    /// Two runs that lie along one another (<see cref="AlongOneAnother"/>) have no corner: their outer edges
+    /// are one line with a step in it. And two rims that end a place apart are two ends and not a corner —
+    /// which is what a rimless run between them that is really inside the town leaves.
+    /// </remarks>
+    /// <param name="next">Which end each end hands over to (<see cref="Paving.Next"/>).</param>
+    public static PavedShellCorner[] ShellCorners(PavedRun[] walk, int[] next, float walkM)
+    {
+        var ends = EveryEnd(walk);
+        var halfWalkM = walkM * 0.5f;
+        var corners = new List<PavedShellCorner>();
+        for (var end = 0; end < ends.Count; end++)
+        {
+            var from = ends[end];
+            if (!RimEnd(walk[from.Run], from.AtStart, halfWalkM, out var cornerM, out var fromM)) continue;
+
+            var onto = NextRimmedEnd(walk, next, end);
+            if (onto < end) continue;
+
+            var to = ends[onto];
+            if (MathF.Abs(Cross(from.RoadwardM, to.RoadwardM)) <= OneBearing || from.AlongOneAnother(to, halfWalkM)) continue;
+            if (!RimEnd(walk[to.Run], to.AtStart, halfWalkM, out var metM, out var toM)) continue;
+            if (Vector2.Distance(cornerM, metM) > Kerbs.OnePlaceM) continue;
+
+            corners.Add(new PavedShellCorner(cornerM, fromM, toM));
+        }
+
+        return corners.ToArray();
+    }
+
+    /// <summary>
+    /// The end this one hands over to, walked on through runs without a rim to the first end whose run has
+    /// one, or <see cref="CityPlan.NoRecord"/> where the chain stops or never reaches one.
+    /// </summary>
+    static int NextRimmedEnd(PavedRun[] walk, int[] next, int end)
+    {
+        var onto = next[end];
+        for (var walked = 0; onto >= 0 && !HasRim(walk[onto / 2]); walked++)
+        {
+            if (walked >= walk.Length) return CityPlan.NoRecord;
+
+            onto = next[onto ^ 1];
+        }
+
+        return onto;
+    }
+
+    static bool HasRim(in PavedRun run) => run.Outline && run.RimToM > run.RimFromM;
+
+    /// <summary>Where a run's rim ends at one end of it, on the outer edge, and the way in off that point.</summary>
+    static bool RimEnd(in PavedRun run, bool atStart, float halfWalkM, out Vector2 cornerM, out Vector2 roadwardM)
+    {
+        cornerM = default;
+        roadwardM = default;
+        if (!HasRim(run)) return false;
+
+        var on = Spline.SampleAt(run.Line, atStart ? run.RimFromM : run.RimToM);
+        roadwardM = on.Right * run.RoadSide;
+        cornerM = on.PositionM - (roadwardM * halfWalkM);
+        return true;
     }
 
     /// <summary>
@@ -616,7 +777,7 @@ readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector
     {
         var awayM = Heading.Unit(headingRad) * alongTheRun;
         var roadwardM = Heading.RightOf(Heading.Unit(headingRad)) * walk.RoadSide;
-        return new Corner(run, placeM, roadwardM, awayM, Cross(roadwardM, awayM) < 0f);
+        return new Corner(run, placeM, roadwardM, awayM, Cross(roadwardM, awayM) < 0f, alongTheRun > 0f);
     }
 
     /// <summary>
@@ -664,11 +825,13 @@ readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector
     /// point where the next run's own round takes over, and then the rim of that one to where its kerb
     /// starts. One arc where the two runs stopped at one point, and two where they did not.
     /// </summary>
-    ArcSeg[] To(in Corner onto, float halfWalkM)
+    /// <param name="step">Whether what was laid is the straight step between two kerbs that lie along one another (<see cref="Paving.Straight"/>).</param>
+    ArcSeg[] To(in Corner onto, float halfWalkM, out bool step)
     {
         var laid = new List<ArcSeg>(2);
         var apartM = onto.PlaceM - PlaceM;
-        if (TurnRad(onto, halfWalkM) >= MostRad && AlongOneAnother(onto, halfWalkM))
+        step = TurnRad(onto, halfWalkM) >= MostRad && AlongOneAnother(onto, halfWalkM);
+        if (step)
         {
             // Two runs lying along one another a place apart: the kerbs are one line with a step in it no
             // wider than that, and the edge crosses the step straight rather than round either place —
@@ -821,9 +984,24 @@ readonly record struct Corner(int Run, Vector2 PlaceM, Vector2 RoadwardM, Vector
 /// (<see cref="Paving.Sections"/>) rather than as a shape of its own — which is what keeps the concrete
 /// and the asphalt it meets on one set of stations (TER-7b). Every other reader takes the run as it
 /// always was.
+/// <para>
+/// <b><paramref name="RimFromM"/> to <paramref name="RimToM"/> is the stretch of it whose outer edge is the
+/// outline</b> (<c>Paving.RimStretch</c>), as distances along the line: where the rim is drawn, and where it
+/// ends at each end — the corner the shell turns there (<see cref="Paving.ShellCorners"/>). Empty where
+/// <paramref name="Outline"/> is false.
+/// </para>
 /// </remarks>
 internal readonly record struct PavedRun(
-    ArcSeg[] Line, float LengthM, float RoadSide, bool Outline, bool AlongARoad, int Road = CityPlan.NoRecord);
+    ArcSeg[] Line, float LengthM, float RoadSide, bool Outline, bool AlongARoad, float RimFromM, float RimToM,
+    int Road = CityPlan.NoRecord);
+
+/// <summary>
+/// <b>One corner the shell turns</b> (<see cref="Paving.ShellCorners"/>): the point two runs' outer edges
+/// meet at with the grass beyond it, and the two ways in off it — square to each run, into the pavement —
+/// that the rim's inner edge reaches it along. The ground within a line's width of the point is the sector
+/// between the two, the short way round.
+/// </summary>
+internal readonly record struct PavedShellCorner(Vector2 PlaceM, Vector2 FromM, Vector2 ToM);
 
 /// <summary>
 /// <b>One end the band stops at</b>: the run that stops there, the place it stops at and the way it faces

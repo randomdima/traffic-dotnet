@@ -631,6 +631,15 @@ internal sealed class WalkingNetwork
     /// bend was pavement no lane reached.
     /// </para>
     /// <para>
+    /// <b>And the corner stands where the lane's own two lines meet, which is not where the stretch ends</b>
+    /// (<see cref="TurnedOnM"/>). Offsetting a corner moves that meeting point along the line by the same
+    /// tangent: out along the turn for the lane on the outside of it, back down the line for the one on the
+    /// inside. Measured from the stretch's end as though the two coincided, the lane inside the turn gave up
+    /// exactly as far as its own corner and the arc was laid between two poses standing on the same point —
+    /// which is no arc, so nothing was laid and the two lanes met at the full angle of the bend. 768 of
+    /// Odesa's 8292 corners were a right angle in the walk that way.
+    /// </para>
+    /// <para>
     /// <b>A stretch ends where the ground stops being its own</b>, exactly as a lane is cut back to where
     /// its movements hand over on the road side — and <b>a crossing is where that really is a band and not a
     /// corner</b>. Where a zebra meets a pavement the two bands overlap over a whole pavement's width: the
@@ -701,17 +710,25 @@ internal sealed class WalkingNetwork
 
     /// <summary>
     /// How much of a lane an arc of <paramref name="offsetM"/> takes to turn the corner between two of them:
-    /// the arc's own tangent. <b>It runs away as the corner approaches a hairpin</b>, which is what the bound
-    /// on half the shorter lane is there for.
+    /// the arc's own tangent, <b>and a second one for a lane inside the turn</b>, which has to reach back
+    /// down its own line to the point its two legs cross before the arc's tangent is measured at all.
+    /// <b>It runs away as the corner approaches a hairpin</b>, which is what the bound on half the shorter
+    /// lane is there for.
     /// </summary>
+    /// <remarks>
+    /// Both lanes are laid to the same hand of travel (<see cref="LayLanes"/>), so the one inside the turn is
+    /// the one the pavement bends towards: its two legs overrun one another and cross a tangent short of
+    /// where the stretch ends, while the outer pair fall a tangent apart past it and the arc between them
+    /// spans the gap.
+    /// </remarks>
     static float TurnedOnM(Lanes offset, int from, int to, float offsetM)
     {
-        var turnRad = MathF.Abs(
-            Spline.WrapRad(
-                Spline.SampleAt(offset.Of(to), 0f).HeadingRad
-                - Spline.SampleAt(offset.Of(from), offset.LengthM[from]).HeadingRad));
+        var turnRad = Spline.WrapRad(
+            Spline.SampleAt(offset.Of(to), 0f).HeadingRad
+            - Spline.SampleAt(offset.Of(from), offset.LengthM[from]).HeadingRad);
 
-        return offsetM * MathF.Tan(turnRad * 0.5f);
+        var tangentM = offsetM * MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+        return turnRad > 0f ? 2f * tangentM : tangentM;
     }
 
     /// <summary>

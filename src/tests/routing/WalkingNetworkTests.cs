@@ -589,6 +589,12 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     /// rounded over.
     /// </para>
     /// <para>
+    /// <b>A corner with no mitre under it is asked the same question</b>, because a corner nothing was laid
+    /// at is the sharpest cut there is: the two lanes simply meet, at whatever angle the pavement turns.
+    /// Skipped for having no arcs to measure, it hid every corner where the arc construction was handed two
+    /// poses standing on one point and gave up — which on Odesa was 768 right angles in the walk.
+    /// </para>
+    /// <para>
     /// <b>A handful of corners are still cut</b>, because <c>StraightBetween</c> is the last resort where
     /// the two poses defeat the arc construction and a stretch too short to give the corner room is a real
     /// thing in a town. What is asserted is that they stay a handful.
@@ -618,7 +624,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
                 var slot = network.TurnSlotAt(edge, turn);
                 var join = network.JoinArcs(slot);
                 var onward = network.LaneOf(turns[turn]);
-                if (join.Length == 0 || onward.Length == 0) continue;
+                if (onward.Length == 0) continue;
 
                 // A carried corner is the end of the lane itself, so what it has to meet is the lane a tail
                 // before its end; any other is laid off the setback the end gives up.
@@ -628,11 +634,15 @@ public class WalkingNetworkTests(ITestOutputHelper output)
                     : network.LaneLengthM(edge) - network.JoinFromM(slot);
 
                 corners++;
-                var intoDeg = StepDeg(Spline.SampleAt(lane, leavesAtM).HeadingRad, join[0].HeadingRad);
-                var outOfDeg = StepDeg(
-                    join[^1].HeadingAtRad(join[^1].LengthM), Spline.SampleAt(onward, network.JoinToM(slot)).HeadingRad);
+                var leavesRad = Spline.SampleAt(lane, leavesAtM).HeadingRad;
+                var joinsRad = Spline.SampleAt(onward, network.JoinToM(slot)).HeadingRad;
 
-                var kinkDeg = MathF.Max(intoDeg, outOfDeg);
+                // Nothing laid: the two lanes meet each other, and the step between them is the whole corner.
+                var kinkDeg = join.Length == 0
+                    ? StepDeg(leavesRad, joinsRad)
+                    : MathF.Max(
+                        StepDeg(leavesRad, join[0].HeadingRad),
+                        StepDeg(join[^1].HeadingAtRad(join[^1].LengthM), joinsRad));
                 if (kinkDeg <= KinkDeg) continue;
 
                 cut++;
@@ -716,16 +726,28 @@ public class WalkingNetworkTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// <b>A lane never strays further from the pavement's own line than the offset it is laid at</b>, corners
-    /// included. On a straight that is the offset exactly; round a corner it is less, because an arc of the
-    /// offset about the bend is nearer both of the lines it joins than the offset. It is the whole of what
-    /// following the pavement means, asked of every metre a walk covers.
+    /// <b>A lane never strays further from the pavement's own line than the offset it is laid at</b> over the
+    /// ground of its own stretch, and <b>never further than half the band anywhere at all</b>. On a straight
+    /// the first is the offset exactly; round a bend it is less, because an arc of the offset about the bend
+    /// is nearer both of the lines it joins than the offset. It is the whole of what following the pavement
+    /// means, asked of every metre a walk covers.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>It is the corner that this is about.</b> A lane cut back by a fixed setback and bridged from there
     /// left the pavement's line by however much more than its own offset the setback was — a metre at a
     /// square corner, on a band four metres wide — so the walk crossed the middle of the band, the outside of
     /// every bend was pavement no lane reached, and the two directions' bridges met in the middle.
+    /// </para>
+    /// <para>
+    /// <b>The offset is the wrong yardstick for the corner itself</b>, which is why the corner a lane carries
+    /// (<see cref="WalkingNetwork.TailLengthM"/>) is held to the band instead. Where the pavement turns to a
+    /// point rather than a bend, the point is the nearest thing on its line to everything about the corner:
+    /// the lane's own two legs already cross <em>past</em> it, by the corner's own geometry and before
+    /// anything is rounded, and the arc rounding them stands further out again. The band is what says whether
+    /// that is still pavement — and at such a corner the band's own edge stands further out by the same
+    /// geometry, so half of it is the conservative reading of the ground and not a licence.
+    /// </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -742,19 +764,24 @@ public class WalkingNetworkTests(ITestOutputHelper output)
             if (lane.Length == 0) continue;
 
             var lengthM = network.LaneLengthM(edge);
+            var ownGroundM = lengthM - network.TailLengthM(edge);
             var steps = Math.Max(1, (int)MathF.Ceiling(lengthM / strideM));
             for (var step = 0; step <= steps; step++)
             {
-                var atM = Spline.SampleAt(lane, lengthM * step / steps).PositionM;
+                var alongLaneM = lengthM * step / steps;
+                var atM = Spline.SampleAt(lane, alongLaneM).PositionM;
                 var onto = foot.NearestEdge(atM, out var alongM);
                 if (onto < 0) continue;
 
                 var offM = (Spline.SampleAt(foot.ArcsOf(onto), alongM).PositionM - atM).Length();
-                var allowedM = MathF.Max(network.LaneOffsetM(edge), network.LaneOffsetM(onto));
+                var allowedM = alongLaneM <= ownGroundM
+                    ? MathF.Max(network.LaneOffsetM(edge), network.LaneOffsetM(onto))
+                    : foot.BandM(edge) * 0.5f;
+
                 if (offM - allowedM <= worstM) continue;
 
                 worstM = offM - allowedM;
-                worst = $"lane {edge} stands {offM:F2} m off the pavement's line at {atM}, laid at {allowedM:F2} m";
+                worst = $"lane {edge} stands {offM:F2} m off the pavement's line at {atM}, allowed {allowedM:F2} m";
             }
         }
 
@@ -762,7 +789,7 @@ public class WalkingNetworkTests(ITestOutputHelper output)
         // stretches bulges off the pavement's line by the rounding and no more.
         Assert.True(
             worstM <= SimConfig.Shipped().Network.SplineToleranceWalkedM,
-            $"{map}: {worst}, which is {worstM:F2} m past what it is laid at");
+            $"{map}: {worst}, which is {worstM:F2} m past what it is allowed");
     }
 
     /// <summary>

@@ -356,9 +356,25 @@ internal sealed partial class SimConfig
     /// traffic leaving the bend (<c>Furniture.ThroughCrossingSetbackM</c>), and the deepest bundle either
     /// way lies wholly on this.
     /// </remarks>
-    public float StraightStubM =>
-        JunctionArmReachMaxM + Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM
-        + Road.StopBarThicknessM;
+    public float StraightStubM => JunctionArmReachMaxM + ArmPaintM;
+
+    /// <summary>
+    /// <b>The least straight a road's end may carry</b>: half the stub. A road with no room for the whole
+    /// of it gives up what it has, and what has to fit inside this is the junction's own ground and the
+    /// corner an arm flares back to — the paint behind them is what such an arm stands on its own bend for
+    /// (TER-6).
+    /// </summary>
+    public float StraightStubLeastM => StraightStubM * 0.5f;
+
+
+    /// <summary>
+    /// How much road the paint on an arm takes past the ground its junction reaches: the crossing at its
+    /// setback and the bar behind it. What stands on an arm has to stand past this as well as past the
+    /// reach, and the reach is the bend an arm leaves on where that is further than the corner
+    /// (<c>Furniture.Corners</c>).
+    /// </summary>
+    public float ArmPaintM =>
+        Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM + Road.StopBarThicknessM;
 
     /// <summary>
     /// How near two lines through a junction pass before one is driven over the other (TER-5c): a car's
@@ -370,6 +386,18 @@ internal sealed partial class SimConfig
 
     /// <summary>A street's own bend puts its inner kerb on exactly the flare radius a junction's corners use.</summary>
     public float RoadCornerRadiusM => IntersectionCornerRadiusM + RoadWidthM * 0.5f;
+
+    /// <summary>
+    /// The tightest circle a roundabout may be driven round (GEN-19): what its own design speed affords on
+    /// tarmac. <b>Derived and never authored</b> — a roundabout quoted in metres is a figure nobody could
+    /// check against the car that has to go round it.
+    /// </summary>
+    /// <remarks>
+    /// It is a floor and rarely the answer: what usually sizes a ring is the ground its own nodes need
+    /// between them (<c>CityGenFigures.LocalityM</c>), which at three or four arms is the wider of the two.
+    /// </remarks>
+    public float RoundaboutRadiusFloorM =>
+        CarCorneringRadiusM(CityGen.RoundaboutDesignSpeedMps, Terrain.PavedCoefficient);
 
     public float ParkingSpaceLengthM => Car.LengthM + Car.WidthM * Road.ParkingSpaceMarginInCarWidths * 2f;
 

@@ -9,12 +9,11 @@ namespace TrafficSimulation.App.Hud;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It says which map and nothing about how far along it is.</b> On the desktop the plan is read, the
-/// ground laid and the town stood up inside one call, so the frame this card is drawn in is the last
-/// frame there is until the town is standing — a bar filling or a spinner turning would be a bar that
-/// stops on its first frame and reads as a run that has wedged. In a page the wait is a fetch and there
-/// are frames all through it, but a card that moved on one head and froze on the other would be two
-/// pieces of furniture wearing one name.
+/// <b>It says which map and nothing about how far along it is.</b> There are frames all through the wait
+/// on either head — the card is drawn over a town that is still ticking — but what is being waited for is
+/// a fetch in a page and a lay on the desktop, so a bar filling would be measuring one head's work in the
+/// other's units, and a card that moved on one and stood still on the other would be two pieces of
+/// furniture wearing one name.
 /// </para>
 /// <para>
 /// <b>While it is up it is the whole of the interface</b> (<see cref="Interface.Draw"/>): the panels, the

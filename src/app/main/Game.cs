@@ -157,7 +157,7 @@ internal sealed partial class Game : IDisposable
     /// inside this frame</b> (OBS-2n). Opening one is seconds of work — a plan read, a ground laid, a
     /// fleet stood up, and in a page a fetch before any of it — so the frame that took the click ends by
     /// drawing the card, and what acts on the name is the head's own
-    /// <see cref="OpenWhatWasPicked"/>: the loop's next turn on the desktop, and the boot's own
+    /// <see cref="OpenWhatWasPicked"/>: a thread of its own on the desktop, and the boot's own
     /// <c>await</c> in a page, which is the one place there where waiting is allowed
     /// (<see cref="Main.Data.Town"/>).
     /// </summary>
@@ -168,13 +168,14 @@ internal sealed partial class Game : IDisposable
     }
 
     /// <summary>
-    /// The map <see cref="PickMap"/> wrote down, stood up — <b>after the frame that took the click has
-    /// been drawn</b>, so the card is on screen for the whole of the wait rather than behind it.
+    /// The map <see cref="PickMap"/> wrote down, taken up and — once it is laid — stood up. <b>Called at
+    /// the end of every frame and never allowed to block one</b> (OBS-2n): the card, the town already up
+    /// and the clock behind it all carry on for as long as the open takes.
     /// </summary>
     /// <remarks>
     /// It is the head's because the wait is: a desktop run has the plan on the disk it started from and
-    /// opens it here, and a page has to fetch it first, so there this does nothing and the boot loop
-    /// drains <see cref="TakeWanted"/> instead.
+    /// lays it on a thread of its own, and a page has neither threads nor the file, so there this does
+    /// nothing and the boot loop drains <see cref="TakeWanted"/> instead.
     /// </remarks>
     partial void OpenWhatWasPicked();
 
@@ -191,6 +192,12 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>The machine, let go of after the renderer and before the window.</summary>
     partial void Shutdown();
+
+    /// <summary>
+    /// The map that was still being opened when the run ended, given up before anything it was being
+    /// opened for is torn down. Nothing, on a head that opens a map without leaving the frame.
+    /// </summary>
+    partial void ForgetWhatWasBeingOpened();
 
     /// <summary>Whether the run is over — the window shut, or the page's own way of saying so.</summary>
     public bool Closed => _window.IsClosing;
@@ -334,8 +341,8 @@ internal sealed partial class Game : IDisposable
         Measure(in parts);
 
         // OBS-2n — and last of all, the map somebody picked, now that the card saying so has been drawn
-        // and submitted. The seconds it takes land in the next frame's wait, where the clock forgets them
-        // and the meter drops the frame, which is what both of those are there for.
+        // and submitted. It takes the frame's own turn and never the seconds the open costs: where those
+        // are spent is the head's, and on neither of them is it here.
         OpenWhatWasPicked();
         return !_window.IsClosing;
     }
@@ -553,42 +560,45 @@ internal sealed partial class Game : IDisposable
     }
 
     /// <summary>
-    /// A map picked: the plan is read, the ground laid, the town stood up and the renderer rebuilt
-    /// for it. The window, the device and the interface all outlive this.
+    /// A map opened here and now: laid and stood up inside the call, which is what a run handed a map
+    /// before its first frame wants. <b>A map picked on the menu does not come through here</b> — the
+    /// head lays it its own way and hands the result to <see cref="Stand"/>.
     /// </summary>
     /// <param name="behindTheMenu">
     /// Whether the menu stays up over the town that has just stood (GEN-1b). It is what the idle map is
     /// opened as and nothing else is: a map somebody clicked is a map they asked to look at.
     /// </param>
-    void Open(string map, bool behindTheMenu = false)
+    void Open(string map, bool behindTheMenu = false) => Stand(LaidTown.Lay(map, _config), behindTheMenu);
+
+    /// <summary>
+    /// A town laid, put on screen: the renderer rebuilt for its ground, its sprites laid out, and the
+    /// town it replaces let go of. The window, the device and the interface all outlive this.
+    /// </summary>
+    /// <remarks>
+    /// <b>This half is the loop's and cannot be anywhere else</b>: the renderer is the device's, and the
+    /// sheets and the standing sprites are read by the town still being drawn until the moment they are
+    /// replaced. It is the short half — what takes the seconds is <see cref="LaidTown.Lay"/>.
+    /// </remarks>
+    void Stand(LaidTown laid, bool behindTheMenu = false)
     {
-        var plan = Maps.Plan(map, _config, BuildingCatalog.Shared.OrdinaryFootprintsM());
-        _map = plan.Name;
-
-        var mesh = GroundMesh.Build(plan, _config);
-        var world = new TownWorld(plan, _config);
-
+        _map = laid.Plan.Name;
         _looks ??= TownSprites.Load();
 
         _renderer.Dispose();
         _sheets = _looks.Sheets;
-        _renderer = NewRenderer(mesh, TownSprites.CapacityFor(plan, _config));
+        _renderer = NewRenderer(laid.Ground, TownSprites.CapacityFor(laid.Plan, _config));
         _looks.ReadAspects(_renderer);
-        _looks.Lay(plan, world.Uses);
+        _looks.Lay(laid.Plan, laid.World.Uses);
 
         _world?.Dispose();
-        _world = world;
-        _ground = mesh;
-        _loop = new SimLoop<TownWorld>(world, _config);
-
-        // The watches are built with the town and not once it is running: one of them stages what its map
-        // is about — the exam's thirty-six orders, the crossings' five walkers — and a staging that began
-        // on the tenth tick would be measuring whatever the map did with the first nine.
-        _scenario = Scenarios.For(world, _config);
+        _world = laid.World;
+        _ground = laid.Ground;
+        _loop = new SimLoop<TownWorld>(laid.World, _config);
+        _scenario = laid.Scenario;
         _track = Scenarios.FiguresIn(_scenario);
         _clock = new SimClock(_config.TickSeconds, _config.Sim.SoakMaxTimeScale);
-        _camera = new Camera2D(_config, plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
-        FrameTheTown(world, plan.WorldSizeM);
+        _camera = new Camera2D(_config, laid.Plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
+        FrameTheTown(laid.World, laid.Plan.WorldSizeM);
         _ui.TownChanged(behindTheMenu);
         _hands.TownChanged();
         _follow.Stop();
@@ -724,6 +734,7 @@ internal sealed partial class Game : IDisposable
 
     public void Dispose()
     {
+        ForgetWhatWasBeingOpened();
         _world?.Dispose();
         _renderer.Dispose();
         Shutdown();

@@ -109,7 +109,21 @@ exact and one press, and drawing it only while turned means it is never a contro
 Opening a city is seconds of work that used to happen inside the frame that took the click, so the picture
 stopped with the row still lit and nothing saying the press had been read. Deferring the open to the end of
 the frame is one line, and is the difference between a card drawn and a card drawn *and submitted*. Both
-heads now write the name down and put the card up, differing only in who acts on it. The card carries no
-progress and no spinner: there is nothing honest to animate on the desktop, and a page that could animate
-would be a piece of furniture alive on one head and frozen on the other. While it is up it is the whole
-interface, or a page would be several seconds of a map list somebody can go on clicking.
+heads now write the name down and put the card up, differing only in who acts on it. While it is up it is
+the whole interface, or a page would be several seconds of a map list somebody can go on clicking.
+
+## The desktop lays the picked map on a thread of its own, and the frame never waits for it
+
+A card drawn and submitted still left the desktop spending the whole open inside one call at the end of a
+frame: the window stopped being pumped, the compositor put "Not Responding" over it, and the town already
+standing froze on its last tick until the new one was up. The open splits in two along the line of what the
+device owns. Laying a plan, triangulating its ground and standing its fleet up touch neither the device nor
+the town on screen — every catalogue they read is immutable and everything they make is new — so they go on
+a pool thread, and what is left in the frame is the renderer, the sheets and the standing sprites, which
+are the device's and the outgoing town's. Measured on a debug build of Odesa that is 26.5 s laid against
+0.6 s stood, so the frame keeps its budget and the ring behind the card keeps turning. A page gets neither
+half of this: it has no threads, and what it is waiting for is a fetch the boot already awaits.
+
+The card still carries no progress and no spinner. There are frames all through the wait on both heads now,
+so the objection is no longer that nothing could move — it is that the two heads are waiting for different
+things, a fetch against a lay, and a bar filling would be measuring one in the other's units.

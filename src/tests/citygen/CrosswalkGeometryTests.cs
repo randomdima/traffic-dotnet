@@ -102,10 +102,10 @@ public class CrosswalkGeometryTests
     }
 
     /// <summary>
-    /// <b>A crossing stands clear of every bend the road takes.</b> The paint has to lie on straight kerb
-    /// rather than on a corner's own arc (<see cref="RoadFigures.CrossingSetbackM"/>), so past the paint's
-    /// own edge the road holds the bearing it has under it for the bar behind the crossing and that stride
-    /// again.
+    /// <b>A crossing reads square on the road it stands on.</b> Its bars are drawn straight across its own
+    /// axis, so the road's line stands off that axis by no more than a paint line's width anywhere under the
+    /// paint or under the bar behind it — which keeps a zebra off a corner's own fillet
+    /// (<see cref="RoadFigures.CrossingSetbackM"/>) and lets one stand on the gentle arc a ring road's arm is.
     /// </summary>
     /// <remarks>
     /// <b>Asked of the road's own line and not of where the paint was put.</b> Placed by a setback off
@@ -116,60 +116,46 @@ public class CrosswalkGeometryTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryCrossingStandsClearOfTheBendsOfItsOwnRoad(string map)
+    public void EveryCrossingReadsSquareOnItsRoad(string map)
     {
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
-        var wantedM = config.Road.StopBarSetbackM + config.Road.StopBarThicknessM + config.Road.CrossingSetbackM;
+        var bundleM = (config.Road.CrossingDepthM * 0.5f) + config.Road.StopBarSetbackM + config.Road.StopBarThicknessM;
+        var allowedM = config.Road.PaintLineWidthM + Kerbs.RoundingM;
 
-        var tooNear = new List<string>();
+        var skewed = new List<string>();
         for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
         {
             var arcs = plan.Roads.SegmentsOf(plan.Crosswalks.Road[crossing]);
             if (arcs.Length == 0) continue;
 
+            var centreM = plan.Crosswalks.CentreM[crossing];
+            var axis = Vector2.Normalize(plan.Crosswalks.Axis[crossing]);
             var lengthM = Spline.TotalLengthM(arcs);
-            var alongM = Spline.ProjectM(arcs, plan.Crosswalks.CentreM[crossing], lengthM * 0.5f, lengthM);
-            var squareRad = Spline.SampleAt(arcs, alongM).HeadingRad;
-            var edgeM = config.Road.CrossingDepthM * 0.5f;
+            var alongM = Spline.ProjectM(arcs, centreM, lengthM * 0.5f, lengthM);
 
             foreach (var way in (ReadOnlySpan<float>)[1f, -1f])
             {
-                var clearM = SquareOnM(arcs, lengthM, alongM + (edgeM * way), squareRad, way, wantedM);
-                if (clearM >= wantedM - Kerbs.RoundingM) continue;
+                foreach (var outM in (ReadOnlySpan<float>)[config.Road.CrossingDepthM * 0.5f, bundleM])
+                {
+                    // Past the end of its own road there is no line of this road's to read off, and what is
+                    // beyond is the next one's ground.
+                    var atM = alongM + (outM * way);
+                    if (atM < 0f || atM > lengthM) continue;
 
-                tooNear.Add($"crossing {crossing} at {plan.Crosswalks.CentreM[crossing]} has {clearM:F2} m");
+                    var offM = atM - alongM;
+                    var lineM = Spline.SampleAt(arcs, atM).PositionM - centreM;
+                    var offTheAxisM = MathF.Abs((axis.X * lineM.Y) - (axis.Y * lineM.X));
+                    if (offTheAxisM <= allowedM) continue;
+
+                    skewed.Add($"crossing {crossing} at {centreM} stands {offTheAxisM:F2} m off its road {offM:+0.0;-0.0} m out");
+                }
             }
         }
 
         Assert.True(
-            tooNear.Count == 0,
-            $"{map}: {tooNear.Count} of {plan.Crosswalks.Count} crossings have less than {wantedM:F2} m of "
-            + $"square road past their paint — {string.Join("; ", tooNear.Take(5))}");
-    }
-
-    /// <summary>
-    /// How far past a place the road still holds a bearing, one way, up to what the caller needs. <b>A road
-    /// leaves a straight on the straight's own bearing</b>, so an arc's first metres read square: what is
-    /// asked is where the line has turned off it by more than the paint's own line is wide.
-    /// </summary>
-    static float SquareOnM(
-        ReadOnlySpan<ArcSeg> arcs, float lengthM, float fromM, float squareRad, float way, float mostM)
-    {
-        var turnedRad = SimConfig.Shipped().Road.PaintLineWidthM / SimConfig.Shipped().RoadWidthM;
-        for (var stepM = 0f; stepM <= mostM; stepM += Kerbs.RoundingM * 10f)
-        {
-            // Past the end of its own road there is no bend of this road's to stand clear of, and what is
-            // beyond is the next one's ground.
-            var atM = fromM + (stepM * way);
-            if (atM < 0f || atM > lengthM) return mostM;
-
-            if (MathF.Abs(Spline.WrapRad(Spline.SampleAt(arcs, atM).HeadingRad - squareRad)) > turnedRad)
-            {
-                return stepM;
-            }
-        }
-
-        return mostM;
+            skewed.Count == 0,
+            $"{map}: {skewed.Count} of {plan.Crosswalks.Count} crossings do not read square on their road — "
+            + string.Join("; ", skewed.Take(5)));
     }
 }

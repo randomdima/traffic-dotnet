@@ -57,6 +57,18 @@ internal sealed class CityPlan
 
     public required BridgeArrays Bridges { get; init; }
 
+    /// <summary>
+    /// <b>The town's roundabouts, as which of its roads each one circulates on</b> (GEN-19). A roundabout is
+    /// a ring of ordinary junctions joined by one-way arcs, so this says which those are and nothing else:
+    /// there is no roundabout geometry, no roundabout junction and no rule downstream about one.
+    /// </summary>
+    /// <remarks>
+    /// <b>The <c>.town</c> format does not carry it</b>, as it does not carry a prop's bearing: a map that
+    /// arrives as a file is one of the two fixtures, written before any town had a roundabout on it, and the
+    /// reader answers none rather than picking rings out of the roads it read.
+    /// </remarks>
+    public RoundaboutArrays Roundabouts { get; init; } = RoundaboutArrays.None;
+
     public required PavedAreaArrays PavedAreas { get; init; }
 
     public required CrosswalkArrays Crosswalks { get; init; }
@@ -190,6 +202,26 @@ internal sealed class CityPlan
         public required float[] DeckWidthM { get; init; }
         public required float[] PavementWidthM { get; init; }
         public int Count => Road.Length;
+    }
+
+    /// <summary>
+    /// Which roads make up each roundabout's ring, flat with an offsets array beside it as every run in this
+    /// structure is. <b>Membership and no geometry</b>: where a ring stands is its own arcs' to say.
+    /// </summary>
+    internal sealed class RoundaboutArrays
+    {
+        /// <summary>A map with no roundabout on it, which is every map that is not a generated city.</summary>
+        public static RoundaboutArrays None => new() { RingOffsets = [0], Road = [] };
+
+        /// <summary>Count + 1 entries, over <see cref="Road"/>.</summary>
+        public required int[] RingOffsets { get; init; }
+
+        public required int[] Road { get; init; }
+
+        public int Count => RingOffsets.Length - 1;
+
+        public ReadOnlySpan<int> RoadsOf(int roundabout) =>
+            Road.AsSpan(RingOffsets[roundabout], RingOffsets[roundabout + 1] - RingOffsets[roundabout]);
     }
 
     internal sealed class PavedAreaArrays

@@ -374,7 +374,8 @@ are straight for the length everything a junction lays across an arm stands on; 
 the block spacing of the district it is in, so no street may reach the one a block over; and nothing bends
 tighter than the radius its own class's design speed affords on tarmac (`SimConfig.CarCorneringRadiusM`),
 which is derived from a speed and a grip and is never authored as a radius. A corner too tight for that
-floor is not laid at all: the road runs straight through it.
+floor is not laid at all: the road runs straight through it. **A roundabout's ring has a floor of its own**
+(GEN-19), because the whole of one is a corner.
 
 **GEN-12a** `P6` **The corner at a node that forks nothing is the exception to both, and it is the same corner
 either way.** Two arms and no fork is a road that bends (TER-5b), so the two roads meeting there are swept
@@ -418,18 +419,77 @@ walks or claims a way across it has anything to say about who goes first.
 - It is a rule about **roads**, not about the paint or the ground: what a junction's own arms may do to each
   other is GEN-13's, and where the lots and the buildings stand is GEN-3's and GEN-16's.
 
-**GEN-18** `P6` **A grid town's middle is driven one way, and every one-way street it keeps is one the town can
-still be driven round.** Inside the orbital, a district laid as a strict lattice runs its own streets one
-way (TER-4d), **the two families alternating with their own index across the grid** — so every block is
-reached off the pair of streets round it, which a grid running all one way is not. Everything else runs
-both ways: the arterials, the districts that wander, the ground outside the ring, and every stub that hangs
-a lattice onto an arterial, which is how a district is entered and left at all.
+**GEN-18** `P6` **One-way streets are scattered over the whole town, no two of them meet, and every one the town
+keeps is one it can still be driven round.** It is a rule about the **streets the scatter chooses** and not
+about every road that runs one way: a roundabout's ring is one direction laid at one place and is none of
+this pass's business (GEN-19), though a street taken at one of its nodes is still two of them meeting. A
+street runs one way (TER-4d) wherever the scatter puts it —
+no district, bearing or side of the orbital decides it — and the scatter is two relations and nothing else:
+**no junction carries two of them**, so each is entered and left on roads that admit both ways; and **no two
+of them stand within `SimConfig.CityGen.OneWayApartMinM`** of each other, measured between the middles of
+the chords they are laid on, which is what spreads them across the town rather than gathering them into one
+district. **An arterial never runs one way, nor does any street that meets one**: they are how the town is
+carried between districts, and a district entered off a road that admits one way only is a district drivable
+one way round.
 
 **What the town keeps is settled against the movements and not against the roads.** From every movement on
 the network every junction must be reachable, with no turning round in the road (TER-5f) — a block whose
 streets all ran inwards has a way out of every junction on it and is still somewhere a car drives into and
-never leaves. A street the deletions have left the town unable to afford **runs both ways again** (GEN-8),
-one at a time and in the order they were laid; nothing is laid twice and no seed is thrown away.
+never leaves. A street the town cannot afford **runs both ways again** (GEN-8), one at a time and in the
+order they were chosen; nothing is laid twice and no seed is thrown away, and opening one costs the scatter
+a member and never its shape.
+
+**GEN-19** `P6` **A roundabout is a ring of ordinary junctions joined by one-way arcs, and nothing else.** It is
+not a kind of junction, not a shape the plan carries and not a rule anything downstream has to know: a node
+is opened out into a circle of nodes — one for every road that met it — joined into a closed carriageway
+driven one way round, and each of those roads is cut back to meet the ring **on its own bearing**, so
+nothing bends to reach it and every arm arrives square to the circle. What the plan then carries is roads
+and junctions, and the only thing said about the ring is **which of its roads circulate on it**, so that a
+one-way road the scatter took (GEN-18) can be told from one nobody chose.
+
+- **Circulating traffic is driven over what is entering, and nothing grants it that.** The two ring arcs
+  at a node are two pieces of one circle, so the movement between them goes straight on where the movement
+  in off the arm is a turn, and the ranking does the rest (TER-5e). It is the whole reason a roundabout is
+  worth laying as a circle rather than as a polygon, whose every circulating movement would be a turn.
+- **Which way it is driven is which side the traffic keeps**: the island stands on the side a car does not
+  drive against, so a car goes round it turning away from its own kerb.
+- **Nothing on the ring is lit** (TLT-3). A timetable over a ring node stops the circle to let an arm in,
+  which is the one thing a roundabout is laid instead of.
+- **Nothing fronts one.** A ring is one junction's worth of ground: a door on it opens onto circulating
+  traffic and a car park on it is a lot entered off a junction, so no frontage is cut along one (GEN-4b).
+- **Every piece of the ring is one arc of one circle, node to node**, so the ring is smooth: there is no
+  straight in it and no join a reader can find. Its bend is never tighter than the radius the roundabout's
+  own design speed affords (`SimConfig.RoundaboutDesignSpeedMps`), which is the exception GEN-12's floor
+  names for it — the whole of a roundabout is one corner — and it is **the one road whose ends are not
+  straight**, as a piece of the orbital already is.
+- **What that costs is that the ground of its entries is struck on a curve.** A junction's kerb fillets are
+  the arcs tangent to the two kerbs there, and a kerb that bends is a circle rather than a line — so the
+  corner is solved between the shapes the kerbs are drawn along and never between the lines their bearings
+  make (`Furniture.Kerb`). Struck on the lines, a ring's entries are filleted to points off their own
+  tarmac and the pavement round it comes apart at every one of them.
+- **Nothing at all is painted on the ring.** No zebra (TER-6): a walk laid across the circulating
+  carriageway is a walk across the traffic a roundabout exists to keep moving, and the entries carry the
+  crossings, which is where somebody getting round one crosses. **What that leaves is an island nobody walks
+  onto**, which is what an island is: nothing stands on it, nobody is put down on it and no trip ends there
+  (GEN-5). And no bar either: a bar is where a driver holds when the junction refuses them, and circulating
+  traffic is never refused. **What the ring is, is a circular road with entries and exits and no paint.**
+- **A ring node is a junction like any other**, so the road between two of them is a road (TER-5a) and no
+  piece of it stands over water (GEN-14) — but **what two of them owe each other is neither that road nor a
+  locality** (GEN-16). They are one junction laid out as a circle rather than two spacings that happened to
+  land on the same ground, which is the case those rules are about. What they owe each other is what the two
+  roads *leaving* them do: the ground one road takes (GEN-17) and a pavement's width of ground on top of it,
+  since two mouths whose paving abuts is paving with nothing to wrap round. **That, and its own design
+  speed's floor, is the whole of what sizes a roundabout — so the circle laid is the smallest one its arms
+  and its speed allow and never a wider one.**
+
+**Where they stand is where a district leaves the town**: a junction of **four arms or more** that some
+district's own street meets an arterial at, no nearer another roundabout than
+`SimConfig.CityGen.RoundaboutApartMinM`, whose arms all stand inside half a turn of each other and off whose
+ground every other road and junction already stands clear. **Three arms are a junction and not a
+roundabout** — a circle there is laid to sort out one conflict the ranking already sorts out standing still,
+and it charges every car through the node a detour to reach the arm opposite. A bridgehead is never one,
+because a deck cannot move (GEN-14a). **Nothing is laid and taken back**: all of that is asked before the
+node is opened out, and a node that fails any of it stays the junction it was (GEN-8, GEN-10).
 
 **GEN-18a** `P6` **No lane dangles**: every lane the town lays is one a car can be driven onto and one it can be
 driven off again. **A node that forks nothing may not change how many lanes there are** — where a road of
@@ -461,6 +521,10 @@ between the two of them.
   stay two. **This is the one place the rule refuses rather than merges**, and it can because nothing hangs
   off a car park: the second is a lot the town does not have and the census reports the shortfall (GEN-8),
   where refusing a *junction* would take the roads at it as well.
+
+**And a roundabout's own nodes are exempt** (GEN-19). They stand inside a locality of each other on purpose:
+a ring is one junction laid out as a circle, placed by one construction, so it is not the accident this rule
+is about — and what its nodes owe each other is the road between them.
 
 **It names those two and nothing else.** Everything else a town lays more than one of is already spaced by a
 rule of its own — a building by the padding a walker gets past it (GEN-3), a prop by the corner the pavement

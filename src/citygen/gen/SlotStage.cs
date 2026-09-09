@@ -76,28 +76,52 @@ internal static class SlotStage
         // whether two of them are one car park is a question about the frontage between them (GEN-16).
         var slots = new List<Slot>();
         var stubM = RoadStage.StubM(config);
+        var arms = new Dictionary<int, int>();
+        for (var road = 0; road < roads.Count; road++)
+        {
+            arms[roads.FromJunction[road]] = arms.GetValueOrDefault(roads.FromJunction[road]) + 1;
+            arms[roads.ToJunction[road]] = arms.GetValueOrDefault(roads.ToJunction[road]) + 1;
+        }
+
         for (var road = 0; road < roads.Count; road++)
         {
             var chain = roads.SegmentsOf(road);
             if (chain.Length == 0) continue;
 
+            // <b>Nothing fronts a roundabout</b> (GEN-19). A ring is one junction's worth of ground and its
+            // island is the middle of it, so a door on either side of it opens onto circulating traffic and
+            // a car park on it is a lot entered off a junction.
+            if (layout.Edges[road].Class == RoadClass.Roundabout) continue;
+
             // Off the kerb of this road and not of the widest there is: a one-way street is half a
             // carriageway wide (TER-4d), and what fronts it stands that much nearer its middle.
             var kerbM = (roads.WidthM[road] * 0.5f) + walkM;
             var lengthM = Spline.TotalLengthM(chain);
+
+            // <b>At a node with no fork the paint stands past the bend the road leaves it on</b>
+            // (<c>Furniture.Corners</c>, TER-5b), so a road that leaves such a node on an arc carries its
+            // crossing and bar that far along rather than on the stub.
+            var paintM = config.ArmPaintM;
+            var startM = MathF.Max(stubM, BendM(chain, roads.FromJunction[road], atStart: true) + paintM);
+            var endM = lengthM - MathF.Max(stubM, BendM(chain, roads.ToJunction[road], atStart: false) + paintM);
             foreach (var hand in (ReadOnlySpan<int>)[-1, 1])
             {
-                for (var alongM = stubM; alongM <= lengthM - stubM; alongM += pitchM)
+                for (var alongM = startM; alongM <= endM; alongM += pitchM)
                 {
                     // A lot's frontage is a stretch of road cut out for the ways into it, and a cut has to
                     // leave a stretch standing either side of itself (<c>ParkingSections</c>). Where the
                     // road does not afford that, the slot is a building's rather than a lot's — the
-                    // alternative is a car park no lane can be entered from.
-                    var roomForALot = alongM - lotHalfAlongM >= sectionM
-                                      && alongM + lotHalfAlongM <= lengthM - sectionM;
+                    // alternative is a car park no lane can be entered from. <b>And the whole frontage
+                    // stands past the arm's paint</b> (GEN-12): a lot centred on the first slot reached
+                    // half its width back into it, and its tarmac stood where a crossing's end steps off.
+                    var roomForALot = alongM - lotHalfAlongM >= MathF.Max(sectionM, startM)
+                                      && alongM + lotHalfAlongM <= MathF.Min(lengthM - sectionM, endM);
                     slots.Add(new Slot(road, hand, alongM, roomForALot));
                 }
             }
+
+            float BendM(ReadOnlySpan<ArcSeg> arcs, int junction, bool atStart) =>
+                arms.GetValueOrDefault(junction) == 2 ? Spline.BendAtTheEndM(arcs, atStart) : 0f;
         }
 
         // <b>Which slots want a car park, and how many bays each of them wants</b>, drawn slot by slot in
@@ -204,8 +228,10 @@ internal static class SlotStage
     /// <remarks>
     /// <b>Two lots that would stand inside a locality of each other are one lot fewer and never one longer</b>
     /// (GEN-16). A lot is a handful of spaces beside a street and a run of frontage joined end to end is an
-    /// apron, so where the next slot along drew one too it is dropped rather than merged into its neighbour —
-    /// and a lot fewer is a shortfall the census reports (GEN-8) rather than a car park the length of a block.
+    /// apron, so where a slot drew one too near a lot already laid it is dropped rather than merged into its
+    /// neighbour — and a lot fewer is a shortfall the census reports (GEN-8) rather than a car park the
+    /// length of a block. <b>Which lots are near is asked of the whole town</b>
+    /// (<see cref="SharesAKerbWithOne"/>) and not of the road the slot was cut on.
     /// </remarks>
     static void LayTheLots(
         List<Slot> slots, int[] bays, CityPlan.RoadArrays roads, SimConfig config, GroundShapes ground,
@@ -219,9 +245,6 @@ internal static class SlotStage
         // the same figure the kerb line's own break is judged by (<c>RoadFrontages</c>). A lot whose kerb
         // bows further than that off its chord is one whose middle no longer reaches the carriageway.
         var straightM = config.Road.PaintLineWidthM;
-        var laidRoad = -1;
-        var laidHand = 0;
-        var laid = default(LotShape);
 
         for (var at = 0; at < slots.Count; at++)
         {
@@ -237,27 +260,43 @@ internal static class SlotStage
             var shape = Shape(
                 chain, fromM, toM, bays[at], kerb.Hand, bayWidthM, bayLengthM,
                 roads.WidthM[kerb.Road] * 0.5f, mouthM);
-            if (kerb.Road == laidRoad && kerb.Hand == laidHand && ApartM(laid, shape) < localityM) continue;
+            var standM = shape.BayCentreM - (shape.Outward * (mouthM * 0.5f));
+            var halfM = new Vector2(shape.BayHalfM.X, shape.BayHalfM.Y + (mouthM * 0.5f));
+            if (SharesAKerbWithOne(lotCentreM, lotAxis, lotHalfM, standM, halfM, localityM)) continue;
             if (!Stands(shape, ground, claims, config)) continue;
 
             LayALot(
                 shape, config, claims, mouthM, bayWidthM, lotCentreM, lotAxis, lotHalfM, bayOffsets,
                 bayM, bayHeadingRad);
-
-            laidRoad = kerb.Road;
-            laidHand = kerb.Hand;
-            laid = shape;
         }
     }
 
     /// <summary>
-    /// How much kerb stands between two lots on it, rectangle to rectangle. <b>Measured along the kerb and
-    /// between the two shapes</b> (GEN-4d), which on a bend is shorter than the road between their middles:
-    /// a lot is a rectangle on a chord, and the arc it was cut from is the longer of the two.
+    /// Whether a car park would stand inside a locality of one already laid along the same kerb (GEN-16):
+    /// abeam of it on that lot's own bearing, with less than a locality of kerb between the two rectangles.
     /// </summary>
-    static float ApartM(LotShape laid, LotShape next) =>
-        MathF.Abs(Vector2.Dot(laid.Along, next.BayCentreM - laid.BayCentreM))
-        - laid.BayHalfM.X - next.BayHalfM.X;
+    /// <remarks>
+    /// <b>Asked of every lot the town has and not only of the last one along this road.</b> Frontage is cut
+    /// road by road and kerb by kerb, so two lots either side of a corner — or on the two roads a junction
+    /// joins — share a kerb that neither of them is measured along, and a pass that only ever looked back
+    /// down its own road never saw the pair. <b>Two facing each other across a carriageway are not abeam</b>
+    /// and stay two lots, which is the street they are the two sides of (GEN-4d).
+    /// </remarks>
+    static bool SharesAKerbWithOne(
+        List<Vector2> lotCentreM, List<Vector2> lotAxis, List<Vector2> lotHalfM, Vector2 standM,
+        Vector2 halfM, float localityM)
+    {
+        for (var lot = 0; lot < lotCentreM.Count; lot++)
+        {
+            var apartM = standM - lotCentreM[lot];
+            if (MathF.Abs(Cross(lotAxis[lot], apartM)) >= lotHalfM[lot].Y + halfM.Y) continue;
+            if (MathF.Abs(Vector2.Dot(lotAxis[lot], apartM)) - lotHalfM[lot].X - halfM.X < localityM) return true;
+        }
+
+        return false;
+    }
+
+    static float Cross(Vector2 a, Vector2 b) => (a.X * b.Y) - (a.Y * b.X);
 
     /// <summary>
     /// Where a stretch of frontage puts its bays. <b>The rectangle stands on the chord between the run's two

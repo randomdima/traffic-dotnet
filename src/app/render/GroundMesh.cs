@@ -72,6 +72,19 @@ internal sealed partial class GroundMesh
     /// </summary>
     readonly List<(Vector2 AtM, Vector2 Across, float Curvature)> _stations = [];
 
+    /// <summary>
+    /// Which corner already stands at a place, wearing a surface and a shade (<see cref="Vertex"/>): what
+    /// makes two shapes that meet share the seam between them rather than each carrying a copy of it. It is
+    /// laying scratch and is dropped once the ground is laid.
+    /// </summary>
+    Dictionary<(int X, int Y, Surface Surface, int R, int G, int B), int> _welds = [];
+
+    /// <summary>
+    /// Whether a corner asked for is shared with whatever already stands at it. <b>The ground is welded and
+    /// the marks are not</b>: a mark is four corners read back as four corners.
+    /// </summary>
+    bool _welding = true;
+
     GroundMesh()
     {
     }
@@ -170,10 +183,11 @@ internal sealed partial class GroundMesh
         // road's own cross-section above, struck on the road's stations rather than on the offset's, so
         // that the concrete and the asphalt it meets share their seam instead of standing a sag apart.
         //
-        // <b>Struck as one cross-section on one set of stations</b>, the way a road's is (TER-7b): the rim
-        // where the run is the town's outline, the walk, and the kerb line on the band's inner edge (TER-3d)
-        // — three bands between four offsets of the run's own line, so the kerb line and the concrete it
-        // stands on share their seam rather than the one being painted over the other.
+        // <b>Struck as one cross-section on one set of stations</b>, the way a road's is (TER-7b): the walk
+        // and the kerb line on the band's inner edge (TER-3d) as bands between offsets of the run's own
+        // line, so the kerb line and the concrete it stands on share their seam rather than the one being
+        // painted over the other. The rim where the run is the town's outline is a strip on the same
+        // stations, laid after the roads (<see cref="GroundMesh.Rim"/>).
         foreach (var run in paving.Walk)
         {
             if (run.AlongARoad) continue;
@@ -203,10 +217,18 @@ internal sealed partial class GroundMesh
         // at every car park in the town. What carries it round is the rim of the half-round the band is
         // closed with (<see cref="Paving.Corners"/>), and a turn starts where the last kerb ended. The two
         // are one cross-section on the turn's own stations: the concrete outside the stroke, then the stroke.
-        foreach (var corner in paving.Corners)
+        for (var corner = 0; corner < paving.Corners.Length; corner++)
         {
-            mesh.Turn(corner, shades, periods);
+            // A hand-over between two kerbs that lie along one another is a step and not a wedge, and what
+            // covers it is the whole cross-section struck across it (<see cref="GroundMesh.Bridge"/>). The
+            // wedge a turn lays reaches the place its arc turns about — the band's road half — so laid on a
+            // step it covered that half twice and left the outer half open.
+            if (paving.Straight[corner]) continue;
+
+            mesh.Turn(paving.Corners[corner], shades, periods);
         }
+
+        Bridges(mesh, paving, shades, rim: false, periods);
 
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
         // of the one under it showing, which is the same trick the pavement's own rim is drawn by: what
@@ -292,14 +314,11 @@ internal sealed partial class GroundMesh
         // stations, with the carriageway and the other side left to the box.
         foreach (var stub in paving.Stubs)
         {
-            foreach (var section in paving.Sections)
-            {
-                if (section.Road != stub.Road || section.ToM <= stub.FromM || section.FromM >= stub.ToM) continue;
+            if (stub.ToM <= stub.FromM || !SectionAtTheCut(plan, paving, stub, out var beside)) continue;
 
-                mesh.Stub(
-                    plan.Roads.SegmentsOf(stub.Road), plan.Roads.WidthM[stub.Road] * 0.5f, stub, section,
-                    shades, periods);
-            }
+            mesh.Stub(
+                plan.Roads.SegmentsOf(stub.Road), plan.Roads.WidthM[stub.Road] * 0.5f, stub, beside,
+                shades, periods);
         }
 
         // <b>The box itself, once</b> (<see cref="Paving.Boxes"/>, TER-7b): the ground between the arms'
@@ -307,6 +326,26 @@ internal sealed partial class GroundMesh
         foreach (var box in paving.Boxes)
         {
             mesh.Box(box.Outline, periods);
+        }
+
+        // <b>The runs' rims, and the rim round every corner the shell turns</b>, after the roads
+        // (<see cref="GroundMesh.Rim"/>, <see cref="Paving.ShellCorners"/>): where a run hands over to a
+        // road, the last of its rim stands inside the road's band, and the road's bare side laid over it
+        // painted it out to the road's own edge. Each run's rim stops where its outer edge stops being the
+        // outline, the road's stops where its own does, and the sector between the two square ends is the
+        // corner's.
+        foreach (var run in paving.Walk)
+        {
+            if (run.AlongARoad) continue;
+
+            mesh.Rim(run, shades, periods);
+        }
+
+        Bridges(mesh, paving, shades, rim: true, periods);
+
+        foreach (var corner in paving.ShellCorners)
+        {
+            mesh.ShellCorner(corner, shades, periods);
         }
 
         // <b>No movement is drawn at its own size.</b> One that lies inside the arms it joins is the box's
@@ -317,6 +356,8 @@ internal sealed partial class GroundMesh
 
 
         mesh.FirstMarkVertex = mesh._vertices.Count;
+        mesh._welding = false;
+        mesh._welds = [];
         mesh.LaneDashes(plan, config, paint, periods);
 
         // A zebra spans the whole carriageway kerb to kerb — the width of the road it is painted on and
@@ -340,6 +381,70 @@ internal sealed partial class GroundMesh
         mesh.BayStrokes(plan, config, paint, periods);
 
         return mesh;
+    }
+
+    /// <summary>
+    /// <b>Every hand-over the pavement makes</b> (<see cref="Paving.Next"/>), laid once each: the band
+    /// struck across it off the two runs' own end stations (<see cref="GroundMesh.Bridge"/>), so what
+    /// stands between two ends is the corners those two ends already stand on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Walked over the ends and not over the turns</b>, because it is the two ends the band is read off
+    /// and a turn carries neither. A pair is reached from both of its ends, so it is taken from the lower of
+    /// the two. <b>A hand-over a wedge covers gets the outer half of the cross-section and no more</b>: the
+    /// wedge reaches the run's own line and the two would otherwise cover the road half twice.
+    /// </remarks>
+    static void Bridges(GroundMesh mesh, Paving paving, in SectionShades shades, bool rim, float[] periods)
+    {
+        for (var end = 0; end < paving.Next.Length; end++)
+        {
+            var onto = paving.Next[end];
+            if (onto <= end) continue;
+
+            var turn = paving.TurnFrom[end] != CityPlan.NoRecord ? paving.TurnFrom[end] : paving.TurnFrom[onto];
+            var wedged = turn != CityPlan.NoRecord && !paving.Straight[turn];
+            mesh.Bridge(
+                paving.Walk[end / 2], end % 2 == 0, paving.Walk[onto / 2], onto % 2 == 0, shades, rim, wedged,
+                periods);
+        }
+    }
+
+    /// <summary>
+    /// <b>What the road carries beside a stub</b>: the section the road's own stretch ends with at the cut
+    /// the stub runs on past (<see cref="Paving.EnterM"/>, <see cref="Paving.ExitM"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Read at the cut and not over the stub's own stretch.</b> A stub stands inside the box, and the
+    /// sections there answer for a road with a junction beside it, which is nothing on either side — so a
+    /// stub read off the sections it overlaps laid no concrete at all and the side that ran on stopped at
+    /// the cut with the other.
+    /// </remarks>
+    static bool SectionAtTheCut(CityPlan plan, Paving paving, in PavedStub stub, out PavedSection beside)
+    {
+        // A box stands at one end of a road or the other, so which end this stub runs into is which end it
+        // is nearer, and the road's own stations are the ones the other way off its inner end. <b>The
+        // nearest section that side still carries something</b>: a road answers None for the last few
+        // centimetres before its cut as well, since the ground beside it there is already the junction's,
+        // and a stub read off one of those laid nothing.
+        var lengthM = Spline.TotalLengthM(plan.Roads.SegmentsOf(stub.Road));
+        var atStart = stub.FromM < lengthM - stub.ToM;
+        var atM = atStart ? stub.ToM : stub.FromM;
+        var nearestM = float.PositiveInfinity;
+        beside = default;
+        foreach (var section in paving.Sections)
+        {
+            if (section.Road != stub.Road) continue;
+            if ((stub.Side > 0f ? section.Right : section.Left) == PavedEdge.None) continue;
+            if (atStart ? section.ToM <= atM : section.FromM >= atM) continue;
+
+            var awayM = MathF.Max(0f, MathF.Max(section.FromM - atM, atM - section.ToM));
+            if (awayM >= nearestM) continue;
+
+            nearestM = awayM;
+            beside = section;
+        }
+
+        return nearestM < float.PositiveInfinity;
     }
 
     /// <summary>

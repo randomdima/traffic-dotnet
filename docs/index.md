@@ -73,7 +73,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `SOL-1…22`, `SOL-35`, `SOL-36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4m` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…18a` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, and that no lane dangles | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, that no lane dangles, and what a roundabout is made of | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1…11`, `PER-13…18`, `PER-23` | The walker, the trip, what it follows, how it crosses, when it takes a car and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the roof one wears, the apron of ambulances at them, the priority a call carries, what a rescue is and the standoff its crew walks in from | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
@@ -90,7 +90,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 ## Known gaps
 
-Two absences that are gaps rather than decisions, and neither is silent:
+Three absences that are gaps rather than decisions, and none is silent:
 
 - **The ground mesh still overlaps itself where it is a union of pieces, and `TER-7b` says it must not.**
   The rule is the owner's (`P0`, [priority.md](priority.md)). **A road now keeps it**: its whole
@@ -109,6 +109,13 @@ Two absences that are gaps rather than decisions, and neither is silent:
   project does not have. **The verge is the fourth and is a decision rather than a gap**: it is
   one rectangle under the whole town, and whether it must be cut to the complement of the paving is a
   question for the owner. [app/render](../src/app/render/docs/requirements.md), `GroundMesh.Build`.
+- **A junction's box lays no concrete, so the walk the answer carries through one is not drawn.** The box
+  is tarmac between its arms' cuts, and the side of an arm that runs on past its cut carries its own
+  concrete there (`Paving.Stubs`); but where the answer pavements ground inside the box that no arm's side
+  reaches — a two-arm node, a corner where two arms' bands meet inside the outline — nothing draws it. It
+  is under a fifth of a square metre over the whole of Odesa and the largest of it is a hand's width; what
+  would close it is the box's own band of pavement offset from its outline, which is a change to how the
+  ground is partitioned (`TER-7b`) and so the owner's.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

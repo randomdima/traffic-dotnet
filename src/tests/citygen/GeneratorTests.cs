@@ -301,6 +301,248 @@ public class GeneratorTests
     }
 
     /// <summary>
+    /// <b>No one-way street meets another</b> (GEN-18): every one of them is entered and left by roads that
+    /// admit both ways, so a driver is never handed a junction whose way on is one way too.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoJunctionHasTwoOneWayRoadsAtIt(ulong seed) => Assert.Null(OneWays.Meeting(Lay(Brief(seed))));
+
+    /// <summary>
+    /// <b>One-way streets are scattered over the town</b> (GEN-18): no two of them stand within
+    /// <see cref="CityGenFigures.OneWayApartMinM"/> of each other, which is what spreads them across every
+    /// district rather than gathering them into one.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void OneWayRoadsStandTheirSpacingApart(ulong seed) =>
+        Assert.Null(OneWays.Crowding(Lay(Brief(seed)), Config.CityGen.OneWayApartMinM));
+
+    /// <summary>
+    /// <b>A roundabout is a closed ring driven one way round</b> (GEN-19): every road of it runs one way,
+    /// each of its junctions is left by exactly one of them and arrived at by exactly one, and the ring
+    /// closes — so a car on it comes back to where it entered rather than running out of circle.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void EveryRoundaboutIsAClosedRingDrivenOneWayRound(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
+        {
+            var roads = plan.Roundabouts.RoadsOf(ring);
+            var leaving = new Dictionary<int, int>();
+            var arriving = new Dictionary<int, int>();
+            foreach (var road in roads)
+            {
+                Assert.True(
+                    plan.Roads.Flow[road] != RoadFlow.BothWays,
+                    $"road {road} circulates on roundabout {ring} and runs both ways");
+
+                var from = plan.Roads.Flow[road] == RoadFlow.WithTheRoad
+                    ? plan.Roads.FromJunction[road]
+                    : plan.Roads.ToJunction[road];
+                var to = plan.Roads.FromJunction[road] == from
+                    ? plan.Roads.ToJunction[road]
+                    : plan.Roads.FromJunction[road];
+                leaving[from] = leaving.GetValueOrDefault(from) + 1;
+                arriving[to] = arriving.GetValueOrDefault(to) + 1;
+            }
+
+            Assert.Equal(roads.Length, leaving.Count);
+            Assert.Equal(roads.Length, arriving.Count);
+            foreach (var (junction, count) in leaving)
+            {
+                Assert.True(count == 1, $"junction {junction} of roundabout {ring} is left by {count} of its roads");
+                Assert.True(
+                    arriving.GetValueOrDefault(junction) == 1,
+                    $"junction {junction} of roundabout {ring} is arrived at by " +
+                    $"{arriving.GetValueOrDefault(junction)} of its roads");
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>A roundabout's ring is smooth</b> (GEN-19): every piece of it is one arc of one circle from node
+    /// to node, so there is no straight in it and no join to find — and every piece of one ring is drawn on
+    /// the same radius, which is what makes it a circle rather than a run of bends.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void EveryRoundaboutIsOneCircle(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
+        {
+            var radiusM = 0f;
+            foreach (var road in plan.Roundabouts.RoadsOf(ring))
+            {
+                var arcs = plan.Roads.SegmentsOf(road);
+                Assert.True(arcs.Length == 1, $"road {road} of roundabout {ring} is {arcs.Length} pieces");
+                Assert.True(arcs[0].Curvature != 0f, $"road {road} of roundabout {ring} is straight");
+
+                var onM = 1f / MathF.Abs(arcs[0].Curvature);
+                radiusM = radiusM == 0f ? onM : radiusM;
+                Assert.True(
+                    MathF.Abs(onM - radiusM) <= Kerbs.OnePlaceM,
+                    $"road {road} of roundabout {ring} bends on {onM:F1} m where the ring is {radiusM:F1} m");
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>And it is driven through the junctions it is made of</b> (GEN-19): each piece of the ring starts at
+    /// the centre of the junction it leaves and finishes at the centre of the one it arrives at, the way an
+    /// arm at any other junction does. A ring carried off that circle — onto the driven half of a corridor it
+    /// is the whole of — ends its arms on its own far kerb, and the pavement round the island then runs
+    /// exactly half a walk from the end of every one of them.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void EveryRoundaboutRunsThroughItsOwnJunctions(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
+        {
+            foreach (var road in plan.Roundabouts.RoadsOf(ring))
+            {
+                var arcs = plan.Roads.SegmentsOf(road);
+                var fromM = plan.Junctions.CentreM[plan.Roads.FromJunction[road]];
+                var toM = plan.Junctions.CentreM[plan.Roads.ToJunction[road]];
+                Assert.True(
+                    Vector2.Distance(arcs[0].StartM, fromM) <= Kerbs.RoundingM,
+                    $"road {road} of roundabout {ring} sets off at {arcs[0].StartM}, " +
+                    $"{Vector2.Distance(arcs[0].StartM, fromM):F3} m off the junction it leaves");
+                Assert.True(
+                    Vector2.Distance(arcs[^1].EndM, toM) <= Kerbs.RoundingM,
+                    $"road {road} of roundabout {ring} finishes at {arcs[^1].EndM}, " +
+                    $"{Vector2.Distance(arcs[^1].EndM, toM):F3} m off the junction it arrives at");
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>A roundabout is driven with its island on the side the traffic does not keep</b> (GEN-19): a car
+    /// goes round turning away from the kerb it drives against, which is anticlockwise where traffic keeps
+    /// right.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void EveryRoundaboutTurnsAwayFromTheSideTheTrafficKeeps(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
+        {
+            foreach (var road in plan.Roundabouts.RoadsOf(ring))
+            {
+                // Read the way it is driven: a road driven against its own line is turning the other way
+                // from the way its arcs are written (TER-4d).
+                var driven = plan.Roads.Flow[road] == RoadFlow.WithTheRoad ? 1f : -1f;
+                foreach (var arc in plan.Roads.SegmentsOf(road))
+                {
+                    if (arc.Curvature == 0f) continue;
+
+                    Assert.True(
+                        MathF.Sign(arc.Curvature * driven) == -MathF.Sign(Config.RoadSideSign),
+                        $"road {road} of roundabout {ring} bends towards the side the traffic keeps");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>Nothing on a roundabout's ring is lit</b> (GEN-19): its circulating traffic is driven over what is
+    /// entering by the ranking alone (TER-5e), and a timetable there would stop the circle to let an arm in.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoJunctionOnARoundaboutIsLit(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        var ringOf = RingOf(plan);
+        for (var junction = 0; junction < plan.Junctions.Count; junction++)
+        {
+            Assert.False(
+                ringOf[junction] >= 0 && plan.Junctions.Lit[junction],
+                $"junction {junction} stands on a roundabout and is lit");
+        }
+    }
+
+    /// <summary>
+    /// <b>No zebra is painted on a roundabout's circulating carriageway</b> (GEN-19): a walk laid across it
+    /// is a walk across the traffic a roundabout exists to keep moving, and the ring's entries carry the
+    /// crossings somebody getting round one uses.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoCrossingIsPaintedOnARoundabout(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        var circulating = OneWays.Circulating(plan);
+        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+        {
+            Assert.False(
+                circulating[plan.Crosswalks.Road[crossing]],
+                $"crossing {crossing} at {plan.Crosswalks.CentreM[crossing]} is painted on a roundabout");
+        }
+    }
+
+    /// <summary>
+    /// <b>No bar is painted on a roundabout's circulating carriageway</b> (GEN-19): a bar is where a driver
+    /// holds when the junction refuses them, and circulating traffic is never refused.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoBarIsPaintedOnARoundabout(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        var circulating = OneWays.Circulating(plan);
+        for (var bar = 0; bar < plan.StopLines.Count; bar++)
+        {
+            Assert.False(
+                circulating[plan.StopLines.Road[bar]],
+                $"bar {bar} at {plan.StopLines.CentreM[bar]} is painted on a roundabout");
+        }
+    }
+
+    /// <summary>
+    /// <b>A roundabout is a junction of four arms or more</b> (GEN-19): a node of three is a junction the
+    /// ranking settles standing still, so what the town lays there is the junction and not a circle. Its
+    /// ring carries one node for every arm, so four arms are four roads circulating.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoRoundaboutIsLaidWhereAJunctionWouldDo(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        for (var roundabout = 0; roundabout < plan.Roundabouts.Count; roundabout++)
+        {
+            Assert.True(
+                plan.Roundabouts.RoadsOf(roundabout).Length >= Roundabouts.ArmsLeast,
+                $"roundabout {roundabout} circulates on {plan.Roundabouts.RoadsOf(roundabout).Length} roads, "
+                + $"so it opened out a junction of fewer than {Roundabouts.ArmsLeast} arms");
+        }
+    }
+
+    /// <summary>
+    /// <b>Nothing fronts a roundabout</b> (GEN-19): a ring is one junction's worth of ground, so no car park
+    /// hangs off it — a lot entered off a junction is a lot reached across circulating traffic.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoCarParkFrontsARoundabout(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        var circulating = OneWays.Circulating(plan);
+        foreach (var front in RoadFrontages.Lay(plan.Ground, Config).All)
+        {
+            Assert.False(
+                circulating[front.Road],
+                $"car park {front.Lot} fronts road {front.Road}, which circulates on a roundabout");
+        }
+    }
+
+    /// <summary>
     /// <b>Nothing ends in nothing</b> (GEN-5a): a generated town carries no junction of one arm, since the
     /// road stage gives every junction the disc a crossing needs and a dead end is the one junction that has
     /// to hold a car turning round in it (TER-5a).
@@ -418,10 +660,16 @@ public class GeneratorTests
     public void NoTwoJunctionsStandInsideALocalityOfEachOther(ulong seed)
     {
         var plan = Lay(Brief(seed));
+        var ringOf = RingOf(plan);
         for (var junction = 0; junction < plan.Junctions.Count; junction++)
         {
             for (var other = junction + 1; other < plan.Junctions.Count; other++)
             {
+                // <b>Two nodes of one roundabout are exempt</b> (GEN-19): they are one junction laid out as
+                // a circle rather than two spacings that happened to collide, and what they owe each other
+                // is the road between them (TER-5a).
+                if (ringOf[junction] >= 0 && ringOf[junction] == ringOf[other]) continue;
+
                 var apartM = (plan.Junctions.CentreM[junction] - plan.Junctions.CentreM[other]).Length();
                 Assert.True(
                     apartM >= Config.CityGen.LocalityM,
@@ -509,7 +757,7 @@ public class GeneratorTests
             {
                 Assert.True(arcs[0].Curvature == 0f, $"road {road} bends out of junction {from}");
                 Assert.True(
-                    arcs[0].LengthM >= RoadStage.StubM(Config) * 0.5f,
+                    arcs[0].LengthM >= Config.StraightStubLeastM,
                     $"road {road} leaves junction {from} on {arcs[0].LengthM:F1} m of straight");
             }
 
@@ -527,13 +775,20 @@ public class GeneratorTests
     /// is the shape of the ground and not the speed anything holds through it. It is still never tighter than
     /// the fillet the corner would have been turned on.
     /// </remarks>
+    /// <remarks>
+    /// <b>A roundabout is the other exception, and it has a floor of its own</b> (GEN-19): the whole of one
+    /// is a corner, so what its ring may bend to is the radius its own design speed affords rather than the
+    /// street's.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Seeds))]
     public void NothingBendsTighterThanItsOwnFloor(ulong seed)
     {
         var plan = Lay(Brief(seed));
         var arms = ArmsOf(plan);
+        var circulating = OneWays.Circulating(plan);
         var floorM = RoadStage.FloorRadiusM(Config, RoadClass.Street);
+        var ringFloorM = RoadStage.FloorRadiusM(Config, RoadClass.Roundabout);
         for (var road = 0; road < plan.Roads.Count; road++)
         {
             var arcs = plan.Roads.SegmentsOf(road);
@@ -543,10 +798,13 @@ public class GeneratorTests
 
                 var sweptCorner = (piece == 0 && arms[plan.Roads.FromJunction[road]] == 2)
                                   || (piece == arcs.Length - 1 && arms[plan.Roads.ToJunction[road]] == 2);
+                var againstM = circulating[road]
+                    ? ringFloorM
+                    : sweptCorner ? Config.RoadCornerRadiusM : floorM;
                 var radiusM = 1f / MathF.Abs(arcs[piece].Curvature);
                 Assert.True(
-                    radiusM >= (sweptCorner ? Config.RoadCornerRadiusM : floorM) - 0.01f,
-                    $"an arc of {radiusM:F1} m against a floor of {floorM:F1} m");
+                    radiusM >= againstM - 0.01f,
+                    $"an arc of {radiusM:F1} m against a floor of {againstM:F1} m");
             }
         }
     }
@@ -738,9 +996,12 @@ public class GeneratorTests
         {
             var plan = Lay(Brief(seed));
             var arms = ArmsOf(plan);
+            var ringOf = RingOf(plan);
             for (var junction = 0; junction < plan.Junctions.Count; junction++)
             {
-                if (arms[junction] < 3) continue;
+                // <b>A roundabout's own nodes are not a junction the draw is about</b> (GEN-19): none of
+                // them is ever lit, so counting them would read as a town the draw had left unregulated.
+                if (arms[junction] < 3 || ringOf[junction] >= 0) continue;
 
                 eligible++;
                 if (!plan.Junctions.Lit[junction]) unregulated++;
@@ -1240,6 +1501,23 @@ public class GeneratorTests
         }
 
         return arms;
+    }
+
+    /// <summary>Which roundabout each junction stands on, or <c>−1</c> where it stands on none (GEN-19).</summary>
+    static int[] RingOf(CityPlan plan)
+    {
+        var ringOf = new int[plan.Junctions.Count];
+        Array.Fill(ringOf, -1);
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
+        {
+            foreach (var road in plan.Roundabouts.RoadsOf(ring))
+            {
+                ringOf[plan.Roads.FromJunction[road]] = ring;
+                ringOf[plan.Roads.ToJunction[road]] = ring;
+            }
+        }
+
+        return ringOf;
     }
 
     /// <summary>

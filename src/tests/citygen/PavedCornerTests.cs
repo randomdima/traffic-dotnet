@@ -120,6 +120,27 @@ public class PavedCornerTests
     }
 
     /// <summary>
+    /// <b>The outer edge turns its corners where the shell does.</b> A shell corner is solved as the meeting of
+    /// two ends' outer edges taken straight, and named only where the grass is beyond it — so a corner that
+    /// is really a walk off the tarmac is one the solve got right, and one further off or nearer is a pair of
+    /// ends read on the wrong side, or a step between two runs that lie along one another taken for a corner.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void EveryShellCornerStandsAWalkOffTheTarmac(string map)
+    {
+        var paving = Towns.Of(map).Paving(SimConfig.Shipped());
+
+        foreach (var corner in paving.ShellCorners)
+        {
+            var offM = paving.Kerbs.OffTheTarmacM(corner.PlaceM);
+            Assert.True(
+                MathF.Abs(offM - paving.WalkM) <= OnePlaceM,
+                $"{map}: the shell turns a corner at {corner.PlaceM}, {offM:F3} m off the tarmac against a walk of {paving.WalkM:F2} m");
+        }
+    }
+
+    /// <summary>
     /// Where the pavement's inner edge stops on each run: half a walk to the road's side of both ends of the
     /// line, which is the offset the kerb line is struck at (<c>App.Render.GroundMesh</c>).
     /// </summary>

@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Gen;
 
@@ -18,16 +19,24 @@ internal enum RoadClass : byte
     /// it is a piece of was going to do.
     /// </summary>
     Bridge,
+
+    /// <summary>
+    /// One piece of a roundabout's circulating carriageway (GEN-19). <b>Every one of them is driven one way
+    /// and bends</b>, so a ring is the one place this layout carries a road that is neither a street nor a
+    /// way between two districts, and nothing fronts one.
+    /// </summary>
+    Roundabout,
 }
 
 /// <summary>One road of the layout before it has a shape: what it joins, what it is for, and how it runs.</summary>
 /// <param name="Curvature">
-/// The bend the layout itself asks for, as 1/radius — an orbital's own arc, and zero for everything the road
-/// stage is free to wander (<see cref="RoadStage"/>). It is signed: left of travel is positive.
+/// The bend the layout itself asks for, as 1/radius — an orbital's own arc, a roundabout's own circle, and
+/// zero for everything the road stage is free to wander (<see cref="RoadStage"/>). It is signed the way
+/// <see cref="ArcSeg.Curvature"/> is: positive turns to the driver's right.
 /// </param>
 /// <param name="Flow">
-/// Which way it is driven (TER-4d). What lays the road proposes it; what the town can be driven round
-/// settles it (<see cref="TownLayout.OpenTheOneWaysACarCannotLeave"/>).
+/// Which way it is driven (TER-4d). <b>Every road is laid running both ways</b>; which of them run one way
+/// is chosen and settled over the whole layout once it stands (<see cref="OneWayStreets"/>).
 /// </param>
 internal readonly record struct LayoutEdge(
     int From, int To, RoadClass Class, float Curvature, RoadFlow Flow);
@@ -103,26 +112,49 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     /// rather keep is not knowable while they are still being offered, so that is
     /// <see cref="UnpickTheCrossings"/>'s to settle once every road has been laid.
     /// </summary>
-    public void Join(
-        int from, int to, RoadClass roadClass, float curvature = 0f, RoadFlow flow = RoadFlow.BothWays)
+    /// <returns>The road, or <c>−1</c> where it was refused.</returns>
+    public int Join(int from, int to, RoadClass roadClass, float curvature = 0f)
     {
-        if (from == to) return;
+        if (from == to) return -1;
 
         var runM = _nodeM[to] - _nodeM[from];
-        if (runM.Length() < shortestRoadM) return;
-        if (!water.Carries(_nodeM[from], _nodeM[to], roadClass)) return;
-        if (!_joined.Add(from < to ? (from, to) : (to, from))) return;
+        if (runM.Length() < shortestRoadM) return -1;
+        if (!water.Carries(_nodeM[from], _nodeM[to], roadClass)) return -1;
+        if (!_joined.Add(from < to ? (from, to) : (to, from))) return -1;
 
-        var outward = MathF.Atan2(runM.Y, runM.X);
-        if (!StandsSquareEnough(from, outward) || !StandsSquareEnough(to, outward + MathF.PI))
+        var (outOfFrom, outOfTo) = Bearings(_nodeM[from], _nodeM[to], curvature);
+        if (!StandsSquareEnough(from, outOfFrom) || !StandsSquareEnough(to, outOfTo))
         {
             _joined.Remove(from < to ? (from, to) : (to, from));
-            return;
+            return -1;
         }
 
-        _armsAt[from].Add(outward);
-        _armsAt[to].Add(outward + MathF.PI);
-        _edges.Add(new LayoutEdge(from, to, roadClass, curvature, flow));
+        _armsAt[from].Add(outOfFrom);
+        _armsAt[to].Add(outOfTo);
+        _edges.Add(new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays));
+        return _edges.Count - 1;
+    }
+
+    /// <summary>
+    /// <b>Which way a road leaves each of its two ends</b> — the tangent the carriageway is actually drawn
+    /// on there and not the chord it is joined along (<see cref="RoadStage"/>). A straight leaves both ends
+    /// on its own chord; an arc leaves each end turned half its own sweep off it, which is the whole of the
+    /// difference between a circle and the polygon its nodes make.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is what GEN-13 is measured on.</b> Two pieces of one circle meeting at a node lie half a turn
+    /// apart — a road running through it — where their chords stand at the polygon's own interior angle and
+    /// would be refused for lying against each other.
+    /// </remarks>
+    static (float OutOfFrom, float OutOfTo) Bearings(Vector2 fromM, Vector2 toM, float curvature)
+    {
+        var runM = toM - fromM;
+        var chordRad = MathF.Atan2(runM.Y, runM.X);
+        if (MathF.Abs(curvature) <= 0f) return (chordRad, chordRad + MathF.PI);
+
+        var radiusM = 1f / MathF.Abs(curvature);
+        var halfRad = MathF.Asin(MathF.Min(1f, runM.Length() * 0.5f / radiusM)) * MathF.Sign(curvature);
+        return (chordRad - halfRad, chordRad + halfRad + MathF.PI);
     }
 
     /// <summary>
@@ -147,6 +179,86 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     /// are what they were, and only the traffic on it has changed.
     /// </summary>
     public void RunsOneWay(int edge, RoadFlow flow) => _edges[edge] = _edges[edge] with { Flow = flow };
+
+    /// <summary>
+    /// Which way one of a node's roads leaves it, as the bearing the carriageway is drawn on there
+    /// (<see cref="Bearings"/>).
+    /// </summary>
+    public float OutwardRad(int edge, int node)
+    {
+        var (outOfFrom, outOfTo) = Bearings(_nodeM[_edges[edge].From], _nodeM[_edges[edge].To], _edges[edge].Curvature);
+        return _edges[edge].From == node ? outOfFrom : outOfTo;
+    }
+
+    /// <summary>The roads at one node, in the order they leave it.</summary>
+    public List<int> ArmsAt(int node)
+    {
+        var arms = new List<int>();
+        for (var edge = 0; edge < _edges.Count; edge++)
+        {
+            if (_edges[edge].From == node || _edges[edge].To == node) arms.Add(edge);
+        }
+
+        arms.Sort((a, b) => Wrapped(OutwardRad(a, node)).CompareTo(Wrapped(OutwardRad(b, node))));
+        return arms;
+    }
+
+    /// <summary>
+    /// <b>One node opened out into a ring driven one way round it</b> (GEN-19). Each of its roads is cut
+    /// back to its own point on a circle of <paramref name="radiusM"/> — <b>the point on that road's own
+    /// bearing</b>, so nothing bends to meet the ring and every arm arrives square to it — and the points
+    /// are joined into a closed circle of one-way arcs, in the direction <paramref name="curvature"/> says.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Nothing is offered again and nothing here can be refused</b> (<see cref="Rebuilt"/>): whether
+    /// there is room for a ring at all is <see cref="Roundabouts"/>'s to settle before it asks, because a
+    /// half-laid ring is a worse town than the junction it replaced. What arrives here is a node whose arms
+    /// are already known to clear it.
+    /// </para>
+    /// <para>
+    /// <b>The node itself is left standing with nothing at it</b> rather than deleted, so that every road
+    /// and every other node keeps the number it had while the rest of the town is still being rung out;
+    /// <see cref="PruneTheDeadEnds"/> is what drops the husks afterwards.
+    /// </para>
+    /// </remarks>
+    public void RingOut(int node, float radiusM, float curvature)
+    {
+        var arms = ArmsAt(node);
+        if (arms.Count < 3) return;
+
+        // Round the circle the way the traffic goes: a right-hand turn is the way the angles increase.
+        if (curvature < 0f) arms.Reverse();
+
+        var centreM = _nodeM[node];
+        var nodeM = new List<Vector2>(_nodeM);
+        var onTheRing = new int[arms.Count];
+        for (var arm = 0; arm < arms.Count; arm++)
+        {
+            onTheRing[arm] = nodeM.Count;
+            nodeM.Add(centreM + (Heading.Unit(OutwardRad(arms[arm], node)) * radiusM));
+        }
+
+        var edges = new List<LayoutEdge>(_edges);
+        for (var arm = 0; arm < arms.Count; arm++)
+        {
+            var edge = edges[arms[arm]];
+            edges[arms[arm]] = edge.From == node
+                ? edge with { From = onTheRing[arm] }
+                : edge with { To = onTheRing[arm] };
+        }
+
+        for (var arm = 0; arm < arms.Count; arm++)
+        {
+            edges.Add(new LayoutEdge(
+                onTheRing[arm], onTheRing[(arm + 1) % arms.Count], RoadClass.Roundabout, curvature,
+                RoadFlow.WithTheRoad));
+        }
+
+        Rebuilt(nodeM, edges);
+    }
+
+    static float Wrapped(float radians) => radians - (MathF.Tau * MathF.Floor(radians / MathF.Tau));
 
     /// <summary>How many roads meet at each node, which is what decides a junction's radius and whether it may be lit.</summary>
     public int[] Arms()
@@ -504,7 +616,7 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         _joined.Clear();
         _armsAt.Clear();
         for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
-        foreach (var edge in edges) Join(edge.From, edge.To, edge.Class, edge.Curvature, edge.Flow);
+        foreach (var edge in edges) Join(edge.From, edge.To, edge.Class, edge.Curvature);
     }
 
     void Rebuilt(List<Vector2> nodeM, List<LayoutEdge> edges)
@@ -519,10 +631,9 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         foreach (var edge in _edges)
         {
             _joined.Add(edge.From < edge.To ? (edge.From, edge.To) : (edge.To, edge.From));
-            var runM = _nodeM[edge.To] - _nodeM[edge.From];
-            var outward = MathF.Atan2(runM.Y, runM.X);
-            _armsAt[edge.From].Add(outward);
-            _armsAt[edge.To].Add(outward + MathF.PI);
+            var (outOfFrom, outOfTo) = Bearings(_nodeM[edge.From], _nodeM[edge.To], edge.Curvature);
+            _armsAt[edge.From].Add(outOfFrom);
+            _armsAt[edge.To].Add(outOfTo);
         }
     }
 

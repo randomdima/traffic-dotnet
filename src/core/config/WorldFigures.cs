@@ -78,15 +78,17 @@ internal sealed class RoadFigures
     /// so a crossing on the exam and a crossing in a generated town are the same distance off the box.
     /// </summary>
     /// <remarks>
-    /// <b>The setback is measured from where that arm's own kerb fillet lets go of the kerb</b>
+    /// <b>The setback is measured from where the nearer of the arm's two kerb fillets lets go of the kerb</b>
     /// (<see cref="SimConfig.JunctionArmReachM"/>) and never from the node, so a skew junction's paint stands
-    /// off the ground the junction actually takes rather than off an average of every junction in the town.
-    /// It is therefore a stride of carriageway and not a slack allowance for the skew: enough that the
-    /// zebra's end bars stand on straight kerb rather than on the corner's own arc, and no more.
+    /// off the ground the junction actually takes rather than off an average of every junction in the town;
+    /// and the paint stands wholly past the further fillet, however little that leaves it past that one.
+    /// It is a stride of carriageway and not a slack allowance for the skew. <b>Five metres is the owner's
+    /// figure</b>: a car leaving the corner is straight before it reaches the paint, and a walker on the
+    /// paint stands clear of the traffic turning through the corner.
     /// </remarks>
     public float CrossingDepthM { get; init; } = 4f;
 
-    public float CrossingSetbackM { get; init; } = 1f;
+    public float CrossingSetbackM { get; init; } = 5f;
 
     /// <summary>And the bar behind it: how thickly it is painted, and how far behind the crossing it stands.</summary>
     public float StopBarThicknessM { get; init; } = 0.4f;
@@ -319,6 +321,35 @@ internal sealed class CityGenFigures
     /// straight after the other.
     /// </remarks>
     public float LocalityM { get; init; } = 30f;
+
+    /// <summary>
+    /// How far one one-way street stands off the next (GEN-18), which is what scatters them evenly over a
+    /// town rather than gathering them into a district.
+    /// </summary>
+    /// <remarks>
+    /// <b>Wider than the coarsest block a district is laid at</b> (<see cref="BlockSpacingAlongMaxM"/>), so
+    /// no block has two of them round it and a driver meets one every few blocks wherever they are in the
+    /// town. Authored: it is a spacing between two things on the ground, like <see cref="LocalityM"/>, and
+    /// not a share of anything the town came out with.
+    /// </remarks>
+    public float OneWayApartMinM { get; init; } = 250f;
+
+    /// <summary>
+    /// The speed a roundabout's circulating carriageway is laid for (GEN-19), which is the tightest circle
+    /// one may be: the radius is <see cref="SimConfig.CarCorneringRadiusM"/> of it on tarmac and is never
+    /// authored. <b>Slower than a street</b>, because the whole of a roundabout is one corner.
+    /// </summary>
+    public float RoundaboutDesignSpeedMps { get; init; } = 8f;
+
+    /// <summary>
+    /// How far one roundabout stands off the next (GEN-19), so a district's exits do not all become one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Wider again than the one-way scatter</b> (<see cref="OneWayApartMinM"/>): a roundabout is the
+    /// largest thing a junction can be and a town that turned every exit into one reads as a ring road
+    /// rather than as a town. Authored, like every other spacing between two things on the ground.
+    /// </remarks>
+    public float RoundaboutApartMinM { get; init; } = 400f;
 
     /// <summary>
     /// How far off each other a junction's arms must stand (GEN-13). <b>Sixty degrees</b>: below it two

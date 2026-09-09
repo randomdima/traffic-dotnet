@@ -1,5 +1,94 @@
 # CityGen — decision log
 
+## 2026-09-08 — a roundabout is a ring of ordinary junctions with no paint on it
+
+Nothing about a roundabout is a new kind of thing (GEN-19): a node is opened out into a circle of nodes
+joined by one-way arcs, and every rule the town already has answers for the result. The pay-off is the one
+that matters — **circulating traffic is driven over what is entering, and nothing had to grant it that**.
+Two ring arcs at a node are two pieces of one circle, so the movement between them is straight on and the
+movement in off the arm is a turn; `TER-5e` ranks the straighter one over it and the priority a roundabout
+exists for falls out of the ranking. The alternative shape, a polygon of straights, loses exactly that: at
+three or four nodes every circulating movement is a turn of sixty to ninety degrees, and the ring gives way
+to each arm in turn.
+
+**The ring is one arc a node to a node, and making that work meant striking a corner on a curve.** A
+junction's kerb fillets were solved between the two *lines* its arms' bearings make, which is right for
+every arm that leaves straight and wrong by a metre and a half on a circle of twenty-seven metres — the
+entries were filleted to points off their own tarmac, and the walking network round the ring came apart at
+each of them. `Furniture.Kerb` now carries each kerb as the shape it is drawn along, a line or a circle,
+and the corner and its fillet are the intersections of those: the arc tangent to both is centred where the
+two of them offset by its radius meet, and it touches each at that kerb's nearest point to the centre. The
+straight case is that construction and not a case beside it.
+
+**The alternative was tried and given up.** A ring laid as straights at the nodes with an arc between them
+keeps every junction's ground on a line, but the straights are chords of a circle whose entries need
+twenty-odd metres of them apiece — so the ring is two thirds straight, ninety metres across, and reads as a
+rounded square. A smooth circle needs a third of that width and is the shape somebody asked for.
+
+**Nothing is painted on the ring, and that is what let it shrink.** A crossing and the bar behind it are
+straight bands, so a ring that carried them had to be wide enough for the bundle to read square on its own
+bend — about twenty-three metres of radius before anything else was asked. The entries carry both instead:
+the zebra because that is where somebody crossing a roundabout crosses, and the bar because a bar is where a
+driver holds when the junction refuses them and circulating traffic is never refused. What the ring is left
+as is a circular road with entries and exits and no paint at all.
+
+**What sizes it is the two roads leaving two of its nodes, and nothing else.** A ring's nodes are one
+junction laid out as a circle rather than the accident GEN-16 is about, so they owe each other neither a
+locality nor the road two separate junctions would — they owe each other what the arms leaving them do: the
+ground one road takes (GEN-17) and a pavement's width on top of it, because two mouths whose paving abuts is
+paving with nothing to wrap round. Held to the road instead, the circle came out nearly twice that wide for
+no reason anything downstream could name. Odesa's widest went 54.6 m across → 45.8 → **32.4**.
+
+**Four arms or it stays a junction.** Three arms opened out into a circle is a ring laid to sort out one
+conflict the ranking already sorts out standing still, and it charges every car through the node a detour to
+reach the arm opposite. Refusing them is free: the node keeps the junction it always was, which is what
+`Roundabouts` does with every other condition it fails.
+
+**What it costs is an island nobody walks onto**, which is what an island is: nothing stands on it, nobody
+is put down on it and no trip ends there, so the walkable ground GEN-5 is about is still one piece.
+
+**The turn a movement makes is measured off the arcs and the arms off their tangents.** Joining a node
+recorded the *chord* a road left on, which for a circle is the polygon's interior angle rather than the
+road's own bearing — so two pieces of one ring read as two arms lying together and GEN-13 refused them.
+`TownLayout.Bearings` records the tangent now, which is what the carriageway is drawn on and what every
+other reading of an arm already used.
+
+**And two car parks are measured against the whole town rather than against their own road.** GEN-16 was
+enforced by comparing each lot with the last one laid along the same kerb, which never saw a pair either
+side of a junction; a laid city with roundabouts in it found one at twenty-nine metres. The pass asks every
+lot now, on the same abeam test the gate does.
+
+**The ring is not moved onto a driven half, because it is the whole of its own corridor.** A street the
+scatter takes is one way of the two it was laid as and belongs on the half its traffic drives
+(`RoadStage.OntoTheDrivenHalf`); a ring is laid one way round the circle its arms sized, and moved half a
+lane off that circle its carriageway left its own nodes. What that cost was the pavement round the island:
+the arms then ended on the ring's far kerb, exactly half a walk from the line the island's footway runs
+down, so whether that pavement existed at each entry came down to the last bits of a float — three of
+Odesa's four entries lost about two thirds of a metre of it, and the band was closed there with a round at
+each end, two fans of concrete laid over the band that was already there. On the circle, an arm ends at the
+ring's centreline like an arm at any other junction and the island's footway is one closed line.
+
+## 2026-09-08 — one-way streets are scattered over the town rather than laid as a grid
+
+A one-way grid put every one of them in the strict districts inside the orbital and none anywhere else, so
+most of a town never met one and one district was nothing but. They are chosen over the whole layout now
+(GEN-18), after the deletion passes rather than while the lattice is laid — which is also what lets the
+choice be made against the town there actually is, so the settling opens far fewer of them again. What
+decides the set is a spacing off the ones already taken and the rule that no junction carries two, and the
+lattice no longer proposes a flow at all: every road is laid running both ways.
+
+**Both ends have to fork, and neither may be on an arterial.** A street at a two-armed node dangles a lane
+whatever else is true (GEN-18a), so taking one spends a place in the scatter on a street the settling would
+open again. The arterials were the sharper find: a one-way street hung off one costs a district its second
+way in, and a laid city with them had eight of the town tier's questions fail — claims left held behind a
+car in a box, walkers sent over a carriageway, an ambulance that never arrived. Excluded, all eight came
+back.
+
+**What is left is two paving faults the old grid never reached** — a three-armed junction with no box, and
+a corner turn setting off where no kerb ends, both on the laid city. Keeping one-way streets out of the
+districts that wander hides the first and not the second, which is why neither is hidden: they are the
+pavement's to answer for and not the arrangement's.
+
 ## 2026-09-08 — a box's outline never doubles back, and a jog at the node is not a side
 
 Nearly every crossroads in a laid city had no box, and its arms' sections ran to the node and crossed one
@@ -157,17 +246,13 @@ a band widened in the picture and not the answer is a walker refused ground it c
 `Paving.Lay` states the pieces once. The restructure is exactly behaviour-preserving and the frames come
 back byte-identical, which is the only test that could have said so.
 
-## 2026-09-05 — the grid in the middle runs one way, and keeps what it can be driven with
+## 2026-09-05 — a town keeps only the one-way streets it can be driven round with
 
-A one-way grid is laid and then held to what a car can do on it (GEN-18), because the lattice a town ends
-up with is not the lattice that was laid — water, corridors and three deletion passes leave it ragged. The
-whole proposal is tried first and, where it cannot be driven round, streets are re-opened in the order they
-were laid; at worst that is the town this generator laid before one-way streets existed. Drivable is asked
-of the movements and not the roads: a block whose streets all run inwards keeps one connected component and
-is still somewhere a car drives into and never leaves. Reachable everywhere was not enough, because the
-fault is local (GEN-18a) — a one-way street at a two-armed node leaves a lane nothing ever arrives on, so
-the town draws a lane, a stop bar and a line no car is on. A movement leaving a node needs some road other
-than its own arriving there. It costs Odesa a third of its one-way streets.
+Drivable is asked of the movements and not the roads (GEN-18): a block whose streets all run inwards keeps
+one connected component and is still somewhere a car drives into and never leaves. Reachable everywhere was
+not enough either, because the fault is local (GEN-18a) — a one-way street at a two-armed node leaves a lane
+nothing ever arrives on, so the town draws a lane, a stop bar and a line no car is on. A movement leaving a
+node needs some road other than its own arriving there.
 
 ## 2026-09-05 — the lattice is ground, and two exams stand on it
 

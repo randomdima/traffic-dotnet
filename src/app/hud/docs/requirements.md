@@ -26,10 +26,15 @@ middle of the window naming the map, from the press until the town it names is r
 - **The frame that took the click draws the card and opens nothing.** A town stood up inside that frame
   would be the whole wait spent behind the frame before it, and what the reader would see is a picture that
   stopped answering. What acts on the name is the loop's next turn, or in a page the boot's own wait.
-- **It names the map and claims nothing about how far along it is.** On the desktop the open is one call,
-  so the frame carrying the card is the last frame until the town is standing: a bar filling or a spinner
-  turning would stop on its first frame and read as a run that has wedged. A card that moved in a page and
-  froze on the desktop would be two pieces of furniture wearing one name.
+- **No frame waits for the open, on either head.** The window keeps pumping, the town already standing
+  keeps ticking and the card keeps being drawn for as long as the open takes — a run that stops answering
+  its window for the seconds a town takes to lay is one the desktop reports as hung. **Only what the
+  device owns may be done in the frame**: laying a plan, a ground and a fleet touches neither the device
+  nor the town on screen, so a head with threads does it on one of its own.
+- **It names the map and claims nothing about how far along it is.** The stages of an open are not the
+  same two things on the two heads — a fetch, against a lay — so a bar or a spinner would be measuring
+  one head's work in the other's units, and a card that moved in a page and froze on the desktop would be
+  two pieces of furniture wearing one name.
 - **While it is up it is the whole of the interface.** No panel, button, popup or layer is drawn and
   nothing takes a click — a map list still standing under the card is a second map waiting to be picked
   while the first is on the wire, and what arrived while the wait was on is dropped rather than banked.

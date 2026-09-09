@@ -26,6 +26,12 @@ namespace TrafficSimulation.CityGen.Gen;
 /// of them is one pass over what the stages before it laid.
 /// </para>
 /// <para>
+/// <b>What is left is then opened out and directed</b>, in that order and on the settled layout: the
+/// junctions a district leaves by become roundabouts (<see cref="Roundabouts"/>, GEN-19), and the streets
+/// that can afford it are taken one way (<see cref="OneWayStreets"/>, GEN-18). Neither deletes anything, and
+/// each is asked of the town there actually is rather than of the arrangement it was laid in.
+/// </para>
+/// <para>
 /// <b>Each stage draws on its own stream of the world seed</b> (GEN-11). Retuning what the props do cannot move
 /// where the roads went, which is what makes a stage worth changing at all — and it is why a town is the
 /// same every time it is opened without any stage having to know about the others' draws.
@@ -76,7 +82,8 @@ internal static class TownGenerator
         layout.UnpickTheCrossings(config.RoadFootprintM, RoadStage.StraysM(layout, districts, config));
         layout.KeepTheLargestComponent();
         layout.PruneTheDeadEnds();
-        OneWayStreets.Settle(layout);
+        Roundabouts.Lay(layout, districts, rules, config, worldSizeM, marginM);
+        OneWayStreets.Lay(layout, config);
 
         var shape = new Rng(brief.Seed, ShapeStream);
         var signals = new Rng(brief.Seed, SignalStream);
@@ -113,6 +120,7 @@ internal static class TownGenerator
             },
             Roads = roads.Roads,
             Bridges = roads.Bridges,
+            Roundabouts = roads.Roundabouts,
             PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = roads.Crosswalks,
             StopLines = roads.StopLines,

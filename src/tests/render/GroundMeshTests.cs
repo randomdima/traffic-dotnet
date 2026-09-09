@@ -236,9 +236,10 @@ public class GroundMeshTests
     }
 
     /// <summary>
-    /// <b>And it stops at the crossing on an arm that has no bar.</b> A junction the ranking governs carries
-    /// no stop bar (TLT-3) and the same metres of turning ground behind its paint, so a rule written round
-    /// the bar leaves the throat of every unlit junction in the town dashed up to its own mouth.
+    /// <b>And it stops at the crossing on an arm that has no bar.</b> A one-way street's leaving lane carries
+    /// no bar (TER-4d) and neither does an arm too short to hold one, and both have the same metres of
+    /// turning ground behind their paint, so a rule written round the bar leaves such a throat dashed up to
+    /// its own mouth.
     /// </summary>
     /// <remarks>
     /// <b>A junction that admits no fork has no such throat</b> (TER-6): its crossing is a mid-block one on a
@@ -1178,6 +1179,106 @@ public class GroundMeshTests
         }
 
         return painted;
+    }
+
+    /// <summary>
+    /// <b>The round that closes a run reaches the band's own outer edge</b>: everything within half a walk
+    /// of the place a run stops at, on the side it faces, is concrete — the same figure the band beside it
+    /// is a walk wide by (TER-3c.3).
+    /// </summary>
+    /// <remarks>
+    /// A round struck to the walk's edge <em>less a line's width</em> — the disc a rim would leave room for —
+    /// leaves that line's width of grass standing in a crescent round every stop in the town, because a rim
+    /// is a strip along a line and has no way round an end. Asked on the axis the end faces, a hair inside
+    /// the edge and a chord's sag clear of it, so what is being asked about is the round and not the
+    /// tolerance it is drawn to.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void EveryRoundThatClosesARunReachesTheBandsOuterEdge(string map)
+    {
+        const float HairM = 0.05f;
+
+        var paving = Towns.Of(map).Paving(SimConfig.Shipped());
+        var halfWalkM = paving.WalkM * 0.5f;
+        if (halfWalkM <= 0f) return;
+
+        var pavement = Triangles(Ground(map), Surface.Pavement);
+        foreach (var cap in paving.Caps)
+        {
+            var outM = cap.PlaceM + (cap.OutwardM * (halfWalkM - HairM));
+            Assert.True(
+                Covered(pavement, outM),
+                $"{map}: the round closing the run that stops at {cap.PlaceM} draws no concrete at {outM}, "
+                + $"{halfWalkM - HairM:F2} m out along the way it faces");
+        }
+    }
+
+    /// <summary>
+    /// <b>The pavement closes across every hand-over its runs make</b> (TER-7b): where the town answers
+    /// pavement between the two ends of a pair that give way to one another, the mesh draws concrete.
+    /// </summary>
+    /// <remarks>
+    /// A turn's wedge reaches the place its arc turns about, which is the run's own line and so the band's
+    /// road half. Where two ends stop at one place that is the whole of what is open; where they stop a kink
+    /// apart it left the lens between their outer halves standing as grass, a hair of it across the pavement
+    /// at every such hand-over in the town (<c>GroundMesh.Bridge</c>). Asked a quarter of a walk out from
+    /// between the two ends, which is inside the outer half of both bands and clear of the rim, and asked
+    /// only where the town's own answer says the ground there is the walk (TER-7).
+    /// <para>
+    /// <b>Two ends that stand at one place facing one way are one line cut in two</b>, and there is nothing
+    /// between them to draw: the ground there is each run's own band. Those are asked about by the claims
+    /// that hold a road's and a car park's ground, not here.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void ThePavementClosesAcrossEveryHandOver(string map)
+    {
+        // Two cross-sections a rounding apart pointing the same way within a bearing are one cross-section.
+        const float OnePlaceM = 0.001f;
+        const float OneBearing = 0.001f;
+
+        var plan = Towns.Of(map);
+        var paving = plan.Paving(SimConfig.Shipped());
+        var quarterWalkM = paving.WalkM * 0.25f;
+        if (quarterWalkM <= 0f) return;
+
+        var shapes = new GroundShapes(paving, SimConfig.Shipped());
+        var pavement = Triangles(Ground(map), Surface.Pavement);
+        var bare = new List<string>();
+        for (var end = 0; end < paving.Next.Length; end++)
+        {
+            var onto = paving.Next[end];
+            if (onto <= end) continue;
+
+            var (fromM, fromOutM) = OuterEdgeAt(paving.Walk[end / 2], end % 2 == 0);
+            var (ontoM, ontoOutM) = OuterEdgeAt(paving.Walk[onto / 2], onto % 2 == 0);
+            if (Vector2.Distance(fromM, ontoM) <= OnePlaceM
+                && Vector2.Dot(fromOutM, ontoOutM) >= 1f - OneBearing)
+            {
+                continue;
+            }
+
+            var atM = ((fromM + ontoM) * 0.5f) + ((fromOutM + ontoOutM) * 0.5f * quarterWalkM);
+            if (shapes.At(atM) != TrafficSimulation.CityGen.Ground.Sidewalk || Covered(pavement, atM)) continue;
+
+            bare.Add($"{atM}, between the runs stopping at {fromM} and {ontoM}");
+        }
+
+        Assert.True(
+            bare.Count == 0,
+            $"{map}: {bare.Count} of the pavement's hand-overs draw no concrete {quarterWalkM:F2} m out from "
+            + $"between their two ends, where the town answers the walk: {string.Join("; ", bare.Take(4))}");
+    }
+
+    /// <summary>Where a run's band stops at one of its ends, and which way out of the band lies there.</summary>
+    static (Vector2 AtM, Vector2 OutM) OuterEdgeAt(in PavedRun run, bool atStart)
+    {
+        var arc = atStart ? run.Line[0] : run.Line[^1];
+        var headingRad = atStart ? arc.HeadingRad : arc.HeadingAtRad(arc.LengthM);
+        return (atStart ? arc.StartM : arc.EndM,
+            new Vector2(MathF.Sin(headingRad), -MathF.Cos(headingRad)) * run.RoadSide);
     }
 
     /// <summary>Every triangle of one surface, as three corners each.</summary>

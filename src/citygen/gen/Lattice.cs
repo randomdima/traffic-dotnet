@@ -84,11 +84,6 @@ internal static class Lattice
             }
         }
 
-        // <b>The one-way grid is the middle of a grid town</b> (GEN-18): a district laid as a strict lattice
-        // inside the orbital drives its own streets one way, and every other district — the wandering ones,
-        // and everything out past the ring — is laid as it always was.
-        var oneWayGrid = districts[district].Strict && districts[district].Inside;
-
         for (var u = -reach; u <= reach; u++)
         {
             for (var v = -reach; v <= reach; v++)
@@ -96,8 +91,8 @@ internal static class Lattice
                 var from = node[Slot(u, v, reach, side)];
                 if (from < 0) continue;
 
-                Reach(layout, node, ground, arterials, u, v, 1, 0, reach, side, oneWayGrid);
-                Reach(layout, node, ground, arterials, u, v, 0, 1, reach, side, oneWayGrid);
+                Reach(layout, node, ground, arterials, u, v, 1, 0, reach, side);
+                Reach(layout, node, ground, arterials, u, v, 0, 1, reach, side);
                 Hang(layout, node, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, u, v, reach, side);
             }
         }
@@ -113,9 +108,14 @@ internal static class Lattice
         && !arterials.InACorridor(atM, clearanceM);
 
     /// <summary>One street of the lattice, where both its ends stand and the ground between them takes it.</summary>
+    /// <remarks>
+    /// <b>Laid running both ways, whatever it ends up carrying</b>: which streets of the finished town run
+    /// one way is not a fact about the arrangement they were laid in, and is settled over the whole layout
+    /// once it stands (<see cref="OneWayStreets"/>, GEN-18).
+    /// </remarks>
     static void Reach(
         TownLayout layout, int[] node, GroundShapes ground, Arterials arterials, int u, int v, int du, int dv,
-        int reach, int side, bool oneWayGrid)
+        int reach, int side)
     {
         if (u + du > reach || v + dv > reach) return;
 
@@ -127,27 +127,7 @@ internal static class Lattice
         var toM = layout.NodeM[to];
         if (arterials.CrossesTheRing(fromM, toM)) return;
 
-        layout.Join(from, to, RoadClass.Street, flow: Flow(u, v, du, oneWayGrid));
-    }
-
-    /// <summary>
-    /// Which way a lattice street runs: <b>the two families alternate, each against its own index</b>
-    /// (GEN-18), which is what leaves every block reachable off the pair of streets round it — a grid whose
-    /// streets all ran the same way is a grid with a corner nothing can come back from.
-    /// </summary>
-    /// <remarks>
-    /// <b>The lattice's own streets and never the stubs</b>: what hangs a lattice onto the arterial beside
-    /// it is laid by <see cref="Hang"/> and runs both ways, so a district reached off an arterial is entered
-    /// and left on a road that admits both. What is proposed here is what the arrangement affords; what a
-    /// town can actually be driven round is settled once the whole layout stands
-    /// (<see cref="OneWayStreets"/>).
-    /// </remarks>
-    static RoadFlow Flow(int u, int v, int du, bool oneWayGrid)
-    {
-        if (!oneWayGrid) return RoadFlow.BothWays;
-
-        var across = du == 0 ? u : v;
-        return (across & 1) == 0 ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad;
+        layout.Join(from, to, RoadClass.Street);
     }
 
     /// <summary>
