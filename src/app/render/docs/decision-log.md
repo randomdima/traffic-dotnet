@@ -23,16 +23,20 @@ one list in two directions rather than two constructions kept in step by whoever
 the caps, the corners, the shell corners and the hand-over graph — everything the picture alone read.
 `Ribbon`, `RoundedRect` and `Fillet` are what is left, and each is the shape of one thing at one size.
 
-**It costs no triangles.** The fixture went 6,019 → 5,875: a partition needs a strip at every place two
-shapes meet and there are more of those than there are pieces to overlap. What it does cost is the
-wireframe (OBS-2o), which now reads as three layers of triangles rather than as the town's surfaces and
-their seams — that reading was the partition's, and it went with it.
+**It costs about no triangles**, which is the surprise: a laid city went 179,194 → 170,690 and the fixture
+6,019 → 6,285. A partition needs a strip wherever two shapes meet and there are more of those than there
+are pieces to overlap; what the stack spends it back on is the round each road that really stops carries
+at its end, which the fixture pays five times over twelve junctions and a city hardly pays at all. What it
+does cost is the wireframe (OBS-2o), which now reads as three layers of triangles rather than as the
+town's surfaces and their seams — that reading was the partition's, and it went with it.
 
 **Three things the change had to be told, and one it did not.** A slab offers the town's outline no line to
 walk (`Kerbs.Lay`, `WalkedPast.Never`), so nothing pavements round one and nothing draws it — grown with
 the rest, it laid concrete on ground the answer calls grass. A road's ends are square where the answer
-swings the growth round the band's last cross-section, so each end carries the offset of that segment; a
-movement's ends carry nothing, since every one of them stands inside a junction. And what breaks the kerb
+swings the growth round the band's last cross-section, so an end that really stops carries the offset of
+that segment — only one that really stops, since capping every end instead put a fifth of a city's ground
+into rounds buried in junctions; a movement's ends carry nothing at all, every one of them standing inside
+a junction. And what breaks the kerb
 line over a car park's mouth is the lot's own tarmac, laid between the stroke and the carriageway because
 that is where the answer puts it — where the partition needed the frontages walked and the stretch left
 unstruck. The one it did not: the mouth, the self-crossing junction outline and the bridge were three

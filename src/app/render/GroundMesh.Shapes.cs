@@ -33,14 +33,11 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// An oriented rectangle whose four corners are turned on an arc of <paramref name="radiusM"/> — the
-    /// pavement's own corner where the thing it wraps has a square one of its own (TER-3c.3).
+    /// An oriented rectangle whose four corners are turned on an arc of <paramref name="radiusM"/>:
+    /// <b>a rectangle grown by that radius</b>, since a corner of the growth is the radius swung round the
+    /// corner it grew from. It is what a car park's wrap is (TER-3c.3, <c>GroundShapes.InRoundedRect</c>)
+    /// and what a road's own end grows into (<see cref="Grown"/>).
     /// </summary>
-    /// <remarks>
-    /// <b>The radius the answer turns them on</b> (<c>GroundShapes.InRoundedRect</c>), which is the walk
-    /// itself: a lot's wrap is the lot grown by a walk, and a corner of it is that walk swung round the
-    /// lot's own corner.
-    /// </remarks>
     void RoundedRect(Vector2 centreM, Vector2 axis, Vector2 halfM, float radiusM, Surface surface, Vector3 tint,
         float[] periods)
     {

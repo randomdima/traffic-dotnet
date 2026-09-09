@@ -57,21 +57,12 @@ internal sealed class Kerbs
     readonly List<Shard> _shards;
     readonly ShardGrid _grid;
 
-    Kerbs(List<Piece> pieces, List<Shard> shards, ShardGrid grid, int roads)
+    Kerbs(List<Piece> pieces, List<Shard> shards, ShardGrid grid)
     {
         _pieces = pieces;
         _shards = shards;
         _grid = grid;
-        Roads = roads;
     }
-
-    /// <summary>
-    /// How many of the pieces are the carriageways themselves. <b>They are laid first</b>
-    /// (<see cref="Lay"/>), so a piece under this is a road's own band and one at or over it is a
-    /// movement, a kerb fillet, a car park or a slab — which is what tells a run of the outline that wraps
-    /// a road from one that wraps anything else.
-    /// </summary>
-    public int Roads { get; }
 
     /// <param name="through">
     /// The junctions a road runs through as one line (<see cref="RoadCuts.RunsThrough"/>), whose movements
@@ -79,9 +70,9 @@ internal sealed class Kerbs
     /// </param>
     public static Kerbs Of(GroundPieces plan, LaneLines lanes, bool[] through)
     {
-        var pieces = Lay(plan, lanes, through, out var roads);
+        var pieces = Lay(plan, lanes, through);
         var shards = Shatter(pieces);
-        return new Kerbs(pieces, shards, new ShardGrid(pieces, shards, plan.WorldSizeM), roads);
+        return new Kerbs(pieces, shards, new ShardGrid(pieces, shards, plan.WorldSizeM));
     }
 
     /// <summary>
@@ -367,9 +358,6 @@ internal sealed class Kerbs
         public const int ASide = -1;
     }
 
-    /// <summary>Which road or which movement a band piece was laid from, in the plan's own numbering.</summary>
-    public int IndexOf(int piece) => _pieces[piece].Index;
-
     /// <summary>
     /// <b>Every line that stands <paramref name="outM"/> outside one piece of the tarmac</b>: a road's
     /// own arcs offset both ways <b>and turned round each end of it</b> (TER-3c.6), a connector's the same,
@@ -603,7 +591,7 @@ internal sealed class Kerbs
     /// Every piece the tarmac is made of. <b>Nothing here is grown by anything</b>: it is the ground a car
     /// drives on at the size it is drawn, and what stands beside it is the caller's offset to ask for.
     /// </summary>
-    static List<Piece> Lay(GroundPieces plan, LaneLines lanes, bool[] through, out int roads)
+    static List<Piece> Lay(GroundPieces plan, LaneLines lanes, bool[] through)
     {
         var pieces = new List<Piece>();
         for (var road = 0; road < plan.Roads.Count; road++)
@@ -611,13 +599,12 @@ internal sealed class Kerbs
             var arcs = plan.Roads.SegmentsOf(road);
             if (arcs.Length == 0) continue;
 
-            pieces.Add(Piece.Band(arcs.ToArray(), plan.Roads.WidthM[road] * 0.5f, road));
+            pieces.Add(Piece.Band(arcs.ToArray(), plan.Roads.WidthM[road] * 0.5f));
         }
 
         // A movement through a box the road runs through as one line stands inside the two arms' own
         // bands, so it is not a piece of the outline: offered, its wrap stood exactly on the arms' where
         // the lane fills the road and laid a second run over theirs, with a round at each end of it.
-        roads = pieces.Count;
         for (var connector = 0; connector < lanes.ConnectorCount; connector++)
         {
             var arcs = lanes.ArcsOfConnector(connector);
@@ -627,7 +614,7 @@ internal sealed class Kerbs
             if (junction != CityPlan.NoRecord && through[junction]) continue;
 
             pieces.Add(Piece.Band(
-                arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f, connector, WalkedPast.WhereTheKerbIsOpen));
+                arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f, WalkedPast.WhereTheKerbIsOpen));
         }
 
         var corners = plan.JunctionCorners;
@@ -700,13 +687,11 @@ internal sealed class Kerbs
     /// </remarks>
     readonly record struct Piece(
         Kind Kind, Vector2 CentreM, Vector2 Axis, Vector2 HalfM, float RadiusM, float SpanM, Vector2 TangentAM,
-        Vector2 TangentBM, ReadOnlyMemory<ArcSeg> Arcs, WalkedPast WalkedPast = WalkedPast.Always,
-        int Index = CityPlan.NoRecord)
+        Vector2 TangentBM, ReadOnlyMemory<ArcSeg> Arcs, WalkedPast WalkedPast = WalkedPast.Always)
     {
-        /// <param name="index">The road's or the movement's number in the plan, for a reader that wants to know whose band this is.</param>
-        public static Piece Band(ArcSeg[] arcs, float halfWidthM, int index, WalkedPast walkedPast = WalkedPast.Always) =>
+        public static Piece Band(ArcSeg[] arcs, float halfWidthM, WalkedPast walkedPast = WalkedPast.Always) =>
             new(Kind.Band, Vector2.Zero, Vector2.UnitX, new Vector2(halfWidthM), 0f, 0f, Vector2.Zero,
-                Vector2.Zero, arcs, walkedPast, index);
+                Vector2.Zero, arcs, walkedPast);
 
         /// <summary><see cref="SpanM"/> is how far the corner stands from the arc's centre, which is how far out the wedge is tarmac.</summary>
         public static Piece Fillet(

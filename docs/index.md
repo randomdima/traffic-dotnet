@@ -92,12 +92,13 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 Two absences that are gaps rather than decisions, and neither is silent:
 
-- **A road's ends are square in the picture and round in the answer.** The ground within a walk of a road
-  that stops is the ground within a walk of its last cross-section, which is that segment swung round
-  (`GroundShapes.OffTheBandM`); the drawing carries the offset of the end segment for it
-  (`GroundMesh.Grown`) and a movement's ends carry nothing, on the grounds that every one of them stands
-  inside a junction. Where that turns out not to hold, the picture is short of the answer by up to a walk
-  at the end of one line. [app/render](../src/app/render/docs/requirements.md).
+- **An end the picture takes for buried is an end it draws square where the answer draws it round.** The
+  ground within a walk of a line that stops is the ground within a walk of its last cross-section, which is
+  that segment swung round (`GroundShapes.OffTheBandM`). The drawing carries that offset only where a road
+  really stops — at a node with no other arm — on the grounds that an end another arm leaves is inside what
+  that arm draws or inside the wedge their kerbs turn on, and a movement's ends carry it nowhere at all.
+  Where either turns out not to hold, the picture is short of the answer by up to a walk at the end of one
+  line. [app/render](../src/app/render/docs/requirements.md).
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

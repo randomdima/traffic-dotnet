@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
@@ -37,11 +36,12 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 /// <remarks>
 /// <para>
 /// <b>The ground is a stack of layers and each is the union of the shapes in it</b> (TER-7b): grass over
-/// the whole world, then every piece of the town grown by a walk, then the water and the decks, then every
-/// piece at its own size, then the paint. A union is stated by drawing its pieces over one another, so
-/// nothing here trims a shape against its neighbour and no piece knows what is beside it. There is no
-/// depth buffer and nothing to sort — one indexed draw in one pass — and the order the triangles are laid
-/// in is the whole of the answer.
+/// the whole world, then the pavement — every piece of the town grown by a walk — then the water and the
+/// decks, then the carriageway at its own size, then the paint. It is one list of shapes read at four
+/// sizes, since the pavement and the carriageway are each laid twice for the line between them. A union is
+/// stated by drawing its pieces over one another, so nothing here trims a shape against its neighbour and
+/// no piece knows what is beside it. There is no depth buffer and nothing to sort — one indexed draw in one
+/// pass — and the order the triangles are laid in is the whole of the answer.
 /// </para>
 /// <para>
 /// <b>It is <c>GroundShapes.At</c>'s order, forwards.</b> That method walks this list from the end and
@@ -51,9 +51,12 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 /// </para>
 /// <para>
 /// <b>A rim, a kerb line and an edge line are what a layer leaves of the one under it.</b> Each layer is
-/// laid twice — once at full size in the shade the line is to be, then again a line's width smaller in the
-/// surface's own — so what survives is a stroke on the union's own outer boundary and nowhere two of its
+/// laid twice, a line's width apart — the outer pass in the shade the line is to be, the inner in the
+/// surface's own — so what survives is a stroke on the union's outer boundary and nothing where two of its
 /// pieces meet. It is the same trick the shore is drawn by, and it is why no line here is a shape.
+/// <b>Which of the two passes is the surface's own size is the line's to say</b>: an edge shade is struck
+/// inside what it rims, so the pavement's outer pass is the band's true width; a kerb line is struck
+/// outside (TER-3d), so the carriageway's inner pass is the lane's.
 /// </para>
 /// <para>
 /// What is <b>not</b> here is anything that is not ground: buildings, props, agents and their sprites
@@ -150,6 +153,9 @@ internal sealed partial class GroundMesh
         var edge = Shade(0.58f, 0.58f, 0.62f);
         var paint = Shade(2.6f, 2.6f, 2.5f);
 
+        // Which road ends really stop, for the one shape a ribbon cannot say (<see cref="Grown"/>).
+        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
+
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
         // <b>The pavement: every piece of the town grown by a walk</b> (TER-3c.3). Not a band worked out
@@ -161,25 +167,8 @@ internal sealed partial class GroundMesh
         // <b>Twice, and the whole layer each time</b>: at full size in the edge shade, then a line's width
         // smaller in the surface's own. Since every fill follows every rim, what survives is a rim on the
         // union's own outer boundary and nothing where two of its pieces meet.
-        foreach (var insetM in (ReadOnlySpan<float>)[0f, edgeM])
-        {
-            var tint = insetM == 0f ? edge : Plain;
-            var outM = walkM - insetM;
-
-            // A car park turns a right angle of its own, so its wrap turns on the walk — which is the
-            // radius the answer turns it on too (<c>GroundShapes.InRoundedRect</c>).
-            //
-            // <b>A slab has no wrap</b> (<c>Kerbs.Lay</c>, <c>WalkedPast.Never</c>): it offers the town's
-            // outline no line to walk, so nothing pavements round one and nothing here draws it.
-            for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
-            {
-                mesh.RoundedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
-                    plan.ParkingLots.HalfExtentM[lot] + new Vector2(outM), outM, Surface.Pavement, tint,
-                    periods);
-            }
-
-            Grown(mesh, plan, lanes, outM, Surface.Pavement, tint, periods);
-        }
+        Pavement(mesh, plan, lanes, arms, walkM, edge, periods);
+        Pavement(mesh, plan, lanes, arms, walkM - edgeM, Plain, periods);
 
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
         // of the one under it showing, which is the same trick every other line here is drawn by: what
@@ -217,7 +206,7 @@ internal sealed partial class GroundMesh
         // shade is struck inside the surface it rims — the line takes its own width off the lane it marks,
         // and every lane measured off the picture comes out short of the figure the rest of the build
         // quotes.
-        Grown(mesh, plan, lanes, kerbM, Surface.Tarmac, paint, periods);
+        Grown(mesh, plan, lanes, arms, kerbM, Surface.Tarmac, paint, periods);
 
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab, and a car
         // park at its own size. It is where the answer puts them (<c>GroundShapes.At</c>) and it is what
@@ -238,7 +227,7 @@ internal sealed partial class GroundMesh
         // And the carriageway at its own size, last of the ground: every road, every line a car is turned
         // through a box on, and the wedge its kerbs turn on. <b>A junction is the union of the movements
         // that cross in it</b> (TER-5) and has no shape of its own to draw.
-        Grown(mesh, plan, lanes, 0f, Surface.Tarmac, Plain, periods);
+        Grown(mesh, plan, lanes, arms, 0f, Surface.Tarmac, Plain, periods);
 
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
@@ -269,9 +258,30 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
+    /// <b>The whole pavement layer at one size</b>: the car parks' own wraps and then the road network,
+    /// which between them are every piece of the town that offers the outline a line to walk
+    /// (<c>Kerbs.Lay</c>). <b>A slab is the exception and has no wrap</b> (<c>WalkedPast.Never</c>) — it
+    /// offers none, so nothing pavements round one and nothing here draws it.
+    /// </summary>
+    static void Pavement(
+        GroundMesh mesh, CityPlan plan, LaneLines lanes, int[] armsPerJunction, float outM, Vector3 tint,
+        float[] periods)
+    {
+        // A car park turns a right angle of its own, so its wrap turns on the walk — which is the radius
+        // the answer turns it on too (<c>GroundShapes.InRoundedRect</c>).
+        for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
+        {
+            mesh.RoundedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
+                plan.ParkingLots.HalfExtentM[lot] + new Vector2(outM), outM, Surface.Pavement, tint, periods);
+        }
+
+        Grown(mesh, plan, lanes, armsPerJunction, outM, Surface.Pavement, tint, periods);
+    }
+
+    /// <summary>
     /// <b>The road network at <paramref name="outM"/> beyond its own size</b> — every road, every line a
-    /// car is turned through a box on, and every wedge their kerbs turn on. One call is one layer of the
-    /// stack, and the three the ground has are this at a walk, at a line's width and at nothing.
+    /// car is turned through a box on, and every wedge their kerbs turn on. The three layers of the ground
+    /// are this at a walk, at a line's width and at nothing.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -286,35 +296,39 @@ internal sealed partial class GroundMesh
     /// reading the arc in that far and what stands round it is the two arms' own bands.
     /// </para>
     /// <para>
-    /// <b>A road's ends are square</b>, where the answer swings a quarter circle round each of its two far
-    /// corners (<c>GroundShapes.OffTheBandM</c>). It costs a bite out of the walk at a dead end and nowhere
-    /// else, since every other end of every road stands inside a junction.
+    /// <b>A road that stops carries the offset of its own end</b> (TER-7a,
+    /// <c>GroundShapes.OffTheBandM</c>): the ground within a growth of a band that ends square is within a
+    /// growth of its last cross-section, which is that segment swung round, and a ribbon has no way to say
+    /// so. <b>Only an end that really stops</b> — a road at a node with no other arm, or at no node at all.
+    /// An end another arm leaves is inside what that arm draws where the two are one line, and inside the
+    /// wedge their kerbs turn on where they are not. Capped everywhere instead, a city spent a fifth of its
+    /// ground on ends buried in junctions.
     /// </para>
     /// </remarks>
     static void Grown(
-        GroundMesh mesh, CityPlan plan, LaneLines lanes, float outM, Surface surface, Vector3 tint,
-        float[] periods)
+        GroundMesh mesh, CityPlan plan, LaneLines lanes, int[] armsPerJunction, float outM, Surface surface,
+        Vector3 tint, float[] periods)
     {
         for (var road = 0; road < plan.Roads.Count; road++)
         {
             var arcs = plan.Roads.SegmentsOf(road);
             var halfM = plan.Roads.WidthM[road] * 0.5f;
             mesh.Ribbon(arcs, halfM + outM, surface, tint, periods);
-            if (outM <= 0f) continue;
+            if (outM <= 0f || arcs.Length == 0) continue;
 
-            // <b>A band's own end is square and what grows off it is round</b> (TER-7a,
-            // <c>GroundShapes.OffTheBandM</c>): the ground within a walk of a road that stops is within a
-            // walk of its last cross-section, which is that segment swung round. The ribbon has no way to
-            // say that, so each end carries the offset of its own end segment — a rectangle a growth deep
-            // whose corners turn about the road's two end corners on the growth itself. At every end that
-            // stands inside a junction it is under the junction, and at a dead end it is the head.
-            var lengthM = Spline.TotalLengthM(arcs);
-            foreach (var atM in (ReadOnlySpan<float>)[0f, lengthM])
+            foreach (var (junction, atStart) in (ReadOnlySpan<(int, bool)>)
+                     [(plan.Roads.FromJunction[road], true), (plan.Roads.ToJunction[road], false)])
             {
-                var end = Spline.SampleAt(arcs, atM);
+                if (junction != CityPlan.NoRecord && armsPerJunction[junction] > 1) continue;
+
+                // The end arc's own end, off the arc rather than off a walk down the chain: a road's last
+                // cross-section is where its last piece stops and which way that piece is pointing there.
+                var arc = atStart ? arcs[0] : arcs[^1];
+                var headingRad = atStart ? arc.HeadingRad : arc.HeadingAtRad(arc.LengthM);
                 mesh.RoundedRect(
-                    end.PositionM, end.Direction, new Vector2(outM, halfM + outM), outM, surface, tint,
-                    periods);
+                    atStart ? arc.StartM : arc.EndM,
+                    new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad)),
+                    new Vector2(outM, halfM + outM), outM, surface, tint, periods);
             }
         }
 

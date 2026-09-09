@@ -78,10 +78,11 @@ Three consequences follow and all three are the point.
   answer at the same place in the order, and the question of whether the two agree cannot be asked. This is
   the whole of what the rule buys and it is why the rule is stated as a stack rather than as a partition.
 - **A rim, a kerb line and an edge line are what a layer leaves of the one under it**, never a shape of
-  their own: the layer is laid at full size in the line's shade and again a line's width smaller in the
-  surface's own, and what survives is a stroke on the union's outer boundary and nothing where two of its
-  pieces meet. A line therefore has no ends to close, no corners to turn and no geometry of its own to
-  come apart.
+  their own: the layer is laid twice a line's width apart, the outer pass in the line's shade and the inner
+  in the surface's own, and what survives is a stroke on the union's outer boundary and nothing where two
+  of its pieces meet. A line therefore has no ends to close, no corners to turn and no geometry of its own
+  to come apart. **Which of the two passes is the surface's own size is the line's to say** — an edge shade
+  is struck inside what it rims and a kerb line outside (TER-3d).
 - **The boundary of a union is never computed.** A junction, a car park's mouth, a bridge and a dead end
   cost what a straight costs, because none of them is a shape somebody has to work out — which is what a
   partition would demand of every one of them, and the tool for it is a polygon clipper this project does
