@@ -25,7 +25,7 @@ public class PavedThroughTests
     {
         var plan = Towns.Of(map);
         var arms = RoadCuts.ArmsPerJunction(plan.Ground);
-        var through = plan.Paving(SimConfig.Shipped()).Through;
+        var through = RoadCuts.RunsThrough(plan.Ground);
 
         Assert.Equal(arms.Length, through.Length);
         for (var junction = 0; junction < through.Length; junction++)
@@ -43,7 +43,7 @@ public class PavedThroughTests
     [Fact]
     public void TheFixtureHasAJunctionItsRoadRunsThrough()
     {
-        var through = Towns.Of(Towns.Fixture).Paving(SimConfig.Shipped()).Through;
+        var through = RoadCuts.RunsThrough(Towns.Of(Towns.Fixture).Ground);
 
         Assert.Contains(true, through);
     }

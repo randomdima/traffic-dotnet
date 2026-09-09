@@ -26,9 +26,9 @@ so claiming any of them would be the same fabrication in the other direction. Th
 owner promotes rules, and `qq req --rungs` reads it off the documents rather than keeping a list beside
 them. `qq doclint` fails on a rule with no rung, so the scale cannot rot back into prose.
 
-The first `P0` is `TER-7b`, and **the code does not meet it** — which is the arrangement working. The rule
-stands as stated, the renderer is what is wrong, and the gap is named in
-[index.md](index.md#known-gaps) until it closes.
+The first `P0` is `TER-7b`, and the code did not meet it for as long as it demanded a partition — which is
+the arrangement working: the rule stood as stated, the gap was named in [index.md](index.md#known-gaps),
+and nothing was quietly reworded to match the renderer. What closed it was the owner changing the rule.
 
 ## 2026-09-07 — the suite gets five minutes, and what gives way is chosen from the bottom of a ladder
 

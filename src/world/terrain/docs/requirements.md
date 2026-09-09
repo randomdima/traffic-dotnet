@@ -63,24 +63,39 @@ nothing is drawn on and nothing drives over — half a lane of it past the point
 is inside the box and therefore invisible, until it reached out under the pavement corner beside the mouth
 and took the corner's own line away with it.
 
-**TER-7b** `P0` **Render geometry does not overlap.** No two triangles of the ground mesh cover the same
-square metre. Every surface the town is made of — grass, tarmac, pavement, kerb, deck, water — meets its
-neighbours **edge to edge**, sharing the vertices along the seam, and the mesh is a partition of the
-town's box rather than a stack of shapes painted over one another. A surface is drawn once, in one pass,
-at its own size.
+**TER-7b** `P0` **The ground is a stack of layers, and a layer is the union of the shapes in it.** The town
+is drawn bottom to top — the grass, then every piece of the town grown by a walk, then the water and the
+decks, then every piece at its own size, then the paint — and **a union is stated by drawing its pieces
+over one another**. Overlap within a layer is how a union is written down rather than a fault in it: two
+pieces that meet, meet by covering the same ground, and no piece is ever cut, trimmed, clipped or handed
+over against its neighbour. A shape is drawn at one size in one layer, and what is beneath it is an earlier
+layer.
 
-This is stronger than the picture coming out right, and it is not satisfied by a stack that happens to
-read correctly: **a pixel is written once**, and what is underneath a triangle is nothing rather than an
-earlier answer that no longer shows. Two consequences follow and both are the point. **A shape has an
-outline of its own** — a rim, a kerb line, an edge line is a strip of geometry between two offsets of one
-curve, never the residue of a larger shape repainted smaller. And **the mesh reads as what the ground
-is**: the triangulation drawn back as a wireframe ([OBS-2o](../../../app/debug/docs/requirements.md)) is
-the town's surfaces and their seams, with no full-width quad spanning ground that three other passes will
-cover.
+Three consequences follow and all three are the point.
+
+- **The picture and the answer are one list.** What the ground is at a point is that same list walked from
+  the top and the first shape that covers it (TER-7), so a shape added to the drawing is added to the
+  answer at the same place in the order, and the question of whether the two agree cannot be asked. This is
+  the whole of what the rule buys and it is why the rule is stated as a stack rather than as a partition.
+- **A rim, a kerb line and an edge line are what a layer leaves of the one under it**, never a shape of
+  their own: the layer is laid at full size in the line's shade and again a line's width smaller in the
+  surface's own, and what survives is a stroke on the union's outer boundary and nothing where two of its
+  pieces meet. A line therefore has no ends to close, no corners to turn and no geometry of its own to
+  come apart.
+- **The boundary of a union is never computed.** A junction, a car park's mouth, a bridge and a dead end
+  cost what a straight costs, because none of them is a shape somebody has to work out — which is what a
+  partition would demand of every one of them, and the tool for it is a polygon clipper this project does
+  not have.
+
+**What this rule does not license is drawing the same thing twice in one layer to hide a seam.** Two bands
+that abut are two offsets of one curve; laid as two shapes each is sampled to its own curvature and they
+stand a chord's sag apart. A layer here has no such seams because it has no bands — it has whole pieces of
+the town at one size, and the sag falls inside the piece under it.
 
 Paint is the one thing above the ground rather than in it — a dash, a bar, a zebra stripe sits *on* the
-surface it belongs to, which is what TER-7 asks for — and it obeys the same rule within its own layer:
-**no mark overlaps another mark**.
+surface it belongs to, which is what TER-7 asks for — and it does **not** obey the layer rule within its
+own layer: **no mark overlaps another mark**, because paint is a multiplying tint and two of them over one
+another read as a third.
 
 ## The pavement
 
@@ -160,19 +175,22 @@ water; the pavement width is on the deck's own plan record, because the deck is 
 
 The outside of the pavement and of a bridge deck each carry a line, the way the carriageway carries a
 kerb line. **An edge is the surface drawn darker; paint is the surface drawn brighter**, and the grain of
-the ground comes through both. It is a strip between two offsets of the curve it rims, laid edge to edge
-with the surface inside it and with the ground outside it (TER-7b) — a shape of its own and never a larger
-piece repainted smaller. Nothing walks an edge or probes a region.
+the ground comes through both. It is what its layer leaves of the one under it (TER-7b) — the layer laid
+at full size in the line's shade and again a line's width smaller in the surface's own — and never a shape
+of its own. Nothing walks an edge or probes a region.
 
-**TER-3d** `P6` **The kerb line stands on the kerb and not in the lane.** It is the innermost stroke of the
-pavement — struck on the same curve the band's two edges are struck on (TER-3c.3), a line's width
-*outside* the carriageway — so the asphalt from the kerb line to the centreline is the lane the town is
-laid at (GEN-15). Struck inside the carriageway — the way an edge shade is struck inside the surface it
-rims — the line takes its own width off the lane it marks, and every lane measured off a picture comes out
-short of the figure the rest of the build quotes, on the bends as on the straights. **And struck on the
-walk's own curve rather than on the tarmac's outline**, because those are two shapes: the outline steps
-wherever one piece of tarmac is narrower than the one it meets, and a kerb line that follows those steps
-reads as a chamfer cut across a corner the pavement beside it turns smoothly.
+**TER-3d** `P6` **The kerb line stands on the kerb and not in the lane.** It is what the carriageway leaves
+of the stroke struck a line's width *outside* it (TER-7b) — so the asphalt from the kerb line to the
+centreline is the lane the town is laid at (GEN-15). Struck inside the carriageway — the way an edge shade
+is struck inside the surface it rims — the line takes its own width off the lane it marks, and every lane
+measured off a picture comes out short of the figure the rest of the build quotes, on the bends as on the
+straights.
+
+**It stands on the tarmac's own outline, and so does the pavement's inner edge**, because they are one
+boundary: the pavement is the tarmac grown by a walk (TER-3c.3), so wherever the outline steps — one piece
+of tarmac narrower than the one it meets, a movement leaving an arm, a car park set back off its street —
+the concrete beside it steps with it, a walk out and parallel. Struck on a curve of its own instead, a
+kerb line reads as a chamfer cut across a corner the pavement beside it turns smoothly.
 
 ## What this slice must produce
 

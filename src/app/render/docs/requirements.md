@@ -23,68 +23,46 @@ triangles differently and the picture does not change.
 Every ground texture must be **wrap-seamless and mipmapped** — un-mipped tarmac shimmers the moment the
 camera pulls back.
 
-**The ground mesh is a partition and not a stack** ([TER-7b](../../../world/terrain/docs/requirements.md#one-geometry)):
-no two of its triangles cover the same square metre, surfaces meet edge to edge along shared vertices,
-and every rim and edge line is a strip of its own rather than the residue of a larger piece repainted
-smaller. Depth does no work here — nothing is underneath anything — so the order the pieces are appended
-in decides nothing about the picture, and the wireframe
-([OBS-2o](../../debug/docs/requirements.md)) reads as the town's surfaces and their seams.
+**The ground mesh is a stack of layers and each layer is a union**
+([TER-7b](../../../world/terrain/docs/requirements.md#one-geometry)), so **the order the pieces are
+appended in is the whole of the answer** and depth does no work: one indexed draw, one pass, nothing
+sorted, and the piece appended last is the piece that shows.
 
-**Shared is shared, and the mesh holds one corner per corner** (`GroundMesh.Vertex`): a corner a shape
-asks for where one already stands — the same point, the same surface, the same shade — is that one, so the
-ground comes out a single connected mesh rather than a heap of pieces that happen to abut. **What a corner
-*is* includes its surface and its shade**, since those are vertex attributes: the concrete and the kerb
-stroke that meet along a seam stand at one place and are two corners. **The marks are not welded**
+**There are three layers and they are one list of shapes read at three sizes** (`GroundMesh.Grown`): every
+road, every line a car is turned through a box on, every wedge their kerbs turn on and every car park, at
+a walk beyond its own size, at a line's width beyond it, and at it. Between them go the water, the shore
+and the decks, and above them the paint.
+
+- **A union is stated by drawing its pieces over one another.** Nothing is trimmed, clipped, cut short or
+  handed over to a neighbour, and no piece here knows what is beside it. A junction, a car park's mouth, a
+  bridge and a dead end therefore cost exactly what a straight costs.
+- **A rim and a kerb line are what a layer leaves of the one under it**: the layer at full size in the
+  line's shade, then a line's width smaller in the surface's own. Since every fill follows every rim, what
+  survives is a stroke on the union's outer boundary and nothing where two of its pieces meet — so a line
+  has no ends to close and no corners to turn. The shore is drawn by the same trick and always was.
+- **What breaks the kerb line over a car park's mouth is the lot's own tarmac** (`GroundMesh.Build`), laid
+  between the stroke and the carriageway because that is where the answer puts it — not a stretch of kerb
+  worked out and left unstruck.
+
+**The picture is `GroundShapes.At`'s order, forwards.** That method walks this same list from the end and
+takes the first shape covering the point, so the two are one list read in two directions and a shape added
+to one is added to the other at the same place. **This is what the layering is for**; the picture coming
+out right is a consequence rather than the reason.
+
+**Two shapes disagree only about their ends.** A ribbon's ends are square where the answer swings the
+growth round the band's last cross-section, so each road end carries the offset of that segment
+(`GroundMesh.Grown`) — a rectangle a growth deep whose corners turn about the road's two end corners.
+A movement's ends have no such piece and none is needed: every one of them stands inside a junction.
+
+**Shared is shared, and the mesh holds one corner per corner** (`GroundMesh.Vertex`) — but here that is a
+dedupe and not a seam. It is what keeps a ribbon laid at a size and the same ribbon laid a line's width
+inside it from each carrying their own copy of the stations they agree on. **The marks are not welded**
 (`GroundMesh.FirstMarkVertex`) — a dash, a bar and a stripe are quads of four corners each, and anything
 reading back what was painted reads them that way.
 
-**What keeps it, where it is kept, is one primitive**: a set of bands between consecutive offsets of one
-curve, **struck at one set of stations**. Two shapes laid separately are each sampled to their own
-curvature and meet along two different chains of chords, so they stand a chord's sag apart at worst —
-and the only ways to close that are to overlap them or to leave the ground beneath showing. Struck
-together they share the seam, because the seam is one offset evaluated once. **A road is laid this way
-end to end**: the carriageway, the kerb line either side of it, the two bands of pavement and the two
-rims are seven bands of one cross-section, and what each side carries over each stretch is the town's own
-answer rather than the picture's (`Paving.Sections`). **A band of no width is how a side says what it has
-not got**, so there is one shape and not a case per side.
-
-**The pavement's own runs are laid the same way** — a run that wraps anything but a road is the kerb line,
-the walk and the rim as bands of one cross-section on the run's own line (`GroundMesh.Run`, with the rim
-a strip on the same stations laid after the roads, `GroundMesh.Rim`, and only over the stretch whose outer
-edge is the outline), the round that closes a run is that run's own concrete and **carries its own rim
-where its run is the outline** — the band it closes stops a line's width short of the outside and the disc
-stops there with it, and a rim is a strip along a line with no way round an end, so left to the run's the
-round wore a crescent of grass. The corner two runs hand over at is the turn's own wedge, and **every
-hand-over also carries the band struck across it off the two runs' own end stations** (`Paving.Next`,
-`GroundMesh.Bridge`): a wedge reaches the place its arc turns about, which is the band's road half, so what
-the bridge carries over a wedge is the outer half and what it carries over **a hand-over between two kerbs
-that lie along one another, which is a step and not a wedge** (`Paving.Straight`) is the whole
-cross-section, rim to kerb. Two ends that stop at one place leave a bridge of no width and no triangles;
-two that stop a kink apart leave the lens between their cross-sections, and nothing else covers it. The
-corner the shell turns is the
-sector of rim between the two rims that stop square at it (`GroundMesh.ShellCorner`), and a car park is
-its box and that band with nothing grown beneath either — the pocket at its mouth is the street's bare
-side, laid a whole walk out.
-
-**A junction is a box between its arms' cuts, laid once** (`Paving.Boxes`, `GroundMesh.Box`): each arm's
-section stops where the box takes over from it, and the box is the outline the pavement's own kerb line
-encloses, walked run to run and turn to turn round the corner. Where one of an arm's sides runs on past the
-cut it carries its own concrete over that stretch (`Paving.Stubs`, `GroundMesh.Stub`), and **what that side
-carries is read off the section at the cut** — a road answers for the last few centimetres before its cut
-as having the junction beside it, which is nothing on either side, so a stub read off the sections it
-stands over laid none of the concrete it is there for. Nothing is grown under anything. **A
-junction the road runs through as one line has no box** (`Paving.Through`,
-[TER-5b](../../../world/road/docs/requirements.md)): its two sections meet edge to edge.
-
-**Where the ground is still painted over itself** — a junction whose outline crosses itself, a car park's
-mouth, a bridge, and the verge under all of it — that is the gap rather than the design
-([known gaps](../../../../docs/index.md#known-gaps)). **Union ground goes under the pavement and the
-carriageway over it**: the pocket beside a road with something standing against its kerb is laid before the
-rounds at a car park's mouth, on the road's own stations, and the carriageway is laid last of all (TER-3d).
-
 Marks are the one layer above the ground rather than in it — a dash, a bar, a stripe sits *on* the
-surface it belongs to (`TER-7`) — and they do not overlap one another either. `GroundMesh.FirstMarkVertex`
-is where the second layer starts.
+surface it belongs to (`TER-7`) — and they are the one layer that does **not** overlap within itself, paint
+being a multiplying tint. `GroundMesh.FirstMarkVertex` is where it starts.
 
 ## Paint
 

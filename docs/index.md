@@ -66,7 +66,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `OBJ-2`, `OBJ-4…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
 | `AGT-5`, `AGT-7` | The terminal state; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
-| `TER-1…3a`, `TER-3b…3c.6`, `TER-7`, `TER-7a`, `TER-7b`, `PHY-8` | The ground, the pavement, water and bridges, and that the mesh drawing them does not overlap itself | [world/terrain](../src/world/terrain/docs/requirements.md) |
+| `TER-1…3a`, `TER-3b…3c.6`, `TER-7`, `TER-7a`, `TER-7b`, `PHY-8` | The ground, the pavement, water and bridges, and the stack of layers the mesh drawing them is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5`…`TER-5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-6` | Roads, junctions, crossings, paint | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-4c`…`TER-4c.3`, `TER-5c`…`TER-5c.2`, `TER-5e`, `TER-5g` | What a movement takes off another, right of way, what a claim is and what is standing on a lane | [world/road/claims](../src/world/road/docs/claims.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
@@ -90,34 +90,20 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 ## Known gaps
 
-Three absences that are gaps rather than decisions, and none is silent:
+Two absences that are gaps rather than decisions, and neither is silent:
 
-- **The ground mesh still overlaps itself where it is a union of pieces, and `TER-7b` says it must not.**
-  The rule is the owner's (`P0`, [priority.md](priority.md)). **A road now keeps it**: its whole
-  cross-section is struck off its own arcs at one set of stations (`Paving.Sections`, `GroundMesh.Section`),
-  so the carriageway, the kerb lines, the pavement and its rim are bands between consecutive offsets of one
-  curve and the ground under a road is covered once — which `GroundMeshTests.ARoadsGroundIsCoveredOnce`
-  holds it to. **So does the band round a car park**: every run of pavement that wraps anything but a road
-  is struck the same way on its own line (`GroundMesh.Run`), and `ACarParksBandIsCoveredOnce` holds it.
-  **And so does a junction**: each arm is cut where the box takes over, and the box is laid once as the
-  outline the pavement's kerb line encloses (`Paving.Boxes`, `AJunctionsBoxIsCoveredOnce`). **What is left
-  painted over itself**: a junction whose outline crosses itself — two arms a step apart turning no corner
-  — where the arms meet as they did; the **mouth of a car park**, where the wedges that close the band stand
-  over the street's own pocket of asphalt; and a **bridge**,
-  where the deck, the margin, the shore and the water are drawn at four sizes over one another (TER-3b.1).
-  Partitioning any of them needs the boundary of a union of overlapping shapes — a polygon clipper this
-  project does not have. **The verge is the fourth and is a decision rather than a gap**: it is
-  one rectangle under the whole town, and whether it must be cut to the complement of the paving is a
-  question for the owner. [app/render](../src/app/render/docs/requirements.md), `GroundMesh.Build`.
-- **A junction's box lays no concrete, so the walk the answer carries through one is not drawn.** The box
-  is tarmac between its arms' cuts, and the side of an arm that runs on past its cut carries its own
-  concrete there (`Paving.Stubs`); but where the answer pavements ground inside the box that no arm's side
-  reaches — a two-arm node, a corner where two arms' bands meet inside the outline — nothing draws it. It
-  is under a fifth of a square metre over the whole of Odesa and the largest of it is a hand's width; what
-  would close it is the box's own band of pavement offset from its outline, which is a change to how the
-  ground is partitioned (`TER-7b`) and so the owner's.
+- **A road's ends are square in the picture and round in the answer.** The ground within a walk of a road
+  that stops is the ground within a walk of its last cross-section, which is that segment swung round
+  (`GroundShapes.OffTheBandM`); the drawing carries the offset of the end segment for it
+  (`GroundMesh.Grown`) and a movement's ends carry nothing, on the grounds that every one of them stands
+  inside a junction. Where that turns out not to hold, the picture is short of the answer by up to a walk
+  at the end of one line. [app/render](../src/app/render/docs/requirements.md).
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
+
+**The verge is a decision rather than a gap**: it is one rectangle under the whole town, and whether it
+must be cut to the complement of the paving is a question for the owner. It costs nothing under `TER-7b`
+as it now stands, being the bottom layer of a stack.
 
 Everything else that is unbuilt is reported by the instruments rather than listed here
 ([verification.md](verification.md#the-instruments-say-what-is-missing)).
