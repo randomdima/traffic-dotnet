@@ -90,8 +90,13 @@ public sealed partial class TownActivity : Activity, ISurfaceHolderCallback2
         _seconds = Figure(Intent?.GetStringExtra("seconds"));
 
         var window = Window ?? throw new InvalidOperationException("An activity with no window cannot hold a town.");
-        window.AddFlags(WindowManagerFlags.KeepScreenOn);
-        window.InsetsController?.Hide(WindowInsets.Type.SystemBars());
+
+        // **Flags and not the insets controller.** `Window.InsetsController` reaches through the decor
+        // view, and an activity that takes its own surface has none — the getter itself throws inside
+        // the platform (`PhoneWindow.getInsetsController`, a NullPointerException in `onCreate` before
+        // anything of ours runs), so there is nothing for a `?.` to guard. The theme is what hides the
+        // status bar here, and this is what keeps the glass lit and the layout under the bars.
+        window.AddFlags(WindowManagerFlags.KeepScreenOn | WindowManagerFlags.Fullscreen);
 
         // The glass itself, asked for without a view to put it in.
         window.TakeSurface(this);

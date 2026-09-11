@@ -2,6 +2,14 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-09-11 — flags hide the bars, because an activity with no view has no insets controller
+
+The first package crashed on launch: `Window.InsetsController` reaches through the decor view, and an
+activity that has taken its own surface has no view hierarchy at all — so the getter throws inside the
+platform before anything of ours runs, and a `?.` guards nothing. The theme hides the status bar and
+`WindowManagerFlags` do the rest. **It was found by running the released APK on an emulator**, which is
+the whole reason the head is now tested that way rather than only built.
+
 ## 2026-09-11 — the activity's own surface, and not a SurfaceView in a layout
 
 The usual way to get a drawing surface on this platform is a `SurfaceView` inside a content view, which

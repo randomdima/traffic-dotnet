@@ -86,6 +86,34 @@ signed by one key is not one Android will replace with the other. A tag with a s
 a pre-release; rebuilding a tag uploads over what is attached rather than failing on a release that
 already exists.
 
+**What a build cannot answer is answered on an emulator, and the picture is the check** — exactly as it
+is for the other two heads:
+
+```
+sdkmanager --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+avdmanager create avd -n town -k "system-images;android-35;google_apis;x86_64" -d pixel_6
+emulator -avd town -gpu host -no-window        # -gpu host, or the guest has no Vulkan 1.3 to open
+dotnet build traffic-dotnet.android.csproj -c Debug -t:SignAndroidPackage -p:EmbedAssembliesIntoApk=true
+adb install -r bin/android/Debug/net10.0-android/*-Signed.apk
+adb shell am start -n dev.trafficdotnet.town/.TownActivity -e map Test -e ui nodes
+adb exec-out screencap -p > .tmp/handset.png
+```
+
+**`EmbedAssembliesIntoApk` is not optional in that loop**: a Debug package is built for fast deployment
+and its assemblies are pushed separately, so one installed by hand aborts on a runtime that finds none.
+**`-gpu host` is not optional either** — the emulator's software driver answers Vulkan 1.1, which cannot
+create this engine's instance (AND-8).
+
+**The figure that head is judged on is the frame rate, and it is read off the read-out in a picture.** On
+an x86_64 emulator over the fixture town it is 60 fps compiled ahead of time and 55 interpreted, which
+says the pace is the display's rather than this build's — a handset's own figure is a fact about that
+handset.
+
+**A named map lays before the first frame, and on a handset that is a black screen** (`-e map Odesa` is
+the whole of a city being generated on one core). It is the desktop's own semantics and the extras are a
+testing affordance; **the menu is the way in that never waits**, and what it shows while a city is laid
+is the card (OBS-2n).
+
 **The tiers do not reach this head, and the reason is the target framework.** The suite is `net10.0` and
 compiles against the desktop head ([tests](../../../tests/)), so a test cannot construct an activity or a
 handset window. What *is* checked is everything above the bootstrap, which is the engine the two other

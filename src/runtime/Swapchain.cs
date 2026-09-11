@@ -83,7 +83,17 @@ internal sealed unsafe class Swapchain : RenderTarget
             // TransferSrc as well as colour, because --shot reads the finished frame back off it.
             ImageUsage = ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.TransferSrcBit,
             ImageSharingMode = SharingMode.Exclusive,
-            PreTransform = caps.CurrentTransform,
+            // **Identity wherever the surface offers it, and the surface's own transform only where it
+            // does not.** This says which way up the images the engine hands over are drawn, and handing
+            // over the surface's current transform is a promise that the frame arrives already turned
+            // that way. A desktop surface is always identity and the two are the same word; a handset's
+            // is a quarter turn as soon as a landscape run is on a portrait panel, and the promise was
+            // being made by a renderer that draws the town the same way up on every machine — so the
+            // town came up on its side. The presentation engine turns it instead, which is a composition
+            // pass on a phone and the price of one renderer rather than two.
+            PreTransform = (caps.SupportedTransforms & SurfaceTransformFlagsKHR.IdentityBitKhr) != 0
+                ? SurfaceTransformFlagsKHR.IdentityBitKhr
+                : caps.CurrentTransform,
             CompositeAlpha = CompositeAlphaFlagsKHR.OpaqueBitKhr,
             PresentMode = mode,
             Clipped = true,

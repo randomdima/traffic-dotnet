@@ -1,5 +1,16 @@
 # The machine — decision log
 
+## 2026-09-11 — the swapchain asks for identity, and lets the presenter turn the frame
+
+`PreTransform` was the surface's own current transform, which on a desktop is identity and on a handset
+is a quarter turn the moment a landscape run is on a portrait panel. It is a promise about the images
+handed over, not a request — so the town came up on its side, drawn correctly and then read as though it
+had already been rotated. Identity is asked for wherever the surface supports it, which every surface
+this engine has met does, and the presentation engine turns the frame instead. The alternative is the
+rotation in the projection matrix and the extent swapped with it, which saves a composition pass on a
+phone and costs the renderer a second way of being right; it is worth doing when a frame budget says so
+and not before.
+
 ## 2026-08-29 — the frame is paced by the display
 
 `--present` defaults to FIFO, because mailbox costs a whole core drawing frames the display throws away
