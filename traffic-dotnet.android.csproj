@@ -132,4 +132,23 @@
        after the body. -->
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
 
+  <!-- **The platform's implicit usings are taken back out, and this is what keeps the shared half
+       shared.** The Android SDK puts six of its own namespaces into every file, and two of them collide
+       with the graphics bindings on names the machine uses constantly: `ImageView` is
+       Silk.NET.Vulkan's and Android.Widget's, and `Result` is Silk.NET.Vulkan's and Android.App's. The
+       alternative was qualifying those names in Vk.cs, Swapchain.cs and the targets — which is the
+       desktop's own code learning that a handset exists, for nothing.
+
+       So this head's own four files say which namespaces they are written against, exactly as every
+       other file in the project does. **After the SDK's targets rather than before**: implicit usings
+       are items the workload adds above, and a Remove in the body would run before the Add. -->
+  <ItemGroup>
+    <Using Remove="Android.App" />
+    <Using Remove="Android.Content" />
+    <Using Remove="Android.OS" />
+    <Using Remove="Android.Runtime" />
+    <Using Remove="Android.Views" />
+    <Using Remove="Android.Widget" />
+  </ItemGroup>
+
 </Project>
