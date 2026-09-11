@@ -81,17 +81,26 @@ jobs:
       # The keystore, when there is one. **A missing secret is a debug-signed package and not a failed
       # run**: the pipeline's job is to produce something installable at every tag, and whether this
       # repository has been given release keys is a fact about the repository.
+      #
+      # It writes the words the publishes are handed as well as the file, because there are two of them
+      # and a conditional this long said twice is two things to keep in step.
       - name: The signing key, if this repository has one
         id: key
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STOREPASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYPASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -euo pipefail
           if [ -z "$KEYSTORE" ]; then
             echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "no keystore secret, so the package will be debug-signed"
+            echo "sign=" >> "$GITHUB_OUTPUT"
+            echo "no keystore secret, so the packages will be debug-signed"
           else
             printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.keystore"
             echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "sign=-p:AndroidKeyStore=true -p:AndroidSigningKeyStore=$RUNNER_TEMP/release.keystore -p:AndroidSigningStorePass=$STOREPASS -p:AndroidSigningKeyAlias=$ALIAS -p:AndroidSigningKeyPass=$KEYPASS" >> "$GITHUB_OUTPUT"
           fi
 
       # The version, from the tag that asked for the build. The code is the run number, which only ever
@@ -106,31 +115,43 @@ jobs:
           esac
           echo "name=${name:-0.1}" >> "$GITHUB_OUTPUT"
 
-      # Both packages, and the semicolon between them escaped: MSBuild's own command line splits a -p:
-      # value on a semicolon into a second property, so a quoted 'aab;apk' arrives as a switch called
-      # apk. %3B is how one is spelled to it.
-      - name: The package
+      # **The two formats are two publishes, and that is not a choice.** `AndroidPackageFormat` takes one
+      # word; the plural property is not read on this path, and a run handed both wrote only the `.aab`
+      # (34639438402). The second publish is minutes shorter than the first — the ahead-of-time
+      # compilation is already in obj/ and only the packaging runs again.
+      #
+      # An `.apk` is what a handset installs from a cable and an `.aab` is what a store takes, so a
+      # release that carried one of them would be a release for half the people who want it.
+      - name: The packages
+        env:
+          SIGN: ${{ steps.key.outputs.sign }}
+          VERSION: ${{ steps.version.outputs.name }}
         run: |
-          dotnet publish traffic-dotnet.android.csproj -c Release \
-            -p:AndroidPackageFormats=aab%3Bapk \
-            -p:ApplicationVersion=${{ github.run_number }} \
-            -p:ApplicationDisplayVersion=${{ steps.version.outputs.name }} \
-            ${{ steps.key.outputs.signed == 'true' && format(
-              '-p:AndroidKeyStore=true -p:AndroidSigningKeyStore={0}/release.keystore -p:AndroidSigningStorePass={1} -p:AndroidSigningKeyAlias={2} -p:AndroidSigningKeyPass={3}',
-              runner.temp, secrets.ANDROID_KEYSTORE_PASSWORD, secrets.ANDROID_KEY_ALIAS, secrets.ANDROID_KEY_PASSWORD) || '' }}
+          set -euo pipefail
+          out="$RUNNER_TEMP/packages"
+          mkdir -p "$out"
+          for format in aab apk; do
+            dotnet publish traffic-dotnet.android.csproj -c Release \
+              -p:AndroidPackageFormat=$format \
+              -p:ApplicationVersion=${{ github.run_number }} \
+              -p:ApplicationDisplayVersion="$VERSION" \
+              $SIGN
+
+            # The signed one and never the copy beside it: both are written, and the unsigned one is a
+            # package nothing will install. Named for what it is rather than for the application id,
+            # because this name is what a reader sees on the release.
+            cp bin/android/Release/net10.0-android/publish/*-Signed."$format" \
+               "$out/traffic-dotnet-$VERSION.$format"
+          done
+          ls -la "$out"
 
       - uses: actions/upload-artifact@v4
         with:
           name: traffic-dotnet-android-${{ steps.version.outputs.name }}
-          # The two packages and nothing else of the publish: the artifact is how a dispatched build is
-          # fetched, and a tagged one is attached to its release as well.
-          path: |
-            bin/android/Release/net10.0-android/publish/*.apk
-            bin/android/Release/net10.0-android/publish/*.aab
+          # The artifact is how a dispatched build is fetched; a tagged one is attached to its release
+          # as well, from this same folder.
+          path: ${{ runner.temp }}/packages/*
           if-no-files-found: error
-
-      - name: What came out
-        run: ls -la bin/android/Release/net10.0-android/publish
 
       # **The notes say which key signed it**, because the difference is one a reader finds out the hard
       # way otherwise: Android will not replace an install with a package signed by a different key. It is
@@ -177,7 +198,5 @@ jobs:
           body_path: ${{ runner.temp }}/notes.md
           # A tag with a suffix — v0.2.0-rc1 — is a pre-release, and a plain one is not.
           prerelease: ${{ contains(github.ref_name, '-') }}
-          files: |
-            bin/android/Release/net10.0-android/publish/*.apk
-            bin/android/Release/net10.0-android/publish/*.aab
+          files: ${{ runner.temp }}/packages/*
           fail_on_unmatched_files: true

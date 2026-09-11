@@ -84,7 +84,11 @@
          that has no meaning here: the activity is the window. -->
     <PackageReference Include="Silk.NET.Vulkan" Version="2.23.0" />
     <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
-    <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
+    <!-- **Input.Common and not Silk.NET.Input**, which is a metapackage over GLFW and SDL: a package
+         referenced for two enums brought two windowing backends and their native libraries with it, and
+         an APK carrying libSDL2.so twice — once an ABI — is two megabytes for something this head never
+         opens. The enums are in Common, which has no native asset at all. -->
+    <PackageReference Include="Silk.NET.Input.Common" Version="2.23.0" />
     <!-- 3.1.x for the reason the desktop head names: 4.0 added a licence key whose absence is two
          warnings on every build. It decodes the sheets here — a handset has no createImageBitmap to
          borrow, which is the browser head's saving and not this one's. -->
