@@ -106,10 +106,13 @@ jobs:
           esac
           echo "name=${name:-0.1}" >> "$GITHUB_OUTPUT"
 
+      # Both packages, and the semicolon between them escaped: MSBuild's own command line splits a -p:
+      # value on a semicolon into a second property, so a quoted 'aab;apk' arrives as a switch called
+      # apk. %3B is how one is spelled to it.
       - name: The package
         run: |
           dotnet publish traffic-dotnet.android.csproj -c Release \
-            -p:AndroidPackageFormats='aab;apk' \
+            -p:AndroidPackageFormats=aab%3Bapk \
             -p:ApplicationVersion=${{ github.run_number }} \
             -p:ApplicationDisplayVersion=${{ steps.version.outputs.name }} \
             ${{ steps.key.outputs.signed == 'true' && format(
