@@ -16,9 +16,10 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <!-- The engine's sources are src/, minus the two projects of their own that live beside them and
-         the browser's half of the machine: a folder named web/ under src/ is the other head's
-         (traffic-dotnet.web.csproj), and this one compiles none of it. -->
-    <DefaultItemExcludes>$(DefaultItemExcludes);assets/**;towns/**;src/tests/**;src/tools/**;src/**/web/**;bin/**;obj/**</DefaultItemExcludes>
+         the other heads' halves of the machine: a folder named web/ or android/ under src/ is another
+         head's (traffic-dotnet.web.csproj, traffic-dotnet.android.csproj), and this one compiles
+         neither. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);assets/**;towns/**;src/tests/**;src/tools/**;src/**/web/**;src/**/android/**;bin/**;obj/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <!-- The unit suite reads types that are internal because nothing outside this assembly is meant to
@@ -41,35 +42,14 @@
        contact solver. Box2D.NET is referenced by the unit suite alone, as the independent
        implementation the cast and the manifolds are checked against. -->
 
-  <!-- GLSL 460 -> SPIR-V by glslc, from the project file so it cannot be the forgotten step, and
-       embedded so the shipped assembly has no shader files to find at run time. -->
-  <ItemGroup>
-    <ShaderSource Include="src/runtime/shaders/*.vert;src/runtime/shaders/*.frag;src/runtime/shaders/*.comp" />
-  </ItemGroup>
-
-  <!-- The typeface, embedded for the same reason. Cut by src/tools/glyphsheet and committed — a
-       workshop tool's output, never a build step. -->
+  <!-- The typeface, embedded so the shipped assembly has nothing to find at run time. Cut by
+       src/tools/glyphsheet and committed — a workshop tool's output, never a build step. -->
   <ItemGroup>
     <EmbeddedResource Include="src/runtime/glyphs/glyphs.png" LogicalName="Glyphs/glyphs.png" />
   </ItemGroup>
 
-  <Target Name="CompileShaders" BeforeTargets="AssignTargetPaths"
-          Inputs="@(ShaderSource)" Outputs="@(ShaderSource->'$(IntermediateOutputPath)Shaders/%(Filename)%(Extension).spv')">
-    <MakeDir Directories="$(IntermediateOutputPath)Shaders" />
-    <Exec Command="glslc --target-env=vulkan1.3 -O &quot;%(ShaderSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv&quot;" />
-  </Target>
-
-  <!-- Two traps paid for once, both of which fail silently — the assembly builds, ships no shaders
-       and says nothing:
-       * this hangs off PrepareResources, never BeforeCompile: resources are named and split before
-         Compile is reached, so an EmbeddedResource added at BeforeCompile time is added to nothing;
-       * it batches over ShaderSource so each Include is a literal path. Including @(ShaderSpv) and
-         naming it with %(ShaderSpv.Filename) instead adds one empty item per shader (MSB4120). -->
-  <Target Name="EmbedShaders" AfterTargets="CompileShaders" BeforeTargets="AssignTargetPaths">
-    <ItemGroup>
-      <EmbeddedResource Include="$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv"
-                        LogicalName="Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv" />
-    </ItemGroup>
-  </Target>
+  <!-- The shaders, compiled and embedded by the runtime's own file, because the handset head does it
+       the same way and a second copy of it would be two answers. -->
+  <Import Project="src/runtime/shaders/Shaders.targets" />
 
 </Project>

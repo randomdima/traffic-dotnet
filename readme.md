@@ -182,6 +182,43 @@ wait on a fetch, so the menu's click writes a name down and the boot's own loop 
 browser run may wait — fetches the plan and stands the town up
 ([decision log](src/app/web/docs/decision-log.md)).
 
+## The same town, in a hand
+
+There is a third head. `traffic-dotnet.android.csproj` compiles the same `src/` against the **same
+Vulkan** — the same device, the same swapchain, the same renderer and the same SPIR-V the desktop
+draws with — and the whole of what differs is the bootstrap: an activity that takes its own window's
+surface in place of a window, and fingers in place of a mouse
+([app/android](src/app/android/docs/requirements.md)).
+
+```
+dotnet workload install android
+dotnet build traffic-dotnet.android.csproj -t:Run -c Release
+adb shell am start -n dev.trafficdotnet.town/.TownActivity -e map Odesa -e ui nodes
+adb logcat -s town
+```
+
+**The intent's extras are the command line**, so `-e map Odesa -e ui nodes` is `--map Odesa --ui
+nodes`, and `-e seconds` and `-e ui-scale` are the words they look like. Without a map it opens on its
+start menu over the idle ring, exactly as the other two heads do. Everything the engine prints comes
+out under the `town` tag, which is what a handset has in place of a terminal.
+
+**It is one activity and nothing else** — no view, no layout, no platform control anywhere: what a
+reader touches is the town's own interface, drawn by the same code that draws it on a desk, and the
+fingers are read as the mobile browser's are (CTL-9). **The floor is the driver's**: the instance is
+created at Vulkan 1.3, the manifest asks for that version as required, and the build is 64-bit only.
+
+**A run ends when the activity leaves the screen** and the town is laid again when it comes back. It is
+this head's one stated limit and the reason is in its [decision log](src/app/android/docs/decision-log.md).
+
+**The release is cut by a pipeline of its own** — [`.github/workflows/android.yml`](.github/workflows/android.yml),
+on a tag push or by hand. It builds an APK and an AAB, signed with the keystore in the repository's
+secrets when there is one and debug-signed when there is not. **A tag ends in a GitHub release** with
+both packages attached and the signing state in its notes; a `workflow_dispatch` leaves them as the
+run's artifacts and makes no release. `git tag v0.1.0 && git push origin v0.1.0` is the whole of cutting
+one, and `v0.1.0-rc1` — any tag with a suffix — is marked a pre-release. **Build it Release**:
+`RunAOTCompilation` is on there and off in Debug, and the interpreter is about ten times off a 60 Hz
+loop — the same figure the browser head quotes.
+
 ## Layout
 
 ```
@@ -193,7 +230,7 @@ src/        every line of C#, and nothing else — the nine slices below
   agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the maneuvers:
             one file per entry of the closed catalogue (src/agents/car/maneuvers/docs/index.md)
   runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/, the browser's half
-  app/      screen, render, camera, hud, debug, playercontrol, shot, web, main — the shell
+  app/      screen, render, camera, hud, debug, playercontrol, shot, web, android, main — the shell
   bench/    the census and the probes
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not

@@ -7,7 +7,18 @@ namespace TrafficSimulation.Core.Config;
 /// </summary>
 internal static class ProjectPaths
 {
-    public static string Root { get; } = FindRoot();
+    static string? _root;
+
+    public static string Root => _root ??= FindRoot();
+
+    /// <summary>
+    /// Where the town's files are, <b>told rather than found</b>. The handset's, and nothing else's: an
+    /// APK is a zip and not a tree, so that head unpacks <c>assets/</c> and <c>towns/</c> into the app's
+    /// own folder and says where it put them (AND-3). Called once, before anything reads a path — which
+    /// is what keeps there being one asset story rather than a provider threaded through fifteen call
+    /// sites.
+    /// </summary>
+    public static void FoundAt(string root) => _root = root;
 
     public static string Assets => Path.Combine(Root, "assets");
 

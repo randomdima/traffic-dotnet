@@ -1,0 +1,180 @@
+name: Android
+
+# The handset head, built by the csproj that stands it up and handed back as a package. **Its own
+# pipeline and not a job on the page's**: it is a different head, a different toolchain — a JDK, the
+# Android SDK and the platform's own packager — and a different trigger, because a page is published from
+# `main` every time and a package is cut at a tag.
+#
+# What it claims is what a build can claim (AND-1..8): that this head compiles, packs the town and
+# packages on a machine that is not the one it was written on. What only a device can answer — a surface,
+# fingers, a frame rate — it does not pretend to.
+#
+# **A tag ends in a release and a dispatch ends in an artifact.** Both build the same package; what a tag
+# adds is a GitHub release with the APK and the AAB attached to it, because a package nobody can download
+# without a GitHub account and a run number is not a release.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The version name to build, when no tag is naming one'
+        required: false
+        default: '0.1'
+
+# Write, and only for the one thing that needs it: a release is a write to this repository's own
+# releases. Nothing here pushes a commit, and the token is the run's own rather than a personal one.
+permissions:
+  contents: write
+
+# One build per ref, and a queued one is not cancelled: ahead-of-time compilation is the expensive half
+# and a cancelled run has already paid for it.
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    # `RunAOTCompilation` is on in Release, over two ABIs, and that is most of the wall clock.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The packager and the signer are Java's. Pinned, because the Android toolchain takes the JDK it
+      # supports and not the newest one a runner happens to carry.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-android-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-android-${{ runner.os }}-
+
+      # The shader compiler. The project file turns GLSL into SPIR-V and embeds it, so a missing glslc
+      # fails the build rather than the run — on this machine as on a desk.
+      - run: sudo apt-get update && sudo apt-get install -y glslc
+
+      # The Android packs. The runner's SDK carries the manifest and not the packs.
+      #
+      # **From anywhere but the repository.** A workload install resolves against the directory it is run
+      # in, and this one holds three projects — the desktop head, the browser one and this — so run from
+      # the root it refuses to pick between them and installs nothing.
+      - run: dotnet workload install android
+        working-directory: ${{ runner.temp }}
+
+      # The platform this head targets, in case the image is carrying a different one. Idempotent, and
+      # the licences are the SDK's own to be accepted before anything will install.
+      - name: The platform and the packager
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0"
+
+      # The keystore, when there is one. **A missing secret is a debug-signed package and not a failed
+      # run**: the pipeline's job is to produce something installable at every tag, and whether this
+      # repository has been given release keys is a fact about the repository.
+      - name: The signing key, if this repository has one
+        id: key
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "no keystore secret, so the package will be debug-signed"
+          else
+            printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The version, from the tag that asked for the build. The code is the run number, which only ever
+      # goes up — which is the one thing a store asks of it — and the name is the tag without its v.
+      - name: What to call it
+        id: version
+        run: |
+          tag='${{ github.ref_name }}'
+          case '${{ github.ref_type }}' in
+            tag) name="${tag#v}" ;;
+            *)   name='${{ inputs.version }}' ;;
+          esac
+          echo "name=${name:-0.1}" >> "$GITHUB_OUTPUT"
+
+      - name: The package
+        run: |
+          dotnet publish traffic-dotnet.android.csproj -c Release \
+            -p:AndroidPackageFormats='aab;apk' \
+            -p:ApplicationVersion=${{ github.run_number }} \
+            -p:ApplicationDisplayVersion=${{ steps.version.outputs.name }} \
+            ${{ steps.key.outputs.signed == 'true' && format(
+              '-p:AndroidKeyStore=true -p:AndroidSigningKeyStore={0}/release.keystore -p:AndroidSigningStorePass={1} -p:AndroidSigningKeyAlias={2} -p:AndroidSigningKeyPass={3}',
+              runner.temp, secrets.ANDROID_KEYSTORE_PASSWORD, secrets.ANDROID_KEY_ALIAS, secrets.ANDROID_KEY_PASSWORD) || '' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: traffic-dotnet-android-${{ steps.version.outputs.name }}
+          # The two packages and nothing else of the publish: the artifact is how a dispatched build is
+          # fetched, and a tagged one is attached to its release as well.
+          path: |
+            bin/android/Release/net10.0-android/publish/*.apk
+            bin/android/Release/net10.0-android/publish/*.aab
+          if-no-files-found: error
+
+      - name: What came out
+        run: ls -la bin/android/Release/net10.0-android/publish
+
+      # **The notes say which key signed it**, because the difference is one a reader finds out the hard
+      # way otherwise: Android will not replace an install with a package signed by a different key. It is
+      # written to a file rather than inlined below because the sentence depends on the signing state, and
+      # a conditional this long inside an expression is a sentence nobody can read.
+      - name: What to say about it
+        if: github.ref_type == 'tag'
+        env:
+          SIGNED: ${{ steps.key.outputs.signed }}
+        run: |
+          set -euo pipefail
+          {
+            echo "The town in a hand: the same engine the desktop and the browser heads run, drawn with the"
+            echo "same Vulkan, in one activity and nothing else."
+            echo
+            if [ "$SIGNED" = 'true' ]; then
+              echo "Signed with this repository's release key."
+            else
+              echo "**Debug-signed.** No release keystore is configured for this repository, so these packages"
+              echo "install for testing and are not a store upload — and a debug-signed install has to be"
+              echo "uninstalled before a release-signed one will replace it."
+            fi
+            echo
+            echo "Needs a device with a Vulkan 1.3 driver and a 64-bit userland; the manifest asks for both,"
+            echo "so a store will not offer it where it cannot run."
+            echo
+            echo "\`adb install\` the APK, or \`adb shell am start -n dev.trafficdotnet.town/.TownActivity -e map Odesa\`"
+            echo "once it is on — the intent's extras are the command line."
+          } > "$RUNNER_TEMP/notes.md"
+
+      # The release at the tag that asked for the build, with both packages attached to it. The action
+      # rather than the `gh` CLI: it is the one step here that talks to the forge, and **re-running a tag
+      # updates the release and replaces the assets** — a failed run, or a signing secret added afterwards,
+      # is a rebuild rather than a release deleted by hand.
+      #
+      # It is a third party in the path of every release, which is the price, and it is pinned to a major
+      # version exactly as the first-party ones above are.
+      - name: The release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: traffic-dotnet ${{ steps.version.outputs.name }} — Android
+          body_path: ${{ runner.temp }}/notes.md
+          # A tag with a suffix — v0.2.0-rc1 — is a pre-release, and a plain one is not.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            bin/android/Release/net10.0-android/publish/*.apk
+            bin/android/Release/net10.0-android/publish/*.aab
+          fail_on_unmatched_files: true

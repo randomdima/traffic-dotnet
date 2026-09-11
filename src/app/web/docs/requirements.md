@@ -21,7 +21,7 @@ The halves, and nothing else, are:
 | [`AppWindow`](../../../runtime/AppWindow.cs) | [`AppWindow.Web.cs`](../../../runtime/web/AppWindow.Web.cs) |
 | [`TownRenderer`](../../render/TownRenderer.cs) | [`TownRenderer.Web.cs`](../../render/web/TownRenderer.Web.cs) |
 | [`Texels`](../../render/Texels.cs) | [`Texels.Web.cs`](../../render/web/Texels.Web.cs) |
-| [`Game.Desktop.cs`](../../main/Game.Desktop.cs), [`Program.cs`](../../main/Program.cs) | [`Game.Web.cs`](../../main/web/Game.Web.cs), [`Boot.cs`](../../main/web/Boot.cs) |
+| [`Game.Desktop.cs`](../../main/Game.Desktop.cs), [`Game.Vulkan.cs`](../../main/Game.Vulkan.cs), [`Program.cs`](../../main/Program.cs) | [`Game.Web.cs`](../../main/web/Game.Web.cs), [`Boot.cs`](../../main/web/Boot.cs) |
 
 **The input is two arrays and they hold only what the page saw.** The keys and the pointer are copied
 across whole at the top of every frame, so **anything the run decides for itself cannot live in them** —

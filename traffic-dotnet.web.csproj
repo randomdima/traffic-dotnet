@@ -68,6 +68,7 @@
       src/app/render/TownRenderer.Pipelines.cs;
       src/app/render/TownRenderer.Recording.cs;
       src/app/main/Game.Desktop.cs;
+      src/app/main/Game.Vulkan.cs;
       src/app/main/Program.cs;
       src/app/render/Texels.cs;
       src/agents/car/body/LampAtlasBake.cs;
@@ -75,7 +76,7 @@
     </DesktopOnly>
     <DefaultItemExcludes>
       $(DefaultItemExcludes);assets/**;towns/**;raw_assets/**;docs/**;.tmp/**;
-      src/tests/**;src/tools/**;bin/**;obj/**;$(DesktopOnly)
+      src/tests/**;src/tools/**;src/**/android/**;bin/**;obj/**;$(DesktopOnly)
     </DefaultItemExcludes>
   </PropertyGroup>
 

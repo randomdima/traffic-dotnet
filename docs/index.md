@@ -43,6 +43,7 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [app/playercontrol/](../src/app/playercontrol/) — the player's hands | [requirements](../src/app/playercontrol/docs/requirements.md) | — |
 | [runtime/](../src/runtime/) — the machine | [requirements](../src/runtime/docs/requirements.md) | [log](../src/runtime/docs/decision-log.md) |
 | [app/web/](../src/app/web/) — the town in a browser | [requirements](../src/app/web/docs/requirements.md) | [log](../src/app/web/docs/decision-log.md) |
+| [app/android/](../src/app/android/) — the town in a hand | [requirements](../src/app/android/docs/requirements.md) | [log](../src/app/android/docs/decision-log.md) |
 
 **Slices with no document own no rule.** `world/foot/` and `world/statics/` are implementations of rules
 stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src/world/routing/docs/requirements.md),
@@ -63,6 +64,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `SIM-1`, `SIM-2`, `SIM-6`, `SIM-7` | Hard vs soft, body state, ban vs price, one mechanism | [requirements.md](requirements.md#the-two-rule-classes) |
 | `SIM-3`, `SIM-4`, `AGT-6` | Units, the two seeds, where randomness comes from | [core](../src/core/docs/requirements.md) |
 | `WEB-1…9` | The browser head: what is halved, the crossing budget, what a page does not carry, what it weighs, what a publish must hold, and what nothing waits for | [app/web](../src/app/web/docs/requirements.md) |
+| `AND-1…8` | The handset head: what is halved, how little the bootstrap is, where the town's files are unpacked, what it does not carry, the intent's extras, the fingers, a lost surface, and the driver it asks for | [app/android](../src/app/android/docs/requirements.md) |
 | `OBJ-2`, `OBJ-4…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
 | `AGT-5`, `AGT-7` | The terminal state; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |

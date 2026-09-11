@@ -1,0 +1,135 @@
+<Project>
+
+  <!-- **Named before the SDK is imported, and that is why the imports are spelled out** — the reason
+       is written out in traffic-dotnet.web.csproj: MSBuildProjectExtensionsPath is derived from
+       BaseIntermediateOutputPath and then frozen above the project body, so three heads sharing obj/
+       would overwrite one project.assets.json with the next. -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj/android/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- The same engine, in a hand. It compiles src/ exactly as traffic-dotnet.csproj does and draws
+       with the same Vulkan, the same swapchain, the same renderer and the same SPIR-V: what differs is
+       the bootstrap — an activity's own surface in place of a window, and fingers in place of a mouse.
+       What that head is and what it owes is src/app/android/docs/requirements.md and nowhere else. -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <!-- Android 12. The floor is not the .NET runtime's but the driver's: the instance is created at
+         Vulkan 1.3 and the shaders are SPIR-V 1.6 (AND-8), and the manifest asks the store for a
+         device that answers it. -->
+    <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>TrafficSimulation</RootNamespace>
+    <AssemblyName>traffic-dotnet-android</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Nothing in this engine reads a clock a zone applies to: the sim's time is its own tick count
+         and the only wall clock is a stopwatch. -->
+    <InvariantTimezone>true</InvariantTimezone>
+    <BaseOutputPath>bin/android/</BaseOutputPath>
+
+    <ApplicationId>dev.trafficdotnet.town</ApplicationId>
+    <ApplicationTitle>traffic-dotnet</ApplicationTitle>
+    <!-- The release pipeline names both: the code off the run number and the name off the tag. What is
+         here is what a working copy builds with. -->
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+    <AndroidManifest>src/app/android/AndroidManifest.xml</AndroidManifest>
+
+    <!-- arm64 for a handset and x64 for an emulator, and nothing 32-bit: a device with a Vulkan 1.3
+         driver has a 64-bit userland, so a third and a fourth ABI would be two more ahead-of-time
+         compilations of a build nothing can install. -->
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidCreatePackagePerAbi>false</AndroidCreatePackagePerAbi>
+
+    <!-- The interpreter is around ten times off the pace and this engine is a 60 Hz loop, so the
+         shipped build is compiled ahead of time or it is not worth looking at — the same figure and
+         the same reasoning as the browser head's. Profiled ahead-of-time compilation is off because
+         the profile it would read is a recording of somebody else's startup, and what this build wants
+         native is the frame rather than the boot. -->
+    <RunAOTCompilation Condition="'$(Configuration)' == 'Release'">true</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+
+    <!-- The engine's sources are src/, minus the workshop, minus the two projects of their own that
+         live beside them, and minus the halves that belong to another head: a folder named web/ under
+         src/ is the browser's, and the files below are the desktop's own machine and its entry.
+         Everything else under src/ is shared, and there is no #if anywhere in it.
+
+         app/shot/ is the offscreen picture and the sheet — instruments, which stay where there is a
+         file system and a process that can exit (AND-4) — and LampAtlasBake writes a WebP, which is a
+         workshop step no handset runs. -->
+    <DesktopOnly>
+      src/runtime/AppWindow.cs;
+      src/app/main/Program.cs;
+      src/app/main/Game.Desktop.cs;
+      src/agents/car/body/LampAtlasBake.cs;
+      src/app/shot/**
+    </DesktopOnly>
+    <DefaultItemExcludes>
+      $(DefaultItemExcludes);assets/**;towns/**;raw_assets/**;docs/**;.tmp/**;
+      src/tests/**;src/tools/**;src/**/web/**;bin/**;obj/**;$(DesktopOnly)
+    </DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Silk.NET.Vulkan and the KHR extensions, which is the whole of the graphics boundary on this
+         head as on the desktop — VK_KHR_android_surface among them. Silk.NET.Input for its two enums
+         and nothing else: what a key and a mouse button are called is the same question on every
+         machine, and no native code comes with them. No Silk.NET.Windowing, which is the one package
+         that has no meaning here: the activity is the window. -->
+    <PackageReference Include="Silk.NET.Vulkan" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
+    <!-- 3.1.x for the reason the desktop head names: 4.0 added a licence key whose absence is two
+         warnings on every build. It decodes the sheets here — a handset has no createImageBitmap to
+         borrow, which is the browser head's saving and not this one's. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The figures are applied over SimConfig by name at run time, and a trimmer takes a setter
+         nothing calls. Release links the SDK alone and leaves this assembly whole, so it costs nothing
+         as things stand and is the one thing that would break silently if that ever changed. -->
+    <TrimmerRootDescriptor Include="src/core/config/figures.trim.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The typeface, embedded exactly as the other two heads embed it. -->
+    <EmbeddedResource Include="src/runtime/glyphs/glyphs.png" LogicalName="Glyphs/glyphs.png" />
+  </ItemGroup>
+
+  <!-- The shaders: GLSL to SPIR-V by glslc and embedded, the runtime's own file and the same one the
+       desktop imports. -->
+  <Import Project="src/runtime/shaders/Shaders.targets" />
+
+  <!-- **The town's own files, as one archive and not four hundred assets.** An APK is a zip and
+       ProjectPaths walks a tree, so the head unpacks this into the app's own folder on the first run
+       after an install and tells ProjectPaths where it put it (AND-3) — and an archive is one open, one
+       inflate and one pass against four hundred asset streams opened one at a time.
+
+       A plain tar, gzipped, because the format is somebody else's and System.Formats.Tar is already in
+       the runtime. Sorted, so the same tree packs to the same bytes and a rebuild that changed nothing
+       leaves the asset — and therefore the APK — byte for byte what it was. -->
+  <ItemGroup>
+    <TownFiles Include="assets/**;towns/**" />
+    <AndroidAsset Include="$(BaseIntermediateOutputPath)$(Configuration)/town.tar.gz" Link="Assets\town.tar.gz" />
+  </ItemGroup>
+
+  <Target Name="PackTheTown" BeforeTargets="AssignTargetPaths"
+          Inputs="@(TownFiles)" Outputs="$(BaseIntermediateOutputPath)$(Configuration)/town.tar.gz">
+    <MakeDir Directories="$(BaseIntermediateOutputPath)$(Configuration)" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="tar --sort=name --owner=0 --group=0 --numeric-owner --mtime=@0 -cf - assets towns | gzip -9 &gt; '$(BaseIntermediateOutputPath)$(Configuration)/town.tar.gz'" />
+  </Target>
+
+  <!-- The other half of the Sdk= attribute this file does without. It stays last, so the SDK's own
+       targets — and the Android workload's, which the target framework pulls in — are still imported
+       after the body. -->
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+</Project>

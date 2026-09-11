@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- AND-8 — the floor is the driver's and it is declared rather than discovered: the instance is
+       created at Vulkan 1.3 and the shaders are SPIR-V 1.6, so a device whose loader answers 1.1 cannot
+       create an instance at all. Asked for as required, which is what keeps a store from offering this
+       to a handset it would open black on. 0x00403000 is 1.3 in the platform's own encoding
+       (major << 22 | minor << 12). -->
+  <uses-feature android:name="android.hardware.vulkan.version" android:version="0x00403000" android:required="true" />
+
+  <!-- The activity, its label and everything about it are the [Activity] attribute's
+       (src/app/android/TownActivity.cs): the manifest carries what belongs to the package and the code
+       carries what belongs to the one screen there is. -->
+  <application android:label="traffic-dotnet" android:allowBackup="false" android:hardwareAccelerated="true" />
+
+</manifest>

@@ -1,0 +1,31 @@
+<Project>
+
+  <!-- GLSL 460 -> SPIR-V by glslc, from the project file so it cannot be the forgotten step, and
+       embedded so the shipped assembly has no shader files to find at run time.
+
+       **One copy, imported by every head that draws with Vulkan** — the desktop's and the handset's.
+       The browser's takes WGSL and has nothing for glslc to do. -->
+  <ItemGroup>
+    <ShaderSource Include="$(MSBuildThisFileDirectory)*.vert;$(MSBuildThisFileDirectory)*.frag;$(MSBuildThisFileDirectory)*.comp" />
+  </ItemGroup>
+
+  <Target Name="CompileShaders" BeforeTargets="AssignTargetPaths"
+          Inputs="@(ShaderSource)" Outputs="@(ShaderSource->'$(IntermediateOutputPath)Shaders/%(Filename)%(Extension).spv')">
+    <MakeDir Directories="$(IntermediateOutputPath)Shaders" />
+    <Exec Command="glslc --target-env=vulkan1.3 -O &quot;%(ShaderSource.FullPath)&quot; -o &quot;$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv&quot;" />
+  </Target>
+
+  <!-- Two traps paid for once, both of which fail silently — the assembly builds, ships no shaders
+       and says nothing:
+       * this hangs off PrepareResources, never BeforeCompile: resources are named and split before
+         Compile is reached, so an EmbeddedResource added at BeforeCompile time is added to nothing;
+       * it batches over ShaderSource so each Include is a literal path. Including @(ShaderSpv) and
+         naming it with %(ShaderSpv.Filename) instead adds one empty item per shader (MSB4120). -->
+  <Target Name="EmbedShaders" AfterTargets="CompileShaders" BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <EmbeddedResource Include="$(IntermediateOutputPath)Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv"
+                        LogicalName="Shaders/%(ShaderSource.Filename)%(ShaderSource.Extension).spv" />
+    </ItemGroup>
+  </Target>
+
+</Project>
