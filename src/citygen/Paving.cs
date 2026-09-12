@@ -47,7 +47,7 @@ internal sealed class Paving
 {
     readonly float _bayWidthM;
 
-    Paving(float walkM, GroundPieces pieces, LaneLines lanes, BayLines bays, float bayWidthM, Kerbs kerbs, PavedRun[] walk)
+    Paving(float walkM, GroundPieces pieces, LaneLines lanes, BayLines bays, float bayWidthM, Kerbs kerbs)
     {
         WalkM = walkM;
         Of = pieces;
@@ -55,7 +55,6 @@ internal sealed class Paving
         Bays = bays;
         _bayWidthM = bayWidthM;
         Kerbs = kerbs;
-        Walk = walk;
     }
 
     /// <summary>The shapes the pavement was laid off, for a reader that wants the road a band belongs to.</summary>
@@ -133,12 +132,6 @@ internal sealed class Paving
     public Kerbs Kerbs { get; }
 
     /// <summary>
-    /// <b>The line the pavement is walked down</b>: the tarmac's outline at half a walk, cut into the runs
-    /// of it that are really the outside. The band is everything within half a walk of these.
-    /// </summary>
-    public PavedRun[] Walk { get; }
-
-    /// <summary>
     /// How wide the band is. <b>The map's own figure where it has one</b>, and the town's where it does not,
     /// so a map laid without a pavement of its own is walked at the same width it is drawn.
     /// </summary>
@@ -155,132 +148,6 @@ internal sealed class Paving
         var through = RoadCuts.RunsThrough(pieces);
         var kerbs = Kerbs.Of(pieces, lanes, bays, config.ParkingSpaceWidthM, through);
 
-        // <b>Welded at one place and not at a rounding</b> (<see cref="Kerbs.OnePlaceM"/>). A wrapping line
-        // that meets another tangentially runs that far past the point they cross before it is a rounding
-        // inside it, so every graze in the town left a span of a few centimetres standing as outline — a run
-        // whose two ends are one place, which is a walk-wide round of pavement struck off nothing. Odesa laid
-        // thirteen hundred of them, a third of all its runs, for a tenth of a percent of its pavement.
-        var wraps = new List<Kerbs.Wrap>();
-        kerbs.Shell(walkM * 0.5f, Kerbs.OnePlaceM, null, wraps);
-        Corner.WeldTheEnds(wraps);
-
-        var walk = new PavedRun[wraps.Count];
-        for (var run = 0; run < wraps.Count; run++)
-        {
-            var line = wraps[run].Line;
-            var lengthM = Spline.TotalLengthM(line);
-
-            // Which side of the line the tarmac lies on, read a quarter of a walk either way at the middle
-            // of the run: the near side is the kerb and the far one the shell against the grass.
-            var on = Spline.SampleAt(line, lengthM * 0.5f);
-            var side = kerbs.OffTheTarmacM(on.PositionM + (on.Right * walkM * 0.25f))
-                       <= kerbs.OffTheTarmacM(on.PositionM - (on.Right * walkM * 0.25f))
-                ? 1f
-                : -1f;
-
-            walk[run] = new PavedRun(line, lengthM, side);
-        }
-
-        return new Paving(walkM, pieces, lanes, bays, config.ParkingSpaceWidthM, kerbs, walk);
+        return new Paving(walkM, pieces, lanes, bays, config.ParkingSpaceWidthM, kerbs);
     }
 }
-
-/// <summary>
-/// <b>Two ends that stop where their lines cross are made to stop at one point.</b> Cut a centimetre inside
-/// one another's bands they stand a little apart, so the band the answer measures round one of them reaches
-/// the other's a centimetre short of its start — a sliver the width of that offset and a walk long that the
-/// pavement is not, at every graze in the town.
-/// </summary>
-static class Corner
-{
-    /// <summary>
-    /// <b>How far apart two ends stop where their lines cross</b>: each line is cut where it is a joining's
-    /// width inside the other's band (<see cref="Kerbs.JoinedM"/>), which is that far past the crossing
-    /// along its own line, so the two ends stand that apart and up to root two of it at a right angle —
-    /// and a rounding on top.
-    /// </summary>
-    static readonly float CrossedM = (Kerbs.JoinedM * MathF.Sqrt(2f)) + Kerbs.RoundingM;
-
-    /// <summary>
-    /// The end that stops second is moved onto the first, keeping its arc's curvature and its other end
-    /// where they were.
-    /// </summary>
-    public static void WeldTheEnds(List<Kerbs.Wrap> wraps)
-    {
-        var ends = new List<(int Run, bool AtStart, Vector2 PlaceM)>(wraps.Count * 2);
-        for (var run = 0; run < wraps.Count; run++)
-        {
-            ends.Add((run, true, wraps[run].Line[0].StartM));
-            ends.Add((run, false, wraps[run].Line[^1].EndM));
-        }
-
-        var cells = new Dictionary<(int X, int Y), List<int>>();
-        for (var end = 0; end < ends.Count; end++)
-        {
-            var cell = Cell(ends[end].PlaceM);
-            if (!cells.TryGetValue(cell, out var here)) cells[cell] = here = [];
-            here.Add(end);
-        }
-
-        var welded = new bool[ends.Count];
-        for (var end = 0; end < ends.Count; end++)
-        {
-            if (welded[end]) continue;
-
-            var cell = Cell(ends[end].PlaceM);
-            var nearest = -1;
-            var nearestM = CrossedM;
-            for (var x = -1; x <= 1; x++)
-            {
-                for (var y = -1; y <= 1; y++)
-                {
-                    if (!cells.TryGetValue((cell.X + x, cell.Y + y), out var here)) continue;
-
-                    foreach (var other in here)
-                    {
-                        if (ends[other].Run == ends[end].Run || welded[other]) continue;
-
-                        var apartM = Vector2.Distance(ends[other].PlaceM, ends[end].PlaceM);
-                        if (apartM <= 0f || apartM > nearestM) continue;
-
-                        nearestM = apartM;
-                        nearest = other;
-                    }
-                }
-            }
-
-            if (nearest < 0) continue;
-
-            var (run, atStart, _) = ends[nearest];
-            var line = wraps[run].Line;
-            var ontoM = ends[end].PlaceM;
-            if (atStart) line[0] = Through(line[0].Curvature, ontoM, line[0].EndM);
-            else line[^1] = Through(line[^1].Curvature, line[^1].StartM, ontoM);
-            ends[nearest] = (run, atStart, ontoM);
-            welded[end] = true;
-            welded[nearest] = true;
-        }
-    }
-
-    /// <summary>The arc of one curvature from one point to another: its heading and length off the chord.</summary>
-    static ArcSeg Through(float curvature, Vector2 fromM, Vector2 toM)
-    {
-        var chordM = toM - fromM;
-        var chordLengthM = chordM.Length();
-        var chordRad = MathF.Atan2(chordM.Y, chordM.X);
-        if (MathF.Abs(curvature) < 1e-6f) return new ArcSeg(fromM, chordRad, chordLengthM, 0f);
-
-        var lengthM = 2f / curvature * MathF.Asin(Math.Clamp(curvature * chordLengthM * 0.5f, -1f, 1f));
-        return new ArcSeg(fromM, chordRad - (curvature * lengthM * 0.5f), lengthM, curvature);
-    }
-
-    static (int X, int Y) Cell(Vector2 atM) =>
-        ((int)MathF.Floor(atM.X / Kerbs.OnePlaceM), (int)MathF.Floor(atM.Y / Kerbs.OnePlaceM));
-}
-
-/// <summary>
-/// One run of the line the pavement is walked down, its length, and the side of it the tarmac lies on —
-/// which is what tells the kerb from the shell against the grass. The band is everything within half a walk
-/// of the line (TER-3c.3), which is the whole of what a run says about the ground.
-/// </summary>
-internal readonly record struct PavedRun(ArcSeg[] Line, float LengthM, float RoadSide);

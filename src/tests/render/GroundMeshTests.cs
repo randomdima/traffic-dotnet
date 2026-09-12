@@ -150,7 +150,11 @@ public class GroundMeshTests
         Assert.Equal(0, marks % 4);
         Assert.True(marks / 4 >= plan.StopLines.Count + plan.Crosswalks.Count,
             $"{map} paints {marks / 4} marks for {plan.StopLines.Count} bars and {plan.Crosswalks.Count} crossings");
-        Assert.True(kerb > 0, $"{map} lays no kerb line anywhere");
+        // <b>Unless the map has no boundary to strike one on.</b> A kerb line is what the ground's own edge
+        // leaves of the stroke outside it (TER-3d), so a map that is tarmac edge to edge — a slab with rows
+        // marked on it — has no edge anywhere and lays none.
+        Assert.True(
+            kerb > 0 || plan.Ground.PavementWidthM <= 0f, $"{map} lays no kerb line anywhere");
         Assert.True(plan.PavementWidthM == 0f || darker > 0, $"{map} draws no edge line anywhere");
     }
 
@@ -480,50 +484,62 @@ public class GroundMeshTests
     }
 
     /// <summary>
-    /// <b>The pavement drawn is the band the walk runs down</b> (TER-3c.3): a walk wide about the line the
-    /// town's outline was cut at, and the concrete says the same as the answer at both of its edges.
+    /// <b>The pavement drawn reaches a walk off the kerb and no further</b> (TER-3c.3): the concrete and
+    /// the answer say the same thing on either side of the one line that decides both.
     /// </summary>
     /// <remarks>
-    /// Asked at the line, a hair inside its outer edge and a hair beyond it, and only where the ground
-    /// answers pavement and grass respectively — a deck, a shore and a slab are drawn on the same surface
-    /// and are nobody's business here (TER-7).
+    /// <b>Asked along the town's own boundary</b> (<c>GroundRings</c>) rather than along a second reading
+    /// of it: a hair inside the pavement's outer edge and a hair beyond it, and only where the answer says
+    /// pavement and grass respectively — a deck, a shore and a slab are drawn on the same surface and are
+    /// nobody's business here (TER-7).
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
     public void ThePavementIsDrawnAsTheBandTheWalkRunsDown(string map)
     {
         const float HairM = 0.05f;
-        const int Stations = 24;
+        const int Stations = 48;
 
         var plan = Towns.Of(map);
         var config = SimConfig.Shipped();
+        // The map's own figure and not the town's fallback: a map that says it has no pavement has none to
+        // ask about.
+        if (plan.Ground.PavementWidthM <= 0f) return;
+
         var paving = plan.Paving(config);
-        var halfWalkM = paving.WalkM * 0.5f;
-        if (halfWalkM <= 0f) return;
+        var walkM = paving.WalkM;
 
         var ground = new GroundLocator(plan, config);
-        var pavement = Triangles(Ground(map), Surface.Pavement);
-        var runs = paving.Walk;
+        var mesh = Ground(map);
+        var rings = GroundRings.Of(paving, config);
         var asked = 0;
 
-        for (var run = 0; run < runs.Length; run++)
+        foreach (var ring in rings.At(walkM))
         {
-            if (run % Math.Max(1, runs.Length / Stations) != 0) continue;
+            if (ring.Length == 0) continue;
 
-            var atM = Spline.SampleAt(runs[run].Line, runs[run].LengthM * 0.5f);
-            var outward = atM.Right * -runs[run].RoadSide;
-            var onM = atM.PositionM;
-            var rimM = onM + (outward * (halfWalkM - HairM));
-            var beyondM = onM + (outward * (halfWalkM + HairM));
+            var lengthM = Spline.TotalLengthM(ring);
+            for (var station = 0; station < Stations; station++)
+            {
+                var on = Spline.SampleAt(ring, lengthM * station / Stations);
 
-            if (ground.GroundAt(onM) != TrafficSimulation.CityGen.Ground.Sidewalk) continue;
-            if (ground.GroundAt(rimM) != TrafficSimulation.CityGen.Ground.Sidewalk) continue;
-            if (ground.GroundAt(beyondM) != TrafficSimulation.CityGen.Ground.Grass) continue;
+                // Out of the ground is the walker's left throughout, which is the hand the distance was
+                // struck on.
+                var outward = -on.Right;
+                var rimM = on.PositionM - (outward * HairM);
+                var beyondM = on.PositionM + (outward * HairM);
 
-            asked++;
-            Assert.True(Covered(pavement, onM), $"{map} draws no pavement on the walk's own line at {onM}");
-            Assert.True(Covered(pavement, rimM), $"{map} draws no pavement a hair inside the shell at {onM}");
-            Assert.False(Covered(pavement, beyondM), $"{map} draws pavement a hair outside the shell at {onM}");
+                if (ground.GroundAt(rimM) != TrafficSimulation.CityGen.Ground.Sidewalk) continue;
+                if (ground.GroundAt(beyondM) != TrafficSimulation.CityGen.Ground.Grass) continue;
+
+                asked++;
+                Assert.True(
+                    Topmost(mesh, rimM) == Surface.Pavement,
+                    $"{map} draws {Topmost(mesh, rimM)} a hair inside the pavement's own edge at {rimM}");
+                Assert.True(
+                    Topmost(mesh, beyondM) == Surface.Grass,
+                    $"{map} draws {Topmost(mesh, beyondM)} a hair outside the pavement's own edge at {beyondM}");
+            }
         }
 
         Assert.True(asked > 0, $"{map} offered no band to ask about");
@@ -701,6 +717,47 @@ public class GroundMeshTests
     }
 
     /// <summary>Every triangle of one surface, as three corners each.</summary>
+    /// <summary>
+    /// <b>The surface the last triangle covering a point wears</b>, which is the one that shows (TER-7b) —
+    /// and <c>null</c> where nothing covers it. A layer drawn over another still holds the triangles of the
+    /// one beneath, so asking whether <em>any</em> triangle of a surface covers a place answers a question
+    /// about the mesh rather than about the picture.
+    /// </summary>
+    static Surface? Topmost(GroundMesh mesh, Vector2 pointM)
+    {
+        var vertices = mesh.Vertices;
+        Surface? showing = null;
+        for (var index = 0; index + 2 < mesh.Indices.Length; index += 3)
+        {
+            var first = (int)mesh.Indices[index];
+            if (Covers(
+                    vertices[first].PositionM, vertices[(int)mesh.Indices[index + 1]].PositionM,
+                    vertices[(int)mesh.Indices[index + 2]].PositionM, pointM))
+            {
+                showing = vertices[first].Surface;
+            }
+        }
+
+        return showing;
+    }
+
+    static bool Covers(Vector2 aM, Vector2 bM, Vector2 cM, Vector2 pointM)
+    {
+        var left = true;
+        var right = true;
+        Span<Vector2> corners = [aM, bM, cM];
+        for (var corner = 0; corner < 3; corner++)
+        {
+            var edge = corners[(corner + 1) % 3] - corners[corner];
+            var reach = pointM - corners[corner];
+            var turn = (edge.X * reach.Y) - (edge.Y * reach.X);
+            left &= turn >= 0f;
+            right &= turn <= 0f;
+        }
+
+        return left || right;
+    }
+
     static List<Vector2[]> Triangles(GroundMesh mesh, Surface surface)
     {
         var vertices = mesh.Vertices;

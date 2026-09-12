@@ -29,10 +29,25 @@ public class GroundLocatorTests
     public void AJunctionIsGroundACarMayBeOn(string map)
     {
         var plan = Towns.Of(map);
+        var config = SimConfig.Shipped();
         var ground = GroundOf(map);
+        var lanes = plan.Paving(config).Lanes;
+
+        var crossed = new bool[plan.Junctions.Count];
+        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
+        {
+            var junction = lanes.JunctionOfConnector(connector);
+            if (junction >= 0) crossed[junction] = true;
+        }
 
         for (var junction = 0; junction < plan.Junctions.Count; junction++)
         {
+            // <b>A junction is the movements that cross in it</b> (TER-5), so a node nothing is turned
+            // through is a node with no ground of its own: the end of a road, where the lane stops short of
+            // the node the way it does at every other junction. The ground there is what the town lays
+            // beside a kerb, and the node is a place in the plan rather than a piece of tarmac.
+            if (!crossed[junction]) continue;
+
             var centreM = plan.Junctions.CentreM[junction];
             Assert.True(ground.At(centreM).Drivable,
                 $"{map}: junction {junction} at {centreM} stands on {ground.GroundAt(centreM)}");
@@ -106,22 +121,23 @@ public class GroundLocatorTests
     public void TheGroundUnderEveryRoadsOwnCurveIsCarriageway(string map)
     {
         var plan = Towns.Of(map);
+        var config = SimConfig.Shipped();
         var ground = GroundOf(map);
+        var lanes = plan.Paving(config).Lanes;
 
-        for (var road = 0; road < plan.Roads.Count; road++)
+        // <b>Asked of the lanes and not of the roads.</b> The ground a car may be on is the ground a car is
+        // driven over, and that is the band every lane lays — a road's own band runs on to the junctions at
+        // its ends while its lanes are cut back from them, so its last metres are a fact about the plan
+        // rather than about the tarmac.
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
-            var laneOffsetM = plan.Roads.WidthM[road] * 0.25f;
-            foreach (var segment in plan.Roads.SegmentsOf(road))
+            foreach (var segment in lanes.ArcsOf(lane))
             {
                 for (var distanceM = 0f; distanceM <= segment.LengthM; distanceM += 2f)
                 {
-                    var headingRad = segment.HeadingAtRad(distanceM);
-                    var alongRoad = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
-                    var acrossRoad = new Vector2(-alongRoad.Y, alongRoad.X);
-                    var onTheLaneM = segment.PointAtM(distanceM) + (acrossRoad * laneOffsetM);
-
+                    var onTheLaneM = segment.PointAtM(distanceM);
                     Assert.True(ground.At(onTheLaneM).Drivable,
-                        $"{map}: road {road} at {onTheLaneM} runs over {ground.GroundAt(onTheLaneM)}");
+                        $"{map}: lane {lane} at {onTheLaneM} runs over {ground.GroundAt(onTheLaneM)}");
                 }
             }
         }

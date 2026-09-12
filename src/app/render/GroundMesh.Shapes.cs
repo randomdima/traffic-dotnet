@@ -233,6 +233,23 @@ internal sealed partial class GroundMesh
     /// hundred deep, which is a triangulation nobody can read and a scan that is the square of the outline.
     /// Carried on past the ear just cut, the ring is thinned a vertex at a time all the way round.
     /// </remarks>
+    /// <summary>
+    /// One closed ring of the town's boundary, filled. The arcs are read as the straights between their own
+    /// ends, which is what an extruded ring is made of (<c>Extrusion</c>).
+    /// </summary>
+    void Ring(ReadOnlySpan<ArcSeg> ring, Surface surface, Vector3 tint, float[] periods)
+    {
+        if (ring.Length < 3) return;
+
+        if (_ringM.Length < ring.Length) _ringM = new Vector2[ring.Length * 2];
+
+        for (var arc = 0; arc < ring.Length; arc++) _ringM[arc] = ring[arc].StartM;
+
+        Polygon(_ringM.AsSpan(0, ring.Length), surface, tint, periods);
+    }
+
+    Vector2[] _ringM = new Vector2[64];
+
     void Polygon(ReadOnlySpan<Vector2> outline, Surface surface, Vector3 tint, float[] periods)
     {
         if (outline.Length < 3) return;

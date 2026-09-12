@@ -25,8 +25,22 @@ internal sealed partial class GroundShapes
         return pastM <= 0f ? outM : MathF.Sqrt((outM * outM) + (pastM * pastM));
     }
 
+    Movements _lanes;
     Movements _turns;
     Movements _bays;
+
+    /// <summary>
+    /// <b>Whether a point stands on a lane</b> — the carriageway, which is the band every lane of every
+    /// street lays and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// <b>The lanes and not the roads.</b> A road's own band runs the whole length between the junctions at
+    /// its ends and its lanes are cut back from them, so the road claims ground no car is driven over: a
+    /// sliver at every mouth in the town, which the boundary leaves outside the driven ground and the road
+    /// called carriageway. Asked of the lanes, the ground answered and the ground bounded are the same
+    /// lines, and the two cannot disagree.
+    /// </remarks>
+    bool Lanes(Vector2 pointM, float outM) => _lanes.Covers(pointM, outM);
 
     /// <summary>
     /// <b>Whether a point stands on a line a car is turned through a box on</b> — which is the whole of what
@@ -56,16 +70,20 @@ internal sealed partial class GroundShapes
     bool BayWays(Vector2 pointM, float outM) => _bays.Covers(pointM, outM);
 
     /// <summary>
-    /// The lines a car is driven on that are not lanes, laid over the index that answers which of them
-    /// reach a point. <b>Read off the plan's own movements</b> (<see cref="LaneLines"/>,
-    /// <see cref="BayLines"/>) and never re-derived: the ground under a movement and the movement itself
-    /// are one geometry (TER-7).
+    /// <b>Every line the town is driven on</b>, in the three sets the answer tells apart — the lanes, the
+    /// lines through a box, and the ways into a bay — laid over the index that answers which of them reach
+    /// a point. <b>Read off the plan's own lines</b> (<see cref="LaneLines"/>, <see cref="BayLines"/>) and
+    /// never re-derived: the ground under a line, the line itself and the boundary round the lot of them
+    /// (<see cref="LaneShell"/>) are one geometry (TER-7).
     /// </summary>
     void LayTheTurns(Paving paving, Vector2 worldSizeM, SimConfig config)
     {
-        var connectors = paving.Lanes.ConnectorCount;
-        _turns = Movements.Lay(paving, 0, connectors, config.Terrain.GroundBucketM);
-        _bays = Movements.Lay(paving, connectors, paving.MovementCount, config.Terrain.GroundBucketM);
+        var lanes = paving.Lanes.LaneCount;
+        var connectors = lanes + paving.Lanes.ConnectorCount;
+        var bucketM = config.Terrain.GroundBucketM;
+        _lanes = Movements.Lay(paving, 0, lanes, bucketM);
+        _turns = Movements.Lay(paving, lanes, connectors, bucketM);
+        _bays = Movements.Lay(paving, connectors, paving.DrivenCount, bucketM);
     }
 
     /// <summary>
@@ -128,12 +146,12 @@ internal sealed partial class GroundShapes
 
         ReadOnlySpan<ArcSeg> ArcsOf(int turn) => arcs.AsSpan(arcAt[turn], arcAt[turn + 1] - arcAt[turn]);
 
-        public static Movements Lay(Paving paving, int fromMovement, int toMovement, float bucketM)
+        public static Movements Lay(Paving paving, int fromLine, int toLine, float bucketM)
         {
             var laid = 0;
-            for (var movement = fromMovement; movement < toMovement; movement++)
+            for (var line = fromLine; line < toLine; line++)
             {
-                if (paving.ArcsOfMovement(movement).Length > 0) laid++;
+                if (paving.ArcsOfDriven(line).Length > 0) laid++;
             }
 
             var arcAt = new int[laid + 1];
@@ -144,16 +162,16 @@ internal sealed partial class GroundShapes
             var farthestM = 0f;
 
             var turn = 0;
-            for (var movement = fromMovement; movement < toMovement; movement++)
+            for (var driven = fromLine; driven < toLine; driven++)
             {
-                var line = paving.ArcsOfMovement(movement);
+                var line = paving.ArcsOfDriven(driven);
                 if (line.Length == 0) continue;
 
                 foreach (var arc in line) arcs.Add(arc);
 
                 arcAt[turn + 1] = arcs.Count;
-                halfM[turn] = paving.MovementWidthM(movement) * 0.5f;
-                lengthM[turn] = paving.MovementLengthM(movement);
+                halfM[turn] = paving.DrivenWidthM(driven) * 0.5f;
+                lengthM[turn] = paving.DrivenLengthM(driven);
                 farthestM = MathF.Max(farthestM, halfM[turn]);
                 index.Add(turn, line, lengthM[turn]);
                 turn++;

@@ -90,8 +90,7 @@ internal sealed class Kerbs
     /// </remarks>
     public float OffTheTarmacM(Vector2 pointM)
     {
-        var (outsideM, movementM) = Nearest(pointM);
-        return MathF.Min(outsideM, movementM);
+        return Nearest(pointM);
     }
 
     /// <summary>
@@ -123,56 +122,19 @@ internal sealed class Kerbs
     }
 
     /// <summary>
-    /// How far a point stands off the nearest piece that is the outside of the town's tarmac
-    /// (<see cref="WalkedPast.Always"/>), and off the nearest line a car is turned through a box on
-    /// (<see cref="WalkedPast.WhereTheKerbIsOpen"/>) — each <see cref="ReachM"/> where none is near.
+    /// How far a point stands off the nearest piece of the town's tarmac, and <see cref="ReachM"/> where
+    /// none is near.
     /// </summary>
-    (float OutsideM, float MovementM) Nearest(Vector2 pointM, int except = CityPlan.NoRecord)
+    float Nearest(Vector2 pointM)
     {
-        var outsideM = ReachM;
-        var movementM = ReachM;
+        var nearestM = ReachM;
         foreach (var shard in _grid.At(pointM))
         {
-            if (_shards[shard].Piece == except) continue;
-
-            var piece = _pieces[_shards[shard].Piece];
-            var distanceM = DistanceM(piece, _shards[shard].Arc, pointM);
-            if (piece.WalkedPast == WalkedPast.WhereTheKerbIsOpen) movementM = MathF.Min(movementM, distanceM);
-            else outsideM = MathF.Min(outsideM, distanceM);
+            nearestM = MathF.Min(
+                nearestM, DistanceM(_pieces[_shards[shard].Piece], _shards[shard].Arc, pointM));
         }
 
-        return (outsideM, movementM);
-    }
-
-    /// <summary>
-    /// <b>Whether a point stands the offset clear of every piece of tarmac</b> — the one rule the outline
-    /// is cut by, asked of one point.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Asked with a rounding's grace and no more.</b> A wrapping line stands the offset from its own
-    /// piece exactly, and where two pieces are tangent it stands the offset from both of them exactly
-    /// (<see cref="OffTheTarmacM"/>) — so compared without the grace, whether metres of pavement exist is
-    /// settled by the last bit of a float, and the apron round every junction whose movements run edge to
-    /// edge with its arms came out bare. <b>And a rounding and not a tolerance</b>, because a tolerance ε
-    /// lets a line that meets another <em>tangentially</em> run √(2·R·ε) past the point they cross: at five
-    /// centimetres that is better than half a metre each, which is how the pavement came apart into a piece
-    /// per corner the first time round.
-    /// </para>
-    /// <para>
-    /// <b>Except that a movement within a centimetre of the offset is at the offset</b>
-    /// (<see cref="JoinedM"/>). A movement out of a lane that fills its road runs along the road's own
-    /// kerb, and a movement out of a bend or into a turn may stand a few millimetres out past it: read to
-    /// a rounding, that cut the road's line wherever the movement stood out by more than a millimetre, and
-    /// the movement's own line — offered only where it stands the same centimetre further out than the
-    /// road's (<see cref="Shell"/>) — did not take over until it did. Between the two nothing stood, and
-    /// the walking network broke there. One figure decides both, so one line or the other always stands.
-    /// </para>
-    /// </remarks>
-    public bool Clear(Vector2 pointM, float outM)
-    {
-        var (outsideM, movementM) = Nearest(pointM);
-        return outsideM >= outM - RoundingM && movementM >= outM - JoinedM;
+        return nearestM;
     }
 
     /// <summary>
@@ -206,189 +168,6 @@ internal sealed class Kerbs
     public const int BisectionRounds = 12;
 
     /// <summary>
-    /// <b>The town's outline at a distance out</b>: every wrapping line cut to the runs of it that are
-    /// really the outside, which are the spans where <b>no tarmac stands nearer than the offset</b> and
-    /// <paramref name="allowed"/> — the ground's own veto, where the caller has one — says the run may
-    /// stand there (TER-3c.3).
-    /// </summary>
-    /// <remarks>
-    /// <b>One construction, three readers.</b> The line this hands back at half a walk is the middle of the
-    /// pavement: it is what the walking lanes are laid on, what the pavement is drawn as a band about, and
-    /// what the ground answers <em>sidewalk</em> within half a walk of. Cut here rather than three times,
-    /// the concrete, the kerb line and the lane a walker follows cannot disagree about where the pavement is
-    /// (TER-7).
-    /// </remarks>
-    public void Shell(float outM, float weldM, Func<Vector2, bool>? allowed, List<Wrap> into)
-    {
-        var wraps = new List<Wrap>();
-        Wrapping(outM, wraps);
-
-        // <b>A line offered only where the kerb is open stands only where the kerb is open</b>
-        // (<see cref="WalkedPast.WhereTheKerbIsOpen"/>): where no piece that is the outside of the town
-        // stands nearer than the offset — nor, to the figure that makes two lines one, exactly at it. A
-        // movement out of a lane that fills its road has an edge on the road's own kerb, and its line there
-        // stood on the road's line to the last bit of a float: kept, it was a second run of pavement over
-        // the first through every box in the town, with a round at each end of it.
-        //
-        // <b>And so does the line that turns round a band's end</b>: an end that runs on into the next
-        // arm of a street, or stands square against one across it, has its line exactly the offset from
-        // that arm along its corners' turns, and kept on the tie those turns were runs of pavement round
-        // an end nothing is open at — and the end was drawn as one that reaches the outline.
-        //
-        // <b>And one piece owns each station of it</b> (TER-3c.8, <see cref="Owns"/>). Two pieces the same
-        // distance from a station both pass every test above, and both used to keep it — one run of outline
-        // each over one metre of ground.
-        Cut(
-            wraps, outM, weldM,
-            (wrap, atM) => Stands(atM, outM, allowed)
-                           && Owns(wrap.Piece, atM, outM)
-                           && (wrap.OnlyWhereTheKerbIsOpen || wrap.End != Wrap.ASide
-                               ? OffTheOutsideM(atM, wrap.Piece) > outM + JoinedM
-                               : true),
-            into);
-    }
-
-    /// <summary>
-    /// How far a point stands off the nearest piece that is the outside of the town's tarmac
-    /// (<see cref="WalkedPast.Always"/>) other than <paramref name="except"/>, and <see cref="ReachM"/> where
-    /// none is near.
-    /// </summary>
-    float OffTheOutsideM(Vector2 pointM, int except) => Nearest(pointM, except).OutsideM;
-
-    /// <summary>
-    /// <b>Whether this piece is the one that owns the outline here</b> (TER-3c.8): the lowest-numbered piece
-    /// standing exactly <paramref name="outM"/> from the point, of however many do.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The outline belongs to the union and not to the pieces it is made of.</b> Every piece offers its
-    /// own offset as a candidate and the union keeps the stations no piece stands <em>nearer</em> to
-    /// (<see cref="Clear"/>) — which settles every station but the ones several pieces are the same distance
-    /// from. There the tie used to keep them all, and what came back was one run of outline per piece over
-    /// the same ground: a car park whose bays' ways converge on one pose lays six lines down the same metre
-    /// of kerb, and the walk laid off them is the same pavement six times.
-    /// </para>
-    /// <para>
-    /// <b>Lowest-numbered and not nearest</b>, because the whole point is that they are equally near. It is
-    /// a tie-break and needs only to be the same answer for every station of the run, so that what survives
-    /// is one line rather than a shared one changing hands along its length.
-    /// </para>
-    /// </remarks>
-    bool Owns(int piece, Vector2 pointM, float outM)
-    {
-        foreach (var shard in _grid.At(pointM))
-        {
-            var at = _shards[shard].Piece;
-            if (at >= piece) continue;
-            if (MathF.Abs(DistanceM(_pieces[at], _shards[shard].Arc, pointM) - outM) <= JoinedM) return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Every wrapping line cut to the spans <paramref name="kept"/> says are wanted of it.
-    /// </summary>
-    void Cut(List<Wrap> wraps, float outM, float weldM, Func<Wrap, Vector2, bool> kept, List<Wrap> into)
-    {
-        var spans = new List<(float FromM, float ToM)>();
-        var run = new ArcSeg[2];
-        foreach (var wrap in wraps)
-        {
-            var (piece, line, open, end) = wrap;
-            var lengthM = Spline.TotalLengthM(line);
-            if (lengthM <= 0f) continue;
-
-            Spans(line, lengthM, weldM, atM => kept(wrap, atM), spans);
-            if (run.Length < line.Length + 2) run = new ArcSeg[line.Length + 2];
-
-            foreach (var (fromM, toM) in spans)
-            {
-                var arcs = Spline.SubChainInto(line, fromM, toM, run);
-                if (arcs > 0) into.Add(new Wrap(piece, run.AsSpan(0, arcs).ToArray(), open, end));
-            }
-        }
-    }
-
-    /// <summary>
-    /// The spans of one wrapping line that are the outline, as distances along it. <b>A line that is clear
-    /// end to end comes back cut in two</b>: a circle round a dead end and a box round a car park close on
-    /// themselves, and a run whose two ends are one point is a piece nothing can be stationed along.
-    /// </summary>
-    static void Spans(
-        ReadOnlySpan<ArcSeg> line, float lengthM, float weldM, Func<Vector2, bool> kept,
-        List<(float FromM, float ToM)> into)
-    {
-        into.Clear();
-
-        var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / StationM));
-        var was = kept(line[0].StartM);
-        var openedAtM = was ? 0f : -1f;
-
-        // Walked arc by arc rather than projected station by station: a street's offset is a chain of a
-        // hundred pieces and a thousand stations, and asking the chain where each of those metres is from
-        // its own start again is the square of that. It is the same walk <see cref="Spline"/> would do,
-        // done once.
-        var arc = 0;
-        var toArcM = 0f;
-        for (var station = 1; station <= stations; station++)
-        {
-            var alongM = lengthM * station / stations;
-            while (arc + 1 < line.Length && alongM > toArcM + line[arc].LengthM)
-            {
-                toArcM += line[arc].LengthM;
-                arc++;
-            }
-
-            var stands = kept(line[arc].PointAtM(Math.Clamp(alongM - toArcM, 0f, line[arc].LengthM)));
-            if (stands == was) continue;
-
-            var edgeM = Crossing(line, kept, lengthM * (station - 1) / stations, alongM, stands);
-            if (stands) openedAtM = edgeM;
-            else Keep(into, openedAtM, edgeM, weldM);
-
-            was = stands;
-        }
-
-        if (was) Keep(into, openedAtM, lengthM, weldM);
-
-        // Nothing gave way anywhere along it, so it is a closed line and both its ends are the same point.
-        if (into.Count == 1 && into[0].FromM <= 0f && into[0].ToM >= lengthM)
-        {
-            into[0] = (0f, lengthM * 0.5f);
-            into.Add((lengthM * 0.5f, lengthM));
-        }
-    }
-
-    /// <summary>
-    /// One span, kept unless it is shorter than the weld the caller welds by — in which case its two ends
-    /// are one place and what it would lay is a run from a point to itself.
-    /// </summary>
-    static void Keep(List<(float FromM, float ToM)> into, float fromM, float toM, float weldM)
-    {
-        if (fromM >= 0f && toM - fromM > weldM) into.Add((fromM, toM));
-    }
-
-    /// <summary>Where along the line the answer changed, bisected between the two stations it changed between.</summary>
-    static float Crossing(
-        ReadOnlySpan<ArcSeg> line, Func<Vector2, bool> kept, float wasM, float isM, bool standsAtIs)
-    {
-        for (var halving = 0; halving < BisectionRounds; halving++)
-        {
-            var middleM = (wasM + isM) * 0.5f;
-            var atM = Spline.SampleAt(line, middleM).PositionM;
-            if (kept(atM) == standsAtIs) isM = middleM;
-            else wasM = middleM;
-        }
-
-        return (wasM + isM) * 0.5f;
-    }
-
-    /// <summary>Whether one metre of a wrapping line is the outline: nothing nearer, and nothing vetoing it.</summary>
-    bool Stands(Vector2 atM, float outM, Func<Vector2, bool>? allowed) =>
-        Clear(atM, outM) && (allowed is null || allowed(atM));
-
-    /// <summary>
     /// <b>One piece of one piece</b>: the unit the index bins and a distance is measured against. Every
     /// kind but a road is one of these whole; <b>a road is one per arc</b>, because a street's own box is
     /// most of a district and asking a point about it means walking every bend the street ever takes.
@@ -414,183 +193,11 @@ internal sealed class Kerbs
     }
 
     /// <summary>
-    /// One wrapping line, the piece of tarmac it stands that far outside, whether that piece is the
-    /// outside of the town's tarmac or only the inside of a box (<see cref="Piece.WalkedPast"/>), and which
-    /// end of a band it turns round — <c>0</c> the start, <c>1</c> the end, <see cref="ASide"/> for a line
-    /// along a side or round anything but a band.
-    /// </summary>
-    public readonly record struct Wrap(int Piece, ArcSeg[] Line, bool OnlyWhereTheKerbIsOpen, int End = Wrap.ASide)
-    {
-        public const int ASide = -1;
-    }
-
-    /// <summary>
-    /// <b>Every line that stands <paramref name="outM"/> outside one piece of the tarmac</b>: a road's
-    /// own arcs offset both ways <b>and turned round each end of it</b> (TER-3c.6), a connector's the same,
-    /// the arc round a kerb fillet, and the rounded box round a car park or a slab. <b>The corner of a box
-    /// is turned on the offset itself</b>, which is what keeps the line the same distance out all the way
-    /// round it.
-    /// </summary>
-    /// <remarks>
-    /// <b>The town's own kerb comes first and what only fills its gaps comes after</b>, so a caller that
-    /// keeps a line where nothing else runs has already seen everything that could stand in its way by the
-    /// time it is asked (TER-3c.5).
-    /// </remarks>
-    public void Wrapping(float outM, List<Wrap> into)
-    {
-        Wrapping(outM, WalkedPast.Always, into);
-        Wrapping(outM, WalkedPast.WhereTheKerbIsOpen, into);
-    }
-
-    void Wrapping(float outM, WalkedPast when, List<Wrap> into)
-    {
-        var offset = new ArcSeg[32];
-        var open = when == WalkedPast.WhereTheKerbIsOpen;
-        for (var at = 0; at < _pieces.Count; at++)
-        {
-            var piece = _pieces[at];
-            if (piece.WalkedPast != when) continue;
-
-            switch (piece.Kind)
-            {
-                case Kind.Band:
-                    var arcs = piece.Arcs.Span;
-                    if (offset.Length < arcs.Length) offset = new ArcSeg[arcs.Length];
-
-                    foreach (var sideM in (ReadOnlySpan<float>)[piece.HalfM.X + outM, -(piece.HalfM.X + outM)])
-                    {
-                        Spline.OffsetInto(arcs, sideM, offset);
-                        Runs(at, open, offset.AsSpan(0, arcs.Length), into);
-                    }
-
-                    var last = arcs[^1];
-                    Runs(at, open, Ending(arcs[0].StartM, arcs[0].HeadingRad + MathF.PI, piece.HalfM.X, outM), into, 0);
-                    Runs(at, open, Ending(last.EndM, last.HeadingAtRad(last.LengthM), piece.HalfM.X, outM), into, 1);
-                    break;
-
-                case Kind.Fillet:
-                    // A fillet is turned on the pavement's side of its own arc, so the line that wraps it
-                    // is the smaller circle and not the larger one. Under the offset there is no wrapping
-                    // it: the corner is tighter than the walk is wide, and what stands round it is the
-                    // ring and the two roads' own lines.
-                    if (piece.RadiusM <= outM) break;
-
-                    into.Add(new Wrap(
-                        at, [Around(piece.CentreM, piece.RadiusM - outM, piece.TangentAM, piece.TangentBM)], open));
-                    break;
-
-                default:
-                    into.Add(new Wrap(
-                        at, Box(piece.CentreM, piece.Axis, piece.HalfM + new Vector2(outM), outM), open));
-                    break;
-            }
-        }
-    }
-
-    /// <summary>
-    /// An offset chain, cut into the runs of it that are still one line. <b>Offsetting joins a chain only
-    /// where the chain it came from is smooth</b>: every piece moves sideways by the same figure, so where
-    /// two of them meet at an angle their offsets meet at a gap of that angle times the offset, and where a
-    /// piece bends tighter than the offset is wide it comes out inside out.
-    /// </summary>
-    /// <remarks>
-    /// <b>Walked as if it were one line, a chain with such a gap in it lies about where its own metres
-    /// are</b> — a station a quarter-metre from its end stood a metre and a half away — and everything laid
-    /// off those metres inherits it. Cut here, each run is a line whose distance along it is where it says.
-    /// </remarks>
-    static void Runs(int piece, bool open, ReadOnlySpan<ArcSeg> line, List<Wrap> into, int end = Wrap.ASide)
-    {
-        var from = 0;
-        for (var arc = 0; arc <= line.Length; arc++)
-        {
-            var folded = arc < line.Length && line[arc].LengthM <= 0f;
-            var breaks = arc == line.Length
-                || folded
-                || (arc > from && Vector2.Distance(line[arc - 1].EndM, line[arc].StartM) > JoinedM);
-            if (!breaks) continue;
-
-            if (arc > from) into.Add(new Wrap(piece, line[from..arc].ToArray(), open, end));
-
-            from = folded ? arc + 1 : arc;
-        }
-    }
-
-    /// <summary>
     /// How near two pieces have to end and start to be one line: a centimetre, which is the same figure
     /// the walking side calls one place (<c>WalkingNetwork.SamePlaceM</c>) and well under anything a
     /// reader could see.
     /// </summary>
     public const float JoinedM = 0.01f;
-
-    /// <summary>
-    /// <b>The line that stands <paramref name="outM"/> outside one end of a band</b> (TER-3c.6): a quarter
-    /// turn about the corner the end makes with one side, the straight across, and the quarter turn about
-    /// the other corner — which is what standing that far outside a square end (TER-7a) is.
-    /// </summary>
-    /// <remarks>
-    /// It starts and finishes where the band's two side lines do, so the three of them are one line round
-    /// the end of the band and a walk laid off them has nothing to bridge.
-    /// </remarks>
-    static ArcSeg[] Ending(Vector2 endM, float outwardRad, float halfM, float outM)
-    {
-        Heading.Frame(outwardRad, out var outward, out var across);
-        var rightM = endM + (across * halfM);
-        var leftM = endM - (across * halfM);
-
-        return
-        [
-            Around(rightM, outM, rightM + (across * outM), rightM + (outward * outM)),
-            new ArcSeg(rightM + (outward * outM), Bearing(-across), halfM * 2f, 0f),
-            Around(leftM, outM, leftM + (outward * outM), leftM - (across * outM)),
-        ];
-    }
-
-    /// <summary>The arc about a centre between the bearings of two points, the short way round.</summary>
-    static ArcSeg Around(Vector2 centreM, float radiusM, Vector2 fromM, Vector2 toM)
-    {
-        var fromRad = Bearing(fromM - centreM);
-        var sweepRad = Spline.WrapRad(Bearing(toM - centreM) - fromRad);
-        var sign = sweepRad < 0f ? -1f : 1f;
-        return new ArcSeg(
-            centreM + (radiusM * Heading.Unit(fromRad)), fromRad + (sign * MathF.PI * 0.5f),
-            radiusM * MathF.Abs(sweepRad), sign / radiusM);
-    }
-
-    /// <summary>An oriented box with its four corners turned on one radius, as a closed chain of eight pieces.</summary>
-    static ArcSeg[] Box(Vector2 centreM, Vector2 axis, Vector2 halfM, float radiusM)
-    {
-        // Never nought, or the corner's own arc has no radius to be struck on. A box smaller than the
-        // offset it is being grown by cannot happen — it is grown by that offset on the way in.
-        var cornerM = MathF.Max(1e-3f, MathF.Min(radiusM, MathF.Min(halfM.X, halfM.Y)));
-        var across = Heading.RightOf(axis);
-        var straightM = halfM - new Vector2(cornerM);
-        var baseRad = Bearing(axis);
-
-        var arcs = new ArcSeg[8];
-        var corners = new Vector2[4];
-        for (var quarter = 0; quarter < 4; quarter++)
-        {
-            var alongSign = quarter is 0 or 3 ? 1f : -1f;
-            var acrossSign = quarter is 0 or 1 ? 1f : -1f;
-            corners[quarter] =
-                centreM + (axis * (straightM.X * alongSign)) + (across * (straightM.Y * acrossSign));
-        }
-
-        for (var quarter = 0; quarter < 4; quarter++)
-        {
-            var atRad = baseRad + (MathF.PI * 0.5f * quarter);
-            arcs[quarter * 2] = new ArcSeg(
-                corners[quarter] + (cornerM * Heading.Unit(atRad)), atRad + (MathF.PI * 0.5f),
-                cornerM * MathF.PI * 0.5f, 1f / cornerM);
-
-            var fromM = corners[quarter] + (cornerM * Heading.Unit(atRad + (MathF.PI * 0.5f)));
-            var toM = corners[(quarter + 1) % 4] + (cornerM * Heading.Unit(atRad + (MathF.PI * 0.5f)));
-            var runM = toM - fromM;
-            arcs[(quarter * 2) + 1] = new ArcSeg(fromM, Bearing(runM), runM.Length(), 0f);
-        }
-
-        return arcs;
-    }
 
     static float Bearing(Vector2 alongM) => MathF.Atan2(alongM.Y, alongM.X);
 
@@ -680,7 +287,7 @@ internal sealed class Kerbs
             if (junction != CityPlan.NoRecord && through[junction]) continue;
 
             pieces.Add(Piece.Band(
-                arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f, WalkedPast.WhereTheKerbIsOpen));
+                arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f));
         }
 
         var corners = plan.JunctionCorners;
@@ -707,8 +314,7 @@ internal sealed class Kerbs
         for (var area = 0; area < areas.Count; area++)
         {
             pieces.Add(Piece.Box(
-                areas.MinM[area] + (areas.SizeM[area] * 0.5f), Vector2.UnitX, areas.SizeM[area] * 0.5f,
-                WalkedPast.Never));
+                areas.MinM[area] + (areas.SizeM[area] * 0.5f), Vector2.UnitX, areas.SizeM[area] * 0.5f));
         }
 
         return pieces;
@@ -722,48 +328,17 @@ internal sealed class Kerbs
     }
 
     /// <summary>
-    /// <b>When a piece of tarmac offers the line that stands outside it</b> — which is not the same question
-    /// as whether it is tarmac at all (TER-3c.5).
-    /// </summary>
-    enum WalkedPast : byte
-    {
-        /// <summary>
-        /// Never: a slab is a place to walk rather than a thing to walk past, so it holds the pavement off
-        /// itself without asking for a band of its own (TER-3c).
-        /// </summary>
-        Never,
-
-        /// <summary>
-        /// Always: a carriageway, the fillet that rounds a wedge between two of them, and a car park are
-        /// the outside of the town's tarmac, and the outside is what the pavement wraps.
-        /// </summary>
-        Always,
-
-        /// <summary>
-        /// <b>Only where the kerb leaves a gap</b>: a line a car is turned through a box on runs
-        /// <em>inside</em> the box, and what a box is walked round is the arms that meet at it. Offered
-        /// unconditionally it lays a second pavement line beside the arm's own, half a metre off it — two
-        /// lanes threaded between two, and a stub of dead-ended kerb at every mouth in the town.
-        /// </summary>
-        WhereTheKerbIsOpen,
-    }
-
-    /// <summary>
     /// One piece of tarmac. <see cref="HalfM"/> carries what each kind is measured by — a band's
     /// half-width, a box's half-extent, and a fillet's arc as the bearing it starts at and the angle it
     /// sweeps — so one distance function serves all four.
     /// </summary>
-    /// <remarks>
-    /// <b><see cref="WalkedPast"/> is what the town lays a walk beside</b>, and it is not everything the
-    /// town paves (TER-3c).
-    /// </remarks>
     readonly record struct Piece(
         Kind Kind, Vector2 CentreM, Vector2 Axis, Vector2 HalfM, float RadiusM, float SpanM, Vector2 TangentAM,
-        Vector2 TangentBM, ReadOnlyMemory<ArcSeg> Arcs, WalkedPast WalkedPast = WalkedPast.Always)
+        Vector2 TangentBM, ReadOnlyMemory<ArcSeg> Arcs)
     {
-        public static Piece Band(ArcSeg[] arcs, float halfWidthM, WalkedPast walkedPast = WalkedPast.Always) =>
+        public static Piece Band(ArcSeg[] arcs, float halfWidthM) =>
             new(Kind.Band, Vector2.Zero, Vector2.UnitX, new Vector2(halfWidthM), 0f, 0f, Vector2.Zero,
-                Vector2.Zero, arcs, walkedPast);
+                Vector2.Zero, arcs);
 
         /// <summary><see cref="SpanM"/> is how far the corner stands from the arc's centre, which is how far out the wedge is tarmac.</summary>
         public static Piece Fillet(
@@ -776,10 +351,9 @@ internal sealed class Kerbs
                 (cornerM - arcCentreM).Length(), tangentAM, tangentBM, default);
         }
 
-        public static Piece Box(
-            Vector2 centreM, Vector2 axis, Vector2 halfM, WalkedPast walkedPast = WalkedPast.Always) =>
+        public static Piece Box(Vector2 centreM, Vector2 axis, Vector2 halfM) =>
             new(Kind.Box, centreM, axis.LengthSquared() > 0f ? Vector2.Normalize(axis) : Vector2.UnitX, halfM, 0f,
-                0f, Vector2.Zero, Vector2.Zero, default, walkedPast);
+                0f, Vector2.Zero, Vector2.Zero, default);
     }
 
     /// <summary>

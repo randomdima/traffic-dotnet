@@ -95,46 +95,33 @@ internal sealed partial class GroundShapes
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The boundary says whether a point is tarmac and the bands say which tarmac it is</b> (TER-3c.3,
-    /// TER-5). Those are two different questions and only the first has one answer everywhere: where the
-    /// town's driven ground stops is the shell's (<see cref="GroundRings"/>), and what a metre of it is —
-    /// a carriageway, a line through a box, a way into a bay — is a fact about the line that lays it.
+    /// <b>The lines say which tarmac a point is and the boundary says where the tarmac stops</b> (TER-3c.3,
+    /// TER-5). They are one construction asked two ways: the boundary is the outline of these same bands
+    /// (<see cref="LaneShell"/>), so a point the lines claim is a point inside it and the two can no more
+    /// disagree than a shape can disagree with its own edge.
     /// </para>
     /// <para>
-    /// <b>A band may not claim ground the boundary has already given up</b>, and this is not a tie-break
-    /// but the whole reason the boundary exists. A road's own band runs on to the junction its lanes were
-    /// cut back from, so a sliver at every mouth in the town lies inside the road and outside the driven
-    /// ground — read off the band it was carriageway, and the pavement laid over it by the boundary stood
-    /// on a road.
-    /// </para>
-    /// <para>
-    /// <b>Except where the boundary has nothing to say</b>, which is further off any kerb than the answer
-    /// measures (<see cref="GroundRings.Reach"/>). A band reaches at most its own half-width beyond the
-    /// line that lays it, so a band claiming a point that far from every kerb is a point deep inside the
-    /// ground — the middle of a wide junction — and the band is the only reading there is of it.
+    /// <b>The lanes and never the roads.</b> A road's own band runs the whole length between the junctions
+    /// at its ends while its lanes are cut back from them, so a sliver at every mouth in the town is road
+    /// and not carriageway — and read off the road it was carriageway with the pavement, laid off the
+    /// boundary, standing on top of it.
     /// </para>
     /// </remarks>
     public Ground At(Vector2 pointM)
     {
-        var offTheKerbM = Boundary.OffTheKerbM(pointM);
-        var offTheGround = offTheKerbM > 0f && offTheKerbM < Boundary.Reach;
-
         var roads = Roads(pointM);
-        if (!offTheGround)
-        {
-            if (roads.Crossing) return Ground.Crosswalk;
-            if (Turns(pointM, 0f)) return Ground.Intersection;
-            if (roads.Carriageway) return Ground.Road;
-            if (BayWays(pointM, 0f)) return Ground.Parking;
-            if (SlabReaches(pointM)) return Ground.Parking;
+        if (roads.Crossing) return Ground.Crosswalk;
+        if (Turns(pointM, 0f)) return Ground.Intersection;
+        if (Lanes(pointM, 0f)) return Ground.Road;
+        if (BayWays(pointM, 0f)) return Ground.Parking;
+        if (SlabReaches(pointM)) return Ground.Parking;
 
-            // Inside the boundary and claimed by no band: the wedge a junction's corner is paved back over
-            // (TER-5). An intersection has no shape of its own, so what is left of its ground once every
-            // movement through it has taken what it sweeps is exactly this — and there is no fillet to lay,
-            // the boundary having turned the corner itself (<see cref="LaneShell.Rounded"/>).
-            if (offTheKerbM <= 0f) return Ground.Intersection;
-        }
-        else if (SlabReaches(pointM)) return Ground.Parking;
+        // Inside the boundary and claimed by no line: the wedge a junction's corner is paved back over
+        // (TER-5). An intersection has no shape of its own, so what is left of its ground once every
+        // movement through it has taken what it sweeps is exactly this — and there is no fillet to lay,
+        // the boundary having turned the corner itself (<see cref="LaneShell.Rounded"/>).
+        var offTheKerbM = Boundary.OffTheKerbM(pointM);
+        if (offTheKerbM <= 0f) return Ground.Intersection;
 
         if (roads.Deck) return Ground.Sidewalk;
         if (_water.Covers(pointM)) return Ground.Water;

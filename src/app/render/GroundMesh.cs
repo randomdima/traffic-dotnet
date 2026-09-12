@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Terrain;
 
@@ -157,17 +158,16 @@ internal sealed partial class GroundMesh
 
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
-        // <b>The pavement: every piece of the town grown by a walk</b> (TER-3c.3). Not a band worked out
-        // from the tarmac's outline — the outline is what a union of these pieces <em>has</em>, and a union
-        // is stated by laying them over one another. What a walk out from every piece covers and what the
-        // answer calls pavement are one construction, since the answer asks these same shapes at this same
-        // size (<c>GroundShapes.At</c>, <c>GroundShapes.Grown</c>).
+        // <b>The pavement: the ground within a walk of the kerb</b> (TER-3c.3) — one region of the town's
+        // own boundary (<see cref="Region"/>), which is the same distance off the same line the answer
+        // compares against and the walking lane is laid down the middle of.
         //
         // <b>Twice, and the whole layer each time</b>: at full size in the edge shade, then a line's width
-        // smaller in the surface's own. Since every fill follows every rim, what survives is a rim on the
-        // union's own outer boundary and nothing where two of its pieces meet.
-        Grown(mesh, plan, paving, paving.MovementCount, arms, walkM, Surface.Pavement, edge, periods);
-        Grown(mesh, plan, paving, paving.MovementCount, arms, walkM - edgeM, Surface.Pavement, Plain, periods);
+        // smaller in the surface's own, so what survives is a rim on the region's boundary and nothing
+        // inside it.
+        var rings = GroundRings.Of(paving, config);
+        Region(mesh, rings, walkM, Surface.Pavement, edge, periods);
+        Region(mesh, rings, walkM - edgeM, Surface.Pavement, Plain, periods);
 
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
         // of the one under it showing, which is the same trick every other line here is drawn by: what
@@ -205,9 +205,7 @@ internal sealed partial class GroundMesh
         // shade is struck inside the surface it rims — the line takes its own width off the lane it marks,
         // and every lane measured off the picture comes out short of the figure the rest of the build
         // quotes.
-        // The junctions' movements only: a kerb line is a carriageway's own marking, and struck round a car
-        // park it would come back up the far side of one where there is no kerb to be the edge of.
-        Grown(mesh, plan, paving, paving.Lanes.ConnectorCount, arms, kerbM, Surface.Tarmac, paint, periods);
+        Region(mesh, rings, kerbM, Surface.Tarmac, paint, periods);
 
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where
         // the answer puts it (<c>GroundShapes.At</c>).
@@ -216,13 +214,20 @@ internal sealed partial class GroundMesh
             mesh.Rect(plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain, periods);
         }
 
-        // And the carriageway at its own size, last of the ground: every road, every line a car is turned
-        // through a box on, the wedge its kerbs turn on, and every car park. <b>A junction is the union of
-        // the movements that cross in it</b> (TER-5) and has no shape of its own to draw; a car park is a
-        // union of the movements that reach into it (<c>BayLines</c>) and has none either. Being last is
-        // what breaks the kerb line over a lot's mouth — a line painted there is one every car entering it
-        // drives across.
-        Grown(mesh, plan, paving, paving.MovementCount, arms, 0f, Surface.Tarmac, Plain, periods);
+        // And the driven ground at its own size, last of the ground: the region the boundary bounds, kerb
+        // to kerb. <b>A junction is the union of the movements that cross in it</b> (TER-5) and has no shape
+        // of its own to draw; a car park is a union of the ways that reach into it (<c>BayLines</c>) and has
+        // none either — and neither has a road, a bridge or a dead end, because none of them is the edge of
+        // anything: the boundary is. Being last is what leaves the kerb line as the line's width the layer
+        // before it kept.
+        Region(mesh, rings, 0f, Surface.Tarmac, Plain, periods);
+
+        // And what the blocks the town encloses take back, outwards from their own kerbs
+        // (<see cref="Encloses"/>).
+        Encloses(mesh, rings, 0f, Surface.Tarmac, paint, periods);
+        Encloses(mesh, rings, kerbM, Surface.Pavement, Plain, periods);
+        Encloses(mesh, rings, walkM - edgeM, Surface.Pavement, edge, periods);
+        Encloses(mesh, rings, walkM, Surface.Grass, Plain, periods);
 
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
@@ -329,6 +334,74 @@ internal sealed partial class GroundMesh
             mesh.Fillet(kerbs.CornerM[corner], kerbs.ArcCentreM[corner], kerbs.RadiusM[corner],
                 kerbs.TangentAM[corner], kerbs.TangentBM[corner], -outM, surface, tint, periods);
         }
+    }
+
+    /// <summary>
+    /// <b>The ground within <paramref name="outM"/> of the kerb, laid as the one shape it is</b>
+    /// (<see cref="GroundRings"/>) — the town's boundary moved that far and filled.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A region and not a union of pieces.</b> The ground the town is driven over has a boundary and the
+    /// shell computes it, so every layer here is one shape per ring of it rather than a heap of roads,
+    /// movements, wedges and car parks laid over one another until their outlines happen to agree. What that
+    /// buys is the thing overdraw could never state: the edge of each layer is a line the build can hand to
+    /// anybody, and the band between two of them is exactly the difference between the distances that struck
+    /// them.
+    /// </para>
+    /// <para>
+    /// <b>A ring that encloses ground is filled, and a ring that encloses a block is the hole in it</b> — and
+    /// the hole is painted in the layer beneath, which is what leaves each layer a line's width of the one
+    /// under it round the inside of a block exactly as over-painting leaves it round the outside of the town.
+    /// Which a ring is, is its own hand: a ring walks with the ground on its right throughout, so the sign of
+    /// the area it encloses says which side of it the town is on.
+    /// </para>
+    /// <para>
+    /// <b>The order is still the whole of the answer</b> (TER-7b): the layers are laid outermost distance
+    /// first and the piece laid last is the piece that shows, so <c>GroundShapes.At</c> comparing the same
+    /// distance against the same table walks this list in the other direction.
+    /// </para>
+    /// </remarks>
+    static void Region(
+        GroundMesh mesh, GroundRings rings, float outM, Surface surface, Vector3 tint, float[] periods)
+    {
+        foreach (var ring in rings.At(outM))
+        {
+            if (Encloses(ring)) mesh.Ring(ring, surface, tint, periods);
+        }
+    }
+
+    /// <summary>
+    /// <b>What a block takes back</b>: the ground the town encloses rather than lays, painted in the surface
+    /// that begins at <paramref name="outM"/>.
+    /// </summary>
+    /// <remarks>
+    /// <b>Laid after every region and in the other order.</b> Outside the town the layers nest inwards —
+    /// each distance encloses less than the one before it — and inside a block they nest the other way,
+    /// since a ring nearer the kerb leaves <em>more</em> of the block beyond it. Painted in the regions'
+    /// own order, the innermost distance's block covered the whole of it and every town came back with its
+    /// blocks paved kerb to kerb. Run in increasing distance after them, what a block shows is the same
+    /// sequence read outwards from its own kerb: the line, the walk, its rim, and then the grass.
+    /// </remarks>
+    static void Encloses(
+        GroundMesh mesh, GroundRings rings, float outM, Surface surface, Vector3 tint, float[] periods)
+    {
+        foreach (var ring in rings.At(outM))
+        {
+            if (!Encloses(ring)) mesh.Ring(ring, surface, tint, periods);
+        }
+    }
+
+    /// <summary>
+    /// Whether a ring encloses the town's ground rather than a block of it: twice the area it covers,
+    /// signed, is positive where it is walked with what it encloses on its right.
+    /// </summary>
+    static bool Encloses(ReadOnlySpan<ArcSeg> ring)
+    {
+        var twiceM = 0f;
+        foreach (var arc in ring) twiceM += (arc.StartM.X * arc.EndM.Y) - (arc.EndM.X * arc.StartM.Y);
+
+        return twiceM > 0f;
     }
 
     /// <summary>Every ring of one of the water's own sets, laid as the one shape it is.</summary>

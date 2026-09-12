@@ -202,7 +202,16 @@ internal static class SkidpadPlan
             {
                 Road = [], FromM = [], ToM = [], DeckWidthM = [], PavementWidthM = [],
             },
-            PavedAreas = CityPlan.PavedAreaArrays.None,
+            // <b>The pad is a slab and the rows are laid on it.</b> This map is tarmac edge to edge, which
+            // is a rectangle and not a road network — and a boundary said in the lines a car is driven on
+            // (<see cref="LaneShell"/>) has nothing to say about a shape no line is the edge of. Left to the
+            // rows alone, the two outer edges of the stack ran the map's whole length with nothing to hand
+            // the outside on to, and the map came back with no ground drawn at all.
+            PavedAreas = new CityPlan.PavedAreaArrays
+            {
+                MinM = [Vector2.Zero],
+                SizeM = [worldSizeM],
+            },
             Crosswalks = new CityPlan.CrosswalkArrays
             {
                 CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [],

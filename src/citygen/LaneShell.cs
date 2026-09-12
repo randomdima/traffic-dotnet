@@ -88,7 +88,19 @@ internal sealed partial class LaneShell
     /// straight between them, and a city's ends asked of one another pairwise is most of a minute spent
     /// proving that two of them are half a mile apart. Thirty metres is a car park's back with room over.
     /// </summary>
-    const float OfferedWithinM = 30f;
+    const float OfferedAtLeastM = 30f;
+
+    /// <summary>
+    /// <b>And as far as the two bands themselves are wide</b>, because the join a line makes at its own
+    /// square end is as wide as the line. A flat figure is a bound on how wide a road may be before it
+    /// cannot cap itself: a laboratory map laid as rows a hundred and fifty metres across had two edges
+    /// running its whole length, nothing to hand either of them on to, and so no boundary and no ground
+    /// drawn at all.
+    /// </summary>
+    static float OfferedWithinM(Walk walk, List<Stretch> outer, int at, int other) =>
+        MathF.Max(
+            OfferedAtLeastM,
+            walk.HalfM(outer[at].Line) + walk.HalfM(outer[other].Line));
 
     /// <summary>Where a stretch carries on to when it carries on to nothing.</summary>
     const int Nowhere = -1;
@@ -572,7 +584,11 @@ internal sealed partial class LaneShell
                 // and it cuts corners the boundary does not. Read off the lines, the two sides of one bay are
                 // one point and every bay closes on itself.
                 var apartM = Handing(ends, at, other);
-                if (apartM > OfferedWithinM || !Fits(walk, outer, ends, at, other)) continue;
+                if (apartM > OfferedWithinM(walk, outer, at, other)
+                    || !Fits(walk, outer, ends, at, other))
+                {
+                    continue;
+                }
 
                 offered.Add((apartM, at, other));
             }
@@ -679,7 +695,7 @@ internal sealed partial class LaneShell
             if (other == at) continue;
 
             var takingM = Handing(ends, at, other);
-            if (takingM > OfferedWithinM) continue;
+            if (takingM > OfferedWithinM(walk, outer, at, other)) continue;
 
             var holder = heldBy[other];
             if (holder < 0) continue;
@@ -770,7 +786,7 @@ internal sealed partial class LaneShell
     {
         var fromM = ends[(at * 2) + 1].EdgeM;
         var toM = ends[other * 2].EdgeM;
-        if (Vector2.Distance(fromM, toM) > OfferedWithinM) return false;
+        if (Vector2.Distance(fromM, toM) > OfferedWithinM(walk, outer, at, other)) return false;
 
         // The crossing is asked first because it is the join that draws nothing: where the two lines really
         // do cross at the corner, the pair meets at a point and there is no straight for the ground to hold
