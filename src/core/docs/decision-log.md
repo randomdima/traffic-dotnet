@@ -1,5 +1,31 @@
 # The kernel — decision log
 
+## 2026-09-12 — the closure's veto is load-bearing, and a bare straight is the wrong thing to count
+
+Three things were tried on the fold closure past the corrector, and measuring them established something
+worth more than any of them: **counting the gaps closed with a bare straight is a poor measure of the line
+that comes out.** What matters is how many stations of the laid ring stand off the distance that struck
+them, and whether each of those is a station of the walk or the middle of a long piece — which the probe now
+says. Against that measure, two of the three made the ring worse while making the straights look better.
+
+**Tracing the gap from its other end as well.** A trace is a walk and a walk has a direction, so a gap the
+forward trace gives up on is worth walking backwards. It closed 715 more gaps and took the worst walking-lane
+reading from 4.02 m to 5.69 m off its figure, because the same curve reached from the other end is not
+always reached by the same route. Reverted.
+
+**Letting the continuity veto advance.** A step of the chord fallback is refused when it does not carry on
+from the last step accepted, and because the last *accepted* step is what it is measured against, one bad
+first step refuses the whole gap: ten thousand of the twelve thousand refusals on a city are that cascade.
+Measured against the last step *held* instead, the gaps closed with a bare straight fell from 1 525 to 856
+and the worst such straight from 75 m to 3.6 m — and the stations standing off their figure went from 4 017
+to 22 318 on the pavement and 3 384 to 11 702 on the walking lane. The veto is not standing in the way of
+the closure; it is the only thing keeping the closure's bad points out of the line. Reverted.
+
+**So the remaining gaps are not closed by laying more points**, and that is now measured rather than
+assumed. Either the crossing is solved — which this file deliberately does not do, and one attempt at it
+found the branches crossing behind the fold rather than ahead — or fewer stations are dropped in the first
+place, which is the keep rule and is `Extrusion.Of`'s open choice.
+
 ## 2026-09-12 — two pieces are one corner when they are nearest at one place, not at one distance
 
 `RingField` answers which side of the boundary a point is on from the nearest piece's own hand, and where

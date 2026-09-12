@@ -27,9 +27,14 @@ not thirty-six:
   comparable faults**. Of the stations over a tenth of a metre off their figure, three in four of the
   pavement's are mid-piece — a straight the closure still gives up and draws — and more than half of the
   walking lane's are stations of the walk, which is the rule.
-  - *The closure's remaining share* is the 818 gaps it still gives up on. Why each fails is instrumented
-    only in scratch so far; the breakdown said the corrector, and the corrector is now fixed, so it needs
-    measuring again before anything is changed.
+  - *The closure's remaining share* is the ~1 500 gaps it still gives up on, and **it is not closed by
+    laying more points** — which is measured, not assumed ([core](src/core/docs/decision-log.md)). Tracing
+    each gap from its other end as well closed 715 more of them and made the worst walking-lane reading
+    1.7 m worse. Letting the continuity veto advance took the bare straights from 1 525 to 856 and the worst
+    one from 75 m to 3.6 m, and took the stations standing off their figure from 4 017 to 22 318 on the
+    pavement. Both reverted. The veto is the only thing keeping the closure's bad points out of the line, so
+    what is left is the crossing solved — which one attempt found crossing behind the fold rather than
+    ahead — or fewer stations dropped, which is the keep rule below.
   - *The rule's share* is `Extrusion.Of`'s choice: the station's own reach (fails inside — a pavement on the
     road) against a clearance from every band (fails outside — a pavement on the grass, but twice the gaps
     and half again the build time). A probe cannot rank them; the walking-lane tier can, and has not been
