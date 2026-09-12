@@ -12,7 +12,7 @@ internal sealed partial class FootGraph
     /// the pavement either side of it: a zebra attaches to the middle of the wrap, where the wrap's own
     /// line meets the paint's axis, and the pavement runs on through it.
     /// </summary>
-    static void Crossings(CityPlan plan, Kerbs kerbs, Builder builder, float bandM)
+    static void Crossings(CityPlan plan, GroundRings rings, Builder builder, float bandM)
     {
         var crossings = plan.Crosswalks;
         var outM = bandM * 0.5f;
@@ -26,8 +26,8 @@ internal sealed partial class FootGraph
             var across = new Vector2(-axis.Y, axis.X);
             var mostM = plan.CrossingSpanM(crossing) * 0.5f + bandM;
 
-            if (!Mouth(kerbs, centreM, -across, mostM, outM, out var nearM)) continue;
-            if (!Mouth(kerbs, centreM, across, mostM, outM, out var farM)) continue;
+            if (!Mouth(rings, centreM, -across, mostM, outM, out var nearM)) continue;
+            if (!Mouth(rings, centreM, across, mostM, outM, out var farM)) continue;
 
             var near = builder.SplitNearest(nearM, outM);
             var far = builder.SplitNearest(farM, outM);

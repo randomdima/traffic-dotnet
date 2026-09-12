@@ -180,14 +180,13 @@ internal sealed partial class FootGraph : IFineGraph
         // laying one down the middle of its roads.
         if (bandM > 0f)
         {
-            var kerbs = plan.Paving(config).Kerbs;
-            Wrap(kerbs, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);
+            var rings = GroundRings.Of(plan.Paving(config), config);
+            Wrap(rings, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);
 
-            // Stitched first: a line leads somewhere when the walk carries on at both of its ends, and two
-            // lines that graze hand over across a notch rather than at a node (TER-3c.6).
+            // Stitched still, for the ends the ground's own veto left: a lane cut where it crossed water
+            // carries on where the water stops, and the two runs meet across a notch rather than at a node.
             builder.Stitch(config.PersonDiameterM, bandM);
-            builder.DropTheLinesThatLeadNowhere();
-            Crossings(plan, kerbs, builder, bandM);
+            Crossings(plan, rings, builder, bandM);
         }
 
         builder.Prune(config.Network.FootGraphStubPruneM);

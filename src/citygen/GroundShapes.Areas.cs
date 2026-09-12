@@ -27,12 +27,6 @@ internal sealed partial class GroundShapes
     /// </summary>
     const int MostShapesNear = 32;
 
-    BucketGrid _kerbIndex = null!;
-    BucketGrid _walkIndex = null!;
-
-    Fillets _kerbs;
-    Fillets _walks;
-
     Vector2[] _slabMinM = [];
     Vector2[] _slabSizeM = [];
 
@@ -65,71 +59,6 @@ internal sealed partial class GroundShapes
         }
 
         return false;
-    }
-
-    /// <summary>
-    /// The wedge between two kerbs, paved back to the arc tangent to both (TER-5): the triangle they make
-    /// with the chord between their tangent points, less what the arc cuts off it. The same piece
-    /// <c>GroundMesh.Fillet</c> draws, and the same one <see cref="Grown"/> hands back for the pavement
-    /// that turns the corner outside it.
-    /// </summary>
-    readonly struct Fillets(
-        Vector2[] cornerM, Vector2[] tangentAM, Vector2[] tangentBM, Vector2[] arcCentreM, float[] radiusM)
-        : IGroundShape
-    {
-        public int Count => cornerM.Length;
-
-        public bool Covers(int shape, Vector2 pointM) =>
-            (pointM - arcCentreM[shape]).LengthSquared() >= radiusM[shape] * radiusM[shape]
-            && InTriangle(pointM, cornerM[shape], tangentAM[shape], tangentBM[shape]);
-
-        /// <summary>A fillet's own bounding circle: the three points it is cut from, about their mean.</summary>
-        public BucketGrid Index(Vector2 worldSizeM, float bucketM)
-        {
-            var centreM = new Vector2[Count];
-            var radiusM = new float[Count];
-            for (var corner = 0; corner < Count; corner++)
-            {
-                centreM[corner] = (cornerM[corner] + tangentAM[corner] + tangentBM[corner]) / 3f;
-                radiusM[corner] = MathF.Max(
-                    (cornerM[corner] - centreM[corner]).Length(),
-                    MathF.Max(
-                        (tangentAM[corner] - centreM[corner]).Length(),
-                        (tangentBM[corner] - centreM[corner]).Length()));
-            }
-
-            return BucketGrid.Build(worldSizeM, bucketM, centreM, radiusM);
-        }
-
-        /// <summary>
-        /// Whether any of them stands within reach of a point, <b>taken as the circle round the wedge</b>
-        /// rather than as the wedge. It is deliberately generous and it is only ever asked by something
-        /// keeping <em>well</em> clear of the paving, so the difference is a prop standing clear of a corner
-        /// instead of clear of the arc inside it.
-        /// </summary>
-        public bool AnyWithin(BucketGrid index, Vector2 pointM, float reachM)
-        {
-            Span<int> near = stackalloc int[MostShapesNear];
-            var found = index.Query(pointM, reachM, near);
-            var count = found > near.Length ? Count : found;
-            for (var at = 0; at < count; at++)
-            {
-                var corner = found > near.Length ? at : near[at];
-                if (NearTheWedge(corner, pointM, reachM)) return true;
-            }
-
-            return false;
-        }
-
-        bool NearTheWedge(int corner, Vector2 pointM, float reachM)
-        {
-            var middleM = (cornerM[corner] + tangentAM[corner] + tangentBM[corner]) / 3f;
-            var roundM = MathF.Max(
-                (cornerM[corner] - middleM).Length(),
-                MathF.Max((tangentAM[corner] - middleM).Length(), (tangentBM[corner] - middleM).Length()));
-            var withinM = roundM + reachM;
-            return (pointM - middleM).LengthSquared() <= withinM * withinM;
-        }
     }
 
     /// <summary>A set of closed rings and the box each of them fits in.</summary>
@@ -237,80 +166,16 @@ internal sealed partial class GroundShapes
         return false;
     }
 
-    /// <summary>
-    /// <b>The kerb fillets grown by a walk</b> — the pavement that turns each corner of each junction
-    /// (TER-3c.3). A fillet grown by a distance is the whole wedge scaled about its own arc centre until
-    /// the arc is that much tighter: the two straight sides are the arms' kerbs, and scaling carries each
-    /// of them exactly the distance into the verge, which is where the walk beside that arm reaches to.
-    /// </summary>
     /// <remarks>
-    /// <b>A corner tighter than the walk is wide has no grown fillet at all</b>, because there is no
-    /// reading its arc in that far, and what stands round it is the two arms' own bands. It is the one
-    /// call <see cref="Kerbs.Wrapping"/> makes about the same shape, so the concrete and the lines on it
-    /// give way at the same corners.
+    /// <b>A kerb fillet is not among them any more.</b> The wedge between two kerbs is what the boundary
+    /// has left over once every movement has taken what it sweeps, and the boundary turns that corner
+    /// itself (<see cref="LaneShell.Rounded"/>) — so the shape the plan carries for it is drawn by nobody
+    /// and answered by nobody, and the ground there is the one thing an intersection is: the ground its own
+    /// movements did not take.
     /// </remarks>
-    static Fillets Grown(CityPlan.JunctionCornerArrays kerbs, float walkM)
-    {
-        var kept = 0;
-        for (var corner = 0; corner < kerbs.Count; corner++)
-        {
-            if (kerbs.RadiusM[corner] > walkM) kept++;
-        }
-
-        var cornerM = new Vector2[kept];
-        var tangentAM = new Vector2[kept];
-        var tangentBM = new Vector2[kept];
-        var arcCentreM = new Vector2[kept];
-        var radiusM = new float[kept];
-        var at = 0;
-        for (var corner = 0; corner < kerbs.Count; corner++)
-        {
-            var wasM = kerbs.RadiusM[corner];
-            if (wasM <= walkM) continue;
-
-            var centreM = kerbs.ArcCentreM[corner];
-            var inwards = walkM / wasM;
-            cornerM[at] = Vector2.Lerp(kerbs.CornerM[corner], centreM, inwards);
-            tangentAM[at] = Vector2.Lerp(kerbs.TangentAM[corner], centreM, inwards);
-            tangentBM[at] = Vector2.Lerp(kerbs.TangentBM[corner], centreM, inwards);
-            arcCentreM[at] = centreM;
-            radiusM[at] = wasM - walkM;
-            at++;
-        }
-
-        return new Fillets(cornerM, tangentAM, tangentBM, arcCentreM, radiusM);
-    }
-
-    /// <summary>Whether a point stands inside a triangle, by the side of each edge it falls on.</summary>
-    static bool InTriangle(Vector2 pointM, Vector2 aM, Vector2 bM, Vector2 cM)
-    {
-        var alongAB = Side(pointM, aM, bM);
-        var alongBC = Side(pointM, bM, cM);
-        var alongCA = Side(pointM, cM, aM);
-        return (alongAB >= 0f && alongBC >= 0f && alongCA >= 0f)
-               || (alongAB <= 0f && alongBC <= 0f && alongCA <= 0f);
-    }
-
-    static float Side(Vector2 pointM, Vector2 fromM, Vector2 toM) =>
-        ((toM.X - fromM.X) * (pointM.Y - fromM.Y)) - ((toM.Y - fromM.Y) * (pointM.X - fromM.X));
-
-    /// <summary>
-    /// The shapes that belong to no road, laid over the broad phases that answer which of them reach a
-    /// point. <b>Every one is read off the plan the town is drawn from</b>, and none is re-derived here.
-    /// </summary>
     void LayTheShapes(Paving paving, SimConfig config)
     {
         var plan = paving.Of;
-        var walkM = paving.WalkM;
-        var bucketM = config.Terrain.GroundBucketM;
-
-        var kerbs = plan.JunctionCorners;
-        _kerbs = new Fillets(
-            kerbs.CornerM, kerbs.TangentAM, kerbs.TangentBM, kerbs.ArcCentreM, kerbs.RadiusM);
-        _kerbIndex = _kerbs.Index(plan.WorldSizeM, bucketM);
-
-        _walks = Grown(kerbs, walkM);
-        _walkIndex = _walks.Index(plan.WorldSizeM, bucketM);
 
         _slabMinM = plan.PavedAreas.MinM;
         _slabSizeM = plan.PavedAreas.SizeM;

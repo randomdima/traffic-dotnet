@@ -78,74 +78,89 @@ internal static class Extrusion
     {
         if (ring.Length == 0) return [];
 
-        var offsets = new float[ring.Length];
-        Array.Fill(offsets, offsetM);
         ReadOnlySpan<ArcSeg[]> rings = [ring.ToArray()];
-        ReadOnlySpan<float[]> arcOffsetM = [offsets];
-        var extruded = Of(rings, arcOffsetM, smoothM);
+        ReadOnlySpan<float[]> standsOffM = [new float[ring.Length]];
+        var extruded = Of(rings, standsOffM, MathF.Abs(offsetM), smoothM, toTheRight: offsetM > 0f);
         return extruded.Length > 0 ? extruded[0] : [];
     }
 
     /// <summary>
-    /// <b>Every ring of a set moved to one side of itself, each piece of each ring by its own offset</b>
-    /// — one answer per ring given, empty where the offset left that ring nothing.
+    /// <b>Every ring of a set moved <paramref name="outM"/> clear of the band each piece of it lays</b> —
+    /// one answer per ring given, empty where the distance left that ring nothing.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The offset is a figure per piece and not per ring</b>, because the ring the town's ground is said
-    /// in runs down the <em>lines</em> cars are driven on rather than along the edge of what they lay
-    /// (<c>LaneShell</c>): the edge stands half a band out, and a band is a lane's width along a lane and a
-    /// space's width along the way into a bay. Every distance the town has is therefore this ring moved by
-    /// that half-width plus the distance wanted, which is what makes two such lines exact offsets of one
-    /// curve and their band exactly as wide as the difference between them. Where two pieces carry different
-    /// offsets the line steps between them, which is what a step in the width of the ground <em>is</em>.
+    /// <b>A band per piece, because the ring is not the edge of what it encloses.</b> The ring a town's
+    /// ground is said in runs down the <em>lines</em> cars are driven on rather than along the edge of what
+    /// they lay (<c>LaneShell</c>), and the edge stands half a band out — a lane's width along a lane, a
+    /// space's along the way into a bay. A station of the answer is therefore moved by its own band plus
+    /// the distance, and <b>kept where it stands that far from every line of every ring</b>.
     /// </para>
     /// <para>
-    /// <b>The fold rule is asked of the whole set and not of the ring being moved</b> (<see cref="Clear"/>):
-    /// a town's ground has a ring round the outside and one round every block it encloses, and an offset
-    /// that folded through a neighbour would otherwise stand while one that folded through itself was
-    /// dropped. One grid over every station of every ring answers both, and costs the same.
+    /// <b>The rule is the station's own reach and not the ground's</b>, and the difference is worth naming:
+    /// a station moved off a narrow band can stand its own reach from a wide band's line while standing
+    /// nearer than the distance to the ground that band lays. Asked the other way round — every station a
+    /// clearance from every <em>band</em>, which is what the ground actually is — the rule is truer and the
+    /// answer measurably worse, because the extra stations it drops leave gaps this file closes by walking
+    /// rather than by solving. Both readings are in the instruments (<c>--bench shell</c>); this is the one
+    /// that measured better, and the gap between them is the fold closure and not the rule.
+    /// </para>
+    /// <para>
+    /// <b>The rule is asked of the whole set and not of the ring being moved</b> (<see cref="Clear"/>): a
+    /// town's ground has a ring round the outside and one round every block it encloses, and a line that
+    /// folded through a neighbour would otherwise stand while one that folded through itself was dropped.
+    /// One field over every station of every ring answers both, and costs the same.
+    /// </para>
+    /// <para>
+    /// Two lines struck this way are offsets of one curve by amounts differing by a constant, so <b>the band
+    /// between them is exactly the difference between the distances that struck them</b> wherever the fold
+    /// rule left both of them standing.
     /// </para>
     /// </remarks>
+    /// <param name="toTheRight">
+    /// Which side of the rings the answer is struck on. <b>It is said and not read off the sign of the
+    /// distance</b>, because nought is a distance a caller asks for — the edge of the ground itself — and
+    /// nought has no sign to read.
+    /// </param>
     public static ArcSeg[][] Of(
-        ReadOnlySpan<ArcSeg[]> rings, ReadOnlySpan<float[]> arcOffsetM, float smoothM)
+        ReadOnlySpan<ArcSeg[]> rings, ReadOnlySpan<float[]> standsOffM, float outM, float smoothM,
+        bool toTheRight = false)
     {
+        var hand = toTheRight ? 1f : -1f;
+        var clearM = outM;
         var onTheRing = new List<Vector2>[rings.Length];
         var moved = new List<Vector2>[rings.Length];
-        var movedOffsetM = new List<float>[rings.Length];
+        var walkedOffM = new List<float>[rings.Length];
         var stations = 0;
         var deepestM = 0f;
         for (var at = 0; at < rings.Length; at++)
         {
             var ring = rings[at];
-            var offsets = arcOffsetM[at];
+            var stands = standsOffM[at];
             var lengthM = Spline.TotalLengthM(ring);
             if (ring.Length == 0 || lengthM <= StationM * 3f) continue;
 
             var room = (int)MathF.Ceiling(lengthM / StationM) + ring.Length;
             onTheRing[at] = new List<Vector2>(room);
             moved[at] = new List<Vector2>(room);
-            movedOffsetM[at] = new List<float>(room);
-            Walk(ring, offsets, onTheRing[at], moved[at], movedOffsetM[at]);
+            walkedOffM[at] = new List<float>(room);
+            Walk(ring, stands, hand, clearM, onTheRing[at], moved[at], walkedOffM[at]);
             stations += onTheRing[at].Count;
-            foreach (var offsetM in offsets) deepestM = MathF.Max(deepestM, MathF.Abs(offsetM));
+            foreach (var bandM in stands) deepestM = MathF.Max(deepestM, bandM);
         }
 
         if (stations == 0) return [];
 
-        // One grid over every station of every ring, at the deepest reach any of them will ask about — the
-        // cell is the reach, so a shallower question still reads the nine cells it needs.
-        var all = new Vector2[stations];
-        var into = 0;
-        foreach (var walked in onTheRing)
-        {
-            if (walked is null) continue;
+        // <b>One field over every ring of the set</b> (<see cref="RingField"/>), carrying each station's own
+        // band so that what it answers is a clearance rather than a distance. It says both halves of the
+        // rule at once — how far clear of the bands a moved station stands, and which side of them it
+        // stands on — and it says them <em>of the set</em>, which no ring can say of itself.
+        var walkedM = new Vector2[rings.Length][];
+        for (var at = 0; at < rings.Length; at++) walkedM[at] = onTheRing[at] is null ? [] : [.. onTheRing[at]];
 
-            walked.CopyTo(all, into);
-            into += walked.Count;
-        }
-
-        var grid = new Stations(all, MathF.Max(deepestM - FoldM, StationM));
+        // Twice the deepest a station can stand off a line, because a step being held out to that is asked
+        // about from further out again (<see cref="Held"/>).
+        var field = new RingField(walkedM, MathF.Max((deepestM + clearM) * 2f, StationM));
 
         var extruded = new ArcSeg[rings.Length][];
         for (var at = 0; at < rings.Length; at++)
@@ -153,14 +168,27 @@ internal static class Extrusion
             extruded[at] = [];
             if (onTheRing[at] is null) continue;
 
-            var kept = Clear(
-                grid, [.. onTheRing[at]], [.. moved[at]], [.. movedOffsetM[at]], arcOffsetM[at]);
+            var kept = Clear(field, hand, clearM, [.. moved[at]], [.. walkedOffM[at]], out var keptBandM);
             if (kept.Length < 3) continue;
 
-            extruded[at] = Straights(Corners(Smoothed(kept, smoothM)));
+            var closed = Closed(field, hand, clearM, kept, keptBandM);
+            if (closed.Length < 3) continue;
+
+            extruded[at] = Straights(Corners(Smoothed(closed, smoothM)));
         }
 
         return extruded;
+    }
+
+    /// <summary>
+    /// How far a point stands off the rings <b>on the side the offset took it</b> — which is the one figure
+    /// the whole rule is written in. Negative means the move landed on the far side and the point is inside
+    /// what the rings enclose, whatever its distance.
+    /// </summary>
+    static float OnItsSideM(RingField field, float hand, Vector2 pointM, float reachM)
+    {
+        var clearM = field.OffM(pointM, reachM);
+        return hand < 0f ? clearM : -clearM;
     }
 
     /// <summary>
@@ -169,13 +197,14 @@ internal static class Extrusion
     /// whether it is still the offset.
     /// </summary>
     static void Walk(
-        ReadOnlySpan<ArcSeg> ring, ReadOnlySpan<float> arcOffsetM, List<Vector2> onTheRing,
-        List<Vector2> moved, List<float> movedOffsetM)
+        ReadOnlySpan<ArcSeg> ring, ReadOnlySpan<float> standsOffM, float hand, float clearM,
+        List<Vector2> onTheRing, List<Vector2> moved, List<float> movedBandM)
     {
         for (var piece = 0; piece < ring.Length; piece++)
         {
             ref readonly var arc = ref ring[piece];
-            var offsetM = arcOffsetM[piece];
+            var bandM = standsOffM[piece];
+            var offsetM = hand * (bandM + clearM);
             var stations = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / StationM));
             var stepM = arc.LengthM / stations;
             for (var station = 0; station < stations; station++)
@@ -184,11 +213,11 @@ internal static class Extrusion
                 var pointM = arc.PointAtM(atM);
                 onTheRing.Add(pointM);
                 moved.Add(pointM + (Heading.RightOf(Heading.Unit(arc.HeadingAtRad(atM))) * offsetM));
-                movedOffsetM.Add(offsetM);
+                movedBandM.Add(bandM);
             }
 
             var next = (piece + 1) % ring.Length;
-            Round(arc, ring[next], arcOffsetM[next], moved, movedOffsetM);
+            Round(arc, ring[next], hand * (standsOffM[next] + clearM), standsOffM[next], moved, movedBandM);
         }
     }
 
@@ -204,7 +233,8 @@ internal static class Extrusion
     /// point the answer is measured from and stands at the offset to the millimetre.
     /// </remarks>
     static void Round(
-        in ArcSeg arriving, in ArcSeg leaving, float offsetM, List<Vector2> moved, List<float> movedOffsetM)
+        in ArcSeg arriving, in ArcSeg leaving, float offsetM, float bandM, List<Vector2> moved,
+        List<float> movedBandM)
     {
         var arrivingRad = arriving.HeadingAtRad(arriving.LengthM);
         var turnRad = Spline.WrapRad(leaving.HeadingRad - arrivingRad);
@@ -215,51 +245,162 @@ internal static class Extrusion
         {
             var alongRad = arrivingRad + (turnRad * step / steps);
             moved.Add(leaving.StartM + (Heading.RightOf(Heading.Unit(alongRad)) * offsetM));
-            movedOffsetM.Add(offsetM);
+            movedBandM.Add(bandM);
         }
     }
 
     /// <summary>
     /// <b>The stations of the offset that are still the offset</b>, in the order they were walked: each one
-    /// the distance from the ring, <em>on the side the offset took it</em>.
+    /// the distance clear of every band the rings lay, <em>on the side the distance took it</em> — and each
+    /// one that is not, pushed out until it is or dropped where it cannot be.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The distance is to the ring and not to the station it came from</b>: a fold is where a far piece of
-    /// the ring comes near, which nothing local can see.
+    /// <b>The clearance is to the rings and not to the station it came from</b>: a fold is where a far piece
+    /// of the ring comes near, which nothing local can see. <b>And the side is not the clearance.</b> A ring
+    /// that runs out along a line and back — a slit into the shape, which a town's outline has wherever one
+    /// lane's edge doubles back on itself — turns through half a circle at the tip, and the offset comes
+    /// round that turn into the shape. Every point of that turn is honestly the distance from its own band
+    /// and some of them are that far from everything else too, so a clearance alone keeps them and what is
+    /// drawn is a spike across ground the ring was meant to be outside of. <see cref="RingField"/> answers
+    /// both in one figure.
     /// </para>
     /// <para>
-    /// <b>And the side is not the distance.</b> A ring that runs out along a line and back — a slit into the
-    /// shape, which a town's outline has wherever one lane's edge doubles back on itself — turns through half
-    /// a circle at the tip, and the offset comes round that turn into the shape. Every point of that turn is
-    /// honestly the offset from the ring and some of them are the offset from everything else too, so the
-    /// distance keeps them and what is drawn is a spike across ground the ring was meant to be outside of.
-    /// Which side is wanted is the ring's own hand: the shoelace says which way it is wound, and the sign of
-    /// the offset says whether it was moved into what that encloses or out of it.
+    /// <b>A station the rule rejects is pushed before it is dropped</b>, and it is pushed <em>in its own
+    /// place in the walk</em>. What the rule rejects is a run of stations, not a scatter of them — a whole
+    /// tooth of the ring folding away, a slot too narrow for the distance to enter — and the boundary across
+    /// such a run is a real line: the locus standing the distance clear of the bands either side of it.
+    /// Walking that run and holding each station out to the clearance draws exactly that locus, in the order
+    /// the ring walks it. <b>Closed by drawing a straight across instead, the line cut the corner</b> by
+    /// however deep the run was — metres, at the mouth of a car park — and every reader of it inherited the
+    /// cut.
     /// </para>
     /// </remarks>
     static Vector2[] Clear(
-        Stations grid, Vector2[] onTheRing, Vector2[] moved, float[] movedOffsetM,
-        ReadOnlySpan<float> arcOffsetM)
+        RingField field, float hand, float clearM, Vector2[] moved, float[] movedBandM,
+        out float[] keptBandM)
     {
-        // Asked of the ring's own shape rather than of its stations: a crossing count over ten thousand
-        // quarter-metre segments is the same answer as one over the few hundred the shape really has, and a
-        // point this test is asked about already stands an offset clear of both.
-        var shapeM = Corners(onTheRing);
-        var inside = MathF.Sign(Hand(arcOffsetM)) * MathF.Sign(TwiceOver(shapeM));
-
         var kept = new List<Vector2>(moved.Length);
+        var bands = new List<float>(moved.Length);
         for (var station = 0; station < moved.Length; station++)
         {
-            var pointM = moved[station];
-            if (grid.Within(pointM, MathF.Abs(movedOffsetM[station]) - FoldM)) continue;
-            if (inside != 0 && Inside(shapeM, pointM) != (inside > 0)) continue;
+            var wantedM = movedBandM[station] + clearM;
+            if (OnItsSideM(field, hand, moved[station], Reach(field, wantedM)) < wantedM - FoldM) continue;
 
-            kept.Add(pointM);
+            kept.Add(moved[station]);
+            bands.Add(movedBandM[station]);
         }
 
+        keptBandM = [.. bands];
         return [.. kept];
     }
+
+    /// <summary>
+    /// How far the field is asked about a station that wants to stand <paramref name="wantedM"/> off the
+    /// rings — <b>never further than the field reaches</b>, since a question asked past that comes back as
+    /// "nothing near", which for a station standing inside the ground is the one answer that must not be
+    /// given.
+    /// </summary>
+    static float Reach(RingField field, float wantedM) =>
+        MathF.Min(MathF.Max(wantedM, StationM) * 2f, field.CellM);
+
+    /// <summary>
+    /// <b>The gap a dropped run leaves, walked and held out to the clearance.</b> What survives the rule is
+    /// stations, and a station keeps the clearance by construction — but <em>the straight between two of
+    /// them does not</em>, and where a run was dropped the two that bracket it can be metres apart with the
+    /// ground bulging between them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the difference between the rule holding at the stations and holding at the line.</b> Read
+    /// off the stations alone the line keeps its distance and every reader of it measures a chord that does
+    /// not: a walking lane laid half a walk out came back over the kerb at a car park's mouth, by a metre
+    /// and a half, on a line every station of which stood exactly half a walk clear.
+    /// </para>
+    /// <para>
+    /// <b>Walked and not solved</b>, like the rest of the file: the gap is stepped across at the station,
+    /// and a step that does not keep the clearance is pushed out until it does. Where the two branches of a
+    /// fold really cross is solvable and pairing up which crossing closes which fold is not, which is the
+    /// same bargain the rule itself strikes.
+    /// </para>
+    /// <para>
+    /// <b>A closure is continuous or it is nothing.</b> Where a whole tooth of the ring folds away — a row
+    /// of bays, each entered and left — the pushes land wherever the ground happens to be nearest rather
+    /// than where the gap is going, and a run of them laid in the order the chord was walked is a star of
+    /// spikes across the ground. A step that does not carry on from the one before it is not part of the
+    /// same line and is dropped, which leaves the straight to cover that much of the gap.
+    /// </para>
+    /// </remarks>
+    static Vector2[] Closed(
+        RingField field, float hand, float clearM, Vector2[] kept, float[] keptBandM)
+    {
+        var closed = new List<Vector2>(kept.Length);
+        for (var station = 0; station < kept.Length; station++)
+        {
+            closed.Add(kept[station]);
+
+            var next = (station + 1) % kept.Length;
+            var runM = kept[next] - kept[station];
+            var gapM = runM.Length();
+            if (gapM <= StationM * 2f) continue;
+
+            var wantedM = MathF.Max(keptBandM[station], keptBandM[next]) + clearM;
+            var reachM = Reach(field, wantedM);
+            var carriesOnM = MathF.Max(wantedM, StationM) * 2f;
+            var cameM = kept[station];
+            var steps = (int)MathF.Ceiling(gapM / StationM);
+            for (var step = 1; step < steps; step++)
+            {
+                var atM = kept[station] + (runM * step / steps);
+                if (!Held(field, hand, wantedM, reachM, ref atM)) continue;
+                if (Vector2.Distance(atM, cameM) > carriesOnM) continue;
+
+                cameM = atM;
+                closed.Add(atM);
+            }
+        }
+
+        return [.. closed];
+    }
+
+    /// <summary>
+    /// One station pushed out until it keeps the clearance — or given up on, which drops it and leaves the
+    /// stations either side to close over the gap.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pushed and then pushed again</b>, because the band that was nearest is rarely the one that is
+    /// nearest once the station has moved: the mouth of a slot has ring on both sides of it, and a station
+    /// held off one lands in front of the other.
+    /// </remarks>
+    static bool Held(RingField field, float hand, float wantedM, float reachM, ref Vector2 atM)
+    {
+        for (var push = 0; push < Pushes; push++)
+        {
+            if (!field.Nearest(atM, reachM, out var footM, out var offM, out var leftM, out _)) break;
+            if (leftM == Vector2.Zero) break;
+
+            // <b>Moved to the clearance and not merely out to it.</b> A gap's chord runs outside the line
+            // as often as inside it — two bays standing apart leave a boundary that dips between them —
+            // and a closure that only ever pushes out leaves the chord standing where it was, which is a
+            // boundary bulging past its own distance. Everything struck further out then reads as inside
+            // it: the pavement swallowed the lane laid half a walk inside the pavement.
+            if (MathF.Abs((hand < 0f ? offM : -offM) - wantedM) <= FoldM) break;
+
+            // Out of the band on the hand the distance took it, from the place the clearance was measured
+            // to — which is where that band's own offset stands, whichever side the station had wandered on
+            // to.
+            atM = footM + (leftM * (wantedM * (hand < 0f ? 1f : -1f)));
+        }
+
+        return OnItsSideM(field, hand, atM, reachM) >= wantedM - FoldM;
+    }
+
+    /// <summary>
+    /// How many times a step is pushed clear before it is dropped instead. <b>Pushed and then pushed
+    /// again</b>, because the station that was nearest is rarely the one that is nearest once the step has
+    /// moved — a gap across the mouth of a slot has ring on both sides of it.
+    /// </summary>
+    const int Pushes = 4;
 
     /// <summary>
     /// Which side of the ring it was moved to. <b>One ring is moved to one side</b>: a piece moved the
@@ -274,40 +415,6 @@ internal static class Extrusion
         }
 
         return 0f;
-    }
-
-    /// <summary>
-    /// Twice the area a closed polyline encloses, signed — <b>positive where it is walked with what it
-    /// encloses on its right</b>, which is the hand a perimeter keeps the town on.
-    /// </summary>
-    static float TwiceOver(List<Vector2> cornersM)
-    {
-        var over = 0f;
-        for (int at = 0, before = cornersM.Count - 1; at < cornersM.Count; before = at++)
-        {
-            over += (cornersM[before].X * cornersM[at].Y) - (cornersM[at].X * cornersM[before].Y);
-        }
-
-        return over;
-    }
-
-    /// <summary>
-    /// Whether a place stands within a closed polyline, by the crossings a ray out of it makes — odd within
-    /// and even without.
-    /// </summary>
-    static bool Inside(List<Vector2> cornersM, Vector2 pointM)
-    {
-        var inside = false;
-        for (int at = 0, before = cornersM.Count - 1; at < cornersM.Count; before = at++)
-        {
-            var one = cornersM[at];
-            var other = cornersM[before];
-            if (one.Y > pointM.Y == other.Y > pointM.Y) continue;
-
-            if (pointM.X < (((other.X - one.X) * (pointM.Y - one.Y)) / (other.Y - one.Y)) + one.X) inside = !inside;
-        }
-
-        return inside;
     }
 
     /// <summary>
@@ -436,88 +543,4 @@ internal static class Extrusion
         return bowM;
     }
 
-    /// <summary>
-    /// The ring's own stations over a uniform grid, for the one question the fold rule asks of them:
-    /// <b>whether anything at all stands within a reach of a point</b>. It answers with a yes rather than
-    /// with what it found, so a busy corner costs the first station it meets and not the sixty that are
-    /// there.
-    /// </summary>
-    sealed class Stations
-    {
-        readonly Vector2[] _pointM;
-        readonly int[] _cellStart;
-        readonly int[] _entry;
-        readonly Vector2 _originM;
-        readonly float _inverseCellM;
-        readonly int _width;
-        readonly int _height;
-
-        /// <summary>
-        /// The cell is the reach, so everything within one stands in the nine cells about it — which is what
-        /// <see cref="Within"/> reads and the whole of why it is a grid.
-        /// </summary>
-        public Stations(Vector2[] pointM, float cellM)
-        {
-            _pointM = pointM;
-
-            var leastM = new Vector2(float.MaxValue);
-            var mostM = new Vector2(float.MinValue);
-            foreach (var point in pointM)
-            {
-                leastM = Vector2.Min(leastM, point);
-                mostM = Vector2.Max(mostM, point);
-            }
-
-            var spanM = mostM - leastM;
-            while ((((long)(spanM.X / cellM) + 1) * ((long)(spanM.Y / cellM) + 1)) > MostCells) cellM *= 2f;
-
-            _originM = leastM;
-            _inverseCellM = 1f / cellM;
-            _width = (int)(spanM.X * _inverseCellM) + 1;
-            _height = (int)(spanM.Y * _inverseCellM) + 1;
-
-            _cellStart = new int[(_width * _height) + 1];
-            foreach (var point in pointM) _cellStart[Cell(point) + 1]++;
-
-            for (var cell = 0; cell < _width * _height; cell++) _cellStart[cell + 1] += _cellStart[cell];
-
-            var cursor = new int[_width * _height];
-            _entry = new int[pointM.Length];
-            for (var station = 0; station < pointM.Length; station++)
-            {
-                var cell = Cell(pointM[station]);
-                _entry[_cellStart[cell] + cursor[cell]++] = station;
-            }
-        }
-
-        /// <summary>Whether any station stands within <paramref name="reachM"/> of the point.</summary>
-        public bool Within(Vector2 pointM, float reachM)
-        {
-            if (reachM <= 0f) return false;
-
-            var reachSq = reachM * reachM;
-            var atX = Math.Clamp((int)((pointM.X - _originM.X) * _inverseCellM), 0, _width - 1);
-            var atY = Math.Clamp((int)((pointM.Y - _originM.Y) * _inverseCellM), 0, _height - 1);
-            for (var y = Math.Max(0, atY - 1); y <= Math.Min(_height - 1, atY + 1); y++)
-            {
-                for (var x = Math.Max(0, atX - 1); x <= Math.Min(_width - 1, atX + 1); x++)
-                {
-                    var cell = (y * _width) + x;
-                    for (var entry = _cellStart[cell]; entry < _cellStart[cell + 1]; entry++)
-                    {
-                        if ((_pointM[_entry[entry]] - pointM).LengthSquared() < reachSq) return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        int Cell(Vector2 pointM)
-        {
-            var x = Math.Clamp((int)((pointM.X - _originM.X) * _inverseCellM), 0, _width - 1);
-            var y = Math.Clamp((int)((pointM.Y - _originM.Y) * _inverseCellM), 0, _height - 1);
-            return (y * _width) + x;
-        }
-    }
 }

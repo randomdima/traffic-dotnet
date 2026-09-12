@@ -5,76 +5,132 @@ using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.World.Foot;
 
-/// <summary>The pavement, laid by wrapping the tarmac — the whole of it, in one construction.</summary>
+/// <summary>The pavement, laid by extruding the town's own boundary — the whole of it, in one construction.</summary>
 internal sealed partial class FootGraph
 {
     const int BisectionRounds = 12;
 
+    /// <summary>
+    /// How finely a ring is walked when asking whether the ground under it will carry a pavement. A
+    /// quarter-metre, which is what the boundary it was struck from is walked at.
+    /// </summary>
+    const float StationM = 0.25f;
 
     /// <summary>
-    /// <b>The pavement is the tarmac wrapped, and there is one rule for the whole of it</b> (TER-3c.3):
-    /// every carriageway, junction, kerb fillet and car park offers the line that stands half a walk
-    /// outside it, and a metre of such a line is pavement exactly where <b>nothing else stands nearer
-    /// than that</b>.
+    /// <b>The pavement is the town's boundary moved out by half a walk, and it is a ring</b> (TER-3c.3):
+    /// one closed lane round the outside of the driven ground and one round every block it encloses
+    /// (<see cref="GroundRings"/>).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A junction is not a case.</b> The band round a kerb corner is the fillet's own arc read in by
-    /// half a walk; the band past a car park is the box's; the band round a dead end is the road's own,
-    /// turned round the square end the road stops at (TER-3c.6). Each is cut by the one rule, and each
-    /// meets its neighbours at the point their two lines cross — which is the point both are half a walk
-    /// from both pieces, so nothing has to be matched to anything or pushed onto anything.
+    /// <b>A cycle has no ends, so there is nothing to join.</b> The three hardest questions a wrap of
+    /// separate pieces asked — which loose end meets which, which line leads somewhere and which
+    /// dead-ends, and which pavement is another one said twice — were all the same question in different
+    /// clothes: <em>where does this piece of line carry on to?</em> A ring answers it by construction. What
+    /// is laid here is the ring, and the builder's joining, dropping and de-duplicating now have only the
+    /// crossings and the few cuts below to work on.
     /// </para>
     /// <para>
-    /// <b>What a box is walked round is the arms that meet at it</b> (TER-3c.5). The lines cars are turned
-    /// through it on are tarmac the arms enclose, and half a walk outside one of those is usually the
-    /// middle of the pavement rather than the edge of it — so such a line is pavement only where it
-    /// <b>leads somewhere</b>: joined to the rest of the shell at both ends it closes a gap the arms left
-    /// open, and dead-ending it is the same pavement said twice
-    /// (<see cref="Builder.DropTheLinesThatLeadNowhere"/>). Kept whatever it did, it laid a second line
-    /// beside the arm's own at every mouth in the town, and a walk down the pavement crossed from one lane
-    /// to the other and back.
+    /// <b>The ground still has a veto, and it is the only one</b>: a lane over water, or off the map, is not
+    /// a lane however far it stands from the nearest kerb. It is asked of the ground the town answers with
+    /// and not of a second reading of the plan, and it is what turns a ring back into runs where it bites.
     /// </para>
     /// <para>
-    /// <b>Where two carriageways merge, the outer edge of the pair is what is wrapped</b>, because each
-    /// one's line runs on into the other's tarmac and is cut there. Where one runs inside another — a
-    /// street lying along a car park's mouth — its line is cut over the whole of it and nothing is laid.
-    /// It is the one rule reaching a second answer and not a second rule.
-    /// </para>
-    /// <para>
-    /// <b>The ground still has a veto</b>, and it is the only one: a line over water, or off the map, is
-    /// not pavement however far it stands from the nearest kerb. It is asked of the ground the town
-    /// answers with and not of a second reading of the plan.
+    /// <b>A ring nothing vetoes is still laid in two.</b> A stretch whose two ends are one node is ground no
+    /// walk can be stationed along and a corner nothing can be turned on
+    /// (<see cref="Builder.AddStrand"/>), so an uncut ring is halved — two stretches meeting at two nodes,
+    /// which is the same cycle said in the terms the graph keeps.
     /// </para>
     /// </remarks>
-    static void Wrap(Kerbs kerbs, GroundLocator terrain, Builder builder, float bandM, float weldM)
+    static void Wrap(GroundRings rings, GroundLocator terrain, Builder builder, float bandM, float weldM)
     {
-        var runs = new List<Kerbs.Wrap>();
-        kerbs.Shell(bandM * 0.5f, weldM, pointM => terrain.At(pointM).Walkable, runs);
-
-        foreach (var (_, line, onlyWhereTheKerbIsOpen, _) in runs)
+        var runs = new List<(float FromM, float ToM)>();
+        var room = new ArcSeg[64];
+        foreach (var ring in rings.At(bandM * 0.5f))
         {
-            builder.AddStrand(line, bandM, FootEdgeKind.Pavement, onlyWhereTheKerbIsOpen);
+            if (ring.Length == 0) continue;
+
+            var lengthM = Spline.TotalLengthM(ring);
+            if (lengthM <= weldM) continue;
+
+            Carried(ring, lengthM, weldM, pointM => terrain.At(pointM).Walkable, runs);
+            if (room.Length < ring.Length + 2) room = new ArcSeg[ring.Length + 2];
+
+            foreach (var (fromM, toM) in runs)
+            {
+                var arcs = Spline.SubChainInto(ring, fromM, toM, room);
+                if (arcs > 0) builder.AddStrand(room.AsSpan(0, arcs), bandM, FootEdgeKind.Pavement);
+            }
         }
     }
 
     /// <summary>
+    /// The runs of one ring the ground will carry, as distances along it — <b>and a ring the ground carries
+    /// whole comes back in two</b>, since a run from a point to itself is no run.
+    /// </summary>
+    static void Carried(
+        ReadOnlySpan<ArcSeg> ring, float lengthM, float weldM, Func<Vector2, bool> carried,
+        List<(float FromM, float ToM)> into)
+    {
+        into.Clear();
+
+        var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / StationM));
+        var was = carried(ring[0].StartM);
+        var openedAtM = was ? 0f : -1f;
+        for (var station = 1; station <= stations; station++)
+        {
+            var alongM = lengthM * station / stations;
+            var stands = carried(Spline.SampleAt(ring, alongM).PositionM);
+            if (stands == was) continue;
+
+            var edgeM = Crossing(ring, carried, lengthM * (station - 1) / stations, alongM, stands);
+            if (stands) openedAtM = edgeM;
+            else if (openedAtM >= 0f && edgeM - openedAtM > weldM) into.Add((openedAtM, edgeM));
+
+            was = stands;
+        }
+
+        if (was && openedAtM >= 0f && lengthM - openedAtM > weldM) into.Add((openedAtM, lengthM));
+
+        if (into.Count == 1 && into[0].FromM <= 0f && into[0].ToM >= lengthM)
+        {
+            into[0] = (0f, lengthM * 0.5f);
+            into.Add((lengthM * 0.5f, lengthM));
+        }
+    }
+
+    /// <summary>Where along the ring the ground changed its mind, bisected between the two stations it changed between.</summary>
+    static float Crossing(
+        ReadOnlySpan<ArcSeg> ring, Func<Vector2, bool> carried, float wasM, float isM, bool standsAtIs)
+    {
+        for (var halving = 0; halving < BisectionRounds; halving++)
+        {
+            var middleM = (wasM + isM) * 0.5f;
+            if (carried(Spline.SampleAt(ring, middleM).PositionM) == standsAtIs) isM = middleM;
+            else wasM = middleM;
+        }
+
+        return (wasM + isM) * 0.5f;
+    }
+
+    /// <summary>
     /// The most a joint may be open by before two stretches are no longer one line
-    /// (<see cref="Builder.RunOn"/>) — the same rounding the outline itself is cut with
+    /// (<see cref="Builder.RunOn"/>) — the same rounding the boundary itself is cut with
     /// (<see cref="Kerbs.RoundingM"/>).
     /// </summary>
     const float RoundingM = Kerbs.RoundingM;
 
     /// <summary>
-    /// <b>Where the pavement stands on one side of a crossing</b>: out along the crossing's own square,
-    /// to the first metre that is half a walk clear of the tarmac.
+    /// <b>Where the pavement stands on one side of a crossing</b>: out along the crossing's own square, to
+    /// the first metre that stands <paramref name="outM"/> off the kerb.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// It is the same question the wrap itself is cut by, asked along a ray instead of along a line — so
-    /// the mouth lands <em>on</em> the pavement's line rather than at whatever node happened to pass
-    /// nearest the point the crossing's own span reaches to. Snapped to the nearest node instead, a zebra
-    /// beside a bend came out skewed to its own paint and ran a couple of metres past it onto the road.
+    /// It is the same question the lane itself was struck by, asked along a ray instead of read off a ring
+    /// — one distance compared against one figure (<see cref="GroundRings.OffTheKerbM"/>) — so the mouth
+    /// lands <em>on</em> the lane rather than at whatever node happened to pass nearest the point the
+    /// crossing's own span reaches to. Snapped to the nearest node instead, a zebra beside a bend came out
+    /// skewed to its own paint and ran a couple of metres past it onto the road.
     /// </para>
     /// <para>
     /// <b>A ray that never gets clear of the tarmac has no mouth</b>, and says so. Answered with the point
@@ -83,7 +139,8 @@ internal sealed partial class FootGraph
     /// a metre off the kerb, on a line that had been laid clear of it.
     /// </para>
     /// </remarks>
-    static bool Mouth(Kerbs kerbs, Vector2 centreM, Vector2 alongM, float mostM, float outM, out Vector2 atM)
+    static bool Mouth(
+        GroundRings rings, Vector2 centreM, Vector2 alongM, float mostM, float outM, out Vector2 atM)
     {
         const float StepM = 0.05f;
 
@@ -91,7 +148,7 @@ internal sealed partial class FootGraph
         var insideM = 0f;
         for (var outwardM = StepM; outwardM <= mostM; outwardM += StepM)
         {
-            if (!kerbs.Clear(centreM + (alongM * outwardM), outM))
+            if (rings.OffTheKerbM(centreM + (alongM * outwardM)) < outM)
             {
                 insideM = outwardM;
                 continue;
@@ -101,7 +158,7 @@ internal sealed partial class FootGraph
             for (var halving = 0; halving < BisectionRounds; halving++)
             {
                 var middleM = (insideM + outsideM) * 0.5f;
-                if (kerbs.Clear(centreM + (alongM * middleM), outM)) outsideM = middleM;
+                if (rings.OffTheKerbM(centreM + (alongM * middleM)) >= outM) outsideM = middleM;
                 else insideM = middleM;
             }
 

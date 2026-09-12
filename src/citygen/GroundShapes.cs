@@ -66,43 +66,81 @@ internal sealed partial class GroundShapes
         _pieces = pieces;
         _worldSizeM = pieces.WorldSizeM;
         _walkM = paving.WalkM;
+        _paving = paving;
+        _config = config;
         LayTheRoads(pieces, config, paving.WalkM);
         LayTheTurns(paving, pieces.WorldSizeM, config);
         LayTheShapes(paving, config);
-        LayThePaving(paving, config);
     }
+
+    readonly Paving _paving;
+    readonly SimConfig _config;
+    GroundRings? _rings;
+
+    /// <summary>
+    /// <b>The town's boundary and the distances off it</b> (<see cref="GroundRings"/>), laid on the first
+    /// ask rather than with the shapes.
+    /// </summary>
+    /// <remarks>
+    /// <b>Laid late because a town being laid asks this of itself</b>: the generator remakes the ground as
+    /// each stage adds its shapes, and a stage that only wants to know where the water is should not pay for
+    /// a walk of a road network that is not finished being laid. What it is laid <em>off</em> is the same
+    /// pieces the rest of this reads, so the boundary is always the boundary of the shapes there are.
+    /// </remarks>
+    GroundRings Boundary => _rings ??= GroundRings.Of(_paving, _config);
 
     /// <summary>
     /// The last piece of ground laid over the point, found by asking the pieces in the reverse of the
     /// order they are laid in and taking the first that covers it.
     /// </summary>
     /// <remarks>
-    /// <b>The pavement is one question and the tarmac is the rest of the town</b> (TER-3c.3, TER-3c.7):
-    /// <see cref="Paved"/> is half a walk off the line the pavement is walked down, and everything the town
-    /// grew by a walk that the band does not cover is carriageway, junction or car park rather than
-    /// pavement. That is what makes the kerb an offset of the same curve the shell and the walking lane are
-    /// offsets of — and what leaves no pocket of concrete where a movement is narrower than the arm it
-    /// leaves.
+    /// <para>
+    /// <b>The boundary says whether a point is tarmac and the bands say which tarmac it is</b> (TER-3c.3,
+    /// TER-5). Those are two different questions and only the first has one answer everywhere: where the
+    /// town's driven ground stops is the shell's (<see cref="GroundRings"/>), and what a metre of it is —
+    /// a carriageway, a line through a box, a way into a bay — is a fact about the line that lays it.
+    /// </para>
+    /// <para>
+    /// <b>A band may not claim ground the boundary has already given up</b>, and this is not a tie-break
+    /// but the whole reason the boundary exists. A road's own band runs on to the junction its lanes were
+    /// cut back from, so a sliver at every mouth in the town lies inside the road and outside the driven
+    /// ground — read off the band it was carriageway, and the pavement laid over it by the boundary stood
+    /// on a road.
+    /// </para>
+    /// <para>
+    /// <b>Except where the boundary has nothing to say</b>, which is further off any kerb than the answer
+    /// measures (<see cref="GroundRings.Reach"/>). A band reaches at most its own half-width beyond the
+    /// line that lays it, so a band claiming a point that far from every kerb is a point deep inside the
+    /// ground — the middle of a wide junction — and the band is the only reading there is of it.
+    /// </para>
     /// </remarks>
     public Ground At(Vector2 pointM)
     {
+        var offTheKerbM = Boundary.OffTheKerbM(pointM);
+        var offTheGround = offTheKerbM > 0f && offTheKerbM < Boundary.Reach;
+
         var roads = Roads(pointM);
-        if (roads.Crossing) return Ground.Crosswalk;
-        if (AnyReaches(_kerbIndex, _kerbs.Count, pointM, _kerbs)) return Ground.Intersection;
-        if (Turns(pointM, 0f)) return Ground.Intersection;
-        if (roads.Carriageway) return Ground.Road;
-        if (BayWays(pointM, 0f)) return Ground.Parking;
-        if (SlabReaches(pointM)) return Ground.Parking;
+        if (!offTheGround)
+        {
+            if (roads.Crossing) return Ground.Crosswalk;
+            if (Turns(pointM, 0f)) return Ground.Intersection;
+            if (roads.Carriageway) return Ground.Road;
+            if (BayWays(pointM, 0f)) return Ground.Parking;
+            if (SlabReaches(pointM)) return Ground.Parking;
+
+            // Inside the boundary and claimed by no band: the wedge a junction's corner is paved back over
+            // (TER-5). An intersection has no shape of its own, so what is left of its ground once every
+            // movement through it has taken what it sweeps is exactly this — and there is no fillet to lay,
+            // the boundary having turned the corner itself (<see cref="LaneShell.Rounded"/>).
+            if (offTheKerbM <= 0f) return Ground.Intersection;
+        }
+        else if (SlabReaches(pointM)) return Ground.Parking;
+
         if (roads.Deck) return Ground.Sidewalk;
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
-        if (Paved(pointM)) return Ground.Sidewalk;
-        if (AnyReaches(_walkIndex, _walks.Count, pointM, _walks)) return Ground.Intersection;
-        if (Turns(pointM, _walkM)) return Ground.Intersection;
-        if (roads.Walk) return Ground.Road;
-        if (BayWays(pointM, _walkM)) return Ground.Parking;
 
-        return Ground.Grass;
+        return offTheKerbM <= _walkM ? Ground.Sidewalk : Ground.Grass;
     }
 
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
@@ -171,19 +209,14 @@ internal sealed partial class GroundShapes
     /// the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
     /// </summary>
     /// <remarks>
-    /// <b>Asked of the shapes.</b> The same question put by sampling the ground round the point needs a
-    /// lattice fine enough not to step over a band four metres wide, which over a seven-metre reach is a
-    /// hundred and fifty questions apiece — and there are a hundred thousand candidates in a city. Where
-    /// exactness costs more than it is worth the answer is deliberately generous: a kerb fillet is taken as
-    /// the circle round it, so a prop stands clear of a corner rather than of the wedge inside it.
+    /// <b>One distance and one figure</b> (<see cref="GroundRings.OffTheKerbM"/>): the paving reaches a walk
+    /// beyond the kerb, so a point within a reach of any of it is one standing no further off the kerb than
+    /// those two together. Asked of the shapes piece by piece instead — a road's band grown, a movement's
+    /// grown, a fillet taken as the circle round it — the answer was generous by however much each piece's
+    /// own arithmetic was, and no two pieces were generous by the same amount.
     /// </remarks>
     public bool PavingWithin(Vector2 pointM, float reachM) =>
-        RoadPavingWithin(pointM, reachM)
-        || Turns(pointM, reachM)
-        || BayWays(pointM, _walkM + reachM)
-        || _kerbs.AnyWithin(_kerbIndex, pointM, reachM)
-        || _walks.AnyWithin(_walkIndex, pointM, reachM)
-        || PavedWithin(pointM, reachM)
+        Boundary.OffTheKerbM(pointM) <= _walkM + reachM
         || SlabWithin(pointM, reachM)
         || _shore.Within(pointM, reachM);
 

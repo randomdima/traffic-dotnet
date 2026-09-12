@@ -13,7 +13,7 @@ namespace TrafficSimulation.CityGen;
 /// all — each takes its place in <see cref="GroundShapes"/>'s one order among the shapes that belong to
 /// no road, and a walk loses to water where a carriageway beats it.
 /// </remarks>
-internal readonly record struct RoadGround(bool Walk, bool Deck, bool Carriageway, bool Crossing);
+internal readonly record struct RoadGround(bool Deck, bool Carriageway, bool Crossing);
 
 internal sealed partial class GroundShapes
 {
@@ -64,14 +64,13 @@ internal sealed partial class GroundShapes
         Span<float> alongM = stackalloc float[MostRoadsNear];
         var found = _roadIndex.Near(pointM, _farthestReachM, near, alongM);
 
-        var walk = false;
         var deck = false;
         var carriageway = false;
         var crossing = false;
         var count = Math.Min(found, near.Length);
         for (var index = 0; index < count; index++)
         {
-            Weigh(near[index], alongM[index], pointM, ref walk, ref deck, ref carriageway, ref crossing);
+            Weigh(near[index], alongM[index], pointM, ref deck, ref carriageway, ref crossing);
         }
 
         // The index answered with more roads than there was room for, so what it gave back is part of the
@@ -83,16 +82,15 @@ internal sealed partial class GroundShapes
             {
                 var arcs = _pieces.Roads.SegmentsOf(road);
                 var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
-                Weigh(road, atM, pointM, ref walk, ref deck, ref carriageway, ref crossing);
+                Weigh(road, atM, pointM, ref deck, ref carriageway, ref crossing);
             }
         }
 
-        return new RoadGround(walk, deck, carriageway, crossing);
+        return new RoadGround(deck, carriageway, crossing);
     }
 
     void Weigh(
-        int road, float atM, Vector2 pointM, ref bool walk, ref bool deck, ref bool carriageway,
-        ref bool crossing)
+        int road, float atM, Vector2 pointM, ref bool deck, ref bool carriageway, ref bool crossing)
     {
         var arcs = _pieces.Roads.SegmentsOf(road);
         var on = Spline.SampleAt(arcs, atM);
@@ -114,10 +112,6 @@ internal sealed partial class GroundShapes
             carriageway = true;
             crossing |= Covers(_paintAt, _paintFromM, _paintToM, road, atM);
         }
-        else if (OffTheBandM(acrossM - halfM, pastM) <= _walkM)
-        {
-            walk = true;
-        }
 
         if (pastM > 0f) return;
 
@@ -129,59 +123,6 @@ internal sealed partial class GroundShapes
         }
     }
 
-    /// <summary>
-    /// How far a point stands off a band, given how far it is outside the band's own half-width and how far
-    /// past its end. <b>The corner is an arc and not a right angle</b>, because the band is grown by a
-    /// distance and a distance turns a corner (<see cref="Kerbs"/> wraps the same shape the same way).
-    /// </summary>
-    static float OffTheBandM(float acrossM, float pastM)
-    {
-        var outM = MathF.Max(0f, acrossM);
-        return pastM <= 0f ? outM : MathF.Sqrt((outM * outM) + (pastM * pastM));
-    }
-
-    /// <summary>
-    /// Whether any road's paving — its carriageway or the walk either side of it — stands within reach of a
-    /// point. <b>Asked of the roads and never by sampling the ground round the point</b>: how far the
-    /// nearest paving is, is a fact about the shapes, and a lattice fine enough not to step over a band is
-    /// a hundred and fifty questions where this is one.
-    /// </summary>
-    bool RoadPavingWithin(Vector2 pointM, float reachM)
-    {
-        Span<int> near = stackalloc int[MostRoadsNear];
-        Span<float> alongM = stackalloc float[MostRoadsNear];
-        var found = _roadIndex.Near(pointM, _farthestReachM + reachM, near, alongM);
-        var count = Math.Min(found, near.Length);
-        for (var index = 0; index < count; index++)
-        {
-            if (Within(near[index], alongM[index], pointM, reachM)) return true;
-        }
-
-        if (found <= near.Length) return false;
-
-        for (var road = 0; road < _roadHalfM.Length; road++)
-        {
-            var arcs = _pieces.Roads.SegmentsOf(road);
-            var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
-            if (Within(road, atM, pointM, reachM)) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// One road's paving, grown by the reach in both directions — <b>along its own ends as well as across
-    /// it</b>, since a point off the end of a street is that far from the paving there.
-    /// </summary>
-    bool Within(int road, float atM, Vector2 pointM, float reachM)
-    {
-        var arcs = _pieces.Roads.SegmentsOf(road);
-        var on = Spline.SampleAt(arcs, atM);
-        var offsetM = pointM - on.PositionM;
-        var beyondM = MathF.Abs(Vector2.Dot(offsetM, on.Direction));
-        var acrossM = MathF.Abs(Vector2.Dot(offsetM, on.Right));
-        return beyondM <= reachM && acrossM <= _roadReachM[road] + reachM;
-    }
 
     static bool Covers(int[] at, float[] fromM, float[] toM, int road, float atM)
     {

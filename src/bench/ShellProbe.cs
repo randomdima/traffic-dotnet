@@ -95,7 +95,36 @@ internal static class ShellProbe
         Loose(reading, paving);
         Lost(reading, paving);
         Extruded(shell, paving, config);
-        if (atM is { } place) About(reading, paving, place);
+        if (atM is { } place)
+        {
+            Ground(paving, config, place);
+            About(reading, paving, place);
+        }
+    }
+
+    /// <summary>
+    /// <b>What the ground says at one place, and what the boundary says about it</b> — the two halves of
+    /// one answer (<see cref="GroundRings.OffTheKerbM"/>, <c>GroundShapes.At</c>), printed together so that
+    /// a place the picture and the answer disagree about can be looked at rather than guessed at.
+    /// </summary>
+    static void Ground(Paving paving, SimConfig config, Vector2 placeM)
+    {
+        var rings = GroundRings.Of(paving, config);
+        var shapes = new GroundShapes(paving, config);
+
+        Console.WriteLine();
+        Console.WriteLine($"ground at {placeM.X:F2},{placeM.Y:F2}");
+
+        foreach (var offM in (ReadOnlySpan<float>)[0f, 1f, 2f, -1f, -2f])
+        {
+            foreach (var alongM in (ReadOnlySpan<Vector2>)[Vector2.UnitX, Vector2.UnitY])
+            {
+                var atM = placeM + (alongM * offM);
+                Console.WriteLine(
+                    $"  {atM.X,9:F2},{atM.Y,-9:F2} {shapes.At(atM),-13} "
+                    + $"{rings.OffTheKerbM(atM),7:F3} m off the kerb");
+            }
+        }
     }
 
     /// <summary>How finely an extruded ring is walked when asking whether it kept its distance. A stride.</summary>
@@ -142,9 +171,45 @@ internal static class ShellProbe
         Say("  kerb off itself      ", offM, "m out, which is what the index answers a point on it");
 
         offM.Clear();
-        foreach (var ring in walk) Walked(ring, offM, pointM => rings.OffTheKerbM(pointM) - paving.WalkM);
+        var atM = new List<Vector2>();
+        foreach (var ring in walk)
+        {
+            Walked(ring, offM, pointM => rings.OffTheKerbM(pointM) - paving.WalkM, atM);
+        }
 
         Say("  pavement off the kerb", offM, $"m over the {paving.WalkM:F2} m it was struck at");
+        Worst(offM, atM);
+
+        var halfM = paving.WalkM * 0.5f;
+        offM.Clear();
+        atM.Clear();
+        foreach (var ring in rings.At(halfM))
+        {
+            Walked(ring, offM, pointM => rings.OffTheKerbM(pointM) - halfM, atM);
+        }
+
+        Say("  lane off the kerb    ", offM, $"m over the {halfM:F2} m it was struck at");
+        Worst(offM, atM);
+    }
+
+    /// <summary>
+    /// <b>Where the distances came out worst, furthest first</b> — the reading that says whether a worst
+    /// figure is one place worth looking at or a fault running the length of a town.
+    /// </summary>
+    static void Worst(List<float> offM, List<Vector2> atM)
+    {
+        var order = new int[offM.Count];
+        for (var at = 0; at < order.Length; at++) order[at] = at;
+
+        Array.Sort(order, (one, other) => MathF.Abs(offM[other]).CompareTo(MathF.Abs(offM[one])));
+        var listed = Math.Min(Listed / 5, order.Length);
+        for (var at = 0; at < listed; at++)
+        {
+            if (MathF.Abs(offM[order[at]]) < 0.1f) break;
+
+            Console.WriteLine(
+                $"      {offM[order[at]],7:F2} m out at {atM[order[at]].X:F1},{atM[order[at]].Y:F1}");
+        }
     }
 
     static int Rings(ArcSeg[][] rings)
@@ -159,7 +224,8 @@ internal static class ShellProbe
     }
 
     /// <summary>One ring walked at stations, each answered by the reading given.</summary>
-    static void Walked(ReadOnlySpan<ArcSeg> ring, List<float> into, Func<Vector2, float> reading)
+    static void Walked(
+        ReadOnlySpan<ArcSeg> ring, List<float> into, Func<Vector2, float> reading, List<Vector2>? atM = null)
     {
         if (ring.Length == 0) return;
 
@@ -167,7 +233,9 @@ internal static class ShellProbe
         var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / ExtrudedStationM));
         for (var station = 0; station < stations; station++)
         {
-            into.Add(reading(Spline.SampleAt(ring, lengthM * station / stations).PositionM));
+            var pointM = Spline.SampleAt(ring, lengthM * station / stations).PositionM;
+            into.Add(reading(pointM));
+            atM?.Add(pointM);
         }
     }
 

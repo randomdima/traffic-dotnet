@@ -14,6 +14,17 @@ internal sealed partial class GroundShapes
     /// </summary>
     const int MostTurnsNear = 32;
 
+    /// <summary>
+    /// How far a point stands off a band, given how far it is outside the band's own half-width and how far
+    /// past its end. <b>The corner is an arc and not a right angle</b>, because the band is grown by a
+    /// distance and a distance turns a corner.
+    /// </summary>
+    static float OffTheBandM(float acrossM, float pastM)
+    {
+        var outM = MathF.Max(0f, acrossM);
+        return pastM <= 0f ? outM : MathF.Sqrt((outM * outM) + (pastM * pastM));
+    }
+
     Movements _turns;
     Movements _bays;
 

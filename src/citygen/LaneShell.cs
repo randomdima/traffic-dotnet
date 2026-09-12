@@ -228,17 +228,9 @@ internal sealed partial class LaneShell
     {
         if (_extruded.TryGetValue((outM, smoothM), out var held)) return held;
 
-        var arcOffsetM = new float[_chains.Length][];
-        for (var ring = 0; ring < _chains.Length; ring++)
-        {
-            var halves = _halfOfArc[ring];
-            var offsets = new float[halves.Length];
-            for (var arc = 0; arc < halves.Length; arc++) offsets[arc] = -(halves[arc] + outM);
-
-            arcOffsetM[ring] = offsets;
-        }
-
-        return _extruded[(outM, smoothM)] = Extrusion.Of(_chains, arcOffsetM, smoothM);
+        // Out is the walker's left, which is the negative side (<see cref="Spline.OffsetInto"/>), and what
+        // each piece of the ring stands off the ground it lays is half its own band.
+        return _extruded[(outM, smoothM)] = Extrusion.Of(_chains, _halfOfArc, outM, smoothM);
     }
 
     public static LaneShell Of(Paving paving, SimConfig config)
