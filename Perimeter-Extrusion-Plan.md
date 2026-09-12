@@ -21,12 +21,19 @@ not thirty-six:
   The gap a dropped fold leaves is now traced along the answer rather than straightened across, and the
   clearance a step is held to is sought along a line rather than jumped to — the jump could not converge
   where two pieces are equally near, which is the fold itself. Gaps a city closes with a bare straight:
-  **11 657 → 818**, worst 24.4 m → 14.5 m ([core](src/core/docs/decision-log.md)). **But the readings it
-  was meant to move barely moved** — worst pavement 8.20 m → 9.07 m off its figure, worst lane unchanged at
-  4.19 m — because those come from the *keep* rule and not from the closure. The one worth fixing next is
-  therefore the keep rule, and `Extrusion.Of` states the choice: the station's own reach (fails inside, a
-  pavement on the road) against a clearance from every band (fails outside, a pavement on the grass). A
-  probe cannot rank them; the walking-lane tier can, and has not been run.
+  **11 657 → 818**, worst 24.4 m → 14.5 m ([core](src/core/docs/decision-log.md)). The worst readings did
+  not fall with it, which took two wrong guesses to explain and is now measured rather than guessed: the
+  probe reports the length of the piece each station was sampled on, and **the closure and the keep rule are
+  comparable faults**. Of the stations over a tenth of a metre off their figure, three in four of the
+  pavement's are mid-piece — a straight the closure still gives up and draws — and more than half of the
+  walking lane's are stations of the walk, which is the rule.
+  - *The closure's remaining share* is the 818 gaps it still gives up on. Why each fails is instrumented
+    only in scratch so far; the breakdown said the corrector, and the corrector is now fixed, so it needs
+    measuring again before anything is changed.
+  - *The rule's share* is `Extrusion.Of`'s choice: the station's own reach (fails inside — a pavement on the
+    road) against a clearance from every band (fails outside — a pavement on the grass, but twice the gaps
+    and half again the build time). A probe cannot rank them; the walking-lane tier can, and has not been
+    run.
 - **A prop cleared against the boundary while the town was being laid is read against the finished one.**
   The generator remakes the ground as each stage adds its shapes, and the boundary of a half-laid town is
   not the boundary of the finished one. Five generator tests. The fix is to say when the boundary is

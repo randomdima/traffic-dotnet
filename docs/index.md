@@ -99,11 +99,14 @@ Absences that are gaps rather than decisions, and none of them is silent:
   of them stands a median 0 mm off the figure that struck it. The worst of them does not: a pavement five
   metres inside the kerb at one place, a kerb three and a half metres outside the driven ground at another.
   `--bench shell` prints the median, the worst and the coordinates of both.
-  **What it is no longer is the fold closure** ([core](../src/core/docs/decision-log.md)): the gap a dropped
-  fold leaves is traced along the answer now rather than straightened across, which took the gaps a city
-  closes with a bare straight from eleven thousand to eight hundred and moved the worst reading by under a
-  metre. So what is left is the rule that decides which stations to drop, and the two candidates for it fail
-  in opposite directions — `Extrusion.Of` names the choice and says why a probe cannot settle it.
+  **It is two faults of comparable size, and the probe says which is which**
+  ([core](../src/core/docs/decision-log.md)). Every station of the walk keeps its distance by construction,
+  so a reading off the figure is either a station the rule should have dropped or the middle of a straight
+  the fold closure gave up and drew — and the length of the piece it was sampled on tells them apart. Of the
+  stations over a tenth of a metre off their figure on a city, **three in four of the pavement's are
+  mid-piece** and **more than half of the walking lane's are stations**. The closure's share is the eight
+  hundred gaps it still gives up on, down from eleven thousand; the rule's share is the choice `Extrusion.Of`
+  names, whose two candidates fail inside and outside respectively and which a probe cannot settle.
 - **A boundary may cross water where no bridge carries it**, and on the shipped cities it no longer does.
   The shell joins two stretches across ground nothing is driven along and nothing in that join asks the
   water, so the risk stands in the construction; what closed it in practice was the fold closure no longer

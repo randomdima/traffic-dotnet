@@ -108,13 +108,20 @@ internal static class Extrusion
     /// nearer than the distance to the ground that band lays. Asked the other way round — every station a
     /// clearance from every <em>band</em>, which is what the ground actually is (<see cref="RingField"/>
     /// answers it, given the bands) — the rule is truer, and <b>which of the two measures better is still
-    /// open</b>. On a city the two fail in opposite directions: this one leaves a pavement up to five metres
-    /// <em>inside</em> the kerb at one place, the clearance rule leaves one up to eight metres outside it,
-    /// and a pavement on the road costs more than a pavement on the grass. Against that the clearance rule
-    /// drops more stations, leaves twice as many gaps for the closure to give up on, and costs half again in
-    /// build time. <b>What the reading cannot settle it, the tier can</b>: the question is what each does to
-    /// the metres of walking lane that stand nearer the kerb than the figure says, which is a test and not a
-    /// probe. Both are in the instruments (<c>--bench shell</c>).
+    /// open</b>. On a city the two fail in opposite directions: this one leaves a pavement <em>inside</em>
+    /// the kerb at its worst place, the clearance rule leaves one outside it, and a pavement on the road
+    /// costs more than a pavement on the grass. Against that the clearance rule drops more stations, leaves
+    /// twice as many gaps for the closure to give up on, and costs half again in build time.
+    /// <b>What the reading cannot settle the tier can</b>: the question is what each does to the metres of
+    /// walking lane that stand nearer the kerb than the figure says, which is a test and not a probe.
+    /// </para>
+    /// <para>
+    /// <b>And the rule is only half of what reads off the figure</b>, which is worth knowing before either
+    /// is blamed. <c>--bench shell</c> now says which half: of the stations standing over a tenth of a metre
+    /// off the distance that struck them, three in four of the pavement's are in the middle of a piece
+    /// longer than two strides — a straight the fold closure gave up and drew (<see cref="Closed"/>) — while
+    /// more than half of the walking lane's are stations of the walk itself, which is the rule keeping what
+    /// it should have dropped. The two faults are comparable in size and want opposite fixes.
     /// </para>
     /// <para>
     /// <b>The rule is asked of the whole set and not of the ring being moved</b> (<see cref="Clear"/>): a

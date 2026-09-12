@@ -46,13 +46,18 @@ was walked, the pushes landed wherever the ground happened to be nearest and dre
 and the veto that suppressed it also suppressed the closure. Fifteen thousand of the twenty-two thousand
 gaps a city leaves are traced whole.
 
-**It is not the crossing solved, and it was not the whole of the fault.** Nothing here pairs up which
-offset crossing bounds which fold; the file's bargain is unchanged. And the reading it was supposed to move
-barely moved: the worst pavement on a city went from 8.20 m to 9.07 m off its own figure and the worst lane
-did not budge, because those come from the rule that decides which stations to drop and not from how the
-gaps are closed. That choice is now the open one, and `Extrusion.Of` carries it: the station's own reach
-against a clearance from every band, failing inside and outside respectively, which a probe cannot rank and
-the test tier can.
+**It is not the crossing solved.** Nothing here pairs up which offset crossing bounds which fold; the
+file's bargain is unchanged.
+
+**And it was not the whole of the fault, which took two wrong guesses to establish.** The worst pavement on
+a city did not fall — it moved by under a metre — so the closure looked innocent and the rule that decides
+which stations to drop looked guilty. Then a station reading four metres off its own figure turned out to be
+the middle of a long straight, so the closure looked guilty and the rule innocent. Neither was the answer:
+the probe now reports the length of the piece each station was sampled on, and **the two faults are
+comparable in size**. Of the stations standing over a tenth of a metre off their figure, three in four of
+the pavement's are mid-piece — a straight the closure gave up and drew — and more than half of the walking
+lane's are stations of the walk, which is the rule. What a worst-case figure could never say, a split can.
+`Extrusion.Of` carries the rule's side of it; the closure's side is the eight hundred gaps still given up on.
 
 **A bound on where a trace may wander was written and then taken out again.** A trace that takes a wrong
 turn can arrive honestly having drawn tens of metres of somewhere else, so it was held to within the gap's

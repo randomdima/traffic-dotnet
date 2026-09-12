@@ -173,24 +173,26 @@ internal static class ShellProbe
 
         offM.Clear();
         var atM = new List<Vector2>();
+        var onM = new List<float>();
         foreach (var ring in walk)
         {
-            Walked(ring, offM, pointM => rings.OffTheKerbM(pointM) - paving.WalkM, atM);
+            Walked(ring, offM, pointM => rings.OffTheKerbM(pointM) - paving.WalkM, atM, onM);
         }
 
         Say("  pavement off the kerb", offM, $"m over the {paving.WalkM:F2} m it was struck at");
-        Worst(offM, atM);
+        Worst(offM, atM, onM);
 
         var halfM = paving.WalkM * 0.5f;
         offM.Clear();
         atM.Clear();
+        onM.Clear();
         foreach (var ring in rings.At(halfM))
         {
-            Walked(ring, offM, pointM => rings.OffTheKerbM(pointM) - halfM, atM);
+            Walked(ring, offM, pointM => rings.OffTheKerbM(pointM) - halfM, atM, onM);
         }
 
         Say("  lane off the kerb    ", offM, $"m over the {halfM:F2} m it was struck at");
-        Worst(offM, atM);
+        Worst(offM, atM, onM);
         Wet(kerb, paving, config);
         Nodes(paving, config);
     }
@@ -320,7 +322,7 @@ internal static class ShellProbe
     /// <b>Where the distances came out worst, furthest first</b> — the reading that says whether a worst
     /// figure is one place worth looking at or a fault running the length of a town.
     /// </summary>
-    static void Worst(List<float> offM, List<Vector2> atM)
+    static void Worst(List<float> offM, List<Vector2> atM, List<float>? onM = null)
     {
         var order = new int[offM.Count];
         for (var at = 0; at < order.Length; at++) order[at] = at;
@@ -332,9 +334,34 @@ internal static class ShellProbe
             if (MathF.Abs(offM[order[at]]) < 0.1f) break;
 
             Console.WriteLine(
-                $"      {offM[order[at]],7:F2} m out at {atM[order[at]].X:F1},{atM[order[at]].Y:F1}");
+                $"      {offM[order[at]],7:F2} m out at {atM[order[at]].X:F1},{atM[order[at]].Y:F1}"
+                + (onM is null ? "" : $" on a {onM[order[at]]:F2} m piece"));
         }
+
+        if (onM is null) return;
+
+        // How much of the reading is the middle of a long piece rather than a station of the walk, which is
+        // the difference between the closure giving up and the rule keeping what it should not have.
+        var offAStraight = 0;
+        var deep = 0;
+        for (var at = 0; at < offM.Count; at++)
+        {
+            if (MathF.Abs(offM[at]) < OffTheFigureM) continue;
+
+            deep++;
+            if (onM[at] > ExtrudedStationM * 2f) offAStraight++;
+        }
+
+        Console.WriteLine(
+            $"      {deep} stations stand over {OffTheFigureM:F2} m off the figure, {offAStraight} of them "
+            + "on a piece longer than two strides");
     }
+
+    /// <summary>
+    /// How far off its own figure a station has to read before it is a fault rather than the rounding two
+    /// computations of one distance disagree by. A tenth of a metre.
+    /// </summary>
+    const float OffTheFigureM = 0.1f;
 
     static int Rings(ArcSeg[][] rings)
     {
@@ -348,18 +375,30 @@ internal static class ShellProbe
     }
 
     /// <summary>One ring walked at stations, each answered by the reading given.</summary>
+    /// <param name="onM">
+    /// How long the piece of the ring each station was sampled on is. <b>It is what tells a station that is
+    /// wrong from a straight that is wrong</b>: the extrusion keeps its distance <em>at</em> its stations by
+    /// construction, so a reading metres off the figure is either a station the rule should have dropped or
+    /// the middle of a long straight the fold closure gave up and drew (<c>Extrusion.Closed</c>) — and the
+    /// two want opposite fixes. Every corner of a laid ring is a station; everything between two of them is
+    /// a piece.
+    /// </param>
     static void Walked(
-        ReadOnlySpan<ArcSeg> ring, List<float> into, Func<Vector2, float> reading, List<Vector2>? atM = null)
+        ReadOnlySpan<ArcSeg> ring, List<float> into, Func<Vector2, float> reading, List<Vector2>? atM = null,
+        List<float>? onM = null)
     {
         if (ring.Length == 0) return;
 
-        var lengthM = Spline.TotalLengthM(ring);
-        var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / ExtrudedStationM));
-        for (var station = 0; station < stations; station++)
+        foreach (var arc in ring)
         {
-            var pointM = Spline.SampleAt(ring, lengthM * station / stations).PositionM;
-            into.Add(reading(pointM));
-            atM?.Add(pointM);
+            var stations = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / ExtrudedStationM));
+            for (var station = 0; station < stations; station++)
+            {
+                var pointM = arc.PointAtM(arc.LengthM * station / stations);
+                into.Add(reading(pointM));
+                atM?.Add(pointM);
+                onM?.Add(arc.LengthM);
+            }
         }
     }
 
