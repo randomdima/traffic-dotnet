@@ -104,10 +104,13 @@ Absences that are gaps rather than decisions, and none of them is silent:
   closes with a bare straight from eleven thousand to eight hundred and moved the worst reading by under a
   metre. So what is left is the rule that decides which stations to drop, and the two candidates for it fail
   in opposite directions — `Extrusion.Of` names the choice and says why a probe cannot settle it.
-- **A boundary may cross water where no bridge carries it.** The shell joins two stretches across ground
-  nothing is driven along, and nothing in that join asks the water. One place on one shipped city reads as
-  a junction's apron over the river, in the picture and in the answer alike — they agree, which is the
-  point, but they agree about something the town should not have.
+- **A boundary may cross water where no bridge carries it**, and on the shipped cities it no longer does.
+  The shell joins two stretches across ground nothing is driven along and nothing in that join asks the
+  water, so the risk stands in the construction; what closed it in practice was the fold closure no longer
+  straightening across gaps. `--bench shell` now reads it both ways — the kerb walked for stations standing
+  over water, and the water itself asked what answers for it — and both are **nought on both shipped
+  cities**, over 1.3 million places on the larger. It stays named because nothing refuses the join: the
+  boundary is free to cross water again the moment a fold falls the wrong way.
 - **A node nothing is turned through has no ground of its own.** A junction is the movements that cross in
   it (`TER-5`), so the node at the end of a road stands beyond the lane that was cut back from it, on
   whatever the town lays beside a kerb. It is a place in the plan rather than a piece of tarmac, and one

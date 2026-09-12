@@ -38,6 +38,14 @@ not thirty-six:
 - **Three places where the town itself is wrong and the picture and the answer agree about it**: a
   boundary crossing water where no bridge carries it, a node nothing is turned through standing on
   pavement, and an exam card whose walk changed. Named in the known gaps.
+  - *The water one is gone from the shipped cities*, and it was the fold closure all along — `--bench
+    shell` now asks it both ways, the kerb walked for stations standing over water and the water asked
+    what answers for it, and both read nought on both cities over 1.3 million places on the larger. It
+    stays in the known gaps because nothing in the join **refuses** water: the construction still permits
+    it.
+  - *The node one is moot while the stage runs*: with no pavement laid there is nothing for a node to
+    stand on but grass. It needs the pavement back before it can be seen, let alone fixed.
+  - *The exam card is a fixture expectation* and reading it means running that tier.
 
 **This file stays until those are closed.** What is settled is already in the requirements and the decision
 logs that own it (§12); what is left is the list above.

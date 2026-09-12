@@ -191,7 +191,89 @@ internal static class ShellProbe
 
         Say("  lane off the kerb    ", offM, $"m over the {halfM:F2} m it was struck at");
         Worst(offM, atM);
+        Wet(kerb, paving, config);
     }
+
+    /// <summary>
+    /// <b>Where the boundary stands over water that no deck carries it across</b> — the one place the
+    /// picture and the answer agree about something the town should not have
+    /// (<c>docs/index.md#known-gaps</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The ground a junction shares beats the water, and it has to.</b> A carriageway on a bridge is
+    /// inside the boundary and over a river, so a point the boundary encloses reads as driven ground
+    /// whatever is under it (<c>GroundShapes.At</c>, TER-5) — asked the other way round, every deck in the
+    /// town would come back wet. What that costs is that a boundary standing anywhere else over water reads
+    /// as driven ground too, and the picture fills it to match.
+    /// </para>
+    /// <para>
+    /// <b>So the reading is asked underneath the answer</b> (<c>GroundShapes.OverWater</c>): the kerb walked
+    /// station by station, counting the metres of it standing over water with no deck beneath them. Nought
+    /// is the town having no such place; anything else is the boundary out over a river, and the coordinates
+    /// say where to look.
+    /// </para>
+    /// </remarks>
+    static void Wet(ArcSeg[][] kerb, Paving paving, SimConfig config)
+    {
+        var shapes = new GroundShapes(paving, config);
+        var wetM = new List<Vector2>();
+        var stations = 0;
+        foreach (var ring in kerb)
+        {
+            if (ring.Length == 0) continue;
+
+            var lengthM = Spline.TotalLengthM(ring);
+            var steps = Math.Max(1, (int)MathF.Ceiling(lengthM / ExtrudedStationM));
+            for (var step = 0; step < steps; step++)
+            {
+                var pointM = Spline.SampleAt(ring, lengthM * step / steps).PositionM;
+                stations++;
+                if (shapes.OverWater(pointM) && !shapes.OnADeck(pointM)) wetM.Add(pointM);
+            }
+        }
+
+        Console.WriteLine(
+            $"  kerb over water      {wetM.Count} of {stations} stations stand over water with no deck under them");
+        for (var at = 0; at < Math.Min(Listed / 5, wetM.Count); at++)
+        {
+            Console.WriteLine($"      at {wetM[at].X:F1},{wetM[at].Y:F1}");
+        }
+
+        // And the same question asked of the water rather than of the boundary, because a body of water
+        // small enough to stand wholly inside the driven ground is one the boundary never crosses the edge
+        // of. Stepped at a stride, which is finer than anything the boundary does.
+        var drownedM = new List<Vector2>();
+        var sampled = 0;
+        var worldM = paving.Of.WorldSizeM;
+        for (var yM = 0f; yM < worldM.Y; yM += WetStrideM)
+        {
+            for (var xM = 0f; xM < worldM.X; xM += WetStrideM)
+            {
+                var pointM = new Vector2(xM, yM);
+                if (!shapes.OverWater(pointM)) continue;
+
+                sampled++;
+                if (shapes.OnADeck(pointM)) continue;
+                if (shapes.At(pointM) is CityGen.Ground.Water or CityGen.Ground.Sidewalk
+                    or CityGen.Ground.Grass) continue;
+
+                drownedM.Add(pointM);
+            }
+        }
+
+        Console.WriteLine(
+            $"  water driven over    {drownedM.Count} of {sampled} places over water answer as ground a car is "
+            + "driven on, with no deck under them");
+        for (var at = 0; at < Math.Min(Listed / 5, drownedM.Count); at++)
+        {
+            Console.WriteLine(
+                $"      at {drownedM[at].X:F1},{drownedM[at].Y:F1} — {shapes.At(drownedM[at])}");
+        }
+    }
+
+    /// <summary>How finely the town is stepped when asking what stands over its water. A stride.</summary>
+    const float WetStrideM = 1f;
 
     /// <summary>
     /// <b>Where the distances came out worst, furthest first</b> — the reading that says whether a worst
