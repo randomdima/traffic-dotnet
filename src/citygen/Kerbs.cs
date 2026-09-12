@@ -25,21 +25,6 @@ namespace TrafficSimulation.CityGen;
 /// stops, and a band ends where its own line does (TER-5a).
 /// </para>
 /// <para>
-/// <b>A wrapping line is a candidate and not an answer.</b> Each is the outward offset of one piece, so
-/// it stands the asked-for distance from <em>that</em> piece and says nothing about the rest — where two
-/// pieces merge, each one's line runs on into the other's tarmac. What makes the set an outline is
-/// keeping only the stations no piece stands nearer to than the offset (<see cref="OffTheTarmacM"/>):
-/// two lines then give way to one another at the point they cross, which is the point both are the
-/// offset distance from both pieces.
-/// </para>
-/// <para>
-/// <b>And a piece is not always the outside of the tarmac.</b> A line a car is turned through a box on is
-/// tarmac that the arms enclose, so what stands the offset outside <em>it</em> can stand the offset outside
-/// everything else as well and still be a line up the middle of the pavement. Such a piece offers its line
-/// only where the kerb is open (<see cref="Piece.WalkedPast"/>), and the caller is handed the town's own
-/// kerb first so that it knows (TER-3c.5).
-/// </para>
-/// <para>
 /// <b>Build-time work.</b> It allocates freely and answers thousands of points while a town is laid; it
 /// is never asked anything on a tick.
 /// </para>

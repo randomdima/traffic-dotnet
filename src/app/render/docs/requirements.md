@@ -23,51 +23,51 @@ triangles differently and the picture does not change.
 Every ground texture must be **wrap-seamless and mipmapped** — un-mipped tarmac shimmers the moment the
 camera pulls back.
 
-**The ground mesh is a stack of layers and each layer is a union**
+**The ground mesh is a stack of layers and each layer is one region**
 ([TER-7b](../../../world/terrain/docs/requirements.md#one-geometry)), so **the order the pieces are
 appended in is the whole of the answer** and depth does no work: one indexed draw, one pass, nothing
 sorted, and the piece appended last is the piece that shows.
 
-**The two layers of ground are one list of shapes read at four sizes** (`GroundMesh.Grown`): every road,
-every line a car is turned through a box on, every wedge their kerbs turn on and every car park, at a walk
-beyond its own size and a line's width inside that, then a line's width beyond its own size and at it.
-Under them is the grass, between them the water, the shore and the decks, and above them the paint.
+**A layer is the ground within one distance of the kerb** (`GroundMesh.Region`, `GroundRings`): the
+boundary of the driven ground as closed rings, moved by that distance and filled. The distances are a
+walk, a walk less an edge line, a line's width, and nought. Under them is the grass, between them the
+water, the shore and the decks, and above them the paint. **A ring that encloses ground is filled and a
+ring that encloses a block is the hole in it**, told apart by the sign of the area it covers — a ring walks
+with the ground on its right throughout.
 
-**A car park is the union of the movements that reach into it** (`BayLines`, GEN-4b) and has no shape of
-its own, exactly as a junction is the union of the ones that cross in it (`TER-5`). It is drawn by the loop
-that draws those and there is no case for it anywhere here. **The one pass it is not in is the kerb line**,
-which is a carriageway's own marking: struck round a car park it would come back up the far side of one,
-where there is no kerb and nothing to be the edge of.
+**The holes are laid after every region and in the other order** (`GroundMesh.Encloses`). Outside the town
+the distances nest inwards; inside a block, a ring nearer the kerb leaves *more* of the block beyond it, so
+laid in the regions' own order the innermost distance covers the whole block and every town comes back
+paved kerb to kerb. Run in increasing distance after them, a block shows the same sequence read outwards
+from its own kerb: the line, the walk, its rim, then the grass.
+
+**A car park, a junction, a bridge and a dead end are not shapes here and never were.** A junction is the
+union of the movements that cross in it (`TER-5`) and a car park the union of the ways that reach into it
+(`BayLines`, GEN-4b) — and so is a road, and so is the whole town: what is drawn is the one boundary all of
+them share. **The one pass a car park is not in** is the bay stroke, which is a bay's own marking.
 
 **A solid line is a dashed one whose dash is the whole run**, so a bay's stroke is laid by the machinery
 that lays a lane's centreline (`GroundMesh.DashRun`) and there is no second way to paint a straight mark.
 
-- **A union is stated by drawing its pieces over one another.** Nothing is trimmed, clipped, cut short or
-  handed over to a neighbour, and no piece here knows what is beside it. A junction, a car park's mouth, a
-  bridge and a dead end therefore cost exactly what a straight costs.
-- **A rim and a kerb line are what a layer leaves of the one under it**: the layer twice, a line's width
-  apart, the outer pass in the line's shade and the inner in the surface's own. Since every fill follows
-  every rim, what survives is a stroke on the union's outer boundary and nothing where two of its pieces
-  meet — so a line has no ends to close and no corners to turn. Which pass is the surface's own size is the
-  line's to say: the pavement's rim is struck inside the band (`walkM`, then `walkM - edgeM`) and the kerb
-  line outside the lane (`halfM + kerbM`, then `halfM`), which is TER-3d. The shore is drawn by the same
-  trick and always was.
-- **What breaks the kerb line over a car park's mouth is the lot's own tarmac** (`GroundMesh.Build`), drawn
-  in the pass after the stroke because that is where the answer puts it — not a stretch of kerb worked out
-  and left unstruck.
+- **A rim and a kerb line are what a layer leaves of the one under it**: the region twice, a line's width
+  apart, the outer pass in the line's shade and the inner in the surface's own. What survives is a stroke
+  on the region's own boundary — so a line has no ends to close and no corners to turn, the boundary having
+  turned them. Which pass is the surface's own size is the line's to say: the pavement's rim is struck
+  inside the band (`walkM`, then `walkM - edgeM`) and the kerb line outside the lane (`kerbM`, then
+  nought), which is TER-3d. The shore is drawn by the same trick and always was.
+- **What breaks the kerb line over a car park's mouth is the boundary itself.** A lot's ways are driven
+  lines like any other, so the boundary runs round the outside of a row of bays and the stroke with it —
+  there is no stretch of kerb worked out and left unstruck.
 
-**The picture is `GroundShapes.At`'s order, forwards.** That method walks this same list from the end and
-takes the first shape covering the point, so the two are one list read in two directions and a shape added
-to one is added to the other at the same place. **This is what the layering is for**; the picture coming
-out right is a consequence rather than the reason.
+**The picture is `GroundShapes.At`'s table, read the other way.** That method asks which line of the town
+lays a point and how far off the kerb it stands, against the same distances these layers are filled at — so
+the two are one table read in two directions and a distance added to one is added to the other. **This is
+what the layering is for**; the picture coming out right is a consequence rather than the reason.
 
-**The two lists disagree only about their ends.** A ribbon's ends are square where the answer swings the
-growth round the band's last cross-section, so **an end that really stops carries the offset of that
-segment** (`GroundMesh.Grown`) — a rectangle a growth deep whose corners turn about the road's two end
-corners. **Only one that really stops**: an end another arm leaves is inside what that arm draws where the
-two are one line and inside the wedge their kerbs turn on where they are not, and a movement's ends stand
-inside a junction to a one. Capped everywhere regardless, a city spent a fifth of its ground on rounds
-nothing could see.
+**A bridge is the one piece of ground drawn as a band.** Its deck's width and the pavement it carries are
+authored per bridge rather than derived from anything the boundary knows (`TER-3b.1`), so it is a ribbon
+about the road's own line — laid, like the rest, at full size in the edge shade and again a line's width
+smaller in its own.
 
 **Shared is shared, and the mesh holds one corner per corner** (`GroundMesh.Vertex`) — but here that is a
 dedupe and not a seam. It is what keeps a ribbon laid at a size and the same ribbon laid a line's width

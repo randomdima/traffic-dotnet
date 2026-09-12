@@ -92,21 +92,33 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 ## Known gaps
 
-Two absences that are gaps rather than decisions, and neither is silent:
+Absences that are gaps rather than decisions, and none of them is silent:
 
-- **An end the picture takes for buried is an end it draws square where the answer draws it round.** The
-  ground within a walk of a line that stops is the ground within a walk of its last cross-section, which is
-  that segment swung round (`GroundShapes.OffTheBandM`). The drawing carries that offset only where a road
-  really stops — at a node with no other arm — on the grounds that an end another arm leaves is inside what
-  that arm draws or inside the wedge their kerbs turn on, and a movement's ends carry it nowhere at all.
-  Where either turns out not to hold, the picture is short of the answer by up to a walk at the end of one
-  line. [app/render](../src/app/render/docs/requirements.md).
+- **The boundary keeps its distance in the median and not everywhere.** Every line the town has is the
+  shell's rings moved by a figure ([citygen](../src/citygen/docs/decision-log.md)), and where a fold closes
+  the line is walked across the gap rather than solved. On a city the lane laid half a walk out stands a
+  median 0 mm off that figure; the worst of it is a metre and a half, at the mouths of laboratory car parks
+  where the boundary itself is ragged. `--bench shell` prints both, with the coordinates of the worst.
+  **What it costs is a few metres of walking lane in a town of forty thousand** standing nearer the kerb
+  than they should.
+- **A boundary may cross water where no bridge carries it.** The shell joins two stretches across ground
+  nothing is driven along, and nothing in that join asks the water. One place on one shipped city reads as
+  a junction's apron over the river, in the picture and in the answer alike — they agree, which is the
+  point, but they agree about something the town should not have.
+- **A node nothing is turned through has no ground of its own.** A junction is the movements that cross in
+  it (`TER-5`), so the node at the end of a road stands beyond the lane that was cut back from it, on
+  whatever the town lays beside a kerb. It is a place in the plan rather than a piece of tarmac, and one
+  node on one city still reads as pavement where its movements do not reach.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 
 **The verge is a decision rather than a gap**: it is one rectangle under the whole town, and whether it
 must be cut to the complement of the paving is a question for the owner. It costs nothing under `TER-7b`
 as it now stands, being the bottom layer of a stack.
+
+**The skidpad carrying a slab is a decision rather than a gap.** That map is tarmac edge to edge, which is a
+rectangle and not a road network, and a boundary said in the lines a car is driven on has nothing to say
+about a shape no line is the edge of. It says what it is.
 
 Everything else that is unbuilt is reported by the instruments rather than listed here
 ([verification.md](verification.md#the-instruments-say-what-is-missing)).

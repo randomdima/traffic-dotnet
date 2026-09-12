@@ -2,6 +2,29 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-09-12 — a layer is a region and not a heap of pieces
+
+The ground was a union stated by over-painting: every road, movement, wedge and car park laid at four sizes
+until their outlines happened to agree. It cost nothing per junction, which is why it was built that way,
+and it had one thing it could never do — **hand anybody the boundary**. A rim was what overdraw left. It had
+no length, no arcs and no side, so nothing could ask whether the pavement was a walk wide; only whether it
+looked it.
+
+Each layer is now the ground within one distance of the kerb, filled as the shape it is, bounded by the
+boundary the shell computes. **This is a change to TER-7b and the owner made it**: a union computed once and
+drawn as one shape, rather than written down by laying its pieces over one another. What it gives up is that
+no piece knew what was beside it; what it buys is that every edge in the picture is a line with a figure on
+it, and the answer is the same figure compared the other way.
+
+**A block is a hole and the holes are laid last, in the other order.** Outside the town the distances nest
+inwards; inside a block a ring nearer the kerb leaves *more* of it beyond, so the regions' own order paves
+every block kerb to kerb — which is exactly what the first run of it did. Which a ring is, is the sign of
+the area it covers, the ring walking with the ground on its right throughout.
+
+**A bridge is the one band left.** Its deck's width and the pavement it carries are authored per bridge and
+are no part of what the boundary knows, so it stays a ribbon about the road's own line.
+
+
 ## 2026-09-09 — a car park is a junction, so nothing here draws one
 
 The ground carried a car park twice: an oriented rectangle for its tarmac and a rounded rectangle a walk

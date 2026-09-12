@@ -1,5 +1,50 @@
 # CityGen — decision log
 
+## 2026-09-12 — the shell becomes the town's boundary rather than a reading of it
+
+The shell already walked the true edge of the driven ground and closed every ring of it on a city; nothing
+but a debug layer read it. Three things were in its way and all three are now gone.
+
+**It ran down the lines and the ground stands half a band out.** A ring carries the town's own arcs, cut out
+of the lanes, movements and ways it walks — and the edge of what those lay is half a band beyond, which is a
+lane's width along a lane and a space's along the way into a bay. `Extrusion` therefore takes a band per
+piece and one distance beyond it, and every line the town has is this one ring moved by a figure. Two such
+lines are offsets of one curve, so the band between them is exactly the difference between the distances
+that struck them — which is what TER-3c.3 asked for and what no union of separately grown pieces could ever
+be measured against.
+
+**A ring could not see the ring beside it.** The fold rule was asked of the ring being moved, so an offset
+that folded through a *neighbour* stood while one that folded through itself was dropped. `RingField` is one
+index over the whole set answering both halves at once — how far off the rings a point stands and which side
+of them it is on, from the nearest piece's own hand, with the pieces meeting at a corner answering together.
+It replaced a station grid and a per-ring crossing count, and it is the same index the ground answer reads
+on a tick.
+
+**The rule held at the stations and not at the line.** What survives a fold is stations, and the straight
+between two of them is not the offset: a walking lane every station of which stood exactly half a walk clear
+came back over the kerb at a car park's mouth, by a metre and a half. A gap wider than two stations is now
+walked and each step held out to the clearance. **A closure is continuous or it is nothing** — where a whole
+tooth of the ring folds away the pushes land wherever the ground happens to be nearest, and a run of them
+laid in the order the chord was walked is a star of spikes across the grass.
+
+**The rule is the station's own reach and not the ground's, and that is measured rather than argued.** Asked
+the truer way round — every station a clearance from every *band* — the answer is measurably worse, because
+the extra stations it drops leave gaps the closure has to walk rather than solve. Both readings are in
+`--bench shell`; this is the one that measured better, and the gap between them is the closure and not the
+rule.
+
+**A corner is turned on the ring, once.** A ring moved by an offset rounds its own corners on that offset,
+so a kerb struck off an unturned ring turns on half a lane where the town is laid to turn on a car's width
+times over. The junction's own radius, less the half-band the kerb already stands out by, goes on the ring
+before any distance is taken — and every distance inherits it at its own radius. The fillet stops being a
+shape anybody draws or answers.
+
+**A line caps its own square end across a straight as wide as the line.** The pairing was bounded at a flat
+thirty metres, which is a bound on how wide a road may be before it cannot close its own boundary: a
+laboratory map laid as rows a hundred and fifty metres across had two edges running its whole length with
+nothing to hand either on to, and no ground drawn at all.
+
+
 ## 2026-09-11 — the cut is solved against the band that makes it
 
 A stretch of the outside ends where one band's edge goes under another's, and that place was **bisected**:

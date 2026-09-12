@@ -63,40 +63,33 @@ nothing is drawn on and nothing drives over — half a lane of it past the point
 is inside the box and therefore invisible, until it reached out under the pavement corner beside the mouth
 and took the corner's own line away with it.
 
-**TER-7b** `P0` **The ground is a stack of layers, and a layer is the union of the shapes in it.** The town
-is drawn bottom to top — the grass, then every piece of the town grown by a walk, then the water and the
-decks, then every piece at its own size, then the paint — and **a union is stated by drawing its pieces
-over one another**. Overlap within a layer is how a union is written down rather than a fault in it: two
-pieces that meet, meet by covering the same ground, and no piece is ever cut, trimmed, clipped or handed
-over against its neighbour. A shape is drawn at one size in one layer, and what is beneath it is an earlier
-layer.
+**TER-7b** `P0` **The ground is a stack of layers, and a layer is one region of the town's own boundary.**
+The town is drawn bottom to top — the grass, then the pavement and its rim, then the water and the decks,
+then the kerb line and the driven ground at its own size, then what the blocks take back, then the paint —
+and **each of those layers is the ground within one distance of the kerb**, filled as the shape it is. The
+boundary is computed once (`LaneShell`) and every layer is it moved by a figure (`GroundRings`), so a layer
+has an edge that is a line rather than whatever a heap of overlapping pieces happened to leave.
 
 Three consequences follow and all three are the point.
 
-- **The picture and the answer are one list.** What the ground is at a point is that same list walked from
-  the top and the first shape that covers it (TER-7), so a shape added to the drawing is added to the
-  answer at the same place in the order, and the question of whether the two agree cannot be asked. This is
-  the whole of what the rule buys and it is why the rule is stated as a stack rather than as a partition.
+- **The picture and the answer are one distance.** What the ground is at a point is which line of the town
+  lays it and how far off the kerb it stands, compared against the same table the drawing is laid from
+  (TER-7) — so a distance added to one is added to the other, and the question of whether the two agree
+  cannot be asked. This is the whole of what the rule buys.
 - **A rim, a kerb line and an edge line are what a layer leaves of the one under it**, never a shape of
-  their own: the layer is laid twice a line's width apart, the outer pass in the line's shade and the inner
-  in the surface's own, and what survives is a stroke on the union's outer boundary and nothing where two
-  of its pieces meet. A line therefore has no ends to close, no corners to turn and no geometry of its own
-  to come apart. **Which of the two passes is the surface's own size is the line's to say** — an edge shade
-  is struck inside what it rims and a kerb line outside (TER-3d).
-- **The boundary of a union is never computed.** A junction, a car park's mouth, a bridge and a dead end
-  cost what a straight costs, because none of them is a shape somebody has to work out — which is what a
-  partition would demand of every one of them, and the tool for it is a polygon clipper this project does
-  not have.
+  their own: two layers a line's width apart, the outer in the line's shade and the inner in the surface's
+  own, and what survives is a stroke on the region's boundary. A line therefore has no ends to close and no
+  corners to turn — the boundary turned them. **Which of the two distances is the surface's own is the
+  line's to say** — an edge shade is struck inside what it rims and a kerb line outside (TER-3d).
+- **A block is a hole and is filled after every region, in the other order.** Outside the town the
+  distances nest inwards; inside a block, a ring nearer the kerb leaves *more* of the block beyond it, so
+  the same order paves a block kerb to kerb. What a block shows is the sequence read outwards from its own
+  kerb.
 
 **What this rule does not license is drawing the same thing twice in one layer to hide a seam.** Two bands
 that abut are two offsets of one curve; laid as two shapes each is sampled to its own curvature and they
-stand a chord's sag apart. A layer here has no such seams because it has no bands — it has whole pieces of
-the town at one size, and the sag falls inside the piece under it.
-
-Paint is the one thing above the ground rather than in it — a dash, a bar, a zebra stripe sits *on* the
-surface it belongs to, which is what TER-7 asks for — and it does **not** obey the layer rule within its
-own layer: **no mark overlaps another mark**, because paint is a multiplying tint and two of them over one
-another read as a third.
+stand a chord's sag apart. A layer here has no such seams because it has no bands — it is one region, and a
+seam inside it would be a seam in its own boundary.
 
 ## The pavement
 
@@ -121,15 +114,16 @@ padding, so nothing is built on the walk and a doorstep opens onto it. Street pl
 verge behind the walk for the same reason — a trunk in the middle of a four-metre pavement is a trunk
 everyone on that street goes round.
 
-**TER-3c.3** `P4` **The pavement is the ground within half a walk of the line it is walked down, and it is
-nothing else**, at every angle two arms can meet at. That line is the tarmac's own outline at half a walk —
-every piece offering the line that stands that far beyond it, cut to the runs no piece stands nearer to
-(TER-3c.5) — so the band is a walk wide the whole way round, **both of its edges are offsets of one
-curve**, and a walker walks down the middle of it. Where the thing it wraps turns a corner of its own, the
-walk turns that corner on the walk itself: a right angle of tarmac on half the width to the line and half
-again to the shell, a kerb fillet by reading its arc in. Nothing is smoothed, patched or rounded on top of
-it, and nothing is measured twice — the concrete, the kerb line and the lane a walker follows are one
-construction read at one offset.
+**TER-3c.3** `P4` **The pavement is the ground between the kerb and a walk beyond it**, at every angle two
+arms can meet at. The kerb is the boundary of the driven ground said as closed rings (`LaneShell`) and
+every line the town has is that boundary moved by a figure (`GroundRings`) — the kerb at nought, the kerb
+line at a line's width, the lane a walker follows at half a walk, the pavement's outer edge at a walk. So
+**every one of them is an offset of one curve**, the band between any two is exactly the difference between
+the distances that struck them, and a walker walks down the middle of it because the middle is where the
+half-walk line is. Where the boundary turns a corner it turns it once, on the ring itself (TER-5), and
+every distance inherits that corner at its own radius. Nothing is smoothed, patched or rounded on top of
+it and nothing is measured twice — the concrete, the kerb line, the lane and the answer are one
+construction read at four figures.
 
 **TER-3c.7** `P6` **The carriageway ends where the pavement starts.** Everything inside the kerb is tarmac —
 carriageway, junction and car park, and the pockets the town's own pieces leave between them: a movement
@@ -138,36 +132,19 @@ street. Such a pocket is not a bay of concrete. Drawn as the tarmac's own outlin
 and chamfered its way round every mouth in the town while the shell against the grass and the lane between
 them ran smoothly past, and the band came out a different width at each of them.
 
-**TER-3c.5** `P6` **The pavement is the outside of the tarmac, and only the outside.** Every piece of tarmac
-offers the line that stands half a walk beyond it and a metre of such a line is pavement where nothing
-stands nearer than that — but a piece the rest of the tarmac encloses passes that test in the middle of a
-pavement that is already laid. **The lines a car is turned through a box on are such pieces**: what a box
-is walked round is the arms that meet at it, so a movement's line is pavement only **where it leads
-somewhere** — joined to the rest of the walk at both of its ends, closing a gap the arms left open.
-Dead-ending, it is the same pavement said twice, and what it laid was a second line up the middle of every
-mouth in the town: two lanes threaded between two, a walk crossing from one side of the pavement to the
-other and back at every corner, and four hundred stubs of kerb leading nowhere on one map.
+**TER-3c.6** `P6` **A pavement is a ring and has no ends.** The boundary of the driven ground closes on
+itself — one ring round the outside of the town and one round every block it encloses — so the lane laid
+half a walk off it closes too, and the questions a heap of separate lines had to answer do not arise:
+which loose end meets which, which line leads somewhere, which pavement is another one said twice. **The
+one thing that cuts a ring is the ground's own veto**: a lane over water or off the map is not a lane
+however far it stands from the kerb, and that is the only place a pavement stops.
 
-**It is one rule for a shell and not a case for junctions**, and nothing here knows what a box is: a piece
-says whether it is the outside of the tarmac or the inside of something, and the walk is laid off whichever
-lines are left.
-
-**TER-3c.6** `P6` **A piece offers the whole of the line that stands outside it, the ends of it included.** A
-band offered its two sides and nothing across the end it stops at — so wherever the town's kerb turns a
-corner that no other piece stands beside, the shell had no line there to be cut from and the pavement
-simply stopped: a street meeting a wider street, a street stopping at a car park, a dead end's head. The
-end of a band is square (TER-7a), so what stands the offset outside it is a quarter turn about each of its
-two corners and the straight between them, and the three of them start and finish where the band's own
-side lines do. **A shell has no ends**: every metre of the outside of a piece is offered, and which metres
-of it are pavement is settled by the one rule and nothing else.
-
-**TER-3c.8** `P0` **The walk wraps the tarmac as one shape, and never a piece of it.** Every piece offers
-the line that stands half a walk outside *itself*, and those lines are candidates: what the pavement is, is
-the outline of the **union** of every piece, so a station belongs to exactly one line however many pieces
-are the same distance from it. Two coincident candidates are not two pavements — a car park whose bays'
-ways converge on one pose has six lines down one metre of kerb, a movement running edge to edge with the
-arm it leaves has two, and each of them laid a walk of its own alongside the one already there. Which of
-them keeps a station is nobody's business but the outline's; that it is one of them is this rule.
+**TER-3c.8** `P0` **The walk wraps the tarmac as one shape, and never a piece of it.** What the pavement is,
+is a distance off the outline of the **union** of the driven ground, so a place on it belongs to exactly one
+line by construction rather than by a tie broken between candidates. Two coincident lines are not two
+pavements — a car park whose bays' ways converge on one pose would offer six down one metre of kerb, a
+movement running edge to edge with the arm it leaves two — and a boundary computed once has none of them to
+break: it is one line because it was never several.
 
 ## Water and bridges
 
@@ -195,9 +172,9 @@ is struck inside the surface it rims — the line takes its own width off the la
 measured off a picture comes out short of the figure the rest of the build quotes, on the bends as on the
 straights.
 
-**It stands on the tarmac's own outline, and so does the pavement's inner edge**, because they are one
-boundary: the pavement is the tarmac grown by a walk (TER-3c.3), so wherever the outline steps — one piece
-of tarmac narrower than the one it meets, a movement leaving an arm, a car park set back off its street —
+**It stands on the driven ground's own boundary, and so does the pavement's inner edge**, because they are
+one boundary read at two figures (TER-3c.3), so wherever the boundary steps — one band narrower than the
+one it meets, a movement leaving an arm, a car park set back off its street —
 the concrete beside it steps with it, a walk out and parallel. Struck on a curve of its own instead, a
 kerb line reads as a chamfer cut across a corner the pavement beside it turns smoothly.
 

@@ -1,5 +1,28 @@
 # Terrain — decision log
 
+## 2026-09-12 — the ground answer is a line and a distance
+
+`At` asked the shapes in the reverse of the order they were drawn and took the first that covered the point,
+which held the picture and the answer together by their both walking one list. The list is gone: what is
+drawn is a region per distance, so what is answered is the same distance compared against the same table.
+
+**Which tarmac a point is, is the line that lays it; where the tarmac stops is the boundary.** They are one
+construction asked two ways — the boundary is the outline of those same bands — so they can no more disagree
+than a shape can disagree with its own edge.
+
+**The lanes and never the roads.** A road's band runs the whole length between the junctions at its ends
+while its lanes are cut back from them, so it claimed a sliver at every mouth that no car is driven over.
+Read off the road it was carriageway, with the pavement — laid off the boundary, which rightly excludes it —
+standing on top. Two readings of one edge, and the road was the wrong one.
+
+**What is left inside the boundary and claimed by no line is the wedge a junction's corner is paved back
+over**, which is the whole of what an intersection has that its movements do not (TER-5). There is no fillet
+to lay: the boundary turned that corner itself.
+
+Gone with them: the walk band, the kerb fillet as a shape, the grown road band, and the three roundings the
+candidate-and-cut scheme needed to make coincident lines behave.
+
+
 ## 2026-09-07 — a zebra stands a stride clear of the bend, and is walked a lane each way
 
 At a node with no fork the bundle began where the corner's ground ends, so the paint stood its stride past
@@ -62,15 +85,10 @@ stand centimetres apart, so the line closing the gap read as dead-ending and was
 ran. Odesa's pavement dead ends went 406 → 18. What is left is a pinch and not a hole, where a wedge
 between two pieces of tarmac is narrower than a walk.
 
-## 2026-09-06 — the pavement wraps the outside of the tarmac, and a band ends where its line does
+## 2026-09-06 — a band ends square where its own line ends
 
-Once a junction stopped being a shape, the lines cars are turned through it on went into the tarmac beside
-the carriageways — and a movement's line offered a pavement up the middle of one the arms had already laid.
-A piece now says whether it is the outside of the tarmac or the inside of something (TER-3c.5), and a line
-the inside offers is kept only where it leads somewhere. Dropped in the graph rather than refused at the
-wrap, because whether a line runs alongside one already laid cannot be settled by measuring how near it
-passes: a line closing a gap is near the two ends the gap is between. Separately, a band ends square
-(TER-7a) — measured radially it ended in a half-disc that cut the pavement corner at every mouth in half.
+Measured radially a band ended in a half-disc of its own half-width past the last point, which cut the
+pavement corner at every mouth in half (TER-7a). It ends where its line ends, square across.
 
 ## 2026-09-03 — the cell grid is gone and the ground is solved against the shapes
 

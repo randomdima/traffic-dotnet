@@ -438,7 +438,7 @@ public class FootGraphTests
     }
 
     /// <summary>
-    /// <b>No stretch of pavement runs alongside another one</b> (TER-3c.5). The walk is the outside of the
+    /// <b>No stretch of pavement runs alongside another one</b> (TER-3c.8). The walk is the outside of the
     /// tarmac and the outside is one line, so a stretch every metre of which lies inside another stretch's
     /// band is the same pavement laid twice — two more lanes down a footway that already has two, and a
     /// walk that crosses from one side of the band to the other to get onto them.
