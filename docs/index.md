@@ -109,6 +109,17 @@ Absences that are gaps rather than decisions, and none of them is silent:
   it (`TER-5`), so the node at the end of a road stands beyond the lane that was cut back from it, on
   whatever the town lays beside a kerb. It is a place in the plan rather than a piece of tarmac, and one
   node on one city still reads as pavement where its movements do not reach.
+- **A deck carries no pavement.** Every line beside a road is now the boundary moved by a figure
+  (`TER-3c.3`), and the boundary is cut where the ground will not carry a walk — which over water is
+  everywhere. So a bridge is its deck and its carriageway, with the margin a parapet stands on reaching all
+  the way out, and the walk that ought to cross it is missing (`TER-3b.1`). Closing this is the same work as
+  the gap above it: a boundary that knows where a deck carries it.
+- **No pavement, kerb line or walking lane is laid at all while the upgrade is staged.** The one switch
+  that holds them back is `RoadFigures.LinesOffTheKerbLaid`, off in the shipped figures, and with it off a
+  town is its driven ground and nothing else — no `TER-3c.3` concrete, no `TER-3d` stroke and an empty
+  walking network. **It is a stage and not a state of the engine**: the switch and the branches that read it
+  go when the boundary's remaining faults are closed, and the four rungs it holds back are all the
+  assistant's.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

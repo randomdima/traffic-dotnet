@@ -136,11 +136,12 @@ internal static class ShellProbe
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The kerb is asked of the tarmac, and the rest are asked of the kerb.</b> A ring extruded by nought
-    /// is meant to stand on the edge of the town's tarmac, so what it is weighed against is the other reading
-    /// of that tarmac (<see cref="Kerbs.OffTheTarmacM"/>) — the two constructions disagreeing is the fact
-    /// worth knowing. Every further distance is weighed against the ring it was struck from rather than
-    /// against the tarmac, because that is the relation a band's width actually is.
+    /// <b>The kerb is asked of the driven ground, and the rest are asked of the kerb.</b> A ring extruded by
+    /// nought is meant to stand on the edge of the ground the town is driven along, so what it is weighed
+    /// against is the other reading of that ground (<see cref="Kerbs.OffTheDrivenM"/>) — the two
+    /// constructions disagreeing is the fact worth knowing. Every further distance is weighed against the
+    /// ring it was struck from rather than against the bands, because that is the relation a band's width
+    /// actually is.
     /// </para>
     /// <para>
     /// <b>A reading and not a claim.</b> What it costs to be wrong is a pavement on the road, and the
@@ -161,9 +162,9 @@ internal static class ShellProbe
             + $"pavement's outer edge, indexed and struck in {elapsed.TotalMilliseconds:F0} ms");
 
         var offM = new List<float>();
-        foreach (var ring in kerb) Walked(ring, offM, pointM => paving.Kerbs.OffTheTarmacM(pointM));
+        foreach (var ring in kerb) Walked(ring, offM, pointM => paving.Kerbs.OffTheDrivenM(pointM));
 
-        Say("  kerb off the tarmac  ", offM, "m out, the two readings of one edge");
+        Say("  kerb off the driven  ", offM, "m out, the two readings of one edge");
 
         offM.Clear();
         foreach (var ring in kerb) Walked(ring, offM, rings.OffTheKerbM);

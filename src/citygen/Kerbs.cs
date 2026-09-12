@@ -5,24 +5,26 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// <b>The town's tarmac as one shape</b> — every carriageway, every line a car is turned through a box on,
-/// every kerb fillet, every car park and every slab — answered as a single distance from a point, and
-/// offered as the <b>lines that stand a given distance outside all of it</b>.
+/// <b>The ground the town is driven along, as one shape</b> — a band its full width for every road, every
+/// line a car is turned through a box on and every way into a bay — answered as a single distance from a
+/// point.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It exists so that what runs beside the road can be laid off the road</b> rather than off the
-/// records the road was drawn from. A pavement offset from a road's centreline and pieced back together
-/// at the junctions is a second description of the same edge, and the two disagree wherever the first one
-/// was not the whole story — at a corner, where a car park merges into a street, at a dead end's head.
-/// Offset from <em>this</em>, there is one description and the junctions are not a case (TER-3c.3).
+/// <b>It is the shape the town's boundary is the outside of</b> (<see cref="LaneShell"/>), and that is the
+/// whole of what it is for: the shell is said in the lines themselves, so a walk of a ring has to be able
+/// to ask whether the straight it is about to take runs over driven ground or off it. Nothing is laid off
+/// this — every line beside the road is the boundary moved by its own distance
+/// (<see cref="GroundRings"/>) — and nothing here grows anything: it is the ground a car drives on at the
+/// size it is drawn.
 /// </para>
 /// <para>
-/// <b>A junction is not a piece of it.</b> What a box is made of is the lines cars are driven through it on
-/// (<see cref="LaneLines"/>) and the fillets that round the wedges between its arms — so a box that is
-/// skewed, one-way, five-armed or barely a bend is wrapped by following those lines, and nothing here has
-/// to know what shape they made (TER-5). <b>A dead end has none either</b>: what is there is the road that
-/// stops, and a band ends where its own line does (TER-5a).
+/// <b>The bands and nothing that was paved around them</b> — not a junction's corner apron and not a car
+/// park's slab. A fillet stands outside the corner where two roads' kerbs cross, so counted in, the
+/// outside leaves the lanes at every mouth and no lane section is left to carry it round; left out, the two
+/// arms' own bands meet at that crossing point and the boundary goes round the junction on the lanes
+/// themselves. A slab is paved under a whole car park, so counted in, its bays are buried and the outside
+/// of one is the slab's own edge, which no car is driven along.
 /// </para>
 /// <para>
 /// <b>Build-time work.</b> It allocates freely and answers thousands of points while a town is laid; it
@@ -61,56 +63,10 @@ internal sealed class Kerbs
     }
 
     /// <summary>
-    /// <b>How far a point stands off the nearest tarmac</b>, negative within it, and <see cref="ReachM"/>
-    /// where nothing is near enough to have an opinion.
+    /// <b>How far a point stands off the ground the town is driven <em>along</em></b>, negative within it,
+    /// and <see cref="ReachM"/> where nothing is near enough to have an opinion.
     /// </summary>
-    /// <remarks>
-    /// <b>A wrapping line stands the offset from its own piece exactly, and often from a second piece as
-    /// well</b> — a line through a box leaves a lane at that lane's own width, so its band and the road's run
-    /// edge to edge, and the line that wraps one runs half a walk from <em>both</em> of them for as far as
-    /// they touch. Which side of the offset a tie like that falls on is the last bit of a float, so whoever
-    /// compares this against the offset has to allow a rounding either way (<c>FootGraph.Clear</c>);
-    /// compared exactly, six metres of the apron round such a junction were read as carriageway and no
-    /// pavement was laid on them.
-    /// </remarks>
-    public float OffTheTarmacM(Vector2 pointM)
-    {
-        return Nearest(pointM);
-    }
-
-    /// <summary>
-    /// <b>How far a point stands off the ground the town is driven <em>along</em></b>, negative within it:
-    /// the band every road, every movement and every bay way lays, and <b>nothing that was paved around
-    /// them</b> — not a junction's corner apron and not a car park's slab.
-    /// </summary>
-    /// <remarks>
-    /// It is the shape a perimeter said in the lines is the outside of (<see cref="LaneShell"/>), and the
-    /// two things left out are why there are two readings of one tarmac. A <b>fillet</b> stands outside the
-    /// corner where two roads' kerbs cross, so counted in, the outside leaves the lanes at every mouth and
-    /// no lane section is left to carry it round; left out, the two arms' own bands meet at that crossing
-    /// point and the boundary goes round the junction on the lanes themselves. A <b>slab</b> is paved under
-    /// a whole car park, so counted in, its bays are buried and the outside of one is the slab's own edge,
-    /// which no car is driven along.
-    /// </remarks>
     public float OffTheDrivenM(Vector2 pointM)
-    {
-        var nearestM = ReachM;
-        foreach (var shard in _grid.At(pointM))
-        {
-            var piece = _pieces[_shards[shard].Piece];
-            if (piece.Kind != Kind.Band) continue;
-
-            nearestM = MathF.Min(nearestM, DistanceM(piece, _shards[shard].Arc, pointM));
-        }
-
-        return nearestM;
-    }
-
-    /// <summary>
-    /// How far a point stands off the nearest piece of the town's tarmac, and <see cref="ReachM"/> where
-    /// none is near.
-    /// </summary>
-    float Nearest(Vector2 pointM)
     {
         var nearestM = ReachM;
         foreach (var shard in _grid.At(pointM))
@@ -153,10 +109,9 @@ internal sealed class Kerbs
     public const int BisectionRounds = 12;
 
     /// <summary>
-    /// <b>One piece of one piece</b>: the unit the index bins and a distance is measured against. Every
-    /// kind but a road is one of these whole; <b>a road is one per arc</b>, because a street's own box is
-    /// most of a district and asking a point about it means walking every bend the street ever takes.
-    /// Shattered, the index names the two or three arcs that can possibly be nearest.
+    /// <b>One arc of one band</b>: the unit the index bins and a distance is measured against. A street's
+    /// own box is most of a district, so asking a point about the band whole means walking every bend the
+    /// street ever takes; shattered, the index names the two or three arcs that can possibly be nearest.
     /// </summary>
     readonly record struct Shard(int Piece, int Arc);
 
@@ -165,12 +120,6 @@ internal sealed class Kerbs
         var shards = new List<Shard>();
         for (var piece = 0; piece < pieces.Count; piece++)
         {
-            if (pieces[piece].Kind != Kind.Band)
-            {
-                shards.Add(new Shard(piece, -1));
-                continue;
-            }
-
             for (var arc = 0; arc < pieces[piece].Arcs.Length; arc++) shards.Add(new Shard(piece, arc));
         }
 
@@ -184,70 +133,32 @@ internal sealed class Kerbs
     /// </summary>
     public const float JoinedM = 0.01f;
 
-    static float Bearing(Vector2 alongM) => MathF.Atan2(alongM.Y, alongM.X);
-
-    /// <summary>
-    /// How far a point stands outside one piece of tarmac, negative within it.
-    /// </summary>
-    /// <remarks>
-    /// <b>A fillet is answered as its own arc</b> and not as the wedge behind it: the wedge's other two
-    /// edges are the two kerbs the arc is tangent to, and those are the roads' own to answer for. What it
-    /// still has to know is <em>where the fillet stops</em>, because the wedge outside the arc runs on for
-    /// ever and the tarmac does not — it ends where the two kerbs cross, which is the corner
-    /// (<see cref="Piece.SpanM"/>). Left unbounded, a point twenty metres past a junction read as twenty
-    /// metres inside it and every wrapping line near one was cut away.
-    /// </remarks>
+    /// <summary>How far a point stands outside one arc of one band, negative within it.</summary>
     static float DistanceM(in Piece piece, int arc, Vector2 pointM)
     {
-        switch (piece.Kind)
-        {
-            case Kind.Fillet:
-                var offM = pointM - piece.CentreM;
-                var radialM = offM.Length();
-                var sweptRad = Spline.WrapRad(Bearing(offM) - piece.HalfM.X);
-                if (MathF.Abs(sweptRad) > MathF.Abs(piece.HalfM.Y) || sweptRad * piece.HalfM.Y < 0f)
-                {
-                    return MathF.Min((pointM - piece.TangentAM).Length(), (pointM - piece.TangentBM).Length());
-                }
+        var one = piece.Arcs.Span.Slice(arc, 1);
+        var alongM = Spline.ProjectM(one, pointM, 0f, float.MaxValue);
+        var on = Spline.SampleAt(one, alongM);
+        var offsetM = pointM - on.PositionM;
+        var asideM = MathF.Abs(Vector2.Dot(offsetM, on.Right)) - piece.HalfWidthM;
 
-                // Within the wedge the arc is the whole of the near edge, so the distance to the fillet is
-                // the distance to the arc — inward as far as the centre, outward as far as the corner.
-                return radialM > piece.SpanM ? radialM - piece.SpanM : piece.RadiusM - radialM;
+        // <b>A band ends where its line does</b> (TER-7a). Measured radially from the last station it
+        // would end in a half-disc of its own half-width instead, and a line a car is turned on — which
+        // begins in the middle of the lane it leaves — then carried a bulge of tarmac half a lane past that
+        // point, out under the pavement corner beside it. It is also what <c>GroundShapes</c> has always
+        // answered, so the two readings of one shape agree.
+        var beyondM = alongM <= 0f || alongM >= one[0].LengthM
+            ? MathF.Abs(Vector2.Dot(offsetM, on.Direction))
+            : 0f;
+        if (beyondM <= 0f) return asideM;
 
-            case Kind.Box:
-                var local = new Vector2(
-                    Vector2.Dot(pointM - piece.CentreM, piece.Axis),
-                    Vector2.Dot(pointM - piece.CentreM, Heading.RightOf(piece.Axis)));
-                var outsideM = Vector2.Abs(local) - piece.HalfM;
-                return Vector2.Max(outsideM, Vector2.Zero).Length() + MathF.Min(MathF.Max(outsideM.X, outsideM.Y), 0f);
-
-            default:
-                var one = piece.Arcs.Span.Slice(arc, 1);
-                var alongM = Spline.ProjectM(one, pointM, 0f, float.MaxValue);
-                var on = Spline.SampleAt(one, alongM);
-                var offsetM = pointM - on.PositionM;
-                var asideM = MathF.Abs(Vector2.Dot(offsetM, on.Right)) - piece.HalfM.X;
-
-                // <b>A band ends where its line does</b> (TER-7a). Measured radially from the last
-                // station it would end in a half-disc of its own half-width instead, and a line a car is
-                // turned on — which begins in the middle of the lane it leaves — then carried a bulge of
-                // tarmac half a lane past that point, out under the pavement corner beside it. What that
-                // ate was the corner: the fillet's own wrapping line was cut where the bulge reached it and
-                // the pavement came apart at the mouth. It is also what <c>GroundShapes</c> has always
-                // answered, so the two readings of one shape now agree.
-                var beyondM = alongM <= 0f || alongM >= one[0].LengthM
-                    ? MathF.Abs(Vector2.Dot(offsetM, on.Direction))
-                    : 0f;
-                if (beyondM <= 0f) return asideM;
-
-                var outM = MathF.Max(asideM, 0f);
-                return MathF.Sqrt((outM * outM) + (beyondM * beyondM));
-        }
+        var outM = MathF.Max(asideM, 0f);
+        return MathF.Sqrt((outM * outM) + (beyondM * beyondM));
     }
 
     /// <summary>
-    /// Every piece the tarmac is made of. <b>Nothing here is grown by anything</b>: it is the ground a car
-    /// drives on at the size it is drawn, and what stands beside it is the caller's offset to ask for.
+    /// Every band the driven ground is made of. <b>Nothing here is grown by anything</b>: it is the ground
+    /// a car drives on at the size it is drawn, and what stands beside it is the boundary's to strike.
     /// </summary>
     static List<Piece> Lay(GroundPieces plan, LaneLines lanes, BayLines bays, float bayWidthM, bool[] through)
     {
@@ -257,7 +168,7 @@ internal sealed class Kerbs
             var arcs = plan.Roads.SegmentsOf(road);
             if (arcs.Length == 0) continue;
 
-            pieces.Add(Piece.Band(arcs.ToArray(), plan.Roads.WidthM[road] * 0.5f));
+            pieces.Add(new Piece(arcs.ToArray(), plan.Roads.WidthM[road] * 0.5f));
         }
 
         // A movement through a box the road runs through as one line stands inside the two arms' own
@@ -271,16 +182,7 @@ internal sealed class Kerbs
             var junction = lanes.JunctionOfConnector(connector);
             if (junction != CityPlan.NoRecord && through[junction]) continue;
 
-            pieces.Add(Piece.Band(
-                arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f));
-        }
-
-        var corners = plan.JunctionCorners;
-        for (var corner = 0; corner < corners.Count; corner++)
-        {
-            pieces.Add(Piece.Fillet(
-                corners.ArcCentreM[corner], corners.RadiusM[corner], corners.CornerM[corner],
-                corners.TangentAM[corner], corners.TangentBM[corner]));
+            pieces.Add(new Piece(arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f));
         }
 
         // <b>A car park is the movements that reach into it</b> (<see cref="BayLines"/>, GEN-4b) and has no
@@ -292,58 +194,18 @@ internal sealed class Kerbs
             var arcs = bays.ArcsOf(way);
             if (arcs.Length == 0) continue;
 
-            pieces.Add(Piece.Band(arcs.ToArray(), bayWidthM * 0.5f));
-        }
-
-        var areas = plan.PavedAreas;
-        for (var area = 0; area < areas.Count; area++)
-        {
-            pieces.Add(Piece.Box(
-                areas.MinM[area] + (areas.SizeM[area] * 0.5f), Vector2.UnitX, areas.SizeM[area] * 0.5f));
+            pieces.Add(new Piece(arcs.ToArray(), bayWidthM * 0.5f));
         }
 
         return pieces;
     }
 
-    enum Kind : byte
-    {
-        Band,
-        Fillet,
-        Box,
-    }
-
-    /// <summary>
-    /// One piece of tarmac. <see cref="HalfM"/> carries what each kind is measured by — a band's
-    /// half-width, a box's half-extent, and a fillet's arc as the bearing it starts at and the angle it
-    /// sweeps — so one distance function serves all four.
-    /// </summary>
-    readonly record struct Piece(
-        Kind Kind, Vector2 CentreM, Vector2 Axis, Vector2 HalfM, float RadiusM, float SpanM, Vector2 TangentAM,
-        Vector2 TangentBM, ReadOnlyMemory<ArcSeg> Arcs)
-    {
-        public static Piece Band(ArcSeg[] arcs, float halfWidthM) =>
-            new(Kind.Band, Vector2.Zero, Vector2.UnitX, new Vector2(halfWidthM), 0f, 0f, Vector2.Zero,
-                Vector2.Zero, arcs);
-
-        /// <summary><see cref="SpanM"/> is how far the corner stands from the arc's centre, which is how far out the wedge is tarmac.</summary>
-        public static Piece Fillet(
-            Vector2 arcCentreM, float radiusM, Vector2 cornerM, Vector2 tangentAM, Vector2 tangentBM)
-        {
-            var fromRad = Bearing(tangentAM - arcCentreM);
-            var sweepRad = Spline.WrapRad(Bearing(tangentBM - arcCentreM) - fromRad);
-            return new(
-                Kind.Fillet, arcCentreM, Vector2.UnitX, new Vector2(fromRad, sweepRad), radiusM,
-                (cornerM - arcCentreM).Length(), tangentAM, tangentBM, default);
-        }
-
-        public static Piece Box(Vector2 centreM, Vector2 axis, Vector2 halfM) =>
-            new(Kind.Box, centreM, axis.LengthSquared() > 0f ? Vector2.Normalize(axis) : Vector2.UnitX, halfM, 0f,
-                0f, Vector2.Zero, Vector2.Zero, default);
-    }
+    /// <summary>One band of driven ground: the line it is driven down, and half the width of that ground.</summary>
+    readonly record struct Piece(ReadOnlyMemory<ArcSeg> Arcs, float HalfWidthM);
 
     /// <summary>
     /// Which shards reach within <see cref="ReachM"/> of which square of the town, so a distance costs a
-    /// handful of functions rather than every piece of tarmac in the city.
+    /// handful of functions rather than every band in the city.
     /// </summary>
     sealed class ShardGrid
     {
@@ -362,14 +224,8 @@ internal sealed class Kerbs
             for (var shard = 0; shard < shards.Count; shard++)
             {
                 var piece = pieces[shards[shard].Piece];
-                if (piece.Kind != Kind.Band)
-                {
-                    Fill(shard, Box(piece));
-                    continue;
-                }
-
                 var arc = piece.Arcs.Span[shards[shard].Arc];
-                var reachM = new Vector2(piece.HalfM.X + ReachM);
+                var reachM = new Vector2(piece.HalfWidthM + ReachM);
                 var leastM = new Vector2(float.MaxValue);
                 var mostM = new Vector2(float.MinValue);
                 var steps = Math.Max(1, (int)MathF.Ceiling(arc.LengthM));
@@ -400,22 +256,6 @@ internal sealed class Kerbs
                     if (!square.Contains(shard)) square.Add(shard);
                 }
             }
-        }
-
-        static (Vector2 LeastM, Vector2 MostM) Box(in Piece piece)
-        {
-            var reachM = piece.Kind switch
-            {
-                // A fillet reaches from its arc out to the corner the two kerbs cross at, and it is that
-                // and not the arc's own radius that says how far from the centre it can be met.
-                Kind.Fillet => new Vector2(MathF.Max(piece.RadiusM, piece.SpanM) + ReachM),
-                _ => new Vector2(
-                        (MathF.Abs(piece.Axis.X) * piece.HalfM.X) + (MathF.Abs(piece.Axis.Y) * piece.HalfM.Y),
-                        (MathF.Abs(piece.Axis.Y) * piece.HalfM.X) + (MathF.Abs(piece.Axis.X) * piece.HalfM.Y))
-                    + new Vector2(ReachM),
-            };
-
-            return (piece.CentreM - reachM, piece.CentreM + reachM);
         }
 
         static int Square(float atM, int limit) => Math.Clamp((int)(atM / SquareM), 0, limit - 1);

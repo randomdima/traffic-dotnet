@@ -152,10 +152,12 @@ break: it is one line because it was never several.
 carriageway, its exposed edges walkable, **running the whole road rather than only the wet part**, so
 what it carries reaches standable ground at both ends.
 
-**TER-3b.1** `P6` The deck carries the town's pavement **at the pavement's own width** and stands clear of it
-on both sides by a margin. A deck sized to a walk of its own is a deck the street's pavement does not fit
-on. The margin is what a parapet stands on and what tells a deck from a road that happens to be over
-water; the pavement width is on the deck's own plan record, because the deck is laid first.
+**TER-3b.1** `P6` A deck is **wide enough for the town's pavement to cross it** and **carries none of its
+own**: it is the deck out to its own half-width, and the margin either side of the carriageway is what a
+parapet stands on. A deck sized to a walk of its own is a deck the street's pavement does not fit on, which
+is what the width on its plan record is for — but a deck that lays that walk itself is a line beside a road
+struck by arithmetic of its own, which is the one thing no line beside a road may be (TER-3c.3). The walk
+across a deck is the boundary's to strike, at the distance every other metre of pavement is struck at.
 
 ## The edge line
 

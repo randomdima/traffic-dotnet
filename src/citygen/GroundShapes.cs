@@ -127,7 +127,10 @@ internal sealed partial class GroundShapes
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
 
-        return offTheKerbM <= _walkM ? Ground.Sidewalk : Ground.Grass;
+        // And the pavement, which is the ground within a walk of the kerb and nothing else
+        // (<c>RoadFigures.LinesOffTheKerbLaid</c>) — held back, what stands beside a road is the grass it
+        // was laid over, exactly as the picture draws it.
+        return _config.Road.LinesOffTheKerbLaid && offTheKerbM <= _walkM ? Ground.Sidewalk : Ground.Grass;
     }
 
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>

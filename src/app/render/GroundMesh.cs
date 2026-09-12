@@ -155,6 +155,11 @@ internal sealed partial class GroundMesh
 
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
+        // <b>Whether anything off the kerb is drawn at all</b> (<c>RoadFigures.LinesOffTheKerbLaid</c>):
+        // temporary, and the whole of what it takes to leave a town its driven ground and nothing else.
+        // Every layer it holds back is one distance off one boundary, which is why there is one switch.
+        var offTheKerb = config.Road.LinesOffTheKerbLaid;
+
         // <b>The pavement: the ground within a walk of the kerb</b> (TER-3c.3) — one region of the town's
         // own boundary (<see cref="Region"/>), which is the same distance off the same line the answer
         // compares against and the walking lane is laid down the middle of.
@@ -163,8 +168,11 @@ internal sealed partial class GroundMesh
         // smaller in the surface's own, so what survives is a rim on the region's boundary and nothing
         // inside it.
         var rings = GroundRings.Of(paving, config);
-        Region(mesh, rings, walkM, Surface.Pavement, edge, periods);
-        Region(mesh, rings, walkM - edgeM, Surface.Pavement, Plain, periods);
+        if (offTheKerb)
+        {
+            Region(mesh, rings, walkM, Surface.Pavement, edge, periods);
+            Region(mesh, rings, walkM - edgeM, Surface.Pavement, Plain, periods);
+        }
 
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
         // of the one under it showing, which is the same trick every other line here is drawn by: what
@@ -177,24 +185,20 @@ internal sealed partial class GroundMesh
         Water(mesh, plan.Water.WaterEdge, Surface.Pavement, Shade(0.08f, 0.2f, 0.3f), periods);
         Water(mesh, plan.Water.Outline, Surface.Water, Plain, periods);
 
-        // A deck is drawn like the section TER-3b.1 draws: the deck itself out to its own half-width,
-        // then the town's pavement carried across it at the width it has on land, which leaves the
-        // margin — the ground a parapet stands on — as the strip of deck outside the walk. Both carry
-        // an edge line, and each is laid the way the pavement's is on land: the piece at full size in
-        // the edge shade, then a line's width smaller in its own.
+        // A deck is drawn out to its own half-width, with an edge line laid the way the pavement's is on
+        // land: the piece at full size in the edge shade, then a line's width smaller in its own.
+        // <b>And nothing but the deck</b> — the pavement that used to be carried across one at the width it
+        // has on land was the last line beside a road struck by arithmetic of its own (TER-3c.3), so it is
+        // gone and the margin outside the carriageway is deck all the way out.
         for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
         {
             var road = plan.Bridges.Road[bridge];
             if (road < 0) continue;
 
             var span = plan.Roads.SegmentsOf(road);
-            var deckPavementM = plan.Bridges.PavementWidthM[bridge] > 0f ? plan.Bridges.PavementWidthM[bridge] : walkM;
             var deckHalfM = plan.Bridges.DeckWidthM[bridge] * 0.5f;
-            var walkHalfM = (plan.Roads.WidthM[road] * 0.5f) + deckPavementM;
             mesh.Ribbon(span, deckHalfM, Surface.Deck, edge, periods);
             mesh.Ribbon(span, deckHalfM - edgeM, Surface.Deck, Plain, periods);
-            mesh.Ribbon(span, walkHalfM, Surface.Pavement, edge, periods);
-            mesh.Ribbon(span, walkHalfM - edgeM, Surface.Pavement, Plain, periods);
         }
 
         // <b>The kerb line, struck outside the carriageway</b> (TER-3d): a stroke on the tarmac's own offset
@@ -202,7 +206,7 @@ internal sealed partial class GroundMesh
         // shade is struck inside the surface it rims — the line takes its own width off the lane it marks,
         // and every lane measured off the picture comes out short of the figure the rest of the build
         // quotes.
-        Region(mesh, rings, kerbM, Surface.Tarmac, paint, periods);
+        if (offTheKerb) Region(mesh, rings, kerbM, Surface.Tarmac, paint, periods);
 
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where
         // the answer puts it (<c>GroundShapes.At</c>).
@@ -220,11 +224,19 @@ internal sealed partial class GroundMesh
         Region(mesh, rings, 0f, Surface.Tarmac, Plain, periods);
 
         // And what the blocks the town encloses take back, outwards from their own kerbs
-        // (<see cref="Encloses"/>).
-        Encloses(mesh, rings, 0f, Surface.Tarmac, paint, periods);
-        Encloses(mesh, rings, kerbM, Surface.Pavement, Plain, periods);
-        Encloses(mesh, rings, walkM - edgeM, Surface.Pavement, edge, periods);
-        Encloses(mesh, rings, walkM, Surface.Grass, Plain, periods);
+        // (<see cref="Encloses"/>). With nothing struck off the kerb there is one of them and it is the
+        // grass, which is what a block is once the lines beside its roads are held back.
+        if (offTheKerb)
+        {
+            Encloses(mesh, rings, 0f, Surface.Tarmac, paint, periods);
+            Encloses(mesh, rings, kerbM, Surface.Pavement, Plain, periods);
+            Encloses(mesh, rings, walkM - edgeM, Surface.Pavement, edge, periods);
+            Encloses(mesh, rings, walkM, Surface.Grass, Plain, periods);
+        }
+        else
+        {
+            Encloses(mesh, rings, 0f, Surface.Grass, Plain, periods);
+        }
 
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;

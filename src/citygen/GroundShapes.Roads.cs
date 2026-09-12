@@ -173,12 +173,17 @@ internal sealed partial class GroundShapes
             var road = plan.Bridges.Road[bridge];
             if (road < 0) continue;
 
-            var deckWalkM = plan.Bridges.PavementWidthM[bridge] > 0f ? plan.Bridges.PavementWidthM[bridge] : walkM;
             var run = deck[road]++;
             _deckFromM[run] = plan.Bridges.FromM[bridge];
             _deckToM[run] = plan.Bridges.ToM[bridge];
-            _deckHalfM[run] = MathF.Max(
-                plan.Bridges.DeckWidthM[bridge] * 0.5f, _roadHalfM[road] + deckWalkM);
+
+            // <b>The deck is the deck and carries no pavement of its own</b>: grown to the road's own half
+            // plus a walk, a bridge laid the town's pavement across its margin by arithmetic of its own —
+            // the one thing every line beside a road is no longer allowed to be (TER-3c.3). What the margin
+            // outside the carriageway is, is the ground a parapet stands on, and the walk that ought to
+            // cross it is the boundary's to strike once the boundary can cross water
+            // (<c>docs/index.md#known-gaps</c>).
+            _deckHalfM[run] = plan.Bridges.DeckWidthM[bridge] * 0.5f;
         }
 
         Runs(plan.Crosswalks.Count, plan.Crosswalks.Road, _paintAt);

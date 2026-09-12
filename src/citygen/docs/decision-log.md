@@ -1,5 +1,38 @@
 # CityGen — decision log
 
+## 2026-09-12 — what still placed ground of its own is gone, and one switch holds back the rest
+
+The boundary was the town's, but four things still put ground down beside a road by arithmetic of their
+own, and each of them would have outlived the upgrade by being nobody's to notice.
+
+**A raster painter with its own verge, fillet and disc.** `GroundPainter` laid cells of pavement either
+side of a chain, a wedge behind each kerb fillet and a disc at each mouth. Nothing had called it since the
+plan stopped shipping a cell grid; one test comment named it. Deleted rather than kept for the day a raster
+comes back — a second description of the pavement that nothing reads is still a second description.
+
+**`Kerbs` answered for tarmac that no car is driven along.** It held a fillet per junction corner and a box
+per slab beside its bands, so that `OffTheTarmacM` could answer for the whole of the paving. Only the probe
+still asked, and the boundary itself had never counted either (a corner apron pushes the outside off the
+lanes at every mouth; a slab buries the bays it is paved under). What is left is the bands — the one shape
+the shell is the outside of — and the probe's independent reading of the kerb is now that same driven
+ground, which is the reading it was always weighed against. The junction corners stay on the plan because
+the crossings and the stop bars are placed off them (`Furniture.Corners`); they are a mouth's figure and no
+longer a piece of ground.
+
+**A bridge carried the town's pavement across its deck.** The deck's ground was grown to the road's own half
+plus a walk, and the picture laid a pavement ribbon to match — the last line beside a road derived from
+something other than the boundary. Both are gone and `TER-3b.1` says so. What it costs is a bridge with no
+footway, which is the same gap as a boundary that cannot cross water, and it is named as one rather than
+papered over with the arithmetic that was there.
+
+**And the four lines off the kerb are held back behind one switch.** `RoadFigures.LinesOffTheKerbLaid` is
+off, so a town is its driven ground: no concrete, no kerb stroke, no walking lane, and the blocks the town
+encloses come back as the grass they were laid over. **One switch and not five is the whole point** — every
+one of those lines is the same boundary moved by its own distance, so there is a single place to hold them
+and holding them cannot leave half of one behind. It is a stage to look at the boundary against, it is in
+[docs/index.md](../../../docs/index.md#known-gaps) as such, and it goes with the faults it was raised to
+make visible.
+
 ## 2026-09-12 — the shell becomes the town's boundary rather than a reading of it
 
 The shell already walked the true edge of the driven ground and closed every ring of it on a city; nothing

@@ -27,7 +27,13 @@ internal sealed class RunState
     public bool Frozen => TimeScale <= 0f;
 
     /// <summary>The agents are not asked to decide, and the hand-driven one still is.</summary>
-    public bool AgentsHeld { get; set; }
+    /// <remarks>
+    /// <b>Held from the moment a town opens, temporarily</b>: what is being looked at while the
+    /// perimeter-extrusion upgrade is staged is the ground, and a town that drives itself away from the
+    /// frame is a town being read through moving cars. The <c>Pause</c> key still lets go of it, and the
+    /// default goes back with the stage (<c>RoadFigures.LinesOffTheKerbLaid</c>).
+    /// </remarks>
+    public bool AgentsHeld { get; set; } = true;
 
     public void SetPace(float scale)
     {

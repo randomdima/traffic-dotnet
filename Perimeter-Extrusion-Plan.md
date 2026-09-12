@@ -35,6 +35,25 @@ not thirty-six:
 **This file stays until those are closed.** What is settled is already in the requirements and the decision
 logs that own it (§12); what is left is the list above.
 
+### 0a. The staging that follows it
+
+**Nothing places ground beside a road any more except the boundary.** Three leftovers outlived the steps of
+§9 and are now deleted: a dead raster painter with its own verge, kerb fillet and mouth disc; the fillet and
+slab pieces `Kerbs` answered for, which the boundary itself had never counted; and the pavement a bridge
+carried across its own deck, which was the last line beside a road with arithmetic of its own. The
+[citygen decision log](src/citygen/docs/decision-log.md) says why each went.
+
+**And the lines off the kerb are held back behind one switch while the boundary is looked at.**
+`RoadFigures.LinesOffTheKerbLaid` is off in the shipped figures, so a town is its driven ground and nothing
+else: no kerb line, no pavement, no rim, no walking network, and the blocks the town encloses come back as
+grass. **One switch, because there is now one construction** — hold the boundary's distances and every line
+goes together, which is the plainest demonstration the upgrade has of what it was for. A town opens held
+(`RunState.AgentsHeld`) so the ground is read without cars crossing it.
+
+The switch is a stage and not a state of the engine: it is in
+[docs/index.md](docs/index.md#known-gaps) as a gap against `TER-3c.3` and `TER-3d`, and it goes — with the
+branches that read it and the held default — when the three faults above are closed.
+
 ---
 
 ## 1. What is there now

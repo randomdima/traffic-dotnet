@@ -177,8 +177,11 @@ internal sealed partial class FootGraph : IFineGraph
         var bandM = plan.PavementWidthM;
 
         // A map laid without a pavement has no walking network at all, and saying so is better than
-        // laying one down the middle of its roads.
-        if (bandM > 0f)
+        // laying one down the middle of its roads. <b>Nor has a town whose lines off the kerb are held
+        // back</b> (<c>RoadFigures.LinesOffTheKerbLaid</c>): the walking lane is one of them — the boundary
+        // moved half a walk — so it goes when they go, and the empty network is the same one a map with no
+        // pavement has always stood up with.
+        if (bandM > 0f && config.Road.LinesOffTheKerbLaid)
         {
             var rings = GroundRings.Of(plan.Paving(config), config);
             Wrap(rings, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);

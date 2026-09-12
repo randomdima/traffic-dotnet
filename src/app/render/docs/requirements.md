@@ -64,10 +64,13 @@ lays a point and how far off the kerb it stands, against the same distances thes
 the two are one table read in two directions and a distance added to one is added to the other. **This is
 what the layering is for**; the picture coming out right is a consequence rather than the reason.
 
-**A bridge is the one piece of ground drawn as a band.** Its deck's width and the pavement it carries are
-authored per bridge rather than derived from anything the boundary knows (`TER-3b.1`), so it is a ribbon
-about the road's own line — laid, like the rest, at full size in the edge shade and again a line's width
-smaller in its own.
+**A bridge is the one piece of ground drawn as a band.** Its deck's width is authored per bridge rather
+than derived from anything the boundary knows (`TER-3b.1`), so it is a ribbon about the road's own line —
+laid, like the rest, at full size in the edge shade and again a line's width smaller in its own. **And the
+deck alone**: the pavement that used to be carried across one at the width it has on land was a line beside
+a road with arithmetic of its own, and it is gone (`TER-3c.3`). Until the boundary can cross water the
+margin outside the carriageway is deck all the way out, which is the gap
+[docs/index.md](../../../../docs/index.md#known-gaps) names.
 
 **Shared is shared, and the mesh holds one corner per corner** (`GroundMesh.Vertex`) — but here that is a
 dedupe and not a seam. It is what keeps a ribbon laid at a size and the same ribbon laid a line's width

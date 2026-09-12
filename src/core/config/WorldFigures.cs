@@ -57,6 +57,20 @@ internal sealed class RoadFigures
     /// </summary>
     public float WalkingLaneInPersonDiameters { get; init; } = 2f;
 
+    /// <summary>
+    /// <b>Temporary, and not a figure of the world</b>: whether the lines struck off the town's boundary
+    /// are laid at all — the kerb line, the pavement and its rim, and the walking lanes down the middle of
+    /// it. Off, the town is the driven ground and nothing else, which is what the perimeter-extrusion
+    /// upgrade is being looked at against (<c>Perimeter-Extrusion-Plan.md</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>It switches the one construction and not five.</b> Every one of those lines is now the same
+    /// boundary moved by its own distance (<c>GroundRings</c>), so there is one place to turn them off and
+    /// turning them off cannot leave half of one behind. <b>It goes when the stage lands</b>, along with the
+    /// branches that read it: a town without a pavement is a stage to look at and never a town to ship.
+    /// </remarks>
+    public bool LinesOffTheKerbLaid { get; init; }
+
     public float EdgeLineWidthM { get; init; } = 0.3f;
 
     /// <summary>One painted line: a lane dash, a bay stroke. A zebra's bar is twice it and a stop bar is the plan's own.</summary>
