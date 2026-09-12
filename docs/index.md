@@ -95,12 +95,15 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 Absences that are gaps rather than decisions, and none of them is silent:
 
 - **The boundary keeps its distance in the median and not everywhere.** Every line the town has is the
-  shell's rings moved by a figure ([citygen](../src/citygen/docs/decision-log.md)), and where a fold closes
-  the line is walked across the gap rather than solved. On a city the lane laid half a walk out stands a
-  median 0 mm off that figure; the worst of it is a metre and a half, at the mouths of laboratory car parks
-  where the boundary itself is ragged. `--bench shell` prints both, with the coordinates of the worst.
-  **What it costs is eleven samples in forty thousand** on a shipped city — stretches of walking lane
-  standing nearer the kerb than they should, at a handful of places, each of them nameable.
+  shell's rings moved by a figure ([citygen](../src/citygen/docs/decision-log.md)), and on a city every one
+  of them stands a median 0 mm off the figure that struck it. The worst of them does not: a pavement five
+  metres inside the kerb at one place, a kerb three and a half metres outside the driven ground at another.
+  `--bench shell` prints the median, the worst and the coordinates of both.
+  **What it is no longer is the fold closure** ([core](../src/core/docs/decision-log.md)): the gap a dropped
+  fold leaves is traced along the answer now rather than straightened across, which took the gaps a city
+  closes with a bare straight from eleven thousand to eight hundred and moved the worst reading by under a
+  metre. So what is left is the rule that decides which stations to drop, and the two candidates for it fail
+  in opposite directions — `Extrusion.Of` names the choice and says why a probe cannot settle it.
 - **A boundary may cross water where no bridge carries it.** The shell joins two stretches across ground
   nothing is driven along, and nothing in that join asks the water. One place on one shipped city reads as
   a junction's apron over the river, in the picture and in the answer alike — they agree, which is the

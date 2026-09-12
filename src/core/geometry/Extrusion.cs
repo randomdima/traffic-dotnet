@@ -27,6 +27,12 @@ namespace TrafficSimulation.Core.Geometry;
 /// closes, which is a centimetre or two on a line that exists to be looked at.
 /// </para>
 /// <para>
+/// <b>The gap a dropped fold leaves is traced, though</b> (<see cref="Traced"/>), and that is not the same
+/// thing as solving the crossing. The answer across such a gap is a curve, both ends of it are already
+/// known, and the field says where it goes at every point — so it is followed a station at a time rather
+/// than guessed at with a straight. Nothing here pairs up a crossing to do it.
+/// </para>
+/// <para>
 /// <b>Smoothing is a window and not a fillet</b>: each station is replaced by the mean of the line within
 /// half a window either side of it, so <em>nothing the line does over less than the window survives</em> —
 /// a corner the ring turned, and equally the notch left where a fold was dropped, which a corner rounding
@@ -100,10 +106,15 @@ internal static class Extrusion
     /// <b>The rule is the station's own reach and not the ground's</b>, and the difference is worth naming:
     /// a station moved off a narrow band can stand its own reach from a wide band's line while standing
     /// nearer than the distance to the ground that band lays. Asked the other way round — every station a
-    /// clearance from every <em>band</em>, which is what the ground actually is — the rule is truer and the
-    /// answer measurably worse, because the extra stations it drops leave gaps this file closes by walking
-    /// rather than by solving. Both readings are in the instruments (<c>--bench shell</c>); this is the one
-    /// that measured better, and the gap between them is the fold closure and not the rule.
+    /// clearance from every <em>band</em>, which is what the ground actually is (<see cref="RingField"/>
+    /// answers it, given the bands) — the rule is truer, and <b>which of the two measures better is still
+    /// open</b>. On a city the two fail in opposite directions: this one leaves a pavement up to five metres
+    /// <em>inside</em> the kerb at one place, the clearance rule leaves one up to eight metres outside it,
+    /// and a pavement on the road costs more than a pavement on the grass. Against that the clearance rule
+    /// drops more stations, leaves twice as many gaps for the closure to give up on, and costs half again in
+    /// build time. <b>What the reading cannot settle it, the tier can</b>: the question is what each does to
+    /// the metres of walking lane that stand nearer the kerb than the figure says, which is a test and not a
+    /// probe. Both are in the instruments (<c>--bench shell</c>).
     /// </para>
     /// <para>
     /// <b>The rule is asked of the whole set and not of the ring being moved</b> (<see cref="Clear"/>): a
@@ -318,17 +329,21 @@ internal static class Extrusion
     /// and a half, on a line every station of which stood exactly half a walk clear.
     /// </para>
     /// <para>
-    /// <b>Walked and not solved</b>, like the rest of the file: the gap is stepped across at the station,
-    /// and a step that does not keep the clearance is pushed out until it does. Where the two branches of a
-    /// fold really cross is solvable and pairing up which crossing closes which fold is not, which is the
-    /// same bargain the rule itself strikes.
+    /// <b>The gap is traced and not stepped across</b> (<see cref="Traced"/>). The answer across a dropped
+    /// run is a curve — the locus standing the clearance off whatever is nearest — and the station either
+    /// side of the gap already stands on it, so what closes the gap is that curve followed from the one to
+    /// the other: step along where it is going, put the step back on it, repeat. <b>Chord points pushed out
+    /// instead were the whole of the fault</b>: a chord across the mouth of a car park runs metres inside
+    /// the answer, each of its points is pushed to wherever the ground happens to be nearest rather than to
+    /// where the line is going, and a run of them laid in the order the chord was walked is a star of spikes
+    /// across the ground. Guarded against the spikes by dropping any step that did not carry on from the one
+    /// before, what was left was the chord — and the cut it took, up to a metre and a half of it.
     /// </para>
     /// <para>
-    /// <b>A closure is continuous or it is nothing.</b> Where a whole tooth of the ring folds away — a row
-    /// of bays, each entered and left — the pushes land wherever the ground happens to be nearest rather
-    /// than where the gap is going, and a run of them laid in the order the chord was walked is a star of
-    /// spikes across the ground. A step that does not carry on from the one before it is not part of the
-    /// same line and is dropped, which leaves the straight to cover that much of the gap.
+    /// <b>The trace is continuous by construction</b>, which is what the guard was standing in for: each
+    /// step is one station along the curve from the last, so there is no ordering to get wrong and nothing
+    /// to veto. What it cannot do is arrive — a trace that wanders, stalls or runs out of steps gives up
+    /// whole — and the chord is still there for that, being no worse than what it was.
     /// </para>
     /// </remarks>
     static Vector2[] Closed(
@@ -346,6 +361,15 @@ internal static class Extrusion
 
             var wantedM = MathF.Max(keptBandM[station], keptBandM[next]) + clearM;
             var reachM = Reach(field, wantedM);
+
+            // The way the line was travelling as it arrived here, which is the one thing that says which way
+            // along the curve the gap lies. Read off the two kept stations and not off the run that was
+            // dropped: the raw offset heads *into* the fold at that point, and a trace seeded with it sets
+            // off across the ground the fold rule had just thrown away.
+            var camePast = (station - 1 + kept.Length) % kept.Length;
+            var alongM = kept[station] - kept[camePast];
+            if (Traced(field, hand, wantedM, reachM, kept[station], kept[next], alongM, gapM, closed)) continue;
+
             var carriesOnM = MathF.Max(wantedM, StationM) * 2f;
             var cameM = kept[station];
             var steps = (int)MathF.Ceiling(gapM / StationM);
@@ -364,16 +388,99 @@ internal static class Extrusion
     }
 
     /// <summary>
+    /// <b>The answer followed from one side of a gap to the other</b>, a station at a time: step along where
+    /// the curve is going, put the step back on the curve, and take the direction it actually moved as where
+    /// it is going next. True if it arrived, and <b>nothing is written unless it did</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Where the curve is going is across the normal it is measured on.</b> A point of the answer stands
+    /// the clearance off the nearest piece of ring, along that piece's own normal
+    /// (<see cref="RingField.Nearest"/>), so the curve runs at right angles to that normal — and which of
+    /// the two right angles is the one it came in on. That is a predictor and a corrector and not a guess:
+    /// the step is taken along the tangent and then put back on the curve by the same push a station of the
+    /// walk is (<see cref="Held"/>), so a curvature the step overshoots costs a station squared and not a
+    /// station.
+    /// </para>
+    /// <para>
+    /// <b>It has to arrive, and it is given room to go round.</b> A gap straight across is one station per
+    /// station of it; a gap round the tip of a swallowed tooth is the way round, which is longer than the
+    /// straight by however deep the tooth was. The budget is the straight several times over, and a trace
+    /// that has not arrived by then has not understood the gap — as has one that stalls, one the field has
+    /// nothing to say about, and one that doubles back on itself. All of them give up whole rather than
+    /// leave half a closure behind, because half a closure is a line that stops in the middle of the ground.
+    /// </para>
+    /// </remarks>
+    static bool Traced(
+        RingField field, float hand, float wantedM, float reachM, Vector2 fromM, Vector2 toM, Vector2 alongM,
+        float gapM, List<Vector2> closed)
+    {
+        if (alongM.LengthSquared() <= ApartM * ApartM) return false;
+
+        var wentM = Vector2.Normalize(alongM);
+        var atM = fromM;
+        var laid = closed.Count;
+        var budget = (int)MathF.Ceiling(gapM / StationM * Roundabout) + Roundabout;
+        for (var step = 0; step < budget; step++)
+        {
+            if (!field.Nearest(atM, reachM, out _, out _, out var leftM, out _)) break;
+            if (leftM == Vector2.Zero) break;
+
+            // Across the normal, on the side the walk came in on. The normal is the band's own left, so the
+            // hand the answer was struck on does not enter into it: both right angles to it are candidates
+            // and the one the line is on is the one it was already travelling.
+            var acrossM = Heading.RightOf(leftM);
+            if (Vector2.Dot(acrossM, wentM) < 0f) acrossM = -acrossM;
+
+            var nextM = atM + (acrossM * StationM);
+            if (!Held(field, hand, wantedM, reachM, ref nextM)) break;
+
+            var stepM = nextM - atM;
+            if (stepM.LengthSquared() <= ApartM * ApartM) break;
+            if (Vector2.Dot(stepM, wentM) <= 0f) break;
+
+            wentM = Vector2.Normalize(stepM);
+            atM = nextM;
+            if (Vector2.Distance(atM, toM) <= StationM) return true;
+
+            closed.Add(atM);
+        }
+
+        closed.RemoveRange(laid, closed.Count - laid);
+        return false;
+    }
+
+    /// <summary>
+    /// How many times the straight across a gap the trace is given to get round it. <b>Four</b>: the way
+    /// round a swallowed tooth is the tooth's two flanks and its tip, which is the straight three times over
+    /// where the tooth is as deep as it is wide, and deeper teeth than that are what the chord is left for.
+    /// </summary>
+    const int Roundabout = 4;
+
+    /// <summary>
     /// One station pushed out until it keeps the clearance — or given up on, which drops it and leaves the
     /// stations either side to close over the gap.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Pushed and then pushed again</b>, because the band that was nearest is rarely the one that is
     /// nearest once the station has moved: the mouth of a slot has ring on both sides of it, and a station
     /// held off one lands in front of the other.
+    /// </para>
+    /// <para>
+    /// <b>And solved when the pushes will not settle</b> (<see cref="Sought"/>). A push jumps to where one
+    /// piece's own offset stands, so where two pieces are equally near it jumps between them for ever — and
+    /// two pieces equally near is not an edge case here, it is <em>the fold itself</em>, which is the one
+    /// place a step ever needs holding. Ten thousand of the sixteen thousand gaps a city leaves were given
+    /// up on for this and closed with a bare straight. What settles them is that the clearance is one
+    /// continuous figure however many pieces it is the least of, so it can be sought along a line rather
+    /// than jumped to.
+    /// </para>
     /// </remarks>
     static bool Held(RingField field, float hand, float wantedM, float reachM, ref Vector2 atM)
     {
+        var soughtM = atM;
+        var outM = Vector2.Zero;
         for (var push = 0; push < Pushes; push++)
         {
             // <b>Nothing within reach is deep inside and not far outside.</b> A step of a gap stands on the
@@ -384,6 +491,8 @@ internal static class Extrusion
             // boundary ran through the bays.
             if (!field.Nearest(atM, reachM, out var footM, out var offM, out var leftM, out _)) return false;
             if (leftM == Vector2.Zero) break;
+
+            outM = leftM * (hand < 0f ? 1f : -1f);
 
             // <b>Moved to the clearance and not merely out to it.</b> A gap's chord runs outside the line
             // as often as inside it — two bays standing apart leave a boundary that dips between them —
@@ -398,15 +507,99 @@ internal static class Extrusion
             atM = footM + (leftM * (wantedM * (hand < 0f ? 1f : -1f)));
         }
 
-        return OnItsSideM(field, hand, atM, reachM) >= wantedM - FoldM;
+        if (OnItsSideM(field, hand, atM, reachM) >= wantedM - FoldM) return true;
+        if (outM == Vector2.Zero) return false;
+
+        atM = soughtM;
+        return Sought(field, hand, wantedM, reachM, outM, ref atM);
     }
 
     /// <summary>
-    /// How many times a step is pushed clear before it is dropped instead. <b>Pushed and then pushed
-    /// again</b>, because the station that was nearest is rarely the one that is nearest once the step has
-    /// moved — a gap across the mouth of a slot has ring on both sides of it.
+    /// How many times a step is pushed clear before it is sought along a line instead. <b>Pushed and then
+    /// pushed again</b>, because the station that was nearest is rarely the one that is nearest once the step
+    /// has moved — a gap across the mouth of a slot has ring on both sides of it.
     /// </summary>
     const int Pushes = 4;
+
+    /// <summary>
+    /// <b>The clearance sought along a line rather than jumped to</b>: the step moved out and in along one
+    /// normal until it stands the distance clear of whatever is nearest, bracketed and then halved.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It works where a push does not because it never names the piece.</b> The clearance is the least of
+    /// the distances to every piece within reach, which makes it one continuous figure — it has a corner
+    /// where which piece is nearest changes, and no jump — so along any line out of a point it rises and
+    /// falls continuously and a bracket round the distance wanted can be halved down to it. A push instead
+    /// asks one piece where its own offset is and goes there, which at a fold is two answers taking turns.
+    /// </para>
+    /// <para>
+    /// <b>The line is the normal of whichever piece was last nearest</b>, and it does not have to be the
+    /// right one. Out along it the clearance grows and in along it the clearance shrinks, whichever piece is
+    /// answering, so the bracket exists as long as the wanted distance lies between the two ends of the
+    /// search — which is what the doubling out and in is looking for. Where it does not, the step is given
+    /// up on, and the gap falls to the straight.
+    /// </para>
+    /// </remarks>
+    static bool Sought(
+        RingField field, float hand, float wantedM, float reachM, Vector2 outM, ref Vector2 atM)
+    {
+        var fromM = atM;
+        var atLeastM = wantedM - FoldM;
+        var hereM = OnItsSideM(field, hand, fromM, reachM);
+
+        // Out where the step stands too near, in where it stands too far — doubling, because how far off
+        // the answer a step is depends on a curvature and not on a station.
+        var sideM = hereM < wantedM ? 1f : -1f;
+        var farM = StationM;
+        for (var reach = 0; reach < Brackets; reach++)
+        {
+            var thereM = fromM + (outM * (farM * sideM));
+            var clearM = OnItsSideM(field, hand, thereM, reachM);
+            if (MathF.Abs(clearM - wantedM) <= FoldM)
+            {
+                atM = thereM;
+                return true;
+            }
+
+            if ((clearM - wantedM) * (hereM - wantedM) < 0f)
+            {
+                // Bracketed: the answer stands between the point and this reach, and halving finds it.
+                var nearM = 0f;
+                for (var halving = 0; halving < Halvings; halving++)
+                {
+                    var middleM = (nearM + farM) * 0.5f;
+                    var middleAtM = fromM + (outM * (middleM * sideM));
+                    if ((OnItsSideM(field, hand, middleAtM, reachM) - wantedM) * (hereM - wantedM) < 0f)
+                    {
+                        farM = middleM;
+                    }
+                    else
+                    {
+                        nearM = middleM;
+                    }
+                }
+
+                atM = fromM + (outM * ((nearM + farM) * 0.5f * sideM));
+                return OnItsSideM(field, hand, atM, reachM) >= atLeastM;
+            }
+
+            farM *= 2f;
+            if (farM > field.CellM) break;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// How many doublings out along the normal are tried before the step is given up on. Six, which from a
+    /// station reaches sixteen metres — past anything a fold can be deep and past the field's own reach,
+    /// whichever comes first.
+    /// </summary>
+    const int Brackets = 6;
+
+    /// <summary>How many times the bracket is halved: twelve, which is a station down to a tenth of a millimetre.</summary>
+    const int Halvings = 12;
 
     /// <summary>
     /// Which side of the ring it was moved to. <b>One ring is moved to one side</b>: a piece moved the

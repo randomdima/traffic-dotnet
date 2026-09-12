@@ -17,13 +17,16 @@ reads the distances back on every shipped map, and the four gates — the alloca
 (thirteen others were already failing at `HEAD` and are nothing to do with this). They are three faults and
 not thirty-six:
 
-- **The fold closure is walked and not solved** (§8, and the known gaps in [docs/index.md](docs/index.md)).
-  A gap the fold rule leaves is stepped across and each step held out to the distance; where a whole tooth
-  of the boundary folds away the closure still cuts inside by up to a metre and a half. Everything laid off
-  the boundary inherits it: eleven walking-lane samples in forty thousand on a city, a pavement drawn a
-  hair past its own edge in two places, a lane drawn short of its own kerb in one. **This is the one worth
-  fixing next**, and the fix is to solve the fold crossing rather than walk it — which the file deliberately
-  does not do, and which is now the only thing left that it should.
+- ~~**The fold closure is walked and not solved.**~~ **Closed, and it was not the fault it looked like.**
+  The gap a dropped fold leaves is now traced along the answer rather than straightened across, and the
+  clearance a step is held to is sought along a line rather than jumped to — the jump could not converge
+  where two pieces are equally near, which is the fold itself. Gaps a city closes with a bare straight:
+  **11 657 → 818**, worst 24.4 m → 14.5 m ([core](src/core/docs/decision-log.md)). **But the readings it
+  was meant to move barely moved** — worst pavement 8.20 m → 9.07 m off its figure, worst lane unchanged at
+  4.19 m — because those come from the *keep* rule and not from the closure. The one worth fixing next is
+  therefore the keep rule, and `Extrusion.Of` states the choice: the station's own reach (fails inside, a
+  pavement on the road) against a clearance from every band (fails outside, a pavement on the grass). A
+  probe cannot rank them; the walking-lane tier can, and has not been run.
 - **A prop cleared against the boundary while the town was being laid is read against the finished one.**
   The generator remakes the ground as each stage adds its shapes, and the boundary of a half-laid town is
   not the boundary of the finished one. Five generator tests. The fix is to say when the boundary is

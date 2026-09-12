@@ -1,5 +1,42 @@
 # The kernel — decision log
 
+## 2026-09-12 — a fold's gap is traced along the answer, and the clearance is sought rather than jumped to
+
+The gap a dropped fold left was stepped across on the straight between the two stations bracketing it, each
+step pushed out until it stood the distance clear. On a city that gave up on ten thousand of the sixteen
+thousand gaps a town leaves and closed them with a bare straight — up to twenty-four metres of one — and
+every line struck off the boundary inherited the cut.
+
+**The push could not settle, and the reason is exactly why it was needed.** It asked the nearest piece where
+its own offset stood and went there. Where two pieces are equally near that is two answers taking turns, and
+two pieces equally near is not an edge case in this file — it is the fold. Four turns of it and the step was
+given up on. What settles it is that the clearance is the *least* of the distances to every piece within
+reach, which makes it one continuous figure with a corner and no jump: along any line out of a point it
+rises and falls continuously, so a bracket round the distance wanted can be halved down to it. `Sought` does
+that, and the gaps a city closes with a bare straight fell from 11 657 to 818, the worst of them from 24.4 m
+to 14.5 m.
+
+**And the gap itself is now traced and not stepped across.** Both ends of a gap already stand on the answer
+and the field says where the answer goes at every point, so the closure follows it — a station along the
+tangent, then back onto the curve, then the direction it actually moved as where it goes next. That is
+continuous by construction, which is what the old spike veto was standing in for: laid in the order a chord
+was walked, the pushes landed wherever the ground happened to be nearest and drew a star across the ground,
+and the veto that suppressed it also suppressed the closure. Fifteen thousand of the twenty-two thousand
+gaps a city leaves are traced whole.
+
+**It is not the crossing solved, and it was not the whole of the fault.** Nothing here pairs up which
+offset crossing bounds which fold; the file's bargain is unchanged. And the reading it was supposed to move
+barely moved: the worst pavement on a city went from 8.20 m to 9.07 m off its own figure and the worst lane
+did not budge, because those come from the rule that decides which stations to drop and not from how the
+gaps are closed. That choice is now the open one, and `Extrusion.Of` carries it: the station's own reach
+against a clearance from every band, failing inside and outside respectively, which a probe cannot rank and
+the test tier can.
+
+**A bound on where a trace may wander was written and then taken out again.** A trace that takes a wrong
+turn can arrive honestly having drawn tens of metres of somewhere else, so it was held to within the gap's
+own width of the straight it closes. It fired nowhere on a city — the step budget already bounds the route
+to four times the straight — and a gate that refuses nothing makes the gate before it look unnecessary.
+
 ## 2026-09-11 — an extrusion is a distance rule, not a pile of offset pieces
 
 `Spline.OffsetInto` moves a chain piece by piece and asks nothing about the rest of it, which is right for a
