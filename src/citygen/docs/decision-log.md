@@ -1,5 +1,33 @@
 # CityGen — decision log
 
+## 2026-09-12 — a hand-over that runs backwards gets no straight, because a centimetre here is a needle out there
+
+The white line struck off the boundary was not smooth, and the fault was not faceting. A stretch carried
+past its meeting stops a centimetre *beyond* where the next one starts, so the straight laid between them
+pointed back the way the ring came — and the walk turned a half circle onto that straight and a half circle
+off it. `Turn` has always said so in as many words; nothing acted on it.
+
+**What made a centimetre matter is the offset.** A station is moved to the left of travel, and across a
+backwards straight the travel reverses — so the two sides of the seam are thrown to *opposite* sides of the
+line, 2 × (band + distance) apart. Three and a half metres on the kerb, seven on a line struck a lane's half
+beyond it: the line darts clean across the road and back as a needle. Nothing downstream could remove it,
+every station of it standing honestly clear of every driven line, and the fold rule keeping both.
+
+**Bounded by one place and not by a taste.** Within `Kerbs.OnePlaceM` the two ends *are* one point, so there
+is nothing between them to draw; beyond it a straight that runs back is real line the ring has to cover. The
+ring is left with its two ends a centimetre apart and no arc between them, which every reader of it already
+closes without being told — a chain of arc starts, a station walk per arc, a fill of sampled points.
+
+**Except the one that shuts the ring**, which is laid however it runs. That straight is what makes a ring
+closed, and a ring that does not close is thrown away whole: skipping it took a city from 105 rings to 99 and
+lost 3.8 km of boundary and 104 driven lines' worth of edge. Eight seams a city remain for that reason and
+are named in [the known gaps](../../../docs/index.md#known-gaps).
+
+Read back off `--bench shell` on the two shipped cities, half-circle joints in the shell went 746 → 8 and
+579 → 12; and everything struck off it followed — the pavement's stations standing nearer the kerb than
+their own figure 473 → 34 and 471 → 6, the kerb's outward normals 175 → 23 and 117 → 12, the nodes standing
+off the tarmac 1 → 0 and 2 → 0. Nothing measured worse.
+
 ## 2026-09-12 — the first line off the boundary is struck by name, and the debug line it replaces is gone
 
 Every line beside a road is now the same ring moved by a figure, which is what makes them one construction —

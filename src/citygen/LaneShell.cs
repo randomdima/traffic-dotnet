@@ -1308,7 +1308,7 @@ internal sealed partial class LaneShell
                         lineOf[came], lineOf[at], fromM, toM,
                         Turn(last.HeadingAtRad(last.LengthM), fromM, toM, pieces[at][0].HeadingRad),
                         acrossACut[came], corners[came], gaps[came]);
-                    if (Apart(fromM, toM))
+                    if (Apart(fromM, toM) && !Doubles(last, fromM, toM))
                     {
                         into.Add(Bridge(fromM, toM));
                         ranAlong.Add(Nowhere);
@@ -1441,12 +1441,51 @@ internal sealed partial class LaneShell
     {
         if (into.Count == 0 || !Apart(into[^1].EndM, into[0].StartM)) return;
 
+        // <b>And this one is laid however it runs</b>, unlike the hand-overs inside the ring
+        // (<see cref="Doubles"/>): it is the piece that makes the ring shut, and a ring that does not shut is
+        // thrown away whole. Skipping a backwards centimetre here cost six rings and three and a half
+        // kilometres of boundary on a city — which is a seam traded for six blocks having no edge at all.
         into.Add(Bridge(into[^1].EndM, into[0].StartM));
         ranAlong.Add(Nowhere);
     }
 
     static bool Apart(Vector2 oneM, Vector2 otherM) =>
         Vector2.DistanceSquared(oneM, otherM) > Kerbs.RoundingM * Kerbs.RoundingM;
+
+    /// <summary>
+    /// <b>Whether the straight between two ends would double the ring back on itself</b>: the next stretch
+    /// starts <em>behind</em> where the last one stopped, by less than the two ends are allowed to stand
+    /// apart (<see cref="Kerbs.OnePlaceM"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A centimetre of backwards straight is a seam and not a corner, and the extrusion cannot tell.</b>
+    /// A stretch carried past its meeting stops a centimetre beyond where the next one starts, so the
+    /// straight between them points back the way the ring came and the walk turns a half circle onto it and
+    /// a half circle off it (<see cref="Turn"/>, which has always said so). Moved outward, the two half
+    /// turns throw their sides of the seam to <em>opposite</em> sides of the line — the offset is taken to
+    /// the left of travel and the travel reversed — so a centimetre here is a needle
+    /// <c>2 × (band + distance)</c> long across the road out there: three and a half metres on the kerb,
+    /// seven on a line struck a lane's half beyond it. Nothing downstream can remove it, every station of it
+    /// standing honestly clear of every line.
+    /// </para>
+    /// <para>
+    /// <b>Bounded by one place and not by a taste.</b> Within that the two ends <em>are</em> one point
+    /// (<see cref="Kerbs.OnePlaceM"/>) and there is nothing between them to draw; beyond it a straight that
+    /// runs back is real line the ring has to cover, and dropping it would leave a hole rather than a seam.
+    /// The ring is left with the two ends a centimetre apart and no arc between them, which is what the
+    /// readers of it already do with an arc's two ends — a chain of arc starts (<c>RingField</c>), a station
+    /// walk per arc (<c>Extrusion</c>) and a fill of sampled points (<c>GroundMesh</c>) all close it without
+    /// being told.
+    /// </para>
+    /// </remarks>
+    static bool Doubles(in ArcSeg arriving, Vector2 fromM, Vector2 toM)
+    {
+        var runM = toM - fromM;
+        if (runM.LengthSquared() > Kerbs.OnePlaceM * Kerbs.OnePlaceM) return false;
+
+        return Vector2.Dot(runM, Heading.Unit(arriving.HeadingAtRad(arriving.LengthM))) < 0f;
+    }
 
     /// <summary>The question asked of one station, with everything it needs to ask it held once.</summary>
     readonly struct Walk(
