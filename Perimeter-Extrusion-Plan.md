@@ -6,6 +6,37 @@ distances, one signed distance for the answer.
 
 ---
 
+## 0. Status — what landed, and what has not
+
+**Every step of §9 landed and the `P0` conflicts of §4 were granted by the owner in as many words.** The
+boundary is one construction; every line the town has is a distance off it; the picture and the answer read
+one table; the machinery that guessed it is deleted; the rules and decision logs say so. `--bench shell`
+reads the distances back on every shipped map, and the four gates — the allocation gate among them — pass.
+
+**What has not landed is fidelity at the last one per cent.** Thirty-six tests fail that did not before
+(thirteen others were already failing at `HEAD` and are nothing to do with this). They are three faults and
+not thirty-six:
+
+- **The fold closure is walked and not solved** (§8, and the known gaps in [docs/index.md](docs/index.md)).
+  A gap the fold rule leaves is stepped across and each step held out to the distance; where a whole tooth
+  of the boundary folds away the closure still cuts inside by up to a metre and a half. Everything laid off
+  the boundary inherits it: eleven walking-lane samples in forty thousand on a city, a pavement drawn a
+  hair past its own edge in two places, a lane drawn short of its own kerb in one. **This is the one worth
+  fixing next**, and the fix is to solve the fold crossing rather than walk it — which the file deliberately
+  does not do, and which is now the only thing left that it should.
+- **A prop cleared against the boundary while the town was being laid is read against the finished one.**
+  The generator remakes the ground as each stage adds its shapes, and the boundary of a half-laid town is
+  not the boundary of the finished one. Five generator tests. The fix is to say when the boundary is
+  settled, not to make the clearing more generous.
+- **Three places where the town itself is wrong and the picture and the answer agree about it**: a
+  boundary crossing water where no bridge carries it, a node nothing is turned through standing on
+  pavement, and an exam card whose walk changed. Named in the known gaps.
+
+**This file stays until those are closed.** What is settled is already in the requirements and the decision
+logs that own it (§12); what is left is the list above.
+
+---
+
 ## 1. What is there now
 
 Four independent constructions of what is meant to be one boundary.
