@@ -192,6 +192,47 @@ internal static class ShellProbe
         Say("  lane off the kerb    ", offM, $"m over the {halfM:F2} m it was struck at");
         Worst(offM, atM);
         Wet(kerb, paving, config);
+        Nodes(paving, config);
+    }
+
+    /// <summary>
+    /// <b>Whether every node of the plan stands on ground a car is driven over</b> — a junction is the
+    /// movements that cross in it (TER-5) and has no shape of its own, so a node whose arms are cut back
+    /// further than anything reaches is a place in the plan with no tarmac under it
+    /// (<c>docs/index.md#known-gaps</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>It is asked of the node's own point and of nothing else.</b> What the boundary encloses is the
+    /// ground the arms and the movements lay between them, so a node the boundary encloses is a node with
+    /// tarmac under it whether or not any one movement covers it — which is the whole of why a junction
+    /// needs no shape. A node the boundary does not enclose is the fault, and what it then reads is
+    /// whatever the town lays beside a kerb: pavement where the lines off the kerb are laid, and the grass
+    /// they were laid over where they are held back, which is the same fault wearing the stage's clothes.
+    /// </remarks>
+    static void Nodes(Paving paving, SimConfig config)
+    {
+        var shapes = new GroundShapes(paving, config);
+        var rings = GroundRings.Of(paving, config);
+        var junctions = paving.Of.Junctions;
+        var dry = new List<(Vector2 AtM, CityGen.Ground Ground, float OffM)>();
+        for (var junction = 0; junction < junctions.Count; junction++)
+        {
+            var atM = junctions.CentreM[junction];
+            var ground = shapes.At(atM);
+            if (ground is CityGen.Ground.Road or CityGen.Ground.Intersection or CityGen.Ground.Crosswalk
+                or CityGen.Ground.Parking) continue;
+
+            dry.Add((atM, ground, rings.OffTheKerbM(atM)));
+        }
+
+        Console.WriteLine(
+            $"  nodes off the tarmac {dry.Count} of {junctions.Count} stand on ground no car is driven over");
+        for (var at = 0; at < Math.Min(Listed / 5, dry.Count); at++)
+        {
+            Console.WriteLine(
+                $"      at {dry[at].AtM.X:F1},{dry[at].AtM.Y:F1} — {dry[at].Ground}, "
+                + $"{dry[at].OffM:F2} m off the kerb");
+        }
     }
 
     /// <summary>

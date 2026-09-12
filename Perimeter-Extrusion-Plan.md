@@ -43,8 +43,11 @@ not thirty-six:
     what answers for it, and both read nought on both cities over 1.3 million places on the larger. It
     stays in the known gaps because nothing in the join **refuses** water: the construction still permits
     it.
-  - *The node one is moot while the stage runs*: with no pavement laid there is nothing for a node to
-    stand on but grass. It needs the pavement back before it can be seen, let alone fixed.
+  - *The node one is closed*, and it was never about the node. It stood on its own road's centreline,
+    equally near the boundary either side, and the field summed the outward normals of every piece tying
+    for nearest — two opposite sides of a band summing to nothing, so the side was decided against a zero
+    vector and came back outside. Two pieces are one corner when they are nearest at one *place*, not at one
+    distance. `--bench shell`: **3 of 213 nodes → 0**, and 0 of 158 on the other city.
   - *The exam card is a fixture expectation* and reading it means running that tier.
 
 **This file stays until those are closed.** What is settled is already in the requirements and the decision

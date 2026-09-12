@@ -1,5 +1,27 @@
 # The kernel — decision log
 
+## 2026-09-12 — two pieces are one corner when they are nearest at one place, not at one distance
+
+`RingField` answers which side of the boundary a point is on from the nearest piece's own hand, and where
+several pieces tie for nearest it summed their outward normals. That is right for a corner — in the wedge
+outside a sharp one, taking whichever piece a float preferred read inside as often as out, and the sum
+bisects the wedge. It is wrong for every other tie, and the other tie is the medial axis: a point equally
+near the boundary on two *sides* of it has two opposite normals, which sum to nothing, and the side is then
+decided by a dot product against a zero vector. That answered outside.
+
+So the middle of every band wide enough to have a middle read as standing clear of the boundary it is in the
+middle of. What found it was a node of a road nothing is turned through, sitting on its own centreline and
+reading as the grass beside it — a fault filed against junctions for having no ground of their own, which
+they do not need and never did.
+
+**The distinction is the foot and not the distance.** Pieces meeting at a corner are nearest at one point;
+pieces across a medial axis are nearest at two. Only a shared foot sums, and a tie with two feet keeps the
+first piece's normal — either of them gives the right side alone, both saying inside.
+
+Nodes standing on ground no car is driven over, read off `--bench shell`: three of 213 to nought on the
+larger shipped city, nought of 158 on the other. The worst pavement on each fell with it, by half a metre
+and a quarter of a metre.
+
 ## 2026-09-12 — a fold's gap is traced along the answer, and the clearance is sought rather than jumped to
 
 The gap a dropped fold left was stepped across on the straight between the two stations bracketing it, each

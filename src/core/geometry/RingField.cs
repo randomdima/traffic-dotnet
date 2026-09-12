@@ -258,9 +258,17 @@ internal sealed class RingField
         }
 
         bandM = MathF.Max(bandM, _standsOffM[piece]);
-
         clearestM = MathF.Min(clearestM, clearM);
-        outward += left;
+
+        // <b>Two pieces are one corner when they are nearest at one place, not merely at one distance.</b>
+        // A tie whose two feet are apart is a point on the medial axis — equally near the boundary on two
+        // sides of it — and there the two outward normals are opposite and sum to nothing, which leaves the
+        // side to be decided by a dot product against a zero vector. What that answered was <em>outside</em>,
+        // so the middle of every band wide enough to have a middle read as standing clear of the boundary
+        // it is in the middle of: the node of a road nothing is turned through, sitting on its own
+        // centreline, came back as the grass beside it. Either piece of such a tie gives the right side on
+        // its own — both say inside — so the first one is kept and only a shared foot sums.
+        if (Vector2.DistanceSquared(atM, footM) <= SameM * SameM) outward += left;
     }
 
     static Vector2[][] Corners(ReadOnlySpan<ArcSeg[]> rings)

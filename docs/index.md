@@ -111,10 +111,13 @@ Absences that are gaps rather than decisions, and none of them is silent:
   over water, and the water itself asked what answers for it — and both are **nought on both shipped
   cities**, over 1.3 million places on the larger. It stays named because nothing refuses the join: the
   boundary is free to cross water again the moment a fold falls the wrong way.
-- **A node nothing is turned through has no ground of its own.** A junction is the movements that cross in
-  it (`TER-5`), so the node at the end of a road stands beyond the lane that was cut back from it, on
-  whatever the town lays beside a kerb. It is a place in the plan rather than a piece of tarmac, and one
-  node on one city still reads as pavement where its movements do not reach.
+- ~~**A node nothing is turned through has no ground of its own.**~~ Closed, and it was never about the
+  node: it stood on its own road's centreline, equally near the boundary either side, and
+  `RingField` summed the outward normals of every piece tying for nearest. Two opposite sides of a band
+  sum to nothing, so the side was decided against a zero vector and came back *outside* — the middle of
+  every band wide enough to have a middle reading as the grass beside it. Two pieces are one corner when
+  they are nearest at one *place* and not merely at one distance. `--bench shell` reads it: **nought of 213
+  nodes on the larger shipped city, nought of 158 on the other**, from three and unmeasured.
 - **A deck carries no pavement.** Every line beside a road is now the boundary moved by a figure
   (`TER-3c.3`), and the boundary is cut where the ground will not carry a walk — which over water is
   everywhere. So a bridge is its deck and its carriageway, with the margin a parapet stands on reaching all
