@@ -113,6 +113,15 @@ Absences that are gaps rather than decisions, and none of them is silent:
   over water, and the water itself asked what answers for it — and both are **nought on both shipped
   cities**, over 1.3 million places on the larger. It stays named because nothing refuses the join: the
   boundary is free to cross water again the moment a fold falls the wrong way.
+- **The boundary has hairpins, and every line struck off it darts across the road at one.** On a city 746
+  of the shell's 12 235 joints turn a half circle over one to six centimetres — a hand-over whose bridge is
+  no length at all, between two stretches facing opposite ways. The extrusion moves each station to the left
+  of travel, and across a hairpin the left of travel reverses, so the two sides are thrown to *opposite*
+  sides of the line: **2 × (band + distance) apart, which is 3.6 m at the kerb and 7.2 m at the roadside
+  line.** Nothing downstream removes it — each station honestly stands its distance from the lines, so the
+  fold rule keeps both, and `Extrusion.Unlooped` only drops cusps whose arms are under half a metre where
+  these are metres. `--bench shell` counts them per line, and the fix belongs in the shell: a ring that turns
+  a half circle over a centimetre is a seam and not a corner.
 - **A few of the boundary's stations have their normal pointing the wrong way.** Every named line is walked
   with the driven ground on its right, so the right of travel is the inward side (`TER-3c.9`) — except where
   the fold closure left a loop of a station or two, over which the line doubles back and the normal with it.

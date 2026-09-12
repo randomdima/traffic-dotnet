@@ -197,7 +197,86 @@ internal static class ShellProbe
         Wet(kerb, paving, config);
         Nodes(paving, config);
         Inward(rings, config);
+        Kinks(rings, config);
     }
+
+    /// <summary>
+    /// <b>Where a named line is not smooth, and what the corner is made of</b> — every joint of the laid
+    /// chain, the angle it turns, and the length of line either side of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The arms are what name the fault.</b> A joint with a long arm either side is the line really
+    /// turning a corner — a kerb goes round a junction and a trimmed fold meets its other branch — and
+    /// belongs there. A sharp turn with a <em>short</em> arm is one of two things and the length says which:
+    /// a step of about a band's difference is the offset jumping where the ring changes which driven line it
+    /// is running down, and a long straight arriving at nothing is a gap the closure gave up on. Neither is
+    /// a smoothing problem, and smoothing either would move the line off the distance it was struck at.
+    /// </remarks>
+    static void Kinks(GroundRings rings, SimConfig config)
+    {
+        // The shell's own chains first, because a kink the boundary already has is not the extrusion's to
+        // answer for: the ring runs down the driven lines and a stretch handed over to another can turn
+        // whatever the two lines make between them.
+        Kinked("shell", rings.Shell.Chains);
+
+        foreach (var line in (ReadOnlySpan<GroundLine>)[GroundLine.Kerb, GroundLine.Roadside])
+        {
+            Kinked(line.ToString().ToLowerInvariant(), rings.At(line));
+        }
+
+        static void Kinked(string what, ReadOnlySpan<ArcSeg[]> lines)
+        {
+            var joints = 0;
+            var sharp = new List<(float TurnRad, float ArmM, float StepM, Vector2 AtM)>();
+            foreach (var ring in lines)
+            {
+                for (var at = 0; at < ring.Length; at++)
+                {
+                    var arriving = ring[at];
+                    var leaving = ring[(at + 1) % ring.Length];
+                    var turnRad = Spline.WrapRad(leaving.HeadingRad - arriving.HeadingAtRad(arriving.LengthM));
+                    joints++;
+                    if (MathF.Abs(turnRad) < KinkRad) continue;
+
+                    var armM = MathF.Min(arriving.LengthM, leaving.LengthM);
+                    sharp.Add((turnRad, armM, MathF.Min(arriving.LengthM, leaving.LengthM), leaving.StartM));
+                }
+            }
+
+            var shortArmed = sharp.Count(kink => kink.ArmM <= KinkArmM);
+            var halfTurned = sharp.Count(kink => MathF.Abs(kink.TurnRad) >= HalfTurnRad);
+            Console.WriteLine(
+                $"  {what,-9} kinks    {sharp.Count} of {joints} joints turn over "
+                + $"{KinkRad * 180f / MathF.PI:F0}°, {shortArmed} with an arm under {KinkArmM:F2} m, "
+                + $"{halfTurned} turning a half circle");
+
+            foreach (var kink in sharp.OrderByDescending(kink => MathF.Abs(kink.TurnRad)).Take(Listed / 5))
+            {
+                Console.WriteLine(
+                    $"      {kink.TurnRad * 180f / MathF.PI,6:F0}° arm {kink.ArmM,6:F2} m "
+                    + $"at {kink.AtM.X:F1},{kink.AtM.Y:F1}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// How far round is a half circle for this reading — a degree short of one. A turn this far round is a
+    /// line doubling back on itself, and the offset of such a corner is a cap and not a point.
+    /// </summary>
+    const float HalfTurnRad = MathF.PI - (MathF.PI / 180f);
+
+    /// <summary>
+    /// How far round a joint of a laid line has to turn to be worth reading. A sixth of a right angle: a
+    /// line walked at quarter-metre stations and laid back to a two-centimetre sag turns less than that
+    /// between pieces wherever it is doing what it was asked to.
+    /// </summary>
+    const float KinkRad = MathF.PI / 12f;
+
+    /// <summary>
+    /// How short an arm makes a corner a fault rather than a corner. Two stations of the walk the line was
+    /// struck from: a kerb rounding a junction has metres either side of it.
+    /// </summary>
+    const float KinkArmM = 0.5f;
 
     /// <summary>
     /// <b>Whether every named line's normal points inside the perimeter</b> (<see cref="GroundLine"/>): a
