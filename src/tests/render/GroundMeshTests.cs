@@ -551,22 +551,25 @@ public class GroundMeshTests
     /// off a picture is the lane the town was laid with wherever it is measured.
     /// </summary>
     /// <remarks>
-    /// <b>A hair inside the edge rather than on it</b>, because a ribbon is sampled to a chord bow and the
-    /// drawn kerb cuts that much of the corner between two samples. Only the bends are asked about: a
-    /// straight ribbon is two triangles and cannot be pinched. The fixture is where they are asked of,
-    /// since it turns 9 m of radius — tighter than the floor a generated town lays a bend to.
+    /// <b>A hair inside the edge rather than on it</b>, because a boundary is walked at a station and the
+    /// drawn kerb cuts that much of the corner between two of them. Only the bends are asked about: a
+    /// straight lane cannot be pinched. The fixture is where they are asked of, since it turns 9 m of
+    /// radius — tighter than the floor a generated town lays a bend to. <b>And of the lanes, because the
+    /// tarmac is what a car is driven over</b>: a road's own band runs on to the junctions its lanes were
+    /// cut back from, and those last metres are a fact about the plan rather than about the ground.
     /// </remarks>
     [Fact]
     public void EveryBendIsDrawnAsWideAsItsRoad()
     {
         var plan = Towns.Of(Towns.Fixture);
         var tarmac = Triangles(Ground(Towns.Fixture), Surface.Tarmac);
+        var lanes = plan.Paving(SimConfig.Shipped()).Lanes;
         const float HairM = 0.05f;
 
-        for (var road = 0; road < plan.Roads.Count; road++)
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
-            var halfM = (plan.Roads.WidthM[road] * 0.5f) - HairM;
-            foreach (var arc in plan.Roads.SegmentsOf(road))
+            var halfM = (lanes.LaneWidthM[lane] * 0.5f) - HairM;
+            foreach (var arc in lanes.ArcsOf(lane))
             {
                 if (arc.Curvature == 0f) continue;
 
@@ -581,7 +584,7 @@ public class GroundMeshTests
                         var edgeM = centreM + (across * side * halfM);
                         Assert.True(
                             Covered(tarmac, edgeM),
-                            $"road {road} is drawn short of its own kerb at {edgeM}, {alongM:F1} m into a bend");
+                            $"lane {lane} is drawn short of its own kerb at {edgeM}, {alongM:F1} m into a bend");
                     }
                 }
             }
@@ -603,12 +606,13 @@ public class GroundMeshTests
     {
         var plan = Towns.Of(Towns.Fixture);
         var mesh = Ground(Towns.Fixture);
+        var lanes = plan.Paving(SimConfig.Shipped()).Lanes;
         const float HairM = 0.05f;
 
-        for (var road = 0; road < plan.Roads.Count; road++)
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
-            var halfM = (plan.Roads.WidthM[road] * 0.5f) - HairM;
-            foreach (var arc in plan.Roads.SegmentsOf(road))
+            var halfM = (lanes.LaneWidthM[lane] * 0.5f) - HairM;
+            foreach (var arc in lanes.ArcsOf(lane))
             {
                 for (var alongM = 0f; alongM <= arc.LengthM; alongM += 2f)
                 {
@@ -621,7 +625,7 @@ public class GroundMeshTests
                         var edgeM = centreM + (across * side * halfM);
                         Assert.False(
                             PaintedGround(mesh, edgeM),
-                            $"road {road} carries paint on its own lane at {edgeM}, {alongM:F1} m along");
+                            $"lane {lane} carries paint on its own lane at {edgeM}, {alongM:F1} m along");
                     }
                 }
             }

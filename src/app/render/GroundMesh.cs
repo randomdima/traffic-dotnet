@@ -153,9 +153,6 @@ internal sealed partial class GroundMesh
         var edge = Shade(0.58f, 0.58f, 0.62f);
         var paint = Shade(2.6f, 2.6f, 2.5f);
 
-        // Which road ends really stop, for the one shape a ribbon cannot say (<see cref="Grown"/>).
-        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
-
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
         // <b>The pavement: the ground within a walk of the kerb</b> (TER-3c.3) — one region of the town's
@@ -255,85 +252,6 @@ internal sealed partial class GroundMesh
         mesh.BayStrokes(plan, config, paint, periods);
 
         return mesh;
-    }
-
-    /// <summary>
-    /// <b>The road network at <paramref name="outM"/> beyond its own size</b> — every road, every line a
-    /// car is turned through a box on, every wedge their kerbs turn on, and every car park. The three
-    /// layers of the ground are this at a walk, at a line's width and at nothing.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The union is the drawing and not a shape.</b> Two pieces that overlap overlap; the boundary the
-    /// layer has is whatever their outlines leave, and no piece is cut against another (TER-7b). This is
-    /// what makes a junction, a car park's mouth and a bridge cost nothing that a straight does not.
-    /// </para>
-    /// <para>
-    /// <b>A corner grows by moving its arc in and its apex out</b> (<see cref="Fillet"/>), which is one
-    /// fillet of a smaller radius about the same centre — the construction <c>GroundShapes.Grown</c> uses
-    /// to answer the same ground, down to dropping a corner tighter than the growth, where there is no
-    /// reading the arc in that far and what stands round it is the two arms' own bands.
-    /// </para>
-    /// <para>
-    /// <b>A road that stops carries the offset of its own end</b> (TER-7a,
-    /// <c>GroundShapes.OffTheBandM</c>): the ground within a growth of a band that ends square is within a
-    /// growth of its last cross-section, which is that segment swung round, and a ribbon has no way to say
-    /// so. The half of that swing standing back up inside the road is the ribbon's own, so only the outward
-    /// half is laid (<see cref="EndCap"/>). <b>Only an end that really stops</b> — a road at a node with no other arm, or at no node at all.
-    /// An end another arm leaves is inside what that arm draws where the two are one line, and inside the
-    /// wedge their kerbs turn on where they are not. Capped everywhere instead, a city spent a fifth of its
-    /// ground on ends buried in junctions.
-    /// </para>
-    /// <para>
-    /// <b>A car park is drawn by the loop that draws a junction</b> and by nothing else (<c>BayLines</c>):
-    /// it is the union of the movements that reach into it exactly as a junction is the union of the ones
-    /// that cross in it (TER-5), so it appears here as a run of movements and there is no case for it.
-    /// <paramref name="movements"/> stops short of them for the one pass that is a marking rather than
-    /// ground — a kerb line belongs to a carriageway, and struck round a car park it would come back up the
-    /// far side of one where there is no kerb.
-    /// </para>
-    /// </remarks>
-    static void Grown(
-        GroundMesh mesh, CityPlan plan, Paving paving, int movements, int[] armsPerJunction, float outM,
-        Surface surface, Vector3 tint, float[] periods)
-    {
-        for (var road = 0; road < plan.Roads.Count; road++)
-        {
-            var arcs = plan.Roads.SegmentsOf(road);
-            var halfM = plan.Roads.WidthM[road] * 0.5f;
-            mesh.Ribbon(arcs, halfM + outM, surface, tint, periods);
-            if (outM <= 0f || arcs.Length == 0) continue;
-
-            foreach (var (junction, atStart) in (ReadOnlySpan<(int, bool)>)
-                     [(plan.Roads.FromJunction[road], true), (plan.Roads.ToJunction[road], false)])
-            {
-                if (junction != CityPlan.NoRecord && armsPerJunction[junction] > 1) continue;
-
-                // The end arc's own end, off the arc rather than off a walk down the chain: a road's last
-                // cross-section is where its last piece stops and which way that piece is pointing there.
-                var arc = atStart ? arcs[0] : arcs[^1];
-                var headingRad = atStart ? arc.HeadingRad : arc.HeadingAtRad(arc.LengthM);
-                var forward = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
-                mesh.EndCap(
-                    atStart ? arc.StartM : arc.EndM, atStart ? -forward : forward, halfM, outM, surface, tint,
-                    periods);
-            }
-        }
-
-        for (var movement = 0; movement < movements; movement++)
-        {
-            var line = paving.ArcsOfMovement(movement);
-            if (line.Length == 0) continue;
-
-            mesh.Ribbon(line, (paving.MovementWidthM(movement) * 0.5f) + outM, surface, tint, periods);
-        }
-
-        var kerbs = plan.JunctionCorners;
-        for (var corner = 0; corner < kerbs.Count; corner++)
-        {
-            mesh.Fillet(kerbs.CornerM[corner], kerbs.ArcCentreM[corner], kerbs.RadiusM[corner],
-                kerbs.TangentAM[corner], kerbs.TangentBM[corner], -outM, surface, tint, periods);
-        }
     }
 
     /// <summary>

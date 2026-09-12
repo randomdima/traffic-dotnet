@@ -43,6 +43,13 @@ internal sealed class CityPlan
     public required JunctionArrays Junctions { get; init; }
 
     /// <summary>Kerb fillets, carried because they cannot be read back off any other shape.</summary>
+    /// <summary>
+    /// The kerb fillets as the map that arrived recorded them. <b>Nothing reads this and nothing writes
+    /// it</b>: a corner is turned on the town's own boundary now, at the radius the junction was laid at and
+    /// once for every distance struck off it (<see cref="LaneShell.Rounded"/>, TER-5). It is here because a
+    /// shipped <c>.town</c> carries the field, and the round trip over it is what holds the reader and the
+    /// writer to each other.
+    /// </summary>
     public required JunctionCornerArrays JunctionCorners { get; init; }
 
     /// <summary>

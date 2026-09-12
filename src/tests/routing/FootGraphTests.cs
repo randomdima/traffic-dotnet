@@ -267,18 +267,14 @@ public class FootGraphTests
     }
 
     /// <summary>
-    /// <b>The walk has a free end only where the pavement gives way to a slab</b> — the one piece of tarmac
-    /// that takes the ground without offering a line beside it (TER-3c.6), so the walk stops at its edge and
-    /// a body steps straight onto it. A free end anywhere else is a hole in the shell: the wrap came apart
-    /// there, and the pavement the walk was going to carries on the other side of the gap.
+    /// <b>A pavement is a ring, so it has no ends of its own</b> (TER-3c.6): every stretch carries on into
+    /// another at both of its nodes, and a node with one way out is a place the walk really stopped.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing else here can see such a hole.</b> The line that dead-ends stands half a walk from the
-    /// tarmac, is drawn as pavement and is walked on ground a person may stand on, so it passes every sweep
-    /// above; what is wrong with it is that a walker sent down it arrives at nothing and turns round. Two
-    /// constructions used to leave them — a road whose own chain creased, whose offsets then opened by the
-    /// crease times the offset, and a kerb fillet whose tangent point no kerb reached, which is a corner the
-    /// tarmac turns and nothing wrapped.
+    /// <b>Two things may stop one, and they are the only two.</b> A slab takes the ground the walk would
+    /// have run over; and the ground itself refuses to carry a lane — over water, or off the map — which is
+    /// the one cut the construction admits. Anything else is a ring that did not close, and what that costs
+    /// is a walker who can reach a stretch and not leave it.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -286,6 +282,7 @@ public class FootGraphTests
     {
         var plan = Towns.Of(map);
         var foot = Of(map);
+        var ground = new GroundLocator(plan, SimConfig.Shipped());
         var reachM = (plan.PavementWidthM * 0.5f) + Kerbs.RoundingM;
 
         var ways = new int[foot.NodeCount];
@@ -299,10 +296,26 @@ public class FootGraphTests
         {
             if (ways[node] != 1) continue;
 
+            var atM = foot.AnchorM(node);
             Assert.True(
-                OffTheNearestSlabM(plan, foot.AnchorM(node)) <= reachM,
-                $"{map}: the walk stops at {foot.AnchorM(node)} with nothing to give way to");
+                OffTheNearestSlabM(plan, atM) <= reachM || !Carried(ground, atM, reachM),
+                $"{map}: the walk stops at {atM} with nothing to give way to");
         }
+    }
+
+    /// <summary>
+    /// Whether the ground round a place would carry a lane at all, asked a step out in each direction —
+    /// which is how a ring cut by water or by the edge of the map is told from one that simply broke.
+    /// </summary>
+    static bool Carried(GroundLocator ground, Vector2 atM, float reachM)
+    {
+        foreach (var wayM in (ReadOnlySpan<Vector2>)
+                 [Vector2.UnitX, -Vector2.UnitX, Vector2.UnitY, -Vector2.UnitY])
+        {
+            if (!ground.At(atM + (wayM * reachM)).Walkable) return false;
+        }
+
+        return ground.At(atM).Walkable;
     }
 
     /// <summary>How far a point stands off the nearest slab, which is nought within one.</summary>

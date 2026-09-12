@@ -5,10 +5,9 @@ namespace TrafficSimulation.App.Render;
 
 /// <summary>The shapes the ground is cut from, and the triangles and vertices they are written down as.</summary>
 /// <remarks>
-/// <b>Every one of them is a shape of the town at a size</b>, and none of them knows what is beside it.
-/// A layer is the union of the shapes in it and a union is stated by drawing them over one another
-/// (TER-7b), so nothing here trims, clips, cuts or hands over to a neighbour — the piece that is drawn
-/// last is what shows.
+/// <b>A ring of the town's boundary, and the few things that are not one</b> — a rectangle, a ribbon about
+/// a bridge, a mark on a curve. A layer of the ground is one region bounded by that boundary (TER-7b), so
+/// what is cut into triangles here is a closed outline rather than a heap of pieces overlapping into one.
 /// </remarks>
 internal sealed partial class GroundMesh
 {
@@ -30,58 +29,6 @@ internal sealed partial class GroundMesh
             Vertex(centreM + along * halfM.X - across * halfM.Y, surface, tint, periods),
             Vertex(centreM + along * halfM.X + across * halfM.Y, surface, tint, periods),
             Vertex(centreM - along * halfM.X + across * halfM.Y, surface, tint, periods));
-    }
-
-    /// <summary>
-    /// <b>The ground a road's own end grows into</b> (<see cref="Grown"/>): a slab
-    /// <paramref name="outM"/> deep laid off the last cross-section in the direction
-    /// <paramref name="outwardM"/> points, with a quarter turn of that radius about each of the road's two
-    /// end corners.
-    /// </summary>
-    /// <remarks>
-    /// <b>The outward half of the growth and not the whole of it.</b> Swinging the growth right round the
-    /// cross-section draws a second half back up inside the road, where the ribbon laid at
-    /// <c>halfWidthM + outM</c> already stands — every point of it is within the road's own extent and
-    /// within that half-width, so nothing of it can show. Laid anyway, a city paid for it twice at every
-    /// end that stops.
-    /// </remarks>
-    void EndCap(Vector2 atM, Vector2 outwardM, float halfWidthM, float outM, Surface surface, Vector3 tint,
-        float[] periods)
-    {
-        if (outM <= 0f || halfWidthM <= 0f) return;
-
-        var along = outwardM.LengthSquared() > 0f ? Vector2.Normalize(outwardM) : Vector2.UnitX;
-        var across = new Vector2(-along.Y, along.X);
-        var leftM = atM + (across * halfWidthM);
-        var rightM = atM - (across * halfWidthM);
-        var reachM = along * outM;
-        Quad(
-            Vertex(rightM, surface, tint, periods),
-            Vertex(rightM + reachM, surface, tint, periods),
-            Vertex(leftM + reachM, surface, tint, periods),
-            Vertex(leftM, surface, tint, periods));
-
-        var baseRad = MathF.Atan2(along.Y, along.X);
-        var steps = Steps(outM, MathF.PI * 0.5f);
-        CornerFan(leftM, outM, baseRad, MathF.PI * 0.5f, steps, surface, tint, periods);
-        CornerFan(rightM, outM, baseRad, -MathF.PI * 0.5f, steps, surface, tint, periods);
-    }
-
-    /// <summary>A turn of ground about the point the straight sides either side of it run out at.</summary>
-    void CornerFan(Vector2 pivotM, float radiusM, float fromRad, float sweepRad, int steps, Surface surface,
-        Vector3 tint, float[] periods)
-    {
-        var pivot = Vertex(pivotM, surface, tint, periods);
-        var previous = -1;
-        for (var step = 0; step <= steps; step++)
-        {
-            var angleRad = fromRad + (sweepRad * step / steps);
-            var at = Vertex(
-                pivotM + (radiusM * new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad))), surface, tint, periods);
-            if (previous >= 0) TriangleUnlessFlat(pivot, previous, at);
-
-            previous = at;
-        }
     }
 
     /// <summary>
@@ -116,51 +63,6 @@ internal sealed partial class GroundMesh
                 previousLeft = left;
                 previousRight = right;
             }
-        }
-    }
-
-    /// <summary>
-    /// A kerb fillet: the ground between the corner two arms leave and the arc that rounds it. The plan
-    /// carries both tangent points and the centre the arc turns about, because a corner cannot be read back
-    /// off any other shape.
-    /// </summary>
-    /// <remarks>
-    /// <b><paramref name="insetM"/> moves the apex as well as the arc, and the two move opposite ways.</b>
-    /// Only the arc is this shape's own boundary: its two straight sides are the arms' kerbs seen from the
-    /// other side, and there the fillet has to reach a stroke <em>into</em> each arm or the arm's kerb line
-    /// comes back up inside the junction, as far as the tangent point, where the paved ground is continuous
-    /// and no kerb is. So the arc draws in and the apex draws out, each by a stroke measured square to the
-    /// side it moves — and the arc centre standing on the bisector at <c>radius / sin(half the angle)</c> is
-    /// what makes that offset <c>inset / radius</c> of the way from the arc's centre to the corner and out,
-    /// whatever the angle between the arms.
-    /// </remarks>
-    void Fillet(Vector2 cornerM, Vector2 arcCentreM, float radiusM, Vector2 tangentAM, Vector2 tangentBM,
-        float insetM, Surface surface, Vector3 tint, float[] periods)
-    {
-        if (radiusM <= 0f) return;
-
-        var insetRadiusM = radiusM + insetM;
-        if (insetRadiusM <= 0f) return;
-
-        var from = MathF.Atan2(tangentAM.Y - arcCentreM.Y, tangentAM.X - arcCentreM.X);
-        var to = MathF.Atan2(tangentBM.Y - arcCentreM.Y, tangentBM.X - arcCentreM.X);
-        var sweep = to - from;
-        while (sweep > MathF.PI) sweep -= MathF.Tau;
-        while (sweep < -MathF.PI) sweep += MathF.Tau;
-
-        var apexM = Vector2.Lerp(cornerM, arcCentreM, -insetM / radiusM);
-        var steps = Steps(insetRadiusM, sweep);
-        var corner = Vertex(apexM, surface, tint, periods);
-        var previous = -1;
-        for (var step = 0; step <= steps; step++)
-        {
-            var angleRad = from + (sweep * step / steps);
-            var at = Vertex(
-                arcCentreM + (insetRadiusM * new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad))), surface, tint,
-                periods);
-            if (previous >= 0) TriangleUnlessFlat(corner, previous, at);
-
-            previous = at;
         }
     }
 
@@ -223,17 +125,6 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// A water outline, cut into triangles by clipping ears off it. The outlines are concave — a river
-    /// is nothing else — so a fan from any one vertex would paint over its own banks.
-    /// </summary>
-    /// <remarks>
-    /// <b>The next ear is looked for past the last one and not from the start again.</b> An outline is
-    /// walked at a chord's bow, so long stretches of it are convex and every vertex of them is an ear:
-    /// searched from the start each time, the whole of it came off one corner as a fan of slivers a
-    /// hundred deep, which is a triangulation nobody can read and a scan that is the square of the outline.
-    /// Carried on past the ear just cut, the ring is thinned a vertex at a time all the way round.
-    /// </remarks>
-    /// <summary>
     /// One closed ring of the town's boundary, filled. The arcs are read as the straights between their own
     /// ends, which is what an extruded ring is made of (<c>Extrusion</c>).
     /// </summary>
@@ -250,6 +141,18 @@ internal sealed partial class GroundMesh
 
     Vector2[] _ringM = new Vector2[64];
 
+    /// <summary>
+    /// A closed outline, cut into triangles by clipping ears off it — a ring of the town's boundary or of
+    /// the water's. Both are concave — a river is nothing else, and so is a street grid — so a fan from any
+    /// one vertex would paint over its own banks.
+    /// </summary>
+    /// <remarks>
+    /// <b>The next ear is looked for past the last one and not from the start again.</b> An outline is
+    /// walked at a chord's bow, so long stretches of it are convex and every vertex of them is an ear:
+    /// searched from the start each time, the whole of it came off one corner as a fan of slivers a
+    /// hundred deep, which is a triangulation nobody can read and a scan that is the square of the outline.
+    /// Carried on past the ear just cut, the ring is thinned a vertex at a time all the way round.
+    /// </remarks>
     void Polygon(ReadOnlySpan<Vector2> outline, Surface surface, Vector3 tint, float[] periods)
     {
         if (outline.Length < 3) return;

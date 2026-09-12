@@ -19,38 +19,6 @@ public class JunctionCornerGeometryTests
     public static TheoryData<string> Maps => Towns.EveryTown();
 
     /// <summary>
-    /// The arc centre stands in the block, the ground inside the arc is walkable and the ground outside it
-    /// is carriageway. Read the other way round, a band laid half a walk off the fillet lands in the road.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void TheGroundInsideAFilletIsWalkableAndOutsideItIsRoad(string map)
-    {
-        var plan = Towns.Of(map);
-        var terrain = new GroundLocator(plan, SimConfig.Shipped());
-        var corners = plan.JunctionCorners;
-        if (corners.Count == 0) return;
-
-        var strideM = SimConfig.Shipped().Terrain.GroundStepM;
-        for (var corner = 0; corner < corners.Count; corner++)
-        {
-            var arcCentreM = corners.ArcCentreM[corner];
-            var radiusM = corners.RadiusM[corner];
-            var toCorner = Vector2.Normalize(corners.CornerM[corner] - arcCentreM);
-
-            var insideM = arcCentreM + toCorner * (radiusM - strideM);
-            var outsideM = arcCentreM + toCorner * (radiusM + strideM);
-
-            Assert.True(
-                terrain.At(insideM).Walkable,
-                $"{map}: corner {corner} is {terrain.GroundAt(insideM)} a stride inside its own arc, not somewhere to walk");
-            Assert.True(
-                terrain.At(outsideM).Drivable,
-                $"{map}: corner {corner} is {terrain.GroundAt(outsideM)} a stride outside its own arc, not the road it rounds");
-        }
-    }
-
-    /// <summary>
     /// <b>Every kerb fillet stands on the kerbs it rounds</b>: a fillet fills the wedge between two
     /// carriageways, so each of its tangent points is a point of the carriageway it is tangent to (TER-5).
     /// </summary>

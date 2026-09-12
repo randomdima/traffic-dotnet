@@ -193,4 +193,71 @@ public class ExtrusionTests
     {
         Assert.Empty(Extrusion.Of(Circle(4f), 6f, smoothM: 0f));
     }
+
+    /// <summary>
+    /// <b>Two lines struck off one ring stand exactly the difference between their distances apart</b>, which
+    /// is the whole of what makes a band's width a figure rather than a hope: every line the town has is one
+    /// ring moved, so a pavement is a walk wide because a walk is what it was asked for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of a ring with a corner in it</b>, because a circle's two offsets are concentric whatever the
+    /// arithmetic does — it is a corner where an offset that is merely <em>near</em> the right distance comes
+    /// apart from one that is it.
+    /// </remarks>
+    [Theory]
+    [InlineData(2f, 6f)]
+    [InlineData(1f, 3.5f)]
+    public void TwoDistancesOffOneRingStandTheirDifferenceApart(float nearM, float farM)
+    {
+        const float Stations = 200;
+
+        var ring = Ring(
+            new Vector2(0f, 0f), new Vector2(0f, 60f), new Vector2(40f, 60f), new Vector2(40f, 25f),
+            new Vector2(70f, 25f), new Vector2(70f, 0f));
+
+        ReadOnlySpan<ArcSeg[]> rings = [ring];
+        ReadOnlySpan<float[]> bands = [new float[ring.Length]];
+        var near = Extrusion.Of(rings, bands, nearM, smoothM: 0f)[0];
+        var far = Extrusion.Of(rings, bands, farM, smoothM: 0f)[0];
+        Assert.True(near.Length >= 3 && far.Length >= 3, "one of the two distances left no ring to measure");
+
+        var wantedM = farM - nearM;
+        var lengthM = Spline.TotalLengthM(far);
+        for (var station = 0; station < Stations; station++)
+        {
+            var atM = Spline.SampleAt(far, lengthM * station / Stations).PositionM;
+            var apartM = OffTheChainM(near, atM);
+            Assert.True(
+                MathF.Abs(apartM - wantedM) <= 0.05f,
+                $"the two lines stand {apartM:F3} m apart at {atM}, struck {wantedM:F2} m apart");
+        }
+    }
+
+    /// <summary>
+    /// <b>A piece that stands off its own band is moved by that band and the distance together</b> — which is
+    /// what lets one ring carry a boundary whose lines lay different widths, a lane's along a lane and a
+    /// space's along the way into a bay.
+    /// </summary>
+    [Fact]
+    public void APieceStandsOffItsOwnBandAsWellAsTheDistance()
+    {
+        const float RadiusM = 30f;
+        const float BandM = 4f;
+        const float OutM = 2f;
+
+        var ring = Circle(RadiusM);
+        ReadOnlySpan<ArcSeg[]> rings = [ring];
+        ReadOnlySpan<float[]> bands = [[BandM]];
+        var struck = Extrusion.Of(rings, bands, OutM, smoothM: 0f)[0];
+        Assert.NotEmpty(struck);
+
+        var lengthM = Spline.TotalLengthM(struck);
+        for (var station = 0; station < 64; station++)
+        {
+            var atM = Spline.SampleAt(struck, lengthM * station / 64).PositionM;
+            Assert.True(
+                MathF.Abs(atM.Length() - (RadiusM + BandM + OutM)) <= 0.05f,
+                $"a station stands {atM.Length():F3} m out, struck {RadiusM + BandM + OutM:F2} m out");
+        }
+    }
 }
