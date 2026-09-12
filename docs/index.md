@@ -126,19 +126,22 @@ Absences that are gaps rather than decisions, and none of them is silent:
   everywhere. So a bridge is its deck and its carriageway, with the margin a parapet stands on reaching all
   the way out, and the walk that ought to cross it is missing (`TER-3b.1`). Closing this is the same work as
   the gap above it: a boundary that knows where a deck carries it.
-- **The ground is drawn as paint on grass while the upgrade is staged**, and two switches in the shipped
-  figures say so. `RoadFigures.LinesOffTheKerbLaid` **holds back** the pavement, its rim, the kerb line and
-  the walking lanes — nothing lays them, so there is no `TER-3c.3` concrete, no `TER-3d` stroke and the
-  walking network is empty. `RoadFigures.CarriagewayDrawn` **hides** the driven ground and the slabs beside
-  it, which is a different thing: the answer goes on saying that ground is driven over, because the grip, the
-  permission and the lane a body is written onto all hang off it, and only the picture stops showing it.
-  - **That leaves `TER-7b` — the owner's — describing a stack the build does not draw**, three of whose
-    layers are absent, and `TER-7` deviated from outright at the carriageway, the drawn ground and the
-    answered-for ground no longer being one list read two ways. **Neither rule is reworded for it**: the
-    code does not meet them while the stage runs, which is what this entry is.
-  - **It is a stage and not a state of the engine.** Both switches and the branches that read them go when
-    the boundary's remaining faults are closed, and a frame taken meanwhile is the lane paint, the grass and
-    what stands on it.
+- **The ground is drawn as grass while the upgrade is staged**, and three switches in the shipped figures
+  say so. `RoadFigures.LinesOffTheKerbLaid` **holds back** the pavement, its rim, the kerb line and the
+  walking lanes — nothing lays them, so there is no `TER-3c.3` concrete, no `TER-3d` stroke and the walking
+  network is empty. `RoadFigures.CarriagewayDrawn` and `RoadFigures.PaintDrawn` **hide** the driven ground
+  with its slabs, and the paint above it — the lane dashes, the zebras, the stop bars and the bay strokes.
+  Hiding is a different thing from holding back: the answer goes on saying that ground is driven over and
+  that a crossing is a crossing, because the grip, the permission and the lane a body is written onto all
+  hang off them, and only the picture stops showing it.
+  - **That leaves `TER-7b` — the owner's — describing a stack the build does not draw**, five of whose six
+    layers are absent, and `TER-7` deviated from outright, the drawn ground and the answered-for ground no
+    longer being one list read two ways. **Neither rule is reworded for it**: the code does not meet them
+    while the stage runs, which is what this entry is.
+  - **It is a stage and not a state of the engine.** All three switches and the branches that read them go
+    when the boundary's remaining faults are closed. **What the boundary is looked at through meanwhile is
+    `--ui perimeter`** (OBS-2p), which draws it as lines over the bare grass — the ground mesh on a city
+    being 244 triangles with the stack hidden, against 66 506 with it drawn.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

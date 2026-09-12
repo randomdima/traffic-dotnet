@@ -15,11 +15,18 @@ bounds and the slabs beside it, and nothing else changes. What a frame then show
 lines, the zebras, the bars, the bay strokes — on grass, which is the town's lines with nothing filled in
 behind them.
 
+**The paint goes the same way and under one switch of its own.** A dash, a zebra, a bar and a bay stroke
+are one layer (TER-7b's "then the paint") — marks *on* a surface rather than boundaries of one, and the one
+layer that is furniture's rather than the boundary's — so there is one switch for the four of them and not
+four. `RoadFigures.PaintDrawn` off leaves the ground mesh on a city at 244 triangles, against 66 506 with
+the whole stack drawn.
+
 **The asymmetry is worth keeping in view, because it is the only place in the build where drawn and
-answered-for are not one list read two ways** (TER-7), and it leaves TER-7b describing a stack three of
-whose layers are absent. Neither rule is reworded to match: they are in
+answered-for are not one list read two ways** (TER-7), and it leaves TER-7b describing a stack five of whose
+six layers are absent. Neither rule is reworded to match: they are in
 [the known gaps](../../../../docs/index.md#known-gaps) for as long as the stage runs, and the switches go
-with it.
+with it. **What the boundary is looked at through meanwhile is the perimeter layer** (OBS-2p,
+`--ui perimeter`), which was always the right instrument for it and is now the only one in the frame.
 
 ## 2026-09-12 — a layer is a region and not a heap of pieces
 

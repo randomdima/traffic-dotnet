@@ -249,9 +249,15 @@ internal sealed partial class GroundMesh
             Encloses(mesh, rings, 0f, Surface.Grass, Plain, periods);
         }
 
+        // <b>The paint, which is one layer and so one switch</b> (<c>RoadFigures.PaintDrawn</c>): temporary,
+        // and the last of the stage's three. The mark still says what it said — a crossing is a stretch of
+        // the road it is painted across (TER-6) whether or not the stripes are drawn — so this hides the
+        // stripes and nothing else.
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
         mesh._welds = [];
+        if (!config.Road.PaintDrawn) return mesh;
+
         mesh.LaneDashes(plan, config, paint, periods);
 
         // A zebra spans the whole carriageway kerb to kerb — the width of the road it is painted on and
