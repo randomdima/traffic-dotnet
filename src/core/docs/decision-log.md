@@ -1,5 +1,40 @@
 # The kernel — decision log
 
+## 2026-09-12 — the extrusion keeps a clearance from every band, not a distance from every line
+
+The ring a town's ground is said in runs down the lines cars are driven on, and the edge of the ground
+stands half a band beyond — which is why a station is moved by its own band plus the distance. The rule that
+then decided which stations survived was written in *distances to lines*, and that is not the same statement:
+a station moved off a narrow band can stand its own reach from a wide band's line while standing well inside
+the ground that band lays. A bay way beside a carriageway is exactly that shape, and the rule kept stations
+that were in the road.
+
+**It had been left as the distance rule because the clearance rule measured worse**, which was true and was
+an artefact of two other faults. The clearance rule drops more stations, so it leaves more gaps; the closure
+was straightening across gaps, so more gaps meant more straight. With the closure tracing and its corrector
+solving, the comparison is the other way round, and a worst-case figure still could not see it — both rules
+have a worst place around eight metres. **What settled it was counting rather than ranking**: how many
+stations stand over a tenth of a metre off their own figure, split by whether each is nearer the kerb than
+the figure or further, and by whether it is a station of the walk or the middle of a straight.
+
+Nearer the kerb than the figure is the half that costs something — a pavement on the road, where the other
+half is a pavement on the grass. On the two shipped cities, moving to the clearance rule took those from
+3 539 to 476 and 5 122 to 471 on the pavement, and 3 165 to 492 and 2 960 to 349 on the walking lane. **The
+rule's own share of them — the ones standing on a station rather than mid-straight — went from 1 886 to 4
+and 1 354 to 11.** Nine in ten of what is left is the closure's.
+
+**What it costs is build time and three nodes.** The extrusion takes about seven parts in four of what it
+did, paid once when a town is stood up and never on a tick. And nodes have come back off the tarmac, having
+been nought — one of 213 on the larger city and two of 158 on the other: dropping more stations leaves
+bigger gaps, and a closure that cuts a corner can leave a node outside the ring. That is the closure again,
+which is now the only thing left. Three nodes against five thousand fewer metres of line standing in the
+road is the trade, and it is the right way round.
+
+**And the band per piece stops being carried past the field.** Under the distance rule every station's band
+travelled beside it through the keep and the closure, because the figure each was held to was its own. A
+clearance is the same figure everywhere, so the band is now only in the field — where it belongs, the field
+being the one thing that knows what lays the ground near a point.
+
 ## 2026-09-12 — the closure's veto is load-bearing, and a bare straight is the wrong thing to count
 
 Three things were tried on the fold closure past the corrector, and measuring them established something

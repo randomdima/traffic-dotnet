@@ -35,10 +35,14 @@ not thirty-six:
     pavement. Both reverted. The veto is the only thing keeping the closure's bad points out of the line, so
     what is left is the crossing solved — which one attempt found crossing behind the fold rather than
     ahead — or fewer stations dropped, which is the keep rule below.
-  - *The rule's share* is `Extrusion.Of`'s choice: the station's own reach (fails inside — a pavement on the
-    road) against a clearance from every band (fails outside — a pavement on the grass, but twice the gaps
-    and half again the build time). A probe cannot rank them; the walking-lane tier can, and has not been
-    run.
+  - *The rule's share is closed.* The rule is now a clearance from every band rather than a distance from
+    every line, which is what the band per piece was always for, and **the probe could rank them after
+    all** — not by the worst figure, which is eight metres either way, but by counting the stations nearer
+    the kerb than their own figure, which is the half that costs something. On the two shipped cities those
+    fell 3 539 → 476 and 5 122 → 471 on the pavement, 3 165 → 492 and 2 960 → 349 on the lane, and **the
+    rule's own share of them from 1 886 → 4 and 1 354 → 11**. It costs seven parts in four of the build
+    time, and it has put three nodes back off the tarmac — one of 213 and two of 158 — which is the closure
+    again, bigger gaps being what dropping more stations leaves.
 - **A prop cleared against the boundary while the town was being laid is read against the finished one.**
   The generator remakes the ground as each stage adds its shapes, and the boundary of a half-laid town is
   not the boundary of the finished one. Five generator tests. The fix is to say when the boundary is
@@ -55,11 +59,12 @@ not thirty-six:
     what answers for it, and both read nought on both cities over 1.3 million places on the larger. It
     stays in the known gaps because nothing in the join **refuses** water: the construction still permits
     it.
-  - *The node one is closed*, and it was never about the node. It stood on its own road's centreline,
-    equally near the boundary either side, and the field summed the outward normals of every piece tying
-    for nearest — two opposite sides of a band summing to nothing, so the side was decided against a zero
-    vector and came back outside. Two pieces are one corner when they are nearest at one *place*, not at one
-    distance. `--bench shell`: **3 of 213 nodes → 0**, and 0 of 158 on the other city.
+  - *The node one was never about the node.* It stood on its own road's centreline, equally near the
+    boundary either side, and the field summed the outward normals of every piece tying for nearest — two
+    opposite sides of a band summing to nothing, so the side was decided against a zero vector and came back
+    outside. Two pieces are one corner when they are nearest at one *place*, not at one distance.
+    `--bench shell`: **3 of 213 nodes → 0**, and 0 of 158 on the other city — then 1 and 2 again once the
+    keep rule moved, which is the closure and is counted with the rest of it.
   - *The exam card is a fixture expectation* and reading it means running that tier.
 
 **This file stays until those are closed.** What is settled is already in the requirements and the decision

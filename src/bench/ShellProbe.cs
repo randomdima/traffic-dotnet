@@ -344,17 +344,32 @@ internal static class ShellProbe
         // the difference between the closure giving up and the rule keeping what it should not have.
         var offAStraight = 0;
         var deep = 0;
+        var inside = 0;
+        var insideOnAStation = 0;
         for (var at = 0; at < offM.Count; at++)
         {
             if (MathF.Abs(offM[at]) < OffTheFigureM) continue;
 
             deep++;
             if (onM[at] > ExtrudedStationM * 2f) offAStraight++;
+            if (offM[at] > 0f) continue;
+
+            inside++;
+            if (onM[at] <= ExtrudedStationM * 2f) insideOnAStation++;
         }
 
         Console.WriteLine(
             $"      {deep} stations stand over {OffTheFigureM:F2} m off the figure, {offAStraight} of them "
             + "on a piece longer than two strides");
+
+        // <b>And how many of them are nearer the kerb than the figure says</b>, which is the half that
+        // costs something: a line struck short of its own distance is a pavement on the road, where one
+        // struck past it is a pavement on the grass. It is what ranks one keep rule against another
+        // (<c>Extrusion.Of</c>) — the two fail in opposite directions, so a count that does not say which
+        // direction cannot choose between them.
+        Console.WriteLine(
+            $"      {inside} of those stand nearer the kerb than the figure, {insideOnAStation} of them on a "
+            + "station of the walk");
     }
 
     /// <summary>

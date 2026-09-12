@@ -99,14 +99,13 @@ Absences that are gaps rather than decisions, and none of them is silent:
   of them stands a median 0 mm off the figure that struck it. The worst of them does not: a pavement five
   metres inside the kerb at one place, a kerb three and a half metres outside the driven ground at another.
   `--bench shell` prints the median, the worst and the coordinates of both.
-  **It is two faults of comparable size, and the probe says which is which**
-  ([core](../src/core/docs/decision-log.md)). Every station of the walk keeps its distance by construction,
-  so a reading off the figure is either a station the rule should have dropped or the middle of a straight
-  the fold closure gave up and drew — and the length of the piece it was sampled on tells them apart. Of the
-  stations over a tenth of a metre off their figure on a city, **three in four of the pavement's are
-  mid-piece** and **more than half of the walking lane's are stations**. The closure's share is the eight
-  hundred gaps it still gives up on, down from eleven thousand; the rule's share is the choice `Extrusion.Of`
-  names, whose two candidates fail inside and outside respectively and which a probe cannot settle.
+  **What is left of it is the fold closure, and the keep rule's share is gone**
+  ([core](../src/core/docs/decision-log.md)). The rule is now a clearance from every band rather than a
+  distance from every line, which is what the band per piece was always for; the stations standing nearer
+  the kerb than their own figure — a pavement on the road, the half that costs something — fell by nine in
+  ten, and the rule's own share of those from 1 886 to 4 on a city. Of what remains, nine in ten is the
+  middle of a straight the closure gave up and drew. `--bench shell` reports all of it, split by direction
+  and by whether each station is a station of the walk or mid-straight.
 - **A boundary may cross water where no bridge carries it**, and on the shipped cities it no longer does.
   The shell joins two stretches across ground nothing is driven along and nothing in that join asks the
   water, so the risk stands in the construction; what closed it in practice was the fold closure no longer
@@ -114,13 +113,14 @@ Absences that are gaps rather than decisions, and none of them is silent:
   over water, and the water itself asked what answers for it — and both are **nought on both shipped
   cities**, over 1.3 million places on the larger. It stays named because nothing refuses the join: the
   boundary is free to cross water again the moment a fold falls the wrong way.
-- ~~**A node nothing is turned through has no ground of its own.**~~ Closed, and it was never about the
-  node: it stood on its own road's centreline, equally near the boundary either side, and
-  `RingField` summed the outward normals of every piece tying for nearest. Two opposite sides of a band
-  sum to nothing, so the side was decided against a zero vector and came back *outside* — the middle of
-  every band wide enough to have a middle reading as the grass beside it. Two pieces are one corner when
-  they are nearest at one *place* and not merely at one distance. `--bench shell` reads it: **nought of 213
-  nodes on the larger shipped city, nought of 158 on the other**, from three and unmeasured.
+- **A node can stand off the tarmac**, and what it was is not what it is. It was the field: a node sits on
+  its own road's centreline, equally near the boundary either side, and `RingField` summed the outward
+  normals of every piece tying for nearest — two opposite sides of a band summing to nothing, so the side
+  was decided against a zero vector and came back *outside*. Two pieces are one corner when they are
+  nearest at one *place* and not merely at one distance, and fixing that took it to nought on both shipped
+  cities. **Moving the keep rule to a clearance then put three back** — one of 213 nodes and two of 158 —
+  because dropping more stations leaves bigger gaps and a closure that cuts a corner leaves a node outside
+  the ring. So it is now the fold closure wearing a different hat, and `--bench shell` counts it.
 - **A deck carries no pavement.** Every line beside a road is now the boundary moved by a figure
   (`TER-3c.3`), and the boundary is cut where the ground will not carry a walk — which over water is
   everywhere. So a bridge is its deck and its carriageway, with the margin a parapet stands on reaching all
