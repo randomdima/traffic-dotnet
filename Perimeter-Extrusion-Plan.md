@@ -49,8 +49,12 @@ not thirty-six:
   settled, not to make the clearing more generous. **Said**: the boundary settles when the car parks are
   laid, because a lot's ways are driven lines and nothing after that stage adds any; `SlotStage` now clears
   its buildings against that ground rather than against the one its lots were chosen on, and hands it on
-  for the props. **Unverified** — it changes what every generated town holds and only `GeneratorTests` can
-  say whether it closes the five. It cost no extra walk of the shell.
+  for the props. It cost no extra walk of the shell. **And verified, by the instrument rather than the
+  tier**: `--bench shell` walks every building's own footprint and asks the finished ground what is under
+  it, which is the one question the generator cannot ask itself. **Six of 1 200 buildings on a city stood on
+  ground a car is driven over; with the fix, nought** — and nought of 1 100 on the other city. It costs the
+  town nothing: 1 200 buildings and 506 car parks either way, a handful of them merely standing somewhere
+  else.
 - **Three places where the town itself is wrong and the picture and the answer agree about it**: a
   boundary crossing water where no bridge carries it, a node nothing is turned through standing on
   pavement, and an exam card whose walk changed. Named in the known gaps.
@@ -65,7 +69,14 @@ not thirty-six:
     outside. Two pieces are one corner when they are nearest at one *place*, not at one distance.
     `--bench shell`: **3 of 213 nodes → 0**, and 0 of 158 on the other city — then 1 and 2 again once the
     keep rule moved, which is the closure and is counted with the rest of it.
-  - *The exam card is a fixture expectation* and reading it means running that tier.
+  - *The exam card is five cards, and `--bench footway` says which* — an instrument and not the tier, run
+    with the stage switch turned on, since a town with no walking network has no walk to examine. **15 of 20
+    cards walk as written.** Three fail by spending one or two ticks on a carriageway off the paint (cards 4,
+    9 and 17), which is the boundary residual in the plainest terms there are: the walking lane still crosses
+    a kerb at a few corners, and a walker on it is briefly in the road. Two (cards 6 and 14) fail to get
+    past a body standing in the way, which is the walker's own stepping-round and not the boundary — card 14
+    spent 194 ticks trying. What the three carriageway cards cost is one tick each; what closes them is the
+    fold closure, like everything else left.
 
 **This file stays until those are closed.** What is settled is already in the requirements and the decision
 logs that own it (§12); what is left is the list above.

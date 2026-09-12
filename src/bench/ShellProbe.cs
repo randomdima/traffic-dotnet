@@ -95,6 +95,7 @@ internal static class ShellProbe
         Loose(reading, paving);
         Lost(reading, paving);
         Extruded(shell, paving, config);
+        Built(plan, paving, config);
         if (atM is { } place)
         {
             Ground(paving, config, place);
@@ -195,6 +196,60 @@ internal static class ShellProbe
         Worst(offM, atM, onM);
         Wet(kerb, paving, config);
         Nodes(paving, config);
+    }
+
+    /// <summary>
+    /// <b>Whether anything the town stands along its streets is standing in the road</b> — a building or a
+    /// car park's own rectangle, walked and asked of the finished ground.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the one question the generator cannot ask itself.</b> Every stage reads the ground as it
+    /// stands, which is right, but one of them adds driven ground <em>and</em> clears things against it: a
+    /// car park is the ways driven into it (GEN-4b) and those move the edge of the driven ground, so a
+    /// building cleared before the lots went down was cleared against a boundary the finished town does not
+    /// have (<c>SlotStage</c>). Only a reading taken after everything is laid can say whether that left
+    /// anything in the road.
+    /// </para>
+    /// <para>
+    /// <b>Asked of the ground and not of the boundary</b>, because a car park's own tarmac is driven ground
+    /// a building may legitimately back onto (GEN-4b) — what is wrong is a wall standing where a car goes,
+    /// which is what <c>GroundShapes.At</c> answers and no distance does.
+    /// </para>
+    /// </remarks>
+    static void Built(CityPlan plan, Paving paving, SimConfig config)
+    {
+        var shapes = new GroundShapes(paving, config);
+        var buildings = plan.Buildings;
+        var inTheRoad = new List<(Vector2 AtM, CityGen.Ground Ground)>();
+        for (var building = 0; building < buildings.CentreM.Length; building++)
+        {
+            var halfM = buildings.SizeM[building] * 0.5f;
+            var along = Heading.Unit(buildings.HeadingRad[building]);
+            var across = Heading.RightOf(along);
+            for (var downM = -halfM.X; downM <= halfM.X; downM += WetStrideM)
+            {
+                for (var acrossM = -halfM.Y; acrossM <= halfM.Y; acrossM += WetStrideM)
+                {
+                    var atM = buildings.CentreM[building] + (along * downM) + (across * acrossM);
+                    var ground = shapes.At(atM);
+                    if (ground is not (CityGen.Ground.Road or CityGen.Ground.Intersection
+                        or CityGen.Ground.Crosswalk or CityGen.Ground.Parking)) continue;
+
+                    inTheRoad.Add((AtM: atM, Ground: ground));
+                    downM = halfM.X + 1f;
+                    break;
+                }
+            }
+        }
+
+        Console.WriteLine(
+            $"  buildings in the road {inTheRoad.Count} of {buildings.CentreM.Length} cover ground a car is "
+            + "driven over");
+        for (var at = 0; at < Math.Min(Listed / 5, inTheRoad.Count); at++)
+        {
+            Console.WriteLine($"      at {inTheRoad[at].AtM.X:F1},{inTheRoad[at].AtM.Y:F1} — {inTheRoad[at].Ground}");
+        }
     }
 
     /// <summary>

@@ -14,9 +14,15 @@ lots are down, clears its buildings against that, and hands it back — nothing 
 ground, so it is the boundary the finished map answers with. The prop stage takes it instead of building the
 same reading again, which is why the fix costs no extra walk of the shell.
 
-**It changes what a town holds, and only the tier can say by how much.** A building the finished boundary
-now refuses is a building the town does not get, at every seed. That is the point — it was standing in the
-road — but the figure is `GeneratorTests`' to report and it has not been run.
+**What it changes is where a handful of buildings stand, and nothing else.** A building the finished
+boundary refuses is one the town lays at the next slot instead, so both shipped cities come out with the
+count they came out with before — 1 200 buildings and 506 car parks on the larger — and the only other
+figure that moves is a few props following the buildings that moved.
+
+**And it is read back rather than argued for.** `--bench shell` walks every building's own footprint and
+asks the finished ground what is under it, which is the question the generator cannot ask itself: **six of
+1 200 buildings on the larger city stood on ground a car is driven over, and none do now**, nor any of the
+1 100 on the other.
 
 ## 2026-09-12 — what still placed ground of its own is gone, and one switch holds back the rest
 
