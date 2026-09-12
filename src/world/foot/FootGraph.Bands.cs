@@ -53,7 +53,7 @@ internal sealed partial class FootGraph
             var lengthM = Spline.TotalLengthM(ring);
             if (lengthM <= weldM) continue;
 
-            Carried(ring, lengthM, weldM, pointM => terrain.At(pointM).Walkable, runs);
+            Carried(ring, lengthM, weldM, pointM => Carries(terrain, pointM), runs);
             if (room.Length < ring.Length + 2) room = new ArcSeg[ring.Length + 2];
 
             foreach (var (fromM, toM) in runs)
@@ -62,6 +62,23 @@ internal sealed partial class FootGraph
                 if (arcs > 0) builder.AddStrand(room.AsSpan(0, arcs), bandM, FootEdgeKind.Pavement);
             }
         }
+    }
+
+    /// <summary>
+    /// <b>Whether the ground under a place will carry a lane</b>: it has to be off the driven ground and it
+    /// has to be somewhere a body may stand.
+    /// </summary>
+    /// <remarks>
+    /// <b>Somewhere to stand and nowhere a car is driven, which is two questions and not one.</b> A car park
+    /// is ground a body may stand on, so a veto reading walkability alone passes a lane that the fold rule
+    /// pushed onto a bay — and what that lays is a walking lane down a row of parked cars. It is asked of the
+    /// ground the town answers with, so a lane is cut exactly where a reader of the finished town would say
+    /// it had no business being.
+    /// </remarks>
+    static bool Carries(GroundLocator terrain, Vector2 pointM)
+    {
+        var at = terrain.At(pointM);
+        return at.Walkable && !at.Drivable;
     }
 
     /// <summary>

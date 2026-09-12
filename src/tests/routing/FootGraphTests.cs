@@ -312,10 +312,17 @@ public class FootGraphTests
         foreach (var wayM in (ReadOnlySpan<Vector2>)
                  [Vector2.UnitX, -Vector2.UnitX, Vector2.UnitY, -Vector2.UnitY])
         {
-            if (!ground.At(atM + (wayM * reachM)).Walkable) return false;
+            if (!Off(ground, atM + (wayM * reachM))) return false;
         }
 
-        return ground.At(atM).Walkable;
+        return Off(ground, atM);
+    }
+
+    /// <summary>Whether a place is ground a lane may be laid on: off the tarmac, and somewhere to stand.</summary>
+    static bool Off(GroundLocator ground, Vector2 atM)
+    {
+        var at = ground.At(atM);
+        return at.Walkable && !at.Drivable;
     }
 
     /// <summary>How far a point stands off the nearest slab, which is nought within one.</summary>

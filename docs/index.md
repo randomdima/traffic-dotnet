@@ -99,8 +99,8 @@ Absences that are gaps rather than decisions, and none of them is silent:
   the line is walked across the gap rather than solved. On a city the lane laid half a walk out stands a
   median 0 mm off that figure; the worst of it is a metre and a half, at the mouths of laboratory car parks
   where the boundary itself is ragged. `--bench shell` prints both, with the coordinates of the worst.
-  **What it costs is a few metres of walking lane in a town of forty thousand** standing nearer the kerb
-  than they should.
+  **What it costs is eleven samples in forty thousand** on a shipped city — stretches of walking lane
+  standing nearer the kerb than they should, at a handful of places, each of them nameable.
 - **A boundary may cross water where no bridge carries it.** The shell joins two stretches across ground
   nothing is driven along, and nothing in that join asks the water. One place on one shipped city reads as
   a junction's apron over the river, in the picture and in the answer alike — they agree, which is the

@@ -376,7 +376,13 @@ internal static class Extrusion
     {
         for (var push = 0; push < Pushes; push++)
         {
-            if (!field.Nearest(atM, reachM, out var footM, out var offM, out var leftM, out _)) break;
+            // <b>Nothing within reach is deep inside and not far outside.</b> A step of a gap stands on the
+            // straight between two places that are both on the answer, so it cannot be further out than
+            // they are — and where the field has nothing to say about it, what it has nothing to say about
+            // is a place in the middle of the ground. Read the other way, the straight across a car park's
+            // mouth came back accepted for being further from every line than the answer measures, and the
+            // boundary ran through the bays.
+            if (!field.Nearest(atM, reachM, out var footM, out var offM, out var leftM, out _)) return false;
             if (leftM == Vector2.Zero) break;
 
             // <b>Moved to the clearance and not merely out to it.</b> A gap's chord runs outside the line
