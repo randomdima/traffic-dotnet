@@ -2,7 +2,7 @@ namespace TrafficSimulation.App.Debug;
 
 /// <summary>
 /// <b>OBS-2c — each thing a debug session can be opened for has a switch of its own, and no switch
-/// turns on anything a second one owns.</b> Nine checkboxes.
+/// turns on anything a second one owns.</b> Ten checkboxes.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -67,6 +67,17 @@ internal sealed class DebugSwitches
     /// </summary>
     public bool Wireframe;
 
+    /// <summary>
+    /// <b>Which stretches of the town's driven lines the pavement is wrapped off</b> (OBS-2p), marked on
+    /// those lines themselves.
+    /// </summary>
+    /// <remarks>
+    /// It is the town's rather than a body's, like <see cref="Nodes"/>, and it is not switched with that
+    /// one: the graphs say where anything may go, and this says which parts of them the walk is wrapped
+    /// off — a lane whose whole line is drawn under it either way.
+    /// </remarks>
+    public bool Perimeter;
+
     /// <summary>The measuring tool, which takes the mouse for as long as it is ticked.</summary>
     public bool Ruler;
 
@@ -85,7 +96,7 @@ internal sealed class DebugSwitches
     /// Whether anything the town holds still is drawn at all, which is what decides whether the cache
     /// behind those layers is laid. Both of them are geometry that does not move once the town is laid.
     /// </summary>
-    public bool NeedsTownGeometry => Nodes || Wireframe;
+    public bool NeedsTownGeometry => Nodes || Perimeter || Wireframe;
 
     /// <summary>
     /// A number that changes whenever a switch does. The town's own graphs are re-emitted on it

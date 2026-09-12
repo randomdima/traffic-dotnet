@@ -202,6 +202,9 @@ internal sealed class Interface(TrimFigures trims)
                 case "wireframe":
                     Switches.Toggle(ref Switches.Wireframe);
                     break;
+                case "perimeter":
+                    Switches.Toggle(ref Switches.Perimeter);
+                    break;
                 case "ruler":
                     Switches.Toggle(ref Switches.Ruler);
                     break;
@@ -215,7 +218,7 @@ internal sealed class Interface(TrimFigures trims)
                     throw new ArgumentException(
                         $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
                         "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
-                        "claims, collision, turn-circles, wireframe, ruler, track.");
+                        "claims, collision, turn-circles, wireframe, perimeter, ruler, track.");
             }
         }
     }

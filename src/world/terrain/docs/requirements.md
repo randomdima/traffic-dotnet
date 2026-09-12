@@ -161,6 +161,14 @@ two corners and the straight between them, and the three of them start and finis
 side lines do. **A shell has no ends**: every metre of the outside of a piece is offered, and which metres
 of it are pavement is settled by the one rule and nothing else.
 
+**TER-3c.8** `P0` **The walk wraps the tarmac as one shape, and never a piece of it.** Every piece offers
+the line that stands half a walk outside *itself*, and those lines are candidates: what the pavement is, is
+the outline of the **union** of every piece, so a station belongs to exactly one line however many pieces
+are the same distance from it. Two coincident candidates are not two pavements — a car park whose bays'
+ways converge on one pose has six lines down one metre of kerb, a movement running edge to edge with the
+arm it leaves has two, and each of them laid a walk of its own alongside the one already there. Which of
+them keeps a station is nobody's business but the outline's; that it is one of them is this rule.
+
 ## Water and bridges
 
 **TER-3b** `P6` A carriageway crossing ground legal to nobody carries a **bridge**: a deck wider than the

@@ -87,8 +87,9 @@ internal sealed partial class DebugOverlay
 
     /// <summary>
     /// The geometry the town holds still, laid into the cache: the lanes and their connectors under the
-    /// nodes switch, and the ground's own triangles under the wireframe. Neither is switched with a body
-    /// and neither moves once the town is laid, which is what they are cached for.
+    /// nodes switch, the tarmac's own outline under the perimeter, and the ground's own triangles under the
+    /// wireframe. None of them is switched with a body and none moves once the town is laid, which is what
+    /// they are cached for.
     /// </summary>
     void RelayIfStale(
         TownWorld world, GroundMesh? mesh, SimConfig config, DebugSwitches switches, Vector2 viewCentreM,
@@ -109,6 +110,10 @@ internal sealed partial class DebugOverlay
 
         var into = new ScreenDraw(_town);
         if (switches.Nodes) Nodes(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+
+        // Over the graphs where both are on, which is the reading it exists for: what the layer says is
+        // which of the lines under it the town's outline actually runs along.
+        if (switches.Perimeter) Perimeter(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
         // <b>Last, so a mesh dense enough to fill the buffer takes no quads off the layer beside it.</b> A
         // city's triangulation is more quads than the cache holds at any framing that admits it, and laid

@@ -39,3 +39,20 @@ with what asked for it.
 The visual tier fails a frame under 32 colours because a scenario there is always a picture of ground. A
 sheet is not — `--ui menu` over no town is legitimately a panel on black — so the count is printed, the
 picture is written, and the reader decides.
+
+## The town is stood up once for a sheet, not once a cell
+
+A cell is `ShotRun`'s own frame, so a sheet of nine stood the same town up nine times. Standing a city up
+is most of a minute — the walking side of it is three quarters of that — and drawing a frame of one is a
+fraction of a second, so nine tenths of a sheet was laying a town that had not changed. `TownStanding` is
+the town held from cell to cell, and the sheet of nine framings the perimeter was reviewed on went from
+**16½ minutes to 2:07**, which is a single `--shot` plus the drawing.
+
+**Only a town nobody has ticked is handed on.** A frame is drawn off a town without changing it, so every
+cell of an unticked sheet is one town at one tick; a cell that asks for `--seconds` runs the simulation, and
+a town cannot be wound back to where the last cell left it. Handed on anyway, the caption would say a tick
+the picture was not taken at, which is the one thing a review picture may not do (SHT-2). So a ticked cell
+takes the town with it and the next one stands its own up.
+
+**The staging path is still the one path** (SHT-4). What moved out of it is which town it is of, not how the
+frame is staged: `ShotRun.Take` lays the town when it is handed none, so `--shot` is what it always was.

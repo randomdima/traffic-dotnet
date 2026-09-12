@@ -28,11 +28,19 @@ camera pulls back.
 appended in is the whole of the answer** and depth does no work: one indexed draw, one pass, nothing
 sorted, and the piece appended last is the piece that shows.
 
-**The two layers of ground are one list of shapes read at four sizes** (`GroundMesh.Grown`,
-`GroundMesh.Pavement`): every road, every line a car is turned through a box on, every wedge their kerbs
-turn on and every car park, at a walk beyond its own size and a line's width inside that, then a line's
-width beyond its own size and at it. Under them is the grass, between them the water, the shore and the
-decks, and above them the paint.
+**The two layers of ground are one list of shapes read at four sizes** (`GroundMesh.Grown`): every road,
+every line a car is turned through a box on, every wedge their kerbs turn on and every car park, at a walk
+beyond its own size and a line's width inside that, then a line's width beyond its own size and at it.
+Under them is the grass, between them the water, the shore and the decks, and above them the paint.
+
+**A car park is the union of the movements that reach into it** (`BayLines`, GEN-4b) and has no shape of
+its own, exactly as a junction is the union of the ones that cross in it (`TER-5`). It is drawn by the loop
+that draws those and there is no case for it anywhere here. **The one pass it is not in is the kerb line**,
+which is a carriageway's own marking: struck round a car park it would come back up the far side of one,
+where there is no kerb and nothing to be the edge of.
+
+**A solid line is a dashed one whose dash is the whole run**, so a bay's stroke is laid by the machinery
+that lays a lane's centreline (`GroundMesh.DashRun`) and there is no second way to paint a straight mark.
 
 - **A union is stated by drawing its pieces over one another.** Nothing is trimmed, clipped, cut short or
   handed over to a neighbour, and no piece here knows what is beside it. A junction, a car park's mouth, a
@@ -44,9 +52,9 @@ decks, and above them the paint.
   line's to say: the pavement's rim is struck inside the band (`walkM`, then `walkM - edgeM`) and the kerb
   line outside the lane (`halfM + kerbM`, then `halfM`), which is TER-3d. The shore is drawn by the same
   trick and always was.
-- **What breaks the kerb line over a car park's mouth is the lot's own tarmac** (`GroundMesh.Build`), laid
-  between the stroke and the carriageway because that is where the answer puts it — not a stretch of kerb
-  worked out and left unstruck.
+- **What breaks the kerb line over a car park's mouth is the lot's own tarmac** (`GroundMesh.Build`), drawn
+  in the pass after the stroke because that is where the answer puts it — not a stretch of kerb worked out
+  and left unstruck.
 
 **The picture is `GroundShapes.At`'s order, forwards.** That method walks this same list from the end and
 takes the first shape covering the point, so the two are one list read in two directions and a shape added

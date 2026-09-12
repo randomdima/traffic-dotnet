@@ -34,11 +34,19 @@ the street's own frontage should be, and nothing in the town ever fills it. The 
 end of the same statement: a rectangle of tarmac holding one or two cars is a lay-by that cost a lot's
 whole clearance (GEN-4d).
 
-**GEN-4c** `P6` A parking space exceeds the car footprint by the clearance margin on all sides, and all of
+**GEN-4c** `P6` A parking space exceeds the car footprint by a clearance on all sides, and all of
 that ground is the lot's. **A rank of them stands side by side at that width, sharing the line between
 each pair** — the room between two parked cars is the margin each of their bays already carries, and a
 lot that counted it twice would be a row of detached bays with a stripe of bare tarmac down every join
 and no line either of them shares.
+
+**The clearance beside a car and the clearance at either end of it are two figures, and the side one is
+bounded by the lane the bay is worked off** (`SimConfig.ParkingSpaceWidthM` under `LaneWidthM`). What sizes
+the ends is a manoeuvre — a parallel bay is reversed into — and what sizes the sides is a door; nothing
+manoeuvres sideways, so one figure serving both makes a space wider than the traffic lane its way is driven
+out of. A bay's way lays the ground its space is wide for the whole distance it runs down that lane
+(`GEN-4f`), so such a space stands a lip of tarmac past the kerb at every bay in the town — which the ground
+shows as a lump and the outside of it (`OBS-2p`) shows as a step onto the way and straight back.
 
 **GEN-4i** `P6` **A car stands square in the middle of its bay**, the clearance the space carries along its own
 length shared between its nose and its tail. It is the pose the bay's ways end at, so it is what the

@@ -110,6 +110,21 @@ internal static class Theme
 
     public static readonly Vector4 WalkingNodes = new(0.30f, 0.90f, 0.45f, 0.95f);
 
+    /// <summary>
+    /// The stretches of the town's driven lines that are the outside of it (OBS-2p). <b>The driving
+    /// colour's opposite and not a shade of it</b>: the whole reading is which of the orange lines under it
+    /// the outside actually runs along, and every mark this layer makes is drawn straight over one of them.
+    /// </summary>
+    public static readonly Vector4 Perimeter = new(0.15f, 0.60f, 1f, 0.95f);
+
+    /// <summary>
+    /// The line struck a fixed distance outside that one (OBS-2q). <b>Neither the perimeter's colour nor a
+    /// shade of it</b>: the reading is the two lines together — whether the outer one keeps its distance
+    /// everywhere, and where it cut a corner the inner one turned — and two blues an offset apart are one
+    /// thick line at the framing a town is looked at.
+    /// </summary>
+    public static readonly Vector4 PerimeterOut = new(1f, 0.25f, 0.30f, 0.95f);
+
     public static readonly Vector4 Collision = new(0.95f, 0.35f, 0.85f, 0.85f);
 
     /// <summary>

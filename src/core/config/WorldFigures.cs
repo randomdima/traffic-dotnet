@@ -95,7 +95,25 @@ internal sealed class RoadFigures
 
     public float StopBarSetbackM { get; init; } = 1f;
 
+    /// <summary>
+    /// <b>How much of a car's width a bay leaves clear at each end of it</b>: the room a car needs to get
+    /// itself square into the space and out again, which at a parallel bay is what it reverses into.
+    /// </summary>
     public float ParkingSpaceMarginInCarWidths { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <b>And how much it leaves clear down each side</b> — a door's swing, which is the whole of what a bay
+    /// is wider than the car in it.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the side and never the end</b>, and the two were one figure. A parallel bay is entered by
+    /// reversing into it, so what sizes its length is a manoeuvre; nothing manoeuvres sideways, so read at
+    /// the same figure a space came out wider than the traffic lane its way is driven out of — and a way
+    /// lays the ground its space is wide the whole distance the two run together, so every bay in the town
+    /// stood a lip of tarmac past the kerb it hangs off. Odesa drew four hundred and sixty-one steps of
+    /// perimeter onto that lip and a hundred and forty of them were shorter than a hand.
+    /// </remarks>
+    public float ParkingSpaceSideMarginInCarWidths { get; init; } = 0.25f;
 
     /// <summary>
     /// How far before a bay a way in leaves its lane: where a car drops to manoeuvring pace, and the

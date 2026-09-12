@@ -2,6 +2,41 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-09-09 — a car park is a junction, so nothing here draws one
+
+The ground carried a car park twice: an oriented rectangle for its tarmac and a rounded rectangle a walk
+bigger for its wrap, in a pass of their own, answered by a second pair in `GroundShapes`. A stretch of its
+own road was tried next and was still a shape of its own. **A car park is the union of the movements that
+reach into it**, exactly as `TER-5` says a junction is the union of the ones that cross in it, and it now
+goes through the loop that draws those — `Grown` walks `Paving.MovementCount` and has no case for one.
+`GroundShapes` answers it with the same `Sweeps`/`OffTheBandM` a junction gets. The only thing that tells
+the two apart is where they answer in `At`: a bay's way starts on the carriageway it leaves, so asked
+before the roads it would call the near lane of every street a car park. `RoundedRect` had no callers left
+and went, and a bay's stroke is `DashRun` with the dash the length of the run — a solid line is a dashed
+one that fits in one dash.
+
+**What made it possible**: `BayTemplate` came down from `agents/car/control/` to `core/geometry/`, taking
+the three figures it used off `CarBuild` as scalars — so `citygen/BayLines` lays the town's ways at the
+nominal car's figures (`CarParkingTemplateRadiusM` and the rest, derived on `SimConfig` where `CAR-11a`
+always said they were) and a car still lays its own at its own circle. `world/parking/BayWays` kept every
+bit of what the driving makes of a way and lost all of the geometry: a hundred and seventy lines of laying
+became twelve of reading.
+
+## 2026-09-09 — a round corner is cut at the corner, and an end stops being swung right round
+
+`RoundedRect` fanned the whole shape from its middle: one spoke per arc station, each as long as the shape
+is wide, so a car park's wrap came out a wheel of chord-wide slivers and the wireframe read as a hub rather
+than as ground. It is cut where the corners start instead — the slab between the four pivots, an end slab
+past each straight side, a quarter turn about each pivot — which is the same area in the same number of
+triangles, none of them longer than the corner it turns.
+
+The end of a road that stops was the same shape swung right round the last cross-section, and the half of
+that swing pointing back up the road is inside the ribbon laid at `halfM + outM` by construction: within
+the road's own extent and within that half-width, so nothing of it could ever show. `GroundMesh.EndCap`
+lays the outward half only. Odesa's ground came out within a percent of where it was, and the frame within
+one level of one channel — which is what world-anchored texture coordinates promise and what makes a recut
+free to make.
+
 ## 2026-09-09 — the ground is a stack again, because the answer never stopped being one
 
 `TER-7b` asked for a partition and `GroundShapes.At` answered as a stack — every shape of the town at its

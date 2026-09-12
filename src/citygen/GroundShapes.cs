@@ -67,7 +67,7 @@ internal sealed partial class GroundShapes
         _worldSizeM = pieces.WorldSizeM;
         _walkM = paving.WalkM;
         LayTheRoads(pieces, config, paving.WalkM);
-        LayTheTurns(paving.Lanes, pieces.WorldSizeM, config);
+        LayTheTurns(paving, pieces.WorldSizeM, config);
         LayTheShapes(paving, config);
         LayThePaving(paving, config);
     }
@@ -91,7 +91,7 @@ internal sealed partial class GroundShapes
         if (AnyReaches(_kerbIndex, _kerbs.Count, pointM, _kerbs)) return Ground.Intersection;
         if (Turns(pointM, 0f)) return Ground.Intersection;
         if (roads.Carriageway) return Ground.Road;
-        if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(0f))) return Ground.Parking;
+        if (BayWays(pointM, 0f)) return Ground.Parking;
         if (SlabReaches(pointM)) return Ground.Parking;
         if (roads.Deck) return Ground.Sidewalk;
         if (_water.Covers(pointM)) return Ground.Water;
@@ -100,7 +100,7 @@ internal sealed partial class GroundShapes
         if (AnyReaches(_walkIndex, _walks.Count, pointM, _walks)) return Ground.Intersection;
         if (Turns(pointM, _walkM)) return Ground.Intersection;
         if (roads.Walk) return Ground.Road;
-        if (AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM))) return Ground.Parking;
+        if (BayWays(pointM, _walkM)) return Ground.Parking;
 
         return Ground.Grass;
     }
@@ -180,7 +180,7 @@ internal sealed partial class GroundShapes
     public bool PavingWithin(Vector2 pointM, float reachM) =>
         RoadPavingWithin(pointM, reachM)
         || Turns(pointM, reachM)
-        || AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(_walkM + reachM))
+        || BayWays(pointM, _walkM + reachM)
         || _kerbs.AnyWithin(_kerbIndex, pointM, reachM)
         || _walks.AnyWithin(_walkIndex, pointM, reachM)
         || PavedWithin(pointM, reachM)
@@ -189,7 +189,7 @@ internal sealed partial class GroundShapes
 
     /// <summary>Whether a car park's own tarmac stands within reach — which is what tells a street tree from a bench.</summary>
     public bool ParkingWithin(Vector2 pointM, float reachM) =>
-        AnyReaches(_lotIndex, _lotCentreM.Length, pointM, LotsOut(reachM));
+        BayWays(pointM, reachM);
 
     /// <summary>
     /// Whether one point is the ground given, <b>and on the map at all</b>. It is the whole of GEN-2b as
@@ -199,5 +199,4 @@ internal sealed partial class GroundShapes
     /// </summary>
     bool Is(Vector2 pointM, Ground ground) => Contains(pointM) && At(pointM) == ground;
 
-    Lots LotsOut(float outM) => new(_lotCentreM, _lotAxis, _lotHalfM, outM);
 }

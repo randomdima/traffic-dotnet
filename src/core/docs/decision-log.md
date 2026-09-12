@@ -1,5 +1,21 @@
 # The kernel — decision log
 
+## 2026-09-11 — an extrusion is a distance rule, not a pile of offset pieces
+
+`Spline.OffsetInto` moves a chain piece by piece and asks nothing about the rest of it, which is right for a
+lane inside its own road and is not a boundary: a ring's corner turned the other way sweeps the offset
+through the ring and comes back as a lap standing inside the shape, and two sides of a gap narrower than
+twice the offset each lay a line past the other. `Extrusion` keeps one rule instead — no point of the answer
+stands nearer the ring than the offset — asked of stations along the line rather than solved between pieces.
+Solving it properly means pairing up which of the offset's own crossings bound the answer, which needs a
+case for a fold inside a fold; the distance rule needs none and says the same thing about a ring of ten
+pieces and one of ten thousand. What it costs is that the fold closes within a station of where it really
+does, and the station is a quarter of a metre.
+
+Smoothing is a window over the line's own length and not a corner fillet. Half of what an extrusion has to
+smooth is not a corner: it is the notch left where a fold was dropped, and a fillet leaves one exactly as it
+found it.
+
 ## 2026-08-21 — an angle becomes a direction in one place, and a series covers the sinc
 
 Trigonometry was 18 % of the tick, nearly all of it two shapes written out by hand across twenty sites so

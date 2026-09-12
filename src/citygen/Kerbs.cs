@@ -68,9 +68,9 @@ internal sealed class Kerbs
     /// The junctions a road runs through as one line (<see cref="RoadCuts.RunsThrough"/>), whose movements
     /// are no pieces of the tarmac's outline: every one of them lies inside the two arms it joins.
     /// </param>
-    public static Kerbs Of(GroundPieces plan, LaneLines lanes, bool[] through)
+    public static Kerbs Of(GroundPieces plan, LaneLines lanes, BayLines bays, float bayWidthM, bool[] through)
     {
-        var pieces = Lay(plan, lanes, through);
+        var pieces = Lay(plan, lanes, bays, bayWidthM, through);
         var shards = Shatter(pieces);
         return new Kerbs(pieces, shards, new ShardGrid(pieces, shards, plan.WorldSizeM));
     }
@@ -92,6 +92,34 @@ internal sealed class Kerbs
     {
         var (outsideM, movementM) = Nearest(pointM);
         return MathF.Min(outsideM, movementM);
+    }
+
+    /// <summary>
+    /// <b>How far a point stands off the ground the town is driven <em>along</em></b>, negative within it:
+    /// the band every road, every movement and every bay way lays, and <b>nothing that was paved around
+    /// them</b> — not a junction's corner apron and not a car park's slab.
+    /// </summary>
+    /// <remarks>
+    /// It is the shape a perimeter said in the lines is the outside of (<see cref="LaneShell"/>), and the
+    /// two things left out are why there are two readings of one tarmac. A <b>fillet</b> stands outside the
+    /// corner where two roads' kerbs cross, so counted in, the outside leaves the lanes at every mouth and
+    /// no lane section is left to carry it round; left out, the two arms' own bands meet at that crossing
+    /// point and the boundary goes round the junction on the lanes themselves. A <b>slab</b> is paved under
+    /// a whole car park, so counted in, its bays are buried and the outside of one is the slab's own edge,
+    /// which no car is driven along.
+    /// </remarks>
+    public float OffTheDrivenM(Vector2 pointM)
+    {
+        var nearestM = ReachM;
+        foreach (var shard in _grid.At(pointM))
+        {
+            var piece = _pieces[_shards[shard].Piece];
+            if (piece.Kind != Kind.Band) continue;
+
+            nearestM = MathF.Min(nearestM, DistanceM(piece, _shards[shard].Arc, pointM));
+        }
+
+        return nearestM;
     }
 
     /// <summary>
@@ -206,9 +234,14 @@ internal sealed class Kerbs
         // arm of a street, or stands square against one across it, has its line exactly the offset from
         // that arm along its corners' turns, and kept on the tie those turns were runs of pavement round
         // an end nothing is open at — and the end was drawn as one that reaches the outline.
+        //
+        // <b>And one piece owns each station of it</b> (TER-3c.8, <see cref="Owns"/>). Two pieces the same
+        // distance from a station both pass every test above, and both used to keep it — one run of outline
+        // each over one metre of ground.
         Cut(
-            wraps, weldM,
+            wraps, outM, weldM,
             (wrap, atM) => Stands(atM, outM, allowed)
+                           && Owns(wrap.Piece, atM, outM)
                            && (wrap.OnlyWhereTheKerbIsOpen || wrap.End != Wrap.ASide
                                ? OffTheOutsideM(atM, wrap.Piece) > outM + JoinedM
                                : true),
@@ -222,8 +255,41 @@ internal sealed class Kerbs
     /// </summary>
     float OffTheOutsideM(Vector2 pointM, int except) => Nearest(pointM, except).OutsideM;
 
-    /// <summary>Every wrapping line cut to the spans <paramref name="kept"/> says are wanted of it.</summary>
-    void Cut(List<Wrap> wraps, float weldM, Func<Wrap, Vector2, bool> kept, List<Wrap> into)
+    /// <summary>
+    /// <b>Whether this piece is the one that owns the outline here</b> (TER-3c.8): the lowest-numbered piece
+    /// standing exactly <paramref name="outM"/> from the point, of however many do.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The outline belongs to the union and not to the pieces it is made of.</b> Every piece offers its
+    /// own offset as a candidate and the union keeps the stations no piece stands <em>nearer</em> to
+    /// (<see cref="Clear"/>) — which settles every station but the ones several pieces are the same distance
+    /// from. There the tie used to keep them all, and what came back was one run of outline per piece over
+    /// the same ground: a car park whose bays' ways converge on one pose lays six lines down the same metre
+    /// of kerb, and the walk laid off them is the same pavement six times.
+    /// </para>
+    /// <para>
+    /// <b>Lowest-numbered and not nearest</b>, because the whole point is that they are equally near. It is
+    /// a tie-break and needs only to be the same answer for every station of the run, so that what survives
+    /// is one line rather than a shared one changing hands along its length.
+    /// </para>
+    /// </remarks>
+    bool Owns(int piece, Vector2 pointM, float outM)
+    {
+        foreach (var shard in _grid.At(pointM))
+        {
+            var at = _shards[shard].Piece;
+            if (at >= piece) continue;
+            if (MathF.Abs(DistanceM(_pieces[at], _shards[shard].Arc, pointM) - outM) <= JoinedM) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Every wrapping line cut to the spans <paramref name="kept"/> says are wanted of it.
+    /// </summary>
+    void Cut(List<Wrap> wraps, float outM, float weldM, Func<Wrap, Vector2, bool> kept, List<Wrap> into)
     {
         var spans = new List<(float FromM, float ToM)>();
         var run = new ArcSeg[2];
@@ -591,7 +657,7 @@ internal sealed class Kerbs
     /// Every piece the tarmac is made of. <b>Nothing here is grown by anything</b>: it is the ground a car
     /// drives on at the size it is drawn, and what stands beside it is the caller's offset to ask for.
     /// </summary>
-    static List<Piece> Lay(GroundPieces plan, LaneLines lanes, bool[] through)
+    static List<Piece> Lay(GroundPieces plan, LaneLines lanes, BayLines bays, float bayWidthM, bool[] through)
     {
         var pieces = new List<Piece>();
         for (var road = 0; road < plan.Roads.Count; road++)
@@ -625,10 +691,16 @@ internal sealed class Kerbs
                 corners.TangentAM[corner], corners.TangentBM[corner]));
         }
 
-        for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
+        // <b>A car park is the movements that reach into it</b> (<see cref="BayLines"/>, GEN-4b) and has no
+        // shape of its own, exactly as a junction is the movements that cross in it. Unlike those, a bay's
+        // way runs <em>out</em> of the road rather than between two arms of it, so its own line is the
+        // outside of the tarmac wherever nothing else stands nearer — which is the far end of every space.
+        foreach (var way in bays.GroundWays)
         {
-            pieces.Add(Piece.Box(
-                plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot], plan.ParkingLots.HalfExtentM[lot]));
+            var arcs = bays.ArcsOf(way);
+            if (arcs.Length == 0) continue;
+
+            pieces.Add(Piece.Band(arcs.ToArray(), bayWidthM * 0.5f));
         }
 
         var areas = plan.PavedAreas;

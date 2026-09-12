@@ -13,7 +13,7 @@ what it costs to gather is not paid while its body is shut
 ([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
 **OBS-2c** `P8` **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
-anything a second one owns.** Nine of them. **A layer covers one kind of body entirely** — its geometry and its
+anything a second one owns.** Ten of them. **A layer covers one kind of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
 to the *town* rather than to a body is not switched with a body at all**.
 
@@ -159,6 +159,61 @@ is also the honest answer to whether the question can be asked from here.
 so it is cached and re-emitted on the same terms the nodes layer is — and laid after that layer, because a
 city's triangulation is more quads than the cache holds at any framing that admits it, and laid first it
 would leave a switch on beside it drawing nothing.
+
+**OBS-2p** `P8` **Which stretches of the town's driven lines are the outside of it is a layer**, marked on
+those lines and on nothing else. **A lane, a movement or a way into a bay — never a carriageway.** The
+perimeter of a plain road is its outer lanes, one where the street is one lane and both where it is two;
+at a junction it is the lanes and turning movements that reach the corners where the two roads' kerbs
+cross, over exactly the metres they do. So what is marked is a stretch of an orange line, and a stretch of the median between two
+of them is the one answer that is certainly wrong: the tarmac's own piece for a street is a band about its
+middle, and a layer reading the piece rather than the line draws ground nobody drives.
+
+**And it is read, not worked out here** ([`LaneShell`](../../../citygen/LaneShell.cs)). Which stretches of
+the town are its outside is a fact about the ground and the thing the pavement is meant to be laid off; a
+layer that derived its own copy would be the second answer that disagrees with the first.
+
+**A perimeter is a continuous line, and a picture of one in pieces is a picture of a fault.** Every gap in
+it is a metre of the town's edge nothing accounts for, so a break in this layer is the reading it is opened
+for — and it must be the town's break rather than the drawing's.
+
+**The pavement's own outline is not drawn.** It stands half a walk off the tarmac and is the pavement's
+middle, so laid over the town it reads as a third network between the two the nodes layer already draws
+rather than as an answer about the two.
+
+**In a colour that is the driving network's opposite**, since the reading is taken against the very lines
+the nodes layer draws underneath: a shade of the same hue says these are more lanes rather than *which*
+lanes the outside runs along.
+
+**One solid line per ring, and nothing down its length.** Anything drawn along it could be read as a break
+in it — ticked at a pitch the way a lane is, a run of the perimeter reads as dashes and every gap has to be
+measured against the pitch before it counts as one. The line has no direction to say either.
+
+**The outside never stops, so a dot is a fault** — and every one the answer has is drawn, including the ones
+that should not be there. This layer is an instrument, and **what is then fixed is the geometry**. A layer
+that stopped drawing the mark would have hidden the fault and left the ground exactly as wrong.
+
+**Every side of the ground is the outside of it, so every ring that shuts is drawn.** A street grid bounds
+what it lays on the outside and round every block it encloses, and both of those are the edge of the driven
+ground: a plain two-lane street is **both** its lanes, one carried by the ring round the town and the other
+by the ring round the block behind it. Marked from the outermost ring alone, every such street comes back
+down one side only, which is half an answer to the question the layer is opened for. What is *not* drawn is
+a ring that goes round nothing — a notch a hand's breadth across, shut on itself — and a run that will not
+shut at all, because a perimeter in pieces is not one.
+
+**OBS-2q** `P8` **The perimeter layer draws a second line a fixed distance outside the first**, in a colour
+that is not the first's. It is the same rings moved off the tarmac and smoothed
+([`Extrusion`](../../../core/geometry/Extrusion.cs)) — the shape anything wrapped round the town at a
+distance is cut from, drawn so that the distance can be read rather than trusted.
+
+**What the second line says is whether it kept its distance.** An offset line is only a boundary while no
+point of it stands nearer the ring than the offset, and the two failures that breaks are visible against the
+line it was struck from and against nothing else: the outer line crossing the inner one, and a lap of it
+standing inside a corner the inner one turned. Drawn alone it would be a plausible line either way.
+
+**It is struck off the perimeter and not off the tarmac.** The pavement's outline is already the tarmac at a
+distance out and is cut into runs where it is the outside; this is the whole ring carried round, so what the
+two answer is not the same question and a layer drawing one as the other would say the perimeter is in
+pieces.
 
 ## Two performance rules this layer taught
 

@@ -49,6 +49,16 @@ internal static class PathMarks
     public const float EndDiscM = PathLineM * 2.2f;
 
     /// <summary>
+    /// <b>How long a barb off a line is, and how far apart barbs stand down it</b>
+    /// (<see cref="Barbed"/>). Longer than a mark and further apart: a barb is read one at a time, being an
+    /// answer about one side of the line rather than a direction the run as a whole has, and a comb of them
+    /// as fine as the marks reads as a band drawn beside the line instead of as a row of answers.
+    /// </summary>
+    public const float BarbM = 0.7f;
+
+    const float BarbPitchM = 5f;
+
+    /// <summary>
     /// How far a chord drawn across a bend may bow off it, on screen — the one figure here that is not a
     /// size on the ground, because it is a fidelity and not a mark. A quarter of a pixel is less than a
     /// line this wide can show at any framing.
@@ -69,6 +79,10 @@ internal static class PathMarks
     /// </summary>
     public static float MarkPitchAt(float pixelsPerMetre) =>
         MarkPitchM * MarkSizeFraction * pixelsPerMetre >= MarkVisiblePx ? MarkPitchM : float.PositiveInfinity;
+
+    /// <summary>The pitch to stand barbs at, on the same terms (<see cref="MarkPitchAt"/>).</summary>
+    public static float BarbPitchAt(float pixelsPerMetre) =>
+        BarbM * pixelsPerMetre >= MarkVisiblePx ? BarbPitchM : float.PositiveInfinity;
 
     /// <summary>
     /// One stretch of a chain of arcs, as the run of quads that draws it: <b>every piece stepped at the
@@ -141,6 +155,31 @@ internal static class PathMarks
             var mark = Spline.SampleAt(arcs, atM);
             if (bothWays) draw.TickM(mark.PositionM, mark.Direction, sizeM, widthM, colour);
             else draw.ChevronM(mark.PositionM, mark.Direction, sizeM, widthM, colour);
+        }
+    }
+
+    /// <summary>
+    /// <b>The barbs down one stretch of a chain</b>: at each place on the comb, a short dash square off the
+    /// line and standing to one side of it — <b>which side being the whole of what a barb says</b>.
+    /// </summary>
+    /// <remarks>
+    /// It is drawn for a line that divides rather than for one that leads, where what a reader has to be
+    /// able to see is which of the two sides the line claims. A chevron cannot say it: a chevron is about
+    /// the line's own direction, and reading a side off a direction asks the reader to know which hand the
+    /// thing that drew it keeps its answer on.
+    /// </remarks>
+    public static void Barbed(
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM,
+        bool toTheRight, float widthM, Vector4 colour)
+    {
+        if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
+
+        var start = Spline.SampleAt(arcs, fromM);
+        for (var atM = fromM + FirstMarkM(start.PositionM, start.Direction, pitchM); atM <= toM; atM += pitchM)
+        {
+            var barb = Spline.SampleAt(arcs, atM);
+            var across = toTheRight ? barb.Right : -barb.Right;
+            draw.LineM(barb.PositionM, barb.PositionM + (across * BarbM), widthM, colour);
         }
     }
 

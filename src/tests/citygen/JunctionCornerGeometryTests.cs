@@ -73,7 +73,11 @@ public class JunctionCornerGeometryTests
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
             },
             plan.Ground.Crosswalks, plan.Ground.StopLines);
-        var tarmac = Kerbs.Of(bare, LaneLines.Of(plan.Ground, SimConfig.Shipped()), RoadCuts.RunsThrough(bare));
+        var config = SimConfig.Shipped();
+        var lanes = LaneLines.Of(plan.Ground, config);
+        var tarmac = Kerbs.Of(
+            bare, lanes, BayLines.Lay(bare, lanes, config), config.ParkingSpaceWidthM,
+            RoadCuts.RunsThrough(bare));
 
         for (var corner = 0; corner < corners.Count; corner++)
         {

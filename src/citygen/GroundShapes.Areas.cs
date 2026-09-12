@@ -29,14 +29,9 @@ internal sealed partial class GroundShapes
 
     BucketGrid _kerbIndex = null!;
     BucketGrid _walkIndex = null!;
-    BucketGrid _lotIndex = null!;
 
     Fillets _kerbs;
     Fillets _walks;
-
-    Vector2[] _lotCentreM = [];
-    Vector2[] _lotAxis = [];
-    Vector2[] _lotHalfM = [];
 
     Vector2[] _slabMinM = [];
     Vector2[] _slabSizeM = [];
@@ -135,19 +130,6 @@ internal sealed partial class GroundShapes
             var withinM = roundM + reachM;
             return (pointM - middleM).LengthSquared() <= withinM * withinM;
         }
-    }
-
-    /// <summary>
-    /// A car park's own tarmac, or the ground within <paramref name="outM"/> of it — <b>which turns its
-    /// corners on that same figure</b>, because a box grown by a distance is a box with the distance for a
-    /// corner radius and nothing else.
-    /// </summary>
-    readonly struct Lots(Vector2[] centreM, Vector2[] axis, Vector2[] halfM, float outM) : IGroundShape
-    {
-        public bool Covers(int shape, Vector2 pointM) =>
-            outM > 0f
-                ? InRoundedRect(pointM, centreM[shape], axis[shape], halfM[shape] + new Vector2(outM), outM)
-                : InRect(pointM, centreM[shape], axis[shape], halfM[shape]);
     }
 
     /// <summary>A set of closed rings and the box each of them fits in.</summary>
@@ -312,34 +294,6 @@ internal sealed partial class GroundShapes
     static float Side(Vector2 pointM, Vector2 fromM, Vector2 toM) =>
         ((toM.X - fromM.X) * (pointM.Y - fromM.Y)) - ((toM.Y - fromM.Y) * (pointM.X - fromM.X));
 
-    static bool InRect(Vector2 pointM, Vector2 centreM, Vector2 axis, Vector2 halfM)
-    {
-        Offsets(pointM, centreM, axis, out var alongM, out var acrossM);
-        return alongM <= halfM.X && acrossM <= halfM.Y;
-    }
-
-    /// <summary>
-    /// An oriented rectangle whose four corners are turned on an arc of <paramref name="radiusM"/> — the
-    /// piece <c>GroundMesh.RoundedRect</c> draws a car park's pavement wrap as, so the ground the wrap
-    /// covers and the ground it is drawn over are one shape (TER-7).
-    /// </summary>
-    static bool InRoundedRect(Vector2 pointM, Vector2 centreM, Vector2 axis, Vector2 halfM, float radiusM)
-    {
-        Offsets(pointM, centreM, axis, out var alongM, out var acrossM);
-        if (alongM > halfM.X || acrossM > halfM.Y) return false;
-
-        var turnM = MathF.Min(radiusM, MathF.Min(halfM.X, halfM.Y));
-        var pastM = new Vector2(alongM - (halfM.X - turnM), acrossM - (halfM.Y - turnM));
-        return pastM.X <= 0f || pastM.Y <= 0f || pastM.LengthSquared() <= turnM * turnM;
-    }
-
-    static void Offsets(Vector2 pointM, Vector2 centreM, Vector2 axis, out float alongM, out float acrossM)
-    {
-        var offsetM = pointM - centreM;
-        alongM = MathF.Abs(Vector2.Dot(offsetM, axis));
-        acrossM = MathF.Abs(Vector2.Dot(offsetM, Heading.RightOf(axis)));
-    }
-
     /// <summary>
     /// The shapes that belong to no road, laid over the broad phases that answer which of them reach a
     /// point. <b>Every one is read off the plan the town is drawn from</b>, and none is re-derived here.
@@ -357,17 +311,6 @@ internal sealed partial class GroundShapes
 
         _walks = Grown(kerbs, walkM);
         _walkIndex = _walks.Index(plan.WorldSizeM, bucketM);
-
-        _lotCentreM = plan.ParkingLots.CentreM;
-        _lotAxis = plan.ParkingLots.Axis;
-        _lotHalfM = plan.ParkingLots.HalfExtentM;
-        var lotReachM = new float[_lotCentreM.Length];
-        for (var lot = 0; lot < lotReachM.Length; lot++)
-        {
-            lotReachM[lot] = (_lotHalfM[lot] + new Vector2(walkM)).Length();
-        }
-
-        _lotIndex = BucketGrid.Build(plan.WorldSizeM, bucketM, _lotCentreM, lotReachM);
 
         _slabMinM = plan.PavedAreas.MinM;
         _slabSizeM = plan.PavedAreas.SizeM;

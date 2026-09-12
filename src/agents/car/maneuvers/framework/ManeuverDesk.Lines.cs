@@ -74,7 +74,8 @@ internal sealed partial class ManeuverDesk
         var headingRad = _cars.HeadingRad[car];
         ref readonly var build = ref _cars.BuildOf(car);
         var line = BayTemplate.TryLay(
-            _config, build, CarFollower.RearAxleM(build, _cars.PositionM[car], headingRad),
+            build.ParkingTemplateRadiusM, build.ParkingStraightensUpM,
+            CarFollower.RearAxleM(build, _cars.PositionM[car], headingRad),
             reverse ? headingRad + MathF.PI : headingRad,
             at.PositionM, MathF.Atan2(endsAlong.Y, endsAlong.X), _candidate, out _);
 
@@ -110,9 +111,10 @@ internal sealed partial class ManeuverDesk
         if (!_parking.Takes(build.LengthM, build.WidthM)) return false;
 
         var line = BayTemplate.TryLay(
-            _config, build, CarFollower.RearAxleM(build, _cars.PositionM[car], headingRad),
+            build.ParkingTemplateRadiusM, build.ParkingStraightensUpM,
+            CarFollower.RearAxleM(build, _cars.PositionM[car], headingRad),
             noseIn ? headingRad : headingRad + MathF.PI,
-            BayTemplate.RearAxleOfBayM(build, _parking.CentreM(bay), bayHeadingRad, noseIn),
+            BayTemplate.RearAxleOfBayM(build.CentreAheadOfAxleM, _parking.CentreM(bay), bayHeadingRad, noseIn),
             bayHeadingRad, _candidate, out _);
 
         if (!line.Any) return false;

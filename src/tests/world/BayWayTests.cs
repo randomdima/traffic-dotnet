@@ -142,7 +142,7 @@ public class BayWayTests
         {
             var bay = ways.BayOfWay(way);
             var axleM = BayTemplate.RearAxleOfBayM(
-                Nominal, plan.ParkingLots.SpacePositionM[bay], plan.ParkingLots.SpaceHeadingRad[bay], noseIn: true);
+                Nominal.CentreAheadOfAxleM, plan.ParkingLots.SpacePositionM[bay], plan.ParkingLots.SpaceHeadingRad[bay], noseIn: true);
 
             var nearLane = roads.NearestLane(axleM, out _);
             if (!ways.IsDrivenInReverse(way)) continue;
@@ -180,7 +180,7 @@ public class BayWayTests
         {
             var nearLane = roads.NearestLane(
                 BayTemplate.RearAxleOfBayM(
-                    Nominal, plan.ParkingLots.SpacePositionM[bay], plan.ParkingLots.SpaceHeadingRad[bay],
+                    Nominal.CentreAheadOfAxleM, plan.ParkingLots.SpacePositionM[bay], plan.ParkingLots.SpaceHeadingRad[bay],
                     noseIn: true),
                 out _);
 
@@ -231,7 +231,7 @@ public class BayWayTests
 
             var headingRad = plan.ParkingLots.SpaceHeadingRad[bay];
             var axleM = BayTemplate.RearAxleOfBayM(
-                Nominal, plan.ParkingLots.SpacePositionM[bay], headingRad, ways.IsNoseIn(way));
+                Nominal.CentreAheadOfAxleM, plan.ParkingLots.SpacePositionM[bay], headingRad, ways.IsNoseIn(way));
 
             var ends = Spline.SampleAt(arcs, ways.DrivenLengthM(way));
             Assert.True(
@@ -298,7 +298,7 @@ public class BayWayTests
             var bay = ways.BayOfWay(way);
             var headingRad = plan.ParkingLots.SpaceHeadingRad[bay];
             var axleM = BayTemplate.RearAxleOfBayM(
-                Nominal, plan.ParkingLots.SpacePositionM[bay], headingRad, ways.IsNoseIn(way));
+                Nominal.CentreAheadOfAxleM, plan.ParkingLots.SpacePositionM[bay], headingRad, ways.IsNoseIn(way));
 
             var arcs = ways.ArcsOf(way);
             Assert.True(

@@ -142,7 +142,6 @@ internal sealed partial class GroundMesh
         // and the lines a car is driven on are the town's own (<see cref="Paving"/>). Derived again here,
         // the picture and the answer are two readings that have to be kept in step by whoever remembers.
         var paving = plan.Paving(config);
-        var lanes = paving.Lanes;
         var walkM = paving.WalkM;
         var edgeM = config.Road.EdgeLineWidthM;
         var kerbM = config.Road.PaintLineWidthM;
@@ -167,8 +166,8 @@ internal sealed partial class GroundMesh
         // <b>Twice, and the whole layer each time</b>: at full size in the edge shade, then a line's width
         // smaller in the surface's own. Since every fill follows every rim, what survives is a rim on the
         // union's own outer boundary and nothing where two of its pieces meet.
-        Pavement(mesh, plan, lanes, arms, walkM, edge, periods);
-        Pavement(mesh, plan, lanes, arms, walkM - edgeM, Plain, periods);
+        Grown(mesh, plan, paving, paving.MovementCount, arms, walkM, Surface.Pavement, edge, periods);
+        Grown(mesh, plan, paving, paving.MovementCount, arms, walkM - edgeM, Surface.Pavement, Plain, periods);
 
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
         // of the one under it showing, which is the same trick every other line here is drawn by: what
@@ -206,28 +205,24 @@ internal sealed partial class GroundMesh
         // shade is struck inside the surface it rims — the line takes its own width off the lane it marks,
         // and every lane measured off the picture comes out short of the figure the rest of the build
         // quotes.
-        Grown(mesh, plan, lanes, arms, kerbM, Surface.Tarmac, paint, periods);
+        // The junctions' movements only: a kerb line is a carriageway's own marking, and struck round a car
+        // park it would come back up the far side of one where there is no kerb to be the edge of.
+        Grown(mesh, plan, paving, paving.Lanes.ConnectorCount, arms, kerbM, Surface.Tarmac, paint, periods);
 
-        // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab, and a car
-        // park at its own size. It is where the answer puts them (<c>GroundShapes.At</c>) and it is what
-        // breaks the kerb line over a car park's mouth — a line painted there is one every car entering the
-        // lot drives across, and what takes it away is the lot's own tarmac rather than a stretch of kerb
-        // worked out and left unstruck.
+        // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where
+        // the answer puts it (<c>GroundShapes.At</c>).
         for (var slab = 0; slab < plan.PavedAreas.Count; slab++)
         {
             mesh.Rect(plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain, periods);
         }
 
-        for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
-        {
-            mesh.OrientedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
-                plan.ParkingLots.HalfExtentM[lot], Surface.Tarmac, Plain, periods);
-        }
-
         // And the carriageway at its own size, last of the ground: every road, every line a car is turned
-        // through a box on, and the wedge its kerbs turn on. <b>A junction is the union of the movements
-        // that cross in it</b> (TER-5) and has no shape of its own to draw.
-        Grown(mesh, plan, lanes, arms, 0f, Surface.Tarmac, Plain, periods);
+        // through a box on, the wedge its kerbs turn on, and every car park. <b>A junction is the union of
+        // the movements that cross in it</b> (TER-5) and has no shape of its own to draw; a car park is a
+        // union of the movements that reach into it (<c>BayLines</c>) and has none either. Being last is
+        // what breaks the kerb line over a lot's mouth — a line painted there is one every car entering it
+        // drives across.
+        Grown(mesh, plan, paving, paving.MovementCount, arms, 0f, Surface.Tarmac, Plain, periods);
 
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
@@ -258,30 +253,9 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// <b>The whole pavement layer at one size</b>: the car parks' own wraps and then the road network,
-    /// which between them are every piece of the town that offers the outline a line to walk
-    /// (<c>Kerbs.Lay</c>). <b>A slab is the exception and has no wrap</b> (<c>WalkedPast.Never</c>) — it
-    /// offers none, so nothing pavements round one and nothing here draws it.
-    /// </summary>
-    static void Pavement(
-        GroundMesh mesh, CityPlan plan, LaneLines lanes, int[] armsPerJunction, float outM, Vector3 tint,
-        float[] periods)
-    {
-        // A car park turns a right angle of its own, so its wrap turns on the walk — which is the radius
-        // the answer turns it on too (<c>GroundShapes.InRoundedRect</c>).
-        for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
-        {
-            mesh.RoundedRect(plan.ParkingLots.CentreM[lot], plan.ParkingLots.Axis[lot],
-                plan.ParkingLots.HalfExtentM[lot] + new Vector2(outM), outM, Surface.Pavement, tint, periods);
-        }
-
-        Grown(mesh, plan, lanes, armsPerJunction, outM, Surface.Pavement, tint, periods);
-    }
-
-    /// <summary>
     /// <b>The road network at <paramref name="outM"/> beyond its own size</b> — every road, every line a
-    /// car is turned through a box on, and every wedge their kerbs turn on. The three layers of the ground
-    /// are this at a walk, at a line's width and at nothing.
+    /// car is turned through a box on, every wedge their kerbs turn on, and every car park. The three
+    /// layers of the ground are this at a walk, at a line's width and at nothing.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -299,15 +273,24 @@ internal sealed partial class GroundMesh
     /// <b>A road that stops carries the offset of its own end</b> (TER-7a,
     /// <c>GroundShapes.OffTheBandM</c>): the ground within a growth of a band that ends square is within a
     /// growth of its last cross-section, which is that segment swung round, and a ribbon has no way to say
-    /// so. <b>Only an end that really stops</b> — a road at a node with no other arm, or at no node at all.
+    /// so. The half of that swing standing back up inside the road is the ribbon's own, so only the outward
+    /// half is laid (<see cref="EndCap"/>). <b>Only an end that really stops</b> — a road at a node with no other arm, or at no node at all.
     /// An end another arm leaves is inside what that arm draws where the two are one line, and inside the
     /// wedge their kerbs turn on where they are not. Capped everywhere instead, a city spent a fifth of its
     /// ground on ends buried in junctions.
     /// </para>
+    /// <para>
+    /// <b>A car park is drawn by the loop that draws a junction</b> and by nothing else (<c>BayLines</c>):
+    /// it is the union of the movements that reach into it exactly as a junction is the union of the ones
+    /// that cross in it (TER-5), so it appears here as a run of movements and there is no case for it.
+    /// <paramref name="movements"/> stops short of them for the one pass that is a marking rather than
+    /// ground — a kerb line belongs to a carriageway, and struck round a car park it would come back up the
+    /// far side of one where there is no kerb.
+    /// </para>
     /// </remarks>
     static void Grown(
-        GroundMesh mesh, CityPlan plan, LaneLines lanes, int[] armsPerJunction, float outM, Surface surface,
-        Vector3 tint, float[] periods)
+        GroundMesh mesh, CityPlan plan, Paving paving, int movements, int[] armsPerJunction, float outM,
+        Surface surface, Vector3 tint, float[] periods)
     {
         for (var road = 0; road < plan.Roads.Count; road++)
         {
@@ -325,19 +308,19 @@ internal sealed partial class GroundMesh
                 // cross-section is where its last piece stops and which way that piece is pointing there.
                 var arc = atStart ? arcs[0] : arcs[^1];
                 var headingRad = atStart ? arc.HeadingRad : arc.HeadingAtRad(arc.LengthM);
-                mesh.RoundedRect(
-                    atStart ? arc.StartM : arc.EndM,
-                    new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad)),
-                    new Vector2(outM, halfM + outM), outM, surface, tint, periods);
+                var forward = new Vector2(MathF.Cos(headingRad), MathF.Sin(headingRad));
+                mesh.EndCap(
+                    atStart ? arc.StartM : arc.EndM, atStart ? -forward : forward, halfM, outM, surface, tint,
+                    periods);
             }
         }
 
-        for (var connector = 0; connector < lanes.ConnectorCount; connector++)
+        for (var movement = 0; movement < movements; movement++)
         {
-            var line = lanes.ArcsOfConnector(connector);
+            var line = paving.ArcsOfMovement(movement);
             if (line.Length == 0) continue;
 
-            mesh.Ribbon(line, (lanes.ConnectorWidthM(connector) * 0.5f) + outM, surface, tint, periods);
+            mesh.Ribbon(line, (paving.MovementWidthM(movement) * 0.5f) + outM, surface, tint, periods);
         }
 
         var kerbs = plan.JunctionCorners;

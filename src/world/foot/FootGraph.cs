@@ -164,6 +164,13 @@ internal sealed partial class FootGraph : IFineGraph
     /// Lays the whole graph off the plan. Build-time only: it allocates freely, and nothing it produces is
     /// written to again.
     /// </summary>
+    /// <remarks>
+    /// <b>It is the largest single cost of standing a town up</b> — most of a minute on a city, against a
+    /// tenth of a second for the road graph beside it — and it is a pure function of the plan and the
+    /// figures, so a town stood up twice off one plan lays it twice. <b>Kept and handed out instead, it is
+    /// not safe</b>: the index it answers <see cref="NearestEdge"/> from carries a scratch of its own
+    /// (<see cref="ChainIndex"/>), so two towns asking it at once is two walks over one working set.
+    /// </remarks>
     public static FootGraph Build(CityPlan plan, SimConfig config)
     {
         var builder = new Builder(config.Network.FootGraphNodeWeldM);

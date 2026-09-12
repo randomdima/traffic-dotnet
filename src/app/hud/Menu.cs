@@ -88,7 +88,7 @@ internal sealed partial class Menu
     /// another half of this class. What holds the two together is that the last row is clicked by name in
     /// the layout suite: laid short, the row a layer was added below is not there to be hit.
     /// </summary>
-    const int MostLines = 9;
+    const int MostLines = 10;
 
     /// <summary>The bar down the rows when there are more of them than the window has room for.</summary>
     const float ScrollBarPx = 4f;
@@ -170,7 +170,7 @@ internal sealed partial class Menu
     static readonly string[] Lines =
     [
         "Car lines", "Walker lines", "Nodes and links", "Lane claims", "Collision",
-        "Ground wireframe", "Turn circles", "Ruler", "Track figures",
+        "Ground wireframe", "Turn circles", "Tarmac perimeter", "Ruler", "Track figures",
     ];
 
     /// <summary>The middle of a laid row, which is what the suite clicks to ask the layout and the hit test the same question.</summary>
@@ -429,7 +429,8 @@ internal sealed partial class Menu
             case 4: return ref switches.Collision;
             case 5: return ref switches.Wireframe;
             case 6: return ref switches.TurnCircles;
-            case 7: return ref switches.Ruler;
+            case 7: return ref switches.Perimeter;
+            case 8: return ref switches.Ruler;
             default: return ref switches.TrackFigures;
         }
     }

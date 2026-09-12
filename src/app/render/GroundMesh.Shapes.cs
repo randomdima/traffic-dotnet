@@ -33,54 +33,55 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// An oriented rectangle whose four corners are turned on an arc of <paramref name="radiusM"/>:
-    /// <b>a rectangle grown by that radius</b>, since a corner of the growth is the radius swung round the
-    /// corner it grew from. It is what a car park's wrap is (TER-3c.3, <c>GroundShapes.InRoundedRect</c>)
-    /// and what a road's own end grows into (<see cref="Grown"/>).
+    /// <b>The ground a road's own end grows into</b> (<see cref="Grown"/>): a slab
+    /// <paramref name="outM"/> deep laid off the last cross-section in the direction
+    /// <paramref name="outwardM"/> points, with a quarter turn of that radius about each of the road's two
+    /// end corners.
     /// </summary>
-    void RoundedRect(Vector2 centreM, Vector2 axis, Vector2 halfM, float radiusM, Surface surface, Vector3 tint,
+    /// <remarks>
+    /// <b>The outward half of the growth and not the whole of it.</b> Swinging the growth right round the
+    /// cross-section draws a second half back up inside the road, where the ribbon laid at
+    /// <c>halfWidthM + outM</c> already stands — every point of it is within the road's own extent and
+    /// within that half-width, so nothing of it can show. Laid anyway, a city paid for it twice at every
+    /// end that stops.
+    /// </remarks>
+    void EndCap(Vector2 atM, Vector2 outwardM, float halfWidthM, float outM, Surface surface, Vector3 tint,
         float[] periods)
     {
-        if (halfM.X <= 0f || halfM.Y <= 0f) return;
+        if (outM <= 0f || halfWidthM <= 0f) return;
 
-        var radius = MathF.Min(radiusM, MathF.Min(halfM.X, halfM.Y));
-        if (radius <= 0f)
-        {
-            OrientedRect(centreM, axis, halfM, surface, tint, periods);
-            return;
-        }
-
-        var along = axis.LengthSquared() > 0f ? Vector2.Normalize(axis) : Vector2.UnitX;
+        var along = outwardM.LengthSquared() > 0f ? Vector2.Normalize(outwardM) : Vector2.UnitX;
         var across = new Vector2(-along.Y, along.X);
-        var straightM = halfM - new Vector2(radius);
-        var steps = Steps(radius, MathF.PI * 0.5f);
+        var leftM = atM + (across * halfWidthM);
+        var rightM = atM - (across * halfWidthM);
+        var reachM = along * outM;
+        Quad(
+            Vertex(rightM, surface, tint, periods),
+            Vertex(rightM + reachM, surface, tint, periods),
+            Vertex(leftM + reachM, surface, tint, periods),
+            Vertex(leftM, surface, tint, periods));
+
         var baseRad = MathF.Atan2(along.Y, along.X);
-        var centre = Vertex(centreM, surface, tint, periods);
+        var steps = Steps(outM, MathF.PI * 0.5f);
+        CornerFan(leftM, outM, baseRad, MathF.PI * 0.5f, steps, surface, tint, periods);
+        CornerFan(rightM, outM, baseRad, -MathF.PI * 0.5f, steps, surface, tint, periods);
+    }
+
+    /// <summary>A turn of ground about the point the straight sides either side of it run out at.</summary>
+    void CornerFan(Vector2 pivotM, float radiusM, float fromRad, float sweepRad, int steps, Surface surface,
+        Vector3 tint, float[] periods)
+    {
+        var pivot = Vertex(pivotM, surface, tint, periods);
         var previous = -1;
-        var first = -1;
-
-        // One walk round the perimeter, turning each corner about the point its two straight sides run out
-        // at: the quarter arcs sweep the same way as the walk, so the fan closes on the vertex it opened
-        // with and the straights fall out as the chords between the arcs.
-        foreach (var quadrant in (ReadOnlySpan<int>)[0, 1, 2, 3])
+        for (var step = 0; step <= steps; step++)
         {
-            var signU = quadrant is 0 or 3 ? 1f : -1f;
-            var signV = quadrant is 0 or 1 ? 1f : -1f;
-            var pivotM = centreM + (along * (straightM.X * signU)) + (across * (straightM.Y * signV));
-            for (var step = 0; step <= steps; step++)
-            {
-                var angleRad = baseRad + (MathF.PI * 0.5f * (quadrant + ((float)step / steps)));
-                var at = Vertex(
-                    pivotM + (radius * new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad))), surface, tint,
-                    periods);
-                if (previous >= 0) TriangleUnlessFlat(centre, previous, at);
-                else first = at;
+            var angleRad = fromRad + (sweepRad * step / steps);
+            var at = Vertex(
+                pivotM + (radiusM * new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad))), surface, tint, periods);
+            if (previous >= 0) TriangleUnlessFlat(pivot, previous, at);
 
-                previous = at;
-            }
+            previous = at;
         }
-
-        if (first >= 0 && previous >= 0) TriangleUnlessFlat(centre, previous, first);
     }
 
     /// <summary>

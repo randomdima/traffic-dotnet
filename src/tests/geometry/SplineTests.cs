@@ -181,4 +181,157 @@ public class SplineTests
         // rather than as the place it actually is.
         Assert.Equal(72f, Spline.ProjectM(arcs, new Vector2(40f, 2f), 80f, 8f), Tolerance);
     }
+
+    /// <summary>Two straights meet at the one point that is on both of them, said as a distance along each.</summary>
+    [Fact]
+    public void TwoStraightsCrossWhereBothOfThemAre()
+    {
+        ReadOnlySpan<ArcSeg> along = [new ArcSeg(new Vector2(-10f, 0f), 0f, 40f, 0f)];
+        ReadOnlySpan<ArcSeg> across = [new ArcSeg(new Vector2(6f, -5f), MathF.PI * 0.5f, 20f, 0f)];
+
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        Assert.Equal(1, Spline.CrossingsM(along, across, 20f, 10f, found));
+        Assert.Equal(16f, found[0].OneM, Tolerance);
+        Assert.Equal(5f, found[0].OtherM, Tolerance);
+    }
+
+    /// <summary>
+    /// <b>A skew crossing is the crossing and not the foot of a perpendicular onto it.</b> The point of one
+    /// line nearest a place on the other agrees with the crossing only where the two meet square; a line 30°
+    /// off puts that foot most of the offset past the meeting, which is the whole difference between a
+    /// corner and a spike out of one.
+    /// </summary>
+    [Fact]
+    public void ASkewCrossingIsNotTheNearestPointToIt()
+    {
+        const float skewRad = MathF.PI / 6f;
+        var skew = new ArcSeg(Vector2.Zero, skewRad, 40f, 0f);
+        ReadOnlySpan<ArcSeg> along = [new ArcSeg(new Vector2(-20f, 0f), 0f, 40f, 0f)];
+        ReadOnlySpan<ArcSeg> across = [skew];
+
+        // Three metres up the skew line, which stands 3·cos 30° along the flat one and 3·sin 30° off it.
+        var offM = skew.PointAtM(3f);
+
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        Assert.Equal(1, Spline.CrossingsM(along, across, 20f, 3f, found));
+        Assert.Equal(20f, found[0].OneM, Tolerance);
+        Assert.Equal(0f, found[0].OtherM, Tolerance);
+        Assert.Equal(20f + (3f * MathF.Cos(skewRad)), Spline.ProjectM(along, offM, 20f, 10f), Tolerance);
+    }
+
+    /// <summary>
+    /// A straight cuts a circle twice and a piece answers only for the cut its own length reaches, which is
+    /// what keeps a bend from being carried round to the far side of the circle it is part of.
+    /// </summary>
+    [Fact]
+    public void AnArcCrossesAStraightWhereItsOwnLengthReaches()
+    {
+        // A quarter circle of radius 10 from the origin turning right, so it runs from (0,0) to (10,10).
+        ReadOnlySpan<ArcSeg> bend = [new ArcSeg(Vector2.Zero, 0f, 10f * MathF.PI * 0.5f, 0.1f)];
+        ReadOnlySpan<ArcSeg> along = [new ArcSeg(new Vector2(-10f, 10f), 0f, 40f, 0f)];
+
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        // The bend reaches y = 10 only at its own end, square on to the straight.
+        Assert.Equal(1, Spline.CrossingsM(bend, along, 15f, 20f, found));
+        Assert.Equal(10f * MathF.PI * 0.5f, found[0].OneM, Tolerance);
+        Assert.Equal(20f, found[0].OtherM, Tolerance);
+    }
+
+    /// <summary>Two arcs cross where their circles do, at both of the two places both of them reach.</summary>
+    [Fact]
+    public void TwoArcsCrossWhereTheirCirclesDo()
+    {
+        // Two circles of radius 10 centred on (0,0) and (10,0), which cross half way along the line between
+        // them and 10·sin 60° off it. Each arc is the half of its own circle that faces the other.
+        ReadOnlySpan<ArcSeg> one = [new ArcSeg(new Vector2(0f, -10f), 0f, 10f * MathF.PI, 0.1f)];
+        ReadOnlySpan<ArcSeg> other = [new ArcSeg(new Vector2(10f, -10f), MathF.PI, 10f * MathF.PI, -0.1f)];
+
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        // Both halves reach both crossings, and the one asked about is the half turn nearer either start.
+        Assert.Equal(2, Spline.CrossingsM(one, other, 8f, 8f, found));
+
+        var atM = one[0].PointAtM(found[0].OneM);
+        Assert.Equal(5f, atM.X, Tolerance);
+        Assert.Equal(-10f * MathF.Sin(MathF.PI / 3f), atM.Y, Tolerance);
+        Assert.Equal(0f, (other[0].PointAtM(found[0].OtherM) - atM).Length(), Tolerance);
+    }
+
+    /// <summary>
+    /// <b>A bend a kilometre across crosses where both of its own ends say it does.</b> A road's arcs are a
+    /// huge radius and a tiny curvature, and solved against the circle's centre the two distances that come
+    /// back name points a metre and a half apart — near the crossing rather than on it.
+    /// </summary>
+    [Fact]
+    public void AGentleBendCrossesWhereBothChainsAgreeItDoes()
+    {
+        // A bend of radius 2 km, which is a straight road's own drift, cut by a line across it.
+        ReadOnlySpan<ArcSeg> bend = [new ArcSeg(new Vector2(1000f, 1000f), 0f, 60f, 1f / 2000f)];
+        ReadOnlySpan<ArcSeg> across = [new ArcSeg(new Vector2(1030f, 990f), MathF.PI * 0.5f, 20f, 0f)];
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        Assert.Equal(1, Spline.CrossingsM(bend, across, 30f, 10f, found));
+
+        // A centimetre, which is what a float carries at a town's own coordinates — and two orders off what
+        // solving against the centre came back with.
+        var onTheBendM = bend[0].PointAtM(found[0].OneM);
+        var onTheStraightM = across[0].PointAtM(found[0].OtherM);
+        Assert.Equal(0f, (onTheBendM - onTheStraightM).Length(), 0.01f);
+    }
+
+    /// <summary>
+    /// <b>Two chains that stop short of each other cross where they are run on</b>, which is the corner
+    /// between two arms of a junction: both stop at their own mouths and the corner stands on neither.
+    /// </summary>
+    [Fact]
+    public void ChainsRunOnPastTheirEndsCrossWhereTheyWouldHave()
+    {
+        // Two straights whose corner is at (10, 0), four metres past the end of one and three past the
+        // other, which is the L a road turns at a mouth.
+        ReadOnlySpan<ArcSeg> along = [new ArcSeg(new Vector2(0f, 0f), 0f, 6f, 0f)];
+        ReadOnlySpan<ArcSeg> down = [new ArcSeg(new Vector2(10f, 3f), MathF.PI * 0.5f, 6f, 0f)];
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        Assert.Equal(0, Spline.CrossingsM(along, down, 6f, 0f, found));
+
+        Assert.Equal(1, Spline.CrossingsM(along, down, 6f, 0f, found, beyondM: 5f));
+        Assert.Equal(10f, found[0].OneM, Tolerance);
+        Assert.Equal(-3f, found[0].OtherM, Tolerance);
+    }
+
+    /// <summary>
+    /// <b>Two parallels are answered for by nobody</b>, which is a caller's cue to fall back on something
+    /// that always has an answer rather than to take a wrong one.
+    /// </summary>
+    [Fact]
+    public void LinesThatNeverMeetHaveNoCrossing()
+    {
+        ReadOnlySpan<ArcSeg> along = [new ArcSeg(new Vector2(-10f, 0f), 0f, 40f, 0f)];
+        ReadOnlySpan<ArcSeg> beside = [new ArcSeg(new Vector2(-10f, 3.5f), 0f, 40f, 0f)];
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        Assert.Equal(0, Spline.CrossingsM(along, beside, 20f, 20f, found));
+    }
+
+    /// <summary>
+    /// <b>A line that crosses another twice is answered for twice, nearest first.</b> Which of the two a
+    /// caller means is the caller's own question, so both are handed back and the order is what saves it
+    /// asking about the far one at all.
+    /// </summary>
+    [Fact]
+    public void BothCrossingsComeBackWithTheNearerFirst()
+    {
+        // A full circle of radius 10 about the origin, cut by the x axis at (-10, 0) and (10, 0).
+        ReadOnlySpan<ArcSeg> round = [new ArcSeg(new Vector2(0f, -10f), 0f, 20f * MathF.PI, 0.1f)];
+        ReadOnlySpan<ArcSeg> along = [new ArcSeg(new Vector2(-20f, 0f), 0f, 40f, 0f)];
+        Span<SplineCrossing> found = stackalloc SplineCrossing[4];
+
+        // Asked about from the far end of the straight, which is the cut at (10, 0).
+        Assert.Equal(2, Spline.CrossingsM(along, round, 40f, 0f, found));
+        Assert.Equal(30f, found[0].OneM, Tolerance);
+        Assert.Equal(10f, found[1].OneM, Tolerance);
+    }
 }

@@ -56,6 +56,28 @@ public class SimConfigTests
     }
 
     /// <summary>
+    /// <b>A bay is narrower than the lane its way is driven out of</b> (GEN-4c). A way into a bay lays the
+    /// ground its own space is wide for every metre it runs, and it leaves along its lane — so a space
+    /// wider than that lane puts a lip of tarmac past the kerb at every bay in the town.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a relation between two authored figures and not a derivation written twice</b> (VER-12):
+    /// the side clearance and the lane are chosen independently, and read at the same margin as a bay's own
+    /// ends — which a parallel bay is reversed into — the space came out 4.0 m against a 3.6 m lane. Odesa
+    /// drew four hundred and sixty-one steps of perimeter onto that lip.
+    /// </remarks>
+    [Fact]
+    public void ABayIsNarrowerThanTheLaneItsWayIsDrivenOutOf()
+    {
+        var config = SimConfig.Shipped();
+
+        Assert.True(
+            config.ParkingSpaceWidthM < config.LaneWidthM,
+            $"a bay is {config.ParkingSpaceWidthM:F2} m wide and the lane it is worked off "
+            + $"{config.LaneWidthM:F2} m");
+    }
+
+    /// <summary>
     /// <b>An authored figure wins over the shipped one, and the ones it does not name are left alone.</b>
     /// It is asked of a file written here rather than of the shipped one, whose contents are a tuning and
     /// not a claim: read against that, this would fail the next time somebody retuned the town.

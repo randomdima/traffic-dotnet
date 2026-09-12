@@ -18,8 +18,9 @@ namespace TrafficSimulation.CityGen;
 /// nothing else, and a <see cref="CityPlan"/> is where the difference ends.
 /// </para>
 /// <para>
-/// <b>Nothing is cached.</b> A town is laid when it is opened and lives as long as the world built from it,
-/// so opening the same map twice lays it twice — deterministically, from the same seed, into the same town.
+/// <b>The last town laid is kept, and only the last</b> (<see cref="Plan"/>). A town is laid when it is
+/// opened and lives as long as the world built from it; asked for the same map again under the same figures,
+/// it is handed back rather than laid a second time.
 /// </para>
 /// </remarks>
 internal static class Maps
@@ -85,10 +86,51 @@ internal static class Maps
     static readonly ConcurrentDictionary<string, TownBrief> Briefs = new();
 
     /// <summary>
-    /// The town itself. <b>A name that is neither a brief nor a laid map is a failure here</b> rather than an
-    /// empty town somewhere downstream — the list above is the whole of what exists.
+    /// <b>The town itself, laid once for as long as it is the town being asked about.</b> A name that is
+    /// neither a brief nor a laid map is a failure here rather than an empty town somewhere downstream —
+    /// the list above is the whole of what exists.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What costs is asking for one map over and over</b>: a review sheet stages every cell through the
+    /// one shot path and a city is most of a minute to lay, so nine cells of one town were nine towns and
+    /// the drawing was the rounding error in it. A town is laid deterministically from its own seed, so the
+    /// second lay is the first town again and the only thing it buys is the wait.
+    /// </para>
+    /// <para>
+    /// <b>One town and never a collection of them.</b> Kept by name, every city this build ships would be
+    /// alive at once the first time a sweep asked for them all, and a city is tens of megabytes of arrays.
+    /// Kept as the last, it is never more than the town whoever asked is about to use anyway — and the
+    /// pattern that costs is repetition rather than revisiting.
+    /// </para>
+    /// <para>
+    /// <b>The figures are part of the name.</b> A plan lays its pavement against the configuration it was
+    /// first asked with (<see cref="CityPlan.Paving"/>), so a town laid under other figures is a different
+    /// town and is laid again.
+    /// </para>
+    /// </remarks>
     public static CityPlan Plan(string name, SimConfig config, ReadOnlySpan<Vector2> roofsM)
+    {
+        if (_kept is { } kept && kept.Is(name, config)) return kept.Plan;
+
+        var plan = Lay(name, config, roofsM);
+
+        // A reference is written whole, so a reader takes the town before or the town after and never half
+        // of either. Two callers laying the same map at once lay it twice, which is what they did anyway.
+        _kept = new Kept(name, config, plan);
+        return plan;
+    }
+
+    /// <summary>The town most recently laid, against the name and the figures it was laid from.</summary>
+    sealed record Kept(string Name, SimConfig Config, CityPlan Plan)
+    {
+        public bool Is(string name, SimConfig config) =>
+            ReferenceEquals(Config, config) && string.Equals(Name, name, StringComparison.Ordinal);
+    }
+
+    static Kept? _kept;
+
+    static CityPlan Lay(string name, SimConfig config, ReadOnlySpan<Vector2> roofsM)
     {
         foreach (var (laid, lay) in Laid)
         {

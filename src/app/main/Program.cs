@@ -55,7 +55,7 @@ internal static class Program
 
         if (options.Lamps) return CutTheLamps();
         if (options.Export is not null) return RunExport(options, config);
-        if (options.Bench is not null) return RunBench(options.Bench, options.Map, config);
+        if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
         if (options.Shot is not null) return RunShot(options, config);
@@ -217,15 +217,22 @@ internal static class Program
     /// <see cref="CheckCatalogue"/>'s and there is no second one here</b>: a probe reachable from the
     /// command line and not from the menu, or the other way round, is exactly what OBS-2a forbids.
     /// </summary>
-    static int RunBench(string name, string? map, SimConfig config)
+    static int RunBench(string name, string? map, Vector2? atM, SimConfig config)
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
-        // The census is the one check that is about a particular town, so the command line's --map
-        // reaches it; every other check builds the world it needs.
+        // The census and the shell are the checks about a particular town, so the command line's --map
+        // reaches them; every other check builds the world it needs. The shell also answers about one place
+        // in that town (--at), because a corner that came out wrong is looked at where it is.
         if (string.Equals(name, "census", StringComparison.Ordinal))
         {
             TownCensus.Run(map ?? Options.FixtureMap, config);
+            return 0;
+        }
+
+        if (string.Equals(name, "shell", StringComparison.Ordinal))
+        {
+            ShellProbe.Run(map ?? Options.FixtureMap, config, atM);
             return 0;
         }
 

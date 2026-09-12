@@ -4,6 +4,27 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-11 — the room beside a car and the room at its ends are two figures
+
+One margin sized both (`ParkingSpaceMarginInCarWidths`), and what sized it was the ends: a parallel bay is
+reversed into, so half a car width at either end is the manoeuvre's and not a comfort. Read at the same
+figure down the sides, a space came out **4.0 m against a 3.6 m lane** — wider than the traffic lane its
+own way is driven out of.
+
+**A way lays the ground its space is wide for every metre it runs** (GEN-4f), and it leaves along its lane,
+so every bay in the town stood a 0.2 m lip of tarmac past the kerb over the metres the two ran together.
+The lip is in the ground and not only in the reading of it: it shows as a lump in the tarmac, and the
+outside of the driven ground (`LaneShell`) has to follow it, stepping off the lane onto the bay's way and
+straight back — **461 times on Odesa, 140 of them shorter than a hand**, each one drawn as a spur off the
+lane and back because the layer marks lines and not edges (OBS-2p).
+
+`ParkingSpaceSideMarginInCarWidths` is the side's own, at a quarter of a car width — a door's swing, and
+half a metre either side of the shipped car. Nothing manoeuvres sideways, so the two figures were never one.
+What it costs is a narrower bay, which is what a bay is; what it buys is measured in
+[citygen's log](../../../citygen/docs/decision-log.md#2026-09-11--the-cut-is-solved-against-the-band-that-makes-it):
+Odesa's dips go to nought, its left-over ends to nought, and its shell from 99 rings of 100 to 105 of 105.
+GEN-4c carries the relation and `SimConfigTests` gates it.
+
 ## 2026-09-03 — a bay's way runs the length of its space, and is driven as far as the pose
 
 A way ending where the car did left the deepest metres of every space belonging to no way, so a person

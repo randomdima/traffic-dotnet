@@ -44,6 +44,7 @@ internal static class CheckCatalogue
         new("crossings", "Five streets with a crossing on each: whether every one of them is walked", CrossingProbe.Run),
         new("signals", "The lit town's invariants, sampled every tick of a soak", Quoted(SignalProbe.Run)),
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
+        new("shell", "The outside of a town's driven ground: how it was paired, and what was thrown away", Quoted(config => ShellProbe.Run("Odesa", config))),
     ];
 
     /// <summary>

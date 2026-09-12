@@ -144,7 +144,8 @@ public class ParkingSectionTests
             // Abeam the axle the way is drawn to and not the middle of the space, because those are a
             // wheelbase's half apart and on opposite sides of it in the two standings (GEN-4j).
             var axleM = BayTemplate.RearAxleOfBayM(
-                CarBuild.Nominal(Config, Config.Car.DrivenFrontShare), plan.ParkingLots.SpacePositionM[bay], plan.ParkingLots.SpaceHeadingRad[bay],
+                CarBuild.Nominal(Config, Config.Car.DrivenFrontShare).CentreAheadOfAxleM,
+                plan.ParkingLots.SpacePositionM[bay], plan.ParkingLots.SpaceHeadingRad[bay],
                 ways.IsNoseIn(way));
 
             var abeamM = Spline.ProjectM(roads.ArcsOf(lane), axleM, lengthM * 0.5f, lengthM);

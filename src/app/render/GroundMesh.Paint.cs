@@ -142,14 +142,18 @@ internal sealed partial class GroundMesh
             Offer(headM - across, headM + across);
         }
 
+        // <b>A solid line is a dashed one whose dash is the whole run</b>, so a bay's stroke is laid by the
+        // machinery that lays a lane's centreline (<see cref="DashRun"/>) rather than by a shape of its own.
+        // The one thing a bay says that a lane does not is that it says it once.
+        Span<ArcSeg> line = stackalloc ArcSeg[1];
         foreach (var (fromM, toM, times) in offered.Values)
         {
             if (times < 2) continue;
 
             var run = toM - fromM;
-            OrientedRect(
-                (fromM + toM) * 0.5f, run / run.Length(), new Vector2(run.Length() * 0.5f, halfStrokeM),
-                Surface.Tarmac, tint, periods);
+            var lengthM = run.Length();
+            line[0] = new ArcSeg(fromM, MathF.Atan2(run.Y, run.X), lengthM, 0f);
+            DashRun(line, 0f, lengthM, lengthM, lengthM, halfStrokeM, tint, periods);
         }
 
         void Offer(Vector2 fromM, Vector2 toM)

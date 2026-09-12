@@ -1,9 +1,6 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 
-namespace TrafficSimulation.Agents.Car.Control;
+namespace TrafficSimulation.Core.Geometry;
 
 /// <summary>A template that was laid: how many arcs it took, how far it runs, and the pose it ends at.</summary>
 internal readonly record struct BayLine(int ArcCount, float LengthM, Vector2 EndM, float EndHeadingRad)
@@ -79,8 +76,9 @@ internal static class BayTemplate
     /// at the deep end — which is why a way to a backed-in car runs a metre further into the bay than a way
     /// to one that drove in.
     /// </remarks>
-    public static Vector2 RearAxleOfBayM(in CarBuild car, Vector2 bayCentreM, float bayHeadingRad, bool noseIn) =>
-        bayCentreM + Heading.Unit(bayHeadingRad) * (noseIn ? -car.CentreAheadOfAxleM : car.CentreAheadOfAxleM);
+    public static Vector2 RearAxleOfBayM(
+        float centreAheadOfAxleM, Vector2 bayCentreM, float bayHeadingRad, bool noseIn) =>
+        bayCentreM + Heading.Unit(bayHeadingRad) * (noseIn ? -centreAheadOfAxleM : centreAheadOfAxleM);
 
     /// <summary>Which way the car itself points standing in a bay: into it, or back out of it.</summary>
     public static float StandingHeadingRad(float bayHeadingRad, bool noseIn) =>
@@ -99,6 +97,13 @@ internal static class BayTemplate
     /// starts, and a swing past a quarter turn is a car aiming away from the road rather than lining up on
     /// the bay; both are answered by driving round and coming back, never by a line no car can hold.
     /// </remarks>
+    /// <param name="radiusM">
+    /// <b>The circle whoever drives this is going to hold</b> (CAR-11): a van needs more street to swing
+    /// into a space than a hatchback does, and a shape drawn at the nominal car's radius is one the van
+    /// cannot hold — a car that ends up across the aisle rather than in the bay. The town's own ways are
+    /// laid at the nominal figure (CAR-11a) and a car laying its own from where it stands passes its own.
+    /// </param>
+    /// <param name="settlesM">How much straight the shape ends on, so the car parks square.</param>
     /// <param name="fromTravelRad">The way the axle is travelling where the shape starts.</param>
     /// <param name="toTravelRad">And where it ends — for a way into a bay, the bay's own bearing.</param>
     /// <param name="runsOnBeforeTurningM">
@@ -106,15 +111,11 @@ internal static class BayTemplate
     /// line it started on. Whoever wants the shape and not the approach to it lays again from that far on.
     /// </param>
     public static BayLine TryLay(
-        SimConfig config, in CarBuild car, Vector2 fromAxleM, float fromTravelRad, Vector2 toAxleM,
+        float radiusM, float settlesM, Vector2 fromAxleM, float fromTravelRad, Vector2 toAxleM,
         float toTravelRad, Span<ArcSeg> into, out float runsOnBeforeTurningM)
     {
         runsOnBeforeTurningM = 0f;
 
-        // <b>This car's own circle</b> (CAR-11): a van needs more street to swing into a space than a
-        // hatchback does, and a shape drawn at the nominal car's radius is one the van cannot hold —
-        // which is a car that ends up across the aisle rather than in the bay.
-        var radiusM = car.ParkingTemplateRadiusM;
         var from = Heading.Unit(fromTravelRad);
         var turnRad = SignedTurnRad(from, Heading.Unit(toTravelRad));
         if (!SquareEnough(turnRad)) return default;
@@ -131,7 +132,6 @@ internal static class BayTemplate
         // <b>Every template ends on a straight</b>, because one that ends on an arc ends with the car still
         // turning and parks it out of square — so the straight is what the shape is solved around and not
         // what is left over once the arcs have had their way.
-        var settlesM = car.ParkingStraightensUpM;
         var runOutM = (acrossM - (radiusM * (1f - cos))) / sin;
         var swingRad = 0f;
 

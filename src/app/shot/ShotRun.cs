@@ -44,6 +44,24 @@ internal static class ShotRun
     /// </summary>
     public static ShotReport Take(ShotRequest ask, SimConfig config)
     {
+        TownStanding? alone = null;
+        try
+        {
+            return Take(ask, config, ref alone);
+        }
+        finally
+        {
+            alone?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// The same frame, with the town it is of <b>kept between frames of the same town</b>
+    /// (<see cref="TownStanding"/>) — what a sheet of nine cells wants, since standing a city up is most of
+    /// a minute and drawing it is a fraction of a second.
+    /// </summary>
+    public static ShotReport Take(ShotRequest ask, SimConfig config, ref TownStanding? standing)
+    {
         var ui = new Interface(config.Trim);
         var wanted = ask.Ui ?? [];
         // A frame of the town and nothing else, which is what a picture of the *ground* is judged as:
@@ -62,7 +80,8 @@ internal static class ShotRun
         // the map that was asked for with the panel on top. Which map that is, is the request's.
         var mesh = GroundMesh.Build(plan, config);
         var looks = TownSprites.Load();
-        using var world = new TownWorld(plan, config);
+        standing = TownStanding.For(ask, config, plan, standing);
+        var world = standing.World;
 
         using var vk = Vk.Open("traffic-dotnet", ask.Validate);
         using var renderer = TownRenderer.Offscreen(
@@ -101,6 +120,8 @@ internal static class ShotRun
             loop.Advance();
             foreach (var watch in scenario) watch.Saw(world);
         }
+
+        standing.Ticked(ticks);
 
         looks.ReadAspects(renderer);
         looks.Lay(plan, world.Uses);
@@ -144,6 +165,50 @@ internal static class ShotRun
             renderer.TriangleCount, sprites, TownSprites.CapacityFor(plan, config), loop.Tick, quads + under,
             crossings, plan.Seed);
     }
+}
+
+/// <summary>
+/// <b>A town stood up for a frame, held on to while the frames are of the same town.</b> Standing a city up
+/// is most of a minute — the walking side of it alone is three quarters of that — and drawing a frame of one
+/// is a fraction of a second, so a sheet that stood its town up per cell spent nine tenths of itself laying
+/// the same town nine times.
+/// </summary>
+/// <remarks>
+/// <b>Only a town nobody has ticked is handed on</b>, which is what a review sheet asks for and what the
+/// default <c>--seconds</c> is. A frame is drawn off a town without changing it, so every cell of a sheet of
+/// an unticked town is a frame of one town at one tick; a cell that asks for seconds is a run of the
+/// simulation and gets a town of its own, because a town cannot be wound back to where the last cell left it
+/// and a caption that said otherwise would be the one thing a review picture may not do (SHT-2).
+/// </remarks>
+internal sealed class TownStanding : IDisposable
+{
+    TownStanding(string map, TownWorld world)
+    {
+        Map = map;
+        World = world;
+    }
+
+    public TownWorld World { get; }
+
+    string Map { get; }
+
+    bool Ran { get; set; }
+
+    public static TownStanding For(in ShotRequest ask, SimConfig config, CityPlan plan, TownStanding? standing)
+    {
+        if (standing is { Ran: false } kept && string.Equals(kept.Map, ask.Map, StringComparison.Ordinal))
+        {
+            return kept;
+        }
+
+        standing?.Dispose();
+        return new TownStanding(ask.Map, new TownWorld(plan, config));
+    }
+
+    /// <summary>Told how far the frame ran the town on, since one that ran at all is nobody else's to draw.</summary>
+    public void Ticked(int ticks) => Ran |= ticks > 0;
+
+    public void Dispose() => World.Dispose();
 }
 
 /// <summary>

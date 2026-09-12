@@ -29,9 +29,14 @@ namespace TrafficSimulation.CityGen;
 /// one end of every such lot.
 /// </param>
 /// <param name="MouthToM">The last of those metres.</param>
+/// <param name="HalfDepthM">
+/// How far the lot reaches across the road either side of <see cref="OffM"/> — <b>what its rectangle covers
+/// of a line running past it</b>, which for a lot standing askew to the kerb is more than half its own
+/// depth. With <see cref="OffM"/> it is the band of the road the car park is (<see cref="LotBands"/>).
+/// </param>
 internal readonly record struct LotFrontage(
     int Lot, int Road, float FromM, float ToM, float OffM, float Side, bool FrontsTheKerb,
-    float MouthFromM, float MouthToM);
+    float MouthFromM, float MouthToM, float HalfDepthM);
 
 /// <summary>
 /// <b>Which road each car park hangs off, and over which of its metres</b> (GEN-4b) — the lot's four
@@ -134,7 +139,7 @@ internal sealed class RoadFrontages
             found.Add(new LotFrontage(
                 lot, road, fromM, toM, offM,
                 Vector2.Dot(lots.CentreM[lot] - at.PositionM, at.Right) < 0f ? -1f : 1f,
-                gapM <= config.Road.PaintLineWidthM, mouthFromM, mouthToM));
+                gapM <= config.Road.PaintLineWidthM, mouthFromM, mouthToM, acrossSpanM));
         }
 
         var offsets = new int[roads.Count + 1];

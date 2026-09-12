@@ -42,18 +42,29 @@ internal static class SheetRun
         var captions = new ShotCaption[cells];
         var census = new SheetCellReport[cells];
 
-        for (var cell = 0; cell < cells; cell++)
+        // The town is stood up once and handed from cell to cell (<see cref="TownStanding"/>): every cell
+        // is the same shot path over the same town, and laying one is most of a minute against a fraction
+        // of a second to draw it.
+        TownStanding? standing = null;
+        try
         {
-            var label = ask.LabelOf(cell);
-            var note = ask.NoteOf(cell);
-            var path = CellPath(sheetPath, cell, label);
-            var shot = ask.ForCell(cell, path);
-            var report = ShotRun.Take(shot, config);
+            for (var cell = 0; cell < cells; cell++)
+            {
+                var label = ask.LabelOf(cell);
+                var note = ask.NoteOf(cell);
+                var path = CellPath(sheetPath, cell, label);
+                var shot = ask.ForCell(cell, path);
+                var report = ShotRun.Take(shot, config, ref standing);
 
-            taken.Add(path);
-            captions[cell] = ShotCaption.Of(shot, report, label, note);
-            census[cell] = SheetCellReport.Of(shot, report, label, note);
-            Console.WriteLine(Row(cell, cells, census[cell]));
+                taken.Add(path);
+                captions[cell] = ShotCaption.Of(shot, report, label, note);
+                census[cell] = SheetCellReport.Of(shot, report, label, note);
+                Console.WriteLine(Row(cell, cells, census[cell]));
+            }
+        }
+        finally
+        {
+            standing?.Dispose();
         }
 
         using var sheet = Compose(taken, captions, ask.Caption, Path.GetFileName(sheetPath));

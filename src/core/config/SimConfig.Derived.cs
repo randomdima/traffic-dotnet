@@ -30,6 +30,15 @@ internal sealed partial class SimConfig
     public float CarCentreAheadOfAxleM => Car.WheelbaseM * 0.5f;
 
     /// <summary>
+    /// The circle a bay's own way is turned on: the nominal car's, opened by the margin a template is drawn
+    /// with so the shape is one a car holds rather than one it is exactly at the limit of.
+    /// </summary>
+    public float CarParkingTemplateRadiusM => CarTurningRadiusM * Car.ParkingTemplateArcMargin;
+
+    /// <summary>How much straight a bay's way ends on, so the car it is laid for parks square in the space.</summary>
+    public float CarParkingStraightensUpM => Car.LengthM * Road.ParkingStraightensUpInCarLengths;
+
+    /// <summary>
     /// <b>What the nominal car's tyres hold, as an acceleration</b>: the coefficient times a weight.
     /// Derived, and derived here once — nothing authors a grip in m/s², because a grip in m/s² is a
     /// coefficient and a gravity that somebody has already multiplied together.
@@ -401,7 +410,13 @@ internal sealed partial class SimConfig
 
     public float ParkingSpaceLengthM => Car.LengthM + Car.WidthM * Road.ParkingSpaceMarginInCarWidths * 2f;
 
-    public float ParkingSpaceWidthM => Car.WidthM * (1f + Road.ParkingSpaceMarginInCarWidths * 2f);
+    /// <summary>
+    /// <b>A bay is narrower than the lane its way is driven out of</b>
+    /// (<see cref="RoadFigures.ParkingSpaceSideMarginInCarWidths"/>, <see cref="LaneWidthM"/>): the ground a
+    /// way lays is the space it serves, and a way leaves along its lane, so a space wider than that lane
+    /// lips past the kerb over the metres the two run together.
+    /// </summary>
+    public float ParkingSpaceWidthM => Car.WidthM * (1f + Road.ParkingSpaceSideMarginInCarWidths * 2f);
 
     /// <summary>How far before a bay a way in leaves its lane, which is also the run-in the template needs.</summary>
     public float ParkingStagedInM => Car.LengthM * Road.ParkingStagedInCarLengths;

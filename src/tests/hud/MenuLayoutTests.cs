@@ -365,7 +365,7 @@ public class MenuLayoutTests
         Assert.True(switches.TurnCircles);
 
         // And the one that starts on goes off, which no other row can be mistaken for.
-        menu.Click(menu.LineMiddlePx(8), switches, new TrimFigures());
+        menu.Click(menu.LineMiddlePx(9), switches, new TrimFigures());
         Assert.False(switches.TrackFigures);
     }
 

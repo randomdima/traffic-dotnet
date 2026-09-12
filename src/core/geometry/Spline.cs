@@ -16,6 +16,11 @@ internal readonly record struct SplineSample(Vector2 PositionM, float HeadingRad
 }
 
 /// <summary>
+/// One place two chains cross, as the distance along each of them (<see cref="Spline.CrossingsM"/>).
+/// </summary>
+internal readonly record struct SplineCrossing(float OneM, float OtherM);
+
+/// <summary>
 /// Where a walk of a chain has got to: the piece it stands in, and how far along the whole chain that
 /// piece begins. <b>Only ever a hint</b> — <see cref="Spline.SampleFrom"/> restarts from the head when
 /// it is handed a distance behind the one it is on, so a cursor cannot make an answer wrong, only slow.
@@ -251,6 +256,277 @@ internal static class Spline
 
         return bestM;
     }
+
+    /// <summary>
+    /// <b>Where two chains cross, as the distance along each</b> — solved piece against piece and not
+    /// searched for, so an answer is the crossing point itself and not the nearest station to it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every crossing the two have and not one of them</b>, as many as <paramref name="into"/> has room
+    /// for and nearest first to the two places asked about. Two chains cross wherever they happen to, and
+    /// <em>which</em> of those a caller means is the caller's own question to answer off its own ground —
+    /// there is no distance that says it, since two lines a right angle apart cross a stride from where
+    /// their edges do and two that are all but parallel cross a street away.
+    /// </para>
+    /// <para>
+    /// <b>And <paramref name="beyondM"/> past either chain's own ends</b>, which is where two lines that
+    /// stop short of each other cross: the two arms of a junction end at their own mouths and the corner
+    /// between them stands on neither. A crossing found out there comes back as a distance past the chain's
+    /// length or short of nothing, on the circle or the line the end piece lies on — the piece run on, never
+    /// a tangent laid off it.
+    /// </para>
+    /// <para>
+    /// <b>Every case is closed form</b>: two straights are one determinant, a straight and an arc are a
+    /// quadratic, and two arcs are the radical line between two circles. Nothing here bisects, so a
+    /// crossing is exact to a float rather than to whatever a walk was stationed at.
+    /// </para>
+    /// </remarks>
+    public static int CrossingsM(
+        ReadOnlySpan<ArcSeg> one, ReadOnlySpan<ArcSeg> other, float nearOneM, float nearOtherM,
+        Span<SplineCrossing> into, float beyondM = 0f)
+    {
+        var kept = 0;
+        Span<Vector2> atM = stackalloc Vector2[2];
+        var onePieceM = 0f;
+        for (var onePiece = 0; onePiece < one.Length; onePiece++)
+        {
+            var otherPieceM = 0f;
+            for (var otherPiece = 0; otherPiece < other.Length; otherPiece++)
+            {
+                var found = CrossingsOf(one[onePiece], other[otherPiece], atM);
+                for (var at = 0; at < found; at++)
+                {
+                    if (!AlongOf(
+                            one[onePiece], atM[at], Behind(onePiece, one.Length, beyondM),
+                            Past(onePiece, one.Length, beyondM), out var alongOneM))
+                    {
+                        continue;
+                    }
+
+                    if (!AlongOf(
+                            other[otherPiece], atM[at], Behind(otherPiece, other.Length, beyondM),
+                            Past(otherPiece, other.Length, beyondM), out var alongOtherM))
+                    {
+                        continue;
+                    }
+
+                    kept = Ranked(
+                        into, kept, new SplineCrossing(onePieceM + alongOneM, otherPieceM + alongOtherM),
+                        nearOneM, nearOtherM);
+                }
+
+                otherPieceM += other[otherPiece].LengthM;
+            }
+
+            onePieceM += one[onePiece].LengthM;
+        }
+
+        return kept;
+    }
+
+    /// <summary>
+    /// How far a piece may be run on behind and past itself: only the chain's own two ends run on, since a
+    /// crossing beyond the end of a piece in the middle of one is the next piece's to answer for.
+    /// </summary>
+    static float Behind(int piece, int pieces, float beyondM) => piece == 0 ? beyondM : 0f;
+
+    static float Past(int piece, int pieces, float beyondM) => piece == pieces - 1 ? beyondM : 0f;
+
+    /// <summary>
+    /// One crossing put in its place among those already found, and the furthest dropped where there is no
+    /// room for it.
+    /// </summary>
+    static int Ranked(
+        Span<SplineCrossing> into, int kept, SplineCrossing crossing, float nearOneM, float nearOtherM)
+    {
+        var offM = OffM(crossing, nearOneM, nearOtherM);
+        var at = kept;
+        while (at > 0 && OffM(into[at - 1], nearOneM, nearOtherM) > offM)
+        {
+            if (at < into.Length) into[at] = into[at - 1];
+            at--;
+        }
+
+        if (at >= into.Length) return kept;
+
+        into[at] = crossing;
+        return Math.Min(kept + 1, into.Length);
+    }
+
+    /// <summary>How far off the two places asked about one crossing stands, along the two chains together.</summary>
+    static float OffM(SplineCrossing crossing, float oneM, float otherM) =>
+        MathF.Abs(crossing.OneM - oneM) + MathF.Abs(crossing.OtherM - otherM);
+
+    /// <summary>
+    /// Where the circles or lines two pieces lie on meet, as points and without regard to whether either
+    /// piece reaches them — which is <see cref="AlongOf"/>'s question and is asked of each in turn.
+    /// </summary>
+    static int CrossingsOf(in ArcSeg one, in ArcSeg other, Span<Vector2> into)
+    {
+        var oneStraight = MathF.Abs(one.Curvature) < StraightCurvature;
+        var otherStraight = MathF.Abs(other.Curvature) < StraightCurvature;
+
+        if (oneStraight && otherStraight) return StraightsCross(one, other, into);
+        if (oneStraight) return StraightCrossesArc(one, other, into);
+        if (otherStraight) return StraightCrossesArc(other, one, into);
+
+        return ArcsCross(one, other, into);
+    }
+
+    /// <summary>The one point two straights meet at, which two parallels have none of.</summary>
+    static int StraightsCross(in ArcSeg one, in ArcSeg other, Span<Vector2> into)
+    {
+        var across = Cross(one.StartUnit, other.StartUnit);
+        if (MathF.Abs(across) < ApartToCross) return 0;
+
+        var atM = Cross(other.StartM - one.StartM, other.StartUnit) / across;
+        into[0] = one.StartM + (atM * one.StartUnit);
+        return 1;
+    }
+
+    /// <summary>
+    /// <b>A piece's circle written from its own start</b>: <c>k·|p|² = 2·(p·n)</c> for <c>p</c> measured off
+    /// <see cref="ArcSeg.StartM"/>, with <c>n</c> the way the piece turns.
+    /// </summary>
+    /// <remarks>
+    /// <b>Everything here is solved in this form and never against the centre</b>, which is why it is worth
+    /// a note. A road's bend is a radius of kilometres, so <c>|start − centre|² − r²</c> is the difference
+    /// of two numbers agreeing to six figures and a float carries seven: the crossing that came back was a
+    /// metre and a half from the point both lines actually stand on, and a corner drawn on it landed near
+    /// the junction rather than in it. Written this way the curvature is a factor and never a reciprocal, a
+    /// straight is the same equation at <c>k = 0</c>, and nothing large is ever cancelled.
+    /// </remarks>
+    static Vector2 TurnOf(in ArcSeg arc) => Heading.RightOf(arc.StartUnit);
+
+    /// <summary>
+    /// The two points a straight meets a piece's circle at, as the roots of that circle
+    /// (<see cref="TurnOf"/>) walked along the straight — one where it is tangent and none where it misses.
+    /// </summary>
+    static int StraightCrossesArc(in ArcSeg straight, in ArcSeg arc, Span<Vector2> into)
+    {
+        var turn = arc.Curvature;
+        var offM = straight.StartM - arc.StartM;
+        var facing = TurnOf(arc);
+
+        var a = turn;
+        var b = 2f * ((turn * Vector2.Dot(offM, straight.StartUnit)) - Vector2.Dot(straight.StartUnit, facing));
+        var c = (turn * offM.LengthSquared()) - (2f * Vector2.Dot(offM, facing));
+
+        var found = Roots(a, b, c, out var oneM, out var otherM);
+        if (found > 0) into[0] = straight.StartM + (oneM * straight.StartUnit);
+        if (found > 1) into[1] = straight.StartM + (otherM * straight.StartUnit);
+
+        return found;
+    }
+
+    /// <summary>
+    /// The two points two pieces' circles meet at: their two equations (<see cref="TurnOf"/>) cross-scaled
+    /// and subtracted, which cancels the square terms and leaves the radical line, then that line walked
+    /// against the first circle.
+    /// </summary>
+    static int ArcsCross(in ArcSeg one, in ArcSeg other, Span<Vector2> into)
+    {
+        var oneTurn = one.Curvature;
+        var otherTurn = other.Curvature;
+        var oneFacing = TurnOf(one);
+        var otherFacing = TurnOf(other);
+        var offM = other.StartM - one.StartM;
+
+        // The radical line, as p·across + acrossM = 0 for p measured off the first piece's start.
+        var across = 2f * ((otherTurn * oneFacing) - (oneTurn * otherFacing) - (oneTurn * otherTurn * offM));
+        var acrossM = (oneTurn * otherTurn * offM.LengthSquared()) + (2f * oneTurn * Vector2.Dot(offM, otherFacing));
+        var apart = across.LengthSquared();
+        if (apart < ApartToCross * ApartToCross) return 0;
+
+        var footM = across * (-acrossM / apart);
+        var along = Heading.RightOf(across) / MathF.Sqrt(apart);
+
+        var found = Roots(
+            oneTurn,
+            -2f * Vector2.Dot(along, oneFacing),
+            (oneTurn * footM.LengthSquared()) - (2f * Vector2.Dot(footM, oneFacing)),
+            out var oneAtM,
+            out var otherAtM);
+
+        if (found > 0) into[0] = one.StartM + footM + (oneAtM * along);
+        if (found > 1) into[1] = one.StartM + footM + (otherAtM * along);
+
+        return found;
+    }
+
+    /// <summary>
+    /// The real roots of <c>a·t² + b·t + c</c>, <b>taken the way that does not cancel</b>: the root whose
+    /// sign matches the linear term is solved for and the other read off the product of the two, so a
+    /// quadratic that is all but linear — a bend a kilometre across, which is most of a town's — answers
+    /// with the same precision as a straight.
+    /// </summary>
+    static int Roots(float a, float b, float c, out float oneM, out float otherM)
+    {
+        oneM = 0f;
+        otherM = 0f;
+        if (MathF.Abs(a) < StraightCurvature)
+        {
+            if (MathF.Abs(b) < ApartToCross) return 0;
+
+            oneM = -c / b;
+            return 1;
+        }
+
+        var under = (b * b) - (4f * a * c);
+        if (under < 0f) return 0;
+
+        var rootM = MathF.Sqrt(under);
+        var halved = -0.5f * (b + (b < 0f ? -rootM : rootM));
+        oneM = halved / a;
+        otherM = MathF.Abs(halved) > ApartToCross ? c / halved : oneM;
+
+        if (oneM > otherM) (oneM, otherM) = (otherM, oneM);
+
+        return rootM > 0f ? 2 : 1;
+    }
+
+    /// <summary>
+    /// How far along a piece a point on its own circle or line stands, and whether the piece reaches it at
+    /// all — a hair's breadth past either end being reached, since a crossing that lands on the join
+    /// between two pieces belongs to both, and <paramref name="behindM"/> or <paramref name="pastM"/>
+    /// further where the caller asked for the piece run on.
+    /// </summary>
+    static bool AlongOf(in ArcSeg arc, Vector2 pointM, float behindM, float pastM, out float atM)
+    {
+        var offM = pointM - arc.StartM;
+        if (MathF.Abs(arc.Curvature) < StraightCurvature)
+        {
+            atM = Vector2.Dot(offM, arc.StartUnit);
+        }
+        else
+        {
+            // <b>Read off the chord and not off the centre.</b> The chord to a point on the piece's own
+            // circle stands half the turn off the start heading, so the turn is twice that angle and the
+            // length is the turn over the curvature. Read as the angle between two vectors out of the
+            // centre, a road's bend puts that centre kilometres away and both vectors are that long, so the
+            // angle between them is what is left of two floats agreeing to six figures.
+            atM = 2f * MathF.Atan2(Cross(arc.StartUnit, offM), Vector2.Dot(arc.StartUnit, offM)) / arc.Curvature;
+
+            // <b>The chord names one turn of the circle and the caller may mean the turn before it.</b> A
+            // point a stride behind the start is most of a turn ahead of it as readily as a stride behind,
+            // and a piece that turns past a half circle reaches one past its own end the long way round.
+            var roundM = MathF.Tau / MathF.Abs(arc.Curvature);
+            if (atM > arc.LengthM + pastM + OnThePieceM) atM -= roundM;
+            if (atM < -behindM - OnThePieceM) atM += roundM;
+        }
+
+        if (atM < -behindM - OnThePieceM || atM > arc.LengthM + pastM + OnThePieceM) return false;
+
+        atM = Math.Clamp(atM, -behindM, arc.LengthM + pastM);
+        return true;
+    }
+
+    /// <summary>Below this two lines or two centres are one and there is no one point to answer with.</summary>
+    const float ApartToCross = 1e-6f;
+
+    /// <summary>How far past a piece's own ends a crossing may stand and still be that piece's: a tenth of a millimetre.</summary>
+    const float OnThePieceM = 1e-4f;
 
     /// <summary>
     /// A polyline laid as a chain, with every corner it turns at <b>rounded over a margin either side of
