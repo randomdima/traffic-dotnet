@@ -229,6 +229,18 @@ internal sealed partial class SimConfig
     public float RoadWidthM => LaneWidthM * LanesPerCarriageway;
 
     /// <summary>
+    /// <b>How far off the kerb the roadside perimeter stands</b> — half a lane, 1.8 m at the shipped car.
+    /// It is the first of the town's lines to be struck off the boundary by name
+    /// (<c>CityGen.GroundLine.Roadside</c>) rather than by a bare distance.
+    /// </summary>
+    /// <remarks>
+    /// <b>Half a lane and not half a walk</b>, which is the point of naming it: it is quoted against the
+    /// carriageway the boundary is the edge of (GEN-15) rather than against the pavement, so it means the
+    /// same thing on a street whose pavement is the map's own figure as on one whose pavement is the town's.
+    /// </remarks>
+    public float RoadsidePerimeterOutM => LaneWidthM * 0.5f;
+
+    /// <summary>
     /// The whole width of ground a road takes: its carriageway and the walk either side of it. <b>It is
     /// how far apart two roads' own lines have to stand to be two roads</b> (GEN-17), and it is what a
     /// bridge's deck carries over the water.

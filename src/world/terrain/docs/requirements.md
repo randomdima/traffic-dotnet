@@ -146,6 +146,15 @@ pavements — a car park whose bays' ways converge on one pose would offer six d
 movement running edge to edge with the arm it leaves two — and a boundary computed once has none of them to
 break: it is one line because it was never several.
 
+**TER-3c.9** `P3` **A line the town strikes off its boundary is struck by name, and its normal points inside
+the perimeter.** The name and the figure are joined in one place (`GroundLine`, `GroundRings.OutM`) so that
+a line gains a reader without gaining a literal, and every one of them is walked with the driven ground on
+the walker's right — on the ring round the town and on the ring round every block it encloses alike. **So the
+right of travel is the inward side everywhere**, and whatever is laid along such a line reads its own inward
+side off the line's own direction: nothing to look up, no ring to identify as the outermost, and no ground
+query to ask. A ring whose walk came out the other way round hands every one of those back inverted while
+still looking like a perfectly good closed line, which is why this is a rule and not a convention.
+
 ## Water and bridges
 
 **TER-3b** `P6` A carriageway crossing ground legal to nobody carries a **bridge**: a deck wider than the

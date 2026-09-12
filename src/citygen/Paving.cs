@@ -128,6 +128,22 @@ internal sealed class Paving
     /// </summary>
     public LaneShell Perimeter(SimConfig config) => _perimeter ??= LaneShell.Of(this, config);
 
+    LaneShell? _boundary;
+
+    /// <summary>
+    /// <b>The town's boundary: the perimeter with every corner the ground turns turned on it</b>
+    /// (<see cref="LaneShell.Rounded"/>), which is what every line beside a road is struck off
+    /// (<see cref="GroundRings"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Kept here because the extrusion cache hangs off it.</b> Rounding hands back a shell of its own,
+    /// and a shell remembers every distance it has been extruded by — so a caller that rounds its own copy
+    /// pays for the whole table again. The picture, the ground answer, the walking network and the probe all
+    /// want the same distances off the same boundary, and asking one object for them is the difference
+    /// between striking each line once and striking it once per reader.
+    /// </remarks>
+    public LaneShell Boundary(SimConfig config) => _boundary ??= Perimeter(config).Rounded(config);
+
     /// <summary>The tarmac as one shape, for whoever wants to ask how far off it a point stands.</summary>
     public Kerbs Kerbs { get; }
 

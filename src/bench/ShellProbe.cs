@@ -196,7 +196,74 @@ internal static class ShellProbe
         Worst(offM, atM, onM);
         Wet(kerb, paving, config);
         Nodes(paving, config);
+        Inward(rings, config);
     }
+
+    /// <summary>
+    /// <b>Whether every named line's normal points inside the perimeter</b> (<see cref="GroundLine"/>): a
+    /// line is walked with the driven ground on the walker's right, so the right of travel is the inward
+    /// side on the ring round the town and on the ring round every block it encloses.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the one thing a reader of these lines cannot check for itself.</b> Anything laid along a
+    /// named line takes its own inward side off the line's own direction — which way to face a kerb, which
+    /// way to turn a barb, which side of a stretch the town is — and a ring whose walk came out the other
+    /// way round hands every one of those back inverted while still looking like a perfectly good closed
+    /// line. Read here by stepping off the line both ways and asking the kerb which step went in.
+    /// </remarks>
+    static void Inward(GroundRings rings, SimConfig config)
+    {
+        foreach (var line in (ReadOnlySpan<GroundLine>)[GroundLine.Kerb, GroundLine.Roadside])
+        {
+            var wantedM = GroundRings.OutM(line, config);
+            var outward = 0;
+            var asked = 0;
+            var stations = 0;
+            var atM = new List<Vector2>();
+            foreach (var ring in rings.At(line))
+            {
+                foreach (var arc in ring)
+                {
+                    var steps = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / ExtrudedStationM));
+                    for (var step = 0; step < steps; step++)
+                    {
+                        var alongM = arc.LengthM * step / steps;
+                        var onM = arc.PointAtM(alongM);
+                        stations++;
+
+                        // <b>Only where the line is standing where it says it is.</b> The question is which
+                        // way round the walk went, and the kerb answers with the *nearest* kerb — so at a
+                        // station the closure left short, or one whose own kerb is further off than some
+                        // other piece of boundary, the step that goes inward is the step that goes away from
+                        // whatever is answering. Those stations are already counted as off their figure; a
+                        // second reading of them says nothing about the winding.
+                        if (MathF.Abs(rings.OffTheKerbM(onM) - wantedM) > OffTheFigureM) continue;
+
+                        asked++;
+                        var inward = Heading.RightOf(Heading.Unit(arc.HeadingAtRad(alongM)));
+                        if (rings.OffTheKerbM(onM + (inward * InwardStepM))
+                            < rings.OffTheKerbM(onM - (inward * InwardStepM))) continue;
+
+                        outward++;
+                        if (atM.Count < Listed / 5) atM.Add(onM);
+                    }
+                }
+            }
+
+            Console.WriteLine(
+                $"  {line.ToString().ToLowerInvariant(),-9} normals  {outward} of {asked} point out of the "
+                + $"perimeter rather than into it, at {wantedM:F2} m off the kerb "
+                + $"({stations - asked} of {stations} not asked, standing off their own figure)");
+            foreach (var placeM in atM) Console.WriteLine($"      at {placeM.X:F1},{placeM.Y:F1}");
+        }
+    }
+
+    /// <summary>
+    /// How far off a line the step is taken when asking which way is inward. A tenth of a metre: far enough
+    /// that the two steps straddle the line by more than the millimetre two computations of one distance
+    /// disagree by, and near enough that nothing else is nearer than the line itself.
+    /// </summary>
+    const float InwardStepM = 0.1f;
 
     /// <summary>
     /// <b>Whether anything the town stands along its streets is standing in the road</b> — a building or a

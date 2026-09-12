@@ -1,5 +1,31 @@
 # CityGen — decision log
 
+## 2026-09-12 — the first line off the boundary is struck by name, and the debug line it replaces is gone
+
+Every line beside a road is now the same ring moved by a figure, which is what makes them one construction —
+and is also what makes them indistinguishable at the call site. `At(1.8f)` and `At(2f)` are two floats, and
+which line a reader meant is written down nowhere. So the table is named: `GroundLine` carries the name, the
+figure stays on `SimConfig` where a figure belongs, and `GroundRings.OutM` is the one place they are joined.
+The kerb is in the table at nought rather than being the absence of an entry, because it is a line like any
+other and is what the rest are measured from.
+
+**The first named line is the roadside perimeter, half a lane off the kerb.** Half a *lane* and not half a
+walk, which is why naming it was worth doing: it is quoted against the carriageway the boundary is the edge
+of (GEN-15), so it means the same thing on a street whose pavement is the map's own figure as on one whose
+pavement is the town's.
+
+**And the perimeter layer draws it instead of a test line.** That layer used to draw a second line five
+metres out in red — a distance chosen to be visible at a street framing and nothing the town had. The reading
+taken from it is the same either way (whether the struck line keeps its distance, and where it cut a corner
+the boundary turned), and now what it is taken of is real. White, because it is the line the town has where
+the blue one is the construction it comes off.
+
+**The boundary itself is cached on the paving.** Rounding a perimeter hands back a shell of its own and a
+shell remembers every distance it has been extruded by, so the picture, the ground answer, the walking
+network and the probe were each rounding their own copy and striking the whole table again. `Paving.Boundary`
+is one object for the town, which is the difference between striking each line once and striking it once per
+reader — and it is what lets a debug layer drawn every frame read a named line without building anything.
+
 ## 2026-09-12 — the boundary settles when the car parks are laid, and the buildings are cleared against that
 
 Every stage of the generator reads the ground as it stands, which is right — what is on the ground at a

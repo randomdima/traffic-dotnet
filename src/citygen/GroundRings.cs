@@ -47,12 +47,14 @@ internal sealed class GroundRings
     readonly LaneShell _shell;
     readonly float _reachM;
     readonly RingField _kerb;
+    readonly SimConfig _config;
 
-    GroundRings(LaneShell shell, float reachM, RingField kerb)
+    GroundRings(LaneShell shell, float reachM, RingField kerb, SimConfig config)
     {
         _shell = shell;
         _reachM = reachM;
         _kerb = kerb;
+        _config = config;
     }
 
     /// <summary>
@@ -61,16 +63,38 @@ internal sealed class GroundRings
     /// </summary>
     public static GroundRings Of(Paving paving, SimConfig config)
     {
-        var shell = paving.Perimeter(config).Rounded(config);
+        var shell = paving.Boundary(config);
         var reachM = config.RoadFootprintM;
-        return new GroundRings(shell, reachM, new RingField(shell.Extruded(0f, SmoothM), reachM));
+        return new GroundRings(shell, reachM, new RingField(shell.Extruded(0f, SmoothM), reachM), config);
     }
+
+    /// <summary>
+    /// <b>The distance one named line stands off the kerb</b> (<see cref="GroundLine"/>) — the name joined
+    /// to its figure, here and nowhere else.
+    /// </summary>
+    /// <remarks>
+    /// <b>Static, because a caller with the boundary in hand should not have to index the town to read a
+    /// distance.</b> The debug layer draws a named line every frame off the shell it already holds
+    /// (<c>Paving.Boundary</c>), and building the kerb's index to look the figure up would be a grid a
+    /// frame. The name is the caller's, the figure is <c>SimConfig</c>'s, and this is the join.
+    /// </remarks>
+    public static float OutM(GroundLine line, SimConfig config) => line switch
+    {
+        GroundLine.Roadside => config.RoadsidePerimeterOutM,
+        _ => 0f,
+    };
 
     /// <summary>
     /// <b>The rings that stand <paramref name="outM"/> off the kerb</b>, one for one with the shell's own
     /// and empty where the distance left a ring nothing.
     /// </summary>
     public ReadOnlySpan<ArcSeg[]> At(float outM) => _shell.Extruded(outM, SmoothM);
+
+    /// <summary>
+    /// <b>The rings of one named line</b>, each walked with the driven ground on its right, so the right of
+    /// travel is the inward normal throughout (<see cref="GroundLine"/>).
+    /// </summary>
+    public ReadOnlySpan<ArcSeg[]> At(GroundLine line) => At(OutM(line, _config));
 
     /// <summary>The shell the distances are taken off, for a reader that wants the lines themselves.</summary>
     public LaneShell Shell => _shell;

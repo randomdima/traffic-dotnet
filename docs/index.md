@@ -113,6 +113,13 @@ Absences that are gaps rather than decisions, and none of them is silent:
   over water, and the water itself asked what answers for it — and both are **nought on both shipped
   cities**, over 1.3 million places on the larger. It stays named because nothing refuses the join: the
   boundary is free to cross water again the moment a fold falls the wrong way.
+- **A few of the boundary's stations have their normal pointing the wrong way.** Every named line is walked
+  with the driven ground on its right, so the right of travel is the inward side (`TER-3c.9`) — except where
+  the fold closure left a loop of a station or two, over which the line doubles back and the normal with it.
+  The cusps of those loops are taken out (`Extrusion.Unlooped`), which on a city leaves **175 of 124 508
+  kerb stations and 423 of 113 351 roadside stations** pointing outward, from 210 and 708 before. `--bench
+  shell` counts them. It is the fold closure's residual in a third guise, after the mid-straight stations
+  and the nodes, and it closes with them.
 - **A node can stand off the tarmac**, and what it was is not what it is. It was the field: a node sits on
   its own road's centreline, equally near the boundary either side, and `RingField` summed the outward
   normals of every piece tying for nearest — two opposite sides of a band summing to nothing, so the side

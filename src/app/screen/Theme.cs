@@ -118,12 +118,13 @@ internal static class Theme
     public static readonly Vector4 Perimeter = new(0.15f, 0.60f, 1f, 0.95f);
 
     /// <summary>
-    /// The line struck a fixed distance outside that one (OBS-2q). <b>Neither the perimeter's colour nor a
-    /// shade of it</b>: the reading is the two lines together — whether the outer one keeps its distance
-    /// everywhere, and where it cut a corner the inner one turned — and two blues an offset apart are one
-    /// thick line at the framing a town is looked at.
+    /// A line the town strikes off that one, by name (OBS-2q, <c>CityGen.GroundLine</c>). <b>Neither the
+    /// perimeter's colour nor a shade of it</b>: the reading is the two lines together — whether the struck
+    /// one keeps its distance everywhere, and where it cut a corner the boundary turned — and two blues an
+    /// offset apart are one thick line at the framing a town is looked at. <b>White, because it is the
+    /// line the town really has</b> where the blue one is the construction it is taken off.
     /// </summary>
-    public static readonly Vector4 PerimeterOut = new(1f, 0.25f, 0.30f, 0.95f);
+    public static readonly Vector4 GroundLine = new(1f, 1f, 1f, 0.95f);
 
     public static readonly Vector4 Collision = new(0.95f, 0.35f, 0.85f, 0.85f);
 

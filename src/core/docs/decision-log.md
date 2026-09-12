@@ -1,5 +1,28 @@
 # The kernel — decision log
 
+## 2026-09-12 — the cusps come out, because a loop of nothing inverts everything laid along it
+
+A ring is walked with the driven ground on its right and everything laid along one reads its own inward side
+off that (TER-3c.9). A tiny loop breaks it: over the two or three stations the line spends doubling back, the
+right of travel points out of the perimeter, and a reader taking its inward side off the line gets it
+inverted while the line still looks like a perfectly good closed curve. On a city that was a fifth of a per
+cent of the kerb's stations and two thirds of a per cent of the roadside's.
+
+**What tells a loop from a corner is the arms and not the angle.** The offset of a fold really does turn
+through most of a half circle where two branches are trimmed against one another, and that corner is the
+answer — so a rule written on the turn alone would cut the very places the fold rule exists to find. A
+genuine corner has length either side of it, two branches running away from the trim. A loop the closure left
+has neither, being half a metre of line that goes nowhere.
+
+Outward normals on a city: kerb 210 → 175, roadside 708 → 423, with every other reading flat or better —
+the stations standing nearer the kerb than their figure *on a station of the walk* went to nought on the
+pavement.
+
+**One pass and not until it settles.** Taking a cusp out joins its neighbours and can leave another, so
+running it to a fixed point is the obvious next thing, and it traded one line for another: four passes took
+the roadside from 423 to 355 and the kerb from 175 to 214. The kerb is what every other distance is measured
+off, so it is the one to keep clean.
+
 ## 2026-09-12 — the extrusion keeps a clearance from every band, not a distance from every line
 
 The ring a town's ground is said in runs down the lines cars are driven on, and the edge of the ground

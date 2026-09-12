@@ -198,7 +198,7 @@ internal static class Extrusion
             var kept = Clear(field, hand, clearM, [.. moved[at]]);
             if (kept.Length < 3) continue;
 
-            var closed = Closed(field, hand, clearM, kept);
+            var closed = Unlooped(Closed(field, hand, clearM, kept));
             if (closed.Length < 3) continue;
 
             extruded[at] = Straights(Corners(Smoothed(closed, smoothM)));
@@ -391,6 +391,64 @@ internal static class Extrusion
 
         return [.. closed];
     }
+
+    /// <summary>
+    /// <b>The line with its cusps taken out</b> — a station the line arrives at and leaves in opposite
+    /// directions over a step or two either side, which is a loop of nothing rather than a corner.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A ring is walked with the ground on its right throughout, and everything laid along one reads its
+    /// own inward side off that</b> (<c>CityGen.GroundLine</c>). A tiny loop breaks it: over the two or
+    /// three stations the line spends doubling back, the right of travel points out of the perimeter, and a
+    /// reader taking its inward side off the line gets it inverted while the line still looks like a
+    /// perfectly good closed curve. On a city that was a fifth of a per cent of the kerb's stations and
+    /// two thirds of a per cent of the roadside's.
+    /// </para>
+    /// <para>
+    /// <b>The arms are what tell a loop from a corner, not the angle.</b> The offset of a fold really does
+    /// turn through most of a half circle where two branches are trimmed against one another, and that
+    /// corner is the answer — so an angle alone would cut the very places the fold rule exists to find.
+    /// What a genuine corner has is <em>length</em> either side of it: two branches running away from the
+    /// trim. A loop the closure left has neither, being a station or two of line that goes nowhere.
+    /// </para>
+    /// <para>
+    /// <b>One pass and not until it settles.</b> Taking a cusp out joins its two neighbours and can leave
+    /// another, so running it to a fixed point is the obvious thing — and it traded one line's cleanliness
+    /// for another's: on a city four passes took the roadside line's outward normals from 423 to 355 and the
+    /// kerb's from 175 to 214. The kerb is the line every other distance is measured off, so it is the one
+    /// to keep clean, and a single pass is what does that.
+    /// </para>
+    /// </remarks>
+    static Vector2[] Unlooped(Vector2[] pointM)
+    {
+        if (pointM.Length < 3) return pointM;
+
+        var kept = new List<Vector2>(pointM.Length);
+        for (var at = 0; at < pointM.Length; at++)
+        {
+            var cameM = pointM[Round(at - 1, pointM.Length)] - pointM[at];
+            var goesM = pointM[Round(at + 1, pointM.Length)] - pointM[at];
+            var armM = MathF.Min(cameM.Length(), goesM.Length());
+            if (armM > StationM * ArmStations || armM <= ApartM)
+            {
+                kept.Add(pointM[at]);
+                continue;
+            }
+
+            // Both arms are short, so the only question left is whether the line turned round here.
+            if (Vector2.Dot(cameM, goesM) < 0f) kept.Add(pointM[at]);
+        }
+
+        return kept.Count >= 3 ? [.. kept] : pointM;
+    }
+
+    /// <summary>
+    /// How much line either side of a station makes its corner a corner rather than a loop. Two stations:
+    /// a branch of a trimmed fold runs away from the trim for as long as the fold was deep, and a loop the
+    /// closure left is the half-metre it took to double back.
+    /// </summary>
+    const int ArmStations = 2;
 
     /// <summary>
     /// <b>The answer followed from one side of a gap to the other</b>, a station at a time: step along where
