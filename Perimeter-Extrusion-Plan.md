@@ -96,6 +96,14 @@ grass. **One switch, because there is now one construction** — hold the bounda
 goes together, which is the plainest demonstration the upgrade has of what it was for. A town opens held
 (`RunState.AgentsHeld`) so the ground is read without cars crossing it.
 
+**And the carriageway's own surface is hidden too**, behind a second switch — `RoadFigures.CarriagewayDrawn`,
+also off. What is left in a frame is the paint: the lane lines, the zebras, the bars and the bay strokes, on
+grass. **It hides rather than holds back**, and that asymmetry is the point: a pavement nothing lays is a
+pavement nothing needs, where the driven ground is what every car on it is held up by, so the answer goes on
+saying what it said. That is a deviation from `TER-7` and leaves `TER-7b` — the owner's — describing a stack
+three of whose layers the build does not draw. Both are named in
+[docs/index.md](docs/index.md#known-gaps) rather than reworded.
+
 The switch is a stage and not a state of the engine: it is in
 [docs/index.md](docs/index.md#known-gaps) as a gap against `TER-3c.3` and `TER-3d`, and it goes — with the
 branches that read it and the held default — when the three faults above are closed.

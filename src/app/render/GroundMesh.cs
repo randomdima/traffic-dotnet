@@ -208,11 +208,20 @@ internal sealed partial class GroundMesh
         // quotes.
         if (offTheKerb) Region(mesh, rings, kerbM, Surface.Tarmac, paint, periods);
 
+        // <b>Whether the carriageway's own surface is drawn at all</b>
+        // (<c>RoadFigures.CarriagewayDrawn</c>): temporary, and a drawing switch rather than a laying one —
+        // the answer goes on saying the ground is driven over, because every car on it is held up by that.
+        var carriageway = config.Road.CarriagewayDrawn;
+
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where
         // the answer puts it (<c>GroundShapes.At</c>).
-        for (var slab = 0; slab < plan.PavedAreas.Count; slab++)
+        if (carriageway)
         {
-            mesh.Rect(plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain, periods);
+            for (var slab = 0; slab < plan.PavedAreas.Count; slab++)
+            {
+                mesh.Rect(
+                    plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain, periods);
+            }
         }
 
         // And the driven ground at its own size, last of the ground: the region the boundary bounds, kerb
@@ -221,11 +230,13 @@ internal sealed partial class GroundMesh
         // none either — and neither has a road, a bridge or a dead end, because none of them is the edge of
         // anything: the boundary is. Being last is what leaves the kerb line as the line's width the layer
         // before it kept.
-        Region(mesh, rings, 0f, Surface.Tarmac, Plain, periods);
+        if (carriageway) Region(mesh, rings, 0f, Surface.Tarmac, Plain, periods);
 
         // And what the blocks the town encloses take back, outwards from their own kerbs
         // (<see cref="Encloses"/>). With nothing struck off the kerb there is one of them and it is the
-        // grass, which is what a block is once the lines beside its roads are held back.
+        // grass, which is what a block is once the lines beside its roads are held back — and with no
+        // carriageway drawn there is nothing for a block to take back at all, the grass already being what
+        // was laid there.
         if (offTheKerb)
         {
             Encloses(mesh, rings, 0f, Surface.Tarmac, paint, periods);
@@ -233,7 +244,7 @@ internal sealed partial class GroundMesh
             Encloses(mesh, rings, walkM - edgeM, Surface.Pavement, edge, periods);
             Encloses(mesh, rings, walkM, Surface.Grass, Plain, periods);
         }
-        else
+        else if (carriageway)
         {
             Encloses(mesh, rings, 0f, Surface.Grass, Plain, periods);
         }

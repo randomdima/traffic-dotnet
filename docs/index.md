@@ -126,12 +126,19 @@ Absences that are gaps rather than decisions, and none of them is silent:
   everywhere. So a bridge is its deck and its carriageway, with the margin a parapet stands on reaching all
   the way out, and the walk that ought to cross it is missing (`TER-3b.1`). Closing this is the same work as
   the gap above it: a boundary that knows where a deck carries it.
-- **No pavement, kerb line or walking lane is laid at all while the upgrade is staged.** The one switch
-  that holds them back is `RoadFigures.LinesOffTheKerbLaid`, off in the shipped figures, and with it off a
-  town is its driven ground and nothing else — no `TER-3c.3` concrete, no `TER-3d` stroke and an empty
-  walking network. **It is a stage and not a state of the engine**: the switch and the branches that read it
-  go when the boundary's remaining faults are closed, and the four rungs it holds back are all the
-  assistant's.
+- **The ground is drawn as paint on grass while the upgrade is staged**, and two switches in the shipped
+  figures say so. `RoadFigures.LinesOffTheKerbLaid` **holds back** the pavement, its rim, the kerb line and
+  the walking lanes — nothing lays them, so there is no `TER-3c.3` concrete, no `TER-3d` stroke and the
+  walking network is empty. `RoadFigures.CarriagewayDrawn` **hides** the driven ground and the slabs beside
+  it, which is a different thing: the answer goes on saying that ground is driven over, because the grip, the
+  permission and the lane a body is written onto all hang off it, and only the picture stops showing it.
+  - **That leaves `TER-7b` — the owner's — describing a stack the build does not draw**, three of whose
+    layers are absent, and `TER-7` deviated from outright at the carriageway, the drawn ground and the
+    answered-for ground no longer being one list read two ways. **Neither rule is reworded for it**: the
+    code does not meet them while the stage runs, which is what this entry is.
+  - **It is a stage and not a state of the engine.** Both switches and the branches that read them go when
+    the boundary's remaining faults are closed, and a frame taken meanwhile is the lane paint, the grass and
+    what stands on it.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

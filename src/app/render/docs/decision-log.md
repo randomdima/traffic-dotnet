@@ -2,6 +2,25 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-09-12 — the carriageway is hidden and not held back, which is why there are two switches
+
+The lines off the kerb are held back by not being laid: nothing computes them, the walking network comes out
+empty, and the ground answer says grass beyond the kerb because that is what is there. The carriageway
+cannot go the same way. `Ground.Road` carries the grip a tyre is solved against, the permission that says
+who may be there and the lane a body is written onto, so a town whose driven ground answered grass is a town
+whose cars fall through it.
+
+So the second switch is a **drawing** switch: `RoadFigures.CarriagewayDrawn` skips the region the boundary
+bounds and the slabs beside it, and nothing else changes. What a frame then shows is the paint — the lane
+lines, the zebras, the bars, the bay strokes — on grass, which is the town's lines with nothing filled in
+behind them.
+
+**The asymmetry is worth keeping in view, because it is the only place in the build where drawn and
+answered-for are not one list read two ways** (TER-7), and it leaves TER-7b describing a stack three of
+whose layers are absent. Neither rule is reworded to match: they are in
+[the known gaps](../../../../docs/index.md#known-gaps) for as long as the stage runs, and the switches go
+with it.
+
 ## 2026-09-12 — a layer is a region and not a heap of pieces
 
 The ground was a union stated by over-painting: every road, movement, wedge and car park laid at four sizes
