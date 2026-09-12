@@ -30,7 +30,11 @@ not thirty-six:
 - **A prop cleared against the boundary while the town was being laid is read against the finished one.**
   The generator remakes the ground as each stage adds its shapes, and the boundary of a half-laid town is
   not the boundary of the finished one. Five generator tests. The fix is to say when the boundary is
-  settled, not to make the clearing more generous.
+  settled, not to make the clearing more generous. **Said**: the boundary settles when the car parks are
+  laid, because a lot's ways are driven lines and nothing after that stage adds any; `SlotStage` now clears
+  its buildings against that ground rather than against the one its lots were chosen on, and hands it on
+  for the props. **Unverified** — it changes what every generated town holds and only `GeneratorTests` can
+  say whether it closes the five. It cost no extra walk of the shell.
 - **Three places where the town itself is wrong and the picture and the answer agree about it**: a
   boundary crossing water where no bridge carries it, a node nothing is turned through standing on
   pavement, and an exam card whose walk changed. Named in the known gaps.

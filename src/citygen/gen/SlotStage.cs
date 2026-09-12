@@ -38,13 +38,28 @@ internal static class SlotStage
     /// </summary>
     const float PaddingShare = 0.25f;
 
+    /// <param name="Settled">
+    /// <b>The ground once this stage has finished adding to it</b> — the streets with the car parks on them.
+    /// It is handed back because <b>this is the stage the town's boundary settles in</b>: a lot's ways are
+    /// driven lines, so laying one moves the edge of the driven ground, and nothing after this stage moves
+    /// it again. Whoever clears something against the boundary after this is clearing it against the
+    /// finished one, and the reading costs a walk of the shell that would otherwise be paid twice.
+    /// </param>
     internal readonly record struct Laid(
-        CityPlan.BuildingArrays Buildings, CityPlan.ParkingLotArrays ParkingLots);
+        CityPlan.BuildingArrays Buildings, CityPlan.ParkingLotArrays ParkingLots, GroundShapes Settled);
 
+    /// <param name="streets">
+    /// The ground the car parks are chosen on: the roads and nothing standing along them yet.
+    /// </param>
+    /// <param name="paved">
+    /// The same shapes the car parks are then added to, so that the buildings can be cleared against the
+    /// boundary the town ends up with rather than the one it had while its car parks were being chosen.
+    /// </param>
     public static Laid Lay(
-        TownLayout layout, CityPlan.RoadArrays roads, TownBrief brief, GroundShapes ground, GenClaims claims,
-        SimConfig config, ReadOnlySpan<Vector2> roofsM, ref Rng draw)
+        TownLayout layout, CityPlan.RoadArrays roads, TownBrief brief, GroundPieces paved, GroundShapes streets,
+        GenClaims claims, SimConfig config, ReadOnlySpan<Vector2> roofsM, ref Rng draw)
     {
+        var ground = streets;
         var centreM = new List<Vector2>();
         var sizeM = new List<Vector2>();
         var headingRad = new List<float>();
@@ -140,6 +155,20 @@ internal static class SlotStage
             slots, bays, roads, config, ground, claims, bayLengthM, bayWidthM,
             lotCentreM, lotAxis, lotHalfM, bayOffsets, bayM, bayHeadingRad);
 
+        var lots = new CityPlan.ParkingLotArrays
+        {
+            CentreM = [.. lotCentreM], Axis = [.. lotAxis], HalfExtentM = [.. lotHalfM],
+            SpaceOffsets = [.. bayOffsets], SpacePositionM = [.. bayM], SpaceHeadingRad = [.. bayHeadingRad],
+        };
+
+        // <b>The boundary settles here, and the buildings are cleared against the settled one.</b> A car
+        // park is the ways driven into it (GEN-4b) and those are driven lines like any other, so laying one
+        // moves the edge of the driven ground the whole town is measured off (TER-3c.3). Cleared against the
+        // ground the lots were *chosen* on, a building stood well clear of every kerb there was and then had
+        // a car park laid up to it — and what the finished map answers for the ground under it is tarmac,
+        // which is a house in the road however carefully it was placed.
+        ground = new GroundShapes(paved.With(lots), config);
+
         var frontages = new List<Slot>(slots.Count);
         for (var slot = 0; slot < slots.Count; slot++)
         {
@@ -172,11 +201,8 @@ internal static class SlotStage
                 Use = uses,
                 EntryOffsets = OneEach(entryM.Count), EntryPointM = [.. entryM],
             },
-            new CityPlan.ParkingLotArrays
-            {
-                CentreM = [.. lotCentreM], Axis = [.. lotAxis], HalfExtentM = [.. lotHalfM],
-                SpaceOffsets = [.. bayOffsets], SpacePositionM = [.. bayM], SpaceHeadingRad = [.. bayHeadingRad],
-            });
+            lots,
+            ground);
     }
 
     /// <summary>

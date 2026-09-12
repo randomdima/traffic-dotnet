@@ -1,5 +1,23 @@
 # CityGen — decision log
 
+## 2026-09-12 — the boundary settles when the car parks are laid, and the buildings are cleared against that
+
+Every stage of the generator reads the ground as it stands, which is right — what is on the ground at a
+point is a fact about the shapes there are. What was wrong is that one stage adds driven ground *and* clears
+things against it. A car park is the ways driven into it (GEN-4b) and those are driven lines like any other,
+so laying one moves the edge of the driven ground the whole town is measured off (TER-3c.3); the buildings
+laid after the lots in that same stage were still being cleared against the ground the lots were *chosen*
+on. A building could therefore stand well clear of every kerb there was and have a car park laid up to it.
+
+**The stage says when it is settled rather than everyone guessing.** `SlotStage` remakes the ground once its
+lots are down, clears its buildings against that, and hands it back — nothing below that stage adds driven
+ground, so it is the boundary the finished map answers with. The prop stage takes it instead of building the
+same reading again, which is why the fix costs no extra walk of the shell.
+
+**It changes what a town holds, and only the tier can say by how much.** A building the finished boundary
+now refuses is a building the town does not get, at every seed. That is the point — it was standing in the
+road — but the figure is `GeneratorTests`' to report and it has not been run.
+
 ## 2026-09-12 — what still placed ground of its own is gone, and one switch holds back the rest
 
 The boundary was the town's, but four things still put ground down beside a road by arithmetic of their

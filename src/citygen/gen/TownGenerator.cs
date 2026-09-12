@@ -94,11 +94,16 @@ internal static class TownGenerator
         var streets = new GroundShapes(paved, config);
 
         var slot = new Rng(brief.Seed, SlotStream);
-        var statics = SlotStage.Lay(layout, roads.Roads, brief, streets, claims, config, roofsM, ref slot);
+        var statics = SlotStage.Lay(
+            layout, roads.Roads, brief, paved, streets, claims, config, roofsM, ref slot);
 
+        // <b>The boundary is settled once the car parks are laid</b>, and the stage that laid them hands the
+        // ground back rather than leaving every stage after it to remake the same reading
+        // (<see cref="SlotStage.Laid.Settled"/>). Nothing below adds driven ground, so this is the boundary
+        // the finished map answers with and the one everything left is cleared against.
         var prop = new Rng(brief.Seed, PropStream);
-        var built = new GroundShapes(paved.With(statics.ParkingLots), config);
-        var props = PropStage.Lay(brief, roads.Roads, statics.ParkingLots, built, claims, config, ref prop);
+        var props = PropStage.Lay(
+            brief, roads.Roads, statics.ParkingLots, statics.Settled, claims, config, ref prop);
 
         var spawn = new Rng(brief.Seed, SpawnStream);
         var spawns = SpawnStage.Lay(brief, statics.Buildings, statics.ParkingLots, ref spawn);
