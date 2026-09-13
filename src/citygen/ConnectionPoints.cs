@@ -153,11 +153,23 @@ internal static class ConnectionPoints
     public static int At(GroundPieces ground, SimConfig config, int road, bool atFrom, Span<ConnectionPoint> into) =>
         At(ground, config, ArmOf(ground, config, road, atFrom), road, into);
 
-    static ConnectionPoint Point(SimConfig config, in Arm arm, Vector2 drivenUnit, LaneEnd end) =>
-        new(
-            arm.StandM + (Heading.RightOf(drivenUnit) * config.LaneOffsetM * config.RoadSideSign),
-            drivenUnit,
-            end);
+    /// <summary>
+    /// One point of an arm: the stand line's middle, moved half a lane onto the side the traffic driving
+    /// through it keeps.
+    /// </summary>
+    /// <remarks>
+    /// <b>A ring arm carries no offset at all</b> (GEN-19). The circle a roundabout was sized as <em>is</em>
+    /// the line its traffic is driven on — the ring is one way round and a lane wide, and moved half a lane
+    /// off the circle its carriageway leaves the nodes its own arms end at. It is the one arm whose lane is
+    /// the arm's own line rather than a share of a carriageway, and it is the same exception
+    /// <c>RoadStage.OntoTheDrivenHalf</c> makes.
+    /// </remarks>
+    static ConnectionPoint Point(SimConfig config, in Arm arm, Vector2 drivenUnit, LaneEnd end)
+    {
+        var acrossM = arm.Curvature == 0f ? config.LaneOffsetM * config.RoadSideSign : 0f;
+        return new ConnectionPoint(
+            arm.StandM + (Heading.RightOf(drivenUnit) * acrossM), drivenUnit, end);
+    }
 
     static Vector2 Chord(Vector2 nodeM, Vector2 towardM)
     {

@@ -92,7 +92,8 @@ internal static class Towns
     /// Overridden only by the case that asks whether retuning a later stage moves the roads — which needs
     /// the same brief with one figure changed, and would silently ask nothing if it hand-copied the rest.
     /// </param>
-    public static TownBrief Brief(ulong seed, WaterKind water = WaterKind.River, int cars = 60) => new()
+    public static TownBrief Brief(
+        ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f) => new()
     {
         Name = City,
         Description = "The suite's own town, laid to ask questions of a city without shipping one",
@@ -100,7 +101,7 @@ internal static class Towns
         WidthM = 2400f,
         HeightM = 1800f,
         Districts = 6,
-        GridDistrictShare = 0.5f,
+        GridDistrictShare = gridDistrictShare,
         BearingSpreadDeg = 30f,
         RingShare = 0.34f,
         UnregulatedJunctionShare = 0.15f,
