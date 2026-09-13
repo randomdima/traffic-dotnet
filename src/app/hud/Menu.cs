@@ -171,7 +171,7 @@ internal sealed partial class Menu
     [
         "Car lines", "Walker lines", "Nodes and links", "Lane claims", "Collision",
         "Ground wireframe", "Turn circles", "Tarmac perimeter", "Tarmac ribbons", "Geometry grid",
-        "Ruler", "Track figures",
+        "Ruler",
     ];
 
     /// <summary>The middle of a laid row, which is what the suite clicks to ask the layout and the hit test the same question.</summary>
@@ -433,8 +433,7 @@ internal sealed partial class Menu
             case 7: return ref switches.Perimeter;
             case 8: return ref switches.Ribbons;
             case 9: return ref switches.Grid;
-            case 10: return ref switches.Ruler;
-            default: return ref switches.TrackFigures;
+            default: return ref switches.Ruler;
         }
     }
 

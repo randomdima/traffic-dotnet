@@ -112,17 +112,6 @@ internal sealed class DebugSwitches
     public bool Ruler;
 
     /// <summary>
-    /// What each shape of the proving ground is costing each drivetrain. <b>It shows on the proving ground
-    /// and nowhere else</b>: every other map is a town, and a town has no shapes to name.
-    /// </summary>
-    /// <remarks>
-    /// <b>The one switch that starts on</b>, and it is not really an exception: every other switch draws
-    /// something over a town that is worth looking at without it, and this draws the only thing the proving
-    /// ground is for. A rig whose read-out has to be found in a settings panel is a rig nobody reads.
-    /// </remarks>
-    public bool TrackFigures = true;
-
-    /// <summary>
     /// Whether anything the town holds still is drawn at all, which is what decides whether the cache
     /// behind those layers is laid. Both of them are geometry that does not move once the town is laid.
     /// </summary>

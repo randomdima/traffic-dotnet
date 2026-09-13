@@ -163,16 +163,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     HandInput _hands;
 
-    /// <summary>
-    /// The wheel each car is holding over for the whole run, or null on the towns — <b>every map but the
-    /// skidpad</b> (<see cref="HoldTheWheels"/>). Laid once with the fleet, since what a held wheel is
-    /// asked for never changes.
-    /// </summary>
-    HandInput[]? _wheelHeld;
-
-    /// <summary>Whether every wheel on this map writes on the ground it stands on, whatever it is doing (<see cref="LayMark"/>).</summary>
-    readonly bool _everyWheelWrites;
-
     int _ordered;
 
     /// <param name="agentSeed">
@@ -185,7 +175,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _config = config;
         _plan = plan;
         _agentSeed = agentSeed ?? plan.Seed;
-        _everyWheelWrites = SkidpadPlan.HoldsItsCarsWheels(plan.Name);
         _terrain = new GroundLocator(plan, config);
         _physics = new PhysicsWorld(config);
 
@@ -261,13 +250,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // every way in the town, and a bay's is a way like the rest of them.
         _crossings = BayCrossings.Over(_bayWays, _roads, config);
 
-        // <b>A map laid to compare one thing stands the nominal car and everything else stands the fleet</b>
-        // (CAR-11a): the measured lap differs in the drive layout and in nothing else, and the exam's cards
-        // differ in the crossing and in nothing else. The fleet lap is the one proving ground that does not,
-        // which is the whole of what it is for.
-        _builds = TrackPlan.StandsTheNominalCar(plan.Name) || ExamPlan.StandsOneLook(plan.Name)
-            ? CarBuilds.OfTheNominalCar(config, CarCatalog.Shared)
-            : CarBuilds.OfTheFleet(config, CarCatalog.Shared);
+        // <b>A town stands the fleet</b> (CAR-11a). The maps that stood one look apiece were laid to compare
+        // one thing against itself, and they were parked with the layer they were laid on.
+        _builds = CarBuilds.OfTheFleet(config, CarCatalog.Shared);
 
         Cars = new CarFleet(drivers, LineAssembler.ArcsFor(_roads) + _bayWays.MostArcs, _builds);
 
@@ -319,7 +304,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // hospital with no bay near it stands no ambulance, and a slot nothing was put in is a body the
         // decision loop would hand a tick to and the solver has never heard of.
         Roster = new AgentRoster(People.Count, Cars.Count);
-        HoldTheWheels();
         DriveTheEmptyMap();
 
         // One bucket the width of the widest question asked of it; the index is rebuilt into it every

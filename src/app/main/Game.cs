@@ -83,9 +83,6 @@ internal sealed partial class Game : IDisposable
 
     SimLoop<TownWorld>? _loop;
 
-    /// <summary>The proving ground's own instrument, on the proving ground and nowhere else.</summary>
-    TrackMetrics? _track;
-
     /// <summary>
     /// What the town standing claims about itself, watched every tick (<see cref="Scenarios.For"/>). It is
     /// the map's own claims and the two every town owes, and it is what the panel along the bottom draws
@@ -595,7 +592,6 @@ internal sealed partial class Game : IDisposable
         _ground = laid.Ground;
         _loop = new SimLoop<TownWorld>(laid.World, _config);
         _scenario = laid.Scenario;
-        _track = Scenarios.FiguresIn(_scenario);
         _clock = new SimClock(_config.TickSeconds, _config.Sim.SoakMaxTimeScale);
         _camera = new Camera2D(_config, laid.Plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
         FrameTheTown(laid.World, laid.Plan.WorldSizeM);
@@ -728,7 +724,6 @@ internal sealed partial class Game : IDisposable
         Frame = _meter.Figures,
         Crossings = _crossingsPerFrame,
         Counting = Crossings() > 0,
-        Track = _track,
         Scenario = _scenario,
     };
 

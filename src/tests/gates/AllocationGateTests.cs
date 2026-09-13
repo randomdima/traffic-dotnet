@@ -152,16 +152,15 @@ public class AllocationGateTests
     /// the figure means nothing until a town has been shown to produce contacts at all.
     /// </summary>
     /// <remarks>
-    /// <b>Asked of the lap the bodies reel on and not of a town.</b> Whether a town's own traffic touches
-    /// inside a minute is a fact about how crowded it is, and a fixture roomy enough for its cars to park
-    /// squarely is one where nothing need collide — so the map that exists to put bodies in the carriageway
-    /// is the one that can honestly answer this.
+    /// <b>Asked of the city and over a long enough run to be fair to it.</b> The lap the bodies reeled on
+    /// was parked with the rest of the laboratories, so what answers this is the town whose own traffic
+    /// crowds — and how long that takes is a fact about the town rather than about the arbiter.
     /// </remarks>
     [Fact]
     public void ATownWithTrafficInItActuallyProducesContacts()
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Of(TrackPlan.NameOf(TrackLap.Drunk)), config);
+        using var world = new TownWorld(Towns.Of(Towns.City), config);
         new SimLoop<TownWorld>(world, config).Advance(1_800);
 
         Assert.True(world.Touches > 0);

@@ -46,6 +46,6 @@ internal sealed class LaidTown
         var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
         var ground = GroundMesh.Build(plan, config);
         var world = new TownWorld(plan, config);
-        return new LaidTown(plan, ground, world, Scenarios.For(world, config));
+        return new LaidTown(plan, ground, world, Scenarios.For(world));
     }
 }

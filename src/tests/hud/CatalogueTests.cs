@@ -121,7 +121,7 @@ public class CatalogueTests
         foreach (var map in Towns.LaidMaps)
         {
             using var world = new TownWorld(Towns.Of(map), config);
-            foreach (var watch in Scenarios.For(world, config))
+            foreach (var watch in Scenarios.For(world))
             {
                 Printable(watch.Name);
                 Printable(watch.Subject);

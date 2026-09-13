@@ -40,16 +40,6 @@ public class SelectionPathTests
     static OverlayQuad[] Of(OverlayQuad[] marks, Vector4 colour) =>
         [.. marks.Where(mark => mark.Colour == colour)];
 
-    /// <summary>A walker with a line in hand, ordered somewhere it can be walked to, and the tick that takes the order.</summary>
-    static int AWalkerUnderOrders(TownWorld world, SimLoop<TownWorld> loop, Vector2 toM)
-    {
-        var walker = OutOfDoors.AWalker(world, loop, Config);
-        world.Select(new Selection(SelectionKind.Person, walker));
-        world.Order(walker, toM);
-        loop.Advance(2);
-        return walker;
-    }
-
     [Fact]
     public void NothingSelectedIsNothingDrawn()
     {
@@ -77,68 +67,6 @@ public class SelectionPathTests
 
         world.Hands(new HandInput(Held: true, Throttle: 1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
         Assert.Empty(Marks(world));
-    }
-
-    /// <summary>
-    /// <b>The whole line and not the two stretches a layer draws</b>: the last point the walker was given is
-    /// on screen, and the goal itself carries the cross that says the walk ends there.
-    /// </summary>
-    [Fact]
-    public void AnOrderedWalkerIsDrawnEveryPointOfItsLineAndACrossOnTheGoal()
-    {
-        using var world = Town();
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        // Somewhere another walker is standing is somewhere this one can be walked to.
-        var other = OutOfDoors.AWalker(world, loop, Config);
-        var toM = world.People.PositionM[other] + new Vector2(6f, 0f);
-        var walker = AWalkerUnderOrders(world, loop, toM);
-
-        var count = world.People.WalkedCount[walker];
-        Assert.True(count > 0, "the order laid no line to draw");
-
-        var marks = Marks(world);
-        var lastM = world.People.WalkedLineOf(walker)[count - 1];
-        Assert.Contains(
-            Of(marks, Theme.SelectionPath),
-            mark => (mark.Centre - lastM).Length() < 2f);
-
-        // Two bars crossed on the place itself, and nothing wrapped: an ordered walk to open ground has
-        // nothing to put brackets round.
-        var goal = Of(marks, Theme.SelectionGoal);
-        Assert.Equal(2, goal.Length);
-        foreach (var bar in goal) Assert.True((bar.Centre - world.People.GoalM[walker]).Length() < 0.1f);
-    }
-
-    /// <summary>
-    /// CTL-3's order drawn: a goal that is <em>entered</em> is wrapped in the same brackets the unit itself
-    /// wears, standing outside the thing they are drawn round.
-    /// </summary>
-    [Fact]
-    public void AWalkerSentIntoABuildingIsShownTheBuildingWrapped()
-    {
-        using var world = Town();
-        var loop = new SimLoop<TownWorld>(world, Config);
-        var buildings = world.Plan.Buildings;
-        Assert.True(buildings.Count > 0, "the fixture town stood no building to be sent into");
-
-        var walker = AWalkerUnderOrders(world, loop, buildings.CentreM[0]);
-        Assert.Equal(0, world.People.DestinationBuilding[walker]);
-
-        // Four brackets of two arms each, clear of the footprint and not far off it: a mark inside the
-        // building is a mark hidden under the thing it is pointing at.
-        var goal = Of(Marks(world), Theme.SelectionGoal);
-        Assert.Equal(8, goal.Length);
-
-        var halfM = buildings.SizeM[0] * 0.5f;
-        foreach (var bracket in goal)
-        {
-            var offset = Vector2.Abs(bracket.Centre - buildings.CentreM[0]);
-            Assert.True(
-                offset.X > halfM.X || offset.Y > halfM.Y,
-                $"a bracket stands {offset.X:F2} m by {offset.Y:F2} m from the middle of a "
-                + $"{buildings.SizeM[0].X:F2} m by {buildings.SizeM[0].Y:F2} m building, which is on it rather than round it");
-        }
     }
 
     /// <summary>
@@ -175,11 +103,10 @@ public class SelectionPathTests
         using var world = Town();
         var loop = new SimLoop<TownWorld>(world, Config);
 
-        var car = ACarUnderWay(world, loop);
-        Assert.True(car >= 0, "no car on the fixture town set off inside a minute of town time");
+        var car = ACarUnderWay(world, loop, holdingLanes: 2);
+        Assert.True(car >= 0, "no car on the fixture town held two lanes of route inside a minute of town time");
 
         var held = world.Cars.RouteOf(car)[world.Cars.RouteTaken[car]..world.Cars.RouteCount[car]];
-        Assert.True(held.Length >= 2, "the car holds too little route to ask about the rest of it");
 
         // Never the last lane it holds: there is nothing beyond the end of a route to plan, so a car
         // holding only two lanes has to be asked about the first of them rather than the middle.
@@ -190,38 +117,6 @@ public class SelectionPathTests
         // The road joins it on from where the drawing stopped, and it ends where the car's own route does.
         Assert.NotEqual(RoadGraph.NoConnector, world.Roads.ConnectorBetween(held[stopped], rest[0]));
         Assert.Equal(held[^1], rest[^1]);
-    }
-
-    /// <summary>
-    /// The same for a walk: the points past where the line stops carry on towards the goal rather than
-    /// starting the walk again from somewhere else.
-    /// </summary>
-    [Fact]
-    public void TheRestOfAWalkIsLaidFromTheEndOfTheLineInHand()
-    {
-        using var world = Town();
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        var other = OutOfDoors.AWalker(world, loop, Config);
-        var toM = world.People.PositionM[other] + new Vector2(6f, 0f);
-        var walker = AWalkerUnderOrders(world, loop, toM);
-
-        var line = world.People.WalkedLineOf(walker);
-        var count = world.People.WalkedCount[walker];
-        Assert.True(count >= 2, "the order laid too little line to ask about the rest of it");
-
-        var stopped = line[count / 2];
-        var rest = world.WalkBeyond(slot: 0, walker, stopped);
-        Assert.False(rest.IsEmpty, "nothing was laid past the point the line was cut at");
-
-        // The line in hand ends on the goal itself, which is the one hop off the network a walk takes; what
-        // is laid past the cut is the network's own last point, which is the one before it.
-        var goalM = world.People.GoalM[walker];
-        Assert.True((line[count - 1] - goalM).Length() < 0.1f, "the ordered line does not end on its goal");
-        Assert.True(
-            (rest[^1] - line[count - 2]).Length() < 0.5f,
-            $"the rest of the walk ends {(rest[^1] - line[count - 2]).Length():F2} m from where the "
-            + "line it was cut from does");
     }
 
     /// <summary>
@@ -241,17 +136,22 @@ public class SelectionPathTests
     }
 
     /// <summary>
-    /// The first car with route left in it, once somebody has walked to one and driven off in it — which is
-    /// a trip's worth of town time on a map where everybody starts indoors (GEN-7).
+    /// The first car holding at least <paramref name="holdingLanes"/> lanes of route still to drive, or −1
+    /// where a minute of town time produced none.
     /// </summary>
-    static int ACarUnderWay(TownWorld world, SimLoop<TownWorld> loop)
+    /// <remarks>
+    /// <b>How much route is part of the question.</b> A car one lane from its destination is under way and
+    /// is no use to a case about the road past where the queue stopped, so the staging asks for the depth it
+    /// needs rather than taking whatever moved first and asserting about it afterwards.
+    /// </remarks>
+    static int ACarUnderWay(TownWorld world, SimLoop<TownWorld> loop, int holdingLanes = 1)
     {
         var mostTicks = (int)MathF.Ceiling(60f / Config.TickSeconds);
         for (var waited = 0; waited < mostTicks; waited++)
         {
             for (var car = 0; car < world.Cars.Count; car++)
             {
-                if (world.Cars.RouteCount[car] > world.Cars.RouteTaken[car]) return car;
+                if (world.Cars.RouteCount[car] - world.Cars.RouteTaken[car] >= holdingLanes) return car;
             }
 
             loop.Advance(1);

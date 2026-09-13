@@ -716,16 +716,15 @@ public class LaneOccupancyInATownTests
     /// walk answered for, and it is the only tick in the life of the line that this does not.
     /// </para>
     /// <para>
-    /// <b>Asked of the drunks' lap and not of a city</b>, because the entries that lay a template <em>over a
-    /// lane</em> are the two reactive ones — the swerve and the back-off — and a city goes minutes at a time
-    /// without either. The drunks' lap exists to produce them and produces a dozen a minute; a city produces
-    /// them when it happens to jam, which is not a thing to hang a claim on.
+    /// <b>Asked of the city</b>, and it reports how many templates it actually saw: the entries that lay one
+    /// <em>over a lane</em> are the two reactive ones — the swerve and the back-off — and the lap that
+    /// produced a dozen a minute was parked with the rest of the laboratories.
     /// </para>
     /// </remarks>
     [Fact]
     public void ATemplateHoldsTheGroundItHasStillToSweep()
     {
-        var world = new TownWorld(Towns.Of(TrackPlan.DrunkName), Config);
+        var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
         // Where each car's template ended at the tick before, so that a line drawn since the rebuild this
@@ -939,7 +938,7 @@ public class LaneOccupancyInATownTests
     [Fact]
     public void ACarWithTheRoadToItselfIsHeldByNobody()
     {
-        var world = new TownWorld(Towns.Of(TrackPlan.Name), Config);
+        var world = new TownWorld(Towns.Of(Towns.City), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
         var uncut = 0;
@@ -966,7 +965,7 @@ public class LaneOccupancyInATownTests
             }
         }
 
-        Assert.True(uncut > 0, "not one car on the proving ground was ever granted its whole ask");
+        Assert.True(uncut > 0, "not one car in the town was ever granted its whole ask");
     }
 
     /// <summary>

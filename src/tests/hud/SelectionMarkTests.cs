@@ -27,13 +27,6 @@ public class SelectionMarkTests
 
     static TownWorld Town() => new(Towns.Of(Towns.Fixture), Config);
 
-    /// <summary>
-    /// A town with somebody standing in it from the first tick. <b>On a town everybody starts indoors</b>
-    /// (GEN-7) and a body inside a building is not drawn, so a walker's mark is asked of the proving
-    /// ground — where nobody has anywhere to be and the fifteen of them are put down beside the road.
-    /// </summary>
-    static TownWorld WithAWalkerOutside() => new(Towns.Of("Track"), Config);
-
     static OverlayQuad[] Marks(TownWorld world)
     {
         var into = new OverlayQuad[TownRenderer.OverlayCapacity];
@@ -127,44 +120,6 @@ public class SelectionMarkTests
             var turned = Rotated(offset, TurnRad);
             Assert.Contains(after, at => (at - turned).Length() < 1e-3f);
         }
-    }
-
-    /// <summary>
-    /// <b>And a walker's do not</b>: its art draws every facing upright and none of it turns with the
-    /// body, so brackets that turned would be wrapping a box nothing is drawn in.
-    /// </summary>
-    [Fact]
-    public void AWalkersBracketsStandUprightWhicheverWayItFaces()
-    {
-        using var world = WithAWalkerOutside();
-        world.Select(new Selection(SelectionKind.Person, 0));
-
-        var before = OffsetsFrom(Marks(world), world.People.PositionM[0]);
-        world.People.HeadingRad[0] += 1.3f;
-        var after = OffsetsFrom(Marks(world), world.People.PositionM[0]);
-
-        Assert.Equal(8, before.Length);
-        Assert.Equal(before, after);
-    }
-
-    /// <summary>
-    /// A walker is wrapped at <b>the height it is drawn at</b> and not at the width of the disc a click
-    /// tests: the picking disc is a stride wide and the figure standing on it is head-high, so brackets
-    /// sized off the disc would sit in the middle of the body.
-    /// </summary>
-    [Fact]
-    public void AWalkerIsWrappedAtTheHeightItsOwnVariantIsDrawnAt()
-    {
-        using var world = WithAWalkerOutside();
-        world.Select(new Selection(SelectionKind.Person, 0));
-
-        var variant = world.People.Variant[0] % PersonCatalog.Shared.SheetCount;
-        var heightM = PersonCatalog.Shared.Variants[variant].HeightM;
-        var offsets = OffsetsFrom(Marks(world), world.People.PositionM[0]);
-
-        Assert.True(
-            offsets.Max(offset => MathF.Abs(offset.Y)) > heightM * 0.5f,
-            "the brackets stand inside the figure they are drawn round");
     }
 
     static Vector2 Rotated(Vector2 offset, float byRad)

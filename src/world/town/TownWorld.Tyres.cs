@@ -177,20 +177,12 @@ internal sealed partial class TownWorld
 
         // A wheel neither sliding nor ploughing, with nothing banked and no stretch open, cannot write
         // and has nothing to close off: the whole of the rest of this is arithmetic over zeros, and it
-        // is what every parked car in the town would otherwise pay four times a tick. On a map that
-        // records everything there is no such wheel — a rolling one is exactly what it is there to show.
-        if (!_everyWheelWrites &&
-            scrub.SlideSpeedMps <= 0f && !scrub.Ploughing && Cars.ScrubTravelM[at] <= 0f && !Cars.Marking[at]) return;
+        // is what every parked car in the town would otherwise pay four times a tick.
+        if (scrub.SlideSpeedMps <= 0f && !scrub.Ploughing && Cars.ScrubTravelM[at] <= 0f && !Cars.Marking[at]) return;
 
         Cars.ScrubTravelM[at] = TyreModel.ScrubTravelM(_config, Cars.ScrubTravelM[at], scrub.SlideSpeedMps, _config.TickSeconds);
 
-        // <b>A pad laid to be driven in circles records every wheel</b>, whatever it is doing: the mark is
-        // the practical circle, and a comparison against the drawn one cannot be made from the stretch of
-        // it where the tyre happened to be sliding. It is a floor and never a substitute — a wheel that is
-        // properly away still darkens over it, so the slide is still visible in what it wrote.
-        var intensity = MathF.Max(
-            TyreModel.GroundMarkIntensity(_config, surface, scrub, Cars.ScrubTravelM[at]),
-            _everyWheelWrites ? _config.Marks.PadFloor : 0f);
+        var intensity = TyreModel.GroundMarkIntensity(_config, surface, scrub, Cars.ScrubTravelM[at]);
 
         if (intensity <= 0f)
         {

@@ -389,9 +389,8 @@ public class MenuLayoutTests
         menu.Click(menu.LineMiddlePx(9), switches, new TrimFigures());
         Assert.True(switches.Grid);
 
-        // And the one that starts on goes off, which no other row can be mistaken for.
-        menu.Click(menu.LineMiddlePx(11), switches, new TrimFigures());
-        Assert.False(switches.TrackFigures);
+        menu.Click(menu.LineMiddlePx(10), switches, new TrimFigures());
+        Assert.True(switches.Ruler);
     }
 
     static Menu OnTheFigures()

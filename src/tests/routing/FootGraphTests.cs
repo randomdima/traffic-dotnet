@@ -29,9 +29,7 @@ public class FootGraphTests
     {
         get
         {
-            var maps = Towns.EveryTown();
-            maps.Add(FootwayPlan.Name);
-            return maps;
+            return Towns.EveryTown();
         }
     }
 

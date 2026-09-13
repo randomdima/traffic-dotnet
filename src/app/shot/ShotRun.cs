@@ -114,8 +114,7 @@ internal static class ShotRun
 
         // What the map claims about itself is answered a tick at a time, so the run is advanced one at a
         // time and watched — which is what makes a picture of either panel a picture of the same run.
-        var scenario = Scenarios.For(world, config);
-        var track = Scenarios.FiguresIn(scenario);
+        var scenario = Scenarios.For(world);
         var ticks = (int)(ask.Seconds * config.Sim.TickRateHz);
         for (var tick = 0; tick < ticks; tick++)
         {
@@ -150,7 +149,6 @@ internal static class ShotRun
             // The phases and nothing else: there is no window to time on this path, so the read-out
             // says the frame was not measured rather than printing the zero it would come to.
             Frame = new FrameFigures { Phases = loop.Phases, Sub = world.Sub },
-            Track = track,
             Scenario = scenario,
         }, out under);
 

@@ -59,11 +59,11 @@ public class JunctionClaimTests
 
     /// <summary>
     /// <b>The towns where two movements of different rank are actually ordered into a box together</b>: the
-    /// suite's own pair, and the driving exam, whose whole arrangement is a lattice of junctions with the
-    /// movements staged across each other. A city left to itself produces the exchange by coincidence, so on
-    /// a town small enough to be cheap it may not produce one at all.
+    /// suite's own pair. The driving exam, which staged the exchange rather than waiting for it, was parked
+    /// with the rest of the laboratories — so what is left produces it by coincidence, and a town small
+    /// enough to be cheap may not produce one at all.
     /// </summary>
-    static readonly string[] Staged = [Towns.Fixture, Towns.City, ExamPlan.Name];
+    static readonly string[] Staged = [Towns.Fixture, Towns.City];
 
     /// <summary>How finely two joins are measured against each other — well under the width they are compared at.</summary>
     const float StepM = 0.25f;

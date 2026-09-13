@@ -141,17 +141,13 @@ internal sealed partial class TownWorld
     /// fleet alone.
     /// </para>
     /// <para>
-    /// <b>A map names looks when the looks are the point of the map.</b> The exam stands one of them
-    /// (<see cref="ExamPlan.StandsOneLook"/>), because every card is a crossing read against another card
-    /// and a fleet of different weights would be a second variable inside every comparison; the idle ring
-    /// stands an escort and one car passing it (<see cref="IdlePlan"/>), because that is the whole of what
-    /// there is to look at on it.
+    /// <b>A map names looks when the looks are the point of the map.</b> The idle ring stands an escort and
+    /// one car passing it (<see cref="IdlePlan"/>), because that is the whole of what there is to look at
+    /// on it.
     /// </para>
     /// </remarks>
     byte LookOf(int car)
     {
-        if (ExamPlan.StandsOneLook(_plan.Name)) return (byte)CarCatalog.Shared.Plain;
-
         if (IdlePlan.StandsConvoys(_plan.Name))
         {
             return (byte)(IdlePlan.PartOf(car) switch
@@ -258,44 +254,12 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A map that drives its own cars by holding their wheels over</b>: every car on the skidpad is put
-    /// on the lock its column stands and the pedal its row asks for, and holds both for the whole run
-    /// (<see cref="CityGen.SkidpadPlan"/>).
+    /// Whether somebody's hand is on this car's wheel rather than anything in the town deciding for it
+    /// (CTL-5). <b>Public because a picture of such a car has to say so</b>: nothing is choosing for it and
+    /// it is not parked either, and those are the two states everything that names a car's behaviour
+    /// otherwise has.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It is the same substitution a hand at the wheel makes</b> (CTL-5) and is read through the same
-    /// seam: no manoeuvre is selected, no soft rule is consulted, and the hard envelope — the gear's cap,
-    /// the rack's travel, the friction ellipse — binds exactly as it does under anybody's hand. What the
-    /// pad measures is worth nothing if the car it measures is not the car the town drives.
-    /// </para>
-    /// <para>
-    /// <b>Laid once, because a held wheel is not a decision.</b> The command never changes, so there is
-    /// nothing here for the tick to do: the seam reads the same figures every frame and the pad costs the
-    /// loop an array lookup.
-    /// </para>
-    /// </remarks>
-    void HoldTheWheels()
-    {
-        if (!SkidpadPlan.HoldsItsCarsWheels(_plan.Name)) return;
-
-        // The pad's own cars and no others: a car this map never laid a square for is not one it has a
-        // pedal to hold, and it is left to the rule that drives an empty map.
-        _wheelHeld = new HandInput[Cars.Capacity];
-        for (var car = 0; car < Math.Min(Cars.Count, SkidpadPlan.Cars); car++)
-        {
-            _wheelHeld[car] = new HandInput(
-                Held: true, Throttle: SkidpadPlan.PedalOf(SkidpadPlan.RunOf(car)), Steer: SkidpadPlan.LockedLeft,
-                Handbrake: false, WalkDirection: Vector2.Zero);
-        }
-    }
-
-    /// <summary>
-    /// Whether the map is holding this car's wheel over rather than anybody in it deciding. <b>Public
-    /// because a picture of such a car has to say so</b>: nothing is choosing for it and it is not parked
-    /// either, and those are the two states everything that names a car's behaviour otherwise has.
-    /// </summary>
-    public bool WheelIsHeldOver(int car) => _wheelHeld is not null && _wheelHeld[car].Held;
+    public bool WheelIsHeldOver(int car) => _hands.Held && _selected.Holds(SelectionKind.Car, car);
 
     /// <summary>
     /// A car starts stopped in a parking space, in the pose that space stands its cars at, with nobody in

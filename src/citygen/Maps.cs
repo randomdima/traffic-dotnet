@@ -33,35 +33,38 @@ internal static class Maps
     /// </summary>
     public const string Fixture = "Test";
 
-    /// <summary>The maps laid in code, each against the name it carries.</summary>
+    /// <summary>
+    /// The maps laid in code. <b>One row, and it is the ring the start menu stands over</b> (GEN-1b): the
+    /// laboratories that used to sit beside it were laid against the layer the lane rework replaces, and the
+    /// ones that come back will be laid against the new one.
+    /// </summary>
     static readonly (string Name, Func<SimConfig, CityPlan> Lay)[] Laid =
     [
-        (TrackPlan.NameOf(TrackLap.Pacing), config => TrackPlan.Lay(config, TrackLap.Pacing)),
-        (TrackPlan.NameOf(TrackLap.Drunk), config => TrackPlan.Lay(config, TrackLap.Drunk)),
-        (TrackPlan.NameOf(TrackLap.Fleet), config => TrackPlan.Lay(config, TrackLap.Fleet)),
-        (ExamPlan.Name, ExamPlan.Lay),
-        (FootwayPlan.Name, FootwayPlan.Lay),
-        (SkidpadPlan.Name, SkidpadPlan.Lay),
         (IdlePlan.Name, IdlePlan.Lay),
     ];
 
     /// <summary>
-    /// The two towns still carried as files rather than laid in code or generated from a brief: the
-    /// fixture, and the crossings map. Neither may move when the generator does, which is why they are
-    /// still files — and both are on their way to being laid in code.
+    /// The one town still carried as a file rather than generated from a brief: the fixture. It may not move
+    /// when the generator does, which is why it is still a file.
     /// </summary>
     /// <remarks>
     /// <b>Named and not found.</b> Which maps exist is this class and never the <c>towns/</c> folder, so a
     /// map cannot appear because somebody left a file there and cannot vanish because one was moved: the
     /// day a fixture is laid in code, the name comes off this list and everything above carries on.
     /// </remarks>
-    static readonly string[] Filed = [Fixture, "Zebras"];
+    static readonly string[] Filed = [Fixture];
 
-    /// <summary>Every map there is, in name order: the briefs on disk, the maps laid in code, and the fixtures still carried as files.</summary>
+    /// <summary>
+    /// Every map there is to open, in name order: the briefs on disk and the fixtures still carried as files.
+    /// </summary>
+    /// <remarks>
+    /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the
+    /// ring is a frame for the menu rather than a town to ask questions of — so it is opened by name
+    /// (<see cref="Lay"/>) and swept by nobody.
+    /// </remarks>
     public static string[] Shipped()
     {
         var names = new List<string>(ProjectPaths.TownBriefs());
-        foreach (var (name, _) in Laid) names.Add(name);
         names.AddRange(Filed);
         names.Sort(StringComparer.Ordinal);
         return [.. names];

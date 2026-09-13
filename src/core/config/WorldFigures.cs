@@ -314,18 +314,6 @@ internal sealed class MarkFigures
     public float PloughCrawlMps { get; init; } = 0.2f;
 
     /// <summary>
-    /// What every wheel writes on a map laid to be driven in circles and read off the ground afterwards —
-    /// the skidpad, and nothing else this build ships. It is the same kind of figure as
-    /// <see cref="PloughFloor"/>: a floor under the intensity rather than a second way of marking, so a
-    /// wheel that is genuinely sliding still darkens above it and the slide is still visible in the track.
-    /// </summary>
-    /// <remarks>
-    /// Fainter than a slide on purpose. The track is there to be measured against a circle drawn over it,
-    /// and a track as black as a skid would be a picture of four wheels all sliding.
-    /// </remarks>
-    public float PadFloor { get; init; } = 0.5f;
-
-    /// <summary>
     /// How many marks the town remembers before the oldest is overwritten. Scenery only: nothing samples a
     /// mark and no agent sees one.
     /// </summary>

@@ -62,13 +62,6 @@ internal readonly ref struct InterfaceFrame
     public bool Counting { get; init; }
 
     /// <summary>
-    /// What the proving ground's own instrument has seen so far, or <see langword="null"/> on every other
-    /// map. <b>It is the run's and not the panel's</b> — the figures are gathered every tick and a panel
-    /// draws once a frame, so a panel that kept its own would be reading a fraction of the laps.
-    /// </summary>
-    public TrackMetrics? Track { get; init; }
-
-    /// <summary>
     /// What this map claims about itself and how it is doing, as the run's own watches
     /// (<see cref="Scenarios.For"/>). Empty before a town is standing, and the run's for the same reason
     /// the figures above are: a claim is answered off every tick and not off the frames anybody drew.
@@ -134,9 +127,6 @@ internal sealed class Interface(TrimFigures trims)
     /// A reading about the ground under an open popup is a reading about what the reader cannot see.
     /// </summary>
     static readonly Vector2 Offscreen = new(-1e6f);
-
-    /// <summary>The proving ground's figures, one collapsible section per shape. A switch rather than furniture.</summary>
-    public TrackPanel Track { get; } = new();
 
     public RunState Run { get; } = new();
 
@@ -223,9 +213,6 @@ internal sealed class Interface(TrimFigures trims)
                 case "ruler":
                     Switches.Toggle(ref Switches.Ruler);
                     break;
-                case "track":
-                    Switches.Toggle(ref Switches.TrackFigures);
-                    break;
                 case "scenario":
                     Status.ShowSection(StatusPanel.Claims);
                     break;
@@ -233,7 +220,7 @@ internal sealed class Interface(TrimFigures trims)
                     throw new ArgumentException(
                         $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
                         "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
-                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, ruler, track.");
+                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, ruler.");
             }
         }
     }
@@ -339,7 +326,7 @@ internal sealed class Interface(TrimFigures trims)
         // selected whatever was behind it would be the one panel that deselected what it is about.
         if (Unit.Click(atPx)) return ClickTaken.Yes;
 
-        return Switches.TrackFigures && Track.Click(atPx) ? ClickTaken.Yes : ClickTaken.No;
+        return ClickTaken.No;
     }
 
     /// <summary>Whether the pointer is over a panel that would rather have the wheel than the camera.</summary>
@@ -371,7 +358,6 @@ internal sealed class Interface(TrimFigures trims)
         Overlay.TownChanged();
         Ruler.TownChanged();
         Pick.TownChanged();
-        Track.TownChanged();
         Opening.Stood();
         if (behindTheMenu) Menu.StandAtTheStart();
         else Menu.ShutOntoTheTown();
@@ -449,12 +435,6 @@ internal sealed class Interface(TrimFigures trims)
                 Status.Draw(
                     ref draw, frame.PointerPx, frame.MapName, Run, frame.Tick, frame.Frame, frame.Crossings,
                     frame.Counting, draw.Written, world, Overlay.Relaid, claimed);
-
-                // The proving ground's own read-out, over the furniture it sits under and behind the popups.
-                if (Switches.TrackFigures && frame.Track is { } track)
-                {
-                    Track.Draw(ref draw, frame.PointerPx, Status.Box.Bottom + Theme.GapPx, track);
-                }
 
                 // OBS-2m: everything the interface has to say about the selection, in the opposite corner —
                 // and nothing of it on the town, where the brackets and the path stand instead (CTL-1). It

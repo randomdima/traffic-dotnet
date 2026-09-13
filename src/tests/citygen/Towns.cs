@@ -264,18 +264,15 @@ internal static class Towns
     }
 
     /// <summary>
-    /// <b>The towns a gate is re-taken on</b>: the suite's own two, and the laboratories whose traffic
-    /// actually piles up. A gate is a question about the engine and a town is only the load it is put
-    /// under, so what it wants is the worst load this build can stand up rather than every map on the menu.
+    /// <b>The towns a gate is re-taken on</b>: the suite's own two. A gate is a question about the engine
+    /// and a town is only the load it is put under, so what it wants is the worst load this build can stand
+    /// up — which, with the laboratories parked, is the city this class lays.
     /// </summary>
     public static TheoryData<string> EveryMapWorthAGate()
     {
         var maps = new TheoryData<string>();
         maps.Add(Fixture);
         maps.Add(City);
-        maps.Add(ExamPlan.Name);
-        maps.Add(TrackPlan.NameOf(TrackLap.Drunk));
-        maps.Add(TrackPlan.NameOf(TrackLap.Fleet));
         return maps;
     }
 
@@ -285,12 +282,10 @@ internal static class Towns
     /// at once, and a town still growing its capacities is not the steady state a rule is about.
     /// </summary>
     /// <remarks>
-    /// <b>It is a fact about the map and not a constant.</b> A lap with fifteen bodies reeling into the
-    /// carriageway piles up worse at four minutes than at ten seconds, and paying that warm-up on a town
-    /// whose traffic disperses buys nothing but the wait — which is what one figure for every map cost.
+    /// <b>It is a fact about the map and not a constant.</b> A town whose traffic disperses settles in a
+    /// minute; a map that piles up would name its own figure here, and none of this build's does.
     /// </remarks>
-    public static int SettleTicks(string map) =>
-        map == TrackPlan.NameOf(TrackLap.Drunk) || map == TrackPlan.NameOf(TrackLap.Fleet) ? 24_000 : 3_600;
+    public static int SettleTicks(string map) => 3_600;
 
     /// <summary>
     /// Every town of the suite's own that was laid with a pavement — <b>which is what the walking network's

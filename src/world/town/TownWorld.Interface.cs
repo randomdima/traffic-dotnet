@@ -316,26 +316,13 @@ internal sealed partial class TownWorld
     public ReadOnlySpan<Selection> HandDriven => _hands.Held ? _selected.Units : default;
 
     /// <summary>
-    /// <b>Whether this car's wheel is held over</b>, by the player's own hand (CTL-5) or by a map that
-    /// holds its cars' wheels itself (<see cref="HoldTheWheels"/>) — which is the whole of CTL-5's
-    /// substitution, and the same substitution whoever made it.
+    /// <b>Whether this car's wheel is held over</b> by the player's own hand (CTL-5): no manoeuvre is
+    /// selected, no soft rule is consulted and nothing but the ellipse holds the pedals back.
     /// </summary>
-    /// <remarks>
-    /// <b>The two are one state on purpose.</b> What a hand at the wheel means to the rest of the town is
-    /// that no manoeuvre is selected, no soft rule is consulted and nothing but the ellipse holds the
-    /// pedals back; a map driving its own cars is asking for exactly that, and a second predicate beside
-    /// this one would be a second answer to <em>is anything deciding for this car</em>.
-    /// </remarks>
-    bool HandAtTheWheel(int car) =>
-        !Cars.Broken[car] && (WheelIsHeldOver(car) || (_hands.Held && _selected.Holds(SelectionKind.Car, car)));
+    bool HandAtTheWheel(int car) => !Cars.Broken[car] && WheelIsHeldOver(car);
 
-    /// <summary>
-    /// Which of the two hands this car's is. <b>The player's outranks the map's</b>: somebody who has
-    /// selected a car on the skidpad and pressed a key has taken its wheel off the pad, and the reset
-    /// (CTL-4) is what gives it back.
-    /// </summary>
-    HandInput WheelOn(int car) =>
-        _hands.Held && _selected.Holds(SelectionKind.Car, car) ? _hands : _wheelHeld?[car] ?? default;
+    /// <summary>The hand on this car's wheel, or nothing held.</summary>
+    HandInput WheelOn(int car) => WheelIsHeldOver(car) ? _hands : default;
 
     /// <summary>The unit under a point — a car first, then a walker — or nothing.</summary>
     /// <remarks>

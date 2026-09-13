@@ -50,7 +50,7 @@ public class ScenarioTests
     [MemberData(nameof(Maps))]
     public void EveryMapIsWatchedAgainstSomething(string map)
     {
-        var watching = Scenarios.For(Standing(map), Config);
+        var watching = Scenarios.For(Standing(map));
 
         Assert.NotEmpty(watching);
         Assert.Contains(watching, watch => watch is TownWatch);
@@ -67,7 +67,7 @@ public class ScenarioTests
     [MemberData(nameof(Maps))]
     public void EveryScenarioMapCarriesClaimsOfItsOwn(string map)
     {
-        var watching = Scenarios.For(Standing(map), Config);
+        var watching = Scenarios.For(Standing(map));
         var ownClaims = Array.Exists(watching, watch => watch is not TownWatch);
 
         // The suite's own town is a place and is on no menu, so the catalogue has no row for it and reads it
@@ -92,7 +92,7 @@ public class ScenarioTests
     {
         using var world = new TownWorld(Towns.Of(map), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
-        var watching = Scenarios.For(world, Config);
+        var watching = Scenarios.For(world);
 
         // A few ticks and not none: a figure is a fact about a run, and the first of them is what says the
         // watch can be read at all.
@@ -134,7 +134,7 @@ public class ScenarioTests
     [MemberData(nameof(Maps))]
     public void NothingIsKeptBeforeTheFirstTick(string map)
     {
-        foreach (var watch in Scenarios.For(Standing(map), Config))
+        foreach (var watch in Scenarios.For(Standing(map)))
         {
             for (var claim = 0; claim < watch.Claims; claim++)
             {
@@ -159,7 +159,7 @@ public class ScenarioTests
     {
         using var world = new TownWorld(Towns.Of(map), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
-        var watching = Scenarios.For(world, Config);
+        var watching = Scenarios.For(world);
 
         // Warmed first: the arrays a watch keeps are its own and are taken once, and the first tick of a
         // town is where every one-off in it happens.
@@ -184,51 +184,5 @@ public class ScenarioTests
         }
 
         Assert.Equal(0, allocated);
-    }
-
-    /// <summary>
-    /// <b>The exam claims one thing for every kind of thing a card can ask</b>, and one more about the
-    /// findings. Its claims are indexed by <see cref="ExamAsks"/> itself, so a kind added to the enum
-    /// without a claim beside it would quietly be answered by the claim above it.
-    /// </summary>
-    [Fact]
-    public void TheExamClaimsOneThingForEveryKindOfCardThereIs()
-    {
-        var exam = Assert.Single(
-            Array.FindAll(Scenarios.For(Standing(ExamPlan.Name), Config), watch => watch is ExamWatch));
-
-        Assert.Equal(Enum.GetValues<ExamAsks>().Length + 1, exam.Claims);
-    }
-
-    /// <summary>
-    /// <b>And the walking exam claims one thing for every kind of thing its own cards can ask</b>, on the
-    /// same terms and for the same reason: its claims are indexed by <see cref="WalkAsks"/>, so a kind
-    /// added to the enum without a claim beside it would quietly be answered by the claim above it.
-    /// </summary>
-    [Fact]
-    public void TheWalkingExamClaimsOneThingForEveryKindOfCardThereIs()
-    {
-        var footway = Assert.Single(
-            Array.FindAll(Scenarios.For(Standing(FootwayPlan.Name), Config), watch => watch is FootwayWatch));
-
-        Assert.Equal(Enum.GetValues<WalkAsks>().Length + 1, footway.Claims);
-    }
-
-    /// <summary>
-    /// <b>The proving grounds are watched by the instrument that measures them</b> and not by a second one
-    /// of the watch's own: the panel that draws the shape table and the claims about that table are one
-    /// reading of one lap.
-    /// </summary>
-    [Theory]
-    [InlineData(TrackPlan.Name)]
-    [InlineData(TrackPlan.DrunkName)]
-    [InlineData(TrackPlan.FleetName)]
-    public void TheProvingGroundsCarryTheFiguresThePanelDraws(string map)
-    {
-        var watching = Scenarios.For(Standing(map), Config);
-
-        var figures = Scenarios.FiguresIn(watching);
-        Assert.NotNull(figures);
-        Assert.Same(figures, Assert.IsAssignableFrom<LapWatch>(watching[0]).Metrics);
     }
 }
