@@ -1,158 +1,48 @@
 # CityGen — decision log
 
-## 2026-09-13 — a join that forks nothing is folded back into the lane, and the count is asked of the movements
+## 2026-09-13 — the lane layer is laid from the junction out, and everything that stood beside it is put down
 
-**The plan cannot decide this and the arms cannot say it.** `GEN-12b` takes away the two-armed nodes it can
-prove are one road — same flow, neither end a bridge or a ring arc, and a sweep that actually took — and
-what it leaves is every other node a driver decides nothing at: a one-way street meeting the carriageway it
-feeds, a ring node, a corner too tight for the sweep. Those were still cutting lanes in two, 26 hand-overs
-on Odesa and 46 on River, and each of them was a break in the ribbon at a place the line runs straight
-through. **The fold is the last step of laying the lines** (`TER-5h`): where the one movement out of a
-lane's end is also the only movement onto the lane it leads to, the two stretches and the join between them
-are written down as one lane. Odesa lays **444 lanes and 1 033 movements** where it laid 470 and 1 059,
-River **308 and 686** where it laid 354 and 732, and **every map now reports nought joins that fork
-nothing**.
+**The order was the whole of the problem.** A road's curve was laid first and its lanes were cut out of it
+afterwards, so the bearing a car entered a junction on was whatever the chord happened to leave, the
+connection point was wherever the setback arithmetic landed, and the movement between two of them was a line
+drawn to fit rather than a line a car was shown to be able to drive. `TER-5d` already described the model
+the other way round; what existed was that model read backwards.
 
-**Asked of the movements, because nothing else answers it.** An arm count says two where a one-way pair
-forks nothing, and it would say two at a node where the flows make the pair a merge. The count of ways out
-of the lane arriving and ways into the lane leaving *is* the question — *does a driver decide anything
-here* — and it is the same count the census was already reporting a town's seams with, so the instrument and
-the fold cannot disagree about what a seam is.
+**The points are drawn first and everything is laid to meet them** (`GEN-46`, `GEN-47`, `GEN-48`). Each arm
+of each node is given a bearing — the chord to its neighbour turned inside a drawn bound, tapered on a short
+link by what that link has room to turn through — and a standoff; the movements are the biarcs between the
+points that produces; and the road is the chain of biarcs that leaves on one bearing and arrives on the
+other. A biarc meets both poses exactly by construction, which is what makes the bearings a fact about the
+road rather than something approached, and a lane is that road's own line moved half a carriageway. Nothing
+is cut back, because nothing was laid past the point it ends on.
 
-**The run contraction now has nothing left to do**, which is the figure that says the fold is the right
-shape: Odesa contracts 444 lanes into 444 runs with **one lane in the longest of them**, against four
-before. A lane and a run had been two names for the same thing wherever the town was not branching, and one
-of them was the network's and the other the router's.
+**What that costs is a curvature nobody chose, so it is measured.** A road that bends tighter than its class
+affords is straightened — the wander is what it wanted and the bearings are what it owes — and one that
+still does is a link the town cannot lay. Non-intersection is the same kind of bound: two roads that cross,
+or that pass closer than the ground they take, are a refusal, and the layout is repaired behind every
+refusal and the town laid again until nothing is refused. **A chord test after the fact could not have said
+any of this** — a road free to reach its own end bearings is not bounded by the chord between them — which
+is why the rule that stated it as one is deleted rather than restated (`GEN-49`).
 
-**Three refusals, each a place the town really does change.** Both ways of a stretch fold together or
-neither does, because a lane and its reverse are each other's and a pair that disagreed would be two lanes
-over one piece of road — asked for before any fold is taken, and free on a real town. **A carriageway that
-steps in width keeps its join**: a band has one width (`TER-5d.1`), and no shipped town lays one — the
-census reports nought. **And a run that closes on itself is opened at one join**, arbitrarily and at the
-mirror of the same join in the other direction, because a loop of street with no junction on it still has to
-have a first lane.
+**Odesa lays 619 lanes and 1 209 movements over 332 roads in 557 ms** against 444, 1 033, 256 and 1 238 ms,
+and **its boundary closes all 115 rings** where it used to leave one open by 0.122 m over 30 390 m. The
+generated city closes too. The open ring was the merge settling which of two bands laying one stretch of
+outline was the outer one; fewer, longer, smoother lines left it nothing to disagree about.
 
-**What the ground reads is unchanged, and that is deliberate.** The fold swallows the join's own line,
-already drawn tangent to both ends after the cut back, so the lane is the same arcs in the same order and
-the tarmac cannot move. What does change is who lays the band: a folded join is no movement, so the outline
-takes it from the table of folds instead — four of Odesa's and eight of River's stand at nodes whose two
-arms' kerbs do not meet, and without that band there would be a wedge of unpaved carriageway at each of
-them.
+**And a node's centre is the layout's, which nothing moves.** The forkless sweep used to nudge a two-armed
+node onto its chain's start, and with the standoff that would have been six metres — enough to put a bend
+inside a locality of the junction beside it (`GEN-16`) and enough to make the points drawn at derivation
+time different from the points drawn at generation. The centres are the key the whole arrangement is drawn
+from, so nothing after the layout may touch them.
 
-**Seven tests that were failing now pass, and one had to be told what it was asking.** The one that had to
-be told is the claim a broken car lays on the road: it stood the body in the middle of the longest lane in
-the town, which used to be a straight and is now a run through the bends — and a box laid on a bend covers
-more of the way round it than its own length. It stands on the longest straight piece instead.
-
-## 2026-09-13 — a lane is cut where a driver chooses, and a car park is not a choice
-
-**The town's driven lines were broken at every car park in it.** `GEN-4h` made a parking section a stretch
-of the network in its own right, so the road was cut at either end of every frontage and the two lanes met
-at a point with a movement of no length between them. On Odesa that was **1 401 of the 1 871 lanes** and
-**1 401 of the 1 427 hand-overs where nothing forks** — a dot in the middle of a straight street, once per
-car park, which is what a reader looking at the driving layer was actually pointing at. **The cut is gone
-and the lane is one line**: Odesa lays **470 lanes and 1 059 movements** where it laid 1 871 and 2 460, no
-two of its lanes butt anywhere, and the 26 hand-overs left are all at junctions of two arms that `GEN-12b`
-refused to join — which is a different rule's question and is answered above.
-
-**What the node bought was a name to route to, and a destination never needed one.** `RouteGoal` has always
-been a place on a link carried with how far into it it stands, and the search, the price and the reroute all
-take it; the way into the bay is threaded onto the end of the line where it leaves the kerb
-(`LineAssembler`), so the metre it leaves at is the one place all four of them can name. A leg is aimed
-there now instead of at the node past it.
-
-**Two things in the drive turned out to be resting on lanes being short, and both were faults rather than
-trades.**
-
-- **The search entered the network at the far end of the lane under the car.** That was metres away while a
-  car park cut every street into sections; over a whole stretch between two junctions it is hundreds, so
-  every destination between the car and that end read as a place already driven past and the leg was sent
-  round the block to reach ground it was already rolling towards. The entry is where the body has got to.
-- **The route was only ever planned as a side effect of growing the line.** A line is grown until it reaches
-  the car's own stopping distance, and a lane that long covers it on its own — so on an open street the
-  growth ran no round at all and the leg was never planned: no queue, no bay claimed to turn in (`GEN-4l`),
-  and no way of knowing the street ran out ahead. The fixture's evacuator left its depot down a dead end and
-  stood at the head of it for the rest of the run. The route is asked at the end of the line in hand
-  whether or not another lane is wanted, and a lane it hands back is taken.
-
-**What it cost the pictures is a seam the merge still does not close.** The boundary is the merge of the
-ribbons the driven lines lay, and with 1 401 fewer lanes there are 2 802 fewer ribbons in it: the fixture
-and River close every ring. Odesa and the laid city are each left with **one run whose two ends stand a tenth
-of a metre apart** — the same near-miss the merge was already leaving on Odesa, at a length rather than at a
-lens, and it is the merge's own reading and not the lanes' (above).
-
-## 2026-09-13 — a node with no fork is not a junction, so the plan stopped carrying one
-
-**The bend was already laid and the node was kept anyway.** `GEN-12a` sweeps the two arms of a forkless node
-onto one tangent, which leaves a carriageway running through it with no crease in it — and then the plan
-went on carrying a junction there, so the road was cut at its disc, the lanes handed over across it and the
-debug layer drew a dot in the middle of a curve. Nothing was decided at that point by anybody. **The node is
-joined out of the town instead** (`GEN-12b`): the two chains are concatenated, the node is renumbered away
-and the layout is rebuilt on what is left, which is one pass in the road stage and no change anywhere below
-it. Odesa goes from **213 junctions and 316 roads to 153 and 256**, and its lane hand-overs that fork
-nothing from **146 to 26**.
-
-**Three refusals, and each of them is a road that really does meet another.** A pair the sweep refused for
-want of room is a corner a car turns across and keeps its junction, which is `GEN-12a` unchanged. A pair
-that disagrees about which ways it is driven is two roads by `GEN-18a`, and so is a bridge or a ring arc,
-each being a shape settled somewhere else. **And a pair still meeting on a crease is refused**, which is the
-one that had to be found rather than reasoned: below the deflection worth sweeping there is a band where the
-arms are neither one line nor turned, and joining across it lays a road that creases by twenty times what
-the pavement beside it can absorb. The figure that decides it is the figure that decides whether a road is
-one line at all, and it is now one site (`RoadStage.CreaseRad`) rather than one in the stage and one in the
-suite.
-
-**What the class a road was laid at is worth, at this point, is nothing.** The join does not ask whether
-both arms are streets or one is an arterial: a class decides a width, a wander and a bend floor, and all
-three are spent by the time there is a chain to join. A plan does not carry the class either, which is what
-makes the rule checkable from the plan alone.
-
-**The floor was tried as a condition of joining and was not worth it.** Requiring the swept bend to reach
-the class's own cornering radius — so that no road ever carries an arc tighter than `GEN-12`'s floor — joins
-13 of Odesa's 73 forkless nodes instead of 60, because most bends are limited by the straight they have to
-eat rather than by the speed. So the arc stays as `GEN-12a` already allowed it to be, and the suite's floor
-test was split in two: what a plan can be asked is that nothing bends tighter than the fillet a junction
-would have flared (`RoadCornerRadiusM`), and the class's own floor is asked of the rounding that lays a
-wander, where it belongs.
-
-## 2026-09-13 — a movement is the arc it is, and what a line is cut into turned out to be load-bearing
-
-**A turn across a box was two arcs of one circle.** A movement is the biarc between the end of one lane and
-the start of the next, and the equal-tangent construction gives the two halves of a symmetric pair the same
-radius — which is every turn between two lanes of one width. So most of the town's movements came back with
-a joint down the middle of them that no car turns at: 884 pieces for 830 movements on the suite's city, of
-which 189 carried straight on. They are written as the one arc they are now — 696 pieces, and none of them
-carries on into the next.
-
-**The same was true of every other driven line, and neither of the others could be joined.** A town's lines
-held 11 941 pieces and 2 479 of the joints between them were the same curve stopping and starting again;
-nearly all of that is in the ways into bays. Both of the other two were tried, measured and given up, and
-what they cost is the reason this entry is worth its length.
-
-**A lane may not be joined because how much of its end is curved is read off its pieces** (`TER-5b`,
-`Spline.BendAtTheEndM`), and that figure settles the setbacks a lane is cut back by. Joined, a straight
-running on from the bend before it makes a lane that reads as bending all the way to its end and sets itself
-back for a corner that is not there. Eight joints in 1 164 pieces were on offer for it.
-
-**A way into a bay may not be joined because the town's outline is settled at the millimetre and where a
-chain is cut is worth one.** Joining them is the biggest of the three — 9 893 pieces down to 7 611 — and it
-took the boundary from 50 closed rings and nothing open to 21 rings and 120 open runs. **It is not the
-shape**: at a micron, where the only joints left are the ones that are exact — a way in ends with the run on
-past the pose drawn down the line that reached it, and the template lays a swing of a hundredth of a degree
-before some turns — the ribbons the merge is handed are *identical*, checked by fingerprint, and the outline
-still came back as 23 rings and 79 open runs.
-
-**What differs is the reading, not the geometry.** The merge asks the bands themselves how far a place stands
-off one (`LaneShell`), and that answer goes through the nearest point on a chain, which is taken piece by
-piece from each piece's own start (`Spline.ProjectM`, `NearestOnArc`) — worth a millimetre at a town's
-coordinates, as that method's own remark says. A car park lays a dozen bands along one lane a millimetre or
-two apart and the merge settles which of them is outermost inside two. So joining a bay's way moves nothing
-and still changes which copy of one stretch of outline is kept.
-
-**That is a fact about the merge and not about the bays**, and it is written down here rather than worked
-around: a boundary that depends on where a line happens to be cut is a boundary that depends on something
-its own documentation says it does not ask about. Until that is answered, the ways stay as they are laid and
-`LaneLineTests` asks only the movements.
+**The town it carried was put down rather than ported.** Parking went entirely, the buildings with it, and
+with them the services that were eligible-buildings-near-a-car-park; the junction furniture, the signals,
+the kerb band, the walk the ground answer widened every road by, the paint and the walking network's passes
+all went the same way. **None of that is judged unwanted** — every one of them is named in the known gaps —
+it is judged not worth porting onto a layer being replaced this month. What keeps the milestone observable
+is the one thing outside the lane layer that was rewritten rather than deleted: the spawn stage stands the
+brief's cars on the town's own lanes, one a lane, and `--bench maneuvers` enters the ordinary driving
+entries on every map while the parking, paint and light entries are the set nothing entered.
 
 ## 2026-09-13 — the boundary turns where the ground turns, and a cut is not a corner
 
@@ -288,21 +178,6 @@ for the same reason read the other way: **a stretch shorter than the weld is its
 to one place, and a stretch that leaves a place by arriving at it can never be walked into a ring. The
 laboratory map closed on the first of those and the city went from 158 open runs to 36.
 
-## 2026-09-12 — a bay's way lays a lane's width, like everything else that is driven
-
-**The ground a driven line lays had two answers and one of them was a bay's.** A way into a bay was banded
-at the space it serves (`SimConfig.ParkingSpaceWidthM`, a car's width and two door margins) rather than at
-the lane it is worked off, in the tarmac's own shape (`Kerbs`) and in the ribbon it hands the merge
-(`Paving.MovementWidthM`) alike. So every car park in the town was drawn out of bands a hand narrower than
-the street they leave, and the outside of the driven ground stepped in at the mouth of every way and back
-out again.
-
-**The space's width is about the car and not about the ground.** It sizes the body standing in the bay, the
-claim a body on a way holds (`BayNetwork`) and the paint on the tarmac, and none of those is how wide the
-ground driven to it is. What the way lays is now the lane's own width, read off the lane the way is worked
-off — so a lane laid at a custom width carries its car parks at that width too, and the whole town is one
-figure of driven ground with no second kind of it.
-
 ## 2026-09-12 — the boundary is the merge of the ribbons the lines lay, and the walk that found it is gone
 
 **A lane is an area, and the outside of the town is the outside of the union of those areas.** The boundary
@@ -337,30 +212,6 @@ to be one end. **Two coincident edges are settled by the lower-numbered line** �
 and keeping both leaves a crossing with two ways on — and **a piece is cut where another piece's own end
 stands on it as well as where one crosses it**, which is the one cut a crossing cannot find: two square ends
 laid along each other cross nowhere, and without that cut the overlap between them is weighed whole.
-
-## 2026-09-12 — the boundary settles when the car parks are laid, and the buildings are cleared against that
-
-Every stage of the generator reads the ground as it stands, which is right — what is on the ground at a
-point is a fact about the shapes there are. What was wrong is that one stage adds driven ground *and* clears
-things against it. A car park is the ways driven into it (GEN-4b) and those are driven lines like any other,
-so laying one moves the edge of the driven ground the whole town is measured off (TER-3c.3); the buildings
-laid after the lots in that same stage were still being cleared against the ground the lots were *chosen*
-on. A building could therefore stand well clear of every kerb there was and have a car park laid up to it.
-
-**The stage says when it is settled rather than everyone guessing.** `SlotStage` remakes the ground once its
-lots are down, clears its buildings against that, and hands it back — nothing below that stage adds driven
-ground, so it is the boundary the finished map answers with. The prop stage takes it instead of building the
-same reading again, which is why the fix costs no extra walk of the shell.
-
-**What it changes is where a handful of buildings stand, and nothing else.** A building the finished
-boundary refuses is one the town lays at the next slot instead, so both shipped cities come out with the
-count they came out with before — 1 200 buildings and 506 car parks on the larger — and the only other
-figure that moves is a few props following the buildings that moved.
-
-**And it is read back rather than argued for.** The shell probe walked every building's own footprint and
-asks the finished ground what is under it, which is the question the generator cannot ask itself: **six of
-1 200 buildings on the larger city stood on ground a car is driven over, and none do now**, nor any of the
-1 100 on the other.
 
 ## 2026-09-12 — what still placed ground of its own is gone
 

@@ -25,47 +25,35 @@ internal enum LaneTurn : byte
 }
 
 /// <summary>
-/// <b>The lines a car is driven on, laid with the town</b>: every lane of every road cut back to the points
-/// its movements hand over at, and every connector between them. It is the town's driving geometry and the
-/// whole of it — <b>there is no junction here</b>, only the lanes that meet at one and the lines drawn
-/// between their ends.
+/// <b>The lines a car is driven on, laid with the town</b>: every lane of every road, and every movement
+/// between them. It is the town's driving geometry and the whole of it — <b>there is no junction here</b>,
+/// only the lanes that meet at one and the lines drawn between their ends.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>This is the town's tarmac.</b> What a car may drive on is the ground under these lines and nothing
-/// else, so <see cref="GroundShapes"/> answers a point against them and <see cref="Kerbs"/> is the union of
-/// the bands they sweep. A junction has no shape of its own to be laid or asked about: the ground inside
-/// one is the ground its connectors take, which is why a box that is turned, skewed, one-way or five-armed
-/// is drawn correctly without anything here knowing what shape it made (TER-5).
+/// else, so <see cref="GroundShapes"/> answers a point against them and the boundary is the merge of the
+/// ribbons they lay (<see cref="LaneShell"/>). A junction has no shape of its own to be laid or asked
+/// about: the ground inside one is the ground its movements take, which is why a box that is turned,
+/// skewed, one-way or five-armed is drawn correctly without anything here knowing what shape it made
+/// (TER-5).
 /// </para>
 /// <para>
 /// <b>Laid at map generation, off the plan alone</b> — it is a pure function of the roads, the junctions
-/// they are cut at and the figures on <see cref="SimConfig"/>. Both readings of the town take it: the
-/// surface the ground is drawn and answered from, and the network <c>World.Road.RoadGraph</c> puts its
-/// rules on top of. Neither lays a second one.
+/// they end at, the world seed and the figures on <see cref="SimConfig"/>. Both readings of the town take
+/// it: the surface the ground is drawn and answered from, and the network <c>World.Road.RoadGraph</c> puts
+/// its rules on top of. Neither lays a second one.
 /// </para>
 /// <para>
-/// <b>A lane runs from one place a driver decides something to the next, and is cut nowhere else</b>
-/// (TER-5h). It is laid in four steps and they are the whole of what happens here:
+/// <b>A lane is placed and not subtracted</b> (TER-5i, GEN-46). Every arm of every node was given a drawn
+/// bearing and a standoff before anything was shaped, and the road was laid to arrive on them
+/// (<c>RoadStage.Chain</c>, GEN-47) — so a lane is that road's own line moved to its share of the
+/// carriageway (TER-4d), it runs the whole of it, and its two ends are the connection points themselves.
+/// Nothing is cut back, nothing is folded, and there is no figure a reader has to add to a lane's metres.
 /// </para>
-/// <list type="number">
-/// <item>the roads are cut at every junction they run through rather than the two they name, so an inline
-/// junction is a place the network has heard of — and <b>nothing else cuts one</b> (GEN-4h), a car park
-/// along a frontage being bays hanging off a lane rather than a lane of its own;</item>
-/// <item>each stretch is given the lanes its road's flow declares, at the share of the carriageway that
-/// flow leaves it (TER-4d);</item>
-/// <item>the lanes are cut back until every turn through them holds the junction's own corner (TER-5d), and
-/// the connectors are drawn between the ends that leaves;</item>
-/// <item><b>and every join that forks nothing is folded back into the lane it joins</b>
-/// (<see cref="Welded"/>, TER-5h): one way in, one way out and no choice between them is not a junction,
-/// whatever the plan called it, so the two stretches and the line across the box are one lane.</item>
-/// </list>
 /// <para>
-/// <b>The fold is settled on the movements and never on the arms</b>, because the arms do not say it: a
-/// node of two arms carrying a one-way street into a two-way one forks nothing either, and a node of four
-/// that only ever offered one movement is a node the plan should not have laid. What the count of ways out
-/// of a lane and ways into the next asks is exactly the question — <em>does a driver decide anything
-/// here</em> — and it asks it of the table the router will read.
+/// <b>What is left to work out here is the junction</b>: which pairs of lane ends a car may be driven
+/// between, what turn each of those is, and the line it is driven on (GEN-48).
 /// </para>
 /// <para>
 /// <b>Structure of arrays, laid once</b>, with every variable-length run — a lane's arcs, a lane's
@@ -123,9 +111,9 @@ internal sealed partial class LaneLines
     public int JunctionCount { get; }
 
     /// <summary>
-    /// <b>The road a lane sets off on</b>, which is not necessarily the one it arrives on
-    /// (<see cref="LaneToRoad"/>): a lane folded through a node that forks nothing carries on onto whatever
-    /// road was on the far side of it (TER-5h).
+    /// <b>The road a lane sets off on</b>, which is the one it arrives on: nothing folds two roads into
+    /// one lane any more (TER-5i), and the pair is kept because the fold's subject comes back with the
+    /// rule that had it.
     /// </summary>
     public int[] LaneFromRoad { get; }
 
@@ -153,12 +141,11 @@ internal sealed partial class LaneLines
     /// <summary>The length of the line as driven, after the cut back.</summary>
     public float[] LaneLengthM { get; }
 
-    /// <summary>How much of its stretch the lane gave up to the box at its start, and at its end.</summary>
-    /// <remarks>
-    /// Kept apart because the fold takes a lane's two ends from two different stretches (TER-5h), and what
-    /// the boxes in between cost is no cost at all: those metres came back as the join line the lane now
-    /// runs along.
-    /// </remarks>
+    /// <summary>
+    /// How much of its stretch the lane gave up to the box at its start, and at its end. <b>Nought on every
+    /// town this build lays</b> (TER-5i): a lane runs between the two points it was drawn to run between,
+    /// and the ground past them was never its.
+    /// </summary>
     public float[] LaneCutBackAtStartM { get; }
 
     /// <inheritdoc cref="LaneCutBackAtStartM"/>

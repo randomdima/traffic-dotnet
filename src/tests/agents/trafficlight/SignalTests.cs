@@ -118,7 +118,7 @@ public class SignalTests
             {
                 foreach (var other in arms)
                 {
-                    // The arm each lane is at this junction, which is the road it arrives on (TER-5h).
+                    // The arm each lane is at this junction, which is the road it arrives on (TER-5i).
                     if (roads.LaneToRoad[arm] != roads.LaneToRoad[other]) continue;
 
                     Assert.True(

@@ -560,7 +560,7 @@ public class LaneOccupancyInATownTests
 
         // <b>Straight ground, with the whole claim on one piece of it</b>: a box laid on a bend covers more
         // of the way round it than its own length, which is the reading under test here and not the one. A
-        // lane is the whole run between two places a driver decides something (TER-5h), so the longest lane
+        // lane is the whole run between two places a driver decides something (TER-5i), so the longest lane
         // in a town is a run through its bends rather than the straightest thing in it. And the piece is
         // inside a lane, so nothing is clipped at either end of the way (<see cref="LaneOccupancy.Add"/>).
         var (lane, atM) = StraightEnoughFor(world.Roads, build.LengthM, wantedM);

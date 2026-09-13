@@ -74,21 +74,6 @@ internal sealed class RoadFigures
     /// </remarks>
     public bool CarriagewayDrawn { get; init; }
 
-    /// <summary>
-    /// <b>Temporary, and a drawing switch like <see cref="CarriagewayDrawn"/></b>: whether the paint is
-    /// drawn — the lane dashes, the zebras, the stop bars and the bay strokes. Off, a frame carries no mark
-    /// of any kind and the only ground in it is the grass.
-    /// </summary>
-    /// <remarks>
-    /// <b>The paint is one layer and this is one switch for it</b> (TER-7b). A dash, a bar, a stripe and a
-    /// bay stroke are marks <em>on</em> a surface rather than boundaries of one, they are the top of the
-    /// stack, and they are the one layer that is furniture's rather than the boundary's — so what a frame
-    /// shows with this off is the extrusion and nothing that was placed along it. <b>Nothing a mark says is
-    /// hidden with it</b>: a crossing is still a stretch of the road it is painted across (TER-6), the
-    /// answer still calls it a crossing, and a walker still has paint to cross on.
-    /// </remarks>
-    public bool PaintDrawn { get; init; }
-
     public float EdgeLineWidthM { get; init; } = 0.3f;
 
     /// <summary>One painted line: a lane dash, a bay stroke. A zebra's bar is twice it and a stop bar is the plan's own.</summary>

@@ -58,7 +58,7 @@ public class RoadGraphTests
     /// <b>A stretch of a one-way road has one lane and no reverse at all</b> (TER-4d).
     /// </summary>
     /// <remarks>
-    /// <b>Read end for end, because a lane runs the length of its run and not of one road</b> (TER-5h): the
+    /// <b>Read end for end, because a lane runs the length of its run and not of one road</b> (TER-5i): the
     /// road a lane sets off on is the road its reverse arrives on, and a fold that took one way of a stretch
     /// and left the other is exactly what this would catch.
     /// </remarks>
@@ -234,7 +234,7 @@ public class RoadGraphTests
             var declaredM = plan.Roads.WidthM[road] / plan.Roads.LanesOn(road);
             Assert.Equal(declaredM, graph.LaneWidthM[lane], tolerance: 1e-4f);
 
-            // <b>And the road it arrives on declares the same figure</b> (TER-5h): a band has one width, so
+            // <b>And the road it arrives on declares the same figure</b> (TER-5i): a band has one width, so
             // a run is folded through a node only where the carriageway does not step there.
             var onto = graph.LaneToRoad[lane];
             Assert.Equal(declaredM, plan.Roads.WidthM[onto] / plan.Roads.LanesOn(onto), tolerance: 1e-4f);

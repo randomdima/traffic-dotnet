@@ -17,7 +17,7 @@ namespace TrafficSimulation.World.Road;
 /// same lines is what a car may drive on, which is why the surface and the network cannot disagree.
 /// </para>
 /// <para>
-/// <b>A lane runs from one place a driver decides something to the next</b> (TER-5h), which is neither a
+/// <b>A lane runs between the two points its road was laid to</b> (TER-5i), which is neither a
 /// whole road nor one stretch of one. Roads are cut at <em>every</em> junction they run through rather than
 /// only the two they name — which is what makes an inline junction, a place <em>on</em> a road carrying a
 /// mid-block crossing (TER-5b), somewhere the graph can have lanes ending — and then every join that forks
@@ -129,7 +129,8 @@ internal sealed class RoadGraph : ILaneEnds
     public int ConnectorCount => _lines.ConnectorCount;
 
     /// <summary>
-    /// <b>The road a lane sets off on</b> (TER-5h). A lane folded through a node that forks nothing runs on
+    /// <b>The road a lane sets off on</b>, which is the road it arrives on: nothing folds two of them
+    /// together any more (TER-5i). A lane laid through a node that forks nothing runs on
     /// onto the road beyond it, so this is the arm it is at the junction it <em>starts</em> from and
     /// <see cref="LaneToRoad"/> is the arm it is at the one it ends at.
     /// </summary>

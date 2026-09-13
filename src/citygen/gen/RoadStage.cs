@@ -12,7 +12,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <remarks>
 /// <para>
 /// <b>A street is a chord that wanders, and the wander is bounded by geometry rather than by taste</b>
-/// (GEN-12). The
+/// (GEN-47). The
 /// traced cities are the argument: their streets are single arcs at the ninetieth percentile and their
 /// median sinuosity is 1.000, so straight is what a street is and a bend is what it is allowed. Three
 /// bounds hold, and each of them is a rule rather than a preference:
@@ -21,7 +21,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <item><b>Both ends are straight.</b> A junction's own ground, the corner an arm flares back to, the
 /// crossing and the bar behind it are all laid across a straight arm, so the first and last stretch of every
 /// road is one straight piece and the wander lives between them. <b>An end at a node that forks nothing is
-/// the exception</b> (GEN-12a): the two arms there are swept into one arc, and what that arm carries is laid
+/// the exception: the two arms there are swept into one arc, and what that arm carries is laid
 /// past it (<see cref="Bends"/>).</item>
 /// <item><b>The wander is bounded by the block and not by the road</b> — a street may not stray so far off
 /// its chord that it could meet the street a block over.</item>
@@ -162,7 +162,7 @@ internal static class RoadStage
     /// <summary>
     /// <b>Which roads this town cannot lay</b> (§4.4): the ones whose spline could not meet both of its
     /// drawn bearings, and the lower-ranked of every pair that would share ground with a road it does not
-    /// meet at a node (the property GEN-17 used to state as a chord separation).
+    /// meet at a node (GEN-49).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -570,7 +570,7 @@ internal static class RoadStage
 
     /// <summary>
     /// <b>How far off its own chord a road is allowed to wander</b>: the block spacing of the district it
-    /// runs through, at the share of a block that class of road is allowed (GEN-12). A grid's share is the
+    /// runs through, at the share of a block that class of road is allowed (GEN-47). A grid's share is the
     /// tighter one, because a grid is straight.
     /// </summary>
     public static float WanderM(Districts districts, LayoutEdge edge, Vector2 middleM, SimConfig config)

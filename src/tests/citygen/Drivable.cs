@@ -69,7 +69,7 @@ internal static class Drivable
     }
 
     /// <summary>
-    /// What dangles, or <c>null</c> where every lane is both driven onto and driven off (GEN-18a).
+    /// What dangles, or <c>null</c> where every lane is both driven onto and driven off (GEN-50).
     /// </summary>
     public static string? Dangling(RoadGraph roads)
     {

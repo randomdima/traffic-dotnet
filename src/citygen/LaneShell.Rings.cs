@@ -51,7 +51,7 @@ internal sealed partial class LaneShell
                 if (previous[at] >= 0) continue;
 
                 var run = Run(at, next, walked);
-                if (run.Length > 0) loose.Add(Joined(run, false));
+                if (run.Length > 0 && !TooShortToHaveTwoEnds(run)) loose.Add(Joined(run, false));
             }
 
             for (var at = 0; at < _kept.Count; at++)
@@ -60,10 +60,26 @@ internal sealed partial class LaneShell
 
                 var ring = Run(at, next, walked);
                 var shut = Shut(ring);
+                if (!shut && TooShortToHaveTwoEnds(ring)) continue;
+
                 (shut ? chains : loose).Add(Joined(ring, shut));
             }
 
             return ([.. chains], [.. loose]);
+        }
+
+        /// <summary>
+        /// <b>Whether a run is shorter than the weld the merge closes ends with</b>, which makes its two
+        /// ends one place and not a hole. It is the same figure and the same reason a stretch shorter than
+        /// the weld is dropped before the walk (<see cref="LeastPieceM"/>): a length the construction cannot
+        /// tell from a point is not a length of boundary nothing accounts for.
+        /// </summary>
+        static bool TooShortToHaveTwoEnds(ReadOnlySpan<ArcSeg> run)
+        {
+            var lengthM = 0f;
+            foreach (var arc in run) lengthM += arc.LengthM;
+
+            return lengthM <= WeldM + LineTolerance.RoundingM;
         }
 
         /// <summary>One run followed from a stretch until it runs out or comes back to where it set off.</summary>

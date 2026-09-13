@@ -50,7 +50,7 @@ internal readonly record struct LayoutEdge(
 /// <b>One connected component with nothing dangling off it, reached by deletion rather than by retry</b>
 /// (GEN-5, GEN-5a). Streets are laid inside a district's own convex region and arterials are laid through
 /// the town, which is most of what keeps them apart; what the arrangement does not settle,
-/// <see cref="UnpickTheCrossings"/> deletes (GEN-17). Water or a district edge can leave a piece of the town
+/// the road stage refuses (GEN-49). Water or a district edge can leave a piece of the town
 /// joined to nothing, and <see cref="KeepTheLargestComponent"/> deletes that, or leave a street ending in a
 /// field, and <see cref="PruneTheDeadEnds"/> deletes that. A town is what stayed connected and led
 /// somewhere, and the alternative — laying it again with another seed until it is one piece — is the search

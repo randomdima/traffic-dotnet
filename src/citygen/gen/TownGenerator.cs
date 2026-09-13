@@ -22,7 +22,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <para>
 /// <b>Where the arrangement is not enough on its own, the answer is still deletion and never a retry</b>
 /// (GEN-8): the layout is settled by four passes of its own before it is given a shape — the local nodes
-/// merged, the crossings unpicked (GEN-17), the stranded pieces dropped and the dead ends pruned — and each
+/// merged, the stranded pieces dropped and the dead ends pruned, and the roads that would share ground
+/// refused as they are laid (GEN-49) — and each
 /// of them is one pass over what the stages before it laid.
 /// </para>
 /// <para>

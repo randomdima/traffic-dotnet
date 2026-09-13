@@ -31,7 +31,7 @@ public class LaneShellTests
 
         Assert.True(
             shell.Loose.Length == 0,
-            $"{map} left {shell.Loose.Length} runs of boundary open, {lengthM:F1} m in all, the first of "
+            $"{map} left {shell.Loose.Length} runs of boundary open, {lengthM:F3} m in all, the first of "
             + $"them from {(shell.Loose.Length > 0 ? shell.Loose[0][0].StartM : Vector2.Zero)}");
     }
 

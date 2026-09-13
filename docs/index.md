@@ -94,17 +94,37 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 Absences that are gaps rather than decisions, and none of them is silent:
 
-- **The merge does not close every ring on a big town.** The town's boundary is the merge of the ribbons its
-  driven lines lay ([citygen](../src/citygen/docs/decision-log.md)), and the fixture map and River close
-  every ring of it with no station on the wrong side. **Odesa and the generated city are each left with
-  one** — a run of 30 390 m whose two ends stand 0.122 m apart, and one of 485 m whose ends stand 0.172 m
-  apart, against the tenth of a metre `LaneShell.Merge` welds at. It is the merge settling which of two
-  bands laying the same stretch of outline is the outer one and disagreeing with itself by rather more than
-  the millimetre its own nearest-point walk is worth, and **it is not the lines' to fix**: folding every
-  forkless join out of the town (`TER-5h`) took 26 ribbons off Odesa's merge and left the same run open at
-  the same place. The run it breaks is handed back as what it is (`LaneShell.Loose`), drawn in the fault
-  colour by `--ui perimeter` and counted by `--bench census`, so what is missing is visible rather than
-  papered over.
+- **The lane layer was rebuilt and the town it carried was put down with it.** The lines a car is driven on
+  are laid from the junction out now — a bearing and a standoff drawn for every arm, the movements laid
+  between the points that produces, and the road splined to arrive on them (`GEN-46`, `GEN-47`, `GEN-48`).
+  **What stood beside the old layer was not ported across the rework**, and every one of these comes back
+  off the boundary the driven lines lay (`TER-7b`) or off the layers struck from it:
+  - **No car park, no bay, no bay way and no parking space.** The whole placement went, and with it the
+    frontage arithmetic. `world/parking/` stands over a town with none of its subject, `GEN-4*` is not
+    reworded, and the census reports nought.
+  - **No building.** The stage that stood them placed the car parks too, and a stage that places neither is
+    not a stage. `world/statics/`, the standing sprites and the boarding all stand empty.
+    **`GEN-9`'s service placement goes with it**: a hospital, a police station and a depot are buildings the
+    generator chose a use for, so no ambulance has a hospital to take a casualty to and no evacuator has a
+    yard to tow a wreck home to. The slices are kept whole and their subject is in this list.
+  - **No crossing, no stop bar and no kerb fillet** (`TER-6`, `TER-5`), and **nothing is lit** (`TLT-3`):
+    whether a junction carries a timetable was drawn in the road stage and is not drawn any more.
+    `agents/trafficlight/` stands over a town with no lit junction.
+  - **The roster rule GEN-7 is false of a generated town in both halves, and is not reworded.** It says a
+    car starts stopped in a parking space and a person starts inside a building; a car is stood on a lane because there
+    is no bay to stand one in, and nobody is stood at all because there is no door to stand them at. The
+    code is what is temporarily wrong here.
+  - **The suite got smaller with the laboratories.** `Track` ×3, `Exam`, `Footway`, `Skidpad` and `Zebras`
+    were laid against the layer that has been replaced, so they were deleted rather than carried across it —
+    and with them the exam's staged junctions, the lap's drivetrain figures, the pad's circles and the
+    crossings' walks. The ones that come back will be laid against the new layer.
+  - **And the fixture is a generated town.** `towns/Test.town` is `towns/Test.json`, so the map every
+    detailed check is staged on moves when the generator does — which is the one thing a fixture exists not
+    to do ([verification.md](verification.md)). It leaves the suite with two towns that differ only in size
+    and seed.
+  - **What it closed, it closed loudly**: the merge leaves no ring of any town open now. Odesa left one run
+    of 30 390 m with its two ends 0.122 m apart and the generated city one of 485 m; both close on lines
+    that are fewer, longer and smoother, and what is left of the old entry is the figure it used to carry.
 - **Nothing is struck off the kerb.** Every line the ground had beside a road — the kerb line, the walking
   lane, the pavement and its rim — was the boundary moved by a figure, and that construction is gone with
   the walk that made it: there is no offset of the boundary at any distance, so there is no `TER-3c.3`
@@ -117,19 +137,18 @@ Absences that are gaps rather than decisions, and none of them is silent:
     code does not meet them, which is what this entry is.
   - **And the ground answer lost the wedge a junction's corner is paved back over** (`TER-5`). It was
     ground inside the boundary that no line claims, which only a boundary can say; with none, a junction's
-    corners answer as grass. `GroundLocatorTests.AJunctionIsGroundACarMayBeOn` and
-    `CrosswalkGeometryTests.TheAxisIsTheWayAcrossAndTheSpanIsHowFar` fail on a city for that reason and no
-    other. What a prop is cleared against is unaffected: `GroundShapes.PavingWithin` asks the bands
-    themselves (`Kerbs.OffTheDrivenM`), which is a distance the boundary was never needed for.
+    corners answer as grass, and so does the middle of a node whose two movements pass either side of it.
+    What a prop is cleared against is the road records instead (`GroundShapes.PavingWithin`), which is a
+    distance the boundary was never needed for — and it comes back to the boundary with the stack.
 - **A deck carries no pavement.** A bridge is its deck and its carriageway, with the margin a parapet stands
   on reaching all the way out, and the walk that ought to cross it is missing (`TER-3b.1`). It closes with
   the entry above it: a boundary that knows where a deck carries it, and a line struck off that boundary.
-- **The carriageway and the paint are hidden while the boundary is looked at.**
-  `RoadFigures.CarriagewayDrawn` and `RoadFigures.PaintDrawn` are off in the shipped figures, so the driven
-  ground with its slabs and the paint above it are not drawn. **Hiding is a different thing from holding
-  back**: the answer goes on saying that ground is driven over and that a crossing is a crossing, because
-  the grip, the permission and the lane a body is written onto all hang off them, and only the picture stops
-  showing it. Both switches and the branches that read them go when the merge closes on a city.
+- **The carriageway is hidden while the boundary is looked at.** `RoadFigures.CarriagewayDrawn` is off in
+  the shipped figures, so the driven ground with its slabs is not drawn. **Hiding is a different thing from
+  holding back**: the answer goes on saying that ground is driven over, because the grip, the permission and
+  the lane a body is written onto all hang off it, and only the picture stops showing it. The switch and the
+  branch that reads it go when the layers come back. **The paint is not hidden but absent** — nothing lays a
+  dash, a zebra, a bar or a bay stroke — and `RoadFigures.PaintDrawn` goes with the marks it drew.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

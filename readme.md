@@ -54,8 +54,8 @@ to be looked at beside something else. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--export` writes a map out as a `.town` file,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `drive`, `track`, `drunk`, `fleet`, `exam`, `footway`, `skidpad`, `crossings`, `maneuvers`, `trips`, `rescue`,
-`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `solver`, `signals`, `walk`); `--bench all` runs the lot, and
+(`census`, `drive`, `maneuvers`, `trips`, `rescue`, `recovery`, `crash`, `soak`, `stuck`, `tick`, `town`,
+`solver`, `walk`); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 
@@ -67,18 +67,16 @@ and is stated in that car's own file, where nineteen bodies keep nineteen answer
 figure pretending to speak for all of them. Each is a share of what the build ships, a decade either side, with shipped at
 the middle of the track. **Dragging one changes it under the town that is standing, as the hand moves** —
 every look is built again and the ground is worth what it is now worth, while the marks stay on the road
-and every body stays where it was — which is what makes the skidpad a rig rather than a read-out. Nothing is authored by it: every trim is 100% unless the page has been opened, and the shipped
+and every body stays where it was — which is what makes the page a rig rather than a read-out. Nothing is authored by it: every trim is 100% unless the page has been opened, and the shipped
 run is the run this suite measures.
 
-**Every map says what it claims about itself and whether it is keeping it.** A windowed run on a scenario
-map draws it as the last section of the status panel — a broken claim counted on the panel's own always-on
-title, the rows behind it opened by `--ui scenario` or by clicking down to them; a place map has nothing to
-claim and shows none of it —
+**Every map says what it claims about itself and whether it is keeping it.** A windowed run draws it as the
+last section of the status panel — a broken claim counted on the panel's own always-on title, the rows
+behind it opened by `--ui scenario` or by clicking down to them —
 and every headless run prints the same table: a row a claim, the figures behind each verdict, and a last
-line a script can read. **A broken claim is a failed run**, so `--bench exam`, `--bench footway`, `--bench crossings` and
-`--map Track --seconds 300` all exit non-zero when the town breaks something it claims. What is quoted
-beside the claims — the drunks' swerves, the laps a fleet got round — fails nothing: it is a fact about
-that town rather than a bound
+line a script can read. **A broken claim is a failed run**, so `--bench soak` and
+`--map Odesa --seconds 300` both exit non-zero when the town breaks something it claims. What is quoted
+beside the claims fails nothing: it is a fact about that town rather than a bound
 ([verification](docs/verification.md#what-a-map-claims-about-itself)).
 
 `--sheet FILE.json` is the same picture asked for as a document: several staged frames, each captioned
@@ -115,36 +113,22 @@ change, and commit the picture. The line it prints per lens is the instrument fo
 arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
 and comes back undistinguished.
 
-**Seven maps are laid to measure one thing**, and each claims that one thing and nothing else; an eighth is
-laid to be looked at and claims nothing of its own. **What each
-is and what it claims is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only which
-command reads which.
+**One map is laid in code**, and it is laid to be looked at rather than to measure anything. **What it is
+is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only which command reads it.
 
 | Map | Is | Read by |
 |---|---|---|
-| `Track` | one closed lap of five shapes, with fifteen people pacing beside the carriageway | `--bench track`, `--ui track` |
-| `Drunk` | the same lap with those fifteen reeling **in** it, which is the only place anything overtakes (`E-4`) | `--bench drunk` |
-| `Fleet` | the same lap again with one car of every look on it and nobody on foot | `--bench fleet` |
-| `Exam` | a six by six lattice of junctions, one staged crossing manoeuvre in each | `--bench exam`, `--map Exam` |
-| `Footway` | the same lattice five cells by four with nothing driving on it: one staged **walk** in each — the corner, the paint, the light, the body in the way | `--bench footway`, `--map Footway` |
-| `Skidpad` | a grid of plain road, a square a car: every look on full left lock, a row per pedal and gear — three pedals each way — each drawing its own circle beside the one its axles ask for | `--bench skidpad`, `--ui turn-circles`, `--ui menu-figures` |
-| `Zebras` | five isolated streets with a crossing apiece, one of them laid off square | `--bench crossings` |
 | `Idle` | one loop of road and nothing else — a square with rounded corners, an armoured car between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
 
-Every one of them but `Zebras` is **laid in code when it is opened**, from the car's own figures — so a
-figure that moves is every one of those maps laid again, together, since a lap is only comparable with a
-lap laid from the same arithmetic. `Zebras` and the fixture map still arrive as files.
+**The laboratories are parked.** `Track` ×3, `Exam`, `Footway`, `Skidpad` and `Zebras` were laid against
+the lane layer this build replaced, so they were deleted with it rather than carried across a rework they
+would have had to be written for twice; what they measured is named in
+[the known gaps](docs/index.md#known-gaps), and the ones that come back will be laid against the new layer.
 
-**A city is generated instead.** `towns/Odesa.json` and `towns/River.json` are briefs — a seed, an extent,
-the water, the districts and the counts — and the town is laid from one when the map is opened
-([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from)). The same brief at the same seed is
-the same town, every time.
-
-The two exams and the crossings map are asserted card by card and crossing by crossing in the town tier off
-the probe's own run ([JunctionExamTests](src/tests/world/JunctionExamTests.cs),
-[WalkingExamTests](src/tests/agents/person/WalkingExamTests.cs)), so the instrument and the gate cannot
-disagree about what a crossing is. **A card the build does not pass carries what it does instead**, and is
-asserted to still fail — so the day it comes right the suite says so and the line is deleted.
+**Every other map is generated.** `towns/Odesa.json`, `towns/River.json` and `towns/Test.json` are briefs —
+a seed, an extent, the water, the districts and the counts — and the town is laid from one when the map is
+opened ([citygen](src/citygen/docs/requirements.md#where-a-town-comes-from)). The same brief at the same
+seed is the same town, every time. `Test` is the fixture every detailed check is staged on.
 
 ## The same town, in a browser
 

@@ -242,7 +242,7 @@ internal sealed partial class SimConfig
 
     /// <summary>
     /// The whole width of ground a road takes: its carriageway and the walk either side of it. <b>It is
-    /// how far apart two roads' own lines have to stand to be two roads</b> (GEN-17), and it is what a
+    /// how far apart two roads' own lines have to stand to be two roads</b> (GEN-49), and it is what a
     /// bridge's deck carries over the water.
     /// </summary>
     public float RoadFootprintM => RoadWidthM + (PavementWidthM * 2f);
@@ -366,7 +366,7 @@ internal sealed partial class SimConfig
 
     /// <summary>
     /// How much of a road either end is straight. <b>It is what is laid on it and never a length somebody
-    /// chose</b> (GEN-12): the junction's own ground and its fillet at their worst, then the crossing at its
+    /// chose</b>: the junction's own ground and its fillet at their worst, then the crossing at its
     /// setback, then the bar behind that — so a road laid to this carries every one of them across a straight
     /// arm however skew its junctions came out, and a wider carriageway lengthens the stub rather than pushing
     /// its own paint onto the bend.

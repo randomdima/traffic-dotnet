@@ -5,7 +5,7 @@ namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
 /// <b>Which streets of the town run one way</b> (GEN-18): scattered across the whole of it, never two of
-/// them at one junction, and only the ones it can still be driven round with (GEN-18a). It runs on the
+/// them at one junction, and only the ones it can still be driven round with (GEN-50). It runs on the
 /// layout the deletions left, so what it chooses is chosen against the town there actually is.
 /// </summary>
 /// <remarks>
@@ -75,7 +75,7 @@ internal static class OneWayStreets
     /// <remarks>
     /// <b>Streets alone, and only where both ends fork</b>. An arterial is how a district is reached and
     /// runs both ways; a street at a node of fewer than three arms is a lane nothing could ever arrive on
-    /// (GEN-18a), so taking one there spends a place in the scatter on a street the settling would open
+    /// (GEN-50), so taking one there spends a place in the scatter on a street the settling would open
     /// again. <b>Which way it runs is an alternation and nothing more</b> — a scattered street has no
     /// family to align with, and both directions being drawn is all the town wants of it.
     /// </remarks>
@@ -141,7 +141,7 @@ internal static class OneWayStreets
     static bool Stands(TownLayout layout) => NothingDangles(layout) && CanBeDrivenRound(layout);
 
     /// <summary>
-    /// <b>Whether every movement the layout carries is one a car can both reach and leave</b> (GEN-18a).
+    /// <b>Whether every movement the layout carries is one a car can both reach and leave</b> (GEN-50).
     /// <b>A node that forks nothing may not change how many lanes there are</b>: a road of two ways meeting a
     /// road of one leaves the way back out of that node with nothing that ever arrives on it, which is a lane
     /// drawn on the town that no car is ever on.

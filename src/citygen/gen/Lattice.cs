@@ -21,7 +21,7 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <b>The arrangement is what keeps the crossings rare and not what makes them impossible.</b> The stub a
 /// lattice is hung by reaches ground the lattice itself was refused (<see cref="Hang"/>), which is the one
 /// road here laid across a district's own edge rather than inside it; what that leaves crossing is unpicked
-/// with the rest (GEN-17, <see cref="TownLayout.UnpickTheCrossings"/>) rather than searched for here.
+/// with the rest (GEN-49, <c>RoadStage.Refused</c>) rather than searched for here.
 /// </para>
 /// <para>
 /// <b>A street never bridges</b> (GEN-14a). It is not refused here: the layout asks the water of every road

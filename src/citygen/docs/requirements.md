@@ -42,64 +42,12 @@ makes of it. **Nothing derived is ever stored**: no district, no node, no curve,
 because a brief that carried geometry would be a second answer to where the town is and the one on disk is
 the one that goes stale.
 
-**The maps laid to measure one thing are laid in code**, and none of them is a city: each is arithmetic
-over the car's own figures rather than a seed, which is why they are authored where those figures are.
-`Maps` is the one list both kinds appear on, and a `CityPlan` is where the difference between them ends.
-
-**The proving ground** (`TrackPlan`) is one closed lap cut into ten roads — five shapes with a link between
-each pair — no junction anybody meets at, no light, no paint, no pavement and nobody living on it, only
-fifteen people and six cars.
-
-**The driving exam** (`ExamPlan`) is the other question: not what a shape of road costs a car but **what a
-car does where roads meet**. It is a six by six lattice of junctions with one crossing manoeuvre staged
-at each, laid from the thirty-six cards of `ExamCards` — a card names the arms its cars come from and
-leave by, what else is coming, and the one claim it makes about the first of them. What the map carries is
-therefore decided by the cards: the spur that makes a cell's junction a crossroads rather than a T, the
-lights over the junctions whose cards are about lights, and somebody standing at the paint a card is about.
-**Four of its junctions are lit and the rest are not**, because a lit box is one where the timetable decides
-and the box worth staging over and over is the one where the ranking alone does (TER-5e).
-Every car on it is one look and one build (CAR-11a), because a card is read against another card and a
-fleet of different weights would be a second variable inside every comparison.
-
-**The walking exam** (`FootwayPlan`) is the same question asked of the other agent: not what a car does
-where roads meet but **what somebody on foot does there**. It is the exam's own lattice — five rows of four
-cells — with one walk staged at each and **nothing driving on it at all**, laid from the twenty cards of
-`FootwayCards`: a card names where a body is put down, where it is sent, and the one claim it makes about
-the first of them. The two exams share their ground (`ExamGround`, `ExamMap`) and differ in their cards and
-in who is stood up, because a junction a walker cannot get round and a junction a car drove through must be
-the same junction. **Nothing drives on it on purpose**: what a car owes a crossing is the driving exam's
-question, and a walk that failed with traffic on the map would leave a reader unable to say which of the two
-agents was wrong.
-
-**The lap is laid three times, and each differs from the others in exactly one thing**, so a figure that
-moves between two of the tables is a fact about that one thing. `Track` stands fifteen people beside the
-carriageway, where each paces into the lane and back and is what brings a car to rest and lets it go again
-without anything staging it. `Drunk` stands the same fifteen in it, where each reels down its own lane and
-stands where it stopped every few lurches (`PER-16`) — a driver follows something slow and then gets past
-it, which is the only place in this town anything ever does (`E-4`). `Fleet` carries nobody on foot at all
-and swaps `Track`'s six of one car for one car of every look, each at its own weight, footprint, axles and
-handling: the first two measure a driver stopping for what is in front of it, and this one measures the
-car. All three are written by the one command, because any of them going stale is a probe quoting a road
-this build no longer lays.
-
-**The skidpad** (`SkidpadPlan`) asks neither of those: not what a road costs a car and not what a junction
-does to it, but **what a car's own steering is worth**. It is a hundred-metre grid of nothing but road — a
-column for every look the fleet ships, a row for every way of driving a circle — and every car on it has
-its wheel held hard over to the left for the whole run while its row holds the pedal — half of it and all
-of it, in each gear. **Nothing on it drives anywhere**: the town holds the wheels itself
-(`TownWorld.HoldTheWheels`) through the seam a player's hand uses, so what each car does is its own body
-answering one command. Its two instruments face each other — the circle the axles ask for, drawn over the
-car by the turn-circle layer (`OBS-2j`), and the circle the tyres actually described, written on the road
-because **every wheel on this map marks the ground it stands on** (`MarkFigures.PadFloor`) rather than only
-a sliding one.
-
-**The gap between the two is read against a third circle rather than against nothing**: what this car's own
-lateral grip affords at the speed it reached. A car wide of its axles but sitting on its grip is a car
-obeying its tyres, and that is a different finding from one wide of both — so the probe prints the three
-radii side by side, with where the centre it is really turning about stands and how far the front wheels
-are off the ground they cross. **A car turning *inside* its own axles is on none of the three**: four
-rolling wheels cannot describe an arc tighter than the one their axles cross at, so that is a pivot and the
-pad quotes how much of the run was one.
+**A map laid to measure one thing is laid in code**, and none of them is a city: each is arithmetic over
+the car's own figures rather than a seed, which is why they are authored where those figures are. `Maps` is
+the one list both kinds appear on, and a `CityPlan` is where the difference between them ends. **This build
+ships none of them**: the proving grounds, the two exams, the skidpad and the crossings map were laid
+against the lane layer that has been replaced, so they were deleted with it rather than carried across a
+rework they would have had to be written for twice ([the known gaps](../../../docs/index.md#known-gaps)).
 
 **The idle ring** (`IdlePlan`) is the one laid map that measures nothing, and the one the game opens on
 (GEN-1b). It is **one loop of road with nothing else on it** — no building, no bay, no paint, no light and
@@ -241,8 +189,9 @@ the one junction a town sizes around a turning circle rather than around a cross
 lays every junction as the crossing its arms make — so a car driven into one could never leave it. The ends
 a lattice and a spoke leave over are therefore deleted, each with whatever is left hanging off it (GEN-8),
 rather than grown on to meet something or kept as cul-de-sacs nothing planned. **A map laid in code may
-carry one**, because it lays the ground that dead end needs along with it: the head a car works itself
-round in where something drives there (`ExamPlan`), and no head at all where nothing does (`SkidpadPlan`).
+carry one**, because it lays the ground that dead end needs along with it. **And a node a car can arrive at
+and not leave is one of these however many arms it has**: a one-way street can make a junction a dead end
+without changing the count, which is what the layout's own pruning asks of the flows and not of the arms.
 
 **GEN-6** `P4` Counts are a property of the map, never of a rule. A map declares its own size and roster;
 everything else scales to the layout — props to the ground left over, parking to GEN-4b's relation, lights
@@ -369,40 +318,41 @@ to pass.
 move what an earlier one laid, so a change to the props cannot reshuffle the roads and a map is the same
 town every time it is opened.
 
-**GEN-12** `P6` **A road is a chord that may wander, bounded by three things and never by taste**: its two ends
-are straight for the length everything a junction lays across an arm stands on; its wander is bounded by
-the block spacing of the district it is in, so no street may reach the one a block over; and nothing bends
+**GEN-46** `P3` **A lane ends where the seed says it ends, and the road is laid to meet it.** Every arm of
+every junction carries a **connection point** for each way its road is driven (TER-4d): they stand on the
+line square to a bearing drawn for that arm, a standoff (`SimConfig.CityGen.ConnectionStandoffM`) out from
+the node, half a lane either side of it on the side the traffic keeps. The bearing is the chord to the
+neighbouring node turned by an angle drawn inside `SimConfig.CityGen.ConnectionJitterDeg`, tapered on a
+short link by what that link has room to turn through. **The two ends of a link are drawn independently**,
+so a road has two bearings to satisfy and they do not agree.
+
+- **They are stored nowhere and drawn again wherever they are wanted**, from the world seed and the two
+  junction centres the link joins — which is what lets the lanes stay derived from the plan while nothing
+  derived is written to disk. One function, two callers, one answer.
+- **A bridge and a ring piece take their bearings rather than drawing one** (GEN-14a, GEN-19). Both are
+  shapes settled elsewhere, so the jitter is nil for those links and a ring arm's lead bends with its own
+  circle rather than leaving straight off the tangent to it.
+- **The disc a junction is drawn on is the standoff** (`SimConfig.JunctionRadiusM`) and the arms follow it.
+  Sized off the arms instead, the standoff would be read back off a disc sized by the arms that end at the
+  standoff.
+
+**GEN-47** `P3` **A road is the line that leaves on one of its bearings and arrives on the other**, bending no
 tighter than the radius its own class's design speed affords on tarmac (`SimConfig.CarCorneringRadiusM`),
-which is derived from a speed and a grip and is never authored as a radius. A corner too tight for that
-floor is not laid at all: the road runs straight through it. **A roundabout's ring has a floor of its own**
+which is derived from a speed and a grip and is never authored as a radius. How much it wanders between
+them is drawn from the district it runs in: a strict district lays near-straight roads and a loose one lays
+curves, bounded by the block spacing so no street may reach the one a block over. **A road that cannot be
+laid inside those bounds is not laid**: the wander gives way first, and a link that still cannot be met is
+deleted with the layout repaired behind it (GEN-8, GEN-5). **A roundabout's ring has a floor of its own**
 (GEN-19), because the whole of one is a corner.
 
-**GEN-12a** `P6` **The corner at a node that forks nothing is the exception to both, and it is the same corner
-either way.** Two arms and no fork is a road that bends (TER-5b), so the two roads meeting there are swept
-into **one arc arriving on one tangent** — each taking half the turn, the node standing at the middle of it
-— and that end of each road is therefore a bend rather than a straight. **The turn is the layout's and not
-the sweep's**: a car slowed for it when it was a junction to be turned across and slows for it now that it
-is a curve to be driven round, which is why the arc may be tighter than the class's floor. It is never
-tighter than `SimConfig.RoadCornerRadiusM` — the bend whose inner kerb stands exactly where a junction would
-have flared it — and never wider than the floor, because sweeping wider than the design speed asks only cuts
-deeper inside ground the layout put somewhere else. **A pair with room for neither keeps its junction**, and
-so does a bridge, which is straight and nothing else (GEN-14a). **What the arm carries stands past the
-bend**: the paint of such a node is laid on the straight after the arc ends, exactly as everywhere else it is
-laid past the ground its junction reaches (TER-6).
-
-**GEN-12b** `P6` **A node the sweep carried a road through is not a junction, and the plan does not carry
-one.** Once the two arms meet on one tangent there is nothing at that node to decide, to give way at or to
-pave a box for, so **the two roads are joined into one road and the node goes with them** — a street that
-bends is one line with one pair of ends, and the town's driving lines are cut only where a driver chooses.
-Three pairs are not joined and each is a road that really does meet another: **two arms that are not the
-same road** — a pair that disagrees about which ways it is driven (GEN-18a), or either of them a bridge or a
-piece of a ring, each being a shape settled somewhere else and answered for whole (GEN-14a, GEN-19);
-**a pair the sweep refused**, which is a corner and not a bend;
-and **a pair still meeting on a crease**, too straight through to have been swept at all. **A node on a road
-that bends the whole way is not one of these and is not joined either** — the orbital arrives on its own
-curve at both its arms, so there is no straight for a sweep to be laid on and GEN-12's first bound never
-reached it. **A run never closes on itself**: where joining would leave a road running from a junction back
-to the same junction, the node it would have closed through keeps its junction instead.
+**GEN-48** `P3` **A junction offers the movements a car at its own design speed can hold**
+(`SimConfig.CityGen.JunctionDesignSpeedMps`), and no others: between every point a car enters a node on and
+every point of a *different* arm it leaves on, the line a car drives is laid and the turn it makes is
+classified. A pair of points on one arm is the turn in the road TER-5f bans and is never joined, which is a
+fact about the arm and not an angle to be measured. **But a junction may not refuse its way out of being
+reachable** (GEN-5): a lane whose every movement is tighter than the bound keeps the loosest of them, and so
+does a lane every movement onto which is, because a car that arrives has to leave and a lane nothing reaches
+is a hole in the drivable region.
 
 **GEN-15** `P4` **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is as
 many lanes of the one standard width (`SimConfig.LaneWidthM`) as it has ways — two both ways and one
@@ -417,21 +367,18 @@ already there is refused, because two carriageways meeting at a shallow angle ov
 and the fillet, the crossing and the bar on either of them are then laid over the other. What that refusal
 leaves unreachable is deleted with its own piece (GEN-8).
 
-**GEN-17** `P3` **A junction is the only place two roads may touch.** No road crosses another, runs into the side
-of another or lies along one: two roads that are not joined at a junction stand at least one road's whole
-width apart (`SimConfig.RoadFootprintM`), measured between the shapes they are drawn as and not between the
-lines they were joined on — a street strays off its chord by its own wander (GEN-12) and an arc by its
-sagitta, and a pair that clears on the chords still meets once it is laid. Ground two carriageways share
-outside a junction has no box, no kerb fillets, no crossing and no stop bar on it, so nothing that drives,
+**GEN-49** `P3` **A junction is the only place two roads may touch.** No road crosses another, runs into the
+side of another or lies along one: two roads that are not joined at a junction stand at least one road's
+whole width apart (`SimConfig.RoadFootprintM`), **measured between the lines they were laid as**. Ground two
+carriageways share outside a junction has no box, no crossing and no stop bar on it, so nothing that drives,
 walks or claims a way across it has anything to say about who goes first.
 
-- **The arrangement keeps them apart and a pass deletes what it missed** (GEN-8, GEN-10): the districts are
-  convex and the arterials carry a node wherever a street meets one, so a crossing is rare, and the roads
-  are offered to the deletion in the order the town cares about them — a street gives way to the arterial it
-  crossed and never the other way round (GEN-13, GEN-16). What that leaves unreachable or dangling goes with
-  its own piece.
+- **It is a bound the laying holds and not a pass that deletes what it missed** (GEN-47): a road free to
+  reach its own end bearings is not bounded by the chord between them, so a separation measured on chords
+  says nothing about the roads that were laid. A pair that would share ground is a refusal, the lower-ranked
+  road gives way (GEN-13, GEN-16), and the layout is repaired behind every refusal.
 - It is a rule about **roads**, not about the paint or the ground: what a junction's own arms may do to each
-  other is GEN-13's, and where the lots and the buildings stand is GEN-3's and GEN-16's.
+  other is GEN-13's.
 
 **GEN-18** `P6` **One-way streets are scattered over the whole town, no two of them meet, and every one the town
 keeps is one it can still be driven round.** It is a rule about the **streets the scatter chooses** and not
@@ -473,9 +420,9 @@ one-way road the scatter took (GEN-18) can be told from one nobody chose.
   traffic and a car park on it is a lot entered off a junction, so no frontage is cut along one (GEN-4b).
 - **Every piece of the ring is one arc of one circle, node to node**, so the ring is smooth: there is no
   straight in it and no join a reader can find. Its bend is never tighter than the radius the roundabout's
-  own design speed affords (`SimConfig.RoundaboutDesignSpeedMps`), which is the exception GEN-12's floor
-  names for it — the whole of a roundabout is one corner — and it is **the one road whose ends are not
-  straight**, as a piece of the orbital already is.
+  own design speed affords (`SimConfig.RoundaboutDesignSpeedMps`), which is the exception GEN-47's floor
+  names for it — the whole of a roundabout is one corner — and it is the one road laid to its own circle
+  rather than to the bearings its arms were drawn with (GEN-46).
 - **What that costs is that the ground of its entries is struck on a curve.** A junction's kerb fillets are
   the arcs tangent to the two kerbs there, and a kerb that bends is a circle rather than a line — so the
   corner is solved between the shapes the kerbs are drawn along and never between the lines their bearings
@@ -491,7 +438,7 @@ one-way road the scatter took (GEN-18) can be told from one nobody chose.
   piece of it stands over water (GEN-14) — but **what two of them owe each other is neither that road nor a
   locality** (GEN-16). They are one junction laid out as a circle rather than two spacings that happened to
   land on the same ground, which is the case those rules are about. What they owe each other is what the two
-  roads *leaving* them do: the ground one road takes (GEN-17) and a pavement's width of ground on top of it,
+  roads *leaving* them do: the ground one road takes (GEN-49) and a pavement's width of ground on top of it,
   since two mouths whose paving abuts is paving with nothing to wrap round. **That, and its own design
   speed's floor, is the whole of what sizes a roundabout — so the circle laid is the smallest one its arms
   and its speed allow and never a wider one.**
@@ -505,13 +452,13 @@ and it charges every car through the node a detour to reach the arm opposite. A 
 because a deck cannot move (GEN-14a). **Nothing is laid and taken back**: all of that is asked before the
 node is opened out, and a node that fails any of it stays the junction it was (GEN-8, GEN-10).
 
-**GEN-18a** `P6` **No lane dangles**: every lane the town lays is one a car can be driven onto and one it can be
-driven off again. **A node that forks nothing may not change how many lanes there are** — where a road of
-two ways meets a road of one, the way back out of that node is a lane no movement ever arrives on, since
-the only thing that could reach it is the turn round in the road that TER-5f bans. It is a local fact and
-not a connected one: a movement leaving a node needs some road other than its own arriving there, and a
-movement arriving needs some other road leaving. **A node of one arm is not what this is about** — a dead
-end is a place only turning round leaves, and dropping it is GEN-5a's.
+**GEN-50** `P3` **No lane dangles**: every lane the town lays is one a car can be driven onto and one it can be
+driven off again. It is a local fact and not a connected one — a movement leaving a node needs some road
+other than its own arriving there, and a movement arriving needs some other road leaving — so a node a car
+can reach and not leave is a dead end whatever its arms come to, and the layout takes it away with the ones
+that carry a single arm (GEN-5a). **Where a road of two ways meets a road of one**, the way back out of that
+node is a lane no movement could ever arrive on, since the only thing that could reach it is the turn round
+in the road TER-5f bans.
 
 **GEN-16** `P6` **Two of a kind standing inside a locality of each other are one thing and not two**
 (`SimConfig.CityGen.LocalityM`). A town is laid at several spacings that know nothing of one another — an
@@ -568,9 +515,11 @@ nodes the ordinary spacing happened to leave either side of it.
 every check, probe and shot names the map its fixtures live on.
 
 **The fixture map is not optional.** It is what every detailed check is staged on: small enough to build
-in a fraction of the time and fit on one screen, drawn so that every kind of ground is on it at least
-once, and furnished at a fraction of the other maps' counts. Detailed questions asked of "whatever the
-big city happens to contain" are a different question every time somebody edits the city.
+in a fraction of the time, laid so that every kind of ground is on it at least once, and furnished at a
+fraction of a city's counts. Detailed questions asked of "whatever the big city happens to contain" are a
+different question every time somebody edits the city. **It is a brief rather than a file**, which costs it
+the one thing a fixture is for — a town that moves when the generator does — and that cost is named in
+[the known gaps](../../../docs/index.md#known-gaps) rather than papered over.
 
 **Ask a whole city the shallow questions only** — it validates, its junctions are junctions, no lit
 junction shows two conflicting greens, nothing is laid on its water. Detailed geometry is asked of named
@@ -582,13 +531,6 @@ measure one thing claims that thing and nothing else, which is the whole of what
 
 | Map | What it claims about itself |
 |---|---|
-| `Track` | Every shape driven often enough to quote, each corner at what its radius affords, the tighter one slower, the straight accelerated down and braked for, nobody knocked down |
-| `Drunk` | That a car gets round it without losing its line. The swerves, the back-offs and the laps given up on are quoted, because they are what the map is for |
-| `Fleet` | That every look drives the lap, stays on it, gets itself moving rather than crawling, and pulls at the rate its own file states |
-| `Exam` | One claim a kind of card, and that every card this build does not pass is a known finding |
-| `Footway` | The same, said of the walker: one claim a kind of card — that a walk arrives, that nothing holds one nothing is in the way of, that a road is crossed on the paint, that nobody steps out on a red, that a body standing in the way is got past and that one under way is followed — and that every card this build does not pass is a known finding |
-| `Skidpad` | That every car turns under every pedal it stands, that each goes round the way its wheel is turned, and that nothing leaves its own square. **What the pedal costs the circle is quoted and never claimed**: the lightest pedal here is half, under which every car is being asked for more than its rubber holds, so how far it runs wide of its own axles is a fact about these tyres rather than a bound |
-| `Zebras` | That every crossing is walked kerb to kerb and nobody on foot is on a carriageway off the paint |
 | `Idle`, `Test`, and every city | The two every town owes: nothing is left inside anything else, and no car stands still with no clock running for it |
 
 **The fixture map and the idle ring claim nothing of their own on purpose.** One is where the detailed

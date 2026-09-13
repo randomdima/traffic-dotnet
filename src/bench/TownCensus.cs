@@ -403,17 +403,17 @@ internal static class TownCensus
     }
 
     /// <summary>
-    /// <b>How much of the driving network is cut where nothing is decided</b>: a join where the one lane
-    /// arriving hands over to the one lane leaving is a line the town broke in two for no reason a driver
-    /// could name. <b>It reads nought on a town that folded them all</b> (TER-5h), so what it reports is
-    /// the folds that were refused rather than the seams that were never noticed.
+    /// <b>How many joins of the driving network decide nothing</b>: a join where the one lane arriving
+    /// hands over to the one lane leaving is a place a driver chooses between one thing. <b>Nothing folds
+    /// them out any more</b> (TER-5i) — a lane is laid between the two points its road ends on and there is
+    /// no seam to rub out — so what this reports is how many of a town's nodes are bends rather than
+    /// junctions.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Split two ways, because the two have different owners.</b> A junction of two arms is
-    /// <c>GEN-12b</c>'s as well, a node the plan's own join refused; one at a junction that forks is a lane
-    /// that happens to have one way out of a box other lanes are driven across, which is what a junction is
-    /// and not a seam to be closed.
+    /// <b>Split two ways, because the two are different things.</b> A junction of two arms is a road that
+    /// bends; one at a junction that forks is a lane that happens to have one way out of a box other lanes
+    /// are driven across, which is what a junction is.
     /// </para>
     /// <para>
     /// <b>And a join between lanes of different widths is counted beside them</b>, which is a carriageway

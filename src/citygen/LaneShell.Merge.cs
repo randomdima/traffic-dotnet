@@ -113,7 +113,7 @@ internal sealed partial class LaneShell
         /// in the last bits of a float. Read as a search radius instead, a ring takes whatever end is
         /// nearest and the town comes back wired through itself.
         /// </summary>
-        const float WeldM = 0.1f;
+        public const float WeldM = 0.1f;
 
         /// <summary>
         /// <b>The shortest stretch worth keeping, and so the nearest two cuts stand before they are one cut</b>

@@ -115,7 +115,7 @@ internal static class Roundabouts
     /// <para>
     /// <b>The arms are what size it.</b> Two of them a gap apart put two junctions that gap apart on the
     /// ring, and what leaves those two is a pair of roads running side by side: they owe each other the
-    /// ground one road takes (<see cref="SimConfig.RoadFootprintM"/>, GEN-17) and a pavement's width of
+    /// ground one road takes (<see cref="SimConfig.RoadFootprintM"/>, GEN-49) and a pavement's width of
     /// ground on top of it, because two mouths whose paving abuts is paving with nothing to wrap round.
     /// <b>That, and not the road two separate junctions would owe each other</b> — a ring's nodes are one
     /// junction laid out as a circle (GEN-16, GEN-19).
@@ -159,7 +159,7 @@ internal static class Roundabouts
     /// the ring node it now ends at (GEN-16).</item>
     /// <item><b>Every other junction in the town stands clear of the whole circle</b>, on the same
     /// terms.</item>
-    /// <item><b>Every road the node does not carry stands clear of it</b> (GEN-17), measured as the ground
+    /// <item><b>Every road the node does not carry stands clear of it</b> (GEN-49), measured as the ground
     /// it is drawn on rather than as the chord it was joined along.</item>
     /// </list>
     /// </summary>

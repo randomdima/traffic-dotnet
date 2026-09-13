@@ -222,7 +222,7 @@ internal static class Conformance
 
     /// <summary>
     /// <b>A city can be driven round</b> (GEN-18): every junction it has is reachable from every lane it
-    /// carries, and no lane of it dangles (GEN-18a). <b>Asked of cities alone</b> — a map laid to measure one
+    /// carries, and no lane of it dangles (GEN-50). <b>Asked of cities alone</b> — a map laid to measure one
     /// thing is deliberately in pieces, and the ends it is made of are what it is for.
     /// </summary>
     public static void ACityCanBeDrivenRound(string map)

@@ -89,10 +89,14 @@ the town's safety, which is a few seconds and is the cut worth taking while chas
 ## A shipped city is content, and content is not the suite's subject
 
 **Nothing in `all` asks a question of a shipped city.** The suite asks its questions of two towns of its
-own ([Towns](../src/tests/citygen/Towns.cs)): `Towns.Fixture`, the file every detailed check is staged on,
-and `Towns.City`, a whole town laid from a brief in that same file at a seed of its own — water, bridges,
-districts, frontages, bays, a hospital, a station, a depot and a crowd, at a fraction of what a shipped
-city costs to tick.
+own ([Towns](../src/tests/citygen/Towns.cs)): `Towns.Fixture`, the small town every detailed check is
+staged on, and `Towns.City`, a whole town laid from a brief in that same file at a seed of its own — water,
+bridges, districts, an orbital and traffic, at a fraction of what a shipped city costs to tick.
+
+**Both of them are generated, and that is a loss the build is carrying.** The fixture was a file, which is
+what a fixture is for: it may not move when the generator does. It is `towns/Test.json` now, so the two
+towns differ only in size and seed, and the distinction this section rests on is thinner than it was —
+[the known gaps](index.md#known-gaps) names it.
 
 **Three things between them leave nothing for a city to say.** What the generator owes whatever seed it is
 given is `GeneratorTests`', over four unrelated seeds and both kinds of water. What a map laid to measure
@@ -225,15 +229,13 @@ handed the shared one they would compare a town to itself and pass whatever the 
 **Ask a whole city the shallow questions only**; detailed geometry is asked of named places on the
 fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 
-**A laboratory map is asked what it was laid to answer and nothing else.** A city's own questions — bays,
-pavements, crossings, stations, the beat — go to `Towns.EveryTown`, which is the fixture map and the town
-the suite lays, because a map laid to measure one thing holds whatever that question needed and no more:
-asked about parking, a proving ground answers over an empty set and reads like coverage. **What each of
-those maps is for, it claims itself** and its own tier reads that claim. What stays on
-`Towns.EveryLaidMap` is what is about the set of maps this build lays rather than about a town: that every
-file reads back as it was written, that every map conforms and draws, and that every one of them is
-watched against something. `Towns.EveryShippedMap` is for what is about the menu itself — that every map
-has a catalogue row and can be opened — and nothing else may use it.
+**A laboratory map is asked what it was laid to answer and nothing else**, because a map laid to measure
+one thing holds whatever that question needed and no more: asked about parking, a proving ground answers
+over an empty set and reads like coverage. A town's own questions go to `Towns.EveryTown`, which is the
+fixture and the town the suite lays. What stays on `Towns.EveryLaidMap` is what is about the set of maps
+this build lays rather than about a town: that every map reads back as it was written, conforms and draws,
+and is watched against something. `Towns.EveryShippedMap` is for what is about the menu itself — that every
+map has a description and can be opened — and nothing else may use it.
 
 ## What a map claims about itself
 
@@ -264,11 +266,12 @@ nobody has been round is not a lap driven badly, and a run cut short before its 
 the engine nothing. The last line of a report carries the three counts, and the suite fails a claim its
 own run left waiting — a test chooses how long it watches.
 
-**A scenario may stage what it is about**, on the exam's terms: the driving exam orders its thirty-six cars
-on the first tick, the walking exam orders all twenty-eight of its bodies, and the crossings map sends its
-five walkers over their own paint, because a body left to itself takes a crossing only by luck. **What is claimed is what the town did with that order** and never
-that it was given one — and the staging is the watch's, so a run of that map in the game stages it exactly
-as the probe does.
+**A scenario may stage what it is about**: a body left to itself does the thing a map was laid to measure
+only by luck, so the map's own watch may order the bodies on the first tick. **What is claimed is what the
+town did with that order** and never that it was given one — and the staging is the watch's, so a run of
+that map in the game stages it exactly as the probe does. **This build ships no such map**: the ones it had
+were laid against the lane layer that has been replaced, and they are named in
+[the known gaps](index.md#known-gaps).
 
 ## The verification intentions
 
@@ -392,17 +395,6 @@ bound it is held to is a figure on `SimConfig` rather than a wall-clock reading.
 gated is the arrival**: whether a dense city's geometry lets a nine-metre articulated pair get all the way
 home is a fact about that city (`EVA-8`), which is a reading and not a claim.
 
-**`--bench exam`, `--bench footway` and `--bench crossings` are one arrangement said of a junction, of a
-walk and of the paint** ([citygen](../src/citygen/docs/requirements.md#the-maps)). Each prints a verdict a
-subject — the claim its card makes, and what the bodies actually did — and under that table the same run
-said as claims, and a tier reads that same run: `JunctionExamTests` and `WalkingExamTests` assert card by
-card off the probe's own verdict, so the instrument and the gate cannot disagree about what a crossing is.
-**The walking exam is the driving one with nothing driving on it**, because a walk that failed with traffic
-staged leaves a reader unable to say which of the two agents was wrong. **A card this build does
-not pass carries what it does instead**, and the tier asserts that card *still fails*: the day the engine
-passes it, the suite says so and the finding is deleted rather than left standing as a note nobody
-re-reads.
-
 **The documents have two instruments of their own**, for the same reason and read the same way.
 `qq doclint` asks whether every rule is stated exactly once and every ID the code cites resolves — a
 citation to a renumbered or retired rule compiles, passes and misleads, and nothing else in the suite can
@@ -410,11 +402,6 @@ see it; it runs inside `qq checks`, which builds the game and then takes the sam
 all` does, through that tool rather than through a copy of it. `qq outline`, given no argument, prints the longest files in `src/`,
 which is where "nothing grows past being readable" is checked rather than asserted.
 
-**A map laid to be hard claims less, not more.** The three proving grounds are one lap read against each
-other, so what each of them may claim is bounded by what that lap can honestly answer: `Drunk` has a body
-reeling down the carriageway stopping the field where it stands, so no shape on it gets the passes a mean
-is worth taking over and the shape claims stay the pacing lap's; a `Fleet` whose cars differ in every
-figure is a table to read rather than a bound to hold, so what it gates is that every look drives at all
-and never what any of them is worth. Everything a hard map is *for* — the swerves, the back-offs, the laps
-given up on, what each look pulls at — is quoted rather than claimed, on the split above. What each of the
-six claims is [citygen](../src/citygen/docs/requirements.md#the-maps)'s.
+**A map laid to be hard claims less, not more.** What such a map may claim is bounded by what it can
+honestly answer, and everything it is *for* — the swerves, the back-offs, the laps given up on, what each
+look pulls at — is quoted rather than claimed, on the split above.
