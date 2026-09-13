@@ -557,8 +557,8 @@ public class LaneOccupancyTests
 
     /// <summary>
     /// A lane long enough to hold the stretches these tests lay, whose first way out is a join with metres
-    /// of its own — a place cut into a road joins its two lanes at a point (GEN-4h), and a way of no length
-    /// is nothing to put a body on.
+    /// of its own: two lanes that meet at a point have a way of no length between them, which is nothing to
+    /// put a body on.
     /// </summary>
     static int FirstLongLane(RoadGraph roads, float atLeastM)
     {

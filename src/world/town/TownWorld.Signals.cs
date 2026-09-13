@@ -68,10 +68,9 @@ internal sealed partial class TownWorld
             ? _roads.ConnectorBetween(chain[ahead], chain[ahead + 1])
             : RoadGraph.NoConnector;
 
-        // <b>A movement with no ground under it is not a movement</b>: the two lanes at a place cut into a
-        // road (GEN-4h) meet at a point, so the join between them is a join of no length and there is no box
-        // to be given, to be refused, or to stop short of. Read as one anyway, every car park in the town
-        // would put a junction across the street in front of it and every car would negotiate it.
+        // <b>A movement with no ground under it is not a movement</b>: where two lanes meet at a point the
+        // join between them is a join of no length, and there is no box to be given, to be refused, or to
+        // stop short of. Read as one anyway, a car would negotiate a junction that is not there.
         var movementWay = movement == RoadGraph.NoConnector || _roads.ConnectorLengthM(movement) <= 0f
             ? CarFleet.NoWay
             : _ways.OfRoadConnector(movement);

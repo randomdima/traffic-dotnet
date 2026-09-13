@@ -126,6 +126,15 @@ internal sealed class Interface(TrimFigures trims)
 
     public Ruler Ruler { get; } = new();
 
+    /// <summary>The cell of the geometry grid a reader has clicked, which the layers read themselves against (OBS-2t).</summary>
+    public DebugPick Pick { get; } = new();
+
+    /// <summary>
+    /// Where the pointer is put when it is over a panel rather than over the town: nowhere any town reaches.
+    /// A reading about the ground under an open popup is a reading about what the reader cannot see.
+    /// </summary>
+    static readonly Vector2 Offscreen = new(-1e6f);
+
     /// <summary>The proving ground's figures, one collapsible section per shape. A switch rather than furniture.</summary>
     public TrackPanel Track { get; } = new();
 
@@ -205,6 +214,12 @@ internal sealed class Interface(TrimFigures trims)
                 case "perimeter":
                     Switches.Toggle(ref Switches.Perimeter);
                     break;
+                case "ribbons":
+                    Switches.Toggle(ref Switches.Ribbons);
+                    break;
+                case "grid":
+                    Switches.Toggle(ref Switches.Grid);
+                    break;
                 case "ruler":
                     Switches.Toggle(ref Switches.Ruler);
                     break;
@@ -218,7 +233,7 @@ internal sealed class Interface(TrimFigures trims)
                     throw new ArgumentException(
                         $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
                         "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
-                        "claims, collision, turn-circles, wireframe, perimeter, ruler, track.");
+                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, ruler, track.");
             }
         }
     }
@@ -355,6 +370,7 @@ internal sealed class Interface(TrimFigures trims)
     {
         Overlay.TownChanged();
         Ruler.TownChanged();
+        Pick.TownChanged();
         Track.TownChanged();
         Opening.Stood();
         if (behindTheMenu) Menu.StandAtTheStart();
@@ -394,8 +410,17 @@ internal sealed class Interface(TrimFigures trims)
 
         if (world is not null)
         {
+            // The pointer is offered to the layers only where it is on the town: over an open popup it is
+            // pointing at the panel, and a reading about whatever the panel happens to cover is a reading
+            // about nothing the reader can see.
+            var pointerPx = Menu.Open && Menu.Box.Contains(frame.PointerPx)
+                            || Controls.Open && Controls.Box.Contains(frame.PointerPx)
+                ? Offscreen
+                : frame.PointerPx;
+
             Overlay.Draw(
-                ref draw, ref ground, world, frame.Ground, frame.Config, Switches, frame.Camera.CentreM,
+                ref draw, ref ground, world, frame.Ground, frame.Config, Switches, Pick,
+                frame.Camera.WorldAt(pointerPx, frame.UiPx), pointerPx, frame.UiPx, frame.Camera.CentreM,
                 frame.Camera.CullSpanM(frame.UiPx), frame.Camera.PixelsPerMetre);
 
             underWritten = ground.Written;

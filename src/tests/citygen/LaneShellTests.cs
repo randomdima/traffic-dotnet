@@ -1,80 +1,187 @@
+using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using Xunit;
 
 namespace TrafficSimulation.Tests.CityGen;
 
 /// <summary>
-/// <b>The outer shell of the driven ground</b> (<see cref="LaneShell"/>), asked the one thing a perimeter
-/// is: that it goes round the town rather than in and out of it.
+/// <b>The outside of the driven ground, merged out of the ribbons its lines lay</b>
+/// (<see cref="LaneShell"/>): that it closes, and that it really is the outside.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P4)]
 public class LaneShellTests
 {
     /// <summary>
-    /// A hand-over past this has gone somewhere and come back. A right angle and a half: no junction of a
-    /// town turns a corner that sharp, and what really does reverse — the back of a car park, the end of a
-    /// one-way street's band — crosses its own straight square on rather than along it.
+    /// <b>The boundary of a union of closed bands is closed</b>, so every stretch the merge keeps is in a
+    /// ring and none is left with two ends (<see cref="LaneShell.Loose"/>). A run that does not shut is a
+    /// crossing the merge did not find, and it is a length of the town's edge nothing accounts for.
     /// </summary>
-    const float SpikeRad = MathF.PI * 0.75f;
+    [Theory]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
+    public void EveryRunShuts(string map)
+    {
+        var config = SimConfig.Shipped();
+        var shell = Towns.Of(map).Paving(config).Perimeter(config);
+        var lengthM = 0f;
+        foreach (var run in shell.Loose) lengthM += Spline.TotalLengthM(run);
+
+        Assert.True(
+            shell.Loose.Length == 0,
+            $"{map} left {shell.Loose.Length} runs of boundary open, {lengthM:F1} m in all, the first of "
+            + $"them from {(shell.Loose.Length > 0 ? shell.Loose[0][0].StartM : Vector2.Zero)}");
+    }
 
     /// <summary>
-    /// <b>No corner the shell solved doubles back on itself.</b> A stretch is carried to where its own line
-    /// crosses the one taking over, and whatever the corner came out as, whichever of its two ends runs
-    /// against its own line's travel is cut back to the foot of the other — so where there was a crossing to
-    /// carry to, the ring leaves one line and arrives at the next without running back down either. Carried
-    /// to the point of one line <em>nearest</em> the other's stop instead, every skew junction in a town came
-    /// back with a spike out of its corner.
+    /// <b>The driven ground is on the boundary's right and nothing is driven on its left</b> (TER-3c.9) —
+    /// which is the whole of what a boundary claims, and the one thing a merge that dropped the wrong piece
+    /// cannot satisfy.
     /// </summary>
     /// <remarks>
-    /// <b>Asked of a whole town as well as of the fixture</b> (<see cref="Towns.City"/>): the fixture has no
-    /// junction skew enough to spike, so asked of it alone the reading was clean while a city's was
-    /// two thousand and a half.
+    /// <b>Asked of the bands and not of a second boundary.</b> Whether a place is driven ground is whether
+    /// some line passes within half its own width of it, which is what a band <em>is</em> — so a station
+    /// that fails this is the merge disagreeing with the shapes it was merged out of rather than two
+    /// constructions disagreeing with each other.
     /// </remarks>
     [Theory]
     [InlineData(Towns.Fixture)]
     [InlineData(Towns.City)]
-    public void NoHandOverDoublesBackOnItself(string map)
+    public void TheGroundIsInsideTheBoundaryAndNotOutsideIt(string map)
     {
+        // Wide enough to clear the last bits of a float at a town's coordinates and far under anything the
+        // town lays, which is metres wide.
+        const float HairM = 0.02f;
+
+        // <b>Asked at the middle of each stretch and never at its ends</b>, and only of the stretches long
+        // enough to have a middle: a corner is where two stretches meet and the ground within a hair of one
+        // is on either side of it, so a station there answers about the corner rather than about the
+        // boundary.
+        const float LeastStretchM = 0.5f;
+
         var config = SimConfig.Shipped();
-        var reading = Towns.Of(map).Paving(config).Perimeter(config).Reading;
+        var paving = Towns.Of(map).Paving(config);
+        var shell = paving.Perimeter(config);
+        var bands = new Bands(paving, config);
 
-        foreach (var handed in reading.Handovers)
+        var wrong = 0;
+        var asked = 0;
+        var firstM = Vector2.Zero;
+        foreach (var ring in shell.Chains)
         {
-            if (MathF.Abs(handed.TurnRad) <= SpikeRad) continue;
+            foreach (var stretch in ring)
+            {
+                if (stretch.LengthM < LeastStretchM) continue;
 
-            // The three ways a ring may turn back on itself without the corner having been got wrong: it
-            // turns at a point; it turns onto the line it was already on, which is the cap on the end of a
-            // band and is drawn back down its own arcs (GEN-4b); or the two lines offered no corner to
-            // carry to and what is drawn is the straight between two stops rather than a solved crossing.
-            Assert.True(
-                handed.Line == handed.OtherLine
-                || handed.LengthM <= Kerbs.OnePlaceM
-                || handed.Corner != ShellCorner.Crossed,
-                $"line {handed.Line} hands over to {handed.OtherLine} at {handed.FromM} through a turn of "
-                + $"{handed.TurnRad * 180f / MathF.PI:F0}° over {handed.LengthM:F2} m");
+                var middleM = stretch.LengthM * 0.5f;
+                var atM = stretch.PointAtM(middleM);
+                var rightM = Heading.RightOf(Heading.Unit(stretch.HeadingAtRad(middleM)));
+                asked++;
+                if (bands.Cover(atM + (rightM * HairM)) && !bands.Cover(atM - (rightM * HairM))) continue;
+
+                if (wrong++ == 0) firstM = atM;
+            }
         }
+
+        Assert.True(asked > 0, $"{map} laid no boundary to ask about");
+        Assert.True(
+            wrong == 0,
+            $"{map}: {wrong} of {asked} boundary stations do not have the driven ground on their right and "
+            + $"nothing on their left, the first at {firstM}");
     }
 
     /// <summary>
-    /// <b>Every line the outside runs along is in a ring that was kept.</b> A run that will not close is
-    /// thrown away whole (<see cref="LaneShell.Chains"/>), so one stretch with nowhere to carry the outside
-    /// on to costs every lane its run walked — which is a length of the town with no perimeter drawn on it
-    /// at all, and no reading but this one says so.
+    /// <b>A ring turns only where the ground does</b>: no piece of a ring carries on into the piece after
+    /// it, the seam between its last and its first included. A merge cuts a ribbon wherever anything else
+    /// crosses it, which is mostly places the boundary carries straight on, and what those cuts leave is a
+    /// point a reader downstream has to work out was never a corner.
     /// </summary>
     [Theory]
     [InlineData(Towns.Fixture)]
     [InlineData(Towns.City)]
-    public void EveryLineTheOutsideRunsAlongIsInARingThatShut(string map)
+    public void ARingTurnsOnlyWhereTheGroundDoes(string map)
     {
-        var config = SimConfig.Shipped();
-        var reading = Towns.Of(map).Paving(config).Perimeter(config).Reading;
-        var lost = reading.Lost();
+        const float JoinM = Kerbs.RoundingM;
 
+        var config = SimConfig.Shipped();
+        var shell = Towns.Of(map).Paving(config).Perimeter(config);
+        var carriedOn = 0;
+        var pieces = 0;
+        var firstM = Vector2.Zero;
+        foreach (var ring in shell.Chains)
+        {
+            pieces += ring.Length;
+            for (var at = 0; at < ring.Length && ring.Length > 1; at++)
+            {
+                var before = ring[(at + ring.Length - 1) % ring.Length];
+                if (!Spline.CarriesOn(before, ring[at], JoinM, out _)) continue;
+
+                if (carriedOn++ == 0) firstM = ring[at].StartM;
+            }
+        }
+
+        Assert.True(pieces > 0, $"{map} laid no boundary to ask about");
         Assert.True(
-            lost.Length == 0,
-            $"{lost.Length} of {reading.Lines} driven lines are the outside somewhere and in no ring that "
-            + $"shut, the first of them line {(lost.Length > 0 ? lost[0] : -1)}");
+            carriedOn == 0,
+            $"{map}: {carriedOn} of {pieces} pieces of the boundary carry on from the piece before them "
+            + $"rather than turning at it, the first at {firstM}");
+    }
+
+    /// <summary>
+    /// Whether any line's band covers a place, which is the definition of the driven ground — <b>at its
+    /// own width with the arithmetic's rounding on it</b> (<see cref="Kerbs.RoundingM"/>), and off its
+    /// square ends not at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>A place on the seam two bands share is on both of them and not on neither.</b> A row of bays
+    /// stands side by side and two lanes of a carriageway share the edge between them, so the town is full
+    /// of places that are strictly inside neither band by a fraction of a millimetre either way — and the
+    /// boundary runs along a seam like that wherever the bands under it are one shape. A station landing
+    /// on one is a question about a tie rather than about the merge, and the millimetre is what settles it
+    /// the way the merge itself settles one.
+    /// </remarks>
+    sealed class Bands
+    {
+        readonly Paving _paving;
+        readonly ChainIndex _lines;
+        readonly int[] _near;
+        readonly float[] _alongM;
+        readonly float _widestM;
+
+        public Bands(Paving paving, SimConfig config)
+        {
+            _paving = paving;
+            _lines = paving.DrivenLines(config);
+            _near = new int[paving.DrivenCount];
+            _alongM = new float[paving.DrivenCount];
+            for (var line = 0; line < paving.DrivenCount; line++)
+            {
+                _widestM = MathF.Max(_widestM, paving.DrivenWidthM(line) * 0.5f);
+            }
+        }
+
+        public bool Cover(Vector2 pointM)
+        {
+            const float RoundingM = Kerbs.RoundingM;
+
+            var found = _lines.Near(pointM, _widestM + RoundingM, _near, _alongM);
+            for (var at = 0; at < found && at < _near.Length; at++)
+            {
+                var line = _near[at];
+                var alongM = _alongM[at];
+
+                // A band has square ends, so the ground off the end of a line is not the line's however
+                // near it stands.
+                if (alongM <= 0f || alongM >= _paving.DrivenLengthM(line)) continue;
+
+                var halfM = _paving.DrivenWidthM(line) * 0.5f + RoundingM;
+                var onM = Spline.SampleAt(_paving.ArcsOfDriven(line), alongM).PositionM;
+                if (Vector2.DistanceSquared(onM, pointM) < halfM * halfM) return true;
+            }
+
+            return false;
+        }
     }
 }

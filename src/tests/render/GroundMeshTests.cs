@@ -484,68 +484,6 @@ public class GroundMeshTests
     }
 
     /// <summary>
-    /// <b>The pavement drawn reaches a walk off the kerb and no further</b> (TER-3c.3): the concrete and
-    /// the answer say the same thing on either side of the one line that decides both.
-    /// </summary>
-    /// <remarks>
-    /// <b>Asked along the town's own boundary</b> (<c>GroundRings</c>) rather than along a second reading
-    /// of it: a hair inside the pavement's outer edge and a hair beyond it, and only where the answer says
-    /// pavement and grass respectively — a deck, a shore and a slab are drawn on the same surface and are
-    /// nobody's business here (TER-7).
-    /// </remarks>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void ThePavementIsDrawnAsTheBandTheWalkRunsDown(string map)
-    {
-        const float HairM = 0.05f;
-        const int Stations = 48;
-
-        var plan = Towns.Of(map);
-        var config = SimConfig.Shipped();
-        // The map's own figure and not the town's fallback: a map that says it has no pavement has none to
-        // ask about.
-        if (plan.Ground.PavementWidthM <= 0f) return;
-
-        var paving = plan.Paving(config);
-        var walkM = paving.WalkM;
-
-        var ground = new GroundLocator(plan, config);
-        var mesh = Ground(map);
-        var rings = GroundRings.Of(paving, config);
-        var asked = 0;
-
-        foreach (var ring in rings.At(walkM))
-        {
-            if (ring.Length == 0) continue;
-
-            var lengthM = Spline.TotalLengthM(ring);
-            for (var station = 0; station < Stations; station++)
-            {
-                var on = Spline.SampleAt(ring, lengthM * station / Stations);
-
-                // Out of the ground is the walker's left throughout, which is the hand the distance was
-                // struck on.
-                var outward = -on.Right;
-                var rimM = on.PositionM - (outward * HairM);
-                var beyondM = on.PositionM + (outward * HairM);
-
-                if (ground.GroundAt(rimM) != TrafficSimulation.CityGen.Ground.Sidewalk) continue;
-                if (ground.GroundAt(beyondM) != TrafficSimulation.CityGen.Ground.Grass) continue;
-
-                asked++;
-                Assert.True(
-                    Topmost(mesh, rimM) == Surface.Pavement,
-                    $"{map} draws {Topmost(mesh, rimM)} a hair inside the pavement's own edge at {rimM}");
-                Assert.True(
-                    Topmost(mesh, beyondM) == Surface.Grass,
-                    $"{map} draws {Topmost(mesh, beyondM)} a hair outside the pavement's own edge at {beyondM}");
-            }
-        }
-
-        Assert.True(asked > 0, $"{map} offered no band to ask about");
-    }
-
-    /// <summary>
     /// <b>A road is drawn as wide round a bend as down a straight</b> (GEN-15): the carriageway reaches
     /// half the road either side of the road's own line at every point of every curve, so a lane measured
     /// off a picture is the lane the town was laid with wherever it is measured.

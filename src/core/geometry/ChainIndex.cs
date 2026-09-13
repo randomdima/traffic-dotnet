@@ -4,7 +4,8 @@ namespace TrafficSimulation.Core.Geometry;
 
 /// <summary>
 /// A fixed set of arc chains laid over a uniform grid, so that <b>which of them a point is nearest</b>
-/// costs the ground around the point rather than the whole network.
+/// costs the ground around the point rather than the whole network — and so that <b>which of them could
+/// touch a place or cross a line</b> costs the same (<see cref="Around"/>, <see cref="Crossing"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -14,6 +15,22 @@ namespace TrafficSimulation.Core.Geometry;
 /// routed the way it always was whatever order the cells hand them back. What makes that safe is the stopping rule — the
 /// ring is grown until the best distance found <em>fits inside the ring already searched</em>, and a
 /// chain nearer than that has a piece inside that ring by construction.
+/// </para>
+/// <para>
+/// <b>A candidate query hands back the cells' own answer and measures nothing</b>
+/// (<see cref="Around"/>, <see cref="Crossing"/>): every chain with a piece in the cells asked about, each
+/// once, which is a <em>superset</em> of what is really within the distance given. The exact question stays
+/// the caller's, and that is the division of labour the narrowing is safe under — a caller whose own test
+/// is unchanged gets the answer it always got, out of a candidate set the grid bounded. What it must not do
+/// is read the grid's order as a ranking: the cells are walked row by row, so a caller that settles
+/// anything on which candidate it met first settles it on the lattice.
+/// </para>
+/// <para>
+/// <b>The lattice is the map's and not the set's</b>: the origin is snapped down to a whole cell, so two
+/// indexes sealed at one cell size lay their cells on the same lines whatever ground each of them happens
+/// to cover. That is what makes a cell a place in the town rather than a place in a set — one debug layer
+/// can draw the grid every index is asked over (OBS-2r), and two indexes' answers about one cell are
+/// answers about one square of ground.
 /// </para>
 /// <para>
 /// <b>It is built once and never written to again.</b> The networks it serves are laid with the town
@@ -30,8 +47,15 @@ namespace TrafficSimulation.Core.Geometry;
 /// </remarks>
 internal sealed class ChainIndex
 {
-    /// <summary>How finely a piece is walked when its box is taken. Build-time only.</summary>
+    /// <summary>How finely a piece is walked when its cells are taken, and its box with them. Build-time only.</summary>
     const float SampleStepM = 1f;
+
+    /// <summary>
+    /// How far round a sample of a piece is taken to belong to the piece: half a step, which is what makes a
+    /// walk at <see cref="SampleStepM"/> cover the whole of what it walks — no point of a piece stands
+    /// further than that along the piece from a sample, and a chord is never longer than its arc.
+    /// </summary>
+    const float MarginM = SampleStepM * 0.5f;
 
     /// <summary>What no index may exceed however far its chains are spread: the cell grows instead.</summary>
     const int MostCells = 1 << 22;
@@ -85,6 +109,122 @@ internal sealed class ChainIndex
 
     /// <summary>How many chains were registered. A census, so a caller can say what its index is of.</summary>
     public int ChainCount => _chainId.Length;
+
+    /// <summary>
+    /// How wide one cell is. <b>The cell the index settled on and not the one it was asked for</b>: a set
+    /// spread far enough to want more cells than any index may hold is binned coarsely instead
+    /// (<see cref="MostCells"/>), and a caller drawing or reasoning about the lattice wants the figure the
+    /// chains were actually binned at.
+    /// </summary>
+    public float CellM => _cellM;
+
+    /// <summary>
+    /// The corner cell <c>(0, 0)</c> starts at, which stands on the lattice: it is the least corner of the
+    /// set snapped <em>down</em> to a whole cell, so the cells of two indexes at one cell size line up.
+    /// </summary>
+    public Vector2 OriginM => _originM;
+
+    /// <summary>How many cells across and down the lattice runs.</summary>
+    public int Width => _width;
+
+    public int Height => _height;
+
+    /// <summary>
+    /// <b>How many chains have a piece in one cell</b>, each counted once however many of its pieces are in
+    /// there — which is what a picture of the grid is a picture of (OBS-2r). Nought outside the lattice.
+    /// </summary>
+    /// <remarks>
+    /// It counts on the queries' own stamp, so it spends their working set: a caller cannot ask this
+    /// <em>between</em> laying a candidate set and reading it. Nothing can — a candidate query copies its
+    /// answer out before it returns — and this is the note that keeps it that way.
+    /// </remarks>
+    public int ChainsInCell(int atX, int atY) => ChainsInCell(atX, atY, []);
+
+    /// <summary>
+    /// <b>The same count, with the chains themselves</b> — for a caller that wants to look at what one cell
+    /// holds rather than how much of it there is. A span shorter than the answer truncates it, exactly as
+    /// the candidate queries' does, and the count returned is still the whole.
+    /// </summary>
+    public int ChainsInCell(int atX, int atY, Span<int> ids)
+    {
+        if (atX < 0 || atY < 0 || atX >= _width || atY >= _height) return 0;
+
+        _generation++;
+        var cell = (atY * _width) + atX;
+        var chains = 0;
+        for (var entry = _cellStart[cell]; entry < _cellStart[cell + 1]; entry++)
+        {
+            var slot = _entrySlot[entry];
+            if (_stamp[slot] == _generation) continue;
+
+            _stamp[slot] = _generation;
+            if (chains < ids.Length) ids[chains] = _chainId[slot];
+            chains++;
+        }
+
+        return chains;
+    }
+
+    /// <summary>
+    /// <b>Every chain that could pass within <paramref name="radiusM"/> of the point</b> — the cells round
+    /// it, read off, and nothing measured. Returns how many there are.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is <see cref="Near"/> without the measuring</b>, and the difference is who asks the exact
+    /// question. <c>Near</c> projects every candidate onto the point and hands back the ones that really are
+    /// within the radius; this hands back the candidates. A caller that already measures something finer
+    /// than a distance to a line — two band edges that have to stop at one place, two boxes that have to
+    /// overlap — pays for that projection twice over and throws the answer away, so it asks this instead.
+    /// <b>A span shorter than the answer truncates it</b>, exactly as <c>Near</c>'s does, and a caller that
+    /// cannot afford a missed candidate sizes it to <see cref="ChainCount"/>.
+    /// </remarks>
+    public int Around(Vector2 pointM, float radiusM, Span<int> ids)
+    {
+        if (ChainCount == 0) return 0;
+
+        var reach = new Vector2(MathF.Max(radiusM, 0f));
+        Fresh();
+        Offer(pointM - reach, pointM + reach);
+        return Copied(ids);
+    }
+
+    /// <summary>
+    /// <b>Every chain that could cross this one, or come within <paramref name="withinM"/> of it</b>: the
+    /// cells the chain's own pieces reach, grown by that distance, read off. Returns how many there are —
+    /// including the chain itself where it was registered here, since a chain shares every one of its own
+    /// cells.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Two lines that cross share a cell, so nothing that crosses is missed.</b> The crossing point lies
+    /// in some cell of the lattice; each line has a piece through that point, and a piece is entered in
+    /// every cell its own box touches — so both lines are in that cell's run. The same holds of two lines
+    /// standing <paramref name="withinM"/> apart once the boxes are grown by it. What comes back is
+    /// therefore a superset, and the pair that actually crosses is found by whatever solves crossings
+    /// (<see cref="Spline.CrossingsM"/>) over what is left.
+    /// </para>
+    /// <para>
+    /// <b>The boxes are the builder's own</b> (<see cref="Box"/>), so the cells a query reads are the cells
+    /// the chains were written into. Taken any other way — a chord's box, a tighter walk — the two
+    /// disagree at a bend and the pair that is missed is the one the whole query is for.
+    /// </para>
+    /// </remarks>
+    public int Crossing(ReadOnlySpan<ArcSeg> chain, float withinM, Span<int> ids)
+    {
+        if (ChainCount == 0 || chain.Length == 0) return 0;
+
+        var reach = new Vector2(MathF.Max(withinM, 0f));
+        Fresh();
+        for (var piece = 0; piece < chain.Length; piece++)
+        {
+            var leastM = new Vector2(float.MaxValue);
+            var mostM = new Vector2(float.MinValue);
+            Box(chain[piece], ref leastM, ref mostM);
+            Offer(leastM - reach, mostM + reach);
+        }
+
+        return Copied(ids);
+    }
 
     /// <summary>
     /// The chain whose line passes nearest the point, and how far along it that is — or −1 where nothing
@@ -163,11 +303,26 @@ internal sealed class ChainIndex
     /// </remarks>
     void Gather(Vector2 pointM, float radiusM)
     {
+        var reach = new Vector2(radiusM);
+        Fresh();
+        Offer(pointM - reach, pointM + reach);
+    }
+
+    /// <summary>A new candidate set, so what a query gathers is its own and never the last one's.</summary>
+    void Fresh()
+    {
         _generation++;
         _candidateCount = 0;
+    }
 
-        var reach = new Vector2(radiusM);
-        if (!Range(pointM - reach, pointM + reach, out var fromX, out var fromY, out var toX, out var toY)) return;
+    /// <summary>
+    /// The slots in one box of ground offered to the candidate set, each once — <b>added to whatever is
+    /// already in it</b>, so a query over several boxes is several calls and the chain in two of them is
+    /// still one candidate.
+    /// </summary>
+    void Offer(Vector2 leastM, Vector2 mostM)
+    {
+        if (!Range(leastM, mostM, out var fromX, out var fromY, out var toX, out var toY)) return;
 
         for (var y = fromY; y <= toY; y++)
         {
@@ -184,6 +339,17 @@ internal sealed class ChainIndex
                 }
             }
         }
+    }
+
+    /// <summary>The candidate set as the caller's own ids, truncated to the room it gave.</summary>
+    int Copied(Span<int> ids)
+    {
+        for (var index = 0; index < _candidateCount && index < ids.Length; index++)
+        {
+            ids[index] = _chainId[_candidate[index]];
+        }
+
+        return _candidateCount;
     }
 
     int Weigh(Vector2 pointM, out float alongM, out float bestDistanceSq)
@@ -226,6 +392,33 @@ internal sealed class ChainIndex
         alongM = atM;
         best = _chainId[slot];
     }
+
+    /// <summary>
+    /// <b>One piece's box</b>: the piece walked, grown by half a step so what falls between samples is
+    /// inside it. It is what the lattice is sized to cover and what a candidate query reads its cells by —
+    /// <b>a superset of the cells the piece was written into</b> (<see cref="Builder.Bin"/>), which costs a
+    /// query cells and never an answer.
+    /// </summary>
+    static void Box(ArcSeg arc, ref Vector2 leastM, ref Vector2 mostM)
+    {
+        var least = new Vector2(float.MaxValue);
+        var most = new Vector2(float.MinValue);
+        for (var atM = 0f; ; atM += SampleStepM)
+        {
+            var pointM = arc.PointAtM(MathF.Min(atM, arc.LengthM));
+            least = Vector2.Min(least, pointM);
+            most = Vector2.Max(most, pointM);
+            if (atM >= arc.LengthM) break;
+        }
+
+        var margin = new Vector2(SampleStepM * 0.5f);
+        leastM = Vector2.Min(leastM, least - margin);
+        mostM = Vector2.Max(mostM, most + margin);
+    }
+
+    /// <summary>A corner taken down to the lattice the cell size lays over the map.</summary>
+    static Vector2 Snapped(Vector2 cornerM, float cellM) =>
+        new(MathF.Floor(cornerM.X / cellM) * cellM, MathF.Floor(cornerM.Y / cellM) * cellM);
 
     bool Range(Vector2 leastM, Vector2 mostM, out int fromX, out int fromY, out int toX, out int toY)
     {
@@ -278,18 +471,35 @@ internal sealed class ChainIndex
             var cellM = MathF.Max(cellSizeM, 1e-3f);
             if (slots == 0) return new ChainIndex([], [0], [], [], cellM, Vector2.Zero, 0, 0, [0], []);
 
-            var spanM = Vector2.Max(_mostM - _leastM, Vector2.Zero);
-            while (Cells(spanM, cellM) > MostCells) cellM *= 2f;
+            // <b>The origin is snapped down to a whole cell, so the lattice belongs to the map</b> — two
+            // indexes sealed at one cell size then bin the same ground into the same cells, whatever each of
+            // them covers. The snap is inside the loop because it moves the corner the cells are counted
+            // from, and a cell that had to grow is a coarser lattice to snap to.
+            var originM = Snapped(_leastM, cellM);
+            while (Cells(Vector2.Max(_mostM - originM, Vector2.Zero), cellM) > MostCells)
+            {
+                cellM *= 2f;
+                originM = Snapped(_leastM, cellM);
+            }
 
             var inverse = 1f / cellM;
-            var width = (int)MathF.Floor(spanM.X * inverse) + 1;
-            var height = (int)MathF.Floor(spanM.Y * inverse) + 1;
+            var width = (int)MathF.Floor((_mostM.X - originM.X) * inverse) + 1;
+            var height = (int)MathF.Floor((_mostM.Y - originM.Y) * inverse) + 1;
             var cells = width * height;
 
             // A counting sort, and the two passes are one method so they cannot disagree about which
             // cells a chain reaches — a count that missed one is a run written past its end.
+            //
+            // <b>And one cell is written once per piece</b>, which a walk of the piece cannot promise on its
+            // own: a piece is sampled every metre and a cell is a road's width across, so a straight through
+            // one is fourteen samples of the same cell. The mark is which piece last claimed a cell.
+            var marked = new int[cells];
+            var claim = 0;
             var counts = new int[cells];
-            for (var slot = 0; slot < slots; slot++) Bin(slot, inverse, width, height, counts, null, null);
+            for (var slot = 0; slot < slots; slot++)
+            {
+                Bin(slot, originM, inverse, width, height, marked, ref claim, counts, null, null);
+            }
 
             var start = new int[cells + 1];
             var at = 0;
@@ -304,38 +514,78 @@ internal sealed class ChainIndex
             var cursor = new int[cells];
             Array.Copy(start, cursor, cells);
             var entries = new int[at];
-            for (var slot = 0; slot < slots; slot++) Bin(slot, inverse, width, height, null, cursor, entries);
+            for (var slot = 0; slot < slots; slot++)
+            {
+                Bin(slot, originM, inverse, width, height, marked, ref claim, null, cursor, entries);
+            }
 
             return new ChainIndex(
-                [.. _arcs], [.. _arcStart], [.. _lengthM], [.. _chainId], cellM, _leastM, width, height, start,
+                [.. _arcs], [.. _arcStart], [.. _lengthM], [.. _chainId], cellM, originM, width, height, start,
                 entries);
         }
 
         /// <summary>
-        /// One chain's cells, either counted or written. A chain reaching the same cell in two of its
-        /// pieces is entered twice and measured once — the query stamps a chain the first time it meets
-        /// it, so the duplicate costs a slot in the table and nothing in the answer.
+        /// <b>One chain's cells, either counted or written: the cells its pieces actually run through</b> and
+        /// not the cells their boxes cover.
         /// </summary>
-        void Bin(int slot, float inverse, int width, int height, int[]? counts, int[]? cursor, int[]? entries)
+        /// <remarks>
+        /// <para>
+        /// <b>A box is not a line, and a diagonal one is not even close.</b> A straight piece running corner
+        /// to corner across three cells has a box covering nine of them, so a query reading any of the six it
+        /// never enters was handed that chain as a candidate for ground it is nowhere near.
+        /// </para>
+        /// <para>
+        /// <b>What that came to is worth stating, because it is smaller than it looks.</b> A town's lines are
+        /// chains of short pieces and a short piece's box is close to the piece; over the shipped city the
+        /// boxes held <b>1.11 entries for every cell a piece really runs through</b> (1.03 on the laboratory
+        /// map), so as a candidate count this was a tenth. <b>As a picture it was the whole of the fault</b>:
+        /// the inflation is all in the few long straight pieces, and one diagonal lane laid as a single arc
+        /// washed a three-by-three block of the debug layer's cells over open grass a street from any line.
+        /// The index honestly held that, which is what the layer is for.
+        /// </para>
+        /// <para>
+        /// <b>The piece is walked instead, and each sample claims the cells within half a step of it</b> —
+        /// which covers the piece whatever it curves through, since no point of it stands more than half a
+        /// step along the piece from a sample and a chord is never longer than its arc. The walk is the one
+        /// the box was taken with (<see cref="SampleStepM"/>), so this costs the binning nothing it was not
+        /// already paying.
+        /// </para>
+        /// <para>
+        /// <b>A query may still read by the box</b> (<see cref="Crossing"/>) and stays sound doing it: where
+        /// two lines cross, the crossing lies in one cell, that cell is inside the asking line's box, and the
+        /// crossed line was written into it by the walk above — so reading a superset of cells over a table
+        /// binned tightly finds every chain that a coarser table would have, and fewer that it would not.
+        /// </para>
+        /// </remarks>
+        void Bin(
+            int slot, Vector2 originM, float inverse, int width, int height, int[] marked, ref int claim,
+            int[]? counts, int[]? cursor, int[]? entries)
         {
             for (var index = _arcStart[slot]; index < _arcStart[slot + 1]; index++)
             {
-                var least = new Vector2(float.MaxValue);
-                var most = new Vector2(float.MinValue);
-                Box(_arcs[index], ref least, ref most);
-
-                var fromX = Cell(least.X - _leastM.X, inverse, width);
-                var fromY = Cell(least.Y - _leastM.Y, inverse, height);
-                var toX = Cell(most.X - _leastM.X, inverse, width);
-                var toY = Cell(most.Y - _leastM.Y, inverse, height);
-                for (var y = fromY; y <= toY; y++)
+                var arc = _arcs[index];
+                claim++;
+                for (var atM = 0f; ; atM += SampleStepM)
                 {
-                    for (var x = fromX; x <= toX; x++)
+                    var pointM = arc.PointAtM(MathF.Min(atM, arc.LengthM));
+                    var fromX = Cell(pointM.X - MarginM - originM.X, inverse, width);
+                    var fromY = Cell(pointM.Y - MarginM - originM.Y, inverse, height);
+                    var toX = Cell(pointM.X + MarginM - originM.X, inverse, width);
+                    var toY = Cell(pointM.Y + MarginM - originM.Y, inverse, height);
+                    for (var y = fromY; y <= toY; y++)
                     {
-                        var cell = y * width + x;
-                        if (counts is not null) counts[cell]++;
-                        else entries![cursor![cell]++] = slot;
+                        for (var x = fromX; x <= toX; x++)
+                        {
+                            var cell = (y * width) + x;
+                            if (marked[cell] == claim) continue;
+
+                            marked[cell] = claim;
+                            if (counts is not null) counts[cell]++;
+                            else entries![cursor![cell]++] = slot;
+                        }
                     }
+
+                    if (atM >= arc.LengthM) break;
                 }
             }
         }
@@ -345,23 +595,5 @@ internal sealed class ChainIndex
 
         static long Cells(Vector2 spanM, float cellM) =>
             ((long)MathF.Floor(spanM.X / cellM) + 1) * ((long)MathF.Floor(spanM.Y / cellM) + 1);
-
-        /// <summary>One piece's box: the piece walked, grown by half a step so what falls between samples is inside it.</summary>
-        static void Box(ArcSeg arc, ref Vector2 leastM, ref Vector2 mostM)
-        {
-            var least = new Vector2(float.MaxValue);
-            var most = new Vector2(float.MinValue);
-            for (var atM = 0f; ; atM += SampleStepM)
-            {
-                var pointM = arc.PointAtM(MathF.Min(atM, arc.LengthM));
-                least = Vector2.Min(least, pointM);
-                most = Vector2.Max(most, pointM);
-                if (atM >= arc.LengthM) break;
-            }
-
-            var margin = new Vector2(SampleStepM * 0.5f);
-            leastM = Vector2.Min(leastM, least - margin);
-            mostM = Vector2.Max(mostM, most + margin);
-        }
     }
 }

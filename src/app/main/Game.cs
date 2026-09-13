@@ -502,7 +502,7 @@ internal sealed partial class Game : IDisposable
 
         if (taken == ClickTaken.Yes) return;
 
-        _hands.Click(button, atPx, alsoKeep, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler);
+        _hands.Click(button, atPx, alsoKeep, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler, _ui.Pick);
 
         // The same, for the gesture on the town: a release is read off the button's state and not off an
         // event (CTL-1b).

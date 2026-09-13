@@ -55,9 +55,9 @@ internal sealed class Kerbs
     /// The junctions a road runs through as one line (<see cref="RoadCuts.RunsThrough"/>), whose movements
     /// are no pieces of the tarmac's outline: every one of them lies inside the two arms it joins.
     /// </param>
-    public static Kerbs Of(GroundPieces plan, LaneLines lanes, BayLines bays, float bayWidthM, bool[] through)
+    public static Kerbs Of(GroundPieces plan, LaneLines lanes, BayLines bays, bool[] through)
     {
-        var pieces = Lay(plan, lanes, bays, bayWidthM, through);
+        var pieces = Lay(plan, lanes, bays, through);
         var shards = Shatter(pieces);
         return new Kerbs(pieces, shards, new ShardGrid(pieces, shards, plan.WorldSizeM));
     }
@@ -160,7 +160,7 @@ internal sealed class Kerbs
     /// Every band the driven ground is made of. <b>Nothing here is grown by anything</b>: it is the ground
     /// a car drives on at the size it is drawn, and what stands beside it is the boundary's to strike.
     /// </summary>
-    static List<Piece> Lay(GroundPieces plan, LaneLines lanes, BayLines bays, float bayWidthM, bool[] through)
+    static List<Piece> Lay(GroundPieces plan, LaneLines lanes, BayLines bays, bool[] through)
     {
         var pieces = new List<Piece>();
         for (var road = 0; road < plan.Roads.Count; road++)
@@ -185,16 +185,30 @@ internal sealed class Kerbs
             pieces.Add(new Piece(arcs.ToArray(), lanes.ConnectorWidthM(connector) * 0.5f));
         }
 
+        // <b>A join folded into a lane is no movement, but the ground under it is still tarmac</b>
+        // (TER-5h): the lane now runs along it, and where the two arms' kerbs do not meet there is a wedge
+        // between their carriageways that no road's own band covers. Asked the same question the movements
+        // are, because it is the same question.
+        for (var weld = 0; weld < lanes.Welds.Count; weld++)
+        {
+            var arcs = lanes.Welds.ArcsOf(weld);
+            if (arcs.Length == 0 || through[lanes.Welds.Junction[weld]]) continue;
+
+            pieces.Add(new Piece(arcs.ToArray(), lanes.Welds.WidthM[weld] * 0.5f));
+        }
+
         // <b>A car park is the movements that reach into it</b> (<see cref="BayLines"/>, GEN-4b) and has no
         // shape of its own, exactly as a junction is the movements that cross in it. Unlike those, a bay's
         // way runs <em>out</em> of the road rather than between two arms of it, so its own line is the
         // outside of the tarmac wherever nothing else stands nearer — which is the far end of every space.
+        // <b>And it is driven at the width of the lane it is worked off</b> (GEN-4c), like every other
+        // driven line: what a space is wide sizes the car standing in it and never the ground driven to it.
         foreach (var way in bays.GroundWays)
         {
             var arcs = bays.ArcsOf(way);
             if (arcs.Length == 0) continue;
 
-            pieces.Add(new Piece(arcs.ToArray(), bayWidthM * 0.5f));
+            pieces.Add(new Piece(arcs.ToArray(), lanes.LaneWidthM[bays.Lane[way]] * 0.5f));
         }
 
         return pieces;

@@ -44,10 +44,10 @@ internal readonly record struct LotFrontage(
 /// the junction discs against.
 /// </summary>
 /// <remarks>
-/// <b>A lot's frontage is derived once.</b> Two slices need it and they need different things of it — the
-/// road is cut for the section a lot's bays are reached over (<see cref="ParkingSections"/>), and the kerb
-/// line is broken where the lot reaches the carriageway — and a second derivation would eventually
-/// disagree with this one about where a car park begins.
+/// <b>A lot's frontage is derived once.</b> Several things need it and they need different things of it —
+/// the kerb line is broken where the lot reaches the carriageway, the bays are laid along it, the ground
+/// under it answers as a car park — and a second derivation would eventually disagree with this one about
+/// where a car park begins.
 /// </remarks>
 internal sealed class RoadFrontages
 {

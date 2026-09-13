@@ -91,6 +91,25 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
     }
 
     /// <summary>
+    /// <b>One line of text over the picture rather than over a panel</b>: drawn four times in the shadow
+    /// colour and once over it. Cheap, and the only way to keep a figure legible over ground the writer is
+    /// not allowed to cover.
+    /// </summary>
+    /// <remarks>
+    /// It is here rather than beside whichever panel wanted it first, because the legend, the ruler's tapes
+    /// and the debug layers' readings all have the one problem and <b>must not solve it differently</b> —
+    /// two outlines of different weights over one town read as two kinds of figure.
+    /// </remarks>
+    public void OutlinedText(Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx)
+    {
+        Text(atPx + new Vector2(-1f, 0f), text, heightPx, Theme.LegendShadow);
+        Text(atPx + new Vector2(1f, 0f), text, heightPx, Theme.LegendShadow);
+        Text(atPx + new Vector2(0f, -1f), text, heightPx, Theme.LegendShadow);
+        Text(atPx + new Vector2(0f, 1f), text, heightPx, Theme.LegendShadow);
+        Text(atPx, text, heightPx, Theme.Legend);
+    }
+
+    /// <summary>
     /// The same line, kept inside <paramref name="widthPx"/>: what does not fit is dropped and the
     /// last three glyphs that do are an ellipsis.
     /// </summary>

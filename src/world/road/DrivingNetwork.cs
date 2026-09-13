@@ -131,13 +131,6 @@ internal sealed class DrivingNetwork
         public Vector2 StartsAtM(int lane) => roads.StartOf(lane).PositionM;
 
         public Vector2 EndsAtM(int lane) => roads.EndOf(lane).PositionM;
-
-        /// <summary>
-        /// <b>The ends of a parking section are kept whatever their degree</b> (GEN-4h). A place on a road
-        /// offers one way on and would contract into the run through it, and a leg aimed at a bay would then
-        /// have nowhere to be routed to but a metre inside a link.
-        /// </summary>
-        public bool EndsARun(int lane) => roads.LaneEndsAtAPlace[lane];
     }
 
     /// <summary>

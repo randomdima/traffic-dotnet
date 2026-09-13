@@ -367,15 +367,6 @@ exclusion they asked with happened to name it. The answers were the ones a town 
 argument of one question deciding the answer to another. A prop is in neither roster
 (`LaneClaim.IsFurniture`); nothing about the town moved, and what moved is where the answer comes from.
 
-## 2026-08-24 — a road may be cut where nothing crosses it
-
-A car park wants a node of its own (`GEN-4h`) and is not an intersection: taking a disc's worth of ground
-out of the street for it would be a box invented to hold nothing. A cut is a disc's bite or a point, and
-the nodes are numbered after all the plan's junctions so nothing is renumbered. The cut is asked of the
-plan and never of the graph, since a construction that read a lane to decide where to cut would need the
-graph it is building. It gives way to what the road already carries — a cut on a zebra splits the approach
-from the paint, which was not a guess but River, where cars met such a crossing at 18 m/s.
-
 ## 2026-08-24 — the table of crossings is indexed by way, so a way laid off a junction can use it
 
 The table said which *movement* took ground off which, which was right while the only ways that could

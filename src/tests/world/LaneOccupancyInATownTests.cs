@@ -484,38 +484,6 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>
-    /// <b>A body standing over a node holds the ground either side of it</b> (TER-4c.2). A node cut into a
-    /// road carries a movement of no length (<see cref="RoadGraph.IsAPlace"/>), so the two lanes meeting there
-    /// butt and there is no join to hold what lies across the seam: the ground is on one lane up to the node
-    /// and on the other beyond it, and a body over the node is on both.
-    /// </summary>
-    /// <remarks>
-    /// <b>Read as the nearest lane's alone</b>, half of such a body stood on ground nothing claimed and
-    /// the block drawn for it stopped dead at the node — which is a car a driver coming the other way through
-    /// that seam was granted the road through.
-    /// </remarks>
-    [Fact]
-    public void ABodyOverANodeHoldsTheGroundOnBothSidesOfIt()
-    {
-        using var world = new TownWorld(Towns.Of(Towns.City), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-        loop.Advance(1);
-
-        var roads = world.Roads;
-        var lane = AQuietLaneOntoANode(world, withAJoinOfItsOwn: false, out var onwards);
-        Assert.True(lane >= 0, "the town has no quiet lane running into a node a join of no length is over");
-
-        var lengthM = roads.LaneLengthM[lane];
-        var node = Spline.SampleAt(roads.ArcsOf(lane), lengthM);
-        var car = StandTheBodyAt(world, node.PositionM, MathF.Atan2(node.Direction.Y, node.Direction.X));
-
-        // Half a metre either side of the seam, which for a body standing square over it is ground under the
-        // body whichever lane the metre is a metre of.
-        Assert.Equal(car, HolderOn(world, world.Ways.OfRoadLane(lane), lengthM - 0.5f));
-        Assert.Equal(car, HolderOn(world, world.Ways.OfRoadLane(onwards), 0.5f));
-    }
-
-    /// <summary>
     /// <b>A body whose nose is over the metre its lane is left at holds the movement beyond it</b>
     /// (TER-4c.2, TER-5d): past that metre the ground stops being the lane's and starts being the box's, so a
     /// body reaching past it is standing in the junction whatever its middle is doing.
@@ -533,7 +501,7 @@ public class LaneOccupancyInATownTests
         loop.Advance(1);
 
         var roads = world.Roads;
-        var lane = AQuietLaneOntoANode(world, withAJoinOfItsOwn: true, out _);
+        var lane = AQuietLaneOntoAJunction(world);
         Assert.True(lane >= 0, "the town has no quiet lane running into a junction");
 
         // A metre short of the lane's own end, so that the body is on the lane and its nose is not.
@@ -546,14 +514,10 @@ public class LaneOccupancyInATownTests
         Assert.Equal(car, HolderOn(world, way, 0.25f));
     }
 
-    /// <summary>
-    /// A lane nobody is on that runs into a node, and the lane its first movement leads to — either one the
-    /// movement has a line of its own over (a junction) or one where it has none and the lanes butt.
-    /// </summary>
-    static int AQuietLaneOntoANode(TownWorld world, bool withAJoinOfItsOwn, out int onwards)
+    /// <summary>A lane nobody is on that runs into a junction its first movement has a line of its own over.</summary>
+    static int AQuietLaneOntoAJunction(TownWorld world)
     {
         var roads = world.Roads;
-        onwards = -1;
 
         Span<LaneClaim> slots = stackalloc LaneClaim[1];
         for (var lane = 0; lane < roads.LaneCount; lane++)
@@ -561,14 +525,13 @@ public class LaneOccupancyInATownTests
             if (roads.LaneLengthM[lane] < 60f || roads.LanesFrom(lane).Length == 0) continue;
 
             var slot = roads.ConnectorsFrom(lane)[0];
-            if (roads.ConnectorArcs(slot).Length > 0 != withAJoinOfItsOwn) continue;
+            if (roads.ConnectorArcs(slot).Length == 0) continue;
 
             var next = roads.ConnectorTo(slot);
             if (world.Occupancy.CopyTo(world.Ways.OfRoadLane(lane), slots) != 0) continue;
             if (world.Occupancy.CopyTo(world.Ways.OfRoadLane(next), slots) != 0) continue;
             if (world.Occupancy.CopyTo(roads.WayOfConnector(slot), slots) != 0) continue;
 
-            onwards = next;
             return lane;
         }
 
@@ -655,23 +618,26 @@ public class LaneOccupancyInATownTests
         var world = new TownWorld(Towns.Of("Fleet"), Config);
         new SimLoop<TownWorld>(world, Config).Advance(600);
 
-        // A lane long enough that the whole stretch lands inside it, so nothing under test is clipped at
-        // either end of the way (<see cref="LaneOccupancy.Add"/>).
-        var lane = 0;
-        for (var at = 0; at < world.Roads.LaneCount; at++)
-        {
-            if (world.Roads.LaneLengthM[at] > world.Roads.LaneLengthM[lane]) lane = at;
-        }
-
-        var arcs = world.Roads.ArcsOf(lane);
-        var midM = world.Roads.LaneLengthM[lane] * 0.5f;
-        var on = Spline.SampleAt(arcs, midM);
-
         // A body the road is not driving: nobody in it and broken, which is also what keeps it off a
         // template — a sweep is committed ground already laid, and taking both would count it twice.
         const int car = TheBodyToStand;
         world.Cars.Driven[car] = false;
         world.Cars.Broken[car] = true;
+
+        var build = world.Cars.BuildOf(car);
+        var wantedM = MathF.Max(
+            0f,
+            alongMps * alongMps
+            / (2f * CarFollower.BrakingMps2(Config, build, world.Cars.GroundCoefficient[car])));
+
+        // <b>Straight ground, with the whole claim on one piece of it</b>: a box laid on a bend covers more
+        // of the way round it than its own length, which is the reading under test here and not the one. A
+        // lane is the whole run between two places a driver decides something (TER-5h), so the longest lane
+        // in a town is a run through its bends rather than the straightest thing in it. And the piece is
+        // inside a lane, so nothing is clipped at either end of the way (<see cref="LaneOccupancy.Add"/>).
+        var (lane, atM) = StraightEnoughFor(world.Roads, build.LengthM, wantedM);
+        var on = Spline.SampleAt(world.Roads.ArcsOf(lane), atM);
+
         world.Cars.PositionM[car] = on.PositionM;
         world.Cars.VelocityMps[car] = Heading.Unit(on.HeadingRad) * alongMps;
         world.RebuildProximityIndex();
@@ -686,21 +652,45 @@ public class LaneOccupancyInATownTests
             if (slots[at].Of != LaneRoster.Driving) continue;
 
             found = true;
-            var wantedM = MathF.Max(
-                0f,
-                alongMps * alongMps
-                / (2f * CarFollower.BrakingMps2(
-                    Config, world.Cars.BuildOf(car), world.Cars.GroundCoefficient[car])));
-
             Assert.Equal(wantedM, slots[at].ToM - slots[at].StandsToM, 2);
 
             // And the body itself is where it always was: what the speed buys is ground past the body and
             // never a longer body (TER-5c.2).
-            Assert.Equal(
-                world.Cars.BuildOf(car).LengthM, slots[at].StandsToM - slots[at].FromM, 2);
+            Assert.Equal(build.LengthM, slots[at].StandsToM - slots[at].FromM, 2);
         }
 
         Assert.True(found, $"a body left in lane {lane} claimed none of it");
+    }
+
+    /// <summary>
+    /// A place to stand a body where the way under it runs straight for its own length and for the road its
+    /// speed still needs — the longest such piece in the town, as the lane it is on and how far into that
+    /// lane its middle stands.
+    /// </summary>
+    static (int Lane, float AtM) StraightEnoughFor(RoadGraph roads, float bodyM, float wantedM)
+    {
+        var needM = bodyM + wantedM;
+        var best = (Lane: -1, AtM: 0f, LengthM: 0f);
+
+        for (var lane = 0; lane < roads.LaneCount; lane++)
+        {
+            var alongM = 0f;
+            foreach (var arc in roads.ArcsOf(lane))
+            {
+                alongM += arc.LengthM;
+                if (MathF.Abs(arc.Curvature) > 1e-6f || arc.LengthM < needM || arc.LengthM <= best.LengthM)
+                {
+                    continue;
+                }
+
+                // Far enough into the piece that the body stands wholly on it, and the stretch its speed
+                // needs runs on down it.
+                best = (lane, alongM - arc.LengthM + (bodyM * 0.5f) + ((arc.LengthM - needM) * 0.5f), arc.LengthM);
+            }
+        }
+
+        Assert.True(best.Lane >= 0, $"no lane runs {needM:F2} m straight for a body to be left standing on");
+        return (best.Lane, best.AtM);
     }
 
     /// <summary>

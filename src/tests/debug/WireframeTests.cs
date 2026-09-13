@@ -33,9 +33,11 @@ public class WireframeTests
         var draw = new ScreenDraw(over);
         var ground = new ScreenDraw(under);
 
+        // No pointer and no pick: what is counted is the layer's own quads, and a reading taken under a
+        // pointer nobody is holding would be quads this test cannot account for (OBS-2t).
         overlay.Draw(
-            ref draw, ref ground, world, mesh, Config, switches, world.Plan.WorldSizeM * 0.5f,
-            UiPx / pixelsPerMetre, pixelsPerMetre);
+            ref draw, ref ground, world, mesh, Config, switches, new DebugPick(), -Vector2.One, -Vector2.One,
+            UiPx, world.Plan.WorldSizeM * 0.5f, UiPx / pixelsPerMetre, pixelsPerMetre);
 
         return ground.Written;
     }

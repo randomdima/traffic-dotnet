@@ -145,18 +145,37 @@ public class MenuLayoutTests
     /// It is furniture beside a town, and one running from the gear to the bottom edge is the full-screen
     /// panel it replaced — over the very town its rows are questions about.
     /// </summary>
+    /// <remarks>
+    /// <b>Asked of a window with room for the switch page above the ceiling</b>, because the rule the
+    /// popup keeps has the switches ahead of the ceiling: those rows are laid at a pitch rather than
+    /// scrolled, so a ceiling cutting into them would draw them outside the panel, and the popup is allowed
+    /// its own fixed page whatever that comes to. On a short window that page is the taller of the two and
+    /// what this would be measuring is the page's length — which is a count of layers, and was: the ceiling
+    /// held until an eleventh switch was added and then the arithmetic said 543 of 1000. <b>What bounds the
+    /// panel on such a window is the window itself</b>, which is
+    /// <see cref="TheStartMenuIsOneSizeWhateverIsOpenInIt"/>'s last line and this one's.
+    /// </remarks>
     [Fact]
     public void ThePopupReachesNoFurtherThanHalfWayDownTheWindow()
     {
-        var menu = Laid(Window);
+        var tallPx = new Vector2(Window.X, Window.Y * 2f);
+        var menu = Laid(tallPx);
         var shutPx = menu.Box.SizePx.Y;
 
         menu.OpenGroup(Menu.Scenarios);
-        menu.Lay(Window, Gear(Window));
+        menu.Lay(tallPx, Gear(tallPx));
 
         Assert.True(menu.Box.SizePx.Y > shutPx, "opening a group grew the popup by nothing at all");
         Assert.True(
-            menu.Box.Bottom <= Window.Y * 0.5f, $"the popup reaches {menu.Box.Bottom} of {Window.Y}");
+            menu.Box.Bottom <= tallPx.Y * 0.5f, $"the popup reaches {menu.Box.Bottom} of {tallPx.Y}");
+
+        // And on a window too short for its own switch page it is the window that bounds it, not the list.
+        var shortMenu = Laid(Window);
+        shortMenu.OpenGroup(Menu.Scenarios);
+        shortMenu.Lay(Window, Gear(Window));
+        Assert.True(
+            shortMenu.Box.Bottom <= Window.Y - Theme.MarginPx,
+            $"the popup reaches {shortMenu.Box.Bottom} of {Window.Y}");
     }
 
     /// <summary>
@@ -364,8 +383,14 @@ public class MenuLayoutTests
         menu.Click(menu.LineMiddlePx(6), switches, new TrimFigures());
         Assert.True(switches.TurnCircles);
 
-        // And the one that starts on goes off, which no other row can be mistaken for.
+        menu.Click(menu.LineMiddlePx(8), switches, new TrimFigures());
+        Assert.True(switches.Ribbons);
+
         menu.Click(menu.LineMiddlePx(9), switches, new TrimFigures());
+        Assert.True(switches.Grid);
+
+        // And the one that starts on goes off, which no other row can be mistaken for.
+        menu.Click(menu.LineMiddlePx(11), switches, new TrimFigures());
         Assert.False(switches.TrackFigures);
     }
 

@@ -64,7 +64,7 @@ internal readonly record struct ArcSeg(Vector2 StartM, float HeadingRad, float L
     /// multiplies do. Above the limit the library answers, because the series is only accurate where it
     /// is truncated tightly.
     /// </remarks>
-    static float Sinc(float x)
+    public static float Sinc(float x)
     {
         if (MathF.Abs(x) >= SeriesLimitRad) return MathF.Sin(x) / x;
 

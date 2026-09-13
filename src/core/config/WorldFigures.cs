@@ -58,28 +58,14 @@ internal sealed class RoadFigures
     public float WalkingLaneInPersonDiameters { get; init; } = 2f;
 
     /// <summary>
-    /// <b>Temporary, and not a figure of the world</b>: whether the lines struck off the town's boundary
-    /// are laid at all — the kerb line, the pavement and its rim, and the walking lanes down the middle of
-    /// it. Off, the town is the driven ground and nothing else, which is what the perimeter-extrusion
-    /// upgrade is being looked at against (<c>Perimeter-Extrusion-Plan.md</c>).
-    /// </summary>
-    /// <remarks>
-    /// <b>It switches the one construction and not five.</b> Every one of those lines is now the same
-    /// boundary moved by its own distance (<c>GroundRings</c>), so there is one place to turn them off and
-    /// turning them off cannot leave half of one behind. <b>It goes when the stage lands</b>, along with the
-    /// branches that read it: a town without a pavement is a stage to look at and never a town to ship.
-    /// </remarks>
-    public bool LinesOffTheKerbLaid { get; init; }
-
-    /// <summary>
     /// <b>Temporary, and a drawing switch and not a laying one</b>: whether the carriageway's own surface is
     /// drawn — the region the boundary bounds kerb to kerb, and the slabs of tarmac beside it. Off, what is
     /// left of the town in a frame is the paint: the lane lines, the zebras, the bars and the bay strokes,
     /// with the grass showing between them.
     /// </summary>
     /// <remarks>
-    /// <b>It hides and does not hold back, which is the difference from
-    /// <see cref="LinesOffTheKerbLaid"/>.</b> A pavement nothing lays is a pavement nothing needs; the
+    /// <b>It hides and does not hold back.</b> Nothing lays a line beside a road at all any more
+    /// (<c>CityGen.LaneShell</c>), and a pavement nothing lays is a pavement nothing needs; the
     /// driven ground is what every car on it is held up by — <c>Ground.Road</c> carries the grip, the
     /// permission and the lane a body is written onto — so the answer goes on saying what it said and only
     /// the picture stops showing it. <b>That is a deviation from TER-7</b> for as long as the stage runs,
@@ -185,8 +171,8 @@ internal sealed class RoadFigures
     /// </remarks>
     public float ParkingStraightensUpInCarLengths { get; init; } = 0.05f;
 
-    /// <summary>The shortest stretch a cut laid for a car park may leave standing on either side of itself.</summary>
-    public float ParkingSectionShortestStretchInCarLengths { get; init; } = 2f;
+    /// <summary>The street a car park's frontage leaves beyond its own run-in, at either end of its road.</summary>
+    public float ParkingFrontageClearInCarLengths { get; init; } = 2f;
 }
 
 /// <summary>A building as a trip uses it.</summary>

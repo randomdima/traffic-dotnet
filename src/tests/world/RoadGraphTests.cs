@@ -29,13 +29,12 @@ public class RoadGraphTests
     static RoadGraph GraphOf(string map) => RoadGraph.Build(Towns.Of(map), SimConfig.Shipped());
 
     /// <summary>
-    /// Every lane runs between two nodes the graph has — a junction the plan named, or a place cut into a
-    /// road for the car park hanging off it (GEN-4h) — and the plan's own junctions are the first of them,
-    /// because nothing is renumbered.
+    /// Every lane runs between two of the plan's own junctions and names both of them: a lane is the
+    /// stretch between two intersections and there is nothing else for one to end at.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryLaneRunsBetweenTwoPlacesAndNamesAJunctionOnlyWhereItEndsAtOne(string map)
+    public void EveryLaneRunsBetweenTwoOfThePlansJunctions(string map)
     {
         var plan = Towns.Of(map);
         var graph = GraphOf(map);
@@ -46,46 +45,23 @@ public class RoadGraphTests
         {
             Assert.InRange(graph.Places.Starting(lane), 0, graph.Places.Count - 1);
             Assert.InRange(graph.Places.Arriving(lane), 0, graph.Places.Count - 1);
-            Assert.Equal(graph.LaneEndsAtAPlace[lane], graph.LaneToJunction[lane] == CityPlan.NoRecord);
-            Assert.InRange(graph.LaneFromJunction[lane], CityPlan.NoRecord, graph.JunctionCount - 1);
-            Assert.InRange(graph.LaneToJunction[lane], CityPlan.NoRecord, graph.JunctionCount - 1);
+            Assert.InRange(graph.LaneFromJunction[lane], 0, graph.JunctionCount - 1);
+            Assert.InRange(graph.LaneToJunction[lane], 0, graph.JunctionCount - 1);
             Assert.True(graph.LaneLengthM[lane] > 0f, $"{map}: lane {lane} has no length");
         }
     }
 
     /// <summary>
-    /// <b>A place is a cut and not a disc</b> (GEN-4h): the two lanes it makes of one meet at a point, so
-    /// the movement between them is a join of no length and no ground is lost to it. Every other node takes
-    /// its own bite, which is what a junction disc is.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void APlaceCutIntoARoadTakesNoGroundOffIt(string map)
-    {
-        var graph = GraphOf(map);
-
-        for (var lane = 0; lane < graph.LaneCount; lane++)
-        {
-            if (!graph.LaneEndsAtAPlace[lane]) continue;
-
-            foreach (var onward in graph.LanesFrom(lane))
-            {
-                if (onward == graph.LaneReverse[lane]) continue;
-
-                var slot = graph.ConnectorBetween(lane, onward);
-                Assert.Equal(0f, graph.ConnectorLengthM(slot), 3);
-                Assert.True(
-                    (graph.EndOf(lane).PositionM - graph.StartOf(onward).PositionM).Length() < 1e-3f,
-                    $"{map}: lane {lane} ends away from lane {onward} at the place they share");
-            }
-        }
-    }
-
     /// <summary>
     /// TER-4a's other half: the two lanes of a stretch are the same road driven both ways, so each is
     /// the other's reverse and they run between the same pair of nodes in opposite directions.
     /// <b>A stretch of a one-way road has one lane and no reverse at all</b> (TER-4d).
     /// </summary>
+    /// <remarks>
+    /// <b>Read end for end, because a lane runs the length of its run and not of one road</b> (TER-5h): the
+    /// road a lane sets off on is the road its reverse arrives on, and a fold that took one way of a stretch
+    /// and left the other is exactly what this would catch.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
     public void EveryLaneHasTheOneRunningTheOtherWayUnlessItsRoadRunsOneWay(string map)
@@ -96,16 +72,17 @@ public class RoadGraphTests
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var back = graph.LaneReverse[lane];
-            if (plan.Roads.Flow[graph.LaneRoad[lane]] != RoadFlow.BothWays)
+            if (plan.Roads.Flow[graph.LaneFromRoad[lane]] != RoadFlow.BothWays)
             {
                 Assert.Equal(RoadGraph.NoLane, back);
                 continue;
             }
 
             Assert.Equal(lane, graph.LaneReverse[back]);
-            Assert.Equal(graph.LaneRoad[lane], graph.LaneRoad[back]);
+            Assert.Equal(graph.LaneFromRoad[lane], graph.LaneToRoad[back]);
+            Assert.Equal(graph.LaneToRoad[lane], graph.LaneFromRoad[back]);
             Assert.Equal(graph.LaneFromJunction[lane], graph.LaneToJunction[back]);
-            Assert.Equal(graph.LaneToJunction[back], graph.LaneFromJunction[lane]);
+            Assert.Equal(graph.LaneToJunction[lane], graph.LaneFromJunction[back]);
         }
     }
 
@@ -142,7 +119,7 @@ public class RoadGraphTests
                 {
                     // The road as well as the lane: a lane number alone says nothing about which piece of
                     // the map to go and look at, and a generated town is laid again rather than opened.
-                    var road = graph.LaneRoad[lane];
+                    var road = graph.LaneFromRoad[lane];
                     worst = $"lane {lane} of road {road}, junctions {plan.Roads.FromJunction[road]} to "
                             + $"{plan.Roads.ToJunction[road]} over {plan.Roads.SegmentsOf(road).Length} arc(s), "
                             + $"at {pointM} stands on {terrain.GroundAt(pointM)}";
@@ -170,7 +147,7 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var road = graph.LaneRoad[lane];
+            var road = graph.LaneFromRoad[lane];
             var centreline = plan.Roads.SegmentsOf(road);
             var start = graph.StartOf(lane);
             var onCentreline = Spline.ProjectM(centreline, start.PositionM, 0f, float.MaxValue);
@@ -253,11 +230,16 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var road = graph.LaneRoad[lane];
+            var road = graph.LaneFromRoad[lane];
             var declaredM = plan.Roads.WidthM[road] / plan.Roads.LanesOn(road);
             Assert.Equal(declaredM, graph.LaneWidthM[lane], tolerance: 1e-4f);
 
-            var centreline = plan.Roads.SegmentsOf(graph.LaneRoad[lane]);
+            // <b>And the road it arrives on declares the same figure</b> (TER-5h): a band has one width, so
+            // a run is folded through a node only where the carriageway does not step there.
+            var onto = graph.LaneToRoad[lane];
+            Assert.Equal(declaredM, plan.Roads.WidthM[onto] / plan.Roads.LanesOn(onto), tolerance: 1e-4f);
+
+            var centreline = plan.Roads.SegmentsOf(road);
             var start = graph.StartOf(lane);
             var sample = Spline.SampleAt(centreline, Spline.ProjectM(centreline, start.PositionM, 0f, float.MaxValue));
             var acrossM = MathF.Abs(Vector2.Dot(start.PositionM - sample.PositionM, sample.Right));

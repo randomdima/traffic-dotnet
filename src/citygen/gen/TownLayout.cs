@@ -619,7 +619,16 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         foreach (var edge in edges) Join(edge.From, edge.To, edge.Class, edge.Curvature);
     }
 
-    void Rebuilt(List<Vector2> nodeM, List<LayoutEdge> edges)
+    /// <summary>
+    /// The layout on a new set of nodes with every road <em>carried over</em>, which is what a deletion or a
+    /// join needs and a merge does not: nothing has moved, so nothing has to pass <see cref="Join"/> again.
+    /// </summary>
+    /// <remarks>
+    /// <b>The bearings it fills are the chords'</b>, so a road joined out of two through its own node
+    /// (<see cref="ThroughRoads"/>) leaves each of its arms reading as the straight line between its two
+    /// remaining ends. Nothing after the road stage asks which way an arm leaves a node.
+    /// </remarks>
+    public void Rebuilt(List<Vector2> nodeM, List<LayoutEdge> edges)
     {
         _nodeM.Clear();
         _nodeM.AddRange(nodeM);

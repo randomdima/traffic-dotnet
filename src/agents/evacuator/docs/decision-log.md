@@ -90,9 +90,8 @@ have and would be a poor first one to write.
 
 ## 2026-08-26 — the yard is a run of held bays and not a laid yard of its own
 
-A rectangle of ground cut into slots costs new drivable geometry — a free-ground search, a cut in the road
-(`GEN-4h`), ways in, a place in the occupancy index — all laid by a project that reads plans and does not
-lay them. The yard is an apron (`GEN-4k`) with a bigger figure, so every question a slot must answer is one
+A rectangle of ground cut into slots costs new drivable geometry — a free-ground search, ways in, a place
+in the occupancy index — all laid by a project that reads plans and does not lay them. The yard is an apron (`GEN-4k`) with a bigger figure, so every question a slot must answer is one
 the parking register already answers about a bay, and a mended wreck is an ordinary parked car. It costs
 the town those bays, which is why the figure is small.
 

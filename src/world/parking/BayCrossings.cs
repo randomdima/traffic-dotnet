@@ -26,8 +26,11 @@ namespace TrafficSimulation.World.Parking;
 /// <para>
 /// <b>And the ways at its neighbours.</b> Two bays of one lot are a car's width apart, so the line into one
 /// and the line into the next share ground: read only against the lanes, two cars would work into
-/// neighbouring bays at the same moment and meet between them. They are measured pairwise, bounded by the
-/// boxes the two lines stand in, which for a few hundred ways is cheaper than any index would be to lay.
+/// neighbouring bays at the same moment and meet between them. Which pairs are measured is the town's
+/// geometry grid's to say (<see cref="ChainIndex.Crossing"/>) and what each pair comes to is still the two
+/// boxes and then the two lines — <b>a few hundred ways were cheaper to weigh pairwise than to index, and a
+/// city lays eight thousand of them</b>, which is thirty-seven million pairs to prove that two lines a
+/// district apart do not touch.
 /// </para>
 /// <para>
 /// <b>Only the stretch of a lane the way can reach is measured.</b> A lane is two hundred metres and a way
@@ -86,6 +89,20 @@ internal static class BayCrossings
             boxM[at] = BoxOf(pointM[at], clearanceM);
         }
 
+        // <b>The ways over the same grid the lanes are indexed on</b> (<see cref="ChainIndex"/>), which is
+        // what makes "the ways that could touch this one" a question about the cells round it rather than
+        // about every way in the town. The index is of the whole way and the answer is a superset of what
+        // the boxes below admit, since a box is the driven part of one grown by the clearance.
+        var index = new ChainIndex.Builder();
+        for (var at = 0; at < ways.WayCount; at++)
+        {
+            var way = ways.FirstWay + at;
+            index.Add(at, ways.ArcsOf(way), ways.LengthM(way));
+        }
+
+        var near = index.Seal(config.NearestChainCellM);
+        var candidate = new int[ways.WayCount];
+
         for (var at = 0; at < ways.WayCount; at++)
         {
             var way = ways.FirstWay + at;
@@ -93,8 +110,15 @@ internal static class BayCrossings
 
             AgainstTheLanes(way, at, mine);
 
-            for (var other = at + 1; other < ways.WayCount; other++)
+            // <b>In the ways' own order and not the lattice's.</b> The grid hands its cells back row by
+            // row; a crossing is filed under both ways it is a crossing of, so the order the rows come out
+            // in is the order the pairs were weighed in.
+            var sharing = near.Crossing(ways.ArcsOf(way), clearanceM * 2f, candidate);
+            var offered = candidate.AsSpan(0, Math.Min(sharing, candidate.Length));
+            offered.Sort();
+            foreach (var other in offered)
             {
+                if (other <= at) continue;
                 if (!Overlap(boxM[at], boxM[other])) continue;
 
                 var theirWay = ways.FirstWay + other;

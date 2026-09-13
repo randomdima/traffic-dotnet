@@ -131,19 +131,10 @@ internal static class ScaleLegend
     }
 
     /// <summary>
-    /// The text drawn four times in the shadow colour and once over it. Cheap, and the only way to
-    /// keep a figure legible over ground the legend is not allowed to cover.
+    /// The legend's own figures, written the way anything is written over the town
+    /// (<see cref="ScreenDraw.OutlinedText"/>) — the ruler and the debug layers' readings have the same
+    /// problem and it is solved in one place.
     /// </summary>
-    static void Outlined(ref ScreenDraw draw, Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx)
-    {
-        draw.Text(atPx + new Vector2(-1f, 0f), text, heightPx, Theme.LegendShadow);
-        draw.Text(atPx + new Vector2(1f, 0f), text, heightPx, Theme.LegendShadow);
-        draw.Text(atPx + new Vector2(0f, -1f), text, heightPx, Theme.LegendShadow);
-        draw.Text(atPx + new Vector2(0f, 1f), text, heightPx, Theme.LegendShadow);
-        draw.Text(atPx, text, heightPx, Theme.Legend);
-    }
-
-    /// <summary>The same outlined text, for the ruler — which has the same problem and must not solve it differently.</summary>
-    public static void OutlinedText(ref ScreenDraw draw, Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx) =>
-        Outlined(ref draw, atPx, text, heightPx);
+    static void Outlined(ref ScreenDraw draw, Vector2 atPx, scoped ReadOnlySpan<char> text, float heightPx) =>
+        draw.OutlinedText(atPx, text, heightPx);
 }

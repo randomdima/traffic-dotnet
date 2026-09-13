@@ -107,8 +107,7 @@ internal sealed class Ruler
         Span<char> text = stackalloc char[24];
         var written = new TextBuffer(text);
         Ladder.WriteDistance(ref written, lengthM);
-        ScaleLegend.OutlinedText(
-            ref draw, camera.ScreenAt(toM, uiPx) + new Vector2(10f, -Theme.TextPx * 0.5f),
-            written.Written, Theme.TextPx);
+        draw.OutlinedText(
+            camera.ScreenAt(toM, uiPx) + new Vector2(10f, -Theme.TextPx * 0.5f), written.Written, Theme.TextPx);
     }
 }

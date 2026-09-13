@@ -42,6 +42,20 @@ internal static class RoadStage
     /// <summary>Below this deflection a vertex is straight through and is not rounded at all.</summary>
     const float StraightThroughRad = 0.002f;
 
+    /// <summary>
+    /// <b>How open a joint may read and still be one line</b>: the angle that moves the line laid furthest
+    /// off a carriageway — the pavement's own — by the rounding two computations of one distance disagree by
+    /// (<see cref="Kerbs.RoundingM"/>). It is float slop over a chain of arcs and nothing else; a road that
+    /// really creases does so by tenths of a radian.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the one figure that says whether two arms are one road</b> (GEN-12b) and whether a road is
+    /// one line, and those have to be the same figure: a node joined out at a wider tolerance than the line
+    /// is read at would lay a road that creases where the junction used to be.
+    /// </remarks>
+    public static float CreaseRad(SimConfig config) =>
+        Kerbs.RoundingM / ((config.RoadWidthM * 0.5f) + (config.PavementWidthM * 0.5f));
+
     internal readonly record struct Laid(
         CityPlan.RoadArrays Roads,
         CityPlan.JunctionArrays Junctions,
@@ -66,7 +80,15 @@ internal static class RoadStage
             chains[road] = Chain(layout, districts, layout.Edges[road], config, ref shape);
         }
 
-        var centreM = Bends(layout, chains, config);
+        var centreM = Bends(layout, chains, config, out var carriedThrough);
+
+        // <b>And a node a road is merely carried through is taken away</b> (GEN-12b): the bend is laid
+        // before the join, because what the two arms are joined on is the one tangent the sweep left them
+        // meeting at.
+        var through = ThroughRoads.Join(layout, chains, widthM, centreM, carriedThrough);
+        chains = through.Chains;
+        widthM = through.WidthM;
+        centreM = through.CentreM;
         OntoTheDrivenHalf(layout, chains, centreM, widthM, config);
 
         var junctions = Junctions(layout, centreM, brief, config, chains, widthM, ref signals);
@@ -176,7 +198,7 @@ internal static class RoadStage
     /// opens the offset by the kink times the offset, and the pavement beside a road that creased came apart
     /// over three metres of itself with a walking lane dead-ending either side of the hole.
     /// </remarks>
-    static ArcSeg[] Rounded(ReadOnlySpan<Vector2> pointsM, float floorRadiusM)
+    internal static ArcSeg[] Rounded(ReadOnlySpan<Vector2> pointsM, float floorRadiusM)
     {
         Span<Vector2> turnedM = stackalloc Vector2[pointsM.Length];
         pointsM.CopyTo(turnedM);
@@ -245,10 +267,14 @@ internal static class RoadStage
     /// <summary>
     /// <b>A node with two arms is a road that bends, not a corner cars turn across</b> (TER-5b, GEN-12a): the
     /// two chains meeting there are bent to arrive on <b>one tangent</b>, each taking half the turn on an arc
-    /// of the same radius, and the node moves to the middle of that arc. What is left is an inline junction —
-    /// two arms leaving in opposite directions, paving no ground of its own — and a carriageway, a kerb and a
-    /// lane line that run through it without a crease. The junction centres are what comes back.
+    /// of the same radius, and the node moves to the middle of that arc. A carriageway, a kerb and a lane
+    /// line then run through it without a crease, which is what lets <see cref="ThroughRoads"/> take the node
+    /// away altogether. The junction centres are what comes back.
     /// </summary>
+    /// <param name="carriedThrough">
+    /// Which nodes were left carrying one road through them, node for node — the ones the sweep took and the
+    /// ones that were already straight through, and neither of the two it refused.
+    /// </param>
     /// <remarks>
     /// <para>
     /// <b>The arc is the widest the two roads can spare and never wider than the class's floor</b>
@@ -262,8 +288,10 @@ internal static class RoadStage
     /// and nothing else (GEN-14a).
     /// </para>
     /// </remarks>
-    static Vector2[] Bends(TownLayout layout, ArcSeg[][] chains, SimConfig config)
+    static Vector2[] Bends(
+        TownLayout layout, ArcSeg[][] chains, SimConfig config, out bool[] carriedThrough)
     {
+        carriedThrough = new bool[layout.NodeM.Count];
         var centreM = new Vector2[layout.NodeM.Count];
         for (var node = 0; node < centreM.Length; node++) centreM[node] = layout.NodeM[node];
 
@@ -284,14 +312,20 @@ internal static class RoadStage
             if (layout.Edges[arms[node][0].Road].Class == RoadClass.Bridge) continue;
             if (layout.Edges[arms[node][1].Road].Class == RoadClass.Bridge) continue;
 
-            Bend(layout, chains, config, arms[node][0], arms[node][1], ref centreM[node]);
+            carriedThrough[node] = Bend(layout, chains, config, arms[node][0], arms[node][1], ref centreM[node]);
         }
 
         return centreM;
     }
 
-    /// <summary>One such node bent: both chains rewritten and the node moved onto the arc they now share.</summary>
-    static void Bend(
+    /// <summary>
+    /// One such node bent: both chains rewritten and the node moved onto the arc they now share. <b>Whether
+    /// the road is carried through it</b> is what comes back, which is the whole of what says the node may be
+    /// joined out of the town (<see cref="ThroughRoads"/>). Two keep their junction: one with no room for a
+    /// bend worth having, and one already straight enough through to have nothing to sweep, whose two arms
+    /// therefore meet on a crease rather than on a tangent.
+    /// </summary>
+    static bool Bend(
         TownLayout layout, ArcSeg[][] chains, SimConfig config, (int Road, bool AtFromEnd) first,
         (int Road, bool AtFromEnd) second, ref Vector2 nodeM)
     {
@@ -302,17 +336,28 @@ internal static class RoadStage
         var into = -outOfFirst;
         var deflection = MathF.Atan2(Cross(into, outOfSecond), Vector2.Dot(into, outOfSecond));
         var halfTurn = MathF.Abs(deflection) * 0.5f;
-        if (halfTurn < StraightThroughRad) return;
+        var straightFirstM = StraightAtTheEndM(chains[first.Road], first.AtFromEnd);
+        var straightSecondM = StraightAtTheEndM(chains[second.Road], second.AtFromEnd);
 
-        var spareM = TangentShareOfSegment * MathF.Min(
-            StraightAtTheEndM(chains[first.Road], first.AtFromEnd),
-            StraightAtTheEndM(chains[second.Road], second.AtFromEnd));
+        // <b>A node both of whose arms arrive bending is on a road that bends the whole way</b> — the
+        // orbital, where GEN-12's first bound never reached and a piece of arc is the whole road. There is no
+        // straight for a sweep to be laid on, and joining the pieces would make a road that leaves a real
+        // junction on a curve without being the one arc that is allowed to (GEN-12b).
+        if (straightFirstM <= 0f && straightSecondM <= 0f) return false;
+
+        // <b>A pair already meeting on one tangent has nothing to sweep and is carried through anyway</b>
+        // (GEN-12b): the node is what the join is after and the shape is already right. Between that and the
+        // turn worth rounding lies the crease — too slight for an arc and too open to be one line — and the
+        // junction's own ground is where such a joint belongs.
+        if (halfTurn < StraightThroughRad) return MathF.Abs(deflection) <= CreaseRad(config);
+
+        var spareM = TangentShareOfSegment * MathF.Min(straightFirstM, straightSecondM);
         var radiusM = MathF.Min(
             spareM / MathF.Tan(halfTurn),
             MathF.Max(
                 FloorRadiusM(config, layout.Edges[first.Road].Class),
                 FloorRadiusM(config, layout.Edges[second.Road].Class)));
-        if (radiusM < config.RoadCornerRadiusM) return;
+        if (radiusM < config.RoadCornerRadiusM) return false;
 
         // The arc tangent to both arms stands off the node along the bisector of the wedge between them,
         // and the two chains now meet at its middle rather than at the node the layout put there.
@@ -332,6 +377,7 @@ internal static class RoadStage
             chains[second.Road], second.AtFromEnd, apexM, nodeM + (outOfSecond * tangentM), through,
             outOfSecond, curvature, radiusM * halfTurn, tangentM);
         nodeM = apexM;
+        return true;
     }
 
     /// <summary>

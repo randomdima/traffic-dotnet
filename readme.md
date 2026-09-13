@@ -86,6 +86,11 @@ with the map, the framing, the moment and the seed, tiled into one sheet for rev
 ([app/shot](src/app/shot/docs/requirements.md)). `--caption` puts that band and those notes on a single
 `--shot`, and every captioned picture writes its figures beside it as `<picture>.png.json`.
 
+**A picture can be taken with the pointer somewhere**, which is how the layers' own readings are asked for
+without a window (`OBS-2t`): `--point X Y` stands the pointer on that place in the town, so the ribbon and
+the boundary under it are drawn picked out and named, and `--pick X Y` clicks there, which picks the cell of
+the geometry grid and lights every line the index holds in it.
+
 ```json
 {
   "out": ".tmp/junctions.png", "map": "Test", "size": [640, 480], "view": 45, "seconds": 20,

@@ -74,6 +74,8 @@ internal static class ShotRun
         ui.Apply(wanted);
         foreach (var pointM in ask.RulerPointsM ?? []) ui.Ruler.Click(pointM);
 
+        if (ask.PickedM is { } pickedM) ui.Pick.Click(pickedM);
+
         var plan = Maps.Plan(ask.Map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
 
         // GEN-1b in a picture: the start menu stands over the idle ring, so a picture of it is a picture of
@@ -129,7 +131,10 @@ internal static class ShotRun
         renderer.SetSpriteCount(sprites);
 
         // The pointer is put outside the frame, so nothing is drawn hovered: a shot with a row lit
-        // under a pointer nobody can see is a shot of a state the reader cannot account for.
+        // under a pointer nobody can see is a shot of a state the reader cannot account for. <b>Unless the
+        // request asked for one</b> (OBS-2t) — a reading taken under the pointer is a thing to be looked
+        // at, and a picture of it has to be askable for without a window.
+        var pointerPx = ask.PointerM is { } pointerM ? camera.ScreenAt(pointerM, uiPx) : -Vector2.One;
         var under = 0;
         var quads = bare ? 0 : ui.Draw(renderer.Overlay, renderer.Underlay, new InterfaceFrame
         {
@@ -138,7 +143,7 @@ internal static class ShotRun
             Config = config,
             Camera = camera,
             UiPx = uiPx,
-            PointerPx = -Vector2.One,
+            PointerPx = pointerPx,
             MapName = plan.Name,
             Tick = loop.Tick,
 
@@ -237,6 +242,8 @@ internal readonly record struct ShotRequest(
     float UiScale = 0f,
     double Seconds = 0,
     IReadOnlyList<Vector2>? RulerPointsM = null,
+    Vector2? PointerM = null,
+    Vector2? PickedM = null,
     bool Validate = false);
 
 /// <summary>What the frame turned out to be — the census a caller prints or asserts on.</summary>

@@ -2,7 +2,7 @@ namespace TrafficSimulation.App.Debug;
 
 /// <summary>
 /// <b>OBS-2c — each thing a debug session can be opened for has a switch of its own, and no switch
-/// turns on anything a second one owns.</b> Ten checkboxes.
+/// turns on anything a second one owns.</b> Twelve checkboxes.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -68,15 +68,45 @@ internal sealed class DebugSwitches
     public bool Wireframe;
 
     /// <summary>
-    /// <b>Which stretches of the town's driven lines the pavement is wrapped off</b> (OBS-2p), marked on
-    /// those lines themselves.
+    /// <b>The outside of the town's driven ground</b> (OBS-2p), as the boundary of the one shape the
+    /// ribbons of every driven line merge into.
     /// </summary>
     /// <remarks>
     /// It is the town's rather than a body's, like <see cref="Nodes"/>, and it is not switched with that
-    /// one: the graphs say where anything may go, and this says which parts of them the walk is wrapped
-    /// off — a lane whose whole line is drawn under it either way.
+    /// one: the graphs say where anything may go, and this says where the ground they lay stops — a lane
+    /// whose whole line is drawn under it either way.
     /// </remarks>
     public bool Perimeter;
+
+    /// <summary>
+    /// <b>The ground those lines cover</b> (OBS-2s), as the ribbons the merge behind <see cref="Perimeter"/>
+    /// is given.
+    /// </summary>
+    /// <remarks>
+    /// A switch of its own and not part of that one, though the two are one shape: this draws the merge's
+    /// input and that one its answer, and a reader with them on together is looking for the places they
+    /// disagree. Turned on alone it is the area the town is driven over, which is a reading in itself.
+    /// </remarks>
+    public bool Ribbons;
+
+    /// <summary>
+    /// <b>The lattice the town's geometry is asked over</b> (OBS-2r), and how many lines each of its cells
+    /// holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It is the town's rather than a body's, and it is the second switch here that is about the
+    /// <em>machinery</em> rather than about the town — <see cref="Wireframe"/> draws what the renderer was
+    /// handed and this draws what a geometry question is narrowed with. Neither is switched with anything
+    /// the simulation produced, because neither is a thing the town does.
+    /// </para>
+    /// <para>
+    /// <b>It is also the one layer that takes the mouse</b> (OBS-2t, <see cref="DebugPick"/>): a lattice is
+    /// read by asking it about one cell, so while it is ticked a click on the town picks the cell under it
+    /// rather than selecting what is standing there. The ruler is offered the click first.
+    /// </para>
+    /// </remarks>
+    public bool Grid;
 
     /// <summary>The measuring tool, which takes the mouse for as long as it is ticked.</summary>
     public bool Ruler;
@@ -96,7 +126,7 @@ internal sealed class DebugSwitches
     /// Whether anything the town holds still is drawn at all, which is what decides whether the cache
     /// behind those layers is laid. Both of them are geometry that does not move once the town is laid.
     /// </summary>
-    public bool NeedsTownGeometry => Nodes || Perimeter || Wireframe;
+    public bool NeedsTownGeometry => Nodes || Perimeter || Ribbons || Wireframe || Grid;
 
     /// <summary>
     /// A number that changes whenever a switch does. The town's own graphs are re-emitted on it

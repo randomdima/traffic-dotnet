@@ -129,7 +129,7 @@ internal sealed class SignalHeads
         var bestAgreement = 0f;
         foreach (var lane in roads.LanesIntoJunction(junction))
         {
-            if (roads.LaneRoad[lane] != road) continue;
+            if (roads.LaneToRoad[lane] != road) continue;
 
             var agreement = Vector2.Dot(roads.EndOf(lane).Direction, approach);
             if (agreement <= bestAgreement) continue;

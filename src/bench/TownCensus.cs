@@ -5,6 +5,7 @@ using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Agents.TrafficLight.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
@@ -238,8 +239,7 @@ internal static class TownCensus
     /// <summary>
     /// What the town contracts to. <b>The interesting figure is the second column</b>: how many of the
     /// plan's junctions are places a driver actually chooses at, because everything else is a bend the
-    /// search must never be asked a question at — plus the ends of the parking sections (GEN-4h), which
-    /// are on the network for the opposite reason, being nodes nothing is decided at.
+    /// search must never be asked a question at.
     /// </summary>
     static void Networks(CityPlan plan, SimConfig config)
     {
@@ -278,18 +278,22 @@ internal static class TownCensus
         Console.WriteLine("the networks");
         Console.WriteLine($"  signals        {bundles,7}  bundles of the {plan.Junctions.Count} junctions, " +
                           $"{uncontrolled} of {signals.CrossingCount} crossings uncontrolled");
-        var cut = 0;
-        for (var lane = 0; lane < roads.LaneCount; lane++)
+        // <b>How many of the plan's junctions are a junction at all</b>: a node of two arms carries one road
+        // through and decides nothing (GEN-12b), so the gap between the three figures is what the lines were
+        // cut at over and above the places a driver chooses at (TER-5h).
+        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
+        var carriedThrough = 0;
+        foreach (var at in arms)
         {
-            if (roads.LaneEndsAtAPlace[lane]) cut++;
+            if (at == 2) carriedThrough++;
         }
 
-        Console.WriteLine($"  driving        {roads.LaneCount,7}  lanes meeting at {roads.Places.Count} places, " +
-                          $"{plan.Junctions.Count} of them the plan's junctions and {cut} lane ends cut for car " +
-                          $"parks, laid in {elapsed.TotalMilliseconds:F0} ms");
+        Console.WriteLine($"  driving        {roads.LaneCount,7}  lanes meeting at {roads.Places.Count} places over " +
+                          $"the plan's {plan.Junctions.Count} junctions, {carriedThrough} of them two-armed, " +
+                          $"laid in {elapsed.TotalMilliseconds:F0} ms");
         Console.WriteLine($"  contracted to  {runs.LinkCount,7}  runs joined {WaysOn(runs.Graph)} ways on; " +
                           $"mean {(runs.LinkCount == 0 ? 0f : totalM / runs.LinkCount):F0} m, longest {longestM:F0} m, most lanes in one {mostPieces}");
-        Joins(roads, config);
+        Joins(roads, plan, config);
 
         var footStarted = Stopwatch.GetTimestamp();
         var foot = FootGraph.Build(plan, config);
@@ -325,6 +329,39 @@ internal static class TownCensus
                           $"mean {(walkRuns.LinkCount == 0 ? 0f : totalWalkM / walkRuns.LinkCount):F0} m, longest {longestWalkM:F0} m, " +
                           $"mean lane offset {(stretches == 0 ? 0f : keptM / stretches):F2} m of " +
                           $"{config.WalkingLaneOffsetM:F2}, in {walkElapsed.TotalMilliseconds:F0} ms");
+        Boundary(plan, config);
+    }
+
+    /// <summary>
+    /// <b>What the merge made of the ribbons the driven lines lay</b> (<see cref="LaneShell"/>): the rings
+    /// it closed, and the runs it handed back with two ends instead. <b>How far apart those two ends stand
+    /// is the figure to read</b> — a run open by a fraction of the weld is a crossing the merge measured and
+    /// then declined to call one, and a run open by metres is a hole in the boundary.
+    /// </summary>
+    /// <remarks>
+    /// Asked of a shipped city from the command line, because it is a question about one town's geometry and
+    /// not about the engine: what the suite may ask is asked of the towns it lays for itself
+    /// (<c>LaneShellTests</c>).
+    /// </remarks>
+    static void Boundary(CityPlan plan, SimConfig config)
+    {
+        var started = Stopwatch.GetTimestamp();
+        var shell = plan.Paving(config).Perimeter(config);
+        var elapsed = Stopwatch.GetElapsedTime(started);
+
+        var openM = 0f;
+        var apartM = 0f;
+        foreach (var run in shell.Loose)
+        {
+            var lengthM = Spline.TotalLengthM(run);
+            openM += lengthM;
+            apartM = MathF.Max(
+                apartM, Vector2.Distance(run[0].StartM, Spline.SampleAt(run, lengthM).PositionM));
+        }
+
+        Console.WriteLine($"  boundary       {shell.Chains.Length,7}  rings closed; {shell.Loose.Length} runs left " +
+                          $"open over {openM:F1} m, ends up to {apartM:F3} m apart, merged in " +
+                          $"{elapsed.TotalMilliseconds:F0} ms");
     }
 
     /// <summary>
@@ -345,7 +382,7 @@ internal static class TownCensus
     /// was paved for, since the arms are cut back to where that paving reaches, so a town whose tightest
     /// join is inside the corner radius is a town with a junction paved smaller than the wedge it stands in.
     /// </summary>
-    static void Joins(RoadGraph roads, SimConfig config)
+    static void Joins(RoadGraph roads, CityPlan plan, SimConfig config)
     {
         var butted = 0;
         var joinM = 0f;
@@ -379,6 +416,62 @@ internal static class TownCensus
                           $"{config.IntersectionCornerRadiusM:F2}; " +
                           $"corners took a further {(roads.LaneCount == 0 ? 0f : cutBackM / roads.LaneCount):F2} m " +
                           $"a lane, deepest {deepestM:F2} m");
+        HandOvers(roads, plan);
+    }
+
+    /// <summary>
+    /// <b>How much of the driving network is cut where nothing is decided</b>: a join where the one lane
+    /// arriving hands over to the one lane leaving is a line the town broke in two for no reason a driver
+    /// could name. <b>It reads nought on a town that folded them all</b> (TER-5h), so what it reports is
+    /// the folds that were refused rather than the seams that were never noticed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Split two ways, because the two have different owners.</b> A junction of two arms is
+    /// <c>GEN-12b</c>'s as well, a node the plan's own join refused; one at a junction that forks is a lane
+    /// that happens to have one way out of a box other lanes are driven across, which is what a junction is
+    /// and not a seam to be closed.
+    /// </para>
+    /// <para>
+    /// <b>And the two figures a fold is refused for are counted beside them</b> (TER-5h): a join between
+    /// lanes of different widths, which is a carriageway that really does step there, and a join at a node
+    /// the two arms' kerbs do not meet at (<see cref="RoadCuts.RunsThrough"/>), whose ground is a piece of
+    /// the tarmac's own outline whether or not the lane swallows the line.
+    /// </para>
+    /// </remarks>
+    static void HandOvers(RoadGraph roads, CityPlan plan)
+    {
+        var arms = new int[plan.Junctions.Count];
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            arms[plan.Roads.FromJunction[road]]++;
+            arms[plan.Roads.ToJunction[road]]++;
+        }
+
+        var through = RoadCuts.RunsThrough(plan.Ground);
+        var arrivingAt = new int[roads.LaneCount];
+        for (var connector = 0; connector < roads.ConnectorCount; connector++) arrivingAt[roads.ConnectorTo(connector)]++;
+
+        var atABend = 0;
+        var atAFork = 0;
+        var stepped = 0;
+        var unmet = 0;
+        for (var lane = 0; lane < roads.LaneCount; lane++)
+        {
+            var onward = roads.LanesFrom(lane);
+            if (onward.Length != 1 || arrivingAt[onward[0]] != 1) continue;
+
+            var node = roads.LaneToJunction[lane];
+            if (arms[node] <= 2) atABend++;
+            else atAFork++;
+
+            if (MathF.Abs(roads.LaneWidthM[lane] - roads.LaneWidthM[onward[0]]) > 1e-3f) stepped++;
+            if (!through[node]) unmet++;
+        }
+
+        Console.WriteLine($"  hands over     {atABend + atAFork,7}  joins fork nothing — one lane onto one lane; " +
+                          $"{atABend} at a junction of two arms, {atAFork} at one that forks; " +
+                          $"{stepped} step in width, {unmet} at a node the kerbs do not meet at");
     }
 
     /// <summary>How far the furthest-reaching zebra runs, which on a town of square crossings is a road's width.</summary>

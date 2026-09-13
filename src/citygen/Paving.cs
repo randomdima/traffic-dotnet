@@ -45,15 +45,12 @@ namespace TrafficSimulation.CityGen;
 /// </remarks>
 internal sealed class Paving
 {
-    readonly float _bayWidthM;
-
-    Paving(float walkM, GroundPieces pieces, LaneLines lanes, BayLines bays, float bayWidthM, Kerbs kerbs)
+    Paving(float walkM, GroundPieces pieces, LaneLines lanes, BayLines bays, Kerbs kerbs)
     {
         WalkM = walkM;
         Of = pieces;
         Lanes = lanes;
         Bays = bays;
-        _bayWidthM = bayWidthM;
         Kerbs = kerbs;
     }
 
@@ -85,9 +82,16 @@ internal sealed class Paving
             ? Lanes.ArcsOfConnector(movement)
             : Bays.ArcsOf(Bays.GroundWays[movement - Lanes.ConnectorCount]);
 
-    /// <summary>How wide the ground one movement is driven over is: a lane's share, or a bay's own space.</summary>
+    /// <summary>
+    /// <b>How wide the ground one movement is driven over is, which is a lane's width either way</b>
+    /// (GEN-4c): the narrower of the two a junction's movement joins, and for a bay's way the lane it is
+    /// worked off. What a parking space is wide sizes the car standing in it and not the way driven to it,
+    /// so a bay's way lays the band every other driven line lays.
+    /// </summary>
     public float MovementWidthM(int movement) =>
-        movement < Lanes.ConnectorCount ? Lanes.ConnectorWidthM(movement) : _bayWidthM;
+        movement < Lanes.ConnectorCount
+            ? Lanes.ConnectorWidthM(movement)
+            : Lanes.LaneWidthM[Bays.Lane[Bays.GroundWays[movement - Lanes.ConnectorCount]]];
 
     /// <summary>The movement's own metres, end to end.</summary>
     public float MovementLengthM(int movement) =>
@@ -119,30 +123,52 @@ internal sealed class Paving
     public float DrivenLengthM(int line) =>
         line < Lanes.LaneCount ? Lanes.LaneLengthM[line] : MovementLengthM(line - Lanes.LaneCount);
 
+    ChainIndex? _drivenLines;
+
+    /// <summary>
+    /// <b>Every driven line over the town's own geometry grid</b> (<see cref="ChainIndex"/>): the one index
+    /// that holds all of them — every lane, every movement through a box and every way into a bay — so that
+    /// which lines are near a place, or could cross one, costs the cells round it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Kept here because the lines are kept here.</b> It was laid inside the shell's own walk and thrown
+    /// away with it, which meant the only complete index of the town's geometry existed for the length of one
+    /// method — so a second reader either indexed the same lines again or asked an index of some subset of
+    /// them and got an answer about that subset. The lanes' own index (<c>RoadGraph</c>) is the one a tick
+    /// asks and is right to hold lanes alone: "which lane is this car on" may not answer with a bay's way.
+    /// </para>
+    /// <para>
+    /// Laid on the first ask, like the perimeter, and at the cell the town indexes everything at
+    /// (<see cref="SimConfig.NearestChainCellM"/>) — which is what puts its cells on the same lattice as
+    /// every other index's.
+    /// </para>
+    /// </remarks>
+    public ChainIndex DrivenLines(SimConfig config)
+    {
+        if (_drivenLines is not null) return _drivenLines;
+
+        var building = new ChainIndex.Builder();
+        for (var line = 0; line < DrivenCount; line++)
+        {
+            building.Add(line, ArcsOfDriven(line), DrivenLengthM(line));
+        }
+
+        return _drivenLines = building.Seal(config.NearestChainCellM);
+    }
+
     LaneShell? _perimeter;
 
     /// <summary>
-    /// <b>The outside of the driven ground, as stretches of the lines themselves</b>
+    /// <b>The outside of the driven ground, as the merge of the ribbons every line lays</b>
     /// (<see cref="LaneShell"/>), laid on the first ask and not before: nothing the town needs to be laid
-    /// reads it, and working it out costs a walk of every line against the shape it is part of.
-    /// </summary>
-    public LaneShell Perimeter(SimConfig config) => _perimeter ??= LaneShell.Of(this, config);
-
-    LaneShell? _boundary;
-
-    /// <summary>
-    /// <b>The town's boundary: the perimeter with every corner the ground turns turned on it</b>
-    /// (<see cref="LaneShell.Rounded"/>), which is what every line beside a road is struck off
-    /// (<see cref="GroundRings"/>).
+    /// reads it, and working it out costs every ribbon cut against every ribbon near it.
     /// </summary>
     /// <remarks>
-    /// <b>Kept here because the extrusion cache hangs off it.</b> Rounding hands back a shell of its own,
-    /// and a shell remembers every distance it has been extruded by — so a caller that rounds its own copy
-    /// pays for the whole table again. The picture, the ground answer, the walking network and the probe all
-    /// want the same distances off the same boundary, and asking one object for them is the difference
-    /// between striking each line once and striking it once per reader.
+    /// <b>Kept here because it is the town's and not a reader's.</b> The merge is the same for everyone who
+    /// asks, and the picture redrawing on a pan asks it every frame.
     /// </remarks>
-    public LaneShell Boundary(SimConfig config) => _boundary ??= Perimeter(config).Rounded(config);
+    public LaneShell Perimeter(SimConfig config) => _perimeter ??= LaneShell.Of(this, config);
 
     /// <summary>The tarmac as one shape, for whoever wants to ask how far off it a point stands.</summary>
     public Kerbs Kerbs { get; }
@@ -162,8 +188,8 @@ internal sealed class Paving
         // The junctions a road runs through as one line (<see cref="RoadCuts.RunsThrough"/>): a movement
         // through one stands inside the two arms' own bands, so it is not a piece of the outline.
         var through = RoadCuts.RunsThrough(pieces);
-        var kerbs = Kerbs.Of(pieces, lanes, bays, config.ParkingSpaceWidthM, through);
+        var kerbs = Kerbs.Of(pieces, lanes, bays, through);
 
-        return new Paving(walkM, pieces, lanes, bays, config.ParkingSpaceWidthM, kerbs);
+        return new Paving(walkM, pieces, lanes, bays, kerbs);
     }
 }

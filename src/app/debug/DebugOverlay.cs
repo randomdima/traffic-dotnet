@@ -108,9 +108,15 @@ internal sealed partial class DebugOverlay
     /// The ground the renderer was handed, for the one layer that draws how the town is <em>made</em>
     /// rather than what it is doing (OBS-2o). Null where nothing has been laid yet.
     /// </param>
+    /// <param name="pick">The cell of the geometry grid a reader has picked out, if any (OBS-2t).</param>
+    /// <param name="pointerM">
+    /// Where the pointer stands on the town, and <paramref name="pointerPx"/> where it stands on the glass —
+    /// the first is what the readings are asked about and the second is where they are written.
+    /// </param>
     public void Draw(
         ref ScreenDraw draw, ref ScreenDraw ground, TownWorld world, GroundMesh? mesh, SimConfig config,
-        DebugSwitches switches, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+        DebugSwitches switches, DebugPick pick, Vector2 pointerM, Vector2 pointerPx, Vector2 uiPx,
+        Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
     {
         Relaid = false;
 
@@ -145,6 +151,13 @@ internal sealed partial class DebugOverlay
         // Last, so the construction stands over the lines and the shapes: what it is read against is the
         // track written on the ground under all of them, and a chevron through the arc reads as the arc.
         if (switches.TurnCircles) TurnCircles(ref draw, world, viewCentreM, viewSpanM, pixelsPerMetre);
+
+        // <b>After everything, because it is an answer about what is already drawn</b> (OBS-2t): a highlight
+        // under the layer it picks out of is a line somebody has to look for.
+        if (switches.NeedsTownGeometry)
+        {
+            Pointer(ref draw, world, config, switches, pick, pointerM, pointerPx, uiPx, pixelsPerMetre);
+        }
     }
 
     /// <summary>OBS-2b's cull, coarsely: whether a place is inside the view once the body standing there has been allowed its own reach.</summary>

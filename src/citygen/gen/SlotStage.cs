@@ -76,7 +76,7 @@ internal static class SlotStage
         var bayLengthM = config.ParkingSpaceLengthM;
         var bayWidthM = config.ParkingSpaceWidthM;
         var pitchM = config.CityGen.BuildingSideMaxM * (1f + PaddingShare);
-        var sectionM = config.ParkingSectionShortestStretchM + config.ParkingSectionSetbackM;
+        var clearM = config.ParkingFrontageClearOfTheEndsM;
 
         // Room is asked for the widest lot the draw can produce, so a slot that has room has it whatever
         // the draw then asks for.
@@ -123,14 +123,15 @@ internal static class SlotStage
             {
                 for (var alongM = startM; alongM <= endM; alongM += pitchM)
                 {
-                    // A lot's frontage is a stretch of road cut out for the ways into it, and a cut has to
-                    // leave a stretch standing either side of itself (<c>ParkingSections</c>). Where the
-                    // road does not afford that, the slot is a building's rather than a lot's — the
-                    // alternative is a car park no lane can be entered from. <b>And the whole frontage
-                    // stands past the arm's paint</b> (GEN-12): a lot centred on the first slot reached
-                    // half its width back into it, and its tarmac stood where a crossing's end steps off.
-                    var roomForALot = alongM - lotHalfAlongM >= MathF.Max(sectionM, startM)
-                                      && alongM + lotHalfAlongM <= MathF.Min(lengthM - sectionM, endM);
+                    // A lot's bays are reached over a run-in staged along the lane beside them
+                    // (<c>BayLines</c>), so its frontage has to stand clear of its road's own ends by that
+                    // and by a stretch of street beyond it. Where the road does not afford that, the slot is
+                    // a building's rather than a lot's — the alternative is a car park whose ways in start
+                    // inside a junction. <b>And the whole frontage stands past the arm's paint</b> (GEN-12):
+                    // a lot centred on the first slot reached half its width back into it, and its tarmac
+                    // stood where a crossing's end steps off.
+                    var roomForALot = alongM - lotHalfAlongM >= MathF.Max(clearM, startM)
+                                      && alongM + lotHalfAlongM <= MathF.Min(lengthM - clearM, endM);
                     slots.Add(new Slot(road, hand, alongM, roomForALot));
                 }
             }

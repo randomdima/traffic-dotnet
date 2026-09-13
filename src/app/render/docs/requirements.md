@@ -28,18 +28,12 @@ camera pulls back.
 appended in is the whole of the answer** and depth does no work: one indexed draw, one pass, nothing
 sorted, and the piece appended last is the piece that shows.
 
-**A layer is the ground within one distance of the kerb** (`GroundMesh.Region`, `GroundRings`): the
-boundary of the driven ground as closed rings, moved by that distance and filled. The distances are a
-walk, a walk less an edge line, a line's width, and nought. Under them is the grass, between them the
-water, the shore and the decks, and above them the paint. **A ring that encloses ground is filled and a
-ring that encloses a block is the hole in it**, told apart by the sign of the area it covers — a ring walks
-with the ground on its right throughout.
+**No layer of ground beside a road is drawn at present.** Each was the boundary of the driven ground moved
+by one distance and filled — a walk, a walk less an edge line, a line's width, and nought — and nothing
+strikes such a line any more ([citygen](../../../citygen/docs/decision-log.md)). What is left under the
+paint is the grass, the water, the shore and the decks, which is the gap
+[docs/index.md](../../../../docs/index.md#known-gaps) names and not a shape this slice chose.
 
-**The holes are laid after every region and in the other order** (`GroundMesh.Encloses`). Outside the town
-the distances nest inwards; inside a block, a ring nearer the kerb leaves *more* of the block beyond it, so
-laid in the regions' own order the innermost distance covers the whole block and every town comes back
-paved kerb to kerb. Run in increasing distance after them, a block shows the same sequence read outwards
-from its own kerb: the line, the walk, its rim, then the grass.
 
 **A car park, a junction, a bridge and a dead end are not shapes here and never were.** A junction is the
 union of the movements that cross in it (`TER-5`) and a car park the union of the ways that reach into it

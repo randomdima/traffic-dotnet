@@ -111,20 +111,33 @@ internal static class Theme
     public static readonly Vector4 WalkingNodes = new(0.30f, 0.90f, 0.45f, 0.95f);
 
     /// <summary>
-    /// The stretches of the town's driven lines that are the outside of it (OBS-2p). <b>The driving
-    /// colour's opposite and not a shade of it</b>: the whole reading is which of the orange lines under it
-    /// the outside actually runs along, and every mark this layer makes is drawn straight over one of them.
+    /// The boundary of the town's driven ground (OBS-2p). <b>The driving colour's opposite and not a shade
+    /// of it</b>: the reading is taken against the orange lines under it, and a shade of the same hue says
+    /// these are more lanes rather than where the ground those lanes lay comes to an end.
     /// </summary>
     public static readonly Vector4 Perimeter = new(0.15f, 0.60f, 1f, 0.95f);
 
     /// <summary>
-    /// A line the town strikes off that one, by name (OBS-2q, <c>CityGen.GroundLine</c>). <b>Neither the
-    /// perimeter's colour nor a shade of it</b>: the reading is the two lines together — whether the struck
-    /// one keeps its distance everywhere, and where it cut a corner the boundary turned — and two blues an
-    /// offset apart are one thick line at the framing a town is looked at. <b>White, because it is the
-    /// line the town really has</b> where the blue one is the construction it is taken off.
+    /// The ground each driven line covers, as the band the merge is given (OBS-2s). <b>The boundary's own
+    /// hue at a wash</b>: it is the inside of the shape that line is drawn round, so it is the one thing
+    /// here that ought to read as the same answer — and it is laid under every other layer, which a colour
+    /// at any weight would bury instead of tint.
     /// </summary>
-    public static readonly Vector4 GroundLine = new(1f, 1f, 1f, 0.95f);
+    public static readonly Vector4 Ribbon = new(0.15f, 0.60f, 1f, 0.16f);
+
+    /// <summary>
+    /// The inward normal of the perimeter (OBS-2p). <b>White, and not a shade of the line it stands on</b>:
+    /// the reading is a field of arrows taken in at a glance against a line that is one colour everywhere,
+    /// and a normal drawn in the line's own colour thickens the line instead of standing off it.
+    /// </summary>
+    public static readonly Vector4 PerimeterNormal = new(1f, 1f, 1f, 0.95f);
+
+    /// <summary>
+    /// A run of perimeter the merge could not close (OBS-2p). <b>The collision colour and not a shade of the
+    /// perimeter's</b>: it is a fault in the answer rather than a kind of boundary, and it has to be told
+    /// from the line beside it at any framing.
+    /// </summary>
+    public static readonly Vector4 PerimeterLoose = new(0.95f, 0.35f, 0.85f, 0.95f);
 
     public static readonly Vector4 Collision = new(0.95f, 0.35f, 0.85f, 0.85f);
 
@@ -152,6 +165,36 @@ internal static class Theme
     /// a hue picked to stand off the tarmac would not do over the grass beside it.
     /// </summary>
     public static readonly Vector4 Wireframe = new(0.98f, 0.99f, 1f, 0.35f);
+
+    /// <summary>
+    /// The lattice the town's geometry is asked over (OBS-2r). <b>No hue either, and dimmer than the
+    /// wireframe</b>: like a mesh a grid belongs to nobody, and unlike a mesh it is not a cut in anything —
+    /// it is a ruling laid over the whole picture, so it has to be readable as the thing furthest back.
+    /// </summary>
+    public static readonly Vector4 GeometryGrid = new(0.72f, 0.78f, 0.86f, 0.22f);
+
+    /// <summary>
+    /// And the wash in a cell that holds lines, at its darkest where the busiest cell in the frame is
+    /// (<c>DebugOverlay.Grid</c>). <b>A hue, because this one <em>is</em> about the town</b>: what it says is
+    /// where the lines are crowded, which is where a query pays and where a cell size is worth arguing
+    /// about. Cold, since the warm hues are the networks' and this is not a network.
+    /// </summary>
+    public static readonly Vector4 GeometryGridCell = new(0.35f, 0.65f, 0.95f, 0.40f);
+
+    /// <summary>
+    /// What the pointer is over, and what a picked cell holds (OBS-2t). <b>Near white and warm</b>: it has
+    /// to lift a line out of whichever layer's colour that line is already drawn in — orange, blue, pink or
+    /// green — so it is the one mark here that is told apart by being <em>brighter</em> rather than by being
+    /// a hue of its own, which is also what a reader expects of something they are pointing at.
+    /// </summary>
+    public static readonly Vector4 DebugPicked = new(1f, 1f, 0.72f, 0.98f);
+
+    /// <summary>
+    /// What a picked cell holds (OBS-2t). <b>The same colour at half the weight</b>, because the two are
+    /// read together and are not the same answer: one is the thing under the pointer now, the other is the
+    /// set a question asked in that cell would be narrowed to. A second hue would say they are unrelated.
+    /// </summary>
+    public static readonly Vector4 DebugHeld = new(1f, 1f, 0.72f, 0.45f);
 
     public static readonly Vector4 RulerTape = new(1f, 0.95f, 0.35f, 1f);
 

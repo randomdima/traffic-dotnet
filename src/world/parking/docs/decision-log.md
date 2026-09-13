@@ -4,6 +4,22 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-12 — the ways at the bays are indexed, because a city lays eight thousand of them
+
+What is driven over what at a bay is measured from the lines themselves, and the ways at the neighbouring
+bays were compared pairwise on the boxes the two lines stand in — which the note here said was cheaper than
+any index would be to lay, *for a few hundred ways*. A city lays 8 606 of them, and that is 37 million pairs
+proving that two lines a district apart do not touch.
+
+**Which pairs are compared is now the geometry grid's to say** (`ChainIndex.Crossing`) and what a pair comes
+to is still the two boxes and then the two lines. The candidates are a superset of what the boxes admit — the
+index holds the whole way where a box is its driven part grown by the clearance, and the query is asked with
+that clearance over — so the table is the table it was. The ways are taken in their own order rather than the
+lattice's, since a crossing is filed under both ways it is a crossing of.
+
+**It is inside the noise of standing a town up**, which the boxes always were; what it buys is that the cost
+follows how crowded a car park is rather than how many car parks the town has.
+
 ## 2026-09-11 — the room beside a car and the room at its ends are two figures
 
 One margin sized both (`ParkingSpaceMarginInCarWidths`), and what sized it was the ends: a parallel bay is
@@ -101,20 +117,6 @@ first brings it to `R(2cos φ − 1)`. So the car stands in the middle of its ba
 resolution of the crossing measurement, which was the real bug: sampled at the crossing clearance, two
 metres of slop could not see the 1.6 m a centred car stands clear, so every parked car read as cutting its
 street. Bay ways are walked as finely as the sample budget allows.
-
-## 2026-08-24 — a parking section is a stretch of the network, bracketed by two nodes
-
-A leg into a car park ended at a metre inside a link, so the last piece of a drive was the one piece a
-search could not name. There are two nodes per section rather than one: a section's bays stand along tens
-of metres and are reached from both directions, so a node at the middle leaves half the bays behind
-whichever lane arrives (`GEN-4h`). One node whose box spans the frontage was wanted and is not available —
-a box is ground held by a *movement*, so it would hold the frontage whole while anybody manoeuvred on it,
-and a bay inside a box has no lane to hand back to. A place is a cut and not a disc, which had three
-consequences the build found: a biarc between two lanes meeting at a point is float noise drawn as two
-tiny arcs of enormous curvature; a movement with no ground under it is not one to negotiate; and a slot
-spent on a join of no length is one the claim has not got for the lane past it. Odesa's lanes went 414 →
-1704 with the town driving the same, and the ladder moved — reroutes 9 → 26 — which is left standing
-because it is the ladder's figure and the counters that say whether the town works did not move.
 
 ## 2026-08-24 — a bay is two of the road's own ways
 

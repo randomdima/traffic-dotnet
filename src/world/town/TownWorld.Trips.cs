@@ -430,20 +430,19 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Where a drive leg into a bay ends: the node the lane one of its ways in leaves arrives at</b>
-    /// (GEN-4h), which for a bay of a car park is one end of that car park's own section. <b>One goal per
-    /// lane the bay can be driven into off</b>, so which side of the street the leg approaches on is priced
-    /// by the search and not decided before it.
+    /// <b>Where a drive leg into a bay ends: the metre of the run its way in leaves the carriageway at.</b>
+    /// <b>One goal per lane the bay can be driven into off</b>, so which side of the street the leg
+    /// approaches on is priced by the search and not decided before it.
     /// </summary>
     /// <remarks>
-    /// <b>The node and not the metre the way leaves at.</b> A route is a run of nodes and the last of them
-    /// has to be one the network has, or the leg is a route to somewhere plus a stretch of road the driver
-    /// worked out for itself. The way in is threaded onto the end of that route as the line is assembled
-    /// (<c>LineAssembler</c>), so the car turns off where the way leaves rather than driving on to the node —
-    /// what the node buys is that the search, the price and the reroute all name the same place.
+    /// <b>The metre and not a node.</b> A destination has always been a place on a link
+    /// (<see cref="RouteGoal"/>), and the place a way in leaves its lane is exactly where the leg stops
+    /// driving the road — so the search, the price, the reroute and the line all name that one place, with
+    /// no node cut into the road to carry it (GEN-4h). The way in is threaded onto the end of the route as
+    /// the line is assembled (<c>LineAssembler</c>), which is what covers the rest of the distance.
     /// <para>
-    /// <b>The bay itself is what the search steers by</b>, because the two lanes arrive at nodes at opposite
-    /// ends of the same section and neither of them is where the car is going.
+    /// <b>The bay itself is what the search steers by</b>, because the two lanes are driven in opposite
+    /// directions and neither of their ends is where the car is going.
     /// </para>
     /// </remarks>
     int BayGoals(int bay, Span<RouteGoal> into, out Vector2 goalPointM)
@@ -452,6 +451,7 @@ internal sealed partial class TownWorld
         if (bay < 0) return 0;
 
         var written = 0;
+        Span<int> takenLane = stackalloc int[into.Length];
         for (var slot = 0; slot < _bayWays.WayCountOf(bay) && written < into.Length; slot++)
         {
             var way = _bayWays.WayOf(bay, slot);
@@ -462,12 +462,14 @@ internal sealed partial class TownWorld
             if (link == TravelGraph.NoLink) continue;
 
             // One goal per lane and not per way: a lane that lays both standings is two ways in and one
-            // place to be routed to.
+            // place to be routed to. <b>Asked of the lane and not of the run it is part of</b>, because one
+            // run carries both ways in wherever a frontage is worked off two stretches of one street.
             var seen = false;
-            for (var at = 0; at < written && !seen; at++) seen = into[at].Link == link;
+            for (var at = 0; at < written && !seen; at++) seen = takenLane[at] == lane;
             if (seen) continue;
 
-            into[written++] = new RouteGoal(link, _driving.PlaceOfM(lane, _roads.LaneLengthM[lane]));
+            takenLane[written] = lane;
+            into[written++] = new RouteGoal(link, _driving.PlaceOfM(lane, _bayWays.AtLaneM(way)));
         }
 
         if (written > 0) goalPointM = _parking.CentreM(bay);

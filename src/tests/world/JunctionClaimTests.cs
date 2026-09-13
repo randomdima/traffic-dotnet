@@ -470,9 +470,8 @@ public class JunctionClaimTests
             if (slot < 0 || world.GroundEndsAtM(car) <= boundaryM) continue;
             if (world.Cars.ClaimFromM[car] >= world.Cars.LaneStartsOf(car)[1]) continue;
 
-            // A place cut into a road (GEN-4h) is a boundary with no box behind it: its two lanes meet at
-            // a point, so the join between them has no metres and a claim over it holds nothing —
-            // which is the whole of what "no ground is lost to a place" means.
+            // Two lanes that meet at a point are a boundary with no box behind them: the join between them
+            // has no metres and a claim over it holds nothing.
             if (world.Roads.ConnectorLengthM(slot) <= 0f) continue;
 
             found.Reaching++;

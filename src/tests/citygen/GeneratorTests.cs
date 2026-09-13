@@ -766,45 +766,139 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// <b>Nothing bends tighter than the street's own floor</b>, which is the radius the speed a street is
-    /// laid for affords on tarmac (<see cref="SimConfig.CarCorneringRadiusM"/>).
+    /// <b>Nothing in a town bends tighter than the corner a junction would have been filleted at</b>
+    /// (<see cref="SimConfig.RoadCornerRadiusM"/>, GEN-12a): the bend a node with no fork was swept into is
+    /// the turn the layout put there, and it is the tightest thing a plan carries.
     /// </summary>
     /// <remarks>
-    /// <b>The corner a node with no fork was swept into is the exception</b> (TER-5b, GEN-12): that turn is
-    /// the one the layout put there and a car slowed for it when it was a junction, so what the sweep changed
-    /// is the shape of the ground and not the speed anything holds through it. It is still never tighter than
-    /// the fillet the corner would have been turned on.
+    /// <b>The class's own floor is asked of the wander that lays it and not of the plan</b>
+    /// (<see cref="AWanderIsNeverRoundedTighterThanItsOwnFloor"/>, GEN-12). A swept bend is allowed to be
+    /// tighter than that floor — a car slowed for that turn when it was a junction and slows for it now that
+    /// it is a curve — and where the node was joined out of the town altogether the arc stands in the middle
+    /// of a road like any other, so nothing in the plan says which arc it is.
     /// </remarks>
     /// <remarks>
-    /// <b>A roundabout is the other exception, and it has a floor of its own</b> (GEN-19): the whole of one
-    /// is a corner, so what its ring may bend to is the radius its own design speed affords rather than the
-    /// street's.
+    /// <b>A roundabout is the exception and it has a floor of its own</b> (GEN-19): the whole of one is a
+    /// corner, so what its ring may bend to is the radius its own design speed affords.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Seeds))]
-    public void NothingBendsTighterThanItsOwnFloor(ulong seed)
+    public void NothingBendsTighterThanTheCornerItStandsIn(ulong seed)
     {
         var plan = Lay(Brief(seed));
-        var arms = ArmsOf(plan);
         var circulating = OneWays.Circulating(plan);
-        var floorM = RoadStage.FloorRadiusM(Config, RoadClass.Street);
         var ringFloorM = RoadStage.FloorRadiusM(Config, RoadClass.Roundabout);
         for (var road = 0; road < plan.Roads.Count; road++)
         {
-            var arcs = plan.Roads.SegmentsOf(road);
-            for (var piece = 0; piece < arcs.Length; piece++)
+            var againstM = circulating[road] ? ringFloorM : Config.RoadCornerRadiusM;
+            foreach (var arc in plan.Roads.SegmentsOf(road))
             {
-                if (arcs[piece].Curvature == 0f) continue;
+                if (arc.Curvature == 0f) continue;
 
-                var sweptCorner = (piece == 0 && arms[plan.Roads.FromJunction[road]] == 2)
-                                  || (piece == arcs.Length - 1 && arms[plan.Roads.ToJunction[road]] == 2);
-                var againstM = circulating[road]
-                    ? ringFloorM
-                    : sweptCorner ? Config.RoadCornerRadiusM : floorM;
-                var radiusM = 1f / MathF.Abs(arcs[piece].Curvature);
+                var radiusM = 1f / MathF.Abs(arc.Curvature);
                 Assert.True(
                     radiusM >= againstM - 0.01f,
-                    $"an arc of {radiusM:F1} m against a floor of {againstM:F1} m");
+                    $"road {road} carries an arc of {radiusM:F1} m against a floor of {againstM:F1} m");
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>No junction of two arms carries a road through it</b> (GEN-12b): where the two arms arrive on one
+    /// tangent there is nothing at the node to decide, so the two roads are one road and the node is not in
+    /// the plan at all. What is left wearing two arms is a corner a car turns across — the pairs the sweep
+    /// refused, which meet at an angle and not on a tangent.
+    /// </summary>
+    /// <remarks>
+    /// <b>A pair that disagrees about which ways it is driven is the exception</b> (GEN-18a): those are two
+    /// roads however they meet, because joining them would be a road that changes how many lanes it has half
+    /// way along. A ring's arms are one-way and are covered by the same clause (GEN-19). <b>A bridge is the
+    /// other</b>: it is its own road bridgehead to bridgehead (GEN-14a), and the approach it meets in line
+    /// at either end is a road that stands on the ground.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoJunctionOfTwoArmsCarriesARoadThroughIt(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        var arms = ArmsOf(plan);
+        var spans = new bool[plan.Roads.Count];
+        foreach (var deck in plan.Bridges.Road) spans[deck] = true;
+
+        var outward = new Dictionary<int, List<(int Road, Vector2 Away, bool Bending)>>();
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var arcs = plan.Roads.SegmentsOf(road);
+            if (arcs.Length == 0) continue;
+
+            Add(plan.Roads.FromJunction[road], road, Spline.SampleAt(arcs, 0f).Direction, arcs[0].Curvature != 0f);
+            Add(
+                plan.Roads.ToJunction[road], road, -Spline.SampleAt(arcs, Spline.TotalLengthM(arcs)).Direction,
+                arcs[^1].Curvature != 0f);
+        }
+
+        foreach (var (junction, at) in outward)
+        {
+            if (arms[junction] != 2 || at.Count != 2) continue;
+            if (plan.Roads.Flow[at[0].Road] != plan.Roads.Flow[at[1].Road]) continue;
+            if (plan.Roads.Flow[at[0].Road] != RoadFlow.BothWays) continue;
+            if (spans[at[0].Road] || spans[at[1].Road]) continue;
+
+            // <b>A node both of whose arms arrive bending is on a road that bends the whole way</b> — the
+            // orbital, which is GEN-12's own exception and has no straight for a sweep to be laid on.
+            if (at[0].Bending && at[1].Bending) continue;
+
+            Assert.True(
+                Vector2.Dot(at[0].Away, at[1].Away) > -MathF.Cos(CreaseRad),
+                $"junction {junction} joins roads {at[0].Road} and {at[1].Road} on one tangent, " +
+                $"which is a road and not a junction — arriving " +
+                $"{(at[0].Bending ? "bending" : "straight")} and {(at[1].Bending ? "bending" : "straight")}");
+        }
+
+        void Add(int junction, int road, Vector2 away, bool bending)
+        {
+            if (!outward.TryGetValue(junction, out var at)) outward[junction] = at = [];
+
+            at.Add((road, away, bending));
+        }
+    }
+
+    /// <summary>
+    /// <b>A wandering road is never turned tighter than its own class's floor</b> (GEN-12): a vertex whose
+    /// corner would be is given up and the line is laid again through what is left, so what comes back runs
+    /// straight through it rather than bending past what the class is laid for.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the rounding rather than of a town, because it is the rounding's: the plan cannot be asked it
+    /// at all once a swept bend stands in the middle of a road
+    /// (<see cref="NothingBendsTighterThanTheCornerItStandsIn"/>). <b>What it is really about is the re-lay</b>
+    /// — giving a vertex up moves the two segments either side of it into one, and the corner that leaves at
+    /// the next vertex along is a corner nothing weighed when the line was first laid.
+    /// </remarks>
+    [Fact]
+    public void AWanderIsNeverRoundedTighterThanItsOwnFloor()
+    {
+        var floorM = RoadStage.FloorRadiusM(Config, RoadClass.Street);
+        Span<Vector2> pointsM = stackalloc Vector2[4];
+        for (var turnDeg = 5; turnDeg <= 150; turnDeg += 5)
+        {
+            for (var legM = 10f; legM <= 200f; legM += 10f)
+            {
+                var turnRad = turnDeg * MathF.PI / 180f;
+                pointsM[0] = Vector2.Zero;
+                pointsM[1] = new Vector2(legM, 0f);
+                pointsM[2] = pointsM[1] + (legM * new Vector2(MathF.Cos(turnRad), MathF.Sin(turnRad)));
+                pointsM[3] = pointsM[2] + new Vector2(legM, 0f);
+                foreach (var arc in RoadStage.Rounded(pointsM, floorM))
+                {
+                    if (arc.Curvature == 0f) continue;
+
+                    var radiusM = 1f / MathF.Abs(arc.Curvature);
+                    Assert.True(
+                        radiusM >= floorM - 0.01f,
+                        $"a {turnDeg} degree turn on {legM:F0} m legs rounded to {radiusM:F1} m " +
+                        $"against a floor of {floorM:F1} m");
+                }
             }
         }
     }
@@ -840,13 +934,11 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// How open a joint may read and still be one line: <b>the angle that moves the pavement's own line by
-    /// the rounding two computations of one distance disagree by</b> (<see cref="Kerbs.RoundingM"/>), at the
-    /// offset that line is laid at. It is float slop over a chain of arcs and nothing else — a road that
-    /// really creases does so by tenths of a radian.
+    /// How open a joint may read and still be one line, which is the road stage's own figure and not a
+    /// second one: <b>what says a road is one line has to be what says two arms are one road</b>
+    /// (<see cref="RoadStage.CreaseRad"/>, GEN-12b).
     /// </summary>
-    static float CreaseRad => Kerbs.RoundingM / ((Config.LaneWidthM * SimConfig.LanesPerCarriageway * 0.5f)
-                                                 + (Config.PavementWidthM * 0.5f));
+    static float CreaseRad => RoadStage.CreaseRad(Config);
 
     /// <summary>Nothing a town stands is laid on its water (GEN-5), which the ground is the authority on.</summary>
     [Theory]

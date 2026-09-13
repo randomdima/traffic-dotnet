@@ -183,6 +183,35 @@ internal static class PathMarks
         }
     }
 
+    /// <summary>
+    /// <b>The normals down one stretch of a chain</b>: at each place on the comb, an arrow square off the
+    /// line and pointing to the side the chain claims — the barb (<see cref="Barbed"/>) with a head on it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The head is what makes it a normal rather than a barb.</b> A barb answers <em>which side</em> and
+    /// is read against the line it hangs off; a normal is a direction in its own right, and a reader looking
+    /// at a boundary's normals is looking at the field of them rather than at any one — a run of heads all
+    /// turned the same way across a corner says the corner came out the way it should, and one head turned
+    /// out at the grass says it did not, without the line underneath having to be traced to work out which
+    /// way it was walked.
+    /// </remarks>
+    public static void Normals(
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM,
+        bool toTheRight, float widthM, Vector4 colour)
+    {
+        if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
+
+        var start = Spline.SampleAt(arcs, fromM);
+        for (var atM = fromM + FirstMarkM(start.PositionM, start.Direction, pitchM); atM <= toM; atM += pitchM)
+        {
+            var at = Spline.SampleAt(arcs, atM);
+            var across = toTheRight ? at.Right : -at.Right;
+            var tipM = at.PositionM + (across * BarbM);
+            draw.LineM(at.PositionM, tipM, widthM, colour);
+            draw.ChevronM(tipM, across, BarbM * MarkSizeFraction * 2f, widthM * MarkWidthFactor, colour);
+        }
+    }
+
     /// <summary>One stretch of a chain as a path: the line it is, and the marks that say which way it runs.</summary>
     public static void Chained(
         ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM, bool bothWays,

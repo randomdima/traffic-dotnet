@@ -115,6 +115,8 @@ internal static class Program
             UiScale: options.UiScale,
             Seconds: options.Seconds,
             RulerPointsM: options.RulerPointsM,
+            PointerM: options.PointerM,
+            PickedM: options.PickedM,
             Validate: options.Validate);
 
         var shot = ShotRun.Take(ask, config);
@@ -153,6 +155,7 @@ internal static class Program
         // could see in the picture.
         if (options.Map is not null || options.AtM is not null || options.ViewM > 0f || options.TurnDeg != 0f ||
             options.Ui.Length > 0 || options.Seconds > 0 || options.RulerPointsM.Count > 0 ||
+            options.PointerM is not null || options.PickedM is not null ||
             options.Title is not null || options.Note is not null)
         {
             throw new ArgumentException(
@@ -221,18 +224,11 @@ internal static class Program
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
-        // The census and the shell are the checks about a particular town, so the command line's --map
-        // reaches them; every other check builds the world it needs. The shell also answers about one place
-        // in that town (--at), because a corner that came out wrong is looked at where it is.
+        // The census is the one check about a particular town, so the command line's --map reaches it;
+        // every other check builds the world it needs.
         if (string.Equals(name, "census", StringComparison.Ordinal))
         {
             TownCensus.Run(map ?? Options.FixtureMap, config);
-            return 0;
-        }
-
-        if (string.Equals(name, "shell", StringComparison.Ordinal))
-        {
-            ShellProbe.Run(map ?? Options.FixtureMap, config, atM);
             return 0;
         }
 
@@ -417,6 +413,7 @@ internal static class Program
         bool Check, bool Validate, int Width, int Height, double Seconds, string? Bench, string? Map, float ViewM,
         float TurnDeg,
         string? Shot, Vector2? AtM, string Ui, float UiScale, string Present, List<Vector2> RulerPointsM,
+        Vector2? PointerM, Vector2? PickedM,
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
         bool Windowed, string? Display, string? Export)
     {
@@ -458,7 +455,7 @@ internal static class Program
             var options = new Options(Check: false, Validate: false,
                 Width: view.WindowWidthPx, Height: view.WindowHeightPx, Seconds: 0,
                 Bench: null, Map: null, ViewM: 0f, TurnDeg: 0f, Shot: null, AtM: null, Ui: string.Empty, UiScale: 0f,
-                Present: "fifo", RulerPointsM: [], Sheet: null,
+                Present: "fifo", RulerPointsM: [], PointerM: null, PickedM: null, Sheet: null,
                 Caption: false, Title: null,
                 Note: null, Lamps: false, Windowed: false, Display: null, Export: null);
             for (var i = 0; i < args.Length; i++)
@@ -520,6 +517,22 @@ internal static class Program
                         options.RulerPointsM.Add(new Vector2(float.Parse(args[i + 1]), float.Parse(args[i + 2])));
                         options.RulerPointsM.Add(new Vector2(float.Parse(args[i + 3]), float.Parse(args[i + 4])));
                         i += 4;
+                        break;
+                    // Where the pointer stands on the town, and which cell is picked out (OBS-2t): the two
+                    // readings the layers take from the reader, asked for by a path that has no reader.
+                    case "--point" when i + 2 < args.Length:
+                        options = options with
+                        {
+                            PointerM = new Vector2(float.Parse(args[i + 1]), float.Parse(args[i + 2])),
+                        };
+                        i += 2;
+                        break;
+                    case "--pick" when i + 2 < args.Length:
+                        options = options with
+                        {
+                            PickedM = new Vector2(float.Parse(args[i + 1]), float.Parse(args[i + 2])),
+                        };
+                        i += 2;
                         break;
                     case "--ui" when i + 1 < args.Length:
                         options = options with { Ui = args[i + 1] };

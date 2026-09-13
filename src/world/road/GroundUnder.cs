@@ -152,11 +152,10 @@ internal static class GroundUnder
     /// standing near enough to be on any of them.
     /// </summary>
     /// <remarks>
-    /// <b>The lanes, because a connector is not always there to carry the ground across</b>. A road merely
-    /// cut for a place a slice above asked for (GEN-4h) has a connector of no length over it, so a body lying
-    /// over that place is on the ends of two lanes and on no connector at all — and read as the nearest
-    /// lane's alone, half of it stood on ground the claims said was empty and the block drawn for it stopped
-    /// at the cut.
+    /// <b>The lanes, because a connector is not always there to carry the ground across</b>. Where two lanes
+    /// meet at a point the connector between them has no length, so a body lying over that place is on the
+    /// ends of two lanes and on no connector at all — and read as the nearest lane's alone, half of it stood
+    /// on ground the claims said was empty and the block drawn for it stopped at the seam.
     /// <para>
     /// <b>The lanes are what a place can meet twice and the connectors are not</b> (TER-5c.2), which is why
     /// the dedupe is theirs alone (<see cref="WriteTheLane"/>). A lane is a lane of both the places at its

@@ -135,9 +135,6 @@ internal sealed partial class FootGraph : IFineGraph
 
     public Vector2 EndsAtM(int lane) => _nodeM[_edgeTo[lane]];
 
-    /// <summary>A walk is aimed at a place on the pavement and never at a node of it, so none of them is kept for its own sake.</summary>
-    public bool EndsARun(int lane) => false;
-
     /// <summary>How wide the ground this stretch runs down is, which is what a lane is a quarter of.</summary>
     public float BandM(int edge) => _edgeBandM[edge];
 
@@ -171,27 +168,21 @@ internal sealed partial class FootGraph : IFineGraph
     /// not safe</b>: the index it answers <see cref="NearestEdge"/> from carries a scratch of its own
     /// (<see cref="ChainIndex"/>), so two towns asking it at once is two walks over one working set.
     /// </remarks>
+    /// <summary>
+    /// The most a joint may be open by before two stretches are no longer one line
+    /// (<see cref="Builder.RunOn"/>) — the same rounding the town's own shapes are cut with
+    /// (<see cref="Kerbs.RoundingM"/>).
+    /// </summary>
+    const float RoundingM = Kerbs.RoundingM;
+
     public static FootGraph Build(CityPlan plan, SimConfig config)
     {
         var builder = new Builder(config.Network.FootGraphNodeWeldM);
-        var bandM = plan.PavementWidthM;
 
-        // A map laid without a pavement has no walking network at all, and saying so is better than
-        // laying one down the middle of its roads. <b>Nor has a town whose lines off the kerb are held
-        // back</b> (<c>RoadFigures.LinesOffTheKerbLaid</c>): the walking lane is one of them — the boundary
-        // moved half a walk — so it goes when they go, and the empty network is the same one a map with no
-        // pavement has always stood up with.
-        if (bandM > 0f && config.Road.LinesOffTheKerbLaid)
-        {
-            var rings = GroundRings.Of(plan.Paving(config), config);
-            Wrap(rings, new GroundLocator(plan, config), builder, bandM, config.Network.FootGraphNodeWeldM);
-
-            // Stitched still, for the ends the ground's own veto left: a lane cut where it crossed water
-            // carries on where the water stops, and the two runs meet across a notch rather than at a node.
-            builder.Stitch(config.PersonDiameterM, bandM);
-            Crossings(plan, rings, builder, bandM);
-        }
-
+        // <b>Nothing lays a walking lane.</b> The lane was the town's boundary moved half a walk, and the
+        // boundary is now the merge of the ribbons the driven lines lay (<see cref="LaneShell"/>) with no
+        // line struck off it at any distance — so there is nothing for the wrap to be cut from and the
+        // network stands up empty, which is the network a map with no pavement has always stood up with.
         builder.Prune(config.Network.FootGraphStubPruneM);
 
         // Run together after the prune and not before it: dropping a stub is what leaves the node behind it

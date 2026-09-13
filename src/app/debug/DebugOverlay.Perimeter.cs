@@ -10,40 +10,30 @@ namespace TrafficSimulation.App.Debug;
 internal sealed partial class DebugOverlay
 {
     /// <summary>
-    /// <b>The outside of the town's driven ground, as the unbroken lines it is</b> (OBS-2p): the outer
-    /// boundary of the union of the bands every lane, movement and bay way lays (<see cref="LaneShell"/>),
-    /// which on a plain street is its outer lanes and at a junction is whichever movements reach past the
-    /// rest.
+    /// <b>The outside of the town's driven ground, as the merge of the ribbons its lines lay</b> (OBS-2p):
+    /// every lane, movement and bay way taken as the band of ground it covers, all of those merged into one
+    /// shape, and the boundary of that shape drawn (<see cref="LaneShell"/>).
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>Read off the town and not worked out here</b>, which is the rule the rest of this slice keeps: the
-    /// answer belongs to the ground rather than to the picture, and the pavement is meant to be laid off the
-    /// same one. What the layer adds is the stroke.
+    /// merge belongs to the ground rather than to the picture. What the layer adds is the stroke and the
+    /// normals.
     /// </para>
     /// <para>
-    /// <b>One solid line per ring, and nothing on it.</b> A perimeter is continuous and the reading taken
-    /// from it is <em>where it is not</em>, so anything drawn along the line itself could be mistaken for a
-    /// break in it. What stands beside it is another matter: a barb every few metres, square off the line and
-    /// to the side the shell believes the town is on (<see cref="PathMarks.Barbed"/>), leaves the line whole
-    /// and answers the question a line alone cannot — <b>which side of it the ring thinks is the ground</b>.
-    /// A ring walks with the town on one hand throughout (<see cref="LaneShell"/>), so a run of barbs turned
-    /// out at the grass is the walk having got a corner the wrong way round, and the boundary drawn there is
-    /// as wrong as it looks however continuous it is.
+    /// <b>One solid line per ring, and the normals beside it</b> (OBS-2p). The line says where the boundary
+    /// is and the normals say which side of it the shape is on — an arrow every few metres, square off the
+    /// line and turned to the side the merge believes is ground (<see cref="PathMarks.Normals"/>). A ring
+    /// walks with the driven ground on its right throughout (TER-3c.9), so a run of normals turned out at
+    /// the grass is the merge having got a corner the wrong way round, and the boundary drawn there is as
+    /// wrong as it looks however continuous it is. <b>Drawn on the line rather than beside it, the answer
+    /// could be mistaken for a break in it</b>, which is the one reading a perimeter is for.
     /// </para>
     /// <para>
-    /// <b>And the town's named lines struck off it, in white</b> (OBS-2q, <see cref="GroundLine"/>) — the
-    /// roadside perimeter at half a lane, which is a line the town has rather than a distance chosen to be
-    /// looked at. What a second line says that the first cannot is whether the extrusion <em>kept</em> its
-    /// distance: white crossing blue, or running inside it through a corner, is the fold rule having let a
-    /// lap of the offset stand. <b>A test line at a made-up distance stood here before</b>, five metres out
-    /// in red, and it was worth exactly as much as a line nothing is laid at — the reading is the same and
-    /// what it is taken of is now real.
-    /// </para>
-    /// <para>
-    /// <b>A dot is a fault, and every one the answer has is drawn.</b> The shell shuts every ring on itself,
-    /// so a chain with two ends is one it could not close — and that is a length of the town's edge nothing
-    /// accounts for, to be fixed in the ground rather than passed over here.
+    /// <b>A run with two ends is a fault, and every one the merge has is drawn</b>
+    /// (<see cref="LaneShell.Loose"/>) — in the fault colour, because the boundary of a union of closed
+    /// bands is closed and a run that does not shut is a crossing that was missed rather than a shape the
+    /// town has.
     /// </para>
     /// </remarks>
     static void Perimeter(
@@ -52,46 +42,38 @@ internal sealed partial class DebugOverlay
     {
         var sagM = PathMarks.SagPx / pixelsPerMetre;
         var barbPitchM = PathMarks.BarbPitchAt(pixelsPerMetre);
+        var shell = world.Plan.Paving(config).Perimeter(config);
 
-        var paving = world.Plan.Paving(config);
-        var shell = paving.Boundary(config);
-
-        // Under the perimeter itself, since the reading is taken against that line: where the two touch, the
-        // one that is meant to be kept clear of is the one to be able to see. <b>Off the town's own boundary
-        // and at the town's own distance</b>, both of which are cached on the paving — so a layer drawn every
-        // frame strikes the line once for the life of the town.
-        foreach (var ring in shell.Extruded(
-            GroundRings.OutM(GroundLine.Roadside, config), GroundRings.SmoothM))
+        foreach (var ring in shell.Chains)
         {
-            if (ring.Length == 0) continue;
+            if (!Drawn(ring, viewCentreM, viewSpanM, out var lengthM)) continue;
 
-            var outM = Spline.TotalLengthM(ring);
-            if (!OnScreen((ring[0].StartM + ring[^1].EndM) * 0.5f, viewCentreM, viewSpanM, outM * 0.5f)) continue;
+            PathMarks.Banded(ref draw, ring, 0f, lengthM, sagM, PathMarks.PathLineM, Theme.Perimeter);
 
-            PathMarks.Banded(ref draw, ring, 0f, outM, sagM, PathMarks.PathLineM, Theme.GroundLine);
+            // A ring is walked with the town's ground on the walker's right (TER-3c.9), so that is the hand
+            // the normal is turned to and the picture says whether the merge came out that way.
+            PathMarks.Normals(
+                ref draw, ring, 0f, lengthM, barbPitchM, toTheRight: true, PathMarks.PathLineM,
+                Theme.PerimeterNormal);
         }
 
-        foreach (var chain in shell.Chains)
+        foreach (var run in shell.Loose)
         {
-            if (chain.Length == 0) continue;
+            if (!Drawn(run, viewCentreM, viewSpanM, out var lengthM)) continue;
 
-            var headM = chain[0].StartM;
-            var tailM = chain[^1].EndM;
-            var lengthM = Spline.TotalLengthM(chain);
-            if (!OnScreen((headM + tailM) * 0.5f, viewCentreM, viewSpanM, lengthM * 0.5f)) continue;
-
-            PathMarks.Banded(ref draw, chain, 0f, lengthM, sagM, PathMarks.PathLineM, Theme.Perimeter);
-
-            // A ring is walked with the town's ground on the walker's right (<see cref="LaneShell"/>), so
-            // that is the hand the barb is turned to and the picture says whether the walk was right.
-            PathMarks.Barbed(
-                ref draw, chain, 0f, lengthM, barbPitchM, toTheRight: true, PathMarks.PathLineM,
-                Theme.Perimeter);
-
-            if (Vector2.DistanceSquared(headM, tailM) <= Kerbs.RoundingM * Kerbs.RoundingM) continue;
-
-            draw.DiscM(headM, PathMarks.JoinDiscM, Theme.Perimeter);
-            draw.DiscM(tailM, PathMarks.JoinDiscM, Theme.Perimeter);
+            PathMarks.Banded(ref draw, run, 0f, lengthM, sagM, PathMarks.PathLineM, Theme.PerimeterLoose);
+            draw.DiscM(run[0].StartM, PathMarks.JoinDiscM, Theme.PerimeterLoose);
+            draw.DiscM(run[^1].EndM, PathMarks.JoinDiscM, Theme.PerimeterLoose);
         }
+    }
+
+    /// <summary>Whether one chain is worth walking at all: it has pieces, and it reaches the view.</summary>
+    static bool Drawn(ReadOnlySpan<ArcSeg> chain, Vector2 viewCentreM, Vector2 viewSpanM, out float lengthM)
+    {
+        lengthM = 0f;
+        if (chain.Length == 0) return false;
+
+        lengthM = Spline.TotalLengthM(chain);
+        return OnScreen((chain[0].StartM + chain[^1].EndM) * 0.5f, viewCentreM, viewSpanM, lengthM * 0.5f);
     }
 }

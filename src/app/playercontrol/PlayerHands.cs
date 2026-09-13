@@ -159,7 +159,7 @@ internal sealed class PlayerHands
     /// </param>
     public void Click(
         MouseButton button, Vector2 atPx, bool alsoKeep, Camera2D camera, Vector2 uiPx, TownWorld world,
-        DebugSwitches switches, Ruler ruler)
+        DebugSwitches switches, Ruler ruler, DebugPick pick)
     {
         var pointM = camera.WorldAt(atPx, uiPx);
 
@@ -167,6 +167,18 @@ internal sealed class PlayerHands
         {
             if (button == MouseButton.Right) ruler.Clear();
             else if (button == MouseButton.Left) ruler.Click(pointM);
+
+            return;
+        }
+
+        // <b>And the grid takes it on the same terms while it is ticked</b> (OBS-2t): a layer drawn to be
+        // asked questions of needs the pointer to ask them with, and the reader who ticked it is not also
+        // selecting cars with the same hand. The ruler is offered it first because it is a tool the reader
+        // is holding rather than a layer they are reading.
+        if (switches.Grid)
+        {
+            if (button == MouseButton.Right) pick.Clear();
+            else if (button == MouseButton.Left) pick.Click(pointM);
 
             return;
         }

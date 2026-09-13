@@ -571,7 +571,7 @@ internal sealed class TrackMetrics
     static int RoadUnder(TownWorld world, int car)
     {
         var lane = world.Cars.LaneOf(car);
-        return lane < 0 ? -1 : world.Roads.LaneRoad[lane];
+        return lane < 0 ? -1 : world.Roads.LaneFromRoad[lane];
     }
 
     /// <summary>Which kind of car this is, off the one figure that differs between the cars on the lap.</summary>

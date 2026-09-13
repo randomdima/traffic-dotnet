@@ -44,17 +44,16 @@ public class JunctionCornerGeometryTests
         var config = SimConfig.Shipped();
         var lanes = LaneLines.Of(plan.Ground, config);
         var tarmac = Kerbs.Of(
-            bare, lanes, BayLines.Lay(bare, lanes, config), config.ParkingSpaceWidthM,
-            RoadCuts.RunsThrough(bare));
+            bare, lanes, BayLines.Lay(bare, lanes, config), RoadCuts.RunsThrough(bare));
 
         for (var corner = 0; corner < corners.Count; corner++)
         {
             foreach (var tangentM in (ReadOnlySpan<Vector2>)[corners.TangentAM[corner], corners.TangentBM[corner]])
             {
                 Assert.True(
-                    tarmac.OffTheTarmacM(tangentM) <= Kerbs.OnePlaceM,
+                    tarmac.OffTheDrivenM(tangentM) <= Kerbs.OnePlaceM,
                     $"{map}: fillet {corner} at {corners.CornerM[corner]} is tangent to nothing at {tangentM}, "
-                    + $"{tarmac.OffTheTarmacM(tangentM):F3} m off the tarmac");
+                    + $"{tarmac.OffTheDrivenM(tangentM):F3} m off the tarmac");
             }
         }
     }

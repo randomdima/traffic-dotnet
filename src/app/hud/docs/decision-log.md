@@ -2,6 +2,24 @@
 
 Why the panels read as they do. What they must be is [requirements.md](requirements.md).
 
+## 2026-09-12 — the switch page is now the taller of the popup's two bounds
+
+An eleventh layer went on the debug page (`OBS-2r`) and the popup reached 543 px of a 1 000 px window where
+ten rows had stopped just short of the ceiling. **Both halves of that are what the rule says**: the popup
+reaches no further than half way down the window, *and* the ceiling never cuts into what the switch page
+needs whole, because those rows are laid at a pitch rather than scrolled. What bounds the panel on a window
+that short is the window's own margin.
+
+**The layout suite was measuring the page's length and calling it the ceiling.** It asked the question on
+the shipped window, where the answer had nothing to do with the ceiling and everything to do with how many
+layers there happen to be — so it passed for as long as the count allowed and would have failed on the next
+layer whatever the layout did. It now asks the ceiling of a window with room for the switch page above it,
+and asks the short window what it actually bounds, which is the panel against the glass.
+
+**A switch page longer than a tall window's ceiling is the thing to watch.** At the pitch these rows are
+laid at that is some thirty layers, and the answer then is the one the rule already names for a long page:
+it scrolls.
+
 ## The start menu is the same panel laid as the thing it is
 
 A popup in the top-right is furniture beside a town, and at the start there is no town. It is now laid

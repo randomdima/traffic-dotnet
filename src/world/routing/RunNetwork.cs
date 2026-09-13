@@ -18,12 +18,6 @@ namespace TrafficSimulation.World.Routing;
 internal interface IFineGraph : ILaneEnds
 {
     float LengthM(int lane);
-
-    /// <summary>
-    /// Whether the place this lane ends at survives the contraction however few ways on it offers — <b>a
-    /// place a body may be sent to</b>, which is a place whether or not a decision is taken there.
-    /// </summary>
-    bool EndsARun(int lane);
 }
 
 /// <summary>What one turn between two fine lanes costs, whether it falls inside a run or between two.</summary>
@@ -39,13 +33,13 @@ internal interface IEdgeTurnPricer
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A link ends where a body can go more than one way, or where it can be sent to, and nowhere else.</b>
+/// <b>A link ends where a body can go more than one way, and nowhere else.</b>
 /// A line, however it bends, ends no link: a plan cuts a street wherever it wants a junction disc, and a
 /// body arriving at one of those has exactly one way on, so no decision can be made there. Everything
 /// between two decisions is therefore one link — which is what stops the search asking a question at every
-/// bend in the town, and what makes a turn price mean something when it is asked. The second clause is
-/// <see cref="IFineGraph.EndsARun"/>, and it is the ends of a parking section: nothing is decided at one,
-/// but a leg has to be able to name it.
+/// bend in the town, and what makes a turn price mean something when it is asked. <b>Nowhere is promoted
+/// for being somewhere a body is sent</b>: a destination is a place on a link and carries how far into it
+/// stands (<see cref="RouteGoal"/>), so a car park's frontage needs no node of its own to be aimed at.
 /// </para>
 /// <para>
 /// <b>A closed run with no split anywhere on it would contract to nothing</b> — the band a car park is
@@ -268,13 +262,11 @@ internal sealed class RunNetwork
     {
         var arriving = new int[places.Count];
         var comingBack = new int[places.Count];
-        var sentTo = new bool[places.Count];
         for (var lane = 0; lane < fine.LaneCount; lane++)
         {
             var place = places.Arriving(lane);
             arriving[place]++;
             if (fine.Reverse(lane) >= 0) comingBack[place]++;
-            if (fine.EndsARun(lane)) sentTo[place] = true;
         }
 
         var decision = new bool[places.Count];
@@ -289,7 +281,7 @@ internal sealed class RunNetwork
                 ? ways == 2
                 : comingBack[place] == 0 && ways == 1;
 
-            decision[place] = sentTo[place] || !oneEach || arriving[place] != ways;
+            decision[place] = !oneEach || arriving[place] != ways;
         }
 
         return decision;

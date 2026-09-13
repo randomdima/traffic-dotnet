@@ -27,10 +27,10 @@ the map, shared by every agent of its kind, laid with the town and never touched
   link.
 - **There is no intersection without links that meet there.** Two ways that cross with no way on between
   them is a place bodies pass through each other and nothing in the town notices (TER-4b).
-- **A car park does not end a link because it is a car park.** Nor does a doorway or a bay: a destination
-  is a **place on a link**, and getting to it off the link is the local tier's problem and then a
-  manoeuvre's. What puts the ends of a parking section on the network is that a leg has to be able to name
-  them (GEN-4h), not that a decision is taken there.
+- **A car park does not end a link, and neither does anything else a leg is aimed at.** Nor does a doorway
+  or a bay: a destination is a **place on a link**, carried with how far into that link it stands, and
+  getting to it off the link is the local tier's problem and then a manoeuvre's. A leg into a car park names
+  the metre its way in leaves the carriageway at (GEN-4h) and wants no node there.
 
 The price of the first rule is real and accepted: **a route can no longer turn round at a bend.** A
 two-road junction ends no link, so the way back is taken at a junction with a choice at it, or at a dead

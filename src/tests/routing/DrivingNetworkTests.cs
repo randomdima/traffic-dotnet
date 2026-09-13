@@ -51,17 +51,13 @@ public class DrivingNetworkTests
     }
 
     /// <summary>
-    /// <b>A link ends at a place a driver can go more than one way or a place a leg can be sent to, and
-    /// nowhere else.</b> Asked both ways round, because each direction catches a different fault: a bend a
-    /// link ends at is a decision nobody makes, and a junction no link ends at is a turn no route could ever
-    /// plan.
+    /// <b>A link ends at a place a driver can go more than one way, and nowhere else.</b> Asked both ways
+    /// round, because each direction catches a different fault: a bend a link ends at is a decision nobody
+    /// makes, and a junction no link ends at is a turn no route could ever plan. <b>Nowhere is promoted for
+    /// being somewhere a leg is sent</b> (GEN-4h): a destination is a place on a link and carries how far
+    /// into it it stands, so a car park's frontage is named without a node of its own.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>The ends of a parking section are the second clause</b> (GEN-4h). Nothing is decided at one — a
-    /// driver arriving has one way on — and it is on the network anyway, because a leg aimed at a bay of
-    /// that car park is routed to it and a place the search cannot name is a place no route can end at.
-    /// </para>
     /// <para>
     /// <b>The one bend a link ends at is a ring's own anchor.</b> A closed run nothing splits — the band a
     /// car park is wrapped in, a circuit of the test track — would contract to nothing at all, so
@@ -71,7 +67,7 @@ public class DrivingNetworkTests
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void ALinkEndsExactlyAtAPlaceWithAChoiceAtItOrAPlaceALegIsAimedAt(string map)
+    public void ALinkEndsExactlyAtAPlaceWithAChoiceAtIt(string map)
     {
         var (roads, network) = Of(map);
         var runs = network.Runs;
@@ -160,8 +156,7 @@ public class DrivingNetworkTests
     /// connectors and never of the arms</b> (TER-4d): a bend is one lane in and one lane out where the
     /// street runs one way and two of each where it runs both, a dead end has an arrival with no way on at
     /// all, and two one-way streets running into one are a merge, which is a place because two runs end
-    /// there. <b>The end of a parking section is never one</b> (GEN-4h): a leg is aimed at it, so it stays a
-    /// node whatever its degree.
+    /// there.
     /// </summary>
     static bool IsABend(RoadGraph roads, RunNetwork runs, List<int>[] arriving, int place)
     {
@@ -170,7 +165,7 @@ public class DrivingNetworkTests
 
         foreach (var lane in lanes)
         {
-            if (roads.LaneEndsAtAPlace[lane] || roads.LanesFrom(lane).Length != 1) return false;
+            if (roads.LanesFrom(lane).Length != 1) return false;
         }
 
         return true;

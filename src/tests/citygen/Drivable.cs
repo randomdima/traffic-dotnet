@@ -84,7 +84,7 @@ internal static class Drivable
             if (into[lane] > 0 && roads.LanesFrom(lane).Length > 0) continue;
 
             var what = into[lane] == 0 ? "is driven onto by nothing" : "is driven off onto nothing";
-            return $"lane {lane} of road {roads.LaneRoad[lane]} {what}: from {roads.StartOf(lane).PositionM} "
+            return $"lane {lane} of road {roads.LaneFromRoad[lane]} {what}: from {roads.StartOf(lane).PositionM} "
                    + $"to {roads.EndOf(lane).PositionM}";
         }
 

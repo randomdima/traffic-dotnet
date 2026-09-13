@@ -214,9 +214,9 @@ public class LineAssemblerTests
                 var acrossM = MathF.Abs(graph.ConnectorLengthM(slot) - (starts[1] - ends[0]));
                 Assert.True(acrossM < 0.01f, $"{map}: lane {lane} onto {turns[turn]} crosses {acrossM:F3} m more than its join is long");
 
-                // A place cut into a road (GEN-4h) has its two lanes meeting at a point, so the movement
-                // between them is a join of no length — and one drawn a rounding off a point is the same
-                // thing wearing float noise. There is no stretch to walk in either case.
+                // Two lanes meeting at a point have a movement of no length between them, and one drawn a
+                // rounding off a point is the same thing wearing float noise. There is no stretch to walk
+                // in either case.
                 if (graph.ConnectorLengthM(slot) < WalkedStepM) continue;
 
                 var join = graph.ConnectorArcs(slot);

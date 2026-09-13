@@ -44,9 +44,14 @@ and no line either of them shares.
 bounded by the lane the bay is worked off** (`SimConfig.ParkingSpaceWidthM` under `LaneWidthM`). What sizes
 the ends is a manoeuvre — a parallel bay is reversed into — and what sizes the sides is a door; nothing
 manoeuvres sideways, so one figure serving both makes a space wider than the traffic lane its way is driven
-out of. A bay's way lays the ground its space is wide for the whole distance it runs down that lane
-(`GEN-4f`), so such a space stands a lip of tarmac past the kerb at every bay in the town — which the ground
-shows as a lump and the outside of it (`OBS-2p`) shows as a step onto the way and straight back.
+out of, which is a bay reaching further across the street than the ground that serves it.
+
+**What a space is wide sizes the car standing in it and never the ground driven to it.** A bay's way is a
+driven line like any other and lays the band the lane it is worked off lays (`GEN-4f`) — one width for every
+metre of driven ground in the town, so a car park is the same tarmac as the street beside it rather than a
+narrower kind of it. Laid at the space's own width instead, every way in the town laid a band a hand
+narrower than the lane it left, and the outside of the driven ground (`OBS-2p`) stepped in and out at every
+bay to say so.
 
 **GEN-4i** `P6` **A car stands square in the middle of its bay**, the clearance the space carries along its own
 length shared between its nose and its tail. It is the pose the bay's ways end at, so it is what the
@@ -209,25 +214,20 @@ whole run and not only while that vehicle is in it. Three consequences:
   for stands fewer vehicles, and one with none stands none — which is a real state and is reported
   (`AMB-2`, `SRV-2`).
 
-**GEN-4h** `P4` **A parking section is a stretch of the road network in its own right.** The road it hangs off
-is cut at either end of it, so the frontage its bays are reached over is bounded by two nodes of the graph
-and a leg aimed at one of those bays is routed to a node like every other leg. Three consequences:
+**GEN-4h** `P4` **A car park's frontage is metres of a lane and not a stretch of the network, and the road
+is not cut for it.** A lane is broken where a driver chooses and nowhere else, so the kerb a lot's bays are
+reached over is part of the lane that runs past it — and **a leg aimed at one of those bays is routed to the
+metre its way in leaves the carriageway at**, which is what a destination has always been allowed to be: a
+place on a link, carried with how far into that link it stands. Two consequences:
 
-- **A section is a stretch and therefore has two nodes, not one.** Its bays stand along tens of metres of
-  kerb and are reached from both directions, so no single point on the road has all of them ahead of it.
-  The cuts are set back from the frontage by the run-in a way in is staged over — at both ends, which is
-  also what a bay backed into needs, since that one is staged past the bay rather than short of it
-  (`GEN-4j`) — so the last dozen metres either side of a bay are the section's own ground. Lots whose setbacks touch — the two sides of one street, or two
-  lots closer together than the run-in — are one section.
-- **A place is a cut and not a disc.** Its two lanes meet at a point: no ground is taken off the road, the
-  movement between them is a join of no length, and there is therefore no box to be granted, to be refused
-  or to stop short of. A junction has a disc because two carriageways cross there; nothing crosses here.
-- **It gives way to whatever the road already carries, by moving outward.** A cut may not stand on a
-  junction's own ground, on a zebra or on a bar — a lane end inside a crossing hands the paint to the lane
-  after the one a driver is braking on — nor leave a stretch too short to drive. Where the place it was
-  asked for is one of those, it moves **away from its own frontage and never into it**, because the metres
-  between the cut and the first bay are the run-in that bay's way in is staged over. A section with no room
-  on its road for either cut keeps the node the road already ends at.
+- **A frontage has no node, so nothing about a car park is decided on the road.** There is no box to be
+  granted, refused or stopped short of, no join of no length between two halves of one street, and no lane
+  end a car has to reach before it may turn in. A junction has a disc because two carriageways cross
+  there; nothing crosses here.
+- **A frontage still needs room.** Its bays are reached over a run-in staged along the lane beside them —
+  at either end, since a bay backed into is staged past it rather than short of it (`GEN-4j`) — so a
+  frontage stands clear of its road's own ends by that run-in and by a stretch of street beyond it. A slot
+  without that room carries a building rather than a car park.
 
 **GEN-4g** `P4` **Which bay a leg is aimed at is a claim, and it lives in a register.** It is the one hold in
 the town that is not a piece of road, and it is a register because it has to be: the hold begins when the
@@ -249,6 +249,3 @@ walk of this door*.
   vehicle for the whole run.
 - Where a walk to a car left in a bay is aimed (`GEN-4e`).
 
-Where the road is cut for a section (`GEN-4h`) is the road's own, in
-[world/road](../../road/docs/requirements.md): a cut is what makes a lane, so it is settled before there
-are lanes to read.

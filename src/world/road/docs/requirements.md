@@ -43,13 +43,6 @@ coverage, connectivity and alignment all pass over paved, drivable, single-regio
 to a reader of the map file, because each road's topology is impeccable. A road turning a corner *on
 another road's carriageway* is this; a road that turns a corner touching nothing is not.
 
-**A road is also cut where it is not a junction.** A slice above may ask for a node of its own on a road —
-today only the parking sections, whose rule is
-[`GEN-4h`](../../parking/docs/requirements.md) — and the cut it gets is a point rather than a disc, so the
-two lanes it makes meet exactly and nothing below hears of it as an intersection. Where such a node may
-stand, and what it is for, is that rule's; what it means for a lane is the same thing every other cut
-means, which is why it is here and not a second mechanism.
-
 ## Junctions
 
 **TER-5** `P4` An intersection **has no shape of its own**. The ground inside one is **the ground its own
@@ -130,6 +123,33 @@ between two opposing lanes a lane's width apart is a semicircle of a metre and a
 car's lock at any setback — and the consequence is deliberate: **a leg that has to come back the way it
 came does it in a car park's bay (`GEN-4l`) or by working itself round at a dead end (`P-19`, TER-5a),
 which are manoeuvres a driver makes and not movements a junction offers.**
+
+**TER-5h** `P5` **A lane runs from one place a driver decides something to the next, and is cut nowhere
+else.** Where the one movement out of a lane's end is also the only movement onto the lane it leads to, there
+is nothing at that point to decide, to give way at or to be routed through — so **the two stretches and the
+line drawn between them are one lane**, and the plan's junction there is a record the network has no arm at.
+A run whose every join is that is **one line however many roads the plan laid it in**, which is why a lane
+names the road it sets off on and the road it arrives on separately.
+
+**The question is asked of the movements and never of the arms.** A node of two arms where a one-way street
+meets the carriageway it feeds forks nothing either, and a node of four that only ever offered one movement
+is a node the plan should not have laid — the count of ways out of the lane arriving and ways into the lane
+leaving is the question itself, asked of the table the router will read. It is the last step of laying the
+lines and not a pass over them afterwards: **the plan's own bend-joining is a different rule at a different
+level** (`GEN-12b`), which takes away the two-armed nodes it can prove are one road and leaves the rest here.
+
+Three things are not folded and each is a place the town really does change. **Both ways of a stretch are
+folded together or neither is**, because a lane and the one running back down its own ground are each
+other's reverse and a pair that disagreed would be two lanes over one piece of road. **A carriageway that
+steps in width keeps its join**, a band having one width (TER-5d.1). And **a run that closes on itself is
+opened at one join**, arbitrarily, because a loop of street with no junction anywhere on it still has to
+have a first lane.
+
+**What the lane swallows is the join's own line**, drawn between the two ends after the cut back and
+therefore tangent to both of them (TER-5d): the fold is the same ground in the same shape, reported as the
+one line a driver actually drives, and it may not move the tarmac. **A folded join is no movement** — it is
+not classified, not priced and not reachable — **but the ground under one is still tarmac**, which is what
+the outline is laid from where the two arms' kerbs do not meet.
 
 ## Crossings
 
@@ -238,9 +258,11 @@ Six rules govern all of it:
 
 ## What this slice must produce
 
-- **Directed lanes and the connectors between them, and no node table.** Lanes are cut at **every**
-  junction a road runs through rather than only the two it ends at, and at the places a slice above asked
-  for (`GEN-4h`). **Where two lane ends are the same ground is worked out from the connectors** — a
+- **Directed lanes and the connectors between them, and no node table.** A lane runs between two places a
+  driver decides something (TER-5h): the roads are cut at **every** junction they run through rather than
+  only the two they end at, **at nothing else**
+  ([`GEN-4h`](../../parking/docs/requirements.md)), and every join that forks nothing is folded back out
+  again. **Where two lane ends are the same ground is worked out from the connectors** — a
   connector runs between them, or they are the two ends of one stretch driven either way — so a junction is
   the shape a set of crossed lanes makes and is nothing the network carries. Derived twice, the router and
   the claims would be entitled to disagree about which lane ends are one piece of the world.

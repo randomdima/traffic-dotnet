@@ -437,12 +437,12 @@ internal sealed partial class SimConfig
     public float ParkingStraightensUpM => Car.LengthM * Road.ParkingStraightensUpInCarLengths;
 
     /// <summary>
-    /// How far beyond a car park's own frontage the road is cut for it, so that the run-in every bay's
-    /// way in wants stands inside the section's own stretch rather than on the street before it.
+    /// <b>How far clear of its road's own ends a car park's frontage has to stand</b>: the run-in every
+    /// bay's way in is staged over (<see cref="ParkingStagedInM"/>), and a stretch of street beyond that for
+    /// the car to have been driving down before it turns in.
     /// </summary>
-    public float ParkingSectionSetbackM => ParkingStagedInM;
-
-    public float ParkingSectionShortestStretchM => Car.LengthM * Road.ParkingSectionShortestStretchInCarLengths;
+    public float ParkingFrontageClearOfTheEndsM =>
+        ParkingStagedInM + (Car.LengthM * Road.ParkingFrontageClearInCarLengths);
 
     /// <summary>Half a pavement band plus the front gap plus a person: how close a door counts as reached.</summary>
     public float WayInTouchingReachM => PavementWidthM * 0.5f + Building.FrontGapM + PersonDiameterM;

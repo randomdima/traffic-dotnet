@@ -215,6 +215,77 @@ internal static class Spline
     }
 
     /// <summary>
+    /// <b>The same chain with the joins it does not really turn at rubbed out</b>: every run of pieces that
+    /// carries on the same circle written as the one piece it is, and how many pieces that left.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Carrying on is measured and not compared field by field</b> (<see cref="CarriesOn"/>): a kink, a
+    /// different radius and a piece doubling back are one question — how far the shape would move — asked
+    /// at the scale the caller names in <paramref name="withinM"/> rather than at the scale two floats
+    /// agree to.
+    /// </para>
+    /// <para>
+    /// <b>It is not a simplification of the curve</b>: a piece that turns at all, however slightly, is a
+    /// piece the chain keeps, and a chain of one curve cut in a hundred places is that curve.
+    /// </para>
+    /// <para>
+    /// <b>Joined as it goes, so a run of pieces is one piece and not a pair of them</b>: each is weighed
+    /// against what has already been joined rather than against its own neighbour.
+    /// </para>
+    /// </remarks>
+    public static int JoinedInto(ReadOnlySpan<ArcSeg> arcs, float withinM, Span<ArcSeg> into)
+    {
+        var written = 0;
+        for (var index = 0; index < arcs.Length; index++)
+        {
+            if (written > 0 && CarriesOn(into[written - 1], arcs[index], withinM, out var joined))
+            {
+                into[written - 1] = joined;
+                continue;
+            }
+
+            into[written++] = arcs[index];
+        }
+
+        return written;
+    }
+
+    /// <summary>
+    /// <b>Whether one piece carries on into the next as a single piece would</b>, and that piece — the
+    /// first at the two of them end to end, which stands within <paramref name="withinM"/> of the joint
+    /// and of the second's own end.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The second is weighed against the first laid on from where the second starts</b>, so the joint's
+    /// own gap is measured once rather than again at the far end of the piece. Laid on from the first's
+    /// own start instead, a straight cut in two halves at a town's coordinates comes back as a corner: the
+    /// hair between two computations of the joint is carried the whole length of the join and lands
+    /// outside whatever figure the joint itself was inside.
+    /// </para>
+    /// <para>
+    /// <b>It is a walk and not a radius</b> (<see cref="ArcSeg.PointAtM"/>). A road's bends are a tiny
+    /// curvature and a radius of kilometres, so anything asking how far a place stands off a circle
+    /// subtracts two huge numbers and answers in whatever the last bits of them left.
+    /// </para>
+    /// <para>
+    /// <b>A piece that runs backwards joins nothing.</b> An offset tighter than the bend it is taken off
+    /// hands back a piece of negative length (<see cref="OffsetInto"/>), which is a fold in the shape and
+    /// not a length to be added to the one before it.
+    /// </para>
+    /// </remarks>
+    public static bool CarriesOn(in ArcSeg one, in ArcSeg other, float withinM, out ArcSeg joined)
+    {
+        joined = new ArcSeg(one.StartM, one.HeadingRad, one.LengthM + other.LengthM, one.Curvature);
+        if (one.LengthM <= 0f || other.LengthM <= 0f) return false;
+        if (Vector2.DistanceSquared(one.EndM, other.StartM) > withinM * withinM) return false;
+
+        var carried = new ArcSeg(other.StartM, one.HeadingAtRad(one.LengthM), other.LengthM, one.Curvature);
+        return Vector2.DistanceSquared(carried.EndM, other.EndM) <= withinM * withinM;
+    }
+
+    /// <summary>
     /// The distance along the chain whose point is nearest the one given, searched <b>in a window</b>
     /// around where the caller last was.
     /// </summary>
@@ -320,6 +391,36 @@ internal static class Spline
             }
 
             onePieceM += one[onePiece].LengthM;
+        }
+
+        return kept;
+    }
+
+    /// <summary>
+    /// <b>Where two pieces cross, as the distance along each of them</b> — the same closed form
+    /// <see cref="CrossingsM"/> is built out of (<see cref="CrossingsOf(in ArcSeg, in ArcSeg, Span{Vector2})"/>,
+    /// <see cref="AlongOf"/>), asked of one piece against one piece and ranked by nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>For the caller that is arranging pieces rather than following a chain.</b> <c>CrossingsM</c> walks
+    /// two whole chains and keeps the crossings nearest a place the caller already has; a caller cutting
+    /// every piece at every crossing has no such place and wants all of them, piece by piece, with the
+    /// distances measured along the pieces themselves.
+    /// </remarks>
+    public static int CrossingsOf(
+        in ArcSeg one, in ArcSeg other, Span<float> alongOneM, Span<float> alongOtherM)
+    {
+        Span<Vector2> atM = stackalloc Vector2[2];
+        var found = CrossingsOf(one, other, atM);
+        var kept = 0;
+        for (var at = 0; at < found && kept < alongOneM.Length && kept < alongOtherM.Length; at++)
+        {
+            if (!AlongOf(one, atM[at], 0f, 0f, out var alongOne)) continue;
+            if (!AlongOf(other, atM[at], 0f, 0f, out var alongOther)) continue;
+
+            alongOneM[kept] = alongOne;
+            alongOtherM[kept] = alongOther;
+            kept++;
         }
 
         return kept;
@@ -502,11 +603,11 @@ internal static class Spline
         else
         {
             // <b>Read off the chord and not off the centre.</b> The chord to a point on the piece's own
-            // circle stands half the turn off the start heading, so the turn is twice that angle and the
-            // length is the turn over the curvature. Read as the angle between two vectors out of the
-            // centre, a road's bend puts that centre kilometres away and both vectors are that long, so the
-            // angle between them is what is left of two floats agreeing to six figures.
-            atM = 2f * MathF.Atan2(Cross(arc.StartUnit, offM), Vector2.Dot(arc.StartUnit, offM)) / arc.Curvature;
+            // circle stands half the turn off the start heading. Read as the angle between two vectors out
+            // of the centre, a road's bend puts that centre kilometres away and both vectors are that long,
+            // so the angle between them is what is left of two floats agreeing to six figures.
+            var halfTurnRad = MathF.Atan2(Cross(arc.StartUnit, offM), Vector2.Dot(arc.StartUnit, offM));
+            atM = ChordAlongM(arc, offM, halfTurnRad);
 
             // <b>The chord names one turn of the circle and the caller may mean the turn before it.</b> A
             // point a stride behind the start is most of a turn ahead of it as readily as a stride behind,
@@ -521,6 +622,51 @@ internal static class Spline
         atM = Math.Clamp(atM, -behindM, arc.LengthM + pastM);
         return true;
     }
+
+    /// <summary>
+    /// <b>How far along a piece a point on its circle stands, measured as the chord and not as the turn</b>:
+    /// the chord's own length divided by the <c>sinc</c> of the half turn it subtends, which is
+    /// <see cref="ArcSeg.PointAtM"/> read backwards and the whole of why it is written this way.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The turn over the curvature multiplies the error by the radius.</b> A road's bend subtends a
+    /// fraction of a degree over a piece, so the half turn is a small angle read off two town-sized
+    /// coordinates — and a town coordinate carries its last bit at a quarter of a millimetre, which over a
+    /// chord of a few metres is tens of microradians. Divided by a curvature of a hundred-thousandth that
+    /// is <em>metres</em>: at a kilometre and a half from the origin, a crossing on a bend of a hundred
+    /// kilometres' radius came back half a metre from where the two lines actually meet, one on a bend of a
+    /// thousand came back four metres out, and the shallowest bends missed it altogether — the distance
+    /// landing off the piece, and a plain crossing reading as no crossing at all.
+    /// </para>
+    /// <para>
+    /// <b>The chord carries no such factor.</b> Its length is a metre-scale quantity measured to a metre
+    /// scale's precision, and the <c>sinc</c> it is divided by is within a part in ten thousand of one over
+    /// everything a road bends through — so the answer is as accurate as the point handed in. Past a
+    /// radian of half turn the <c>sinc</c> is small enough to cancel and the turn is exact enough to use,
+    /// the curvature there being large: that is the one case this hands back.
+    /// </para>
+    /// <para>
+    /// <b>A chord standing within a radian of the start heading is a point ahead of the start, whatever the
+    /// curvature is doing</b>, so the distance handed back is never negative. A point <em>behind</em> the
+    /// start stands a half turn off that heading however shallow the bend — the chord to it points backwards
+    /// — so it is the turn's case, and comes back as the far side of a whole circle for the caller to wrap
+    /// (<see cref="AlongOf"/>). <b>Taking the sign off the half turn's own sign instead decides it on
+    /// noise</b>: over a piece that barely bends the true half turn is a fraction of a microradian while the
+    /// point handed in carries tens of them, so a crossing plainly in front reads as one behind and is
+    /// wrapped a whole circle off the piece.
+    /// </para>
+    /// </remarks>
+    static float ChordAlongM(in ArcSeg arc, Vector2 offM, float halfTurnRad) =>
+        MathF.Abs(halfTurnRad) >= ChordHalfTurnRad
+            ? 2f * halfTurnRad / arc.Curvature
+            : offM.Length() / ArcSeg.Sinc(halfTurnRad);
+
+    /// <summary>
+    /// Where the chord stops being the better reading of a distance along and the turn takes over: a radian
+    /// of half turn, at which the <c>sinc</c> is still 0.84 and nothing it divides is cancelled.
+    /// </summary>
+    const float ChordHalfTurnRad = 1f;
 
     /// <summary>Below this two lines or two centres are one and there is no one point to answer with.</summary>
     const float ApartToCross = 1e-6f;
@@ -680,6 +826,18 @@ internal static class Spline
         return angleRad;
     }
 
+    /// <summary>
+    /// How far along one piece the point nearest another stands, clamped to the piece's own ends.
+    /// </summary>
+    /// <remarks>
+    /// <b>This one is still measured against the centre, and that is a decision rather than an oversight</b>
+    /// (<see cref="ChordAlongM"/> is the other way of asking, and is what a crossing uses). Written from the
+    /// start instead it is a millimetre or two better on a shallow bend far from the origin — and it moves
+    /// which lane a body a hair from two of them snaps to, which moves the routes the town drives. Measured
+    /// both ways, the merge closed <em>more</em> of its boundary with this form and a rescue that arrived
+    /// inside its bound stopped arriving with the other, so the accuracy on offer is not worth what it
+    /// costs. It is a nearest and not a cut: nothing downstream of it is cut to the millimetre.
+    /// </remarks>
     static float NearestOnArc(in ArcSeg arc, Vector2 pointM)
     {
         var along = arc.StartUnit;

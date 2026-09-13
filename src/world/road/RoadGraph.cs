@@ -17,11 +17,13 @@ namespace TrafficSimulation.World.Road;
 /// same lines is what a car may drive on, which is why the surface and the network cannot disagree.
 /// </para>
 /// <para>
-/// <b>A lane is the stretch of road between two of the plan's cuts, not a whole road.</b> Lanes are cut at
-/// <em>every</em> junction a road runs through rather than only the two it names, which is what makes an
-/// inline junction — a place <em>on</em> a road, carrying a mid-block crossing (TER-5b) — somewhere the
-/// graph has lanes ending. The ground between two lane ends belongs to no lane: what a car drives across it
-/// is a connector, because an intersection is a transition and never a destination (CAR-6.2a).
+/// <b>A lane runs from one place a driver decides something to the next</b> (TER-5h), which is neither a
+/// whole road nor one stretch of one. Roads are cut at <em>every</em> junction they run through rather than
+/// only the two they name — which is what makes an inline junction, a place <em>on</em> a road carrying a
+/// mid-block crossing (TER-5b), somewhere the graph can have lanes ending — and then every join that forks
+/// nothing is folded back into the lane it joins, so a lane may run the length of several of the plan's
+/// roads. The ground between two lane ends that are left belongs to no lane: what a car drives across it is
+/// a connector, because an intersection is a transition and never a destination (CAR-6.2a).
 /// </para>
 /// <para>
 /// <b>The junctions are the plan's and the graph keeps no table of them</b> (<see cref="JunctionCount"/>).
@@ -126,7 +128,15 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public int ConnectorCount => _lines.ConnectorCount;
 
-    public int[] LaneRoad => _lines.LaneRoad;
+    /// <summary>
+    /// <b>The road a lane sets off on</b> (TER-5h). A lane folded through a node that forks nothing runs on
+    /// onto the road beyond it, so this is the arm it is at the junction it <em>starts</em> from and
+    /// <see cref="LaneToRoad"/> is the arm it is at the one it ends at.
+    /// </summary>
+    public int[] LaneFromRoad => _lines.LaneFromRoad;
+
+    /// <inheritdoc cref="LaneFromRoad"/>
+    public int[] LaneToRoad => _lines.LaneToRoad;
 
     /// <summary>
     /// How wide the lane is: the share of the carriageway its road declared that this direction has — half
@@ -135,16 +145,16 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public float[] LaneWidthM => _lines.LaneWidthM;
 
-    /// <summary>
-    /// The plan's junction this lane sets off from, or <see cref="CityPlan.NoRecord"/> where it sets off from
-    /// a cut a slice above asked for rather than an intersection (GEN-4h).
-    /// </summary>
+    /// <summary>The plan's junction this lane sets off from, which is the only thing a lane can start at.</summary>
     public int[] LaneFromJunction => _lines.LaneFromJunction;
 
-    /// <summary>And the one it arrives at, on the same terms.</summary>
+    /// <summary>And the one it arrives at.</summary>
     public int[] LaneToJunction => _lines.LaneToJunction;
 
-    /// <summary>Whether the lane runs with the road's own direction, which is what says which side of the centreline it sits on.</summary>
+    /// <summary>
+    /// Whether the lane runs with the direction of the road it sets off on (<see cref="LaneFromRoad"/>),
+    /// which is what says which side of that road's centreline it sits on.
+    /// </summary>
     public bool[] LaneForward => _lines.LaneForward;
 
     /// <summary>The length of the line as <em>driven</em>: an offset arc is shorter inside a bend than the centreline it was taken from.</summary>
@@ -165,14 +175,6 @@ internal sealed class RoadGraph : ILaneEnds
     /// to cross to get round what is in the way, and nothing to park against on the far side.
     /// </summary>
     public int[] LaneReverse => _lines.LaneReverse;
-
-    /// <summary>
-    /// <b>Whether the lane runs out at a place a slice above asked for</b> rather than at an intersection —
-    /// the end of a parking section (GEN-4h). A run of road is broken there whatever the degree of the
-    /// place, because a leg aimed into a car park has to have somewhere to be routed to
-    /// (<see cref="Routing.IFineGraph.EndsARun"/>).
-    /// </summary>
-    public bool[] LaneEndsAtAPlace => _lines.LaneEndsAtAPlace;
 
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) => _lines.ArcsOf(lane);
@@ -393,8 +395,8 @@ internal sealed class RoadGraph : ILaneEnds
     /// </summary>
     public static RoadGraph Build(LaneLines lines, SimConfig config)
     {
-        var (junctionOutOffsets, junctionOutLanes) = LaneLines.Adjacency(lines.JunctionCount, lines.LaneFromNode);
-        var (junctionInOffsets, junctionInLanes) = LaneLines.Adjacency(lines.JunctionCount, lines.LaneToNode);
+        var (junctionOutOffsets, junctionOutLanes) = LaneLines.Adjacency(lines.JunctionCount, lines.LaneFromJunction);
+        var (junctionInOffsets, junctionInLanes) = LaneLines.Adjacency(lines.JunctionCount, lines.LaneToJunction);
         var places = LanePlaces.Of(new Ends(lines));
 
         return new RoadGraph(

@@ -317,6 +317,63 @@ public class SplineTests
     }
 
     /// <summary>
+    /// <b>A crossing stands where it stands however far from the origin the town laid it</b>, and however
+    /// shallow the bend it is on. Asked at a town's own coordinates of a bend whose radius runs to
+    /// kilometres: the distance along the bend must put the point back where the two lines actually meet.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a precision test and it is written as one.</b> The same geometry at the origin was right to
+    /// a micron while a kilometre and a half out it came back metres away — the distance along being read as
+    /// the turn over the curvature, which multiplies whatever the last bits of a town-sized coordinate left
+    /// by the radius. At the shallowest bend here the answer landed off the piece altogether and a plain
+    /// crossing of two lines came back as no crossing at all.
+    /// </remarks>
+    [Theory]
+    [InlineData(1e-6f)]
+    [InlineData(5e-6f)]
+    [InlineData(1e-4f)]
+    [InlineData(1e-2f)]
+    public void ACrossingIsFoundWhereTwoLinesMeetHoweverFarFromTheOrigin(float curvature)
+    {
+        var bend = new ArcSeg(new Vector2(2000f, 1500f), 0.3f, 20f, curvature);
+        var meetM = bend.PointAtM(7f);
+        var acrossM = Heading.RightOf(Heading.Unit(bend.HeadingAtRad(7f)));
+        var across = new ArcSeg(meetM - (acrossM * 3f), MathF.Atan2(acrossM.Y, acrossM.X), 6f, 0f);
+
+        Span<float> alongBendM = stackalloc float[2];
+        Span<float> alongAcrossM = stackalloc float[2];
+
+        Assert.Equal(1, Spline.CrossingsOf(bend, across, alongBendM, alongAcrossM));
+        Assert.Equal(0f, (bend.PointAtM(alongBendM[0]) - meetM).Length(), Tolerance);
+        Assert.Equal(0f, (across.PointAtM(alongAcrossM[0]) - meetM).Length(), Tolerance);
+    }
+
+    /// <summary>
+    /// <b>A crossing a stride along a piece that barely bends is a crossing a stride along it</b>, whichever
+    /// way the piece bends. A ribbon edge offset off a straight road carries a curvature of a few
+    /// millionths, so which side of its start heading the chord to a point stands is decided by the last
+    /// bits of a town coordinate rather than by the bend — and a distance along read off that sign comes
+    /// back negative, a whole circle from the piece, and is dropped.
+    /// </summary>
+    [Theory]
+    [InlineData(4e-6f)]
+    [InlineData(-4e-6f)]
+    public void ACrossingOnAPieceThatBarelyBendsStandsWhereItDoes(float curvature)
+    {
+        var barelyBent = new ArcSeg(new Vector2(2559.5f, 2141.8f), -2.568f, 7.4f, curvature);
+        var meetM = barelyBent.PointAtM(1.75f);
+        var acrossM = Heading.RightOf(Heading.Unit(barelyBent.HeadingAtRad(1.75f)));
+        var across = new ArcSeg(meetM - (acrossM * 2f), MathF.Atan2(acrossM.Y, acrossM.X), 4f, 0f);
+
+        Span<float> alongBentM = stackalloc float[2];
+        Span<float> alongAcrossM = stackalloc float[2];
+
+        Assert.Equal(1, Spline.CrossingsOf(barelyBent, across, alongBentM, alongAcrossM));
+        Assert.Equal(1.75f, alongBentM[0], 0.01f);
+        Assert.Equal(0f, (across.PointAtM(alongAcrossM[0]) - meetM).Length(), Tolerance);
+    }
+
+    /// <summary>
     /// <b>A line that crosses another twice is answered for twice, nearest first.</b> Which of the two a
     /// caller means is the caller's own question, so both are handed back and the order is what saves it
     /// asking about the far one at all.
@@ -333,5 +390,70 @@ public class SplineTests
         Assert.Equal(2, Spline.CrossingsM(along, round, 40f, 0f, found));
         Assert.Equal(30f, found[0].OneM, Tolerance);
         Assert.Equal(10f, found[1].OneM, Tolerance);
+    }
+
+    /// <summary>
+    /// <b>A line cut into pieces is the line it was</b> (<see cref="Spline.JoinedInto"/>): however many
+    /// places a chain was cut at, what comes back is one piece per curve it really holds, running the
+    /// whole way and ending where the last of the pieces it replaced did.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked at a town's own coordinates and at a road's own curvature.</b> A bend of a kilometre and a
+    /// half over two kilometres from the origin is where a join is decided in the last bits of a float, and
+    /// a test at the origin is a test of arithmetic that is never asked for.
+    /// </remarks>
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(1f / 1500f)]
+    [InlineData(-1f / 1500f)]
+    public void AChainCutIntoPiecesJoinsBackIntoTheOneItWas(float curvature)
+    {
+        var whole = new ArcSeg(new Vector2(2083.97f, 242.52f), -0.935f, 60f, curvature);
+        ReadOnlySpan<float> cutAtM = [12f, 18.6f, 19.1f, 44f];
+        Span<ArcSeg> pieces = stackalloc ArcSeg[cutAtM.Length + 1];
+        var fromM = 0f;
+        for (var at = 0; at <= cutAtM.Length; at++)
+        {
+            var toM = at < cutAtM.Length ? cutAtM[at] : whole.LengthM;
+            pieces[at] = new ArcSeg(whole.PointAtM(fromM), whole.HeadingAtRad(fromM), toM - fromM, curvature);
+            fromM = toM;
+        }
+
+        Span<ArcSeg> joined = stackalloc ArcSeg[pieces.Length];
+
+        Assert.Equal(1, Spline.JoinedInto(pieces, Tolerance, joined));
+        Assert.Equal(whole.LengthM, joined[0].LengthM, Tolerance);
+        Assert.Equal(0f, (joined[0].EndM - whole.EndM).Length(), Tolerance);
+    }
+
+    /// <summary>
+    /// <b>A chain that turns keeps the pieces it turns at</b>: a join is rubbed out where the line carries
+    /// on and nowhere else, so a corner of a fraction of a degree is a corner and not a rounding.
+    /// </summary>
+    [Theory]
+    [InlineData(0.01f)]
+    [InlineData(-0.01f)]
+    public void AChainThatTurnsKeepsThePieceItTurnsAt(float turnRad)
+    {
+        var first = new ArcSeg(new Vector2(2083.97f, 242.52f), -0.935f, 12f, 0f);
+        var second = new ArcSeg(first.EndM, first.HeadingRad + turnRad, 6.6f, 0f);
+        Span<ArcSeg> joined = stackalloc ArcSeg[2];
+
+        Assert.Equal(2, Spline.JoinedInto([first, second], Tolerance, joined));
+    }
+
+    /// <summary>
+    /// <b>A piece that runs backwards over the one before it is a fold and joins nothing</b>: an offset
+    /// taken tighter than the bend it comes off hands back a length below nought
+    /// (<see cref="Spline.OffsetInto"/>), and two such pieces added together are a shape neither of them is.
+    /// </summary>
+    [Fact]
+    public void APieceRunningBackwardsIsNotJoinedToTheOneBeforeIt()
+    {
+        var ahead = new ArcSeg(new Vector2(2083.97f, 242.52f), -0.935f, 12f, 0f);
+        var back = new ArcSeg(ahead.EndM, ahead.HeadingRad, -5f, 0f);
+        Span<ArcSeg> joined = stackalloc ArcSeg[2];
+
+        Assert.Equal(2, Spline.JoinedInto([ahead, back], Tolerance, joined));
     }
 }

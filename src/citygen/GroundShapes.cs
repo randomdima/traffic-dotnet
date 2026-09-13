@@ -75,19 +75,6 @@ internal sealed partial class GroundShapes
 
     readonly Paving _paving;
     readonly SimConfig _config;
-    GroundRings? _rings;
-
-    /// <summary>
-    /// <b>The town's boundary and the distances off it</b> (<see cref="GroundRings"/>), laid on the first
-    /// ask rather than with the shapes.
-    /// </summary>
-    /// <remarks>
-    /// <b>Laid late because a town being laid asks this of itself</b>: the generator remakes the ground as
-    /// each stage adds its shapes, and a stage that only wants to know where the water is should not pay for
-    /// a walk of a road network that is not finished being laid. What it is laid <em>off</em> is the same
-    /// pieces the rest of this reads, so the boundary is always the boundary of the shapes there are.
-    /// </remarks>
-    GroundRings Boundary => _rings ??= GroundRings.Of(_paving, _config);
 
     /// <summary>
     /// The last piece of ground laid over the point, found by asking the pieces in the reverse of the
@@ -116,21 +103,16 @@ internal sealed partial class GroundShapes
         if (BayWays(pointM, 0f)) return Ground.Parking;
         if (SlabReaches(pointM)) return Ground.Parking;
 
-        // Inside the boundary and claimed by no line: the wedge a junction's corner is paved back over
-        // (TER-5). An intersection has no shape of its own, so what is left of its ground once every
-        // movement through it has taken what it sweeps is exactly this — and there is no fillet to lay,
-        // the boundary having turned the corner itself (<see cref="LaneShell.Rounded"/>).
-        var offTheKerbM = Boundary.OffTheKerbM(pointM);
-        if (offTheKerbM <= 0f) return Ground.Intersection;
-
         if (roads.Deck) return Ground.Sidewalk;
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
 
-        // And the pavement, which is the ground within a walk of the kerb and nothing else
-        // (<c>RoadFigures.LinesOffTheKerbLaid</c>) — held back, what stands beside a road is the grass it
+        // <b>And nothing off the kerb, because nothing is struck off the kerb</b>: the wedge a junction's
+        // corner is paved back over (TER-5) and the pavement beside a road were both a distance off the
+        // town's boundary, and the boundary is now the merge of the ribbons the driven lines lay
+        // (<see cref="LaneShell"/>) with no line taken off it. So what stands beside a road is the grass it
         // was laid over, exactly as the picture draws it.
-        return _config.Road.LinesOffTheKerbLaid && offTheKerbM <= _walkM ? Ground.Sidewalk : Ground.Grass;
+        return Ground.Grass;
     }
 
     /// <summary>
@@ -214,14 +196,15 @@ internal sealed partial class GroundShapes
     /// the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
     /// </summary>
     /// <remarks>
-    /// <b>One distance and one figure</b> (<see cref="GroundRings.OffTheKerbM"/>): the paving reaches a walk
-    /// beyond the kerb, so a point within a reach of any of it is one standing no further off the kerb than
-    /// those two together. Asked of the shapes piece by piece instead — a road's band grown, a movement's
-    /// grown, a fillet taken as the circle round it — the answer was generous by however much each piece's
-    /// own arithmetic was, and no two pieces were generous by the same amount.
+    /// <b>One distance and one figure</b> (<see cref="Kerbs.OffTheDrivenM"/>): the paving reaches a walk
+    /// beyond the ground a car is driven along, so a point within a reach of any of it is one standing no
+    /// further off that ground than those two together. Asked of the shapes piece by piece instead — a
+    /// road's band grown, a movement's grown, a fillet taken as the circle round it — the answer was
+    /// generous by however much each piece's own arithmetic was, and no two pieces were generous by the same
+    /// amount.
     /// </remarks>
     public bool PavingWithin(Vector2 pointM, float reachM) =>
-        Boundary.OffTheKerbM(pointM) <= _walkM + reachM
+        _paving.Kerbs.OffTheDrivenM(pointM) <= _walkM + reachM
         || SlabWithin(pointM, reachM)
         || _shore.Within(pointM, reachM);
 

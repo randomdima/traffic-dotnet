@@ -390,6 +390,20 @@ so does a bridge, which is straight and nothing else (GEN-14a). **What the arm c
 bend**: the paint of such a node is laid on the straight after the arc ends, exactly as everywhere else it is
 laid past the ground its junction reaches (TER-6).
 
+**GEN-12b** `P6` **A node the sweep carried a road through is not a junction, and the plan does not carry
+one.** Once the two arms meet on one tangent there is nothing at that node to decide, to give way at or to
+pave a box for, so **the two roads are joined into one road and the node goes with them** — a street that
+bends is one line with one pair of ends, and the town's driving lines are cut only where a driver chooses.
+Three pairs are not joined and each is a road that really does meet another: **two arms that are not the
+same road** — a pair that disagrees about which ways it is driven (GEN-18a), or either of them a bridge or a
+piece of a ring, each being a shape settled somewhere else and answered for whole (GEN-14a, GEN-19);
+**a pair the sweep refused**, which is a corner and not a bend;
+and **a pair still meeting on a crease**, too straight through to have been swept at all. **A node on a road
+that bends the whole way is not one of these and is not joined either** — the orbital arrives on its own
+curve at both its arms, so there is no straight for a sweep to be laid on and GEN-12's first bound never
+reached it. **A run never closes on itself**: where joining would leave a road running from a junction back
+to the same junction, the node it would have closed through keeps its junction instead.
+
 **GEN-15** `P4` **A lane is the width the town is laid in, and every road is laid at it.** A carriageway is as
 many lanes of the one standard width (`SimConfig.LaneWidthM`) as it has ways — two both ways and one
 one way (TER-4d) — and the walk beside it two walking lanes of theirs

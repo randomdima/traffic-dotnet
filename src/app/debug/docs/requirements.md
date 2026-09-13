@@ -160,60 +160,111 @@ so it is cached and re-emitted on the same terms the nodes layer is — and laid
 city's triangulation is more quads than the cache holds at any framing that admits it, and laid first it
 would leave a switch on beside it drawing nothing.
 
-**OBS-2p** `P8` **Which stretches of the town's driven lines are the outside of it is a layer**, marked on
-those lines and on nothing else. **A lane, a movement or a way into a bay — never a carriageway.** The
-perimeter of a plain road is its outer lanes, one where the street is one lane and both where it is two;
-at a junction it is the lanes and turning movements that reach the corners where the two roads' kerbs
-cross, over exactly the metres they do. So what is marked is a stretch of an orange line, and a stretch of the median between two
-of them is the one answer that is certainly wrong: the tarmac's own piece for a street is a band about its
-middle, and a layer reading the piece rather than the line draws ground nobody drives.
+**OBS-2p** `P8` **The outside of the town's driven ground is a layer**: every lane, every movement through a
+box and every way into a bay taken as the ribbon of ground it covers, all of them merged into one shape, and
+the boundary of that shape drawn ([`LaneShell`](../../../citygen/LaneShell.cs)). **The boundary of an area
+and never a stretch of a line.** The perimeter of a plain road is the outer edge of its outer lanes, and at a
+junction it is whatever piece of whichever band reaches past the rest — so what is drawn stands half a band
+off the orange lines under it rather than on top of them, and a layer marking the lines instead says which
+lines are outermost where the question is where the ground stops.
 
-**And it is read, not worked out here** ([`LaneShell`](../../../citygen/LaneShell.cs)). Which stretches of
-the town are its outside is a fact about the ground and the thing the pavement is meant to be laid off; a
-layer that derived its own copy would be the second answer that disagrees with the first.
+**And it is read, not worked out here** ([`LaneShell`](../../../citygen/LaneShell.cs)). Where the driven
+ground stops is a fact about the ground; a layer that derived its own copy would be the second answer that
+disagrees with the first.
 
 **A perimeter is a continuous line, and a picture of one in pieces is a picture of a fault.** Every gap in
 it is a metre of the town's edge nothing accounts for, so a break in this layer is the reading it is opened
 for — and it must be the town's break rather than the drawing's.
 
-**The pavement's own outline is not drawn.** It stands half a walk off the tarmac and is the pavement's
-middle, so laid over the town it reads as a third network between the two the nodes layer already draws
-rather than as an answer about the two.
-
 **In a colour that is the driving network's opposite**, since the reading is taken against the very lines
-the nodes layer draws underneath: a shade of the same hue says these are more lanes rather than *which*
-lanes the outside runs along.
+the nodes layer draws underneath: a shade of the same hue says these are more lanes rather than where the
+ground those lanes lay comes to an end.
 
-**One solid line per ring, and nothing down its length.** Anything drawn along it could be read as a break
-in it — ticked at a pitch the way a lane is, a run of the perimeter reads as dashes and every gap has to be
-measured against the pitch before it counts as one. The line has no direction to say either.
+**One solid line per ring, and the normals beside it.** Anything drawn *along* the line could be read as a
+break in it, so what stands beside it is another matter: an arrow every few metres, square off the line and
+turned to the side the merge believes is ground, leaves the line whole and answers the question a line alone
+cannot — **which side of it the shape is on**. A ring is walked with the driven ground on its right
+throughout (TER-3c.9), so a run of normals turned out at the grass is a corner that came out the wrong way
+round, and the boundary drawn there is as wrong as it looks however continuous it is.
 
-**The outside never stops, so a dot is a fault** — and every one the answer has is drawn, including the ones
-that should not be there. This layer is an instrument, and **what is then fixed is the geometry**. A layer
-that stopped drawing the mark would have hidden the fault and left the ground exactly as wrong.
+**And the runs that would not close are drawn as what they are.** The boundary of a union of closed bands is
+closed, so a run with two ends is a crossing the merge did not find rather than a shape the town has: it is
+drawn in the fault colour and never in the boundary's, because a fault drawn as an answer is a fault nobody
+looks for. This layer is an instrument, and **what is then fixed is the geometry**.
 
 **Every side of the ground is the outside of it, so every ring that shuts is drawn.** A street grid bounds
 what it lays on the outside and round every block it encloses, and both of those are the edge of the driven
-ground: a plain two-lane street is **both** its lanes, one carried by the ring round the town and the other
-by the ring round the block behind it. Marked from the outermost ring alone, every such street comes back
-down one side only, which is half an answer to the question the layer is opened for. What is *not* drawn is
-a ring that goes round nothing — a notch a hand's breadth across, shut on itself — and a run that will not
-shut at all, because a perimeter in pieces is not one.
+ground. Drawn from the outermost ring alone, every block in the town comes back with no edge at all, which is
+half an answer to the question the layer is opened for.
 
-**OBS-2q** `P8` **The perimeter layer draws a second line a fixed distance outside the first**, in a colour
-that is not the first's. It is the same rings moved off the tarmac and smoothed
-([`Extrusion`](../../../core/geometry/Extrusion.cs)) — the shape anything wrapped round the town at a
-distance is cut from, drawn so that the distance can be read rather than trusted.
+**OBS-2s** `P8` **The driven ground itself is a layer beside its outside**: the same lanes, movements and
+bay ways taken as the ribbons of ground they cover (OBS-2p), each drawn whole at its own line's width —
+**the area and not the edge of it**.
 
-**What the second line says is whether it kept its distance.** An offset line is only a boundary while no
-point of it stands nearer the ring than the offset, and the two failures that breaks are visible against the
-line it was struck from and against nothing else: the outer line crossing the inner one, and a lap of it
-standing inside a corner the inner one turned. Drawn alone it would be a plausible line either way.
+**It draws what the merge is given, and the boundary layer draws what the merge made of it.** Read together
+they are the one reading this pair exists for: a boundary that does not follow the outside of the bands
+under it is a merge fault, and a picture of the boundary alone cannot show it — the line looks as continuous
+where it is wrong as where it is right.
 
-**It is struck off the perimeter and not off the tarmac.** The pavement's outline is already the tarmac at a
-distance out and is cut into runs where it is the outside; this is the whole ring carried round, so what the
-two answer is not the same question and a layer drawing one as the other would say the perimeter is in
-pieces.
+**A wash and not a fill**, and under everything else the overlay draws. It covers whole streets at once, so
+at the weight a line is drawn at there is nothing left on top of it to read the ground against; and the
+bands are drawn over one another rather than merged here, so where two ribbons cover the same ground the
+wash deepens and says which ones.
+
+**OBS-2t** `P8` **Where a layer draws everything at once, the pointer asks it about one thing.** Three
+readings, each drawn only while the layer it is about is on: **the driven line under the pointer**, as the
+whole ribbon it lays and the line of that ribbon alone (OBS-2s); **the stretch of boundary
+under the pointer**, as that stretch alone with a dot at each of its ends (OBS-2p); and **the cell of the
+geometry grid that was clicked**, as its own square and every line the index holds in it (OBS-2r).
+
+**What is picked out is drawn heavier and in one colour, and what it is is written beside the pointer** —
+the numbering the thing is held under, and the figures that number stands for. A layer that draws four
+thousand lines answers "which of these" with a colour nobody can point at; the reading is the pointer's, so
+it is written where the pointer is rather than on the town, which is the picture it is a reading of.
+
+**And while the grid is on, where the pointer stands is written in the corner, in the town's own metres.**
+It is the one reading not put beside the cursor: a coordinate is read while looking somewhere else — written
+down, typed into a command line, checked against a figure in a log — so it goes where the eye can return to
+it, above the scale bar that already owns that corner for saying how big things are (`OBS-2e`). It is the
+grid's because a lattice is the one layer read in coordinates: every other layer draws a thing to look at,
+and this one draws where the things are.
+
+**A cell is picked by clicking it, and the grid takes the mouse while it is ticked** — a left click picks,
+a right click puts it back, and the ruler is offered the click first (`OBS-2f`). **The pick is a place and
+not a cell number**: the lattice is the index's own and it is snapped to the map and grown where a set is
+spread too far, so a pick held as a number would be a pick on whichever lattice was current when it was
+made.
+
+**The cell shows whole lines and not the part of each inside it.** What a cell answers is which lines a
+question asked there is narrowed to, and a line is a candidate in its entirety however little of it reaches
+the cell — so lighting only the part inside would be a picture of the cell rather than of its answer.
+
+**OBS-2r** `P8` **The grid the town's geometry is asked over is a layer**: the cells of the index a
+question about which line is where is narrowed with ([`ChainIndex`](../../../core/geometry/ChainIndex.cs)),
+drawn where they fall, with a wash in each cell that says how many lines it holds.
+
+**It draws the index of every driven line and not of some set of them** (`Paving.DrivenLines`). Pointed at
+the lanes' own index instead, the layer drew a car park whose cells were empty beside the bays' own ways —
+a picture of that index's subject read as a picture of the grid, and the empty cell was the layer's rather
+than the town's. A cell says how many lines are binned into it, so what it is a cell of has to be everything
+the town is driven along.
+
+**It is the index's own lattice and never one laid again for the picture.** The grid snaps its origin to a
+whole cell and grows its cell where a set is spread further than the one it was asked for can cover, so a
+lattice drawn from the cell size and the town's corner is a picture of a grid nothing is asked over — and it
+agrees with the real one right up until the day it does not. This is the same rule the rest of the overlay
+keeps: read the producer, never a copy of its shape.
+
+**What it is opened for is where the lines crowd**, because that is where a query pays and where the cell
+size is worth arguing about: a junction with a movement per pair of arms over it, a car park whose every bay
+reaches into one cell. So the wash is scaled to the busiest cell **in the frame** rather than to a figure —
+crowding is a comparison, and a fixed scale reads as dark everywhere over a city and empty everywhere over
+a street.
+
+**Under a cell that can be told from its neighbour it is not drawn.** A ruling finer than the thing it is
+ruled over says nothing about which cell anything is in, and at a town-wide framing a city's cells are a
+wash that costs the whole buffer to say so. Pulling the camera back thins this layer out; pulling it in is
+what it is read at.
 
 ## Two performance rules this layer taught
 

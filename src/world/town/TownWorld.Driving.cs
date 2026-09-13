@@ -770,7 +770,7 @@ internal sealed partial class TownWorld
         var goalCount = RouteGoalsFor(car, _driveSearch.Goals, out var goalPointM);
         if (goalCount == 0) return RouteFound.Nowhere;
 
-        _driveSearch.Entries[0] = driving.EntryOnLane(fromLane, _roads.LaneLengthM[fromLane]);
+        _driveSearch.Entries[0] = driving.EntryOnLane(fromLane, AlongTheEntryM(car, fromLane));
         if (_driveSearch.Entries[0].Link == TravelGraph.NoLink) return RouteFound.Nowhere;
 
         // A place on a lane is arrived at and not got near, so a goal the car has driven past is searched
@@ -784,6 +784,25 @@ internal sealed partial class TownWorld
         // A route with nothing left in it is an arrival; one that stops at a frontage to turn (GEN-4l) is
         // a leg with a manoeuvre still in front of it, whether or not it has a lane left to drive first.
         return Cars.RouteCount[car] > 0 || Cars.TurnsBackOn[car] >= 0 ? RouteFound.Route : RouteFound.Arrived;
+    }
+
+    /// <summary>
+    /// <b>How far into the lane the search sets off from the body has got</b>: where the car actually
+    /// stands when that lane is the one under it, and the far end of it when it is a lane further down the
+    /// line being extended, which the car is going to drive the whole of.
+    /// </summary>
+    /// <remarks>
+    /// <b>A lane is the whole stretch between two junctions</b>, so the two are hundreds of metres apart on
+    /// an open street. Entered at the far end regardless, every destination between the car and that end —
+    /// a bay's turn-in, a wreck, a body in the road — reads as a place already driven past
+    /// (<see cref="RoutePlanner"/>), and the leg is sent round the block to reach ground it is already
+    /// rolling towards. It is the one figure that says whether a goal is ahead.
+    /// </remarks>
+    float AlongTheEntryM(int car, int fromLane)
+    {
+        if (Cars.Line[car].LaneCount == 0 || Cars.ChainOf(car)[0] != fromLane) return _roads.LaneLengthM[fromLane];
+
+        return Math.Clamp(Cars.ProgressM[car], 0f, _roads.LaneLengthM[fromLane]);
     }
 
     /// <summary>
@@ -902,13 +921,22 @@ internal sealed partial class TownWorld
         var searched = false;
         for (var index = 0; index < from; index++) seenM += _roads.LaneLengthM[chain[index]];
 
-        while (lanes < LineAssembler.MostLanes && seenM < reachM)
+        // <b>The route is asked at the end of the line already in hand, whether or not another lane is
+        // wanted.</b> A lane is the whole stretch between two junctions, so the one under a car regularly
+        // covers that car's own sight distance on its own — and everything the asking settles would then be
+        // settled for no car on an open street: no queue to drive, no bay claimed to turn in (GEN-4l), and
+        // no way of knowing the street it set off down runs out ahead, which is a car driving to the head of
+        // a dead end and standing there for the rest of the run. <b>A lane it hands back is taken</b>: the
+        // queue has already given that lane up, and a line one lane past the sight distance is line to
+        // spare rather than line to waste.
+        while (lanes < LineAssembler.MostLanes)
         {
             var next = NextLaneOnRoute(car, chain[lanes - 1], ref searched);
             if (next < 0) break;
 
             chain[lanes++] = next;
             seenM += _roads.LaneLengthM[next];
+            if (seenM >= reachM) break;
         }
 
         // A route is driven forwards and is a chain rather than a way, whatever the last line this car was

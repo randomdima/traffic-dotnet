@@ -1,168 +1,122 @@
 # The kernel — decision log
 
-## 2026-09-12 — the cusps come out, because a loop of nothing inverts everything laid along it
+## 2026-09-12 — which way along a bend a point stands is read off the chord, never off the turn's sign
 
-A ring is walked with the driven ground on its right and everything laid along one reads its own inward side
-off that (TER-3c.9). A tiny loop breaks it: over the two or three stations the line spends doubling back, the
-right of travel points out of the perimeter, and a reader taking its inward side off the line gets it
-inverted while the line still looks like a perfectly good closed curve. On a city that was a fifth of a per
-cent of the kerb's stations and two thirds of a per cent of the roadside's.
+**The chord fixed the magnitude and left the sign reading noise.** A distance along a piece is the chord
+over the `sinc` of the half turn it subtends, and the half turn is the angle between the chord and the
+start heading — so on a piece that barely bends it is a fraction of a microradian, while the point handed
+in carries tens of them at a town's own coordinates. Signed off that angle, a crossing plainly *ahead* of a
+near-straight piece came back as a distance *behind* it, `AlongOf` wrapped it a whole circle away, and the
+crossing was dropped for standing off the piece.
 
-**What tells a loop from a corner is the arms and not the angle.** The offset of a fold really does turn
-through most of a half circle where two branches are trimmed against one another, and that corner is the
-answer — so a rule written on the turn alone would cut the very places the fold rule exists to find. A
-genuine corner has length either side of it, two branches running away from the trim. A loop the closure left
-has neither, being half a metre of line that goes nowhere.
+**A ribbon edge offset off a straight road is exactly that piece**: the lane the merge lost a crossing on
+carried a curvature of four millionths, and its edge crossed a junction corner two metres along. The merge
+then cut neither of them, the boundary ran straight through the ground it was meant to hand over, and the
+ring it belonged to could not close.
 
-Outward normals on a city: kerb 210 → 175, roadside 708 → 423, with every other reading flat or better —
-the stations standing nearer the kerb than their figure *on a station of the walk* went to nought on the
-pavement.
+**The chord says which way it stands without being asked.** A chord standing within a radian of the start
+heading is a point ahead of the start whatever the curvature is doing, and a point behind stands a half
+turn off that heading however shallow the bend — so it comes back through the turn's own case, as the far
+side of a whole circle, which is what `AlongOf`'s wrap is for. Nothing decides the sign now, which is why
+it cannot be decided wrongly. Odesa's open boundary fell from 104 runs to 100 and River's from 51 to 47.
 
-**One pass and not until it settles.** Taking a cusp out joins its neighbours and can leave another, so
-running it to a fixed point is the obvious next thing, and it traded one line for another: four passes took
-the roadside from 423 to 355 and the kerb from 175 to 214. The kerb is what every other distance is measured
-off, so it is the one to keep clean.
+## 2026-09-12 — a distance along a bend is read as a chord, because the turn carries the radius into the error
 
-## 2026-09-12 — the extrusion keeps a clearance from every band, not a distance from every line
+**Where two lines cross was right and how far along them it stood was wrong by metres.** The crossing
+itself is solved in the piece's own frame and lands where the two lines actually meet; turning that point
+back into a distance along the piece was the closed form `2·atan2(…)/k`, and that divides by the curvature.
+A road's bend subtends a fraction of a degree over a piece, so the angle being divided is small, and it is
+read off two town-sized coordinates — a float carries a coordinate of a couple of kilometres to a quarter
+of a millimetre, which over a chord of a few metres is tens of microradians. Divided by a hundred-thousandth
+that is metres.
 
-The ring a town's ground is said in runs down the lines cars are driven on, and the edge of the ground
-stands half a band beyond — which is why a station is moved by its own band plus the distance. The rule that
-then decided which stations survived was written in *distances to lines*, and that is not the same statement:
-a station moved off a narrow band can stand its own reach from a wide band's line while standing well inside
-the ground that band lays. A bay way beside a carriageway is exactly that shape, and the rule kept stations
-that were in the road.
+**Measured rather than reasoned**: the same geometry at the origin answered to a micron, and at
+`<2000, 1500>` a crossing on a bend of 200 km radius came back **half a metre** from the meeting point, one
+on a bend of 2 000 km **four metres**, and the shallowest bends came back with **no crossing at all** — the
+distance landing off the piece, and `AlongOf` rejecting it. Every ribbon edge a town lays is one of those
+bends. What the merge did with it is what a picture of the boundary showed: a cut in the middle of a ribbon
+with nothing there, and a plain crossing of two bands with no cut at either side of it.
 
-**It had been left as the distance rule because the clearance rule measured worse**, which was true and was
-an artefact of two other faults. The clearance rule drops more stations, so it leaves more gaps; the closure
-was straightening across gaps, so more gaps meant more straight. With the closure tracing and its corrector
-solving, the comparison is the other way round, and a worst-case figure still could not see it — both rules
-have a worst place around eight metres. **What settled it was counting rather than ranking**: how many
-stations stand over a tenth of a metre off their own figure, split by whether each is nearer the kerb than
-the figure or further, and by whether it is a station of the walk or the middle of a straight.
+**The chord carries no such factor** and is `ArcSeg.PointAtM` read backwards: the distance is the chord's
+own length over the `sinc` of the half turn it subtends, both of them quantities the size of the piece.
+Above a radian of half turn the `sinc` is small enough to cancel and the turn is exact enough to use, the
+curvature there being large — that is the only case the old form still answers. On the shipped maps the
+merge's open boundary fell by a third on the strength of it alone (Odesa 153 runs to 104, River 79 to 51).
 
-Nearer the kerb than the figure is the half that costs something — a pavement on the road, where the other
-half is a pavement on the grass. On the two shipped cities, moving to the clearance rule took those from
-3 539 to 476 and 5 122 to 471 on the pavement, and 3 165 to 492 and 2 960 to 349 on the walking lane. **The
-rule's own share of them — the ones standing on a station rather than mid-straight — went from 1 886 to 4
-and 1 354 to 11.** Nine in ten of what is left is the closure's.
+**`NearestOnArc` still measures against the centre, and that was measured too.** It is the same fault in
+the same family — a centre a hundred kilometres off the map, its last bit a centimetre — and writing it
+from the start instead is a millimetre or two better. It is also what decides which lane a body standing
+between two of them is on, so the millimetre moves routes: the generated city's boundary closed *less*
+(18 open runs became 22) and a rescue that arrived inside its bound stopped arriving. A nearest is not a
+cut, nothing downstream of it is cut to the millimetre, and the accuracy on offer is not worth what it
+costs.
 
-**What it costs is build time and three nodes.** The extrusion takes about seven parts in four of what it
-did, paid once when a town is stood up and never on a tick. And nodes have come back off the tarmac, having
-been nought — one of 213 on the larger city and two of 158 on the other: dropping more stations leaves
-bigger gaps, and a closure that cuts a corner can leave a node outside the ring. That is the closure again,
-which is now the only thing left. Three nodes against five thousand fewer metres of line standing in the
-road is the trade, and it is the right way round.
+## 2026-09-12 — the offset and the fold rule are gone, and a pair of pieces answers where it crosses
 
-**And the band per piece stops being carried past the field.** Under the distance rule every station's band
-travelled beside it through the keep and the closure, because the figure each was held to was its own. A
-clearance is the same figure everywhere, so the band is now only in the field — where it belongs, the field
-being the one thing that knows what lays the ground near a point.
+`Extrusion` and `RingField` are deleted. Between them they were a distance rule — the line standing a fixed
+distance to one side of a ring, kept only where no point of it stood nearer the ring than that — and every
+line the town struck off its boundary was one of them. Nothing strikes such a line now
+([citygen](../../citygen/docs/decision-log.md)), and a construction with no reader is a second description
+of a shape waiting to disagree with the first.
 
-## 2026-09-12 — the closure's veto is load-bearing, and a bare straight is the wrong thing to count
+**What the kernel gained instead is one method**: where two pieces cross, as the distance along each
+(`Spline.CrossingsOf`). It is the closed form `CrossingsM` was already built out of, handed to a caller that
+is arranging pieces rather than following a chain — such a caller has no place along either chain to rank
+crossings against, and wants every one of them rather than the nearest few.
 
-Three things were tried on the fold closure past the corrector, and measuring them established something
-worth more than any of them: **counting the gaps closed with a bare straight is a poor measure of the line
-that comes out.** What matters is how many stations of the laid ring stand off the distance that struck
-them, and whether each of those is a station of the walk or the middle of a long piece — which the probe now
-says. Against that measure, two of the three made the ring worse while making the straights look better.
+## 2026-09-12 — the geometry grid answers "which lines could" as well as "which line is nearest"
 
-**Tracing the gap from its other end as well.** A trace is a walk and a walk has a direction, so a gap the
-forward trace gives up on is worth walking backwards. It closed 715 more gaps and took the worst walking-lane
-reading from 4.02 m to 5.69 m off its figure, because the same curve reached from the other end is not
-always reached by the same route. Reverted.
+`ChainIndex` was a uniform grid over the town's arc chains with one question on it: which chain a point is
+nearest. Every caller that needed the *set* of lines round a place either asked `Near`, which projects each
+candidate onto the point and measures it, or asked nothing and walked the whole town. So the shell paired its
+stretches by weighing every end against every other end, and the bay ways found their crossings by weighing
+every way against every other way — quadratic in the size of the town, on a build path, to prove that two
+lines a district apart do not touch.
 
-**Letting the continuity veto advance.** A step of the chord fallback is refused when it does not carry on
-from the last step accepted, and because the last *accepted* step is what it is measured against, one bad
-first step refuses the whole gap: ten thousand of the twelve thousand refusals on a city are that cascade.
-Measured against the last step *held* instead, the gaps closed with a bare straight fell from 1 525 to 856
-and the worst such straight from 75 m to 3.6 m — and the stations standing off their figure went from 4 017
-to 22 318 on the pavement and 3 384 to 11 702 on the walking lane. The veto is not standing in the way of
-the closure; it is the only thing keeping the closure's bad points out of the line. Reverted.
+**The grid already knew the answer and had no way to say it.** `Around` hands back the chains with a piece in
+the cells round a point and `Crossing` the chains sharing a cell with a whole chain, each once, measuring
+nothing. Both are supersets, and that is what makes them safe: **the caller's own test is unchanged**, so the
+answer can only differ by a pair the grid failed to offer — and two lines that cross share a cell by
+construction, the crossing point lying in some cell and each line having a piece binned into it. The boxes a
+query reads the cells by are the builder's own method, because a tighter box at a bend is the one pair that
+would be missed.
 
-**So the remaining gaps are not closed by laying more points**, and that is now measured rather than
-assumed. Either the crossing is solved — which this file deliberately does not do, and one attempt at it
-found the branches crossing behind the fold rather than ahead — or fewer stations are dropped in the first
-place, which is the keep rule and is `Extrusion.Of`'s open choice.
+**The lattice is snapped to the map rather than to the set.** The origin was the least corner of whatever
+chains were fed in, so two indexes covering different ground laid their cells on different lines and a cell
+was a place in a set rather than a place in the town. Snapped down to a whole cell they agree, which is what
+lets one debug layer draw the grid every index is asked over (`OBS-2r`).
 
-## 2026-09-12 — two pieces are one corner when they are nearest at one place, not at one distance
+**A piece is binned into the cells it runs through and not the cells its box covers.** The builder took each
+piece's axis-aligned box and wrote the piece into every cell that box touched, which for a diagonal piece is
+most of a square: over the city the boxes held 1.11 entries for every cell a piece really runs through, 1.03
+on the laboratory map. As a candidate count that is a tenth; **as a picture it was the whole of a fault** —
+the debug layer washed a three-by-three block of cells over open grass a street from any line, because one
+long diagonal lane really was indexed there. The piece is walked instead, at the step the box was already
+taken with, and each sample claims the cells within half a step of it. A query may still read by the box and
+stays sound: a crossing lies in one cell, that cell is inside the asking line's box, and the crossed line was
+written into it by the walk.
 
-`RingField` answers which side of the boundary a point is on from the nearest piece's own hand, and where
-several pieces tie for nearest it summed their outward normals. That is right for a corner — in the wedge
-outside a sharp one, taking whichever piece a float preferred read inside as often as out, and the sum
-bisects the wedge. It is wrong for every other tie, and the other tie is the medial axis: a point equally
-near the boundary on two *sides* of it has two opposite normals, which sum to nothing, and the side is then
-decided by a dot product against a zero vector. That answered outside.
+**What it bought and what it did not.** The shell's own pairing was exactly the answer it was — the shell probe
+is identical on both shipped maps, line for line. **The lay is about a fortieth shorter**, and that is the
+tighter binning rather than the narrowing: interleaved against `HEAD` on one machine state it runs
+3 537/3 498/3 549 ms against 3 645/3 630/3 630 ms, the two sets not overlapping, because every query that
+projects its candidates — the walk's own `Banded` and `Owns` among them — now gets handed fewer of them. The
+narrowing itself is not separable from the noise: the pairing was never the dominant term, and the 22 million
+distance tests a city's 4 699 stretches asked of one another are a few tens of milliseconds of a
+three-and-a-half-second lay. **What is gone is the quadratic term**, which is the whole reason to have done
+it: the cost now follows how crowded the ground is rather than how large the town is, and a figure that used
+to quadruple for a town twice the size now doubles.
 
-So the middle of every band wide enough to have a middle read as standing clear of the boundary it is in the
-middle of. What found it was a node of a road nothing is turned through, sitting on its own centreline and
-reading as the grass beside it — a fault filed against junctions for having no ground of their own, which
-they do not need and never did.
+**Figures across sessions on this machine are not comparable.** The same `HEAD` measured 3 093 ms one hour
+and 3 630 ms the next with nothing changed, which is a sixth. Every reading above is interleaved against its
+own baseline for that reason, and a claim measured any other way here is a claim about the machine.
 
-**The distinction is the foot and not the distance.** Pieces meeting at a corner are nearest at one point;
-pieces across a medial axis are nearest at two. Only a shared foot sums, and a tie with two feet keeps the
-first piece's normal — either of them gives the right side alone, both saying inside.
+**Two orders had to be made total for it.** The cells are walked row by row, so a caller that settled a tie on
+which candidate it met first would have settled it on the lattice; where the shell ranked joins on a distance
+and a turn it now ranks them on the stretches' own numbers behind those, and the swap takes the
+lowest-numbered of equally cheap swaps. Those ties were being settled by the enumeration order before, and
+the enumeration order was the thing that changed.
 
-Nodes standing on ground no car is driven over, read off `--bench shell`: three of 213 to nought on the
-larger shipped city, nought of 158 on the other. The worst pavement on each fell with it, by half a metre
-and a quarter of a metre.
-
-## 2026-09-12 — a fold's gap is traced along the answer, and the clearance is sought rather than jumped to
-
-The gap a dropped fold left was stepped across on the straight between the two stations bracketing it, each
-step pushed out until it stood the distance clear. On a city that gave up on ten thousand of the sixteen
-thousand gaps a town leaves and closed them with a bare straight — up to twenty-four metres of one — and
-every line struck off the boundary inherited the cut.
-
-**The push could not settle, and the reason is exactly why it was needed.** It asked the nearest piece where
-its own offset stood and went there. Where two pieces are equally near that is two answers taking turns, and
-two pieces equally near is not an edge case in this file — it is the fold. Four turns of it and the step was
-given up on. What settles it is that the clearance is the *least* of the distances to every piece within
-reach, which makes it one continuous figure with a corner and no jump: along any line out of a point it
-rises and falls continuously, so a bracket round the distance wanted can be halved down to it. `Sought` does
-that, and the gaps a city closes with a bare straight fell from 11 657 to 818, the worst of them from 24.4 m
-to 14.5 m.
-
-**And the gap itself is now traced and not stepped across.** Both ends of a gap already stand on the answer
-and the field says where the answer goes at every point, so the closure follows it — a station along the
-tangent, then back onto the curve, then the direction it actually moved as where it goes next. That is
-continuous by construction, which is what the old spike veto was standing in for: laid in the order a chord
-was walked, the pushes landed wherever the ground happened to be nearest and drew a star across the ground,
-and the veto that suppressed it also suppressed the closure. Fifteen thousand of the twenty-two thousand
-gaps a city leaves are traced whole.
-
-**It is not the crossing solved.** Nothing here pairs up which offset crossing bounds which fold; the
-file's bargain is unchanged.
-
-**And it was not the whole of the fault, which took two wrong guesses to establish.** The worst pavement on
-a city did not fall — it moved by under a metre — so the closure looked innocent and the rule that decides
-which stations to drop looked guilty. Then a station reading four metres off its own figure turned out to be
-the middle of a long straight, so the closure looked guilty and the rule innocent. Neither was the answer:
-the probe now reports the length of the piece each station was sampled on, and **the two faults are
-comparable in size**. Of the stations standing over a tenth of a metre off their figure, three in four of
-the pavement's are mid-piece — a straight the closure gave up and drew — and more than half of the walking
-lane's are stations of the walk, which is the rule. What a worst-case figure could never say, a split can.
-`Extrusion.Of` carries the rule's side of it; the closure's side is the eight hundred gaps still given up on.
-
-**A bound on where a trace may wander was written and then taken out again.** A trace that takes a wrong
-turn can arrive honestly having drawn tens of metres of somewhere else, so it was held to within the gap's
-own width of the straight it closes. It fired nowhere on a city — the step budget already bounds the route
-to four times the straight — and a gate that refuses nothing makes the gate before it look unnecessary.
-
-## 2026-09-11 — an extrusion is a distance rule, not a pile of offset pieces
-
-`Spline.OffsetInto` moves a chain piece by piece and asks nothing about the rest of it, which is right for a
-lane inside its own road and is not a boundary: a ring's corner turned the other way sweeps the offset
-through the ring and comes back as a lap standing inside the shape, and two sides of a gap narrower than
-twice the offset each lay a line past the other. `Extrusion` keeps one rule instead — no point of the answer
-stands nearer the ring than the offset — asked of stations along the line rather than solved between pieces.
-Solving it properly means pairing up which of the offset's own crossings bound the answer, which needs a
-case for a fold inside a fold; the distance rule needs none and says the same thing about a ring of ten
-pieces and one of ten thousand. What it costs is that the fold closes within a station of where it really
-does, and the station is a quarter of a metre.
-
-Smoothing is a window over the line's own length and not a corner fillet. Half of what an extrusion has to
-smooth is not a corner: it is the notch left where a fold was dropped, and a fillet leaves one exactly as it
-found it.
 
 ## 2026-08-21 — an angle becomes a direction in one place, and a series covers the sinc
 

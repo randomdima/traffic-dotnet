@@ -273,6 +273,7 @@ internal sealed class BayLines
             drivenM.Add(laid.LengthM);
             isEntry.Add(entry);
             isNoseIn.Add(noseIn);
+
             for (var arc = 0; arc < laid.ArcCount; arc++) arcs.Add(drawnAs[arc]);
 
             // <b>The run on to the end of the space, as the straight it is</b>: the shape ends square on the
@@ -280,6 +281,12 @@ internal sealed class BayLines
             // straight on down the same line. <b>A way out has none</b> — it begins at the pose, and ground
             // behind a car that is leaving is not ground its line covers; the way in is what carries the
             // space, and it is the one a driver aiming at the bay reads.
+            //
+            // <b>It is a piece of its own although it turns at nothing</b>, and a way into a bay is not
+            // joined into the pieces it really turns at the way a movement is: where a chain is cut decides
+            // which piece the nearest point on it is read off (<see cref="Spline.ProjectM"/>), that reading
+            // is worth a millimetre at a town's coordinates, and which band of a car park's bundle is the
+            // outermost at a place is settled inside two (<see cref="LaneShell"/>).
             if (pastThePoseM > 0f) arcs.Add(new ArcSeg(axleM, bayHeadingRad, pastThePoseM, 0f));
 
             arcOffsets.Add(arcs.Count);

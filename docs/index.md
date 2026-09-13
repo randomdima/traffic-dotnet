@@ -94,69 +94,42 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 Absences that are gaps rather than decisions, and none of them is silent:
 
-- **The boundary keeps its distance in the median and not everywhere.** Every line the town has is the
-  shell's rings moved by a figure ([citygen](../src/citygen/docs/decision-log.md)), and on a city every one
-  of them stands a median 0 mm off the figure that struck it. The worst of them does not: a pavement five
-  metres inside the kerb at one place, a kerb three and a half metres outside the driven ground at another.
-  `--bench shell` prints the median, the worst and the coordinates of both.
-  **What is left of it is the fold closure, and the keep rule's share is gone**
-  ([core](../src/core/docs/decision-log.md)). The rule is now a clearance from every band rather than a
-  distance from every line, which is what the band per piece was always for; the stations standing nearer
-  the kerb than their own figure — a pavement on the road, the half that costs something — fell by nine in
-  ten, and the rule's own share of those from 1 886 to 4 on a city. Of what remains, nine in ten is the
-  middle of a straight the closure gave up and drew. `--bench shell` reports all of it, split by direction
-  and by whether each station is a station of the walk or mid-straight.
-- **A boundary may cross water where no bridge carries it**, and on the shipped cities it no longer does.
-  The shell joins two stretches across ground nothing is driven along and nothing in that join asks the
-  water, so the risk stands in the construction; what closed it in practice was the fold closure no longer
-  straightening across gaps. `--bench shell` now reads it both ways — the kerb walked for stations standing
-  over water, and the water itself asked what answers for it — and both are **nought on both shipped
-  cities**, over 1.3 million places on the larger. It stays named because nothing refuses the join: the
-  boundary is free to cross water again the moment a fold falls the wrong way.
-- **A ring still shuts over a seam, and the line struck off it darts across the road there.** A hand-over
-  whose two ends stand a centimetre apart *backwards* used to get a straight of its own, which turned the
-  ring a half circle onto it and a half circle off — and moved outward those two half turns threw their
-  sides to opposite sides of the line, a needle 2 × (band + distance) long. `LaneShell.Doubles` drops such a
-  straight now and the count went from 746 of the shell's joints to **8**, all of them the one hand-over that
-  cannot be dropped: **the one that shuts the ring**, since a ring that does not shut is thrown away whole
-  and skipping it cost six rings and 3.8 km of boundary. So eight seams a city remain by choice, and
-  `--bench shell` counts them per line.
-- **A few of the boundary's stations have their normal pointing the wrong way.** Every named line is walked
-  with the driven ground on its right, so the right of travel is the inward side (`TER-3c.9`) — except where
-  the fold closure left a loop of a station or two, over which the line doubles back and the normal with it.
-  The cusps of those loops are taken out (`Extrusion.Unlooped`) and the seams behind most of them are gone
-  (`LaneShell.Doubles`), which on a city leaves **23 of 119 025 kerb stations and 122 of 112 785 roadside
-  stations** pointing outward, from 210 and 708. `--bench shell` counts them. It is the fold closure's
-  residual in a third guise, after the mid-straight stations and the nodes, and it closes with them.
-- **A node can stand off the tarmac**, and what it was is not what it is. It was the field: a node sits on
-  its own road's centreline, equally near the boundary either side, and `RingField` summed the outward
-  normals of every piece tying for nearest — two opposite sides of a band summing to nothing, so the side
-  was decided against a zero vector and came back *outside*. Two pieces are one corner when they are
-  nearest at one *place* and not merely at one distance, and fixing that took it to nought on both shipped
-  cities. **Moving the keep rule to a clearance then put three back** — one of 213 nodes and two of 158 —
-  because dropping more stations leaves bigger gaps and a closure that cuts a corner leaves a node outside
-  the ring. So it is now the fold closure wearing a different hat, and `--bench shell` counts it.
-- **A deck carries no pavement.** Every line beside a road is now the boundary moved by a figure
-  (`TER-3c.3`), and the boundary is cut where the ground will not carry a walk — which over water is
-  everywhere. So a bridge is its deck and its carriageway, with the margin a parapet stands on reaching all
-  the way out, and the walk that ought to cross it is missing (`TER-3b.1`). Closing this is the same work as
-  the gap above it: a boundary that knows where a deck carries it.
-- **The ground is drawn as grass while the upgrade is staged**, and three switches in the shipped figures
-  say so. `RoadFigures.LinesOffTheKerbLaid` **holds back** the pavement, its rim, the kerb line and the
-  walking lanes — nothing lays them, so there is no `TER-3c.3` concrete, no `TER-3d` stroke and the walking
-  network is empty. `RoadFigures.CarriagewayDrawn` and `RoadFigures.PaintDrawn` **hide** the driven ground
-  with its slabs, and the paint above it — the lane dashes, the zebras, the stop bars and the bay strokes.
-  Hiding is a different thing from holding back: the answer goes on saying that ground is driven over and
-  that a crossing is a crossing, because the grip, the permission and the lane a body is written onto all
-  hang off them, and only the picture stops showing it.
-  - **That leaves `TER-7b` — the owner's — describing a stack the build does not draw**, five of whose six
-    layers are absent, and `TER-7` deviated from outright, the drawn ground and the answered-for ground no
-    longer being one list read two ways. **Neither rule is reworded for it**: the code does not meet them
-    while the stage runs, which is what this entry is.
-  - **It is a stage and not a state of the engine.** All three switches and the branches that read them go
-    when the boundary's remaining faults are closed. **What the boundary is looked at through meanwhile is
-    `--ui perimeter`** (OBS-2p), which draws it as lines over the bare grass — the ground mesh on a city
-    being 244 triangles with the stack hidden, against 66 506 with it drawn.
+- **The merge does not close every ring on a big town.** The town's boundary is the merge of the ribbons its
+  driven lines lay ([citygen](../src/citygen/docs/decision-log.md)), and the fixture map and River close
+  every ring of it with no station on the wrong side. **Odesa and the generated city are each left with
+  one** — a run of 30 390 m whose two ends stand 0.122 m apart, and one of 485 m whose ends stand 0.172 m
+  apart, against the tenth of a metre `LaneShell.Merge` welds at. It is the merge settling which of two
+  bands laying the same stretch of outline is the outer one and disagreeing with itself by rather more than
+  the millimetre its own nearest-point walk is worth, and **it is not the lines' to fix**: folding every
+  forkless join out of the town (`TER-5h`) took 26 ribbons off Odesa's merge and left the same run open at
+  the same place. The run it breaks is handed back as what it is (`LaneShell.Loose`), drawn in the fault
+  colour by `--ui perimeter` and counted by `--bench census`, so what is missing is visible rather than
+  papered over.
+- **Nothing is struck off the kerb.** Every line the ground had beside a road — the kerb line, the walking
+  lane, the pavement and its rim — was the boundary moved by a figure, and that construction is gone with
+  the walk that made it: there is no offset of the boundary at any distance, so there is no `TER-3c.3`
+  concrete, no `TER-3d` stroke and the walking network is empty. The blocks the town encloses come back as
+  the grass they were laid over.
+  - **That leaves `TER-7b` and `TER-3c.3` describing a stack the build does not draw.** `TER-7b` is the
+    owner's and says a layer is one region of the town's own boundary moved by a figure; five of its six
+    layers are absent and the sixth is the grass. `TER-7` is deviated from outright, the drawn ground and
+    the answered-for ground no longer being one list read two ways. **Neither rule is reworded for it**: the
+    code does not meet them, which is what this entry is.
+  - **And the ground answer lost the wedge a junction's corner is paved back over** (`TER-5`). It was
+    ground inside the boundary that no line claims, which only a boundary can say; with none, a junction's
+    corners answer as grass. `GroundLocatorTests.AJunctionIsGroundACarMayBeOn` and
+    `CrosswalkGeometryTests.TheAxisIsTheWayAcrossAndTheSpanIsHowFar` fail on a city for that reason and no
+    other. What a prop is cleared against is unaffected: `GroundShapes.PavingWithin` asks the bands
+    themselves (`Kerbs.OffTheDrivenM`), which is a distance the boundary was never needed for.
+- **A deck carries no pavement.** A bridge is its deck and its carriageway, with the margin a parapet stands
+  on reaching all the way out, and the walk that ought to cross it is missing (`TER-3b.1`). It closes with
+  the entry above it: a boundary that knows where a deck carries it, and a line struck off that boundary.
+- **The carriageway and the paint are hidden while the boundary is looked at.**
+  `RoadFigures.CarriagewayDrawn` and `RoadFigures.PaintDrawn` are off in the shipped figures, so the driven
+  ground with its slabs and the paint above it are not drawn. **Hiding is a different thing from holding
+  back**: the answer goes on saying that ground is driven over and that a crossing is a crossing, because
+  the grip, the permission and the lane a body is written onto all hang off them, and only the picture stops
+  showing it. Both switches and the branches that read them go when the merge closes on a city.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

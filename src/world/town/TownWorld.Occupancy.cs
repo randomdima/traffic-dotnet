@@ -356,9 +356,8 @@ internal sealed partial class TownWorld
             // The join is the ground from there to `starts[index + 1]`, so a stretch ending anywhere inside
             // it still covers some of it; guarded on the far edge, a car approaching a junction lays
             // nothing on it until its own stretch reaches clear across.
-            // A place cut into a road (GEN-4h) joins its two lanes at a point: there is no ground between
-            // them and so nothing to write, and a slot spent on it is one the claim has not got for
-            // the lane past it.
+            // A join of no length has no ground between its two lanes and so nothing to write, and a slot
+            // spent on it is one the claim has not got for the lane past it.
             if (leavingOn == RoadGraph.NoConnector || ends[index] >= toLineM) break;
 
             if (written < into.Length && starts[index + 1] > ends[index]

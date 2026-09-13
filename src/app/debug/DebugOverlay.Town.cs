@@ -109,6 +109,15 @@ internal sealed partial class DebugOverlay
         Relaid = true;
 
         var into = new ScreenDraw(_town);
+
+        // <b>The ground first and the ruling over it</b>, both of them under every line: neither wash is
+        // the thing being looked at, and what either is read against is whatever line lands on top of it.
+        if (switches.Ribbons) Ribbons(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+
+        // A cell wash over a lane says which cell the lane is in; a lane over a cell wash says the same
+        // thing and leaves the lane the thing being looked at, which is the one of the two that moves.
+        if (switches.Grid) Grid(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+
         if (switches.Nodes) Nodes(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
         // Over the graphs where both are on, which is the reading it exists for: what the layer says is
