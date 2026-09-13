@@ -59,7 +59,7 @@ internal static class TownGenerator
         // decide where a thing may stand, and it is the same reading the finished map answers with — the
         // shapes laid so far and nothing else (TER-7). It is remade as each stage adds its own, because
         // what is on the ground at a point is a fact about the shapes there are.
-        var bare = GroundPieces.None(worldSizeM, config.PavementWidthM);
+        var bare = GroundPieces.None(brief.Seed, worldSizeM, config.PavementWidthM);
 
         var terrain = new Rng(brief.Seed, TerrainStream);
         var water = TerrainStage.Lay(brief, config, ref terrain);
@@ -90,7 +90,8 @@ internal static class TownGenerator
         var roads = RoadStage.Lay(layout, districts, brief, config, ref shape, ref signals);
 
         var paved = bare.With(water.Rings).With(
-            roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Crosswalks, roads.StopLines);
+            roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Roundabouts, roads.Crosswalks,
+            roads.StopLines);
         var streets = new GroundShapes(paved, config);
 
         var slot = new Rng(brief.Seed, SlotStream);

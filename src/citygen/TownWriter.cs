@@ -42,6 +42,7 @@ internal static class TownWriter
         WritePavementCorners(tape, plan.PavementCorners);
         WriteRoads(tape, plan.Roads);
         WriteBridges(tape, plan.Bridges);
+        WriteRoundabouts(tape, plan.Roundabouts);
         WritePavedAreas(tape, plan.PavedAreas);
         WriteCrosswalks(tape, plan);
         WriteStopLines(tape, plan.StopLines);
@@ -132,6 +133,17 @@ internal static class TownWriter
             tape.F32(bridges.ToM[bridge]);
             tape.F32(bridges.DeckWidthM[bridge]);
             tape.F32(bridges.PavementWidthM[bridge]);
+        }
+    }
+
+    static void WriteRoundabouts(ByteTape tape, CityPlan.RoundaboutArrays rings)
+    {
+        tape.Count(rings.Count);
+        for (var ring = 0; ring < rings.Count; ring++)
+        {
+            var roads = rings.RoadsOf(ring);
+            tape.Count(roads.Length);
+            foreach (var road in roads) Index(tape, road);
         }
     }
 

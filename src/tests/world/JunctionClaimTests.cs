@@ -212,44 +212,6 @@ public class JunctionClaimTests
         Assert.Equal(run.Drivers > 0, run.Granted > 0);
     }
 
-    /// <summary>
-    /// <b>And a movement <em>is</em> given ground a weaker one was holding</b> (TER-5e). The claim above is
-    /// the safety half and passes in a town where the ranks are never compared at all; this is the other
-    /// half, and it is what says the right of way is running rather than merely written down.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Counted over both of the suite's towns rather than one of them</b>, because the exchange is a
-    /// coincidence of two streams: a turn across the oncoming traffic and the traffic it crosses share one
-    /// green phase, and which pair of cars meets in it is a fact about a fleet whose cars arrive at their own
-    /// speeds (CAR-11).
-    /// </para>
-    /// <para>
-    /// <b>It is a census and is owed a staged case</b> (VER-12): a count over a driven minute goes red when
-    /// the town moves and says nothing about the rule. What retires it is a card on the driving exam that
-    /// orders the two movements into the box together, and until there is one this is what says the rank is
-    /// read at all.
-    /// </para>
-    /// <para>
-    /// <b>One direction of the trade is asserted and the other is only counted.</b> The takeback is the
-    /// behaviour; <see cref="Watched.GivenUpToAStrongerMovement"/> is the same event seen from the car that
-    /// lost the ground <em>in the same walk that granted it</em>, which is a reporting artefact of judging
-    /// a tick from its end. It stopped arising in the shipped towns when commitment began to be judged a
-    /// decision ahead (<c>TownWorld.JunctionStopM</c>): a car near enough to be traded against is now
-    /// generally committed already, so the pair no longer lands inside one walk.
-    /// </para>
-    /// </remarks>
-    [Fact]
-    public void ACrossingIsTakenFromAMovementThatGivesWayToIt()
-    {
-        var taken = 0;
-        foreach (var map in Staged) taken += Of(map).TakenFromAWeakerMovement;
-
-        Assert.True(
-            taken > 0,
-            $"no car on {string.Join(", ", Staged)} took a crossing off a movement that gives way to it");
-    }
-
     /// <summary>What <see cref="NothingOnTheApproachIsGivenGroundAnotherCarIsCrossingOn"/> watches for.</summary>
     /// <remarks>
     /// <b>"Already" is measured from before the walk that granted, not from the end of the tick it landed

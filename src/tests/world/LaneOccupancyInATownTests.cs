@@ -614,8 +614,9 @@ public class LaneOccupancyInATownTests
     [InlineData(14f)]
     public void ABodyOffItsRouteHoldsTheRoadItsSpeedStillNeeds(float alongMps)
     {
-        // The lap, whose fleet is on the road rather than in bays.
-        var world = new TownWorld(Towns.Of("Fleet"), Config);
+        // The body is stood where this case wants it below, so what the town has to supply is a car and a
+        // straight lane long enough to take one at speed.
+        var world = new TownWorld(Towns.Of(Towns.City), Config);
         new SimLoop<TownWorld>(world, Config).Advance(600);
 
         // A body the road is not driving: nobody in it and broken, which is also what keeps it off a

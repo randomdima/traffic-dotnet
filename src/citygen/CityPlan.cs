@@ -98,8 +98,8 @@ internal sealed class CityPlan
     /// (<see cref="GroundShapes"/>).
     /// </summary>
     public GroundPieces Ground => new(
-        WorldSizeM, PavementWidthM, Roads, Bridges, Junctions, JunctionCorners, ParkingLots, PavedAreas,
-        Crosswalks, StopLines, Water);
+        Seed, WorldSizeM, PavementWidthM, Roads, Bridges, Junctions, JunctionCorners, Roundabouts,
+        ParkingLots, PavedAreas, Crosswalks, StopLines, Water);
 
     Paving? _paving;
 

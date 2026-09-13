@@ -73,6 +73,8 @@ public class TownReaderTests
         Assert.Equal(plan.Roads.Segments, again.Roads.Segments);
         Assert.Equal(plan.Roads.WidthM, again.Roads.WidthM);
         Assert.Equal(plan.Bridges.Road, again.Bridges.Road);
+        Assert.Equal(plan.Roundabouts.RingOffsets, again.Roundabouts.RingOffsets);
+        Assert.Equal(plan.Roundabouts.Road, again.Roundabouts.Road);
         Assert.Equal(plan.PavedAreas.MinM, again.PavedAreas.MinM);
         Assert.Equal(plan.Crosswalks.CentreM, again.Crosswalks.CentreM);
         Assert.Equal(plan.Crosswalks.Road, again.Crosswalks.Road);

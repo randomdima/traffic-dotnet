@@ -21,12 +21,14 @@ namespace TrafficSimulation.CityGen;
 /// </para>
 /// </remarks>
 internal readonly record struct GroundPieces(
+    ulong Seed,
     Vector2 WorldSizeM,
     float PavementWidthM,
     CityPlan.RoadArrays Roads,
     CityPlan.BridgeArrays Bridges,
     CityPlan.JunctionArrays Junctions,
     CityPlan.JunctionCornerArrays JunctionCorners,
+    CityPlan.RoundaboutArrays Roundabouts,
     CityPlan.ParkingLotArrays ParkingLots,
     CityPlan.PavedAreaArrays PavedAreas,
     CityPlan.CrosswalkArrays Crosswalks,
@@ -34,8 +36,8 @@ internal readonly record struct GroundPieces(
     CityPlan.WaterArrays Water)
 {
     /// <summary>Bare ground of the size given: grass everywhere, which is what a town starts as.</summary>
-    public static GroundPieces None(Vector2 worldSizeM, float pavementWidthM) =>
-        new(worldSizeM, pavementWidthM,
+    public static GroundPieces None(ulong seed, Vector2 worldSizeM, float pavementWidthM) =>
+        new(seed, worldSizeM, pavementWidthM,
             new CityPlan.RoadArrays
             {
                 FromJunction = [], ToJunction = [], WidthM = [], Flow = [], SegmentOffsets = [0],
@@ -47,6 +49,7 @@ internal readonly record struct GroundPieces(
             {
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
             },
+            CityPlan.RoundaboutArrays.None,
             new CityPlan.ParkingLotArrays
             {
                 CentreM = [], Axis = [], HalfExtentM = [], SpaceOffsets = [0], SpacePositionM = [],
@@ -66,12 +69,12 @@ internal readonly record struct GroundPieces(
     /// <summary>And with its roads on it — the carriageways, what each junction shares, and the kerb corners.</summary>
     public GroundPieces With(
         CityPlan.RoadArrays roads, CityPlan.BridgeArrays bridges, CityPlan.JunctionArrays junctions,
-        CityPlan.JunctionCornerArrays corners, CityPlan.CrosswalkArrays crosswalks,
-        CityPlan.StopLineArrays stopLines) =>
+        CityPlan.JunctionCornerArrays corners, CityPlan.RoundaboutArrays roundabouts,
+        CityPlan.CrosswalkArrays crosswalks, CityPlan.StopLineArrays stopLines) =>
         this with
         {
             Roads = roads, Bridges = bridges, Junctions = junctions, JunctionCorners = corners,
-            Crosswalks = crosswalks, StopLines = stopLines,
+            Roundabouts = roundabouts, Crosswalks = crosswalks, StopLines = stopLines,
         };
 
     /// <summary>And with the car parks the slot stage laid.</summary>

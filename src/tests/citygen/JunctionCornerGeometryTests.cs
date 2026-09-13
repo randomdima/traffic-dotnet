@@ -40,7 +40,7 @@ public class JunctionCornerGeometryTests
             {
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
             },
-            plan.Ground.Crosswalks, plan.Ground.StopLines);
+            plan.Ground.Roundabouts, plan.Ground.Crosswalks, plan.Ground.StopLines);
         var config = SimConfig.Shipped();
         var lanes = LaneLines.Of(plan.Ground, config);
         var tarmac = Kerbs.Of(

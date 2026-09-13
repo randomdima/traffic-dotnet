@@ -72,8 +72,8 @@ public class PavedThroughTests
                 FromJunction = roads.FromJunction, ToJunction = roads.ToJunction, WidthM = widened,
                 Flow = roads.Flow, SegmentOffsets = roads.SegmentOffsets, Segments = roads.Segments,
             },
-            plan.Ground.Bridges, plan.Ground.Junctions, plan.Ground.JunctionCorners, plan.Ground.Crosswalks,
-            plan.Ground.StopLines);
+            plan.Ground.Bridges, plan.Ground.Junctions, plan.Ground.JunctionCorners, plan.Ground.Roundabouts,
+            plan.Ground.Crosswalks, plan.Ground.StopLines);
 
         Assert.False(RoadCuts.RunsThrough(stepped)[junction]);
     }

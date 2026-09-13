@@ -22,14 +22,27 @@ internal static class TownReader
     public const ulong Magic = 0x4E574F544E534654;
 
     /// <summary>
+    /// <b>6 carries which roads circulate on each roundabout</b> (GEN-19). A ring piece is one arc of one
+    /// circle and its lanes end square to that circle rather than on a drawn bearing
+    /// (<see cref="ConnectionPoints"/>), so a town that had forgotten its rings on the way through a file
+    /// would put every roundabout's arms somewhere else.
+    /// <para>
     /// <b>5 carries which way each road is driven</b> (TER-4d), as one byte on the road record: a town with
     /// one-way streets in it cannot be read off the shapes, since a one-way road is a narrower road and a
     /// narrower road is not necessarily one-way. Version 4 carried no raster — version 3 shipped a cell grid
     /// and a lane direction per cell beside the shapes, a second answer about the same ground agreeing with
     /// the first to within half a cell, and the ground is solved against the shapes now
     /// (<see cref="GroundShapes"/>).
+    /// </para>
     /// </summary>
-    public const uint Version = 5;
+    public const uint Version = 6;
+
+    /// <summary>
+    /// The oldest version this engine still reads. <b>It is here for one file</b> — the fixture map, which
+    /// carries no roundabout and so reads whole without the record version 6 added — and it goes when that
+    /// file does.
+    /// </summary>
+    const uint OldestVersion = 5;
 
     /// <summary>What the file writes where a record points at nothing — a crossing struck mid-block belongs to no junction.</summary>
     const uint NoIndex = 0xFFFFFFFF;
@@ -50,7 +63,11 @@ internal static class TownReader
         if (magic != Magic) throw new FormatException($"{what} is not a .town file: magic {magic:x16}, wanted {Magic:x16}.");
 
         var version = cursor.U32();
-        if (version != Version) throw new FormatException($"{what} is format version {version}; this engine reads version {Version} only.");
+        if (version < OldestVersion || version > Version)
+        {
+            throw new FormatException(
+                $"{what} is format version {version}; this engine reads {OldestVersion} to {Version}.");
+        }
 
         var name = Encoding.UTF8.GetString(cursor.Take(cursor.Count("name", bytesEach: 1)));
         var seed = cursor.U64();
@@ -61,6 +78,7 @@ internal static class TownReader
         var pavementCorners = ReadPavementCorners(ref cursor);
         var roads = ReadRoads(ref cursor, what);
         var bridges = ReadBridges(ref cursor);
+        var roundabouts = version >= 6 ? ReadRoundabouts(ref cursor) : CityPlan.RoundaboutArrays.None;
         var pavedAreas = ReadPavedAreas(ref cursor);
         var crosswalks = ReadCrosswalks(ref cursor, roads, what);
         var stopLines = ReadStopLines(ref cursor);
@@ -86,6 +104,7 @@ internal static class TownReader
             PavementCorners = pavementCorners,
             Roads = roads,
             Bridges = bridges,
+            Roundabouts = roundabouts,
             PavedAreas = pavedAreas,
             Crosswalks = crosswalks,
             StopLines = stopLines,
@@ -229,6 +248,26 @@ internal static class TownReader
         {
             Road = road, FromM = fromM, ToM = toM, DeckWidthM = deckWidthM, PavementWidthM = pavementWidthM,
         };
+    }
+
+    /// <summary>
+    /// Which roads circulate on each ring, as a count of rings and a run of road references apiece — the
+    /// same flat-with-offsets shape every run in this format has.
+    /// </summary>
+    static CityPlan.RoundaboutArrays ReadRoundabouts(ref ByteCursor cursor)
+    {
+        var count = cursor.Count("roundabouts", bytesEach: 4);
+        var offsets = new int[count + 1];
+        var road = new List<int>();
+        for (var ring = 0; ring < count; ring++)
+        {
+            var roads = cursor.Count("roundabout roads", bytesEach: 4);
+            for (var at = 0; at < roads; at++) road.Add(Index(ref cursor));
+
+            offsets[ring + 1] = road.Count;
+        }
+
+        return new CityPlan.RoundaboutArrays { RingOffsets = offsets, Road = [.. road] };
     }
 
     static CityPlan.PavedAreaArrays ReadPavedAreas(ref ByteCursor cursor)

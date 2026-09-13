@@ -420,6 +420,22 @@ internal sealed partial class SimConfig
     public float RoundaboutRadiusFloorM =>
         CarCorneringRadiusM(CityGen.RoundaboutDesignSpeedMps, Terrain.PavedCoefficient);
 
+    /// <summary>
+    /// <b>The tightest line a movement through a junction may be laid on</b>: what the junction's own design
+    /// speed affords on tarmac. Derived and never authored, for the reason above — a turning circle quoted
+    /// in metres is a figure nobody could check against the car that has to hold it.
+    /// </summary>
+    public float JunctionCorneringRadiusM =>
+        CarCorneringRadiusM(CityGen.JunctionDesignSpeedMps, Terrain.PavedCoefficient);
+
+    /// <summary>
+    /// <b>How much ground a junction takes</b>: the standoff its arms' lanes end at
+    /// (<see cref="CityGenFigures.ConnectionStandoffM"/>). The disc follows the standoff and the arms follow
+    /// the disc — stated the other way round, a standoff read off a disc sized by the arms that end at the
+    /// standoff is a circle.
+    /// </summary>
+    public float JunctionRadiusM => CityGen.ConnectionStandoffM;
+
     public float ParkingSpaceLengthM => Car.LengthM + Car.WidthM * Road.ParkingSpaceMarginInCarWidths * 2f;
 
     /// <summary>

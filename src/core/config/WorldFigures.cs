@@ -407,6 +407,35 @@ internal sealed class CityGenFigures
     public float ArterialDesignSpeedMps { get; init; } = 22f;
 
     /// <summary>
+    /// The speed a movement through a junction is laid for, which is what the tightest turn across a box is
+    /// allowed to be: the radius is <see cref="SimConfig.CarCorneringRadiusM"/> of it on tarmac and is never
+    /// authored. <b>A junction's own and not the roundabout's</b> — a box is entered off a street and left
+    /// onto one, and retuning what a car may hold across it has no business moving every ring in the town.
+    /// </summary>
+    public float JunctionDesignSpeedMps { get; init; } = 8f;
+
+    /// <summary>
+    /// <b>How far off a node's own centre a lane ends</b> (TER-5d). Every arm of every junction stands its
+    /// connection points this far out, and the disc the junction is drawn on follows from it
+    /// (<see cref="SimConfig.JunctionRadiusM"/>) rather than the other way round — a disc sized off the arms
+    /// and a standoff read back off the disc is one relation stated twice.
+    /// </summary>
+    /// <remarks>Unproven. It is the first figure a town laid too tight or too baggy is retuned by.</remarks>
+    public float ConnectionStandoffM { get; init; } = 10f;
+
+    /// <summary>
+    /// How far off the chord to its neighbour an arm's bearing may be drawn. <b>It is what makes a junction
+    /// a shape rather than a crossroads</b>: the two ends of a link are drawn independently, so the road
+    /// between them has two bearings to satisfy and they do not agree.
+    /// </summary>
+    /// <remarks>
+    /// Unproven, and bounded from above by GEN-13: two arms drawn towards each other close the angle
+    /// between them by twice this, so a bound past half the least spread would let a node lay two arms
+    /// lying against each other.
+    /// </remarks>
+    public float ConnectionJitterDeg { get; init; } = 20f;
+
+    /// <summary>
     /// How far off its own chord a street may wander, as a share of the district's block spacing. <b>It is
     /// bounded by the block and not by the road</b> — two streets a block apart that each wandered half a
     /// block would meet, and a town whose streets cross where no junction is is not a town.
