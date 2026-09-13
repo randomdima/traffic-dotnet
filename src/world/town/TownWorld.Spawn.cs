@@ -226,12 +226,12 @@ internal sealed partial class TownWorld
     /// cars would stand where they were put for ever.
     /// </summary>
     /// <remarks>
-    /// <b>It is a fact about the map and not a name in a list.</b> The proving ground is the only thing
-    /// this fires on today (<see cref="CityGen.TrackPlan"/>), and it fires on it because there is nothing
-    /// to go to there rather than because of what it is called — the people standing beside its road are
-    /// not going anywhere either, which is why they are not asked about. Each car takes the lane it is
-    /// standing on, exactly as `E-8` puts a recovered one back on the road, and drives from there under the
-    /// standing rules — no destination, so it is carried by the tour, which on a closed circuit is a lap.
+    /// <b>It is a fact about the map and not a name in a list</b>, and the fact is <em>whether a bay can be
+    /// reached</em>. A bay is the only thing in a town that gives a car a destination
+    /// (<c>TownWorld.Parking</c>), so a town whose every bay is unreachable is one where no trip can be
+    /// drawn however many car parks the plan drew — which is the town this build lays. Each car takes the
+    /// lane it is standing on, exactly as `E-8` puts a recovered one back on the road, and drives from there
+    /// under the standing rules — no destination, so it is carried by the tour.
     /// </remarks>
     /// <remarks>
     /// <b>It is a standing rule and not something done once.</b> A leg ends by the car being stood down —
@@ -242,7 +242,10 @@ internal sealed partial class TownWorld
     /// </remarks>
     void DriveTheEmptyMap()
     {
-        if (_plan.Buildings.Count > 0 || _plan.ParkingLots.SpaceCount > 0) return;
+        for (var bay = 0; bay < _parking.BayCount; bay++)
+        {
+            if (_parking.CanBeReached(bay)) return;
+        }
 
         for (var car = 0; car < Cars.Count; car++)
         {
@@ -325,10 +328,16 @@ internal sealed partial class TownWorld
     /// The bay a spawned car is standing in, or −1. Read off the pose rather than assumed: a car that
     /// stands anywhere else is one this town treats as parked at a kerb.
     /// </summary>
+    /// <remarks>
+    /// <b>And a bay no way reaches is not a bay a car is in</b> (GEN-4f). The space is still drawn on the
+    /// plan, but nothing can be driven into or out of it, so a car standing on it is a car at a kerb that
+    /// happens to be square — which is the state this answers and the one the rest of the town can act on.
+    /// </remarks>
     int BayUnder(Vector2 positionM)
     {
         for (var bay = 0; bay < _parking.BayCount; bay++)
         {
+            if (!_parking.CanBeReached(bay)) continue;
             if ((_parking.CentreM(bay) - positionM).LengthSquared() <= BayFitM * BayFitM) return bay;
         }
 

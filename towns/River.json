@@ -16,13 +16,5 @@
   "bearingSpreadDeg": 20,
   "ringShare": 0.3,
   "unregulatedJunctionShare": 0.15,
-
-  "buildings": 1100,
-  "parkingSlotShare": 0.32,
-  "people": 480,
-  "cars": 480,
-
-  "hospitals": 6,
-  "policeStations": 4,
-  "depots": 2
+  "cars": 480
 }

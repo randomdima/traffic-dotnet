@@ -93,7 +93,7 @@ internal sealed partial class LaneShell
             lengthM[line] = paving.DrivenLengthM(line);
             mostHalfM = MathF.Max(mostHalfM, halfM[line]);
 
-            ribbons[line] = ArcRibbon.Of(paving.ArcsOfDriven(line), halfM[line], Kerbs.RoundingM);
+            ribbons[line] = ArcRibbon.Of(paving.ArcsOfDriven(line), halfM[line], LineTolerance.RoundingM);
         }
 
         var merge = new Merge(paving, config, ribbons, halfM, lengthM, mostHalfM);

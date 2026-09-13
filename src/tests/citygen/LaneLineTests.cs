@@ -43,7 +43,7 @@ public class LaneLineTests
             pieces += line.Length;
             for (var piece = 1; piece < line.Length; piece++)
             {
-                if (!Spline.CarriesOn(line[piece - 1], line[piece], Kerbs.RoundingM, out _)) continue;
+                if (!Spline.CarriesOn(line[piece - 1], line[piece], LineTolerance.RoundingM, out _)) continue;
 
                 if (carriedOn++ == 0) firstM = line[piece].StartM;
             }

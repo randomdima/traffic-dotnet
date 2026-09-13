@@ -45,7 +45,7 @@ internal static class RoadStage
     /// <summary>
     /// <b>How open a joint may read and still be one line</b>: the angle that moves the line laid furthest
     /// off a carriageway — the pavement's own — by the rounding two computations of one distance disagree by
-    /// (<see cref="Kerbs.RoundingM"/>). It is float slop over a chain of arcs and nothing else; a road that
+    /// (<see cref="LineTolerance.RoundingM"/>). It is float slop over a chain of arcs and nothing else; a road that
     /// really creases does so by tenths of a radian.
     /// </summary>
     /// <remarks>
@@ -54,7 +54,7 @@ internal static class RoadStage
     /// is read at would lay a road that creases where the junction used to be.
     /// </remarks>
     public static float CreaseRad(SimConfig config) =>
-        Kerbs.RoundingM / ((config.RoadWidthM * 0.5f) + (config.PavementWidthM * 0.5f));
+        LineTolerance.RoundingM / ((config.RoadWidthM * 0.5f) + (config.PavementWidthM * 0.5f));
 
     internal readonly record struct Laid(
         CityPlan.RoadArrays Roads,
@@ -66,8 +66,7 @@ internal static class RoadStage
         CityPlan.RoundaboutArrays Roundabouts);
 
     public static Laid Lay(
-        TownLayout layout, Districts districts, TownBrief brief, SimConfig config, ref Rng shape,
-        ref Rng signals)
+        TownLayout layout, Districts districts, TownBrief brief, SimConfig config, ref Rng shape)
     {
         // One lane's width for every road there is, arterial or street, and as many lanes as it is driven
         // ways (GEN-15, TER-4d).
@@ -91,15 +90,24 @@ internal static class RoadStage
         centreM = through.CentreM;
         OntoTheDrivenHalf(layout, chains, centreM, widthM, config);
 
-        var junctions = Junctions(layout, centreM, brief, config, chains, widthM, ref signals);
-        var furniture = Furniture.Lay(layout, chains, junctions, config, widthM);
+        var junctions = Junctions(layout, centreM, chains, widthM);
 
         return new Laid(
             Roads(layout, chains, widthM),
             junctions,
-            furniture.Corners,
-            furniture.Crosswalks,
-            furniture.StopLines,
+
+            // <b>A junction turns no kerb corner, strikes no crossing and paints no bar.</b> A fillet is
+            // kerb geometry and the kerb is not laid here any more; the crossings and the bars come back
+            // with it (TER-6).
+            new CityPlan.JunctionCornerArrays
+            {
+                CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
+            },
+            new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
+            new CityPlan.StopLineArrays
+            {
+                CentreM = [], Approach = [], SpanM = [], ThicknessM = [], Junction = [], Road = [],
+            },
             Bridges(layout, chains, config),
             Rings(layout));
     }
@@ -545,13 +553,9 @@ internal static class RoadStage
     }
 
     static CityPlan.JunctionArrays Junctions(
-        TownLayout layout, Vector2[] centreM, TownBrief brief, SimConfig config, ArcSeg[][] chains,
-        float[] widthM, ref Rng draw)
+        TownLayout layout, Vector2[] centreM, ArcSeg[][] chains, float[] widthM)
     {
-        var arms = layout.Arms();
         var radiusM = new float[centreM.Length];
-        var lit = new bool[centreM.Length];
-        var phaseOffsetS = new float[centreM.Length];
 
         // <b>The disc is the ground its arms share</b> (TER-5), so it is sized on the arm whose own ground
         // reaches furthest from it: its own half, and however far off the node the road itself stands where
@@ -567,25 +571,15 @@ internal static class RoadStage
             radiusM[to] = MathF.Max(radiusM[to], halfM + StandsOffM(chains[road], atFromEnd: false, centreM[to]));
         }
 
-        // <b>Nothing on a roundabout's ring is lit</b> (GEN-19): a ring node is where circulating traffic is
-        // driven over what is entering (TER-5e), and a timetable over it would stop the circle to let the
-        // arm in — which is the one thing a roundabout is laid instead of.
-        var onARing = OnARing(layout);
-
-        for (var junction = 0; junction < centreM.Length; junction++)
-        {
-
-            // <b>Only a junction that admits conflicting movements may be lit at all</b> (TLT-3), and a share
-            // of those is left to the ranking instead (TER-5e) — drawn here, so a town lights the same way
-            // every time it is opened and differently from the next town.
-            lit[junction] = arms[junction] >= 3 && !onARing[junction]
-                            && draw.NextFloat() >= brief.UnregulatedJunctionShare;
-            phaseOffsetS[junction] = draw.NextFloat(0f, config.Signals.CycleS);
-        }
-
+        // <b>Nothing is lit.</b> Whether a junction carries a timetable was drawn here, in a stream of its
+        // own, and the signals come back with the crossings and the bars they order (TLT-3) — so what the
+        // plan carries is a town of junctions that all rank their movements (TER-5e).
         return new CityPlan.JunctionArrays
         {
-            CentreM = centreM, RadiusM = radiusM, Lit = lit, PhaseOffsetS = phaseOffsetS,
+            CentreM = centreM,
+            RadiusM = radiusM,
+            Lit = new bool[centreM.Length],
+            PhaseOffsetS = new float[centreM.Length],
         };
     }
 

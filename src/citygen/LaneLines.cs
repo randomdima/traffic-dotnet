@@ -524,7 +524,7 @@ internal sealed partial class LaneLines
                 // gives its two halves the same radius, and the joint between them is a point in the line
                 // nothing turns at (<see cref="Spline.JoinedInto"/>). Most of a town's movements are that
                 // pair — a turn across a box is symmetric whenever the two lanes are the same width.
-                laid = Spline.JoinedInto(drawn.AsSpan(0, laid), Kerbs.RoundingM, joined);
+                laid = Spline.JoinedInto(drawn.AsSpan(0, laid), LineTolerance.RoundingM, joined);
                 for (var arc = 0; arc < laid; arc++)
                 {
                     arcs.Add(joined[arc]);

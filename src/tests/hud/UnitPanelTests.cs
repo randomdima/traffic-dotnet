@@ -139,42 +139,6 @@ public class UnitPanelTests
         Assert.Equal(Window.Y - Theme.MarginPx, box.Bottom, tolerance: 0.01f);
     }
 
-    /// <summary>Both kinds of unit are described, in each one's own figures rather than in a shared subset.</summary>
-    [Fact]
-    public void ACarAndAWalkerAreBothDescribed()
-    {
-        using var world = Town();
-        Assert.True(world.People.Count >= 1, "the fixture stands nobody to describe");
-
-        world.Select(new Selection(SelectionKind.Car, 0));
-        var car = Drawn(world, out _).Rows;
-
-        world.Select(new Selection(SelectionKind.Person, 0));
-        var walker = Drawn(world, out _).Rows;
-
-        Assert.True(car > 0, "a car was described in no rows at all");
-        Assert.True(walker > 0, "a walker was described in no rows at all");
-    }
-
-    /// <summary>
-    /// <b>It does not need the unit on the picture.</b> Somebody riding in a car is not drawn and wears no
-    /// brackets (PHY-7), and what they are doing is exactly what a reader who has just watched them get in
-    /// is asking.
-    /// </summary>
-    [Fact]
-    public void AUnitWithNothingDrawnOnScreenIsStillDescribed()
-    {
-        using var world = Town();
-        world.Select(new Selection(SelectionKind.Person, 0));
-
-        world.People.Inside[0] = new Contained(ContainerKind.Car, 0);
-        Assert.False(
-            SelectionMark.BoxOf(world, Config, world.Lead, out _, out _, out _),
-            "the fixture drew a body that is inside something");
-
-        Assert.True(Drawn(world, out _).Rows > 0, "a unit nothing is drawn for said nothing");
-    }
-
     /// <summary>The title shuts the body, which is the whole of what a click on the panel does.</summary>
     [Fact]
     public void TheTitleShutsTheBodyAndTheRowsGoWithIt()

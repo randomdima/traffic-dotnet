@@ -71,9 +71,9 @@ internal sealed partial class GroundMesh
 
     /// <summary>
     /// How far apart two corners may stand and still be one point: a millimetre, which is the rounding the
-    /// town's own outline is cut at (<see cref="Kerbs.RoundingM"/>) and well under anything a frame shows.
+    /// town's own outline is cut at (<see cref="LineTolerance.RoundingM"/>) and well under anything a frame shows.
     /// </summary>
-    const float OnePointM = Kerbs.RoundingM;
+    const float OnePointM = LineTolerance.RoundingM;
 
     /// <summary>White: a surface drawn as itself.</summary>
     static readonly Vector3 Plain = Vector3.One;
@@ -143,15 +143,11 @@ internal sealed partial class GroundMesh
         // and the lines a car is driven on are the town's own (<see cref="Paving"/>). Derived again here,
         // the picture and the answer are two readings that have to be kept in step by whoever remembers.
         var paving = plan.Paving(config);
-        var walkM = paving.WalkM;
         var edgeM = config.Road.EdgeLineWidthM;
-        var kerbM = config.Road.PaintLineWidthM;
 
-        // An edge is the surface darkened and paint is the surface brightened. Two measurements, not one
-        // relation: the inverse of the edge shade is 1.72 and lays a dash two and a half times too dark.
-        // Nothing else in the town is drawn in a colour of its own.
+        // An edge is the surface darkened. It is a measurement and not a relation, and nothing else in the
+        // town is drawn in a colour of its own.
         var edge = Shade(0.58f, 0.58f, 0.62f);
-        var paint = Shade(2.6f, 2.6f, 2.5f);
 
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
 
@@ -205,36 +201,12 @@ internal sealed partial class GroundMesh
         }
 
 
-        // <b>The paint, which is one layer and so one switch</b> (<c>RoadFigures.PaintDrawn</c>): temporary,
-        // and the last of the stage's three. The mark still says what it said — a crossing is a stretch of
-        // the road it is painted across (TER-6) whether or not the stripes are drawn — so this hides the
-        // stripes and nothing else.
+        // <b>The paint is not drawn, because none of it is laid.</b> The dashes, the zebras, the bars and
+        // the bay strokes all read arrays that come back empty (TER-6), and they come back with the
+        // crossings and the signals rather than being drawn off nothing in the meantime.
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
         mesh._welds = [];
-        if (!config.Road.PaintDrawn) return mesh;
-
-        mesh.LaneDashes(plan, config, paint, periods);
-
-        // A zebra spans the whole carriageway kerb to kerb — the width of the road it is painted on and
-        // never a span of its own (TER-6) — where a stop bar covers the approaching lane only.
-        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
-        {
-            mesh.Zebra(plan.Crosswalks.CentreM[crossing], plan.Crosswalks.Axis[crossing],
-                plan.Crosswalks.DepthM[crossing], plan.CrossingSpanM(crossing), config, paint, periods);
-        }
-
-        // The bars that were painted, in the arm's own frame: the plan carries where each one landed,
-        // so nothing here re-derives a coordinate somebody else owns.
-        for (var bar = 0; bar < plan.StopLines.Count; bar++)
-        {
-            var approach = plan.StopLines.Approach[bar];
-            mesh.OrientedRect(plan.StopLines.CentreM[bar], new Vector2(-approach.Y, approach.X),
-                new Vector2(plan.StopLines.SpanM[bar] * 0.5f, plan.StopLines.ThicknessM[bar] * 0.5f),
-                Surface.Tarmac, paint, periods);
-        }
-
-        mesh.BayStrokes(plan, config, paint, periods);
 
         return mesh;
     }

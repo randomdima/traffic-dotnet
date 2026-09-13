@@ -1,66 +1,72 @@
 using System.Numerics;
+using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>Where the roster stands at the first tick</b>: a car in a bay and a person at the door of the
-/// building it lives in (GEN-7).
+/// <b>Where the roster stands at the first tick</b>: a car on a lane, and nobody anywhere.
 /// </summary>
 /// <remarks>
-/// <b>Both are places an earlier stage has already made legal.</b> A bay was laid inside a car park's own
-/// rectangle and a door on the pavement outside a building, so nothing here has to test the ground — which
-/// is the whole shape of this generator: the stage that places something is the stage that knows it fits.
 /// <para>
-/// <b>A count the town cannot afford is clamped rather than retried</b>: a brief asking for more cars than
-/// the frontages left bays for stands as many as there are bays, and the census is what says so.
+/// <b>GEN-7 says a car starts stopped in a parking space and a person starts inside a building, and both
+/// halves are false of a town this build lays.</b> There is no bay to stand a car in and no door to stand
+/// anybody at, and the rule is named in the known gaps rather than reworded to match the code — the code is
+/// what is temporarily wrong here.
+/// </para>
+/// <para>
+/// <b>A car is stood on a lane because otherwise the town does not move at all.</b> Nothing else stands one
+/// up: the roster is the plan's spawns, and a stage that placed nothing would leave a perfect road fabric
+/// with no traffic on it — which looks right in a picture, passes every static test, and makes every
+/// dynamic reading vacuous at once.
+/// </para>
+/// <para>
+/// <b>One car a lane, and that is also the bound.</b> Clear of the other cars by construction rather than
+/// by a search, and the count a brief may ask for is how many lanes the town laid that are long enough to
+/// stand one on — which is the bound that replaces the bays a car count used to be clamped to.
 /// </para>
 /// </remarks>
 internal static class SpawnStage
 {
-    const byte Person = 0;
-
     const byte Car = 1;
 
-    public static CityPlan.SpawnArrays Lay(
-        TownBrief brief, CityPlan.BuildingArrays buildings, CityPlan.ParkingLotArrays lots, ref Rng draw)
+    public static CityPlan.SpawnArrays Lay(TownBrief brief, Paving paving, SimConfig config, ref Rng draw)
     {
-        var kind = new List<byte>();
-        var positionM = new List<Vector2>();
-        var headingRad = new List<float>();
+        var lanes = paving.Lanes;
 
-        var cars = Math.Min(brief.Cars, lots.SpaceCount);
-        foreach (var bay in Spread(lots.SpaceCount, cars, ref draw))
+        // A lane a car cannot be stood clear of both its ends on is not one this stage can use: a body
+        // standing over a lane's own end is a body in the box beyond it before the town has ticked once.
+        var roomM = config.Car.LengthM + (config.Car.WidthM * 2f);
+        var standable = new List<int>();
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
-            kind.Add(Car);
-            positionM.Add(lots.SpacePositionM[bay]);
-            headingRad.Add(lots.SpaceHeadingRad[bay]);
+            if (lanes.LaneLengthM[lane] >= roomM) standable.Add(lane);
         }
 
-        var people = Math.Min(brief.People, buildings.Count * MostPerBuilding(buildings));
-        for (var person = 0; person < people; person++)
+        var cars = Math.Min(brief.Cars, standable.Count);
+        var kind = new byte[cars];
+        var positionM = new Vector2[cars];
+        var headingRad = new float[cars];
+
+        var taken = 0;
+        foreach (var lane in Spread(standable.Count, cars, ref draw))
         {
-            // Round the buildings rather than drawn per person, so a town's people are spread over its
-            // doors instead of piling up behind whichever ones the draw happened to favour.
-            var building = person % buildings.Count;
-            var doorM = buildings.EntryPointM[buildings.EntryOffsets[building]];
-            kind.Add(Person);
-            positionM.Add(doorM);
-            headingRad.Add(RoadStage.Facing(Vector2.Normalize(buildings.CentreM[building] - doorM)));
+            var on = standable[lane];
+            var at = Spline.SampleAt(lanes.ArcsOf(on), lanes.LaneLengthM[on] * 0.5f);
+
+            kind[taken] = Car;
+            positionM[taken] = at.PositionM;
+            headingRad[taken] = at.HeadingRad;
+            taken++;
         }
 
-        return new CityPlan.SpawnArrays
-        {
-            Kind = [.. kind], PositionM = [.. positionM], HeadingRad = [.. headingRad],
-        };
+        return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad };
     }
 
-    static int MostPerBuilding(CityPlan.BuildingArrays buildings) =>
-        buildings.Count == 0 ? 0 : buildings.Capacity[0];
-
     /// <summary>
-    /// Which of the bays are taken: every <c>n</c>th one from a drawn start, so the parked cars are spread
-    /// over the town's car parks rather than filling the first of them.
+    /// Which of the lanes are stood on: every <c>n</c>th one from a drawn start, so the traffic is spread
+    /// over the town rather than filling whichever corner of it was laid first.
     /// </summary>
     static IEnumerable<int> Spread(int have, int want, ref Rng draw)
     {

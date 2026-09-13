@@ -12,16 +12,15 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <remarks>
 /// <para>
 /// <b>Props are what the ground affords and not a count anybody authored</b> (GEN-6), and they are laid in
-/// passes that answer different questions (GEN-6b). <b>The paved edges are walked first</b> — every road's
-/// two kerbs and every car park's four sides — because a verge is a line and not an area: what stands along
-/// one is found by following the thing it belongs to, on that thing's own bearing, and not by sweeping a
-/// lattice and asking each square whether it happens to be near a street. <b>Then the ground the town is
-/// not on is swept</b>, well clear of the walk those passes took.
+/// passes that answer different questions (GEN-6b). <b>The kerbs are walked first</b>, because a verge is a
+/// line and not an area: what stands along one is found by following the road it belongs to, on that road's
+/// own bearing, and not by sweeping a lattice and asking each square whether it happens to be near a
+/// street. <b>Then the ground the town is not on is swept</b>, well clear of the walk that pass took.
 /// </para>
 /// <para>
 /// <b>Neither pass searches for anything</b>: a candidate that does not stand is not a prop, and the ground
-/// it was refused for is not tried again from another angle. Everything the stage needs was laid before it —
-/// the roads, the pavement, the bays and the buildings — which is what makes one pass over each enough.
+/// it was refused for is not tried again from another angle. Everything the stage needs was laid before
+/// it — the roads and the boundary they leave — which is what makes one pass over each enough.
 /// </para>
 /// <para>
 /// <b>A kind carries its own size band</b>, because a set is only as wide as the art authored for it: the
@@ -32,15 +31,14 @@ namespace TrafficSimulation.CityGen.Gen;
 internal static class PropStage
 {
     public static CityPlan.PropArrays Lay(
-        TownBrief brief, CityPlan.RoadArrays roads, CityPlan.ParkingLotArrays lots, GroundShapes ground,
-        GenClaims claims, SimConfig config, ref Rng draw)
+        TownBrief brief, CityPlan.RoadArrays roads, GroundShapes ground, GenClaims claims, SimConfig config,
+        ref Rng draw)
     {
         var acrossM = new Vector2(brief.WidthM, brief.HeightM);
         var widestM = MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM);
         var scatter = PropScatter.Over(acrossM, widestM, config.CityGen.PropApartM);
 
         AlongTheKerbs(roads, ground, claims, config, scatter, ref draw);
-        AroundTheLots(lots, ground, claims, config, scatter, ref draw);
         OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
 
         return new CityPlan.PropArrays
@@ -67,18 +65,16 @@ internal static class PropStage
         var pitchM = config.CityGen.PropVergePitchM;
         var stubM = RoadStage.StubM(config);
 
-        // A car park's tarmac is on the far side of the pavement the prop is standing off, so what says a
-        // prop is beside one is the whole verge and that pavement together.
-        var lotReachM = config.CityGen.PropVergeFarM + config.PavementWidthM;
-
         for (var road = 0; road < roads.Count; road++)
         {
             var chain = roads.SegmentsOf(road);
             if (chain.Length == 0) continue;
 
-            // The kerb of the road being walked and never the catalogue's: a one-way street's pavement
-            // stands half a carriageway nearer its middle (TER-4d).
-            var kerbM = (roads.WidthM[road] * 0.5f) + config.PavementWidthM;
+            // The edge of the road being walked and never the catalogue's: a one-way street stands half a
+            // carriageway nearer its middle (TER-4d). <b>The road's own half and no walk beside it</b> —
+            // nothing lays a pavement, so the verge begins where the tarmac stops, and the figure the
+            // scatter is cleared against has to be the one the ground answers with (TER-7).
+            var kerbM = roads.WidthM[road] * 0.5f;
             var lengthM = Spline.TotalLengthM(chain);
             foreach (var hand in (ReadOnlySpan<int>)[-1, 1])
             {
@@ -91,80 +87,13 @@ internal static class PropStage
                     var atM = on.PositionM + (on.Right * hand * (kerbM + nearM + (draw.NextFloat() * bandM)));
                     if (ground.At(atM) != Ground.Grass) continue;
 
-                    var kind = OnAVerge(ground.ParkingWithin(atM, lotReachM), config, ref draw);
+                    var kind = OnAVerge(config, ref draw);
                     var reachM = draw.NextFloat(config.CityGen.PropDiameterMinM, WidestM(kind, config)) * 0.5f;
                     if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
 
                     scatter.Add(atM, reachM, on.HeadingRad, kind);
                 }
             }
-        }
-    }
-
-    /// <summary>
-    /// <b>And around the car parks, on the same terms</b> (GEN-6b). A lot reaches back over the pavement it
-    /// fronts, so the grass beyond it is on nobody's kerb: the road is a car park's depth away and its own
-    /// walk lands on tarmac there. All four sides are walked, and <b>the ones facing the street are refused
-    /// by the ground under them</b> rather than by the stage knowing which way out is — a lot carries its
-    /// axis and its extent and never which of its sides the road was on.
-    /// </summary>
-    static void AroundTheLots(
-        CityPlan.ParkingLotArrays lots, GroundShapes ground, GenClaims claims, SimConfig config,
-        PropScatter scatter, ref Rng draw)
-    {
-        for (var lot = 0; lot < lots.Count; lot++)
-        {
-            var centreM = lots.CentreM[lot];
-            var along = lots.Axis[lot];
-            var across = Heading.RightOf(along);
-            var halfM = lots.HalfExtentM[lot];
-
-            foreach (var side in (ReadOnlySpan<int>)[-1, 1])
-            {
-                AlongAnEdge(
-                    centreM + (across * (halfM.Y * side)), along, across * side, halfM.X,
-                    ground, claims, config, scatter, ref draw);
-                AlongAnEdge(
-                    centreM + (along * (halfM.X * side)), across, along * side, halfM.Y,
-                    ground, claims, config, scatter, ref draw);
-            }
-        }
-    }
-
-    /// <summary>
-    /// One straight edge walked and furnished on its own bearing, which is the whole of what a car park's
-    /// side is — a road's is walked rather than stepped, because a road bends and an edge does not.
-    /// </summary>
-    /// <remarks>
-    /// <b>The verge begins past the walk that wraps the lot</b> (GEN-4d), which is that lot's pavement: the
-    /// ring of grass a body gets round a car park is claimed before anything fills it, so a prop laid into
-    /// it would be a planter in the middle of the only way past. It is the same relation a street's verge
-    /// stands in — the walk, then the band — measured off a rectangle instead of off a curve.
-    /// </remarks>
-    static void AlongAnEdge(
-        Vector2 middleM, Vector2 tangent, Vector2 outward, float halfM, GroundShapes ground, GenClaims claims,
-        SimConfig config, PropScatter scatter, ref Rng draw)
-    {
-        var wrapM = config.PavementWidthM;
-        var nearM = config.CityGen.PropVergeNearM;
-        var bandM = config.CityGen.PropVergeFarM - nearM;
-        var pitchM = config.CityGen.PropVergePitchM;
-        var bearingRad = RoadStage.Facing(tangent);
-
-        for (var alongM = -halfM; alongM <= halfM; alongM += pitchM)
-        {
-            var stationM = alongM + (draw.NextFloat() * pitchM);
-            if (stationM > halfM) continue;
-
-            var atM = middleM + (tangent * stationM)
-                      + (outward * (wrapM + nearM + (draw.NextFloat() * bandM)));
-            if (ground.At(atM) != Ground.Grass) continue;
-
-            var kind = OnAVerge(true, config, ref draw);
-            var reachM = draw.NextFloat(config.CityGen.PropDiameterMinM, WidestM(kind, config)) * 0.5f;
-            if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
-
-            scatter.Add(atM, reachM, bearingRad, kind);
         }
     }
 
@@ -233,12 +162,16 @@ internal static class PropStage
         && !scatter.Reaches(atM, reachM);
 
     /// <summary>
-    /// What a prop on a verge is (GEN-6b): furniture where there is a car park to stand it beside, and
-    /// planting everywhere else.
+    /// What a prop on a verge is (GEN-6b): a share of the street's furniture, and planting for the rest.
     /// </summary>
-    static PropKind OnAVerge(bool besideALot, SimConfig config, ref Rng draw)
+    /// <remarks>
+    /// <b>It used to depend on whether a car park stood behind the verge</b>, and there is no answer to that
+    /// question any more — the subject is gone — so the rule it fed is what changed rather than being
+    /// worked around with a second source for the same answer.
+    /// </remarks>
+    static PropKind OnAVerge(SimConfig config, ref Rng draw)
     {
-        if (besideALot && draw.NextFloat() < config.CityGen.PropFurnitureShare) return PropKind.UrbanFurniture;
+        if (draw.NextFloat() < config.CityGen.PropFurnitureShare) return PropKind.UrbanFurniture;
 
         // A verge is not a flower bed end to end: a share of what is planted along one is whatever the
         // country either side of the town grows anyway, which is what keeps a street from reading as a

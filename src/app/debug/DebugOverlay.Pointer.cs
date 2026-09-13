@@ -240,7 +240,7 @@ internal sealed partial class DebugOverlay
         if (line != _hoveredLine)
         {
             _hovered = ArcRibbon.Of(
-                paving.ArcsOfDriven(line), paving.DrivenWidthM(line) * 0.5f, Kerbs.RoundingM);
+                paving.ArcsOfDriven(line), paving.DrivenWidthM(line) * 0.5f, LineTolerance.RoundingM);
             _hoveredLine = line;
         }
 

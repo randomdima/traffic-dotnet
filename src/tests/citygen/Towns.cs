@@ -88,11 +88,11 @@ internal static class Towns
     /// of what the ground holds, the lattice inside them is a handful of points, and what comes out is a
     /// chain of streets rather than a town with blocks in it.
     /// </remarks>
-    /// <param name="parkingSlotShare">
+    /// <param name="cars">
     /// Overridden only by the case that asks whether retuning a later stage moves the roads — which needs
     /// the same brief with one figure changed, and would silently ask nothing if it hand-copied the rest.
     /// </param>
-    public static TownBrief Brief(ulong seed, WaterKind water = WaterKind.River, float parkingSlotShare = 0.3f) => new()
+    public static TownBrief Brief(ulong seed, WaterKind water = WaterKind.River, int cars = 60) => new()
     {
         Name = City,
         Description = "The suite's own town, laid to ask questions of a city without shipping one",
@@ -104,13 +104,7 @@ internal static class Towns
         BearingSpreadDeg = 30f,
         RingShare = 0.34f,
         UnregulatedJunctionShare = 0.15f,
-        Buildings = 400,
-        ParkingSlotShare = parkingSlotShare,
-        People = 180,
-        Cars = 180,
-        Hospitals = 2,
-        PoliceStations = 2,
-        Depots = 1,
+        Cars = cars,
         Water = water,
         WaterBearingDeg = 100f,
         WaterMeander = 0.6f,
@@ -119,17 +113,6 @@ internal static class Towns
         // a town in two halves, and the half that is deleted takes the properties being asked about with it.
         WaterShare = water == WaterKind.Coast ? 0.2f : 0.06f,
     };
-
-    /// <summary>
-    /// The roofs the generator's own properties are asked over. <b>Two of them and not the catalogue's</b>:
-    /// what is asked of a laid town there is what the generator does with the footprints it is handed, and a
-    /// property that read the art would go red the day somebody drew a wider house.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="City"/> is furnished from the catalogue instead, because it stands in for a city: what is
-    /// asked of it includes what the roofs look like on the buildings under them.
-    /// </remarks>
-    static readonly Vector2[] RoofsM = [new(12f, 12f), new(18f, 16f)];
 
     static readonly ConcurrentDictionary<string, CityPlan> Shared = new();
 
@@ -146,8 +129,8 @@ internal static class Towns
     /// <summary>A copy of a town nobody else holds — for the one test that writes into a plan.</summary>
     public static CityPlan Fresh(string map) =>
         map == City
-            ? TownGenerator.Lay(Brief(CitySeed), Figures, BuildingCatalog.Shared.OrdinaryFootprintsM())
-            : Maps.Plan(map, Figures, BuildingCatalog.Shared.OrdinaryFootprintsM());
+            ? TownGenerator.Lay(Brief(CitySeed), Figures)
+            : Maps.Plan(map, Figures);
 
     /// <summary>
     /// A generated town at one seed and one water, laid once per pair however many questions are asked of
@@ -165,7 +148,7 @@ internal static class Towns
         LayFresh(Brief(seed, water));
 
     /// <inheritdoc cref="LayFresh(ulong, WaterKind)"/>
-    public static CityPlan LayFresh(TownBrief brief) => TownGenerator.Lay(brief, Figures, RoofsM);
+    public static CityPlan LayFresh(TownBrief brief) => TownGenerator.Lay(brief, Figures);
 
     /// <summary>
     /// <b>Whether a map stands any car up at all.</b> A question about what traffic does at a junction is

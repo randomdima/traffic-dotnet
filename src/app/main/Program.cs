@@ -207,7 +207,7 @@ internal static class Program
     static int RunExport(Options options, SimConfig config)
     {
         var name = options.Map ?? Options.FixtureMap;
-        var plan = Maps.Plan(name, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
+        var plan = Maps.Plan(name, config);
         TownWriter.WriteFile(plan, options.Export!);
 
         var written = new FileInfo(options.Export!).Length;
@@ -365,7 +365,7 @@ internal static class Program
     static void ReportTown(string map, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
-        var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
+        var plan = Maps.Plan(map, config);
         var read = Stopwatch.GetElapsedTime(started);
 
         started = Stopwatch.GetTimestamp();

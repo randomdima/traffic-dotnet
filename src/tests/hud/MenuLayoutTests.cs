@@ -160,9 +160,14 @@ public class MenuLayoutTests
     {
         var tallPx = new Vector2(Window.X, Window.Y * 2f);
         var menu = Laid(tallPx);
+
+        // Shut first, because the map group opens with the panel: what is measured is the difference the
+        // rows make, and they are already in the box the popup was laid at. Row 0 is the group's own header.
+        Click(menu, menu.RowMiddlePx(0));
+        menu.Lay(tallPx, Gear(tallPx));
         var shutPx = menu.Box.SizePx.Y;
 
-        menu.OpenGroup(Menu.Scenarios);
+        menu.OpenGroup(Menu.MainMaps);
         menu.Lay(tallPx, Gear(tallPx));
 
         Assert.True(menu.Box.SizePx.Y > shutPx, "opening a group grew the popup by nothing at all");
@@ -171,7 +176,7 @@ public class MenuLayoutTests
 
         // And on a window too short for its own switch page it is the window that bounds it, not the list.
         var shortMenu = Laid(Window);
-        shortMenu.OpenGroup(Menu.Scenarios);
+        shortMenu.OpenGroup(Menu.MainMaps);
         shortMenu.Lay(Window, Gear(Window));
         Assert.True(
             shortMenu.Box.Bottom <= Window.Y - Theme.MarginPx,
@@ -288,12 +293,17 @@ public class MenuLayoutTests
     /// A page with more rows than the window has room for is every map at once on a short display, and
     /// it was the panel drawn past the bottom edge of the screen with the last of them under it.
     /// </summary>
+    /// <remarks>
+    /// <b>The rows a page has are the maps this build ships</b>, and it ships few enough that a short
+    /// window still holds them: what is asked here is the bound and the hit test, and the wheel moves
+    /// nothing while the page fits. The scrolled case comes back with the maps.
+    /// </remarks>
     [Fact]
     public void APageTallerThanTheWindowScrollsInsteadOfGrowingPastIt()
     {
         var shortWindow = new Vector2(1400f, 320f);
         var menu = Laid(shortWindow);
-        menu.OpenGroup(Menu.Scenarios);
+        menu.OpenGroup(Menu.MainMaps);
         menu.Lay(shortWindow, Gear(shortWindow));
 
         var places = MapCatalogue.On(MapKind.Place);
@@ -305,12 +315,17 @@ public class MenuLayoutTests
         Assert.Equal(MenuAction.OpenMap, first.Action);
         Assert.Equal(places[0].Name, first.Name);
 
-        // Two notches down, and the row the layout puts under the pointer is the row the hit test
-        // reads back — which is the same question the unscrolled page is asked above.
-        menu.Scroll(-2f);
-        var scrolled = Click(menu, menu.RowMiddlePx(places.Length + 2));
-        Assert.Equal(MenuAction.OpenMap, scrolled.Action);
-        Assert.Equal(scenarios[0].Name, scrolled.Name);
+        // One notch down, and every map row the layout still draws is the row the hit test reads back —
+        // which is the same question the unscrolled page is asked above.
+        menu.Scroll(-1f);
+        for (var row = 1; row <= places.Length; row++)
+        {
+            var scrolled = Click(menu, menu.RowMiddlePx(row));
+            if (scrolled.Action == MenuAction.None) continue;
+
+            Assert.Equal(MenuAction.OpenMap, scrolled.Action);
+            Assert.Equal(places[row - 1].Name, scrolled.Name);
+        }
     }
 
     /// <summary>

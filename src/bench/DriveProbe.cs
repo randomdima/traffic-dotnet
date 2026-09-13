@@ -82,7 +82,7 @@ internal static class DriveProbe
 
     public static DriveSample Sample(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
+        var plan = Maps.Plan(map, config);
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);

@@ -231,7 +231,7 @@ internal static class RoadCuts
     /// <remarks>
     /// <b>Asked of the kerb corners and not of the node</b>: two ends at one place, facing opposite ways at
     /// one width, are four corners standing pairwise where the other end's stand, and the figure they are
-    /// held to is the one that makes two pieces one line (<see cref="Kerbs.JoinedM"/>). A bend the roads
+    /// held to is the one that makes two pieces one line (<see cref="LineTolerance.JoinedM"/>). A bend the roads
     /// were swept into meets exactly; a node left unswept because its deflection was under the sweep's
     /// notice creases the kerb by less than that; two arms of different widths, or a pair with room for
     /// nothing better than the fillet (GEN-12a), do not meet and keep their junction.
@@ -273,8 +273,8 @@ internal static class RoadCuts
             var acrossA = Heading.RightOf(outA) * halfA;
             var acrossB = Heading.RightOf(outB) * halfB;
             through[junction] =
-                Vector2.Distance(placeA + acrossA, placeB - acrossB) <= Kerbs.JoinedM
-                && Vector2.Distance(placeA - acrossA, placeB + acrossB) <= Kerbs.JoinedM;
+                Vector2.Distance(placeA + acrossA, placeB - acrossB) <= LineTolerance.JoinedM
+                && Vector2.Distance(placeA - acrossA, placeB + acrossB) <= LineTolerance.JoinedM;
         }
 
         return through;

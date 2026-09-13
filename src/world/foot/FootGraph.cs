@@ -169,33 +169,15 @@ internal sealed partial class FootGraph : IFineGraph
     /// (<see cref="ChainIndex"/>), so two towns asking it at once is two walks over one working set.
     /// </remarks>
     /// <summary>
-    /// The most a joint may be open by before two stretches are no longer one line
-    /// (<see cref="Builder.RunOn"/>) — the same rounding the town's own shapes are cut with
-    /// (<see cref="Kerbs.RoundingM"/>).
+    /// <b>Nothing lays a walking lane.</b> The lane was the town's boundary moved half a walk, and the
+    /// boundary is now the merge of the ribbons the driven lines lay (<see cref="LaneShell"/>) with no line
+    /// struck off it at any distance — so there is nothing for the wrap to be cut from, and the passes that
+    /// pruned, joined and de-duplicated a wrap went with the wrap rather than running over nothing.
     /// </summary>
-    const float RoundingM = Kerbs.RoundingM;
-
-    public static FootGraph Build(CityPlan plan, SimConfig config)
-    {
-        var builder = new Builder(config.Network.FootGraphNodeWeldM);
-
-        // <b>Nothing lays a walking lane.</b> The lane was the town's boundary moved half a walk, and the
-        // boundary is now the merge of the ribbons the driven lines lay (<see cref="LaneShell"/>) with no
-        // line struck off it at any distance — so there is nothing for the wrap to be cut from and the
-        // network stands up empty, which is the network a map with no pavement has always stood up with.
-        builder.Prune(config.Network.FootGraphStubPruneM);
-
-        // Run together after the prune and not before it: dropping a stub is what leaves the node behind it
-        // forking nothing. The kink allowed is the one that opens a lane by the rounding at the offset the
-        // lane is laid at, which is the whole of why it is a figure and not a taste.
-        builder.RunOn(RoundingM, RoundingM / config.WalkingLaneOffsetM);
-
-        // And a pavement laid twice is one way out of a node only once the seams inside it are gone, so
-        // what it is dropped by runs after the first pass — and the prune and the pass run again after it,
-        // because what a doubled line hung off is a stub and what a stub hung off forks nothing.
-        builder.DropThePavementSaidTwice(config.PersonDiameterM);
-        builder.Prune(config.Network.FootGraphStubPruneM);
-        builder.RunOn(RoundingM, RoundingM / config.WalkingLaneOffsetM);
-        return builder.Lay(config.NearestChainCellM);
-    }
+    /// <remarks>
+    /// The pavement comes back as the boundary moved by a figure (TER-7b), and the passes come back with
+    /// it: they are what turns a wrap into a graph, and there is no wrap.
+    /// </remarks>
+    public static FootGraph Build(CityPlan plan, SimConfig config) =>
+        new Builder(config.Network.FootGraphNodeWeldM).Lay(config.NearestChainCellM);
 }

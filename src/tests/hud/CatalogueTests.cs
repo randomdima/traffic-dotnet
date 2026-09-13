@@ -59,7 +59,6 @@ public class CatalogueTests
 
         Assert.Equal(Maps.Shipped().Length, places.Length + scenarios.Length);
         Assert.NotEmpty(places);
-        Assert.NotEmpty(scenarios);
     }
 
     [Fact]

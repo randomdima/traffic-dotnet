@@ -29,12 +29,14 @@ public class TownReaderTests
 
     /// <summary>The header figures of the fixture map, which is the town every detailed check is staged on.</summary>
     [Fact]
-    public void TheFixtureMapIsTheOneTownPlanMdDescribes()
+    public void TheFixtureMapIsTheOneTheBriefDescribes()
     {
+        var brief = TrafficSimulation.CityGen.Maps.Brief(Towns.Fixture);
         var plan = Towns.Of(Towns.Fixture);
 
-        Assert.Equal(480f, plan.WorldSizeM.X);
-        Assert.Equal(320f, plan.WorldSizeM.Y);
+        Assert.Equal(brief.WidthM, plan.WorldSizeM.X);
+        Assert.Equal(brief.HeightM, plan.WorldSizeM.Y);
+        Assert.Equal(brief.Seed, plan.Seed);
         Assert.Equal(SimConfig.Shipped().PavementWidthM, plan.PavementWidthM);
     }
 
@@ -112,7 +114,7 @@ public class TownReaderTests
     [Fact]
     public void ATruncatedTownIsRefusedRatherThanHalfRead()
     {
-        var whole = File.ReadAllBytes(ProjectPaths.TownFile(Towns.Fixture));
+        var whole = TownWriter.Write(Towns.Of(Towns.Fixture));
 
         Assert.Throws<FormatException>(() => TownReader.Read(whole.AsSpan(0, whole.Length / 2)));
     }
@@ -125,7 +127,7 @@ public class TownReaderTests
     [Fact]
     public void ATownWithBytesLeftOverIsRefused()
     {
-        var whole = File.ReadAllBytes(ProjectPaths.TownFile(Towns.Fixture));
+        var whole = TownWriter.Write(Towns.Of(Towns.Fixture));
         var padded = new byte[whole.Length + 1];
         whole.CopyTo(padded, 0);
 

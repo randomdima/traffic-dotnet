@@ -70,88 +70,21 @@ public class SelectionPathTests
     }
 
     /// <summary>
-    /// A car is drawn the route its line has not been grown onto yet, which is the half of a drive the
-    /// layers never show: the lanes past the one it is driving are on screen, out to the last one planned.
-    /// </summary>
-    [Fact]
-    public void ACarIsDrawnTheLanesItsLineHasNotReachedYet()
-    {
-        using var world = Town();
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        var car = ACarUnderWay(world, loop);
-        Assert.True(car >= 0, "no car on the fixture town set off inside a minute of town time");
-
-        world.Select(new Selection(SelectionKind.Car, car));
-        var marks = Of(Marks(world), Theme.SelectionPath);
-
-        var route = world.Cars.RouteOf(car);
-        var lastLane = route[world.Cars.RouteCount[car] - 1];
-        var endM = world.Roads.EndOf(lastLane).PositionM;
-        Assert.Contains(marks, mark => (mark.Centre - endM).Length() < 4f);
-    }
-
-    /// <summary>
-    /// CTL-1a: <b>where the route the car holds runs out, the rest of the way is planned</b> — asked from
-    /// the end of what it is holding and arriving where the car is actually going. The fixture town is far
-    /// too small to fill a car's own queue, so the question is put to the town directly, from the middle of
-    /// a route as if the queue had stopped there.
-    /// </summary>
-    [Fact]
-    public void TheRestOfACarsWayIsPlannedFromTheEndOfWhatItHolds()
-    {
-        using var world = Town();
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        var car = ACarUnderWay(world, loop, holdingLanes: 2);
-        Assert.True(car >= 0, "no car on the fixture town held two lanes of route inside a minute of town time");
-
-        var held = world.Cars.RouteOf(car)[world.Cars.RouteTaken[car]..world.Cars.RouteCount[car]];
-
-        // Never the last lane it holds: there is nothing beyond the end of a route to plan, so a car
-        // holding only two lanes has to be asked about the first of them rather than the middle.
-        var stopped = Math.Min(held.Length / 2, held.Length - 2);
-        var rest = world.RouteBeyond(slot: 0, car, held[stopped]);
-        Assert.False(rest.IsEmpty, "nothing was planned past the lane the route was cut at");
-
-        // The road joins it on from where the drawing stopped, and it ends where the car's own route does.
-        Assert.NotEqual(RoadGraph.NoConnector, world.Roads.ConnectorBetween(held[stopped], rest[0]));
-        Assert.Equal(held[^1], rest[^1]);
-    }
-
-    /// <summary>
-    /// And nothing is planned past a route that ends where the car is going, which is what
-    /// <see cref="CarFleet.RouteRunsOut"/> is asked before the drawing asks for any of it: a search from the
-    /// end of such a route comes back with the way round the block.
-    /// </summary>
-    [Fact]
-    public void ARouteThatReachesItsDestinationIsNotDrawnOnPast()
-    {
-        using var world = Town();
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        var car = ACarUnderWay(world, loop);
-        Assert.True(car >= 0, "no car on the fixture town set off inside a minute of town time");
-        Assert.False(world.Cars.RouteRunsOut[car], "a leg across the fixture town filled a car's whole queue");
-    }
-
-    /// <summary>
-    /// The first car holding at least <paramref name="holdingLanes"/> lanes of route still to drive, or −1
-    /// where a minute of town time produced none.
+    /// The first car with a line under it, or −1 where a minute of town time produced none.
     /// </summary>
     /// <remarks>
-    /// <b>How much route is part of the question.</b> A car one lane from its destination is under way and
-    /// is no use to a case about the road past where the queue stopped, so the staging asks for the depth it
-    /// needs rather than taking whatever moved first and asserting about it afterwards.
+    /// <b>A line and not a route.</b> A route is a queue of lanes towards a destination, and no town this
+    /// build lays gives a car one — there is no bay to be sent to — so what a driving car holds is the line
+    /// the tour laid it (<c>LaneTour</c>), which is what the path is drawn from either way.
     /// </remarks>
-    static int ACarUnderWay(TownWorld world, SimLoop<TownWorld> loop, int holdingLanes = 1)
+    static int ACarUnderWay(TownWorld world, SimLoop<TownWorld> loop)
     {
         var mostTicks = (int)MathF.Ceiling(60f / Config.TickSeconds);
         for (var waited = 0; waited < mostTicks; waited++)
         {
             for (var car = 0; car < world.Cars.Count; car++)
             {
-                if (world.Cars.RouteCount[car] - world.Cars.RouteTaken[car] >= holdingLanes) return car;
+                if (world.Cars.Driven[car] && world.Cars.Line[car].LaneCount > 0) return car;
             }
 
             loop.Advance(1);

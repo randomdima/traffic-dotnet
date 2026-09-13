@@ -98,13 +98,33 @@ public class SelectionTests
     public void ABoxWithShiftAddsToWhatIsAlreadyPickedOut()
     {
         using var world = Town();
-        world.Select(new Selection(SelectionKind.Person, 0));
+
+        // A car the box below will not catch, so what is held and what is caught are two different units.
+        var held = Furthest(world, world.Cars.PositionM[0]);
+        world.Select(new Selection(SelectionKind.Car, held));
 
         var (centreM, sizeM) = BoxRound(world.Cars.PositionM[0], reachM: 6f);
         world.SelectIn(centreM, sizeM, turnRad: 0f, add: true);
 
-        Assert.True(world.IsSelected(SelectionKind.Person, 0), "a box with shift dropped what was held");
+        Assert.True(world.IsSelected(SelectionKind.Car, held), "a box with shift dropped what was held");
         Assert.True(world.IsSelected(SelectionKind.Car, 0));
+    }
+
+    /// <summary>The car standing furthest from a place, which is the one a box round that place cannot catch.</summary>
+    static int Furthest(TownWorld world, Vector2 fromM)
+    {
+        var best = 0;
+        var bestM = 0f;
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            var awayM = Vector2.DistanceSquared(world.Cars.PositionM[car], fromM);
+            if (awayM <= bestM) continue;
+
+            best = car;
+            bestM = awayM;
+        }
+
+        return best;
     }
 
     /// <summary>

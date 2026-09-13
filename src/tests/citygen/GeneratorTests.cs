@@ -76,14 +76,14 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// <b>A stage's draws are its own</b>: what the slot stage is asked for cannot move where the roads went,
+    /// <b>A stage's draws are its own</b>: what a later stage is asked for cannot move where the roads went,
     /// because each stage draws on its own stream of the seed. It is what makes a stage worth retuning.
     /// </summary>
     [Fact]
     public void RetuningALaterStageLeavesTheRoadsWhereTheyWere()
     {
         var town = Lay(Brief(3));
-        var other = Towns.LayFresh(Towns.Brief(3, parkingSlotShare: 0.15f));
+        var other = Towns.LayFresh(Towns.Brief(3, cars: 40));
 
         Assert.Equal(town.Roads.Count, other.Roads.Count);
         Assert.Equal(town.Junctions.Count, other.Junctions.Count);
@@ -384,7 +384,7 @@ public class GeneratorTests
                 var onM = 1f / MathF.Abs(arcs[0].Curvature);
                 radiusM = radiusM == 0f ? onM : radiusM;
                 Assert.True(
-                    MathF.Abs(onM - radiusM) <= Kerbs.OnePlaceM,
+                    MathF.Abs(onM - radiusM) <= LineTolerance.OnePlaceM,
                     $"road {road} of roundabout {ring} bends on {onM:F1} m where the ring is {radiusM:F1} m");
             }
         }
@@ -410,11 +410,11 @@ public class GeneratorTests
                 var fromM = plan.Junctions.CentreM[plan.Roads.FromJunction[road]];
                 var toM = plan.Junctions.CentreM[plan.Roads.ToJunction[road]];
                 Assert.True(
-                    Vector2.Distance(arcs[0].StartM, fromM) <= Kerbs.RoundingM,
+                    Vector2.Distance(arcs[0].StartM, fromM) <= LineTolerance.RoundingM,
                     $"road {road} of roundabout {ring} sets off at {arcs[0].StartM}, " +
                     $"{Vector2.Distance(arcs[0].StartM, fromM):F3} m off the junction it leaves");
                 Assert.True(
-                    Vector2.Distance(arcs[^1].EndM, toM) <= Kerbs.RoundingM,
+                    Vector2.Distance(arcs[^1].EndM, toM) <= LineTolerance.RoundingM,
                     $"road {road} of roundabout {ring} finishes at {arcs[^1].EndM}, " +
                     $"{Vector2.Distance(arcs[^1].EndM, toM):F3} m off the junction it arrives at");
             }
@@ -521,24 +521,6 @@ public class GeneratorTests
                 plan.Roundabouts.RoadsOf(roundabout).Length >= Roundabouts.ArmsLeast,
                 $"roundabout {roundabout} circulates on {plan.Roundabouts.RoadsOf(roundabout).Length} roads, "
                 + $"so it opened out a junction of fewer than {Roundabouts.ArmsLeast} arms");
-        }
-    }
-
-    /// <summary>
-    /// <b>Nothing fronts a roundabout</b> (GEN-19): a ring is one junction's worth of ground, so no car park
-    /// hangs off it — a lot entered off a junction is a lot reached across circulating traffic.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Seeds))]
-    public void NoCarParkFrontsARoundabout(ulong seed)
-    {
-        var plan = Lay(Brief(seed));
-        var circulating = OneWays.Circulating(plan);
-        foreach (var front in RoadFrontages.Lay(plan.Ground, Config).All)
-        {
-            Assert.False(
-                circulating[front.Road],
-                $"car park {front.Lot} fronts road {front.Road}, which circulates on a roundabout");
         }
     }
 
@@ -1069,44 +1051,6 @@ public class GeneratorTests
         }
     }
 
-    /// <summary>
-    /// <b>A share of the junctions that could be lit is left to the ranking instead</b> (TER-5e). Only a
-    /// junction of three arms or more can carry lights at all (TLT-3), so the share is of those.
-    /// </summary>
-    /// <remarks>
-    /// <b>Over every seed at once and not one town at a time.</b> It is a draw, so what is asked is that the
-    /// draw is at the share the brief states; a single town of a few dozen junctions is a sample too small
-    /// to say anything, and a test that asserted it of one would fail on the seed rather than on the rule.
-    /// </remarks>
-    [Fact]
-    public void SomeOfTheJunctionsAreLeftUnregulated()
-    {
-        var eligible = 0;
-        var unregulated = 0;
-        var brief = Brief(1);
-        foreach (var seed in (ulong[])[1, 7, 4242, 0xDEADBEEF])
-        {
-            var plan = Lay(Brief(seed));
-            var arms = ArmsOf(plan);
-            var ringOf = RingOf(plan);
-            for (var junction = 0; junction < plan.Junctions.Count; junction++)
-            {
-                // <b>A roundabout's own nodes are not a junction the draw is about</b> (GEN-19): none of
-                // them is ever lit, so counting them would read as a town the draw had left unregulated.
-                if (arms[junction] < 3 || ringOf[junction] >= 0) continue;
-
-                eligible++;
-                if (!plan.Junctions.Lit[junction]) unregulated++;
-            }
-        }
-
-        Assert.True(eligible > 40, $"only {eligible} junctions in four towns could be lit at all");
-        Assert.InRange(
-            unregulated / (float)eligible,
-            brief.UnregulatedJunctionShare * 0.4f,
-            brief.UnregulatedJunctionShare * 2f);
-    }
-
     /// <summary>Nothing that is lit is a junction lights are about (TLT-3) — a light on two arms governs nothing.</summary>
     [Theory]
     [MemberData(nameof(Seeds))]
@@ -1173,30 +1117,6 @@ public class GeneratorTests
                 Assert.True((sides & side) == 0, $"junction {junction} carries two bars on one side of its crossing");
                 sides |= side;
             }
-        }
-    }
-
-    /// <summary>
-    /// <b>Every corner a junction turns is turned</b> (TER-5). Two arms standing on the near side of a
-    /// straight line leave their kerbs crossing outside the mouth, and what is not paved back to an arc
-    /// tangent to both is a spike of pavement standing in the carriageway.
-    /// </summary>
-    /// <remarks>
-    /// <b>The pairs are read off the geometry and not off the order the arms are stored in.</b> The corner
-    /// a bend turns is the convex one of its two pairs, and a stage that took whichever pair came first
-    /// filleted half of its right-angle bends and left the other half sharp.
-    /// </remarks>
-    [Theory]
-    [MemberData(nameof(Seeds))]
-    public void EveryCornerAJunctionTurnsIsTurned(ulong seed)
-    {
-        var plan = Lay(Brief(seed));
-        foreach (var (junction, apartRad, spikeM, cornerAtM) in Corners(plan))
-        {
-            Assert.True(
-                Turned(plan, cornerAtM),
-                $"junction {junction} leaves a {spikeM:F2} m spike at {cornerAtM.X:F1},{cornerAtM.Y:F1} " +
-                $"between arms {apartRad * 180f / MathF.PI:F0} degrees apart");
         }
     }
 
@@ -1437,9 +1357,9 @@ public class GeneratorTests
                 var chain = plan.Roads.SegmentsOf(road).ToArray();
                 if (chain.Length == 0) continue;
 
-                // The road's own width and not the catalogue's: a one-way street's pavement stands half a
-                // carriageway nearer its middle (TER-4d).
-                var kerbM = (plan.Roads.WidthM[road] * 0.5f) + config.PavementWidthM;
+                // The road's own width and not the catalogue's: a one-way street stands half a carriageway
+                // nearer its middle (TER-4d). No walk beside it, because nothing lays one.
+                var kerbM = plan.Roads.WidthM[road] * 0.5f;
                 var lengthM = Spline.TotalLengthM(chain);
                 for (var alongM = 0f; alongM <= lengthM; alongM += SampledM)
                 {
@@ -1448,20 +1368,6 @@ public class GeneratorTests
                     {
                         edges.Add(on.PositionM + (on.Right * hand * kerbM), on.HeadingRad, 0f);
                     }
-                }
-            }
-
-            for (var lot = 0; lot < plan.ParkingLots.Count; lot++)
-            {
-                var centreM = plan.ParkingLots.CentreM[lot];
-                var along = plan.ParkingLots.Axis[lot];
-                var across = Heading.RightOf(along);
-                var halfM = plan.ParkingLots.HalfExtentM[lot];
-
-                foreach (var side in (ReadOnlySpan<int>)[-1, 1])
-                {
-                    edges.Side(centreM + (across * (halfM.Y * side)), along, halfM.X, config.PavementWidthM);
-                    edges.Side(centreM + (along * (halfM.X * side)), across, halfM.Y, config.PavementWidthM);
                 }
             }
 

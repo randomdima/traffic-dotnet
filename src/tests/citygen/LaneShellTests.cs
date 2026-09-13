@@ -103,7 +103,7 @@ public class LaneShellTests
     [InlineData(Towns.City)]
     public void ARingTurnsOnlyWhereTheGroundDoes(string map)
     {
-        const float JoinM = Kerbs.RoundingM;
+        const float JoinM = LineTolerance.RoundingM;
 
         var config = SimConfig.Shipped();
         var shell = Towns.Of(map).Paving(config).Perimeter(config);
@@ -131,7 +131,7 @@ public class LaneShellTests
 
     /// <summary>
     /// Whether any line's band covers a place, which is the definition of the driven ground — <b>at its
-    /// own width with the arithmetic's rounding on it</b> (<see cref="Kerbs.RoundingM"/>), and off its
+    /// own width with the arithmetic's rounding on it</b> (<see cref="LineTolerance.RoundingM"/>), and off its
     /// square ends not at all.
     /// </summary>
     /// <remarks>
@@ -164,7 +164,7 @@ public class LaneShellTests
 
         public bool Cover(Vector2 pointM)
         {
-            const float RoundingM = Kerbs.RoundingM;
+            const float RoundingM = LineTolerance.RoundingM;
 
             var found = _lines.Near(pointM, _widestM + RoundingM, _near, _alongM);
             for (var at = 0; at < found && at < _near.Length; at++)

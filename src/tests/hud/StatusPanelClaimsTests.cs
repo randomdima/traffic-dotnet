@@ -105,8 +105,10 @@ public class StatusPanelClaimsTests
             Assert.Equal(entry.Kind == MapKind.Scenario, MapCatalogue.IsScenario(entry.Name));
         }
 
+        // A brief describes itself and is a place; a name nothing ships is read as a laboratory, which is
+        // what the row a laid map would take says of it.
         Assert.False(MapCatalogue.IsScenario("Odesa"));
-        Assert.True(MapCatalogue.IsScenario("Test"));
+        Assert.True(MapCatalogue.IsScenario("Idle"));
     }
 
     /// <summary>

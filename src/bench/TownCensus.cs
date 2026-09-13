@@ -30,7 +30,7 @@ internal static class TownCensus
     public static void Run(string map, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
-        var plan = Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
+        var plan = Maps.Plan(map, config);
         var elapsed = Stopwatch.GetElapsedTime(started);
 
         var locator = new GroundLocator(plan, config);
@@ -124,8 +124,7 @@ internal static class TownCensus
                           $"reaching {Widest(plan):F2} m at the widest");
         Console.WriteLine($"  stop bars      {plan.StopLines.Count,7}  {Mean(plan.StopLines.SpanM):F2} m across the lane, " +
                           $"{Mean(plan.StopLines.ThicknessM):F2} m thick");
-        Console.WriteLine($"  parking lots   {plan.ParkingLots.Count,7}  {plan.ParkingLots.SpaceCount} spaces, " +
-                          $"{Fronting(plan, config)} of them front a kerb the line is broken over");
+        Console.WriteLine($"  parking lots   {plan.ParkingLots.Count,7}  {plan.ParkingLots.SpaceCount} spaces");
         Console.WriteLine($"  buildings      {plan.Buildings.Count,7}  capacity {capacity}, {plan.Buildings.EntryPointM.Length} ways in");
         Console.WriteLine($"  props          {plan.Props.Count,7}  {propsByKind[0]} wild, {propsByKind[1]} planted, " +
                           $"{propsByKind[2]} furniture; {turned} turned onto the kerb they stand along");
@@ -218,22 +217,6 @@ internal static class TownCensus
         }
 
         return found;
-    }
-
-    /// <summary>
-    /// How many car parks stand against the carriageway itself rather than behind a walk. A town where it
-    /// is far below the lot count is a town whose lots were laid off the kerb they were meant to hang off
-    /// (GEN-4b).
-    /// </summary>
-    static int Fronting(CityPlan plan, SimConfig config)
-    {
-        var fronting = 0;
-        foreach (var front in RoadFrontages.Lay(plan.Ground, config).All)
-        {
-            if (front.FrontsTheKerb) fronting++;
-        }
-
-        return fronting;
     }
 
     /// <summary>

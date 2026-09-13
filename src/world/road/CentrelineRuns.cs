@@ -74,7 +74,7 @@ internal sealed class CentrelineRuns
         if (roads.Count == 0) return new CentrelineRuns([], None);
 
         var ground = plan.Ground;
-        var lengthM = RoadFrontages.RoadLengthsM(ground);
+        var lengthM = RoadLengthsM(ground);
         var blocked = Blocked(plan, lengthM);
         var closes = ClosesTheGroundBehindItsPaint(plan);
         var reachM = RoadCuts.ReachesM(ground, config);
@@ -200,8 +200,7 @@ internal sealed class CentrelineRuns
         var spans = new List<ClosedStretch>?[plan.Roads.Count];
         for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
         {
-            var road = RoadFrontages.Nearest(
-                plan.Ground, lengthM, plan.Crosswalks.CentreM[crossing], out var alongM, out _);
+            var road = NearestRoad(plan.Ground, lengthM, plan.Crosswalks.CentreM[crossing], out var alongM);
             if (road < 0) continue;
 
             var reachM = plan.Crosswalks.DepthM[crossing] * 0.5f;
@@ -210,5 +209,47 @@ internal sealed class CentrelineRuns
         }
 
         return spans;
+    }
+
+    /// <summary>Every road's own length, which is what a projection onto one has to be bounded by.</summary>
+    /// <remarks>
+    /// <b>Here because the frontage arithmetic that used to carry it is gone.</b> It was a lot's, and there
+    /// are no lots; what is left of it is two spans of plain geometry that this class is now the only
+    /// reader of.
+    /// </remarks>
+    static float[] RoadLengthsM(GroundPieces ground)
+    {
+        var lengthM = new float[ground.Roads.Count];
+        for (var road = 0; road < lengthM.Length; road++)
+        {
+            lengthM[road] = Spline.TotalLengthM(ground.Roads.SegmentsOf(road));
+        }
+
+        return lengthM;
+    }
+
+    /// <summary>The road whose centreline passes nearest a place, and how far along it that is.</summary>
+    static int NearestRoad(GroundPieces ground, float[] lengthM, Vector2 pointM, out float alongM)
+    {
+        var roads = ground.Roads;
+        var best = -1;
+        alongM = 0f;
+        var offM = float.PositiveInfinity;
+
+        for (var road = 0; road < roads.Count; road++)
+        {
+            var centreline = roads.SegmentsOf(road);
+            if (centreline.Length == 0) continue;
+
+            var atM = Spline.ProjectM(centreline, pointM, lengthM[road] * 0.5f, lengthM[road]);
+            var awayM = (Spline.SampleAt(centreline, atM).PositionM - pointM).Length();
+            if (awayM >= offM) continue;
+
+            offM = awayM;
+            alongM = atM;
+            best = road;
+        }
+
+        return best;
     }
 }

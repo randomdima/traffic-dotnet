@@ -292,6 +292,13 @@ internal sealed class CityPlan
 
     internal sealed class BuildingArrays
     {
+        /// <summary>A town with nothing standing on it, which is every town this build lays.</summary>
+        public static BuildingArrays None => new()
+        {
+            CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], Use = [], EntryOffsets = [0],
+            EntryPointM = [],
+        };
+
         public required Vector2[] CentreM { get; init; }
         public required Vector2[] SizeM { get; init; }
         public required float[] HeadingRad { get; init; }

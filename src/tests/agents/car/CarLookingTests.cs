@@ -181,32 +181,4 @@ public class CarLookingInATownTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    /// <summary>
-    /// <b>A driver sees somebody standing in its lane, and knows that is what it is.</b> It is the reading
-    /// no ray could give — a cast found a shape and a shape on a lane is a shape — and it is the one that
-    /// must never be read as an obstruction, because that is a body `E-4` would swerve round.
-    /// </summary>
-    /// <remarks>
-    /// <b>Asked of a busy town and not of the fixture.</b> A body on a crossing holds the lane it is in and
-    /// the one it is walking into (`PER-15`), so meeting one is a matter of being the car in that lane —
-    /// which on a map with a car a street happens well inside a minute, and on the fixture's thin traffic
-    /// takes several.
-    /// </remarks>
-    [Fact]
-    public void ADriverSeesSomebodyOnFootAsSomebodyOnFoot()
-    {
-        using var world = new TownWorld(Towns.Of(Towns.City), Config);
-        var loop = new SimLoop<TownWorld>(world, Config);
-
-        for (var tick = 0; tick < 3_600; tick++)
-        {
-            loop.Advance();
-            for (var car = 0; car < world.Cars.Count; car++)
-            {
-                if (world.Cars.Context[car].Ahead == HeadwayKind.Walker) return;
-            }
-        }
-
-        Assert.Fail("no driver in a minute of Odesa ever read a walker in its lane");
-    }
 }

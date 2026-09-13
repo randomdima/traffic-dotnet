@@ -120,7 +120,7 @@ internal static class SoakProbe
     /// </summary>
     public static TownWatch Sample(string map, SimConfig config)
     {
-        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Shared.OrdinaryFootprintsM()), config);
+        using var world = new TownWorld(Maps.Plan(map, config), config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 

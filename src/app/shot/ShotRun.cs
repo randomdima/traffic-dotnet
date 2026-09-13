@@ -76,7 +76,7 @@ internal static class ShotRun
 
         if (ask.PickedM is { } pickedM) ui.Pick.Click(pickedM);
 
-        var plan = Maps.Plan(ask.Map, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
+        var plan = Maps.Plan(ask.Map, config);
 
         // GEN-1b in a picture: the start menu stands over the idle ring, so a picture of it is a picture of
         // the map that was asked for with the panel on top. Which map that is, is the request's.

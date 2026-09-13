@@ -45,13 +45,10 @@ namespace TrafficSimulation.CityGen;
 /// </remarks>
 internal sealed class Paving
 {
-    Paving(float walkM, GroundPieces pieces, LaneLines lanes, BayLines bays, Kerbs kerbs)
+    Paving(GroundPieces pieces, LaneLines lanes)
     {
-        WalkM = walkM;
         Of = pieces;
         Lanes = lanes;
-        Bays = bays;
-        Kerbs = kerbs;
     }
 
     /// <summary>The shapes the pavement was laid off, for a reader that wants the road a band belongs to.</summary>
@@ -64,47 +61,24 @@ internal sealed class Paving
     public LaneLines Lanes { get; }
 
     /// <summary>
-    /// <b>The lines a car is driven into and out of a bay on</b> (<see cref="BayLines"/>). A car park is
-    /// the union of these and has no shape of its own, so nothing that draws or answers ground carries one.
+    /// <b>Every movement in the town</b>: the lines cars are turned through a box on. A junction is the
+    /// union of them (TER-5), so whatever draws or answers one walks this and has no case for a junction.
     /// </summary>
-    public BayLines Bays { get; }
+    public int MovementCount => Lanes.ConnectorCount;
 
-    /// <summary>
-    /// <b>Every movement in the town, in one numbering</b>: the lines cars are turned through a box on,
-    /// then the lines they are driven into and out of a bay on. A junction is the union of the first
-    /// (TER-5) and a car park the union of the second, so whatever draws or answers either walks this and
-    /// has no case for one.
-    /// </summary>
-    public int MovementCount => Lanes.ConnectorCount + Bays.GroundWays.Length;
-
-    public ReadOnlySpan<ArcSeg> ArcsOfMovement(int movement) =>
-        movement < Lanes.ConnectorCount
-            ? Lanes.ArcsOfConnector(movement)
-            : Bays.ArcsOf(Bays.GroundWays[movement - Lanes.ConnectorCount]);
+    public ReadOnlySpan<ArcSeg> ArcsOfMovement(int movement) => Lanes.ArcsOfConnector(movement);
 
     /// <summary>
     /// <b>How wide the ground one movement is driven over is, which is a lane's width either way</b>
-    /// (GEN-4c): the narrower of the two a junction's movement joins, and for a bay's way the lane it is
-    /// worked off. What a parking space is wide sizes the car standing in it and not the way driven to it,
-    /// so a bay's way lays the band every other driven line lays.
+    /// (GEN-4c): the narrower of the two lanes it joins.
     /// </summary>
-    public float MovementWidthM(int movement) =>
-        movement < Lanes.ConnectorCount
-            ? Lanes.ConnectorWidthM(movement)
-            : Lanes.LaneWidthM[Bays.Lane[Bays.GroundWays[movement - Lanes.ConnectorCount]]];
+    public float MovementWidthM(int movement) => Lanes.ConnectorWidthM(movement);
 
     /// <summary>The movement's own metres, end to end.</summary>
-    public float MovementLengthM(int movement) =>
-        movement < Lanes.ConnectorCount
-            ? Lanes.ConnectorLengthM[movement]
-            : Bays.LengthM[Bays.GroundWays[movement - Lanes.ConnectorCount]];
+    public float MovementLengthM(int movement) => Lanes.ConnectorLengthM[movement];
 
-    /// <summary>
-    /// The junction a movement crosses, or <see cref="CityPlan.NoRecord"/> where it crosses none — which a
-    /// bay's way never does.
-    /// </summary>
-    public int JunctionOfMovement(int movement) =>
-        movement < Lanes.ConnectorCount ? Lanes.JunctionOfConnector(movement) : CityPlan.NoRecord;
+    /// <summary>The junction a movement crosses.</summary>
+    public int JunctionOfMovement(int movement) => Lanes.JunctionOfConnector(movement);
 
     /// <summary>
     /// <b>Every line the town is driven on, in one numbering</b>: the lanes, then the movements
@@ -170,26 +144,6 @@ internal sealed class Paving
     /// </remarks>
     public LaneShell Perimeter(SimConfig config) => _perimeter ??= LaneShell.Of(this, config);
 
-    /// <summary>The tarmac as one shape, for whoever wants to ask how far off it a point stands.</summary>
-    public Kerbs Kerbs { get; }
-
-    /// <summary>
-    /// How wide the band is. <b>The map's own figure where it has one</b>, and the town's where it does not,
-    /// so a map laid without a pavement of its own is walked at the same width it is drawn.
-    /// </summary>
-    public float WalkM { get; }
-
-    public static Paving Lay(GroundPieces pieces, SimConfig config)
-    {
-        var walkM = pieces.PavementWidthM > 0f ? pieces.PavementWidthM : config.PavementWidthM;
-        var lanes = LaneLines.Of(pieces, config);
-        var bays = BayLines.Lay(pieces, lanes, config);
-
-        // The junctions a road runs through as one line (<see cref="RoadCuts.RunsThrough"/>): a movement
-        // through one stands inside the two arms' own bands, so it is not a piece of the outline.
-        var through = RoadCuts.RunsThrough(pieces);
-        var kerbs = Kerbs.Of(pieces, lanes, bays, through);
-
-        return new Paving(walkM, pieces, lanes, bays, kerbs);
-    }
+    public static Paving Lay(GroundPieces pieces, SimConfig config) =>
+        new(pieces, LaneLines.Of(pieces, config));
 }

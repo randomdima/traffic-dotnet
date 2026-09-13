@@ -65,10 +65,9 @@ internal sealed partial class GroundShapes
         var pieces = paving.Of;
         _pieces = pieces;
         _worldSizeM = pieces.WorldSizeM;
-        _walkM = paving.WalkM;
         _paving = paving;
         _config = config;
-        LayTheRoads(pieces, config, paving.WalkM);
+        LayTheRoads(pieces, config);
         LayTheTurns(paving, pieces.WorldSizeM, config);
         LayTheShapes(paving, config);
     }
@@ -191,26 +190,17 @@ internal sealed partial class GroundShapes
     }
 
     /// <summary>
-    /// <b>Whether any of the town's paving stands within reach of a point</b> — a road's carriageway or
-    /// walk, the ground a junction's arms share and the ring round it, a car park and its wrap, a slab, or
-    /// the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
+    /// <b>Whether any of the town's paving stands within reach of a point</b> — a road's own band, a slab,
+    /// or the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
     /// </summary>
     /// <remarks>
-    /// <b>One distance and one figure</b> (<see cref="Kerbs.OffTheDrivenM"/>): the paving reaches a walk
-    /// beyond the ground a car is driven along, so a point within a reach of any of it is one standing no
-    /// further off that ground than those two together. Asked of the shapes piece by piece instead — a
-    /// road's band grown, a movement's grown, a fillet taken as the circle round it — the answer was
-    /// generous by however much each piece's own arithmetic was, and no two pieces were generous by the same
-    /// amount.
+    /// <b>Off the road records rather than off the tarmac as one shape.</b> It was one distance to the band
+    /// every driven line lays, and that band is not laid any more; a road's own half is what the plan
+    /// carries, and the lanes of a road stand inside it. When the boundary's stack comes back (TER-7b) this
+    /// is a question for the boundary and not for the records.
     /// </remarks>
     public bool PavingWithin(Vector2 pointM, float reachM) =>
-        _paving.Kerbs.OffTheDrivenM(pointM) <= _walkM + reachM
-        || SlabWithin(pointM, reachM)
-        || _shore.Within(pointM, reachM);
-
-    /// <summary>Whether a car park's own tarmac stands within reach — which is what tells a street tree from a bench.</summary>
-    public bool ParkingWithin(Vector2 pointM, float reachM) =>
-        BayWays(pointM, reachM);
+        RoadWithin(pointM, reachM) || SlabWithin(pointM, reachM) || _shore.Within(pointM, reachM);
 
     /// <summary>
     /// Whether one point is the ground given, <b>and on the map at all</b>. It is the whole of GEN-2b as

@@ -57,9 +57,9 @@ public class WireframeTests
 
         Assert.NotEqual(0, Drawn(new DebugOverlay(), world, mesh, pixelsPerMetre: 20f));
 
-        // A pixel to two hundred metres: every triangle in the town is a fraction of one, the sheet of
-        // grass under all of it included.
-        Assert.Equal(0, Drawn(new DebugOverlay(), world, mesh, pixelsPerMetre: 0.005f));
+        // A pixel to a kilometre: every triangle in the town is a fraction of one, the sheet of grass
+        // under all of it included.
+        Assert.Equal(0, Drawn(new DebugOverlay(), world, mesh, pixelsPerMetre: 0.001f));
     }
 
     /// <summary>

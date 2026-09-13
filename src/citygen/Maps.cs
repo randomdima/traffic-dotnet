@@ -44,18 +44,9 @@ internal static class Maps
     ];
 
     /// <summary>
-    /// The one town still carried as a file rather than generated from a brief: the fixture. It may not move
-    /// when the generator does, which is why it is still a file.
-    /// </summary>
-    /// <remarks>
-    /// <b>Named and not found.</b> Which maps exist is this class and never the <c>towns/</c> folder, so a
-    /// map cannot appear because somebody left a file there and cannot vanish because one was moved: the
-    /// day a fixture is laid in code, the name comes off this list and everything above carries on.
-    /// </remarks>
-    static readonly string[] Filed = [Fixture];
-
-    /// <summary>
-    /// Every map there is to open, in name order: the briefs on disk and the fixtures still carried as files.
+    /// Every map there is to open, in name order — which is the briefs on disk. <b>No town is carried as a
+    /// file any more</b>: the fixture was the last of them and is a brief now, so the only thing that
+    /// reads a <c>.town</c> is whatever somebody exported.
     /// </summary>
     /// <remarks>
     /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the
@@ -65,7 +56,6 @@ internal static class Maps
     public static string[] Shipped()
     {
         var names = new List<string>(ProjectPaths.TownBriefs());
-        names.AddRange(Filed);
         names.Sort(StringComparer.Ordinal);
         return [.. names];
     }
@@ -112,11 +102,11 @@ internal static class Maps
     /// town and is laid again.
     /// </para>
     /// </remarks>
-    public static CityPlan Plan(string name, SimConfig config, ReadOnlySpan<Vector2> roofsM)
+    public static CityPlan Plan(string name, SimConfig config)
     {
         if (_kept is { } kept && kept.Is(name, config)) return kept.Plan;
 
-        var plan = Lay(name, config, roofsM);
+        var plan = Lay(name, config);
 
         // A reference is written whole, so a reader takes the town before or the town after and never half
         // of either. Two callers laying the same map at once lay it twice, which is what they did anyway.
@@ -133,18 +123,14 @@ internal static class Maps
 
     static Kept? _kept;
 
-    static CityPlan Lay(string name, SimConfig config, ReadOnlySpan<Vector2> roofsM)
+    static CityPlan Lay(string name, SimConfig config)
     {
         foreach (var (laid, lay) in Laid)
         {
             if (string.Equals(laid, name, StringComparison.Ordinal)) return lay(config);
         }
 
-        if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config, roofsM);
-
-        // And the two fixtures, off the list above rather than off whatever is in the folder: a name that
-        // is not on it is not a map, even where a file of that name happens to be lying there.
-        if (Array.IndexOf(Filed, name) >= 0) return TownReader.ReadFile(ProjectPaths.TownFile(name));
+        if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config);
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

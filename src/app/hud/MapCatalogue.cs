@@ -34,13 +34,13 @@ internal readonly record struct MapEntry(string Name, MapKind Kind, string Descr
 internal static class MapCatalogue
 {
     /// <summary>
-    /// Every map this engine knows what to say about. A shipped file with no entry here is a failure
-    /// of the suite rather than a row the menu quietly invents a description for.
+    /// Every map this engine knows what to say about that does not say it for itself. <b>Empty, because
+    /// every map this build ships is a brief</b> and a brief carries its own description — a row here
+    /// beside one would be the copy that goes stale. A map laid in code would take a row; the idle ring
+    /// does not, being the frame the start menu stands over (GEN-1b) rather than a map anybody picks.
     /// </summary>
     static readonly MapEntry[] Known =
     [
-        new("Test", MapKind.Scenario, "The fixture map: one screen, one of every kind of ground, furnished thinly"),
-        new("Idle", MapKind.Scenario, "One loop of road and nothing else: an escorted armoured car, and one sports car the other way"),
     ];
 
     /// <summary>The shipped maps in menu order, places first — read off the folder and described from the catalogue.</summary>

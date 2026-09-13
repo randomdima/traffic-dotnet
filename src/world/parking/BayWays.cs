@@ -352,47 +352,24 @@ internal sealed class BayWays
     public int MostArcs { get; private init; }
 
     /// <summary>
-    /// <b>Read off the lines the plan already carries</b> (<see cref="BayLines"/>) rather than laid here.
-    /// A bay's way is ground the town is made of — it is what a car park <em>is</em>, the way a junction is
-    /// its own movements (TER-5) — so it is laid where the ground is laid and this holds what the driving
-    /// makes of it: which lane each way works, which way round the car ends up, and the numbering the rest
-    /// of the network reads them by.
+    /// <b>Read off the lines the plan carries</b> rather than laid here. A bay's way is ground the town is
+    /// made of — it is what a car park <em>is</em>, the way a junction is its own movements (TER-5) — so it
+    /// is laid where the ground is laid and this holds what the driving makes of it: which lane each way
+    /// works, which way round the car ends up, and the numbering the rest of the network reads them by.
     /// </summary>
-    public static BayWays Build(CityPlan plan, RoadGraph roads, SimConfig config)
-    {
-        var lines = plan.Paving(config).Bays;
-        var (firstBayOfLane, baysOffLane) = BaysByLane(roads.LaneCount, lines.Bay, lines.Lane);
-
-        return new BayWays(
-            TownWays.FirstBayWay(roads), lines.FirstWayOfBay, firstBayOfLane, baysOffLane, lines.Bay,
-            lines.Lane, lines.AtLaneM, lines.LengthM, lines.DrivenM, lines.IsEntry, lines.IsNoseIn,
-            lines.ArcOffsets, lines.Arcs, lines.AtTheBayM)
+    /// <remarks>
+    /// <b>Nothing lays a bay's way</b>, so every bay the plan carries is a bay no way reaches — which is
+    /// what <see cref="CanBeReached"/> already answers for, and is the state a map with no frontage has
+    /// always stood up in. The slice stands rather than being unpicked: parking is in the road back, and
+    /// the lines it reads come with it.
+    /// </remarks>
+    public static BayWays Build(CityPlan plan, RoadGraph roads, SimConfig config) =>
+        new(
+            TownWays.FirstBayWay(roads), firstWayOfBay: new int[plan.ParkingLots.SpaceCount + 1],
+            firstBayOfLane: new int[roads.LaneCount + 1],
+            baysOffLane: [], bay: [], lane: [], atLaneM: [], lengthM: [], drivenM: [], isEntry: [],
+            isNoseIn: [], arcOffsets: [0], arcs: [], atTheBayM: [])
         {
-            MostArcs = lines.MostArcs, OffTheRoad = roads, SpaceWidthM = config.ParkingSpaceWidthM,
+            MostArcs = 0, OffTheRoad = roads, SpaceWidthM = config.ParkingSpaceWidthM,
         };
-    }
-
-    /// <summary>
-    /// The ways read the other way round: which bays each lane works. A bay lays up to four ways off one
-    /// lane — the pair per standing — and appears in its lane's run once.
-    /// </summary>
-    static (int[] Offsets, int[] Bays) BaysByLane(int laneCount, int[] bayOfWay, int[] laneOfWay)
-    {
-        var perLane = new List<int>?[laneCount];
-        for (var way = 0; way < bayOfWay.Length; way++)
-        {
-            var bays = perLane[laneOfWay[way]] ??= [];
-            if (!bays.Contains(bayOfWay[way])) bays.Add(bayOfWay[way]);
-        }
-
-        var offsets = new int[laneCount + 1];
-        var flat = new List<int>();
-        for (var lane = 0; lane < laneCount; lane++)
-        {
-            if (perLane[lane] is { } bays) flat.AddRange(bays);
-            offsets[lane + 1] = flat.Count;
-        }
-
-        return (offsets, [.. flat]);
-    }
 }

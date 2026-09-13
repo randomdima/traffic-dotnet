@@ -62,7 +62,7 @@ internal sealed partial class LaneShell
         /// sums of the same numbers and stand a few hundredths of a millimetre apart, while the narrowest
         /// thing the town lays is metres wide. Anything between those two is the same answer.
         /// </summary>
-        const float ProbeM = Kerbs.RoundingM;
+        const float ProbeM = LineTolerance.RoundingM;
 
         /// <summary>
         /// <b>How far a ring's own shape may move when two of its pieces are read as the one piece they
@@ -70,7 +70,7 @@ internal sealed partial class LaneShell
         /// laid along one line are two sums of the same numbers, and what separates them is the
         /// arithmetic's error rather than a bend.
         /// </summary>
-        const float JoinM = Kerbs.RoundingM;
+        const float JoinM = LineTolerance.RoundingM;
 
         /// <summary>
         /// <b>How near a boundary stands to another band before the two are the same edge</b>. Two

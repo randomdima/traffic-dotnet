@@ -28,7 +28,6 @@ internal sealed partial class GroundShapes
     float[] _roadHalfM = [];
     float[] _roadLengthM = [];
     float[] _roadReachM = [];
-    float _walkM;
     float _farthestReachM;
 
     /// <summary>Count + 1 entries: road <c>i</c>'s decks are the runs at <c>[_deckAt[i].._deckAt[i + 1]]</c>.</summary>
@@ -124,6 +123,44 @@ internal sealed partial class GroundShapes
     }
 
 
+    /// <summary>
+    /// <b>Whether any road's own ground stands within reach of a point.</b> It is the road records and not
+    /// the lines the town is driven on: what asks is a stage keeping its scatter clear of the streets
+    /// (GEN-6b), and a road's band is the ground its lanes were laid inside.
+    /// </summary>
+    bool RoadWithin(Vector2 pointM, float reachM)
+    {
+        Span<int> near = stackalloc int[MostRoadsNear];
+        Span<float> alongM = stackalloc float[MostRoadsNear];
+        var found = _roadIndex.Near(pointM, _farthestReachM + reachM, near, alongM);
+
+        var count = Math.Min(found, near.Length);
+        for (var index = 0; index < count; index++)
+        {
+            if (OffTheRoadM(near[index], alongM[index], pointM) <= reachM) return true;
+        }
+
+        // The index answered with more roads than there was room for, so every road in the town is the only
+        // thing that is still the whole answer.
+        if (found <= near.Length) return false;
+
+        for (var road = 0; road < _roadHalfM.Length; road++)
+        {
+            var arcs = _pieces.Roads.SegmentsOf(road);
+            var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
+            if (OffTheRoadM(road, atM, pointM) <= reachM) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>How far outside one road's own band a point stands, negative within it.</summary>
+    float OffTheRoadM(int road, float atM, Vector2 pointM)
+    {
+        var on = Spline.SampleAt(_pieces.Roads.SegmentsOf(road), atM);
+        return (pointM - on.PositionM).Length() - _roadHalfM[road];
+    }
+
     static bool Covers(int[] at, float[] fromM, float[] toM, int road, float atM)
     {
         for (var run = at[road]; run < at[road + 1]; run++)
@@ -140,7 +177,7 @@ internal sealed partial class GroundShapes
     /// the town is being laid — so a deck is two distances along a road and a zebra is two more, and
     /// nothing on a tick asks where a crossing stands in the world.
     /// </summary>
-    void LayTheRoads(GroundPieces plan, SimConfig config, float walkM)
+    void LayTheRoads(GroundPieces plan, SimConfig config)
     {
         var roads = plan.Roads.Count;
         _roadHalfM = new float[roads];
@@ -217,7 +254,10 @@ internal sealed partial class GroundShapes
         var farthestM = 0f;
         for (var road = 0; road < roads; road++)
         {
-            var reachM = _roadHalfM[road] + walkM;
+            // <b>The road's own half and nothing beside it.</b> It was widened by a walk here, which is the
+            // last place the pavement was a figure in the ground answer — and the walk comes back as the
+            // boundary moved by it (TER-7b) rather than as a road grown by it.
+            var reachM = _roadHalfM[road];
             for (var run = _deckAt[road]; run < _deckAt[road + 1]; run++)
             {
                 reachM = MathF.Max(reachM, _deckHalfM[run]);

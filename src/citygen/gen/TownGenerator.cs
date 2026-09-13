@@ -43,12 +43,10 @@ internal static class TownGenerator
     const ulong TerrainStream = 0x7465_7272_6169_6E00;
     const ulong DistrictStream = 0x6469_7374_7269_6374;
     const ulong ShapeStream = 0x7368_6170_6573_0000;
-    const ulong SignalStream = 0x7369_676E_616C_7300;
-    const ulong SlotStream = 0x736C_6F74_7300_0000;
     const ulong PropStream = 0x7072_6F70_7300_0000;
     const ulong SpawnStream = 0x7370_6177_6E73_0000;
 
-    public static CityPlan Lay(TownBrief brief, SimConfig config, ReadOnlySpan<Vector2> roofsM)
+    public static CityPlan Lay(TownBrief brief, SimConfig config)
     {
         brief.Check(brief.Name);
 
@@ -86,28 +84,24 @@ internal static class TownGenerator
         OneWayStreets.Lay(layout, config);
 
         var shape = new Rng(brief.Seed, ShapeStream);
-        var signals = new Rng(brief.Seed, SignalStream);
-        var roads = RoadStage.Lay(layout, districts, brief, config, ref shape, ref signals);
+        var roads = RoadStage.Lay(layout, districts, brief, config, ref shape);
 
         var paved = bare.With(water.Rings).With(
             roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Roundabouts, roads.Crosswalks,
             roads.StopLines);
-        var streets = new GroundShapes(paved, config);
 
-        var slot = new Rng(brief.Seed, SlotStream);
-        var statics = SlotStage.Lay(
-            layout, roads.Roads, brief, paved, streets, claims, config, roofsM, ref slot);
+        // <b>The boundary is settled once the roads are laid</b>, and nothing below adds driven ground — so
+        // this is the boundary the finished map answers with, and the one everything left is cleared
+        // against. It is also where the lanes come from: the stages below want the lines rather than the
+        // records, and laying them twice would be two towns (TER-7).
+        var paving = Paving.Lay(paved, config);
+        var streets = new GroundShapes(paving, config);
 
-        // <b>The boundary is settled once the car parks are laid</b>, and the stage that laid them hands the
-        // ground back rather than leaving every stage after it to remake the same reading
-        // (<see cref="SlotStage.Laid.Settled"/>). Nothing below adds driven ground, so this is the boundary
-        // the finished map answers with and the one everything left is cleared against.
         var prop = new Rng(brief.Seed, PropStream);
-        var props = PropStage.Lay(
-            brief, roads.Roads, statics.ParkingLots, statics.Settled, claims, config, ref prop);
+        var props = PropStage.Lay(brief, roads.Roads, streets, claims, config, ref prop);
 
         var spawn = new Rng(brief.Seed, SpawnStream);
-        var spawns = SpawnStage.Lay(brief, statics.Buildings, statics.ParkingLots, ref spawn);
+        var spawns = SpawnStage.Lay(brief, paving, config, ref spawn);
 
         return new CityPlan
         {
@@ -130,8 +124,11 @@ internal static class TownGenerator
             PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = roads.Crosswalks,
             StopLines = roads.StopLines,
-            ParkingLots = statics.ParkingLots,
-            Buildings = statics.Buildings,
+
+            // <b>No car park and no building</b>: the stage that placed them was laid on the layer this
+            // milestone replaces, and both are named in the known gaps rather than half-kept.
+            ParkingLots = paved.ParkingLots,
+            Buildings = CityPlan.BuildingArrays.None,
             Props = props,
             Spawns = spawns,
             Water = water.Rings,
@@ -139,9 +136,8 @@ internal static class TownGenerator
     }
 
     /// <summary>
-    /// The ground kept clear round the edge of the world: a road, its pavement and the deepest building that
-    /// could stand behind it, so nothing a town lays runs off the map it is laid on.
+    /// The ground kept clear round the edge of the world: a road and the walk beside it, so nothing a town
+    /// lays runs off the map it is laid on.
     /// </summary>
-    static float MarginM(SimConfig config) =>
-        (config.RoadWidthM * 0.5f) + config.PavementWidthM + config.CityGen.BuildingSideMaxM;
+    static float MarginM(SimConfig config) => (config.RoadWidthM * 0.5f) + config.PavementWidthM;
 }

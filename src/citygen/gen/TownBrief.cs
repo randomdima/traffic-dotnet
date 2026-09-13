@@ -16,7 +16,7 @@ internal enum WaterKind
 
 /// <summary>
 /// <b>A town as it is authored: a seed and the intent, never the geometry.</b> Everything a reader would
-/// call the map — its streets, its blocks, its buildings, its people — is derived from this by
+/// call the map — its water, its districts, its streets and the traffic on them — is derived from this by
 /// <see cref="TownGenerator"/>, so a brief is kilobytes and a town is whatever the seed makes of them.
 /// </summary>
 /// <remarks>
@@ -83,21 +83,12 @@ internal sealed class TownBrief
     /// </summary>
     public float UnregulatedJunctionShare { get; init; } = 0.15f;
 
-    /// <summary>How many buildings the town stands, if its frontages afford that many.</summary>
-    public required int Buildings { get; init; }
-
-    /// <summary>And how many of its frontage slots are given over to a car park instead, as a share.</summary>
-    public float ParkingSlotShare { get; init; } = 0.25f;
-
-    public required int People { get; init; }
-
+    /// <summary>
+    /// How many cars the town stands up, if its lanes afford that many. <b>One car a lane</b>
+    /// (<see cref="SpawnStage"/>): the count used to be clamped to the bays there were, and the bound that
+    /// replaces it is how many lanes were laid long enough to stand one on.
+    /// </summary>
     public required int Cars { get; init; }
-
-    public int Hospitals { get; init; } = 1;
-
-    public int PoliceStations { get; init; } = 1;
-
-    public int Depots { get; init; } = 1;
 
     /// <summary>Refuses a brief that cannot describe a town, at the point it is read rather than half way through laying one.</summary>
     public void Check(string what)
@@ -106,13 +97,12 @@ internal sealed class TownBrief
         Positive(HeightM, nameof(HeightM), what);
         Positive(CellSizeM, nameof(CellSizeM), what);
         Share(GridDistrictShare, nameof(GridDistrictShare), what);
-        Share(ParkingSlotShare, nameof(ParkingSlotShare), what);
         Share(UnregulatedJunctionShare, nameof(UnregulatedJunctionShare), what);
         Share(WaterShare, nameof(WaterShare), what);
 
         if (string.IsNullOrWhiteSpace(Name)) throw new InvalidDataException($"{what}: a brief with no name.");
         if (Districts < 1) throw new InvalidDataException($"{what}: {Districts} districts is no town.");
-        if (Buildings < 0 || People < 0 || Cars < 0) throw new InvalidDataException($"{what}: a negative roster.");
+        if (Cars < 0) throw new InvalidDataException($"{what}: a negative roster.");
     }
 
     static void Positive(float value, string field, string what)

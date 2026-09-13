@@ -85,7 +85,7 @@ internal static class Warmup
         // otherwise first see inside a measured window. It is named rather than taken off the front of the
         // list: whichever map that happened to be was never a choice anybody made, and a city here would
         // be its whole generation paid twice over for a warm-up.
-        var plan = Maps.Plan(Maps.Fixture, config, BuildingCatalog.Shared.OrdinaryFootprintsM());
+        var plan = Maps.Plan(Maps.Fixture, config);
         using var world = new TownWorld(plan, config);
         var loop = new SimLoop<TownWorld>(world, config);
 
