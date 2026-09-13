@@ -79,16 +79,6 @@ internal sealed class RoadFigures
     /// <summary>One painted line: a lane dash, a bay stroke. A zebra's bar is twice it and a stop bar is the plan's own.</summary>
     public float PaintLineWidthM { get; init; } = 0.25f;
 
-    /// <summary>The dashed lane centreline: how long a dash is and how long the gap after it.</summary>
-    public float LaneDashLengthM { get; init; } = 2f;
-
-    public float LaneDashGapM { get; init; } = 2f;
-
-    /// <summary>A zebra's bars: how wide one is and how far apart they are laid across the carriageway.</summary>
-    public float ZebraStripeWidthM { get; init; } = 0.5f;
-
-    public float ZebraStripePitchM { get; init; } = 1f;
-
     /// <summary>
     /// A crossing as it is laid at a junction: how deep the band is along the road it crosses, and how far
     /// past the ground the junction itself reaches it stands. <b>Every map that lays paint lays it here</b>,
@@ -409,17 +399,6 @@ internal sealed class CityGenFigures
     public float ConnectionStandoffM { get; init; } = 6f;
 
     /// <summary>
-    /// <b>How much of a road's own end is straight</b>, so that the bearing it was drawn to leave on is the
-    /// bearing it actually leaves on: past this the road may start turning towards wherever it is going,
-    /// and inside it the line is the arm's.
-    /// </summary>
-    /// <remarks>
-    /// It is what a corner at the first bend has room to be rounded over (<c>RoadStage.Rounded</c>): too
-    /// short, and the road cannot turn off its arm inside the class's floor radius and the link is refused.
-    /// </remarks>
-    public float ConnectionLeadM { get; init; } = 12f;
-
-    /// <summary>
     /// How far off the chord to its neighbour an arm's bearing may be drawn. <b>It is what makes a junction
     /// a shape rather than a crossroads</b>: the two ends of a link are drawn independently, so the road
     /// between them has two bearings to satisfy and they do not agree.
@@ -443,14 +422,6 @@ internal sealed class CityGenFigures
 
     /// <summary>How many virtual nodes a road's middle span may carry. Odesa's most-bent road holds nine arcs.</summary>
     public int WanderNodesMost { get; init; } = 3;
-
-    /// <summary>A building's footprint, drawn between the two. Odesa's run 10 m to 20 m a side.</summary>
-    public float BuildingSideMinM { get; init; } = 10f;
-
-    public float BuildingSideMaxM { get; init; } = 20f;
-
-    /// <summary>How many people a building holds, which is what the town's roster is spread over.</summary>
-    public int BuildingCapacity { get; init; } = 3;
 
     /// <summary>
     /// How many bays one car park holds, drawn between the two — which is how much frontage a lot takes
@@ -559,7 +530,6 @@ internal sealed class CityGenFigures
 /// <summary>Tolerances the walkable and drivable graphs are built to.</summary>
 internal sealed class NetworkFigures
 {
-    public float FootGraphStubPruneM { get; init; } = 2f;
     public float FootGraphNodeWeldM { get; init; } = 0.25f;
     public float SplineToleranceWalkedM { get; init; } = 0.1f;
 }

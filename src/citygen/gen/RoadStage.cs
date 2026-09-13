@@ -365,7 +365,7 @@ internal static class RoadStage
         // the bearings are met exactly rather than approached — and what it costs is a curvature nobody
         // chose, which is measured below and refused where the class cannot hold it.
         var floorM = FloorRadiusM(config, edge.Class);
-        var wanderNodes = WanderNodes(districts, edge, from.NodeM, to.NodeM, ref draw);
+        var wanderNodes = WanderNodes(districts, edge, from.NodeM, to.NodeM, config, ref draw);
 
         Span<Vector2> pointsM = stackalloc Vector2[wanderNodes + 2];
         pointsM[0] = from.StandM;
@@ -498,15 +498,20 @@ internal static class RoadStage
         }
     }
 
-    static int WanderNodes(Districts districts, LayoutEdge edge, Vector2 fromM, Vector2 toM, ref Rng draw)
+    static int WanderNodes(
+        Districts districts, LayoutEdge edge, Vector2 fromM, Vector2 toM, SimConfig config, ref Rng draw)
     {
         // A spoke is straight because the layout reads it as a ray: everything that asks whether a point
         // stands clear of an arterial asks it of a line through the hub.
         if (edge.Class != RoadClass.Street) return 0;
 
+        // <b>A strict district wanders through at most one virtual node and a loose one through the town's
+        // own bound</b> (<see cref="CityGenFigures.WanderNodesMost"/>), which is what makes a strict
+        // district's streets read as near-chords and a loose one's as curves.
+        var most = config.CityGen.WanderNodesMost;
         var districtAt = districts.At((fromM + toM) * 0.5f);
         var strict = districtAt < 0 || districts[districtAt].Strict;
-        return strict ? draw.NextInt(2) : 1 + draw.NextInt(3);
+        return strict ? draw.NextInt(2) : 1 + draw.NextInt(most);
     }
 
     /// <summary>
