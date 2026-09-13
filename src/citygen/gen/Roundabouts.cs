@@ -193,13 +193,19 @@ internal static class Roundabouts
             if ((layout.NodeM[other] - centreM).Length() < clearM) return false;
         }
 
-        var straysM = RoadStage.StraysM(layout, districts, config);
+        // <b>The ring is kept clear of the ground a road could take and not of the line it was joined on</b>
+        // (GEN-19): a street is laid to two drawn bearings and wanders between them, so what it may stray
+        // off its own chord is the bound it was drawn inside (<see cref="RoadStage.WanderM"/>) rather than a
+        // shape nothing has laid yet.
         for (var road = 0; road < layout.Edges.Count; road++)
         {
             if (arms.Contains(road)) continue;
 
-            var offM = OffM(centreM, layout.NodeM[layout.Edges[road].From], layout.NodeM[layout.Edges[road].To]);
-            if (offM < radiusM + config.RoadFootprintM + straysM[road]) return false;
+            var edge = layout.Edges[road];
+            var fromM = layout.NodeM[edge.From];
+            var toM = layout.NodeM[edge.To];
+            var strayM = RoadStage.WanderM(districts, edge, (fromM + toM) * 0.5f, config);
+            if (OffM(centreM, fromM, toM) < radiusM + config.RoadFootprintM + strayM) return false;
         }
 
         return true;

@@ -77,7 +77,6 @@ internal static class TownGenerator
         Lattice.Lay(layout, districts, arterials, brief, wet, config, marginM);
         arterials.Close(layout, rules);
         layout.MergeTheLocalNodes();
-        layout.UnpickTheCrossings(config.RoadFootprintM, RoadStage.StraysM(layout, districts, config));
         layout.KeepTheLargestComponent();
         layout.PruneTheDeadEnds();
         Roundabouts.Lay(layout, districts, rules, config, worldSizeM, marginM);

@@ -63,7 +63,10 @@ internal static class PropStage
         var nearM = config.CityGen.PropVergeNearM;
         var bandM = config.CityGen.PropVergeFarM - nearM;
         var pitchM = config.CityGen.PropVergePitchM;
-        var stubM = RoadStage.StubM(config);
+        // How much of each end of a road the junction's own ground reaches over: the standoff its arms'
+        // lanes end at, and the movements between them (TER-5). A verge walked into that is a verge over
+        // tarmac.
+        var stubM = config.JunctionRadiusM + config.LaneWidthM;
 
         for (var road = 0; road < roads.Count; road++)
         {

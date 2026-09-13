@@ -36,25 +36,36 @@ namespace TrafficSimulation.CityGen.Gen;
 /// </remarks>
 internal static class RoadStage
 {
-    /// <summary>How much of a segment a rounded corner may eat, either side of the vertex it rounds.</summary>
-    const float TangentShareOfSegment = 0.45f;
+    /// <summary>
+    /// How much of a segment a rounded corner may eat, either side of the vertex it rounds. <b>It is the
+    /// same share the jitter bound is derived against</b> (<see cref="ConnectionPoints"/>): a corner allowed
+    /// more ground here than the bound assumed is a road that turns off its arm where the arm was drawn not
+    /// to let it.
+    /// </summary>
+    const float TangentShareOfSegment = ConnectionPoints.TangentShareOfSegment;
+
+    /// <summary>
+    /// The stream a round of the laying draws its wander from. <b>A round of its own</b>, so that a town
+    /// whose second pass lays fewer roads does not draw the first pass's numbers for them.
+    /// </summary>
+    const ulong ShapeRoundStream = 0x7368_6170_655F_7200;
+
 
     /// <summary>Below this deflection a vertex is straight through and is not rounded at all.</summary>
     const float StraightThroughRad = 0.002f;
 
     /// <summary>
     /// <b>How open a joint may read and still be one line</b>: the angle that moves the line laid furthest
-    /// off a carriageway — the pavement's own — by the rounding two computations of one distance disagree by
-    /// (<see cref="LineTolerance.RoundingM"/>). It is float slop over a chain of arcs and nothing else; a road that
-    /// really creases does so by tenths of a radian.
+    /// off a carriageway by the rounding two computations of one distance disagree by
+    /// (<see cref="LineTolerance.RoundingM"/>). It is float slop over a chain of arcs and nothing else; a
+    /// road that really creases does so by tenths of a radian.
     /// </summary>
     /// <remarks>
-    /// <b>It is the one figure that says whether two arms are one road</b> (GEN-12b) and whether a road is
-    /// one line, and those have to be the same figure: a node joined out at a wider tolerance than the line
-    /// is read at would lay a road that creases where the junction used to be.
+    /// <b>The furthest line off a carriageway is a lane's own</b> (<see cref="SimConfig.LaneOffsetM"/>). It
+    /// used to be the pavement's, laid half a walk outside the kerb — and nothing lays a pavement, so the
+    /// figure follows the line that is actually there rather than the one it was calibrated against.
     /// </remarks>
-    public static float CreaseRad(SimConfig config) =>
-        LineTolerance.RoundingM / ((config.RoadWidthM * 0.5f) + (config.PavementWidthM * 0.5f));
+    public static float CreaseRad(SimConfig config) => LineTolerance.RoundingM / config.LaneOffsetM;
 
     internal readonly record struct Laid(
         CityPlan.RoadArrays Roads,
@@ -68,29 +79,65 @@ internal static class RoadStage
     public static Laid Lay(
         TownLayout layout, Districts districts, TownBrief brief, SimConfig config, ref Rng shape)
     {
+        var seed = brief.Seed;
+
         // One lane's width for every road there is, arterial or street, and as many lanes as it is driven
         // ways (GEN-15, TER-4d).
         var widthM = new float[layout.Edges.Count];
-        var chains = new ArcSeg[layout.Edges.Count][];
         for (var road = 0; road < layout.Edges.Count; road++)
         {
             widthM[road] = config.LaneWidthM
                            * (layout.Edges[road].Flow == RoadFlow.BothWays ? SimConfig.LanesPerCarriageway : 1);
-            chains[road] = Chain(layout, districts, layout.Edges[road], config, ref shape);
         }
 
-        var centreM = Bends(layout, chains, config, out var carriedThrough);
+        // <b>A node's centre is the layout's and nothing moves it.</b> The connection points are drawn off
+        // the two centres a link joins (<see cref="ConnectionPoints"/>) and are drawn again at derivation
+        // time off the plan's, so a stage that nudged a node afterwards would be a stage that moved every
+        // lane end round it.
+        var centreM = new Vector2[layout.NodeM.Count];
+        for (var node = 0; node < centreM.Length; node++) centreM[node] = layout.NodeM[node];
 
-        // <b>And a node a road is merely carried through is taken away</b> (GEN-12b): the bend is laid
-        // before the join, because what the two arms are joined on is the one tangent the sweep left them
-        // meeting at.
-        var through = ThroughRoads.Join(layout, chains, widthM, centreM, carriedThrough);
-        chains = through.Chains;
-        widthM = through.WidthM;
-        centreM = through.CentreM;
-        OntoTheDrivenHalf(layout, chains, centreM, widthM, config);
+        // <b>Lay, refuse, repair, lay again</b> (§6.8). A link the spline cannot satisfy and a pair of
+        // roads that would share ground are both deletions, and a deletion behind the layout's own repairs
+        // can strand a component or leave a junction nothing reaches (GEN-5) — so the repairs run again
+        // behind the laying, and the laying again behind them, until nothing is refused.
+        ArcSeg[][] chains;
+        CityPlan.RoundaboutArrays rings;
+        for (var round = 0; ; round++)
+        {
+            rings = Rings(layout);
+            var arms = Skeleton(seed, layout, centreM, widthM, rings, config);
 
-        var junctions = Junctions(layout, centreM, chains, widthM);
+            chains = new ArcSeg[layout.Edges.Count][];
+            var laying = new Rng(seed, ShapeRoundStream ^ (ulong)round);
+            for (var road = 0; road < layout.Edges.Count; road++)
+            {
+                chains[road] = Chain(arms, layout, districts, road, config, ref laying);
+            }
+
+            // <b>Every round is a strict deletion</b>, so the sequence ends on its own: a town whose every
+            // link is refused ends with no links, and one that refuses none ends here.
+            if (!Refused(layout, chains, config, out var refused)) break;
+
+
+            layout.DropTheRoads(refused);
+            layout.KeepTheLargestComponent();
+            layout.PruneTheDeadEnds();
+
+            centreM = new Vector2[layout.NodeM.Count];
+            for (var node = 0; node < centreM.Length; node++) centreM[node] = layout.NodeM[node];
+
+            widthM = new float[layout.Edges.Count];
+            for (var road = 0; road < layout.Edges.Count; road++)
+            {
+                widthM[road] = config.LaneWidthM
+                               * (layout.Edges[road].Flow == RoadFlow.BothWays ? SimConfig.LanesPerCarriageway : 1);
+            }
+        }
+
+        OntoTheDrivenHalf(layout, chains, widthM, config);
+
+        var junctions = Junctions(centreM, config);
 
         return new Laid(
             Roads(layout, chains, widthM),
@@ -109,39 +156,295 @@ internal static class RoadStage
                 CentreM = [], Approach = [], SpanM = [], ThicknessM = [], Junction = [], Road = [],
             },
             Bridges(layout, chains, config),
-            Rings(layout));
+            rings);
     }
 
     /// <summary>
-    /// One road's own curve. <b>Everything is an arc</b>: a straight is one at zero curvature, the orbital's
-    /// piece is one the layout asked for, and a wandering street is straights with its corners rounded off.
+    /// <b>Which roads this town cannot lay</b> (§4.4): the ones whose spline could not meet both of its
+    /// drawn bearings, and the lower-ranked of every pair that would share ground with a road it does not
+    /// meet at a node (the property GEN-17 used to state as a chord separation).
     /// </summary>
-    static ArcSeg[] Chain(
-        TownLayout layout, Districts districts, LayoutEdge edge, SimConfig config, ref Rng draw)
+    /// <remarks>
+    /// <para>
+    /// <b>It is the drawn lines that are asked and never their chords.</b> A spline free to reach its own
+    /// end bearings is not bounded by the chord between them, so a separation measured on chords says
+    /// nothing about the roads that were laid — which is why the rule it replaces is deleted rather than
+    /// restated.
+    /// </para>
+    /// <para>
+    /// <b>Two roads that share a node are left alone.</b> They touch there because that is what a junction
+    /// is, and how square they have to stand to each other is the layout's (GEN-13).
+    /// </para>
+    /// </remarks>
+    static bool Refused(TownLayout layout, ArcSeg[][] chains, SimConfig config, out bool[] refused)
     {
-        var fromM = layout.NodeM[edge.From];
-        var toM = layout.NodeM[edge.To];
-        var chordM = toM - fromM;
-        var lengthM = chordM.Length();
-        if (lengthM <= 0f) return [];
+        refused = new bool[chains.Length];
+        var any = false;
 
-        var unit = chordM / lengthM;
-
-        // <b>A bridge is straight and nothing else</b> (GEN-14a): the deck is a straight thing, and the two
-        // bridgeheads are already the shortest line over the water the layout could find.
-        if (edge.Class == RoadClass.Bridge) return [new ArcSeg(fromM, Facing(unit), lengthM, 0f)];
-        if (MathF.Abs(edge.Curvature) > 0f) return [Arc(fromM, unit, lengthM, edge.Curvature)];
-
-        var stubM = StubM(config);
-        var wanderNodes = WanderNodes(districts, edge, fromM, toM, ref draw);
-        if (wanderNodes == 0 || lengthM <= stubM * 2.5f)
+        var building = new ChainIndex.Builder();
+        for (var road = 0; road < chains.Length; road++)
         {
-            return [new ArcSeg(fromM, Facing(unit), lengthM, 0f)];
+            if (chains[road].Length == 0)
+            {
+                refused[road] = true;
+                any = true;
+                continue;
+            }
+
+            building.Add(road, chains[road], Spline.TotalLengthM(chains[road]));
         }
 
+        var index = building.Seal(config.NearestChainCellM);
+        var apartM = config.RoadFootprintM;
+
+        Span<int> near = stackalloc int[MostRoadsNear];
+        Span<SplineCrossing> crossings = stackalloc SplineCrossing[MostCrossings];
+        for (var road = 0; road < chains.Length; road++)
+        {
+            if (refused[road]) continue;
+
+            var found = index.Crossing(chains[road], apartM, near);
+            for (var at = 0; at < Math.Min(found, near.Length); at++)
+            {
+                var other = near[at];
+                if (other == road || refused[other] || SharesANode(layout, road, other)) continue;
+
+                // The lower-ranked road is the one that goes: an arterial keeps its ground against a street
+                // and a street against a spoke, which is the order the layout offered them in.
+                if (Precedence(layout.Edges[road].Class) > Precedence(layout.Edges[other].Class)) continue;
+
+                if (Spline.CrossingsM(chains[road], chains[other], 0f, 0f, crossings) == 0
+                    && !PassesInside(chains[road], chains[other], apartM))
+                {
+                    continue;
+                }
+
+                refused[road] = true;
+                any = true;
+                break;
+            }
+        }
+
+        return any;
+    }
+
+    /// <summary>
+    /// <b>Whether two roads pass closer than the ground they take</b>, which is a road's whole width and the
+    /// walk either side of it (<see cref="SimConfig.RoadFootprintM"/>). Walked at the tolerance a road is
+    /// laid to rather than solved: two curves' closest approach has no closed form, and what is being asked
+    /// is whether their bands overlap at all.
+    /// </summary>
+    static bool PassesInside(ReadOnlySpan<ArcSeg> one, ReadOnlySpan<ArcSeg> other, float apartM)
+    {
+        var lengthM = Spline.TotalLengthM(one);
+        var otherLengthM = Spline.TotalLengthM(other);
+        var stations = Math.Max(1, (int)MathF.Ceiling(lengthM / apartM));
+
+        for (var station = 0; station <= stations; station++)
+        {
+            var atM = Spline.SampleAt(one, lengthM * station / stations).PositionM;
+            var onM = Spline.ProjectM(other, atM, otherLengthM * 0.5f, otherLengthM);
+            if (Vector2.Distance(Spline.SampleAt(other, onM).PositionM, atM) < apartM) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>How many roads may pass near one before the index's answer stops being the whole one.</summary>
+    const int MostRoadsNear = 64;
+
+    /// <summary>And how many places two of them may cross before the pair is plainly one road over another.</summary>
+    const int MostCrossings = 4;
+
+    static bool SharesANode(TownLayout layout, int road, int other)
+    {
+        var one = layout.Edges[road];
+        var two = layout.Edges[other];
+        return one.From == two.From || one.From == two.To || one.To == two.From || one.To == two.To;
+    }
+
+    /// <summary>Which of two roads the other gives way to where a refusal has to choose between them.</summary>
+    static int Precedence(RoadClass roadClass) => roadClass switch
+    {
+        RoadClass.Roundabout => 3,
+        RoadClass.Bridge => 3,
+        RoadClass.Arterial => 2,
+        RoadClass.Street => 1,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// <b>The ground a road is laid on before it has a shape</b>: the junctions at the layout's own centres,
+    /// every road as its two ends and how wide it is, which of them are bridges and which circulate.
+    /// <see cref="ConnectionPoints"/> asks for nothing else, and nothing else is settled yet.
+    /// </summary>
+    static GroundPieces Skeleton(
+        ulong seed, TownLayout layout, Vector2[] centreM, float[] widthM, CityPlan.RoundaboutArrays rings,
+        SimConfig config)
+    {
+        var roads = layout.Edges.Count;
+        var fromJunction = new int[roads];
+        var toJunction = new int[roads];
+        var flow = new RoadFlow[roads];
+        var bridge = new List<int>();
+        for (var road = 0; road < roads; road++)
+        {
+            fromJunction[road] = layout.Edges[road].From;
+            toJunction[road] = layout.Edges[road].To;
+            flow[road] = layout.Edges[road].Flow;
+            if (layout.Edges[road].Class == RoadClass.Bridge) bridge.Add(road);
+        }
+
+        var bare = GroundPieces.None(seed, Vector2.Zero, config.PavementWidthM);
+        return bare with
+        {
+            Junctions = new CityPlan.JunctionArrays
+            {
+                CentreM = centreM,
+                RadiusM = new float[centreM.Length],
+                Lit = new bool[centreM.Length],
+                PhaseOffsetS = new float[centreM.Length],
+            },
+            Roads = new CityPlan.RoadArrays
+            {
+                FromJunction = fromJunction, ToJunction = toJunction, WidthM = widthM, Flow = flow,
+                SegmentOffsets = new int[roads + 1], Segments = [],
+            },
+            Bridges = new CityPlan.BridgeArrays
+            {
+                Road = [.. bridge],
+                FromM = new float[bridge.Count],
+                ToM = new float[bridge.Count],
+                DeckWidthM = new float[bridge.Count],
+                PavementWidthM = new float[bridge.Count],
+            },
+            Roundabouts = rings,
+        };
+    }
+
+    /// <summary>
+    /// <b>One road's own curve, laid to arrive on the bearings its two ends were drawn with</b> (TER-5d).
+    /// It runs from the stand point of one arm to the stand point of the other, holds each arm's own
+    /// bearing for the lead it is given, and wanders between them by as much as its district allows.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the inversion.</b> The road used to be a chord that wandered and the lanes were what was
+    /// left of it once the junction discs had bitten; here the ends are drawn first and the road is the
+    /// thing that has to satisfy them, which is what TER-5d described all along.
+    /// </para>
+    /// <para>
+    /// <b>The bearing is held by two points and not by a special case</b>: a lead laid along the arm puts
+    /// the polyline's first leg on the arm's own line, so the chain <see cref="Rounded"/> lays off it
+    /// begins as a straight on that bearing and ends as one arriving on the other. A road whose first or
+    /// last corner cannot be turned inside its class's floor is one <see cref="Rounded"/> gives a vertex up
+    /// on, and what comes back then does not meet its bearings — so it is refused, and the layout is
+    /// repaired behind the refusal rather than left a piece short.
+    /// </para>
+    /// </remarks>
+    static ArcSeg[] Chain(
+        GroundPieces arms, TownLayout layout, Districts districts, int road, SimConfig config, ref Rng draw)
+    {
+        var edge = layout.Edges[road];
+        var from = ConnectionPoints.ArmOf(arms, config, road, atFrom: true);
+        var to = ConnectionPoints.ArmOf(arms, config, road, atFrom: false);
+
+        var betweenM = Vector2.Distance(from.StandM, to.StandM);
+        if (betweenM <= 0f) return [];
+
+        // <b>A ring piece is one arc of one circle</b> (GEN-19) and is not laid to anything: both its arms
+        // were held to the circle's own tangents, so the piece between their stand points is the circle.
+        if (MathF.Abs(from.Curvature) > 0f)
+        {
+            return [Arc(from.StandM, (to.StandM - from.StandM) / betweenM, betweenM, from.Curvature)];
+        }
+
+
+        // <b>A road is the biarc between its two end poses</b>, wandering through whatever via points its
+        // district affords. A biarc is tangent to both poses by construction and to itself at its joint, so
+        // the bearings are met exactly rather than approached — and what it costs is a curvature nobody
+        // chose, which is measured below and refused where the class cannot hold it.
+        var floorM = FloorRadiusM(config, edge.Class);
+        var wanderNodes = WanderNodes(districts, edge, from.NodeM, to.NodeM, ref draw);
+
         Span<Vector2> pointsM = stackalloc Vector2[wanderNodes + 2];
-        Wander(pointsM, districts, edge, fromM, toM, unit, lengthM, stubM, wanderNodes, config, ref draw);
-        return Rounded(pointsM, FloorRadiusM(config, edge.Class));
+        pointsM[0] = from.StandM;
+        pointsM[^1] = to.StandM;
+        Wander(pointsM, districts, edge, wanderNodes, config, ref draw);
+
+        // <b>Nothing bends tighter than its own class's floor</b>, which is what the design speed affords on
+        // tarmac. A road that asks for one is straightened before it is refused — the wander is what it
+        // wanted and the bearings are what it owes, so the wander is what gives way (GEN-10: the answer is
+        // deletion and never a retry over the whole town).
+        for (var wandering = wanderNodes; wandering >= 0; wandering--)
+        {
+            var chain = Biarcs(pointsM[..(wandering + 1)], to.StandM, from.StandUnit, -to.StandUnit);
+            if (chain.Length > 0 && TightestRadiusM(chain) >= floorM) return chain;
+        }
+
+        return [];
+    }
+
+    /// <summary>
+    /// <b>The chain of biarcs through a polyline, leaving and arriving on two given bearings.</b> Every
+    /// interior point is passed on the line through its neighbours, so the pieces either side of it are
+    /// tangent there and the whole chain is one line a follower can read.
+    /// </summary>
+    static ArcSeg[] Biarcs(ReadOnlySpan<Vector2> throughM, Vector2 lastM, Vector2 leaves, Vector2 arrives)
+    {
+        var chain = new List<ArcSeg>(throughM.Length * 2);
+        Span<ArcSeg> drawn = stackalloc ArcSeg[2];
+
+        var at = leaves;
+        for (var piece = 0; piece < throughM.Length; piece++)
+        {
+            var ontoM = piece + 1 < throughM.Length ? throughM[piece + 1] : lastM;
+            var onward = piece + 2 < throughM.Length
+                ? Through(throughM[piece], throughM[piece + 1], throughM[piece + 2])
+                : piece + 2 == throughM.Length ? Through(throughM[piece], throughM[piece + 1], lastM)
+                : arrives;
+
+            // <b>Both halves are kept, even where they read as one arc.</b> Rubbing the joint out moves the
+            // line by the rounding the merge allows, and a road is read as one line to a far finer angle
+            // than that (<see cref="CreaseRad"/>) — so a chain that was tangent by construction comes back
+            // creased by the tidying.
+            var laid = Spline.BiarcInto(throughM[piece], Facing(at), ontoM, Facing(onward), drawn);
+            if (laid == 0) return [];
+
+            // <b>Two straights in a line are one straight</b>, which is what a bridge's span is and what a
+            // road drawn between two arms that agree comes to. Nothing else is rubbed out: a merge over two
+            // arcs that merely read alike moves the line by the tolerance it allowed, and a road is read as
+            // one line to a far finer angle than that (<see cref="CreaseRad"/>).
+            if (laid == 2 && drawn[0].Curvature == 0f && drawn[1].Curvature == 0f)
+            {
+                chain.Add(new ArcSeg(
+                    drawn[0].StartM, drawn[0].HeadingRad, drawn[0].LengthM + drawn[1].LengthM, 0f));
+            }
+            else
+            {
+                for (var arc = 0; arc < laid; arc++) chain.Add(drawn[arc]);
+            }
+
+            at = onward;
+        }
+
+        return [.. chain];
+    }
+
+    /// <summary>The bearing a line passes an interior point on: the direction its two neighbours leave it in.</summary>
+    static Vector2 Through(Vector2 beforeM, Vector2 atM, Vector2 afterM)
+    {
+        var run = afterM - beforeM;
+        return run.LengthSquared() > 0f ? Vector2.Normalize(run) : Vector2.UnitX;
+    }
+
+    /// <summary>The tightest circle anywhere in a chain, which is the whole question about what a car can hold on it.</summary>
+    static float TightestRadiusM(ReadOnlySpan<ArcSeg> arcs)
+    {
+        var bend = 0f;
+        foreach (var arc in arcs) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
+
+        return bend <= 1e-6f ? float.PositiveInfinity : 1f / bend;
     }
 
     /// <summary>The one arc a piece of the orbital is: the chord it stands on decides how far round it goes.</summary>
@@ -156,27 +459,41 @@ internal static class RoadStage
     }
 
     /// <summary>
-    /// The points a wandering street is drawn through: its two ends, and its virtual nodes standing off the
-    /// chord between the stubs. <b>The offset is clamped so that the corner it makes cannot be tighter than
-    /// the class's floor</b> — a street asked to wander further than its own length can turn through is
-    /// straightened rather than bent past what a car could take.
+    /// The points a wandering street is drawn through: <b>the two ends of its leads, and its virtual nodes
+    /// standing off the line between them</b>. The offset is clamped so that the corner it makes cannot be
+    /// tighter than the class's floor — a street asked to wander further than its own length can turn
+    /// through is straightened rather than bent past what a car could take.
     /// </summary>
+    /// <remarks>
+    /// <b>The ends are given and not drawn.</b> They are where the arms' own leads finish, so what is drawn
+    /// here is the middle alone — which is the only part of a road this stage is still free to choose.
+    /// </remarks>
     static void Wander(
-        Span<Vector2> pointsM, Districts districts, LayoutEdge edge, Vector2 fromM, Vector2 toM, Vector2 unit,
-        float lengthM, float stubM, int nodes, SimConfig config, ref Rng draw)
+        Span<Vector2> pointsM, Districts districts, LayoutEdge edge, int nodes, SimConfig config, ref Rng draw)
     {
+        if (nodes == 0) return;
+
+        var fromM = pointsM[0];
+        var toM = pointsM[^1];
+        var acrossM = toM - fromM;
+        var lengthM = acrossM.Length();
+        if (lengthM <= 0f) return;
+
+        var unit = acrossM / lengthM;
         var side = Heading.RightOf(unit);
-        var segmentM = (lengthM - (stubM * 2f)) / (nodes + 1);
+        var segmentM = lengthM / (nodes + 1);
         var floorM = FloorRadiusM(config, edge.Class);
+
+        // <b>Bounded by the block and by the bend together</b>: a street may not stray so far off its own
+        // line that it could meet the street a block over, and it may not ask for a corner its class cannot
+        // turn — which over a segment of its own length is the sagitta that radius affords.
         var wanderM = MathF.Min(
             WanderM(districts, edge, (fromM + toM) * 0.5f, config),
             TangentShareOfSegment * segmentM * segmentM / MathF.Max(floorM, 1f));
 
-        pointsM[0] = fromM;
-        pointsM[^1] = toM;
         for (var node = 0; node < nodes; node++)
         {
-            var alongM = stubM + (segmentM * (node + 1));
+            var alongM = segmentM * (node + 1);
             pointsM[node + 1] = fromM + (unit * alongM) + (side * draw.NextFloat(-wanderM, wanderM));
         }
     }
@@ -190,241 +507,6 @@ internal static class RoadStage
         var districtAt = districts.At((fromM + toM) * 0.5f);
         var strict = districtAt < 0 || districts[districtAt].Strict;
         return strict ? draw.NextInt(2) : 1 + draw.NextInt(3);
-    }
-
-    /// <summary>
-    /// A polyline with its corners rounded off, as the chain of straights and arcs a road is driven along.
-    /// <b>Tangent continuous by construction</b>: each arc leaves the straight before it on that straight's
-    /// own bearing, which is what a follower reads off the road and what keeps a drawn ribbon from creasing.
-    /// </summary>
-    /// <remarks>
-    /// <b>A vertex the road cannot turn is dropped from the line and the line is laid again</b> (GEN-12),
-    /// never stepped over while it is being laid. The arc before a vertex is aimed <em>at</em> that vertex,
-    /// so giving one up half way along leaves the straight after it setting off on a bearing nothing arrives
-    /// on — a crease in the carriageway of the whole deflection given up. <b>And a crease breaks the line
-    /// that wraps it</b>: offsetting a chain moves every piece of it sideways by the same figure, so a kink
-    /// opens the offset by the kink times the offset, and the pavement beside a road that creased came apart
-    /// over three metres of itself with a walking lane dead-ending either side of the hole.
-    /// </remarks>
-    internal static ArcSeg[] Rounded(ReadOnlySpan<Vector2> pointsM, float floorRadiusM)
-    {
-        Span<Vector2> turnedM = stackalloc Vector2[pointsM.Length];
-        pointsM.CopyTo(turnedM);
-
-        var chain = new List<ArcSeg>((pointsM.Length * 2) - 1);
-        var count = pointsM.Length;
-        while (true)
-        {
-            var givenUp = Turning(turnedM[..count], floorRadiusM, chain);
-            if (givenUp < 0) return [.. chain];
-
-            turnedM[(givenUp + 1)..count].CopyTo(turnedM[givenUp..]);
-            count--;
-        }
-    }
-
-    /// <summary>
-    /// The line laid as the straights and arcs it is driven along, or <b>the first vertex the road cannot
-    /// turn</b> — one whose corner is tighter than the class's floor, and one too slight to be a corner at
-    /// all. What it laid before reaching that vertex is the caller's to throw away.
-    /// </summary>
-    static int Turning(ReadOnlySpan<Vector2> pointsM, float floorRadiusM, List<ArcSeg> chain)
-    {
-        chain.Clear();
-        var atM = pointsM[0];
-        for (var vertex = 1; vertex + 1 < pointsM.Length; vertex++)
-        {
-            var intoM = pointsM[vertex] - atM;
-            var outOfM = pointsM[vertex + 1] - pointsM[vertex];
-            var intoLengthM = intoM.Length();
-            var outOfLengthM = outOfM.Length();
-            if (intoLengthM <= 0f || outOfLengthM <= 0f) return vertex;
-
-            var into = intoM / intoLengthM;
-            var outOf = outOfM / outOfLengthM;
-
-            // The turn itself and not its sine: past a quarter turn the two read as different corners, and
-            // the arc a sine lays there arrives on a bearing the next piece does not leave on.
-            var deflection = MathF.Atan2(Cross(into, outOf), Vector2.Dot(into, outOf));
-            if (MathF.Abs(deflection) < StraightThroughRad) return vertex;
-
-            // <b>A corner too tight for the class is not rounded harder, it is not turned at all</b>: the
-            // road runs straight through the vertex and the wander it asked for is given up. Rounding it at
-            // the floor instead would need a tangent longer than the straights either side can spare, and
-            // what that lays is a road that leaves its own carriageway.
-            var tangentM = TangentShareOfSegment * MathF.Min(intoLengthM, outOfLengthM);
-            var radiusM = tangentM / MathF.Tan(MathF.Abs(deflection) * 0.5f);
-            if (radiusM < floorRadiusM) return vertex;
-
-            var startsM = pointsM[vertex] - (into * tangentM);
-            var straightM = (startsM - atM).Length();
-            if (straightM > 0f) chain.Add(new ArcSeg(atM, Facing(into), straightM, 0f));
-
-            var curvature = MathF.Sign(deflection) / radiusM;
-            chain.Add(new ArcSeg(startsM, Facing(into), MathF.Abs(deflection) * radiusM, curvature));
-            atM = pointsM[vertex] + (outOf * tangentM);
-        }
-
-        var lastM = pointsM[^1] - atM;
-        var runM = lastM.Length();
-        if (runM > 0f) chain.Add(new ArcSeg(atM, Facing(lastM / runM), runM, 0f));
-
-        return -1;
-    }
-
-    /// <summary>
-    /// <b>A node with two arms is a road that bends, not a corner cars turn across</b> (TER-5b, GEN-12a): the
-    /// two chains meeting there are bent to arrive on <b>one tangent</b>, each taking half the turn on an arc
-    /// of the same radius, and the node moves to the middle of that arc. A carriageway, a kerb and a lane
-    /// line then run through it without a crease, which is what lets <see cref="ThroughRoads"/> take the node
-    /// away altogether. The junction centres are what comes back.
-    /// </summary>
-    /// <param name="carriedThrough">
-    /// Which nodes were left carrying one road through them, node for node — the ones the sweep took and the
-    /// ones that were already straight through, and neither of the two it refused.
-    /// </param>
-    /// <remarks>
-    /// <para>
-    /// <b>The arc is the widest the two roads can spare and never wider than the class's floor</b>
-    /// (<see cref="FloorRadiusM"/>): sweeping wider than the speed a road is laid for asks only cuts deeper
-    /// inside the corner, and the ground it cuts is ground the layout put somewhere else.
-    /// </para>
-    /// <para>
-    /// <b>A pair with room for nothing better than the fillet keeps its junction.</b> Below
-    /// <see cref="SimConfig.RoadCornerRadiusM"/> — the bend whose inner kerb stands exactly where a junction
-    /// would have flared it — a bend is a worse corner than the corner it replaces, and a bridge is straight
-    /// and nothing else (GEN-14a).
-    /// </para>
-    /// </remarks>
-    static Vector2[] Bends(
-        TownLayout layout, ArcSeg[][] chains, SimConfig config, out bool[] carriedThrough)
-    {
-        carriedThrough = new bool[layout.NodeM.Count];
-        var centreM = new Vector2[layout.NodeM.Count];
-        for (var node = 0; node < centreM.Length; node++) centreM[node] = layout.NodeM[node];
-
-        var arms = new List<(int Road, bool AtFromEnd)>[centreM.Length];
-        for (var node = 0; node < arms.Length; node++) arms[node] = [];
-
-        for (var road = 0; road < chains.Length; road++)
-        {
-            if (chains[road].Length == 0) continue;
-
-            arms[layout.Edges[road].From].Add((road, true));
-            arms[layout.Edges[road].To].Add((road, false));
-        }
-
-        for (var node = 0; node < arms.Length; node++)
-        {
-            if (arms[node].Count != 2) continue;
-            if (layout.Edges[arms[node][0].Road].Class == RoadClass.Bridge) continue;
-            if (layout.Edges[arms[node][1].Road].Class == RoadClass.Bridge) continue;
-
-            carriedThrough[node] = Bend(layout, chains, config, arms[node][0], arms[node][1], ref centreM[node]);
-        }
-
-        return centreM;
-    }
-
-    /// <summary>
-    /// One such node bent: both chains rewritten and the node moved onto the arc they now share. <b>Whether
-    /// the road is carried through it</b> is what comes back, which is the whole of what says the node may be
-    /// joined out of the town (<see cref="ThroughRoads"/>). Two keep their junction: one with no room for a
-    /// bend worth having, and one already straight enough through to have nothing to sweep, whose two arms
-    /// therefore meet on a crease rather than on a tangent.
-    /// </summary>
-    static bool Bend(
-        TownLayout layout, ArcSeg[][] chains, SimConfig config, (int Road, bool AtFromEnd) first,
-        (int Road, bool AtFromEnd) second, ref Vector2 nodeM)
-    {
-        var outOfFirst = Outward(chains[first.Road], first.AtFromEnd);
-        var outOfSecond = Outward(chains[second.Road], second.AtFromEnd);
-
-        // How far the through traffic is turned at the node, which is the whole of what has to be swept.
-        var into = -outOfFirst;
-        var deflection = MathF.Atan2(Cross(into, outOfSecond), Vector2.Dot(into, outOfSecond));
-        var halfTurn = MathF.Abs(deflection) * 0.5f;
-        var straightFirstM = StraightAtTheEndM(chains[first.Road], first.AtFromEnd);
-        var straightSecondM = StraightAtTheEndM(chains[second.Road], second.AtFromEnd);
-
-        // <b>A node both of whose arms arrive bending is on a road that bends the whole way</b> — the
-        // orbital, where GEN-12's first bound never reached and a piece of arc is the whole road. There is no
-        // straight for a sweep to be laid on, and joining the pieces would make a road that leaves a real
-        // junction on a curve without being the one arc that is allowed to (GEN-12b).
-        if (straightFirstM <= 0f && straightSecondM <= 0f) return false;
-
-        // <b>A pair already meeting on one tangent has nothing to sweep and is carried through anyway</b>
-        // (GEN-12b): the node is what the join is after and the shape is already right. Between that and the
-        // turn worth rounding lies the crease — too slight for an arc and too open to be one line — and the
-        // junction's own ground is where such a joint belongs.
-        if (halfTurn < StraightThroughRad) return MathF.Abs(deflection) <= CreaseRad(config);
-
-        var spareM = TangentShareOfSegment * MathF.Min(straightFirstM, straightSecondM);
-        var radiusM = MathF.Min(
-            spareM / MathF.Tan(halfTurn),
-            MathF.Max(
-                FloorRadiusM(config, layout.Edges[first.Road].Class),
-                FloorRadiusM(config, layout.Edges[second.Road].Class)));
-        if (radiusM < config.RoadCornerRadiusM) return false;
-
-        // The arc tangent to both arms stands off the node along the bisector of the wedge between them,
-        // and the two chains now meet at its middle rather than at the node the layout put there.
-        var tangentM = radiusM * MathF.Tan(halfTurn);
-        var bisector = Vector2.Normalize(outOfFirst + outOfSecond);
-        var apexM = nodeM + (bisector * ((radiusM / MathF.Cos(halfTurn)) - radiusM));
-
-        // The heading the through traffic holds at the apex, from the first arm towards the second, and the
-        // way it is turning: each arm's own half is that arc walked outward, so the first one's is reversed.
-        var through = Vector2.Normalize(outOfSecond - outOfFirst);
-        var curvature = MathF.Sign(deflection) / radiusM;
-
-        chains[first.Road] = Bent(
-            chains[first.Road], first.AtFromEnd, apexM, nodeM + (outOfFirst * tangentM), -through, outOfFirst,
-            -curvature, radiusM * halfTurn, tangentM);
-        chains[second.Road] = Bent(
-            chains[second.Road], second.AtFromEnd, apexM, nodeM + (outOfSecond * tangentM), through,
-            outOfSecond, curvature, radiusM * halfTurn, tangentM);
-        nodeM = apexM;
-        return true;
-    }
-
-    /// <summary>
-    /// One chain with the half-turn on its end: the straight there is cut back to where the arc leaves it,
-    /// and the arc runs from the apex out to that point. <b>Reckoned apex-outward whichever way the road is
-    /// driven</b>, and laid in reversed where the road ends at the node rather than starting there.
-    /// </summary>
-    static ArcSeg[] Bent(
-        ArcSeg[] chain, bool atFromEnd, Vector2 apexM, Vector2 tangentPointM, Vector2 apexHeading,
-        Vector2 outward, float curvature, float sweptM, float tangentM)
-    {
-        var trimmed = Trimmed(chain, atFromEnd, tangentM);
-        if (atFromEnd) return [new ArcSeg(apexM, Facing(apexHeading), sweptM, curvature), .. trimmed];
-
-        return [.. trimmed, new ArcSeg(tangentPointM, Facing(-outward), sweptM, -curvature)];
-    }
-
-    /// <summary>Which way a chain leaves one of its ends, as the unit pointing away from the node there.</summary>
-    static Vector2 Outward(ArcSeg[] chain, bool atFromEnd) =>
-        atFromEnd
-            ? Spline.SampleAt(chain, 0f).Direction
-            : -Spline.SampleAt(chain, Spline.TotalLengthM(chain)).Direction;
-
-    /// <summary>How much straight a chain has at one end, which is all a bend there may eat into.</summary>
-    static float StraightAtTheEndM(ArcSeg[] chain, bool atFromEnd)
-    {
-        var end = atFromEnd ? chain[0] : chain[^1];
-        return end.Curvature == 0f ? end.LengthM : 0f;
-    }
-
-    /// <summary>The chain with that much taken off the straight at one end, which is the ground the bend takes.</summary>
-    static ArcSeg[] Trimmed(ArcSeg[] chain, bool atFromEnd, float byM)
-    {
-        var kept = new ArcSeg[chain.Length];
-        Array.Copy(chain, kept, chain.Length);
-        if (atFromEnd) kept[0] = kept[0] with { StartM = kept[0].PointAtM(byM), LengthM = kept[0].LengthM - byM };
-        else kept[^1] = kept[^1] with { LengthM = kept[^1].LengthM - byM };
-
-        return kept;
     }
 
     /// <summary>
@@ -449,8 +531,7 @@ internal static class RoadStage
     /// entry comes down to the last bits of a float.
     /// </para>
     /// </remarks>
-    static void OntoTheDrivenHalf(
-        TownLayout layout, ArcSeg[][] chains, Vector2[] centreM, float[] widthM, SimConfig config)
+    static void OntoTheDrivenHalf(TownLayout layout, ArcSeg[][] chains, float[] widthM, SimConfig config)
     {
         for (var road = 0; road < chains.Length; road++)
         {
@@ -466,15 +547,6 @@ internal static class RoadStage
             Spline.OffsetInto(
                 chains[road], layout.Edges[road].Flow == RoadFlow.WithTheRoad ? halfM : -halfM, moved);
             chains[road] = moved;
-        }
-
-        var arms = layout.Arms();
-        for (var road = 0; road < chains.Length; road++)
-        {
-            if (chains[road].Length == 0) continue;
-
-            if (arms[layout.Edges[road].From] == 2) centreM[layout.Edges[road].From] = chains[road][0].StartM;
-            if (arms[layout.Edges[road].To] == 2) centreM[layout.Edges[road].To] = chains[road][^1].EndM;
         }
     }
 
@@ -501,7 +573,7 @@ internal static class RoadStage
     /// runs through, at the share of a block that class of road is allowed (GEN-12). A grid's share is the
     /// tighter one, because a grid is straight.
     /// </summary>
-    static float WanderM(Districts districts, LayoutEdge edge, Vector2 middleM, SimConfig config)
+    public static float WanderM(Districts districts, LayoutEdge edge, Vector2 middleM, SimConfig config)
     {
         var districtAt = districts.At(middleM);
         var spacingM = districtAt < 0
@@ -514,62 +586,15 @@ internal static class RoadStage
     }
 
     /// <summary>
-    /// <b>The furthest each road's drawn shape stands off the chord the layout joined it on</b>, road for
-    /// road: what its own district allows a street to wander, or the sagitta of the arc the layout asked an
-    /// arterial for. It is what the layout keeps two roads clear of each other by
-    /// (<see cref="TownLayout.UnpickTheCrossings"/>, GEN-17).
+    /// <b>The disc every junction is drawn on, which is the standoff its arms' lanes end at</b>
+    /// (<see cref="SimConfig.JunctionRadiusM"/>, TER-5). One figure for every node in the town, because the
+    /// standoff is one figure: the disc follows the standoff and the arms follow the disc, and sizing it off
+    /// the arms that end at the standoff would be a circle.
     /// </summary>
-    /// <remarks>
-    /// <b>The bound the wander is clamped to, and not the wander itself.</b> What a road actually strays is
-    /// drawn on this stage's own stream, which cannot run until the crossings are settled and the roads that
-    /// are left are known — so what the layout is measured against is the most a road could take rather than
-    /// the piece it went on to take. A street held straight by its own corner floor keeps ground it never
-    /// uses, and that is the cheaper mistake of the two.
-    /// </remarks>
-    public static float[] StraysM(TownLayout layout, Districts districts, SimConfig config)
-    {
-        var straysM = new float[layout.Edges.Count];
-        for (var road = 0; road < straysM.Length; road++)
-        {
-            var edge = layout.Edges[road];
-            var fromM = layout.NodeM[edge.From];
-            var toM = layout.NodeM[edge.To];
-            straysM[road] = edge.Class == RoadClass.Street
-                ? WanderM(districts, edge, (fromM + toM) * 0.5f, config)
-                : SagittaM(edge.Curvature, (toM - fromM).Length());
-        }
-
-        return straysM;
-    }
-
-    /// <summary>How far an arc bulges off the chord it stands on, which is nil for a straight.</summary>
-    static float SagittaM(float curvature, float chordM)
-    {
-        if (MathF.Abs(curvature) <= 0f) return 0f;
-
-        var radiusM = 1f / MathF.Abs(curvature);
-        var halfM = chordM * 0.5f;
-        return radiusM - MathF.Sqrt(MathF.Max(0f, (radiusM * radiusM) - (halfM * halfM)));
-    }
-
-    static CityPlan.JunctionArrays Junctions(
-        TownLayout layout, Vector2[] centreM, ArcSeg[][] chains, float[] widthM)
+    static CityPlan.JunctionArrays Junctions(Vector2[] centreM, SimConfig config)
     {
         var radiusM = new float[centreM.Length];
-
-        // <b>The disc is the ground its arms share</b> (TER-5), so it is sized on the arm whose own ground
-        // reaches furthest from it: its own half, and however far off the node the road itself stands where
-        // that road is one way (TER-4d). A one-way street therefore reaches exactly as far as the
-        // carriageway whose driven half it is, and one an arterial reaches is the arterial's own width
-        // whatever else stands there.
-        for (var road = 0; road < layout.Edges.Count; road++)
-        {
-            var halfM = widthM[road] * 0.5f;
-            var from = layout.Edges[road].From;
-            var to = layout.Edges[road].To;
-            radiusM[from] = MathF.Max(radiusM[from], halfM + StandsOffM(chains[road], atFromEnd: true, centreM[from]));
-            radiusM[to] = MathF.Max(radiusM[to], halfM + StandsOffM(chains[road], atFromEnd: false, centreM[to]));
-        }
+        Array.Fill(radiusM, config.JunctionRadiusM);
 
         // <b>Nothing is lit.</b> Whether a junction carries a timetable was drawn here, in a stream of its
         // own, and the signals come back with the crossings and the bars they order (TLT-3) — so what the
@@ -581,21 +606,6 @@ internal static class RoadStage
             Lit = new bool[centreM.Length],
             PhaseOffsetS = new float[centreM.Length],
         };
-    }
-
-    /// <summary>Which junctions stand on a roundabout's ring (GEN-19).</summary>
-    static bool[] OnARing(TownLayout layout)
-    {
-        var found = new bool[layout.NodeM.Count];
-        foreach (var edge in layout.Edges)
-        {
-            if (edge.Class != RoadClass.Roundabout) continue;
-
-            found[edge.From] = true;
-            found[edge.To] = true;
-        }
-
-        return found;
     }
 
     /// <summary>
@@ -664,13 +674,6 @@ internal static class RoadStage
         if (a != b) root[b] = a;
     }
 
-    /// <summary>
-    /// How far off a junction its arm's own line stands, which is half a lane on a one-way street
-    /// (<see cref="OntoTheDrivenHalf"/>) and nothing anywhere else.
-    /// </summary>
-    static float StandsOffM(ArcSeg[] chain, bool atFromEnd, Vector2 centreM) =>
-        chain.Length == 0 ? 0f : ((atFromEnd ? chain[0].StartM : chain[^1].EndM) - centreM).Length();
-
     static CityPlan.RoadArrays Roads(TownLayout layout, ArcSeg[][] chains, float[] widthM)
     {
         var fromJunction = new int[chains.Length];
@@ -728,6 +731,4 @@ internal static class RoadStage
     }
 
     public static float Facing(Vector2 unit) => MathF.Atan2(unit.Y, unit.X);
-
-    static float Cross(Vector2 a, Vector2 b) => (a.X * b.Y) - (a.Y * b.X);
 }

@@ -213,9 +213,12 @@ public class ChainIndexTests
 
                     // The cell really holds it: the chain has a station inside the square, which is the
                     // binning's own claim about why it is in there.
-                    Assert.Contains(
-                        Stations(roads.ArcsOf(held[at]), roads.LaneLengthM[held[at]]),
-                        atM => Inside(index, x, y, atM));
+                    Assert.True(
+                        Stations(roads.ArcsOf(held[at]), roads.LaneLengthM[held[at]])
+                            .Any(atM => Inside(index, x, y, atM)),
+                        $"cell {x},{y} holds lane {held[at]}, {roads.LaneLengthM[held[at]]:F1} m over "
+                        + $"{roads.ArcsOf(held[at]).Length} arcs from {roads.StartOf(held[at]).PositionM} "
+                        + $"to {roads.EndOf(held[at]).PositionM}, and no station of it is in the cell");
                 }
             }
         }
@@ -223,11 +226,23 @@ public class ChainIndexTests
         Assert.True(asked > 0, "no cell of the fixture's lanes held anything");
     }
 
-    /// <summary>A lane walked at the step the index bins it by, so a station of it lands in every cell it runs through.</summary>
+    /// <summary>
+    /// A lane walked at the step the index bins it by, so a station of it lands in every cell it runs
+    /// through. <b>Piece by piece and not by distance along the chain</b>, which is how the binning walks
+    /// it: a chain's own length and the sum of its pieces' are two computations of one number, and asking
+    /// this question by the first would leave the last metres of a long piece unwalked.
+    /// </summary>
     static IEnumerable<Vector2> Stations(ReadOnlySpan<ArcSeg> arcs, float lengthM)
     {
         var walked = new List<Vector2>();
-        for (var atM = 0f; atM <= lengthM; atM += 0.25f) walked.Add(Spline.SampleAt(arcs, atM).PositionM);
+        foreach (var arc in arcs)
+        {
+            for (var atM = 0f; ; atM += 0.25f)
+            {
+                walked.Add(arc.PointAtM(MathF.Min(atM, arc.LengthM)));
+                if (atM >= arc.LengthM) break;
+            }
+        }
 
         return walked;
     }

@@ -262,9 +262,9 @@ internal static class TownCensus
         Console.WriteLine($"  signals        {bundles,7}  bundles of the {plan.Junctions.Count} junctions, " +
                           $"{uncontrolled} of {signals.CrossingCount} crossings uncontrolled");
         // <b>How many of the plan's junctions are a junction at all</b>: a node of two arms carries one road
-        // through and decides nothing (GEN-12b), so the gap between the three figures is what the lines were
-        // cut at over and above the places a driver chooses at (TER-5h).
-        var arms = RoadCuts.ArmsPerJunction(plan.Ground);
+        // through and decides nothing, so the gap between the three figures is where the town's lines meet
+        // without anybody choosing anything.
+        var arms = plan.Ground.ArmsPerJunction();
         var carriedThrough = 0;
         foreach (var at in arms)
         {
@@ -416,10 +416,8 @@ internal static class TownCensus
     /// and not a seam to be closed.
     /// </para>
     /// <para>
-    /// <b>And the two figures a fold is refused for are counted beside them</b> (TER-5h): a join between
-    /// lanes of different widths, which is a carriageway that really does step there, and a join at a node
-    /// the two arms' kerbs do not meet at (<see cref="RoadCuts.RunsThrough"/>), whose ground is a piece of
-    /// the tarmac's own outline whether or not the lane swallows the line.
+    /// <b>And a join between lanes of different widths is counted beside them</b>, which is a carriageway
+    /// that really does step there rather than a seam in the construction.
     /// </para>
     /// </remarks>
     static void HandOvers(RoadGraph roads, CityPlan plan)
@@ -431,14 +429,12 @@ internal static class TownCensus
             arms[plan.Roads.ToJunction[road]]++;
         }
 
-        var through = RoadCuts.RunsThrough(plan.Ground);
         var arrivingAt = new int[roads.LaneCount];
         for (var connector = 0; connector < roads.ConnectorCount; connector++) arrivingAt[roads.ConnectorTo(connector)]++;
 
         var atABend = 0;
         var atAFork = 0;
         var stepped = 0;
-        var unmet = 0;
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
             var onward = roads.LanesFrom(lane);
@@ -449,12 +445,11 @@ internal static class TownCensus
             else atAFork++;
 
             if (MathF.Abs(roads.LaneWidthM[lane] - roads.LaneWidthM[onward[0]]) > 1e-3f) stepped++;
-            if (!through[node]) unmet++;
         }
 
         Console.WriteLine($"  hands over     {atABend + atAFork,7}  joins fork nothing — one lane onto one lane; " +
                           $"{atABend} at a junction of two arms, {atAFork} at one that forks; " +
-                          $"{stepped} step in width, {unmet} at a node the kerbs do not meet at");
+                          $"{stepped} step in width");
     }
 
     /// <summary>How far the furthest-reaching zebra runs, which on a town of square crossings is a road's width.</summary>

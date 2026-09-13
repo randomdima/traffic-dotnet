@@ -70,11 +70,25 @@ internal static class ConnectionPoints
     /// <param name="Junction">The node the arm stands off.</param>
     /// <param name="NodeM">Its centre, which is what the draw is keyed on.</param>
     /// <param name="OutwardUnit">The bearing the road leaves the node on, jittered off the chord.</param>
-    /// <param name="StandM">
-    /// The middle of the line the arm's points stand on — a standoff out along the bearing. The points
-    /// themselves stand either side of it, half a lane off.
+    /// <param name="Curvature">
+    /// How the arm's own lead bends, which is nought everywhere but on a roundabout's ring — where the lead
+    /// is a piece of the circle GEN-19 sized rather than a straight off the tangent to it.
     /// </param>
-    internal readonly record struct Arm(int Junction, Vector2 NodeM, Vector2 OutwardUnit, Vector2 StandM);
+    /// <param name="StandM">
+    /// The middle of the line the arm's points stand on — a standoff out along the arm's own lead. The
+    /// points themselves stand either side of it, half a lane off.
+    /// </param>
+    /// <param name="StandUnit">
+    /// And the bearing there, which is the arm's own where the lead is straight and the circle's tangent
+    /// where it is not.
+    /// </param>
+    internal readonly record struct Arm(
+        int Junction, Vector2 NodeM, Vector2 OutwardUnit, float Curvature, Vector2 StandM, Vector2 StandUnit)
+    {
+        /// <summary>The lead itself, which is what a road laid to this arm begins with and a movement ends on.</summary>
+        public ArcSeg Lead(float standoffM) =>
+            new(NodeM, MathF.Atan2(OutwardUnit.Y, OutwardUnit.X), standoffM, Curvature);
+    }
 
     /// <summary>
     /// <b>The arm one road leaves one of its two junctions on.</b> The bearing is the chord to the other
@@ -90,11 +104,15 @@ internal static class ConnectionPoints
         var nodeM = ground.Junctions.CentreM[junction];
         var towardM = ground.Junctions.CentreM[other];
 
-        var outward = Held(ground, road, junction, other, nodeM, towardM, out var held)
+        var curvature = 0f;
+        var outward = Held(ground, road, nodeM, towardM, out var held, out curvature)
             ? held
             : Jittered(Chord(nodeM, towardM), config, ground.Seed, nodeM, towardM);
 
-        return new Arm(junction, nodeM, outward, nodeM + (outward * config.CityGen.ConnectionStandoffM));
+        var arm = new Arm(junction, nodeM, outward, curvature, nodeM, outward);
+        var lead = arm.Lead(config.CityGen.ConnectionStandoffM);
+
+        return arm with { StandM = lead.EndM, StandUnit = Heading.Unit(lead.HeadingAtRad(lead.LengthM)) };
     }
 
     /// <summary>
@@ -120,12 +138,12 @@ internal static class ConnectionPoints
         // the road is driven towards it. A two-way road is both.
         if (flow != (leavesHere ? RoadFlow.AgainstTheRoad : RoadFlow.WithTheRoad))
         {
-            into[written++] = Point(config, arm, arm.OutwardUnit, LaneEnd.Exit);
+            into[written++] = Point(config, arm, arm.StandUnit, LaneEnd.Exit);
         }
 
         if (flow != (leavesHere ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad))
         {
-            into[written++] = Point(config, arm, -arm.OutwardUnit, LaneEnd.Enter);
+            into[written++] = Point(config, arm, -arm.StandUnit, LaneEnd.Enter);
         }
 
         return written;
@@ -158,11 +176,48 @@ internal static class ConnectionPoints
     static Vector2 Jittered(Vector2 chord, SimConfig config, ulong seed, Vector2 nodeM, Vector2 towardM)
     {
         var draw = new Rng(seed, Stream ^ Keyed(nodeM, towardM));
-        var boundRad = float.DegreesToRadians(config.CityGen.ConnectionJitterDeg);
+        var boundRad = BoundRad(config, Vector2.Distance(nodeM, towardM));
         var turnedRad = draw.NextFloat(-boundRad, boundRad);
 
         var (sin, cos) = MathF.SinCos(turnedRad);
         return new Vector2((chord.X * cos) - (chord.Y * sin), (chord.X * sin) + (chord.Y * cos));
+    }
+
+    /// <summary>
+    /// <b>How much of the ground between two arms a corner between them may take</b>, either side of the
+    /// vertex it rounds — which is what says how long a lead has to be for a road to turn off its arm at
+    /// all (<c>RoadStage.Chain</c>) and therefore how far an arm may be jittered on a link of any length.
+    /// </summary>
+    public const float TangentShareOfSegment = 0.45f;
+
+    /// <summary>
+    /// <b>How far off its chord a link this long may be jittered</b>: the authored bound, tapered by what
+    /// the link has room to turn through.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A road drawn onto an arm turned by <c>θ</c> has to hold that bearing for a lead, then turn off it
+    /// over a corner of radius <c>R</c>, and the corner may take only a share of the shorter of the two legs
+    /// it stands between. <b>Both ends want one and the road wants what is left</b>, so the ground divides
+    /// three ways — and the turn at a lead is up to <c>2θ</c>, because the far end was jittered too.
+    /// That gives <c>θ ≤ atan(share·(L − 2·standoff) ∕ 3R)</c>.
+    /// </para>
+    /// <para>
+    /// <b>Against the loosest class's floor and not the road's own</b>, because the road's class is not
+    /// something the plan carries (§5) and the derivation has to draw the same angle the generator drew. An
+    /// arterial's floor is the widest of them, so a link held inside it is one every class can turn.
+    /// </para>
+    /// </remarks>
+    static float BoundRad(SimConfig config, float lengthM)
+    {
+        var boundRad = float.DegreesToRadians(config.CityGen.ConnectionJitterDeg);
+        var betweenM = lengthM - (2f * config.CityGen.ConnectionStandoffM);
+        if (betweenM <= 0f) return 0f;
+
+        var floorM = config.CarCorneringRadiusM(
+            config.CityGen.ArterialDesignSpeedMps, config.Terrain.PavedCoefficient);
+
+        return MathF.Min(boundRad, MathF.Atan(TangentShareOfSegment * betweenM / (3f * floorM)));
     }
 
     /// <summary>
@@ -192,9 +247,10 @@ internal static class ConnectionPoints
     /// roundabout was sized as, and leaves along that circle's tangent.
     /// </summary>
     static bool Held(
-        GroundPieces ground, int road, int junction, int other, Vector2 nodeM, Vector2 towardM,
-        out Vector2 outward)
+        GroundPieces ground, int road, Vector2 nodeM, Vector2 towardM, out Vector2 outward, out float curvature)
     {
+        curvature = 0f;
+
         if (Array.IndexOf(ground.Bridges.Road, road) >= 0)
         {
             outward = Chord(nodeM, towardM);
@@ -205,9 +261,15 @@ internal static class ConnectionPoints
         {
             // Square to the radius, and round the circle the way this arm is driven: the tangent at a point
             // of a circle is the radius turned a quarter, and which quarter is which end of the piece.
-            var tangent = Heading.RightOf(Vector2.Normalize(nodeM - centreM));
-            var along = towardM - nodeM;
-            outward = Vector2.Dot(tangent, along) >= 0f ? tangent : -tangent;
+            var radius = nodeM - centreM;
+            var tangent = Heading.RightOf(Vector2.Normalize(radius));
+            var forward = Vector2.Dot(tangent, towardM - nodeM) >= 0f;
+
+            outward = forward ? tangent : -tangent;
+
+            // <b>And the lead bends with the ring.</b> A standoff laid straight off a thirty-metre circle
+            // stands nearly two metres inside it, which is a break in the one shape GEN-19 sizes.
+            curvature = (forward ? 1f : -1f) / MathF.Max(radius.Length(), 1e-3f);
             return true;
         }
 

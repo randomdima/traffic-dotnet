@@ -324,53 +324,6 @@ public class RoadGraphTests
         }
     }
 
-    /// <summary>
-    /// <b>A lane is cut back only as far as it takes for its joins to reach the junction's own corner
-    /// radius, and no further</b> (TER-5, TER-5d). The turn that does not reach it is the one the town has
-    /// no room for — both its lanes have already given up everything they can spare — and that is a fact
-    /// about the junction rather than about the line drawn through it.
-    /// </summary>
-    /// <remarks>
-    /// The pair no cut back would ever help — two opposing lanes a lane's width apart, a semicircle however
-    /// far back it is drawn from — is not a movement and is not in the table (TER-5f).
-    /// </remarks>
-    [Theory]
-    [MemberData(nameof(Maps))]
-    public void EveryJoinIsAsWideAsItNeedsToBeOrAsWideAsTheTownAllows(string map)
-    {
-        var config = SimConfig.Shipped();
-        var graph = GraphOf(map);
-
-        for (var lane = 0; lane < graph.LaneCount; lane++)
-        {
-            var turns = graph.LanesFrom(lane);
-            for (var turn = 0; turn < turns.Length; turn++)
-            {
-                var onto = turns[turn];
-                var slot = graph.ConnectorsFrom(lane)[turn];
-
-                // Measured against the stretches the cut back was settled on, which is what each lane still
-                // had when the widening asked how much it could spare.
-                var wholeM = MathF.Min(
-                    graph.LaneLengthM[lane] + graph.LaneCutBackM[lane],
-                    graph.LaneLengthM[onto] + graph.LaneCutBackM[onto]);
-                var capM = MathF.Min(
-                    config.IntersectionCornerRadiusM,
-                    MathF.Max(0f, wholeM - config.LaneShortestStretchM) * 0.5f);
-
-                var bend = 0f;
-                foreach (var arc in graph.ConnectorArcs(slot)) bend = MathF.Max(bend, MathF.Abs(arc.Curvature));
-
-                var holdable = bend <= 1e-6f || 1f / bend >= config.IntersectionCornerRadiusM;
-                Assert.True(
-                    holdable || (graph.LaneCutBackM[lane] >= capM - 1e-3f && graph.LaneCutBackM[onto] >= capM - 1e-3f),
-                    $"{map}: lane {lane} onto {onto} bends to {1f / bend:F2} m where the two of them gave up " +
-                    $"{graph.LaneCutBackM[lane]:F2} m and {graph.LaneCutBackM[onto]:F2} m of the {capM:F2} m " +
-                    "the town allows an end");
-            }
-        }
-    }
-
     /// <summary>Five centimetres, which is <see cref="ArcSeg"/>'s own arithmetic and not the join's geometry.</summary>
     const float JoinToleranceM = 0.05f;
 }

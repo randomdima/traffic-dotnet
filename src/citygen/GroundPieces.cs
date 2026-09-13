@@ -77,6 +77,22 @@ internal readonly record struct GroundPieces(
             Roundabouts = roundabouts, Crosswalks = crosswalks, StopLines = stopLines,
         };
 
-    /// <summary>And with the car parks the slot stage laid.</summary>
-    public GroundPieces With(CityPlan.ParkingLotArrays lots) => this with { ParkingLots = lots };
+    /// <summary>
+    /// <b>How many roads meet at each junction</b>, which is what says whether a node is a crossroads, a
+    /// bend or a dead end (GEN-5a). It is the two ends every road names and nothing else: a road runs
+    /// between the two junctions it was laid between, and passes through none.
+    /// </summary>
+    public int[] ArmsPerJunction()
+    {
+        var arms = new int[Junctions.Count];
+        for (var road = 0; road < Roads.Count; road++)
+        {
+            if (Roads.SegmentsOf(road).Length == 0) continue;
+
+            arms[Roads.FromJunction[road]]++;
+            arms[Roads.ToJunction[road]]++;
+        }
+
+        return arms;
+    }
 }

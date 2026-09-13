@@ -374,107 +374,28 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     };
 
     /// <summary>
-    /// <b>Drops every road that would share ground with a road it does not meet at a junction</b> (GEN-17).
-    /// A junction is the only place two carriageways may touch: two that cross anywhere else have no box, no
-    /// fillets, no crossings and no bar where they meet, and nothing downstream — the follower, the claim,
-    /// the walk — has anything to say about the ground they share.
+    /// <b>Drops the roads a later stage refused</b>, and renumbers nothing: a deletion carries every road
+    /// that is left over as it stood (<see cref="Rebuilt"/>).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>It is a pass over the finished layout and not a test inside <see cref="Join"/></b>, because the
-    /// stages lay in the order the ground is walked and not in the order the town cares about: the lattice
-    /// hangs its streets before <see cref="Arterials.Close"/> joins the arterial they cross, so a test made
-    /// as each road is offered would keep whichever was laid first and delete the orbital. Taken in
-    /// precedence order afterwards, the arterial stands and the street gives way (GEN-13, GEN-16).
-    /// </para>
-    /// <para>
-    /// <b>Two roads are measured as the ground they will take and not as the lines they are joined on.</b>
-    /// A road is laid at <paramref name="apartM"/> wide, and its shape does not stay on its chord: a street
-    /// wanders off it and an arterial's arc bulges off it, which is what <paramref name="straysM"/> carries
-    /// road for road (<see cref="RoadStage.StraysM"/>). Measured against the chords alone, two roads that
-    /// pass the test still meet once they are drawn.
-    /// </para>
-    /// <para>
-    /// <b>Roads that share a node are left alone.</b> They touch there because that is what a junction is,
-    /// and how square they have to stand to each other is <see cref="StandsSquareEnough"/>'s (GEN-13).
-    /// </para>
+    /// <b>What refuses is the stage that lays the geometry</b> (<c>RoadStage.Refused</c>) and never this
+    /// class, because what makes two roads share ground is the lines they were drawn as rather than the
+    /// chords they were joined on — a spline free to reach its own end bearings is not bounded by its chord,
+    /// so nothing measured here would be true of the town. What this owes is the repair behind the
+    /// refusal: a link taken out can strand a component or leave a node with one arm, and both are the
+    /// layout's to put right (GEN-5, GEN-5a).
     /// </remarks>
-    /// <param name="apartM">
-    /// How far apart two roads' own lines stand when their ground merely touches — one road's whole width,
-    /// carriageway and walk (<see cref="SimConfig.RoadFootprintM"/>).
-    /// </param>
-    /// <param name="straysM">
-    /// How far off its own chord each road is drawn, in the order <see cref="Edges"/> carries them.
-    /// </param>
-    public void UnpickTheCrossings(float apartM, ReadOnlySpan<float> straysM)
+    public void DropTheRoads(ReadOnlySpan<bool> refused)
     {
         var kept = new List<LayoutEdge>(_edges.Count);
-        var keptStraysM = new List<float>(_edges.Count);
-        for (var rank = 2; rank >= 0; rank--)
+        for (var road = 0; road < _edges.Count; road++)
         {
-            for (var road = 0; road < _edges.Count; road++)
-            {
-                if (Precedence(_edges[road].Class) != rank) continue;
-                if (SharesGround(kept, keptStraysM, _edges[road], straysM[road], apartM)) continue;
-
-                kept.Add(_edges[road]);
-                keptStraysM.Add(straysM[road]);
-            }
+            if (road >= refused.Length || !refused[road]) kept.Add(_edges[road]);
         }
 
         if (kept.Count == _edges.Count) return;
 
         Rebuilt([.. _nodeM], kept);
-    }
-
-    bool SharesGround(
-        List<LayoutEdge> kept, List<float> straysM, LayoutEdge edge, float strayM, float apartM)
-    {
-        var fromM = _nodeM[edge.From];
-        var toM = _nodeM[edge.To];
-        for (var at = 0; at < kept.Count; at++)
-        {
-            var other = kept[at];
-            if (other.From == edge.From || other.From == edge.To
-                || other.To == edge.From || other.To == edge.To)
-            {
-                continue;
-            }
-
-            var clearM = apartM + strayM + straysM[at];
-            if (ApartM(fromM, toM, _nodeM[other.From], _nodeM[other.To]) < clearM) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>How near two chords pass, which is nil where they cross.</summary>
-    static float ApartM(Vector2 aFromM, Vector2 aToM, Vector2 bFromM, Vector2 bToM)
-    {
-        var a = aToM - aFromM;
-        var b = bToM - bFromM;
-        var between = aFromM - bFromM;
-        var denominator = (a.X * b.Y) - (a.Y * b.X);
-        if (MathF.Abs(denominator) > 1e-6f)
-        {
-            var alongA = ((b.X * between.Y) - (b.Y * between.X)) / denominator;
-            var alongB = ((a.X * between.Y) - (a.Y * between.X)) / denominator;
-            if (alongA is >= 0f and <= 1f && alongB is >= 0f and <= 1f) return 0f;
-        }
-
-        return MathF.Min(
-            MathF.Min(OffM(aFromM, bFromM, bToM), OffM(aToM, bFromM, bToM)),
-            MathF.Min(OffM(bFromM, aFromM, aToM), OffM(bToM, aFromM, aToM)));
-    }
-
-    static float OffM(Vector2 pointM, Vector2 fromM, Vector2 toM)
-    {
-        var runM = toM - fromM;
-        var lengthSquared = runM.LengthSquared();
-        var along = lengthSquared > 0f
-            ? Math.Clamp(Vector2.Dot(pointM - fromM, runM) / lengthSquared, 0f, 1f)
-            : 0f;
-        return (pointM - (fromM + (runM * along))).Length();
     }
 
     /// <summary>
@@ -559,13 +480,13 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         var leaves = new Stack<int>();
         for (var node = 0; node < arms.Length; node++)
         {
-            if (arms[node] == 1) leaves.Push(node);
+            if (IsALeaf(node, arms, edgesAt, dropped)) leaves.Push(node);
         }
 
         while (leaves.Count > 0)
         {
             var node = leaves.Pop();
-            if (arms[node] != 1) continue;
+            if (!IsALeaf(node, arms, edgesAt, dropped)) continue;
 
             foreach (var edge in edgesAt[node])
             {
@@ -574,7 +495,8 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
                 dropped[edge] = true;
                 arms[node]--;
                 var beyond = _edges[edge].From == node ? _edges[edge].To : _edges[edge].From;
-                if (--arms[beyond] == 1) leaves.Push(beyond);
+                arms[beyond]--;
+                if (IsALeaf(beyond, arms, edgesAt, dropped)) leaves.Push(beyond);
             }
         }
 
@@ -602,6 +524,75 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
 
         Rebuilt(kept, edges);
     }
+
+    /// <summary>
+    /// <b>Whether a node is somewhere a road merely stops</b> (GEN-5a): one that carries a single arm, or
+    /// one a car can arrive at and not leave.
+    /// </summary>
+    /// <remarks>
+    /// <b>The second is a one-way street's doing and is not a count of arms</b> (GEN-18, TER-5f): a car may
+    /// not turn round in the road, so a node whose only way out is the road the car came in on is a node it
+    /// is stuck at — and a lane with no movement off it is a hole in the drivable region rather than a
+    /// corner nobody takes. It is asked here rather than of the lanes because the layout is where a road is
+    /// deleted and a lane is the shape of one.
+    /// </remarks>
+    bool IsALeaf(int node, int[] arms, List<int>[] edgesAt, bool[] dropped)
+    {
+        if (arms[node] <= 0) return false;
+
+        // <b>A node on a ring is never one a road merely stops at</b> (GEN-19): a roundabout is one junction
+        // laid out as a circle, so pruning one of its nodes leaves the rest of them standing a radius apart
+        // with nothing to say they were ever one place (GEN-16).
+        foreach (var edge in edgesAt[node])
+        {
+            if (!dropped[edge] && _edges[edge].Class == RoadClass.Roundabout) return false;
+        }
+
+        if (arms[node] == 1) return true;
+
+        var leaving = 0;
+        var arriving = 0;
+        var onlyWayOut = -1;
+        var onlyWayIn = -1;
+        foreach (var edge in edgesAt[node])
+        {
+            if (dropped[edge]) continue;
+
+            var outward = Leaves(node, edge);
+            var inward = Arrives(node, edge);
+
+            if (outward)
+            {
+                leaving++;
+                onlyWayOut = edge;
+            }
+
+            if (inward)
+            {
+                arriving++;
+                onlyWayIn = edge;
+            }
+        }
+
+        if (leaving == 0 || arriving == 0) return true;
+
+        // <b>One way out is one every car that arrives has to take</b>, so it may not also be a road they
+        // arrive on — a car that did would be turning round in the road (TER-5f). And the same read the
+        // other way: one way in that is also a way out is a lane nothing can be driven onto.
+        return (leaving == 1 && Arrives(node, onlyWayOut)) || (arriving == 1 && Leaves(node, onlyWayIn));
+    }
+
+    /// <summary>Whether a car can arrive at a node on this road, which is the flow read from that node's end.</summary>
+    bool Arrives(int node, int edge) =>
+        _edges[edge].From == node
+            ? _edges[edge].Flow != RoadFlow.WithTheRoad
+            : _edges[edge].Flow != RoadFlow.AgainstTheRoad;
+
+    /// <summary>And whether one can leave on it.</summary>
+    bool Leaves(int node, int edge) =>
+        _edges[edge].From == node
+            ? _edges[edge].Flow != RoadFlow.AgainstTheRoad
+            : _edges[edge].Flow != RoadFlow.WithTheRoad;
 
     /// <summary>
     /// The layout on a new set of nodes, with every road <em>offered again</em> rather than carried over —

@@ -412,7 +412,7 @@ internal sealed class CityGenFigures
     /// authored. <b>A junction's own and not the roundabout's</b> — a box is entered off a street and left
     /// onto one, and retuning what a car may hold across it has no business moving every ring in the town.
     /// </summary>
-    public float JunctionDesignSpeedMps { get; init; } = 8f;
+    public float JunctionDesignSpeedMps { get; init; } = 4f;
 
     /// <summary>
     /// <b>How far off a node's own centre a lane ends</b> (TER-5d). Every arm of every junction stands its
@@ -421,7 +421,18 @@ internal sealed class CityGenFigures
     /// and a standoff read back off the disc is one relation stated twice.
     /// </summary>
     /// <remarks>Unproven. It is the first figure a town laid too tight or too baggy is retuned by.</remarks>
-    public float ConnectionStandoffM { get; init; } = 10f;
+    public float ConnectionStandoffM { get; init; } = 6f;
+
+    /// <summary>
+    /// <b>How much of a road's own end is straight</b>, so that the bearing it was drawn to leave on is the
+    /// bearing it actually leaves on: past this the road may start turning towards wherever it is going,
+    /// and inside it the line is the arm's.
+    /// </summary>
+    /// <remarks>
+    /// It is what a corner at the first bend has room to be rounded over (<c>RoadStage.Rounded</c>): too
+    /// short, and the road cannot turn off its arm inside the class's floor radius and the link is refused.
+    /// </remarks>
+    public float ConnectionLeadM { get; init; } = 12f;
 
     /// <summary>
     /// How far off the chord to its neighbour an arm's bearing may be drawn. <b>It is what makes a junction

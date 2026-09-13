@@ -28,8 +28,9 @@ public class CarLampTrafficTests
     [Fact]
     public void ATownNobodyHasDrivenYetShowsNoLampAtAll()
     {
+        // Before the first tick, which is what "nobody has driven yet" is: the town stands its cars on its
+        // own lanes and they are away inside a second of town time.
         using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
-        new SimLoop<TownWorld>(world, Config).Advance(60);
 
         for (var car = 0; car < world.Cars.Count; car++)
         {

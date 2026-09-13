@@ -33,11 +33,13 @@ public class GroundLocatorTests
         var ground = GroundOf(map);
         var lanes = plan.Paving(config).Lanes;
 
-        var crossed = new bool[plan.Junctions.Count];
+        // How many movements cross each node, which is the whole of what a junction is on the ground
+        // (TER-5): the tarmac inside one is the band those movements sweep and nothing else.
+        var crossed = new int[plan.Junctions.Count];
         for (var connector = 0; connector < lanes.ConnectorCount; connector++)
         {
             var junction = lanes.JunctionOfConnector(connector);
-            if (junction >= 0) crossed[junction] = true;
+            if (junction >= 0) crossed[junction]++;
         }
 
         for (var junction = 0; junction < plan.Junctions.Count; junction++)
@@ -46,7 +48,11 @@ public class GroundLocatorTests
             // through is a node with no ground of its own: the end of a road, where the lane stops short of
             // the node the way it does at every other junction. The ground there is what the town lays
             // beside a kerb, and the node is a place in the plan rather than a piece of tarmac.
-            if (!crossed[junction]) continue;
+            //
+            // <b>And a node two movements cross is asked nothing either</b>: they are the two ways of one
+            // road bending through it, each laid half a lane off the node's own line, so what they leave
+            // uncovered is the line itself. A box is three arms and up, where the movements weave.
+            if (crossed[junction] <= 2) continue;
 
             var centreM = plan.Junctions.CentreM[junction];
             Assert.True(ground.At(centreM).Drivable,

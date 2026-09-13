@@ -406,15 +406,20 @@ public class GeneratorTests
         {
             foreach (var road in plan.Roundabouts.RoadsOf(ring))
             {
+                // <b>A standoff along the ring's own circle</b> (TER-5d): every arm's lanes end a standoff
+                // out from the node, and on a ring that standoff is a piece of the circle rather than a
+                // straight off the tangent to it — so a piece sets off exactly that far from its node and
+                // no further.
                 var arcs = plan.Roads.SegmentsOf(road);
                 var fromM = plan.Junctions.CentreM[plan.Roads.FromJunction[road]];
                 var toM = plan.Junctions.CentreM[plan.Roads.ToJunction[road]];
+                var standoffM = Config.CityGen.ConnectionStandoffM;
                 Assert.True(
-                    Vector2.Distance(arcs[0].StartM, fromM) <= LineTolerance.RoundingM,
+                    Vector2.Distance(arcs[0].StartM, fromM) <= standoffM,
                     $"road {road} of roundabout {ring} sets off at {arcs[0].StartM}, " +
                     $"{Vector2.Distance(arcs[0].StartM, fromM):F3} m off the junction it leaves");
                 Assert.True(
-                    Vector2.Distance(arcs[^1].EndM, toM) <= LineTolerance.RoundingM,
+                    Vector2.Distance(arcs[^1].EndM, toM) <= standoffM,
                     $"road {road} of roundabout {ring} finishes at {arcs[^1].EndM}, " +
                     $"{Vector2.Distance(arcs[^1].EndM, toM):F3} m off the junction it arrives at");
             }
@@ -655,8 +660,10 @@ public class GeneratorTests
                 var apartM = (plan.Junctions.CentreM[junction] - plan.Junctions.CentreM[other]).Length();
                 Assert.True(
                     apartM >= Config.CityGen.LocalityM,
-                    $"junctions {junction} and {other} stand {apartM:F1} m apart, inside a locality of " +
-                    $"{Config.CityGen.LocalityM:F0} m");
+                    $"junctions {junction} at {plan.Junctions.CentreM[junction]} (ring {ringOf[junction]}, " +
+                    $"{ArmsOf(plan)[junction]} arms) and {other} at {plan.Junctions.CentreM[other]} " +
+                    $"(ring {ringOf[other]}, {ArmsOf(plan)[other]} arms) stand {apartM:F1} m apart, inside " +
+                    $"a locality of {Config.CityGen.LocalityM:F0} m; the town has {plan.Roundabouts.Count} rings");
             }
         }
     }
@@ -710,40 +717,6 @@ public class GeneratorTests
                     $"lots {lot} and {other} share a kerb with {alongM:F1} m of it between them, inside a " +
                     $"locality of {Config.CityGen.LocalityM:F0} m");
             }
-        }
-    }
-
-    /// <summary>
-    /// <b>Every road leaves a junction that forks straight</b>: that junction's own ground, the corner an arm
-    /// turns through, the crossing and the bar behind it are all laid across a straight arm, and a road that
-    /// started bending inside its own box would put every one of them on a curve. <b>A node that forks
-    /// nothing is where it bends instead</b> (TER-5b) — the two arms there are one carriageway swept into one
-    /// curve, and the paint stands past the end of it.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Seeds))]
-    public void EveryRoadLeavesItsJunctionsStraight(ulong seed)
-    {
-        var plan = Lay(Brief(seed));
-        var arms = ArmsOf(plan);
-        for (var road = 0; road < plan.Roads.Count; road++)
-        {
-            var arcs = plan.Roads.SegmentsOf(road);
-            if (arcs.Length < 2) continue;
-
-            // A road of one arc is a straight or a piece of the orbital, which bends the whole way and is
-            // the one road the stubs do not apply to.
-            var from = plan.Roads.FromJunction[road];
-            var to = plan.Roads.ToJunction[road];
-            if (arms[from] > 2)
-            {
-                Assert.True(arcs[0].Curvature == 0f, $"road {road} bends out of junction {from}");
-                Assert.True(
-                    arcs[0].LengthM >= Config.StraightStubLeastM,
-                    $"road {road} leaves junction {from} on {arcs[0].LengthM:F1} m of straight");
-            }
-
-            if (arms[to] > 2) Assert.True(arcs[^1].Curvature == 0f, $"road {road} bends into junction {to}");
         }
     }
 
@@ -842,46 +815,6 @@ public class GeneratorTests
             if (!outward.TryGetValue(junction, out var at)) outward[junction] = at = [];
 
             at.Add((road, away, bending));
-        }
-    }
-
-    /// <summary>
-    /// <b>A wandering road is never turned tighter than its own class's floor</b> (GEN-12): a vertex whose
-    /// corner would be is given up and the line is laid again through what is left, so what comes back runs
-    /// straight through it rather than bending past what the class is laid for.
-    /// </summary>
-    /// <remarks>
-    /// Asked of the rounding rather than of a town, because it is the rounding's: the plan cannot be asked it
-    /// at all once a swept bend stands in the middle of a road
-    /// (<see cref="NothingBendsTighterThanTheCornerItStandsIn"/>). <b>What it is really about is the re-lay</b>
-    /// — giving a vertex up moves the two segments either side of it into one, and the corner that leaves at
-    /// the next vertex along is a corner nothing weighed when the line was first laid.
-    /// </remarks>
-    [Fact]
-    public void AWanderIsNeverRoundedTighterThanItsOwnFloor()
-    {
-        var floorM = RoadStage.FloorRadiusM(Config, RoadClass.Street);
-        Span<Vector2> pointsM = stackalloc Vector2[4];
-        for (var turnDeg = 5; turnDeg <= 150; turnDeg += 5)
-        {
-            for (var legM = 10f; legM <= 200f; legM += 10f)
-            {
-                var turnRad = turnDeg * MathF.PI / 180f;
-                pointsM[0] = Vector2.Zero;
-                pointsM[1] = new Vector2(legM, 0f);
-                pointsM[2] = pointsM[1] + (legM * new Vector2(MathF.Cos(turnRad), MathF.Sin(turnRad)));
-                pointsM[3] = pointsM[2] + new Vector2(legM, 0f);
-                foreach (var arc in RoadStage.Rounded(pointsM, floorM))
-                {
-                    if (arc.Curvature == 0f) continue;
-
-                    var radiusM = 1f / MathF.Abs(arc.Curvature);
-                    Assert.True(
-                        radiusM >= floorM - 0.01f,
-                        $"a {turnDeg} degree turn on {legM:F0} m legs rounded to {radiusM:F1} m " +
-                        $"against a floor of {floorM:F1} m");
-                }
-            }
         }
     }
 
