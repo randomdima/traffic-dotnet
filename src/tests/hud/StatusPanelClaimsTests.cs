@@ -166,7 +166,7 @@ public class StatusPanelClaimsTests
     {
         using var world = Town();
         var panel = Opened();
-        var watching = Scenarios.For(world);
+        var watching = Scenarios.For(world, Config);
 
         Draw(panel, world, watching);
         Assert.True(panel.IsOpen(StatusPanel.Claims));
@@ -187,7 +187,7 @@ public class StatusPanelClaimsTests
     {
         using var world = Town();
         var panel = Opened();
-        var watching = Scenarios.For(world);
+        var watching = Scenarios.For(world, Config);
         var quads = new OverlayQuad[TownRenderer.OverlayCapacity];
         var run = new RunState();
         var figures = Measured();

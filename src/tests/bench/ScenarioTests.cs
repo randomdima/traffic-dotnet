@@ -50,7 +50,7 @@ public class ScenarioTests
     [MemberData(nameof(Maps))]
     public void EveryMapIsWatchedAgainstSomething(string map)
     {
-        var watching = Scenarios.For(Standing(map));
+        var watching = Scenarios.For(Standing(map), Config);
 
         Assert.NotEmpty(watching);
         Assert.Contains(watching, watch => watch is TownWatch);
@@ -67,7 +67,7 @@ public class ScenarioTests
     [MemberData(nameof(Maps))]
     public void EveryScenarioMapCarriesClaimsOfItsOwn(string map)
     {
-        var watching = Scenarios.For(Standing(map));
+        var watching = Scenarios.For(Standing(map), Config);
         var ownClaims = Array.Exists(watching, watch => watch is not TownWatch);
 
         // The suite's own town is a place and is on no menu, so the catalogue has no row for it and reads it
@@ -92,7 +92,7 @@ public class ScenarioTests
     {
         using var world = new TownWorld(Towns.Of(map), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
-        var watching = Scenarios.For(world);
+        var watching = Scenarios.For(world, Config);
 
         // A few ticks and not none: a figure is a fact about a run, and the first of them is what says the
         // watch can be read at all.
@@ -134,7 +134,7 @@ public class ScenarioTests
     [MemberData(nameof(Maps))]
     public void NothingIsKeptBeforeTheFirstTick(string map)
     {
-        foreach (var watch in Scenarios.For(Standing(map)))
+        foreach (var watch in Scenarios.For(Standing(map), Config))
         {
             for (var claim = 0; claim < watch.Claims; claim++)
             {
@@ -159,7 +159,7 @@ public class ScenarioTests
     {
         using var world = new TownWorld(Towns.Of(map), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
-        var watching = Scenarios.For(world);
+        var watching = Scenarios.For(world, Config);
 
         // Warmed first: the arrays a watch keeps are its own and are taken once, and the first tick of a
         // town is where every one-off in it happens.

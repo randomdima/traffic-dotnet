@@ -1,4 +1,5 @@
 using TrafficSimulation.App.Screen;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
@@ -43,7 +44,7 @@ internal sealed class TownWatch : ScenarioWatch
 
     static readonly string[] TheReadings =
     [
-        "what got where it was going",
+        "how far the town drove",
         "what the town cost its people",
     ];
 
@@ -64,15 +65,17 @@ internal sealed class TownWatch : ScenarioWatch
     int _longestPastTicks;
     int _pastBody = -1;
 
-    long _walksBefore = -1;
-    long _gaveUpBefore;
-    long _drivesBefore;
+    long _gaveUpBefore = -1;
     long _carTicks;
     long _stoodUnclocked;
 
-    public TownWatch(TownWorld world)
+    /// <summary>How long one tick is, which is what turns a speed into the metres a car covered in it.</summary>
+    readonly float _tickSeconds;
+
+    public TownWatch(TownWorld world, SimConfig config)
         : base("the town", "what every town has to keep while it runs", TheClaims, TheReadings)
     {
+        _tickSeconds = config.TickSeconds;
         _walkers = world.People.Count;
         Cars = world.Cars.Count;
         _overlapM = new float[world.People.Count + world.Cars.Count];
@@ -117,12 +120,19 @@ internal sealed class TownWatch : ScenarioWatch
 
     public int PastBody => _pastBody;
 
-    /// <summary>What arrived since this watch began, which is the half of the reading that makes the rest of it mean anything.</summary>
-    public long WalksDone { get; private set; }
+    /// <summary>
+    /// <b>How far the town's cars have driven since this watch began</b>, which is the reading that says
+    /// there was any traffic for the rest of it to be about.
+    /// </summary>
+    /// <remarks>
+    /// <b>It used to be what arrived</b> — walks completed and bays parked in — and both are structurally
+    /// nought on every town this build lays: there is no walking network and there is no bay
+    /// (<c>docs/index.md#known-gaps</c>). A car touring a lane arrives nowhere, so saying it arrived
+    /// somewhere would be a second answer; what it does do is cover ground, and that is what is printed.
+    /// </remarks>
+    public float DrivenM { get; private set; }
 
     public long WalksGivenUp { get; private set; }
-
-    public long DrivesDone { get; private set; }
 
     public long Touches { get; private set; }
 
@@ -193,10 +203,8 @@ internal sealed class TownWatch : ScenarioWatch
         switch (reading)
         {
             case WhatArrived:
-                into.Add(WalksDone);
-                into.Add(" walks, ");
-                into.Add(DrivesDone);
-                into.Add(" drives, ");
+                into.Add((long)DrivenM);
+                into.Add(" m driven, ");
                 into.Add(WalksGivenUp);
                 into.Add(" walks given up");
                 break;
@@ -262,14 +270,9 @@ internal sealed class TownWatch : ScenarioWatch
     /// </summary>
     public override void Saw(TownWorld world)
     {
-        // What the town had already arrived at when this watch began, so what is quoted is what happened
+        // What the town had already given up on when this watch began, so what is quoted is what happened
         // while it was watching and not what the warm-up before it did.
-        if (_walksBefore < 0)
-        {
-            _walksBefore = world.WalkArrivals;
-            _gaveUpBefore = world.WalksGivenUp;
-            _drivesBefore = world.BaysParkedIn;
-        }
+        if (_gaveUpBefore < 0) _gaveUpBefore = world.WalksGivenUp;
 
         _ticks++;
         SoakProbe.SweepOverlaps(world, _overlapM);
@@ -317,9 +320,17 @@ internal sealed class TownWatch : ScenarioWatch
             _pastBody = body;
         }
 
-        WalksDone = world.WalkArrivals - _walksBefore;
         WalksGivenUp = world.WalksGivenUp - _gaveUpBefore;
-        DrivesDone = world.BaysParkedIn - _drivesBefore;
+
+        var drivenM = 0f;
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            if (!world.Cars.Driven[car] || world.Cars.Broken[car]) continue;
+
+            drivenM += world.Cars.VelocityMps[car].Length() * _tickSeconds;
+        }
+
+        DrivenM += drivenM;
         Touches = world.Touches;
         _carTicks = world.Trace.CarTicks;
         _stoodUnclocked = world.Trace.StoodUnclocked;

@@ -85,9 +85,11 @@ internal static class RescueProbe
             $"{"given up",10}{"door full",11}{"reached s",11}{"door s",9}{"nearest m",11}{"at rest m",11}" +
             $"{"doing there",20}{"loaded s",10}{"in reach s",12}{"top mps",9}{"off lane m",12}{"ended in",14}");
 
+        var hospitals = 0;
         foreach (var map in Maps.Shipped())
         {
             var row = Sample(map, config);
+            hospitals += row.Hospitals;
             Console.WriteLine(
                 $"{row.Map,-10}{row.Hospitals,11}{row.Ambulances,12}{row.Raised,8}{row.Collected,11}" +
                 $"{row.Delivered,11}{row.GivenUp,10}{row.DoorsFull,11}{Seconds(row.ReachedInS),11}" +
@@ -98,7 +100,17 @@ internal static class RescueProbe
 
         Console.WriteLine(
             "AMB-8 is met while a staged casualty is being collected and delivered: raised → collected → delivered " +
-            "is one whole rescue, and a map with no ambulance on it is a map with no bay near its hospitals.");
+            "is one whole rescue.");
+
+        // <b>A probe that could not stage its scenario says so</b>, because "nothing went wrong" and "nothing
+        // happened" are the same row otherwise. A hospital is a building the generator chose a use for
+        // (GEN-9), and no town this build lays carries one (`docs/index.md#known-gaps`).
+        if (hospitals == 0)
+        {
+            Console.WriteLine(
+                "NOT STAGED: no town this build lays carries a hospital, so no ambulance was stood up and no " +
+                "casualty could be raised. It is the buildings that are missing and not the rescue.");
+        }
     }
 
     static string Seconds(float s) => float.IsPositiveInfinity(s) ? "—" : $"{s:F1}";

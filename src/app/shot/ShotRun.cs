@@ -114,7 +114,7 @@ internal static class ShotRun
 
         // What the map claims about itself is answered a tick at a time, so the run is advanced one at a
         // time and watched — which is what makes a picture of either panel a picture of the same run.
-        var scenario = Scenarios.For(world);
+        var scenario = Scenarios.For(world, config);
         var ticks = (int)(ask.Seconds * config.Sim.TickRateHz);
         for (var tick = 0; tick < ticks; tick++)
         {

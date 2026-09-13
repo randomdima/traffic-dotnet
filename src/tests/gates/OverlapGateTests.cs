@@ -47,7 +47,7 @@ public class OverlapGateTests
         using var world = new TownWorld(Towns.Of(map), config);
         var loop = new SimLoop<TownWorld>(world, config);
 
-        var watch = new TownWatch(world);
+        var watch = new TownWatch(world, config);
         for (var tick = 0; tick < Ticks; tick++)
         {
             loop.Advance();

@@ -98,7 +98,7 @@ public class ShippedCityTests
         using var world = new TownWorld(Towns.Of(map), config);
         var loop = new SimLoop<TownWorld>(world, config);
 
-        var watch = new TownWatch(world);
+        var watch = new TownWatch(world, config);
         for (var tick = 0; tick < 3_600; tick++)
         {
             loop.Advance();

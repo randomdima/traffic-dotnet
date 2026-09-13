@@ -76,8 +76,8 @@ internal static class SoakProbe
             $"soak probe — {WarmupTicks} warm-up ticks, {MeasuredTicks} measured ({MeasuredTicks / config.Sim.TickRateHz} s), " +
             $"{config.Solver.VelocityIterations} velocity and {config.Solver.PositionIterations} position iterations");
         Console.WriteLine(
-            $"{"map",-10}{"walkers",9}{"cars",6}{"down",6}{"wrecked",9}{"walks done",12}{"gave up",9}" +
-            $"{"drives done",13}{"touches",9}{"peak mm",10}{"peak body",12}{"stuck ticks",13}{"stuck body",12}" +
+            $"{"map",-10}{"walkers",9}{"cars",6}{"down",6}{"wrecked",9}{"km driven",12}{"gave up",9}" +
+            $"{"touches",9}{"peak mm",10}{"peak body",12}{"stuck ticks",13}{"stuck body",12}" +
             $"{"past mm",10}{"drove on",10}{"drove body",12}");
 
         var maps = Maps.Shipped();
@@ -86,8 +86,8 @@ internal static class SoakProbe
         {
             var sample = watched[map] = Sample(maps[map], config);
             Console.WriteLine(
-                $"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Down,6}{sample.Wrecked,9}{sample.WalksDone,12}" +
-                $"{sample.WalksGivenUp,9}{sample.DrivesDone,13}{sample.Touches,9}" +
+                $"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Down,6}{sample.Wrecked,9}" +
+                $"{sample.DrivenM / 1000f,12:F1}{sample.WalksGivenUp,9}{sample.Touches,9}" +
                 $"{sample.DeepestOverlapM * 1_000f,10:F1}{Named(sample, sample.DeepestBody),12}" +
                 $"{sample.LongestStuckTicks,13}{Named(sample, sample.StuckBody),12}" +
                 $"{sample.FurthestPastTheGrantM * 1_000f,10:F0}{sample.LongestPastTicks,10}" +
@@ -126,7 +126,7 @@ internal static class SoakProbe
 
         // The warm-up is not the measurement: what a town does while its people are still walking to their
         // first car is not what it does once it is running.
-        var watch = new TownWatch(world);
+        var watch = new TownWatch(world, config);
         for (var tick = 0; tick < MeasuredTicks; tick++)
         {
             loop.Advance();

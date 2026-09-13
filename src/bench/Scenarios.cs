@@ -1,3 +1,4 @@
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;
@@ -18,5 +19,5 @@ internal static class Scenarios
     /// a staging that ordered its cars on the tenth tick would be measuring whatever the map did with the
     /// first nine.
     /// </summary>
-    public static ScenarioWatch[] For(TownWorld world) => [new TownWatch(world)];
+    public static ScenarioWatch[] For(TownWorld world, SimConfig config) => [new TownWatch(world, config)];
 }

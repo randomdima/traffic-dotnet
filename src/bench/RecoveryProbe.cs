@@ -89,9 +89,11 @@ internal static class RecoveryProbe
             $"{"restored",10}{"given up",10}{"yard full",11}{"reached s",11}{"yard s",9}{"mended s",10}" +
             $"{"nearest m",11}{"at rest m",11}{"doing there",20}{"towed m",10}{"stretch m",11}{"ended in",13}");
 
+        var depots = 0;
         foreach (var map in Maps.Shipped())
         {
             var row = Sample(map, config);
+            depots += row.Depots;
             Console.WriteLine(
                 $"{row.Map,-10}{row.Depots,8}{row.Evacuators,12}{row.YardSlots,7}{row.Raised,8}{row.Hitched,9}" +
                 $"{row.Yarded,8}{row.Restored,10}{row.GivenUp,10}{row.YardFull,11}{Seconds(row.ReachedInS),11}" +
@@ -102,7 +104,16 @@ internal static class RecoveryProbe
 
         Console.WriteLine(
             "EVA-6 is met while a staged wreck is being fetched, towed and set down: raised → hitched → yarded → " +
-            "restored is one whole recovery, and a map with no evacuator on it is a map with no bay near its depots.");
+            "restored is one whole recovery.");
+
+        // <b>A probe that could not stage its scenario says so.</b> A depot is a building the generator chose
+        // a use for (GEN-9), and no town this build lays carries one (`docs/index.md#known-gaps`).
+        if (depots == 0)
+        {
+            Console.WriteLine(
+                "NOT STAGED: no town this build lays carries a depot, so no evacuator was stood up and no wreck " +
+                "could be raised. It is the buildings that are missing and not the recovery.");
+        }
     }
 
     /// <summary>The reach the evacuator's own picture was drawn at, which is the length its tow is held at (EVA-5).</summary>

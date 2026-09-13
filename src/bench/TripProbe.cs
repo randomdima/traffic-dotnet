@@ -40,9 +40,11 @@ internal static class TripProbe
             $"{"map",-10}{"walkers",9}{"cars",6}{"drawn",8}{"drive",7}{"boarded",9}{"parked",8}{"got out",9}" +
             $"{"entered",9}{"full",6}{"given up",10}{"down",6}{"wrecked",9}");
 
+        var walkers = 0;
         foreach (var map in Maps.Shipped())
         {
             var sample = Sample(map, config);
+            walkers += sample.Walkers;
             Console.WriteLine(
                 $"{map,-10}{sample.Walkers,9}{sample.Cars,6}{sample.TripsDrawn,8}{sample.TripsWorthACar,7}" +
                 $"{sample.Boardings,9}{sample.BaysParkedIn,8}{sample.Alightings,9}{sample.BuildingsEntered,9}" +
@@ -52,6 +54,16 @@ internal static class TripProbe
         Console.WriteLine(
             "VER-8 is met while a town's people are entering doors they walked and drove to: boarded → parked → " +
             "got out → entered is one whole trip, and the four counts move together or not at all.");
+
+        // <b>A probe that could not stage its scenario says so</b>, because "nothing went wrong" and "nothing
+        // happened" are the same row otherwise. A trip is drawn between two buildings and driven to a bay,
+        // and no town this build lays carries either (`docs/index.md#known-gaps`).
+        if (walkers == 0)
+        {
+            Console.WriteLine(
+                "NOT STAGED: no town this build lays stands anybody up, there being no door to stand them at, " +
+                "so no trip was drawn. It is the buildings and the bays that are missing and not the trip.");
+        }
     }
 
     /// <param name="TripsDrawn">PER-9's own count: how many times somebody picked somewhere to be.</param>
