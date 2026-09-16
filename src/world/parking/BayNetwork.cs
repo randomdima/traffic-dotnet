@@ -13,13 +13,13 @@ namespace TrafficSimulation.World.Parking;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A lane here is numbered in the road's own way numbers</b> (<see cref="LaneOccupancy.WayOfLane"/>),
+/// <b>A lane here is numbered in the road's own way numbers</b> (<see cref="IWayNetwork.WayOfLane"/>),
 /// because a bay's ways are numbered beside its lanes and its joins (<see cref="BayWays.FirstWay"/>)
 /// and <see cref="BayWays"/> has always spoken in them. So the numbering stays the road's and this network
 /// needs none of its own.
 /// </para>
 /// <para>
-/// <b>The bay is the node and there are no joins</b> (<see cref="TurnsFrom"/>). Every way of a bay ends at
+/// <b>The bay is the node and there are no joins</b> (<see cref="ConnectorsFrom"/>). Every way of a bay ends at
 /// the one pose, so a body standing there is on all of them — which is what a car parked in a bay has always
 /// held, and it now holds it for the reason every other body holds ground rather than by an arithmetic of its
 /// own. The other end of a way is the carriageway, which is a node of a different network: it is

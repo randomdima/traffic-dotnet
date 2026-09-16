@@ -5,19 +5,24 @@ namespace TrafficSimulation.World.Routing;
 
 /// <summary>
 /// The graph a network is contracted <em>from</em>: every piece of the town a body can travel, as
-/// <b>directed lanes joined by connectors</b>. Carriageway lanes cut at their junctions on the driving
-/// side, stretches of pavement and crossings on the walking side.
+/// <b>directed lanes</b>. Carriageway lanes on the driving side, stretches of pavement and crossings on the
+/// walking side.
 /// </summary>
 /// <remarks>
-/// <b>There are no nodes in it.</b> Where two lanes meet is not a record a network carries and hands over —
-/// it is what the connectors say, and <see cref="LanePlaces"/> works it out. A network that carried its own
-/// node table would be stating the same fact twice, and the town's junctions are the plan's business rather
-/// than the traveller's: what a body needs to know at the end of a lane is which lanes it may leave for, and
-/// that is the connector.
+/// <b>There are no nodes in it, and it is not asked for any.</b> Where two lanes meet is
+/// <see cref="Road.LanePlaces"/>'s answer, worked out once per network by whoever owns it and handed to
+/// <see cref="RunNetwork.Contract"/> — so a contraction cannot work it out a second way and disagree about
+/// which lane ends are one piece of the world (SIM-7). What is left for the fine graph to say is how long a
+/// piece is and which one is the same piece travelled back.
 /// </remarks>
-internal interface IFineGraph : ILaneEnds
+internal interface IFineGraph
 {
+    int LaneCount { get; }
+
     float LengthM(int lane);
+
+    /// <summary>The same piece travelled the other way, or negative where there is none.</summary>
+    int Reverse(int lane);
 }
 
 /// <summary>What one turn between two fine lanes costs, whether it falls inside a run or between two.</summary>
@@ -132,11 +137,14 @@ internal sealed class RunNetwork
     /// Contracts a fine graph into runs. Build-time only, and it allocates freely: nothing it produces is
     /// written to again.
     /// </summary>
-    public static RunNetwork Contract<TFine, TPricer>(TFine fine, TPricer pricer)
+    /// <param name="places">
+    /// <b>Where the fine graph's lanes meet, worked out by whoever owns them</b> and never here (SIM-7): the
+    /// claims and the router read one answer, so neither can be entitled to a different one.
+    /// </param>
+    public static RunNetwork Contract<TFine, TPricer>(TFine fine, TPricer pricer, LanePlaces places)
         where TFine : IFineGraph
         where TPricer : IEdgeTurnPricer
     {
-        var places = LanePlaces.Of(fine);
         var decision = Decisions(fine, places);
 
         var builder = new TravelGraph.Builder();
@@ -235,6 +243,9 @@ internal sealed class RunNetwork
             var leaving = new int[linkFromPlace.Count];
             for (var link = 0; link < linkFromPlace.Count; link++) leaving[cursor[linkFromPlace[link]]++] = link;
 
+            // <b>Every way on leaves the place a link arrives at</b>, so the joins are that list and nothing
+            // else: a link ends where its last piece does, and what a body may do there is take one of the
+            // links setting off from the same ground (<c>TravelGraph.Builder.Join</c>).
             for (var link = 0; link < linkToPlace.Count; link++)
             {
                 var place = linkToPlace[link];

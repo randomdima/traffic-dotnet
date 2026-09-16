@@ -6,7 +6,6 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -92,9 +91,18 @@ internal static class Towns
     /// Overridden only by the case that asks whether retuning a later stage moves the roads — which needs
     /// the same brief with one figure changed, and would silently ask nothing if it hand-copied the rest.
     /// </param>
+    /// <param name="buildings">
+    /// <b>None, except where a case is about the car parks they are counted off</b> (GEN-53,
+    /// <see cref="SimConfig.CarParksFor"/>). A car park's arm ends at the bays nothing lays yet
+    /// ([the known gaps](../../../docs/index.md#known-gaps)), so a town carrying one has a lane a car is
+    /// driven onto and not off — which is the one thing GEN-50 is about, and not something to make every
+    /// other case on this brief carry an exemption for.
+    /// </param>
     public static TownBrief Brief(
-        ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f) => new()
+        ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f,
+        int buildings = 0) => new()
     {
+        Buildings = buildings,
         Name = City,
         Description = "The suite's own town, laid to ask questions of a city without shipping one",
         Seed = seed,
@@ -125,6 +133,16 @@ internal static class Towns
     static readonly SimConfig Figures = SimConfig.Shipped();
 
     /// <summary>The town behind a name, laid or read once and handed to every case that asks for it.</summary>
+    /// <remarks>
+    /// <b>What it hands back is one plan, and the indexes under it are not re-entrant</b>
+    /// (<see cref="ChainIndex"/>). Two classes are two xUnit collections and run at once, so two of them
+    /// asking one town the same geometry question — which lines are near a place — read each other's
+    /// candidate sets and each get an answer about some other part of the town. It is not a question a
+    /// class can tell it is racing on: what comes back is a perfectly well-formed wrong answer, which on
+    /// the perimeter is a few hundred rings that will not close, in one run out of several. <b>A class that
+    /// asks a shared town a geometry question joins <see cref="TownGeometryCollection"/></b>, and one that
+    /// really needs a town of its own has <see cref="Fresh"/>.
+    /// </remarks>
     public static CityPlan Of(string map) => Shared.GetOrAdd(map, Fresh);
 
     /// <summary>A copy of a town nobody else holds — for the one test that writes into a plan.</summary>
@@ -153,9 +171,8 @@ internal static class Towns
 
     /// <summary>
     /// <b>Whether a map stands any car up at all.</b> A question about what traffic does at a junction is
-    /// vacuous on a map with no traffic — the walking exam is a lattice of junctions with nothing driving
-    /// on it (<see cref="FootwayPlan"/>) — and a guard that says "nothing happened" would report that
-    /// absence as a failure of the engine.
+    /// vacuous on a map with no traffic, and a guard that says "nothing happened" would report that absence
+    /// as a failure of the engine.
     /// </summary>
     public static bool AnythingDrives(string map) => Array.IndexOf(Of(map).Spawns.Kind, SpawnKindCar) >= 0;
 
@@ -345,7 +362,6 @@ internal static class Towns
             PavementWidthM = plan.PavementWidthM,
             Junctions = plan.Junctions,
             JunctionCorners = plan.JunctionCorners,
-            PavementCorners = plan.PavementCorners,
             Roads = plan.Roads,
             Bridges = plan.Bridges,
             PavedAreas = plan.PavedAreas,

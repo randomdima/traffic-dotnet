@@ -14,9 +14,9 @@ namespace TrafficSimulation.World.Foot;
 /// <para>
 /// <b>The setbacks are the mitres'</b> (<see cref="WalkingNetwork.WalkedFromM"/>): outside the span a walk
 /// covers, a stretch's own line runs on under a corner rather than under itself. <b>It is where the two
-/// networks part company</b> — a carriageway lane is cut back to the points its movements hand over at
-/// (TER-5d) and answers nought at both ends, while a pavement hands over at a point per turn and so keeps a
-/// line that runs past them.
+/// networks part company</b> — a carriageway lane ends at the points its movements hand over at (TER-5d)
+/// and answers nought at both ends, while a pavement hands over at a point per turn and so keeps a line
+/// that runs past them.
 /// </para>
 /// <para>
 /// <b>Its two blocks come last in the town's numbering</b> (<see cref="TownWays"/>) and it is told where

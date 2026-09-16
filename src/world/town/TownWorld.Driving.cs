@@ -602,6 +602,9 @@ internal sealed partial class TownWorld
         // Where the new line's origin sits on the old one, taken before the old one is overwritten: the
         // projection is a search in a window around where the car last was, and seeding it with a progress
         // measured from the wrong origin hands the car a place a hundred metres up the road.
+        //
+        // <b>Both lines start at a lane's own nought</b> (TER-5i), so the new line's origin is where the old
+        // one had the second lane of its chain begin.
         var shiftM = Cars.LaneStartsOf(car)[1];
         var lanes = Cars.Line[car].LaneCount;
         for (var index = 1; index < lanes; index++) chain[index - 1] = chain[index];
@@ -860,8 +863,12 @@ internal sealed partial class TownWorld
             var link = links[index];
             var lanes = runs.PiecesOf(link);
 
-            // The first link is the one the car is already on, and the lanes behind it are spent.
-            var from = index == 0 && driving.LinkOfLane(fromLane) == link ? driving.SlotOfLane(fromLane) + 1 : 0;
+            // The first link is the one the car is already on, and the lanes behind it are spent. Every other
+            // link is joined where the movement onto it lands, which is its first lane at all but a merge —
+            // there, the lanes before the one the merge joins belong to the run and are not driven.
+            var from = index == 0 && driving.LinkOfLane(fromLane) == link
+                ? driving.SlotOfLane(fromLane) + 1
+                : JoinedAt(lanes, last);
 
             // The last link is only travelled as far as the destination stands along it.
             var to = lanes.Length;
@@ -892,6 +899,21 @@ internal sealed partial class TownWorld
 
     /// <summary>Which piece of a run a place along it stands on.</summary>
     static int SlotAtM(RunNetwork runs, int link, float alongM) => runs.PieceAt(link, alongM, out _);
+
+    /// <summary>
+    /// Which piece of a run the lane behind it hands over onto — its first, unless the movement is a merge
+    /// partway along the run. <b>Nought where nothing joins it at all</b>, so that the walk fails on the
+    /// first piece the way it always did rather than on a slot chosen to make it fail.
+    /// </summary>
+    int JoinedAt(ReadOnlySpan<int> lanes, int from)
+    {
+        for (var slot = 0; slot < lanes.Length; slot++)
+        {
+            if (_roads.ConnectorBetween(from, lanes[slot]) != RoadGraph.NoConnector) return slot;
+        }
+
+        return 0;
+    }
 
     /// <summary>
     /// How far this car has to be able to see: <b>its own stopping distance from its own top speed</b>

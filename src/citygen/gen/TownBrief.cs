@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.CityGen.Gen;
 
@@ -90,6 +91,18 @@ internal sealed class TownBrief
     /// </summary>
     public required int Cars { get; init; }
 
+    /// <summary>
+    /// How many buildings the town plans. <b>It is what its car parks are counted off</b>
+    /// (<see cref="SimConfig.CarParksFor"/>, GEN-53): they are cut into the roads that the buildings front,
+    /// spread as evenly over the town as the ground affords, and <b>a count the ground cannot carry is what
+    /// fitted</b> (GEN-8), reported and never retried.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nothing stands a building yet</b>, the stage that placed them being one of the known gaps: what
+    /// reads this today is the car parks alone.
+    /// </remarks>
+    public int Buildings { get; init; }
+
     /// <summary>Refuses a brief that cannot describe a town, at the point it is read rather than half way through laying one.</summary>
     public void Check(string what)
     {
@@ -103,6 +116,7 @@ internal sealed class TownBrief
         if (string.IsNullOrWhiteSpace(Name)) throw new InvalidDataException($"{what}: a brief with no name.");
         if (Districts < 1) throw new InvalidDataException($"{what}: {Districts} districts is no town.");
         if (Cars < 0) throw new InvalidDataException($"{what}: a negative roster.");
+        if (Buildings < 0) throw new InvalidDataException($"{what}: a negative number of buildings.");
     }
 
     static void Positive(float value, string field, string what)

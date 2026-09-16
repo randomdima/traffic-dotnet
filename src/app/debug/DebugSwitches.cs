@@ -2,7 +2,8 @@ namespace TrafficSimulation.App.Debug;
 
 /// <summary>
 /// <b>OBS-2c — each thing a debug session can be opened for has a switch of its own, and no switch
-/// turns on anything a second one owns.</b> Twelve checkboxes.
+/// turns on anything a second one owns.</b> Eleven checkboxes, and the ground's own layers
+/// (<see cref="Ground"/>) are not among them.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -72,9 +73,16 @@ internal sealed class DebugSwitches
     /// ribbons of every driven line merge into.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// It is the town's rather than a body's, like <see cref="Nodes"/>, and it is not switched with that
     /// one: the graphs say where anything may go, and this says where the ground they lay stops — a lane
     /// whose whole line is drawn under it either way.
+    /// </para>
+    /// <para>
+    /// <b>The bands struck off that boundary are drawn under it too</b> (OBS-2u), the town's own and not an
+    /// example: what they are read against is the line they were taken from, so a switch of their own would
+    /// be a switch that draws half a reading.
+    /// </para>
     /// </remarks>
     public bool Perimeter;
 
@@ -112,6 +120,18 @@ internal sealed class DebugSwitches
     public bool Ruler;
 
     /// <summary>
+    /// <b>And the ground's own layers, which are not layers of this overlay at all</b>
+    /// (<see cref="GroundSwitches"/>, OBS-2v): they take the town apart rather than drawing anything over
+    /// it, so they start on and are not counted among the checkboxes above.
+    /// </summary>
+    /// <remarks>
+    /// They are held here because the page that draws a switch reads its state from this slice
+    /// (<see cref="DebugSwitches"/>'s own docs) and a second object threaded through the interface
+    /// alongside this one would be two answers to "what has the reader turned on".
+    /// </remarks>
+    public GroundSwitches Ground { get; } = new();
+
+    /// <summary>
     /// Whether anything the town holds still is drawn at all, which is what decides whether the cache
     /// behind those layers is laid. Both of them are geometry that does not move once the town is laid.
     /// </summary>
@@ -122,11 +142,19 @@ internal sealed class DebugSwitches
     /// rather than every tick — re-emitting them for the bodies' sake was the most expensive thing
     /// in the frame at a district framing, and this is the "or a switch does" half of the rule.
     /// </summary>
-    public int Generation { get; private set; }
+    /// <remarks>
+    /// <b>The ground's own parts count among them</b> (<see cref="Ground"/>): the wireframe is a picture
+    /// of what is being drawn, so a part taken out of the ground stales that cache the way a layer
+    /// switched on does. Carried here rather than compared beside this, a caller can hold one number.
+    /// </remarks>
+    public int Generation => _generation + Ground.Generation;
+
+    int _generation;
 
     public void Toggle(ref bool option)
     {
         option = !option;
-        Generation++;
+        _generation++;
     }
+
 }

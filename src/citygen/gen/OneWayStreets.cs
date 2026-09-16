@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Gen;
 
@@ -48,7 +49,7 @@ internal static class OneWayStreets
         var laid = new RoadFlow[layout.Edges.Count];
         for (var edge = 0; edge < laid.Length; edge++) laid[edge] = layout.Edges[edge].Flow;
 
-        var chosen = Scattered(layout, config.CityGen.OneWayApartMinM);
+        var chosen = Scattered(layout, config);
 
         for (var edge = 0; edge < chosen.Length; edge++)
         {
@@ -69,21 +70,29 @@ internal static class OneWayStreets
     }
 
     /// <summary>
-    /// The streets proposed to run one way, and which way each of them runs: <b>no two at one junction and
-    /// none within <paramref name="apartM"/> of one already taken</b> (GEN-18).
+    /// The streets proposed to run one way, and which way each of them runs: <b>no two at one junction, none
+    /// within <paramref name="apartM"/> of one already taken, and every one of them arriving somewhere the
+    /// traffic already there still has a choice</b> (GEN-18).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Streets alone, and only where both ends fork</b>. An arterial is how a district is reached and
     /// runs both ways; a street at a node of fewer than three arms is a lane nothing could ever arrive on
     /// (GEN-50), so taking one there spends a place in the scatter on a street the settling would open
-    /// again. <b>Which way it runs is an alternation and nothing more</b> — a scattered street has no
-    /// family to align with, and both directions being drawn is all the town wants of it.
+    /// again.
+    /// </para>
+    /// <para>
+    /// <b>Which way it runs is where it may arrive and which half it would stand on</b>
+    /// (<see cref="ArrivesWithoutStarving"/>, <see cref="HoldsItsBends"/>), and the alternation decides only
+    /// between two ends that both may. A street that may run neither way is not taken.
+    /// </para>
     /// </remarks>
-    static RoadFlow[] Scattered(TownLayout layout, float apartM)
+    static RoadFlow[] Scattered(TownLayout layout, SimConfig config)
     {
         var chosen = new RoadFlow[layout.Edges.Count];
         var arms = layout.Arms();
         var taken = OnAnArterial(layout);
+        var apartM = config.CityGen.OneWayApartMinM;
         var apartSqM = apartM * apartM;
         var middleM = new List<Vector2>();
 
@@ -97,13 +106,69 @@ internal static class OneWayStreets
             var atM = (layout.NodeM[street.From] + layout.NodeM[street.To]) * 0.5f;
             if (StandsNearOne(middleM, atM, apartSqM)) continue;
 
+            // Arriving at <c>To</c> is the road driven with itself, and arriving at <c>From</c> is against it.
+            var toTo = ArrivesWithoutStarving(arms, street.To)
+                       && HoldsItsBends(layout, config, edge, RoadFlow.WithTheRoad);
+            var toFrom = ArrivesWithoutStarving(arms, street.From)
+                         && HoldsItsBends(layout, config, edge, RoadFlow.AgainstTheRoad);
+            if (!toTo && !toFrom) continue;
+
+            chosen[edge] = toTo && toFrom
+                ? (middleM.Count & 1) == 0 ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad
+                : toTo ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad;
+
             taken[street.From] = true;
             taken[street.To] = true;
-            chosen[edge] = (middleM.Count & 1) == 0 ? RoadFlow.WithTheRoad : RoadFlow.AgainstTheRoad;
             middleM.Add(atM);
         }
 
         return chosen;
+    }
+
+    /// <summary>
+    /// <b>Whether a one-way street may end at this node without taking the choice away from the traffic that
+    /// meets it</b> (GEN-18, GEN-50): four arms, because a street arriving takes one way out away from every
+    /// approach there and an approach may not be left with one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It is the arithmetic of the node and not a search.</b> At a node of <c>n</c> arms whose every other
+    /// arm runs both ways — which is what the rest of this scatter guarantees (GEN-18) — an approach may leave
+    /// on any arm but its own and but the one-way street it cannot drive up, so it has <c>n − 2</c> ways out.
+    /// Three arms leaves one, which is a car driven through a junction it decides nothing at; four leaves two,
+    /// which is a junction.
+    /// </para>
+    /// <para>
+    /// <b>Nothing downstream has to cope with the shape because the town does not contain it.</b> A node that
+    /// offers an approach one movement is a lane with nowhere to decide anything, and every layer below would
+    /// then need a rule about it — a run to lay, a merge to rank, a place a lane is driven through, a link a
+    /// route joins partway along. The departure end needs nothing asked of it: a street leaving takes no way
+    /// out away from anybody.
+    /// </para>
+    /// </remarks>
+    static bool ArrivesWithoutStarving(int[] arms, int node) => arms[node] >= 4;
+
+    /// <summary>
+    /// <b>Whether the street still bends no tighter than its class affords once it stands on the half its
+    /// traffic drives</b> (GEN-47, TER-4d). A line moved half a lane towards the inside of its own bend is a
+    /// line half a lane tighter there, so a street laid right at its floor cannot be taken one way — and the
+    /// answer is the line itself offset the way <c>RoadStage.OntoTheDrivenHalf</c> will offset it, never a
+    /// figure standing in for it.
+    /// </summary>
+    static bool HoldsItsBends(TownLayout layout, SimConfig config, int edge, RoadFlow flow)
+    {
+        var line = layout.LineOf(edge);
+        var halfM = config.LaneOffsetM * config.RoadSideSign;
+        var moved = new ArcSeg[line.Length];
+        Spline.OffsetInto(line, flow == RoadFlow.WithTheRoad ? halfM : -halfM, moved);
+
+        var floorM = RoadLines.FloorRadiusM(config, layout.Edges[edge].Class);
+        foreach (var arc in moved)
+        {
+            if (MathF.Abs(arc.Curvature) > 1e-6f && 1f / MathF.Abs(arc.Curvature) < floorM) return false;
+        }
+
+        return true;
     }
 
     /// <summary>

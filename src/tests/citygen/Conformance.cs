@@ -227,9 +227,39 @@ internal static class Conformance
     /// </summary>
     public static void ACityCanBeDrivenRound(string map)
     {
-        var roads = RoadGraph.Build(Towns.Of(map), SimConfig.Shipped());
+        var plan = Towns.Of(map);
+        var roads = RoadGraph.Build(plan, SimConfig.Shipped());
 
-        Assert.Null(Drivable.Offence(roads));
-        Assert.Null(Drivable.Dangling(roads));
+        // <b>Except a car park's own arms</b> (GEN-53), which end where their bays begin and where nothing
+        // lays a bay yet (<see cref="Drivable.OnACarParksArm"/>).
+        var armed = Drivable.OnACarParksArm(plan, roads);
+
+        Assert.Null(Drivable.Offence(roads, armed));
+        Assert.Null(Drivable.Dangling(roads, armed));
+    }
+
+    /// <summary>
+    /// <b>The boundary of a union of closed bands is closed</b>, so every stretch the merge keeps is in a
+    /// ring and none is left with two ends (<see cref="BandShell.Loose"/>). A run that does not shut is a
+    /// crossing the merge did not find, and it is a length of the town's edge nothing accounts for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of a whole town because that is the only size the question has.</b> What breaks it is one
+    /// arrangement of bands out of a hundred thousand — a junction whose movements fan off a lane end leaving
+    /// a piece of ribbon a few centimetres long — so a named place on a fixture map cannot be the sample, and
+    /// a town that happens not to hold one says nothing either way. The reading is the whole boundary or it
+    /// is nothing.
+    /// </remarks>
+    public static void ItsBoundaryCloses(string map)
+    {
+        var config = SimConfig.Shipped();
+        var shell = Towns.Of(map).Paving(config).Perimeter(config);
+        var lengthM = 0f;
+        foreach (var run in shell.Loose) lengthM += Spline.TotalLengthM(run);
+
+        Assert.True(
+            shell.Loose.Length == 0,
+            $"{map} left {shell.Loose.Length} runs of boundary open, {lengthM:F3} m in all, the first of "
+            + $"them from {(shell.Loose.Length > 0 ? shell.Loose[0][0].StartM : Vector2.Zero)}");
     }
 }

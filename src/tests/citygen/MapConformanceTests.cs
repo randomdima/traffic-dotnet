@@ -32,6 +32,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P3)]
+[Collection(TownGeometryCollection.Name)]
 public class MapConformanceTests
 {
     public static TheoryData<string> Maps => Towns.EveryLaidMap();
@@ -56,4 +57,8 @@ public class MapConformanceTests
     [Theory]
     [MemberData(nameof(Maps))]
     public void NothingItCarriesStandsOffIt(string map) => Conformance.NothingItCarriesStandsOffIt(map);
+
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void ItsBoundaryCloses(string map) => Conformance.ItsBoundaryCloses(map);
 }

@@ -111,6 +111,27 @@ internal sealed class ChainIndex
     public int ChainCount => _chainId.Length;
 
     /// <summary>
+    /// <b>Every piece over the lattice as a chain of its own</b>, numbered by where it stands in
+    /// <paramref name="pieces"/> — so that what is near a place is measured against the pieces near it
+    /// rather than against every piece of whatever ring they belong to.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the shape every question about a shell's boundary is asked in.</b> A town's boundary is one
+    /// ring of a hundred thousand pieces; an index of rings answers "what is nearest" and "what crosses this"
+    /// with all of them, which is the whole set for every query.
+    /// </remarks>
+    public static ChainIndex OfPieces(ReadOnlySpan<ArcSeg> pieces, float cellM)
+    {
+        var building = new Builder();
+        for (var at = 0; at < pieces.Length; at++)
+        {
+            building.Add(at, pieces.Slice(at, 1), MathF.Abs(pieces[at].LengthM));
+        }
+
+        return building.Seal(cellM);
+    }
+
+    /// <summary>
     /// How wide one cell is. <b>The cell the index settled on and not the one it was asked for</b>: a set
     /// spread far enough to want more cells than any index may hold is binned coarsely instead
     /// (<see cref="MostCells"/>), and a caller drawing or reasoning about the lattice wants the figure the
@@ -399,7 +420,13 @@ internal sealed class ChainIndex
     /// <b>a superset of the cells the piece was written into</b> (<see cref="Builder.Bin"/>), which costs a
     /// query cells and never an answer.
     /// </summary>
-    static void Box(ArcSeg arc, ref Vector2 leastM, ref Vector2 mostM)
+    /// <remarks>
+    /// <b>Offered to whoever sorts the candidates this index hands back</b> (<c>BandShell.Merge</c>), for
+    /// the same reason the query reads its cells by it: a piece's own box is the cheapest thing that can
+    /// be trusted to hold the whole of it, and a second way of boxing a piece is a second answer about
+    /// which pieces a place could stand on.
+    /// </remarks>
+    public static void Box(ArcSeg arc, ref Vector2 leastM, ref Vector2 mostM)
     {
         var least = new Vector2(float.MaxValue);
         var most = new Vector2(float.MinValue);

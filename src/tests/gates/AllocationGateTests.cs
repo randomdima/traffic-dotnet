@@ -152,17 +152,33 @@ public class AllocationGateTests
     /// the figure means nothing until a town has been shown to produce contacts at all.
     /// </summary>
     /// <remarks>
-    /// <b>Asked of the city and over a long enough run to be fair to it.</b> The lap the bodies reeled on
-    /// was parked with the rest of the laboratories, so what answers this is the town whose own traffic
-    /// crowds — and how long that takes is a fact about the town rather than about the arbiter.
+    /// <b>Asked of the city with enough traffic on it to crowd, which is a fact about the town rather than
+    /// about the arbiter.</b> The lap the bodies reeled on was parked with the rest of the laboratories, so
+    /// what answers this is a town whose own traffic queues into itself — and <b>how many cars that takes is a
+    /// reading of the town and moves when the town does</b>: the shared town's sixty touch nothing over five
+    /// minutes, two hundred and forty touched several times until the one-way streets stopped taking the last
+    /// choice away from the junctions they arrive at (GEN-18), and four hundred touch several times over one
+    /// minute now.
     /// </remarks>
     [Fact]
     public void ATownWithTrafficInItActuallyProducesContacts()
     {
         var config = SimConfig.Shipped();
-        using var world = new TownWorld(Towns.Of(Towns.City), config);
+        using var world = new TownWorld(Towns.LayFresh(Towns.Brief(Towns.CitySeed, cars: CrowdedCars)), config);
         new SimLoop<TownWorld>(world, config).Advance(1_800);
 
         Assert.True(world.Touches > 0);
     }
+
+    /// <summary>
+    /// How many cars it takes to crowd the suite's own town. <b>Not a figure anything behaves on</b>: it is
+    /// how much traffic this one question needs to have something to ask about, and the reading it is
+    /// chosen against is the one in the remark above.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is an ask and the town is the bound</b>: a car is stood on a lane and no lane holds two
+    /// (<c>SpawnStage</c>), so what this really says is <em>every lane the town affords</em> — which is how a
+    /// figure chosen against one arrangement of the generator goes on meaning the same thing under the next.
+    /// </remarks>
+    const int CrowdedCars = 800;
 }

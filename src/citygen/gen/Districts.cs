@@ -32,7 +32,7 @@ internal readonly record struct District(
 /// disc cut by two half-planes, and a street is laid between two lattice points of one district — so a
 /// street cannot leave its own district, and two districts' streets cannot cross. It is what keeps the
 /// number of roads that have to be refused as they are laid (GEN-49,
-/// <see cref="TownLayout.UnpickTheCrossings"/>) down to the handful a town loses rather than the search a
+/// <see cref="TownLayout.Clear"/>) down to the handful a town loses rather than the search a
 /// generator that laid its streets anywhere would have to do. The sectors outside the orbital are the one
 /// region that is not convex, and they are the reason the lattice still tests an edge against the ring
 /// itself (<see cref="Lattice"/>).

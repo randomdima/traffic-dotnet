@@ -41,7 +41,15 @@ internal static class SpawnStage
         var standable = new List<int>();
         for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
-            if (lanes.LaneLengthM[lane] >= roomM) standable.Add(lane);
+            // <b>And a lane with no movement off it is not one either</b>: a car stood there is a car with
+            // nowhere to go, which is a body standing still with no clock running for it. The town lays one
+            // such lane — the way in to a car park's bays, which nothing has yet laid the bays at
+            // ([the known gaps](../../../docs/index.md#known-gaps)) — and asking the lane rather than the
+            // road it is one of is what makes this a fact about the town and not about car parks.
+            if (lanes.LaneLengthM[lane] < roomM) continue;
+            if (lanes.ConnectorAt[lane + 1] == lanes.ConnectorAt[lane]) continue;
+
+            standable.Add(lane);
         }
 
         var cars = Math.Min(brief.Cars, standable.Count);

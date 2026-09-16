@@ -310,6 +310,25 @@ public class CarCatalogTests
     }
 
     /// <summary>
+    /// <b>No variant outgrows the car the town lays its bays to</b>
+    /// (<see cref="AgentFigures.LongestLengthM"/>, GEN-53). The plan is laid before a car exists and sizes a
+    /// bay against that figure, so a variant drawn longer than it is a car that parks across the bay it was
+    /// sent to — which is a thing to fail a build for and not to discover in a car park.
+    /// </summary>
+    [Fact]
+    public void NoVariantIsLongerThanTheCarTheTownLaysItsBaysTo()
+    {
+        for (var entry = 0; entry < Catalogue.SheetCount; entry++)
+        {
+            var variant = Catalogue.Variants[entry];
+            Assert.True(
+                variant.FootprintM.X <= Figures.Car.LongestLengthM,
+                $"{variant.Id} is {variant.FootprintM.X:F2} m long and a bay is laid for "
+                + $"{Figures.Car.LongestLengthM:F2} m");
+        }
+    }
+
+    /// <summary>
     /// EVA-5: <b>the evacuator is the one variant that tows on an arm</b>, and the arm is its picture's — the
     /// reach the coupling is held at is a distance somebody drew, so it is read off the same file as the
     /// sprite and not chosen in the config.

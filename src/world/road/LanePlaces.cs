@@ -14,7 +14,10 @@ internal interface ILaneEnds
     /// <summary>The same piece travelled the other way, or negative where there is none.</summary>
     int Reverse(int lane);
 
-    /// <summary>The lanes a body on this one may leave for at the end of it, which is what its connectors say.</summary>
+    /// <summary>
+    /// <b>The lanes a body on this one may leave for at the end of it</b>, which is what its connectors say.
+    /// Every one of them is joined at its own start, which is what makes the two ends one place.
+    /// </summary>
     ReadOnlySpan<int> Onward(int lane);
 
     Vector2 StartsAtM(int lane);
@@ -102,7 +105,7 @@ internal sealed class LanePlaces
 
         for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
-            foreach (var onto in lanes.Onward(lane)) Join(End(lane), Start(onto));
+            foreach (var onward in lanes.Onward(lane)) Join(End(lane), Start(onward));
 
             var reverse = lanes.Reverse(lane);
             if (reverse >= 0) Join(End(lane), Start(reverse));

@@ -4,6 +4,32 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-14 — the town does not lay the junction that decides nothing, so a lane never merges
+
+**A merge could not be expressed in the graph the search runs on, and the one place that tried was wrong.**
+A lane carrying on through a node left movements landing partway along the lane they joined; the contraction
+was supposed to read that relation, and [DrivingNetwork](../DrivingNetwork.cs)'s view of the lanes did not
+answer for it — so `LanePlaces` was derived a second time, with every merge silently unioning a node with the
+*start* of the run it joined, up to `1132 m` away. The coarse graph then refused the join outright
+(`TravelGraph.Builder.Join` holds links to meeting end to end, which is what keeps the search's bound
+admissible), and there is no honest way to enter a link partway: a link that can be entered at two places is
+two links.
+
+**So the shape that needed the merge is not laid any more.** The only thing that made it was the scatter: a
+one-way street arriving at a three-armed node leaves each two-way approach one movement, and `GEN-18` now
+refuses that arrival. What was `42` merges and `17` lanes with one way out on Odesa is `0` and `25` — and all
+`25` are a roundabout's entry (`GEN-19`) or a corner every other movement was refused for (`GEN-48`), both of
+them places a driver really is committed.
+
+**What went with it is four layers of rule.** `TER-5j` and its four bounds; the station a movement lands at;
+the places a lane is *driven through* beside the ones it starts and ends at; the ground a merge takes off the
+lane it joins; the merge's own weakest-rank right of way; the third figure the assembler threaded beside where
+each lane begins and ends; and the census row. **The contraction is what is left doing that work** — it ends
+a link where a body can go more than one way, which is the same idea one layer up and was already there.
+
+**And the places are worked out once and handed over** (`SIM-7`): `RunNetwork.Contract` takes them rather
+than deriving its own, which is what let the two answers disagree in the first place.
+
 ## 2026-09-07 — what the road *is* and what it hands out are two documents
 
 One page carried nine sections and eleven thousand words, against a rule that a document covering eight
@@ -55,17 +81,6 @@ tidiness — no box admits the turn-around (TER-5f), so joined only by connector
 would be different places and a leg could not be priced round a bay (GEN-4l). A spatial index over every
 way was the alternative and needs no places at all, refused because the span a caller must give the walk
 then has no bound the town can state.
-
-## 2026-09-05 — the corner is cut off the lane rather than marked on it
-
-A setback was a number beside a lane rather than a fact about it, so everything downstream carried the
-difference — the assembler threaded a sub-chain, a place on a lane had a non-zero origin, and the overlay
-drew the ground past each figure twice. The lane is trimmed to what the widening leaves, so its own first
-and last points *are* its connection points; `JoinedAtM`, `LeftAtM`, `JoinFromM`, `JoinToM` and
-`LaneOriginM` are gone. The other networks keep their two figures, which is the point of the interface: a
-pavement hands over at a point per turn and a bay's way runs past the pose because that run is ground and
-not line. Still owed: a lane is cut at the junction's *disc* and not at the reach its kerb corners paved —
-cutting at the reach was tried and deletes short stretches outright.
 
 ## 2026-09-05 — a one-way road is a narrower road, and a corner is solved on the pair it stands between
 
@@ -574,13 +589,3 @@ stop from there, with the profile's figure as the ceiling. It still leaves room 
 asks for grows with the pedal rather than with the speed the pedal has produced. And a car nothing cut is
 now held by nobody — against an ask the car is merely committed to, the grant inverts to the speed one
 reaction interval reaches, so a car alone on an empty straight read as `queueing`, behind itself.
-
-## 2026-08-22 — a lane end has one setback, not one per turn
-
-Each turn was set back by exactly what its own arc needed, which is the least ground taken and meant a lane
-had no single end — a straight handed over at the lane's end and a right-angle turn out of the same lane up
-to 4.5 m earlier. Everything wanting to name that boundary had to name a movement to do it. The setback is
-the lane end's, the widest its own movements asked for (TER-5d), and widening runs in rounds because
-setting one turn back changes the arc of every other through the same lane end. Every movement in the
-reckoning reaches a radius, because the one that never could is no longer a movement at all (TER-5f) —
-counting it would have pegged every lane in the town at the cap.

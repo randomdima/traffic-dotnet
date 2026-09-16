@@ -60,29 +60,27 @@ internal enum LaneTurn : byte
 /// connectors — a flat array and an offsets array beside it.
 /// </para>
 /// </remarks>
-internal sealed partial class LaneLines
+internal sealed class LaneLines
 {
     /// <summary>Where a lane is asked for and the town has none — the reverse of a one-way stretch (TER-4d).</summary>
     public const int NoLane = -1;
 
     LaneLines(
-        int junctionCount, int[] laneFromRoad, int[] laneToRoad, float[] laneWidthM, int[] laneFromJunction,
-        int[] laneToJunction, bool[] laneForward, int[] laneReverse, float[] laneLengthM,
-        float[] laneCutBackAtStartM, float[] laneCutBackAtEndM, int[] laneArcOffsets, ArcSeg[] laneArcs,
-        int[] connectorAt, int[] connectorToLane, LaneTurn[] connectorKind, int[] connectorArcOffsets,
-        ArcSeg[] connectorArcs, float[] connectorLengthM)
+        int junctionCount, int[] laneRoad, float[] laneWidthM, int[] laneFromJunction,
+        int[] laneToJunction, bool[] laneForward, int[] laneReverse, bool[] laneOverOneLine, float[] laneLengthM,
+        int[] laneArcOffsets, ArcSeg[] laneArcs,
+        int[] connectorAt, int[] connectorToLane, LaneTurn[] connectorKind,
+        int[] connectorArcOffsets, ArcSeg[] connectorArcs, float[] connectorLengthM)
     {
         JunctionCount = junctionCount;
-        LaneFromRoad = laneFromRoad;
-        LaneToRoad = laneToRoad;
+        LaneRoad = laneRoad;
         LaneWidthM = laneWidthM;
         LaneFromJunction = laneFromJunction;
         LaneToJunction = laneToJunction;
         LaneForward = laneForward;
         LaneReverse = laneReverse;
+        LaneOverOneLine = laneOverOneLine;
         LaneLengthM = laneLengthM;
-        LaneCutBackAtStartM = laneCutBackAtStartM;
-        LaneCutBackAtEndM = laneCutBackAtEndM;
         LaneArcOffsets = laneArcOffsets;
         LaneArcs = laneArcs;
         ConnectorAt = connectorAt;
@@ -91,12 +89,6 @@ internal sealed partial class LaneLines
         ConnectorArcOffsets = connectorArcOffsets;
         ConnectorArcs = connectorArcs;
         ConnectorLengthM = connectorLengthM;
-
-        LaneCutBackM = new float[laneFromRoad.Length];
-        for (var lane = 0; lane < LaneCount; lane++)
-        {
-            LaneCutBackM[lane] = laneCutBackAtStartM[lane] + laneCutBackAtEndM[lane];
-        }
 
         // Which lane a connector leaves is the run it stands in, so it is folded out once rather than
         // searched for: a caller holding an id asks both its ends the same way.
@@ -111,14 +103,11 @@ internal sealed partial class LaneLines
     public int JunctionCount { get; }
 
     /// <summary>
-    /// <b>The road a lane sets off on</b>, which is the one it arrives on: nothing folds two roads into
-    /// one lane any more (TER-5i), and the pair is kept because the fold's subject comes back with the
-    /// rule that had it.
+    /// <b>The road a lane is one way of</b> (TER-5i). A lane runs between the two connection points of one
+    /// road and never spans two: a place a carriageway merely bends is one road at the layout already
+    /// (GEN-51), so there is nothing left for a lane to carry on through.
     /// </summary>
-    public int[] LaneFromRoad { get; }
-
-    /// <summary>And the road it arrives on, which is the one an arm of a junction it ends at belongs to.</summary>
-    public int[] LaneToRoad { get; }
+    public int[] LaneRoad { get; }
 
     /// <summary>How wide the ground this lane is driven on is — the share of its road's width it was given.</summary>
     public float[] LaneWidthM { get; }
@@ -130,7 +119,7 @@ internal sealed partial class LaneLines
     public int[] LaneToJunction { get; }
 
     /// <summary>
-    /// Whether the lane runs with the direction of the road it sets off on (<see cref="LaneFromRoad"/>),
+    /// Whether the lane runs with the direction of the road it sets off on (<see cref="LaneRoad"/>),
     /// which is what says which side of that road's centreline it is on.
     /// </summary>
     public bool[] LaneForward { get; }
@@ -138,21 +127,15 @@ internal sealed partial class LaneLines
     /// <summary>The other lane of the same stretch, or <see cref="NoLane"/> where the stretch runs one way.</summary>
     public int[] LaneReverse { get; }
 
-    /// <summary>The length of the line as driven, after the cut back.</summary>
-    public float[] LaneLengthM { get; }
-
     /// <summary>
-    /// How much of its stretch the lane gave up to the box at its start, and at its end. <b>Nought on every
-    /// town this build lays</b> (TER-5i): a lane runs between the two points it was drawn to run between,
-    /// and the ground past them was never its.
+    /// <b>Whether this lane and its reverse were laid on one line</b> rather than either side of a
+    /// carriageway (<see cref="CityPlan.RoadArrays.DrivenOverOneLine"/>, GEN-4f) — the road's own answer
+    /// carried down, not an offset read back off the two lines.
     /// </summary>
-    public float[] LaneCutBackAtStartM { get; }
+    public bool[] LaneOverOneLine { get; }
 
-    /// <inheritdoc cref="LaneCutBackAtStartM"/>
-    public float[] LaneCutBackAtEndM { get; }
-
-    /// <summary>How much of its stretch the lane gave up to the boxes at its two ends.</summary>
-    public float[] LaneCutBackM { get; }
+    /// <summary>The length of the line as driven, which is its road's own length at this lane's offset.</summary>
+    public float[] LaneLengthM { get; }
 
     public int[] LaneArcOffsets { get; }
 
@@ -174,11 +157,11 @@ internal sealed partial class LaneLines
 
     public float[] ConnectorLengthM { get; }
 
-    public int LaneCount => LaneFromRoad.Length;
+    public int LaneCount => LaneRoad.Length;
 
     public int ConnectorCount => ConnectorToLane.Length;
 
-    /// <summary>The line one lane is driven on, in its own direction of travel, already cut back at both ends.</summary>
+    /// <summary>The line one lane is driven on, in its own direction of travel, whole from one end to the other.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) =>
         LaneArcs.AsSpan(LaneArcOffsets[lane], LaneArcOffsets[lane + 1] - LaneArcOffsets[lane]);
 
@@ -222,6 +205,7 @@ internal sealed partial class LaneLines
         var laneForward = new List<bool>();
         var laneLengthM = new List<float>();
         var laneReverse = new List<int>();
+        var laneOverOneLine = new List<bool>();
         var laneArcOffsets = new List<int> { 0 };
         var laneArcs = new List<ArcSeg>();
 
@@ -241,8 +225,13 @@ internal sealed partial class LaneLines
             // its traffic drives (<c>RoadStage.OntoTheDrivenHalf</c>).
             var runsWithTheRoad = roads.Flow[road] != RoadFlow.AgainstTheRoad;
             var runsAgainstIt = roads.Flow[road] != RoadFlow.WithTheRoad;
-            var halfLaneM = roads.WidthM[road] * 0.5f / roads.LanesOn(road);
-            var laneOffsetM = roads.LanesOn(road) == 1 ? 0f : halfLaneM * config.RoadSideSign;
+            var halfLaneM = roads.LaneWidthM(road) * 0.5f;
+
+            // <b>A bay's way is driven both ways over one line</b> (GEN-53, GEN-4f): a car's width of ground
+            // it drives in over and backs out over, so its two lanes are the line itself and not two halves
+            // of a carriageway. It is the same exception a one-way road's single lane already is.
+            var overOneLine = roads.DrivenOverOneLine(road);
+            var laneOffsetM = roads.LanesOn(road) == 1 || overOneLine ? 0f : halfLaneM * config.RoadSideSign;
 
             var forward = laneRoad.Count;
             var backward = forward + (runsWithTheRoad ? 1 : 0);
@@ -252,7 +241,7 @@ internal sealed partial class LaneLines
                 Spline.OffsetInto(centreline, laneOffsetM, offset);
                 AddLane(
                     road, halfLaneM, roads.FromJunction[road], roads.ToJunction[road], true,
-                    offset.AsSpan(0, centreline.Length), runsAgainstIt ? backward : NoLane);
+                    offset.AsSpan(0, centreline.Length), runsAgainstIt ? backward : NoLane, overOneLine);
             }
 
             if (runsAgainstIt)
@@ -261,7 +250,7 @@ internal sealed partial class LaneLines
                 Spline.OffsetInto(scratch.AsSpan(0, centreline.Length), laneOffsetM, offset);
                 AddLane(
                     road, halfLaneM, roads.ToJunction[road], roads.FromJunction[road], false,
-                    offset.AsSpan(0, centreline.Length), runsWithTheRoad ? forward : NoLane);
+                    offset.AsSpan(0, centreline.Length), runsWithTheRoad ? forward : NoLane, overOneLine);
             }
         }
 
@@ -269,30 +258,27 @@ internal sealed partial class LaneLines
         var wholeArcs = laneArcs.ToArray();
         var (outOffsets, outLanes) = Adjacency(junctions.Count, laneFromJunction);
         var (connectorAt, connectorToLane, connectorKind) = Connectors(
-            config, laneToJunction, laneReverse, outOffsets, outLanes, wholeOffsets, wholeArcs);
+            config, roads, laneRoad, laneToJunction, laneReverse, outOffsets, outLanes, wholeOffsets,
+            wholeArcs);
 
         var (connectorArcOffsets, connectorArcs, connectorLengthM) = Movements(
-            wholeOffsets, wholeArcs, laneLengthM, connectorAt, connectorToLane);
+            config, roads, laneRoad, wholeOffsets, wholeArcs, laneLengthM, connectorAt, connectorToLane);
 
         (connectorAt, connectorToLane, connectorKind, connectorArcOffsets, connectorArcs, connectorLengthM) =
             WhatTheJunctionOffers(
                 config, connectorAt, connectorToLane, connectorKind, connectorArcOffsets, connectorArcs,
                 connectorLengthM);
 
-        // <b>Nothing is cut back and nothing is folded</b> (§4.5, §6.4): a lane runs between the two points
-        // it was drawn to run between, and the two fields that carried what a cut cost it come back nought.
-        var noCutBackM = new float[laneRoad.Count];
-
         return new LaneLines(
-            junctions.Count, [.. laneRoad], [.. laneRoad], [.. laneWidthM], [.. laneFromJunction],
-            [.. laneToJunction], [.. laneForward], [.. laneReverse],
-            [.. laneLengthM], noCutBackM, new float[laneRoad.Count], wholeOffsets, wholeArcs,
+            junctions.Count, [.. laneRoad], [.. laneWidthM], [.. laneFromJunction],
+            [.. laneToJunction], [.. laneForward], [.. laneReverse], [.. laneOverOneLine],
+            [.. laneLengthM], wholeOffsets, wholeArcs,
             connectorAt, connectorToLane, connectorKind,
             connectorArcOffsets, connectorArcs, connectorLengthM);
 
         void AddLane(
             int road, float halfLaneM, int fromJunction, int toJunction, bool forward,
-            ReadOnlySpan<ArcSeg> arcs, int reverse)
+            ReadOnlySpan<ArcSeg> arcs, int reverse, bool overOneLine)
         {
             laneRoad.Add(road);
             laneWidthM.Add(halfLaneM * 2f);
@@ -300,6 +286,7 @@ internal sealed partial class LaneLines
             laneToJunction.Add(toJunction);
             laneForward.Add(forward);
             laneReverse.Add(reverse);
+            laneOverOneLine.Add(overOneLine);
 
             foreach (var arc in arcs) laneArcs.Add(arc);
 
@@ -408,6 +395,10 @@ internal sealed partial class LaneLines
         return (offsets, lanes);
     }
 
+    /// <summary>
+    /// How many arcs the longest road in the town is, which is how many a lane of it is: a lane is its road's
+    /// own line offset piece for piece (<see cref="Spline.OffsetInto"/>) and nothing is cut off either end.
+    /// </summary>
     static int MaxArcsPerStretch(CityPlan.RoadArrays roads)
     {
         var most = 1;
@@ -416,9 +407,7 @@ internal sealed partial class LaneLines
             most = Math.Max(most, roads.SegmentOffsets[road + 1] - roads.SegmentOffsets[road]);
         }
 
-        // A cut can fall inside a piece at either end, so a stretch holds at most every piece of its
-        // road plus the two the cuts split.
-        return most + 2;
+        return most;
     }
 
     /// <summary>
@@ -435,6 +424,14 @@ internal sealed partial class LaneLines
     /// movement no car makes. Coming back the way it went is a bay's (GEN-4l).
     /// </para>
     /// <para>
+    /// <b>Nor does a bay's way join another bay's</b> (GEN-53). A car park's bays all hang off one node, so
+    /// the arithmetic would otherwise offer a turn out of every bay into every other — movements no car
+    /// makes, over ground that is the car park's to cross rather than a road with a right of way on it. A
+    /// bay joins the street the car park was cut into and nothing else — both of its ways, the street
+    /// standing off the whole rank so that no bay is behind the lane end a car arrives on
+    /// (<see cref="SimConfig.CarParkStandoffM"/>).
+    /// </para>
+    /// <para>
     /// <b>And a sharp turn is a sharp turn and not a reversal.</b> Two arms may be drawn as little as
     /// <c>ArmsApartMinDeg</c> apart and the bearings they end on are drawn either side of that
     /// (<see cref="ConnectionPoints"/>), so a movement between them turns through most of a half-circle —
@@ -443,8 +440,8 @@ internal sealed partial class LaneLines
     /// </para>
     /// </remarks>
     static (int[] At, int[] ToLane, LaneTurn[] Kind) Connectors(
-        SimConfig config, List<int> laneToJunction, List<int> laneReverse, int[] outOffsets, int[] outLanes,
-        int[] laneArcOffsets, ArcSeg[] laneArcs)
+        SimConfig config, CityPlan.RoadArrays roads, List<int> laneRoad, List<int> laneToJunction,
+        List<int> laneReverse, int[] outOffsets, int[] outLanes, int[] laneArcOffsets, ArcSeg[] laneArcs)
     {
         var laneCount = laneToJunction.Count;
         var offsets = new int[laneCount + 1];
@@ -456,9 +453,11 @@ internal sealed partial class LaneLines
         {
             var arrivingRad = HeadingAt(laneArcOffsets, laneArcs, lane, atEnd: true);
             var node = laneToJunction[lane];
+            var outOfABay = roads.IsABay(laneRoad[lane]);
             foreach (var leaving in outLanes.AsSpan(outOffsets[node], outOffsets[node + 1] - outOffsets[node]))
             {
                 if (leaving == laneReverse[lane]) continue;
+                if (outOfABay && roads.IsABay(laneRoad[leaving])) continue;
 
                 var leavingRad = HeadingAt(laneArcOffsets, laneArcs, leaving, atEnd: false);
                 var turnRad = Spline.WrapRad(leavingRad - arrivingRad);
@@ -522,15 +521,16 @@ internal sealed partial class LaneLines
     /// </para>
     /// </remarks>
     static (int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM) Movements(
-        int[] laneArcOffsets, ArcSeg[] laneArcs, List<float> laneLengthM, int[] connectorAt,
-        int[] connectorToLane)
+        SimConfig config, CityPlan.RoadArrays roads, List<int> laneRoad, int[] laneArcOffsets,
+        ArcSeg[] laneArcs, List<float> laneLengthM, int[] connectorAt, int[] connectorToLane)
     {
         var connectorCount = connectorToLane.Length;
         var arcOffsets = new int[connectorCount + 1];
         var arcs = new List<ArcSeg>();
         var lengthM = new float[connectorCount];
-        var drawn = new ArcSeg[2];
-        var joined = new ArcSeg[2];
+        var drawn = new ArcSeg[3];
+        var joined = new ArcSeg[3];
+        var bayRadiusM = config.CarParkTurnRadiusM;
 
         for (var lane = 0; lane < laneLengthM.Count; lane++)
         {
@@ -539,9 +539,10 @@ internal sealed partial class LaneLines
                 var onto = connectorToLane[connector];
                 var from = Spline.SampleAt(ArcsOf(lane), laneLengthM[lane]);
                 var to = Spline.SampleAt(ArcsOf(onto), 0f);
+                var atABay = roads.IsABay(laneRoad[lane]) || roads.IsABay(laneRoad[onto]);
                 var laid = TheSameEnd(from.PositionM, to.PositionM)
                     ? 0
-                    : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
+                    : Turn(bayRadiusM, atABay, from, to, drawn);
 
                 laid = Spline.JoinedInto(drawn.AsSpan(0, laid), LineTolerance.RoundingM, joined);
                 for (var arc = 0; arc < laid; arc++)
@@ -560,125 +561,37 @@ internal sealed partial class LaneLines
             laneArcs.AsSpan(laneArcOffsets[lane], laneArcOffsets[lane + 1] - laneArcOffsets[lane]);
     }
 
-    /// <summary>Every lane cut back to the points its movements hand over at, and what that cost each end of them.</summary>
-    readonly record struct Lanes(
-        int[] ArcOffsets, ArcSeg[] Arcs, float[] LengthM, float[] ArrivingM, float[] LeavingM);
-
-    /// <summary>How finely the ladder of cut backs is stepped before the deepest one is taken.</summary>
-    const int SetbackRungs = 8;
-
     /// <summary>
-    /// How far into each end of each lane the corner reaches: one figure for the end of a lane and one for
-    /// its start, widened a rung at a time until every turn through them holds the corner.
+    /// <b>The line one movement is driven over</b>: the biarc between the two lane ends, which shares the
+    /// turn evenly between them and is what every movement between two streets is.
     /// </summary>
     /// <remarks>
-    /// A junction is not sized around a turning circle (TER-5): its arms are cut at the disc, and two of
-    /// them at right angles leave a corner tighter than the steering lock affords, so a car following that
-    /// line exactly ends up on the pavement. Taking the last of one lane and the first of the next into the
-    /// turn is what gives the arc its radius, and the smallest cut back whose tightest arc reaches the
-    /// junction's own corner radius is what each turn asks for.
     /// <para>
-    /// Widening in rounds rather than turn by turn is what makes a lane end one point: a cut taken for one
-    /// turn changes the arc of every other turn sharing that end, so what each one needs is only settled
-    /// once they all are.
+    /// <b>Except at a bay, where the turn is the car's own and not the room's</b> (GEN-53): one arc on the
+    /// circle a car at a standstill hooks round on (<see cref="SimConfig.CarParkTurnRadiusM"/>), straight
+    /// street before it and straight bay after it. A biarc would spend the whole box on the turn — a car on
+    /// its way to park drifting out of its lane from the moment it entered the junction, across the mouths
+    /// of every bay before its own, and one that had left a bay still curving a box later. Nothing about
+    /// parking is driven at a design speed, so nothing about it is laid at a design speed's radius.
+    /// </para>
+    /// <para>
+    /// <b>It moves no lane end</b> — both lines join the same two poses, and which of them a movement gets
+    /// is the only thing decided here. Where the turn does not fit in the room there is the biarc is still
+    /// the answer (<see cref="Spline.StraightArcStraightInto"/>), which joins any two poses at all.
     /// </para>
     /// </remarks>
-    static (float[] ArrivingM, float[] LeavingM) Setbacks(
-        SimConfig config, int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneLengthM, int[] connectorAt,
-        int[] connectorToLane)
+    static int Turn(
+        float bayRadiusM, bool atABay, in SplineSample from, in SplineSample to, Span<ArcSeg> into)
     {
-        var laneCount = laneLengthM.Length;
-        var drawn = new ArcSeg[2];
-        var leavingM = new float[laneCount];
-        var arrivingM = new float[laneCount];
+        var laid = atABay
+            ? Spline.StraightArcStraightInto(
+                from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, bayRadiusM, into)
+            : 0;
 
-        for (var round = 0; round <= SetbackRungs; round++)
-        {
-            var widened = false;
-            for (var lane = 0; lane < laneCount; lane++)
-            {
-                for (var connector = connectorAt[lane]; connector < connectorAt[lane + 1]; connector++)
-                {
-                    var onto = connectorToLane[connector];
-                    var capM = CapM(config, laneLengthM, lane, onto);
-                    if (leavingM[lane] >= capM && arrivingM[onto] >= capM) continue;
-                    if (HoldsTheCorner(config, laneArcOffsets, laneArcs, laneLengthM, lane, onto,
-                            leavingM[lane], arrivingM[onto], drawn))
-                    {
-                        continue;
-                    }
-
-                    var rungM = capM / SetbackRungs;
-                    leavingM[lane] = MathF.Min(capM, leavingM[lane] + rungM);
-                    arrivingM[onto] = MathF.Min(capM, arrivingM[onto] + rungM);
-                    widened = true;
-                }
-            }
-
-            if (!widened) break;
-        }
-
-        return (arrivingM, leavingM);
+        return laid > 0
+            ? laid
+            : Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, into);
     }
-
-    /// <summary>
-    /// <b>Every lane cut back to the two points its movements hand over at</b> (TER-5d), which is what makes
-    /// those points the lane's own ends. What the boxes took is off the line rather than marked on it, so no
-    /// reader has to know a lane's metres begin somewhere other than at nought, and no ground carries both a
-    /// lane and the connector drawn across it.
-    /// </summary>
-    static Lanes CutBackToTheConnectors(
-        int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneLengthM, float[] arrivingM, float[] leavingM,
-        int mostArcs)
-    {
-        var laneCount = laneLengthM.Length;
-        var arcOffsets = new int[laneCount + 1];
-        var arcs = new List<ArcSeg>(laneArcs.Length);
-        var lengthM = new float[laneCount];
-        var kept = new ArcSeg[mostArcs + 2];
-
-        for (var lane = 0; lane < laneCount; lane++)
-        {
-            var whole = laneArcs.AsSpan(laneArcOffsets[lane], laneArcOffsets[lane + 1] - laneArcOffsets[lane]);
-            var count = Spline.SubChainInto(whole, arrivingM[lane], laneLengthM[lane] - leavingM[lane], kept);
-            for (var arc = 0; arc < count; arc++) arcs.Add(kept[arc]);
-
-            arcOffsets[lane + 1] = arcs.Count;
-            lengthM[lane] = Spline.TotalLengthM(kept.AsSpan(0, count));
-        }
-
-        return new Lanes(arcOffsets, [.. arcs], lengthM, arrivingM, leavingM);
-    }
-
-    /// <summary>
-    /// Whether the line one turn would be drawn at these two cut backs reaches the junction's corner
-    /// radius — the question the widening asks of every turn through a lane end each round.
-    /// </summary>
-    static bool HoldsTheCorner(
-        SimConfig config, int[] laneArcOffsets, ArcSeg[] laneArcs, float[] laneLengthM, int lane, int onto,
-        float leavingM, float arrivingM, Span<ArcSeg> drawn)
-    {
-        var from = Spline.SampleAt(ArcsOf(lane), laneLengthM[lane] - leavingM);
-        var to = Spline.SampleAt(ArcsOf(onto), arrivingM);
-        if (TheSameEnd(from.PositionM, to.PositionM)) return true;
-
-        var laid = Spline.BiarcInto(from.PositionM, from.HeadingRad, to.PositionM, to.HeadingRad, drawn);
-
-        return laid == 0 || TightestRadiusM(drawn[..laid]) >= config.IntersectionCornerRadiusM;
-
-        ReadOnlySpan<ArcSeg> ArcsOf(int of) =>
-            laneArcs.AsSpan(laneArcOffsets[of], laneArcOffsets[of + 1] - laneArcOffsets[of]);
-    }
-
-    /// <summary>
-    /// How much further into a lane the corner may ever be taken: the radius the junction was paved for, and
-    /// never more than half of what the shorter of the two lanes can spare — because what is taken is cut
-    /// off the lane, and a stretch has to be left standing for a car to be on.
-    /// </summary>
-    static float CapM(SimConfig config, float[] laneLengthM, int lane, int onto) =>
-        MathF.Min(
-            config.IntersectionCornerRadiusM,
-            MathF.Max(0f, MathF.Min(laneLengthM[lane], laneLengthM[onto]) - config.LaneShortestStretchM) * 0.5f);
 
     /// <summary>Whether a lane ends where the next one starts, within <see cref="SameEndM"/>.</summary>
     static bool TheSameEnd(Vector2 fromM, Vector2 toM) =>

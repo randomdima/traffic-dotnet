@@ -174,6 +174,11 @@ internal sealed class Interface(TrimFigures trims)
                     Menu.Show();
                     Menu.OpenAt(Menu.Figures);
                     break;
+                case "menu-ground":
+                    Menu.ShutOntoTheTown();
+                    Menu.Show();
+                    Menu.OpenAt(Menu.Ground);
+                    break;
                 case "controls":
                     Controls.Show();
                     break;
@@ -217,12 +222,34 @@ internal sealed class Interface(TrimFigures trims)
                     Status.ShowSection(StatusPanel.Claims);
                     break;
                 default:
+                    if (HiddenPart(name) is { } part)
+                    {
+                        Switches.Ground.Toggle(part);
+                        break;
+                    }
+
                     throw new ArgumentException(
                         $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
-                        "menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
-                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, ruler.");
+                        "menu-ground, menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
+                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, ruler, and " +
+                        $"hide-<layer> for one layer of the ground ({string.Join(", ", GroundParts.Words)}).");
             }
         }
+    }
+
+    /// <summary>
+    /// <c>hide-carriageway</c> and its siblings: one layer of the ground taken out of the picture
+    /// (OBS-2v, <see cref="GroundParts.Words"/>). <b>The one family of words here that is read rather than
+    /// written out</b> — the layers are an enum, so a word per row spelled out beside it would be a list
+    /// to keep in step with one the mesh already carries.
+    /// </summary>
+    static GroundPart? HiddenPart(string word)
+    {
+        const string hide = "hide-";
+        if (!word.StartsWith(hide, StringComparison.Ordinal)) return null;
+
+        var part = Array.IndexOf(GroundParts.Words, word[hide.Length..]);
+        return part < 0 ? null : (GroundPart)part;
     }
 
     /// <summary>
@@ -459,7 +486,12 @@ internal sealed class Interface(TrimFigures trims)
         Chrome.DrawScreen(ref draw, frame.UiPx, frame.PointerPx, Menu.AtTheStart);
 
         // Last of all, over the furniture as well as the layers.
-        if (Menu.Open) Menu.Draw(ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches, Trims);
+        if (Menu.Open)
+        {
+            Menu.Draw(
+                ref draw, frame.UiPx, Chrome.GearAt(frame.UiPx), frame.PointerPx, Switches, Trims, frame.Ground);
+        }
+
         if (Controls.Open) Controls.Draw(ref draw, frame.UiPx, Chrome.HelpAt(frame.UiPx));
 
         return draw.Written;

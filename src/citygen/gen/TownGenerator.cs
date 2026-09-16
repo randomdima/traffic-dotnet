@@ -20,11 +20,18 @@ namespace TrafficSimulation.CityGen.Gen;
 /// shortfall.
 /// </para>
 /// <para>
-/// <b>Where the arrangement is not enough on its own, the answer is still deletion and never a retry</b>
-/// (GEN-8): the layout is settled by four passes of its own before it is given a shape — the local nodes
-/// merged, the stranded pieces dropped and the dead ends pruned, and the roads that would share ground
-/// refused as they are laid (GEN-49) — and each
-/// of them is one pass over what the stages before it laid.
+/// <b>The nodes are placed, then settled, then joined — and no road is drawn twice</b> (GEN-16, GEN-49).
+/// Everything that puts a junction down does so before the first road is laid; the clusters standing inside a
+/// locality of each other are made one node there and then (<see cref="TownLayout.SettleTheNodes"/>); and only
+/// then is a line drawn for anything. <b>Nothing is merged after the fact</b>, which is what a merge would
+/// cost: every road in the town offered again, and until that re-offer no road held to the ground another
+/// road holds, two junctions a stride apart being a pair about to become one.
+/// </para>
+/// <para>
+/// <b>Where the arrangement is not enough on its own, the answer is deletion and never a retry</b>
+/// (GEN-8): the stranded pieces are dropped and the dead ends pruned, and the roads that would share ground
+/// are refused as they are laid (GEN-49) — each of them one pass over what the stages before it laid, and
+/// none of them a second attempt at what one of them refused.
 /// </para>
 /// <para>
 /// <b>What is left is then opened out and directed</b>, in that order and on the settled layout: the
@@ -46,6 +53,10 @@ internal static class TownGenerator
     const ulong ShapeStream = 0x7368_6170_6573_0000;
     const ulong PropStream = 0x7072_6F70_7300_0000;
     const ulong SpawnStream = 0x7370_6177_6E73_0000;
+    const ulong CarParkStream = 0x6361_7270_6172_6B00;
+
+    /// <summary>Nothing has been refused yet when the layout is settled, so every corner is offered to the join (GEN-51).</summary>
+    static readonly HashSet<Vector2> NothingHeld = [];
 
     public static CityPlan Lay(TownBrief brief, SimConfig config)
     {
@@ -72,19 +83,43 @@ internal static class TownGenerator
 
         // Nothing shorter than the ground two junctions' own discs and corners take is a road at all.
         var shortestRoadM = Lattice.CorridorM(config) * 2f;
-        var layout = new TownLayout(shortestRoadM, config.ArmsApartMinRad, config.CityGen.LocalityM, rules);
+
+        // <b>The line a link would be laid as is what says whether it is a road</b> (GEN-10,
+        // <see cref="RoadLines"/>), so the geometry is handed to the layout rather than run over it
+        // afterwards: every road the layout holds is one that could be drawn where it stands.
+        var shapes = new RoadLines(brief.Seed, config, districts, worldSizeM, rules);
+        var layout = new TownLayout(
+            shortestRoadM, config.ArmsApartMinRad, config.CityGen.LocalityM, rules, shapes);
         var marginM = MarginM(config);
+
+        // <b>Every node the town will have is placed before its first road is laid</b>, which is what lets
+        // every road be laid once (GEN-10): the arterials carry the nodes the streets hang off them, so they
+        // are closed only once the lattice has placed those — and laid before the streets, so a street
+        // offered against ground an arterial holds is the one refused (GEN-49).
         var arterials = Arterials.Lay(layout, districts, brief, rules, shortestRoadM, marginM);
-        Lattice.Lay(layout, districts, arterials, brief, wet, config, marginM);
+        var lattice = Lattice.Place(layout, districts, arterials, brief, wet, config, marginM);
+
+        // <b>And the nodes are settled between the placing and the laying</b> (GEN-16): every cluster standing
+        // inside a locality of itself is one junction before a single road is drawn, so nothing is merged
+        // afterwards, no road is drawn twice, and the ground bound holds from the first of them (GEN-49).
+        var moved = layout.SettleTheNodes();
+        arterials.TheNodesMoved(moved);
         arterials.Close(layout, rules);
-        layout.MergeTheLocalNodes();
+        Lattice.Lay(layout, lattice, moved);
+
         layout.KeepTheLargestComponent();
         layout.PruneTheDeadEnds();
+        ThroughRoads.Lay(layout, config);
         Roundabouts.Lay(layout, districts, rules, config, worldSizeM, marginM);
         OneWayStreets.Lay(layout, config);
 
-        var shape = new Rng(brief.Seed, ShapeStream);
-        var roads = RoadStage.Lay(layout, districts, brief, config, ref shape);
+        // <b>And the car parks are cut into what that leaves</b> (GEN-52, GEN-53), which is the last thing
+        // done to a layout: a cut road's arms are its line's own, so nothing may be offered to the layout
+        // after one (<see cref="CutJunctions"/>).
+        var carPark = new Rng(brief.Seed, CarParkStream);
+        var carParks = CarParks.Lay(layout, brief, config, ref carPark);
+
+        var roads = RoadStage.Lay(layout, config, carParks);
 
         var paved = bare.With(water.Rings).With(
             roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Roundabouts, roads.Crosswalks,
@@ -111,16 +146,14 @@ internal static class TownGenerator
             PavementWidthM = config.PavementWidthM,
             Junctions = roads.Junctions,
             JunctionCorners = roads.Corners,
-
-            // The pavement turns no corner of its own — every one it turns belongs to the tarmac it wraps
-            // (TER-3c.3) — so a generated map carries none, as the maps this build lays never have.
-            PavementCorners = new CityPlan.PavementCornerArrays
-            {
-                CornerM = [], NormalA = [], NormalB = [], RadiusM = [],
-            },
             Roads = roads.Roads,
             Bridges = roads.Bridges,
             Roundabouts = roads.Roundabouts,
+            CarParks = new CityPlan.CarParkArrays
+            {
+                Junction = carParks.Junction, BayOffsets = carParks.BayOffsets, Road = carParks.Road,
+                Right = carParks.Right,
+            },
             PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = roads.Crosswalks,
             StopLines = roads.StopLines,
@@ -132,6 +165,10 @@ internal static class TownGenerator
             Props = props,
             Spawns = spawns,
             Water = water.Rings,
+
+            // The lanes, the movements and the ground the stages above stood on, handed over rather than
+            // thrown away for whoever opens the town to lay again.
+            PavingLaidWithIt = paving,
         };
     }
 

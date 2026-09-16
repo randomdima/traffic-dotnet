@@ -97,7 +97,7 @@ internal readonly struct RoadWays(RoadGraph roads) : IWayNetwork
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) => roads.ArcsOf(lane);
 
     /// <summary>
-    /// Nought at both ends: <b>a carriageway lane is cut back to the points its movements hand over at</b>
+    /// Nought at both ends: <b>a carriageway lane runs between the points its movements hand over at</b>
     /// (TER-5d), so its own line is the whole of what is driven and the ground past either end is the
     /// junction's. It is the other networks that hold a line running on past where they are travelled.
     /// </summary>

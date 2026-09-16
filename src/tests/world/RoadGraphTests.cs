@@ -72,15 +72,14 @@ public class RoadGraphTests
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var back = graph.LaneReverse[lane];
-            if (plan.Roads.Flow[graph.LaneFromRoad[lane]] != RoadFlow.BothWays)
+            if (plan.Roads.Flow[graph.LaneRoad[lane]] != RoadFlow.BothWays)
             {
                 Assert.Equal(RoadGraph.NoLane, back);
                 continue;
             }
 
             Assert.Equal(lane, graph.LaneReverse[back]);
-            Assert.Equal(graph.LaneFromRoad[lane], graph.LaneToRoad[back]);
-            Assert.Equal(graph.LaneToRoad[lane], graph.LaneFromRoad[back]);
+            Assert.Equal(graph.LaneRoad[lane], graph.LaneRoad[back]);
             Assert.Equal(graph.LaneFromJunction[lane], graph.LaneToJunction[back]);
             Assert.Equal(graph.LaneToJunction[lane], graph.LaneFromJunction[back]);
         }
@@ -119,7 +118,7 @@ public class RoadGraphTests
                 {
                     // The road as well as the lane: a lane number alone says nothing about which piece of
                     // the map to go and look at, and a generated town is laid again rather than opened.
-                    var road = graph.LaneFromRoad[lane];
+                    var road = graph.LaneRoad[lane];
                     worst = $"lane {lane} of road {road}, junctions {plan.Roads.FromJunction[road]} to "
                             + $"{plan.Roads.ToJunction[road]} over {plan.Roads.SegmentsOf(road).Length} arc(s), "
                             + $"at {pointM} stands on {terrain.GroundAt(pointM)}";
@@ -147,7 +146,7 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var road = graph.LaneFromRoad[lane];
+            var road = graph.LaneRoad[lane];
             var centreline = plan.Roads.SegmentsOf(road);
             var start = graph.StartOf(lane);
             var onCentreline = Spline.ProjectM(centreline, start.PositionM, 0f, float.MaxValue);
@@ -188,9 +187,10 @@ public class RoadGraphTests
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
             var end = graph.EndOf(lane);
-            foreach (var onto in graph.LanesFrom(lane))
+            foreach (var connector in graph.ConnectorsFrom(lane))
             {
-                var start = graph.StartOf(onto);
+                var onto = graph.ConnectorTo(connector);
+                var start = Spline.SampleAt(graph.ArcsOf(onto), 0f);
                 var apartRad = MathF.Acos(Math.Clamp(Vector2.Dot(end.Direction, start.Direction), -1f, 1f));
                 if (apartRad > StraightThroughRad) continue;
 
@@ -230,14 +230,9 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var road = graph.LaneFromRoad[lane];
+            var road = graph.LaneRoad[lane];
             var declaredM = plan.Roads.WidthM[road] / plan.Roads.LanesOn(road);
             Assert.Equal(declaredM, graph.LaneWidthM[lane], tolerance: 1e-4f);
-
-            // <b>And the road it arrives on declares the same figure</b> (TER-5i): a band has one width, so
-            // a run is folded through a node only where the carriageway does not step there.
-            var onto = graph.LaneToRoad[lane];
-            Assert.Equal(declaredM, plan.Roads.WidthM[onto] / plan.Roads.LanesOn(onto), tolerance: 1e-4f);
 
             var centreline = plan.Roads.SegmentsOf(road);
             var start = graph.StartOf(lane);
@@ -255,9 +250,9 @@ public class RoadGraphTests
     }
 
     /// <summary>
-    /// A turn is a fact about the road, and the three kinds are exhaustive: every lane leaving the node a
-    /// lane arrives at is joined to it by exactly one of them — <b>except the one that goes back the way it
-    /// came</b>, which is no movement at all (TER-5f) and is not in the table.
+    /// A turn is a fact about the road, and the three kinds are exhaustive: every lane a body at the node
+    /// this one arrives at may leave for is joined to it by exactly one of them — <b>except the one that goes
+    /// back the way it came</b>, which is no movement at all (TER-5f) and is not in the table.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -267,17 +262,21 @@ public class RoadGraphTests
 
         for (var lane = 0; lane < graph.LaneCount; lane++)
         {
-            var leaving = graph.Places.LanesLeaving(graph.Places.Arriving(lane));
+            var place = graph.Places.Arriving(lane);
+            var leaving = graph.Places.LanesLeaving(place);
             var reverse = graph.LaneReverse[lane];
 
             // Every lane out of the place is a connector out of this one but the ones that face back: its
             // own reverse always, and anything else within the straight tolerance of head-on.
-            Assert.InRange(graph.LanesFrom(lane).Length, 0, leaving.Length - (leaving.Contains(reverse) ? 1 : 0));
+            Assert.InRange(
+                graph.LanesFrom(lane).Length, 0, leaving.Length - (leaving.Contains(reverse) ? 1 : 0));
             Assert.Null(graph.TurnBetween(lane, reverse));
 
             foreach (var lane2 in graph.LanesFrom(lane))
             {
-                Assert.Equal(graph.Places.Arriving(lane), graph.Places.Starting(lane2));
+                Assert.True(
+                    graph.Places.Starting(lane2) == place,
+                    $"{map}: lane {lane} is joined to {lane2}, which does not start at place {place}");
                 Assert.NotEqual(reverse, lane2);
             }
         }
@@ -285,14 +284,13 @@ public class RoadGraphTests
 
     /// <summary>
     /// <b>Every turn carries the line across the box that goes with it, and that line runs from one lane's
-    /// own last point to the next lane's own first</b> (TER-5d). A lane is cut back to the points its
-    /// movements hand over at, so a junction is a set of connection points and the joins are what run
-    /// between them: a join starting or finishing anywhere else would be a break in every line assembled
-    /// through it, and a lane running on past one would be ground held twice with a spur nobody drives.
+    /// own last point to the next lane's own first point</b> (TER-5d). A join starting or finishing anywhere
+    /// else would be a break in every line assembled through it, and a lane running on past one would be
+    /// ground held twice with a spur nobody drives.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
-    public void EveryJoinRunsFromOneLanesEndToTheNextLanesStart(string map)
+    public void EveryJoinRunsFromOneLanesEndToWhereItLandsOnTheNext(string map)
     {
         var graph = GraphOf(map);
 
@@ -304,7 +302,7 @@ public class RoadGraphTests
                 var slot = graph.ConnectorsFrom(lane)[turn];
                 var join = graph.ConnectorArcs(slot);
                 var leaves = graph.EndOf(lane);
-                var arrives = graph.StartOf(turns[turn]);
+                var arrives = Spline.SampleAt(graph.ArcsOf(turns[turn]), 0f);
 
                 // A pair of lanes that already meet needs no line between them, which is the one case
                 // with nothing to check.
@@ -319,7 +317,9 @@ public class RoadGraphTests
                 var startM = (join[0].StartM - leaves.PositionM).Length();
                 var endM = (Spline.SampleAt(join, graph.ConnectorLengthM(slot)).PositionM - arrives.PositionM).Length();
                 Assert.True(startM < JoinToleranceM, $"{map}: lane {lane} onto {turns[turn]} starts {startM:F3} m off its own lane");
-                Assert.True(endM < JoinToleranceM, $"{map}: lane {lane} onto {turns[turn]} ends {endM:F3} m off the lane it joins");
+                Assert.True(
+                    endM < JoinToleranceM,
+                    $"{map}: lane {lane} onto {turns[turn]} ends {endM:F3} m off where it lands on the lane it joins");
             }
         }
     }

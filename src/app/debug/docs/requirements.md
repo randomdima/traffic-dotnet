@@ -13,7 +13,9 @@ what it costs to gather is not paid while its body is shut
 ([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
 **OBS-2c** `P8` **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
-anything a second one owns.** Ten of them. **A layer covers one kind of body entirely** — its geometry and its
+anything a second one owns.** Eleven of them, and **the ground's own layers are not among them** (OBS-2v):
+those take the town apart rather than drawing anything over it, and they start on. **A layer covers one kind
+of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
 to the *town* rather than to a body is not switched with a body at all**.
 
@@ -39,19 +41,34 @@ the route past the second piece belongs to the nodes layer or to no layer at all
 meet, a dot where the drawing stops. Nothing about a body is drawn a second time in a second style —
 a junction a car holds is the ground of the join its route already runs through.
 
-**The marks down a line stand on a comb laid over the town, not over the line.** One falls wherever the
-distance from the world origin along the line's own bearing is a whole number of pitches, so **nothing
-about where a line begins, or how much of it is being drawn, moves a single mark**. Marks placed from a
-line's own start are a picture of where the lines were cut: two lanes of one carriageway drift against
-each other by whatever their ends happen to differ by, an agent's own line disagrees with the network
-layer under it, and a reader comparing two streets is reading the cuts rather than the ground. The
-bearing is the one the run sets off on, so a run that bends walks off its comb as it turns — the price of
-the rule, paid over the metres of a junction join and not over the straights anybody is comparing across.
+**The marks down a line stand where it crosses a grid laid over the town, not on a comb laid along the
+line.** One falls wherever the line passes a whole number of pitches from the world origin, across or
+down, so **where a mark falls is a fact about the ground the line crosses and about nothing the line
+itself is** — not where it was cut, not how much of it is being drawn, not which bend it came out of.
+Two lines over the same ground therefore carry the same marks: the lanes of one carriageway mark one line
+of the grid across it, a movement running along a lane stands its marks on the lane's, and an agent's own
+line lands on the stones the network layer under it already drew. Marks laid off a line's own start are a
+picture of where the lines were cut instead — and a chain of short pieces, which is what a roundabout ring
+and every junction join are, comes out with a mark on every piece however short, because each of them is a
+start. **What the bearing decides is how far apart they are, and that is the price**: a line square to the
+grid crosses one family of its lines and is marked every pitch, one at forty-five degrees crosses both and
+is marked about seven tenths of that, and a line through a corner of the grid is marked once rather than
+twice within a stroke.
+
+**And the grid says where a mark may fall, not that every line crossing a stone carries one.** No two marks
+saying the same thing stand within a metre of each other, over the whole of a pass and across both networks
+([`MarkClaims`](../MarkClaims.cs)) — the movements leaving one lane end all set off from one point, so a
+junction otherwise comes out with a chevron for every arm piled on one stone and a reader cannot tell a fan
+from a blot. **Two marks saying opposite things are not a blot**: a pair of lines over one piece of ground
+is read by its chevrons crossing, so a stone is refused only to a mark saying what the mark already
+standing there says.
 
 **A mark says direction only where the ground has one.** Where the two directions of a stretch are laid
 on one line — the ground had no room for a lane either side, which is every crossing and every pavement
-too narrow for two ([`WalkingNetwork.LaneOffsetM`](../../../world/foot/WalkingNetwork.cs)) — the mark is
-a bar square across the line instead of a chevron. Chevronned, the ground carries two combs of opposing
+too narrow for two ([`WalkingNetwork.LaneOffsetM`](../../../world/foot/WalkingNetwork.cs)), and every
+bay's way, which is a car's width driven in over and backed out over
+([`RoadGraph.LaneOverOneLine`](../../../world/road/RoadGraph.cs), GEN-4f) — the mark is
+a bar square across the line instead of a chevron. Chevronned, the ground carries two rows of opposing
 arrows on the same stones, which reads as a fault in the picture rather than as a stretch walked both
 ways. **And ground a body covers backwards takes a shade of its own network's colour**, never a colour of
 its own: the way out of a bay and the way in converge on the one rear axle, so over the last metres they
@@ -146,9 +163,13 @@ with it.
 the same rule the rest of this slice is written to: an outline drawn round a shape nothing on screen was
 cut from is a picture of the layer.
 
-**Every triangle that mesh holds, and not a class of them** — the ground, the kerb rims, the dashes and the
-zebra stripes alike. The mesh knows where the paint starts (`GroundMesh.FirstMarkVertex`) and this layer
-does not ask, because a wireframe over a subset is a picture of the filter.
+**Every triangle that is being drawn, and not a class of them** — the ground, the kerb rims, the dashes and
+the zebra stripes alike. The mesh knows where the paint starts (`GroundMesh.FirstMarkVertex`) and this layer
+does not ask, because a wireframe over a subset of what is on the glass is a picture of the filter.
+
+**And a layer the ground page has taken out of the picture is out of this too** (OBS-2v). That is not a
+filter over the mesh: the renderer is drawing those triangles or it is not, and a net over ground nobody can
+see would be this layer arguing with the picture it is a reading of.
 
 **A triangle smaller than a few pixels on the glass is not drawn.** Under that a mesh is a wash rather than
 a wireframe: nothing about where the cuts fell can be read out of it, and at a town-wide framing it would
@@ -159,6 +180,25 @@ is also the honest answer to whether the question can be asked from here.
 so it is cached and re-emitted on the same terms the nodes layer is — and laid after that layer, because a
 city's triangulation is more quads than the cache holds at any framing that admits it, and laid first it
 would leave a switch on beside it drawing nothing.
+
+**OBS-2v** `P8` **The ground is a stack of layers, and each layer is a switch and a reading.** Every layer
+the mesh is laid in — the grass, the walk and its kerb, the water, the decks, the carriageway, the slabs,
+the town's kerb and the paint — can be taken out of the picture on its own, and each says what it came to:
+the triangles it is, the corners it brought that no earlier layer had already stood at, and how long it took
+to cut. Under them the same for the whole mesh, and how much of that time went on the boundary every layer
+is struck off rather than on any layer of it.
+
+- **These switches start on, where every switch in OBS-2c starts off.** They are not instrumentation drawn
+  over the town — they are the town, so a run that has asked for nothing draws the whole of it.
+- **A layer is taken out of the draw and never out of the mesh.** The triangles are cut once, when the town
+  stands; a switch shortens what is drawn out of them. So no figure on the page moves when one is thrown,
+  putting a layer back costs nothing to lay, and a reading is of the town rather than of what is showing.
+- **Every figure is the mesh's own.** This page measures nothing and remembers nothing, so what it says and
+  what the renderer draws cannot come apart — and a report that prints the same table reads the same
+  tallies rather than taking the measurement again.
+- **What it is opened for is where the ground goes.** Which layer is most of the triangles, which is most of
+  the milliseconds, and whether the two are the same layer — a question about the picture rather than about
+  the town, like the triangulation it stands beside (OBS-2o).
 
 **OBS-2p** `P8` **The outside of the town's driven ground is a layer**: every lane, every movement through a
 box and every way into a bay taken as the ribbon of ground it covers, all of them merged into one shape, and
@@ -187,15 +227,57 @@ cannot — **which side of it the shape is on**. A ring is walked with the drive
 throughout (TER-3c.9), so a run of normals turned out at the grass is a corner that came out the wrong way
 round, and the boundary drawn there is as wrong as it looks however continuous it is.
 
+**Every outline the layer draws is drawn that one way, and read that one way.** The rings the merge closed,
+the runs it could not, and the layers struck off the town (OBS-2u) are each a set of chains walked with their
+own ground on their right, so each is that line and those normals — **and what tells them apart is a colour
+and nothing else**. The pointer searches all of them alike and names the one it found (OBS-2t). A layer
+whose first outline had the line, the normals and the pointer while the rest had a stroke would be saying
+that the others are decoration; they are the same answer about a different shape, and the next one added is
+a colour and a line of code.
+
+**And every one of them is culled by the stretch and not by the chain.** A ring's two ends stand at one
+place and it reaches half its own length in every direction, so a cull asked of the chain keeps every ring
+at every framing — and a city's outer ring is more stretches than the cache holds, which leaves the layer
+drawing its first outline and nothing else. That is not a budget to be raised: what is on the glass at a
+street framing is a dozen stretches, and a layer that draws a hundred thousand to show them is answering a
+question about the town rather than about the view (OBS-2b).
+
 **And the runs that would not close are drawn as what they are.** The boundary of a union of closed bands is
 closed, so a run with two ends is a crossing the merge did not find rather than a shape the town has: it is
 drawn in the fault colour and never in the boundary's, because a fault drawn as an answer is a fault nobody
-looks for. This layer is an instrument, and **what is then fixed is the geometry**.
+looks for. **What an open run adds is its two ends** — a disc at each — which is exactly what a ring has not
+got and is not a second way of drawing it. This layer is an instrument, and **what is then fixed is the
+geometry**.
 
 **Every side of the ground is the outside of it, so every ring that shuts is drawn.** A street grid bounds
 what it lays on the outside and round every block it encloses, and both of those are the edge of the driven
 ground. Drawn from the outermost ring alone, every block in the town comes back with no edge at all, which is
 half an answer to the question the layer is opened for.
+
+**OBS-2u** `P8` **The layers struck off the town's boundary are drawn beside it**: every one the picture is
+laid from ([`GroundRings`](../../../citygen/GroundRings.cs)), each as **an outline like any other the layer
+draws** (OBS-2p) — its own line, its own normals, and the same stretch under the pointer (OBS-2t) — in a
+colour that is neither the boundary's nor a shade of it. They are drawn under the perimeter's own switch and
+not one of their own, because the reading is the pair and there is nothing to be read from a layer's edge
+alone. **Neither kerb is among them**: a kerb is a line at a width and not a shape struck off one (TER-3d),
+and both lines are already drawn — the town's kerb is the boundary itself and the walk's own is the outer
+edge of the one layer, so drawing either would be a line drawn a second time in another colour.
+
+**The town's own layers and never a set struck here.** What a reader checks is that the red line holds one
+distance off the blue everywhere and turns where the blue turns — of the ground the town is actually
+standing on. A layer striking its own offset draws a shape nobody stands on, and one with a figure somebody
+can drag answers a different question — how the shape moves — which is a question for the construction's own
+tests.
+
+**What is drawn is the boundary of the moved shape and not the moved lines.** A feature narrower than the
+distance is not in the picture at all: the outset of a notch two metres across is no notch, and the outset
+of a ring smaller than the distance is nothing. **So the red line having fewer corners than the blue is the
+answer and not a fault** — and a red bow-tie anywhere is one, which is the second reading the pair is for.
+The runs the construction could not close are drawn in the fault colour like any other (OBS-2p).
+
+**Last of everything the layer draws, so it is first to give way.** The town's graphs are laid into a cache
+that truncates rather than slows (OBS-2b), and what a boundary layer is opened for is the boundary
+(OBS-2p): at a framing where there are not quads enough for both, the example is the half that stops.
 
 **OBS-2s** `P8` **The driven ground itself is a layer beside its outside**: the same lanes, movements and
 bay ways taken as the ribbons of ground they cover (OBS-2p), each drawn whole at its own line's width —
@@ -214,7 +296,9 @@ wash deepens and says which ones.
 **OBS-2t** `P8` **Where a layer draws everything at once, the pointer asks it about one thing.** Three
 readings, each drawn only while the layer it is about is on: **the driven line under the pointer**, as the
 whole ribbon it lays and the line of that ribbon alone (OBS-2s); **the stretch of boundary
-under the pointer**, as that stretch alone with a dot at each of its ends (OBS-2p); and **the cell of the
+under the pointer**, as that stretch alone with a dot at each of its ends and the outline it is a stretch of
+named beside it — every outline the layer draws is searched and the nearest of all of them wins (OBS-2p);
+and **the cell of the
 geometry grid that was clicked**, as its own square and every line the index holds in it (OBS-2r).
 
 **What is picked out is drawn heavier and in one colour, and what it is is written beside the pointer** —

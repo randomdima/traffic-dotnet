@@ -24,14 +24,10 @@ namespace TrafficSimulation.App.Main;
 /// fifty small ones.
 /// </para>
 /// <para>
-/// <b>Most maps cross the wire as nothing at all.</b> A city is generated from a brief of a few hundred
-/// bytes and a laboratory map is laid in code, so what a page fetches for either is its brief or
-/// nothing — and the briefs come down with the papers at boot, because the menu reads a city's own
-/// description out of one. <b>Only a town still carried as a file is fetched when it is picked</b>: what
-/// <see cref="Boot"/> lays for one of those is its <em>name</em>, an empty file, and the bytes arrive in
-/// <see cref="Town"/> when something asks to open it. That is the whole reason <see cref="Game.Start"/>
-/// is reached from the boot's own <c>await</c> and never from inside a frame: a loop cannot wait on a
-/// fetch, so the fetch happens where waiting is allowed and the frame that follows finds the file there.
+/// <b>No town crosses the wire at all.</b> A city is generated from a brief of a few hundred bytes and a
+/// map laid to be looked at is laid in code, so what a page fetches for either is its brief or nothing —
+/// and the briefs come down with the papers at boot, because the menu reads a city's own description out
+/// of one.
 /// </para>
 /// </remarks>
 internal static class Data
@@ -42,42 +38,21 @@ internal static class Data
     /// <summary>Every file under <c>assets/</c>, in one archive the build wrote (<see cref="Art"/>).</summary>
     const string Pack = "assets.tar.gz";
 
-    /// <summary>
-    /// What the build compresses and this unpacks — the towns carried as files, and nothing else. A
-    /// <c>.town</c> is better than half zero bytes because its lane index is laid out for reading rather
-    /// than for sending. The art is already compressed and is fetched as it lies, and a brief is a few
-    /// hundred bytes and comes down as it lies too.
-    /// </summary>
-    /// <remarks>
-    /// <b>Gzip, and brotli is not an option here</b>: the browser's runtime carries zlib and no brotli,
-    /// so <c>BrotliStream</c> throws on this platform. A brotli town would have to be one the server
-    /// marked <c>Content-Encoding</c> and the browser unwrapped before the fetch resolved — which is
-    /// what <c>_framework</c> relies on, and is a fact about the host rather than about this build.
-    /// </remarks>
-    const string Squeezed = ".gz";
-
     /// <summary>The two folders everything is laid under, which are the names the readers above look for.</summary>
     const string Towns = "towns";
 
     const string Assets = "assets";
 
-    /// <summary>What a brief is stored as, which is what tells one from a plan in the manifest.</summary>
+    /// <summary>What a brief is stored as, which is what tells one from anything else in the manifest.</summary>
     const string BriefKind = ".json";
-
-    /// <summary>
-    /// Each map still carried as a file, against the file it is fetched from. <b>A generated map is not
-    /// in it and neither is one laid in code</b>: there is nothing on the wire for either.
-    /// </summary>
-    static readonly Dictionary<string, string> Plans = [];
 
     /// <summary>Whether the archive has been unpacked, so a second map picked is not a second fetch.</summary>
     static bool _laid;
 
     /// <summary>
-    /// The few files the menu is drawn from — the figures and every city's brief — and the name of every
-    /// map still carried as one. <b>This is the whole of what stands between a page opening and a menu on
-    /// it</b>: a handful of small files, so the wait is one round trip and not three hundred. Everything
-    /// else is <see cref="Art"/>'s, and a filed map's own bytes are <see cref="Town"/>'s.
+    /// The few files the menu is drawn from — the figures and every city's brief. <b>This is the whole of
+    /// what stands between a page opening and a menu on it</b>: a handful of small files, so the wait is
+    /// one round trip and not three hundred. Everything else is <see cref="Art"/>'s.
     /// </summary>
     public static async Task<int> Boot(Action<string> say)
     {
@@ -109,22 +84,10 @@ internal static class Data
             var path = line.Replace('\\', '/');
             if (!path.StartsWith(Towns + "/", StringComparison.Ordinal)) continue;
 
-            // **A brief comes down now and a plan comes down when it is picked.** A brief is a few hundred
-            // bytes and the menu reads a city's description straight out of it, so a page that fetched one
-            // lazily would draw its own map list against files that are not there yet.
-            if (path.EndsWith(BriefKind, StringComparison.Ordinal))
-            {
-                papers.Add(path);
-                continue;
-            }
-
-            if (!path.EndsWith(Squeezed, StringComparison.Ordinal)) continue;
-
-            // The name is the listing: a map with no bytes yet still appears on the menu, and asking
-            // for it is what fetches it.
-            var plan = path[..^Squeezed.Length];
-            Plans[Path.GetFileNameWithoutExtension(plan)] = path;
-            if (!File.Exists("/" + plan)) File.WriteAllBytes("/" + plan, []);
+            // **A brief comes down now**, and nothing else under `towns/` is a map: a brief is a few
+            // hundred bytes and the menu reads a city's description straight out of it, so a page that
+            // fetched one lazily would draw its own map list against files that are not there yet.
+            if (path.EndsWith(BriefKind, StringComparison.Ordinal)) papers.Add(path);
         }
 
         // The briefs in one wave, for the reason the figures went out beside the listing: they are a few
@@ -176,16 +139,6 @@ internal static class Data
     }
 
     /// <summary>
-    /// The bytes of a map, asked for before anything waits on them (WEB-9). <b>The plan comes down
-    /// while the art is being decoded</b>: one is the wire and the other is the processor, and taken
-    /// in turn they are the sum of the two.
-    /// </summary>
-    public static void Expect(string map)
-    {
-        if (Plans.TryGetValue(map, out var from) && !Laid(from)) Runtime.WebGpu.Prefetch(from);
-    }
-
-    /// <summary>
     /// The art, asked for while nothing is waiting for it (WEB-9), and only where nothing asked for it
     /// sooner: a run that named a map starts the archive before the runtime does (<c>main.js</c>), and
     /// a run that did not is showing a menu that draws none of it.
@@ -199,43 +152,6 @@ internal static class Data
     {
         if (!_laid) Runtime.WebGpu.Prefetch(Pack);
     }
-
-    /// <summary>
-    /// Every other map the menu can be clicked on, fetched while nothing at all is waiting for it
-    /// (WEB-9). <b>It is called once the run is drawing</b> — a town standing or a menu up — so what a
-    /// page spends before its first frame is unchanged and what it spends after it is the wire being
-    /// used while it would otherwise be idle.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>This is not the boot fetching every map again</b>, which is the thing the decision log refuses:
-    /// that was megabytes standing between a reader and a menu. This is the same bytes behind a page that
-    /// is already being looked at, and the one it opened is not among them.
-    /// </para>
-    /// <para>
-    /// <b>And it is only the maps still carried as files</b> — the cities are generated from briefs that
-    /// are already here, so what is left to fetch ahead is the two fixtures. What this trades is a town's
-    /// worth of bytes nobody may ask for against a pick that opens with no wait in it at all. A plan
-    /// already in the file system is skipped, and so is one already in flight.
-    /// </para>
-    /// </remarks>
-    public static void ExpectEvery()
-    {
-        var wanted = new StringBuilder();
-        foreach (var from in Plans.Values)
-        {
-            if (!Laid(from)) wanted.Append(from).Append('\n');
-        }
-
-        if (wanted.Length > 0) Runtime.WebGpu.Prefetch(wanted.ToString());
-    }
-
-    /// <summary>
-    /// Whether a map's plan is in the file system already, which is the one state it is not fetched in.
-    /// <b>A map laid at boot is the empty file its name was written as</b> (<see cref="Boot"/>), so the
-    /// length and not the existence is the question.
-    /// </summary>
-    static bool Laid(string from) => new FileInfo("/" + from[..^Squeezed.Length]).Length > 0;
 
     /// <summary>
     /// A batch of files into the file system. <b>What is read out here is already in the page's
@@ -302,26 +218,6 @@ internal static class Data
         path.EndsWith(".png", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// One map's plan, in the file system by the time this returns. Idempotent: a map opened twice is
-    /// fetched once, because the placeholder the name was laid as is the only empty one there is.
-    /// </summary>
-    /// <remarks>
-    /// <b>A map the manifest does not name has nothing to fetch, and that is not a failure.</b> A city is
-    /// generated from a brief that came down at boot and a laboratory map is laid in code, so for either
-    /// of them this is the whole of the work. <b>A name that is no map at all is refused where a name
-    /// becomes a town</b> (<c>CityGen.Maps.Plan</c>), with the list of what there is in the message —
-    /// two places refusing it would be two lists of the maps.
-    /// </remarks>
-    /// <param name="say">What the page is told, and only where there is something to wait for.</param>
-    public static async Task Town(string map, Action<string> say)
-    {
-        if (!Plans.TryGetValue(map, out var from) || Laid(from)) return;
-
-        say($"fetching {map}…");
-        File.WriteAllBytes("/" + from[..^Squeezed.Length], Inflate(await Read(from)));
-    }
-
-    /// <summary>
     /// One file the page was served. <b>It is the page's own <c>fetch</c> and not an
     /// <c>HttpClient</c></b>: on this machine that class is itself a shim over the same call,
     /// reached through the same interop, so the whole HTTP stack — the handler pipeline, the header
@@ -333,15 +229,5 @@ internal static class Data
         var content = new byte[await Runtime.WebGpu.Grab(path)];
         Runtime.WebGpu.Take(content);
         return content;
-    }
-
-    /// <summary>The bytes a gzip stream holds. Once per map opened, so nothing here is a hot path.</summary>
-    static byte[] Inflate(byte[] squeezed)
-    {
-        using var source = new MemoryStream(squeezed);
-        using var gzip = new System.IO.Compression.GZipStream(source, System.IO.Compression.CompressionMode.Decompress);
-        using var whole = new MemoryStream(squeezed.Length * 4);
-        gzip.CopyTo(whole);
-        return whole.ToArray();
     }
 }

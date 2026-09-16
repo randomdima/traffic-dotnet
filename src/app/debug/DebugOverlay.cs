@@ -79,6 +79,10 @@ internal sealed partial class DebugOverlay
     const float LabelPixelsPerMetre = 10f;
 
     readonly OverlayQuad[] _town = new OverlayQuad[TownQuadCapacity];
+
+    /// <summary>Which stones the town layer's marks took, kept beside its quads and re-laid with them.</summary>
+    readonly MarkClaims _marks = new();
+
     int _townQuads;
     int _drawnGeneration = -1;
     float _drawnPixelsPerMetre = -1f;

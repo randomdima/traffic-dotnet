@@ -389,7 +389,7 @@ internal sealed partial class FootGraph
         /// <remarks>
         /// <para>
         /// The pavement is cut into pieces by what it is laid off — a piece per band, per fillet and per
-        /// box, cut again wherever the one rule opens and closes (<see cref="Wrap"/>) — and most of those
+        /// box, cut again wherever the ground's own veto opens and closes (TER-3c.6) — and most of those
         /// cuts fall in the middle of a footway nothing joins. Such a node stands for nothing: the walking
         /// side lays no corner at it (<c>WalkingNetwork.SamePlaceAt</c>) and gives up no ground for one, so
         /// what it costs is a node, a pair of edges, four turns nobody chooses between and a stretch's worth

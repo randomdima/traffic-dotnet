@@ -226,6 +226,14 @@ second and there are a dozen questions to ask of it.
 (`Towns.Fresh`), and the generator's determinism cases lay their town twice on purpose (`Towns.LayFresh`):
 handed the shared one they would compare a town to itself and pass whatever the generator did.
 
+**Nor asked a geometry question from two classes at once.** The indexes a town holds are built with it and
+never written to again, which is what lets a tick read one without a lock — but the scratch a *query* uses
+is the index's own and is not re-entrant. Two classes are two collections and run at once, so two of them
+asking one town which lines are near a place read each other's candidate sets, and **what comes back is a
+well-formed wrong answer**: a city's boundary came back with two hundred runs open in one run out of several
+and closed in the next. A class that asks a shared town a geometry question joins
+`TownGeometryCollection`, which does not run beside anything.
+
 **Ask a whole city the shallow questions only**; detailed geometry is asked of named places on the
 fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 

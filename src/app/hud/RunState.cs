@@ -28,10 +28,10 @@ internal sealed class RunState
 
     /// <summary>The agents are not asked to decide, and the hand-driven one still is.</summary>
     /// <remarks>
-    /// <b>Held from the moment a town opens, temporarily</b>: what is being looked at while the town's
-    /// boundary is staged is the ground, and a town that drives itself away from the frame is a town being
-    /// read through moving cars. The <c>Pause</c> key still lets go of it, and the default goes back with
-    /// the stage (<c>RoadFigures.CarriagewayDrawn</c>).
+    /// <b>Held from the moment a town opens, temporarily</b>: what is being looked at while the lane layer
+    /// is rebuilt is the ground, and a town that drives itself away from the frame is a town being read
+    /// through moving cars. The <c>Pause</c> key still lets go of it, and the default goes back with the
+    /// rest of what the rework put down ([known gaps](../../../docs/index.md#known-gaps)).
     /// </remarks>
     public bool AgentsHeld { get; set; } = true;
 

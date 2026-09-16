@@ -101,7 +101,12 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     readonly GpuBuffer _overlayIndirect;
     readonly GpuBuffer _underlay;
     readonly GpuBuffer _underlayIndirect;
-    readonly uint _indexCount;
+
+    /// <summary>The ground it was laid for, kept so a part switched off can be packed out of the draw and back into it (<see cref="ShowGround"/>).</summary>
+    readonly GroundMesh _mesh;
+
+    uint _indexCount;
+    uint _shownParts = GroundParts.All;
 
     DescriptorSetLayout _setLayout;
     PipelineLayout _pipelineLayout;
@@ -155,6 +160,7 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _sheetTable = vk.CreateBuffer((ulong)(SheetSlots * sizeof(SheetPlace)), BufferUsageFlags.UniformBufferBit, hostVisible: true);
         _atlas.Places.CopyTo(_sheetTable.Span<SheetPlace>());
 
+        _mesh = mesh;
         var vertices = mesh.Vertices;
         var indices = mesh.Indices;
         _indexCount = (uint)indices.Length;
@@ -261,8 +267,46 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// <summary>The whole image's width over its height, for the sheets that are one picture rather than a grid — a roof, a prop look.</summary>
     public float SheetAspect(int sheet) => _atlas.Places[sheet].WidthPx / _atlas.Places[sheet].HeightPx;
 
-    /// <summary>How many triangles the town's standing ground came to.</summary>
+    /// <summary>How many triangles of the town's standing ground are being drawn.</summary>
     public int TriangleCount => (int)(_indexCount / 3);
+
+    /// <summary>
+    /// <b>Which of the ground's own layers are drawn</b> (OBS-2v), as a bit per <see cref="GroundPart"/>.
+    /// The parts asked for are packed to the front of the index buffer the driver already owns and the
+    /// draw's count is cut to what was written, so a layer switched off costs one copy at the moment it
+    /// is switched and nothing per frame — no recording, no pipeline and no ground laid again.
+    /// </summary>
+    /// <remarks>
+    /// <b>The copy is from the mesh and never from the buffer</b>, so a part switched back on comes back
+    /// whole however many times the set has changed. The device is waited on first: the memory being
+    /// rewritten is the memory a frame still in flight is reading its triangles out of.
+    /// </remarks>
+    public void ShowGround(uint parts)
+    {
+        if (parts == _shownParts) return;
+
+        _shownParts = parts;
+        _vk.Api.DeviceWaitIdle(_vk.Device);
+
+        var all = _mesh.Indices;
+        var into = _indices.Span<uint>();
+        var written = 0;
+        for (var part = 0; part < GroundParts.Count; part++)
+        {
+            if ((parts & (1u << part)) == 0) continue;
+
+            var tally = _mesh.Parts[part];
+            all.Slice(tally.FirstIndex, tally.IndexCount).CopyTo(into[written..]);
+            written += tally.IndexCount;
+        }
+
+        _indexCount = (uint)written;
+        _indirect.Span<DrawIndexedIndirectCommand>()[0] = new DrawIndexedIndirectCommand
+        {
+            IndexCount = _indexCount,
+            InstanceCount = 1,
+        };
+    }
 
     public Extent2D Size => _target.Extent;
 

@@ -25,8 +25,8 @@ public class JunctionClaimTests
     static readonly SimConfig Config = SimConfig.Shipped();
 
     /// <summary>
-    /// Two minutes of the town. <b>A minute is not long enough to witness the exchange from both ends</b>
-    /// (<see cref="ACrossingIsTakenFromAMovementThatGivesWayToIt"/>): a fleet whose cars accelerate and
+    /// Two minutes of the town. <b>A minute is not long enough to witness the exchange from both ends</b>:
+    /// a fleet whose cars accelerate and
     /// brake at their own rates (CAR-11) arrives at the junctions less regularly than one nominal car
     /// repeated, so the rarer half of the right-of-way trade needs a longer watch to turn up at all.
     /// </summary>

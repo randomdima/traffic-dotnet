@@ -18,7 +18,7 @@ namespace TrafficSimulation.Agents.Car.Maneuvers;
 /// the term that bound its speed can never disagree.
 /// </para>
 /// <para>
-/// <b>One field is conditional and says so</b>: <see cref="RouteReversesHere"/> is only meaningful on a
+/// <b>One field is conditional and says so</b>: <see cref="TurnsBackHere"/> is only meaningful on a
 /// route, and reads <c>false</c> where it was not asked — the answer that makes the entry reading it do
 /// nothing.
 /// </para>

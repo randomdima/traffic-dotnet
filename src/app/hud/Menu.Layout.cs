@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 
@@ -80,8 +81,27 @@ internal sealed partial class Menu
     /// <summary>The panel's height less its content: the title, the tab strip and the paddings between them.</summary>
     static float ChromeHeightPx(bool atTheStart) => ContentTopPx(atTheStart) + Theme.PaddingPx;
 
-    /// <summary>What the content column is never shorter than, which is the debug page laid whole.</summary>
-    static readonly float LeastContentHeightPx = MostLines * LinePitchPx - Theme.GapPx;
+    /// <summary>
+    /// What the content column is never shorter than, which is the longest of the pages that are laid at
+    /// a pitch rather than scrolled: a ceiling cutting into either of them would draw its last rows
+    /// outside the panel.
+    /// </summary>
+    static float LeastContentHeightPx =>
+        MathF.Max(MostLines, GroundRows) * LinePitchPx - Theme.GapPx;
+
+    /// <summary>
+    /// The ground page: one row a layer, the two rows the whole mesh is read off, and the row that puts
+    /// every layer back (<see cref="WholeGroundRow"/>).
+    /// </summary>
+    const int GroundRows = GroundParts.Count + 3;
+
+    /// <summary>The first of the two rows that read the whole mesh rather than one layer of it.</summary>
+    const int GroundAllRow = GroundParts.Count;
+
+    /// <summary>And the row under them, which is not a layer either: it puts the whole ground back.</summary>
+    public const int WholeGroundRow = GroundRows - 1;
+
+    static float GroundHeightPx => GroundRows * LinePitchPx - Theme.GapPx;
 
     /// <summary>And the figures page, which is one row a trim and the one under them that resets the lot.</summary>
     static readonly float FiguresHeightPx = (TrimFigures.Count + 1) * TrimPitchPx - Theme.GapPx;
@@ -97,9 +117,15 @@ internal sealed partial class Menu
         return widthPx;
     }
 
-    readonly Rect[] _tabs = new Rect[4];
+    readonly Rect[] _tabs = new Rect[Pages + 1];
     readonly Rect[] _rows = new Rect[MostRows];
     readonly Rect[] _lines = new Rect[MostLines];
+
+    /// <summary>
+    /// One row a layer of the ground, the two the whole of it is read off, and the row that puts every
+    /// layer back.
+    /// </summary>
+    readonly Rect[] _grounds = new Rect[GroundRows];
 
     /// <summary>One track a trim, and the reset row under them.</summary>
     readonly Rect[] _trims = new Rect[TrimFigures.Count + 1];
@@ -304,7 +330,8 @@ internal sealed partial class Menu
             {
                 Maps => HeightOf(_firstRow, _shownRows),
                 Figures => FiguresHeightPx,
-                _ => LeastContentHeightPx,
+                Ground => GroundHeightPx,
+                _ => MostLines * LinePitchPx - Theme.GapPx,
             });
 
         var sizePx = new Vector2(
@@ -360,6 +387,13 @@ internal sealed partial class Menu
             _trims[trim] = new Rect(
                 new Vector2(contentX, contentTopY + trim * TrimPitchPx), new Vector2(contentWidthPx, Theme.TallRowPx));
         }
+
+        for (var row = 0; row < _grounds.Length; row++)
+        {
+            _grounds[row] = new Rect(
+                new Vector2(contentX, contentTopY + row * LinePitchPx), new Vector2(contentWidthPx, Theme.RowPx));
+        }
+
     }
 
     /// <summary>
@@ -467,11 +501,25 @@ internal sealed partial class Menu
 
         return MathF.Max(
             wantedPx,
-            MathF.Max(WidestPx(Lines, Theme.TextPx), WidestPx(TrimFigures.Names, Theme.TextPx) + TrimShareRoomPx));
+            MathF.Max(
+                MathF.Max(WidestPx(Lines, Theme.TextPx), WidestPx(TrimFigures.Names, Theme.TextPx) + TrimShareRoomPx),
+                TickRoomPx + WidestPx(GroundParts.Names, Theme.TextPx) + Theme.GapPx + GroundReadingRoomPx));
     }
+
+    /// <summary>
+    /// The room a layer's own reading is drawn in, kept off the end of its name so the two never meet.
+    /// <b>It is measured against the widest reading a mesh can come to</b> and not against the one this
+    /// town happens to hold: a panel that changed width when a city was opened over a scenario would be
+    /// two panels.
+    /// </summary>
+    static readonly float GroundReadingRoomPx =
+        GlyphSheet.WidthPx("999999 tri  9999 ms".Length, Theme.SmallTextPx) + Theme.InsetPx;
 
     /// <summary>The room a trim's own share is drawn in, kept off the end of its name so the two never meet.</summary>
     static readonly float TrimShareRoomPx = GlyphSheet.WidthPx("1000%".Length, Theme.TextPx) + Theme.InsetPx * 2f;
+
+    /// <summary>The room a tick box and its inset take off a row, which is what the name beside it is left.</summary>
+    const float TickRoomPx = Theme.RowPx + Theme.InsetPx * 2f;
 
     /// <summary>
     /// What a row wants to be laid at so that nothing in it breaks. <b>The popup's own question</b>: the

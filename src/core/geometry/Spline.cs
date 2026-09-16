@@ -60,6 +60,53 @@ internal static class Spline
     }
 
     /// <summary>
+    /// <b>The ground a closed chain encloses, exactly</b> — the polygon through every piece's own two ends
+    /// plus the circular segment each bend cuts off its own chord, signed by which way the chain is walked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Exact, and so the figure a cut boundary is weighed against.</b> Everything downstream of a
+    /// <see cref="ShellFill"/> reads the shell as chords and loses the bow off every bend; what says how much
+    /// was lost is the area nothing approximated, and there is nowhere else to get it.
+    /// </para>
+    /// <para>
+    /// <b>A joint that is open is closed with the straight a fill would draw across it</b>, and that is why
+    /// each piece contributes two terms rather than one. A merged shell's pieces do not all meet — a town's
+    /// perimeter has thousands of joints open by up to a couple of handspans — and a sum that took each
+    /// piece's own chord alone would silently leave out the ground under every one of them. On a chain whose
+    /// pieces do meet, the second term is zero and this is the plain shoelace.
+    /// </para>
+    /// <para>
+    /// Summed in <c>double</c> for the same reason <see cref="ShellFill"/>'s shoelace is: the terms are
+    /// coordinates multiplied by coordinates, and a town two kilometres across cancels six of a float's
+    /// seven figures in each of them.
+    /// </para>
+    /// </remarks>
+    public static double EnclosedM2(ReadOnlySpan<ArcSeg> ring)
+    {
+        var twice = 0.0;
+        var segmentsM2 = 0.0;
+
+        for (var at = 0; at < ring.Length; at++)
+        {
+            var arc = ring[at];
+            var fromM = arc.StartM;
+            var toM = arc.EndM;
+            var nextM = ring[(at + 1) % ring.Length].StartM;
+
+            twice += ((double)fromM.X * toM.Y) - ((double)toM.X * fromM.Y);
+            twice += ((double)toM.X * nextM.Y) - ((double)nextM.X * toM.Y);
+
+            if (MathF.Abs(arc.Curvature) <= StraightCurvature) continue;
+
+            var sweepRad = (double)arc.Curvature * arc.LengthM;
+            segmentsM2 += (sweepRad - Math.Sin(sweepRad)) / (2.0 * arc.Curvature * arc.Curvature);
+        }
+
+        return (twice * 0.5) + segmentsM2;
+    }
+
+    /// <summary>
     /// How much of a chain's own end is curved, which is nil for one that ends straight. <b>What a road
     /// leaves a node with no fork on</b> (TER-5b), and so how far along that arm anything laid across a
     /// straight has to stand.
@@ -408,15 +455,29 @@ internal static class Spline
     /// distances measured along the pieces themselves.
     /// </remarks>
     public static int CrossingsOf(
-        in ArcSeg one, in ArcSeg other, Span<float> alongOneM, Span<float> alongOtherM)
+        in ArcSeg one, in ArcSeg other, Span<float> alongOneM, Span<float> alongOtherM) =>
+        CrossingsOf(one, other, 0f, alongOneM, alongOtherM);
+
+    /// <summary>
+    /// <b>The same, with both pieces run on past their own two ends by <paramref name="beyondM"/></b> — for
+    /// the caller that is asking where two pieces <em>would</em> meet rather than where they do.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is what makes a corner between two bends exact.</b> Two pieces that meet at a corner have
+    /// offsets that cross somewhere neither of them reaches, and the straight-line mitre that stands in for
+    /// it — the distance against the half turn — is the answer only where both pieces are straight. On a
+    /// bend it is out by centimetres, which is a corner that does not close.
+    /// </remarks>
+    public static int CrossingsOf(
+        in ArcSeg one, in ArcSeg other, float beyondM, Span<float> alongOneM, Span<float> alongOtherM)
     {
         Span<Vector2> atM = stackalloc Vector2[2];
         var found = CrossingsOf(one, other, atM);
         var kept = 0;
         for (var at = 0; at < found && kept < alongOneM.Length && kept < alongOtherM.Length; at++)
         {
-            if (!AlongOf(one, atM[at], 0f, 0f, out var alongOne)) continue;
-            if (!AlongOf(other, atM[at], 0f, 0f, out var alongOther)) continue;
+            if (!AlongOf(one, atM[at], beyondM, beyondM, out var alongOne)) continue;
+            if (!AlongOf(other, atM[at], beyondM, beyondM, out var alongOther)) continue;
 
             alongOneM[kept] = alongOne;
             alongOtherM[kept] = alongOther;
@@ -777,6 +838,63 @@ internal static class Spline
         into[0] = ArcThrough(fromM, fromHeadingRad, jointM);
         into[1] = ArcThrough(jointM, into[0].HeadingAtRad(into[0].LengthM), toM);
         return 2;
+    }
+
+    /// <summary>
+    /// The one arc of a given radius that joins two poses, and the straight either side of it — <b>the whole
+    /// turn made at once on a circle the caller names</b>, with the lines the two poses are already on left
+    /// straight for everything the turn does not spend.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The radius is given rather than solved for, which is the whole of the difference from</b>
+    /// <see cref="BiarcInto"/>: a biarc spends the ground between the poses on the turn and so turns the
+    /// whole way along it, while this spends the turn's own and nothing else. Where a car is at a standstill
+    /// the circle is the car's, not the room's.
+    /// </para>
+    /// <para>
+    /// <b>The turn sits at the corner the two lines make.</b> An arc of this radius through a turn stands off
+    /// the point those lines cross by the tangent length either side, so the place it begins is arithmetic
+    /// and not a search, and what is left over at each end is straight.
+    /// </para>
+    /// <para>
+    /// <b>Nought where there is no such line</b>: poses that are parallel or facing, or either of them
+    /// standing nearer the corner than the tangent length — a turn this wide does not fit in the room there
+    /// is. A caller that wants a line whatever the poses falls back on <see cref="BiarcInto"/>, which joins
+    /// any two. <b>A run of nothing is still a run</b>: a pose at exactly the tangent length is the tightest
+    /// place this line exists at, and which side of nought the arithmetic lands on there is the rounding
+    /// rather than the geometry.
+    /// </para>
+    /// </remarks>
+    public static int StraightArcStraightInto(
+        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float radiusM,
+        Span<ArcSeg> into)
+    {
+        var turnRad = WrapRad(toHeadingRad - fromHeadingRad);
+        var apart = MathF.Sin(turnRad);
+        if (MathF.Abs(apart) < 1e-4f) return 0;
+
+        var from = Heading.Unit(fromHeadingRad);
+        var to = Heading.Unit(toHeadingRad);
+        var chord = toM - fromM;
+        var tangentM = radiusM * MathF.Abs(MathF.Tan(turnRad * 0.5f));
+        var beforeM = (((chord.X * to.Y) - (chord.Y * to.X)) / apart) - tangentM;
+        var afterM = (((chord.Y * from.X) - (chord.X * from.Y)) / apart) - tangentM;
+        if (beforeM < -LineTolerance.RoundingM || afterM < -LineTolerance.RoundingM) return 0;
+
+        var laid = 0;
+        beforeM = MathF.Max(beforeM, 0f);
+        if (beforeM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(fromM, fromHeadingRad, beforeM, 0f);
+
+        var arc = new ArcSeg(
+            fromM + (from * beforeM), fromHeadingRad, MathF.Abs(turnRad) * radiusM,
+            MathF.CopySign(1f / radiusM, turnRad));
+        into[laid++] = arc;
+
+        afterM = MathF.Max(afterM, 0f);
+        if (afterM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(arc.EndM, toHeadingRad, afterM, 0f);
+
+        return laid;
     }
 
     /// <summary>

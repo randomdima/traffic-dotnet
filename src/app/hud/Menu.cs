@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.App.Debug;
+using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 
@@ -62,12 +63,20 @@ internal sealed partial class Menu
     /// </summary>
     public const int Figures = 2;
 
-    const int Pages = 3;
+    /// <summary>
+    /// <b>The ground the renderer was handed, layer by layer</b> (OBS-2v): what each of them came to in
+    /// triangles and in milliseconds, and the switch that takes it out of the picture. It is a page of
+    /// its own and not a group on <see cref="Debug"/> because nothing on it draws anything over the town —
+    /// every row here is about the town's own ground and is on rather than off to begin with.
+    /// </summary>
+    public const int Ground = 3;
+
+    const int Pages = 4;
 
     /// <summary>The last tab, which is a button rather than a page: it leaves the game.</summary>
-    public const int ExitTab = 3;
+    public const int ExitTab = 4;
 
-    static readonly string[] TabNames = ["Maps", "Debug", "Figures", "Exit"];
+    static readonly string[] TabNames = ["Maps", "Debug", "Figures", "Ground", "Exit"];
 
     /// <summary>The two collapsible groups the map page is cut into, and which kind of map each holds.</summary>
     public const int MainMaps = 0;
@@ -83,12 +92,12 @@ internal sealed partial class Menu
 
     /// <summary>
     /// The most switch rows the debug page lays, which is what the content column is never shorter than.
-    /// <b>It is <see cref="Lines"/>'s own length and has to be written twice</b>: the layout's spans are
-    /// sized from it before any instance exists, and a static field cannot read one declared below it or in
-    /// another half of this class. What holds the two together is that the last row is clicked by name in
-    /// the layout suite: laid short, the row a layer was added below is not there to be hit.
+    /// <b>It is <see cref="Lines"/>'s own length and is read off it rather than written beside it</b> — it
+    /// was a constant, and a layer taken off the list left the page laying a row with no name to draw in it.
+    /// It is a property and not a static field because a static field cannot read one declared in another
+    /// half of this class, and every reader of it runs long after the class is initialised.
     /// </summary>
-    const int MostLines = 12;
+    static int MostLines => Lines.Length;
 
     /// <summary>The bar down the rows when there are more of them than the window has room for.</summary>
     const float ScrollBarPx = 4f;
@@ -181,6 +190,9 @@ internal sealed partial class Menu
     public Vector2 TabMiddlePx(int tab) => Middle(_tabs[tab]);
 
     public Vector2 LineMiddlePx(int line) => Middle(_lines[line]);
+
+    /// <summary>And of one row of the ground page, which is a layer of the ground or the row that puts them all back.</summary>
+    public Vector2 GroundMiddlePx(int row) => Middle(_grounds[row]);
 
     /// <summary>And of one trim's track, which is where a click puts that figure back at what it ships.</summary>
     public Vector2 TrimMiddlePx(int trim) => Middle(_trims[trim]);
@@ -275,6 +287,8 @@ internal sealed partial class Menu
 
         if (Page == Figures) return ClickedTrim(pointPx, trims);
 
+        if (Page == Ground) return ClickedGroundRow(pointPx, switches.Ground);
+
         for (var line = 0; line < MostLines; line++)
         {
             if (!_lines[line].Contains(pointPx)) continue;
@@ -287,8 +301,28 @@ internal sealed partial class Menu
     }
 
     /// <summary>
+    /// A click on the ground page: one layer of the ground taken out of the picture or put back, or the
+    /// row under them that puts the whole of it back. <b>The rows that read the mesh take no click</b> —
+    /// they are what the page is looked at for and there is nothing about them to press.
+    /// </summary>
+    MenuChoice ClickedGroundRow(Vector2 pointPx, GroundSwitches ground)
+    {
+        for (var row = 0; row < _grounds.Length; row++)
+        {
+            if (!_grounds[row].Contains(pointPx)) continue;
+
+            if (row == WholeGroundRow) ground.ShowWhole();
+            else if (row < GroundParts.Count) ground.Toggle((GroundPart)row);
+
+            return MenuChoice.None;
+        }
+
+        return MenuChoice.None;
+    }
+
+    /// <summary>
     /// A press on the figures page: the row it landed in is taken hold of and moved to where the pointer
-    /// is, and it stays held until the button comes up (<see cref="Drag"/>). The row past the last trim
+    /// is, and it stays held until the button comes up (<see cref="Pointer"/>). The row past the last trim
     /// is the one that puts every figure back where the build shipped it.
     /// </summary>
     MenuChoice ClickedTrim(Vector2 pointPx, TrimFigures trims)

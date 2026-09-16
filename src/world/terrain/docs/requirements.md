@@ -64,23 +64,34 @@ is inside the box and therefore invisible, until it reached out under the paveme
 and took the corner's own line away with it.
 
 **TER-7b** `P0` **The ground is a stack of layers, and a layer is one region of the town's own boundary.**
-The town is drawn bottom to top — the grass, then the pavement and its rim, then the water and the decks,
-then the kerb line and the driven ground at its own size, then what the blocks take back, then the paint —
-and **each of those layers is the ground within one distance of the kerb**, filled as the shape it is. The
-boundary is computed once (`LaneShell`) and every layer is it moved by a figure (`GroundRings`), so a layer
-has an edge that is a line rather than whatever a heap of overlapping pieces happened to leave.
+The town is drawn bottom to top — the grass, then the pavement and the kerb along its outer face, then the
+water and the decks, then the driven ground at its own size and what the blocks take back, then the town's
+own kerb, then the paint — and **each of those layers is the ground within one distance of the kerb**, filled
+as the shape it is. The boundary is computed once (`LaneShell`) and every layer is it moved by a figure
+(`GroundRings`), so a layer has an edge that is a line rather than whatever a heap of overlapping pieces
+happened to leave. **A layer reaches the boundary and encloses every layer inside it**, so what the order
+states is the difference between two of them and no layer is cut to leave room for the next.
 
-Three consequences follow and all three are the point.
+Four consequences follow and all four are the point.
 
 - **The picture and the answer are one distance.** What the ground is at a point is which line of the town
   lays it and how far off the kerb it stands, compared against the same table the drawing is laid from
   (TER-7) — so a distance added to one is added to the other, and the question of whether the two agree
   cannot be asked. This is the whole of what the rule buys.
-- **A rim, a kerb line and an edge line are what a layer leaves of the one under it**, never a shape of
-  their own: two layers a line's width apart, the outer in the line's shade and the inner in the surface's
-  own, and what survives is a stroke on the region's boundary. A line therefore has no ends to close and no
-  corners to turn — the boundary turned them. **Which of the two distances is the surface's own is the
-  line's to say** — an edge shade is struck inside what it rims and a kerb line outside (TER-3d).
+- **A kerb is a line and is struck along a shell of its own, at its own width** (TER-3d). It belongs to no
+  layer: a kerb is where one ground hands over to another, and a stroke laid about the shell that parts them
+  is that line said once, at the width a kerbstone is, wherever the shell runs. There are two of
+  them and each has its own shell — **the town's kerb off the driven ground's boundary, the walk's own kerb
+  off the pavement's outer face** — and neither takes a triangle from any fill. Struck instead as the ground
+  between two of the distances, a kerb is the difference between two filled shapes each sampled and thinned
+  on its own terms, and what survives of two hundred millimetres is whatever those two left of it. **So a
+  kerb is laid after the fill it bounds**, and it is the one thing in the town with corners of its own to
+  turn: the corner its shell turns, at the stroke's own width.
+- **A rim and an edge line are what a layer leaves of the one under it**, never a shape of their own: two
+  layers a line's width apart, the outer in the line's shade and the inner in the surface's own laid over
+  it, and what survives is a stroke on the outer one's own edge. Such a line has no ends to close and no
+  corners to turn — the layer turned them — and an edge shade is struck *inside* what it rims. **It is what
+  is left where there is no shell to strike a line off**, a deck being a ribbon about a road's own line.
 - **A block is a hole and is filled after every region, in the other order.** Outside the town the
   distances nest inwards; inside a block, a ring nearer the kerb leaves *more* of the block beyond it, so
   the same order paves a block kerb to kerb. What a block shows is the sequence read outwards from its own
@@ -88,8 +99,11 @@ Three consequences follow and all three are the point.
 
 **What this rule does not license is drawing the same thing twice in one layer to hide a seam.** Two bands
 that abut are two offsets of one curve; laid as two shapes each is sampled to its own curvature and they
-stand a chord's sag apart. A layer here has no such seams because it has no bands — it is one region, and a
-seam inside it would be a seam in its own boundary.
+stand a chord's sag apart, and grass shows between them. **A layer here has no seams because it has no
+bands** — it is one region reaching the boundary, the layer inside it covers it, and a seam inside it would
+be a seam in its own boundary. A kerb laid over the place two grounds meet is not that either: there is no
+seam there to hide, the two having been laid one over the other, and a line the town is built of is not a
+second copy of the ground it stands on.
 
 ## The pavement
 
@@ -115,15 +129,26 @@ verge behind the walk for the same reason — a trunk in the middle of a four-me
 everyone on that street goes round.
 
 **TER-3c.3** `P4` **The pavement is the ground between the kerb and a walk beyond it**, at every angle two
-arms can meet at. The kerb is the boundary of the driven ground said as closed rings (`LaneShell`) and
-every line the town has is that boundary moved by a figure (`GroundRings`) — the kerb at nought, the kerb
-line at a line's width, the lane a walker follows at half a walk, the pavement's outer edge at a walk. So
-**every one of them is an offset of one curve**, the band between any two is exactly the difference between
-the distances that struck them, and a walker walks down the middle of it because the middle is where the
-half-walk line is. Where the boundary turns a corner it turns it once, on the ring itself (TER-5), and
-every distance inherits that corner at its own radius. Nothing is smoothed, patched or rounded on top of
-it and nothing is measured twice — the concrete, the kerb line, the lane and the answer are one
-construction read at four figures.
+arms can meet at. The kerb's own line is the boundary of the driven ground said as closed rings
+(`LaneShell`) and every line the town has is that boundary moved by a figure (`GroundRings`) — the
+carriageway at nought, the kerb's outer face at half a kerb, the lane a walker follows at a kerb and half a
+walk, the pavement's outer face at a kerb and a walk, and the walk's own kerb a kerb beyond that. So
+**every one of them is an offset of one curve**, the ground between any two is exactly the difference
+between the distances that struck them, and a walker walks down the middle of it because the middle is where
+the walk's own line is. **Every figure is measured from the boundary and never from the line before it**,
+which is what keeps that difference true: an offset taken off an offset inherits whatever the first one
+rounded, so a walk struck that way comes out narrower on the bends than on the straights. Where the boundary
+turns a corner it turns it once, on the ring itself (TER-5), and every distance inherits that corner at its
+own radius. Nothing is smoothed, patched or rounded on top of it and nothing is measured twice — the kerb,
+the concrete, the lane and the answer are one construction read at five figures.
+
+**One of the five is a shape and the rest are lines**, and a line is not cut out of a shape. The walk out to
+its outer face is the region, struck as the offset of the boundary with the driven ground taken back out of
+it. The two kerbs, the walking lane and the walk's outer face itself are lines: **a line is handed over as
+the closed line it is and given a thickness by whoever draws it** (TER-7b), which is one mesh and no offset,
+against the two offsets and the cut a region costs. **So no offset is struck at a figure only a line stands
+at** — the kerb's outer face and the walk's own kerb are figures a line ends at, and neither is a shape the
+town holds.
 
 **TER-3c.7** `P6` **The carriageway ends where the pavement starts.** Everything inside the kerb is tarmac —
 carriageway, junction and car park, and the pockets the town's own pieces leave between them: a movement
@@ -171,23 +196,43 @@ across a deck is the boundary's to strike, at the distance every other metre of 
 ## The edge line
 
 The outside of the pavement and of a bridge deck each carry a line, the way the carriageway carries a
-kerb line. **An edge is the surface drawn darker; paint is the surface drawn brighter**, and the grain of
-the ground comes through both. It is what its layer leaves of the one under it (TER-7b) — the layer laid
-at full size in the line's shade and again a line's width smaller in the surface's own — and never a shape
-of its own. Nothing walks an edge or probes a region.
+kerb. **An edge is the surface drawn darker; paint is the surface drawn brighter**, and the grain of
+the ground comes through both.
 
-**TER-3d** `P6` **The kerb line stands on the kerb and not in the lane.** It is what the carriageway leaves
-of the stroke struck a line's width *outside* it (TER-7b) — so the asphalt from the kerb line to the
-centreline is the lane the town is laid at (GEN-15). Struck inside the carriageway — the way an edge shade
-is struck inside the surface it rims — the line takes its own width off the lane it marks, and every lane
-measured off a picture comes out short of the figure the rest of the build quotes, on the bends as on the
-straights.
+**A deck's edge is what its layer leaves of the one under it** (TER-7b) — the deck laid at full size in the
+line's shade and again its own width smaller in the surface's own — because a deck is a ribbon about a
+road's own line and has no shell to strike anything off. **The pavement's is a kerb and not a rim**: the
+walk's outer face is a closed line the boundary struck, so the concrete's outer edge is a stroke laid along
+it at a kerbstone's width, drawn after the walk and covering whatever the walk's own thinning left short of
+it. Nothing walks an edge or probes a region.
 
-**It stands on the driven ground's own boundary, and so does the pavement's inner edge**, because they are
-one boundary read at two figures (TER-3c.3), so wherever the boundary steps — one band narrower than the
-one it meets, a movement leaving an arm, a car park set back off its street —
-the concrete beside it steps with it, a walk out and parallel. Struck on a curve of its own instead, a
-kerb line reads as a chamfer cut across a corner the pavement beside it turns smoothly.
+**TER-3d** `P6` **A kerb straddles the ground it bounds, and is a stroke along that ground's own shell.**
+The town's kerb is the driven ground's boundary laid at a kerb's width with that boundary running down the
+middle of it, and the walk's own kerb is the pavement's outer face laid the same way (TER-7b, TER-3c.3) — a
+kerbstone half in the road and half in the concrete, which is where a kerbstone stands. **So no part of a
+kerb ever stands further from the line it was struck from than half its own width**, on a bend, at a corner
+and at the tightest hook the boundary has alike, and a kerb seen to bulge off its own line is a defect in
+the stroke rather than a shape the town has.
+
+**And the ground beside it is drawn to a coarser line than the kerb is.** A shell is read as corners before
+anything is laid from it; the kerb is struck from that reading and the fill beneath it is that same reading
+thinned, because **a fill has no edge anybody sees** — every shell drawn here carries a kerb along its
+boundary, the kerb is laid over it, and where the fill cuts a corner what shows through is the layer under
+it. So what the fill may be got wrong by is what the kerb hides, and the kerb's own line is cut for the
+picture instead. **A fill whose edge reaches out from under its kerb is the defect**, and it is the only one
+the thinning can cause.
+
+**Its two faces are that line at half its width either side**, so wherever the shell steps — one road
+narrower than the one it meets, a movement leaving an arm, a car park set back off its street — the kerb
+steps with it. **And it is a constant width because it is a stroke and not a difference**: struck as the
+ground between a line and an offset of it, it is two filled shapes subtracted, each thinned for the picture
+on its own terms, and it comes out a kerb wide only where the two thinnings happened to agree. **It borrows
+no triangle from either fill and is drawn after them both.** Struck on a curve of its own instead, a kerb reads
+as a chamfer cut across a corner the pavement beside it turns smoothly.
+
+**Where the shell turns tighter than half a kerb, that side of the stroke stops at the middle of the turn**
+rather than carrying on past it, which is the one place the width gives: an edge carried further comes back
+on the far side of the line it is an edge of, and half a kerb off its own line is the rule the width serves.
 
 ## What this slice must produce
 

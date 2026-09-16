@@ -1,5 +1,384 @@
 # CityGen — decision log
 
+## 2026-09-14 — a car park is a junction cut into a road, and a cut reads its arms off the line
+
+**The parting had to be exact, and that is what decided everything else.** A car park cut into a street
+parts it into two roads with a node between them, and the one thing it may not do is move the street: a
+carriageway that stepped sideways at the very place a reader is looking is worse than no car park. So the
+two pieces are the arcs the road was already laid as, cut with `Spline.SubChainInto` and never drawn again.
+
+**That inverts the layer's own causality, so the plan had to say where.** Everywhere else an arm is drawn
+first — a bearing jittered off the chord to the far end — and the road is laid to satisfy it (`GEN-46`).
+A cut has no such bearing to satisfy: the line is there and the node was put into it. `ConnectionPoints`
+therefore grew a third source beside the bridge's and the ring's — **read off the road** — and
+`CityPlan.RoadArrays.Cut` says which roads take it.
+
+**Both ends of a cut road and not the cut one**, which was the first thing that did not work. An arm is
+drawn toward the far end of its own road, and a cut *moves* that far end from the old junction to the new
+node — so a piece still drawing its other bearing draws a different one than the line it kept was laid to,
+and `RoadSplineTests` catches it on every road in the town.
+
+**And the node is placed a standoff of the road's own arc back from each parting**, which is what makes the
+reading exact rather than near. The lead an arm carries is one `ArcSeg`, so the cut is taken **inside one
+arc with a standoff of it either side**: the arc from the node to the stand point is then a piece of the
+road itself, and `Spline.ArcThrough` reads it back with no case for which end it is. Measured on the suite's
+own city at four seeds, the parted lanes come back within the rounding two computations of one distance
+disagree by — which is the tolerance, and not a tolerance chosen to pass.
+
+**Two things were tried and are not here.** **Redrawing the halves through `RoadLines`** is what the layout
+does for every other change of shape, and it moves the carriageway by the wander and the jitter the two new
+links draw — the thing the cut exists to avoid. **Comparing the two towns with `ChainIndex.Nearest`** was
+the first shape of the geometry test, and it reports millimetres of drift between a town and *itself*: the
+projection over a chain of arcs is the coarser instrument by more than the figure being asked about. The
+test walks the parted lane and the lane it was at the same metre instead.
+
+**A one-way street is cut like any other, and the pieces are still one street.** Refusing one read as a
+relation `GEN-18` forbids — two one-way roads at a junction — but the scatter chose *streets*, and a cut
+parts a street rather than choosing a second one: the pieces meet at the car park and lie on one chord, so
+they are neither two of them meeting nor two of them crowding, on the terms a ring's arcs are one
+carriageway. `GEN-18` says so and `OneWays.Streets` is how the suite reads it. What the street's one
+direction does cost is the bays': each is reached and left the one way there is, which is every way the
+street has, so the reached column is read against the street rather than against two.
+
+**And a rank stands off the lane its bays turn off, which is not the line its node stands on.** The lead was
+half a lane and the turn — half a lane being where the arriving car is, on a street that carries one each
+side of its centre. On a street driven one way that is true of one side and wrong by a whole lane on the
+other: its one carriageway is moved onto the half its traffic drives (`RoadStage.OntoTheDrivenHalf`), so the
+far rank stood a lane and a half off a kerb the near one stood a metre off — the asymmetry a picture of one
+showed straight away. So the lead takes the lane it is measured from (`CarParkBayLeadM(mostBays,
+laneTowardM)`), each side of the cut asks for its own, and `CutArm` carries the lead it was laid with rather
+than the cut carrying one for all of them. **What reads which side the carriageway went is
+`RoadStage.DrivenHalfM`**, the one site that moves it, so a road type the town lays later is a road type
+this already follows. **The one thing that
+is not square is the arms' own reading**: a one-way carriageway is moved onto its driven half after the
+layout is settled (`RoadStage.OntoTheDrivenHalf`, `TER-4d`) while the node stays on the line the layout
+laid, so the way out from the node to where the street stands is skewed by that half lane and the lead is
+longer than the standoff by it — at a car park exactly as at every other junction that street has. The rank
+is laid off the line and read back off the chord between the two stand points, which is free of a step that
+is the same step at both ends.
+
+**A bay is an arm, and its way is that arm's lane.** The first cut gave each side of a car park one ordinary
+two-way arm and carried the bay count beside it as data, which made every car park the same 2×2 junction
+whatever it was a car park of. It is one arm a bay instead: a rank of them a lane apart on a line a reach
+past the road's edge, centred on the node.
+
+**A rank is parallel, which meant an arm that does not leave from the node.** An arm had until then been a
+bearing off the tangent and a distance along it, so a rank drawn that way fans out of one point and every
+bay but the middle one of an odd rank stands askew to the street — which is not a bay. A car drives straight
+into one and backs straight out of it, so every arm of a rank runs **square** to the road and what tells two
+of them apart is where each one's foot stands along it (`CutArm.AsideM`). What joins such an arm to the
+carriageway is then the movement the junction draws between two lane ends, exactly as for every other turn,
+and the bearing the cut reads back is the one the arm's own line carries. **A rank is an apron and not a fan
+of carriageways**, so its arms are not held square to each other (`GEN-13`): that rule measures the angle
+between two arms and a rank's are all one bearing, so the lane between two feet is not a thing it can see,
+and nothing is filleted, crossed or barred between two bays anyway.
+
+**A bay joins the street and no other bay**, which is the one thing a car park's junction does that an
+ordinary junction does not. The arithmetic that wires a junction pairs every lane arriving with every lane
+leaving, and at a car park that is a turn out of every bay into every other — a fan of hairpins across
+ground that is the car park's to cross rather than a road with a right of way on it. The pair is refused in
+`LaneLines.Connectors`, beside the reversal `TER-5f` refuses, so the movement is never drawn rather than
+drawn and priced out. **And a bay joins both ways of it**, which took the junction being made as long as its rank. With the bays
+refused each other, a bay standing further along the street than the lane end a car arrives on is a bay that
+car can only loop back into — a turn far tighter than the 2.4 m the junction corners at, so no movement at
+all, and on the first cut only about four bays in ten had both ways. The fix is not to price that turn
+differently but to move the arrival: **the street is parted the rank's own reach further back**
+(`SimConfig.CarParkStandoffM`), so the whole rank stands inside the junction and every bay is ahead of both
+arrivals. Odesa then reads `n/n both ways` on every car park it cuts. **The standoff is what the sites are
+found with, so the bays are counted first and the place chosen for them** — a wide car park asks for a
+longer, straighter, emptier stretch and is laid where one is, rather than being laid and then cut down
+(`GEN-10`). What it costs is sites rather than bays: the stretch a wide one asks for is not everywhere, and
+a town that asks for more car parks than its straights carry lays what fitted (`GEN-8`).
+
+**And the turn is made where it belongs rather than shared out.** Every other movement in the town is an
+equal-tangent biarc, which starts turning the moment a car enters the junction — at a car park that has a
+car on its way to park drifting out of its lane across the mouths of every bay before its own, and a car
+that has left one still curving a box later. So a movement at a bay is **one turn with a straight either
+side of it** (`Spline.StraightArcStraightInto`). **The lane ends do not move**: both lines join the same two
+poses, and the place the turn begins is arithmetic rather than a search — the corner the two lines make,
+stood off by the tangent either side.
+
+**And the turn is the car's own and not the room's.** The first pass solved the radius out of the poses,
+which made it whatever the box happened to afford: a car turning into a bay off a two-lane street swung
+round on nearly eight metres where the car can hold four, and looked from above like a lorry making a
+delivery. Nothing about parking happens at a design speed — a car turning into a bay is at a walking pace
+or stopped, and what decides its line is the hook it makes. So the radius is given to the construction
+rather than solved for, and what is given is `CarParkTurnRadiusM`.
+
+**Seven tenths of the car's own parking circle, which is inside its lock, and that is the owner's call.**
+Laid at the full circle the hook still read as a sweep from above — the owner asked for a third off it
+twice, having watched cars pivot from a standstill, and the second time after the alternative had been put:
+that the rank and not the turn is two thirds of the box. `BayTurnInParkingCircles` is what carries it, so
+the tightness is one authored share against the car's own figure rather than a length nobody can check. A
+car tracking one of these lines has the wheel on its stop and runs a little wide of it, which is the
+driver's to answer for.
+
+**Once the turn was the car's, the junction was the turn's — at both ends of it.** A turn of a given radius
+stands off the corner it turns by its tangent, so the street is parted the rank's own reach and one tangent
+back (`CarParkStandoffM`) and the bay's way begins one tangent off the street (`CarParkBayLeadM`). Both had
+been figures the geometry happened to leave lying about — the standoff a quarter turn the width of the
+street, the bay's lead the standoff every road end in the town keeps. A six-a-side car park's box went from
+thirty-four metres to twenty-seven, and the lead stopped being a coincidence: it had been within a
+hand's breadth of the tangent a car actually needs, which is why the first cut of the sharp turn fell back
+to the biarc on the near-side movements and nothing else.
+
+**And an arm is a bay and its turn, with nothing left over at either end.** The lead had a floor under it —
+the standoff every other road end in the town keeps — which left every movement laying a metre of the bay's
+own line before the bay's lane began: the same ground, the same bearing, drawn twice, once as a junction and
+once as a road. The floor is gone, so a bay's way begins where its turn ends. At the far end the arm had a
+setback authored for it (ten metres past the kerb) and a bay was whatever that left over — eight and a half
+metres of it, for a car that is four. Now the bay is the length and the arm is what it needs: **five metres**
+(`CityGenFigures.BayLengthM`), against the longest vehicle the catalogue draws, which is the recovery
+truck's 4.40 m and not the nominal car's 4.0. The plan is laid before a car exists, so what holds the two
+together is a pair of gates rather than a derivation: `CarCatalogTests` fails the build for a variant longer
+than `Car.LongestLengthM`, and `SimConfigTests` for a bay that does not clear it.
+
+**And the bound on the bend is now the drift it was always about.** It had been an angle across the box,
+retuned when bays lost a way in. But what a bending street really costs is that a movement holding the
+street holds a *straight*, and a straight parts from the lane it is following by the tangent offset —
+growing with the square of the run, and a car park's longest run is its whole box and its rank again. So
+what is authored is that departure (`CarParkOffLaneMaxM`, a fifth of a metre, a ninth of what the car has
+spare in its lane) and the curvature, the swing and both standoffs are read off it. It works out near a
+degree across a wide car park's box, where the old figure said five. What reports it is `--bench parks`,
+whose rows read `n/n both ways` and `m/m one turn`.
+
+**And the plan carries the bays once rather than twice.** The flag per road was `OneLine`, read for the lane
+offset; this rule wanted "is it a bay", and two arrays that must always agree are two answers. So the array
+is `RoadArrays.Bay` and `DrivenOverOneLine` is a reading of it — a bay's way being the only ground in this
+town driven both ways over one line.
+
+**And a bay's lane is driven both ways over one line** (`GEN-4f`), which is the first road in this engine
+that is: a car goes in over the same ground it comes back out over, so the arm carries one lane's width and
+its two connection points stand on the line rather than half a lane either side of it. That is the same
+exception a ring arc already was, so it is the same flag read two ways
+(`ConnectionPoints.Arm.OnTheLine`) rather than a second one — and it is what wires every bay to every way in
+and every way out of the junction without anything saying so.
+
+**And how many a town has is counted off the buildings it plans rather than authored beside them.** A car
+park count on the brief is a statement about a town's traffic written where nothing holds it to the town: a
+map that grows a district keeps the parking it had, and the two numbers drift silently. So the brief carries
+what a person would say about the place — how many buildings it is — and the engine carries how many of them
+one car park stands the cars of (`CityGenFigures.BuildingsPerCarPark`, four, the owner's ratio). Nothing
+stands a building yet, so that count is all the field does today; the stage that plants them, when it lands,
+plants the same number. **Asking for many more than the old figure is what showed the supply bound**: what
+the ground affords is a straight, long, empty enough stretch per car park, and a town asks for more of those
+than it has.
+
+**What it came out as**: Odesa asks for `300` car parks off its `1200` buildings and cuts `239`, with
+`1748` bays and one arm each, `18` of them on a street that runs one way; River asks `275` off `1100` and
+cuts `134`, its straights being shorter between the bends of a river city. Both are `GEN-8`'s "what fitted", reported by `--bench parks` against
+what was asked — junctions of five to fourteen arms, spread by taking each time the site furthest from every
+car park already cut. No spacing figure of its own; the locality every pair of junctions owes does the rest.
+**The bays
+themselves are not laid**, so each arm ends at a node nothing leaves, which is
+[a known gap](../../../docs/index.md#known-gaps) and why no town the suite asks its ordinary questions of
+carries one.
+
+## 2026-09-14 — the nodes are settled before the first road is laid, and nothing is merged afterwards
+
+**The merge was the last pass that laid the town twice.** Every node the generator places went down, every
+road was drawn, and then `MergeTheLocalNodes` made one node of each cluster standing inside a locality of
+itself (`GEN-16`) and **offered every road in the town again** — which is also where the ground bound
+(`GEN-49`) began, two junctions a stride apart being a pair about to become one. Odesa merged `12` nodes of
+`257` and redrew `351` roads to do it.
+
+**It is one pass now: place, settle, lay.** The arterials place their nodes, the lattice places its own and
+the ones its stubs meet arterials at, `TownLayout.SettleTheNodes` makes the clusters one node, and only then
+is a line drawn — the arterials first, so a street offered against ground an arterial holds is the one
+refused. Nothing is merged afterwards and no road is drawn twice; the bound holds from the first road.
+
+**Two things had to be true, and the first one was not obvious.** **A cluster is not a pair**: three nodes a
+stride apart in a chain are one place, and welding each new node onto the first one near it — the obvious
+way to do this at placement — leaves the third where it stood. Measured on the suite's own city, that cost
+`24%` of the network: `140` roads against `184`, with a piece of `30` nodes and another of `9` severed from
+the town and deleted as stranded (`GEN-8`). The union-find the merge used is what closes the chain, and
+running it over the nodes before any road exists is the same answer for none of the cost.
+
+**And the node placed first is the node that stays**, which is the precedence the merge used to weigh: the
+hub, the bridgeheads and the arterials are placed before any lattice point, so a street standing too near an
+arterial's junction is the one that moves onto it. A deck cannot move at all.
+
+**What the towns came out as**: Odesa `163` junctions over `272` roads and `51.4` km against `160`, `269`
+and `51.0`; River `119`/`193`/`36.1` against `118`/`191`/`36.3`; the fixture `28`/`36`/`7.4` against
+`26`/`34`/`7.7`. **The suite's own city moved further than a shipped one** — every town a seed makes is a
+different town when the arrangement changes — and the gate that proves the contact path runs at all had to
+be told: it asks for `800` cars where it asked for `400`, which under one car a lane (`SpawnStage`) is the
+same ask as *every lane the town affords*.
+
+**What was measured and left alone.** Two passes still reshape the layout after it is laid, and neither is
+the merge's kind of redoing. **The run joined into one road** (`GEN-51`, `ThroughRoads`) takes `63` of
+Odesa's `220` junctions away, and what makes one of them a place nothing meets is *what was deleted after it
+was placed* — the water, the edge of the world, a refusal, a prune — which is not known when it is placed.
+**A roundabout** (`GEN-19`) is opened out of a junction whose arms are counted on the town there actually is.
+Laying the arterials with a node only where a street welds onto one was tried, to stop the first at its
+source: it costs the fixture `26%` of its network, because the spacing is also the granularity at which a
+refusal is contained — one long piece refused over water takes the whole stretch with it where four short
+ones lose one.
+
+## 2026-09-14 — no town is carried as a file, so the format that carried one is gone
+
+**The `.town` format outlived the last town written in it.** Every map is a brief or is laid in code, so
+nothing read a `.town` any more: the writer was reachable from `--export` alone and the reader from the
+round trip that checked it against the writer. `TownReader`, `TownWriter`, `core/persistence/`'s byte
+cursor and tape, `--export` and `TownReaderTests` are deleted together — **787 lines whose only reader was
+each other**, and with them the fields nothing but the round trip kept alive (`CityPlan.PavementCorners`,
+which `TER-3c.3` says the pavement does not have).
+
+**What the page fetched for a town goes with it.** The web head carried a name, an empty file and a fetch
+for "a town still carried as a file", and the build gzipped every plan into the published folder. A city is
+its brief on the wire as it is on disk, so the manifest is the briefs and the one wait before a map opens
+is the art.
+
+**`qq town` was the second reader of that format** — five hundred lines of Python unpacking the same
+records, kept in step with the first by hand — so the readings moved into the engine
+([`TownShape`](../../bench/TownShape.cs), `--bench shape`, `--bench joints`, `--bench shapes`) and the tool
+is what asks for them. It is the same arrangement the census already had: the town is read by the code that
+laid it, and what a shell tool does is choose the map.
+
+**And the one test that went with the format was a round trip and not a property.** What it guarded is that
+a connection point is a function of the seed and the link, which the town read back proved by being a
+different set of arrays holding the same floats; with no file there is no second set of arrays, and asking
+the same plan twice is a derivation written out twice (VER-12). What is left of `ConnectionPointTests` is
+where the points stand and what they are drawn from.
+
+## 2026-09-14 — a road is drawn as it is offered, and the round of refusals is gone
+
+**The road stage laid the whole town, refused what clashed, repaired the layout behind the refusal and laid
+the whole town again.** Each round drew every street's wander from a stream of its own, so one refused link
+re-shaped every road in the town, which could refuse others: the loop was a search over wander draws dressed
+as a repair, and it was what `GEN-10` said the generator does not do.
+
+**The line a link would be laid as is now what says whether it is a road** (`RoadLines`,
+[TownLayout.Join](../gen/TownLayout.cs)). A link is drawn when it is offered and refused there — the floor its
+class affords, the world's own edge, the water, and the ground a road already standing holds (`GEN-49`) — so
+nothing is laid and taken back and nothing is drawn twice. Two things had to be true for that to work, and
+each is worth more than the loop was:
+
+- **A road's shape is a function of its link**, the wander keyed on the two node centres exactly as the arm's
+  jitter already was (`GEN-11`). Deleting a road now moves nothing that stayed.
+- **The ground bound begins at the locality merge and not before** (`GEN-16`). Offered earlier it deleted four
+  arterials whose two junctions were a stride apart and about to become one, and `KeepTheLargestComponent`
+  then took half the town with them — `125` roads and `72` junctions against `269` and `160`.
+
+**The stages that move a road ask before they move it.** A run is offered as the one road it would be before
+its pieces are given up, and cut in two where that road cannot be laid; a ring is drawn arm by arm before the
+node is opened out, and the node stays a junction where one of them cannot be laid. **Two joined roads are
+held to each other and not to each other's pieces**: a run's line is smoother than the pieces it replaces and
+can bow metres off their path, so a pair that each cleared the other's pieces could still be laid into one
+another.
+
+**What the town pays for not searching is reported rather than hidden.** Odesa keeps `269` roads over `50.97`
+km against `262` over `51.2`, and `12` of its `160` junctions are places nothing meets against `1` of `152` —
+eleven runs the join could not lay as one road, each cut once. One of its two roundabouts is a junction again,
+its arms being undrawable where the ring would leave them, which is what `GEN-19` asks for in as many words.
+
+## 2026-09-13 — a junction is a place roads meet, and a run through nodes nothing meets at is one road
+
+**A third of Odesa's junctions were places nothing met.** The arterials carry a node every 220 m along the
+orbital and every 200 m along a spoke so a lattice street has somewhere to weld onto, and a node nothing
+welded to — or one the prunes left holding two of its four arms — stayed a junction: a standoff both lanes
+ended at, a pair of movements across it, a claim on the ground those took and a place the router planned
+through, all laid in the middle of a road. `75` of `223` on Odesa, `60` of `163` on River, `26` of `40` on
+the fixture. The old layer hid it behind a fold that rewrote a forkless run as one lane; the rework deleted
+the fold and named the replacement, and the replacement had not been written.
+
+**The corner is joined rather than straightened, so nothing moves.** The obvious join — replace the two arms
+with the chord between their far ends — would have been wrong on more than half of them: the median
+deflection at a two-armed junction is `85°`, not nought, so these are corners and not cuts, and a chord
+would have taken the carriageway off the ground both pieces were laid on and through whatever the corner was
+drawn round. The node's place is handed to the joined road as somewhere it *passes*
+(`LayoutEdge.ThroughM`), and the bearing the road leaves each junction on is drawn toward the first place it
+passes rather than toward the far end it never points at.
+
+**Which is why the places a road passes are in the plan and the format carries them** (version `7`). The
+connection points live nowhere and are drawn again off the plan wherever they are wanted, so a plan that did
+not carry them would draw one town when it was laid and another when it was read back. They are what a road
+*is*, not a record of what it was.
+
+**A refusal halves the run and never costs it.** Laid as one road, a run is one refusal — and the first
+attempt lost `14%` of Odesa's network and `40%` of the fixture's that way, a joined road taking five roads'
+worth of length with it. A refused road that was joined out of several now **comes apart into the pieces it
+was made of**, and exactly one place — the middle of what it passed — stands as a junction again and is
+never offered back. Holding *every* place instead was the first answer and it was too literal: what the
+stage refused was the road, not each corner in it, so a road that needed cutting in two came back as a line
+of junctions nothing met at. Halving still ends the sequence, and faster: each refusal halves what is left,
+and a road that passes nowhere is refused by being deleted. The network came back whole — Odesa
+`49.6 → 51.2 km`, River `35.4 → 36.4`, the fixture `7.4 → 7.8`.
+
+**A road that comes apart runs both ways again** (`GEN-18`). The scatter takes whole streets one way, and a
+street taken one way and then broken into four is four one-way streets meeting each other, which is the one
+thing the scatter is a scatter to avoid. **That is what makes joining a one-way street safe** rather than
+refusing to join one: the rule the scatter settled is held by what happens when a road comes apart, not by
+never letting one be joined.
+
+**And a road is asked whether it is still on the ground.** A node stands a margin in from the edge and never
+on the water, which is what makes the *places* a road joins fit; the line is free to bow off its chord and
+bows hardest where it turns a corner it was joined through. Two shipped maps had a carriageway a tenth of a
+metre over the edge, and a generated one had a street in a river it was no bridge over, before the question
+was asked of the line rather than of the nodes (`GEN-14`).
+
+**It is one rule and not a rule with a list of exceptions.** The first cut carried five: a corner too tight
+for the road's class, a street already taken one way, a ring arc, a run whose ends a road already joined,
+and a corner the road stage had refused. Four of them were conveniences and went.
+
+- **The corner bound went**, because the corner *was* a junction: a joined road turns at a junction's own
+  floor (`GEN-47`, `GEN-48`) and nothing is measured and refused before it is laid. That is safe because a
+  driver reads every arc of the line ahead of it and is down to that arc's cornering speed before it
+  arrives — the same reading it always made, on a line that is now the road's instead of a movement's.
+- **The one-way bound went.** What keeps `GEN-18` true is not refusing to join, it is that a joined road
+  which later comes apart runs both ways again.
+- **The ring bound went and came straight back**, and that is the useful half of the experiment: joining
+  two arcs of a roundabout dismantles the one junction `GEN-19` laid as a circle. A ring node and a
+  bridgehead are not places the arithmetic stopped a line; they are places the carriageway itself changes.
+- **The already-joined bound went, came back with a measurement, and then went for good.** Two roads between
+  one pair of junctions left the fixture's boundary **open by 0.104 m** against a weld of 0.100 m, so the
+  bound looked load-bearing. It was not: the hole was the merge's (below), and a merge that cannot close
+  round a shape the town lays is the merge's to answer for rather than a reason to lay the town differently.
+
+**What is left is two structures and not a taste.** A bridgehead and a ring node, where the carriageway
+changes; and the one shape a road cannot be — a run that comes back where it set off. **Odesa keeps one
+two-armed junction out of 152**, and it is a loop. River keeps ten of 113 and the fixture seven of 21, all
+but three of them bridgeheads and loops.
+
+**The three that are neither are refusals and are named as such.** A joined road that bows off the map, or
+onto ground another road has (`GEN-49`), is cut back at the place it was refused over — so the reading `qq
+town --joints` gives is `bridge`, `loop` or `refused`, and a junction in the third group is the town failing
+to lay a road rather than the rule making an allowance.
+
+**And the fixture stopped crowding.** Sixty cars on a town with a third fewer places to stop at touch each
+other not once over five minutes, where they used to inside thirty seconds — so the gate that exists to
+prove the contact path runs at all now stands its own town up with 240 (`AllocationGateTests`). The town
+got better and the instrument had to be told.
+
+**The instruments report the rest**: `qq town` prints how many arms each junction has, how far off half a
+turn a two-armed one stands, and how near a junction's nearest two arms come — and `qq town --joints` lists
+every two-armed junction there is, where it stands, and which of the rule's two exceptions kept it. The arms
+reading is what caught a duplicate road mid-way, at 0.0° apart; the joints listing is what says whether the
+rule still holds on a map nobody has looked at.
+
+## 2026-09-13 — a ring the merge keeps as one stretch is still a ring
+
+**A boundary made of exactly one stretch could never be closed.** The walk strings the kept stretches by
+their ends, and the pairing at a place will not let a stretch take *itself* up — a place with one boundary
+arriving and the same one leaving offers no pair at all — so a ring that came back as a single stretch was
+walked as a run with two ends and handed back as a hole. `Shut` then refused it a second time, for having
+fewer than two pieces.
+
+**The town does lay one.** A movement whose own radius is barely wider than the lane it carries folds its
+ribbon's inner edge into a hook a few centimetres across: at a radius of `1.85 m` against a half-width of
+`1.80 m`, the inner edge is an arc of radius `0.05 m`. Cut by its neighbours, what is left of that hook is
+one stretch `0.104 m` long whose two ends stand `0.087 m` apart — inside the weld, and so one place.
+
+**So a run is shut when it comes back to where it set off, however few stretches it is made of**, and the
+two walks file their runs the same way. The piece count was never the question. What made this worth finding
+rather than tolerating is that the hole it left was being read as a fact about the town — `GEN-51` carried an
+exception for a fortnight on the strength of it.
+
+**It is the cusp and not the fold that is hard.** A ribbon whose line turns tighter than its own half-width
+inverts completely and merges cleanly; one that turns at very nearly its half-width leaves the near-degenerate
+hook. Measured on the suite's own city: `-1.32 m` of ribbon inside the fold before the junctions were joined
+away, `+0.39 m` after, and `+0.05 m` once the last exception went — only the last of the three left a hole.
+
 ## 2026-09-13 — the lane layer is laid from the junction out, and everything that stood beside it is put down
 
 **The order was the whole of the problem.** A road's curve was laid first and its lanes were cut out of it
@@ -203,64 +582,15 @@ is why the old construction needed a rounding to call two stops one place.
 **What it does not do yet is close on a city.** The laboratory map closes every ring; a city leaves 48 runs
 of boundary with two ends, in car parks, where several bay ways lay bands within centimetres of one another
 and two boundaries crossing at a fraction of a degree have no crossing a float can find. Those runs are
-handed back as what they are (`LaneShell.Loose`) and drawn in the fault colour rather than shut with a
+handed back as what they are (`BandShell.Loose`) and drawn in the fault colour rather than shut with a
 straight, because a merge that papers over its own faults is a merge nobody can read.
 
-**Three figures carry the degeneracy and they are the whole of it** (`LaneShell.Merge`): how far outside a
+**Three figures carry the degeneracy and they are the whole of it** (`BandShell.Merge`): how far outside a
 piece the cover test is taken, how near two band edges stand to be one edge, and how near two cut ends stand
 to be one end. **Two coincident edges are settled by the lower-numbered line** — dropping both leaves a hole
 and keeping both leaves a crossing with two ways on — and **a piece is cut where another piece's own end
 stands on it as well as where one crosses it**, which is the one cut a crossing cannot find: two square ends
 laid along each other cross nowhere, and without that cut the overlap between them is weighed whole.
-
-## 2026-09-12 — what still placed ground of its own is gone
-
-The boundary was the town's, but four things still put ground down beside a road by arithmetic of their
-own, and each of them would have outlived the upgrade by being nobody's to notice.
-
-**A raster painter with its own verge, fillet and disc.** `GroundPainter` laid cells of pavement either
-side of a chain, a wedge behind each kerb fillet and a disc at each mouth. Nothing had called it since the
-plan stopped shipping a cell grid; one test comment named it. Deleted rather than kept for the day a raster
-comes back — a second description of the pavement that nothing reads is still a second description.
-
-**`Kerbs` answered for tarmac that no car is driven along.** It held a fillet per junction corner and a box
-per slab beside its bands, so that `OffTheTarmacM` could answer for the whole of the paving. Only the probe
-still asked, and the boundary itself had never counted either (a corner apron pushes the outside off the
-lanes at every mouth; a slab buries the bays it is paved under). What is left is the bands — the one shape
-the shell is the outside of — and the probe's independent reading of the kerb is now that same driven
-ground, which is the reading it was always weighed against. The junction corners stay on the plan because
-the crossings and the stop bars are placed off them (`Furniture.Corners`); they are a mouth's figure and no
-longer a piece of ground.
-
-**A bridge carried the town's pavement across its deck.** The deck's ground was grown to the road's own half
-plus a walk, and the picture laid a pavement ribbon to match — the last line beside a road derived from
-something other than the boundary. Both are gone and `TER-3b.1` says so. What it costs is a bridge with no
-footway, which is the same gap as a boundary that cannot cross water, and it is named as one rather than
-papered over with the arithmetic that was there.
-
-**And nothing is struck off the kerb at all.** There is no line beside a road, no walking lane and no
-concrete, and the blocks the town encloses are the grass they were laid over — not held back behind a
-switch now but absent, there being no offset of the boundary to hold back. It is in
-[docs/index.md](../../../docs/index.md#known-gaps) as the gap it is.
-
-## 2026-09-09 — the outline belongs to the union, so one piece owns each station of it
-
-`TER-3c.8` is the owner's, and the code did not meet it. Every piece offers the line half a walk outside
-itself and the shell keeps the stations no piece stands *nearer* to — which settles every station except
-the ones several pieces are the same distance from, and there it kept them all. There was a veto for two
-cases somebody had hit (a movement running edge to edge with the arm it leaves, a band's end against the
-arm across it) and none for the general one. A car park made of the movements that reach into it hits the
-general one hard: four ways converge on one bay pose and end on the same straight, so six candidate lines
-lie down one metre of kerb and the walk was laid off all six.
-
-`Kerbs.Owns` breaks the tie by the lowest-numbered piece at the offset — a tie-break needs only to be the
-same answer at every station of a run, not to mean anything. **Asked per station and not per span**: a span
-that is duplicated over half its length is real over the other half, and dropped whole it leaves a hole in
-the pavement — the fixture and the city both came apart that way before this was moved back.
-
-**What it has not fixed**: a run whose ownership changes along it is cut where it changes, so the walk sees
-two stretches where the ground has one line. The `Laid` map's mitres and its unbroken-line check are the
-ones that say so.
 
 ## 2026-09-08 — a roundabout is a ring of ordinary junctions with no paint on it
 
@@ -297,7 +627,7 @@ as is a circular road with entries and exits and no paint at all.
 **What sizes it is the two roads leaving two of its nodes, and nothing else.** A ring's nodes are one
 junction laid out as a circle rather than the accident GEN-16 is about, so they owe each other neither a
 locality nor the road two separate junctions would — they owe each other what the arms leaving them do: the
-ground one road takes (GEN-17) and a pavement's width on top of it, because two mouths whose paving abuts is
+ground one road takes (GEN-49) and a pavement's width on top of it, because two mouths whose paving abuts is
 paving with nothing to wrap round. Held to the road instead, the circle came out nearly twice that wide for
 no reason anything downstream could name. Odesa's widest went 54.6 m across → 45.8 → **32.4**.
 
@@ -340,7 +670,7 @@ decides the set is a spacing off the ones already taken and the rule that no jun
 lattice no longer proposes a flow at all: every road is laid running both ways.
 
 **Both ends have to fork, and neither may be on an arterial.** A street at a two-armed node dangles a lane
-whatever else is true (GEN-18a), so taking one spends a place in the scatter on a street the settling would
+whatever else is true (GEN-50), so taking one spends a place in the scatter on a street the settling would
 open again. The arterials were the sharper find: a one-way street hung off one costs a district its second
 way in, and a laid city with them had eight of the town tier's questions fail — claims left held behind a
 car in a box, walkers sent over a carriageway, an ambulance that never arrived. Excluded, all eight came
@@ -350,63 +680,6 @@ back.
 a corner turn setting off where no kerb ends, both on the laid city. Keeping one-way streets out of the
 districts that wander hides the first and not the second, which is why neither is hidden: they are the
 pavement's to answer for and not the arrangement's.
-
-## 2026-09-07 — a movement through a node the road runs through is no piece of the outline
-
-Where a two-arm node's arms meet as one line (TER-5b), every movement across it lies inside the two arms'
-bands, so it can add nothing to the tarmac's outline — but offered, its wrap stood exactly on the arms'
-own wherever the lane fills the road, and `Kerbs.Shell` kept both: a second run of pavement over the
-first, with a round at each end and a kerb turned round each of those. `RoadCuts.RunsThrough` names such
-nodes off their kerb corners, held to `Kerbs.JoinedM`, and `Kerbs` lays no piece for a movement across one.
-The band answered is unchanged, being a union; what changed is that it is drawn once.
-
-## 2026-09-07 — a graze is not a run
-
-A wrapping line meeting another tangentially runs √(2·R·ε) past the crossing before it is that much
-inside, which is what `Kerbs.OnePlaceM` bounds — the paving welded at `Kerbs.RoundingM` instead, so every
-graze left a run whose two ends are one place: a walk-wide round of pavement struck off a few centimetres
-of line, answered as ground. It welds at one place now, and Odesa's runs went 4322 → 2971 for a tenth of a
-percent of pavement.
-
-## 2026-09-07 — a walking lane that stops in mid-pavement is a corner nothing wrapped
-
-Thirty dead ends over two towns, both causes a corner in the carriageway that is not really there — the
-wrap was reading the tarmac correctly both times. `RoadStage.Rounded` gave up a too-tight vertex *while
-laying the chain*, so the arc before it had already been aimed there and the straight after set off on a
-bearing nothing arrived on: a fifth of a turn at five and a half metres out is three and a half metres of
-pavement never laid. The vertex is dropped and the line laid again, and the deflection is read as the turn
-rather than as its sine. And `JunctionTurnsACorner` asked how far out a kerb crossing stood and not which
-side of the arms, so where a one-way street's kerb runs behind its own node (TER-4d) the crossing fell on
-the far side — a lens of carriageway hanging 0.43 m off the kerb with no tarmac under it, which the
-pavement then wrapped. The crossing must stand out along both arms. Three gates, each a defect in the
-carriageway before it is one in the pavement, which is why none is a gate on the wrap.
-
-## 2026-09-06 — the pavement is the tarmac grown by a walk, movements and squared ends included
-
-The walk was laid off the tarmac and drawn off the roads, which are not the same shape: a movement swings
-wider than either arm it runs between, so 109 sampled metres of Odesa's footway turned its junction corners
-over open grass. Grass is walkable, so nothing refused it. The end of a band is turned the same way
-(TER-3c.6) — a distance turns a corner, only a half-width squares one. And the inner-corner solver is gone
-rather than fixed (`PavementCorners`, 460 lines): it was a second description of a shape that already had
-one, laid off the roads and lots alone, drawing thin wedges of pavement into the verge. There is nothing
-for it to round, because growing each piece by one figure and taking the union is growing the union
-(TER-3c.3), so the shell has exactly the corners the tarmac has — an arc laid over the verge to hide a
-pinch is pavement no walker can be given ground on. It cost 33 ms of Odesa's load and 60 km of walked
-outline.
-
-## 2026-09-06 — a junction has no shape, and the lines a car is driven on are laid with the town
-
-`LaneLines` lays every lane and connector when a map is generated, and the graph reads those lines and adds
-only the rules over them. The point is that the surface and the network can no longer be two answers: the
-tarmac *is* the lines. So the disc is gone — what a box is on the ground is the band its own connectors
-sweep, with kerb fillets rounding the wedges, and nothing has to recognise a junction to get it right; a
-skewed, one-way or five-armed box comes out correct because each movement was drawn where a car goes. The
-stored radius survives as planning only. Two things it had been hiding came back: a band must be read the
-way a road's is, squared at both ends, or every point on a bend answers off perpendicular and the road's
-centreline comes out as pavement; and a dead end is the one junction whose ground no movement sweeps
-(TER-5a), so its head is a shape read off the arms rather than a junction record. The pavement round a box
-is the arms' and not the movements' — a second band adds no ground, only another edge for a corner solver
-to find.
 
 ## 2026-09-05 — the pavement is laid once, and the picture and the answer read that laying
 
@@ -420,25 +693,9 @@ back byte-identical, which is the only test that could have said so.
 
 Drivable is asked of the movements and not the roads (GEN-18): a block whose streets all run inwards keeps
 one connected component and is still somewhere a car drives into and never leaves. Reachable everywhere was
-not enough either, because the fault is local (GEN-18a) — a one-way street at a two-armed node leaves a lane
+not enough either, because the fault is local (GEN-50) — a one-way street at a two-armed node leaves a lane
 nothing ever arrives on, so the town draws a lane, a stop bar and a line no car is on. A movement leaving a
 node needs some road other than its own arriving there.
-
-## 2026-09-05 — the lattice is ground, and two exams stand on it
-
-The walking exam wanted the driving exam's map without its cars, and the only way to have it was to copy
-four hundred lines of geometry into a second plan — a junction laid twice can pass one exam and fail the
-other for a reason nobody can name. `ExamGround` is the ground and `ExamMap` writes one out as a
-`CityPlan`; what is left in `ExamLattice` is the cars. A card names a place as an arm, a side and a
-distance out and never as a point, so a card cannot drift from the map it is staged on.
-
-## 2026-09-03 — a dead end's head holds the car's body, not the path of its middle
-
-A head was sized `turning circle + the car's width`, but a turning circle is the radius the car's *middle*
-sweeps and the furthest corner stands half a length and half a width off it — so the head was always about
-two metres short, hidden only by a classifier of metre squares answering *drivable* half a cell past every
-kerb. The figure is derived from the body: the circle, the width TER-5a asks to be left clear, and the
-half-diagonal of the car.
 
 ## 2026-09-01 — a prop's kind is where it stands, and the ground decides it rather than a die
 
@@ -459,15 +716,6 @@ than the prop (GEN-6d), drawn `diameterM` *tall*, so the flower planter was 3.45
 authored 1.9. Nothing overlaps any more, indexed by a grid of the widest prop's own width, since neither
 pass can see where the other put anything. Odesa laid 108,939 props and lays 78,705.
 
-## 2026-09-01 — an arm's paint is set back from that arm's own mouth, and the setback is a car length
-
-The reach was half a carriageway plus a full corner radius — right for square arms and wrong for every
-other, since two kerbs meeting at an angle cross well outside the mouth. The setback was carrying six
-metres of slack for a skew nobody had measured, so a square junction's zebra sat two road widths off its
-own kerb. The reach is solved corner by corner, and what is left of the setback is what the name says: a
-stride, so the zebra's end bars stand on straight kerb. The two figures the fillet was borrowing are its
-own now, since bounding a corner by the crossing's setback was the circularity.
-
 ## 2026-09-01 — a car park is three to six bays, because a run of frontage is an apron
 
 Merging neighbouring slots laid sixteen bays of unbroken tarmac down one side of a street, and nothing ever
@@ -478,18 +726,6 @@ tuning — the upper makes a car park a car park rather than a surface, the lowe
 two-car lay-by that cost a lot's whole clearance. The clearance is measured between the rectangles and not
 along the road, since on a bend an arc runs longer than the chord. Odesa's 319 lots hold 1377 bays where
 they held about 3500.
-
-## 2026-09-01 — the crossings were unpicked, because planarity was an argument and not a check
-
-Odesa laid an orbital and a street across each other with no junction where they met — 20 m of shared
-tarmac, and seven of sixty fixture seeds held at least one. The case for planarity was the arrangement and
-it was sound; the coverage was not, since `Arterials.CrossesTheRing` had a single caller and `ExamGround.Hang`
-never asked it. Adding the missing call was not the fix: a rule that holds only where somebody remembered
-to invoke it is the same defect a year later. GEN-17 states the property over the town and
-`TownLayout.UnpickTheCrossings` is one pass. It is a pass over the settled layout rather than a test inside
-`Join`, because the lattice hangs its streets before `Arterials.Close`, so a test at offer time would have
-deleted the orbital. Measured against what will be drawn, not against what was joined, using
-`RoadStage.StraysM`. Odesa loses 6 roads of 316 and bought back five failing conformance cases.
 
 ## 2026-08-31 — two of a kind near enough to be one are merged, and merging beat refusing
 
@@ -608,38 +844,6 @@ at a junction and two would join the same pair of nodes twice. The map dresses i
 a rule — the service tier had been finding vehicles by their paint, which is an over-fit, since SRV-3
 defines one as paint **and** a building.
 
-## 2026-08-28 — the exam orders its walkers, because three cards were passing on an empty crossing
-
-The three `StopsForThePaint` cards had never once been asked: the car and the body were never on the
-crossing in the same second of any run, so the claim could only fail by coincidence. The map's walkers
-wander and the spawn code said they paced — a body paces only on a map with no pavement, and `Exam` lays
-pavement on every block. The harness orders them, pacing rather than timing one crossing, since a body
-parked on the paint is a car that stops for it for good and a timed rendezvous is one the car's own slowing
-then misses. It stops pacing inside its own step-out distance, or PER-15 is under test instead of the
-crossing. The claim grew a second half: the lattice is a grid, so an arrival said the car got there and
-never that it crossed the junction the card was written for.
-
-## 2026-08-28 — the exam grew by eleven cards, and all eleven are unregulated boxes
-
-A card is a cell, so asking for more crossings is asking for a bigger lattice — the roads, spurs, paint,
-fleet and ground followed without a line of geometry moving, which is the arrangement paying for itself.
-The eleven are boxes nothing governs: at a lit box the timetable decides, so the box worth staging over and
-over is the one where the ranking alone decides (TER-5e). The eleventh narrowed a finding — two turns
-across from arms *beside* one another clear each other where two *opposing* ones deadlock, so what stops
-the opposing pair is not that they are the same rank.
-
-## 2026-08-27 — a map laid from the questions asked of it, and the two it could not answer
-
-Nothing measured what a car does where roads meet: the shipped cities have hundreds of junctions and not
-one is staged. The cards are the map and the map is derived from them — `ExamCards` is a table written as
-data and `ExamPlan` lays whatever they need, so nothing about the map is chosen twice. One make of car and
-it is not the police car, since a card is read against another card and in this town a police look *is* a
-police car (SRV-2, SRV-5). Paint on every arm, not only where a card is about paint, or every block's
-pavement is a closed ring and the walking network is islands. Two things it cannot carry: there is no
-inline junction on it — TER-5b promises a lit mid-block crossing and the engine refuses one twice over, so
-that promise is a rule with nothing behind it; and the lattice stands half a cell off the whole metre, or
-every kerb lands exactly on a cell boundary.
-
 ## 2026-08-27 — the map says what a building is for, and its people start behind its doors
 
 A shuffle off the world seed knew which buildings existed and could put a town's only hospital on a
@@ -651,47 +855,6 @@ already been stood at them — a trip ends inside a building, so beginning there
 adding a stage. The dwell is drawn per person, so the streets fill over ten seconds. What it costs is that
 a question about a body on the pavement can no longer be asked at tick zero.
 
-## 2026-08-17 — the town arrives as data, and the plan is the boundary
-
-`CityPlan` is pure data laid as structure of arrays, and the world is built from that structure and never
-from the file. The consequence is deliberate as a design and a real gap as a state of affairs: there is no
-generator here, so GEN-2 through GEN-8 bind whatever laid the maps and nothing here checks them. A
-validator would be shared by a generator's retry loop and the unit suite as a safety net and not a search
-partner — the layouts are meant to satisfy the rules by construction.
-
-## 2026-08-23 — the same lap twice, because the people are the variable
-
-The proving ground's people stop cars by stepping into ground nobody has taken, so a driver there is never
-asked to follow anything. `Drunk` is the same lap with the fifteen people put down *in* the carriageway,
-and a body with nowhere to be that finds itself on a lane reels down it (`PER-16`) — which rule a walker
-follows is the pose the map left it in, so the second map needed no name in any agent and no field in the
-format. Three things came out of it. `E-4` is reachable and had never been reached before, the drunks being
-the first thing that stands in a lane while a driver has somewhere to be; what the lap found was that the
-entry did not work, and all four faults are the catalogue's. A drunk over the centreline is a lap nothing
-gets round, since the oncoming lane is the only ground `E-4` may take — it keeps to its own lane for that
-reason and not for its own safety. And a body walks at what is in front of it rather than along the road,
-so a lurch at full stride cut the chord across a hairpin onto the grass; it is bounded by `sqrt(8·R·sag)`,
-the corner formula doing the same job for a walker that it does for a car. What the lap costs is quoted
-rather than asserted to zero — tuning until nothing was ever hit is tuning until the instrument can no
-longer report what it was laid to find.
-
-## 2026-08-22 — a map this build lays itself, and the writer that makes it a map
-
-Every figure taken on Odesa is a figure about Odesa's corners, traffic and lights at once, so the proving
-ground is authored here — a deliberate exception to "this project does not lay plans" rather than a crack
-in it. It is one lap and not four circuits, because four circuits could say nothing about a fifth car or a
-second drivetrain; the price is traffic, paid for by the holding being *named*, so a pass somebody was in
-the way of is thrown away rather than averaged in. The lap closes on the shapes themselves, so the only
-thing a link ever is is a straight and the last one is derived. A shape is a road, which is what makes a
-measurement local. There is no light and no paint anywhere on it — a light tells a driver where to stop
-before it has to look — so the whole of what the track asks is that a driver stops for what it can see. A
-shape ends where somebody paces rather than beginning there, or every corner is taken from a standstill;
-the beat between two paces is drawn afresh, or a settled lap meets the same walkers at the same point for
-ever. A pacer waits for the traffic and never for a clock. Every figure is read off the shape's own slowest
-point rather than off a standstill, so a pass nobody stepped out for is a measurement too. It is written
-out as a file rather than kept as a plan in code, or it would be a second kind of map invisible to
-`--shot`, to the menu and to every sweep.
-
 ## The last town laid is kept, and only the last
 
 `Maps.Plan` laid a fresh town every time it was asked, so anything that asked twice paid twice: a review
@@ -702,9 +865,6 @@ deterministically from its own seed, so the second lay is the first town again a
 **One town and never a table of them.** Kept by name, the first sweep over every shipped city would hold all
 of them alive at once and a city is tens of megabytes of arrays. Kept as the last, it is never more than the
 town whoever asked is about to use anyway — and the pattern that costs is repetition rather than revisiting.
-
-**The figures are part of the name**, because a plan lays its pavement against the configuration it was
-first asked with (`CityPlan.Paving`), so a town under other figures is a different town.
 
 **And a plan is as far as it goes.** The walking graph over one is the largest single cost of standing a town
 up — 33 seconds against a tenth of a second for the road graph beside it — and it is as pure a function of

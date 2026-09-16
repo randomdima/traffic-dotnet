@@ -142,20 +142,15 @@
        incompressible and the catalogues are not. The browser inflates it with `DecompressionStream`,
        which is the one decompressor a page has that its .NET runtime does not (WEB-4).
 
-       The two towns still carried as files are squeezed the same way but stay one file each: a `.town` is
-       better than half zero bytes — it holds a lane index laid out for reading and not for sending — and a
-       run fetches the one it opens.
-
-       **A city is its brief and not its town.** Every other map is generated from a few hundred bytes of
-       JSON or laid in code, so what crosses the wire for it is nothing at all: the briefs come down with
-       the papers at boot, small enough to be free and needed at once because the menu reads a city's
+       **A city is its brief and not its town.** Every map is generated from a few hundred bytes of JSON
+       or laid in code, so what crosses the wire for one is nothing at all: the briefs come down with the
+       papers at boot, small enough to be free and needed at once because the menu reads a city's
        description out of its own brief.
 
        The manifest is the map list and nothing else: what the browser may ask for, against the file it
        would be fetched from. The archive carries its own index, so the art needs no line here. -->
   <ItemGroup>
     <TownArt Include="assets/**" />
-    <TownPlan Include="towns/*.town" />
     <TownBrief Include="towns/*.json" />
 
     <!-- The figures, loose beside the archive as well as inside it. They are the one thing a page reads
@@ -175,34 +170,32 @@
     </PropertyGroup>
   </Target>
 
-  <!-- A brief goes in the manifest beside a plan and is copied as it lies: gzipping five hundred bytes
-       buys nothing and would put a second decompressor in the page's way (Main.Data).
+  <!-- A brief is copied as it lies: gzipping five hundred bytes buys nothing and would put a second
+       decompressor in the page's way (Main.Data).
 
        **Both folders are cleared before they are filled**, for the reason the archive's was: a map that
-       stops being a file leaves its last `.gz` behind otherwise, and a published folder is the thing that
+       stops being shipped leaves its last copy behind otherwise, and a published folder is the thing that
        gets deployed — so it would go on being served, unlisted and never asked for, for ever. -->
   <Target Name="ListTheTownData" AfterTargets="Build"
-          DependsOnTargets="NameTheArtPack;SqueezeTheTowns;PackTheArt;ForgetTheOldLinks">
+          DependsOnTargets="NameTheArtPack;PackTheArt;ForgetTheOldLinks">
     <WriteLinesToFile File="$(OutDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownPlan->'%(Identity).gz');@(TownBrief->'%(Identity)')" />
+                      Lines="@(TownBrief->'%(Identity)')" />
     <RemoveDir Directories="$(OutDir)wwwroot/assets;$(OutDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(OutDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(OutDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz');@(TownBrief)"
-          DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownBrief)" DestinationFolder="$(OutDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="PublishTheTownData" AfterTargets="Publish"
-          DependsOnTargets="NameTheArtPack;SqueezeTheTowns;PackTheArt;ForgetTheOldLinks">
+          DependsOnTargets="NameTheArtPack;PackTheArt;ForgetTheOldLinks">
     <WriteLinesToFile File="$(PublishDir)wwwroot/manifest.txt" Overwrite="true" WriteOnlyWhenDifferent="true"
-                      Lines="@(TownPlan->'%(Identity).gz');@(TownBrief->'%(Identity)')" />
+                      Lines="@(TownBrief->'%(Identity)')" />
     <RemoveDir Directories="$(PublishDir)wwwroot/assets;$(PublishDir)wwwroot/towns" />
     <Copy SourceFiles="$(ArtPack)" DestinationFolder="$(PublishDir)wwwroot" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(TownPapers)" DestinationFolder="$(PublishDir)wwwroot/assets/shared/config/%(RecursiveDir)"
           SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz');@(TownBrief)"
-          DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TownBrief)" DestinationFolder="$(PublishDir)wwwroot/towns" SkipUnchangedFiles="true" />
   </Target>
 
   <!-- Sorted, so that the same tree packs to the same bytes and a publish that changed nothing does not
@@ -219,17 +212,6 @@
        which takes the link and never what is behind it. -->
   <Target Name="ForgetTheOldLinks">
     <Exec Command="for stale in '$(OutDir)wwwroot' '$(PublishDir)wwwroot'; do for name in assets towns; do test -L &quot;$stale/$name&quot; &amp;&amp; rm -f &quot;$stale/$name&quot;; done; done; true" />
-  </Target>
-
-  <!-- Gzip and not brotli, which would be a quarter smaller: the browser's runtime carries zlib and no
-       brotli at all, so BrotliStream throws on this platform and the page has nothing to unpack one
-       with. The only brotli a page can read is one the server marks Content-Encoding and the browser
-       unwraps before the fetch resolves, which is what _framework already relies on and is a fact
-       about the host rather than about this build. -->
-  <Target Name="SqueezeTheTowns" Inputs="@(TownPlan)"
-          Outputs="@(TownPlan->'$(IntermediateOutputPath)towns/%(Filename)%(Extension).gz')">
-    <MakeDir Directories="$(IntermediateOutputPath)towns" />
-    <Exec Command="gzip -9 -c '%(TownPlan.Identity)' &gt; '$(IntermediateOutputPath)towns/%(TownPlan.Filename)%(TownPlan.Extension).gz'" />
   </Target>
 
   <!-- The other half of the Sdk= attribute this file does without. It stays last, so the SDK's own

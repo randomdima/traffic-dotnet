@@ -38,7 +38,17 @@ internal static class Lattice
     /// <summary>How much of a block a street's own stub may be, before the junction it would make is too near the last one.</summary>
     const float ShortestStubInBlocks = 0.15f;
 
-    public static void Lay(
+    /// <summary>
+    /// <b>Every node the lattice wants and every street it would lay, without laying one</b> — the points of
+    /// each district's own grid, and the node on an arterial each stub would meet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Placing is separated from laying so that the town's nodes are all settled before its first road</b>
+    /// (<see cref="TownLayout.AddNode"/>, GEN-16): an arterial carries the nodes the streets hang off it, so
+    /// it cannot be closed until they are placed — and it has to be laid before them, or a street would take
+    /// ground the arterial needs and the town would give way to its own lattice (GEN-49).
+    /// </remarks>
+    public static List<(int From, int To)> Place(
         TownLayout layout, Districts districts, Arterials arterials, TownBrief brief, GroundShapes ground,
         SimConfig config, float marginM)
     {
@@ -46,10 +56,24 @@ internal static class Lattice
         var clearanceM = CorridorM(config);
         var weldM = config.RoadWidthM;
 
+        var streets = new List<(int From, int To)>();
         for (var district = 0; district < districts.Count; district++)
         {
-            LayOne(layout, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM);
+            PlaceOne(layout, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, streets);
         }
+
+        return streets;
+    }
+
+    /// <summary>
+    /// And the streets themselves, offered in the order they were found once every arterial stands
+    /// (<see cref="Place"/>), against the nodes the settling left (<see cref="TownLayout.SettleTheNodes"/>).
+    /// A link whose two ends fell into one cluster is no road and is refused where every other refusal is
+    /// (<see cref="TownLayout.Join"/>).
+    /// </summary>
+    public static void Lay(TownLayout layout, List<(int From, int To)> streets, int[] moved)
+    {
+        foreach (var (from, to) in streets) layout.Join(moved[from], moved[to], RoadClass.Street);
     }
 
     /// <summary>
@@ -59,9 +83,9 @@ internal static class Lattice
     public static float CorridorM(SimConfig config) =>
         (config.RoadWidthM * 0.5f) + config.PavementWidthM + config.IntersectionCornerRadiusM;
 
-    static void LayOne(
+    static void PlaceOne(
         TownLayout layout, Districts districts, int district, Arterials arterials, GroundShapes ground,
-        Vector2 extentM, float marginM, float clearanceM, float weldM)
+        Vector2 extentM, float marginM, float clearanceM, float weldM, List<(int From, int To)> streets)
     {
         var alongSpacingM = districts[district].BlockAlongM;
         var acrossSpacingM = districts[district].BlockAcrossM;
@@ -91,9 +115,9 @@ internal static class Lattice
                 var from = node[Slot(u, v, reach, side)];
                 if (from < 0) continue;
 
-                Reach(layout, node, ground, arterials, u, v, 1, 0, reach, side);
-                Reach(layout, node, ground, arterials, u, v, 0, 1, reach, side);
-                Hang(layout, node, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, u, v, reach, side);
+                Reach(layout, node, arterials, u, v, 1, 0, reach, side, streets);
+                Reach(layout, node, arterials, u, v, 0, 1, reach, side, streets);
+                Hang(layout, node, districts, district, arterials, extentM, marginM, clearanceM, weldM, u, v, reach, side, streets);
             }
         }
     }
@@ -114,8 +138,8 @@ internal static class Lattice
     /// once it stands (<see cref="OneWayStreets"/>, GEN-18).
     /// </remarks>
     static void Reach(
-        TownLayout layout, int[] node, GroundShapes ground, Arterials arterials, int u, int v, int du, int dv,
-        int reach, int side)
+        TownLayout layout, int[] node, Arterials arterials, int u, int v, int du, int dv, int reach, int side,
+        List<(int From, int To)> streets)
     {
         if (u + du > reach || v + dv > reach) return;
 
@@ -127,7 +151,7 @@ internal static class Lattice
         var toM = layout.NodeM[to];
         if (arterials.CrossesTheRing(fromM, toM)) return;
 
-        layout.Join(from, to, RoadClass.Street);
+        streets.Add((from, to));
     }
 
     /// <summary>
@@ -137,8 +161,9 @@ internal static class Lattice
     /// anyway is how a street ends up crossing a block.
     /// </summary>
     static void Hang(
-        TownLayout layout, int[] node, Districts districts, int district, Arterials arterials, GroundShapes ground,
-        Vector2 extentM, float marginM, float clearanceM, float weldM, int u, int v, int reach, int side)
+        TownLayout layout, int[] node, Districts districts, int district, Arterials arterials,
+        Vector2 extentM, float marginM, float clearanceM, float weldM, int u, int v, int reach, int side,
+        List<(int From, int To)> streets)
     {
         var from = node[Slot(u, v, reach, side)];
         if (from < 0) return;
@@ -170,7 +195,7 @@ internal static class Lattice
             var ontoM = layout.NodeM[onto];
             if ((ontoM - fromM).Length() < districts[district].BlockTightestM * ShortestStubInBlocks) continue;
 
-            layout.Join(from, onto, RoadClass.Street);
+            streets.Add((from, onto));
         }
     }
 

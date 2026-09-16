@@ -5,9 +5,9 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// <b>The pavement, laid once as the band the walk runs down</b> (TER-3c): the town's own tarmac —
-/// <see cref="Kerbs"/>'s list — wrapped at half a walk, and the runs of that wrap that are really the
-/// outside of it.
+/// <b>The pavement, laid once as the band the walk runs down</b> (TER-3c): the town's own tarmac — the
+/// ribbons the driven lines lay (<see cref="LaneShell"/>) — wrapped at half a walk, and the runs of that
+/// wrap that are really the outside of it.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,9 +19,9 @@ namespace TrafficSimulation.CityGen;
 /// a walker refused ground it can see it is standing on. Laid here, the two read one list.
 /// </para>
 /// <para>
-/// <b>The pavement is the ground within half a walk of <see cref="Walk"/>, and it is nothing else</b>
-/// (TER-3c.3). That line is the town's tarmac wrapped at half a walk and cut to the runs no tarmac stands
-/// nearer to — <em>the same line the walking lanes are laid on</em> — so the band is a walk wide the whole
+/// <b>The pavement is the ground within half a walk of the half-walk line, and it is nothing else</b>
+/// (TER-3c.3). That line is the town's tarmac wrapped at half a walk (<see cref="Perimeter"/>) and cut to
+/// the runs no tarmac stands nearer to — <em>the same line the walking lanes are laid on</em> — so the band is a walk wide the whole
 /// way round, the kerb is its inner edge, the shell against the grass is its outer edge, and a walker walks
 /// down the middle of it.
 /// </para>
@@ -77,9 +77,6 @@ internal sealed class Paving
     /// <summary>The movement's own metres, end to end.</summary>
     public float MovementLengthM(int movement) => Lanes.ConnectorLengthM[movement];
 
-    /// <summary>The junction a movement crosses.</summary>
-    public int JunctionOfMovement(int movement) => Lanes.JunctionOfConnector(movement);
-
     /// <summary>
     /// <b>Every line the town is driven on, in one numbering</b>: the lanes, then the movements
     /// (<see cref="MovementCount"/>). A lane and never a carriageway — the tarmac's own piece for a street
@@ -131,7 +128,7 @@ internal sealed class Paving
         return _drivenLines = building.Seal(config.NearestChainCellM);
     }
 
-    LaneShell? _perimeter;
+    BandShell? _perimeter;
 
     /// <summary>
     /// <b>The outside of the driven ground, as the merge of the ribbons every line lays</b>
@@ -142,7 +139,20 @@ internal sealed class Paving
     /// <b>Kept here because it is the town's and not a reader's.</b> The merge is the same for everyone who
     /// asks, and the picture redrawing on a pan asks it every frame.
     /// </remarks>
-    public LaneShell Perimeter(SimConfig config) => _perimeter ??= LaneShell.Of(this, config);
+    public BandShell Perimeter(SimConfig config) => _perimeter ??= LaneShell.Of(this, config);
+
+    GroundRings? _rings;
+
+    /// <summary>
+    /// <b>The ground beside a road, as the boundary moved by the one figure that strikes a layer of it</b>
+    /// (<see cref="GroundRings"/>, TER-3c.3, TER-7b) — laid on the first ask, for the reason
+    /// <see cref="Perimeter"/> is and at a higher price: it is a move of the whole town's outline and a cut.
+    /// </summary>
+    /// <remarks>
+    /// <b>Kept here because the boundary is kept here.</b> The layers are a fact about the town's own shell,
+    /// so a reader that struck its own would be moving a boundary the town does not have.
+    /// </remarks>
+    public GroundRings Rings(SimConfig config) => _rings ??= GroundRings.Of(Perimeter(config), config);
 
     public static Paving Lay(GroundPieces pieces, SimConfig config) =>
         new(pieces, LaneLines.Of(pieces, config));

@@ -52,10 +52,9 @@ run opens fullscreen on the display the pointer is on and `F11` toggles it; `--d
 that display instead, by the desktop's own name for it, and `--windowed` opens in a window, for a run
 to be looked at beside something else. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
-`--export` writes a map out as a `.town` file,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `drive`, `maneuvers`, `trips`, `rescue`, `recovery`, `crash`, `soak`, `stuck`, `tick`, `town`,
-`solver`, `walk`); `--bench all` runs the lot, and
+(`census`, `shape`, `joints`, `parks`, `shapes`, `drive`, `maneuvers`, `trips`, `rescue`, `recovery`, `crash`,
+`soak`, `stuck`, `tick`, `town`, `solver`, `walk`); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 
@@ -69,6 +68,16 @@ the middle of the track. **Dragging one changes it under the town that is standi
 every look is built again and the ground is worth what it is now worth, while the marks stay on the road
 and every body stays where it was — which is what makes the page a rig rather than a read-out. Nothing is authored by it: every trim is 100% unless the page has been opened, and the shipped
 run is the run this suite measures.
+
+**And the ground can be taken apart while the town runs.** The menu's `Ground` page (`--ui menu-ground`)
+carries a row a layer of the town's standing ground — the grass, the walk and its kerb, the water, the
+decks, the carriageway, the slabs, the town's kerb and the paint — each saying what it came to in triangles
+and in the milliseconds it took to cut, with the whole mesh and the boundary's share of that time under
+them. **A box unticked takes that layer out of the picture**, and out of the wireframe over it, so what is
+under it can be looked at; the triangles are cut once when the town stands and the switch only shortens the
+draw, so no figure moves and putting a layer back costs nothing. A picture wants it by name:
+`--ui hide-carriageway`, and `grass`, `walk`, `walk-kerb`, `water`, `decks`, `slabs`, `kerb` and `paint`
+for the rest. The same table is printed headless by `--bench census`.
 
 **Every map says what it claims about itself and whether it is keeping it.** A windowed run draws it as the
 last section of the status panel — a broken claim counted on the panel's own always-on title, the rows
@@ -102,9 +111,17 @@ the geometry grid and lights every line the index holds in it.
 }
 ```
 
-`--export PATH --map NAME` lays a map and writes it out as a `.town` file. It is how a map generated from
-a brief becomes one this build ships, and how a fixture is re-baked when the format moves — the reader and
-the writer are one contract, and the round trip over every shipped map is what says so.
+`--bench census --map NAME` says what a town holds and what the graphs made of it; `--bench shape`,
+`--bench joints` and `--bench parks` say what shape it came out — how its roads bend, where its junctions
+stand, which of them are places nothing meets (GEN-51) and which of them are car parks cut into a road
+(GEN-53). `--bench outset` moves that town's own boundary off itself and **exits non-zero if any run of it
+is left open**, printing the boundary and the candidate set either side of the first hole. `--bench fill`
+cuts that boundary into the triangles the ground is drawn out of and reads the cut on the four things that
+say whether it is the right one: **how long it takes, how many triangles it comes to, how near those
+triangles are to equilateral, and how much of the shell it lost** against the area the arcs themselves
+enclose. It prints the shell's open joints beside them, since the straights a fill draws across them are
+ground nothing else accounts for. `qq town` is the same five
+readings from the shell.
 
 `--lamps` cuts the town's lamp sheet out of the fleet's own sprites — every lens a variant draws, in
 each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.png`.
@@ -212,7 +229,7 @@ loop — the same figure the browser head quotes.
 
 ```
 src/        every line of C#, and nothing else — the nine slices below
-  core/     the kernel: config, geometry, persistence, simulation — and nothing that knows about a town
+  core/     the kernel: config, geometry, simulation — and nothing that knows about a town
   citygen/  the city plan as pure data: its structure, its cell vocabulary, and gen/ — the generator
             that lays one from a brief
   world/    terrain, road, foot, routing, physics, containment, statics, parking, town
@@ -224,8 +241,8 @@ src/        every line of C#, and nothing else — the nine slices below
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not
 assets/     the art and the .json data read at startup, mirroring the code tree
-towns/      a city's brief — the seed and the intent it is generated from, a few hundred bytes each —
-            and the two fixtures still carried as baked .town files
+towns/      a city's brief — the seed and the intent it is generated from, a few hundred bytes each,
+            and the whole of what a town is carried as
 bin/, obj/  build output — the only folders at the root the project file writes
 ```
 

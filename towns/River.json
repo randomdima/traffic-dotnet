@@ -16,5 +16,6 @@
   "bearingSpreadDeg": 20,
   "ringShare": 0.3,
   "unregulatedJunctionShare": 0.15,
-  "cars": 480
+  "cars": 480,
+  "buildings": 1100
 }

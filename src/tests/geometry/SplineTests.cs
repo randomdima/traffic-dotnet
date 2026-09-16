@@ -456,4 +456,47 @@ public class SplineTests
 
         Assert.Equal(2, Spline.JoinedInto([ahead, back], Tolerance, joined));
     }
+
+    /// <summary>
+    /// <b>A disc's own area, read off the one piece it is</b> — the shape whose enclosed ground nobody has to
+    /// derive, and the one that says the circular segment a bend cuts off its chord is added with the sign
+    /// the bend turns in.
+    /// </summary>
+    [Fact]
+    public void ADiscEnclosesTheAreaItsOwnRadiusGivesIt()
+    {
+        const float radiusM = 12f;
+        ArcSeg[] disc = [new ArcSeg(Vector2.Zero, 0f, 2f * MathF.PI * radiusM, 1f / radiusM)];
+
+        Assert.Equal(MathF.PI * radiusM * radiusM, Spline.EnclosedM2(disc), Tolerance);
+    }
+
+    /// <summary>
+    /// <b>A ring whose pieces do not meet encloses the ground up to the straights that close it</b>, which is
+    /// the ground anything filling the ring covers: a fill draws from one piece's end to the next piece's
+    /// start, so an area that left those straights out would be an area of a shape nothing lays. A town's
+    /// merged perimeter has thousands of such joints and no fill of one is wrong for covering them.
+    /// </summary>
+    /// <remarks>
+    /// A square's four sides, each stopping short of the corner it was heading for and each starting short
+    /// of the one it came from: the ring is an octagon, and what it encloses is the square less the four
+    /// corner triangles the closing straights cut off.
+    /// </remarks>
+    [Fact]
+    public void ARingWhosePiecesDoNotMeetEnclosesTheGroundTheStraightsAcrossThemBound()
+    {
+        const float sideM = 10f;
+        const float shortM = 2f;
+        const float runM = sideM - (2f * shortM);
+
+        ArcSeg[] ring =
+        [
+            new ArcSeg(new Vector2(shortM, 0f), 0f, runM, 0f),
+            new ArcSeg(new Vector2(sideM, shortM), MathF.PI / 2f, runM, 0f),
+            new ArcSeg(new Vector2(sideM - shortM, sideM), MathF.PI, runM, 0f),
+            new ArcSeg(new Vector2(0f, sideM - shortM), -MathF.PI / 2f, runM, 0f),
+        ];
+
+        Assert.Equal((sideM * sideM) - (4f * 0.5f * shortM * shortM), Spline.EnclosedM2(ring), Tolerance);
+    }
 }

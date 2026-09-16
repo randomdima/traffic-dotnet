@@ -214,20 +214,23 @@ whole run and not only while that vehicle is in it. Three consequences:
   for stands fewer vehicles, and one with none stands none — which is a real state and is reported
   (`AMB-2`, `SRV-2`).
 
-**GEN-4h** `P4` **A car park's frontage is metres of a lane and not a stretch of the network, and the road
-is not cut for it.** A lane is broken where a driver chooses and nowhere else, so the kerb a lot's bays are
-reached over is part of the lane that runs past it — and **a leg aimed at one of those bays is routed to the
-metre its way in leaves the carriageway at**, which is what a destination has always been allowed to be: a
-place on a link, carried with how far into that link it stands. Two consequences:
+**GEN-4h** `P4` **A car park is a junction cut into the road, and every bay of it is an arm of that
+junction** ([citygen](../../../citygen/docs/requirements.md) GEN-52, GEN-53). The road is parted at the place
+the car park stands and **does not move an inch for it**: the carriageway either side is the ground it was
+already laid on, and what a car takes to reach a bay is a movement across a box like every other turn it
+makes. A bay's own way (`GEN-4f`) is that arm's lane — one lane wide, driven both ways over the one line.
+Three consequences:
 
-- **A frontage has no node, so nothing about a car park is decided on the road.** There is no box to be
-  granted, refused or stopped short of, no join of no length between two halves of one street, and no lane
-  end a car has to reach before it may turn in. A junction has a disc because two carriageways cross
-  there; nothing crosses here.
-- **A frontage still needs room.** Its bays are reached over a run-in staged along the lane beside them —
-  at either end, since a bay backed into is staged past it rather than short of it (`GEN-4j`) — so a
-  frontage stands clear of its road's own ends by that run-in and by a stretch of street beyond it. A slot
-  without that room carries a building rather than a car park.
+- **A car park has a node, and everything about one is decided on the road.** It is granted, refused and
+  ranked by the rules a junction already carries (TER-5c, TER-5e) — so there is no second mechanism for
+  turning into a car park, no bar held up before the manoeuvre and no register of who may cross what
+  (`SIM-7`).
+- **A leg aimed at a bay is routed to that bay's own arm**, which is an ordinary route over the town's own
+  lanes ending on the lane the bay is. It used to be routed to the metre a way in left the carriageway at —
+  a destination part way along a link — and a bay that is an arm needs none of that.
+- **A car park still needs room**: the ground its junction takes, a locality clear of every other junction
+  on the road (GEN-16), and a road straight enough there to carry one (GEN-53). A stretch of street without
+  that room carries buildings rather than a car park.
 
 **GEN-4g** `P4` **Which bay a leg is aimed at is a claim, and it lives in a register.** It is the one hold in
 the town that is not a piece of road, and it is a register because it has to be: the hold begins when the

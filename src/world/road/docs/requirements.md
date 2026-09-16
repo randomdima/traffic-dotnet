@@ -102,12 +102,11 @@ first point, so a lane's line is the whole of what is driven along it and the gr
 junction's alone. **Nothing runs over a connection point**: no lane carries a spur into the box for a
 movement to be drawn over, and no reader adds a figure to a lane's metres to find where they begin.
 
-**A lane end is one point, whatever is driven off it.** How far back from the disc it stands is far enough
-that the arc from it reaches the junction's own corner radius, and it is the deepest any of that end's
-movements asked for — so a straight and a right-angle turn out of one lane hand over at the same place, and
-what the corner takes is **cut off the lane** rather than marked on it. It is never more than the stretch
-can spare, because a lane cut away is a lane the town has not got. Every movement in the reckoning reaches
-a radius, because the one that never could is not a movement (TER-5f).
+**A lane end is one point, whatever is driven off it**, and it is the connection point its arm was drawn
+with (`GEN-46`): a standoff out along the arm's own line, half a lane across. **Nothing is cut back to make
+room for a movement** — the road was laid to arrive on those points, so the ground past them is the
+junction's and the ground before them is the lane's, and a straight and a right-angle turn out of one lane
+hand over at the same place because there is only one place to hand over at.
 
 **TER-5d.1** `P4` **The ground a movement is driven over is as wide as the narrower of the two lanes it
 joins**, and that is one figure the whole town reads — the tarmac's own shape, the answer at a point and
@@ -124,28 +123,18 @@ car's lock at any setback — and the consequence is deliberate: **a leg that ha
 came does it in a car park's bay (`GEN-4l`) or by working itself round at a dead end (`P-19`, TER-5a),
 which are manoeuvres a driver makes and not movements a junction offers.**
 
-**TER-5i** `P5` **A lane runs between the two points it was drawn to run between, and is cut nowhere at
-all.** Its two ends are its road's own connection points (`GEN-46`), so a lane is one line over the whole of
-its road and nothing is cut back to make room for the movements off it: there is no figure a reader has to
-add to a lane's metres, and no ground carries both a lane and a line drawn across it.
+**TER-5i** `P5` **A lane is one way of one road, and it is cut nowhere at all.** Its two ends are its road's
+own connection points (`GEN-46`) — the exit point of the arm it sets off on and the entry point of the arm it
+arrives at — so a lane is that road's line moved to its share of the carriageway and it runs the whole of it.
+Nothing is cut back to make room for the movements off it: there is no figure a reader has to add to a lane's
+metres, and no ground carries both a lane and a line drawn across it.
 
-**A node with two arms is still a node.** Nothing folds two stretches into one afterwards, because there is
-no join to rub out: a lane is laid between the points its own road ends on, and a node the graph kept is a
-node whose arms have points at it. What a driver decides there is what the movements say (TER-5e) and not
-what the count of arms does.
-
-Three things are not folded and each is a place the town really does change. **Both ways of a stretch are
-folded together or neither is**, because a lane and the one running back down its own ground are each
-other's reverse and a pair that disagreed would be two lanes over one piece of road. **A carriageway that
-steps in width keeps its join**, a band having one width (TER-5d.1). And **a run that closes on itself is
-opened at one join**, arbitrarily, because a loop of street with no junction anywhere on it still has to
-have a first lane.
-
-**What the lane swallows is the join's own line**, drawn between the two ends after the cut back and
-therefore tangent to both of them (TER-5d): the fold is the same ground in the same shape, reported as the
-one line a driver actually drives, and it may not move the tarmac. **A folded join is no movement** — it is
-not classified, not priced and not reachable — **but the ground under one is still tarmac**, which is what
-the outline is laid from where the two arms' kerbs do not meet.
+**Every movement therefore hands over at a lane's own start**, and a lane is arrived at and left and never
+driven through. **What spares a driver the junctions that decide nothing is the layout and not the lane**: a
+run of roads through nodes nothing meets at is one road before a lane is laid on it (`GEN-51`), and a one-way
+street arrives only where the traffic it meets still has a choice (`GEN-18`). What is left holding one
+movement is a corner every other movement was refused for (`GEN-48`) or an entry to a roundabout (`GEN-19`) —
+both of them places a driver really is committed, and both reported by the census rather than papered over.
 
 ## Crossings
 
@@ -254,12 +243,13 @@ Six rules govern all of it:
 
 ## What this slice must produce
 
-- **Directed lanes and the connectors between them, and no node table.** A lane runs between the two
-  connection points its road was laid to (TER-5i, `GEN-46`), and is cut nowhere.
+- **Directed lanes and the connectors between them, and no node table.** A lane runs between its road's two
+  connection points (TER-5i, `GEN-46`) and is cut nowhere.
   **Where two lane ends are the same ground is worked out from the connectors** — a
   connector runs between them, or they are the two ends of one stretch driven either way — so a junction is
-  the shape a set of crossed lanes makes and is nothing the network carries. Derived twice, the router and
-  the claims would be entitled to disagree about which lane ends are one piece of the world.
+  the shape a set of crossed lanes makes and is nothing the network carries. **Worked out once and handed to
+  whoever needs it**, the router included (SIM-7): derived twice, the router and the claims would be entitled
+  to disagree about which lane ends are one piece of the world.
 - **The plan's junctions, and the lanes each of them lowered into**, for the two slices whose subject *is*
   an intersection: the signals a bundle governs (`TLT-1`) and the paint laid on an arm (TER-6). Nothing
   that drives, routes or claims may reach it.

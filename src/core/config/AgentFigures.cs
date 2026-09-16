@@ -12,6 +12,19 @@ internal sealed class CarFigures
     public float LengthM { get; init; } = 4.0f;
     public float WidthM { get; init; } = 2.0f;
     public float MassKg { get; init; } = 1400f;
+
+    /// <summary>
+    /// <b>The longest body any variant in the catalogue wears</b>, which is the recovery truck's — <b>what
+    /// the town lays a bay to</b> (<see cref="SimConfig.CarParkBayLengthM"/>), because a bay too short for
+    /// one vehicle in the town is a bay that vehicle parks across.
+    /// </summary>
+    /// <remarks>
+    /// <b>A bound the catalogue is held to and not a reading off it</b>: the plan is laid before a single
+    /// car is built and cannot ask the fleet how long it is, so the figure is stated here and
+    /// <c>CarCatalogTests</c> fails the build for a variant that outgrows it. It is longer than
+    /// <see cref="LengthM"/> because nobody drives the nominal car (CAR-11).
+    /// </remarks>
+    public float LongestLengthM { get; init; } = 4.4f;
     /// <summary>
     /// <b>The cap a car is governed at, and not a top speed it would reach.</b> 144 km/h: a road vehicle's
     /// limiter, which a variant scales to its own. It is an authored primitive because there is nothing here

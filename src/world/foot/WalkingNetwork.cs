@@ -310,7 +310,7 @@ internal sealed class WalkingNetwork
 
     public static WalkingNetwork Build(FootGraph foot, GroundLocator terrain, SimConfig config)
     {
-        var runs = RunNetwork.Contract(foot, default(Pricer));
+        var runs = RunNetwork.Contract(foot, default(Pricer), LanePlaces.Of(foot));
 
         var linkOfEdge = new int[foot.EdgeCount];
         var slotOfEdge = new int[foot.EdgeCount];

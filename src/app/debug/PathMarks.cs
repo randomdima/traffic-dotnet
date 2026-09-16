@@ -6,7 +6,7 @@ namespace TrafficSimulation.App.Debug;
 
 /// <summary>
 /// <b>What a path is drawn as, whoever is drawing it</b> — the line, the marks down it that say which way
-/// it runs, and the comb those marks stand on. The layers draw an agent's own two pieces of route with it
+/// it runs, and the grid those marks stand on. The layers draw an agent's own two pieces of route with it
 /// (OBS-2h) and the interface draws the selected unit's whole one (CTL-1a); one vocabulary, so a route
 /// drawn by either lands on the same stones at the same weight.
 /// </summary>
@@ -23,6 +23,13 @@ internal static class PathMarks
     public const float MarkSizeFraction = 0.24f;
 
     public const float MarkWidthFactor = 1.25f;
+
+    /// <summary>
+    /// <b>How near a mark another mark saying the same thing may stand</b> (<see cref="MarkClaims"/>).
+    /// Nearer than this the two are a blot rather than two answers: a chevron is a third of a metre long
+    /// and half of one across, and what a reader has to be able to see is the gap between them.
+    /// </summary>
+    public const float MarkApartM = 1f;
 
     /// <summary>
     /// Under this a mark on screen is a smudge and not a direction, so none is drawn. It is what keeps
@@ -51,7 +58,7 @@ internal static class PathMarks
     /// <summary>
     /// <b>How long a barb off a line is, and how far apart barbs stand down it</b>
     /// (<see cref="Barbed"/>). Longer than a mark and further apart: a barb is read one at a time, being an
-    /// answer about one side of the line rather than a direction the run as a whole has, and a comb of them
+    /// answer about one side of the line rather than a direction the run as a whole has, and a row of them
     /// as fine as the marks reads as a band drawn beside the line instead of as a row of answers.
     /// </summary>
     public const float BarbM = 0.7f;
@@ -133,9 +140,10 @@ internal static class PathMarks
     }
 
     /// <summary>
-    /// The marks down one stretch of a chain, standing on the town's own comb (<see cref="FirstMarkM"/>).
-    /// A tick rather than a chevron where the ground under them carries both directions on one line, since
-    /// a chevron there is a direction the ground does not have.
+    /// The marks down one stretch of a chain, standing where it crosses the town's own grid
+    /// (<see cref="MarkGrid"/>) and where the pass has not already marked that stone
+    /// (<see cref="MarkClaims"/>). A tick rather than a chevron where the ground under them carries both
+    /// directions on one line, since a chevron there is a direction the ground does not have.
     /// </summary>
     /// <remarks>
     /// A pass of its own and not a mark dropped as the line is walked: a mark stands where the metres say,
@@ -143,23 +151,25 @@ internal static class PathMarks
     /// </remarks>
     public static void Marks(
         ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM, bool bothWays,
-        Vector4 colour)
+        Vector4 colour, MarkClaims claims)
     {
         if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
 
         var sizeM = pitchM * MarkSizeFraction;
         var widthM = PathLineM * MarkWidthFactor;
-        var start = Spline.SampleAt(arcs, fromM);
-        for (var atM = fromM + FirstMarkM(start.PositionM, start.Direction, pitchM); atM <= toM; atM += pitchM)
+        var grid = new MarkGrid(fromM, toM, pitchM);
+        while (grid.MoveNext(arcs))
         {
-            var mark = Spline.SampleAt(arcs, atM);
+            var mark = Spline.SampleAt(arcs, grid.AtM);
+            if (!claims.Take(mark.PositionM, mark.Direction)) continue;
+
             if (bothWays) draw.TickM(mark.PositionM, mark.Direction, sizeM, widthM, colour);
             else draw.ChevronM(mark.PositionM, mark.Direction, sizeM, widthM, colour);
         }
     }
 
     /// <summary>
-    /// <b>The barbs down one stretch of a chain</b>: at each place on the comb, a short dash square off the
+    /// <b>The barbs down one stretch of a chain</b>: at each place on the grid, a short dash square off the
     /// line and standing to one side of it — <b>which side being the whole of what a barb says</b>.
     /// </summary>
     /// <remarks>
@@ -174,17 +184,17 @@ internal static class PathMarks
     {
         if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
 
-        var start = Spline.SampleAt(arcs, fromM);
-        for (var atM = fromM + FirstMarkM(start.PositionM, start.Direction, pitchM); atM <= toM; atM += pitchM)
+        var grid = new MarkGrid(fromM, toM, pitchM);
+        while (grid.MoveNext(arcs))
         {
-            var barb = Spline.SampleAt(arcs, atM);
+            var barb = Spline.SampleAt(arcs, grid.AtM);
             var across = toTheRight ? barb.Right : -barb.Right;
             draw.LineM(barb.PositionM, barb.PositionM + (across * BarbM), widthM, colour);
         }
     }
 
     /// <summary>
-    /// <b>The normals down one stretch of a chain</b>: at each place on the comb, an arrow square off the
+    /// <b>The normals down one stretch of a chain</b>: at each place on the grid, an arrow square off the
     /// line and pointing to the side the chain claims — the barb (<see cref="Barbed"/>) with a head on it.
     /// </summary>
     /// <remarks>
@@ -201,10 +211,10 @@ internal static class PathMarks
     {
         if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
 
-        var start = Spline.SampleAt(arcs, fromM);
-        for (var atM = fromM + FirstMarkM(start.PositionM, start.Direction, pitchM); atM <= toM; atM += pitchM)
+        var grid = new MarkGrid(fromM, toM, pitchM);
+        while (grid.MoveNext(arcs))
         {
-            var at = Spline.SampleAt(arcs, atM);
+            var at = Spline.SampleAt(arcs, grid.AtM);
             var across = toTheRight ? at.Right : -at.Right;
             var tipM = at.PositionM + (across * BarbM);
             draw.LineM(at.PositionM, tipM, widthM, colour);
@@ -212,13 +222,33 @@ internal static class PathMarks
         }
     }
 
+    /// <summary>
+    /// <b>One stretch of a chain as a boundary</b>: the line it is, and the normals that say which side of it
+    /// the shape is on (<see cref="Normals"/>). The pair <see cref="Chained"/> is for a path — one
+    /// vocabulary, so every boundary anything draws is drawn the same and a reader learns it once.
+    /// </summary>
+    /// <remarks>
+    /// <b>Normals and not marks, because a boundary leads nowhere.</b> Which way a ring is walked is an
+    /// artefact of how it was made; what it claims is a side, and that is the one thing a line on its own
+    /// cannot say. A chain drawn here is walked with its own ground on the right throughout
+    /// (<see cref="BandShell.Chains"/>), which is why the hand is not the caller's to choose: a boundary
+    /// whose normals had to be pointed by whoever drew it would be a boundary with two answers.
+    /// </remarks>
+    public static void Bounded(
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float pitchM,
+        float widthM, Vector4 colour, Vector4 normal)
+    {
+        Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour);
+        Normals(ref draw, arcs, fromM, toM, pitchM, toTheRight: true, widthM, normal);
+    }
+
     /// <summary>One stretch of a chain as a path: the line it is, and the marks that say which way it runs.</summary>
     public static void Chained(
         ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM, bool bothWays,
-        float sagM, Vector4 colour)
+        float sagM, Vector4 colour, MarkClaims claims)
     {
         Banded(ref draw, arcs, fromM, toM, sagM, PathLineM, colour);
-        Marks(ref draw, arcs, fromM, toM, pitchM, bothWays, colour);
+        Marks(ref draw, arcs, fromM, toM, pitchM, bothWays, colour, claims);
     }
 
     /// <summary>
@@ -226,7 +256,7 @@ internal static class PathMarks
     /// way it runs along its whole length, which is what tells a walker on its line from a walker beside it.
     /// </summary>
     /// <remarks>
-    /// The marks stand on the town's own comb (<see cref="FirstMarkM"/>), so they stand still while the
+    /// The marks stand on the town's own grid (<see cref="MarkGrid"/>), so they stand still while the
     /// agent walks through them, two bodies on one stretch put theirs in the same places, and a body's own
     /// line marks the pavement on the stones the network layer under it already marked.
     /// </remarks>
@@ -238,36 +268,160 @@ internal static class PathMarks
         var lengthM = alongM.Length();
         if (lengthM <= 1e-3f || !float.IsFinite(pitchM)) return;
 
-        for (var at = FirstMarkM(fromM, alongM / lengthM, pitchM); at < lengthM; at += pitchM)
+        Span<ArcSeg> line = [new ArcSeg(fromM, MathF.Atan2(alongM.Y, alongM.X), lengthM, 0f)];
+        Marks(ref draw, line, 0f, lengthM, pitchM, bothWays: false, colour, MarkClaims.None);
+    }
+}
+
+/// <summary>
+/// <b>The places down one stretch of a chain of arcs that carry a mark</b>, as distances along the chain.
+/// <b>A mark stands where the line crosses the town's own grid</b> — the lattice of lines a pitch apart,
+/// square to the world axes and laid from the origin — so <b>where a mark falls is a fact about the ground
+/// the line crosses and about nothing the line itself is</b>: not where it was cut, not how much of it is
+/// being drawn, not which bend it came out of.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Two lines over the same ground therefore carry the same marks</b>, which is the whole of the rule:
+/// the lanes of one carriageway mark one line of the grid across it, a movement running along a lane
+/// stands its marks on the lane's, the two directions of one stretch agree because they cross the same
+/// lines, and an agent's own line lands on the stones the network layer under it already drew.
+/// </para>
+/// <para>
+/// <b>Marks laid off a line's own start are a picture of where the lines were cut instead</b> — and a
+/// chain of short pieces, which is what a roundabout ring and every junction join are, comes out with a
+/// mark on every piece however short it is, because each of them is a start.
+/// </para>
+/// <para>
+/// <b>The bearing decides how far apart the marks are, and that is the price of the rule</b>: a line
+/// square to the grid crosses one family of its lines and is marked every pitch, and one at forty-five
+/// degrees crosses both and is marked about seven tenths of that. A line through a corner of the grid
+/// meets both families within a stroke, and there the line across the world keeps the mark
+/// (<see cref="Crossings"/>).
+/// </para>
+/// </remarks>
+internal struct MarkGrid(float fromM, float toM, float pitchM)
+{
+    /// <summary>How far a piece is walked between samples: half a pitch, so no step can cross two lines of one family.</summary>
+    const float StepFraction = 0.5f;
+
+    /// <summary>How near a line of the other family a mark may stand before the two are the same mark, as a share of the pitch along the line.</summary>
+    const float ApartFraction = 0.3f;
+
+    int _piece = -1;
+
+    /// <summary>How much of the chain the pieces taken so far account for, which is where the next one begins.</summary>
+    float _pieceFromM = 0f;
+
+    /// <summary>How far along the chain the piece being walked begins, its own arithmetic starting from nought there.</summary>
+    float _arcFromM = 0f;
+
+    /// <summary>And where this piece's walk stops: where it ends, or where the stretch asked for does.</summary>
+    float _walkToM = 0f;
+
+    /// <summary>The last sample taken: how far along the chain it stood and where it stood.</summary>
+    float _sampleM = 0f;
+    Vector2 _sampleAtM = Vector2.Zero;
+
+    /// <summary>A second crossing found in the same step, held back until the first of the two has been read.</summary>
+    float _heldM = float.NaN;
+
+    /// <summary>How far along the chain the mark stands.</summary>
+    public float AtM { get; private set; } = 0f;
+
+    public bool MoveNext(scoped ReadOnlySpan<ArcSeg> arcs)
+    {
+        if (!float.IsNaN(_heldM))
         {
-            draw.ChevronM(
-                fromM + (alongM / lengthM * at), alongM, pitchM * MarkSizeFraction, PathLineM * MarkWidthFactor,
-                colour);
+            AtM = _heldM;
+            _heldM = float.NaN;
+            return true;
         }
+
+        while (_sampleM < _walkToM || OntoTheNextPiece(arcs))
+        {
+            var ontoM = MathF.Min(_walkToM, _sampleM + (pitchM * StepFraction));
+            var ontoAtM = arcs[_piece].PointAtM(ontoM - _arcFromM);
+            var (firstM, secondM) = Crossings(ontoAtM, ontoM);
+
+            _sampleAtM = ontoAtM;
+            _sampleM = ontoM;
+            if (float.IsNaN(firstM)) continue;
+
+            AtM = firstM;
+            _heldM = secondM;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
-    /// How far past the start of a run its first mark stands. <b>The marks stand on a comb laid over the
-    /// town and not over the line</b>: one falls wherever the distance from the world origin along the
-    /// line's own bearing is a whole number of pitches, so nothing about where a line begins enters it.
+    /// Where one step crosses the grid: at most one line of each family, the step being half a pitch, and
+    /// in the order the line meets them.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Two consequences, and they are the reason for the rule. Lines running the same way put their marks
-    /// on the same stones however they are cut — the marks of the lanes of one carriageway stack square
-    /// across it instead of drifting against each other, and a piece of an agent's route lands on the
-    /// stones the town layer already drew. And the two directions of one line put their marks on the same
-    /// stones as each other, because the comb of a bearing and the comb of its reverse are the same comb.
-    /// </para>
-    /// <para>
-    /// The bearing is the one the run sets off on, so a run that bends walks off its own comb as it turns.
-    /// That is the price and it is small: what bends in this town is a junction join or a corner, metres
-    /// long, and the lines a reader is comparing across are the straights between them.
-    /// </para>
+    /// <b>A line through a corner of the grid meets both families within a stroke</b>, and two marks a
+    /// finger apart read as a fault in the picture rather than as one mark. The line across the world keeps
+    /// the mark and the one down it gives way — <b>decided off where the crossing stands and never off
+    /// which way the line is being walked</b>, so a line marked one way is marked the same way back and two
+    /// lines over one piece of ground still agree.
     /// </remarks>
-    public static float FirstMarkM(Vector2 atM, Vector2 direction, float pitchM)
+    (float FirstM, float SecondM) Crossings(Vector2 ontoAtM, float ontoM)
     {
-        var alongM = Vector2.Dot(atM, direction);
-        return pitchM - (alongM - (MathF.Floor(alongM / pitchM) * pitchM));
+        var stepM = ontoM - _sampleM;
+        var across = CrossedAt(_sampleAtM.X, ontoAtM.X);
+        var down = CrossedAt(_sampleAtM.Y, ontoAtM.Y);
+
+        if (!float.IsNaN(down))
+        {
+            // The stroke measured across the world rather than along the line, which is what this step's
+            // own bearing turns it into — so how near is near enough is asked in the coordinate the
+            // answer is read in.
+            var apartM = pitchM * ApartFraction * MathF.Abs(ontoAtM.X - _sampleAtM.X) / stepM;
+            var standsAtM = float.Lerp(_sampleAtM.X, ontoAtM.X, down);
+            if (MathF.Abs(MathF.IEEERemainder(standsAtM, pitchM)) < apartM) down = float.NaN;
+        }
+
+        var acrossM = _sampleM + (across * stepM);
+        var downM = _sampleM + (down * stepM);
+        if (float.IsNaN(across)) return (downM, float.NaN);
+        if (float.IsNaN(down)) return (acrossM, float.NaN);
+
+        return acrossM <= downM ? (acrossM, downM) : (downM, acrossM);
+    }
+
+    /// <summary>
+    /// How far through a step one coordinate passes a line of the grid, as a fraction of it, or
+    /// <see cref="float.NaN"/> where it passes none.
+    /// </summary>
+    float CrossedAt(float fromAtM, float ontoAtM)
+    {
+        var from = MathF.Floor(fromAtM / pitchM);
+        var onto = MathF.Floor(ontoAtM / pitchM);
+        if (from == onto) return float.NaN;
+
+        return ((MathF.Max(from, onto) * pitchM) - fromAtM) / (ontoAtM - fromAtM);
+    }
+
+    /// <summary>The next piece of the chain any of the stretch falls on, walked from where the stretch takes it up.</summary>
+    bool OntoTheNextPiece(scoped ReadOnlySpan<ArcSeg> arcs)
+    {
+        while (++_piece < arcs.Length)
+        {
+            var pieceFromM = _pieceFromM;
+            _pieceFromM += arcs[_piece].LengthM;
+
+            var walkFromM = MathF.Max(fromM, pieceFromM);
+            _walkToM = MathF.Min(toM, _pieceFromM);
+            if (_walkToM <= walkFromM) continue;
+
+            _arcFromM = pieceFromM;
+            _sampleM = walkFromM;
+            _sampleAtM = arcs[_piece].PointAtM(walkFromM - pieceFromM);
+            return true;
+        }
+
+        return false;
     }
 }

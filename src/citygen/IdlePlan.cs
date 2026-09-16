@@ -29,8 +29,8 @@ internal enum IdlePart : byte
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>It is laid to be looked at rather than to measure anything.</b> Every other scenario map answers a
-/// question (<see cref="TrackPlan"/>, <see cref="ExamPlan"/>, <see cref="SkidpadPlan"/>); this one is the
+/// <b>It is laid to be looked at rather than to measure anything.</b> A map laid in code otherwise answers
+/// one question and is laid to that question; this one is the
 /// picture the game idles on, so what it is chosen for is that it never stops being worth watching and
 /// never needs anybody's attention — a closed loop, traffic in both directions, and nothing on it that can
 /// end.
@@ -214,7 +214,7 @@ internal static class IdlePlan
     const float ConvoyGapM = 12f;
 
     /// <summary>
-    /// How near a node a car may stand before it is on ground the lane was cut back off. A car standing on
+    /// How near a node a car may stand before it is on ground the lane does not reach. A car standing on
     /// a node is off its line before it has moved. <b>The node is a disc a lane's half-width across</b> and
     /// nothing meets at it, so what this has to clear is that disc and half a car — not the room a junction
     /// somewhere else would want.
@@ -309,10 +309,6 @@ internal static class IdlePlan
             JunctionCorners = new CityPlan.JunctionCornerArrays
             {
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
-            },
-            PavementCorners = new CityPlan.PavementCornerArrays
-            {
-                CornerM = [], NormalA = [], NormalB = [], RadiusM = [],
             },
             Roads = new CityPlan.RoadArrays
             {

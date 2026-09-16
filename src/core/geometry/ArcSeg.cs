@@ -5,8 +5,7 @@ namespace TrafficSimulation.Core.Geometry;
 /// <summary>
 /// One constant-curvature piece of a road's centreline. A chain of these is a road's whole shape; a
 /// straight is the same record at zero curvature. Curvature is signed and positive turns to the
-/// driver's right. Twenty bytes, laid out as the <c>.town</c> file lays them, so a run of them is read
-/// straight out of the town's bytes rather than field by field, and the direction below.
+/// driver's right. Twenty blittable bytes, and the direction below.
 /// </summary>
 internal readonly record struct ArcSeg(Vector2 StartM, float HeadingRad, float LengthM, float Curvature)
 {

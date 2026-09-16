@@ -1,7 +1,6 @@
 using System.Reflection;
 using TrafficSimulation.App.Main;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Runtime;
 
 // The browser's entry, and the counterpart of src/app/main/Program.cs. What it does that the desktop's
@@ -41,17 +40,13 @@ try
         config, width: 0, height: 0, validate: false, options.UiScale, Pacing.Fifo,
         fullscreen: false, display: null);
 
-    // A map, fetched and then stood up. Neither the art nor the plan is in the file system until this
-    // has run, which is why the menu's click only writes the name down (Game.Web.cs) and this is what
-    // acts on it — the one place in a browser run where waiting for a fetch is allowed.
+    // A map, fetched and then stood up. The art is not in the file system until this has run, which is
+    // why the menu's click only writes the name down (Game.Web.cs) and this is what acts on it — the one
+    // place in a browser run where waiting for a fetch is allowed. Nothing of the town itself is on the
+    // wire: a city is generated from the brief that came down at boot and the ring is laid in code.
     async Task Open(string map, bool behindTheMenu = false)
     {
-        // The plan is asked for first and read last: it comes down the wire while the art is being
-        // decoded on the processor, and neither of them is waiting on the other. For a city there is
-        // nothing on the wire at all — its brief came down at boot and the town is generated below.
-        Data.Expect(map);
         await Data.Art(Say);
-        await Data.Town(map, Say);
         Say($"standing {map} up…");
         game.Start(map, behindTheMenu);
         Say(string.Empty);
@@ -78,11 +73,6 @@ try
     // the engine (main.js) and one that did not has been showing a menu that draws none of it.
     Data.ExpectArt();
     await Open(options.Map ?? Game.IdleMap, behindTheMenu: options.Map is null);
-
-    // And the rest of the plans, while the reader decides what to click: what a page spends after its
-    // first frame is not what WEB-6 puts a figure on, and this is the wire being used while it would
-    // otherwise be idle.
-    Data.ExpectEvery();
 
     // And Main never returns, which is the whole of what keeps the town standing between those
     // callbacks. <b>A timer and not an infinite wait</b>: the runtime shuts down when nothing is

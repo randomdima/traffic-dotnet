@@ -118,12 +118,12 @@ public class SignalTests
             {
                 foreach (var other in arms)
                 {
-                    // The arm each lane is at this junction, which is the road it arrives on (TER-5i).
-                    if (roads.LaneToRoad[arm] != roads.LaneToRoad[other]) continue;
+                    // The arm each lane is at this junction, which is the road it is one way of (TER-5i).
+                    if (roads.LaneRoad[arm] != roads.LaneRoad[other]) continue;
 
                     Assert.True(
                         signals.AxisOfLane(arm) == signals.AxisOfLane(other),
-                        $"{map}: junction {junction} puts the two ends of road {roads.LaneToRoad[arm]} on axes " +
+                        $"{map}: junction {junction} puts the two ends of road {roads.LaneRoad[arm]} on axes " +
                         $"{signals.AxisOfLane(arm)} and {signals.AxisOfLane(other)}, arriving at " +
                         $"{roads.EndOf(arm).PositionM} and {roads.EndOf(other).PositionM}");
                 }

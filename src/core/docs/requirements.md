@@ -2,9 +2,7 @@
 
 Units, the two seeds, the tick and the clock that spreads the town's thinking across it. **Nothing here
 knows about a town**: `core/` is the frame everything else is written in, and a type that needs to know
-what a junction is does not belong in it ([docs/slice-map.md](../../../docs/slice-map.md)). Reading a
-`.town` file is `citygen`'s for exactly that reason; what `core/persistence/` keeps is the cursor that
-walks the bytes.
+what a junction is does not belong in it ([docs/slice-map.md](../../../docs/slice-map.md)).
 
 ## Units and coordinates
 

@@ -139,6 +139,14 @@ internal static class Theme
     /// </summary>
     public static readonly Vector4 PerimeterLoose = new(0.95f, 0.35f, 0.85f, 0.95f);
 
+    /// <summary>
+    /// The outer edge of a band struck off that boundary (OBS-2u). <b>Red, which is neither the boundary's
+    /// colour nor a shade of it</b>: it is the same shape at a distance, so the whole reading is whether the
+    /// two lines keep that distance — and a shade of the blue would have a reader working out which of two
+    /// similar lines is the one the ground actually stops at.
+    /// </summary>
+    public static readonly Vector4 PerimeterOutset = new(1f, 0.25f, 0.20f, 0.95f);
+
     public static readonly Vector4 Collision = new(0.95f, 0.35f, 0.85f, 0.85f);
 
     /// <summary>

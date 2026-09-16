@@ -39,7 +39,7 @@ internal sealed unsafe class Swapchain : RenderTarget
 
     /// <summary>
     /// An unorm surface deliberately: it keeps the tint arithmetic in the space the art was authored
-    /// against. Pacing is <see cref="Vk.WantedPresentMode"/>'s, falling back to FIFO — the one mode
+    /// against. Pacing is <see cref="Vk.WantedPacing"/>'s, falling back to FIFO — the one mode
     /// every driver has.
     /// </summary>
     /// <remarks>

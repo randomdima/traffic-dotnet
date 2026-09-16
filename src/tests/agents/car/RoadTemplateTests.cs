@@ -27,7 +27,7 @@ public class RoadTemplateTests
     static float ToleranceM => Config.Car.WidthM * 0.1f;
 
     /// <summary>The tightest a swerve is ever drawn — what a car at rest is laid one at.</summary>
-    static float LockRadiusM => Config.ParkingTemplateRadiusM;
+    static float LockRadiusM => Config.CarParkingTemplateRadiusM;
 
     /// <summary>The road under the shape, where every case but the bend below is asked on a straight one.</summary>
     const float OnAStraight = 0f;

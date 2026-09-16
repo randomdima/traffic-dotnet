@@ -35,44 +35,60 @@ internal sealed partial class DebugOverlay
     const float LeastTrianglePx = 4f;
 
     /// <summary>
-    /// <b>Every triangle the mesh holds and not a class of them</b> — ground, kerb rim, dash and zebra
-    /// stripe alike. The mesh knows where the paint starts
-    /// (<see cref="GroundMesh.FirstMarkVertex"/>) and this layer does not ask: a wireframe drawn over a
-    /// subset is a picture of the filter rather than of the triangulation.
+    /// <b>Every triangle that is being drawn, and not a class of them</b> — ground, kerb rim, dash and
+    /// zebra stripe alike. The mesh knows where the paint starts
+    /// (<see cref="GroundMesh.FirstMarkVertex"/>) and this layer does not ask: a wireframe over a subset
+    /// of what is on the glass is a picture of the filter rather than of the triangulation.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>A part the ground page has taken out of the picture is out of this too</b>
+    /// (<paramref name="parts"/>, OBS-2v). That is not a filter over the mesh: the renderer is drawing
+    /// those triangles or it is not, and a net over ground nobody can see would be this layer
+    /// disagreeing with the picture it is a reading of.
+    /// </para>
+    /// <para>
     /// An edge two triangles share is drawn twice, which is cheaper than remembering which edges have
     /// been drawn — and the diagonal across a quad is the whole reading here, so nothing that would be
     /// deduplicated could be dropped anyway.
+    /// </para>
     /// </remarks>
     static void Wireframe(
-        ref ScreenDraw draw, GroundMesh mesh, Vector2 viewCentreM, Vector2 viewSpanM, float pixelsPerMetre)
+        ref ScreenDraw draw, GroundMesh mesh, uint parts, Vector2 viewCentreM, Vector2 viewSpanM,
+        float pixelsPerMetre)
     {
         var lineM = MathF.Max(WireLineM, WireLineFloorPx / pixelsPerMetre);
         var leastM = LeastTrianglePx / pixelsPerMetre;
         var vertices = mesh.Vertices;
         var indices = mesh.Indices;
 
-        for (var at = 0; at + 2 < indices.Length; at += 3)
+        for (var part = 0; part < GroundParts.Count; part++)
         {
-            var a = vertices[(int)indices[at]].PositionM;
-            var b = vertices[(int)indices[at + 1]].PositionM;
-            var c = vertices[(int)indices[at + 2]].PositionM;
+            if ((parts & (1u << part)) == 0) continue;
 
-            var minM = Vector2.Min(a, Vector2.Min(b, c));
-            var maxM = Vector2.Max(a, Vector2.Max(b, c));
-            var sizeM = maxM - minM;
-            if (MathF.Max(sizeM.X, sizeM.Y) < leastM) continue;
-            if (!OnScreen((minM + maxM) * 0.5f, viewCentreM, viewSpanM, sizeM.Length() * 0.5f)) continue;
+            var tally = mesh.Parts[part];
+            var last = tally.FirstIndex + tally.IndexCount;
+            for (var at = tally.FirstIndex; at + 2 < last; at += 3)
+            {
+                var a = vertices[(int)indices[at]].PositionM;
+                var b = vertices[(int)indices[at + 1]].PositionM;
+                var c = vertices[(int)indices[at + 2]].PositionM;
 
-            draw.LineM(a, b, lineM, Theme.Wireframe);
-            draw.LineM(b, c, lineM, Theme.Wireframe);
-            draw.LineM(c, a, lineM, Theme.Wireframe);
+                var minM = Vector2.Min(a, Vector2.Min(b, c));
+                var maxM = Vector2.Max(a, Vector2.Max(b, c));
+                var sizeM = maxM - minM;
+                if (MathF.Max(sizeM.X, sizeM.Y) < leastM) continue;
+                if (!OnScreen((minM + maxM) * 0.5f, viewCentreM, viewSpanM, sizeM.Length() * 0.5f)) continue;
 
-            // A city's mesh is more triangles than the buffer holds at any framing that admits them all,
-            // and every one past the last that fits costs a cull and three dropped writes. The picture is
-            // already truncated by the time this is true.
-            if (draw.Full) return;
+                draw.LineM(a, b, lineM, Theme.Wireframe);
+                draw.LineM(b, c, lineM, Theme.Wireframe);
+                draw.LineM(c, a, lineM, Theme.Wireframe);
+
+                // A city's mesh is more triangles than the buffer holds at any framing that admits them
+                // all, and every one past the last that fits costs a cull and three dropped writes. The
+                // picture is already truncated by the time this is true.
+                if (draw.Full) return;
+            }
         }
     }
 }

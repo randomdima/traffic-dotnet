@@ -114,21 +114,6 @@ internal sealed partial class GroundShapes
         return Ground.Grass;
     }
 
-    /// <summary>
-    /// <b>Whether the town's water covers a point, whatever is laid over it</b> — which <see cref="At"/>
-    /// cannot be asked, the driven ground beating the water there.
-    /// </summary>
-    /// <remarks>
-    /// It is what says whether a boundary has crossed water, and it has to be asked underneath the answer
-    /// rather than through it: a point the boundary encloses reads as the ground a junction shares
-    /// (<c>TER-5</c>) whether or not there is a river under it, which is the whole of the disagreement
-    /// worth measuring ([the known gaps](../../docs/index.md#known-gaps)).
-    /// </remarks>
-    public bool OverWater(Vector2 pointM) => _water.Covers(pointM);
-
-    /// <summary>And whether a bridge's deck carries that point, which is what makes crossing water legal.</summary>
-    public bool OnADeck(Vector2 pointM) => Roads(pointM).Deck;
-
     /// <summary>Whether the point is inside the town's own box, for a caller that wants to know before it asks.</summary>
     public bool Contains(Vector2 pointM) =>
         pointM.X >= 0f && pointM.Y >= 0f && pointM.X < _worldSizeM.X && pointM.Y < _worldSizeM.Y;

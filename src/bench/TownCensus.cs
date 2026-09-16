@@ -3,10 +3,10 @@ using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Agents.TrafficLight.Control;
+using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
@@ -33,12 +33,14 @@ internal static class TownCensus
         var plan = Maps.Plan(map, config);
         var elapsed = Stopwatch.GetElapsedTime(started);
 
-        var locator = new GroundLocator(plan, config);
-
         Console.WriteLine($"census — {plan.Name}, seed {plan.Seed}");
         Console.WriteLine($"{plan.WorldSizeM.X:F0} x {plan.WorldSizeM.Y:F0} m, {plan.PavementWidthM:F1} m pavement");
         Console.WriteLine($"laid in {elapsed.TotalMilliseconds:F0} ms");
         Console.WriteLine();
+
+        Ground(plan, config);
+
+        var locator = new GroundLocator(plan, config);
 
         // <b>A share and never a count</b>: the ground is a set of shapes with no cells in it, so how much
         // of the town each kind covers is measured by asking, on a lattice this report owns and at the step
@@ -154,12 +156,35 @@ internal static class TownCensus
     }
 
     /// <summary>
-    /// How many of the town's junctions have this many arms. <b>A generated town has none of one</b>
-    /// (GEN-5a) — a dead end wants the disc a car turns round in (TER-5a) and a city lays every junction as
-    /// the crossing its arms make — so that count says whether a map laid in code promised that ground on
-    /// purpose, and the count of two says how much of the town is crossed once rather than once an arm
-    /// (TER-6).
+    /// <b>The same ground as the picture holds it</b> (<see cref="GroundMesh"/>): the triangles the
+    /// renderer is handed, cut into the layers they were laid in, and what each layer cost to cut
+    /// (OBS-2v). The ground page reads the same tallies off the same mesh, so the figure a session sees
+    /// and the figure a report prints are one reading.
     /// </summary>
+    /// <remarks>
+    /// <b>Taken before anything else asks the plan a question</b>, because the boundary every layer is
+    /// struck off is laid once and kept: a mesh built after the locator has already asked for it would
+    /// charge the merge to whoever came first and read nothing here.
+    /// </remarks>
+    static void Ground(CityPlan plan, SimConfig config)
+    {
+        var mesh = GroundMesh.Build(plan, config);
+        var triangles = mesh.Indices.Length / 3;
+        Console.WriteLine($"the ground as it is drawn — {triangles} triangles over {mesh.Vertices.Length} corners, " +
+                          $"laid in {mesh.LaidMs:F0} ms, of which the boundary is {mesh.BoundaryMs:F0} ms " +
+                          $"and the merge behind it {mesh.MergeMs:F0} ms");
+
+        for (var part = 0; part < GroundParts.Count; part++)
+        {
+            var tally = mesh.Parts[part];
+            Console.WriteLine($"  {GroundParts.Names[part],-16}{tally.Triangles,8} tri  " +
+                              $"{100d * tally.Triangles / triangles,5:F1} %  {tally.Corners,8} corners  " +
+                              $"{tally.LaidMs,7:F1} ms");
+        }
+
+        Console.WriteLine();
+    }
+
     /// <summary>
     /// How wide across the widest of the town's roundabouts is (GEN-19) and where it stands, measured on the
     /// ground its ring nodes stand on — the point being to name a framing <c>--shot</c> can be pointed at.
@@ -345,6 +370,20 @@ internal static class TownCensus
         Console.WriteLine($"  boundary       {shell.Chains.Length,7}  rings closed; {shell.Loose.Length} runs left " +
                           $"open over {openM:F1} m, ends up to {apartM:F3} m apart, merged in " +
                           $"{elapsed.TotalMilliseconds:F0} ms");
+
+        // <b>And every open run said on its own, because the summary above cannot be acted on.</b> A merge
+        // that lost a crossing lost it at one place, and what a reader needs is where to go and look: the
+        // two ends the walk could not join, and the gap between them read against the weld that would have.
+        for (var run = 0; run < shell.Loose.Length; run++)
+        {
+            var open = shell.Loose[run];
+            var lengthM = Spline.TotalLengthM(open);
+            var endM = open[^1].EndM;
+            Console.WriteLine(
+                $"    open run {run,-3}  {open.Length,6} stretches, {lengthM:F1} m, from {open[0].StartM.X:F3},"
+                + $"{open[0].StartM.Y:F3} to {endM.X:F3},{endM.Y:F3} — {Vector2.Distance(open[0].StartM, endM):F3} m "
+                + "apart");
+        }
     }
 
     /// <summary>
@@ -360,25 +399,17 @@ internal static class TownCensus
     }
 
     /// <summary>
-    /// What the joins between the town's connection points came out at, and what the junctions cost the
-    /// lanes they stand on. <b>The figure to read is the tightest arc</b>: a join is the corner the junction
-    /// was paved for, since the arms are cut back to where that paving reaches, so a town whose tightest
-    /// join is inside the corner radius is a town with a junction paved smaller than the wedge it stands in.
+    /// What the joins between the town's connection points came out at. <b>The figure to read is the tightest
+    /// arc</b>: a join runs between two lane ends a standoff out from the node (GEN-46), so a town whose
+    /// tightest join is well inside the junction's own cornering radius is a town whose arms were drawn at
+    /// angles the standoff cannot turn through.
     /// </summary>
     static void Joins(RoadGraph roads, CityPlan plan, SimConfig config)
     {
         var butted = 0;
         var joinM = 0f;
         var longestM = 0f;
-        var cutBackM = 0f;
-        var deepestM = 0f;
         var tightestM = float.PositiveInfinity;
-
-        for (var lane = 0; lane < roads.LaneCount; lane++)
-        {
-            cutBackM += roads.LaneCutBackM[lane];
-            deepestM = MathF.Max(deepestM, roads.LaneCutBackM[lane]);
-        }
 
         for (var slot = 0; slot < roads.ConnectorCount; slot++)
         {
@@ -396,60 +427,55 @@ internal static class TownCensus
                           $"{butted} join two lanes that butt; " +
                           $"mean {(roads.ConnectorCount == 0 ? 0f : joinM / roads.ConnectorCount):F2} m, longest {longestM:F2} m, " +
                           $"tightest arc {(float.IsFinite(tightestM) ? tightestM : 0f):F2} m of " +
-                          $"{config.IntersectionCornerRadiusM:F2}; " +
-                          $"corners took a further {(roads.LaneCount == 0 ? 0f : cutBackM / roads.LaneCount):F2} m " +
-                          $"a lane, deepest {deepestM:F2} m");
+                          $"{config.JunctionCorneringRadiusM:F2}");
         HandOvers(roads, plan);
     }
 
     /// <summary>
-    /// <b>How many joins of the driving network decide nothing</b>: a join where the one lane arriving
-    /// hands over to the one lane leaving is a place a driver chooses between one thing. <b>Nothing folds
-    /// them out any more</b> (TER-5i) — a lane is laid between the two points its road ends on and there is
-    /// no seam to rub out — so what this reports is how many of a town's nodes are bends rather than
-    /// junctions.
+    /// <b>How many lanes the town leaves with one way out of them, and where those nodes are</b>. A lane with
+    /// one movement is a car driven through a place it decides nothing at, and the town is laid not to have
+    /// them: a run through nodes nothing meets at is one road (GEN-51) and a one-way street arrives only where
+    /// there is still a choice (GEN-18).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>Split two ways, because the two are different things.</b> A junction of two arms is a road that
-    /// bends; one at a junction that forks is a lane that happens to have one way out of a box other lanes
-    /// are driven across, which is what a junction is.
-    /// </para>
-    /// <para>
-    /// <b>And a join between lanes of different widths is counted beside them</b>, which is a carriageway
-    /// that really does step there rather than a seam in the construction.
-    /// </para>
+    /// <b>Split three ways, because what is left is three different things.</b> A junction of two arms is a
+    /// road that bends and a run the join could not take (GEN-51); a roundabout's entry is one movement
+    /// because a ring is one way round (GEN-19) and is the shape working; and anywhere else it is a corner
+    /// every other movement was refused for (GEN-48), which is a real decision at a tight junction.
     /// </remarks>
     static void HandOvers(RoadGraph roads, CityPlan plan)
     {
-        var arms = new int[plan.Junctions.Count];
-        for (var road = 0; road < plan.Roads.Count; road++)
+        var arms = plan.Ground.ArmsPerJunction();
+        var onARing = new bool[plan.Junctions.Count];
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
         {
-            arms[plan.Roads.FromJunction[road]]++;
-            arms[plan.Roads.ToJunction[road]]++;
+            foreach (var road in plan.Roundabouts.RoadsOf(ring))
+            {
+                onARing[plan.Roads.FromJunction[road]] = true;
+                onARing[plan.Roads.ToJunction[road]] = true;
+            }
         }
 
-        var arrivingAt = new int[roads.LaneCount];
-        for (var connector = 0; connector < roads.ConnectorCount; connector++) arrivingAt[roads.ConnectorTo(connector)]++;
-
         var atABend = 0;
+        var atARing = 0;
         var atAFork = 0;
-        var stepped = 0;
+        var longestM = 0f;
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
-            var onward = roads.LanesFrom(lane);
-            if (onward.Length != 1 || arrivingAt[onward[0]] != 1) continue;
+            longestM = MathF.Max(longestM, roads.LaneLengthM[lane]);
+
+            if (roads.LanesFrom(lane).Length != 1) continue;
 
             var node = roads.LaneToJunction[lane];
             if (arms[node] <= 2) atABend++;
+            else if (onARing[node]) atARing++;
             else atAFork++;
-
-            if (MathF.Abs(roads.LaneWidthM[lane] - roads.LaneWidthM[onward[0]]) > 1e-3f) stepped++;
         }
 
-        Console.WriteLine($"  hands over     {atABend + atAFork,7}  joins fork nothing — one lane onto one lane; " +
-                          $"{atABend} at a junction of two arms, {atAFork} at one that forks; " +
-                          $"{stepped} step in width");
+        Console.WriteLine($"  one way out    {atABend + atARing + atAFork,7}  lanes the node offers one movement; " +
+                          $"{atABend} at a junction of two arms, {atARing} entering a roundabout, " +
+                          $"{atAFork} at a junction whose other movements were refused as too tight; " +
+                          $"longest lane {longestM:F0} m");
     }
 
     /// <summary>How far the furthest-reaching zebra runs, which on a town of square crossings is a road's width.</summary>

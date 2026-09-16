@@ -11,6 +11,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P9)]
+[Collection(TownGeometryCollection.Name)]
 public class LaneLineTests
 {
     /// <summary>

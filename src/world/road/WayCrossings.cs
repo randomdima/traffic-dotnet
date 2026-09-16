@@ -13,7 +13,7 @@ namespace TrafficSimulation.World.Road;
 /// </remarks>
 /// <param name="OnWay">
 /// The way whose ground this is — the one being crossed, not the one crossing, numbered as the claims number
-/// ways (<see cref="LaneOccupancy.WayOfTurn"/>). <b>A way and not a movement</b>: a join is only ever driven
+/// ways (<see cref="IWayNetwork.WayOfConnector"/>). <b>A way and not a movement</b>: a join is only ever driven
 /// over another join, because the lanes are set back clear of the box (TER-5d), but a way laid off a
 /// junction sweeps a lane's own metres and has to be able to say so.
 /// </param>

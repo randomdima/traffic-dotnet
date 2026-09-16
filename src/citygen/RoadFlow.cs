@@ -2,7 +2,7 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// Which way traffic runs on a road (TER-4d): both ways, or one way only — with the road's own direction
-/// or against it, in the order the <c>.town</c> file's road records carry it.
+/// or against it.
 /// </summary>
 /// <remarks>
 /// <b>A one-way road is a narrower road and not a road with a lane painted out</b> (GEN-15): it is laid at

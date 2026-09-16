@@ -44,9 +44,8 @@ internal static class Maps
     ];
 
     /// <summary>
-    /// Every map there is to open, in name order — which is the briefs on disk. <b>No town is carried as a
-    /// file any more</b>: the fixture was the last of them and is a brief now, so the only thing that
-    /// reads a <c>.town</c> is whatever somebody exported.
+    /// Every map there is to open, in name order — which is the briefs on disk. <b>A map is a brief or it is
+    /// laid in code</b>: no town is carried as a file, the fixture having been the last of them.
     /// </summary>
     /// <remarks>
     /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the

@@ -78,6 +78,27 @@ public class SimConfigTests
     }
 
     /// <summary>
+    /// <b>A bay is longer than the longest vehicle the town draws</b> (GEN-53). A car park's bays are laid
+    /// at one length whatever turns up to stand in them, so a vehicle longer than that is one parked across
+    /// the ground the arm was drawn for.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a relation between two authored figures and not a derivation written twice</b> (VER-12): the
+    /// bay is a length of ground chosen for the town and the longest vehicle is a bound on the catalogue,
+    /// which <c>CarCatalogTests</c> holds the drawn cars to.
+    /// </remarks>
+    [Fact]
+    public void ABayIsLongerThanTheLongestVehicleInTheTown()
+    {
+        var config = SimConfig.Shipped();
+
+        Assert.True(
+            config.CarParkBayLengthM > config.Car.LongestLengthM,
+            $"a bay is {config.CarParkBayLengthM:F2} m long and the longest vehicle in the town is "
+            + $"{config.Car.LongestLengthM:F2} m");
+    }
+
+    /// <summary>
     /// <b>An authored figure wins over the shipped one, and the ones it does not name are left alone.</b>
     /// It is asked of a file written here rather than of the shipped one, whose contents are a tuning and
     /// not a claim: read against that, this would fail the next time somebody retuned the town.

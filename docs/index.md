@@ -69,13 +69,13 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `AGT-5`, `AGT-7` | The terminal state; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `TER-1…3a`, `TER-3b…3c.6`, `TER-7`, `TER-7a`, `TER-7b`, `PHY-8` | The ground, the pavement, water and bridges, and the stack of layers the mesh drawing them is | [world/terrain](../src/world/terrain/docs/requirements.md) |
-| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5`…`TER-5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-6` | Roads, junctions, crossings, paint | [world/road](../src/world/road/docs/requirements.md) |
+| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5`…`TER-5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6` | Roads, junctions, crossings, paint, and the road a lane is one way of | [world/road](../src/world/road/docs/requirements.md) |
 | `TER-4c`…`TER-4c.3`, `TER-5c`…`TER-5c.2`, `TER-5e`, `TER-5g` | What a movement takes off another, right of way, what a claim is and what is standing on a lane | [world/road/claims](../src/world/road/docs/claims.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…22`, `SOL-35`, `SOL-36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4m` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…19` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, that no lane dangles, and what a roundabout is made of | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19`, `GEN-51…53` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, that no lane dangles, what a roundabout is made of, that a junction is a place roads meet, how one is cut into a road that already stands, and what a car park is | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1…11`, `PER-13…18`, `PER-23` | The walker, the trip, what it follows, how it crosses, when it takes a car and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the roof one wears, the apron of ambulances at them, the priority a call carries, what a rescue is and the standoff its crew walks in from | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
@@ -84,7 +84,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `TLT-1…4` | The signal agent and its cycle | [agents/trafficlight](../src/agents/trafficlight/docs/requirements.md) |
 | `OBS-1`, `OBS-1a` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
 | `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i`, `OBS-2k…2n` | The status panel and its claims, the menu, the legend, the ruler, the unit read-out, the card a map is opened behind | [app/hud](../src/app/hud/docs/requirements.md) |
-| `OBS-2b…2d`, `OBS-2h`, `OBS-2j`, `OBS-2o` | The debug layers, the read-out, the turn circle and the ground's own triangulation | [app/debug](../src/app/debug/docs/requirements.md) |
+| `OBS-2b…2d`, `OBS-2h`, `OBS-2j`, `OBS-2o…2v` | The debug layers, the read-out, the turn circle, the ground's own triangulation and the layers it is laid in, the driven ground and its outside | [app/debug](../src/app/debug/docs/requirements.md) |
 | `CTL-1…8d` | Selection, orders, a car's four of them, hand driving, the unit's own action | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |
 | `P-*`, `E-*` | The driving manoeuvre catalogue — one page and one file per entry | [agents/car/maneuvers](../src/agents/car/maneuvers/docs/index.md) |
@@ -96,12 +96,20 @@ Absences that are gaps rather than decisions, and none of them is silent:
 
 - **The lane layer was rebuilt and the town it carried was put down with it.** The lines a car is driven on
   are laid from the junction out now — a bearing and a standoff drawn for every arm, the movements laid
-  between the points that produces, and the road splined to arrive on them (`GEN-46`, `GEN-47`, `GEN-48`).
+  between the points that produces, and the road drawn as the link is offered to arrive on them (`GEN-46`,
+  `GEN-47`, `GEN-48`, `GEN-10`).
   **What stood beside the old layer was not ported across the rework**, and every one of these comes back
   off the boundary the driven lines lay (`TER-7b`) or off the layers struck from it:
-  - **No car park, no bay, no bay way and no parking space.** The whole placement went, and with it the
-    frontage arithmetic. `world/parking/` stands over a town with none of its subject, `GEN-4*` is not
-    reworded, and the census reports nought.
+  - **A car park is a junction now, and its bays are not laid.** The placement is back on a new footing
+    (`GEN-52`, `GEN-53`): a car park is a junction cut into a road that already stands, with one arm a bay,
+    and the road it is cut into does not move. `GEN-4h` is reworded to that, being what it directly
+    contradicted. **What is not laid is the bays themselves** — no parking space, no standing, no frontage
+    arithmetic — so **an arm ends at a node nothing leaves**: a lane a car is driven onto
+    and not off, which is the one thing `GEN-50` is about. It closes when the bays land, and until then **no
+    town the suite asks its ordinary questions of carries a car park**; the shipped city does, so its
+    geometry can be looked at (`qq town --parks Odesa`, `--at` a car park). **`GEN-4b` and `GEN-4d` are not
+    reworded either**: a lot as a rectangle along a kerb and a lot's clearance from a junction are the bays'
+    own arithmetic, and what replaces them is the next thing laid rather than something to guess at now.
   - **No building.** The stage that stood them placed the car parks too, and a stage that places neither is
     not a stage. `world/statics/`, the standing sprites and the boarding all stand empty.
     **`GEN-9`'s service placement goes with it**: a hospital, a police station and a depot are buildings the
@@ -118,37 +126,41 @@ Absences that are gaps rather than decisions, and none of them is silent:
     were laid against the layer that has been replaced, so they were deleted rather than carried across it —
     and with them the exam's staged junctions, the lap's drivetrain figures, the pad's circles and the
     crossings' walks. The ones that come back will be laid against the new layer.
-  - **And the fixture is a generated town.** `towns/Test.town` is `towns/Test.json`, so the map every
+  - **And the fixture is a generated town.** `towns/Test.json` is a brief like a city's, so the map every
     detailed check is staged on moves when the generator does — which is the one thing a fixture exists not
     to do ([verification.md](verification.md)). It leaves the suite with two towns that differ only in size
-    and seed.
+    and seed, and it is why nothing is carried as a file any more: with no town on disk, the `.town` format
+    and the reader, writer and byte cursor under it were deleted rather than kept for a map nobody ships.
   - **What it closed, it closed loudly**: the merge leaves no ring of any town open now. Odesa left one run
     of 30 390 m with its two ends 0.122 m apart and the generated city one of 485 m; both close on lines
     that are fewer, longer and smoother, and what is left of the old entry is the figure it used to carry.
-- **Nothing is struck off the kerb.** Every line the ground had beside a road — the kerb line, the walking
-  lane, the pavement and its rim — was the boundary moved by a figure, and that construction is gone with
-  the walk that made it: there is no offset of the boundary at any distance, so there is no `TER-3c.3`
-  concrete, no `TER-3d` stroke and the walking network is empty. The blocks the town encloses come back as
-  the grass they were laid over.
-  - **That leaves `TER-7b` and `TER-3c.3` describing a stack the build does not draw.** `TER-7b` is the
-    owner's and says a layer is one region of the town's own boundary moved by a figure; five of its six
-    layers are absent and the sixth is the grass. `TER-7` is deviated from outright, the drawn ground and
-    the answered-for ground no longer being one list read two ways. **Neither rule is reworded for it**: the
-    code does not meet them, which is what this entry is.
-  - **And the ground answer lost the wedge a junction's corner is paved back over** (`TER-5`). It was
-    ground inside the boundary that no line claims, which only a boundary can say; with none, a junction's
-    corners answer as grass, and so does the middle of a node whose two movements pass either side of it.
-    What a prop is cleared against is the road records instead (`GroundShapes.PavingWithin`), which is a
-    distance the boundary was never needed for — and it comes back to the boundary with the stack.
+  - **And a ring now closes onto itself and not merely to within a weld.** The walk hands every ring back
+    with its pieces made to meet (`ArcRings.Tightened`), which a frame did show before it did: over Odesa
+    the boundary's joints past a rounding fell 1 826 → 5 and the holes a line drawn down the ring shows
+    779 → 0. `--bench outset` reports the joints of both lines and **does not gate on them**.
+
+- **The ground is struck off the kerb again, in the picture only.** The boundary is moved by the figure
+  `TER-3c.3` names a layer at (`GroundRings`), and the picture draws the walk that produces and the
+  carriageway over it, with a kerb struck along each of the two lines. **`GroundShapes.At` is not fed the
+  same rings**, so a point on the concrete is drawn as concrete and answered as grass — which is `TER-7`
+  deviated from in one direction rather than in both, the picture now being ahead of the answer instead of
+  behind it. **The rule is not reworded**: the code does not meet it, which is what this entry is, and it
+  closes when the answer walks the same ring sets in reverse.
+  - **The walking network is still empty**, the lane a walker follows being one of the five figures and
+    nothing laying it yet. What the concrete is for comes back with it.
+  - **And the ground answer still lacks the wedge a junction's corner is paved back over** (`TER-5`). It is
+    ground inside the boundary that no line claims, which only a boundary can say; the boundary is there
+    now, but the answer does not read it, so a junction's corners answer as grass and so does the middle of
+    a node whose two movements pass either side of it. What a prop is cleared against is the road records
+    instead (`GroundShapes.PavingWithin`). It closes with the entry above it.
 - **A deck carries no pavement.** A bridge is its deck and its carriageway, with the margin a parapet stands
-  on reaching all the way out, and the walk that ought to cross it is missing (`TER-3b.1`). It closes with
-  the entry above it: a boundary that knows where a deck carries it, and a line struck off that boundary.
-- **The carriageway is hidden while the boundary is looked at.** `RoadFigures.CarriagewayDrawn` is off in
-  the shipped figures, so the driven ground with its slabs is not drawn. **Hiding is a different thing from
-  holding back**: the answer goes on saying that ground is driven over, because the grip, the permission and
-  the lane a body is written onto all hang off it, and only the picture stops showing it. The switch and the
-  branch that reads it go when the layers come back. **The paint is not hidden but absent** — nothing lays a
-  dash, a zebra, a bar or a bay stroke — and `RoadFigures.PaintDrawn` goes with the marks it drew.
+  on reaching all the way out, and the walk that ought to cross it is missing (`TER-3b.1`). The stack is
+  laid under the deck rather than across it, so what is owed is a boundary that knows where a deck carries
+  it.
+- **The paint is absent rather than hidden** — nothing lays a dash, a zebra, a bar or a bay stroke — and
+  `RoadFigures.PaintDrawn` goes with the marks it drew. `RoadFigures.CarriagewayDrawn` is gone: it hid the
+  road's own surface while the boundary was the thing being looked at, and the road wears its own surface
+  again.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

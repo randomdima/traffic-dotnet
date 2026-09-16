@@ -6,7 +6,6 @@ using TrafficSimulation.App.Render;
 using TrafficSimulation.Bench;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
@@ -89,6 +88,10 @@ internal static class ShotRun
         using var renderer = TownRenderer.Offscreen(
             vk, ask.WidthPx, ask.HeightPx, mesh, ProjectPaths.GroundSurfaceFiles(), looks.Sheets,
             TownSprites.CapacityFor(plan, config));
+
+        // OBS-2v: a layer the switches have taken out of the ground is out of the picture here as well.
+        // The game asks this of the renderer every frame; a shot is one frame and asks once.
+        renderer.ShowGround(ui.Switches.Ground.Shown);
 
         // A shot has no desktop under it, so its interface pixels are the image's own unless
         // UiScale asks for the picture a scaled display would have shown.

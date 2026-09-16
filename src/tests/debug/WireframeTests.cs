@@ -22,21 +22,39 @@ public class WireframeTests
     /// <summary>The window the framings below are read on, since what the layer drops is a size on the glass.</summary>
     static readonly Vector2 UiPx = new(1600f, 900f);
 
+    /// <summary>
+    /// The two buffers every reading here is taken into, laid once for the class. <b>A frame's worth of
+    /// quads is megabytes</b>, and a reading that allocated its own would put a collection of this class's
+    /// own making under every allocation gate running beside it.
+    /// </summary>
+    static readonly OverlayQuad[] Over = new OverlayQuad[TownRenderer.OverlayCapacity];
+
+    static readonly OverlayQuad[] Under = new OverlayQuad[TownRenderer.UnderlayCapacity];
+
+    /// <summary>
+    /// The fixture's ground, cut once for the class: nothing here writes to a mesh, and cutting the same
+    /// town three times is three copies of it in the heap for one reading apiece.
+    /// </summary>
+    static readonly GroundMesh Mesh = GroundMesh.Build(Towns.Of(Towns.Fixture), Config);
+
     /// <summary>How many quads the layer laid under the bodies, at one framing of the whole town's middle.</summary>
-    static int Drawn(DebugOverlay overlay, TownWorld world, GroundMesh mesh, float pixelsPerMetre)
+    static int Drawn(
+        DebugOverlay overlay, TownWorld world, float pixelsPerMetre, uint parts = GroundParts.All)
     {
         var switches = new DebugSwitches();
         switches.Toggle(ref switches.Wireframe);
+        for (var part = 0; part < GroundParts.Count; part++)
+        {
+            if ((parts & GroundParts.Bit((GroundPart)part)) == 0) switches.Ground.Toggle((GroundPart)part);
+        }
 
-        var over = new OverlayQuad[TownRenderer.OverlayCapacity];
-        var under = new OverlayQuad[TownRenderer.UnderlayCapacity];
-        var draw = new ScreenDraw(over);
-        var ground = new ScreenDraw(under);
+        var draw = new ScreenDraw(Over);
+        var ground = new ScreenDraw(Under);
 
         // No pointer and no pick: what is counted is the layer's own quads, and a reading taken under a
         // pointer nobody is holding would be quads this test cannot account for (OBS-2t).
         overlay.Draw(
-            ref draw, ref ground, world, mesh, Config, switches, new DebugPick(), -Vector2.One, -Vector2.One,
+            ref draw, ref ground, world, Mesh, Config, switches, new DebugPick(), -Vector2.One, -Vector2.One,
             UiPx, world.Plan.WorldSizeM * 0.5f, UiPx / pixelsPerMetre, pixelsPerMetre);
 
         return ground.Written;
@@ -51,15 +69,33 @@ public class WireframeTests
     [Fact]
     public void AMeshTooSmallToReadIsNotDrawn()
     {
-        var plan = Towns.Of(Towns.Fixture);
-        using var world = new TownWorld(plan, Config);
-        var mesh = GroundMesh.Build(plan, Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
 
-        Assert.NotEqual(0, Drawn(new DebugOverlay(), world, mesh, pixelsPerMetre: 20f));
+        Assert.NotEqual(0, Drawn(new DebugOverlay(), world, pixelsPerMetre: 20f));
 
         // A pixel to a kilometre: every triangle in the town is a fraction of one, the sheet of grass
         // under all of it included.
-        Assert.Equal(0, Drawn(new DebugOverlay(), world, mesh, pixelsPerMetre: 0.001f));
+        Assert.Equal(0, Drawn(new DebugOverlay(), world, pixelsPerMetre: 0.001f));
+    }
+
+    /// <summary>
+    /// <b>A layer taken out of the ground is taken out of this</b> (OBS-2v): what the whole mesh draws is
+    /// what its layers draw one at a time, and with none of them showing there is nothing to draw. The
+    /// cull is a triangle's own, so the parts cannot pay for each other's.
+    /// </summary>
+    [Fact]
+    public void ALayerTakenOutOfTheGroundIsTakenOutOfTheWireframe()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
+
+        var apiece = 0;
+        for (var part = 0; part < GroundParts.Count; part++)
+        {
+            apiece += Drawn(new DebugOverlay(), world, 20f, GroundParts.Bit((GroundPart)part));
+        }
+
+        Assert.Equal(Drawn(new DebugOverlay(), world, 20f), apiece);
+        Assert.Equal(0, Drawn(new DebugOverlay(), world, 20f, parts: 0u));
     }
 
     /// <summary>
@@ -71,13 +107,11 @@ public class WireframeTests
     [Fact]
     public void AFrameThatHasNotMovedRelaysNoTriangles()
     {
-        var plan = Towns.Of(Towns.Fixture);
-        using var world = new TownWorld(plan, Config);
-        var mesh = GroundMesh.Build(plan, Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var overlay = new DebugOverlay();
 
-        var first = Drawn(overlay, world, mesh, pixelsPerMetre: 20f);
-        var again = Drawn(overlay, world, mesh, pixelsPerMetre: 20f);
+        var first = Drawn(overlay, world, pixelsPerMetre: 20f);
+        var again = Drawn(overlay, world, pixelsPerMetre: 20f);
 
         Assert.False(overlay.Relaid, "the same framing laid the mesh a second time");
         Assert.Equal(first, again);

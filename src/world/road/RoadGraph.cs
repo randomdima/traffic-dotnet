@@ -17,7 +17,7 @@ namespace TrafficSimulation.World.Road;
 /// same lines is what a car may drive on, which is why the surface and the network cannot disagree.
 /// </para>
 /// <para>
-/// <b>A lane runs between the two points its road was laid to</b> (TER-5i), which is neither a
+/// <b>A lane runs between the two connection points of the run it is</b> (TER-5i), which is neither a
 /// whole road nor one stretch of one. Roads are cut at <em>every</em> junction they run through rather than
 /// only the two they name — which is what makes an inline junction, a place <em>on</em> a road carrying a
 /// mid-block crossing (TER-5b), somewhere the graph can have lanes ending — and then every join that forks
@@ -129,15 +129,11 @@ internal sealed class RoadGraph : ILaneEnds
     public int ConnectorCount => _lines.ConnectorCount;
 
     /// <summary>
-    /// <b>The road a lane sets off on</b>, which is the road it arrives on: nothing folds two of them
-    /// together any more (TER-5i). A lane laid through a node that forks nothing runs on
-    /// onto the road beyond it, so this is the arm it is at the junction it <em>starts</em> from and
-    /// <see cref="LaneToRoad"/> is the arm it is at the one it ends at.
+    /// <b>The road a lane is one way of</b> (TER-5i): it sets off on that road's own arm and arrives on the
+    /// other, and never spans two — a run of roads through nodes nothing meets at is already one road before
+    /// a lane is laid on it (GEN-51).
     /// </summary>
-    public int[] LaneFromRoad => _lines.LaneFromRoad;
-
-    /// <inheritdoc cref="LaneFromRoad"/>
-    public int[] LaneToRoad => _lines.LaneToRoad;
+    public int[] LaneRoad => _lines.LaneRoad;
 
     /// <summary>
     /// How wide the lane is: the share of the carriageway its road declared that this direction has — half
@@ -153,7 +149,7 @@ internal sealed class RoadGraph : ILaneEnds
     public int[] LaneToJunction => _lines.LaneToJunction;
 
     /// <summary>
-    /// Whether the lane runs with the direction of the road it sets off on (<see cref="LaneFromRoad"/>),
+    /// Whether the lane runs with the direction of the road it is one way of (<see cref="LaneRoad"/>),
     /// which is what says which side of that road's centreline it sits on.
     /// </summary>
     public bool[] LaneForward => _lines.LaneForward;
@@ -162,20 +158,20 @@ internal sealed class RoadGraph : ILaneEnds
     public float[] LaneLengthM => _lines.LaneLengthM;
 
     /// <summary>
-    /// How much of its stretch this lane gave up to the junctions at its two ends, the two together
-    /// (TER-5d). <b>Nothing that drives reads it</b> — a lane's line is what is left, and every movement
-    /// hands over at its ends — so it is the town's own record of what the boxes cost it, for the census to
-    /// report and for nothing to work out a second time.
-    /// </summary>
-    public float[] LaneCutBackM => _lines.LaneCutBackM;
-
-    /// <summary>
     /// The other lane of the same stretch — the one a car that has turned in a bay comes back down
     /// (GEN-4l), and the one no turn at either end of it ever leads to (TER-5f). <b><see cref="NoLane"/> on
     /// a one-way stretch</b> (TER-4d), which has no other lane: there is nothing to come back down, nothing
     /// to cross to get round what is in the way, and nothing to park against on the far side.
     /// </summary>
     public int[] LaneReverse => _lines.LaneReverse;
+
+    /// <summary>
+    /// <b>Whether this lane and its reverse are one line rather than two halves of a carriageway</b>
+    /// (GEN-4f): a bay's way is a car's width of ground driven in over and backed out over, so the ground
+    /// under it carries both directions at once. <b>The town's own answer</b>
+    /// (<see cref="LaneLines.LaneOverOneLine"/>) and not a distance measured between two lines.
+    /// </summary>
+    public bool[] LaneOverOneLine => _lines.LaneOverOneLine;
 
     /// <summary>The line the lane is driven on, in its own direction of travel, already offset to the driver's side.</summary>
     public ReadOnlySpan<ArcSeg> ArcsOf(int lane) => _lines.ArcsOf(lane);
@@ -233,6 +229,11 @@ internal sealed class RoadGraph : ILaneEnds
     /// out of nobody's way is driven over by the turns that leave it (TER-4a); the near-side turn crosses
     /// nothing of its own carriageway and is ordinary traffic; and the turn across the oncoming stream, the
     /// last movement a box admits, gives way to both.
+    /// <para>
+    /// <b>Every movement hands over at a lane's start</b>, so there is no movement here that joins a stream
+    /// already being driven where it lands: a node that would offer an approach one movement is a node the
+    /// generator does not lay (GEN-18).
+    /// </para>
     /// </remarks>
     public RightOfWay RightOfWayOfConnector(int connector) => RightOfWayOf(_lines.ConnectorKind[connector]);
 
@@ -261,14 +262,14 @@ internal sealed class RoadGraph : ILaneEnds
     /// <summary>
     /// <b>The ground each way through a junction takes off the others</b> (TER-5c), laid once with the town
     /// like the joins it is measured off, and <b>indexed the way the claims number ways</b>
-    /// (<see cref="LaneOccupancy.WayOfTurn"/>). It is a property of the movement and never of the
+    /// (<see cref="IWayNetwork.WayOfConnector"/>). It is a property of the movement and never of the
     /// intersection: a street bending through a box is driven over nothing and takes nothing.
     /// </summary>
     /// <remarks>
-    /// The lanes' own rows are empty, because a lane hands over clear of the box it ends at (TER-5d) and
-    /// nothing a junction admits is driven over one. They are in the table so that a way laid off a
-    /// junction — the line into a parking space, which sweeps the oncoming lane's metres — can name the
-    /// ground it takes in the same table and be read by the same walk.
+    /// A lane's own row is empty: it hands over clear of the box it ends at (TER-5d), so nothing a junction
+    /// admits is driven over one. <b>A way laid off a junction has a row</b> — the line into a parking space,
+    /// which sweeps the oncoming lane's metres — and it is measured the same way as any pair of movements.
+    /// One table, one walk, whichever of the two it is.
     /// </remarks>
     public WayCrossings Crossings { get; }
 
@@ -386,8 +387,14 @@ internal sealed class RoadGraph : ILaneEnds
     /// The graph over the lines the plan laid with the town (<see cref="LaneLines"/>), which is the only
     /// place a lane or a connector is ever drawn.
     /// </summary>
+    /// <remarks>
+    /// <b>The plan's own lines and not a second laying of them</b> (<see cref="CityPlan.Paving"/>). They are a
+    /// pure function of the plan, so a second laying could not disagree — but it is every lane, every movement
+    /// and every run in the town drawn twice, and the ground and the graph then hold two copies of the same
+    /// arcs for as long as the town is open.
+    /// </remarks>
     public static RoadGraph Build(CityPlan plan, SimConfig config) =>
-        Build(LaneLines.Of(plan.Ground, config), config);
+        Build(plan.Paving(config).Lanes, config);
 
     /// <summary>
     /// <b>The rules laid over lines that already exist</b>: where the lanes meet, what each movement through
@@ -440,6 +447,11 @@ internal sealed class RoadGraph : ILaneEnds
     /// movements that pass within a car's width never touch each other's paint and still cannot both be
     /// made, so the question is how near the lines come rather than whether they intersect.
     /// </para>
+    /// <para>
+    /// <b>Every movement at a place is sampled once and then paired</b>, rather than walked again for each
+    /// pair it is in: a four-armed box offers a dozen of them, and sampled per pair each line is walked a
+    /// score of times to be compared a score of times.
+    /// </para>
     /// </remarks>
     static WayCrossings LayCrossings(SimConfig config, LanePlaces places, LaneLines lines)
     {
@@ -448,22 +460,36 @@ internal sealed class RoadGraph : ILaneEnds
         var clearanceM = config.JunctionCrossingClearanceM;
         var found = new List<CrossedSection>[wayCount];
         var atThePlace = new List<int>();
-        var lineA = new Vector2[LineOverlap.MostSamples];
-        var lineB = new Vector2[LineOverlap.MostSamples];
+
+        // One buffer a movement, grown to the widest place the town has and kept for the next one.
+        var pointsM = new List<Vector2[]>();
+        var walked = new List<(int Count, float StepM)>();
 
         for (var place = 0; place < places.Count; place++)
         {
             atThePlace.Clear();
+            walked.Clear();
             foreach (var lane in places.LanesArriving(place))
             {
-                for (var id = lines.ConnectorAt[lane]; id < lines.ConnectorAt[lane + 1]; id++) atThePlace.Add(id);
+                for (var id = lines.ConnectorAt[lane]; id < lines.ConnectorAt[lane + 1]; id++)
+                {
+                    if (pointsM.Count == atThePlace.Count) pointsM.Add(new Vector2[LineOverlap.MostSamples]);
+
+                    var lengthM = lines.ConnectorLengthM[id];
+                    var count = LineOverlap.Sample(
+                        lines.ArcsOfConnector(id), 0f, lengthM, lengthM, clearanceM, pointsM[atThePlace.Count],
+                        out var stepM);
+
+                    atThePlace.Add(id);
+                    walked.Add((count, stepM));
+                }
             }
 
             for (var first = 0; first < atThePlace.Count; first++)
             {
                 for (var second = first + 1; second < atThePlace.Count; second++)
                 {
-                    Measure(atThePlace[first], atThePlace[second]);
+                    Measure(first, second);
                 }
             }
         }
@@ -484,25 +510,22 @@ internal sealed class RoadGraph : ILaneEnds
         // <b>Both intervals go into both entries</b>: a car reads the far one to know what it takes and its
         // own to know when it is past it. The measurement itself is <see cref="LineOverlap"/>'s, which is
         // also what the ways laid off a junction are measured with.
-        void Measure(int a, int b)
+        void Measure(int first, int second)
         {
-            var alongA = SampleConnector(a, lineA, out var stepA);
-            var alongB = SampleConnector(b, lineB, out var stepB);
-            var sampledA = new SampledWay(alongA, 0f, stepA, lines.ConnectorLengthM[a]);
-            var sampledB = new SampledWay(alongB, 0f, stepB, lines.ConnectorLengthM[b]);
+            var a = atThePlace[first];
+            var b = atThePlace[second];
+            var sampledA = new SampledWay(
+                pointsM[first].AsSpan(0, walked[first].Count), 0f, walked[first].StepM,
+                lines.ConnectorLengthM[a]);
+            var sampledB = new SampledWay(
+                pointsM[second].AsSpan(0, walked[second].Count), 0f, walked[second].StepM,
+                lines.ConnectorLengthM[b]);
             if (!LineOverlap.Measure(sampledA, sampledB, clearanceM, out var onA, out var onB)) return;
 
             var wayA = TownWays.WayOfRoadConnector(laneCount, a);
             var wayB = TownWays.WayOfRoadConnector(laneCount, b);
             (found[wayA] ??= []).Add(new CrossedSection(wayB, onB.FromM, onB.ToM, onA.FromM, onA.ToM));
             (found[wayB] ??= []).Add(new CrossedSection(wayA, onA.FromM, onA.ToM, onB.FromM, onB.ToM));
-        }
-
-        ReadOnlySpan<Vector2> SampleConnector(int connector, Vector2[] into, out float stepM)
-        {
-            var lengthM = lines.ConnectorLengthM[connector];
-            var arcs = lines.ArcsOfConnector(connector);
-            return into.AsSpan(0, LineOverlap.Sample(arcs, 0f, lengthM, lengthM, clearanceM, into, out stepM));
         }
     }
 

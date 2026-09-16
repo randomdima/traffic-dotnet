@@ -169,7 +169,7 @@ public class DamageResolverTests
     /// <summary>
     /// <b>The band sits above the town's own walking pace</b>, which is what makes a knock-down an impact
     /// rather than a contact. Nothing in PER-23 asks who was carrying the closing speed, so a band under
-    /// <see cref="PersonFigures.WalkSpeedMps"/> is one a walker meets by arriving at a car that never moved.
+    /// <see cref="SimConfig.PersonWalkSpeedMps"/> is one a walker meets by arriving at a car that never moved.
     /// </summary>
     [Fact]
     public void AWalkerArrivingAtAParkedCarAtItsOwnPaceStaysOnItsFeet()

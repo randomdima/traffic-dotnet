@@ -28,11 +28,52 @@ camera pulls back.
 appended in is the whole of the answer** and depth does no work: one indexed draw, one pass, nothing
 sorted, and the piece appended last is the piece that shows.
 
-**No layer of ground beside a road is drawn at present.** Each was the boundary of the driven ground moved
-by one distance and filled — a walk, a walk less an edge line, a line's width, and nought — and nothing
-strikes such a line any more ([citygen](../../../citygen/docs/decision-log.md)). What is left under the
-paint is the grass, the water, the shore and the decks, which is the gap
-[docs/index.md](../../../../docs/index.md#known-gaps) names and not a shape this slice chose.
+**Two layers of ground beside a road are drawn, and both of them are the same boundary** (`GroundRings`,
+[TER-3c.3](../../../world/terrain/docs/requirements.md#the-pavement)): the walk out to the pavement's outer
+face, and the carriageway, **each the ground within one of the figures that boundary is read at**. The
+carriageway is inside the walk, so it is laid over it and **the order is the whole of what states the
+difference between the two** — the tarmac over the concrete, the grass under everything, the water over the
+walk that reaches its shore, the deck over the land.
+
+**The two kerbs are not layers and are not cut out of one.** Each is a stroke laid about a closed
+line at a kerbstone's width, with a mesh of its own and no triangle taken from any fill (`GroundMesh.Stroke`,
+[TER-3d](../../../world/terrain/docs/requirements.md#the-edge-line)): **the town's kerb along the driven
+ground's boundary, drawn last of the ground; the walk's own kerb along the pavement's outer face, drawn
+straight after the walk.** A fill is thinned for the picture (`GroundMesh.ThriftM`), so a kerb cut as the
+difference between two fills is a kerb whose width is whatever two thinnings left of it — and the strip the
+thinning falls short by is the grass that used to show between the layers. A stroke is two hundred
+millimetres wherever its line runs, and it covers that strip.
+
+**A shell is read as one line and the fill is that line thinned** (`ShellFill.Outline`, `GroundMesh.Line`
+and `Filled`). **A fill has no edge anybody sees**: every shell filled here carries a kerb along its
+boundary and the kerb is laid last, so where a fill cuts a corner the layer beneath it shows through and the
+stone goes over both. The one thing that may not happen is a fill's edge reaching out from under its kerb,
+so **the fill's whole budget is `GroundMesh.HiddenShare` of a kerb's half-width** — and the two readings are
+nested, both thinnings of one flattening, so how far they part is that budget rather than the sum of what
+each strays from the arcs.
+
+**So the line is cut for the picture and the fill for the kerb**, and they are not the same question. What a
+frame can tell apart decides the line; what a kerbstone covers decides the fill.
+
+**And how much of a turn one chord of that line may stand for is a budget of its own**
+(`GroundMesh.ChordTurnRad`), because a budget in metres says nothing about a bend: the step a sag earns is
+`2·acos(1 − sag/R)`, which grows as the radius shrinks, and a quarter turn of a fifth of a metre bows four
+centimetres off its own chord — inside the sag, and a corner drawn as a polygon. **What is lost on a bend is
+direction rather than distance**, so it is bounded as an angle. It is also what cuts a kerb for its own
+ribbon: a stroke's outer edge goes round a circle a half-width wider than its line's, which the angle covers
+several times over, and a segment's offset being a segment there is nothing between two corners left to
+refine.
+
+**A stroke is the ground within half its width of its line and nothing outside that** — at a bend, at a
+corner and at the tightest hook the boundary has (TER-3d). **A corner is one cross-section on the bisector
+wherever that stands for the turn, and the swept sectors where it does not.** A cross-section laid on the
+bisector at the half-width pinches the ribbon to `w·cos ½θ` across the corner, which is the figure a chord
+bows off the arc it stands for — so it is held to the same sag every bend here is drawn at, and a corner
+turning harder than that sag allows is fanned about the place it stands at instead. **A mitre is not the
+third option**: struck where the two offset lines meet it stands `½w(sec ½θ − 1)` outside the line, which is
+the one thing the rule forbids. **And where the line turns tighter than half the width, that edge stops at
+the middle of the turn**: carried further it comes back on the far side of the line, for the same reason.
+`--bench outset` reports how tight a boundary turns and how many of those hooks it carries.
 
 
 **A car park, a junction, a bridge and a dead end are not shapes here and never were.** A junction is the
@@ -43,12 +84,12 @@ them share. **The one pass a car park is not in** is the bay stroke, which is a 
 **A solid line is a dashed one whose dash is the whole run**, so a bay's stroke is laid by the machinery
 that lays a lane's centreline (`GroundMesh.DashRun`) and there is no second way to paint a straight mark.
 
-- **A rim and a kerb line are what a layer leaves of the one under it**: the region twice, a line's width
-  apart, the outer pass in the line's shade and the inner in the surface's own. What survives is a stroke
-  on the region's own boundary — so a line has no ends to close and no corners to turn, the boundary having
-  turned them. Which pass is the surface's own size is the line's to say: the pavement's rim is struck
-  inside the band (`walkM`, then `walkM - edgeM`) and the kerb line outside the lane (`kerbM`, then
-  nought), which is TER-3d. The shore is drawn by the same trick and always was.
+- **A rim is what a layer leaves of the one under it**: the region twice, a line's width apart, the outer
+  pass in the line's shade and the inner in the surface's own. What survives is a stroke on the region's own
+  boundary — so a line has no ends to close and no corners to turn, the boundary having turned them. **A
+  deck's edge and the shore are drawn that way; neither kerb is.** A kerb is a stroke about a shell (TER-3d),
+  which is what lets it be a constant width on a bend as on a straight and stand half either side of the
+  line it parts.
 - **What breaks the kerb line over a car park's mouth is the boundary itself.** A lot's ways are driven
   lines like any other, so the boundary runs round the outside of a row of bays and the stroke with it —
   there is no stretch of kerb worked out and left unstruck.

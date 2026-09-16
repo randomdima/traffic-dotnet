@@ -90,7 +90,7 @@ internal sealed partial class TownWorld
     /// <b>A car whose line no longer takes this join claims the runs whole</b>, since there is no metre of
     /// its own to measure them against — which is the conservative way round for a body still holding a
     /// movement it has come off, and the whole of what such a body holds on that join
-    /// (<see cref="LieUnderTheJoins"/>).
+    /// (<see cref="LayTheMovement"/>).
     /// </para>
     /// <para>
     /// <b>A body that is not driving its movement claims it all the same</b>, and that is not the same claim

@@ -179,9 +179,9 @@ internal sealed class LaneFurniture
                 var ends = pass == 0;
                 foreach (var lane in ends ? roads.LanesIntoJunction(junction) : roads.LanesOutOfJunction(junction))
                 {
-                    // The arm the lane is at the node in question, which is the road it arrives on where it
-                    // ends there and the road it sets off on where it leaves (TER-5i).
-                    if ((ends ? roads.LaneToRoad : roads.LaneFromRoad)[lane] != bars.Road[bar]) continue;
+                    // The arm the lane is at the node in question, which is the road it is one way of
+                    // whichever of its ends stands there (TER-5i).
+                    if (roads.LaneRoad[lane] != bars.Road[bar]) continue;
                     if (!ends && !float.IsPositiveInfinity(alongM[lane])) continue;
 
                     var at = ends ? roads.EndOf(lane) : roads.StartOf(lane);

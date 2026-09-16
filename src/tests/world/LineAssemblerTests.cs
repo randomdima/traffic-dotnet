@@ -156,8 +156,8 @@ public class LineAssemblerTests
                 var line = LineAssembler.Assemble(graph, pair, arcs, starts, ends);
                 var driven = arcs.AsSpan(0, line.ArcCount);
 
-                // Each lane whole, which is the whole of what the line was laid from: a lane ends where
-                // its movements hand over (TER-5d), so there is no stretch of it the line leaves out.
+                // Each lane end to end, which is the whole of what the line was laid from: a lane begins at its
+                // own nought and ends where its movements hand over (TER-5d).
                 for (var at = 0; at < 2; at++)
                 {
                     var of = pair[at];

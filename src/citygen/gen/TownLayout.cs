@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -26,6 +27,13 @@ internal enum RoadClass : byte
     /// way between two districts, and nothing fronts one.
     /// </summary>
     Roundabout,
+
+    /// <summary>
+    /// The arm a car park's junction reaches its bays over (GEN-53). <b>It is laid rather than drawn</b>: a
+    /// straight square to the road the junction was cut into, of the length the reach past that road's edge
+    /// makes it, so nothing here wanders, jitters or bends.
+    /// </summary>
+    CarPark,
 }
 
 /// <summary>One road of the layout before it has a shape: what it joins, what it is for, and how it runs.</summary>
@@ -38,8 +46,14 @@ internal enum RoadClass : byte
 /// Which way it is driven (TER-4d). <b>Every road is laid running both ways</b>; which of them run one way
 /// is chosen and settled over the whole layout once it stands (<see cref="OneWayStreets"/>).
 /// </param>
+/// <param name="ThroughM">
+/// The places the road passes on its way between its two ends, in order, and <b>empty on all but a road
+/// <see cref="Gen.ThroughRoads"/> joined out of several</b> (GEN-51). They are where junctions stood that
+/// turned out to be nowhere two roads met: the corner is the town's and the road keeps it, so the road
+/// stage lays the line through them rather than drawing a middle of its own.
+/// </param>
 internal readonly record struct LayoutEdge(
-    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow);
+    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow, Vector2[] ThroughM);
 
 /// <summary>
 /// <b>The town as nodes and what joins them</b>, before any of it is a curve or a cell — the product of the
@@ -47,25 +61,35 @@ internal readonly record struct LayoutEdge(
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>One connected component with nothing dangling off it, reached by deletion rather than by retry</b>
-/// (GEN-5, GEN-5a). Streets are laid inside a district's own convex region and arterials are laid through
-/// the town, which is most of what keeps them apart; what the arrangement does not settle,
-/// the road stage refuses (GEN-49). Water or a district edge can leave a piece of the town
-/// joined to nothing, and <see cref="KeepTheLargestComponent"/> deletes that, or leave a street ending in a
-/// field, and <see cref="PruneTheDeadEnds"/> deletes that. A town is what stayed connected and led
-/// somewhere, and the alternative — laying it again with another seed until it is one piece — is the search
-/// this generator does not do.
+/// <b>A road is a road when it is offered or it is not one at all</b> (GEN-10). Every link is drawn as the
+/// line it would be laid as before it is taken (<see cref="RoadLines"/>), so the town never holds a road that
+/// cannot be drawn and no later pass has to delete one and repair behind itself: the arms have to stand square
+/// enough (GEN-13), the line has to hold its class's floor (GEN-47) and it has to keep off the ground every
+/// road already laid holds (GEN-49). <b>Which of two roads gives way is the order they were offered in</b>,
+/// which is why the arterials are laid before the lattice.
 /// </para>
 /// <para>
-/// <b>Everything here deletes and nothing retries</b>, so the four passes run in the order that leaves the
-/// town the most road: the local nodes are merged first, because a merge moves what the next pass has to
-/// measure; the crossings are unpicked next, in the order the town cares about its roads; and what either
-/// left stranded or dangling goes last.
+/// <b>One connected component with nothing dangling off it, reached by deletion rather than by retry</b>
+/// (GEN-5, GEN-5a). Water or a district edge can leave a piece of the town joined to nothing, and
+/// <see cref="KeepTheLargestComponent"/> deletes that, or leave a street ending in a field, and
+/// <see cref="PruneTheDeadEnds"/> deletes that. A town is what stayed connected and led somewhere, and the
+/// alternative — laying it again with another seed until it is one piece — is the search this generator does
+/// not do.
+/// </para>
+/// <para>
+/// <b>The nodes are settled before the first road is laid and nothing moves one afterwards</b>
+/// (<see cref="SettleTheNodes"/>, GEN-16). A node is what every line, arm and lane end is drawn from, so a
+/// node moved once a road stands is every road at it drawn again — and after that, everything here deletes
+/// and nothing retries.
 /// </para>
 /// </remarks>
-internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, float localityM, WaterRules water)
+internal sealed class TownLayout(
+    float shortestRoadM, float armsApartMinRad, float localityM, WaterRules water, RoadLines lines)
 {
     readonly List<Vector2> _nodeM = [];
+
+    /// <summary>The line each road was laid as, drawn when it was offered and carried with it thereafter.</summary>
+    readonly List<ArcSeg[]> _lineOf = [];
 
     /// <summary>The bearing each road leaves each node on, so a new arm can be asked how square it stands to them.</summary>
     readonly List<List<float>> _armsAt = [];
@@ -77,6 +101,19 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     public IReadOnlyList<Vector2> NodeM => _nodeM;
 
     public IReadOnlyList<LayoutEdge> Edges => _edges;
+
+    /// <summary>How far off each other a node's arms must stand (GEN-13), for a stage laying its own.</summary>
+    public float ArmsApartMinRad => armsApartMinRad;
+
+    /// <summary>Whether a node could stand here at all, which is the one thing the ground refuses (GEN-14).</summary>
+    public bool Dry(Vector2 atM) => !water.Wet(atM);
+
+    /// <summary>
+    /// <b>The line one road is laid as</b>, drawn when it was offered (<see cref="RoadLines"/>). It is the
+    /// carriageway's own centreline: what a one-way road is moved onto half of, and what every lane of it is
+    /// offset from (TER-4d).
+    /// </summary>
+    public ReadOnlySpan<ArcSeg> LineOf(int road) => _lineOf[road];
 
     /// <summary>
     /// One node, or <c>−1</c> where the ground will not carry one. <b>Nothing stands on the water</b>
@@ -93,6 +130,79 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     }
 
     /// <summary>
+    /// <b>Every cluster of nodes standing within a locality of each other is one node</b> (GEN-16), settled
+    /// <b>before the first road is laid</b>: what would otherwise be two junctions a stride apart — a pair of
+    /// boxes with their corners, crossings and bars laid over each other, joined by a road no car is ever on —
+    /// is one junction every road at either of them meets.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A cluster and not a pair.</b> Two nodes a stride apart and a third a stride beyond the second are
+    /// one place and not two, and closing the chain is most of what this is worth: asked pair by pair, the
+    /// third stays where it is and whatever ran through it is left hanging off a town it no longer reaches.
+    /// </para>
+    /// <para>
+    /// <b>The node placed first is the node that stays</b>, which is the precedence without weighing one: the
+    /// hub, the bridgeheads and the arterials are placed before any lattice point, so a street standing too
+    /// near an arterial's junction is the one that moves onto it and never the other way round. A deck cannot
+    /// move at all, and nothing has been laid yet that could have to be laid again.
+    /// </para>
+    /// <para>
+    /// <b>It is why the ground bound holds from the first road</b> (GEN-49): a pair of junctions about to
+    /// become one is a pair that already is one, so a road may be held to the ground every road already laid
+    /// holds without any of it being offered twice.
+    /// </para>
+    /// </remarks>
+    /// <returns>Where each node went, for the stages holding node numbers of their own.</returns>
+    public int[] SettleTheNodes()
+    {
+        var root = Clusters.Apart(_nodeM.Count);
+        for (var node = 0; node < root.Length; node++)
+        {
+            for (var other = node + 1; other < root.Length; other++)
+            {
+                if ((_nodeM[node] - _nodeM[other]).LengthSquared() < localityM * localityM)
+                {
+                    Clusters.Union(root, node, other);
+                }
+            }
+        }
+
+        var stays = new int[_nodeM.Count];
+        Array.Fill(stays, -1);
+        for (var node = 0; node < _nodeM.Count; node++)
+        {
+            var cluster = Clusters.Find(root, node);
+            if (stays[cluster] < 0) stays[cluster] = node;
+        }
+
+        var moved = new int[_nodeM.Count];
+        var kept = new List<Vector2>(_nodeM.Count);
+        for (var node = 0; node < _nodeM.Count; node++)
+        {
+            if (stays[Clusters.Find(root, node)] != node)
+            {
+                moved[node] = -1;
+                continue;
+            }
+
+            moved[node] = kept.Count;
+            kept.Add(_nodeM[node]);
+        }
+
+        for (var node = 0; node < _nodeM.Count; node++)
+        {
+            if (moved[node] < 0) moved[node] = moved[stays[Clusters.Find(root, node)]];
+        }
+
+        _nodeM.Clear();
+        _nodeM.AddRange(kept);
+        _armsAt.Clear();
+        for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
+        return moved;
+    }
+
+    /// <summary>
     /// One road between two nodes, if it is a road at all. Three things are refused here rather than found
     /// later, and each of them is something no junction in this engine's geometry can be made of:
     /// <list type="bullet">
@@ -106,14 +216,17 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     /// next arm round is not lying against it; two carriageways meeting at a shallow angle overlap for tens
     /// of metres, and everything laid on either of them lands on the other.</item>
     /// </list>
+    /// <item><b>A link whose line cannot be laid</b> (<see cref="RoadLines"/>) — one that cannot meet both of
+    /// its drawn bearings inside its own floor, one that would run off the world or over water, or one that
+    /// would share ground with a road already laid (GEN-47, GEN-49). <b>The line is drawn here rather than
+    /// after the layout stands</b>, because a road refused later is a road every repair behind it has to be
+    /// made for.</item>
+    /// </list>
     /// <b>A road refused here is a road the town does not have</b>, and whatever that leaves unreachable is
     /// deleted with its own piece (<see cref="KeepTheLargestComponent"/>) rather than joined some other way.
-    /// <b>What is not refused here is a road crossing another road</b>: which of the two the town would
-    /// rather keep is not knowable while they are still being offered, so that is
-    /// <see cref="UnpickTheCrossings"/>'s to settle once every road has been laid.
     /// </summary>
     /// <returns>The road, or <c>−1</c> where it was refused.</returns>
-    public int Join(int from, int to, RoadClass roadClass, float curvature = 0f)
+    public int Join(int from, int to, RoadClass roadClass, float curvature = 0f, Vector2[]? throughM = null)
     {
         if (from == to) return -1;
 
@@ -122,8 +235,10 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         if (!water.Carries(_nodeM[from], _nodeM[to], roadClass)) return -1;
         if (!_joined.Add(from < to ? (from, to) : (to, from))) return -1;
 
-        var (outOfFrom, outOfTo) = Bearings(_nodeM[from], _nodeM[to], curvature);
-        if (!StandsSquareEnough(from, outOfFrom) || !StandsSquareEnough(to, outOfTo))
+        var road = new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays, throughM ?? []);
+        var (outOfFrom, outOfTo) = BearingsOf(road);
+        if (!StandsSquareEnough(from, outOfFrom) || !StandsSquareEnough(to, outOfTo)
+            || !lines.CanLay(road, _nodeM, out var line))
         {
             _joined.Remove(from < to ? (from, to) : (to, from));
             return -1;
@@ -131,9 +246,50 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
 
         _armsAt[from].Add(outOfFrom);
         _armsAt[to].Add(outOfTo);
-        _edges.Add(new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays));
+        _edges.Add(road);
+        _lineOf.Add(line);
+        lines.Keep(road, line);
         return _edges.Count - 1;
     }
+
+    /// <summary>
+    /// <b>Whether these roads could be laid together, without laying any of them</b> — what a stage that is
+    /// about to change the shape of several at once has to know before it changes any (<see cref="Roundabouts"/>,
+    /// <see cref="ThroughRoads"/>, GEN-19, GEN-51). <b>Asked of the nodes the change would leave</b>, because
+    /// moving a node is what changes the lines.
+    /// </summary>
+    /// <param name="instead">The roads the new ones would stand in the place of, whose ground is theirs to take.</param>
+    /// <param name="laid">Their lines, in the same order — <b>drawn once</b>, so that a caller which goes ahead has them.</param>
+    public bool CouldLay(
+        IReadOnlyList<Vector2> nodeM, ReadOnlySpan<LayoutEdge> edges, ReadOnlySpan<int> instead,
+        List<ArcSeg[]> laid)
+    {
+        laid.Clear();
+        for (var at = 0; at < edges.Length; at++)
+        {
+            if (!lines.CanLay(edges[at], nodeM, instead, out var line)) return false;
+
+            // <b>And against the others in the batch</b> (GEN-49): none of them is standing yet, so the index
+            // cannot answer for them — and a ring's arms all move at once and stop meeting at the node they
+            // used to share, which is exactly the pair that would go unasked.
+            for (var earlier = 0; earlier < at; earlier++)
+            {
+                if (!lines.Apart(line, edges[at], laid[earlier], edges[earlier])) return false;
+            }
+
+            laid.Add(line);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// <b>Whether a line the caller drew itself is one the town can have</b> (GEN-49,
+    /// <see cref="RoadLines.Clear"/>) — what a cut has to ask, its pieces being the ground a road already
+    /// stood on rather than anything drawn here.
+    /// </summary>
+    public bool Clear(ArcSeg[] line, in LayoutEdge edge, ReadOnlySpan<int> instead) =>
+        lines.Clear(line, edge, instead);
 
     /// <summary>
     /// <b>Which way a road leaves each of its two ends</b> — the tangent the carriageway is actually drawn
@@ -155,6 +311,23 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         var radiusM = 1f / MathF.Abs(curvature);
         var halfRad = MathF.Asin(MathF.Min(1f, runM.Length() * 0.5f / radiusM)) * MathF.Sign(curvature);
         return (chordRad - halfRad, chordRad + halfRad + MathF.PI);
+    }
+
+    /// <summary>
+    /// And the same for one of the layout's own roads. <b>A road that passes somewhere leaves each of its
+    /// ends for the first place it passes</b> (<see cref="LayoutEdge.ThroughM"/>, GEN-51), which is the
+    /// bearing GEN-13 is owed there — the far end it never points at would read as an arm that is not
+    /// where the carriageway goes.
+    /// </summary>
+    (float OutOfFrom, float OutOfTo) BearingsOf(in LayoutEdge edge)
+    {
+        var fromM = _nodeM[edge.From];
+        var toM = _nodeM[edge.To];
+        if (edge.ThroughM.Length == 0) return Bearings(fromM, toM, edge.Curvature);
+
+        var leaves = edge.ThroughM[0] - fromM;
+        var arrives = edge.ThroughM[^1] - toM;
+        return (MathF.Atan2(leaves.Y, leaves.X), MathF.Atan2(arrives.Y, arrives.X));
     }
 
     /// <summary>
@@ -186,9 +359,22 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     /// </summary>
     public float OutwardRad(int edge, int node)
     {
-        var (outOfFrom, outOfTo) = Bearings(_nodeM[_edges[edge].From], _nodeM[_edges[edge].To], _edges[edge].Curvature);
+        var (outOfFrom, outOfTo) = BearingsOf(_edges[edge]);
         return _edges[edge].From == node ? outOfFrom : outOfTo;
     }
+
+    /// <summary>
+    /// <b>Which of two classes of road the other gives way to</b>: a deck cannot move, an arterial's line is
+    /// the town's, and a street is what bends to meet either. It is the order the nodes are placed in
+    /// (<see cref="AddNode"/>) and the order the roads are laid in, and it is what a road joined out of two
+    /// classes comes out as (<see cref="Gen.ThroughRoads"/>, GEN-16).
+    /// </summary>
+    public static int Precedence(RoadClass roadClass) => roadClass switch
+    {
+        RoadClass.Bridge => 2,
+        RoadClass.Arterial => 1,
+        _ => 0,
+    };
 
     /// <summary>The roads at one node, in the order they leave it.</summary>
     public List<int> ArmsAt(int node)
@@ -211,10 +397,10 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Nothing is offered again and nothing here can be refused</b> (<see cref="Rebuilt"/>): whether
-    /// there is room for a ring at all is <see cref="Roundabouts"/>'s to settle before it asks, because a
-    /// half-laid ring is a worse town than the junction it replaced. What arrives here is a node whose arms
-    /// are already known to clear it.
+    /// <b>Nothing is laid and taken back</b> (GEN-19, GEN-10): every arm the ring moves and every piece of the
+    /// ring itself is drawn first, and where one of them cannot be laid the node stays the junction it was.
+    /// A half-laid ring is a worse town than the junction it replaced, so the answer is the whole circle or
+    /// none of it.
     /// </para>
     /// <para>
     /// <b>The node itself is left standing with nothing at it</b> rather than deleted, so that every road
@@ -222,10 +408,11 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     /// <see cref="PruneTheDeadEnds"/> is what drops the husks afterwards.
     /// </para>
     /// </remarks>
-    public void RingOut(int node, float radiusM, float curvature)
+    /// <returns>Whether the ring was laid.</returns>
+    public bool RingOut(int node, float radiusM, float curvature)
     {
         var arms = ArmsAt(node);
-        if (arms.Count < 3) return;
+        if (arms.Count < 3) return false;
 
         // Round the circle the way the traffic goes: a right-hand turn is the way the angles increase.
         if (curvature < 0f) arms.Reverse();
@@ -240,22 +427,39 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         }
 
         var edges = new List<LayoutEdge>(_edges);
+        var lineOf = new List<ArcSeg[]>(_lineOf);
+        var changed = new List<LayoutEdge>(arms.Count * 2);
         for (var arm = 0; arm < arms.Count; arm++)
         {
             var edge = edges[arms[arm]];
             edges[arms[arm]] = edge.From == node
                 ? edge with { From = onTheRing[arm] }
                 : edge with { To = onTheRing[arm] };
+            changed.Add(edges[arms[arm]]);
         }
 
         for (var arm = 0; arm < arms.Count; arm++)
         {
-            edges.Add(new LayoutEdge(
+            var piece = new LayoutEdge(
                 onTheRing[arm], onTheRing[(arm + 1) % arms.Count], RoadClass.Roundabout, curvature,
-                RoadFlow.WithTheRoad));
+                RoadFlow.WithTheRoad, []);
+            edges.Add(piece);
+            changed.Add(piece);
         }
 
-        Rebuilt(nodeM, edges);
+        // The arms are laid where they already reach and the ring inside the ground they gave up, so what the
+        // circle has to clear is every road but the arms it is made of.
+        var drawn = new List<ArcSeg[]>(changed.Count);
+        if (!CouldLay(nodeM, CollectionsMarshal.AsSpan(changed), CollectionsMarshal.AsSpan(arms), drawn))
+        {
+            return false;
+        }
+
+        for (var arm = 0; arm < arms.Count; arm++) lineOf[arms[arm]] = drawn[arm];
+        for (var piece = arms.Count; piece < drawn.Count; piece++) lineOf.Add(drawn[piece]);
+
+        Rebuilt(nodeM, edges, lineOf);
+        return true;
     }
 
     static float Wrapped(float radians) => radians - (MathF.Tau * MathF.Floor(radians / MathF.Tau));
@@ -274,131 +478,6 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     }
 
     /// <summary>
-    /// <b>Every cluster of nodes standing within a locality of each other is one node</b> (GEN-16): what was
-    /// two junctions a stride apart — a pair of boxes with their corners, crossings and bars laid over each
-    /// other, and a road between them no car is ever on — becomes the one junction their roads all meet at.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It runs once the whole layout is joined and not as each node is placed.</b> A node welded at
-    /// placement is a node the stage that placed it has lost track of — an arterial that recorded a node on
-    /// its own line and got back one off it lays its next piece to somewhere else — so the arithmetic that
-    /// puts nodes on a spoke, on the orbital and on a lattice is left to finish first, and this is what the
-    /// arrangement it produced is then held to.
-    /// </para>
-    /// <para>
-    /// <b>The node the town cares more about is the one that stays</b>, and the others move onto it: a
-    /// bridgehead cannot move at all, an arterial's line is the town's and a street is what bends to meet
-    /// either. What is left is re-offered road by road through <see cref="Join"/> in that same order, so a
-    /// merge that leaves two arms lying together drops the street rather than the arterial (GEN-13) — and
-    /// whatever that leaves hanging is deleted with its own piece, as everything else here is.
-    /// </para>
-    /// </remarks>
-    public void MergeTheLocalNodes()
-    {
-        var root = new int[_nodeM.Count];
-        for (var node = 0; node < root.Length; node++) root[node] = node;
-        for (var node = 0; node < root.Length; node++)
-        {
-            for (var other = node + 1; other < root.Length; other++)
-            {
-                if ((_nodeM[node] - _nodeM[other]).LengthSquared() < localityM * localityM)
-                {
-                    Union(root, node, other);
-                }
-            }
-        }
-
-        var precedence = new int[_nodeM.Count];
-        foreach (var edge in _edges)
-        {
-            var rank = Precedence(edge.Class);
-            precedence[edge.From] = Math.Max(precedence[edge.From], rank);
-            precedence[edge.To] = Math.Max(precedence[edge.To], rank);
-        }
-
-        var stays = new int[_nodeM.Count];
-        Array.Fill(stays, -1);
-        for (var node = 0; node < _nodeM.Count; node++)
-        {
-            var cluster = Find(root, node);
-            if (stays[cluster] < 0 || precedence[node] > precedence[stays[cluster]]) stays[cluster] = node;
-        }
-
-        var moved = new int[_nodeM.Count];
-        var kept = new List<Vector2>(_nodeM.Count);
-        for (var node = 0; node < _nodeM.Count; node++)
-        {
-            if (stays[Find(root, node)] != node)
-            {
-                moved[node] = -1;
-                continue;
-            }
-
-            moved[node] = kept.Count;
-            kept.Add(_nodeM[node]);
-        }
-
-        for (var node = 0; node < _nodeM.Count; node++)
-        {
-            if (moved[node] < 0) moved[node] = moved[stays[Find(root, node)]];
-        }
-
-        // <b>Offered back in the order the town cares about them</b>, so that where a merge leaves two arms
-        // lying together it is the street that is dropped and never the arterial — offered in the order they
-        // were laid, a street can sever the arterial it was hung off and take half the town with it when
-        // the largest piece is kept.
-        var edges = new List<LayoutEdge>(_edges.Count);
-        for (var rank = 2; rank >= 0; rank--)
-        {
-            foreach (var edge in _edges)
-            {
-                if (Precedence(edge.Class) != rank) continue;
-
-                edges.Add(edge with { From = moved[edge.From], To = moved[edge.To] });
-            }
-        }
-
-        Reoffered(kept, edges);
-    }
-
-    /// <summary>
-    /// Which of two roads the other gives way to where a merge has to choose between them: a deck cannot
-    /// move, an arterial's line is the town's, and a street is what bends to meet either.
-    /// </summary>
-    static int Precedence(RoadClass roadClass) => roadClass switch
-    {
-        RoadClass.Bridge => 2,
-        RoadClass.Arterial => 1,
-        _ => 0,
-    };
-
-    /// <summary>
-    /// <b>Drops the roads a later stage refused</b>, and renumbers nothing: a deletion carries every road
-    /// that is left over as it stood (<see cref="Rebuilt"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>What refuses is the stage that lays the geometry</b> (<c>RoadStage.Refused</c>) and never this
-    /// class, because what makes two roads share ground is the lines they were drawn as rather than the
-    /// chords they were joined on — a spline free to reach its own end bearings is not bounded by its chord,
-    /// so nothing measured here would be true of the town. What this owes is the repair behind the
-    /// refusal: a link taken out can strand a component or leave a node with one arm, and both are the
-    /// layout's to put right (GEN-5, GEN-5a).
-    /// </remarks>
-    public void DropTheRoads(ReadOnlySpan<bool> refused)
-    {
-        var kept = new List<LayoutEdge>(_edges.Count);
-        for (var road = 0; road < _edges.Count; road++)
-        {
-            if (road >= refused.Length || !refused[road]) kept.Add(_edges[road]);
-        }
-
-        if (kept.Count == _edges.Count) return;
-
-        Rebuilt([.. _nodeM], kept);
-    }
-
-    /// <summary>
     /// Drops everything not joined to the largest piece of the town, nodes and roads together, and renumbers
     /// what is left. <b>A node nothing reaches is deleted and not connected</b>: a link drawn to reach it
     /// would cross whatever stands in the way, and a road crossing another road where no junction is would be
@@ -408,12 +487,13 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     {
         if (_edges.Count == 0) return;
 
-        var root = new int[_nodeM.Count];
-        for (var node = 0; node < root.Length; node++) root[node] = node;
-        foreach (var edge in _edges) Union(root, edge.From, edge.To);
+        var lineOf = new List<ArcSeg[]>(_edges.Count);
+
+        var root = Clusters.Apart(_nodeM.Count);
+        foreach (var edge in _edges) Clusters.Union(root, edge.From, edge.To);
 
         var size = new int[_nodeM.Count];
-        for (var node = 0; node < root.Length; node++) size[Find(root, node)]++;
+        for (var node = 0; node < root.Length; node++) size[Clusters.Find(root, node)]++;
 
         var largest = 0;
         for (var node = 1; node < size.Length; node++)
@@ -425,7 +505,7 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         var kept = new List<Vector2>(_nodeM.Count);
         for (var node = 0; node < _nodeM.Count; node++)
         {
-            if (Find(root, node) != largest)
+            if (Clusters.Find(root, node) != largest)
             {
                 moved[node] = -1;
                 continue;
@@ -436,14 +516,16 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         }
 
         var edges = new List<LayoutEdge>(_edges.Count);
-        foreach (var edge in _edges)
+        for (var road = 0; road < _edges.Count; road++)
         {
+            var edge = _edges[road];
             if (moved[edge.From] < 0 || moved[edge.To] < 0) continue;
 
             edges.Add(edge with { From = moved[edge.From], To = moved[edge.To] });
+            lineOf.Add(_lineOf[road]);
         }
 
-        Rebuilt(kept, edges);
+        Rebuilt(kept, edges, lineOf);
     }
 
     /// <summary>
@@ -515,14 +597,16 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
         }
 
         var edges = new List<LayoutEdge>(_edges.Count);
+        var lineOf = new List<ArcSeg[]>(_edges.Count);
         for (var edge = 0; edge < _edges.Count; edge++)
         {
             if (dropped[edge]) continue;
 
             edges.Add(_edges[edge] with { From = moved[_edges[edge].From], To = moved[_edges[edge].To] });
+            lineOf.Add(_lineOf[edge]);
         }
 
-        Rebuilt(kept, edges);
+        Rebuilt(kept, edges, lineOf);
     }
 
     /// <summary>
@@ -583,75 +667,49 @@ internal sealed class TownLayout(float shortestRoadM, float armsApartMinRad, flo
     }
 
     /// <summary>Whether a car can arrive at a node on this road, which is the flow read from that node's end.</summary>
-    bool Arrives(int node, int edge) =>
+    public bool Arrives(int node, int edge) =>
         _edges[edge].From == node
             ? _edges[edge].Flow != RoadFlow.WithTheRoad
             : _edges[edge].Flow != RoadFlow.AgainstTheRoad;
 
     /// <summary>And whether one can leave on it.</summary>
-    bool Leaves(int node, int edge) =>
+    public bool Leaves(int node, int edge) =>
         _edges[edge].From == node
             ? _edges[edge].Flow != RoadFlow.AgainstTheRoad
             : _edges[edge].Flow != RoadFlow.WithTheRoad;
 
     /// <summary>
-    /// The layout on a new set of nodes, with every road <em>offered again</em> rather than carried over —
-    /// which is what a merge needs and a deletion does not: moving a node changes what its arms are worth,
-    /// so each of them has to pass what it passed the first time (<see cref="Join"/>).
-    /// </summary>
-    void Reoffered(List<Vector2> nodeM, List<LayoutEdge> edges)
-    {
-        _nodeM.Clear();
-        _nodeM.AddRange(nodeM);
-        _edges.Clear();
-        _joined.Clear();
-        _armsAt.Clear();
-        for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
-        foreach (var edge in edges) Join(edge.From, edge.To, edge.Class, edge.Curvature);
-    }
-
-    /// <summary>
-    /// The layout on a new set of nodes with every road <em>carried over</em>, which is what a deletion or a
-    /// join needs and a merge does not: nothing has moved, so nothing has to pass <see cref="Join"/> again.
+    /// The layout on a new set of nodes with every road carried over, which is what a deletion or a join
+    /// needs: nothing has moved, so nothing has to pass <see cref="Join"/> again.
     /// </summary>
     /// <remarks>
-    /// <b>The bearings it fills are the chords'</b>, so a road joined out of two through its own node
-    /// (<see cref="ThroughRoads"/>) leaves each of its arms reading as the straight line between its two
-    /// remaining ends. Nothing after the road stage asks which way an arm leaves a node.
+    /// <b>The bearings it fills are each road's own</b> (<see cref="BearingsOf"/>), so a road
+    /// <see cref="Gen.ThroughRoads"/> joined out of several leaves its two arms for the places it passes
+    /// rather than for the far end it never points at.
     /// </remarks>
-    public void Rebuilt(List<Vector2> nodeM, List<LayoutEdge> edges)
+    /// <param name="lineOf">
+    /// The line each of those roads is laid as, in the same order. <b>Every road brings its own</b>: what is
+    /// carried over was laid when it was offered and nothing here has moved, so a line redrawn would be the
+    /// same line — and a road whose shape really does change is offered through <see cref="Join"/> instead.
+    /// </param>
+    public void Rebuilt(List<Vector2> nodeM, List<LayoutEdge> edges, List<ArcSeg[]> lineOf)
     {
         _nodeM.Clear();
         _nodeM.AddRange(nodeM);
         _edges.Clear();
         _edges.AddRange(edges);
+        _lineOf.Clear();
+        _lineOf.AddRange(lineOf);
         _joined.Clear();
         _armsAt.Clear();
+        lines.Reset(_edges, _lineOf);
         for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
         foreach (var edge in _edges)
         {
             _joined.Add(edge.From < edge.To ? (edge.From, edge.To) : (edge.To, edge.From));
-            var (outOfFrom, outOfTo) = Bearings(_nodeM[edge.From], _nodeM[edge.To], edge.Curvature);
+            var (outOfFrom, outOfTo) = BearingsOf(edge);
             _armsAt[edge.From].Add(outOfFrom);
             _armsAt[edge.To].Add(outOfTo);
         }
-    }
-
-    static int Find(int[] root, int node)
-    {
-        while (root[node] != node)
-        {
-            root[node] = root[root[node]];
-            node = root[node];
-        }
-
-        return node;
-    }
-
-    static void Union(int[] root, int a, int b)
-    {
-        a = Find(root, a);
-        b = Find(root, b);
-        if (a != b) root[b] = a;
     }
 }

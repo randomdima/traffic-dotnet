@@ -19,7 +19,6 @@ using TrafficSimulation.Bench;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Statics;
 using TrafficSimulation.World.Terrain;
@@ -54,7 +53,6 @@ internal static class Program
         var options = Options.Parse(args, config.View);
 
         if (options.Lamps) return CutTheLamps();
-        if (options.Export is not null) return RunExport(options, config);
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
@@ -201,35 +199,37 @@ internal static class Program
     }
 
     /// <summary>
-    /// One map, laid and written out as a <c>.town</c> file (GEN-1). It is how a map generated from a
-    /// brief becomes one this build ships, and how a fixture is re-baked when the format moves.
-    /// </summary>
-    static int RunExport(Options options, SimConfig config)
-    {
-        var name = options.Map ?? Options.FixtureMap;
-        var plan = Maps.Plan(name, config);
-        TownWriter.WriteFile(plan, options.Export!);
-
-        var written = new FileInfo(options.Export!).Length;
-        Console.WriteLine($"wrote {name} to {options.Export} — format {TownReader.Version}, {written / 1024} KiB");
-        return 0;
-    }
-
-    /// <summary>
-    /// One of this engine's checks, by the name the menu shows for it. <b>The list is
-    /// <see cref="CheckCatalogue"/>'s and there is no second one here</b>: a probe reachable from the
-    /// command line and not from the menu, or the other way round, is exactly what OBS-2a forbids.
+    /// One of this engine's checks, by the name it is listed under. <b>The catalogue says which checks
+    /// there are</b> (<see cref="CheckCatalogue"/>) and the switch below says only which of them the
+    /// command line's <c>--map</c> reaches — every name falls through to the catalogue in the end.
+    /// <b>A name spelled here and left out there is a check nothing lists and the menu cannot open</b>,
+    /// and nothing but this comment stops one: a switch is source, and the suite reads objects.
     /// </summary>
     static int RunBench(string name, string? map, Vector2? atM, SimConfig config)
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
-        // The census is the one check about a particular town, so the command line's --map reaches it;
-        // every other check builds the world it needs.
-        if (string.Equals(name, "census", StringComparison.Ordinal))
+        // Six checks are about a particular town, so the command line's --map reaches them; every other
+        // check builds the world it needs.
+        switch (name)
         {
-            TownCensus.Run(map ?? Options.FixtureMap, config);
-            return 0;
+            case "outset":
+                return Kept(BoundaryProbe.Outset(map ?? Options.FixtureMap, config, atM));
+            case "fill":
+                FillProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
+            case "parks":
+                TownShape.Parks(map ?? Options.FixtureMap, config);
+                return 0;
+            case "census":
+                TownCensus.Run(map ?? Options.FixtureMap, config);
+                return 0;
+            case "shape":
+                TownShape.Run(map ?? Options.FixtureMap, config);
+                return 0;
+            case "joints":
+                TownShape.Joints(map ?? Options.FixtureMap, config);
+                return 0;
         }
 
         if (CheckCatalogue.TryFind(name, out var check)) return Kept(check.Run(config));
@@ -359,8 +359,8 @@ internal static class Program
     }
 
     /// <summary>
-    /// The town as data: read from the one <c>.town</c> file all four engines are handed, laid out as
-    /// arrays, classified, and triangulated. What it is made of is <c>--bench census</c>.
+    /// The town as data: laid from the brief all four engines are handed, classified, and triangulated.
+    /// What it is made of is <c>--bench census</c>.
     /// </summary>
     static void ReportTown(string map, SimConfig config)
     {
@@ -368,15 +368,16 @@ internal static class Program
         var plan = Maps.Plan(map, config);
         var read = Stopwatch.GetElapsedTime(started);
 
-        started = Stopwatch.GetTimestamp();
         var mesh = GroundMesh.Build(plan, config);
-        var laid = Stopwatch.GetElapsedTime(started);
 
         var ground = new GroundLocator(plan, config).At(plan.Spawns.Count > 0 ? plan.Spawns.PositionM[0] : plan.WorldSizeM * 0.5f);
 
         Console.WriteLine($"{plan.Name} {plan.WorldSizeM.X:F0}x{plan.WorldSizeM.Y:F0} m read in {read.TotalMilliseconds:F1} ms — " +
                           $"{plan.Roads.Count} roads, {plan.Buildings.Count} buildings, {plan.Props.Count} props, {plan.Spawns.Count} spawns");
-        Console.WriteLine($"{"",-9}ground laid as {mesh.Indices.Length / 3} triangles in {laid.TotalMilliseconds:F0} ms; " +
+        // <b>The mesh's own figures and not a second stopwatch round the same call</b> (OBS-2v): what a
+        // layer cost is written down as it is laid, and the ground page reads the same tallies.
+        Console.WriteLine($"{"",-9}ground laid as {mesh.Indices.Length / 3} triangles in {mesh.LaidMs:F0} ms " +
+                          $"({mesh.BoundaryMs:F0} ms of it the boundary); " +
                           $"the first spawn stands on {ground.Ground} ({ground.Rules})");
         Console.WriteLine($"{"",-9}maps this build knows: {string.Join(", ", Maps.Shipped())}");
     }
@@ -415,7 +416,7 @@ internal static class Program
         string? Shot, Vector2? AtM, string Ui, float UiScale, string Present, List<Vector2> RulerPointsM,
         Vector2? PointerM, Vector2? PickedM,
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
-        bool Windowed, string? Display, string? Export)
+        bool Windowed, string? Display)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: it is one screen, it
@@ -457,7 +458,7 @@ internal static class Program
                 Bench: null, Map: null, ViewM: 0f, TurnDeg: 0f, Shot: null, AtM: null, Ui: string.Empty, UiScale: 0f,
                 Present: "fifo", RulerPointsM: [], PointerM: null, PickedM: null, Sheet: null,
                 Caption: false, Title: null,
-                Note: null, Lamps: false, Windowed: false, Display: null, Export: null);
+                Note: null, Lamps: false, Windowed: false, Display: null);
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -489,10 +490,6 @@ internal static class Program
                         break;
                     case "--bench" when i + 1 < args.Length:
                         options = options with { Bench = args[i + 1] };
-                        i++;
-                        break;
-                    case "--export" when i + 1 < args.Length:
-                        options = options with { Export = args[i + 1] };
                         i++;
                         break;
                     case "--map" when i + 1 < args.Length:
@@ -574,7 +571,7 @@ internal static class Program
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
                                                     "--windowed, --display NAME|N, --seconds N, --validate, --check, " +
-                                                    "--bench NAME|all, --export PATH, --lamps.");
+                                                    "--bench NAME|all, --lamps.");
                 }
             }
 

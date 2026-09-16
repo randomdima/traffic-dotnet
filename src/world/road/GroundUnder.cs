@@ -148,8 +148,8 @@ internal static class GroundUnder
     }
 
     /// <summary>
-    /// Every way one place has — the connectors across it and <b>the lanes that end at it</b> — for a body
-    /// standing near enough to be on any of them.
+    /// Every way one place has — the connectors across it, <b>the lanes that end at it</b> and the lanes
+    /// driven through it — for a body standing near enough to be on any of them.
     /// </summary>
     /// <remarks>
     /// <b>The lanes, because a connector is not always there to carry the ground across</b>. Where two lanes

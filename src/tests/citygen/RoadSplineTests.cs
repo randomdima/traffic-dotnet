@@ -77,10 +77,15 @@ public class RoadSplineTests
         MathF.Acos(Math.Clamp(Vector2.Dot(one, other), -1f, 1f));
 
     /// <summary>
-    /// <b>Nothing bends tighter than its own class's floor</b>: what the class's design speed
-    /// affords on tarmac, derived from a speed and a grip and never authored as a radius. A ring is the
-    /// exception it always was — its circle is the layout's and is sized by GEN-19.
+    /// <b>Nothing bends tighter than its own floor</b>: what its design speed affords on tarmac, derived
+    /// from a speed and a grip and never authored as a radius. A ring is the exception it always was — its
+    /// circle is the layout's and is sized by GEN-19.
     /// </summary>
+    /// <remarks>
+    /// <b>A road that passes places has a junction's floor</b> (GEN-47, GEN-51): every place it passes was
+    /// a junction, and what a car held there was the movement across it. The figure is the junction's own
+    /// and not a second one, so what this asks of a joined road is the bound GEN-48 already sets.
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Seeds))]
     public void NothingBendsTighterThanItsOwnClassAffords(ulong seed)
@@ -88,15 +93,17 @@ public class RoadSplineTests
         var plan = Lay(seed);
         var onARing = RingRoads(plan);
 
-        // The loosest floor there is, because the plan does not carry a road's class: a road inside the
-        // arterial's floor is inside every class's, and what a street may take is asked of the arm's own
-        // bound instead (<see cref="ConnectionPoints"/>).
-        var floorM = RoadStage.FloorRadiusM(Config, RoadClass.Street);
-
         var bends = 0;
         for (var road = 0; road < plan.Roads.Count; road++)
         {
             if (onARing[road]) continue;
+
+            // The loosest floor a road of the class this one could be has, because the plan does not carry
+            // a road's class: a road inside the arterial's floor is inside every class's, and what a street
+            // may take is asked of the arm's own bound instead (<see cref="ConnectionPoints"/>).
+            var floorM = plan.Roads.ThroughOf(road).Length > 0
+                ? Config.JunctionCorneringRadiusM
+                : RoadLines.FloorRadiusM(Config, RoadClass.Street);
 
             foreach (var arc in plan.Roads.SegmentsOf(road))
             {
@@ -114,9 +121,10 @@ public class RoadSplineTests
     }
 
     /// <summary>
-    /// <b>Every lane's two ends are its two connection points</b> (§4.5, TER-5d). The road was laid to the
-    /// points its arms were drawn with, so the offset to a lane's own share of the carriageway lands on
-    /// them — there is nothing to cut back, and no figure a reader has to add to a lane's metres.
+    /// <b>Every lane's two ends are its road's own two connection points</b> (TER-5d, TER-5i) — the exit
+    /// point of the arm it sets off on and the entry point of the arm it arrives at. Each road was laid to the
+    /// points its arms were drawn with, so the offset to a lane's own share of the carriageway lands on them:
+    /// there is nothing to cut back, and no figure a reader has to add to a lane's metres.
     /// </summary>
     [Theory]
     [MemberData(nameof(Seeds))]
@@ -128,7 +136,7 @@ public class RoadSplineTests
 
         for (var lane = 0; lane < lanes.LaneCount; lane++)
         {
-            var road = lanes.LaneFromRoad[lane];
+            var road = lanes.LaneRoad[lane];
             var arcs = lanes.ArcsOf(lane);
             var leavesFrom = lanes.LaneFromJunction[lane] == ground.Roads.FromJunction[road];
 

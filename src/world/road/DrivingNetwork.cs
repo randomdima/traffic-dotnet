@@ -96,7 +96,11 @@ internal sealed class DrivingNetwork
     public static DrivingNetwork Build(
         RoadGraph roads, ReadOnlySpan<bool> turnsAtALot, CityPlan plan, SimConfig config)
     {
-        var runs = RunNetwork.Contract(new Fine(roads), new Pricer(roads, turnsAtALot.ToArray(), config));
+        // <b>The graph's own places and not a second reading of them</b> (SIM-7): where the lanes meet is the
+        // network that laid them to answer, and the router and the claims reading two answers is how they come
+        // to disagree about which lane ends are one piece of the world.
+        var runs = RunNetwork.Contract(
+            new Fine(roads), new Pricer(roads, turnsAtALot.ToArray(), config), roads.Places);
 
         var linkOfLane = new int[roads.LaneCount];
         var slotOfLane = new int[roads.LaneCount];
@@ -115,8 +119,9 @@ internal sealed class DrivingNetwork
     }
 
     /// <summary>
-    /// The road graph read as the fine graph a contraction consumes: <b>directed lanes joined by their
-    /// connectors</b>, with where those lanes meet left for the contraction to work out.
+    /// The road graph read as the fine graph a contraction consumes: <b>how long each lane is and which is
+    /// the same stretch driven back</b>. Where the lanes meet is the graph's own answer and is handed over
+    /// beside this.
     /// </summary>
     readonly struct Fine(RoadGraph roads) : IFineGraph
     {
@@ -125,12 +130,6 @@ internal sealed class DrivingNetwork
         public float LengthM(int lane) => roads.LaneLengthM[lane];
 
         public int Reverse(int lane) => roads.LaneReverse[lane];
-
-        public ReadOnlySpan<int> Onward(int lane) => roads.LanesFrom(lane);
-
-        public Vector2 StartsAtM(int lane) => roads.StartOf(lane).PositionM;
-
-        public Vector2 EndsAtM(int lane) => roads.EndOf(lane).PositionM;
     }
 
     /// <summary>

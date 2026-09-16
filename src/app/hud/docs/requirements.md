@@ -40,8 +40,9 @@ middle of the window naming the map, from the press until the town it names is r
   while the first is on the wire, and what arrived while the wait was on is dropped rather than banked.
 
 **OBS-2g** `P7` **Escape opens and shuts the settings popup, and the way out of the game is the button inside
-it.** A scene with no such panel keeps Escape as its own way out. The popup holds which map to open and
-the debug switches, and nothing else. **The start menu is the exception and not such a scene** (`GEN-1b`):
+it.** A scene with no such panel keeps Escape as its own way out. The popup holds which map to open, the
+debug switches, the figures a session turns and the ground's own layers (`OBS-2v`), and nothing else — one
+page a question, and the way out standing beside their tabs. **The start menu is the exception and not such a scene** (`GEN-1b`):
 it cannot be shut, so Escape does nothing at it and the way out is the tab that says so.
 
 **OBS-2e** `P7` **How big the town is, is on screen at all times**: a graduated scale legend in the

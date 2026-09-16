@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Hud;
+using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using Xunit;
@@ -217,11 +218,11 @@ public class MenuLayoutTests
     }
 
     /// <summary>
-    /// <b>The way out is the third tab</b>, and it is the one thing on the menu that does not come
+    /// <b>The way out is the last tab</b>, and it is the one thing on the menu that does not come
     /// back — which is why it is a button standing in the tab strip rather than a page behind one.
     /// </summary>
     [Fact]
-    public void TheThirdTabLeavesTheGame()
+    public void TheLastTabLeavesTheGame()
     {
         var menu = Laid(Window);
 
@@ -242,7 +243,7 @@ public class MenuLayoutTests
         var menu = Laid(Window);
         var box = menu.Box;
 
-        for (var page = 0; page <= Menu.Debug; page++)
+        for (var page = 0; page <= Menu.Ground; page++)
         {
             menu.OpenAt(page);
             menu.Lay(Window, Gear(Window));
@@ -406,6 +407,64 @@ public class MenuLayoutTests
 
         menu.Click(menu.LineMiddlePx(10), switches, new TrimFigures());
         Assert.True(switches.Ruler);
+    }
+
+    /// <summary>
+    /// <b>Every row the debug page lays is a row it has a name for.</b> The count was a figure written
+    /// beside the list of names, and a layer taken off that list left the page laying one row more than it
+    /// could draw — which is not a blank row on the tab but the tab throwing as it opens. The failure here
+    /// is the exception: the page is drawn, and a row past the end of the names cannot be.
+    /// </summary>
+    [Fact]
+    public void TheDebugPageDrawsEveryRowItLays()
+    {
+        var menu = Laid(Window);
+        menu.OpenAt(Menu.Debug);
+        menu.Lay(Window, Gear(Window));
+
+        var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
+        menu.Draw(ref draw, Window, Gear(Window), -Vector2.One, new DebugSwitches(), new TrimFigures(), mesh: null);
+    }
+
+    /// <summary>
+    /// <b>The row that is drawn and the layer that is hidden are the same one</b> (OBS-2v) — the claim
+    /// the debug page's own rows are held to, on a page whose rows are an enum rather than a list of
+    /// names.
+    /// </summary>
+    [Fact]
+    public void EachGroundRowTogglesTheLayerItNames()
+    {
+        var menu = Laid(Window);
+        menu.OpenAt(Menu.Ground);
+        menu.Lay(Window, Gear(Window));
+
+        var switches = new DebugSwitches();
+        menu.Click(menu.GroundMiddlePx((int)GroundPart.Carriageway), switches, new TrimFigures());
+        Assert.False(switches.Ground[GroundPart.Carriageway]);
+        Assert.True(switches.Ground[GroundPart.Kerb]);
+
+        menu.Click(menu.GroundMiddlePx((int)GroundPart.Kerb), switches, new TrimFigures());
+        Assert.False(switches.Ground[GroundPart.Kerb]);
+
+        // And the row under the layers, which is not one of them: it is the way back to the whole town.
+        menu.Click(menu.GroundMiddlePx(Menu.WholeGroundRow), switches, new TrimFigures());
+        Assert.True(switches.Ground.Whole);
+    }
+
+    /// <summary>
+    /// <b>Every row the ground page lays is a row it can draw</b>, over a run with no town standing —
+    /// which is what a page reading a mesh has to survive, since the menu is up before there is one.
+    /// The failure here is the exception.
+    /// </summary>
+    [Fact]
+    public void TheGroundPageDrawsEveryRowItLaysWithNoTownStanding()
+    {
+        var menu = Laid(Window);
+        menu.OpenAt(Menu.Ground);
+        menu.Lay(Window, Gear(Window));
+
+        var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
+        menu.Draw(ref draw, Window, Gear(Window), -Vector2.One, new DebugSwitches(), new TrimFigures(), mesh: null);
     }
 
     static Menu OnTheFigures()

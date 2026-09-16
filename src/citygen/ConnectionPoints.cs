@@ -35,21 +35,28 @@ internal readonly record struct ConnectionPoint(Vector2 AtM, Vector2 DrivenUnit,
 /// </para>
 /// <para>
 /// <b>They live nowhere and are drawn again wherever they are wanted</b>, which is what lets the lanes stay
-/// derived from the plan while nothing derived is written to disk. One function, two callers — the
-/// generator laying a town and <see cref="Paving"/> deriving its lanes off a town read back — and the same
-/// answer, because a seed and a link are all a point ever depended on.
+/// derived from the plan while nothing derived is stored. One function, two callers — the generator laying
+/// a town and <see cref="Paving"/> deriving its lanes off the plan it produced — and the same answer,
+/// because a seed and a link are all a point ever depended on.
 /// </para>
 /// <para>
 /// <b>A link is its two junctions' own centres</b> and never an index. The layout's edge numbering does not
-/// survive to the plan — the unpick, the component keeping, the pruning and the roundabout opening all sit
-/// between them, and <c>TownLayout.Rebuilt</c> renumbers the nodes as well — whereas a centre is written to
-/// the <c>.town</c> file as a raw <c>F32</c> and reads back bit for bit. The two ends of one link are drawn
-/// independently, so a road has two bearings to satisfy and they do not agree.
+/// survive to the plan — the component keeping, the pruning, the joining and the roundabout opening all sit
+/// between them, and <c>TownLayout.Rebuilt</c> renumbers the nodes as well — whereas a centre is the same
+/// float on both sides. The two ends of one link are drawn independently, so a road has two bearings to
+/// satisfy and they do not agree.
 /// </para>
 /// <para>
 /// <b>Two kinds of link take their bearing rather than drawing one</b> (GEN-14a, GEN-19): a bridge is one
 /// straight span and a ring piece is one arc of one circle, and both are settled before anything here runs.
 /// Jittering a bridgehead would be jittering off a deck that cannot move.
+/// </para>
+/// <para>
+/// <b>And one kind is read off the road rather than drawn at all</b> (GEN-52). A junction cut into a road
+/// that already stands inverts the inversion: the line was there first, so both arms of a cut road are the
+/// line's own ends and the lead is the arc that joins the node to each of them
+/// (<see cref="ReadOff"/>). It is the one place the causality runs the other way, and it runs that way
+/// because the whole point of a cut is that the road does not move.
 /// </para>
 /// </remarks>
 internal static class ConnectionPoints
@@ -82,8 +89,15 @@ internal static class ConnectionPoints
     /// And the bearing there, which is the arm's own where the lead is straight and the circle's tangent
     /// where it is not.
     /// </param>
+    /// <param name="OnTheLine">
+    /// <b>Whether this arm's points stand on its own line rather than half a lane either side of it</b>
+    /// (<see cref="Point"/>). Two roads are like that and no others: a roundabout's ring, which is the one
+    /// road the town does not move onto the half its traffic drives (<c>RoadStage.OntoTheDrivenHalf</c>,
+    /// GEN-19), and a bay's own way, whose two ways share one line (GEN-53).
+    /// </param>
     internal readonly record struct Arm(
-        int Junction, Vector2 NodeM, Vector2 OutwardUnit, float Curvature, Vector2 StandM, Vector2 StandUnit)
+        int Junction, Vector2 NodeM, Vector2 OutwardUnit, float Curvature, Vector2 StandM, Vector2 StandUnit,
+        bool OnTheLine = false)
     {
         /// <summary>The lead itself, which is what a road laid to this arm begins with and a movement ends on.</summary>
         public ArcSeg Lead(float standoffM) =>
@@ -101,18 +115,105 @@ internal static class ConnectionPoints
         var junction = atFrom ? roads.FromJunction[road] : roads.ToJunction[road];
         var other = atFrom ? roads.ToJunction[road] : roads.FromJunction[road];
 
-        var nodeM = ground.Junctions.CentreM[junction];
-        var towardM = ground.Junctions.CentreM[other];
+        // <b>A cut road's arms are read off its own line</b> (GEN-52): its line stood before the junction at
+        // one of its ends did, so there is nothing left to draw here and the bearing is what the line
+        // already carries.
+        if (roads.WasCut(road)) return ReadOff(ground, junction, road, atFrom);
 
-        var curvature = 0f;
-        var outward = Held(ground, road, nodeM, towardM, out var held, out curvature)
-            ? held
-            : Jittered(Chord(nodeM, towardM), config, ground.Seed, nodeM, towardM);
+        // <b>A road leaves its junction for the first place it passes</b> (GEN-51). Where it passes
+        // nowhere that is its other junction, and where it does, aiming the arm at the far end would point
+        // the carriageway somewhere it never goes — and leave the road a corner it cannot turn off its own
+        // arm.
+        var through = roads.ThroughOf(road);
+        var towardM = through.Length > 0
+            ? (atFrom ? through[0] : through[^1])
+            : ground.Junctions.CentreM[other];
+
+        var ring = Ringed(ground, road, atFrom, out var curvature);
+        return ArmOf(
+            ground.Seed, config, junction, ground.Junctions.CentreM[junction], towardM,
+            ring || Array.IndexOf(ground.Bridges.Road, road) >= 0, curvature)
+               with { OnTheLine = ring || roads.DrivenOverOneLine(road) };
+    }
+
+    /// <summary>
+    /// <b>The arm of a cut road, read off the line it already carries</b> (GEN-52): the stand point is where
+    /// that line ends, the bearing there is the line's own, and the lead is <b>the one arc that joins the
+    /// node to it</b> (<see cref="Spline.ArcThrough"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One reading for both ends, and no case for either.</b> The end a junction was cut at stands a
+    /// standoff along the road's own bend, so the arc back to the node is that bend; the end the road always
+    /// had stands a standoff along a straight lead, so the arc back to the node is that straight. Asked as
+    /// "which arc joins these two poses", the two come out of one line of arithmetic.
+    /// </para>
+    /// <para>
+    /// <b>It is exact rather than near</b>, which is what the cut is held to (GEN-52): the node is placed a
+    /// standoff of the road's <em>own</em> arc back from where the line was parted, so the lead this reads
+    /// is the ground the road was already laid on and not a curve fitted through it.
+    /// </para>
+    /// </remarks>
+    static Arm ReadOff(GroundPieces ground, int junction, int road, bool atFrom)
+    {
+        var arcs = ground.Roads.SegmentsOf(road);
+        var nodeM = ground.Junctions.CentreM[junction];
+        var standM = atFrom ? arcs[0].StartM : arcs[^1].EndM;
+        var standUnit = atFrom
+            ? arcs[0].StartUnit
+            : -Heading.Unit(arcs[^1].HeadingAtRad(arcs[^1].LengthM));
+
+        // The lead walked the other way: from the stand point back down the road to the node it stands off.
+        var back = Spline.ArcThrough(standM, MathF.Atan2(-standUnit.Y, -standUnit.X), nodeM);
+        var outward = -Heading.Unit(back.HeadingAtRad(back.LengthM));
+
+        return new Arm(
+            junction, nodeM, outward, -back.Curvature, standM, standUnit,
+            ground.Roads.DrivenOverOneLine(road));
+    }
+
+    /// <summary>
+    /// <b>The same arm off the figures a link is</b>, for the stage that draws them before there is a road to
+    /// read them from (<c>RoadLines</c>): the node it stands at, the place its road leaves for, and the bend
+    /// the lead carries where the shape was settled elsewhere.
+    /// </summary>
+    /// <param name="settled">
+    /// Whether the bearing is the link's own to keep rather than one to draw (GEN-14a, GEN-19): a bridge
+    /// leaves square along its span and a ring piece along its circle's tangent.
+    /// </param>
+    /// <param name="curvature">
+    /// How the lead itself bends — the ring's own curvature at this end, and nought everywhere else. A
+    /// standoff laid straight off a thirty-metre circle stands nearly two metres inside it, which is a break
+    /// in the one shape GEN-19 sizes.
+    /// </param>
+    public static Arm ArmOf(
+        ulong seed, SimConfig config, int junction, Vector2 nodeM, Vector2 towardM, bool settled,
+        float curvature)
+    {
+        var outward = settled
+            ? Tangent(nodeM, towardM, curvature)
+            : Jittered(Chord(nodeM, towardM), config, seed, nodeM, towardM);
 
         var arm = new Arm(junction, nodeM, outward, curvature, nodeM, outward);
         var lead = arm.Lead(config.CityGen.ConnectionStandoffM);
 
         return arm with { StandM = lead.EndM, StandUnit = Heading.Unit(lead.HeadingAtRad(lead.LengthM)) };
+    }
+
+    /// <summary>
+    /// <b>The bearing a line of this curvature leaves <paramref name="nodeM"/> on to reach
+    /// <paramref name="towardM"/></b>: the chord turned back by half the sweep the arc makes over it, which
+    /// at nought curvature is the chord itself.
+    /// </summary>
+    static Vector2 Tangent(Vector2 nodeM, Vector2 towardM, float curvature)
+    {
+        var chord = Chord(nodeM, towardM);
+        if (curvature == 0f) return chord;
+
+        var halfRad = MathF.Asin(
+            MathF.Min(1f, Vector2.Distance(nodeM, towardM) * 0.5f * MathF.Abs(curvature))) * MathF.Sign(curvature);
+
+        return Heading.Unit(MathF.Atan2(chord.Y, chord.X) - halfRad);
     }
 
     /// <summary>
@@ -166,7 +267,7 @@ internal static class ConnectionPoints
     /// </remarks>
     static ConnectionPoint Point(SimConfig config, in Arm arm, Vector2 drivenUnit, LaneEnd end)
     {
-        var acrossM = arm.Curvature == 0f ? config.LaneOffsetM * config.RoadSideSign : 0f;
+        var acrossM = arm.OnTheLine ? 0f : config.LaneOffsetM * config.RoadSideSign;
         return new ConnectionPoint(
             arm.StandM + (Heading.RightOf(drivenUnit) * acrossM), drivenUnit, end);
     }
@@ -236,7 +337,12 @@ internal static class ConnectionPoints
     /// The link's own key, as the bits of the four coordinates that name it. <b>Ordered</b>: the arm at one
     /// end and the arm at the other are two draws, and swapping the pair is how they are told apart.
     /// </summary>
-    static ulong Keyed(Vector2 nodeM, Vector2 towardM)
+    /// <remarks>
+    /// <b>Everything a link is drawn with is keyed on this and never on a walk</b> (GEN-11): the arm's jitter
+    /// and the road's own wander (<c>RoadLines</c>), so a link offered twice is drawn the same both times and a
+    /// road deleted moves nothing that stayed.
+    /// </remarks>
+    public static ulong Keyed(Vector2 nodeM, Vector2 towardM)
     {
         var key = Mixed(BitConverter.SingleToUInt32Bits(nodeM.X));
         key = Mixed(key ^ BitConverter.SingleToUInt32Bits(nodeM.Y));
@@ -254,97 +360,34 @@ internal static class ConnectionPoints
     }
 
     /// <summary>
-    /// <b>Whether this link's bearing is already settled, and what it is</b> (§6.10). A bridge is one
-    /// straight span and leaves square along its own chord; a ring piece is one arc of the circle its
-    /// roundabout was sized as, and leaves along that circle's tangent.
+    /// <b>Whether this road circulates on a roundabout, and what its lead bends at</b> (GEN-19): a ring piece
+    /// is one arc of the circle its roundabout was sized as, and leaves along that circle's tangent. A bridge
+    /// is the other road whose bearing is settled before its arms are drawn (GEN-14a), and it leaves square
+    /// along its own straight chord, so it needs no bend of its own and is asked about at the call site.
     /// </summary>
-    static bool Held(
-        GroundPieces ground, int road, Vector2 nodeM, Vector2 towardM, out Vector2 outward, out float curvature)
+    /// <remarks>
+    /// <b>The ring's bend is the piece's own and is never fitted to its nodes.</b> A ring piece is laid as one
+    /// arc of the circle (GEN-19, <c>RoadLines</c>), so the curvature the lead wants is the curvature that arc
+    /// already carries — where fitting a circle through three of the ring's nodes is the same figure worked
+    /// out a second way, off three points that only approximate it.
+    /// </remarks>
+    static bool Ringed(GroundPieces ground, int road, bool atFrom, out float curvature)
     {
         curvature = 0f;
 
-        if (Array.IndexOf(ground.Bridges.Road, road) >= 0)
-        {
-            outward = Chord(nodeM, towardM);
-            return true;
-        }
-
-        if (RingCentreM(ground, road) is { } centreM)
-        {
-            // Square to the radius, and round the circle the way this arm is driven: the tangent at a point
-            // of a circle is the radius turned a quarter, and which quarter is which end of the piece.
-            var radius = nodeM - centreM;
-            var tangent = Heading.RightOf(Vector2.Normalize(radius));
-            var forward = Vector2.Dot(tangent, towardM - nodeM) >= 0f;
-
-            outward = forward ? tangent : -tangent;
-
-            // <b>And the lead bends with the ring.</b> A standoff laid straight off a thirty-metre circle
-            // stands nearly two metres inside it, which is a break in the one shape GEN-19 sizes.
-            curvature = (forward ? 1f : -1f) / MathF.Max(radius.Length(), 1e-3f);
-            return true;
-        }
-
-        outward = Vector2.Zero;
-        return false;
-    }
-
-    /// <summary>
-    /// The middle of the circle a roundabout's ring was laid on, or nothing where the road is on no ring.
-    /// <b>Read off the ring's own nodes</b>: the plan carries which roads circulate and lets their arcs say
-    /// where, so the centre is the one point every one of those nodes stands the same distance from.
-    /// </summary>
-    static Vector2? RingCentreM(GroundPieces ground, int road)
-    {
         var rings = ground.Roundabouts;
         for (var ring = 0; ring < rings.Count; ring++)
         {
-            var roads = rings.RoadsOf(ring);
-            if (roads.IndexOf(road) < 0) continue;
+            if (rings.RoadsOf(ring).IndexOf(road) < 0) continue;
 
-            // Three of the ring's own nodes and the one circle through them. <b>Three that are actually
-            // different</b>: the pieces are membership rather than a walk round the circle, so the first
-            // two ends of the first piece and whatever the next piece adds is a triangle, and taking the
-            // last piece's far end could be the first piece's near one back again.
-            Span<int> corners = [CityPlan.NoRecord, CityPlan.NoRecord, CityPlan.NoRecord];
-            var found = 0;
-            foreach (var on in roads)
-            {
-                foreach (var node in (int[])[ground.Roads.FromJunction[on], ground.Roads.ToJunction[on]])
-                {
-                    if (corners.IndexOf(node) >= 0) continue;
+            // The arc as this arm leaves the node: the piece's own bend at its near end, and the same circle
+            // turned the other way where the arm is the far end of it.
+            var arcs = ground.Roads.SegmentsOf(road);
+            if (arcs.Length > 0) curvature = atFrom ? arcs[0].Curvature : -arcs[^1].Curvature;
 
-                    corners[found++] = node;
-                    if (found == 3) break;
-                }
-
-                if (found == 3) break;
-            }
-
-            // A ring of fewer than three nodes is not a circle the layout lays (GEN-19).
-            if (found < 3) return null;
-
-            return Through(
-                ground.Junctions.CentreM[corners[0]],
-                ground.Junctions.CentreM[corners[1]],
-                ground.Junctions.CentreM[corners[2]]);
+            return true;
         }
 
-        return null;
-    }
-
-    /// <summary>The centre of the circle through three points, or the middle of them where they are in a line.</summary>
-    static Vector2 Through(Vector2 one, Vector2 two, Vector2 three)
-    {
-        var twice = 2f * ((one.X * (two.Y - three.Y)) + (two.X * (three.Y - one.Y)) + (three.X * (one.Y - two.Y)));
-        if (MathF.Abs(twice) < 1e-6f) return (one + two + three) / 3f;
-
-        var oneSq = one.LengthSquared();
-        var twoSq = two.LengthSquared();
-        var threeSq = three.LengthSquared();
-
-        return new Vector2(
-            ((oneSq * (two.Y - three.Y)) + (twoSq * (three.Y - one.Y)) + (threeSq * (one.Y - two.Y))) / twice,
-            ((oneSq * (three.X - two.X)) + (twoSq * (one.X - three.X)) + (threeSq * (two.X - one.X))) / twice);
+        return false;
     }
 }

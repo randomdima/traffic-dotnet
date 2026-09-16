@@ -15,7 +15,7 @@ the same tier may depend on each other only in the one direction the tier's own 
 
 | Tier | Slices | May know about |
 |---|---|---|
-| **Kernel** | `core/` — config, geometry, persistence, simulation | Nothing else in the project. **Not a town** |
+| **Kernel** | `core/` — config, geometry, simulation | Nothing else in the project. **Not a town** |
 | **Plan** | `citygen/` — the plan, its ground vocabulary, the lines a car is driven on, its reader and writer | core |
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking | core, citygen, and each other in one direction |
 | **Composition** | `world/town/` | Everything below it. **This is the seam, and it is the only thing allowed to be** |
@@ -80,8 +80,9 @@ below: which way a dependency may point, and where the code does not yet comply.
 
 Named here so they are not mistaken for breaks:
 
-- **`app/hud/` depends on `bench/`** — the start menu reads the probe list so that `OBS-2a` holds: the
-  list the menu reads is the list the command line reads.
+- **`app/hud/` depends on `bench/`** — the status panel and the unit panel draw what a map claims about
+  itself, and a claim, its watch and its reading are the bench's (`ScenarioWatch`, `Scenarios.For`). A
+  panel that worked a claim out for itself would be a second answer to what the probe already asks.
 - **`tests/e2e/` depends on `app/shot/`** — the visual tier stages its scenarios through the game's own
   shot path and tiles them with the engine's own sheet, because a second staging path or a second
   tiler would be a picture of the test rather than of the game (`SHT-1`, `SHT-3`).

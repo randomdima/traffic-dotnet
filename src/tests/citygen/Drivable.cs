@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.Tests.CityGen;
@@ -17,8 +18,28 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </remarks>
 internal static class Drivable
 {
+    /// <summary>
+    /// <b>The lanes of a car park's own arms</b> (GEN-53) — <b>the one thing in this build that a car is
+    /// driven onto and not off again</b>. An arm ends where its bays begin and
+    /// [nothing lays the bays yet](../../../docs/index.md#known-gaps), so the questions below are asked of
+    /// the rest of the town rather than answered with a state that is already named. <b>It goes when the
+    /// bays land</b>, and it is the whole of what GEN-50 is excused for.
+    /// </summary>
+    public static bool[] OnACarParksArm(CityPlan plan, RoadGraph roads)
+    {
+        var onAnArm = new bool[roads.LaneCount];
+        if (plan.CarParks.Count == 0) return onAnArm;
+
+        var arm = new bool[plan.Roads.Count];
+        foreach (var road in plan.CarParks.Road) arm[road] = true;
+
+        for (var lane = 0; lane < roads.LaneCount; lane++) onAnArm[lane] = arm[roads.LaneRoad[lane]];
+
+        return onAnArm;
+    }
+
     /// <summary>What is wrong, or <c>null</c> where every junction can be driven to from every lane.</summary>
-    public static string? Offence(RoadGraph roads)
+    public static string? Offence(RoadGraph roads, bool[]? passedOver = null)
     {
         var into = new List<int>[roads.LaneCount];
         for (var lane = 0; lane < roads.LaneCount; lane++) into[lane] = [];
@@ -29,6 +50,15 @@ internal static class Drivable
 
         var reaches = new int[roads.LaneCount];
         var walked = new Queue<int>();
+
+        var asked = roads.LaneCount;
+        if (passedOver is not null)
+        {
+            foreach (var over in passedOver)
+            {
+                if (over) asked--;
+            }
+        }
 
         for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
@@ -43,7 +73,7 @@ internal static class Drivable
 
                 reaches[lane] = junction + 1;
                 walked.Enqueue(lane);
-                found++;
+                if (passedOver?[lane] != true) found++;
             }
 
             while (walked.Count > 0)
@@ -54,13 +84,13 @@ internal static class Drivable
 
                     reaches[earlier] = junction + 1;
                     walked.Enqueue(earlier);
-                    found++;
+                    if (passedOver?[earlier] != true) found++;
                 }
             }
 
-            if (found < roads.LaneCount)
+            if (found < asked)
             {
-                return $"{roads.LaneCount - found} of {roads.LaneCount} lanes cannot be driven to junction " +
+                return $"{asked - found} of {asked} lanes cannot be driven to junction " +
                        $"{junction} at {AtJunction(roads, junction)}";
             }
         }
@@ -71,7 +101,7 @@ internal static class Drivable
     /// <summary>
     /// What dangles, or <c>null</c> where every lane is both driven onto and driven off (GEN-50).
     /// </summary>
-    public static string? Dangling(RoadGraph roads)
+    public static string? Dangling(RoadGraph roads, bool[]? passedOver = null)
     {
         var into = new int[roads.LaneCount];
         for (var lane = 0; lane < roads.LaneCount; lane++)
@@ -81,10 +111,11 @@ internal static class Drivable
 
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
+            if (passedOver?[lane] == true) continue;
             if (into[lane] > 0 && roads.LanesFrom(lane).Length > 0) continue;
 
             var what = into[lane] == 0 ? "is driven onto by nothing" : "is driven off onto nothing";
-            return $"lane {lane} of road {roads.LaneFromRoad[lane]} {what}: from {roads.StartOf(lane).PositionM} "
+            return $"lane {lane} of road {roads.LaneRoad[lane]} {what}: from {roads.StartOf(lane).PositionM} "
                    + $"to {roads.EndOf(lane).PositionM}";
         }
 

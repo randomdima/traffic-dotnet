@@ -15,9 +15,10 @@ internal readonly record struct CheckEntry(string Name, string Description, Func
 /// the game rather than being a town: it builds its own world, prints, and is done.
 /// </summary>
 /// <remarks>
-/// <b>The guard runs in both directions</b>, and it is the unit suite's rather than a comment's:
-/// every entry names a probe that exists and every probe appears in the list. The dispatch below is
-/// the only place a probe's name is turned into a call, so there is no second list to drift.
+/// <b>Every entry names a probe that runs, and the unit suite says so rather than this comment</b>
+/// (<c>CatalogueTests</c>). <b>The other direction is not guarded</b>: <c>Program.RunBench</c> spells
+/// six of these names a second time so that <c>--map</c> reaches them, and a name spelled there and
+/// left out here is a check nothing lists and the menu cannot open.
 /// </remarks>
 internal static class CheckCatalogue
 {
@@ -36,13 +37,19 @@ internal static class CheckCatalogue
         new("recovery", "One staged wreck a town: whether an evacuator came, towed it home and mended it", Quoted(RecoveryProbe.Run)),
         new("maneuvers", "Which manoeuvre every driver was in, and what the ladder came to", Quoted(ManeuverProbe.Run)),
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
+        new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
+        new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
+        new("parks", "Every car park a town cut into a road: where it stands, its arms and its bays", Quoted(config => TownShape.Parks("Odesa", config))),
+        new("outset", "A town's boundary moved off itself: what closed, and the two ends of what did not", config => BoundaryProbe.Outset("Odesa", config)),
+        new("fill", "A town's driven ground cut into triangles: what the cut costs, and what it lost", Quoted(config => FillProbe.Run("Odesa", config))),
+        new("shapes", "One row a map: extent, roads, how much of each bends", Quoted(TownShape.Table)),
     ];
 
     /// <summary>
     /// <b>A probe that prints figures and gates nothing.</b> It cannot fail, which is a fact about the
     /// reading and not about the run: what a dense city's geometry lets an articulated pair do, what a
     /// tick costs and what a drunk lap's swerves come to are facts about one town rather than claims
-    /// (<see cref="Scenario"/>). Saying so here is what stops a caller reading a bare zero as a pass.
+    /// (<see cref="Scenarios"/>). Saying so here is what stops a caller reading a bare zero as a pass.
     /// </summary>
     static Func<SimConfig, bool> Quoted(Action<SimConfig> probe) => config =>
     {

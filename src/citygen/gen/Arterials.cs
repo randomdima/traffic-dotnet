@@ -307,6 +307,22 @@ internal sealed class Arterials
     }
 
     /// <summary>
+    /// Where the nodes went when they were settled (<see cref="TownLayout.SettleTheNodes"/>, GEN-16), so that
+    /// what this holds is the node the town kept rather than the one it asked for. <b>The order they stand in
+    /// is the arterial's own and does not move</b>: a node is recorded against the distance along the path it
+    /// was asked for, so a cluster that swallowed one still links in the place that one held.
+    /// </summary>
+    public void TheNodesMoved(int[] moved)
+    {
+        foreach (var spoke in _spokes)
+        {
+            for (var at = 0; at < spoke.Count; at++) spoke[at] = (spoke[at].RadiusM, moved[spoke[at].Node]);
+        }
+
+        for (var at = 0; at < _ring.Count; at++) _ring[at] = (_ring[at].ThetaRad, moved[_ring[at].Node]);
+    }
+
+    /// <summary>
     /// Joins each arterial's nodes into the roads between them, once every street that wanted one has put
     /// its own node on them. <b>The orbital's pieces are arcs</b> — it is a circle, and a circle laid as
     /// chords is a polygon with a corner at every junction.

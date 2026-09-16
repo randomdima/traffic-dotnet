@@ -319,6 +319,16 @@ public class GeneratorTests
         Assert.Null(OneWays.Crowding(Lay(Brief(seed)), Config.CityGen.OneWayApartMinM));
 
     /// <summary>
+    /// <b>A one-way street arrives where there is still a choice</b> (GEN-18): at a junction of four arms or
+    /// more, so the approaches it meets keep two ways out apiece rather than being driven through a junction
+    /// they decide nothing at.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoOneWayStreetArrivesWhereItTakesTheLastChoice(ulong seed) =>
+        Assert.Null(OneWays.Starving(Lay(Brief(seed))));
+
+    /// <summary>
     /// <b>A roundabout is a closed ring driven one way round</b> (GEN-19): every road of it runs one way,
     /// each of its junctions is left by exactly one of them and arrived at by exactly one, and the ring
     /// closes — so a car on it comes back to where it entered rather than running out of circle.
@@ -604,7 +614,11 @@ public class GeneratorTests
 
                             Assert.Fail(
                                 $"roads {road} and {other} meet no junction yet pass {apartM:F1} m apart at " +
-                                $"{atM.X:F0},{atM.Y:F0}, inside the {footprintM:F1} m one road takes");
+                                $"{atM.X:F0},{atM.Y:F0}, inside the {footprintM:F1} m one road takes — "
+                                + $"{road} joins {plan.Roads.FromJunction[road]} to {plan.Roads.ToJunction[road]} "
+                                + $"passing {plan.Roads.ThroughOf(road).Length}, {other} joins "
+                                + $"{plan.Roads.FromJunction[other]} to {plan.Roads.ToJunction[other]} passing "
+                                + $"{plan.Roads.ThroughOf(other).Length}");
                         }
                     }
                 }
@@ -756,6 +770,62 @@ public class GeneratorTests
     /// (<see cref="RoadStage.CreaseRad"/>).
     /// </summary>
     static float CreaseRad => RoadStage.CreaseRad(Config);
+
+    /// <summary>
+    /// <b>No junction is a place an ordinary road merely carries on through</b> (GEN-51). A node whose two
+    /// arms leave it half a turn apart is one road cut at a point nothing meets at — a standoff, a pair of
+    /// movements and a claim laid in the middle of a carriageway — and the town joins those into the one
+    /// road they are.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of the deflection alone, and of the junctions GEN-51 does not exempt.</b> Every reason a
+    /// junction of two arms may stand between two ordinary roads is a corner — the place a loop was
+    /// shortened at, or the place a joined road the stage would not lay was cut in two — and a corner
+    /// deflects. A bridgehead and a ring node are the two that need not, being where the carriageway itself
+    /// changes, and the rule names both.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void NoJunctionIsAPlaceARoadCarriesOnThrough(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        var ordinary = new bool[plan.Roads.Count];
+        Array.Fill(ordinary, true);
+        foreach (var road in plan.Bridges.Road) ordinary[road] = false;
+        for (var ring = 0; ring < plan.Roundabouts.Count; ring++)
+        {
+            foreach (var road in plan.Roundabouts.RoadsOf(ring)) ordinary[road] = false;
+        }
+
+        var arms = new List<float>[plan.Junctions.Count];
+        var ordinaryArms = new int[plan.Junctions.Count];
+        for (var junction = 0; junction < arms.Length; junction++) arms[junction] = [];
+
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            var chain = plan.Roads.SegmentsOf(road);
+            if (chain.Length == 0) continue;
+
+            foreach (var (junction, bearingRad) in (ReadOnlySpan<(int, float)>)[
+                         (plan.Roads.FromJunction[road], chain[0].HeadingRad),
+                         (plan.Roads.ToJunction[road], chain[^1].HeadingAtRad(chain[^1].LengthM) + MathF.PI)])
+            {
+                arms[junction].Add(bearingRad);
+                if (ordinary[road]) ordinaryArms[junction]++;
+            }
+        }
+
+        for (var junction = 0; junction < arms.Length; junction++)
+        {
+            if (arms[junction].Count != 2 || ordinaryArms[junction] != 2) continue;
+
+            var throughRad = MathF.PI - MathF.Abs(Spline.WrapRad(arms[junction][0] - arms[junction][1]));
+            Assert.True(
+                MathF.Abs(throughRad) > CreaseRad,
+                $"junction {junction} at {plan.Junctions.CentreM[junction]} is one road carrying straight "
+                + $"on, its two arms {throughRad:F4} rad off half a turn");
+        }
+    }
 
     /// <summary>Nothing a town stands is laid on its water (GEN-5), which the ground is the authority on.</summary>
     [Theory]

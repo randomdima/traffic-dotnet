@@ -246,9 +246,8 @@ internal readonly record struct CarBuild
     /// <remarks>
     /// <b>Not a figure anybody chose but the bound the arithmetic has</b>, held a degree off so a radius
     /// stays a length rather than a point. Nothing in the fleet is near it — every authored lock is under
-    /// 32° — and the only thing that reaches it is the panel's own
-    /// <see cref="TrimFigures.SteeringLock"/>, which runs to ten times shipped and used to take the whole
-    /// parking geometry negative somewhere above two and a half.
+    /// 32° — and nothing a session can turn reaches it either, a steering lock being one car's own figure
+    /// rather than a surface the panel may move (<see cref="TrimFigures"/>).
     /// </remarks>
     const float MostSteerRad = 89f * MathF.PI / 180f;
 

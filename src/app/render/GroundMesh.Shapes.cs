@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.App.Render;
@@ -32,37 +33,252 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// A road's own curve, laid out to a half-width either side. The arcs are sampled to a chord's bow —
-    /// well under a lane width, and what keeps a ribbon from showing a facet at every piece.
+    /// <b>A line of the town's own, laid as the ground half a width either side of it</b>: a kerb along the
+    /// driven ground's boundary or along the walk's outer face (TER-3d), and a bridge's deck along the road
+    /// it carries. <b>The line it is struck from runs down the middle of it</b>, so no part of a stroke ever
+    /// stands further from that line than half its own width — at a bend, at a corner and at the tightest
+    /// hook the boundary has alike.
     /// </summary>
     /// <remarks>
-    /// <b>A piece's first station is the last station of the piece before it</b>, so it is sampled once and
-    /// not twice. Laid twice, a chain of more than one piece carries a strip of no width at every joint —
-    /// triangles that draw nothing and that anything reading the mesh back has to know to throw away.
+    /// <para>
+    /// <b>A width and not a layer.</b> It is laid over whatever the fills left along that line rather than
+    /// cut out of them, so what it covers is exactly <paramref name="widthM"/> wherever the line runs.
+    /// Struck as the ground between two offsets instead, a kerb is the difference between two shapes each
+    /// thinned on its own terms, and what survives of it is whatever the thinning left.
+    /// </para>
+    /// <para>
+    /// <b>One run over the whole line and never a piece at a time.</b> Every cross-section is stitched to the
+    /// one before it, and on a ring (<paramref name="closed"/>) the last to the first. Laid piece by piece
+    /// instead, the run breaks at every joint.
+    /// </para>
+    /// <para>
+    /// <b>A corner is one cross-section on the bisector wherever that stands for the turn</b>, and the swept
+    /// fan where it does not (<see cref="Turned"/>). A cross-section laid on the bisector at the half-width
+    /// pinches the ribbon to <c>w·cos ½θ</c> across the corner — which is the same figure a chord bows off
+    /// the arc it stands for, so it is held to <see cref="ChordSagM"/> by the same count every other bend
+    /// here is drawn by, and a corner that turns harder than that is fanned instead. <b>The two cost a quad
+    /// and two</b>, so the cheap one is what a boundary's tens of thousands of corners are drawn as.
+    /// </para>
+    /// <para>
+    /// <b>And neither leaves the disc of half a width about the corner</b>: a cross-section never reaches
+    /// past the half-width, so both ends of every edge of the ribbon lie within it of the line and so
+    /// therefore does the whole of that edge. <b>A mitre would not</b> — struck where the two offset lines
+    /// meet, it stands <c>½w(sec ½θ − 1)</c> outside the line at every corner, which is a kerb seen to
+    /// spike off its own line (TER-3d).
+    /// </para>
+    /// <para>
+    /// <b>Where the line turns tighter than half the width, that side is what the turn affords</b>
+    /// (<see cref="Reach"/>). The merge leaves hooks of a few centimetres' radius where a movement's ribbon
+    /// folds through itself, and an edge laid at a constant half-width along one reaches the middle of the
+    /// turn before it has run out — everything past that comes back on the far side of the line, which is the
+    /// one thing a stroke may not do. It stops at the middle of the turn instead.
+    /// </para>
     /// </remarks>
-    void Ribbon(ReadOnlySpan<ArcSeg> arcs, float halfWidthM, Surface surface, Vector3 tint, float[] periods)
+    void Stroke(
+        ReadOnlySpan<Vector2> line, float widthM, bool closed, Surface surface, Vector3 tint, float[] periods)
     {
-        if (halfWidthM <= 0f) return;
+        if (line.Length < 2 || widthM <= 0f) return;
 
+        var halfM = widthM * 0.5f;
+        var last = line.Length - 1;
+        var firstLeft = -1;
+        var firstRight = -1;
         var previousLeft = -1;
         var previousRight = -1;
-        foreach (var arc in arcs)
+
+        void Station(Vector2 pointM, Vector2 across, Vector2 reach)
         {
-            var steps = Math.Max(1, (int)MathF.Ceiling(arc.LengthM / StepM(arc.Curvature)));
-            for (var step = previousLeft < 0 ? 0 : 1; step <= steps; step++)
+            var left = Vertex(pointM - (across * reach.X), surface, tint, periods);
+            var right = Vertex(pointM + (across * reach.Y), surface, tint, periods);
+            if (previousLeft >= 0)
             {
-                var distanceM = arc.LengthM * step / steps;
-                var headingRad = arc.HeadingAtRad(distanceM);
-                var across = new Vector2(-MathF.Sin(headingRad), MathF.Cos(headingRad));
-                var centreM = arc.PointAtM(distanceM);
-
-                var left = Vertex(centreM - across * halfWidthM, surface, tint, periods);
-                var right = Vertex(centreM + across * halfWidthM, surface, tint, periods);
-                if (previousLeft >= 0) Quad(previousLeft, previousRight, right, left);
-
-                previousLeft = left;
-                previousRight = right;
+                Quad(previousLeft, previousRight, right, left);
             }
+            else
+            {
+                firstLeft = left;
+                firstRight = right;
+            }
+
+            previousLeft = left;
+            previousRight = right;
+        }
+
+        for (var at = 0; at <= last; at++)
+        {
+            var pointM = line[at];
+            var arriving = closed || at > 0 ? Along(line[at > 0 ? at - 1 : last], pointM) : Vector2.Zero;
+            var leaving = closed || at < last ? Along(pointM, line[at < last ? at + 1 : 0]) : Vector2.Zero;
+            if (arriving == Vector2.Zero) arriving = leaving;
+            if (leaving == Vector2.Zero) leaving = arriving;
+            if (arriving == Vector2.Zero) continue;
+
+            var turnRad = MathF.Atan2(Spline.Cross(arriving, leaving), Vector2.Dot(arriving, leaving));
+            var reach = Reach(Turning(line, at, last, closed, turnRad), turnRad, halfM);
+            var fromAcross = Heading.RightOf(arriving);
+            var ontoAcross = Heading.RightOf(leaving);
+            var bisector = fromAcross + ontoAcross;
+            if (Steps(MathF.Max(reach.X, reach.Y), turnRad) <= 1 && bisector.LengthSquared() > Cusp)
+            {
+                Station(pointM, Vector2.Normalize(bisector), reach);
+                continue;
+            }
+
+            Station(pointM, fromAcross, reach);
+            Turned(pointM, fromAcross, reach, ontoAcross, reach, surface, tint, periods,
+                ref previousLeft, ref previousRight);
+            Station(pointM, ontoAcross, reach);
+        }
+
+        // The seam of a ring is no corner at all: its first point was laid knowing what arrives at it, so
+        // what is left is the quad back to it.
+        if (closed && previousLeft >= 0 && firstLeft >= 0)
+        {
+            Quad(previousLeft, previousRight, firstRight, firstLeft);
+        }
+    }
+
+    /// <summary>
+    /// The same stroke along a chain of arcs, for a line no fill is cut to (a bridge's deck): the chain read
+    /// as the points a stroke of this width is drawn through (<see cref="Stations"/>) and then laid as any
+    /// other line.
+    /// </summary>
+    void Stroke(
+        ReadOnlySpan<ArcSeg> line, float widthM, bool closed, Surface surface, Vector3 tint, float[] periods)
+    {
+        if (line.Length < 1 || widthM <= 0f) return;
+
+        Stroke(Walked(line, widthM * 0.5f, closed), widthM, closed, surface, tint, periods);
+    }
+
+    /// <summary>
+    /// A chain read as the points a stroke of a half-width is drawn through: each piece's own start and the
+    /// stations inside it, and the far end of the chain where it is not a ring whose end is its own start.
+    /// </summary>
+    static Vector2[] Walked(ReadOnlySpan<ArcSeg> line, float halfM, bool closed)
+    {
+        var pointsM = new List<Vector2>();
+        foreach (var arc in line)
+        {
+            var stations = Stations(arc, halfM);
+            for (var step = 0; step < stations; step++) pointsM.Add(arc.PointAtM(arc.LengthM * step / stations));
+        }
+
+        if (!closed) pointsM.Add(line[^1].PointAtM(line[^1].LengthM));
+
+        return pointsM.ToArray();
+    }
+
+    /// <summary>The step from one point of a line to the next, as a direction, or nothing where they are one point.</summary>
+    static Vector2 Along(Vector2 fromM, Vector2 ontoM)
+    {
+        var stepM = ontoM - fromM;
+        var lengthM = stepM.Length();
+        return lengthM > 0f ? stepM / lengthM : Vector2.Zero;
+    }
+
+    /// <summary>
+    /// <b>The radius the line turns at one of its corners</b>, read off the length either side of it against
+    /// the turn between them — which is what a radius is, and comes back as the piece's own on a line read
+    /// from arcs at any sampling at all.
+    /// </summary>
+    /// <remarks>
+    /// <b>What <see cref="Reach"/> asked an arc for directly</b>, and it has to be asked of the corner
+    /// instead, a line being handed over already read as points. <b>The length either side and never the
+    /// shorter of the two</b>: a thinned line leaves short chords wherever it kept two corners close
+    /// together, and a corner is not a hook because the chord into it is short — read that way, an ordinary
+    /// sharp corner between two long runs came back at a few centimetres of radius and the stroke narrowed
+    /// to it, leaving the kerb short of its own width at a place the line does not turn tightly at all.
+    /// </remarks>
+    static float Turning(ReadOnlySpan<Vector2> line, int at, int last, bool closed, float turnRad)
+    {
+        var turn = MathF.Abs(turnRad);
+        if (turn <= 0f) return float.PositiveInfinity;
+
+        var alongM = 0f;
+        var sides = 0;
+        if (closed || at > 0)
+        {
+            alongM += Vector2.Distance(line[at > 0 ? at - 1 : last], line[at]);
+            sides++;
+        }
+
+        if (closed || at < last)
+        {
+            alongM += Vector2.Distance(line[at], line[at < last ? at + 1 : 0]);
+            sides++;
+        }
+
+        return sides == 0 ? float.PositiveInfinity : alongM / sides / turn;
+    }
+
+    /// <summary>
+    /// <b>How far a stroke may be carried to either side of a corner</b>: half the width, unless the line
+    /// turns that way tighter than that — in which case it is the turn's own radius, where that edge closes
+    /// on the middle of the turn and there is no further to go. The left of the line first, then the right.
+    /// </summary>
+    /// <remarks>
+    /// A turn to the right is positive, which is the side the centre of it is on, so it is the right edge
+    /// that a right-hander closes in on.
+    /// </remarks>
+    static Vector2 Reach(float radiusM, float turnRad, float halfM)
+    {
+        if (radiusM >= halfM) return new Vector2(halfM, halfM);
+
+        return turnRad > 0f ? new Vector2(halfM, radiusM) : new Vector2(radiusM, halfM);
+    }
+
+    /// <summary>
+    /// How short the sum of two cross-sections is before the corner between them is a cusp with no bisector
+    /// to lay one on: a hundredth, which is half a degree off turning right round.
+    /// </summary>
+    const float Cusp = 0.01f;
+
+    /// <summary>
+    /// <b>How many cross-sections one piece of a stroke is laid at</b>: as few as leave its outer edge bowing
+    /// under <see cref="ChordSagM"/>, that being the widest circle anything about the piece is drawn on.
+    /// </summary>
+    /// <remarks>
+    /// <b>Off the outer edge and not off the line</b>, because the edge drawn on the outside of a turn goes
+    /// round a circle half a width wider than the line's — so a count taken off the line leaves the thing
+    /// actually drawn bowing by the sag times how much wider that circle is, which on a hook is most of the
+    /// width.
+    /// </remarks>
+    static int Stations(in ArcSeg piece, float halfM) =>
+        Steps((1f / MathF.Abs(piece.Curvature)) + halfM, MathF.Abs(piece.LengthM * piece.Curvature));
+
+    /// <summary>
+    /// <b>The corner a stroke turns too hard to cross on one cross-section</b>: the cross-sections either
+    /// side of it stand at one place on two headings, and what turns between them is the same cross-section
+    /// swept about that place — laid as the chords that bow under <see cref="ChordSagM"/>, like every other
+    /// bend here.
+    /// </summary>
+    /// <remarks>
+    /// <b>The stroke at a corner is the whole of the two sectors the cross-section turns through</b>, and
+    /// what is laid across them stands for that: one cross-section on the bisector covers their chords and
+    /// leaves a notch of <c>½w(1 − cos ½θ)</c> on the outside, which is why it serves only while that notch
+    /// is under the sag (<see cref="Stroke"/>). Past it the sweep is fanned, or a corner that turns right
+    /// round loses the whole half-width. On the inside of the turn either leaves an overlap, which is what
+    /// the ground there is.
+    /// </remarks>
+    void Turned(
+        Vector2 cornerM, Vector2 fromAcross, Vector2 fromReach, Vector2 ontoAcross, Vector2 ontoReach,
+        Surface surface, Vector3 tint, float[] periods, ref int previousLeft, ref int previousRight)
+    {
+        var turnRad = MathF.Atan2(Spline.Cross(fromAcross, ontoAcross), Vector2.Dot(fromAcross, ontoAcross));
+        var fans = Steps(MathF.Max(MathF.Max(fromReach.X, fromReach.Y), MathF.Max(ontoReach.X, ontoReach.Y)),
+            turnRad);
+        var fromRad = MathF.Atan2(fromAcross.Y, fromAcross.X);
+        for (var fan = 1; fan < fans; fan++)
+        {
+            var through = (float)fan / fans;
+            var across = Heading.Unit(fromRad + (turnRad * through));
+            var reach = Vector2.Lerp(fromReach, ontoReach, through);
+            var left = Vertex(cornerM - (across * reach.X), surface, tint, periods);
+            var right = Vertex(cornerM + (across * reach.Y), surface, tint, periods);
+            Quad(previousLeft, previousRight, right, left);
+            previousLeft = left;
+            previousRight = right;
         }
     }
 
@@ -125,21 +341,36 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// One closed ring of the town's boundary, filled. The arcs are read as the straights between their own
-    /// ends, which is what an extruded ring is made of (<c>Extrusion</c>).
+    /// <b>A whole shell filled</b> (<see cref="ShellFill"/>): the ground inside its rings and none of the
+    /// ground outside them, at the tolerance everything else here is sampled to.
     /// </summary>
-    void Ring(ReadOnlySpan<ArcSeg> ring, Surface surface, Vector3 tint, float[] periods)
+    /// <remarks>
+    /// <para>
+    /// <b>The shape and not its pieces.</b> A layer of the ground is one band of the town's boundary
+    /// (TER-7b), and such a region encloses holes — a city block is one — which no heap of overlapping
+    /// pieces can state and no single ring can either. What is handed
+    /// over is every ring of it at once, and which of them is a hole is read off the winding it carries.
+    /// </para>
+    /// <para>
+    /// <b>The line is read outside and handed in</b> (<see cref="ShellFill.Outline"/>), and it is the coarse
+    /// of the two readings this layer is laid from (<see cref="Filled"/>): what a fill may be got wrong by
+    /// is what the kerb over its boundary hides, so it carries the corners that budget leaves and not the
+    /// ones the kerb's own line needs.
+    /// </para>
+    /// </remarks>
+    void Shell(ReadOnlySpan<Vector2[]> outline, Surface surface, Vector3 tint, float[] periods)
     {
-        if (ring.Length < 3) return;
+        var (pointsM, triangles) = ShellFill.Of(outline);
+        if (triangles.Length == 0) return;
 
-        if (_ringM.Length < ring.Length) _ringM = new Vector2[ring.Length * 2];
+        var corners = new int[pointsM.Length];
+        for (var at = 0; at < pointsM.Length; at++) corners[at] = Vertex(pointsM[at], surface, tint, periods);
 
-        for (var arc = 0; arc < ring.Length; arc++) _ringM[arc] = ring[arc].StartM;
-
-        Polygon(_ringM.AsSpan(0, ring.Length), surface, tint, periods);
+        for (var at = 0; at + 2 < triangles.Length; at += 3)
+        {
+            TriangleUnlessFlat(corners[triangles[at]], corners[triangles[at + 1]], corners[triangles[at + 2]]);
+        }
     }
-
-    Vector2[] _ringM = new Vector2[64];
 
     /// <summary>
     /// A closed outline, cut into triangles by clipping ears off it — a ring of the town's boundary or of
@@ -200,19 +431,20 @@ internal sealed partial class GroundMesh
     }
 
     /// <summary>
-    /// How far apart to sample an arc so its chord bows by no more than a drawing tolerance.
+    /// How far apart to sample an arc so its chord bows by no more than a drawing tolerance
+    /// (<see cref="Spline.ChordForSagM"/>), which is the whole distance for a straight.
     /// </summary>
     /// <remarks>
     /// Not the plan's quarter-metre polyline tolerance, which is offered to a consumer that wants a
     /// polyline while anything that draws is told to use the arcs: two ribbons that meet along a bend,
     /// sampled a quarter of a metre inside their own offset curves and at different phases, leave a
     /// tapering sliver of the ground beneath showing between them.
+    /// <b>And no floor under it.</b> A step that may not go below half a metre only ever binds on a piece
+    /// tighter than a metre and a half of radius, which is where the sag asks for a finer step and not a
+    /// coarser one — so the floor fired nowhere but on the pieces it was worst on, and a hook of a few
+    /// centimetres came out as the single chord across it.
     /// </remarks>
-    static float StepM(float curvature)
-    {
-        var radiusM = 1f / MathF.Max(MathF.Abs(curvature), 1e-6f);
-        return radiusM > 1e5f ? float.MaxValue : MathF.Max(0.5f, MathF.Sqrt(8f * ChordSagM * radiusM));
-    }
+    static float StepM(float curvature) => Spline.ChordForSagM(curvature, ChordSagM);
 
     /// <summary>
     /// How many chords an arc of this radius and sweep is drawn as: <b>as few as bow within the same
@@ -223,12 +455,19 @@ internal sealed partial class GroundMesh
     /// circle and the town is made of small circles: every corner of every car park is turned on a walk.
     /// Counted by length at two to the metre with a floor of eight, a quarter turn of a walk came out twice
     /// as fine as the straight it joins and a fifth of the city's ground went on the difference.
+    /// <b>A radius no chord ever leaves comes back as one chord</b>, which is what a straight is and what a
+    /// sweep under one step's worth of turn is.
     /// </remarks>
     static int Steps(float radiusM, float sweepRad)
     {
         var stepRad = 2f * MathF.Acos(Math.Clamp(1f - (ChordSagM / MathF.Max(radiusM, 1e-4f)), -1f, 1f));
-        return Math.Clamp((int)MathF.Ceiling(MathF.Abs(sweepRad) / stepRad), 3, 96);
+        if (stepRad <= 0f || MathF.Abs(sweepRad) <= stepRad) return 1;
+
+        return Math.Min((int)MathF.Ceiling(MathF.Abs(sweepRad) / stepRad), MostSteps);
     }
+
+    /// <summary>How many chords one bend is ever drawn as, which a ring of a town's own size reaches.</summary>
+    const int MostSteps = 96;
 
     /// <summary>A triangle, unless its three corners stand on one line and it covers nothing.</summary>
     void TriangleUnlessFlat(int a, int b, int c)

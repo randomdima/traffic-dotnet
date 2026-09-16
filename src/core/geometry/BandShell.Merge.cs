@@ -1,10 +1,8 @@
 using System.Numerics;
-using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 
-namespace TrafficSimulation.CityGen;
+namespace TrafficSimulation.Core.Geometry;
 
-internal sealed partial class LaneShell
+internal sealed partial class BandShell
 {
     /// <summary>
     /// <b>Every ribbon cut at every crossing it has, and what is left of them strung into rings.</b> It is
@@ -37,7 +35,7 @@ internal sealed partial class LaneShell
     /// <b>The cover test is asked a hair <em>outside</em> the piece and never on it</b>
     /// (<see cref="ProbeM"/>). Two lanes of one carriageway share an edge exactly: every point of it lies on
     /// the boundary of both bands and inside neither, so a test taken on the line keeps a seam down the
-    /// middle of every road in the town. Taken a millimetre out, the seam's two copies each land inside the
+    /// middle of every pair of them. Taken a millimetre out, the seam's two copies each land inside the
     /// other lane and both go, which is what makes a carriageway one shape rather than two bands touching.
     /// </para>
     /// <para>
@@ -45,7 +43,7 @@ internal sealed partial class LaneShell
     /// (<see cref="Run"/>). The bands whose edges stand where this one does are a run, read off in the order
     /// their edges stand in, and the run has one lowest number wherever the question is asked from. Weighed
     /// in pairs instead, a band a hair beyond the figure covers the edge while the band between them hands
-    /// that same edge back to it, and every copy of one stretch of the town's outline is dropped.
+    /// that same edge back to it, and every copy of one stretch of the outline is dropped.
     /// </para>
     /// <para>
     /// <b>Nothing is asked about which ribbon a piece belongs to.</b> A ribbon is cut against its own other
@@ -54,7 +52,7 @@ internal sealed partial class LaneShell
     /// seam, and needs no case.
     /// </para>
     /// </remarks>
-    sealed partial class Merge
+    sealed class Merge
     {
         /// <summary>
         /// How far outside a piece the cover test is taken. <b>A millimetre, because the error it has to
@@ -63,14 +61,6 @@ internal sealed partial class LaneShell
         /// thing the town lays is metres wide. Anything between those two is the same answer.
         /// </summary>
         const float ProbeM = LineTolerance.RoundingM;
-
-        /// <summary>
-        /// <b>How far a ring's own shape may move when two of its pieces are read as the one piece they
-        /// are</b> (<see cref="Joined"/>). The same millimetre, for the same reason: two pieces the town
-        /// laid along one line are two sums of the same numbers, and what separates them is the
-        /// arithmetic's error rather than a bend.
-        /// </summary>
-        const float JoinM = LineTolerance.RoundingM;
 
         /// <summary>
         /// <b>How near a boundary stands to another band before the two are the same edge</b>. Two
@@ -92,8 +82,8 @@ internal sealed partial class LaneShell
         /// <b>How wide a slit between two bands that face each other is still the two of them touching</b>. Two
         /// centimetres: a lane and the movement that carries on from it, or two movements through one box, are
         /// laid to meet, and what the two computations leave between them is a slit of grass a hair wide.
-        /// Narrower than this the two bands touch and the slit is inside the town; wider, it is ground the
-        /// town does not drive and the boundary goes round it.
+        /// Narrower than this the two bands touch and the slit is inside the shape; wider, it is ground no
+        /// band covers and the boundary goes round it.
         /// </summary>
         /// <remarks>
         /// <b>It is a wider figure than <see cref="CoincidentM"/> because it answers a different question.</b>
@@ -107,28 +97,13 @@ internal sealed partial class LaneShell
         const float TouchingM = 0.02f;
 
         /// <summary>
-        /// How near two cut ends stand to be the same end. <b>A tenth of a metre, which is the crossing's own
-        /// error and not a search radius</b>: the two pieces that stop at one crossing each read that place
-        /// off their own curve, and two curves meeting at a degree or two put the same point that far apart
-        /// in the last bits of a float. Read as a search radius instead, a ring takes whatever end is
-        /// nearest and the town comes back wired through itself.
+        /// How near two cut ends stand to be the same end, and the shortest stretch worth keeping — both
+        /// the stringing's (<see cref="ArcRings"/>), because what a cut may leave and what a walk can close
+        /// are one figure asked from the two ends of the same construction.
         /// </summary>
-        public const float WeldM = 0.1f;
+        const float WeldM = ArcRings.WeldM;
 
-        /// <summary>
-        /// <b>The shortest stretch worth keeping, and so the nearest two cuts stand before they are one cut</b>
-        /// (<see cref="Kept"/>). The weld itself: a stretch shorter than that is its own two ends — both of
-        /// them weld to one place, so it can never be walked into a ring — and the hole dropping one leaves is
-        /// exactly what the weld closes.
-        /// </summary>
-        /// <remarks>
-        /// <b>Two boundaries running along one another cross wherever the last bits of a float say they do</b>,
-        /// which is a handful of crossings a few centimetres apart rather than the one place they really
-        /// share. Cut at every one of them and weighed stretch by stretch, the sliver between each pair is
-        /// dropped for being short and what is left is a hole the width of the whole cluster — wider than the
-        /// weld, and so two ends the ring cannot be closed through.
-        /// </remarks>
-        const float LeastPieceM = WeldM;
+        const float LeastPieceM = ArcRings.LeastPieceM;
 
         /// <summary>
         /// <b>How squarely a band has to face the walker before the gap between them is a slit</b> rather
@@ -141,13 +116,15 @@ internal sealed partial class LaneShell
         /// <summary>Two circles cross at two places and two lines at one, so a pair of pieces has no more than two.</summary>
         const int MostCrossings = 2;
 
-        readonly Paving _paving;
+        /// <summary>The lines the bands are laid along, which is what a cover test is really asked of.</summary>
+        readonly ArcSeg[][] _along;
+
         readonly ArcSeg[][] _ribbons;
         readonly float[] _halfM;
         readonly float[] _lengthM;
         readonly float _mostHalfM;
 
-        /// <summary>The town's own index of the lines, which answers what covers a place.</summary>
+        /// <summary>The caller's index of those lines, which answers which of them are near a place.</summary>
         readonly ChainIndex _lines;
 
         /// <summary>And an index of the ribbons, which answers which of them could cross which.</summary>
@@ -160,14 +137,20 @@ internal sealed partial class LaneShell
         readonly List<float>?[] _cutAtM;
 
         /// <summary>
-        /// <b>Where each piece's own middle stands, and how far from it the piece reaches</b> — which is
-        /// half its length, since two places on one curve are never further apart than the curve between
-        /// them. A pair of pieces standing further apart than their two reaches and a weld has neither a
-        /// crossing nor an end on the other, so the solve is skipped without being approximated
-        /// (<see cref="Crossed"/>).
+        /// <b>The box each piece stands in</b>, which is the index's own (<see cref="ChainIndex.Box"/>) and
+        /// never a second reading of the same piece. Two pieces whose boxes do not meet within a weld have
+        /// neither a crossing nor an end on one another, and a place outside one is a place no cut of that
+        /// piece can be at — so both are skipped without being approximated.
         /// </summary>
-        readonly Vector2[] _middleM;
-        readonly float[] _reachM;
+        /// <remarks>
+        /// <b>A box and not the reach a piece has about its own middle</b>, which is the same question
+        /// answered twice over: half a piece's length bounds how far it reaches, so a long straight admits
+        /// every place within half its length of its middle in any direction at all. Both are supersets of
+        /// what really touches and the answer is the same either way — a city's boundary comes back piece
+        /// for piece — and this one is the index's own, so where a piece stands is stated once.
+        /// </remarks>
+        readonly Vector2[] _leastM;
+        readonly Vector2[] _mostM;
 
         readonly int[] _near;
         readonly float[] _alongM;
@@ -186,15 +169,15 @@ internal sealed partial class LaneShell
         readonly List<ArcSeg> _kept = [];
 
         public Merge(
-            Paving paving, SimConfig config, ArcSeg[][] ribbons, float[] halfM, float[] lengthM,
-            float mostHalfM)
+            ArcSeg[][] along, ChainIndex lines, float cellM, ArcSeg[][] ribbons, float[] halfM,
+            float[] lengthM, float mostHalfM)
         {
-            _paving = paving;
+            _along = along;
             _ribbons = ribbons;
             _halfM = halfM;
             _lengthM = lengthM;
             _mostHalfM = mostHalfM;
-            _lines = paving.DrivenLines(config);
+            _lines = lines;
 
             var building = new ChainIndex.Builder();
             _firstPiece = new int[ribbons.Length + 1];
@@ -204,17 +187,18 @@ internal sealed partial class LaneShell
                 _firstPiece[line + 1] = _firstPiece[line] + ribbons[line].Length;
             }
 
-            _edges = building.Seal(config.NearestChainCellM);
+            _edges = building.Seal(cellM);
             _cutAtM = new List<float>?[_firstPiece[^1]];
-            _middleM = new Vector2[_firstPiece[^1]];
-            _reachM = new float[_firstPiece[^1]];
+            _leastM = new Vector2[_firstPiece[^1]];
+            _mostM = new Vector2[_firstPiece[^1]];
             for (var line = 0; line < ribbons.Length; line++)
             {
                 for (var piece = 0; piece < ribbons[line].Length; piece++)
                 {
                     var at = _firstPiece[line] + piece;
-                    _middleM[at] = ribbons[line][piece].PointAtM(ribbons[line][piece].LengthM * 0.5f);
-                    _reachM[at] = MathF.Abs(ribbons[line][piece].LengthM) * 0.5f;
+                    _leastM[at] = new Vector2(float.MaxValue);
+                    _mostM[at] = new Vector2(float.MinValue);
+                    ChainIndex.Box(ribbons[line][piece], ref _leastM[at], ref _mostM[at]);
                 }
             }
 
@@ -235,7 +219,7 @@ internal sealed partial class LaneShell
             Alike();
             for (var line = 0; line < _ribbons.Length; line++) Uncovered(line);
 
-            return Strung();
+            return ArcRings.Of(_kept);
         }
 
         /// <summary>
@@ -268,14 +252,9 @@ internal sealed partial class LaneShell
                         if (other == line && theirs <= mine) continue;
                         if (against[theirs].LengthM <= LeastPieceM) continue;
 
-                        // Neither a crossing nor an end standing on a piece can be further off it than
-                        // this, so what the reach passes over is nothing rather than a small thing.
-                        var yours = _firstPiece[other] + theirs;
-                        var apartM = _reachM[ours] + _reachM[yours] + WeldM;
-                        if (Vector2.DistanceSquared(_middleM[ours], _middleM[yours]) > apartM * apartM)
-                        {
-                            continue;
-                        }
+                        // Two pieces that cross share a point and both boxes hold it, so what the boxes
+                        // pass over is nothing rather than a small thing.
+                        if (!Meet(ours, _firstPiece[other] + theirs)) continue;
 
                         var found = Spline.CrossingsOf(ribbon[mine], against[theirs], here, there);
                         for (var cut = 0; cut < found; cut++)
@@ -377,23 +356,33 @@ internal sealed partial class LaneShell
             for (var at = 0; at < offered && at < _candidate.Length; at++)
             {
                 var alongside = _ribbons[_candidate[at]];
+                var first = _firstPiece[_candidate[at]];
                 for (var piece = 0; piece < alongside.Length; piece++)
                 {
                     if (alongside[piece].LengthM <= LeastPieceM) continue;
 
-                    // Weighed off its own middle before it is projected onto: a city cuts a hundred thousand
-                    // times and a ribbon is a dozen pieces, of which one is anywhere near.
-                    var reachM = _reachM[_firstPiece[_candidate[at]] + piece] + WeldM;
-                    if (Vector2.DistanceSquared(_middleM[_firstPiece[_candidate[at]] + piece], pointM)
-                        > reachM * reachM)
-                    {
-                        continue;
-                    }
+                    // Weighed against its own box before it is projected onto: a city cuts two thirds of a
+                    // million places into its ribbons, and a ribbon is a dozen pieces of which one is near.
+                    if (!Within(first + piece, pointM)) continue;
 
                     On(_candidate[at], piece, alongside[piece], pointM);
                 }
             }
         }
+
+        /// <summary>
+        /// <b>Whether a place could stand on one piece at all</b>: whether it is inside that piece's own
+        /// box, grown by the weld. Outside it, nothing of the piece is within a weld of the place, so the
+        /// place is no cut of it.
+        /// </summary>
+        bool Within(int at, Vector2 pointM) =>
+            pointM.X >= _leastM[at].X - WeldM && pointM.X <= _mostM[at].X + WeldM
+            && pointM.Y >= _leastM[at].Y - WeldM && pointM.Y <= _mostM[at].Y + WeldM;
+
+        /// <summary>And whether two pieces could meet at all: whether their boxes overlap within a weld.</summary>
+        bool Meet(int ours, int theirs) =>
+            _leastM[ours].X - WeldM <= _mostM[theirs].X && _mostM[ours].X + WeldM >= _leastM[theirs].X
+            && _leastM[ours].Y - WeldM <= _mostM[theirs].Y && _mostM[ours].Y + WeldM >= _leastM[theirs].Y;
 
         /// <summary>One crossing filed against the piece it cuts.</summary>
         void Cut(int line, int piece, float atM)
@@ -442,7 +431,7 @@ internal sealed partial class LaneShell
         }
 
         /// <summary>
-        /// <b>Whether a stretch of one ribbon's boundary has the town on the other side of it too</b>, asked
+        /// <b>Whether a stretch of one ribbon's boundary has covered ground on the other side of it too</b>, asked
         /// a hair outside its middle (<see cref="ProbeM"/>) — in which case it is inside the merged shape
         /// rather than on the edge of it, and goes.
         /// </summary>
@@ -452,7 +441,7 @@ internal sealed partial class LaneShell
         /// town means to touch — the two lanes of a carriageway, a movement and the lane it carries on from,
         /// a bay's way and its neighbour's — are laid at one place and come out a fraction of a millimetre
         /// apart, so the edge they share lies on the boundary of both and strictly inside neither. Asked on
-        /// the line, both copies of that seam are kept and every road in the town has a line down the middle
+        /// the line, both copies of that seam are kept and every pair of them has a line down the middle
         /// of it. Asked a millimetre out, each copy lands inside the other band and both go, which is what
         /// makes a carriageway one shape rather than two bands touching — and the millimetre is what makes
         /// it work, being wider than the arithmetic's disagreement and narrower than anything the town lays.
@@ -463,7 +452,7 @@ internal sealed partial class LaneShell
         /// edge does — the run (<see cref="Run"/>) — and of those, <b>one facing the walker takes the edge
         /// off it, and so does one lying the same way round whose number is the lower</b>. A band facing the
         /// walker is one the stretch is about to walk into, which is the seam between two lanes of a
-        /// carriageway and is inside the town; a band lying the same way round is another copy of one edge,
+        /// carriageway and is inside the shape; a band lying the same way round is another copy of one edge,
         /// and which copy is the real one is a question with no answer, so it goes to the number, which both
         /// of them can read.
         /// </para>
@@ -523,7 +512,7 @@ internal sealed partial class LaneShell
         /// <b>A run and not a pair, because a car park is a dozen bands laid along one another</b> and every
         /// one of them stands a millimetre or two off the last. Weighed in pairs, a band a hair beyond the
         /// figure covers the edge while the band between them hands the same edge back to it, and the three
-        /// of them drop every copy of one stretch of the town's outline. Read as the run they are, whichever
+        /// of them drop every copy of one stretch of the outline. Read as the run they are, whichever
         /// of them the question is asked from, the answer is the same run and it has one lowest number.
         /// </remarks>
         (int From, int To) Run(int line, int found)
@@ -564,7 +553,7 @@ internal sealed partial class LaneShell
         /// millimetres apart and in floats at a town's coordinates, so the two readings of it differ by a
         /// fraction of a millimetre. A pair that straddles the figure is dropped twice, which is a hole
         /// nothing can close, or kept twice, which is one stretch said twice and is settled where the rings
-        /// are strung (<see cref="Doubled"/>). The error is spent on the side that has an answer.
+        /// are strung (<see cref="ArcRings"/>). The error is spent on the side that has an answer.
         /// </remarks>
         float SameEdgeM(int line, int slot) =>
             _facing[slot] < -Squarely ? TouchingM
@@ -573,12 +562,12 @@ internal sealed partial class LaneShell
 
         /// <summary>
         /// <b>Every band near a place, ordered by where its own edge stands</b> — measured along the way the
-        /// stretch faces out of the town, so that inside and outside of it are the two ends of one order.
+        /// stretch faces out of the shape, so that inside and outside of it are the two ends of one order.
         /// </summary>
         /// <remarks>
         /// <b>Where a band's edge stands is not how far the place is off that band.</b> The distance is the
         /// same for a band the place is a millimetre outside of and one whose own ground starts a millimetre
-        /// further out, and the two are opposite readings about the town: which of them it is, is the way
+        /// further out, and the two are opposite readings about the shape: which of them it is, is the way
         /// that band faces where the place stands.
         /// </remarks>
         int Reading(Vector2 pointM, Vector2 outM)
@@ -647,7 +636,7 @@ internal sealed partial class LaneShell
         /// </remarks>
         float OffTheBandM(int other, float alongM, Vector2 pointM, out Vector2 facingM)
         {
-            var on = Spline.SampleAt(_paving.ArcsOfDriven(other), alongM);
+            var on = Spline.SampleAt(_along[other], alongM);
             var halfM = _halfM[other];
             if (alongM > 0f && alongM < _lengthM[other])
             {

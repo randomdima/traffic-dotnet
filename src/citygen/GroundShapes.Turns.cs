@@ -60,7 +60,7 @@ internal sealed partial class GroundShapes
     /// <summary>
     /// <b>And whether it stands on a line a car is driven into or out of a bay on</b> — which is the whole
     /// of what a car park is on the ground, for exactly the reason a junction is the movements that cross
-    /// in it (GEN-4b, <see cref="BayLines"/>).
+    /// in it (GEN-4b, <see cref="Paving"/>).
     /// </summary>
     /// <remarks>
     /// <b>A separate set from the turns and not a flag on them</b>, because the two answer at different
@@ -72,7 +72,7 @@ internal sealed partial class GroundShapes
     /// <summary>
     /// <b>Every line the town is driven on</b>, in the three sets the answer tells apart — the lanes, the
     /// lines through a box, and the ways into a bay — laid over the index that answers which of them reach
-    /// a point. <b>Read off the plan's own lines</b> (<see cref="LaneLines"/>, <see cref="BayLines"/>) and
+    /// a point. <b>Read off the plan's own lines</b> (<see cref="LaneLines"/>, <see cref="Paving"/>) and
     /// never re-derived: the ground under a line, the line itself and the boundary round the lot of them
     /// (<see cref="LaneShell"/>) are one geometry (TER-7).
     /// </summary>

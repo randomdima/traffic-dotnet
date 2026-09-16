@@ -1,8 +1,7 @@
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// The three kinds of prop a town scatters, in the order the <c>.town</c> file's prop bytes carry them
-/// and the order the catalogue's sets are laid out in.
+/// The three kinds of prop a town scatters, in the order the catalogue's sets are laid out in.
 /// </summary>
 /// <remarks>
 /// <para>

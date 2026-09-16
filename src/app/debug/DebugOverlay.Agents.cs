@@ -174,8 +174,10 @@ internal sealed partial class DebugOverlay
             var joinM = PieceEndM(cars, car, underTheCarM, totalM);
             var untilM = PieceEndM(cars, car, joinM, totalM);
             var sagM = PathMarks.SagPx / pixelsPerMetre;
-            PathMarks.Chained(ref draw, line, underTheCarM, joinM, pitchM, bothWays: false, sagM, colour);
-            PathMarks.Chained(ref draw, line, joinM, untilM, pitchM, bothWays: false, sagM, colour);
+            PathMarks.Chained(
+                ref draw, line, underTheCarM, joinM, pitchM, bothWays: false, sagM, colour, MarkClaims.None);
+            PathMarks.Chained(
+                ref draw, line, joinM, untilM, pitchM, bothWays: false, sagM, colour, MarkClaims.None);
 
             draw.DiscM(Spline.SampleAt(line, underTheCarM).PositionM, PathMarks.EndDiscM, colour);
             draw.DiscM(Spline.SampleAt(line, untilM).PositionM, PathMarks.EndDiscM, colour);

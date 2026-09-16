@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.App.Debug;
+using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 
@@ -8,8 +9,14 @@ namespace TrafficSimulation.App.Hud;
 /// <summary>Drawing one page: the two groups of maps, or the debug switches.</summary>
 internal sealed partial class Menu
 {
+    /// <param name="mesh">
+    /// The ground the renderer was handed, which the ground page reads its figures off (OBS-2v). Null
+    /// where no town is standing, and the page then reads zeroes rather than being drawn as something
+    /// else.
+    /// </param>
     public void Draw(
-        ref ScreenDraw draw, Vector2 uiPx, Rect anchor, Vector2 pointerPx, DebugSwitches switches, TrimFigures trims)
+        ref ScreenDraw draw, Vector2 uiPx, Rect anchor, Vector2 pointerPx, DebugSwitches switches,
+        TrimFigures trims, GroundMesh? mesh)
     {
         if (!LaidFor(uiPx, anchor)) Lay(uiPx, anchor);
 
@@ -50,6 +57,7 @@ internal sealed partial class Menu
         {
             case Maps: DrawMaps(ref draw, pointerPx); break;
             case Figures: DrawTrims(ref draw, pointerPx, trims); break;
+            case Ground: DrawGround(ref draw, pointerPx, switches.Ground, mesh); break;
             default: DrawSwitches(ref draw, pointerPx, switches); break;
         }
     }
@@ -126,6 +134,64 @@ internal sealed partial class Menu
     }
 
     /// <summary>
+    /// <b>One row a layer of the ground</b> (OBS-2v): whether it is being drawn, what it came to in
+    /// triangles, and what cutting it cost. Under them the whole mesh in the same two figures, and the
+    /// row that puts every layer back.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every figure here is the mesh's own</b> (<see cref="GroundMesh.Parts"/>) — this page measures
+    /// nothing and remembers nothing, so what it says and what the renderer is drawing cannot come apart.
+    /// The time is what that layer cost when the town was laid and not what this frame costs: it is the
+    /// question the page is opened for, and it does not change while the town stands.
+    /// </remarks>
+    void DrawGround(ref ScreenDraw draw, Vector2 pointerPx, GroundSwitches ground, GroundMesh? mesh)
+    {
+        Span<char> text = stackalloc char[64];
+        var triangles = 0;
+        var shownTriangles = 0;
+
+        for (var part = 0; part < GroundParts.Count; part++)
+        {
+            var tally = mesh is null ? default : mesh.Parts[part];
+            var on = ground[(GroundPart)part];
+            triangles += tally.Triangles;
+            if (on) shownTriangles += tally.Triangles;
+
+            var reading = new TextBuffer(text);
+            reading.Add(tally.Triangles);
+            reading.Add(" tri  ");
+            reading.Add(tally.LaidMs, "F1");
+            reading.Add(" ms");
+            Check(ref draw, _grounds[part], pointerPx, GroundParts.Names[part], on, reading.Written);
+        }
+
+        var drawn = new TextBuffer(text);
+        drawn.Add(shownTriangles);
+        drawn.Add(" of ");
+        drawn.Add(triangles);
+        drawn.Add(" triangles drawn");
+        Reading(ref draw, _grounds[GroundAllRow], drawn.Written);
+
+        var cost = new TextBuffer(text);
+        cost.Add("laid in ");
+        cost.Add(mesh?.LaidMs ?? 0d, "F0");
+        cost.Add(" ms, the boundary ");
+        cost.Add(mesh?.BoundaryMs ?? 0d, "F0");
+        cost.Add(" ms of that");
+        Reading(ref draw, _grounds[GroundAllRow + 1], cost.Written);
+
+        Theme.Button(
+            ref draw, _grounds[WholeGroundRow], pointerPx, "Draw the whole ground",
+            ground.Whole ? Theme.RowRest : Theme.Accent);
+    }
+
+    /// <summary>A row that is read rather than pressed: no face under it, so it cannot be mistaken for one.</summary>
+    static void Reading(ref ScreenDraw draw, Rect box, scoped ReadOnlySpan<char> line) =>
+        draw.TextFitted(
+            box.AtPx + new Vector2(Theme.InsetPx, (box.SizePx.Y - Theme.SmallTextPx) * 0.5f), line,
+            Theme.SmallTextPx, Theme.Dim, Theme.FitWidthPx(box));
+
+    /// <summary>
     /// One row a figure: what it is called, what share of the shipped figure it is standing at, and the
     /// track it is dragged along. <b>The track fills from the middle rather than from its left end</b>,
     /// because the middle is what the build ships and which way a figure has been taken is the reading.
@@ -194,7 +260,14 @@ internal sealed partial class Menu
     /// <summary>How far the mark for the shipped figure stands proud of the track either side of it.</summary>
     const float ShippedTickPx = 4f;
 
-    static void Check(ref ScreenDraw draw, Rect box, Vector2 pointerPx, scoped ReadOnlySpan<char> name, bool on)
+    /// <param name="reading">
+    /// What the row has to say about itself, written at the end of it in the dim shade and taking its
+    /// room off the name beside it — the figures a ground layer came to (<see cref="DrawGround"/>). A row
+    /// that is a switch and nothing else is given none.
+    /// </param>
+    static void Check(
+        ref ScreenDraw draw, Rect box, Vector2 pointerPx, scoped ReadOnlySpan<char> name, bool on,
+        scoped ReadOnlySpan<char> reading = default)
     {
         if (box.Contains(pointerPx)) draw.RoundedRect(box.AtPx, box.SizePx, Theme.RowRadiusPx, Theme.RowHover);
 
@@ -205,7 +278,19 @@ internal sealed partial class Menu
         if (on) draw.Rect(tick.Inset(3f).AtPx, tick.Inset(3f).SizePx, Theme.Accent);
 
         var textAtPx = box.AtPx + new Vector2(Theme.InsetPx * 2f + tickPx, (box.SizePx.Y - Theme.TextPx) * 0.5f);
-        draw.TextFitted(
-            textAtPx, name, Theme.TextPx, on ? Theme.Text : Theme.Dim, box.Right - Theme.InsetPx - textAtPx.X);
+        var roomPx = box.Right - Theme.InsetPx - textAtPx.X;
+        if (!reading.IsEmpty)
+        {
+            var readingPx = GlyphSheet.WidthPx(reading.Length, Theme.SmallTextPx);
+            draw.Text(
+                new Vector2(
+                    box.Right - Theme.InsetPx - readingPx,
+                    box.AtPx.Y + (box.SizePx.Y - Theme.SmallTextPx) * 0.5f),
+                reading, Theme.SmallTextPx, Theme.Dim);
+
+            roomPx -= readingPx + Theme.GapPx;
+        }
+
+        draw.TextFitted(textAtPx, name, Theme.TextPx, on ? Theme.Text : Theme.Dim, roomPx);
     }
 }

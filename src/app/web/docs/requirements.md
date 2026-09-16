@@ -145,19 +145,16 @@ atlas is packed from inside `Game.Start`, which a frame reaches; drawing one to 
 texels back is synchronous. So [`Data`](../../main/web/Data.cs) makes every bitmap on the way in, where
 waiting is allowed, and the packer reads one sheet out where it stands. **A sheet the fetch did not
 decode is a fault and not a second fetch** — there is no way back to a promise from inside a frame,
-which is why the art is laid before the plan it is going to be drawn on is even read.
+which is why the art is laid before the town it is going to be drawn on is laid.
 
 **The desktop keeps its decoder** and is the second opinion the header reader is checked against over
 every picture the town ships ([tests/config](../../../tests/config/ImageHeaderTests.cs)). It also still
 *writes* pictures, which is a thing no page does.
 
-What is this slice's is the one thing only a page pays for. **A town is fetched compressed, and only
-the one being opened**: a `.town` is better than half zero bytes, because its lane index is laid out for
-reading rather than for sending, so the nine of them are 23 MB raw against 3.4 gzipped — of which a run
-fetches 39 KB for Test and 1.34 MB for Odesa. The build squeezes them and
-[`Data`](../../main/web/Data.cs) inflates on the way into the file system. **Gzip and not brotli**: the
-browser's runtime carries zlib and no brotli, so the only brotli a page can read is one the server
-marks `Content-Encoding` — which is a fact about the host, and is what `_framework` already leans on.
+What is this slice's is the one thing only a page pays for. **No town crosses the wire at all**: a city
+is generated from a brief of a few hundred bytes and the ring is laid in code, so what a page fetches for
+a map is its brief or nothing, and the briefs come down with the papers at boot because the menu reads a
+city's description out of one.
 
 **And the published folder holds one runtime.** Nothing sweeps up a hashed assembly when the next
 publish replaces it, so `_framework` is cleared before a publish and only brotli is emitted — the two

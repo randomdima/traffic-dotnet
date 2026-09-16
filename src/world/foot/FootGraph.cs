@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Routing;
 using TrafficSimulation.World.Terrain;
 
@@ -24,7 +25,7 @@ internal enum FootEdgeKind : byte
 /// <summary>
 /// The fine walking graph: <b>the pavement as the tarmac wrapped half a walk out, and every crossing</b>.
 /// Nothing here re-discovers where a kerb is and nothing pieces a junction back together — the
-/// carriageway is one shape (<see cref="Kerbs"/>), the line that stands half a walk outside it is one
+/// carriageway is one shape (<see cref="LaneShell"/>), the line that stands half a walk outside it is one
 /// line, and a crossing contributes the one edge that touches a road.
 /// </summary>
 /// <remarks>
@@ -52,7 +53,7 @@ internal enum FootEdgeKind : byte
 /// contraction gets its reverse for nothing.
 /// </para>
 /// </remarks>
-internal sealed partial class FootGraph : IFineGraph
+internal sealed partial class FootGraph : IFineGraph, ILaneEnds
 {
     readonly Vector2[] _nodeM;
     readonly int[] _edgeFrom;
@@ -130,6 +131,12 @@ internal sealed partial class FootGraph : IFineGraph
     /// unlike a carriageway's (TER-5f): a walker turns round where it likes.
     /// </summary>
     public ReadOnlySpan<int> Onward(int lane) => EdgesOut(_edgeTo[lane]);
+
+    /// <summary>
+    /// <b>Every stretch a walker may leave for begins where it is joined</b>, so the two ends of a join are
+    /// one place (TER-5i) — a walker turns round where it likes, and nothing here is carried on through.
+    /// </summary>
+    public ReadOnlySpan<float> OnwardEntersAtM(int lane) => default;
 
     public Vector2 StartsAtM(int lane) => _nodeM[_edgeFrom[lane]];
 

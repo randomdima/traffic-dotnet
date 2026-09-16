@@ -59,7 +59,12 @@ internal sealed class TownRenderer : IDisposable
     readonly byte[] _sprites;
     readonly byte[] _overlay;
     readonly byte[] _underlay;
-    readonly int _indexCount;
+
+    /// <summary>The ground it was laid for, kept so a part switched off can be packed out of the draw and back into it (<see cref="ShowGround"/>).</summary>
+    readonly GroundMesh _mesh;
+
+    int _indexCount;
+    uint _shownParts = GroundParts.All;
 
     int _spriteCount;
     int _overlayCount;
@@ -77,6 +82,7 @@ internal sealed class TownRenderer : IDisposable
         _overlay = new byte[OverlayCapacity * Marshal.SizeOf<OverlayQuad>()];
         _underlay = new byte[UnderlayCapacity * Marshal.SizeOf<OverlayQuad>()];
 
+        _mesh = mesh;
         _indexCount = mesh.Indices.Length;
         WebGpu.Buffer(GroundStream, Bytes(mesh.Vertices), WebGpu.Vertex);
         WebGpu.Buffer(IndexStream, Bytes(mesh.Indices), WebGpu.Index);
@@ -116,8 +122,36 @@ internal sealed class TownRenderer : IDisposable
 
     public Span<OverlayQuad> Underlay => MemoryMarshal.Cast<byte, OverlayQuad>(_underlay.AsSpan());
 
-    /// <summary>How many triangles the town's standing ground came to.</summary>
+    /// <summary>How many triangles of the town's standing ground are being drawn.</summary>
     public int TriangleCount => _indexCount / 3;
+
+    /// <summary>
+    /// <b>Which of the ground's own layers are drawn</b> (OBS-2v), as a bit per <see cref="GroundPart"/>.
+    /// The parts asked for are packed into one run and handed over as the index buffer again, which is
+    /// the browser's counterpart of the desktop's shorter draw: a page has no indirect count to cut, so
+    /// what the recording is made again for is the number of indices in it.
+    /// </summary>
+    public void ShowGround(uint parts)
+    {
+        if (parts == _shownParts) return;
+
+        _shownParts = parts;
+        var all = _mesh.Indices;
+        var packed = new uint[all.Length];
+        var written = 0;
+        for (var part = 0; part < GroundParts.Count; part++)
+        {
+            if ((parts & (1u << part)) == 0) continue;
+
+            var tally = _mesh.Parts[part];
+            all.Slice(tally.FirstIndex, tally.IndexCount).CopyTo(packed.AsSpan(written));
+            written += tally.IndexCount;
+        }
+
+        _indexCount = written;
+        WebGpu.Buffer(IndexStream, MemoryMarshal.AsBytes(packed.AsSpan(0, written)), WebGpu.Index);
+        WebGpu.Rebuild(_indexCount);
+    }
 
     /// <summary>
     /// Nothing: a browser hands a frame to the compositor and never waits on a fence for it, so the

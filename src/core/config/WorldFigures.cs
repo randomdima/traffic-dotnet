@@ -58,21 +58,16 @@ internal sealed class RoadFigures
     public float WalkingLaneInPersonDiameters { get; init; } = 2f;
 
     /// <summary>
-    /// <b>Temporary, and a drawing switch and not a laying one</b>: whether the carriageway's own surface is
-    /// drawn — the region the boundary bounds kerb to kerb, and the slabs of tarmac beside it. Off, what is
-    /// left of the town in a frame is the paint: the lane lines, the zebras, the bars and the bay strokes,
-    /// with the grass showing between them.
+    /// <b>The kerb: how far the concrete stands proud of the ground it bounds</b> (TER-3c.3). Two hundred
+    /// millimetres, which is a kerbstone's face, and it is struck twice — once where the carriageway hands
+    /// over to the walk and once where the walk hands over to the grass.
     /// </summary>
     /// <remarks>
-    /// <b>It hides and does not hold back.</b> Nothing lays a line beside a road at all any more
-    /// (<c>CityGen.LaneShell</c>), and a pavement nothing lays is a pavement nothing needs; the
-    /// driven ground is what every car on it is held up by — <c>Ground.Road</c> carries the grip, the
-    /// permission and the lane a body is written onto — so the answer goes on saying what it said and only
-    /// the picture stops showing it. <b>That is a deviation from TER-7</b> for as long as the stage runs,
-    /// and the only one: drawn and answered-for are one list read two ways everywhere else, and here the
-    /// picture is deliberately quiet about a layer the answer still has.
+    /// <b>A width and not a line's width.</b> <see cref="EdgeLineWidthM"/> and
+    /// <see cref="PaintLineWidthM"/> are strokes a layer leaves of the one under it and are measured in what
+    /// reads at a framing; a kerb is a thing the town is built of and is measured in what it is.
     /// </remarks>
-    public bool CarriagewayDrawn { get; init; }
+    public float KerbWidthM { get; init; } = 0.2f;
 
     public float EdgeLineWidthM { get; init; } = 0.3f;
 
@@ -431,6 +426,67 @@ internal sealed class CityGenFigures
     public int BaysPerLotFewest { get; init; } = 3;
 
     public int BaysPerLotMost { get; init; } = 6;
+
+    /// <summary>
+    /// <b>How many buildings one car park stands the cars of</b> (GEN-53,
+    /// <see cref="SimConfig.CarParksFor"/>): a town plans buildings and cuts a car park for every this many
+    /// of them, so how many a map has is the map's and the share is the engine's (GEN-6).
+    /// </summary>
+    /// <remarks>
+    /// <b>Four buildings to a handful of bays</b> is a kerb where a driver parks within a block of the door
+    /// they are going to without the street being car parks end to end — the ratio a dense old town keeps,
+    /// where a building's own cars mostly stand somewhere other than its own frontage.
+    /// </remarks>
+    public int BuildingsPerCarPark { get; init; } = 4;
+
+    /// <summary>
+    /// <b>How tight a bay is turned into, as a share of the circle the car itself turns on</b> (GEN-53,
+    /// <see cref="SimConfig.CarParkTurnRadiusM"/>). One is the car's own parking circle; less than one is
+    /// tighter than the nominal car can hold.
+    /// </summary>
+    /// <remarks>
+    /// <b>Seven tenths is inside the steering lock, and deliberately</b>: what a car park's movements are
+    /// laid for is the hook a car actually makes off a street at a walking pace, which is shorter than the
+    /// circle its own front wheels describe at full lock from a standstill. A car tracking one of these
+    /// lines has the wheel on its stop and runs a little wide of it; what that costs is the driver's to
+    /// answer for and not the plan's.
+    /// </remarks>
+    public float BayTurnInParkingCircles { get; init; } = 0.7f;
+
+    /// <summary>
+    /// <b>How long a bay is</b> (GEN-53, <see cref="SimConfig.CarParkBayLengthM"/>): a length of ground,
+    /// authored like every other length of ground in this file, and <b>longer than the longest vehicle the
+    /// town draws</b> (<see cref="AgentFigures.LongestLengthM"/>, which <c>SimConfigTests</c> holds it to).
+    /// </summary>
+    /// <remarks>
+    /// <b>Five metres, which is the clearance and nothing else</b> — a bay square to the street is driven
+    /// straight into off its own turn and straight out of again, where what sizes the parallel bay on a kerb
+    /// is the reverse into it (<see cref="ParkingSpaceMarginInCarWidths"/>). A bay any longer is tarmac laid
+    /// for nothing and an arm that much further out into the ground behind the street.
+    /// </remarks>
+    public float BayLengthM { get; init; } = 5f;
+
+    /// <summary>
+    /// <b>How far off the lane it is following a car on its way to a bay may be carried</b> (GEN-53). A
+    /// movement holds the street straight until it turns in (<see cref="Spline.StraightArcStraightInto"/>)
+    /// and a street is free to bend, so the two part company across a car park's box by the sagitta between
+    /// them. This is how much of that is tolerable, and <b>everything about how straight a road has to be to
+    /// carry a car park is read off it</b> (<see cref="SimConfig.CarParkCurvatureMax"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A fifth of a metre is a ninth of what the nominal car has spare in its lane</b> — nothing at the
+    /// lane end and that much by the time the car turns in, which is a drift nobody watching the town would
+    /// pick out and no width any other car is denied.
+    /// </para>
+    /// <para>
+    /// <b>The longer the run the straighter the road</b>: the sagitta grows with the square of the run and a
+    /// car park's longest run is its whole box and the reach of its rank again, so a wide car park asks for a
+    /// much straighter road than a narrow one — which is the bound doing its job rather than an awkwardness
+    /// in it.
+    /// </para>
+    /// </remarks>
+    public float CarParkOffLaneMaxM { get; init; } = 0.2f;
 
     /// <summary>
     /// The longest deck a town builds. <b>A crossing wider than this is one the town does not make</b>

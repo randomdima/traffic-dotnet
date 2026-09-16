@@ -31,10 +31,10 @@ internal sealed partial class Game
     private partial long Crossings() => WebGpu.Crossings;
 
     /// <summary>
-    /// <b>Nothing, in a page.</b> A plan has to be fetched before it can be read and this is the end of a
-    /// frame, so the loop would be waiting on the network; the boot's own <c>await</c> drains
+    /// <b>Nothing, in a page.</b> The art has to be fetched before a town can be drawn and this is the end
+    /// of a frame, so the loop would be waiting on the network; the boot's own <c>await</c> drains
     /// <see cref="TakeWanted"/> instead, and the card stands over every frame drawn until it has
-    /// (<see cref="Data.Town"/>).
+    /// (<see cref="Data.Art"/>).
     /// </summary>
     partial void OpenWhatWasPicked()
     {

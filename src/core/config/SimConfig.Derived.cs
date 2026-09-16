@@ -35,6 +35,27 @@ internal sealed partial class SimConfig
     /// </summary>
     public float CarParkingTemplateRadiusM => CarTurningRadiusM * Car.ParkingTemplateArcMargin;
 
+    /// <summary>
+    /// <b>The circle a bay is turned into on off the street</b> (GEN-53): the car's own parking circle, taken
+    /// in by <see cref="CityGenFigures.BayTurnInParkingCircles"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A car turning into a bay is at a walking pace or stopped</b>, so what decides the line is the hook
+    /// it makes rather than a design speed — a junction's cornering radius
+    /// (<see cref="JunctionCorneringRadiusM"/>) is answering a question nobody asked here, and would lay the
+    /// turn three times as wide.
+    /// </para>
+    /// <para>
+    /// <b>It is tighter than the circle the car's own steering describes</b>, which is the whole of what the
+    /// share is for and is stated where the share is authored. Everything about how much ground a car park's
+    /// junction takes is read off this one length — <see cref="CarParkStandoffM"/> along the street and
+    /// <see cref="CarParkBayLeadM"/> off it — so a turn laid tighter is a junction that much smaller and
+    /// bays that stay exactly where the arm's own reach put them.
+    /// </para>
+    /// </remarks>
+    public float CarParkTurnRadiusM => CarParkingTemplateRadiusM * CityGen.BayTurnInParkingCircles;
+
     /// <summary>How much straight a bay's way ends on, so the car it is laid for parks square in the space.</summary>
     public float CarParkingStraightensUpM => Car.LengthM * Road.ParkingStraightensUpInCarLengths;
 
@@ -58,12 +79,6 @@ internal sealed partial class SimConfig
     public float PavedDragMps2 => Terrain.PavedResistance * Tyre.StandardGravityMps2;
 
     public float WaterDragMps2 => Terrain.WaterResistance * Tyre.StandardGravityMps2;
-
-    /// <summary>
-    /// The radius the parking templates are built at: the car's own turning circle with a margin, so the
-    /// steering is not sitting on its stop for the whole arc.
-    /// </summary>
-    public float ParkingTemplateRadiusM => CarTurningRadiusM * Car.ParkingTemplateArcMargin;
 
     /// <summary>
     /// <b>The widest a line has to be drawn for a car to hold this speed round it</b> — the corner formula
@@ -116,7 +131,7 @@ internal sealed partial class SimConfig
     /// actually has to move.
     /// </para>
     /// <para>
-    /// <b>The band has to sit above <see cref="PersonFigures.WalkSpeedMps"/>, and it is the grip that puts
+    /// <b>The band has to sit above <see cref="PersonWalkSpeedMps"/>, and it is the grip that puts
     /// it there</b> — half again over walking pace at the shipped figures. Nothing about the closing speed
     /// says who was carrying it (PER-23), so a band below the town's own pace is one a walker meets by
     /// arriving at a parked car.
@@ -156,6 +171,31 @@ internal sealed partial class SimConfig
 
     /// <summary>A walking lane's own line is the middle of its half of the band.</summary>
     public float WalkingLaneOffsetM => WalkingLaneWidthM * 0.5f;
+
+    /// <summary>
+    /// <b>How far off the driven ground's own boundary the walk's own ground begins</b> (TER-3c.3): a kerb.
+    /// It is a <em>line</em>'s figure and not a layer's, so nothing offsets the boundary by it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The kerbstone's own outer face stands at half of this</b>, the boundary running down the middle of
+    /// the stone (TER-3d); what the other half buys is that the concrete a walker uses begins clear of the
+    /// stone rather than on it.
+    /// </remarks>
+    public float WalkInnerM => Road.KerbWidthM;
+
+    /// <summary>
+    /// <b>How far off that boundary the pavement's outer face stands</b> (TER-3c.3): a kerb and a walk. The
+    /// ground within it is the layer the concrete is drawn as, and the walking lane's own line runs down the
+    /// middle of the band between it and <see cref="WalkInnerM"/>.
+    /// </summary>
+    public float WalkOuterM => WalkInnerM + PavementWidthM;
+
+    /// <summary>
+    /// <b>How far off that boundary the walk's own kerb reaches</b> (TER-3c.3): half a kerb beyond the
+    /// pavement's outer face, that kerb straddling it (TER-3d), and the last of the figures one boundary is
+    /// read at.
+    /// </summary>
+    public float WalkKerbOuterM => WalkOuterM + (Road.KerbWidthM * 0.5f);
 
     /// <summary>
     /// <b>How far clear of a walking lane's own line something has to stand for a walk to get past it</b>
@@ -269,13 +309,6 @@ internal sealed partial class SimConfig
 
     public float IntersectionCornerRadiusM => Car.WidthM * Road.IntersectionCornerRadiusInCarWidths;
 
-    /// <summary>
-    /// <b>The least lane a stretch keeps once the junctions at its ends have taken their ground</b>
-    /// (TER-5d): the body that drives it. A lane starts where the junction's ground stops, and a stretch
-    /// that cannot give up that much keeps what it has rather than becoming a lane nothing can stand on.
-    /// </summary>
-    public float LaneShortestStretchM => Car.LengthM;
-
     /// <summary>The sharpest corner a junction turns, as the half-angle every kerb fillet is solved on.</summary>
     public float ArmsApartMinRad => CityGen.ArmsApartMinDeg * MathF.PI / 180f;
 
@@ -365,30 +398,6 @@ internal sealed partial class SimConfig
     public float JunctionArmReachMaxM => JunctionArmReachM(ArmsApartMinRad);
 
     /// <summary>
-    /// How much of a road either end is straight. <b>It is what is laid on it and never a length somebody
-    /// chose</b>: the junction's own ground and its fillet at their worst, then the crossing at its
-    /// setback, then the bar behind that — so a road laid to this carries every one of them across a straight
-    /// arm however skew its junctions came out, and a wider carriageway lengthens the stub rather than pushing
-    /// its own paint onto the bend.
-    /// </summary>
-    /// <remarks>
-    /// <b>The setback is counted once whatever the node turned out to be.</b> At a fork it is the crossing
-    /// that stands the stride past the junction's ground; at a node with no fork it is the bar of the
-    /// traffic leaving the bend (<c>Furniture.ThroughCrossingSetbackM</c>), and the deepest bundle either
-    /// way lies wholly on this.
-    /// </remarks>
-    public float StraightStubM => JunctionArmReachMaxM + ArmPaintM;
-
-    /// <summary>
-    /// <b>The least straight a road's end may carry</b>: half the stub. A road with no room for the whole
-    /// of it gives up what it has, and what has to fit inside this is the junction's own ground and the
-    /// corner an arm flares back to — the paint behind them is what such an arm stands on its own bend for
-    /// (TER-6).
-    /// </summary>
-    public float StraightStubLeastM => StraightStubM * 0.5f;
-
-
-    /// <summary>
     /// How much road the paint on an arm takes past the ground its junction reaches: the crossing at its
     /// setback and the bar behind it. What stands on an arm has to stand past this as well as past the
     /// reach, and the reach is the bend an arm leaves on where that is further than the corner
@@ -404,9 +413,6 @@ internal sealed partial class SimConfig
     /// other by a metre.
     /// </summary>
     public float JunctionCrossingClearanceM => Car.WidthM;
-
-    /// <summary>A street's own bend puts its inner kerb on exactly the flare radius a junction's corners use.</summary>
-    public float RoadCornerRadiusM => IntersectionCornerRadiusM + RoadWidthM * 0.5f;
 
     /// <summary>
     /// The tightest circle a roundabout may be driven round (GEN-19): what its own design speed affords on
@@ -435,6 +441,168 @@ internal sealed partial class SimConfig
     /// standoff is a circle.
     /// </summary>
     public float JunctionRadiusM => CityGen.ConnectionStandoffM;
+
+    /// <summary>
+    /// <b>How many car parks a town of <paramref name="buildings"/> buildings cuts</b> (GEN-53): one for every
+    /// <see cref="CityGenFigures.BuildingsPerCarPark"/> of them, the count being the map's and the share of it
+    /// the engine's (GEN-6).
+    /// </summary>
+    /// <remarks>
+    /// <b>What the ground cannot carry is what fitted</b> (GEN-8): this is what the town asks for, and
+    /// <c>CarParks</c> lays as many of them as there are sites straight enough to take one.
+    /// </remarks>
+    public int CarParksFor(int buildings) => buildings / CityGen.BuildingsPerCarPark;
+
+    /// <summary>
+    /// <b>The tightest a road may bend where a car park is cut into it</b> (GEN-53), as a curvature: the one
+    /// that leaves the longest movement in the car park no further off its lane than
+    /// <see cref="CityGenFigures.CarParkOffLaneMaxM"/> at the middle of its run.
+    /// </summary>
+    /// <remarks>
+    /// <b>The offset of a tangent, turned round</b>: a straight held on the bearing a bend of curvature
+    /// <c>k</c> had at the lane end parts from that bend by <c>kL²/2</c> over a run of <c>L</c> — so the
+    /// bound falls with the square of the run, and <b>the wider the car park the straighter the road it asks
+    /// for</b>. The run is <see cref="CarParkRunM"/>, the whole of the box and the reach of the rank again.
+    /// </remarks>
+    public float CarParkCurvatureMax(int mostBays) =>
+        2f * CityGen.CarParkOffLaneMaxM / (CarParkRunM(mostBays) * CarParkRunM(mostBays));
+
+    /// <summary>
+    /// <b>How far along the street the outermost bay of a rank of <paramref name="bays"/> stands from the
+    /// node</b> (GEN-53): they stand a lane apart and centred on it, so a rank reaches half its own span
+    /// either way.
+    /// </summary>
+    public float CarParkRankReachM(int bays) => bays <= 1 ? 0f : (bays - 1) * 0.5f * LaneWidthM;
+
+    /// <summary>
+    /// <b>The box a car park's junction takes along the street</b>, either side of the node: the rank's own
+    /// reach and the turn at the end of it (<see cref="CarParkTurnRadiusM"/>, a quarter turn standing off its
+    /// corner by its own radius). <b>What the standoff is on a street that does not bend</b>, and what
+    /// everything the bend costs is measured against.
+    /// </summary>
+    public float CarParkBoxM(int mostBays) => CarParkRankReachM(mostBays) + CarParkTurnRadiusM;
+
+    /// <summary>
+    /// <b>The longest a movement in a car park runs straight</b>: from the lane end at the far edge of the
+    /// box to the bay at the far end of the rank, which is the box and the reach again.
+    /// </summary>
+    public float CarParkRunM(int mostBays) => CarParkBoxM(mostBays) + CarParkRankReachM(mostBays);
+
+    /// <summary>
+    /// <b>How far back of the node a car park's own street stands off</b> (GEN-53), which is <b>the nearest
+    /// the road can be parted</b>: the place the turn into the furthest bay of the rank leaves the street.
+    /// The box (<see cref="CarParkBoxM"/>) and what the bend adds to the turn's own tangent — but never less
+    /// junction than any other junction is (<see cref="JunctionRadiusM"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Parting it any nearer costs a bay its way, and any further is junction nobody drives.</b> A bay
+    /// whose way begins <em>behind</em> the lane end a car arrives on is one that car can only loop back
+    /// into — a turn tighter than <see cref="JunctionCorneringRadiusM"/> and so no movement at all; a bay
+    /// only a little ahead of it is one the car has to start turning for before it has arrived, drifting
+    /// across the mouths of the bays before its own (<see cref="Spline.StraightArcStraightInto"/>). At
+    /// exactly this much the furthest bay's turn begins where the street ends and every nearer bay has
+    /// street in hand.
+    /// </para>
+    /// <para>
+    /// <b>What the bend costs the street is the swing, twice</b> (<see cref="CarParkBearingSwingRad"/>). The
+    /// box is exact on a road that does not bend. On one that does, a street that has turned by the time it
+    /// reaches the lane end meets the bay at more than a square corner — and a corner turned through more
+    /// than a right angle stands its tangent off by more than its radius, by the radius times that swing;
+    /// and the lane end itself, being half a carriageway off the line the box was measured down, slides
+    /// along the street by its own offset times the same. Everything else the bend does is across the street
+    /// rather than along it, and is the bay's end of the turn to pay for
+    /// (<see cref="CarParkBayLeadM"/>).
+    /// </para>
+    /// <para>
+    /// <b>The floor is the standoff every other junction has</b> (<see cref="JunctionRadiusM"/>). A car park
+    /// of one bay a side turns on a circle smaller than that, and the arithmetic would part the road nearer
+    /// the node than any junction's arms end — which is not a shorter car park but a junction whose lane ends
+    /// stand inside the ground its own roads share.
+    /// </para>
+    /// </remarks>
+    public float CarParkStandoffM(int mostBays) =>
+        MathF.Max(
+            CarParkBoxM(mostBays)
+            + ((CarParkTurnRadiusM + LaneOffsetM) * CarParkBearingSwingRad(mostBays)),
+            JunctionRadiusM);
+
+    /// <summary>
+    /// <b>How far off the line its node stands on a bay's own way begins</b> (GEN-53) — <b>the standoff at
+    /// the bay's end of the turn</b>, as <see cref="CarParkStandoffM"/> is the standoff at the street's end
+    /// of it: <paramref name="laneTowardM"/>, the radius that turn is made at
+    /// (<see cref="CarParkTurnRadiusM"/>), and what the bend costs the pair of them. One turn, stood off at
+    /// both ends by the tangent it spends.
+    /// </summary>
+    /// <param name="laneTowardM">
+    /// <b>How far toward this bay's own side the lane it is turned off runs</b>, from the line the junction's
+    /// node stands on. It is half a lane on a street of two ways, which carries one each side; on a street
+    /// driven one way it is that half lane toward the side the traffic was moved onto (TER-4d) and <b>the
+    /// same half lane the other way on the side it was moved off</b> — so both ranks stand the same clearance
+    /// from the one carriageway there is, rather than one of them a lane and a half further out.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>Nearer than this there is no turn into the bay at all</b>, only the biarc that joins any two poses
+    /// — the car would have to begin coming round before the street had let it, which is the drift across
+    /// the mouths of the other bays this rule exists to refuse.
+    /// </para>
+    /// <para>
+    /// <b>The bend is paid twice here, and the whole of it is paid here</b>: the tangent lengthens by the
+    /// radius times the swing (<see cref="CarParkBearingSwingRad"/>) as it does at the street's end of the
+    /// turn, and the straight run parts from the lane it is following, which moves the bay across rather
+    /// than along. <b>That second one is never more than the run is allowed to leave its lane by</b>
+    /// (<see cref="CityGenFigures.CarParkOffLaneMaxM"/>) — the worst run is the longest one, and the longest
+    /// one is what the bound was set from.
+    /// </para>
+    /// <para>
+    /// <b>And no further off than this, which is why it is not the standoff every other road end keeps</b>
+    /// (<see cref="CityGenFigures.ConnectionStandoffM"/>, GEN-46). Past the point the turn straightens out,
+    /// what a movement lays is the bay's own line — the same ground, the same bearing, driven twice over: a
+    /// metre of it is a metre of bay drawn as a junction. A bay's way begins where its turn ends.
+    /// </para>
+    /// </remarks>
+    public float CarParkBayLeadM(int mostBays, float laneTowardM) =>
+        laneTowardM + CityGen.CarParkOffLaneMaxM
+        + (CarParkTurnRadiusM * (1f + CarParkBearingSwingRad(mostBays)));
+
+    /// <summary>
+    /// <b>How far a car park's street may swing from one end of what it stands on to the other</b>: the
+    /// tightest bend it may carry (<see cref="CarParkCurvatureMax"/>) held for the whole run
+    /// (<see cref="CarParkRunM"/>), which is the far lane end to the far bay of the far rank.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one angle everything the bend costs is priced in</b>, and the whole car park's rather than any
+    /// one part of it: the rank is laid off the tangent at the node, cars arrive at both edges of the box,
+    /// and the bays reach past it either way — so what each of those is out by is some part of this, and
+    /// none of them is out by more.
+    /// </remarks>
+    public float CarParkBearingSwingRad(int mostBays) =>
+        CarParkCurvatureMax(mostBays) * CarParkRunM(mostBays);
+
+    /// <summary><b>How long a bay is</b> (GEN-53, <see cref="CityGenFigures.BayLengthM"/>).</summary>
+    /// <remarks>
+    /// <b>What it has to clear is the longest vehicle the town draws and not the nominal car</b>
+    /// (<see cref="AgentFigures.LongestLengthM"/>): every bay is one anything in the town can stand in, so
+    /// the one that sizes them is the one nothing else is longer than. <b>And it is a length driven and not
+    /// a length manoeuvred</b> — a bay square to the street is entered off its own turn and left the same
+    /// way, where the parallel bay on a kerb has to be reversed into (<see cref="ParkingSpaceLengthM"/>).
+    /// </remarks>
+    public float CarParkBayLengthM => CityGen.BayLengthM;
+
+    /// <summary>
+    /// <b>How far the stand line at the far end of a car park's arm is from the line the node stands on</b>
+    /// (GEN-53): where the bay's way begins (<see cref="CarParkBayLeadM"/>) and one bay from there.
+    /// </summary>
+    /// <inheritdoc cref="CarParkBayLeadM" path="/param[@name='laneTowardM']"/>
+    /// <remarks>
+    /// <b>So the arm is a bay and a turn into it and nothing else.</b> What stands the rank off the kerb is
+    /// what the turn spends getting there rather than a setback chosen for it — the ground between the
+    /// carriageway's edge and the first bay is whatever the lead leaves, which is a little over a metre
+    /// wherever the lane it turns off runs.
+    /// </remarks>
+    public float CarParkArmStandM(int mostBays, float laneTowardM) =>
+        CarParkBayLeadM(mostBays, laneTowardM) + CarParkBayLengthM;
 
     public float ParkingSpaceLengthM => Car.LengthM + Car.WidthM * Road.ParkingSpaceMarginInCarWidths * 2f;
 

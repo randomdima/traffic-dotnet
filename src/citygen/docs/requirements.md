@@ -1,9 +1,10 @@
 # The town plan — requirements
 
-**One data structure describes a complete city.** A builder instantiates the world from it, a validator
-judges it, and a file format carries it between processes. It is pure data — no engine types, no node
-references, no behaviour — which is what lets validation run headless and a new map be authored without a
-code change. This is the most load-bearing structure in the project.
+**One data structure describes a complete city.** A generator lays it, a builder instantiates the world
+from it and a validator judges it. It is pure data — no engine types, no node references, no behaviour —
+which is what lets validation run headless and a new map be authored without a code change. **Nothing
+carries it between processes**: a town is its brief and its seed, so what would be written out is a second
+answer to where the town is. This is the most load-bearing structure in the project.
 
 Bay geometry is [world/parking](../../world/parking/docs/requirements.md); the ground is
 [world/terrain](../../world/terrain/docs/requirements.md); roads and junctions are
@@ -13,9 +14,7 @@ Bay geometry is [world/parking](../../world/parking/docs/requirements.md); the g
 
 - **A junction's kerb fillets are carried, not re-derived.** A kerb fillet cannot be read back off any
   other shape, so it is a record. **The pavement has no corners of its own to carry**: it is the tarmac
-  grown by one figure and every corner it turns is a corner of the thing it wraps (TER-3c.3). The structure
-  still carries a list of them, because the two fixture maps that arrive as files carry one; nothing reads
-  it and nothing writes it.
+  grown by one figure and every corner it turns is a corner of the thing it wraps (TER-3c.3).
 - **The stop bars carried are the ones that were *painted*, not the ones the plan called for.** A bar
   whose arm is too short to hold one is dropped, and a bar nobody painted is a bar nobody stops at.
 - **Lane directions are sparse in the file and dense in memory**, because direction exists only on
@@ -30,8 +29,6 @@ Bay geometry is [world/parking](../../world/parking/docs/requirements.md); the g
   *permits* is [world/terrain](../../world/terrain/docs/requirements.md)'s, because a permission is a rule
   about agents and the plan does not know what an agent is; that is the direction every consumer goes, and
   nothing outside `world/terrain/` names a member of the enum (TER-2a).
-- **The reader lives with the structure it produces**, not with the cursor that walks the bytes: a
-  `.town` file is a plan, and `core/` does not know what a town is.
 
 ## Where a town comes from
 
@@ -45,9 +42,8 @@ the one that goes stale.
 **A map laid to measure one thing is laid in code**, and none of them is a city: each is arithmetic over
 the car's own figures rather than a seed, which is why they are authored where those figures are. `Maps` is
 the one list both kinds appear on, and a `CityPlan` is where the difference between them ends. **This build
-ships none of them**: the proving grounds, the two exams, the skidpad and the crossings map were laid
-against the lane layer that has been replaced, so they were deleted with it rather than carried across a
-rework they would have had to be written for twice ([the known gaps](../../../docs/index.md#known-gaps)).
+ships one of them**, the idle ring, and the laboratories that measured something are
+[a known gap](../../../docs/index.md#known-gaps) rather than a set this document lists.
 
 **The idle ring** (`IdlePlan`) is the one laid map that measures nothing, and the one the game opens on
 (GEN-1b). It is **one loop of road with nothing else on it** — no building, no bay, no paint, no light and
@@ -93,16 +89,6 @@ inside it on corners a panel cannot reach into; rounding a square leaves the mid
 the field is. How far the corners are rounded trades that field against the corner speed — on a loop laid to
 one view it is the radius and not the driver that sets the pace, so a boxier loop is a slower convoy.
 
-**The crossings map is neither**, and it is not laid here: `Zebras` arrives as a file like a city does. It
-is five isolated streets with a crossing on each and one body apiece, one of those crossings deliberately
-laid off square, and it carries no cars and no buildings because the paint is the whole subject — a skewed
-crossing is the case that can fail while every square one in a city passes.
-
-**Two fixtures still arrive as files**, and the reader is what opens them: the fixture map every detailed
-check is staged on, and the crossings map. Neither may move when the generator does, which is exactly what
-a fixture is for — they are on their way to being laid in code rather than generated, and nothing else is
-read from a file.
-
 **GEN-1** `P3` Generation is driven by the **world seed**, supplied manually or chosen randomly; the same
 world seed produces the same city.
 
@@ -117,33 +103,16 @@ and costs a fraction of a city — and the menu stays up over it, in either conf
 head, until a map is picked. A run handed a map on the command line or in the query string opens on that
 map instead, and the menu shuts onto it.
 
-- **The start menu is the same panel laid as the thing it is** (`Menu.AtTheStart`), and not the popup under
-  the gear. It stands **in the middle of the window**; it carries **the map list and no tab strip**, since
-  one page needs no strip to pick it, with **the way out on the title's own line**; each map's **name is
-  written a size larger** and the line saying what it is keeps its size and **wraps**; and **it cannot be
-  shut** — there is nothing to shut it onto, so the gear and the legend button are not drawn under it,
-  Escape does nothing, and a click off it acts on nothing.
-- **It is laid to fit the field inside the ring, and the descriptions wrap into it** — a share of the
-  window's short side, which is the side the opening view and so the ring itself are figures across. **The
-  field is rectangular because the panel is** (`IdlePlan.CornerShare`): the loop is rounded off a square
-  rather than drawn as a circle, so a panel wide enough to read does not have to be short enough to clear a
-  curve. The popup under the gear is the one laid so that nothing in it ever breaks, and it is laid to the
-  longest description in the catalogue.
-- **It is one size and one place whatever is open in it**, and both groups are open when it opens. Its
-  height is the field's rather than the list's, so a group shut or opened moves no edge and no row out from
-  under the pointer, and a list longer than the panel **scrolls**. The popup under the gear is the one that
-  is as tall as its own page, and the one that opens on the places alone (`OBS-2a`) — a mis-click there
-  loses a running game, and behind the start menu there is none to lose.
-- **The read-out and the scale legend are not drawn over it.** They say what a run *is*, and the ring behind
-  the panel is a picture rather than a town somebody opened.
+- **What the panel itself is laid as is [app/hud](../../app/hud/docs/requirements.md)'s** — one size, one
+  place, one page, no way to shut it. What is this slice's is the field it is laid to fit: **the field is
+  rectangular because the panel is** (`IdlePlan.CornerShare`), the loop being rounded off a square rather
+  than drawn as a circle, so a panel wide enough to read does not have to be short enough to clear a curve.
 - **The ring is framed like any other town** (`OBS-1b`): the panel is in the middle of the screen and the
   middle of the ring is the field inside it, so what the menu covers is the field and the road is on screen
   either side of it.
-
-- **The two are opened separately and in that order.** A desktop run has both on the disk it started
-  from; a page has neither, so it hands the browser its animation callback before it opens anything at
-  all — the menu stands on the files the boot already fetched, and the town behind it comes down while
-  the reader is looking at it (`WEB-6`, `WEB-9`).
+- **The menu is up before any town is** on either head (`WEB-6`, `WEB-9`). A page hands the browser its
+  animation callback before it lays anything: the menu stands on the few small files the boot fetched, and
+  the ring behind it is generated while the reader is looking at it.
 
 **GEN-2** `P6` Terrain, objects and agents are placed **plausibly**: the result must read as a small town, not
 as noise.
@@ -314,6 +283,17 @@ them. **A stage constrains the next rather than checking it afterwards** — whi
 properties GEN-3, GEN-4 and GEN-5 name true by construction rather than true on the attempt that happened
 to pass.
 
+**A road is drawn as the link is offered, and a link the line cannot be drawn for is not a road** (GEN-47,
+GEN-49). Nothing is laid and taken back: no pass refuses a road once the town stands, no repair runs behind
+such a refusal, and nothing is drawn twice — so what the layout holds at any moment is roads that can be
+drawn where they stand. **The stages that change a road's shape ask first**: a run is offered as the one road
+it would be before its pieces are given up (GEN-51), and a junction is opened into a ring only once every arm
+the ring moves has been drawn where the ring would leave it (GEN-19).
+
+**What a refusal costs is the road and the connectivity behind it, and never a second attempt at the town.**
+The pieces a refusal leaves joined to nothing are deleted (GEN-8, GEN-5), and the reading of how much the
+town paid — the junctions nothing meets at, the runs that could not be joined — is the census's to report.
+
 **GEN-11** `P4` **Each stage draws on its own stream of the world seed.** Retuning what one stage does may not
 move what an earlier one laid, so a change to the props cannot reshuffle the roads and a map is the same
 town every time it is opened.
@@ -329,9 +309,16 @@ so a road has two bearings to satisfy and they do not agree.
 - **They are stored nowhere and drawn again wherever they are wanted**, from the world seed and the two
   junction centres the link joins — which is what lets the lanes stay derived from the plan while nothing
   derived is written to disk. One function, two callers, one answer.
+- **Everything a link is drawn with is keyed on the link and never on a walk over the town** (GEN-11): the
+  arm's jitter and the road's own wander both. A road's shape is then a function of its two node centres, the
+  places it passes and its class, so offering the same link twice draws the same road and deleting one road
+  moves nothing that stayed — which is what lets a road be drawn as it is offered rather than after the town
+  stands (GEN-10).
 - **A bridge and a ring piece take their bearings rather than drawing one** (GEN-14a, GEN-19). Both are
   shapes settled elsewhere, so the jitter is nil for those links and a ring arm's lead bends with its own
-  circle rather than leaving straight off the tangent to it.
+  circle rather than leaving straight off the tangent to it. **The bend it takes is the ring piece's own** —
+  the curvature the layout sized the circle at, and the curvature that piece's arc carries — never a circle
+  fitted back through three of the ring's nodes, which is the same figure worked out a second way.
 - **The disc a junction is drawn on is the standoff** (`SimConfig.JunctionRadiusM`) and the arms follow it.
   Sized off the arms instead, the standoff would be read back off a disc sized by the arms that end at the
   standoff.
@@ -344,6 +331,13 @@ curves, bounded by the block spacing so no street may reach the one a block over
 laid inside those bounds is not laid**: the wander gives way first, and a link that still cannot be met is
 deleted with the layout repaired behind it (GEN-8, GEN-5). **A roundabout's ring has a floor of its own**
 (GEN-19), because the whole of one is a corner.
+
+**A corner a road was joined through has a junction's floor and not a class's** (GEN-51, GEN-48). It was a
+junction, and what a car held there was the movement across it; measuring it against what the road's own
+design speed affords would refuse the road for a bend the town already had and put the junction back. **The
+road is what says so either way** — a driver reads every arc of the line ahead of it and is down to that
+arc's own cornering speed before it arrives, so a corner is driven at the speed it affords wherever it
+stands.
 
 **GEN-48** `P3` **A junction offers the movements a car at its own design speed can hold**
 (`SimConfig.CityGen.JunctionDesignSpeedMps`), and no others: between every point a car enters a node on and
@@ -367,31 +361,209 @@ already there is refused, because two carriageways meeting at a shallow angle ov
 and the fillet, the crossing and the bar on either of them are then laid over the other. What that refusal
 leaves unreachable is deleted with its own piece (GEN-8).
 
+**GEN-51** `P4` **A junction is a place roads meet, and a road runs between two of them.** A node two roads
+merely carry on through is not a junction: it is where the town's own arithmetic stopped a line — a spacing
+along an arterial nothing welded onto, a lattice point the prunes left holding two of its four arms — and
+the two arms there are **one road**, laid through the place the node stood so that the corner the town had
+is the corner it keeps.
+
+It is a rule about the layout and not about the picture. A junction is a standoff every lane ends at, a
+movement between each pair of arms, a claim on the ground those take and a place the router plans through,
+so a node nothing meets at is all of that laid in the middle of a road — and the town's junction count, lane
+count and claims then say more about where the generator's arithmetic landed than about the town.
+
+**It holds however sharply the two arms meet and whatever they are.** A corner is not a reason to leave a
+junction standing, because the corner was a junction and a car took it at a junction's speed — so a joined
+road turns at a junction's floor (GEN-47) rather than at its class's. A street and an arterial are joined and
+come out as the arterial (GEN-16); every road runs both ways when this is settled, so which of them later run
+one way is GEN-18's and is asked of the town this leaves.
+
+**A run is offered as the one road it would be, and where that road cannot be laid the run is cut in two**
+(GEN-10): the place in the middle of what it passes stays the junction it was and each half is offered in its
+turn, so a corner that cannot be drawn costs that corner and never every place the run went through.
+**Nothing is laid and taken back** — the joined line is drawn before the pieces are given up, and a run
+offered as one road is held to the ground of the roads that stayed and of the runs joined before it, because
+two joined roads could each clear the other's *pieces* and still be laid into one another.
+
+Two kinds of node stand whatever they carry, and neither is a place the town's arithmetic stopped a line:
+
+- **A bridgehead** (GEN-14a), where the carriageway becomes a deck. A bridge is its own road between its
+  own two nodes, laid straight over the span, and is never part of a longer one.
+- **A ring node** (GEN-19), which is a piece of one junction laid out as a circle.
+
+And **one shape a road cannot be** leaves one node: a run that comes back where it set off has no second end
+to be a road between. It is shortened by one place and the rest of it is still joined.
+
+**Nothing else is a reason.** Two roads already running between one pair of junctions is not one, however
+awkward the pair is to merge a boundary through — a merge that cannot close round a shape the town lays is
+the merge's to answer for (TER-7b, `LaneShell`) and not a licence to lay the town differently.
+
+**GEN-52** `P3` **A junction may be cut into a road that already stands, and the road does not move.** The
+road is parted at a place along its own line into the stretch before the junction and the stretch after it,
+the node stands between them, and the town gains whatever arms the cut asked for. **Every metre that was
+driven is still driven**: the two pieces are the arcs the road was laid as, cut, and the movement the new
+junction draws straight across is a biarc between two poses of one arc, which is that arc. It is the one
+place the plan is changed after it is laid, and it is allowed because it changes nothing.
+
+**It inverts the inversion, and the plan says which roads it inverted.** Everywhere else the arms are drawn
+first and the road is laid to them (GEN-46); here the road came first, so **both arms of a cut road are read
+off the line it already carries** — the stand point is where that line ends, the bearing there is the line's
+own, and the lead is the one arc joining the node to it (`CityPlan.RoadArrays.Cut`, `ConnectionPoints`).
+**Both and not the cut one**: an arm is drawn toward the far end of its own road, and a cut moves that far
+end, so a piece that went on drawing its other bearing would draw one its line was never laid to.
+
+- **A cut lands inside one arc of the road, with the cut's own standoff of that arc either side of it.** A
+  lead is one arc, so a node placed across a joint in the line would be one whose arms stand where the road
+  does not go — and that is what makes the reading exact rather than a curve fitted through the ground.
+  **How far back the road is parted is the cut's to ask for** and not the standoff every other junction
+  keeps: a junction whose arms are spread along the street has to stand off the whole of them (GEN-53).
+- **A cut node is a junction like any other**: it stands a locality clear of every node that is not the
+  cut's own (GEN-16), its arms stand square enough to be a junction (GEN-13), every piece and every arm is
+  held to the ground the town already holds (GEN-49), and nothing it lays stands on water or off the map
+  (GEN-14, GEN-2b). **The cut's own nodes are exempt from the locality**, on the terms a roundabout's are:
+  they are one place laid out with a stub rather than two spacings that landed on the same ground.
+- **Nothing is laid and taken back** (GEN-10). Every piece and every arm is drawn and asked about before any
+  of it is installed, and a cut that fails one of those leaves the road exactly as it was.
+- **It is the last thing done to a layout.** A cut road's arms are its line's own, so an offer weighed
+  against the chord it was joined on would be weighed against a bearing it does not leave on.
+
+**GEN-53** `P6` **A car park is a junction cut into a road, and every bay of it is an arm of that junction.**
+So a car park of four bays one side and five the other is an eleven-armed junction: the road either side of
+it, and one arm a bay. **A bay's way is its arm's lane** — one lane wide, **driven both ways over that one
+line** (GEN-4f), because a car drives into a bay over the same ground it comes back out over. The junction's
+own arithmetic then connects every bay to every way in and every way out, and nothing downstream carries a
+rule about car parks at all.
+
+- **The bays of one side stand in a rank off the street, a lane apart and centred on the node**, a bay being
+  a lane wide (GEN-15) and a rank sharing the line between each pair of them (GEN-4c). **A bay is one length
+  of ground the whole town over** (`SimConfig.CityGen.BayLengthM`), **and it is longer than the longest
+  vehicle the town draws** — the longest and not the nominal, because every bay is one anything in the town
+  can stand in, and not much longer than that because a bay driven straight into is not one anything
+  reverses into. **So an arm is a bay and the turn into it and
+  nothing besides**: where the rank stands off the kerb is what that turn spends reaching it
+  (`SimConfig.CarParkArmStandM`), rather than a setback chosen for it.
+- **And it is the lane the bays are turned off that the rank stands off, not the line the node stands on**
+  (`SimConfig.CarParkBayLeadM`). A street of two ways carries a lane each side of that line, so both ranks
+  stand the same reach from it; a street driven one way carries its one lane on the half its traffic was
+  moved onto (TER-4d), **so the two sides of it ask for different reaches and get the same clearance** —
+  the side the carriageway was moved off stands its rank that half lane nearer. **A road type is never
+  assumed here**: how far toward a side that side's lane runs is read off the road being cut.
+- **Every arm of a rank runs square to the street, so a rank is parallel and not a fan.** A bay is ground a
+  car drives straight into and backs straight out of, so what tells two bays of a side apart is where each
+  one's way meets the street and never which way it points — the ways are parallel to each other and their
+  far ends lie on one line parallel to the carriageway. **An arm therefore need not leave from the node**:
+  its foot stands its own step along the street, and what joins it to the road is the movement the junction
+  draws between two lane ends, as for every other turn.
+- **A bay joins the street the car park was cut into and nothing else**, so **no movement joins one bay to
+  another** — the ground between two ranks is the car park's to cross and not a road with a right of way on
+  it, and a turn offered out of one bay into another is a movement no car makes. It is left out of the table
+  rather than priced out of it.
+- **And it joins the street every way that street runs**: every bay is reached from each of them and leaves
+  onto each of them, which is every movement the junction has to offer it — two of each on an ordinary
+  street and one on a street the scatter took one way (GEN-18). **That is what the car park's own standoff
+  is for** (`SimConfig.CarParkStandoffM`): the street is parted far enough back that the whole rank stands
+  inside the junction, so every bay lies ahead of every arrival. A rank reaching past the lane end a
+  car arrives on would put its far bays behind that car, and the turn back into one is tighter than the
+  junction corners (GEN-5) — a bay laid where it cannot be driven into, which is a bay laid to be taken back.
+- **And it is parted no further back than that.** The standoff is **the place the turn into the furthest bay
+  of the rank runs out onto the street**, and nothing beyond it: a junction longer than that is ground with
+  a movement drawn over it that no car ever turns on, and a stretch of ordinary street taken out of the town
+  for nothing.
+- **A bay is turned into on one circle of its own, and the junction is that circle's size.** A car parks
+  from a standstill, so what decides the line it takes off the street is the hook it makes and not a design
+  speed — a share of the car's own parking circle (`SimConfig.CarParkTurnRadiusM`,
+  `SimConfig.CityGen.BayTurnInParkingCircles`) rather than the junction's cornering radius, which is the
+  answer to a question nobody asked beside a bay. **So the junction is as big as that turn and no bigger, in
+  both directions**: the street is parted the rank's reach and one tangent back (`SimConfig.CarParkStandoffM`)
+  and the bay's own way begins one tangent off the street (`SimConfig.CarParkBayLeadM`). A turn laid at
+  whatever the room between two lane ends affords is one no car would make and a box nothing needed. **The
+  bays themselves do not move for it**: where they stand is the arm's own reach past the road's edge, and
+  what the turn decides is only how much street the junction takes and how sharply a car comes off it.
+- **A car holds the street until its own bay, and leaves a bay onto the street at once.** A movement at a
+  bay is **one turn with a straight either side of it** — where every other movement in the town shares its
+  turn evenly between the two lane ends it joins, so a car on its way to park would be drifting out of its
+  lane across the mouths of every bay before its own from the moment it entered the junction, and one that
+  had left a bay would still be curving a box later. **It moves no lane end**: both lines join the same two
+  poses, and which of them a movement gets is the whole of the difference.
+- **The bays are counted before the place is chosen.** How far back the street stands off is how far the
+  longer rank reaches along it, so the size of a car park is what decides which places can carry one. **A
+  place is never taken and the bays that did not fit taken back off it** (GEN-10); a town with nowhere to
+  put the car park it drew lays fewer of them (GEN-8).
+- **A rank is an apron and not a fan of carriageways, so its arms are not held square** (GEN-13). That rule
+  measures the angle between two arms and every arm of a rank leaves on the same bearing, so what stands two
+  of them apart — the lane between their feet — is not a thing it can see. What they make between them is one
+  piece of tarmac, where GEN-13 is about two carriageways lying against each other with the fillet, the
+  crossing and the bar of one landing on the other, and nothing is filleted, crossed or barred between two
+  bays.
+- **How many bays a side carries is a handful or none** (GEN-4b), and **not none on both sides** — a car
+  park with no bay either side is a junction cut into a road for nothing.
+- **A road that runs one way is cut like any other** (GEN-18, TER-4d). The two pieces are that street parted
+  rather than two streets meeting, and what its one direction costs is the bays': each is reached and left
+  the one way the street runs, which is every way it has.
+- **Nor is a road that bends too far across the ground the junction takes**
+  (`SimConfig.CarParkCurvatureMax`). A rank is laid off the tangent at the node and a movement holds the
+  street straight, so a road turning away across the box is one whose kerb that rank no longer faces and
+  whose lane the straight leaves. **How far a road may bend is read off how far that straight may leave its
+  lane** (`SimConfig.CityGen.CarParkOffLaneMaxM`) and off nothing else, so a wide car park — whose longest
+  movement runs the length of the whole box and the rank again — asks for a straighter road than a narrow
+  one.
+- **How many the town has is counted off the buildings it plans** (GEN-6, `SimConfig.CarParksFor`): the map
+  says how many buildings it is a town of and the engine says how many of those one car park stands the cars
+  of (`SimConfig.CityGen.BuildingsPerCarPark`), so a map that grows carries the parking for what it grew
+  into without anybody authoring a second count. And **they are spread rather than scattered**: each is cut
+  at the site furthest from every car park already cut, which needs no spacing of its own — what keeps two
+  of them off each other is the locality every pair of junctions owes (GEN-16). **What the ground cannot
+  carry is what fitted** (GEN-8), reported and never retried.
+
 **GEN-49** `P3` **A junction is the only place two roads may touch.** No road crosses another, runs into the
 side of another or lies along one: two roads that are not joined at a junction stand at least one road's
 whole width apart (`SimConfig.RoadFootprintM`), **measured between the lines they were laid as**. Ground two
 carriageways share outside a junction has no box, no crossing and no stop bar on it, so nothing that drives,
 walks or claims a way across it has anything to say about who goes first.
 
-- **It is a bound the laying holds and not a pass that deletes what it missed** (GEN-47): a road free to
-  reach its own end bearings is not bounded by the chord between them, so a separation measured on chords
-  says nothing about the roads that were laid. A pair that would share ground is a refusal, the lower-ranked
-  road gives way (GEN-13, GEN-16), and the layout is repaired behind every refusal.
+- **It is a bound the laying holds and not a pass that deletes what it missed** (GEN-47, GEN-10): the line a
+  link would be laid as is drawn as the link is offered and measured against the lines already standing, so a
+  pair that would share ground is a road the town never had. A separation measured on chords would say nothing
+  about the roads that were laid, a road free to reach its own end bearings not being bounded by its chord.
+- **Which of the two gives way is the order they were offered in** (GEN-16): the arterials are laid before
+  the lattice and a stub before nothing, so a street offered against ground an arterial holds is the one
+  refused and no pass has to weigh the pair afterwards and choose.
+- **It holds from the first road** (GEN-16), because there is no pair of junctions left that is about to
+  become one: the nodes are settled before anything is laid, so two roads sharing ground are two roads the
+  town may not have and never a pair whose junctions were going to be merged.
 - It is a rule about **roads**, not about the paint or the ground: what a junction's own arms may do to each
   other is GEN-13's.
 
-**GEN-18** `P6` **One-way streets are scattered over the whole town, no two of them meet, and every one the town
-keeps is one it can still be driven round.** It is a rule about the **streets the scatter chooses** and not
+**GEN-18** `P6` **One-way streets are scattered over the whole town, no two of them meet, every one of them
+arrives where there is still a choice, and every one the town keeps is one it can still be driven round.** It
+is a rule about the **streets the scatter chooses** and not
 about every road that runs one way: a roundabout's ring is one direction laid at one place and is none of
-this pass's business (GEN-19), though a street taken at one of its nodes is still two of them meeting. A
+this pass's business (GEN-19), though a street taken at one of its nodes is still two of them meeting. **And
+the pieces a car park's cut parted one street into are that street** (GEN-53): they meet at the car park and
+they are laid on one chord, so they are neither two of them meeting nor two of them crowding. A
 street runs one way (TER-4d) wherever the scatter puts it —
-no district, bearing or side of the orbital decides it — and the scatter is two relations and nothing else:
-**no junction carries two of them**, so each is entered and left on roads that admit both ways; and **no two
+no district, bearing or side of the orbital decides it — and the scatter is three relations and nothing else:
+**no junction carries two of them**, so each is entered and left on roads that admit both ways; **no two
 of them stand within `SimConfig.CityGen.OneWayApartMinM`** of each other, measured between the middles of
 the chords they are laid on, which is what spreads them across the town rather than gathering them into one
-district. **An arterial never runs one way, nor does any street that meets one**: they are how the town is
+district; and **each arrives at a junction of four arms or more**. **An arterial never runs one way, nor does
+any street that meets one**: they are how the town is
 carried between districts, and a district entered off a road that admits one way only is a district drivable
 one way round.
+
+**The arrival end is the one that costs the junction something.** A street arriving takes one way out away
+from every approach there, so at a node of `n` arms whose others all run both ways an approach is left with
+`n − 2` ways on: four arms leaves two, and three leaves one — a car driven through a junction it decides
+nothing at, which is a lane with nowhere to choose anything and a shape every layer below would then need a
+rule about. **Which way a street runs is therefore where it may arrive**, and one that may arrive at neither
+end is not taken. **The departure end is asked nothing**: a street leaving takes no way out away from
+anybody.
+
+**And a street the scatter takes has to hold its own bends on the half it is driven** (GEN-47, TER-4d). A
+one-way street stands on half of the carriageway it was laid as, and a line moved half a lane towards the
+inside of its own bend is a line half a lane tighter there — so a street laid near its class's floor is one
+the scatter may not take, and it is asked of the line offset the way the plan will offset it rather than of a
+figure standing in for it.
 
 **What the town keeps is settled against the movements and not against the roads.** From every movement on
 the network every junction must be reachable, with no turning round in the road (TER-5f) — a block whose
@@ -473,8 +645,13 @@ between the two of them.
 
 - **Two nodes are one junction**, standing where the node the town cares more about stood, and every road at
   either of them meets at it. A bridgehead cannot move, an arterial's line is the town's and a street is what
-  bends to meet either — so where the merge leaves two arms lying together it is the street that is dropped
+  bends to meet either — so where that leaves two arms lying together it is the street that is dropped
   (GEN-13), and whatever that leaves hanging goes with its own piece.
+- **A cluster and not a pair, and settled before the first road is laid.** Three nodes a stride apart in a
+  chain are one place, not a pair and a stranger: asked pair by pair, the third is left where it stood and
+  whatever ran through it hangs off a town it no longer reaches. **And it is asked of the nodes rather than
+  of the roads at them**, which is what makes it cost nothing — a junction moved once a road stands is every
+  road at it drawn again, where a junction moved before any is drawn is simply where the town is.
 - **Two car parks sharing a kerb are one car park and not two** — and here the one that stays is the one
   that was laid, because a lot holds a bounded handful of bays (GEN-4b) and two of them joined end to end
   would be an apron rather than a bigger lot. It is measured along the kerb, as every figure about a lot's

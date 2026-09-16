@@ -79,8 +79,8 @@ internal static class LineAssembler
     /// </param>
     public static DrivenLine Assemble(
         RoadGraph graph, ReadOnlySpan<int> lanes, Span<ArcSeg> into, Span<float> laneStartM,
-        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity, ReadOnlySpan<ArcSeg> tail = default,
-        float tailToM = float.PositiveInfinity)
+        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity,
+        ReadOnlySpan<ArcSeg> tail = default, float tailToM = float.PositiveInfinity)
     {
         var written = 0;
         var lengthM = 0f;
@@ -99,9 +99,8 @@ internal static class LineAssembler
                 lengthM += graph.ConnectorLengthM(arrivedOn);
             }
 
-            // <b>A lane is threaded whole</b> (TER-5d): it was cut back to the points its movements hand
-            // over at, so the join before it ends where its line begins and the join after it begins where
-            // its line ends.
+            // <b>A lane is threaded whole</b> (TER-5d): every join lands on its first point, and the join
+            // after it begins where its line ends.
             var toM = graph.LaneLengthM[lane];
             if (index == lanes.Length - 1) toM = MathF.Min(toM, MathF.Max(0f, lastLaneToM));
 
@@ -137,11 +136,10 @@ internal static class LineAssembler
     /// crossing, anything the town measured against a lane and a driver has to meet on its own line.
     /// </summary>
     /// <remarks>
-    /// <b>The two measures run at the same rate and start together.</b> The line over a lane <em>is</em>
-    /// that lane's own arcs and nothing else (<see cref="Spline.SubChainInto"/>), and a lane begins where
-    /// the join before it ended (TER-5d) — so a metre of one is a metre of the other, measured from the
-    /// same place. There is no origin here to get wrong and no geometry to walk. It is still clamped to the
-    /// lane's own stretch, because a line may stop short of a lane's end for the way into a bay.
+    /// <b>The two measures run at the same rate and start together at the lane's own start.</b> The line over
+    /// a lane <em>is</em> that lane's own arcs and nothing else (<see cref="Spline.SubChainInto"/>), so a
+    /// metre of one is a metre of the other. It is still clamped to the stretch being driven, because a line
+    /// may stop short of a lane's end for the way into a bay.
     /// </remarks>
     public static float OnTheLineM(
         ReadOnlySpan<float> laneStartM, ReadOnlySpan<float> laneEndM, int slot, float alongLaneM) =>

@@ -4,8 +4,7 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>Every shape the ground is cut from</b>, and nothing else a map carries. It is what
-/// <see cref="GroundShapes"/> answers a point against and what <see cref="PavementCorners"/> solves the
-/// walk's own corners from — the two readings of the town's surface, off one set of records.
+/// <see cref="GroundShapes"/> answers a point against.
 /// </summary>
 /// <remarks>
 /// <para>

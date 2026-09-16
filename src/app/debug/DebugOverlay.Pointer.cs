@@ -303,78 +303,126 @@ internal sealed partial class DebugOverlay
 
     /// <summary>
     /// <b>The one stretch of boundary the pointer is over</b>, drawn at the picked weight with a disc at each
-    /// of its ends — and which ring or open run it belongs to, and which stretch of that one it is.
+    /// of its ends — and which outline it belongs to, which chain of that one, and which stretch of that.
     /// </summary>
     /// <remarks>
-    /// <b>A stretch and not the whole ring.</b> A ring is most of a district and lighting all of it says
+    /// <para>
+    /// <b>Every outline the layer draws is searched and they are searched alike</b>
+    /// (<see cref="Boundaries"/>): the rings the merge closed, the runs it could not, and the layers struck
+    /// off the boundary (OBS-2u). A reading offered over one of them and not the others would say that the
+    /// pointer had found nothing wherever it stood over another, which is the one answer a pointer must not
+    /// give — and a layer's outer edge is exactly the outline a reader most wants to ask about, being the
+    /// one whose corners are a construction rather than a fact.
+    /// </para>
+    /// <para>
+    /// <b>A stretch and not the whole chain.</b> A ring is most of a district and lighting all of it says
     /// nothing; what a reader following a boundary wants is which piece they are on and where that piece
-    /// stops — which is the whole of the question at an open run's two ends.
+    /// stops — which is the whole of the question at an open run's two ends, and at every corner an outset
+    /// put in.
+    /// </para>
+    /// <para>
+    /// <b>It reads the layers the picture drew and never a set of its own</b> (<see cref="Paving.Rings"/>).
+    /// Struck again here they would be a second answer about the same shape, and the stretch under the
+    /// pointer would be a stretch of a line nobody can see.
+    /// </para>
     /// </remarks>
-    static void BoundaryUnder(
+    void BoundaryUnder(
         ref ScreenDraw draw, Paving paving, SimConfig config, Vector2 pointerM, Vector2 pointerPx,
         float pixelsPerMetre, float lineM, float sagM, ref int labels)
     {
         var shell = paving.Perimeter(config);
-        var bestM = ReachPx / MathF.Max(pixelsPerMetre, 0.001f);
-        var bestChain = -1;
-        var bestPiece = -1;
-        var bestShut = true;
+        var rings = paving.Rings(config);
+        var found = new Picked { OffM = ReachPx / MathF.Max(pixelsPerMetre, 0.001f) };
 
-        for (var chain = 0; chain < shell.Chains.Length; chain++)
+        Nearest(rings.Carriageway.Rings, rings.Carriageway.Named, Ring, pointerM, ref found);
+        Nearest(shell.Loose, rings.Carriageway.Named, OpenRun, pointerM, ref found);
+        foreach (var layer in rings.Layers)
         {
-            Nearest(shell.Chains[chain], pointerM, chain, true, ref bestM, ref bestChain, ref bestPiece, ref bestShut);
+            Nearest(layer.Rings, layer.Named, Ring, pointerM, ref found);
+            Nearest(layer.Loose, layer.Named, OpenRun, pointerM, ref found);
         }
 
-        for (var chain = 0; chain < shell.Loose.Length; chain++)
-        {
-            Nearest(shell.Loose[chain], pointerM, chain, false, ref bestM, ref bestChain, ref bestPiece, ref bestShut);
-        }
+        if (found.Chain is null) return;
 
-        if (bestChain < 0) return;
-
-        var run = bestShut ? shell.Chains[bestChain] : shell.Loose[bestChain];
-        var stretch = run[bestPiece];
+        var stretch = found.Chain[found.Piece];
         PathMarks.Banded(ref draw, [stretch], 0f, stretch.LengthM, sagM, lineM, Theme.DebugPicked);
         draw.DiscM(stretch.StartM, PathMarks.JoinDiscM * 2f, Theme.DebugPicked);
         draw.DiscM(stretch.EndM, PathMarks.JoinDiscM * 2f, Theme.DebugPicked);
 
-        Span<char> text = stackalloc char[80];
+        Span<char> text = stackalloc char[96];
         var said = new TextBuffer(text);
-        said.Add(bestShut ? "ring " : "open run ");
-        said.Add(bestChain);
+        said.Add(found.Outline);
+        said.Add(' ');
+        said.Add(found.Kind);
+        said.Add(' ');
+        said.Add(found.At);
         said.Add(", stretch ");
-        said.Add(bestPiece);
+        said.Add(found.Piece);
         said.Add(" of ");
-        said.Add(run.Length);
+        said.Add(found.Chain.Length);
         said.Add(", ");
         said.Add(stretch.LengthM, "F3");
         said.Add(" m");
         Label(ref draw, pointerPx, said.Written, ref labels);
     }
 
-    /// <summary>The nearest stretch of one chain to a place, kept where it beats what already stands.</summary>
-    static void Nearest(
-        ArcSeg[] chain, Vector2 pointM, int at, bool shut, ref float bestM, ref int bestChain, ref int bestPiece,
-        ref bool bestShut)
+    /// <summary>
+    /// The stretch of boundary nearest the pointer as the search stands: what outline it is in, which chain
+    /// of that outline and which stretch of that chain, and how far off the pointer stood.
+    /// </summary>
+    /// <remarks>
+    /// <b>The chain itself and not the outline it came out of</b>, so that what is drawn and counted is the
+    /// thing that won rather than something looked up again out of whichever set it was found in.
+    /// </remarks>
+    struct Picked
     {
-        for (var piece = 0; piece < chain.Length; piece++)
+        public float OffM;
+        public string Outline;
+        public string Kind;
+        public ArcSeg[]? Chain;
+        public int At;
+        public int Piece;
+    }
+
+    /// <summary>
+    /// What a chain is, said apart from which outline it belongs to — <b>so the two are never joined into a
+    /// string</b>, this running every frame and the steady state allocating nothing.
+    /// </summary>
+    const string Ring = "ring";
+
+    const string OpenRun = "open run";
+
+    /// <summary>
+    /// The nearest stretch of one outline to a place, kept where it beats what already stands — which is
+    /// what lets several outlines be searched one after another and the best of all of them come back.
+    /// </summary>
+    static void Nearest(
+        ReadOnlySpan<ArcSeg[]> chains, string outline, string kind, Vector2 pointM, ref Picked found)
+    {
+        for (var at = 0; at < chains.Length; at++)
         {
-            var stretch = chain[piece];
+            var chain = chains[at];
+            for (var piece = 0; piece < chain.Length; piece++)
+            {
+                var stretch = chain[piece];
 
-            // <b>Rejected on its own start before it is projected onto</b>: a city's boundary is a hundred
-            // thousand stretches and this runs every frame, while nothing further from the pointer than its
-            // own length plus the reach can possibly win.
-            var reachM = stretch.LengthM + bestM;
-            if (Vector2.DistanceSquared(stretch.StartM, pointM) > reachM * reachM) continue;
+                // <b>Rejected on its own start before it is projected onto</b>: a city's boundary is a
+                // hundred thousand stretches and this runs every frame, while nothing further from the
+                // pointer than its own length plus the reach can possibly win.
+                var reachM = stretch.LengthM + found.OffM;
+                if (Vector2.DistanceSquared(stretch.StartM, pointM) > reachM * reachM) continue;
 
-            var alongM = Spline.ProjectM([stretch], pointM, stretch.LengthM * 0.5f, stretch.LengthM);
-            var offM = Vector2.Distance(stretch.PointAtM(alongM), pointM);
-            if (offM >= bestM) continue;
+                var alongM = Spline.ProjectM([stretch], pointM, stretch.LengthM * 0.5f, stretch.LengthM);
+                var offM = Vector2.Distance(stretch.PointAtM(alongM), pointM);
+                if (offM >= found.OffM) continue;
 
-            bestM = offM;
-            bestChain = at;
-            bestPiece = piece;
-            bestShut = shut;
+                found.OffM = offM;
+                found.Outline = outline;
+                found.Kind = kind;
+                found.Chain = chain;
+                found.At = at;
+                found.Piece = piece;
+            }
         }
     }
 

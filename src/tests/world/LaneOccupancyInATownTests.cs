@@ -562,7 +562,7 @@ public class LaneOccupancyInATownTests
         // of the way round it than its own length, which is the reading under test here and not the one. A
         // lane is the whole run between two places a driver decides something (TER-5i), so the longest lane
         // in a town is a run through its bends rather than the straightest thing in it. And the piece is
-        // inside a lane, so nothing is clipped at either end of the way (<see cref="LaneOccupancy.Add"/>).
+        // inside a lane, so nothing is clipped at either end of the way (<see cref="LaneOccupancy.Lay"/>).
         var (lane, atM) = StraightEnoughFor(world.Roads, build.LengthM, wantedM);
         var on = Spline.SampleAt(world.Roads.ArcsOf(lane), atM);
 
@@ -922,9 +922,8 @@ public class LaneOccupancyInATownTests
     /// which is one run of the town however many questions are put to it.
     /// </summary>
     /// <remarks>
-    /// A claim that has to watch the ticks go by stands its own world (<see
-    /// cref="ATemplateHoldsTheGroundItHasStillToSweep"/>), because what it is about is the ticks and not
-    /// the state they arrive at.
+    /// A claim that has to watch the ticks go by stands its own world, because what it is about is the
+    /// ticks and not the state they arrive at.
     /// </remarks>
     static TownWorld Run(string map) => Ran.GetOrAdd(map, opened =>
     {

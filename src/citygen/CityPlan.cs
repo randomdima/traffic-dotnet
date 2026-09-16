@@ -5,15 +5,14 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// One complete city as pure data: no node references and no behaviour. A builder stands the world up
-/// from it, a validator judges it, the <c>.town</c> format carries it, and the generator will emit it.
+/// One complete city as pure data: no node references and no behaviour. A generator emits it, a builder
+/// stands the world up from it, and a validator judges it.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Structure of arrays, laid once at load: one array per field, and a variable-length run — a road's
-/// segments, a lot's spaces, a building's ways in, a water outline's points — is a flat array with an
-/// offsets array beside it, so a plan of a whole city is a few dozen allocations and no per-record
-/// object. The world is built from this structure and never from the file.
+/// Structure of arrays, laid once: one array per field, and a variable-length run — a road's segments, a
+/// lot's spaces, a building's ways in, a water outline's points — is a flat array with an offsets array
+/// beside it, so a plan of a whole city is a few dozen allocations and no per-record object.
 /// </para>
 /// <para>
 /// <b>Every field here is a shape, and there is no raster among them.</b> What the ground is at a point is
@@ -42,23 +41,13 @@ internal sealed class CityPlan
 
     public required JunctionArrays Junctions { get; init; }
 
-    /// <summary>Kerb fillets, carried because they cannot be read back off any other shape.</summary>
     /// <summary>
-    /// The kerb fillets as the map that arrived recorded them. <b>Nothing reads this and nothing writes
-    /// it</b>: a corner is turned on the town's own boundary now, at the radius the junction was laid at and
-    /// once for every distance struck off it (<see cref="LaneShell.Rounded"/>, TER-5). It is here because a
-    /// shipped <c>.town</c> carries the field, and the round trip over it is what holds the reader and the
-    /// writer to each other.
+    /// Kerb fillets, carried because they cannot be read back off any other shape. <b>Nothing lays one
+    /// yet</b>: a corner is turned on the town's own boundary now, at the radius the junction was laid at
+    /// and once for every distance struck off it (<see cref="LaneShell"/>, TER-5), and the fillets
+    /// come back with the kerb ([the known gaps](../../docs/index.md#known-gaps)).
     /// </summary>
     public required JunctionCornerArrays JunctionCorners { get; init; }
-
-    /// <summary>
-    /// The pavement's inner corners as the map that arrived recorded them. <b>Nothing reads this and
-    /// nothing writes it</b>: the walk turns no corner of its own any more, being the tarmac grown by one
-    /// figure (TER-3c.3). It is here because a shipped `.town` carries the field, and the round trip over
-    /// it is what holds the reader and the writer to each other.
-    /// </summary>
-    public required PavementCornerArrays PavementCorners { get; init; }
 
     public required RoadArrays Roads { get; init; }
 
@@ -69,12 +58,14 @@ internal sealed class CityPlan
     /// a ring of ordinary junctions joined by one-way arcs, so this says which those are and nothing else:
     /// there is no roundabout geometry, no roundabout junction and no rule downstream about one.
     /// </summary>
-    /// <remarks>
-    /// <b>The <c>.town</c> format does not carry it</b>, as it does not carry a prop's bearing: a map that
-    /// arrives as a file is one of the two fixtures, written before any town had a roundabout on it, and the
-    /// reader answers none rather than picking rings out of the roads it read.
-    /// </remarks>
     public RoundaboutArrays Roundabouts { get; init; } = RoundaboutArrays.None;
+
+    /// <summary>
+    /// <b>The town's car parks, as the junctions they were cut into roads at</b> (GEN-53). A car park is an
+    /// ordinary junction with an arm out to its bays, so this says which those are and nothing else — there
+    /// is no car park geometry and no rule downstream about one.
+    /// </summary>
+    public CarParkArrays CarParks { get; init; } = CarParkArrays.None;
 
     public required PavedAreaArrays PavedAreas { get; init; }
 
@@ -104,11 +95,23 @@ internal sealed class CityPlan
     Paving? _paving;
 
     /// <summary>
-    /// <b>The pavement of this plan, laid once</b> (<see cref="Paving"/>). The ground answers off it, the
-    /// mesh draws off it and the walking graph is cut from it, and a finished plan does not change — so the
-    /// three of them share one construction rather than each wrapping the tarmac again.
+    /// <b>The pavement the generator already laid on its way to this plan</b>, where there was one. A town
+    /// read from a file has none and lays it on the first ask; a generated one hands over the laying its own
+    /// stages stood on, so the lanes, the movements and the ground are drawn once for the town's whole life.
     /// </summary>
-    public Paving Paving(SimConfig config) => _paving ??= CityGen.Paving.Lay(Ground, config);
+    /// <remarks>
+    /// <b>It is the same shapes or it is a defect</b>: what is handed over was laid off the pieces this plan
+    /// carries, which is why nothing after the roads may add driven ground (<c>TownGenerator</c>).
+    /// </remarks>
+    public Paving? PavingLaidWithIt { get; init; }
+
+    /// <summary>
+    /// <b>The pavement of this plan, laid once</b> (<see cref="Paving"/>). The ground answers off it, the
+    /// mesh draws off it, the road graph reads its lines and the walking graph is cut from it, and a finished
+    /// plan does not change — so all of them share one construction rather than each wrapping the tarmac
+    /// again.
+    /// </summary>
+    public Paving Paving(SimConfig config) => _paving ??= PavingLaidWithIt ?? CityGen.Paving.Lay(Ground, config);
 
     /// <summary>
     /// How far a zebra reaches across the road, kerb to kerb: <b>the width of the road it is painted on,
@@ -162,15 +165,6 @@ internal sealed class CityPlan
         public int Count => CornerM.Length;
     }
 
-    internal sealed class PavementCornerArrays
-    {
-        public required Vector2[] CornerM { get; init; }
-        public required Vector2[] NormalA { get; init; }
-        public required Vector2[] NormalB { get; init; }
-        public required float[] RadiusM { get; init; }
-        public int Count => CornerM.Length;
-    }
-
     /// <summary>
     /// A road is carried as its <em>curve</em>. Anything that draws uses the arcs; a consumer that
     /// wants a polyline samples them itself, at a quarter-metre tolerance.
@@ -187,6 +181,31 @@ internal sealed class CityPlan
         /// <summary>How many lanes a road's own width carries: one where it runs one way and two where it runs both.</summary>
         public int LanesOn(int road) => Flow[road] == RoadFlow.BothWays ? 2 : 1;
 
+        /// <summary>
+        /// <b>Which roads are a car park's bays</b> (GEN-53), the arm being the way its bay is reached over.
+        /// <b>Empty where the town lays none.</b>
+        /// </summary>
+        public bool[] Bay { get; init; } = [];
+
+        /// <inheritdoc cref="Bay"/>
+        public bool IsABay(int road) => Bay.Length > 0 && Bay[road];
+
+        /// <summary>
+        /// <b>Whether a road is driven both ways over one line</b> — a car's width of ground driven in over
+        /// and driven back out over (GEN-4f), so its two lanes are its own line rather than two halves of a
+        /// carriageway. <b>A bay's way is the only ground in this town that is</b>, which is why it is that
+        /// and not a flag of its own: two arrays that must agree are two answers.
+        /// </summary>
+        public bool DrivenOverOneLine(int road) => IsABay(road);
+
+        /// <summary>
+        /// <b>How wide the ground one lane of a road is driven on is</b>: its share of the carriageway, or
+        /// the whole of it where the road's two ways share one line
+        /// (<see cref="DrivenOverOneLine(int)"/>).
+        /// </summary>
+        public float LaneWidthM(int road) =>
+            DrivenOverOneLine(road) ? WidthM[road] : WidthM[road] / LanesOn(road);
+
         /// <summary>A town whose every road runs both ways, which is every map that lays no one-way street.</summary>
         public static RoadFlow[] AllBothWays(int roads) => new RoadFlow[roads];
 
@@ -194,10 +213,50 @@ internal sealed class CityPlan
         public required int[] SegmentOffsets { get; init; }
 
         public required ArcSeg[] Segments { get; init; }
+
+        /// <summary>
+        /// <b>The places each road passes between its two junctions</b> (GEN-51), in the order it passes
+        /// them — count + 1 entries, or <b>empty where no road of the town passes anywhere</b>, which is
+        /// every town whose junctions are all places roads meet.
+        /// </summary>
+        /// <remarks>
+        /// <b>This is what a road is, not a record of what it was.</b> A road joined out of a run keeps the
+        /// corners the run had, and the bearing it leaves each junction on is drawn toward the first place
+        /// it passes rather than toward the far end it never points at
+        /// (<see cref="ConnectionPoints.ArmOf"/>) — so a plan that did not carry them would draw a different
+        /// town when it was read back than when it was laid.
+        /// </remarks>
+        public int[] ThroughOffsets { get; init; } = [];
+
+        /// <inheritdoc cref="ThroughOffsets"/>
+        public Vector2[] ThroughM { get; init; } = [];
+
+        /// <summary>
+        /// <b>Which roads were cut</b> (GEN-52): ones whose line stood before the junction at one of their
+        /// ends did, so <b>both</b> their arms are read off that line rather than drawn for it
+        /// (<see cref="ConnectionPoints.ArmOf"/>). <b>Empty where the town cut none</b>, which is every map
+        /// that lays no car park.
+        /// </summary>
+        /// <remarks>
+        /// <b>Both ends and not the cut one.</b> An arm is drawn toward the far end of its own road
+        /// (GEN-46), and a cut moves that far end onto the new node — so a road whose other end went on
+        /// drawing its bearing would draw a different one than the line it already carries was laid to.
+        /// </remarks>
+        public bool[] Cut { get; init; } = [];
+
+        /// <inheritdoc cref="Cut"/>
+        public bool WasCut(int road) => Cut.Length > 0 && Cut[road];
+
         public int Count => WidthM.Length;
 
         public ReadOnlySpan<ArcSeg> SegmentsOf(int road) =>
             Segments.AsSpan(SegmentOffsets[road], SegmentOffsets[road + 1] - SegmentOffsets[road]);
+
+        /// <inheritdoc cref="ThroughOffsets"/>
+        public ReadOnlySpan<Vector2> ThroughOf(int road) =>
+            ThroughOffsets.Length == 0
+                ? default
+                : ThroughM.AsSpan(ThroughOffsets[road], ThroughOffsets[road + 1] - ThroughOffsets[road]);
     }
 
     /// <summary>The stretch of its road each deck spans, and the pavement the deck carries over at the width it has on land.</summary>
@@ -229,6 +288,61 @@ internal sealed class CityPlan
 
         public ReadOnlySpan<int> RoadsOf(int roundabout) =>
             Road.AsSpan(RingOffsets[roundabout], RingOffsets[roundabout + 1] - RingOffsets[roundabout]);
+    }
+
+    /// <summary>
+    /// <b>The town's car parks</b> (GEN-53), as the junction each was cut into a road at and the arms that
+    /// junction carries out to its bays. <b>Membership and counts, and no geometry</b>: where an arm reaches
+    /// is its own road's to say, the same way a roundabout carries no circle.
+    /// </summary>
+    internal sealed class CarParkArrays
+    {
+        /// <summary>A map with no car park on it, which is every map that lays none.</summary>
+        public static CarParkArrays None => new() { Junction = [], BayOffsets = [0], Road = [], Right = [] };
+
+        /// <summary>The junction the car park was cut into a road at, one per car park.</summary>
+        public required int[] Junction { get; init; }
+
+        /// <summary>Count + 1 entries, over <see cref="Road"/> and <see cref="Right"/>.</summary>
+        public required int[] BayOffsets { get; init; }
+
+        /// <summary>
+        /// <b>One road a bay</b> (GEN-53): the way that bay is reached over, running from the car park's
+        /// junction out to the node the bay itself stands at. It is one lane wide and its lane is driven both
+        /// ways over one line (<see cref="RoadArrays.DrivenOverOneLine"/>).
+        /// </summary>
+        public required int[] Road { get; init; }
+
+        /// <summary>
+        /// Which side of the road the car park was cut into each bay stands on — the driver's right of that
+        /// road's own direction, or its left. <b>The two counts are what a car park's size is</b>, each of
+        /// them nought or a handful (GEN-4b), and not both nought.
+        /// </summary>
+        public required bool[] Right { get; init; }
+
+        public int Count => Junction.Length;
+
+        public ReadOnlySpan<int> RoadsOf(int carPark) =>
+            Road.AsSpan(BayOffsets[carPark], BayOffsets[carPark + 1] - BayOffsets[carPark]);
+
+        /// <summary>How many bays one car park has on one side of the road it was cut into.</summary>
+        public int BaysOn(int carPark, bool right)
+        {
+            var bays = 0;
+            for (var bay = BayOffsets[carPark]; bay < BayOffsets[carPark + 1]; bay++)
+            {
+                if (Right[bay] == right) bays++;
+            }
+
+            return bays;
+        }
+
+        /// <summary>
+        /// The longer of a car park's two ranks, which is how far along the street it reaches and so how far
+        /// back its street stands off (GEN-53, <see cref="SimConfig.CarParkStandoffM"/>).
+        /// </summary>
+        public int MostBaysOnASide(int carPark) =>
+            Math.Max(BaysOn(carPark, right: true), BaysOn(carPark, right: false));
     }
 
     internal sealed class PavedAreaArrays
@@ -325,21 +439,13 @@ internal sealed class CityPlan
         /// (<c>PropVariant.Turns</c>): a tree has no bearing to be wrong about, so the field says what the
         /// ground was doing there and the catalogue says whether the picture cares.
         /// </summary>
-        /// <remarks>
-        /// <b>The <c>.town</c> format does not carry it</b>, as it does not carry a spawn's patrol point:
-        /// a map that arrives as a file is one of the two fixtures, whose props were written before any of
-        /// them stood on a bearing, and the reader answers zero rather than inventing one.
-        /// </remarks>
         public required float[] BearingRad { get; init; }
 
         public required byte[] Kind { get; init; }
         public int Count => CentreM.Length;
     }
 
-    /// <summary>
-    /// Where the roster stands at the first tick. A spawn's patrol point is a scenario's device and the
-    /// <c>.town</c> format deliberately does not carry it, so a scenario map's walkers wander instead.
-    /// </summary>
+    /// <summary>Where the roster stands at the first tick.</summary>
     internal sealed class SpawnArrays
     {
         /// <summary>0 person, 1 car.</summary>

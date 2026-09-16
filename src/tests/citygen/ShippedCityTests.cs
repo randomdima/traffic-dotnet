@@ -60,6 +60,10 @@ public class ShippedCityTests
     [MemberData(nameof(Cities))]
     public void NothingItCarriesStandsOffIt(string map) => Conformance.NothingItCarriesStandsOffIt(map);
 
+    [Theory]
+    [MemberData(nameof(Cities))]
+    public void ItsBoundaryCloses(string map) => Conformance.ItsBoundaryCloses(map);
+
     /// <summary>
     /// <b>A city declares the services this build would place</b> (AMB-1, SRV-1). The fleets are laid for
     /// an ambulance and a crew a hospital, so a brief that authored six of them where the roster's share

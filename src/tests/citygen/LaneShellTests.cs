@@ -8,33 +8,18 @@ namespace TrafficSimulation.Tests.CityGen;
 
 /// <summary>
 /// <b>The outside of the driven ground, merged out of the ribbons its lines lay</b>
-/// (<see cref="LaneShell"/>): that it closes, and that it really is the outside.
+/// (<see cref="LaneShell"/>): that it really is the outside, and that it turns only where the ground does.
 /// </summary>
+/// <remarks>
+/// <b>That it closes at all is the shallow bar's</b> (<see cref="Conformance.ItsBoundaryCloses"/>), because
+/// it is a question about a whole town rather than about this construction: every map this build lays is
+/// held to it, and so is every city somebody ships.
+/// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P4)]
+[Collection(TownGeometryCollection.Name)]
 public class LaneShellTests
 {
-    /// <summary>
-    /// <b>The boundary of a union of closed bands is closed</b>, so every stretch the merge keeps is in a
-    /// ring and none is left with two ends (<see cref="LaneShell.Loose"/>). A run that does not shut is a
-    /// crossing the merge did not find, and it is a length of the town's edge nothing accounts for.
-    /// </summary>
-    [Theory]
-    [InlineData(Towns.Fixture)]
-    [InlineData(Towns.City)]
-    public void EveryRunShuts(string map)
-    {
-        var config = SimConfig.Shipped();
-        var shell = Towns.Of(map).Paving(config).Perimeter(config);
-        var lengthM = 0f;
-        foreach (var run in shell.Loose) lengthM += Spline.TotalLengthM(run);
-
-        Assert.True(
-            shell.Loose.Length == 0,
-            $"{map} left {shell.Loose.Length} runs of boundary open, {lengthM:F3} m in all, the first of "
-            + $"them from {(shell.Loose.Length > 0 ? shell.Loose[0][0].StartM : Vector2.Zero)}");
-    }
-
     /// <summary>
     /// <b>The driven ground is on the boundary's right and nothing is driven on its left</b> (TER-3c.9) —
     /// which is the whole of what a boundary claims, and the one thing a merge that dropped the wrong piece
@@ -51,9 +36,12 @@ public class LaneShellTests
     [InlineData(Towns.City)]
     public void TheGroundIsInsideTheBoundaryAndNotOutsideIt(string map)
     {
-        // Wide enough to clear the last bits of a float at a town's coordinates and far under anything the
+        // <b>Wide enough to clear what closing a ring's joints moves a piece by</b>
+        // (<see cref="ArcRings.Tightened"/>): a joint is closed onto the middle of the two ends standing at
+        // it, so half a weld is the most any piece is drawn off the band it is the edge of. Narrower than
+        // that, this asks the shape for a precision it does not claim; it is still far under anything the
         // town lays, which is metres wide.
-        const float HairM = 0.02f;
+        const float HairM = ArcRings.WeldM * 0.5f;
 
         // <b>Asked at the middle of each stretch and never at its ends</b>, and only of the stretches long
         // enough to have a middle: a corner is where two stretches meet and the ground within a hair of one
@@ -127,6 +115,63 @@ public class LaneShellTests
             carriedOn == 0,
             $"{map}: {carriedOn} of {pieces} pieces of the boundary carry on from the piece before them "
             + $"rather than turning at it, the first at {firstM}");
+    }
+
+    /// <summary>
+    /// <b>A ring has no hole in it</b> (<see cref="ArcRings.Tightened"/>): at every hand-over, one of the two
+    /// pieces meeting there covers the place between their two ends — which is what a kerb struck down the
+    /// ring, or a line drawn of it piece by piece, runs over rather than breaks at.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked at the gap's own middle and not of how far the two ends stand apart.</b> Two pieces that
+    /// overrun each other stand as far apart as two that fall short of each other, and only the second is a
+    /// break in anything laid along the ring.
+    /// </remarks>
+    [Theory]
+    [InlineData(Towns.Fixture)]
+    [InlineData(Towns.City)]
+    public void ARingHasNoHoleInIt(string map)
+    {
+        // What a frame can show: a centimetre is under a pixel until a metre covers a hundred of them, and
+        // a twentieth of the narrowest thing the town lays beside a road.
+        const float SeenM = 0.01f;
+
+        var config = SimConfig.Shipped();
+        var shell = Towns.Of(map).Paving(config).Perimeter(config);
+        var holes = 0;
+        var joints = 0;
+        var worstM = 0f;
+        var firstM = Vector2.Zero;
+        foreach (var ring in shell.Chains)
+        {
+            for (var at = 0; at < ring.Length; at++)
+            {
+                var arriving = ring[at];
+                var leaving = ring[(at + 1) % ring.Length];
+                var middleM = (arriving.EndM + leaving.StartM) * 0.5f;
+                joints++;
+
+                var offM = MathF.Min(Off(arriving, middleM), Off(leaving, middleM));
+                if (offM <= SeenM) continue;
+
+                if (holes++ == 0) firstM = arriving.EndM;
+
+                worstM = MathF.Max(worstM, offM);
+            }
+        }
+
+        Assert.True(joints > 0, $"{map} laid no boundary to ask about");
+        Assert.True(
+            holes == 0,
+            $"{map}: {holes} of {joints} joints of the boundary are a hole neither of the pieces meeting "
+            + $"there covers, the worst {worstM * 1000f:F1} mm and the first at {firstM}");
+    }
+
+    /// <summary>How far a place stands off one piece, measured to the piece and not to the circle it lies on.</summary>
+    static float Off(in ArcSeg piece, Vector2 pointM)
+    {
+        var alongM = Spline.ProjectM([piece], pointM, piece.LengthM * 0.5f, piece.LengthM);
+        return Vector2.Distance(piece.PointAtM(alongM), pointM);
     }
 
     /// <summary>

@@ -100,7 +100,8 @@ internal static class SelectionPath
             ref readonly var build = ref cars.BuildOf(car);
             var totalM = cars.Line[car].LengthM;
             var underTheCarM = MathF.Min(Math.Clamp(cars.ProgressM[car], 0f, totalM) + build.CentreAheadOfAxleM, totalM);
-            PathMarks.Chained(ref draw, line, underTheCarM, totalM, pitchM, bothWays: false, sagM, colour);
+            PathMarks.Chained(
+                ref draw, line, underTheCarM, totalM, pitchM, bothWays: false, sagM, colour, MarkClaims.None);
         }
 
         var route = cars.RouteOf(car);
@@ -167,11 +168,13 @@ internal static class SelectionPath
             {
                 var join = roads.ConnectorArcs(turn);
                 PathMarks.Chained(
-                    ref draw, join, 0f, Spline.TotalLengthM(join), pitchM, bothWays: false, sagM, colour);
+                    ref draw, join, 0f, Spline.TotalLengthM(join), pitchM, bothWays: false, sagM, colour,
+                    MarkClaims.None);
             }
 
             PathMarks.Chained(
-                ref draw, roads.ArcsOf(lane), 0f, roads.LaneLengthM[lane], pitchM, bothWays: false, sagM, colour);
+                ref draw, roads.ArcsOf(lane), 0f, roads.LaneLengthM[lane], pitchM, bothWays: false, sagM, colour,
+                MarkClaims.None);
 
             lastLane = lane;
         }

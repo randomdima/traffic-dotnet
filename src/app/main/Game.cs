@@ -10,7 +10,6 @@ using TrafficSimulation.Bench;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Persistence;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Town;
 
@@ -151,12 +150,12 @@ internal sealed partial class Game : IDisposable
 
     /// <summary>
     /// A map the menu was clicked on: <b>the name written down and the card put up, and no town opened
-    /// inside this frame</b> (OBS-2n). Opening one is seconds of work — a plan read, a ground laid, a
-    /// fleet stood up, and in a page a fetch before any of it — so the frame that took the click ends by
-    /// drawing the card, and what acts on the name is the head's own
+    /// inside this frame</b> (OBS-2n). Opening one is seconds of work — a town laid, a ground laid, a
+    /// fleet stood up, and in a page the art fetched before any of it — so the frame that took the click
+    /// ends by drawing the card, and what acts on the name is the head's own
     /// <see cref="OpenWhatWasPicked"/>: a thread of its own on the desktop, and the boot's own
     /// <c>await</c> in a page, which is the one place there where waiting is allowed
-    /// (<see cref="Main.Data.Town"/>).
+    /// (<see cref="Main.Data.Art"/>).
     /// </summary>
     void PickMap(string map)
     {
@@ -170,15 +169,15 @@ internal sealed partial class Game : IDisposable
     /// and the clock behind it all carry on for as long as the open takes.
     /// </summary>
     /// <remarks>
-    /// It is the head's because the wait is: a desktop run has the plan on the disk it started from and
-    /// lays it on a thread of its own, and a page has neither threads nor the file, so there this does
-    /// nothing and the boot loop drains <see cref="TakeWanted"/> instead.
+    /// It is the head's because the wait is: a desktop run lays the town on a thread of its own, and a
+    /// page has neither threads nor the art until it is fetched, so there this does nothing and the boot
+    /// loop drains <see cref="TakeWanted"/> instead.
     /// </remarks>
     partial void OpenWhatWasPicked();
 
     /// <summary>
     /// The map a click asked for, once. <b>The browser's boot loop is what drains it</b>: that is the only
-    /// place in a page where waiting for the plan to arrive is allowed (<see cref="Main.Data.Town"/>).
+    /// place in a page where waiting for a fetch is allowed (<see cref="Main.Data.Art"/>).
     /// </summary>
     public string? TakeWanted()
     {
@@ -690,6 +689,11 @@ internal sealed partial class Game : IDisposable
         _renderer.SetOverlayCount(_ui.Draw(_renderer.Overlay, _renderer.Underlay, Describe(), out var under));
         _renderer.SetUnderlayCount(under);
         parts.Mark(ref parts.InterfaceMs);
+
+        // OBS-2v: which layers of the ground are drawn, asked every frame and answered by the renderer
+        // only when the set has changed — a run that has touched the ground page is the only one that
+        // ever pays for it, and the page is the one place the answer is kept.
+        _renderer.ShowGround(_ui.Switches.Ground.Shown);
 
         var (centreM, clipPerM, facing) = _camera.ForShader(_uiPx);
         var before = Crossings();

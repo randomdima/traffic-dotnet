@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
@@ -36,28 +37,33 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The ground is a stack of layers and each is the union of the shapes in it</b> (TER-7b): grass over
-/// the whole world, then the pavement — every piece of the town grown by a walk — then the water and the
-/// decks, then the carriageway at its own size, then the paint. It is one list of shapes read at four
-/// sizes, since the pavement and the carriageway are each laid twice for the line between them. A union is
-/// stated by drawing its pieces over one another, so nothing here trims a shape against its neighbour and
-/// no piece knows what is beside it. There is no depth buffer and nothing to sort — one indexed draw in one
-/// pass — and the order the triangles are laid in is the whole of the answer.
+/// <b>The ground is a stack of layers and a layer beside a road is a region of the town's own boundary</b>
+/// (TER-7b): grass over the whole world, then the pavement and the kerb along its outer face, then the water
+/// and the decks, then the carriageway at its own size and what the blocks take back, then the town's kerb,
+/// then the paint. <b>The two layers are one boundary read at two distances</b> (<see cref="GroundRings"/>,
+/// TER-3c.3) — the carriageway inside it and the walk out to the pavement's outer face — so the inner
+/// encloses nothing the outer does not and each is simply laid over the one before it. There is no depth
+/// buffer and nothing to sort: one indexed draw in one pass.
 /// </para>
 /// <para>
-/// <b>It is <c>GroundShapes.At</c>'s order, forwards.</b> That method walks this list from the end and
-/// takes the first shape that covers the point, so the picture and the answer are one list read in two
-/// directions and the question of whether they agree cannot be asked (TER-7). A shape added to one is
-/// added to the other, at the same place in the order.
+/// <b>It is <c>GroundShapes.At</c>'s order, forwards</b> (TER-7), and it is one layer ahead of it: the
+/// answer still says grass off the kerb, so a point on the concrete is drawn as concrete and answered as
+/// turf. That is the deviation named in the [known gaps](../../../docs/index.md#known-gaps) and it closes
+/// when the answer is fed the same rings. Everywhere else a shape added to one is added to the other, at
+/// the same place in the order.
 /// </para>
 /// <para>
-/// <b>A rim, a kerb line and an edge line are what a layer leaves of the one under it.</b> Each layer is
-/// laid twice, a line's width apart — the outer pass in the shade the line is to be, the inner in the
-/// surface's own — so what survives is a stroke on the union's outer boundary and nothing where two of its
-/// pieces meet. It is the same trick the shore is drawn by, and it is why no line here is a shape.
-/// <b>Which of the two passes is the surface's own size is the line's to say</b>: an edge shade is struck
-/// inside what it rims, so the pavement's outer pass is the band's true width; a kerb line is struck
-/// outside (TER-3d), so the carriageway's inner pass is the lane's.
+/// <b>A kerb is a line with a mesh of its own</b> (<see cref="Stroke"/>, TER-3d): the shell it belongs to
+/// laid at the width a kerbstone is with that shell running down the middle of it, over the fills rather
+/// than cut out of them, and there are two — the town's own boundary and the walk's outer face. Neither
+/// borrows a triangle from a fill, so each is two hundred millimetres wherever its line runs, on a bend as on
+/// a straight, whatever the fills either side of it were thinned to. <b>And a kerb is the only edge of a
+/// layer anybody sees</b> (<see cref="Line"/>, <see cref="HiddenShare"/>): the fill beneath it is the kerb's
+/// own line thinned by what the stone hides, so what is cut for the picture is the line and what is cut for
+/// the kerb is the fill. <b>A rim is the other way of drawing a line and is what is left where
+/// nothing has a boundary to strike one off</b> — the region twice, a line's width apart, the outer in the
+/// line's shade and the inner laid over it in the surface's own. A deck's edge and the shore are drawn that
+/// way, a deck being a ribbon about a road's own line.
 /// </para>
 /// <para>
 /// What is <b>not</b> here is anything that is not ground: buildings, props, agents and their sprites
@@ -67,7 +73,77 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 internal sealed partial class GroundMesh
 {
     /// <summary>How far a drawn chord is allowed to bow off the arc it stands for.</summary>
-    const float ChordSagM = 0.02f;
+    public const float ChordSagM = 0.02f;
+
+    /// <summary>
+    /// <b>How far a filled shell's boundary may be let off the arcs it stands for</b>, in exchange for the
+    /// corners that carrying them exactly would cost (<see cref="ShellFill"/>).
+    /// </summary>
+    /// <summary>
+    /// <b>How much of a kerb's half-width a fill may be let get wrong</b>, the kerb being laid over it: the
+    /// thinning every filled shell here is cut at, as a share of the stone that hides it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A fill has no visible edge in this town</b> (TER-3d, TER-7b). Every shell filled here carries a
+    /// kerb along its boundary, and the kerb is laid last of the three — so where a fill cuts a corner what
+    /// shows through is the layer under it, and two hundred millimetres of stone is laid over both. The one
+    /// thing that may not happen is the fill reaching out from under that stone, which is what this share is
+    /// of: at three quarters the fill's edge stands at worst 75 mm off the kerb's line and 25 mm inside the
+    /// kerb's own edge.
+    /// </para>
+    /// <para>
+    /// <b>So the thinning is bounded by the kerbstone and not by a zoom</b>, and it is spent to the bound:
+    /// a sag of two centimetres alone reads the town as 26 241 corners and this hands back two thirds of
+    /// them. What a picture is worth decides the <em>line</em> instead (<see cref="ChordTurnRad"/>), which
+    /// is the only part of either layer anybody looks at.
+    /// </para>
+    /// </remarks>
+    public const float HiddenShare = 0.75f;
+
+    /// <summary>
+    /// <b>How much of a turn one chord of a kerb's line may stand for</b>, whatever the sag says
+    /// (<see cref="ShellFill"/>). It is the figure the town's curves are judged on, a kerb being the only
+    /// edge of a layer anybody sees.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The budget in metres runs out the wrong way on a tight bend.</b> The step a sag earns is
+    /// <c>2·acos(1 − sag/R)</c>, which <em>grows</em> as the radius shrinks: the boundary's tightest turn is
+    /// 0.14 m of radius (<c>--bench outset</c>) and comes back at sixty degrees a chord, inside a sag of two
+    /// centimetres the whole way. <b>What a picture loses on a bend is direction and not distance</b>, which
+    /// is the eye's own measure of a curve and has no budget in metres — so this is an angle.
+    /// </para>
+    /// <para>
+    /// <b>And it is what cuts the kerb for its own ribbon.</b> A stroke's outer edge goes round a circle a
+    /// half-width wider than its line's, so a line cut at a sag alone leaves that edge bowing by
+    /// <c>sag·(R+½w)/R</c> — which only passes a tenth over below a metre of radius, while this binds
+    /// everywhere under twenty-one. The angle covers the ribbon's own need several times over, and a
+    /// segment's offset being a segment, there is nothing between two corners left to refine.
+    /// </para>
+    /// </remarks>
+    public const float ChordTurnRad = 8f * MathF.PI / 180f;
+
+    /// <summary>
+    /// <b>And how far the line itself may be let off the arcs</b>, which is the same tolerance as the sag
+    /// and for the same reason: it is what a frame can tell apart. It takes the near-collinear corners out
+    /// of the straights, where a sag spends evenly and a kerb has nothing to show for it.
+    /// </summary>
+    public const float LineThriftM = 0.02f;
+
+    /// <summary>
+    /// <b>The line a shell's kerb is struck from</b>, which is the shell cut for the picture: every budget
+    /// here is what a frame can tell apart, this being the one line anybody sees.
+    /// </summary>
+    public static Vector2[][] Line(ReadOnlySpan<ArcSeg[]> rings) =>
+        ShellFill.Outline(rings, ChordSagM, LineThriftM, ChordTurnRad);
+
+    /// <summary>
+    /// <b>And the fill laid under it</b> (<see cref="HiddenShare"/>): that same line thinned by what the
+    /// kerb hides, so the two part by one budget rather than by the sum of two readings.
+    /// </summary>
+    public static Vector2[][] Filled(ReadOnlySpan<Vector2[]> line, float kerbWidthM) =>
+        ShellFill.Outline(line, kerbWidthM * 0.5f * HiddenShare);
 
     /// <summary>
     /// How far apart two corners may stand and still be one point: a millimetre, which is the rounding the
@@ -78,8 +154,29 @@ internal sealed partial class GroundMesh
     /// <summary>White: a surface drawn as itself.</summary>
     static readonly Vector3 Plain = Vector3.One;
 
+    /// <summary>
+    /// <b>An edge is the surface darkened</b>: the walk's own kerb, a deck's rim, and the shore. It is a
+    /// measurement and not a relation, and nothing else in the town is drawn in a colour of its own.
+    /// </summary>
+    public static readonly Vector3 Edge = new(0.58f, 0.58f, 0.62f);
+
+    /// <summary>
+    /// <b>And the town's kerb is the walk's own grain brightened</b>, on the terms the paint was drawn by: a
+    /// kerbstone is the concrete beside it catching the light, so what tells it from the walk is the shade
+    /// and not a second surface. The walk's own kerb takes <see cref="Edge"/> instead, being the side of the
+    /// same stone that faces away from the street.
+    /// </summary>
+    /// <remarks>
+    /// <b>Under the paint's 2.6 and lifted furthest in blue.</b> It multiplies the pavement rather than the
+    /// asphalt, which is already the lighter of the two, and the concrete it multiplies is warm — so an even
+    /// factor makes a cream kerb rather than a white one.
+    /// </remarks>
+    public static readonly Vector3 Kerb = new(1.38f, 1.4f, 1.55f);
+
     readonly List<GroundVertex> _vertices = [];
     readonly List<uint> _indices = [];
+
+    readonly GroundTally[] _parts = new GroundTally[GroundParts.Count];
 
     /// <summary>
     /// Which corner already stands at a place, wearing a surface and a shade (<see cref="Vertex"/>), so a
@@ -107,11 +204,47 @@ internal sealed partial class GroundMesh
     /// dash, a bar, a zebra's stripe or a bay stroke, four corners at a time.
     /// </summary>
     /// <remarks>
-    /// <b>The kerb line is not among them.</b> It is what the carriageway leaves of the stroke struck
-    /// outside it rather than a quad of its own, so the tint alone does not tell a mark from the ground it
-    /// is on and anything asking what was <em>painted</em> asks this instead.
+    /// <b>The kerb line is not among them</b>, though it is laid as quads of its own (<see cref="Stroke"/>):
+    /// a kerb is a thing the town is built of and a mark is paint on it. The tint alone does not tell the
+    /// two apart, which is why anything asking what was <em>painted</em> asks this instead.
     /// </remarks>
     public int FirstMarkVertex { get; private set; }
+
+    /// <summary>
+    /// What each layer of the ground came to, in the order they were laid: the run of the index buffer
+    /// that is that layer, and what cutting it cost (<see cref="GroundTally"/>, OBS-2v).
+    /// </summary>
+    /// <remarks>
+    /// <b>The runs tile the mesh</b> — each part starts where the one before it ended and the last of them
+    /// ends at the last index — which is what lets a part be left out of a frame by shortening the draw
+    /// rather than by laying the ground again (<c>TownRenderer.ShowGround</c>).
+    /// </remarks>
+    public ReadOnlySpan<GroundTally> Parts => _parts;
+
+    /// <summary>
+    /// The whole of what laying this ground cost, the boundary it was struck off included — the figure
+    /// <c>--map</c> prints and the ground page reads.
+    /// </summary>
+    public double LaidMs { get; private set; }
+
+    /// <summary>
+    /// And how much of that went on the one shape every layer is a distance off (<see cref="GroundRings"/>)
+    /// rather than on any layer of it. <b>It is the merge and not a triangulation</b>, so a town whose
+    /// ground is slow to lay is answered here or in the parts and never in both.
+    /// </summary>
+    /// <remarks>
+    /// <b>What a second town pays is not what the first one did</b>: the paving behind the rings is the
+    /// plan's own and is laid once, so this figure is the whole merge for the town that asked for it first
+    /// and the reading off a cache for anything asking after.
+    /// </remarks>
+    public double BoundaryMs { get; private set; }
+
+    /// <summary>
+    /// And how much of <em>that</em> was the merge alone (<c>LaneShell</c>) — every ribbon the town is
+    /// driven on cut against every ribbon near it, before a single layer has been struck off the shape it
+    /// comes to. It is the whole of the ground's cost on a city and is nothing to do with triangles.
+    /// </summary>
+    public double MergeMs { get; private set; }
 
     /// <summary>
     /// No ground at all: one degenerate triangle, which is what the start menu is drawn over.
@@ -125,18 +258,23 @@ internal sealed partial class GroundMesh
     public static GroundMesh Nothing()
     {
         var mesh = new GroundMesh();
+        var grass = mesh.Starting();
         for (var corner = 0; corner < 3; corner++)
         {
             mesh._vertices.Add(new GroundVertex(Vector2.Zero, Vector2.Zero, Vector3.Zero, Surface.Grass));
             mesh._indices.Add((uint)corner);
         }
 
+        // The one triangle is the world's own layer, so the parts still tile the mesh (<see cref="Parts"/>)
+        // and a ground page opened over no town reads zeroes rather than a mesh nothing accounts for.
+        mesh.Laid(GroundPart.Grass, grass);
         return mesh;
     }
 
     public static GroundMesh Build(CityPlan plan, SimConfig config)
     {
         var mesh = new GroundMesh();
+        var startedAt = Stopwatch.GetTimestamp();
         var periods = Periods(config);
 
         // <b>The pavement is a step and not a shape this pass works out for itself</b> (TER-3c): the walk
@@ -145,61 +283,120 @@ internal sealed partial class GroundMesh
         var paving = plan.Paving(config);
         var edgeM = config.Road.EdgeLineWidthM;
 
-        // An edge is the surface darkened. It is a measurement and not a relation, and nothing else in the
-        // town is drawn in a colour of its own.
-        var edge = Shade(0.58f, 0.58f, 0.62f);
+        // <b>One kerb's width and two kerbs struck at it</b>: where the carriageway hands over to the walk,
+        // and where the walk hands over to the grass (TER-3c.3). It is the width the kerbstone is and not a
+        // line's width, which is why it is the world's figure and not the paint's.
+        var kerbM = config.Road.KerbWidthM;
 
+        var grass = mesh.Starting();
         mesh.Rect(Vector2.Zero, plan.WorldSizeM, Surface.Grass, Plain, periods);
+        mesh.Laid(GroundPart.Grass, grass);
 
-        // <b>Nothing beside a road is drawn.</b> Every line the ground had off the kerb — the pavement, its
-        // rim, the kerb line — was the town's boundary moved by a figure, and the boundary is now the merge
-        // of the ribbons the driven lines lay (<see cref="LaneShell"/>) with nothing struck off it at any
-        // distance. So the ground a frame holds is the grass, the water, the decks and the slabs, and what
-        // the boundary is looked at through is the perimeter layer (OBS-2p).
-        //
+        // <b>The merge apart from the layers struck off it</b>: the two are one ask (<c>Paving.Rings</c>)
+        // and the first of them is the expensive half by two orders of magnitude, so a ground that takes
+        // seconds to lay is answered by which of these two numbers is the seconds rather than by both.
+        var boundaryFrom = Stopwatch.GetTimestamp();
+        paving.Perimeter(config);
+        mesh.MergeMs = Stopwatch.GetElapsedTime(boundaryFrom).TotalMilliseconds;
+        var rings = paving.Rings(config);
+        mesh.BoundaryMs = Stopwatch.GetElapsedTime(boundaryFrom).TotalMilliseconds;
+
+        // <b>Each layer's boundary read twice, the line finely and the fill by what the line hides</b>
+        // (<see cref="ShellFill.Outline"/>, TER-3d). <b>The kerb is the only edge of a layer anyone sees</b>:
+        // every shell filled here carries one along its boundary, so where the fill cuts a corner what shows
+        // through is the layer beneath and the kerb is laid over both. So the line is cut for the picture —
+        // <see cref="ChordSagM"/> and <see cref="ChordTurnRad"/>, and no thinning at all — and the fill is
+        // that same line thinned by <see cref="HiddenShare"/> of a kerb's half-width, which is the whole of
+        // what may be got wrong under it.
+        // <b>Thinned from the line and not read again from the arcs</b>, so how far the two part is that one
+        // budget rather than the sum of what each strays.
+        var walkLine = Line(rings.Walk.Rings);
+        var carriagewayLine = Line(rings.Carriageway.Rings);
+        var walkFill = Filled(walkLine, kerbM);
+        var carriagewayFill = Filled(carriagewayLine, kerbM);
+
+        // <b>The pavement and the kerb along its outer face, under the water and the decks</b> (TER-7b): a
+        // walk that reaches a shore is ground the water then covers, so what lies outside the carriageway is
+        // laid before it and not over it. <b>The walk is the offset filled whole</b> and the driven ground it
+        // covers is covered back by the carriageway below, which is what a layer enclosing every layer inside
+        // it means and what spares this fill a second copy of the boundary to carry and thin.
+        // Both wear the pavement's own surface and are told apart by the
+        // shade — an edge is the surface darkened, which is the rule the shore and a deck's rim are drawn by.
+        // <b>The line is struck along the walk's own outer face and not cut out of the fill</b> (TER-3d): it
+        // is a kerb's width about that line wherever it runs, which is what the thinning either fill is laid
+        // at cannot promise, and it is laid after the fill so the fill cannot eat into it.
+        var walk = mesh.Starting();
+        mesh.Shell(walkFill, Surface.Pavement, Plain, periods);
+        mesh.Laid(GroundPart.Walk, walk);
+
+        var walkKerb = mesh.Starting();
+        foreach (var ring in walkLine)
+        {
+            mesh.Stroke(ring, kerbM, closed: true, Surface.Pavement, Edge, periods);
+        }
+
+        mesh.Laid(GroundPart.WalkKerb, walkKerb);
+
         // The water and the shore it is set in, largest ring first (GEN-2c). Each fill leaves a line's width
         // of the one under it showing, which is the same trick every other line here is drawn by: what
         // survives is one line where the shore meets the grass and another where it meets the water. <b>Each
         // takes the colour of the ground it meets</b> — green against the grass and blue against the water —
         // and each is drawn darker than that ground, so the edge reads as the shore's own shadow on it
         // rather than as a highlight laid over it.
+        var water = mesh.Starting();
         Water(mesh, plan.Water.Shore, Surface.Pavement, Shade(0.3f, 0.48f, 0.22f), periods);
         Water(mesh, plan.Water.ShoreEdge, Surface.Pavement, Plain, periods);
         Water(mesh, plan.Water.WaterEdge, Surface.Pavement, Shade(0.08f, 0.2f, 0.3f), periods);
         Water(mesh, plan.Water.Outline, Surface.Water, Plain, periods);
+        mesh.Laid(GroundPart.Water, water);
 
         // A deck is drawn out to its own half-width, with an edge line laid the way the pavement's is on
         // land: the piece at full size in the edge shade, then a line's width smaller in its own.
         // <b>And nothing but the deck</b> — the pavement that used to be carried across one at the width it
         // has on land was the last line beside a road struck by arithmetic of its own (TER-3c.3), so it is
         // gone and the margin outside the carriageway is deck all the way out.
+        var decks = mesh.Starting();
         for (var bridge = 0; bridge < plan.Bridges.Count; bridge++)
         {
             var road = plan.Bridges.Road[bridge];
             if (road < 0) continue;
 
             var span = plan.Roads.SegmentsOf(road);
-            var deckHalfM = plan.Bridges.DeckWidthM[bridge] * 0.5f;
-            mesh.Ribbon(span, deckHalfM, Surface.Deck, edge, periods);
-            mesh.Ribbon(span, deckHalfM - edgeM, Surface.Deck, Plain, periods);
+            var deckM = plan.Bridges.DeckWidthM[bridge];
+            mesh.Stroke(span, deckM, closed: false, Surface.Deck, Edge, periods);
+            mesh.Stroke(span, deckM - (edgeM * 2f), closed: false, Surface.Deck, Plain, periods);
         }
 
-        // <b>Whether the carriageway's own surface is drawn at all</b>
-        // (<c>RoadFigures.CarriagewayDrawn</c>): temporary, and a drawing switch rather than a laying one —
-        // the answer goes on saying the ground is driven over, because every car on it is held up by that.
-        var carriageway = config.Road.CarriagewayDrawn;
+        mesh.Laid(GroundPart.Decks, decks);
+
+        // <b>The carriageway at its own size</b> (TER-7b): the boundary filled as the shape it is, over the
+        // walk that reaches under it, and struck after the decks because a bridge carries its carriageway
+        // over its own surface and not over the land's.
+        var carriageway = mesh.Starting();
+        mesh.Shell(carriagewayFill, Surface.Tarmac, Plain, periods);
+        mesh.Laid(GroundPart.Carriageway, carriageway);
 
         // <b>Between the stroke and the carriageway, the tarmac that is not a road</b>: a slab. It is where
         // the answer puts it (<c>GroundShapes.At</c>).
-        if (carriageway)
+        var slabs = mesh.Starting();
+        for (var slab = 0; slab < plan.PavedAreas.Count; slab++)
         {
-            for (var slab = 0; slab < plan.PavedAreas.Count; slab++)
-            {
-                mesh.Rect(
-                    plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain, periods);
-            }
+            mesh.Rect(plan.PavedAreas.MinM[slab], plan.PavedAreas.SizeM[slab], Surface.Tarmac, Plain, periods);
         }
 
+        mesh.Laid(GroundPart.Slabs, slabs);
+
+        // <b>Then the town's kerb, which is a line and not a layer</b> (TER-3d, TER-7b): a kerb's width laid
+        // about the boundary itself, over everything the layers left along it. Last of the ground, so what it
+        // covers is a kerb wherever the boundary runs — and so the place the walk meets the carriageway, each
+        // of them thinned on its own terms, is under the middle of it rather than beside it.
+        var kerb = mesh.Starting();
+        foreach (var ring in carriagewayLine)
+        {
+            mesh.Stroke(ring, kerbM, closed: true, Surface.Pavement, Kerb, periods);
+        }
+
+        mesh.Laid(GroundPart.Kerb, kerb);
 
         // <b>The paint is not drawn, because none of it is laid.</b> The dashes, the zebras, the bars and
         // the bay strokes all read arrays that come back empty (TER-6), and they come back with the
@@ -208,8 +405,24 @@ internal sealed partial class GroundMesh
         mesh._welding = false;
         mesh._welds = [];
 
+        var paint = mesh.Starting();
+        mesh.Laid(GroundPart.Paint, paint);
+
+        mesh.LaidMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
         return mesh;
     }
+
+    /// <summary>
+    /// Where the mesh stood as a part began, so what that part came to is the difference rather than a
+    /// figure anything has to be told (<see cref="Laid"/>).
+    /// </summary>
+    readonly record struct PartStart(int Index, int Corner, long At);
+
+    PartStart Starting() => new(_indices.Count, _vertices.Count, Stopwatch.GetTimestamp());
+
+    void Laid(GroundPart part, PartStart from) => _parts[(int)part] = new GroundTally(
+        from.Index, _indices.Count - from.Index, _vertices.Count - from.Corner,
+        Stopwatch.GetElapsedTime(from.At).TotalMilliseconds);
 
     /// <summary>Every ring of one of the water's own sets, laid as the one shape it is.</summary>
     static void Water(

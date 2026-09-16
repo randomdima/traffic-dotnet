@@ -23,8 +23,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// roundabout is for, and it falls out of the ranking rather than being written anywhere.
 /// </para>
 /// <para>
-/// <b>It runs on the layout the deletions left</b>, after the merge, the crossings, the stranded pieces and
-/// the dead ends (<see cref="TownGenerator"/>), because a ring is laid against the town there actually is
+/// <b>It runs on the layout the deletions left</b>, after the stranded pieces, the dead ends and the runs
+/// joined into one road (<see cref="TownGenerator"/>), because a ring is laid against the town there actually is
 /// — and before the one-way scatter, which then finds every ring node already spoken for.
 /// </para>
 /// <para>
@@ -195,7 +195,7 @@ internal static class Roundabouts
 
         // <b>The ring is kept clear of the ground a road could take and not of the line it was joined on</b>
         // (GEN-19): a street is laid to two drawn bearings and wanders between them, so what it may stray
-        // off its own chord is the bound it was drawn inside (<see cref="RoadStage.WanderM"/>) rather than a
+        // off its own chord is the bound it was drawn inside (<see cref="RoadLines.WanderM"/>) rather than a
         // shape nothing has laid yet.
         for (var road = 0; road < layout.Edges.Count; road++)
         {
@@ -204,7 +204,7 @@ internal static class Roundabouts
             var edge = layout.Edges[road];
             var fromM = layout.NodeM[edge.From];
             var toM = layout.NodeM[edge.To];
-            var strayM = RoadStage.WanderM(districts, edge, (fromM + toM) * 0.5f, config);
+            var strayM = RoadLines.WanderM(districts, edge, (fromM + toM) * 0.5f, config);
             if (OffM(centreM, fromM, toM) < radiusM + config.RoadFootprintM + strayM) return false;
         }
 
