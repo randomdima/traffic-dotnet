@@ -14,6 +14,13 @@ here**, and the gate is `src/tests/gates/CrossingGateTests.cs` rather than a hab
 **Everything an instance needs is in the instance.** A sprite is a row in an array the GPU reads; adding
 a per-body branch to the draw path is how the count stops being constant.
 
+**What a frame writes, it writes into the memory of the image it is drawn into.** The CPU fills the next
+frame while the one or two before it are still being drawn, so a buffer shared between images is the
+town's sprites being rewritten under a draw still fetching them. The image is taken and its fence waited
+on *before* anything is filled, and a buffer written every frame — the instances, the quads over and
+under them, the three counts — is one per image. **Only what is written under a device wait may be
+shared**: the ground's own mesh and index count, and nothing a frame touches.
+
 ## Ground
 
 **Ground is drawn as one continuous surface per type**, its texture **anchored to the world origin** and

@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.World.Statics;
@@ -82,6 +83,13 @@ internal sealed class BuildingCatalog
     /// </summary>
     public static BuildingCatalog Shared { get; } = Load();
 
+    /// <summary>
+    /// <see cref="Shared"/>'s footprints, measured once: the seam a town is laid across (GEN-54). Every
+    /// caller that opens a map hands the generator this same reading, so what a town is built of is the art
+    /// this build ships and the plan below never learns that a catalogue exists.
+    /// </summary>
+    public static BuildingSizes Roofs { get; } = Shared.Footprints();
+
     public static BuildingCatalog Load()
     {
         var ordinary = AssetJson.Catalog(VariantList("Catalog.json"));
@@ -103,16 +111,41 @@ internal sealed class BuildingCatalog
     /// rectangle laid the other way round is the same rectangle: matching without the swap would put a
     /// wide roof on a deep building whenever the plan happened to author it end-on.
     /// </remarks>
+    /// <summary>The roof a use names (AMB-1a, SRV-1a), or −1 for the buildings that are only buildings.</summary>
+    /// <remarks>
+    /// <b>One mapping, read by both of its readers</b>: the generator sizes a service building off the roof
+    /// it will wear (GEN-55) and the town draws it in that roof, and a second copy of which id serves which
+    /// use is two answers about one hospital.
+    /// </remarks>
+    public int RoofFor(BuildingUse use) => use switch
+    {
+        BuildingUse.Hospital => Hospital,
+        BuildingUse.PoliceStation => PoliceStation,
+        BuildingUse.Depot => RepairShop,
+        _ => NoRoof,
+    };
+
+    /// <summary>What <see cref="RoofFor"/> answers for a use no roof was drawn for.</summary>
+    public const int NoRoof = -1;
+
     /// <summary>
-    /// The footprints the ordinary roofs are drawn at. <b>Handed to whoever lays a town</b>, because a
-    /// building is sized by the picture it will wear and the plan may not read a catalogue that sits above
+    /// The footprints a town sizes its buildings at (GEN-54). <b>Handed to whoever lays a town</b>, because
+    /// a building is sized by the picture it will wear and the plan may not read a catalogue that sits above
     /// it — the data crosses the seam and the type does not.
     /// </summary>
-    public Vector2[] OrdinaryFootprintsM()
+    public BuildingSizes Footprints()
     {
-        var footprintsM = new Vector2[Ordinary];
-        for (var variant = 0; variant < Ordinary; variant++) footprintsM[variant] = Variants[variant].FootprintM;
-        return footprintsM;
+        var ordinaryM = new Vector2[Ordinary];
+        for (var variant = 0; variant < Ordinary; variant++) ordinaryM[variant] = Variants[variant].FootprintM;
+
+        var byUseM = new Vector2[BuildingSizes.Uses];
+        for (var use = 0; use < byUseM.Length; use++)
+        {
+            var roof = RoofFor((BuildingUse)use);
+            byUseM[use] = roof >= 0 ? Variants[roof].FootprintM : Vector2.Zero;
+        }
+
+        return new BuildingSizes(ordinaryM, byUseM);
     }
 
     public (int Variant, bool Swapped) Match(Vector2 sizeM)

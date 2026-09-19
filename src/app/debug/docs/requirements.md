@@ -13,7 +13,7 @@ what it costs to gather is not paid while its body is shut
 ([app/hud](../../hud/docs/requirements.md#the-status-panel)).
 
 **OBS-2c** `P8` **Each thing a debug session can be opened for has a switch of its own, and no switch turns on
-anything a second one owns.** Eleven of them, and **the ground's own layers are not among them** (OBS-2v):
+anything a second one owns.** Thirteen of them, and **the ground's own layers are not among them** (OBS-2v):
 those take the town apart rather than drawing anything over it, and they start on. **A layer covers one kind
 of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
@@ -265,9 +265,9 @@ edge of the one layer, so drawing either would be a line drawn a second time in 
 
 **The town's own layers and never a set struck here.** What a reader checks is that the red line holds one
 distance off the blue everywhere and turns where the blue turns — of the ground the town is actually
-standing on. A layer striking its own offset draws a shape nobody stands on, and one with a figure somebody
-can drag answers a different question — how the shape moves — which is a question for the construction's own
-tests.
+standing on. **A shape struck at a distance nobody built anything at is a different question** — how the
+outset moves rather than where the town's ground stops — so it is a layer of its own (OBS-2w) and is never
+drawn under this switch.
 
 **What is drawn is the boundary of the moved shape and not the moved lines.** A feature narrower than the
 distance is not in the picture at all: the outset of a notch two metres across is no notch, and the outset
@@ -278,6 +278,45 @@ The runs the construction could not close are drawn in the fault colour like any
 **Last of everything the layer draws, so it is first to give way.** The town's graphs are laid into a cache
 that truncates rather than slows (OBS-2b), and what a boundary layer is opened for is the boundary
 (OBS-2p): at a framing where there are not quads enough for both, the example is the half that stops.
+
+**OBS-2w** `P8` **A debug session may strike one shape of its own off that boundary, at figures it turns.**
+It is a layer of its own with figures of its own (OBS-2c): the switch says whether it is drawn, **the
+distance says how far out** — from nothing to a distance several streets wide — and **the rounding says how
+tightly the shape struck is allowed to turn anywhere**, as a radius in metres on a track of its own. They are **the figures
+on the panel that change what is drawn rather than what the town does**: nothing is laid again for them and
+no body moves. What comes back is an outline like any other the layer draws (OBS-2p, OBS-2u), in a colour
+that is neither the boundary's nor a shipped layer's, because the whole reading is which of the lines on the
+glass the town was actually laid with.
+
+**Both figures, because either alone is half the answer.** The move leaves a corner turning in on the shape
+as sharp as the fold cut it and the rounding is what takes it off, so a reader holding the distance still
+and turning the rounding is asking the one question the pair exists for: which notch is the distance's and
+which is the rounding's. **And the rounding is a length and not a share of the distance**, so the two rows
+are two questions: a rounding tied to the distance is no rounding at all where a reader most wants one — a
+line struck a hand's breadth off a car park comes back exactly as rugged as the car park, whatever the
+second row is dragged to. **Free of it, the distance may be nothing and the shape still come back round.**
+
+**Past the distance the rounding cuts the corners the town turns away at**, and the reader is owed that
+where it happens: a corner turning away stands at exactly the distance moved, so a radius bigger than the
+distance is a line nearer the town than the distance asked for. It is what a rounding with no distance at
+all means, and the figure is the reader's to turn.
+
+**What it is for is the construction and not the town**: where the move swallows a corner, where two kerbs
+come back as one line, where a ring smaller than the distance disappears, and how far out the shape stops
+resembling the boundary it was struck from — asked at distances nothing in the town uses, which is what the
+shipped layers cannot be asked. **At nought it is the boundary itself**, and whether it is, is the first
+thing the figure is dragged to.
+
+**Both move in steps, and the shape is struck once per step.** An outset is cut against the whole town's
+shape (TER-7b), so a figure read straight off the pointer would strike a shell a pixel across a drag; what
+is held is the last shape struck, against the boundary it came off and the two figures it was struck at.
+**What that costs is the reader's to see** — a city is tens of milliseconds a step and the frame read-out
+says so — rather than a figure to quote here.
+
+**And a picture can be asked for it without a hand on the slider**: the layer's own word carries the figures
+(`--ui shell-<metres>`, `--ui shell-<metres>-<metres>` for the distance and the radius), as the ground's
+carries a layer. A figure nobody
+can take a picture of is a figure nobody can show anybody else.
 
 **OBS-2s** `P8` **The driven ground itself is a layer beside its outside**: the same lanes, movements and
 bay ways taken as the ribbons of ground they cover (OBS-2p), each drawn whole at its own line's width —
@@ -349,6 +388,37 @@ a street.
 ruled over says nothing about which cell anything is in, and at a town-wide framing a city's cells are a
 wash that costs the whole buffer to say so. Pulling the camera back thins this layer out; pulling it in is
 what it is read at.
+
+**OBS-2x** `P8` **The grid the solver asks is a layer beside it**: the cells of the two indexes its broad
+phase is narrowed with ([`CellGrid`](../../../world/physics/CellGrid.cs)) — the town's furniture, and the
+roster the last step integrated — drawn where they fall, with a wash in each cell that says how many bodies
+it holds.
+
+**Both indexes, in a hue each.** They are two lattices and not one: each is laid from its own set's own
+corner, so a body's cell in one is not its cell in the other, and one colour over two offset rulings is a
+picture nobody can read a cell out of. What the layer is opened for is the same question OBS-2r asks of the
+road — where the work piles into one cell — asked of the index that decides what could hit what.
+
+**Only the cells that hold something are drawn, and that is not a thinning of the picture.** A cell of
+either grid is live only while its stamp matches the current rebuild; an empty cell is not a cell of the
+index at all, so a ruling through it would be a lattice this layer laid rather than one the solver asks.
+Each cell draws the edges no live neighbour has drawn already, so the boundary of a block of them is drawn
+once and reads as a boundary.
+
+**The static half is cached with the town and the moving half never is.** The furniture is indexed once,
+when the last static body has been added; the roster is reindexed twice a step, and a cell of it copied out
+of the cache would be ground the traffic left several frames ago. **A body inside a container or otherwise
+switched off is in neither picture**, because it is in neither index: the layer draws the work a step did
+and not the town's census.
+
+**It is read as it stands and never brought up to date for the picture.** A query outside a step reindexes
+a stale moving set before it answers, and drawing may not: that call retakes every bound and rewrites the
+integrated-body count the panel beside the picture is reading. A lattice one step old is what the step that
+has been taken was actually priced on.
+
+**And it does not take the mouse.** The pick belongs to the geometry grid alone (OBS-2t): a second layer
+asking for the click would be two layers owning one gesture (OBS-2c), and what this one is read for is
+where the cells crowd rather than what one of them holds.
 
 ## Two performance rules this layer taught
 

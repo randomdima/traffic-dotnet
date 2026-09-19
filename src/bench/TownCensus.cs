@@ -30,7 +30,7 @@ internal static class TownCensus
     public static void Run(string map, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var elapsed = Stopwatch.GetElapsedTime(started);
 
         Console.WriteLine($"census — {plan.Name}, seed {plan.Seed}");
@@ -46,22 +46,37 @@ internal static class TownCensus
         // of the town each kind covers is measured by asking, on a lattice this report owns and at the step
         // the figures name. The area is the sample's, which is what the row says.
         var stepM = config.Terrain.GroundStepM;
+        var kindAt = new byte[Steps(plan.WorldSizeM.X, stepM) * Steps(plan.WorldSizeM.Y, stepM)];
         Span<int> samplesPerGround = stackalloc int[GroundCatalog.Kinds];
         var samples = 0;
-        var asked = Stopwatch.GetTimestamp();
         for (var y = stepM * 0.5f; y < plan.WorldSizeM.Y; y += stepM)
         {
             for (var x = stepM * 0.5f; x < plan.WorldSizeM.X; x += stepM)
             {
-                samplesPerGround[(int)locator.GroundAt(new Vector2(x, y))]++;
-                samples++;
+                var ground = locator.GroundAt(new Vector2(x, y));
+                kindAt[samples++] = (byte)ground;
+                samplesPerGround[(int)ground]++;
             }
         }
 
+        var nsPerAsk = new double[GroundCatalog.Kinds];
+        var askedNs = 0d;
+        for (var ground = 0; ground < nsPerAsk.Length; ground++)
+        {
+            if (samplesPerGround[ground] == 0) continue;
+
+            nsPerAsk[ground] =
+                NsPerAsk(locator, kindAt, (Ground)ground, plan.WorldSizeM, stepM, samplesPerGround[ground]);
+            askedNs += nsPerAsk[ground] * samplesPerGround[ground];
+        }
+
         // <b>What one question costs, beside the answers.</b> Four wheels a car, sixty times a second, is
-        // what this figure is really about, and a sweep of the whole town is the cheapest honest way to take
-        // it — every kind of ground in the proportion the town actually holds them.
-        var perAsk = Stopwatch.GetElapsedTime(asked).TotalMilliseconds * 1e6 / samples;
+        // what this figure is really about, and the whole town is the cheapest honest way to take it — every
+        // kind of ground in the proportion the town actually holds them. <b>Which is the mean of the rows and
+        // not a sweep of its own</b>, because the two hot paths have almost nothing in common: a wheel's ask
+        // is the roads and the driven bands, and a walker's carries on into the water's rings and the walk —
+        // so one figure over the mix says what a town costs and nothing about what either of them costs.
+        var perAsk = askedNs / samples;
 
         Console.WriteLine($"ground, sampled every {stepM:F2} m — {samples / 1000} k asks at {perAsk:F0} ns each");
         for (var ground = 0; ground < samplesPerGround.Length; ground++)
@@ -70,7 +85,7 @@ internal static class TownCensus
 
             var rules = GroundCatalog.RulesOf((Ground)ground);
             Console.WriteLine($"  {(Ground)ground,-13}{samplesPerGround[ground] * stepM * stepM / 10000f,10:F2} ha  " +
-                              $"{100d * samplesPerGround[ground] / samples,5:F1} %  {rules}");
+                              $"{100d * samplesPerGround[ground] / samples,5:F1} %  {nsPerAsk[ground],5:F0} ns  {rules}");
         }
 
         Console.WriteLine();
@@ -120,14 +135,35 @@ internal static class TownCensus
         var ring = RingWidest(plan);
         Console.WriteLine($"  roundabouts    {plan.Roundabouts.Count,7}  {plan.Roundabouts.Road.Length} roads circulating, " +
                           $"{ring.WidestM:F1} m across at the widest, at {ring.AtM.X:F0},{ring.AtM.Y:F0}");
-        // A zebra has no span of its own to print: what it reaches is solved off the road it is painted on
-        // (TER-6), and the widest is the one laid furthest off square.
-        Console.WriteLine($"  crossings      {plan.Crosswalks.Count,7}  {Mean(plan.Crosswalks.DepthM):F2} m deep, " +
-                          $"reaching {Widest(plan):F2} m at the widest");
-        Console.WriteLine($"  stop bars      {plan.StopLines.Count,7}  {Mean(plan.StopLines.SpanM):F2} m across the lane, " +
-                          $"{Mean(plan.StopLines.ThicknessM):F2} m thick");
+        // A zebra has no span of its own to print: what it reaches is the two kerbs its walk crosses between
+        // (TER-6, WLK-10), and the widest is the widest reach any of them has. Read off the registry the
+        // paint is laid from (<see cref="Crossings"/>) and never the plan's own array, which is a town's
+        // arms and not its paint. <b>Asked for by the places the walk crosses</b> (<see cref="KerbEnds"/>),
+        // which is the one answer the picture is painted from too — and the bars off the places it is cut,
+        // which is the answer they are laid from there.
+        var ends = plan.Paving(config).RoadEnds(config);
+        var crossings = Crossings.Lay(plan, config, ends.CrossedM);
+        var bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config);
+        var overrunning = Overrunning(plan, crossings);
+        var reaching = Reaching(ends);
+        Console.WriteLine($"  kerb ends      {ends.Further.Length + ends.Nearer.Length,7}  standing " +
+                          $"{reaching.MiddleM:F2} m out of the box at the middle of them, {reaching.WorstM:F2} m at " +
+                          $"the furthest, on road {reaching.Road} at {reaching.AtM.X:F0},{reaching.AtM.Y:F0}");
+        Console.WriteLine($"  crossings      {crossings.Count,7}  {Mean(crossings.DepthM):F2} m deep, " +
+                          $"reaching {Widest(crossings):F2} m at the widest; {Midway(crossings)} midway down " +
+                          $"a short road; {overrunning.Over} reach past " +
+                          $"their carriageway, by up to {overrunning.WorstM:F2} m");
+        Console.WriteLine($"  stop bars      {bars.Count,7}  {Mean(bars.SpanM):F2} m across the lane, " +
+                          $"{Mean(bars.ThicknessM):F2} m thick");
+        // What an arrow says is what its lane offers (TER-6a), so the spread over the three is the town's
+        // own reading of how much choice a driver holding at a bar has.
+        var arrows = LaneArrows.Lay(plan.Paving(config).Lanes, bars, config);
+        Console.WriteLine($"  lane arrows    {arrows.Count,7}  {Saying(arrows, 1)} say one way, " +
+                          $"{Saying(arrows, 2)} two, {Saying(arrows, 3)} three; " +
+                          $"{Bending(arrows):F0}° of turn at the sharpest branch");
         Console.WriteLine($"  parking lots   {plan.ParkingLots.Count,7}  {plan.ParkingLots.SpaceCount} spaces");
-        Console.WriteLine($"  buildings      {plan.Buildings.Count,7}  capacity {capacity}, {plan.Buildings.EntryPointM.Length} ways in");
+        Console.WriteLine($"  buildings      {plan.Buildings.Count,7}  of {BuildingsAskedFor(plan)} planned, " +
+                          $"capacity {capacity}, {plan.Buildings.EntryPointM.Length} ways in");
         Console.WriteLine($"  props          {plan.Props.Count,7}  {propsByKind[0]} wild, {propsByKind[1]} planted, " +
                           $"{propsByKind[2]} furniture; {turned} turned onto the kerb they stand along");
         Console.WriteLine($"  water          {plan.Water.Outline.Count,7}  outlines, {plan.Water.Outline.PointM.Length} points; " +
@@ -153,6 +189,57 @@ internal static class TownCensus
         Console.WriteLine();
 
         Networks(plan, config);
+    }
+
+    /// <summary>How many samples a walk of one axis takes, by the recurrence the walk itself is written as.</summary>
+    static int Steps(float sizeM, float stepM)
+    {
+        var steps = 0;
+        for (var atM = stepM * 0.5f; atM < sizeM; atM += stepM) steps++;
+
+        return steps;
+    }
+
+    /// <summary>
+    /// How many asks of one kind are timed. A quarter of a million is far past what the figure needs to
+    /// settle, and it holds the whole reading to a fraction of a second on a city.
+    /// </summary>
+    const int MostTimedAsks = 1 << 18;
+
+    /// <summary>
+    /// <b>What one ask of one kind of ground costs</b>, over the points the sweep already found to be it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked again rather than timed in place.</b> A timestamp costs a fair share of the ask it would be
+    /// measuring, so a per-kind figure taken inside the sweep would be mostly the instrument — the sweep
+    /// classifies and this measures, and the points are collected outside the clock.
+    ///
+    /// <b>Strided and not capped at the front</b>, because a kind lies in bands across a town: the first
+    /// quarter of a million points answering water are one end of the river, where every ask is inside the
+    /// same ring's box. And nothing is done with the answer because nothing needs to be — the ask stamps the
+    /// locator's own scan, so it cannot be elided.
+    /// </remarks>
+    static double NsPerAsk(
+        GroundLocator locator, byte[] kindAt, Ground ground, Vector2 worldSizeM, float stepM, int count)
+    {
+        var stride = (count + MostTimedAsks - 1) / MostTimedAsks;
+        var pointsM = new Vector2[(count + stride - 1) / stride];
+        var taken = 0;
+        var seen = 0;
+        var at = 0;
+        for (var y = stepM * 0.5f; y < worldSizeM.Y; y += stepM)
+        {
+            for (var x = stepM * 0.5f; x < worldSizeM.X; x += stepM)
+            {
+                if (kindAt[at++] != (byte)ground) continue;
+                if (seen++ % stride == 0 && taken < pointsM.Length) pointsM[taken++] = new Vector2(x, y);
+            }
+        }
+
+        var asked = Stopwatch.GetTimestamp();
+        foreach (var pointM in pointsM.AsSpan(0, taken)) locator.GroundAt(pointM);
+
+        return Stopwatch.GetElapsedTime(asked).TotalMilliseconds * 1e6 / taken;
     }
 
     /// <summary>
@@ -225,6 +312,13 @@ internal static class TownCensus
 
         return found;
     }
+
+    /// <summary>
+    /// <b>How many buildings the map planned</b> (GEN-54), so what is printed beside it is what the frontage
+    /// could carry of them (GEN-8). <b>A map laid in code has no brief and plans none.</b>
+    /// </summary>
+    static int BuildingsAskedFor(CityPlan plan) =>
+        Maps.IsGenerated(plan.Name) ? Maps.Brief(plan.Name).Buildings : 0;
 
     static int JunctionsWith(CityPlan plan, int arms)
     {
@@ -304,20 +398,23 @@ internal static class TownCensus
         Joins(roads, plan, config);
 
         var footStarted = Stopwatch.GetTimestamp();
-        var foot = FootGraph.Build(plan, config);
+        var pavement = PavementLanes.Of(plan, config);
+        var crossed = CrossingWays.Of(plan, pavement, config);
+        var foot = FootGraph.Build(pavement, crossed, config);
         var footElapsed = Stopwatch.GetElapsedTime(footStarted);
 
         var walkStarted = Stopwatch.GetTimestamp();
-        var walking = WalkingNetwork.Build(foot, new GroundLocator(plan, config), config);
+        var walking = WalkingNetwork.Build(foot, config);
         var walkElapsed = Stopwatch.GetElapsedTime(walkStarted);
 
+        // Every edge, because every edge is a lane walked its own way (WLK-8) rather than one of a pair.
         var footM = 0f;
         var crossings = 0;
-        var keptM = 0f;
-        for (var edge = 0; edge < foot.EdgeCount; edge += 2)
+        var walkedM = 0f;
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
             footM += foot.LengthM(edge);
-            keptM += walking.LaneOffsetM(edge);
+            walkedM += walking.LaneWidthM(edge);
             if (foot.KindOf(edge) == FootEdgeKind.Crossing) crossings++;
         }
 
@@ -330,14 +427,169 @@ internal static class TownCensus
             totalWalkM += walkRuns.LengthM(link);
         }
 
-        var stretches = foot.EdgeCount / 2;
-        Console.WriteLine($"  walking        {stretches,7}  stretches over {foot.NodeCount} fine nodes, {footM / 1000f:F2} km, " +
+        Courses(plan, config);
+
+        var lanes = foot.EdgeCount;
+        Console.WriteLine($"  walking        {lanes,7}  lanes over {foot.NodeCount} fine nodes, {footM / 1000f:F2} km, " +
                           $"{crossings} of them crossings, laid in {footElapsed.TotalMilliseconds:F0} ms");
+        var unreached = crossed.Unreached == 0
+            ? "0 of their lanes with no walk in reach"
+            : $"{crossed.Unreached} of their lanes with no walk in reach, one at " +
+              $"{crossed.UnreachedAtM.X:F0},{crossed.UnreachedAtM.Y:F0} whose course stands " +
+              $"{crossed.UnreachedOffM:F1} m off";
+        Console.WriteLine($"  crossed at     {crossed.Junctions,7}  junctions, {crossed.Merged} of them a " +
+                          $"crossing standing where another already did; {crossed.Refused} zebras refused " +
+                          $"for want of a kerb to stop at, {unreached}; " +
+                          $"{crossed.Unjoined} connections no curve would join");
         Console.WriteLine($"  contracted to  {walkRuns.LinkCount,7}  runs joined {WaysOn(walkRuns.Graph)} ways on; " +
                           $"mean {(walkRuns.LinkCount == 0 ? 0f : totalWalkM / walkRuns.LinkCount):F0} m, longest {longestWalkM:F0} m, " +
-                          $"mean lane offset {(stretches == 0 ? 0f : keptM / stretches):F2} m of " +
-                          $"{config.WalkingLaneOffsetM:F2}, in {walkElapsed.TotalMilliseconds:F0} ms");
+                          $"mean lane {(lanes == 0 ? 0f : walkedM / lanes):F2} m wide of " +
+                          $"{config.WalkingLaneWidthM:F2}");
+
+        Console.WriteLine($"  laid in        {walkElapsed.TotalMilliseconds,7:F0}  ms");
+        Smoothness(foot, walking);
         Boundary(plan, config);
+    }
+
+    /// <summary>
+    /// <b>The lanes the town's pavement is walked down</b> (WLK-1, <see cref="PavementLanes"/>): the driven
+    /// ground's boundary moved off itself once per lane, which is the shape the fine graph is laid from.
+    /// </summary>
+    /// <remarks>
+    /// <b>One reading per lane, and what it weighs is whether the move closed</b>: a course that came back
+    /// as a run rather than a ring is a pavement with two ends in the middle of the town, and it is walked
+    /// by nobody. How far round each ring goes is the second question and is what says whether a lane is a
+    /// street's frontage or the whole outside of a block; <b>how many pieces it came back in is how many
+    /// lanes the graph holds</b>, one per piece.
+    /// </remarks>
+    static void Courses(CityPlan plan, SimConfig config)
+    {
+        var courses = PavementLanes.Of(plan.Paving(config).Perimeter(config), config);
+        for (var lane = 0; lane < courses.Count; lane++)
+        {
+            var rings = courses.RingsOf(lane);
+            var loose = courses.LooseOf(lane);
+            var lengthM = 0f;
+            var longestM = 0f;
+            var longestAtM = Vector2.Zero;
+            foreach (var ring in rings)
+            {
+                var ringM = Spline.TotalLengthM(ring);
+                lengthM += ringM;
+                if (ringM <= longestM) continue;
+
+                longestM = ringM;
+                longestAtM = ring[0].StartM;
+            }
+
+            var openM = 0f;
+            var endsApartM = 0f;
+            foreach (var run in loose)
+            {
+                openM += Spline.TotalLengthM(run);
+                endsApartM = MathF.Max(endsApartM, Vector2.Distance(run[0].StartM, run[^1].EndM));
+            }
+
+            var pieces = 0;
+            foreach (var ring in rings) pieces += ring.Length;
+
+            Console.WriteLine($"  lane at        {courses.OffsetM(lane),7:F2}  m off the tarmac, walked " +
+                              $"{(courses.RunsWithTheRing(lane) ? "with" : "against")} its rings: " +
+                              $"{rings.Length} closed, {lengthM / 1000f:F2} km over {pieces} pieces, " +
+                              $"longest {longestM:F0} m at {longestAtM.X:F0},{longestAtM.Y:F0}; " +
+                              $"{loose.Length} runs left open over {openM:F1} m, ends up to " +
+                              $"{endsApartM:F3} m apart");
+        }
+    }
+
+    /// <summary>
+    /// <b>How smoothly the walking network's own lines run</b>: at every joint of every chain in it — the
+    /// stretch the graph holds and the lane a body is actually held on — the gap between the piece arriving
+    /// and the piece leaving, and how far the line turns across that joint.
+    /// </summary>
+    /// <remarks>
+    /// <b>The two readings say different things, and a lane worse than the stretch under it is the one to
+    /// act on.</b> A stretch is cut out of the boundary moved by one figure (<see cref="FootGraph"/>), so
+    /// whatever it turns at a joint is the town's own corner and no instrument can argue with it; a lane is
+    /// laid beside that stretch (<see cref="ArcOutset.Beside"/>) and owes the reader every joint of it shut,
+    /// whatever the stretch turns.
+    /// </remarks>
+    static void Smoothness(FootGraph foot, WalkingNetwork walking)
+    {
+        var stretches = new Joints();
+        var lanes = new Joints();
+        for (var edge = 0; edge < foot.EdgeCount; edge++)
+        {
+            if ((edge & 1) == 0) stretches.Walk(foot.ArcsOf(edge));
+
+            lanes.Walk(walking.LaneOf(edge));
+        }
+
+        Console.WriteLine($"  stretch joints {stretches.Count,7}  {stretches.Say()}");
+        Console.WriteLine($"  lane joints    {lanes.Count,7}  {lanes.Say()}");
+    }
+
+    /// <summary>What a run of chains came to at the joints between their pieces, gathered as it is walked.</summary>
+    /// <remarks>
+    /// <b>A hair of a corner and a corner are read apart</b>, because a chain of arcs fitted to a curve turns
+    /// a little at every joint by construction and turning a little is not what anybody means by rugged. The
+    /// figure that separates them is the one a bend is fitted to (<c>SplineToleranceWalkedM</c>) read as an
+    /// angle, which is <see cref="CornerRad"/>.
+    /// </remarks>
+    sealed class Joints
+    {
+        /// <summary>How wide a gap has to be before a frame shows it: a centimetre.</summary>
+        const float SeenM = 0.01f;
+
+        /// <summary>
+        /// And how far a joint has to turn before it is a corner rather than the grain of a fitted bend: five
+        /// degrees, under which nothing drawn at a town's scale reads as anything but a curve.
+        /// </summary>
+        const float CornerRad = 5f * MathF.PI / 180f;
+
+        public int Count { get; private set; }
+
+        int Open { get; set; }
+
+        int Cornered { get; set; }
+
+        int Folded { get; set; }
+
+        float WorstM { get; set; }
+
+        float WorstRad { get; set; }
+
+        Vector2 WorstAtM { get; set; }
+
+        Vector2 WorstCornerAtM { get; set; }
+
+        public void Walk(ReadOnlySpan<ArcSeg> chain)
+        {
+            foreach (ref readonly var piece in chain)
+            {
+                if (piece.LengthM <= 0f) Folded++;
+            }
+
+            for (var piece = 1; piece < chain.Length; piece++)
+            {
+                ref readonly var arriving = ref chain[piece - 1];
+                ref readonly var leaving = ref chain[piece];
+                var gapM = Vector2.Distance(arriving.EndM, leaving.StartM);
+                var turnRad = MathF.Abs(
+                    Spline.WrapRad(leaving.HeadingRad - arriving.HeadingAtRad(arriving.LengthM)));
+
+                Count++;
+                if (gapM > SeenM) Open++;
+                if (turnRad > CornerRad) Cornered++;
+                if (gapM > WorstM) (WorstM, WorstAtM) = (gapM, arriving.EndM);
+                if (turnRad > WorstRad) (WorstRad, WorstCornerAtM) = (turnRad, arriving.EndM);
+            }
+        }
+
+        public string Say() =>
+            $"{Open} open past a centimetre, worst {WorstM * 1000f:F0} mm at {WorstAtM.X:F0}, {WorstAtM.Y:F0}; " +
+            $"{Cornered} turning past five degrees, worst {WorstRad * 180f / MathF.PI:F0}° at " +
+            $"{WorstCornerAtM.X:F0}, {WorstCornerAtM.Y:F0}; {Folded} pieces the move turned inside out";
     }
 
     /// <summary>
@@ -478,16 +730,113 @@ internal static class TownCensus
                           $"longest lane {longestM:F0} m");
     }
 
-    /// <summary>How far the furthest-reaching zebra runs, which on a town of square crossings is a road's width.</summary>
-    static float Widest(CityPlan plan)
+    /// <summary>How many arrows say as many ways as this — how much choice a driver holding at a bar has.</summary>
+    static int Saying(LaneArrows arrows, int ways)
     {
-        var spanM = 0f;
-        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+        var saying = 0;
+        for (var arrow = 0; arrow < arrows.Count; arrow++)
         {
-            spanM = MathF.Max(spanM, plan.CrossingSpanM(crossing));
+            if (arrows.BranchAt[arrow + 1] - arrows.BranchAt[arrow] == ways) saying++;
         }
 
+        return saying;
+    }
+
+    /// <summary>
+    /// And how far the sharpest branch anywhere in the town bends through, in degrees — the cap
+    /// (<see cref="RoadFigures.LaneArrowBendMostDeg"/>) where any turn at all reached it.
+    /// </summary>
+    static float Bending(LaneArrows arrows)
+    {
+        var sweptRad = 0f;
+        foreach (var branch in arrows.Branch) sweptRad = MathF.Max(sweptRad, MathF.Abs(branch.Curvature * branch.LengthM));
+
+        return sweptRad * 180f / MathF.PI;
+    }
+
+    /// <summary>How far the furthest-reaching zebra runs, which on a town of square crossings is a road's width.</summary>
+    static float Widest(Crossings crossings)
+    {
+        var spanM = 0f;
+        foreach (var span in crossings.SpanM) spanM = MathF.Max(spanM, span);
+
         return spanM;
+    }
+
+    /// <summary>
+    /// <b>How many of the town's zebras are the one a short road is crossed by</b> (WLK-10): a road whose two
+    /// ends would be cut within a stride of each other is cut once between them instead, so this is the count
+    /// of roads the figure caught rather than a second fact about the paint.
+    /// </summary>
+    static int Midway(Crossings crossings)
+    {
+        var midway = 0;
+        foreach (var one in crossings.Midway)
+        {
+            if (one) midway++;
+        }
+
+        return midway;
+    }
+
+    /// <summary>
+    /// <b>How far into its box the kerb of a road runs before the boundary leaves it</b>
+    /// (<see cref="KerbEnds.Mark.OutM"/>): the middle of them, the furthest of them, and where that one
+    /// stands — which is a walk's station and a driver's bar a metre further out again, both of them laid
+    /// off the further of a road's two ends (TER-6, WLK-10).
+    /// </summary>
+    /// <remarks>
+    /// <b>A reading and not a gate.</b> How deep a mouth is belongs to the box: a wide road meeting a narrow
+    /// one at a shallow angle really does keep its kerb a long way in, so there is no figure here that a town
+    /// is wrong for passing. What the reading is for is the other thing it catches — an end taken from a
+    /// place the boundary was misread at stands tens of metres out, and being the furthest it is the one
+    /// that carries the paint (<see cref="KerbEnds.Further"/>).
+    /// </remarks>
+    static (float MiddleM, float WorstM, int Road, Vector2 AtM) Reaching(KerbEnds ends)
+    {
+        var totalM = 0f;
+        var worst = new KerbEnds.Mark(Vector2.Zero, -1, -1, -1, 0f);
+        var standing = 0;
+        Weigh(ends.Further);
+        Weigh(ends.Nearer);
+        return (standing == 0 ? 0f : totalM / standing, worst.OutM, worst.Road, worst.AtM);
+
+        void Weigh(ReadOnlySpan<KerbEnds.Mark> set)
+        {
+            foreach (var end in set)
+            {
+                totalM += end.OutM;
+                standing++;
+                if (end.OutM > worst.OutM) worst = end;
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>How far the widest zebra overruns the carriageway it crosses</b>, and how many overrun one at all.
+    /// A zebra reaches the two kerbs its walk crosses between (WLK-10, TER-6), and at a mouth the ground a
+    /// junction's movements are driven over reaches past the arm's own edge — so a band there is longer than
+    /// its road is wide, and what it reaches over past the tarmac is the corner.
+    /// </summary>
+    /// <remarks>
+    /// <b>A reading and not a gate.</b> Nothing refuses a band for overrunning, so how far one does is the
+    /// instrument's to report — and it is the figure behind two arms of a tight junction laying paint over
+    /// one another at the corner they share.
+    /// </remarks>
+    static (int Over, float WorstM) Overrunning(CityPlan plan, Crossings crossings)
+    {
+        var over = 0;
+        var worstM = 0f;
+        for (var crossing = 0; crossing < crossings.Count; crossing++)
+        {
+            var pastM = crossings.SpanM[crossing] - plan.Roads.WidthM[crossings.Road[crossing]];
+            if (pastM <= LineTolerance.RoundingM) continue;
+
+            over++;
+            worstM = MathF.Max(worstM, pastM);
+        }
+
+        return (over, worstM);
     }
 
     static float Mean(ReadOnlySpan<float> figures)

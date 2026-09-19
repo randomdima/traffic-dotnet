@@ -18,7 +18,7 @@ namespace TrafficSimulation.App.Debug;
 /// </para>
 /// <para>
 /// <b>Milliseconds and not stopwatch ticks</b>, which is the opposite of
-/// <see cref="Shared.Simulation.PhaseTimes"/> and for the opposite reason: a phase is tens of
+/// <see cref="Core.Simulation.PhaseTimes"/> and for the opposite reason: a phase is tens of
 /// microseconds accumulated over a whole window, where a frame's part is a millisecond-scale figure
 /// taken once a frame. There is nothing here for the integer to protect.
 /// </para>

@@ -43,7 +43,7 @@ internal sealed class LaidTown
 
     public static LaidTown Lay(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var ground = GroundMesh.Build(plan, config);
         var world = new TownWorld(plan, config);
         return new LaidTown(plan, ground, world, Scenarios.For(world, config));

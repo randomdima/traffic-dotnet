@@ -4,6 +4,168 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-19 — the ways one place stands on are read into a frame nobody zeroes
+
+Every path that asks whose the ground under a body is takes its answer into a span of `WayUnder`, and that
+span is `MostWaysUnderAPlace` long because a seven-armed junction is: `2 + (connectors + lanes) * 2` entries
+of forty bytes, so a few kilobytes a call. `stackalloc` writes zeroes over all of it first. **Not one of
+those zeroes is ever read.** `GroundUnder.At` fills every slot below the count it hands back before anything
+looks at one, and no caller reads above that count — the same bargain a candidate query keeps — so the
+initialisation was stores paid for and thrown away, once a car a tick down the road, again for every
+template a desk weighs, and again for every walker standing anywhere.
+
+Six sites carry `SkipLocalsInit` for it, and **the contract is stated once, on `GroundUnder.At`**, because it
+is that method's promise and not six separate observations about frames. What it came to on a standing town
+(`--bench town`): Odesa **3390 → 3135 µs a tick**, River 3071 → 2877, and the claims phase alone 1355 → 1237
+— six or seven per cent of everything, for an attribute.
+
+**It is a per-method audit and never a module-wide switch.** The tree holds eighty-odd `stackalloc`s and
+most of them have not been read against this contract; a frame left uninitialised under a method that reads
+a slot it did not write reads whatever the last call left on the stack, which is a bug that reproduces
+differently every run. The six here were each checked to the count.
+
+## 2026-09-19 — an arrow is the movement drawn small, not a glyph picked out of a set
+
+The obvious way to paint lane arrows is three shapes and four more for the pairs, laid at a fixed right
+angle. It would have been wrong in the two ways that matter here. **A fixed right angle lies about the
+junction**: a town's arms stand anywhere from `ArmsApartMinDeg` apart to nearly opposite, so most of its
+turns are not right angles and an arrow drawn as one says the same thing at every mouth in the town.
+**And a set of glyphs is a set to extend**: the first one-way street that offers a turn and a straight would
+have wanted an eighth entry drawn by hand.
+
+So an arrow is a shaft down the lane and one branch per turn the lane offers, and the branch is bent by the
+angle the turn was classified from (`Spline.TurnedRad` of the movement's own line, the number
+`LaneLines.ConnectorKind` was decided by). The combinations fall out: three branches off one shaft are the
+same arithmetic three times, and nothing anywhere names *ahead-and-left* as a thing.
+
+**What sizes the curl is the lane and not the turn.** The radius is solved out of how far across its lane
+the glyph may reach once the head has taken its share, and the sweep is kept whatever that comes to — so a
+square corner curls tightly, a shallow one sweeps the whole arrow, and neither hangs a head over the kerb.
+The alternative, an authored radius, has no answer for the shallow turn: at a fixed small radius a
+thirty-degree branch leaves the bend early and then runs straight off the side of the lane.
+
+**And the bar is laid once and read twice.** The arrow stands a setback behind the bar in the lane's own
+metres, which is the figure `StopBars` placed the bar by — so the bar carries `AlongM` rather than the arrow
+projecting the bar's centre back onto the lane and getting a centimetre's different answer over a bend.
+
+**The glyph is anchored at its front and not at its tail.** Fixing the tail is the easier arithmetic and it
+puts a turn-only arrow's paint a metre and a half further back than the arrow beside it, because a bend
+spends most of its run going sideways: a row of approaches then reads as marks at four different distances
+from four bars. So the branches are shaped first, the furthest-reaching one says how much of the length is
+left, and the shaft takes the remainder — one length, one setback, and the shaft carrying the difference
+rather than the driver.
+
+## 2026-09-19 — the walk hands the road two answers, and only the zebra follows the shorter one
+
+A street too short to be crossed twice is crossed once midway between its ends (`WLK-10a`), and the first cut
+of that moved everything that hangs off a crossing with it: one band, filed at both of the street's arms, so
+both its lanes were stopped a setback behind a bar in the middle of the street and the lane line had nothing
+left to be painted down. A bar is where a driver holds for the box in front of them, which is a fact about
+the end of the street and not about where the paint went — so the walk now hands down two lists,
+`KerbEnds.NodesM` for where it is cut and `KerbEnds.CrossedM` for where it crosses, and they are the same
+list on every street but a welded one.
+
+**The road tier reads both through one type** (`Crossings.Lay` of either span) rather than growing a second
+registry of bands: what a band *is* does not change between the two questions, and two constructions of it
+would disagree about a corner the week after either moved. The paint is laid from the crossings, the bars
+and the lane line's trim from the stations.
+
+**A bar with nothing in front of it falls back to the kerb end.** A station stands
+`Road.FootNodeClearM` out from where the road's kerb ends, and the bar a setback clear of the band standing
+there — so a bar left at a station the paint has gone from holds a carriageway's width out from the box it is
+held for. The second answer therefore carries the kerb end at those arms and a flag saying no paint stands
+at it, which the road tier takes as a band of no depth: one figure, and the setback, the bar and the line's
+trim all come out right without any of the three learning a second case.
+
+**Which leaves the dashes running under the stripes of a welded crossing**, and that is the point: a run
+trimmed towards a band in the middle of itself is cut from both ends and no line is left.
+
+## 2026-09-18 — a band's near edge is struck along the band's own axis and not along the lane behind it
+
+A stop bar was placed a setback back from the crossing in front of it, and the crossing's near edge was
+struck by stepping half the band's depth along **the lane's direction at the lane's own end**. Those two
+bearings are the same only where the arm has straightened out by the time it reaches its junction. A band is
+laid square to the walk that placed it (WLK-10), so which way it is deep is its own fact and holds wherever
+along the arm the paint ended up standing: struck along the lane instead, the step goes partly *across* the
+band rather than back down the road, and the bar lands centimetres out of the gap it was meant to leave —
+0.58 m out once a crossing stood tens of metres from the end it used to sit beside.
+
+**What the lane is still asked is which of the band's two edges the traffic meets first**, which is a sign
+and not a bearing, so reading it at the lane's end costs nothing however the arm bends.
+
+**Two fitted bounds grew with it**, both of them measured on the fixture and neither of them a figure the
+claim leans on: the gap read as a straight and the gap the bar was placed by part company by what nearly two
+metres of offset across the road costs over the bend, and the paint down a run stops a fixed reach from the
+road's end whatever the band did, so every centimetre the bar moves comes out of that margin.
+
+## 2026-09-17 — a junction's crossings are worked out a place at a time, and filed in place order
+
+`LayCrossings` walked every junction on one thread, sampling each movement there and pairing them —
+91 ms of a town's standing cost, and every place a question about its own connectors' lines and nothing
+else. It runs on as many threads as there are now, with each thread carrying its own sample buffers
+(`Placing`), and the whole of the slice's cost fell to under 30 ms.
+
+**Each place holds its sections and they are strung afterwards in place order.** A connector belongs to one
+place, so no two threads could reach one way's list and the appends could have been made where they were
+found — but then the order the sections come out in would be a fact about the numbering rather than about
+this loop, and the next person to renumber anything would have to know that. Held and strung, the order is
+the order one thread would have appended them in, and it stays so whatever else moves.
+
+## 2026-09-16 — an arm's paint is measured from the end of the arm, and the whole bundle hangs off that
+
+A crossing used to stand a setback past the ground its junction reached, the bar a setback behind the
+crossing, and the lane line stopped at whichever of the two was outermost. The reach was kerb geometry
+(`SimConfig.JunctionArmReachM`) and the kerb is not laid here any more, so the chain had nothing left to
+hang from.
+
+**The place it hangs from now is the arm's own end** — the connection point the arm was drawn with
+(`GEN-46`, TER-5d), where the road stops being driven and the junction's ground begins. The band stands its
+margin short of that, the bar its own setback behind the band, and the dashes stop short of the bar. It is
+the one place on every arm that means the same thing however skewed, narrow or one-way the arm is, and it
+is read off the lanes rather than measured a second way.
+
+**So the three marks are one bundle and `Crossings` is the whole of where it stands.** `StopBars` asks it
+where the band is rather than subtracting a depth from the lane's own metres — over a bend the lane and its
+road run at different rates, and the bar came out centimetres out of the gap it was meant to leave — and
+`CentrelineRuns.PaintedM` asks it how much road the arm's paint takes, which is the arm's whole bundle
+(`SimConfig.ArmPaintM`) and not the part of it behind the band. Rule 3 of the markings is that relation
+stated: a bar on an arm with a crossing is placed by the crossing alone.
+
+**Which junctions carry the bundle is the same question the lane line asks, read the other way round.** A
+run of dashes carries on through a node that forks nothing and paint stands only where one forks, so both
+read `JunctionArms` rather than counting arms apiece: a car park injected into a street, a dead end and the
+two-armed nodes a bridge or a loop left behind are nowhere a driver is refused, and neither is a
+roundabout's ring (`GEN-19`). **A road too short for the paint of both its ends carries none at all**, which
+is asked of the road rather than of each end, two bands laid over one another being one band painted twice.
+
+**The registries are derived and not planned.** `CityPlan.Crosswalks` and `CityPlan.StopLines` still carry
+what a generator painted, and nothing fills them; `Crossings` and `StopBars` are laid off the plan the way
+`CentrelineRuns` is, so the paint reads one answer. **What has not been reconnected is everything that is
+not the picture**: the ground does not answer crosswalk where a zebra is, no walker is owed a way over one,
+no signal hangs off a bar and `LaneFurniture` still reads the plan's empty array, so nobody holds at one.
+
+## 2026-09-16 — a lane line is painted down a carriageway, and a carriageway is not a road
+
+`CentrelineRuns` is back, with its shape inverted. Under the old layer a road ran through many junctions and
+a run was a *stretch cut out of one road*: what was left after the discs, the zebras and the ground behind
+each bar were taken off it. Under this one a road ends at every node something meets it at, so a run is the
+other thing — **several roads joined into the carriageway they are pieces of**.
+
+**What makes the difference is the car park.** A lot is a junction cut into a street that already stood
+(`GEN-52`), so a street with three lots down it is four roads; its bays are nowhere a driver going past
+could turn, and the street itself is unbroken. Painted road by road it came out as four lines with a gap at
+every lot and four dash phases, which is neither what a street looks like nor what rule 4 of the markings
+asks for. The same is true of the two-armed nodes a bridge, a loop or a refused join left behind, so the
+test is **what stands at the node** and never what kind of thing put it there: two road arms and any number
+of bays is one carriageway, anything more is where it ends.
+
+**The ground between two roads is crossed on a biarc between their two ends** — the same construction the
+movements over it are drawn on (`LaneLines`), one level down, because the two lanes either side of that
+ground are that ground's own line offset half a lane each way. At a cut junction it is a piece of the
+road's own arc and nothing is drawn again; at a node with a real deflection it is the curve the two
+straight movements meet along, which `GroundMeshTests` measures the paint against rather than taking on
+trust.
+
 ## 2026-09-14 — the town does not lay the junction that decides nothing, so a lane never merges
 
 **A merge could not be expressed in the graph the search runs on, and the one place that tried was wrong.**
@@ -53,22 +215,6 @@ had drawn. Only the second half is this slice's: the first is the town's own geo
 the ground as by the traffic, and it is `CityGen.LaneLines` now. What the move buys is that the tarmac and
 the network cannot disagree — the question of whether the surface and the graph were laid to the same
 figures cannot be asked.
-
-## 2026-09-05 — the pavement is the tarmac wrapped, and a junction is not a case
-
-The walking network was six constructions and not one was the pavement, each laid off a *record* rather
-than off the ground beside it — a centreline, a disc, a fillet, a box — so where the records and the ground
-agreed the answer was right and where they did not nothing said so. It is one construction and one rule
-(TER-3c.3): `Kerbs` states the tarmac as one shape, every piece offers the line half a walk outside itself,
-and a metre of such a line is pavement exactly where nothing else stands nearer. Nothing is matched, pushed
-onto anything or joined across a gap, and `FootEdgeKind.JunctionCorner` is gone. The offset is compared
-with a rounding's grace, which is the whole of what makes the wrap exist — a junction's disc is drawn to
-the width of its arms, so the wrapping circle runs half a walk from both for its whole length, and compared
-exactly whether the pavement exists is the last bit of a float. A rounding and never a tolerance: at five
-centimetres a tangential meeting overruns by half a metre each and the pavement comes apart into a piece
-per corner. And the ends are stitched, because what is ill-conditioned is the crossing of two grazing
-curves and what is not is the distance between two cut ends. What is checked is the claim itself and not
-the derivation restated (VER-12).
 
 ## 2026-09-05 — a connector is an object, and where lanes meet is worked out from them
 

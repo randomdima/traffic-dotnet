@@ -101,6 +101,12 @@ internal static class GroundUnder
     /// them. <b>A place over no lane is on no way</b>: ground the network never had is ground nobody can
     /// have claimed.
     /// </summary>
+    /// <remarks>
+    /// <b>Every slot below the count is written before this returns, and no caller reads above it</b> —
+    /// which is what lets a caller leave the frame uninitialised (<c>SkipLocalsInit</c>). The span is
+    /// <see cref="MostWaysUnderAPlace"/> long because a seven-armed junction is, and a way is forty bytes, so
+    /// zeroing it is kilobytes a body a tick on every path that asks whose the ground is.
+    /// </remarks>
     /// <param name="body">
     /// The box the asking body stands in (<see cref="BodyFootprint"/>), which is what decides both how far
     /// past a band it reaches and how much of each way it covers.

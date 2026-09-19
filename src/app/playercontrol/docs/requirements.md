@@ -198,6 +198,26 @@ however far the town is turned.
 behaviour concern and the order is part of what it substitutes, so the order stands and is picked up
 again from the pose the player leaves the car in.
 
+**CTL-5d** `P7` **A hand may name its car instead of picking it out.** There is one selection and it belongs to
+whoever is watching, so a second driver — a script, a bot, a test — holds **one car by its number**, every
+tick, through the very seam CTL-5 already offers. **Nothing else about it differs**: the same pedals, the
+same envelope, the same beacon (CTL-5c), and the town told nothing about either hand.
+
+- **It reads no selection and moves none of the interface.** Picking units out, orders, the lever and the
+  reset are the reader's, and a driver that could reach them would be taking the town out from under
+  somebody's pointer.
+- **A car they are both holding is the player's.** The selection is a reader saying which car is theirs,
+  and a second hand that could win it would be a fight nobody watching could read.
+- **One named car and one hand**, because the whole of what this is for is a driver beside a reader rather
+  than a second way to drive a group.
+- **The car is marked on the town** — the selection's own brackets (`CTL-1`) in a hue of their own, because
+  it is the same question asked by somebody else. **It is outlined and the selection's mark is not**: a mark
+  the reader did not ask for lands on whatever colour that car is painted, and the town's palette holds
+  every hue a mark could be. A car they have also picked out wears the selection's mark and not both.
+- **And the camera stands on it when the reader has picked nothing out** (`OBS-1a`): a run carrying a second
+  driver is a run about that car, so the window opens on it and comes back to it when a selection is
+  dropped. Picking something out or moving the camera takes it, exactly as it always does.
+
 **CTL-5c** `P7` **A hand at the wheel runs the beacon.** Every car under that hand whose art draws a beacon bar — the police car,
 the ambulance and the evacuator, and nothing else the town stands (CAR-14a) — runs it for as long as the
 player has its wheel, and it goes out with the wheel. **It buys nothing**: this is the picture and not the road, so

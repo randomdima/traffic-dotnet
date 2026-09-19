@@ -10,7 +10,7 @@ namespace TrafficSimulation.World.Physics;
 /// </summary>
 /// <remarks>
 /// <para>
-/// A body is written into every cell its box touches, unlike <see cref="Shared.Spatial.BucketGrid"/>,
+/// A body is written into every cell its box touches, unlike <see cref="Core.Geometry.BucketGrid"/>,
 /// which indexes a centre and widens the query by the largest radius in the set. A grid a ray walks
 /// cannot widen a query — a segment crosses the cells it crosses — and the static set holds a tree
 /// beside a building, so one radius for all would make every query pay for the largest thing in town.
@@ -66,9 +66,19 @@ internal sealed class CellGrid
     int _generation;
     int _entryCount;
 
-    public int BodyCount { get; private set; }
-
     public float CellSizeM => _cellM;
+
+    /// <summary>
+    /// The corner the lattice is laid from, and how far it runs across and down in cells. <b>For whoever
+    /// draws the grid</b> (OBS-2x) and for nothing that queries it: a query hands over a box or a segment
+    /// and is given the cells, so a caller working the lattice out for itself would be a second copy of a
+    /// shape this retakes at every rebuild.
+    /// </summary>
+    public Vector2 OriginM => _originM;
+
+    public int Width => _width;
+
+    public int Height => _height;
 
     /// <summary>
     /// Lay the grid over the bodies named, at their bounding boxes as they now stand. The bound arrays
@@ -78,7 +88,6 @@ internal sealed class CellGrid
     {
         _leastM = leastM;
         _mostM = mostM;
-        BodyCount = bodies.Length;
         _entryCount = 0;
         _touchedCount = 0;
         NextGeneration();

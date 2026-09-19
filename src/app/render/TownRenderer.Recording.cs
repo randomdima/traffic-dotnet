@@ -5,6 +5,7 @@ using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
 using Image = Silk.NET.Vulkan.Image;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
@@ -57,10 +58,17 @@ internal sealed unsafe partial class TownRenderer
         }
 
         _cameras = new GpuBuffer[images];
+        _instances = new GpuBuffer[images];
+        _spriteIndirect = new GpuBuffer[images];
+        _overlay = new GpuBuffer[images];
+        _overlayIndirect = new GpuBuffer[images];
+        _underlay = new GpuBuffer[images];
+        _underlayIndirect = new GpuBuffer[images];
         _commands = _vk.AllocateCommandBuffers(images);
         _drawn = new Fence[images];
         _rendered = new Semaphore[images];
         _acquired = new Semaphore[images];
+        _image = 0;
 
         // The pictures, in binding order: the atlas, the glyphs, the tile and the five surfaces. A town
         // with no tiling sheet binds the ground in that slot, which nothing then samples.
@@ -81,6 +89,7 @@ internal sealed unsafe partial class TownRenderer
         for (var image = 0; image < images; image++)
         {
             _cameras[image] = _vk.CreateBuffer((ulong)sizeof(CameraView), BufferUsageFlags.UniformBufferBit, hostVisible: true);
+            CreateFrameBuffers(image);
 
             var camera = new DescriptorBufferInfo(_cameras[image].Handle, 0, (ulong)sizeof(CameraView));
             writes[CameraBinding] = new WriteDescriptorSet
@@ -128,6 +137,39 @@ internal sealed unsafe partial class TownRenderer
             Vk.Check(api.CreateSemaphore(_vk.Device, &semaphoreInfo, null, out _acquired[image]), "vkCreateSemaphore");
 
             Record(image);
+        }
+
+        // The first image, taken before anything is filled — every one after it is taken at the end of
+        // the frame before.
+        TakeImage();
+    }
+
+    /// <summary>
+    /// The buffers one image's frame is written into: its sprites, the quads over and under them, and
+    /// the three counts the indirect draws read. One set per image because the CPU fills the next frame
+    /// while the last is still being drawn — <see cref="_instances"/>.
+    /// </summary>
+    void CreateFrameBuffers(int image)
+    {
+        _instances[image] = _vk.CreateBuffer(
+            (ulong)(SpriteCapacity * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+        _overlay[image] = _vk.CreateBuffer(
+            (ulong)(OverlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+        _underlay[image] = _vk.CreateBuffer(
+            (ulong)(UnderlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
+
+        _spriteIndirect[image] = Counter();
+        _overlayIndirect[image] = Counter();
+        _underlayIndirect[image] = Counter();
+
+        // An image whose frame has not been filled yet draws nothing of its own rather than whatever
+        // the memory happened to hold.
+        GpuBuffer Counter()
+        {
+            var buffer = _vk.CreateBuffer(
+                (ulong)sizeof(DrawIndirectCommand), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
+            buffer.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = 0 };
+            return buffer;
         }
     }
 
@@ -194,27 +236,27 @@ internal sealed unsafe partial class TownRenderer
         api.CmdDrawIndexedIndirect(commands, _indirect.Handle, 0, 1, (uint)sizeof(DrawIndexedIndirectCommand));
 
         // The town's own ground marks, over the ground and under everything that stands on it: the
-        // stretches of road somebody has claimed, and the networks under them. They are marks
-        // about the *ground* rather than about a body, so a car standing on a claim has to read
-        // over it — drawn after the bodies, the wash tints every sprite it covers.
+        // stretches of road somebody has claimed, and the networks under them. They are marks about
+        // the *ground* rather than about a body, so a car standing on a claim reads over it — drawn
+        // after the bodies, the wash would tint every sprite it covers.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _overlayPipeline);
-        var underlayBuffer = _underlay.Handle;
+        var underlayBuffer = _underlay[image].Handle;
         Vk.Count();
         api.CmdBindVertexBuffers(commands, 0, 1, &underlayBuffer, &offset);
         Vk.Count();
-        api.CmdDrawIndirect(commands, _underlayIndirect.Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
+        api.CmdDrawIndirect(commands, _underlayIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
 
         // The bodies, over the ground: the same set, a different pipeline, and an instance buffer
         // whose contents and count both live in memory the CPU writes. A town that gains five hundred
         // walkers changes a number here and nothing about this recording.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _spritePipeline);
-        var instanceBuffer = _instances.Handle;
+        var instanceBuffer = _instances[image].Handle;
         Vk.Count();
         api.CmdBindVertexBuffers(commands, 0, 1, &instanceBuffer, &offset);
         Vk.Count();
-        api.CmdDrawIndirect(commands, _spriteIndirect.Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
+        api.CmdDrawIndirect(commands, _spriteIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
 
         // The interface and everything that annotates a body, over all of it: the same pipeline the
         // ground marks used, a buffer of its own, and one more indirect draw already written down here.
@@ -222,11 +264,11 @@ internal sealed unsafe partial class TownRenderer
         // is inside the five crossings.
         Vk.Count();
         api.CmdBindPipeline(commands, PipelineBindPoint.Graphics, _overlayPipeline);
-        var overlayBuffer = _overlay.Handle;
+        var overlayBuffer = _overlay[image].Handle;
         Vk.Count();
         api.CmdBindVertexBuffers(commands, 0, 1, &overlayBuffer, &offset);
         Vk.Count();
-        api.CmdDrawIndirect(commands, _overlayIndirect.Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
+        api.CmdDrawIndirect(commands, _overlayIndirect[image].Handle, 0, 1, (uint)sizeof(DrawIndirectCommand));
 
         Vk.Count();
         api.CmdEndRendering(commands);
@@ -289,6 +331,11 @@ internal sealed unsafe partial class TownRenderer
         }
 
         foreach (var camera in _cameras) camera.Dispose();
+        foreach (var buffers in (ReadOnlySpan<GpuBuffer[]>)[
+                     _instances, _spriteIndirect, _overlay, _overlayIndirect, _underlay, _underlayIndirect])
+        {
+            foreach (var buffer in buffers) buffer.Dispose();
+        }
 
         if (_commands.Length > 0)
         {
@@ -331,7 +378,14 @@ internal sealed unsafe partial class TownRenderer
         _rendered = [];
         _acquired = [];
         _cameras = [];
+        _instances = [];
+        _spriteIndirect = [];
+        _overlay = [];
+        _overlayIndirect = [];
+        _underlay = [];
+        _underlayIndirect = [];
         _commands = [];
         _sets = [];
+        _holding = false;
     }
 }

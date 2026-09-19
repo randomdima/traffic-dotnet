@@ -37,6 +37,7 @@ internal static class CheckCatalogue
         new("recovery", "One staged wreck a town: whether an evacuator came, towed it home and mended it", Quoted(RecoveryProbe.Run)),
         new("maneuvers", "Which manoeuvre every driver was in, and what the ladder came to", Quoted(ManeuverProbe.Run)),
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
+        new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),
         new("joints", "Every junction only two roads meet at, and which structure kept it", Quoted(config => TownShape.Joints("Odesa", config))),
         new("parks", "Every car park a town cut into a road: where it stands, its arms and its bays", Quoted(config => TownShape.Parks("Odesa", config))),

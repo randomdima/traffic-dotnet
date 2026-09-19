@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -23,10 +24,10 @@ namespace TrafficSimulation.CityGen;
 internal readonly record struct GroundLayer(string Named, float OutwardM, ArcSeg[][] Rings, ArcSeg[][] Loose);
 
 /// <summary>
-/// <b>The town's ground beside a road, as the one boundary read at two distances</b> (TER-3c.3, TER-7b):
-/// the driven ground itself (<see cref="LaneShell"/>) and the walk beyond it, each standing on the ground
-/// within one figure of that boundary — with the two lines the town carries beside a road handed over as
-/// the lines they are.
+/// <b>The town's ground beside a road, as the one boundary read at a handful of distances</b> (TER-3c.3,
+/// TER-7b): the driven ground itself (<see cref="LaneShell"/>) and the walk beyond it, each standing on the
+/// ground within one figure of that boundary — with the two kerbs the town carries beside a road handed over
+/// as the lines they are.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -50,9 +51,19 @@ internal readonly record struct GroundLayer(string Named, float OutwardM, ArcSeg
 /// what an offset costs and a line needs the figure rather than the shape.
 /// </para>
 /// <para>
-/// <b>And nothing is smoothed</b> (TER-3c.3). The corners the answer turns are the corners the boundary
-/// turns, each inherited at its own radius; rounding one out here would put a curve in the concrete that no
-/// line of the town is the edge of.
+/// <b>And every one of them is rounded at the one radius</b> (TER-3c.10,
+/// <see cref="RoadFigures.LineRoundedM"/>). A line laid along a corner a fold cut is a line nothing walks
+/// and no kerbstone is bent to; what rounds it is the move itself, run again at that radius
+/// (<see cref="ArcOutset.Of"/>), and <b>it is one figure for every layer because two layers rounded
+/// differently disagree about the same corner</b> — the concrete between them would then be wider on one
+/// bend than on the next.
+/// </para>
+/// <para>
+/// <b>The boundary itself is rounded too, and that is a cut and not a growth</b>: at no distance at all the
+/// radius is past the distance, so a corner the town turns away at is taken off rather than filled
+/// (<see cref="ArcOutset.Of"/>) — up to 0.41 of the radius at a right angle. What buys that back is the
+/// figure being under half a lane: nothing a car is driven through is narrow enough to be closed over and
+/// no ribbon of tarmac is thin enough to be swallowed.
 /// </para>
 /// <para>
 /// <b>It knows nothing about what any of it is for.</b> Which surface a layer wears and how thick a line is
@@ -62,25 +73,23 @@ internal readonly record struct GroundLayer(string Named, float OutwardM, ArcSeg
 /// </remarks>
 internal sealed class GroundRings
 {
-    /// <summary>
-    /// <b>How round the corners that turn in on the town are asked to be: not at all</b> (TER-3c.3). A
-    /// layer's edge is the boundary at a distance, and a distance is the whole of what it is.
-    /// </summary>
-    const float NoSmoothing = 0f;
-
     readonly GroundLayer[] _layers;
+    readonly float _cellM;
+    readonly Lock _indexing = new();
 
-    GroundRings(GroundLayer carriageway, GroundLayer walk, ArcSeg[][] walkEdge)
+    GroundRings(GroundLayer carriageway, GroundLayer walk, ArcSeg[][] walkEdge, float cellM)
     {
         Carriageway = carriageway;
         Walk = walk;
         WalkEdge = walkEdge;
+        _cellM = cellM;
         _layers = [walk];
     }
 
     /// <summary>
-    /// The driven ground itself, at nought: the boundary the lines lay, kerb to kerb. Its rings are the fill
-    /// the carriageway is drawn as <em>and</em> the line the town's kerb is struck along.
+    /// The driven ground itself, at nought: the boundary the lines lay, kerb to kerb, rounded at the one
+    /// radius every line here is. Its rings are the fill the carriageway is drawn as <em>and</em> the line
+    /// the town's kerb is struck along.
     /// </summary>
     public GroundLayer Carriageway { get; }
 
@@ -110,7 +119,39 @@ internal sealed class GroundRings
     public ReadOnlySpan<GroundLayer> Layers => _layers;
 
     /// <summary>How many runs no distance could close, which is nought in a town with nothing wrong with it.</summary>
-    public int LooseCount => Walk.Loose.Length;
+    public int LooseCount => Carriageway.Loose.Length + Walk.Loose.Length;
+
+    ChainIndex? _kerb;
+
+    /// <summary>
+    /// <b>Whether any of the town's paving stands within <paramref name="reachM"/> of a point</b> (GEN-6b),
+    /// which is the boundary and the walk struck off it read as one shape.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Measured to the boundary and a layer's figure past it, never to the outer face.</b> The face is
+    /// that boundary with its pockets closed (<see cref="ArcOutset.Of"/>): a strip of grass between two
+    /// roads narrower than two walks is concrete end to end, and the face runs round the outside of the
+    /// whole block rather than into it. Read off the face, a place in such a strip is tens of metres from
+    /// the paving and a metre from a carriageway.
+    /// </para>
+    /// <para>
+    /// <b>Laid on the first ask and over the boundary's own pieces</b> (<see cref="ChainIndex.OfPieces"/>):
+    /// a town's boundary is a handful of rings of a hundred thousand pieces, and an index of rings would
+    /// answer every query with all of them. It is behind a gate for the reason <see cref="Paving"/>'s
+    /// products are — laid once however many askers there are.
+    /// </para>
+    /// </remarks>
+    public bool PavedWithin(Vector2 pointM, float reachM)
+    {
+        ChainIndex kerb;
+        lock (_indexing) kerb = _kerb ??= ChainIndex.OfPieces(ArcRings.Flat(Carriageway.Rings), _cellM);
+
+        // Whether anything is near at all, so one slot is all the room the answer needs.
+        Span<int> near = stackalloc int[1];
+        Span<float> alongM = stackalloc float[1];
+        return kerb.Near(pointM, reachM + Walk.OutwardM, near, alongM) > 0;
+    }
 
     /// <summary>
     /// <b>The town's ground beside a road, struck in one move of its outline and nothing else.</b>
@@ -119,12 +160,15 @@ internal sealed class GroundRings
     /// </summary>
     public static GroundRings Of(BandShell shell, SimConfig config)
     {
+        var roundedM = config.Road.LineRoundedM;
         var walkM = config.WalkOuterM;
-        var (outer, loose) = shell.Outset(walkM, NoSmoothing);
+        var (inner, innerLoose) = shell.Outset(0f, roundedM);
+        var (outer, loose) = shell.Outset(walkM, roundedM);
 
         return new GroundRings(
-            new GroundLayer("carriageway", 0f, shell.Chains.ToArray(), []),
+            new GroundLayer("carriageway", 0f, inner, innerLoose),
             new GroundLayer("walk", walkM, outer, loose),
-            outer);
+            outer,
+            config.NearestChainCellM);
     }
 }

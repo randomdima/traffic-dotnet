@@ -180,7 +180,7 @@ internal sealed partial class Menu
     [
         "Car lines", "Walker lines", "Nodes and links", "Lane claims", "Collision",
         "Ground wireframe", "Turn circles", "Tarmac perimeter", "Tarmac ribbons", "Geometry grid",
-        "Ruler",
+        "Solver grid", "Ruler", ShellProbe.Named,
     ];
 
     /// <summary>The middle of a laid row, which is what the suite clicks to ask the layout and the hit test the same question.</summary>
@@ -194,14 +194,19 @@ internal sealed partial class Menu
     /// <summary>And of one row of the ground page, which is a layer of the ground or the row that puts them all back.</summary>
     public Vector2 GroundMiddlePx(int row) => Middle(_grounds[row]);
 
-    /// <summary>And of one trim's track, which is where a click puts that figure back at what it ships.</summary>
-    public Vector2 TrimMiddlePx(int trim) => Middle(_trims[trim]);
+    /// <summary>And of one slider's track, which is where a click puts that figure back where it started.</summary>
+    public Vector2 TrimMiddlePx(int slider) => Middle(_trims[slider]);
 
-    /// <summary>Where along a trim's track a share falls, for a caller pointing at one rather than clicking blind.</summary>
-    public Vector2 TrimAtPx(int trim, float share)
+    /// <summary>
+    /// Where along one slider's track a value falls, for a caller pointing at one rather than clicking
+    /// blind. <b>In that row's own units</b> — a share of the shipped figure for a trim, and metres for the
+    /// probe's distance (<see cref="ShellRow"/>).
+    /// </summary>
+    public Vector2 TrimAtPx(int slider, float value)
     {
-        var box = _trims[trim];
-        return new Vector2(box.AtPx.X + (TrackInsetPx + (WhereOnTheTrack(share) * TrackWidthPx(box))), Middle(box).Y);
+        var box = _trims[slider];
+        return new Vector2(
+            box.AtPx.X + (TrackInsetPx + (WhereOnTheTrack(slider, value) * TrackWidthPx(box))), Middle(box).Y);
     }
 
     static Vector2 Middle(Rect box) => box.AtPx + box.SizePx * 0.5f;
@@ -285,7 +290,7 @@ internal sealed partial class Menu
             return MenuChoice.None;
         }
 
-        if (Page == Figures) return ClickedTrim(pointPx, trims);
+        if (Page == Figures) return ClickedTrim(pointPx, switches, trims);
 
         if (Page == Ground) return ClickedGroundRow(pointPx, switches.Ground);
 
@@ -322,24 +327,24 @@ internal sealed partial class Menu
 
     /// <summary>
     /// A press on the figures page: the row it landed in is taken hold of and moved to where the pointer
-    /// is, and it stays held until the button comes up (<see cref="Pointer"/>). The row past the last trim
-    /// is the one that puts every figure back where the build shipped it.
+    /// is, and it stays held until the button comes up (<see cref="Pointer"/>). The row past the last
+    /// slider is the one that puts every figure back where the build shipped it.
     /// </summary>
-    MenuChoice ClickedTrim(Vector2 pointPx, TrimFigures trims)
+    MenuChoice ClickedTrim(Vector2 pointPx, DebugSwitches switches, TrimFigures trims)
     {
-        for (var trim = 0; trim < _trims.Length; trim++)
+        for (var slider = 0; slider < _trims.Length; slider++)
         {
-            if (!_trims[trim].Contains(pointPx)) continue;
+            if (!_trims[slider].Contains(pointPx)) continue;
 
-            if (trim == ResetRow)
+            if (slider == ResetRow)
             {
                 trims.Reset();
                 _figuresMoved = true;
                 return MenuChoice.None;
             }
 
-            _held = trim;
-            Move(trim, ShareAt(pointPx.X, _trims[trim]), trims);
+            _held = slider;
+            Move(slider, ValueAt(slider, pointPx.X, _trims[slider]), switches, trims);
             return MenuChoice.None;
         }
 
@@ -370,11 +375,12 @@ internal sealed partial class Menu
     /// How far the pointer travels before the press is a drag rather than a tap (CTL-1b) — the figure the
     /// town is dragged by, handed in so that a tap on a panel and a tap on a road are the same movement.
     /// </param>
-    public MenuChoice Pointer(Vector2 pointPx, bool held, float dragPx, TrimFigures trims)
+    public MenuChoice Pointer(
+        Vector2 pointPx, bool held, float dragPx, DebugSwitches switches, TrimFigures trims)
     {
         if (_held >= 0)
         {
-            if (held) Move(_held, ShareAt(pointPx.X, _trims[_held]), trims);
+            if (held) Move(_held, ValueAt(_held, pointPx.X, _trims[_held]), switches, trims);
             else _held = -1;
 
             return MenuChoice.None;
@@ -404,15 +410,32 @@ internal sealed partial class Menu
     }
 
     /// <summary>
-    /// One trim to where the pointer put it. <b>A pointer resting on a track is not a figure moving</b>: the
-    /// value is read back after the clamp, so a drag held against either stop stands the town up once rather
-    /// than every frame it is held there.
+    /// One slider to where the pointer put it. <b>A pointer resting on a track is not a figure moving</b>:
+    /// the value is read back after the clamp, so a drag held against either stop stands the town up once
+    /// rather than every frame it is held there.
     /// </summary>
-    void Move(int trim, float toShare, TrimFigures trims)
+    /// <remarks>
+    /// <b>The probe's two figures are not figures the town is stood up for</b> (<see cref="ShellRow"/>,
+    /// OBS-2w): they move a line this overlay draws and nothing the town was laid with, so what they stale
+    /// is the layer's own cache (<c>DebugSwitches.Generation</c>) and never the ground under it.
+    /// </remarks>
+    void Move(int slider, float toValue, DebugSwitches switches, TrimFigures trims)
     {
-        var wasShare = trims.Of(trim);
-        trims.Set(trim, toShare);
-        _figuresMoved |= trims.Of(trim) != wasShare;
+        if (slider == ShellRow)
+        {
+            switches.Shell.SetOutwardM(toValue);
+            return;
+        }
+
+        if (slider == RoundingRow)
+        {
+            switches.Shell.SetRoundedM(toValue);
+            return;
+        }
+
+        var wasShare = trims.Of(slider);
+        trims.Set(slider, toValue);
+        _figuresMoved |= trims.Of(slider) != wasShare;
     }
 
     /// <summary>
@@ -427,8 +450,23 @@ internal sealed partial class Menu
         return true;
     }
 
-    /// <summary>The row under the trims, which is not one: it puts every figure back where the build shipped it.</summary>
-    public const int ResetRow = TrimFigures.Count;
+    /// <summary>
+    /// <b>The row the shell probe's distance is dragged on</b> (OBS-2w, <see cref="ShellProbe"/>) — a
+    /// track in metres rather than a share of a shipped figure.
+    /// </summary>
+    public const int ShellRow = TrimFigures.Count;
+
+    /// <summary>
+    /// And the row under it, which turns how tightly that shape is allowed to turn — a track in metres of
+    /// radius, on its own stops and not the distance's.
+    /// </summary>
+    public const int RoundingRow = ShellRow + 1;
+
+    /// <summary>How many rows of the figures page are a figure to be dragged: one a trim, and the probe's two.</summary>
+    public const int Sliders = RoundingRow + 1;
+
+    /// <summary>The row under them, which is not one: it puts every figure back where the build shipped it.</summary>
+    public const int ResetRow = Sliders;
 
     /// <summary>How much of a trim row is chrome either side of the track it is dragged along.</summary>
     const float TrackInsetPx = Theme.InsetPx;
@@ -436,17 +474,71 @@ internal sealed partial class Menu
     static float TrackWidthPx(Rect box) => MathF.Max(1f, box.SizePx.X - (TrackInsetPx * 2f));
 
     /// <summary>
-    /// <b>The track is a decade either side of shipped and is laid out logarithmically</b>, so 100% is the
-    /// middle of it and halving reads as far from the centre as doubling. A linear track would put shipped
-    /// a tenth of the way along and give nine tenths of the travel to figures nobody wants.
+    /// <b>A trim's track is a decade either side of shipped and is laid out logarithmically</b>, so 100% is
+    /// the middle of it and halving reads as far from the centre as doubling. A linear track would put
+    /// shipped a tenth of the way along and give nine tenths of the travel to figures nobody wants.
     /// </summary>
     static readonly float Decades = MathF.Log(TrimFigures.Most / TrimFigures.Least);
 
-    static float WhereOnTheTrack(float share) =>
-        MathF.Log(Math.Clamp(share, TrimFigures.Least, TrimFigures.Most) / TrimFigures.Least) / Decades;
+    /// <summary>
+    /// <b>How far along its own track a slider's value stands</b>, which is the one place the kinds of row
+    /// differ: a trim is a share read logarithmically, and the probe's two figures are read straight off a
+    /// track between their own stops (<see cref="ShellRow"/>, <see cref="RoundingRow"/>). <b>Read here and
+    /// written in <see cref="ValueAt"/>, and nowhere else</b> — a track drawn on one mapping and dragged on
+    /// another is a knob that does not follow the pointer.
+    /// </summary>
+    static float WhereOnTheTrack(int slider, float value) => slider switch
+    {
+        ShellRow => (Math.Clamp(value, ShellProbe.LeastM, ShellProbe.MostM) - ShellProbe.LeastM) / ProbeTravelM,
+        RoundingRow => (Math.Clamp(value, ShellProbe.LeastRoundM, ShellProbe.MostRoundM) - ShellProbe.LeastRoundM)
+                       / RoundingTravelM,
+        _ => MathF.Log(Math.Clamp(value, TrimFigures.Least, TrimFigures.Most) / TrimFigures.Least) / Decades,
+    };
 
-    static float ShareAt(float atX, Rect box) => TrimFigures.Least * MathF.Exp(
-        Decades * Math.Clamp((atX - box.AtPx.X - TrackInsetPx) / TrackWidthPx(box), 0f, 1f));
+    /// <summary>And what the pointer standing at a place on that track asks for, in that row's own units.</summary>
+    static float ValueAt(int slider, float atX, Rect box)
+    {
+        var along = Math.Clamp((atX - box.AtPx.X - TrackInsetPx) / TrackWidthPx(box), 0f, 1f);
+
+        return slider switch
+        {
+            ShellRow => ShellProbe.LeastM + (along * ProbeTravelM),
+            RoundingRow => ShellProbe.LeastRoundM + (along * RoundingTravelM),
+            _ => TrimFigures.Least * MathF.Exp(Decades * along),
+        };
+    }
+
+    /// <summary>What the slider reads now, in the units its own track is laid in.</summary>
+    static float ValueOf(int slider, DebugSwitches switches, TrimFigures trims) => slider switch
+    {
+        ShellRow => switches.Shell.OutwardM,
+        RoundingRow => switches.Shell.RoundedM,
+        _ => trims.Of(slider),
+    };
+
+    /// <summary>
+    /// And where that row's track is filled from: what the build ships for a trim, and where each of the
+    /// probe's figures stands before anybody turns it. <b>A row is read by how far it has been taken from
+    /// its own home</b>, which is what the mark on the track stands at.
+    /// </summary>
+    static float HomeOf(int slider) => slider switch
+    {
+        ShellRow => ShellProbe.StartsAtM,
+        RoundingRow => ShellProbe.StartsRoundM,
+        _ => 1f,
+    };
+
+    /// <summary>The name a slider's row carries, which is the figure's own and not this panel's.</summary>
+    static string NameOf(int slider) => slider switch
+    {
+        ShellRow => ShellProbe.Named,
+        RoundingRow => ShellProbe.NamedRounding,
+        _ => TrimFigures.Names[slider],
+    };
+
+    static float ProbeTravelM => ShellProbe.MostM - ShellProbe.LeastM;
+
+    static float RoundingTravelM => ShellProbe.MostRoundM - ShellProbe.LeastRoundM;
 
     /// <summary>
     /// The switch a row of the debug page stands for. <b>One place, so the row that is drawn and the
@@ -467,7 +559,9 @@ internal sealed partial class Menu
             case 7: return ref switches.Perimeter;
             case 8: return ref switches.Ribbons;
             case 9: return ref switches.Grid;
-            default: return ref switches.Ruler;
+            case 10: return ref switches.SolverGrid;
+            case 11: return ref switches.Ruler;
+            default: return ref switches.Shell.Drawn;
         }
     }
 

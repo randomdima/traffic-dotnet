@@ -349,7 +349,7 @@ internal sealed partial class DebugOverlay
         draw.DiscM(stretch.StartM, PathMarks.JoinDiscM * 2f, Theme.DebugPicked);
         draw.DiscM(stretch.EndM, PathMarks.JoinDiscM * 2f, Theme.DebugPicked);
 
-        Span<char> text = stackalloc char[96];
+        Span<char> text = stackalloc char[160];
         var said = new TextBuffer(text);
         said.Add(found.Outline);
         said.Add(' ');
@@ -363,6 +363,53 @@ internal sealed partial class DebugOverlay
         said.Add(", ");
         said.Add(stretch.LengthM, "F3");
         said.Add(" m");
+        Label(ref draw, pointerPx, said.Written, ref labels);
+
+        // <b>What the stretch reads as running along, at each of its two ends, on a line of its own</b>
+        // (<see cref="CityGen.KerbEnds"/>) — which is the whole of why a kerb end stands at one joint and
+        // not at the next. <b>One line for each end</b>: the rounding joins consecutive stretches of one
+        // circle, so a straight kerb is one stretch for every road it is straight through, and the two ends
+        // of it answer two different things at two different distances back along them.
+        Said(ref draw, pointerPx, paving, config, stretch, fromStart: true, ref labels);
+        Said(ref draw, pointerPx, paving, config, stretch, fromStart: false, ref labels);
+    }
+
+    /// <summary>One end of a stretch of boundary: what it reads as running along, on a label of its own.</summary>
+    static void Said(
+        ref ScreenDraw draw, Vector2 pointerPx, Paving paving, SimConfig config, in ArcSeg stretch,
+        bool fromStart, ref int labels)
+    {
+        Span<char> text = stackalloc char[96];
+        var said = new TextBuffer(text);
+        said.Add(fromStart ? "  from " : "  to   ");
+
+        var lane = CityGen.KerbEnds.LaneUnder(paving, config, stretch, fromStart);
+        if (lane < 0)
+        {
+            said.Add("no road");
+            Label(ref draw, pointerPx, said.Written, ref labels);
+            return;
+        }
+
+        var road = CityGen.KerbEnds.RoadOf(paving, lane);
+        said.Add("lane ");
+        said.Add(lane);
+        if (road == CityGen.KerbEnds.Park)
+        {
+            said.Add(" of a car park");
+            Label(ref draw, pointerPx, said.Written, ref labels);
+            return;
+        }
+
+        said.Add(" of road ");
+        said.Add(road);
+
+        // <b>And how far out of the box along that road this end stands</b>, which is the figure that
+        // decides which end of a round is called the further of the two: a reader asking why one end took
+        // that name can read both of them and see.
+        said.Add(", ");
+        said.Add(CityGen.KerbEnds.OutM(paving, lane, stretch.PointAtM(fromStart ? 0f : stretch.LengthM)), "F1");
+        said.Add(" m out");
         Label(ref draw, pointerPx, said.Written, ref labels);
     }
 

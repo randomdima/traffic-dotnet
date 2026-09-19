@@ -43,6 +43,20 @@ internal sealed partial class PhysicsWorld
     }
 
     /// <summary>
+    /// <b>The two grids the broad phase asks</b> — the town's furniture, and the roster the last step
+    /// integrated — for the layer that draws them (OBS-2x) and for nothing that decides anything.
+    /// </summary>
+    /// <remarks>
+    /// <b>As they stand, and never brought up to date first.</b> A query outside a step reindexes a stale
+    /// moving set before answering (<see cref="EnsureIndex"/>) and a picture may not: that call retakes
+    /// every bound and rewrites <see cref="IntegratedBodyCount"/>, which the panel beside the picture is
+    /// reading, and the lattice a step was actually priced on is the one it left behind.
+    /// </remarks>
+    public CellGrid StaticIndex => _staticGrid;
+
+    public CellGrid MovingIndex => _dynamicGrid;
+
+    /// <summary>
     /// Every pair worth a manifold, and the manifold. The moving roster is the outer loop and the static
     /// population is never walked: a body asks the two grids what is near it, and ninety-five thousand
     /// props are in the answer without being in the price.

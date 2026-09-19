@@ -2,6 +2,106 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-09-19 — a frame is filled into the image it will be drawn into, and the image is taken first
+
+Cars blinked when they moved, as though the road were laid over them. Nothing in the order could do that —
+ground, ground marks, bodies, interface, in that order in a recording that never changes — and what was
+happening is that the sprites a frame was fetching were being rewritten while it fetched them.
+
+**The instance buffer, the two quad buffers and the three counts were one of each**, written by the CPU
+every frame, with a swapchain of three images and no wait before the fill: the acquire and the fence sat
+in `Frame`, *after* the town had already been written into memory a draw one or two frames back was still
+reading. The camera was per image all along, which is what makes this a miss rather than a design.
+
+**What it looks like is exactly what was reported.** The fill is culled and packed, marks first, and the
+marks are laid as tyres lay them — so every slot after them shifts frame to frame while anything moves,
+and a slot read from the other frame's fill is a mark, a tyre or a lamp where a car's body was. A mark is
+a dark quad on the road. A standing town writes the same bytes twice and shows nothing, which is why it
+only ever happened to a car that was moving.
+
+**The image is now taken at the end of the frame before** (`TakeImage`), so the fence that says the GPU
+has let go of an image's buffers is waited on before anything is written into them, and every buffer a
+frame fills is that image's own. **The frame is still five crossings** — submit and present this one,
+then acquire, wait and reset for the next — and the recording is still written once per image, which is
+what forced the buffers to be per image rather than per frame in flight: a command buffer that binds them
+is the image's.
+
+**What it costs is memory and nothing else.** Three images of 65 536 overlay quads and as many again
+underneath is about 22 MB where it was 7.5 MB, plus the town's sprites again per image. No crossing, no
+recording, no copy: the fill was already a write into mapped memory and it still is.
+
+**Holding an image across the whole frame is what the rebuild had to learn.** A resize between the acquire
+and the submit leaves a semaphore carrying a signal nobody will wait on, and such a semaphore may not be
+destroyed — `DrainAcquire` consumes it with one empty submit on the way into the rebuild, and the rebuild
+takes an image of its own rather than recursing into the acquire that failed.
+
+## 2026-09-18 — and the walk's own kerb is the concrete it bounds, in shadow
+
+The other of the two lines beside a road was drawn in `Edge`, the shade a deck's rim takes. At 0.58 it read
+as a shadow cast across the pavement rather than as the stone at the back of it — the one line in the town
+dark enough to be mistaken for a gap.
+
+**It has a shade of its own now**: `Stone`, the pavement's own grain at three quarters, laid on the same
+surface as the walk it bounds. **A kerbstone is the slab standing on its side** — the back of a pavement is
+the same concrete and not a second material — so what tells the line from the walk is the light on it, and
+the grain runs through both. The other kerb is paint on the carriageway and this one is stone on the
+concrete: each wears the surface of the ground it bounds, which is why the suite names either of them by
+its tint alone and needs no surface beside it.
+
+**`Edge` is a deck's rim alone now**, which is the one line here with no shell to strike a stroke about —
+a deck being a ribbon laid about a road's own line rather than a region with a boundary (TER-3b.1).
+
+## 2026-09-18 — the town's kerb is drawn as the road's own edge line
+
+The kerb along the driven ground's boundary was the pavement's grain through a shade of its own, a
+kerbstone read as the concrete beside it catching the light. Against the tarmac it came out as a flat pale
+band — a third white beside the lane dashes and the zebras, near enough to them to look like the same paint
+mixed wrong and far enough to be a second material nobody asked for.
+
+**It wears `GroundMesh.Paint` on `Surface.Tarmac` now**, which is what every dash, bar and stripe in the
+town is drawn in, so the line at the edge of the road reads as the line down the middle of it. **One white,
+one grain**: what tells the kerb from a mark is not its colour but where it stands in the mesh — it is
+welded ground laid before `FirstMarkVertex`, and anything reading back what was *painted* asks that and
+never the tint.
+
+Nothing about the stone moved: the stroke is the same width about the same line, half either side of the
+boundary (TER-3d), and the fill under it is thinned by the same share. This is the shade alone, and the
+walk's own kerb keeps `Edge` — the face of the pavement that turns away from the street is not a road
+marking.
+
+**The suite reads the kerb by tint and so had to learn the bound.** `Tinted` now stops at the first mark,
+because a dash is a triangle neither the tint nor the surface tells from a kerb, and the layering test
+sorts the tarmac by shade — plain is the carriageway and a slab, paint is the kerb over them.
+
+## 2026-09-16 — a mark between two ribbons is struck off the line they were offset from
+
+The first marks to come back after the rework are the two the boundary cannot state: **where two ribbons of
+driven ground touch, nothing in the merged shell says they ever met**, the seam being interior to it. The
+literal reading — cut the two bands against each other and paint what they share — is a second merge for a
+line the town already knows. Both are struck off the line the pair were offset from instead.
+
+**Down a street that is the road's own centreline**, which is what both its lanes were moved off, so their
+edges meet along it by construction. **Between two bays it is one way's line moved half its own width**,
+because a rank has no centre line of its own: the two ways are what the town laid, and which pairs of them
+touch is measured rather than read off the order they were emitted in — a pair standing further apart than
+they are wide is two bays with tarmac between them and no boundary to paint.
+
+**Which roads those are is one question and not two.** `RoadArrays.LanesMeetOnItsLine` is both the test the
+lane offset is chosen by (`LaneLines.Of`) and the test the paint is laid by, because a one-way street's
+single lane and a bay's two-over-one-line are the same two exceptions in both. Asked twice, the picture and
+the layer would be entitled to disagree about which roads have two ribbons.
+
+**And what a run of dashes is laid down is not this slice's to work out.** `CentrelineRuns` hands over the
+carriageway as the one chain it is, junctions crossed and all
+([world/road](../../../world/road/docs/decision-log.md)); `DashRun` is back as it was, and the pitch, the
+width and the shade are the whole of what is decided here.
+
+**The same goes for the paint at an arm's end.** `Crossings` says where the band is and `StopBars` where the
+bar is; this pass strikes the stripes across the one and the rectangle across the other, and asks the same
+registry how much road to keep the dashes off. A line trimmed by a figure of its own and a band laid by
+another would be two answers about where an arm's paint begins, and the dashes would show through the zebra
+the first time either moved.
+
 ## 2026-09-16 — a fill has no visible edge, so the line is cut for the picture and the fill for the kerb
 
 A boundary was read once and every layer laid from that reading, at a tolerance argued from the zoom the

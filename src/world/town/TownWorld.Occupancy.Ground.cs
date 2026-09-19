@@ -1,7 +1,9 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
@@ -360,13 +362,25 @@ internal sealed partial class TownWorld
     /// </remarks>
     StandingGround StaticsOnTheRoad()
     {
+        // <b>The ground is asked of every prop at once and the lanes are covered a prop at a time.</b> The
+        // question above — is any of this thing standing in the road — is asked of standing ground that
+        // nothing here writes to, and a city asks it of a hundred thousand things. What is done with a yes
+        // writes into the builder, where the order the runs arrive in is the order they are strung, so that
+        // half stays the walk it was.
+        var touches = new bool[_plan.Props.Count];
+        InChunks.Over(
+            _plan.Props.Count,
+            _terrain.NewScan,
+            (scan, prop) => touches[prop] =
+                TouchesDrivableGround(scan, _plan.Props.CentreM[prop], _plan.Props.RadiusM[prop]));
+
         var into = new StandingGround.Builder();
         for (var prop = 0; prop < _plan.Props.Count; prop++)
         {
+            if (!touches[prop]) continue;
+
             var centreM = _plan.Props.CentreM[prop];
             var radiusM = _plan.Props.RadiusM[prop];
-            if (!TouchesDrivableGround(centreM, radiusM)) continue;
-
             var lane = _roads.NearestLane(centreM, out _);
             if (lane < 0) continue;
 
@@ -384,21 +398,21 @@ internal sealed partial class TownWorld
     /// reaches</b>, walked a step at a time, because a prop half a metre off the kerb still has its far
     /// edge in the road.
     /// </summary>
-    bool TouchesDrivableGround(Vector2 centreM, float radiusM)
+    bool TouchesDrivableGround(GroundShapes.Scan scan, Vector2 centreM, float radiusM)
     {
         var stepM = _config.Terrain.GroundStepM;
         for (var acrossM = -radiusM; acrossM <= radiusM; acrossM += stepM)
         {
             for (var alongM = -radiusM; alongM <= radiusM; alongM += stepM)
             {
-                if (_terrain.At(centreM + new Vector2(alongM, acrossM)).Drivable) return true;
+                if (_terrain.At(scan, centreM + new Vector2(alongM, acrossM)).Drivable) return true;
             }
         }
 
-        return _terrain.At(centreM + new Vector2(radiusM, radiusM)).Drivable
-               || _terrain.At(centreM + new Vector2(-radiusM, radiusM)).Drivable
-               || _terrain.At(centreM + new Vector2(radiusM, -radiusM)).Drivable
-               || _terrain.At(centreM + new Vector2(-radiusM, -radiusM)).Drivable;
+        return _terrain.At(scan, centreM + new Vector2(radiusM, radiusM)).Drivable
+               || _terrain.At(scan, centreM + new Vector2(-radiusM, radiusM)).Drivable
+               || _terrain.At(scan, centreM + new Vector2(radiusM, -radiusM)).Drivable
+               || _terrain.At(scan, centreM + new Vector2(-radiusM, -radiusM)).Drivable;
     }
 
     /// <summary>

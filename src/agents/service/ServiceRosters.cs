@@ -6,8 +6,8 @@ namespace TrafficSimulation.Agents.Service;
 
 /// <summary>
 /// <b>How many of a town's buildings are police stations</b> (SRV-1), on the terms a hospital is placed
-/// on. The placement itself is <see cref="ServicePlacement"/>; what is here is the share this slice's
-/// figures ask for.
+/// on. The placement itself is the generator's, which cuts a yard for each of them before it stands a
+/// building (GEN-55); what is here is the share this slice's figures ask for.
 /// </summary>
 internal static class PoliceStationRoster
 {

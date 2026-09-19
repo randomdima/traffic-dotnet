@@ -262,7 +262,13 @@ internal sealed partial class TownWorld
     /// it is not parked either, and those are the two states everything that names a car's behaviour
     /// otherwise has.
     /// </summary>
-    public bool WheelIsHeldOver(int car) => _hands.Held && _selected.Holds(SelectionKind.Car, car);
+    /// <remarks>
+    /// <b>Either hand</b> (CTL-5d): the player's over the car they picked out, or a second driver's over
+    /// the car it named. What is true of the car is the same for both, which is why everything asks this
+    /// rather than asking whose hand it is.
+    /// </remarks>
+    public bool WheelIsHeldOver(int car) =>
+        (_hands.Held && _selected.Holds(SelectionKind.Car, car)) || (_otherHand.Held && _otherCar == car);
 
     /// <summary>
     /// A car starts stopped in a parking space, in the pose that space stands its cars at, with nobody in

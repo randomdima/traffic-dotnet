@@ -1,65 +1,24 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen;
-
-/// <summary>
-/// One kind of shape, asked whether the one at an index covers a point. <b>A struct and a constraint</b>
-/// so the call is the JIT's to inline: the alternative shapes are a delegate a hot path pays for, or the
-/// same broad-phase walk written out once for every kind of piece the ground is cut from.
-/// </summary>
-internal interface IGroundShape
-{
-    bool Covers(int shape, Vector2 pointM);
-}
 
 /// <summary>
 /// The pieces of ground that belong to no road and to no line through a box: the wedge a junction's kerbs
 /// turn on, the rectangles a car park and a slab of paving are, and the rings the water is cut from.
 /// </summary>
+/// <remarks>
+/// <b>Not indexed, and that is the reading.</b> A town's slabs are a few dozen boxes and its water a
+/// handful of rings, each tested against its own bounding box first — a lattice over either would be a
+/// rebuild and a lookup to narrow a walk that is already shorter than the narrowing.
+/// </remarks>
 internal sealed partial class GroundShapes
 {
-    /// <summary>
-    /// How many shapes of one kind may reach a point before the broad phase's answer stops being the whole
-    /// one. <see cref="AnyReaches{TShape}"/> falls back to every shape of that kind rather than truncate,
-    /// so this is a working size and not a limit on what a town may hold.
-    /// </summary>
-    const int MostShapesNear = 32;
-
     Vector2[] _slabMinM = [];
     Vector2[] _slabSizeM = [];
 
     Rings _water;
     Rings _shore;
-
-    /// <summary>
-    /// Whether any shape of one kind covers the point. The broad phase names the ones that could, and a
-    /// count larger than there was room for falls back to the whole set — <b>the superset is never quietly
-    /// turned into a subset</b>, which is the bargain <c>BucketGrid.Query</c> asks its callers to keep.
-    /// </summary>
-    static bool AnyReaches<TShape>(BucketGrid index, int count, Vector2 pointM, in TShape shapes)
-        where TShape : struct, IGroundShape
-    {
-        Span<int> near = stackalloc int[MostShapesNear];
-        var found = index.Query(pointM, 0f, near);
-        if (found > near.Length)
-        {
-            for (var shape = 0; shape < count; shape++)
-            {
-                if (shapes.Covers(shape, pointM)) return true;
-            }
-
-            return false;
-        }
-
-        for (var at = 0; at < found; at++)
-        {
-            if (shapes.Covers(near[at], pointM)) return true;
-        }
-
-        return false;
-    }
 
     /// <summary>A set of closed rings and the box each of them fits in.</summary>
     readonly record struct Rings(CityPlan.RingArrays Of, Vector2[] LeastM, Vector2[] MostM)

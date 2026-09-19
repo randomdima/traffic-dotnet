@@ -60,7 +60,7 @@ public class BandOutsetTests
     public void TheOutsetOfAMergedJunctionCloses(float movedM)
     {
         var shell = Junction();
-        var (rings, loose) = shell.Outset(movedM, smoothing: 0f);
+        var (rings, loose) = shell.Outset(movedM, roundedM: 0f);
 
         Assert.Equal(0, shell.Loose.Length);
         Assert.NotEmpty(rings);
@@ -98,6 +98,6 @@ public class BandOutsetTests
             building.Add(line, lines[line], Spline.TotalLengthM(lines[line]));
         }
 
-        return BandShell.Of([.. lines], widthM, building.Seal(CellM), CellM);
+        return BandShell.Of([.. lines], widthM, building.Seal(CellM));
     }
 }

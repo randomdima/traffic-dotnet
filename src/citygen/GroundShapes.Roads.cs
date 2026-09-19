@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 
@@ -9,20 +10,31 @@ namespace TrafficSimulation.CityGen;
 /// that does.
 /// </summary>
 /// <remarks>
-/// The four are not ranked against one another here because they are not ranked against one another at
-/// all — each takes its place in <see cref="GroundShapes"/>'s one order among the shapes that belong to
-/// no road, and a walk loses to water where a carriageway beats it.
+/// <b>The two are not ranked against one another here</b>, because they are not ranked against one another
+/// at all — each takes its place in <see cref="GroundShapes"/>'s one order among the shapes that belong to
+/// no road, and a deck loses to water where a zebra beats it.
+///
+/// <b>Which road's carriageway a point is on is not among them.</b> It is the lanes that say that
+/// (<see cref="GroundShapes.At"/>): a road's own band runs on to the junctions at its ends while its lanes
+/// stop short of them, so the road answered carriageway over a sliver at every mouth in the town.
+///
+/// <b>So a road with neither a deck nor a stretch of paint on it answers nothing</b>, and
+/// <see cref="GroundShapes.Answers"/> is what keeps it out of the index altogether: both figures here are
+/// read off a road's own runs, a road with no runs leaves both untouched, and the shipped city carries paint
+/// on a quarter of its roads and a deck on none of them.
 /// </remarks>
-internal readonly record struct RoadGround(bool Deck, bool Carriageway, bool Crossing);
+internal readonly record struct RoadGround(bool Deck, bool Crossing);
 
 internal sealed partial class GroundShapes
 {
     /// <summary>
     /// How many roads may pass within reach of one point before the index's answer stops being the whole
-    /// one. Four arms of a junction and their neighbours is six; this is that with room to spare, and
-    /// <see cref="Roads"/> falls back to every road in the town rather than truncate.
+    /// one. Four arms of a junction and their neighbours is six, and only the roads that can answer at all
+    /// are in the index (<see cref="Answers"/>) — so this is generous by a wide margin, which it can afford
+    /// to be: the frame is not zeroed (<c>SkipLocalsInit</c>), so room nothing fills costs the stack pointer
+    /// and nothing else. <see cref="Roads"/> falls back to every road in the town rather than truncate.
     /// </summary>
-    const int MostRoadsNear = 24;
+    const int MostRoadsNear = 64;
 
     ChainIndex _roadIndex = null!;
     float[] _roadHalfM = [];
@@ -57,39 +69,49 @@ internal sealed partial class GroundShapes
     /// walk of the tarmac and the tarmac stops square, so past the end the band is the square end grown by
     /// a walk and the corner of it is an arc.
     /// </remarks>
-    RoadGround Roads(Vector2 pointM)
+    RoadGround Roads(Vector2 pointM) => Roads(_ownScan.Roads, pointM);
+
+    /// <inheritdoc cref="Roads(Vector2)"/>
+    /// <remarks>
+    /// <b>The working set is not zeroed.</b> <see cref="ChainIndex.Near"/> fills every slot below the count
+    /// it returns before anything reads one, and nothing here reads past that count — so initialising the
+    /// frame is a kilobyte of stores a query pays and never reads, on the path a tick asks most.
+    /// </remarks>
+    [SkipLocalsInit]
+    RoadGround Roads(ChainIndex.Scan scan, Vector2 pointM)
     {
         Span<int> near = stackalloc int[MostRoadsNear];
         Span<float> alongM = stackalloc float[MostRoadsNear];
-        var found = _roadIndex.Near(pointM, _farthestReachM, near, alongM);
+        var found = _roadIndex.Near(scan, pointM, _farthestReachM, near, alongM);
 
         var deck = false;
-        var carriageway = false;
         var crossing = false;
         var count = Math.Min(found, near.Length);
         for (var index = 0; index < count; index++)
         {
-            Weigh(near[index], alongM[index], pointM, ref deck, ref carriageway, ref crossing);
+            Weigh(near[index], alongM[index], pointM, ref deck, ref crossing);
         }
 
         // The index answered with more roads than there was room for, so what it gave back is part of the
         // answer rather than the answer. Every road in the town is the only thing that is still the whole of
-        // it (BucketGrid.Query keeps the same bargain).
+        // it (BucketGrid.Query keeps the same bargain) — every road that can answer, which is the same set
+        // the index holds.
         if (found > near.Length)
         {
             for (var road = 0; road < _roadHalfM.Length; road++)
             {
+                if (!Answers(road)) continue;
+
                 var arcs = _pieces.Roads.SegmentsOf(road);
                 var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
-                Weigh(road, atM, pointM, ref deck, ref carriageway, ref crossing);
+                Weigh(road, atM, pointM, ref deck, ref crossing);
             }
         }
 
-        return new RoadGround(deck, carriageway, crossing);
+        return new RoadGround(deck, crossing);
     }
 
-    void Weigh(
-        int road, float atM, Vector2 pointM, ref bool deck, ref bool carriageway, ref bool crossing)
+    void Weigh(int road, float atM, Vector2 pointM, ref bool deck, ref bool crossing)
     {
         var arcs = _pieces.Roads.SegmentsOf(road);
         var on = Spline.SampleAt(arcs, atM);
@@ -105,14 +127,12 @@ internal sealed partial class GroundShapes
         var acrossM = MathF.Abs(Vector2.Dot(offsetM, on.Right));
         if (acrossM > _roadReachM[road]) return;
 
-        var halfM = _roadHalfM[road];
-        if (pastM <= 0f && acrossM <= halfM)
+        if (pastM > 0f) return;
+
+        if (acrossM <= _roadHalfM[road])
         {
-            carriageway = true;
             crossing |= Covers(_paintAt, _paintFromM, _paintToM, road, atM);
         }
-
-        if (pastM > 0f) return;
 
         for (var run = _deckAt[road]; run < _deckAt[road + 1]; run++)
         {
@@ -122,44 +142,6 @@ internal sealed partial class GroundShapes
         }
     }
 
-
-    /// <summary>
-    /// <b>Whether any road's own ground stands within reach of a point.</b> It is the road records and not
-    /// the lines the town is driven on: what asks is a stage keeping its scatter clear of the streets
-    /// (GEN-6b), and a road's band is the ground its lanes were laid inside.
-    /// </summary>
-    bool RoadWithin(Vector2 pointM, float reachM)
-    {
-        Span<int> near = stackalloc int[MostRoadsNear];
-        Span<float> alongM = stackalloc float[MostRoadsNear];
-        var found = _roadIndex.Near(pointM, _farthestReachM + reachM, near, alongM);
-
-        var count = Math.Min(found, near.Length);
-        for (var index = 0; index < count; index++)
-        {
-            if (OffTheRoadM(near[index], alongM[index], pointM) <= reachM) return true;
-        }
-
-        // The index answered with more roads than there was room for, so every road in the town is the only
-        // thing that is still the whole answer.
-        if (found <= near.Length) return false;
-
-        for (var road = 0; road < _roadHalfM.Length; road++)
-        {
-            var arcs = _pieces.Roads.SegmentsOf(road);
-            var atM = Spline.ProjectM(arcs, pointM, _roadLengthM[road] * 0.5f, _roadLengthM[road]);
-            if (OffTheRoadM(road, atM, pointM) <= reachM) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>How far outside one road's own band a point stands, negative within it.</summary>
-    float OffTheRoadM(int road, float atM, Vector2 pointM)
-    {
-        var on = Spline.SampleAt(_pieces.Roads.SegmentsOf(road), atM);
-        return (pointM - on.PositionM).Length() - _roadHalfM[road];
-    }
 
     static bool Covers(int[] at, float[] fromM, float[] toM, int road, float atM)
     {
@@ -177,6 +159,12 @@ internal sealed partial class GroundShapes
     /// the town is being laid — so a deck is two distances along a road and a zebra is two more, and
     /// nothing on a tick asks where a crossing stands in the world.
     /// </summary>
+    /// <remarks>
+    /// <b>The runs are struck before the index is, because they decide what goes in it</b>
+    /// (<see cref="Answers"/>). A road carrying neither is a chain a query walks, projects onto and learns
+    /// nothing from, and there is no early-out to save it: the loop has to weigh every candidate to
+    /// establish that none of them is painted.
+    /// </remarks>
     void LayTheRoads(GroundPieces plan, SimConfig config)
     {
         var roads = plan.Roads.Count;
@@ -191,16 +179,11 @@ internal sealed partial class GroundShapes
         _paintFromM = new float[Named(plan.Crosswalks.Count, plan.Crosswalks.Road)];
         _paintToM = new float[_paintFromM.Length];
 
-        var index = new ChainIndex.Builder();
         for (var road = 0; road < roads; road++)
         {
-            var arcs = plan.Roads.SegmentsOf(road);
             _roadHalfM[road] = plan.Roads.WidthM[road] * 0.5f;
-            _roadLengthM[road] = Spline.TotalLengthM(arcs);
-            index.Add(road, arcs, _roadLengthM[road]);
+            _roadLengthM[road] = Spline.TotalLengthM(plan.Roads.SegmentsOf(road));
         }
-
-        _roadIndex = index.Seal(config.Terrain.GroundBucketM);
 
         Runs(plan.Bridges.Count, plan.Bridges.Road, _deckAt);
         var deck = new int[roads];
@@ -251,6 +234,7 @@ internal sealed partial class GroundShapes
             _paintToM[run] = atM + halfDepthM;
         }
 
+        var index = new ChainIndex.Builder();
         var farthestM = 0f;
         for (var road = 0; road < roads; road++)
         {
@@ -264,11 +248,26 @@ internal sealed partial class GroundShapes
             }
 
             _roadReachM[road] = reachM;
+            if (!Answers(road)) continue;
+
+            index.Add(road, plan.Roads.SegmentsOf(road), _roadLengthM[road]);
+
+            // <b>The farthest of the roads in the index and not of the roads in the town</b>, since it is
+            // the radius every query reads its cells by: a road nothing asks about may not widen the ring.
             farthestM = MathF.Max(farthestM, reachM);
         }
 
+        _roadIndex = index.Seal(config.Terrain.GroundBucketM);
         _farthestReachM = farthestM;
     }
+
+    /// <summary>
+    /// <b>Whether this road has anything to say about a point at all</b>: a stretch of paint on it, or a deck
+    /// carried over something. Those are the whole of <see cref="RoadGround"/>, so a road with neither is a
+    /// candidate that costs a projection and answers no.
+    /// </summary>
+    bool Answers(int road) =>
+        _deckAt[road + 1] > _deckAt[road] || _paintAt[road + 1] > _paintAt[road];
 
     /// <summary>
     /// Count + 1 offsets over records that each name a road, by counting them into place. A record naming

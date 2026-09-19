@@ -4,6 +4,20 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-09-17 — a load is not a steady state, and tiering was tuned for the other one
+
+A third of the time it took to open a map was spent running code the JIT had not optimised yet. Tiering
+holds a method at tier 0 until the call-counting delay expires, and that delay restarts whenever any
+method is called for the first time — so a load, which meets new methods continuously from the generator
+through to the spawn, pushes the timer ahead of itself and finishes before anything is promoted. The
+delay is set to nothing in [traffic-dotnet.csproj](../traffic-dotnet.csproj), where the reasoning and the
+figures sit beside it. Quick JIT and Dynamic PGO stay on because both are faster than the alternatives
+measured, and the tick does not move.
+
+The general lesson is the one in the name: **every figure this project defends is a steady state, and
+the load is the one thing it measures that is not.** A knob picked for the tick is not thereby right for
+the open, and the two want reading separately.
+
 ## 2026-09-07 — every rule says whose it is, because a rule nobody asked for was arguing against one they did
 
 Asked why the ground mesh draws a road four times over, the answer given cited a line in

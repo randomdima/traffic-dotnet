@@ -29,11 +29,17 @@ A second of road ahead rather than a distance, since a fixed lead in metres is t
 walker and half a car length ahead of a car at speed. It is capped at a share of the half-view because the
 lead is measured off the unit's speed and the picture is not.
 
-## The follow eases in two places, over real time, and not one
+## The lead eases and the camera's own place does not
 
-The camera closes on where it is going over about a tenth of a second, because the town is stepped at a
-fixed rate and drawn at the window's, so anything nailed to that staircase steps the whole picture;
-interpolating every body's drawn position instead would cost a second position per body for one consumer.
-The lead swings round over about half a second, which smooths the unit's own manoeuvring rather than the
-frame rate and so wants its own span. Both are real time, since a camera easing in sim time would close
-three times as fast at three times pace. A jump off the current picture is stood on rather than eased to.
+A body is drawn where its last tick left it, so a camera that eased towards that place kept whatever
+fraction of the step it had not covered and spent it on the picture — as a swim of a few pixels on the
+followed body itself, worst under a hand at speed, which is the one case the follow exists for. Moving
+the camera by the unit's own step instead makes the body exactly still on the glass and leaves the
+staircase where it belongs: on the town going past, where it is the tick rate and reads as one. What is
+left to ease is the lead, over about half a second, which smooths the unit's manoeuvring rather than the
+frame rate. That span is real time, since a lead easing in sim time would swing three times as fast at
+three times pace.
+
+Drawing every body at an interpolated position would smooth the town going past as well, and costs a
+second position per body for one consumer. It is worth that only once something other than the camera
+wants it.

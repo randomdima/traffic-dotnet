@@ -233,7 +233,7 @@ internal sealed class TownSprites
         // The lamps over the bodies, because a lamp is a light on the bodywork: drawn under it, a brake
         // lamp is a red smudge on the road behind a car rather than anything the car is showing.
         written += LampSprites.Fill(
-            world.Cars, Cars, config, LensSheet, LampGlowSheet, world.ElapsedS, world.HandDriven,
+            world.Cars, Cars, config, LensSheet, LampGlowSheet, world.ElapsedS, world.HandDriven, world.HandDrivenCar,
             viewCentreM, viewSpanM, into[written..]);
 
         // The heads last of all: a signal hangs over the carriageway, so nothing driving under it passes

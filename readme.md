@@ -53,8 +53,8 @@ that display instead, by the desktop's own name for it, and `--windowed` opens i
 to be looked at beside something else. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `shape`, `joints`, `parks`, `shapes`, `drive`, `maneuvers`, `trips`, `rescue`, `recovery`, `crash`,
-`soak`, `stuck`, `tick`, `town`, `solver`, `walk`); `--bench all` runs the lot, and
+(`census`, `load`, `shape`, `joints`, `parks`, `shapes`, `drive`, `maneuvers`, `trips`, `rescue`, `recovery`,
+`crash`, `soak`, `stuck`, `tick`, `town`, `solver`, `walk`); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 
@@ -68,6 +68,14 @@ the middle of the track. **Dragging one changes it under the town that is standi
 every look is built again and the ground is worth what it is now worth, while the marks stay on the road
 and every body stays where it was — which is what makes the page a rig rather than a read-out. Nothing is authored by it: every trim is 100% unless the page has been opened, and the shipped
 run is the run this suite measures.
+
+**The last two rows of that page are not trims**: they are the shell probe's own figures (`OBS-2w`) — the
+town's driven boundary moved out by nought to twenty metres, and how round the corners turning in on it come
+back, as a share of that distance. It is drawn in violet under its own switch (`--ui shell`, or `--ui
+shell-6` and `--ui shell-6-0.5` for six metres at half rounding, with no hand on the slider). They are the
+figures there that change what is *drawn* rather than what the town does, and what they are for is the
+outset itself: where the move swallows a corner, where two kerbs come back as one line, and which notch is
+the distance's and which the rounding's.
 
 **And the ground can be taken apart while the town runs.** The menu's `Ground` page (`--ui menu-ground`)
 carries a row a layer of the town's standing ground — the grass, the walk and its kerb, the water, the
@@ -92,6 +100,68 @@ beside the claims fails nothing: it is a fact about that town rather than a boun
 with the map, the framing, the moment and the seed, tiled into one sheet for review
 ([app/shot](src/app/shot/docs/requirements.md)). `--caption` puts that band and those notes on a single
 `--shot`, and every captioned picture writes its figures beside it as `<picture>.png.json`.
+
+**A car can be driven by hand with nobody at the keyboard.** `--drive FILE|-` reads a script of steps —
+pick a car out, hold the pedals and the wheel for a while, give an order, work the lever, take a frame —
+and pushes them through the very seam the player's keys go through, a tick at a time
+([app/drive](src/app/drive/docs/requirements.md)). **Nothing in it can ask for more than a key can**: the
+pedals are shares of their own travel, the hard envelope binds, and the town queues around the car
+exactly as it would around any other. Every step prints what the unit is doing — the unit panel's own
+rows — and a `shot` step writes a captioned frame into `--frames DIR` (`.tmp/drive` by default);
+`--out FILE.md` writes the whole drive as one document. The same script over the same map is the same
+run, so a drive is steered by appending a step and playing it again. `qq drive` is the tool that does
+that.
+
+**`--drive FILE --live` is the same drive in a window somebody is watching.** The run opens as usual and
+follows the file as it is written: a step appended while the town runs is driven when it arrives, and its
+reading is printed as it is taken. `pace N` runs the town at a fraction of real time — which is what makes
+a hand with seconds of lag able to drive at all — `agents on` lets go of the hold a run opens with, and
+`--frame-width PX` writes the frames a driver reads back as a scaled copy while the window keeps drawing
+at full size.
+
+```
+dotnet run --project traffic-dotnet.csproj -- --map Odesa --live --drive .tmp/drive/live.txt \
+  --frames .tmp/drive/live --frame-width 800 --ui car-lines --seconds 1800
+```
+
+```
+cars 320 190            # what is standing near a place, nearest first
+select nearest 320 190  # the car there, picked out as a click on it
+shot standing           # a captioned frame, riding the car
+drive 2 throttle=1      # the keys, held for two seconds of the town
+drive 1.5 throttle=0.4 steer=-0.6
+order 360 240           # the right-click order CTL-8 already offers
+release                 # the reset: the wheel and manual mode given back
+```
+
+**`--bot FILE --bot-car N` seats a second driver beside you.** It is the same steps through the same seam,
+with the car named instead of picked out — so the selection, the camera, the panels, the keys and every
+other car stay yours while it drives (`CTL-5d`, `DRV-8`). It looks through an eye of its own rather than
+through the window: an offscreen frame of the town pinned on its car, **with no interface drawn in it at
+all**, written into `--bot-frames DIR` with the car's dashboard beside it as a `.txt`. `--bot-eye PX` and
+`--bot-view METRES` are how big that picture is and how much town it spans; `--bot-out FILE.md` writes the
+whole of what it drove. A run may carry a bot, a live drive, or both.
+
+**It is told what it is driving.** `handbook.md` lands beside the frames when the seat is taken: this car's
+own mass and dimensions, what a pedal and the wheel are worth on it, the radius its tyres hold at the speed
+these streets were laid for, and how many pixels of the frame a metre is. Every figure is read off the build
+the solver drives, so nothing briefing a driver can quote a car the town does not have.
+
+**`--bot-waits` stops the town's clock whenever that driver has run out of steps**, so what it spends
+thinking costs it no ground and the frame it answers is still true when the answer arrives. The panel says
+`waiting` while it does.
+
+`qq pilot` is the harness that puts a model in that seat: it opens the run, reads the handbook to it, waits
+for each frame, asks OpenRouter what to hold, checks the answer is something a key could have done and
+appends it. The key comes from `OPENROUTER_API_KEY` or `~/.qq/openrouter.key` and no part of it is written
+into the project.
+
+```
+qq pilot --map Odesa --car 387 --minutes 10        # the model drives; the window is yours
+qq pilot --car 387 --freeze=off --pace 0.3         # or let the town run on while it thinks
+dotnet run --project traffic-dotnet.csproj -- --map Odesa --windowed --bot-waits \
+  --bot .tmp/pilot/steps.txt --bot-car 387 --bot-frames .tmp/pilot/eye --bot-eye 768
+```
 
 **A picture can be taken with the pointer somewhere**, which is how the layers' own readings are asked for
 without a window (`OBS-2t`): `--point X Y` stands the pointer on that place in the town, so the ribbon and
@@ -122,6 +192,11 @@ triangles are to equilateral, and how much of the shell it lost** against the ar
 enclose. It prints the shell's open joints beside them, since the straights a fill draws across them are
 ground nothing else accounts for. `qq town` is the same five
 readings from the shell.
+
+**`--bench load --map NAME` says what opening that map cost**, stage by stage: the plan, the ground — the
+merge, the boundary struck off it and the layers cut from those — and the town stood up, with its three
+graphs. It is a cold open in a fresh process and never
+a benchmark loop: every stage here keeps its answer, so a second run of any of it measures the cache.
 
 `--lamps` cuts the town's lamp sheet out of the fleet's own sprites — every lens a variant draws, in
 each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.png`.

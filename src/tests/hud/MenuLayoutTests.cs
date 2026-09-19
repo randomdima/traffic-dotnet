@@ -57,8 +57,9 @@ public class MenuLayoutTests
     static MenuChoice Click(Menu menu, Vector2 atPx)
     {
         var trims = new TrimFigures();
-        var pressed = menu.Click(atPx, new DebugSwitches(), trims);
-        var lifted = menu.Pointer(atPx, held: false, DragPx, trims);
+        var switches = new DebugSwitches();
+        var pressed = menu.Click(atPx, switches, trims);
+        var lifted = menu.Pointer(atPx, held: false, DragPx, switches, trims);
         return pressed.Action == MenuAction.None ? lifted : pressed;
     }
 
@@ -348,10 +349,11 @@ public class MenuLayoutTests
         // Up the panel by exactly what the group header above the first map takes, which is one row of
         // travel and so one row of list.
         var trims = new TrimFigures();
+        var switches = new DebugSwitches();
         var toPx = wasPx - new Vector2(0f, menu.RowHeightPx(0) + Theme.GapPx);
-        menu.Click(wasPx, new DebugSwitches(), trims);
-        menu.Pointer(toPx, held: true, DragPx, trims);
-        Assert.Equal(MenuAction.None, menu.Pointer(toPx, held: false, DragPx, trims).Action);
+        menu.Click(wasPx, switches, trims);
+        menu.Pointer(toPx, held: true, DragPx, switches, trims);
+        Assert.Equal(MenuAction.None, menu.Pointer(toPx, held: false, DragPx, switches, trims).Action);
 
         var nowPx = menu.RowMiddlePx(1);
         Assert.True(nowPx.Y < wasPx.Y, $"the first map stayed at {nowPx.Y} of {wasPx.Y}");
@@ -406,7 +408,13 @@ public class MenuLayoutTests
         Assert.True(switches.Grid);
 
         menu.Click(menu.LineMiddlePx(10), switches, new TrimFigures());
+        Assert.True(switches.SolverGrid);
+
+        menu.Click(menu.LineMiddlePx(11), switches, new TrimFigures());
         Assert.True(switches.Ruler);
+
+        menu.Click(menu.LineMiddlePx(12), switches, new TrimFigures());
+        Assert.True(switches.Shell.Drawn);
     }
 
     /// <summary>
@@ -506,14 +514,52 @@ public class MenuLayoutTests
 
         for (var trim = 0; trim < TrimFigures.Count; trim++)
         {
-            menu.Click(menu.TrimAtPx(trim, TrimFigures.Most), new DebugSwitches(), trims);
-            menu.Pointer(Vector2.Zero, held: false, DragPx, trims);
+            var switches = new DebugSwitches();
+            menu.Click(menu.TrimAtPx(trim, TrimFigures.Most), switches, trims);
+            menu.Pointer(Vector2.Zero, held: false, DragPx, switches, trims);
 
             for (var other = 0; other < TrimFigures.Count; other++)
             {
                 Assert.Equal(other <= trim ? TrimFigures.Most : 1f, trims.Of(other), 3);
             }
+
+            Assert.Equal(ShellProbe.StartsAtM, switches.Shell.OutwardM, 3);
         }
+    }
+
+    /// <summary>
+    /// <b>The probe's rows are read straight off their own tracks</b> (OBS-2w) — metres out for the distance
+    /// and metres of radius for the rounding: the far end of each is its own stop, and the middle is half its
+    /// own travel, which a trim's logarithmic track would put nowhere near.
+    /// </summary>
+    [Fact]
+    public void TheShellRowsAreReadStraightOffTheirOwnTracks()
+    {
+        var menu = OnTheFigures();
+        var trims = new TrimFigures();
+        var switches = new DebugSwitches();
+
+        menu.Click(menu.TrimAtPx(Menu.ShellRow, ShellProbe.MostM), switches, trims);
+        Assert.Equal(ShellProbe.MostM, switches.Shell.OutwardM, 3);
+
+        menu.Click(menu.TrimAtPx(Menu.ShellRow, ShellProbe.LeastM), switches, trims);
+        Assert.Equal(ShellProbe.LeastM, switches.Shell.OutwardM, 3);
+
+        menu.Click(menu.TrimMiddlePx(Menu.ShellRow), switches, trims);
+        Assert.Equal((ShellProbe.LeastM + ShellProbe.MostM) * 0.5f, switches.Shell.OutwardM, 1);
+
+        menu.Click(menu.TrimAtPx(Menu.RoundingRow, ShellProbe.MostRoundM), switches, trims);
+        Assert.Equal(ShellProbe.MostRoundM, switches.Shell.RoundedM, 3);
+
+        menu.Click(menu.TrimMiddlePx(Menu.RoundingRow), switches, trims);
+        Assert.Equal((ShellProbe.LeastRoundM + ShellProbe.MostRoundM) * 0.5f, switches.Shell.RoundedM, 1);
+
+        // Each row moves its own figure and the distance stayed where the rows above left it.
+        Assert.Equal((ShellProbe.LeastM + ShellProbe.MostM) * 0.5f, switches.Shell.OutwardM, 1);
+
+        // And nothing the town is laid with moved with either: the probe is a line this overlay draws.
+        Assert.True(trims.Untouched);
+        Assert.False(menu.TakeFiguresMoved());
     }
 
     /// <summary>
@@ -527,29 +573,30 @@ public class MenuLayoutTests
     {
         var menu = OnTheFigures();
         var trims = new TrimFigures();
+        var switches = new DebugSwitches();
 
-        menu.Click(menu.TrimAtPx(0, 3f), new DebugSwitches(), trims);
+        menu.Click(menu.TrimAtPx(0, 3f), switches, trims);
         Assert.True(menu.TakeFiguresMoved());
 
-        menu.Pointer(menu.TrimAtPx(0, 5f), held: true, DragPx, trims);
+        menu.Pointer(menu.TrimAtPx(0, 5f), held: true, DragPx, switches, trims);
         Assert.True(menu.TakeFiguresMoved());
         Assert.Equal(5f, trims.Friction, 2);
 
         // Taken rather than read: the town is stood up again once for a figure and not every frame after it.
         Assert.False(menu.TakeFiguresMoved());
 
-        menu.Pointer(menu.TrimAtPx(0, 5f), held: true, DragPx, trims);
+        menu.Pointer(menu.TrimAtPx(0, 5f), held: true, DragPx, switches, trims);
         Assert.False(menu.TakeFiguresMoved());
 
         // Past the end of the track, where the clamp holds the figure while the pointer runs on.
         var pastTheStopPx = menu.TrimAtPx(0, TrimFigures.Most) + new Vector2(200f, 0f);
-        menu.Pointer(pastTheStopPx, held: true, DragPx, trims);
+        menu.Pointer(pastTheStopPx, held: true, DragPx, switches, trims);
         Assert.True(menu.TakeFiguresMoved());
-        menu.Pointer(pastTheStopPx + new Vector2(500f, 0f), held: true, DragPx, trims);
+        menu.Pointer(pastTheStopPx + new Vector2(500f, 0f), held: true, DragPx, switches, trims);
         Assert.False(menu.TakeFiguresMoved());
 
         // And letting go is not a second move of a figure already standing where it was left.
-        menu.Pointer(pastTheStopPx, held: false, DragPx, trims);
+        menu.Pointer(pastTheStopPx, held: false, DragPx, switches, trims);
         Assert.False(menu.TakeFiguresMoved());
     }
 

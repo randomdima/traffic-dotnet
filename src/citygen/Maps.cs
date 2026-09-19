@@ -101,11 +101,16 @@ internal static class Maps
     /// town and is laid again.
     /// </para>
     /// </remarks>
-    public static CityPlan Plan(string name, SimConfig config)
+    /// <param name="sizes">
+    /// The footprints a generated town sizes its buildings at, read off the art by the catalogue above this
+    /// slice and handed down as data (<see cref="BuildingSizes"/>, GEN-54). A map laid in code stands what
+    /// its own code stands and never reads this.
+    /// </param>
+    public static CityPlan Plan(string name, SimConfig config, BuildingSizes sizes)
     {
         if (_kept is { } kept && kept.Is(name, config)) return kept.Plan;
 
-        var plan = Lay(name, config);
+        var plan = Lay(name, config, sizes);
 
         // A reference is written whole, so a reader takes the town before or the town after and never half
         // of either. Two callers laying the same map at once lay it twice, which is what they did anyway.
@@ -122,14 +127,14 @@ internal static class Maps
 
     static Kept? _kept;
 
-    static CityPlan Lay(string name, SimConfig config)
+    static CityPlan Lay(string name, SimConfig config, BuildingSizes sizes)
     {
         foreach (var (laid, lay) in Laid)
         {
             if (string.Equals(laid, name, StringComparison.Ordinal)) return lay(config);
         }
 
-        if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config);
+        if (IsGenerated(name)) return TownGenerator.Lay(Brief(name), config, sizes);
 
         throw new FileNotFoundException(
             $"No map called {name}: this build knows {string.Join(", ", Shipped())}.");

@@ -56,3 +56,18 @@ takes the town with it and the next one stands its own up.
 
 **The staging path is still the one path** (SHT-4). What moved out of it is which town it is of, not how the
 frame is staged: `ShotRun.Take` lays the town when it is handed none, so `--shot` is what it always was.
+
+## The machine a frame is drawn with is a thing, so a run can be photographed while it is running
+
+`ShotRun.Take` opened a device, laid a renderer for the town's ground and read every sheet the town wears,
+drew one frame and let all of it go. That is right for a picture of a moment and wrong for a run being
+driven: a hand at the wheel wants a frame after this step and another after the next, of a town it is
+ticking itself, and the only two ways to get one were to stand the whole town up again per frame or to draw
+it somewhere else. The first is a minute a picture and the second is a second drawing path, which `SHT-1`
+exists to refuse.
+
+`ShotStage` is the expensive half held as an object — device, renderer, ground and looks — with `Draw` the
+one place a frame is composed. `ShotRun` stands a town, ticks it and asks for one frame; a hand-driven run
+([app/drive](../../drive/docs/requirements.md)) keeps a stage and asks for a frame whenever its script says
+so. **Nothing about what a frame contains moved**: the camera, the interface and the caption are the
+request's exactly as they were, and a `--shot` is the same pixels it was before the split.

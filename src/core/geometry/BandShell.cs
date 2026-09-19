@@ -81,8 +81,8 @@ internal sealed partial class BandShell
     /// <summary>
     /// <b>The bands merged into one shape.</b> <paramref name="index"/> is those same
     /// <paramref name="lines"/> under those same numbers — the merge asks it which lines are near a place,
-    /// which is how it decides what covers what — and <paramref name="cellM"/> is the cell the ribbons are
-    /// binned at in an index of their own.
+    /// which is how it decides what covers what. The ribbons the bands come to are binned in an index of
+    /// their own, piece by piece and at the finest cell there is (<see cref="ChainIndex.FinestCellM"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -101,8 +101,7 @@ internal sealed partial class BandShell
     /// lines.
     /// </para>
     /// </remarks>
-    public static BandShell Of(
-        ReadOnlySpan<ArcSeg[]> lines, ReadOnlySpan<float> widthM, ChainIndex index, float cellM)
+    public static BandShell Of(ReadOnlySpan<ArcSeg[]> lines, ReadOnlySpan<float> widthM, ChainIndex index)
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index.ChainCount, lines.Length);
 
@@ -120,14 +119,14 @@ internal sealed partial class BandShell
             ribbons[line] = ArcRibbon.Of(lines[line], halfM[line], LineTolerance.RoundingM);
         }
 
-        var merge = new Merge(lines.ToArray(), index, cellM, ribbons, halfM, lengthM, mostHalfM);
+        var merge = new Merge(lines.ToArray(), index, ribbons, halfM, lengthM, mostHalfM);
         var (chains, loose) = merge.Run();
         return new BandShell(chains, loose);
     }
 
     /// <summary>
     /// <b>The merged shape moved off itself</b> (<see cref="ArcOutset"/>), at one distance and one corner
-    /// smoothing. What goes in is <see cref="Chains"/> and never <see cref="Loose"/>: an outset is a fact
+    /// radius. What goes in is <see cref="Chains"/> and never <see cref="Loose"/>: an outset is a fact
     /// about a closed shape, and a run with two ends has no outside.
     /// </summary>
     /// <remarks>
@@ -142,9 +141,15 @@ internal sealed partial class BandShell
     /// rings nearer than twice the distance come back as one and a ring smaller than it comes back as none,
     /// so the count that goes in has nothing to do with the count that comes out.
     /// </para>
+    /// <para>
+    /// <b>A line a body is held on asks for the fill without the cut</b>
+    /// (<see cref="ArcOutset.Corners.Filled"/>): the ground the shape is built of is the ball's own line, but
+    /// a course is the shape moved and may not be pulled back towards it by a radius.
+    /// </para>
     /// </remarks>
-    public (ArcSeg[][] Rings, ArcSeg[][] Loose) Outset(float outwardM, float smoothing) =>
-        ArcOutset.Of(_chains, outwardM, smoothing);
+    public (ArcSeg[][] Rings, ArcSeg[][] Loose) Outset(
+        float outwardM, float roundedM, ArcOutset.Corners corners = ArcOutset.Corners.Rolled) =>
+        ArcOutset.Of(_chains, outwardM, roundedM, corners);
 
     /// <summary>
     /// <b>The merged shape cut into the triangles that cover it</b> (<see cref="ShellFill"/>), at one

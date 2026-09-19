@@ -60,6 +60,46 @@ internal static class Spline
     }
 
     /// <summary>
+    /// <b>How much heading a chain spends over its whole length</b> — every bend's own turn and every kink
+    /// between two pieces, all of it counted the way it is paid for, whichever way round it goes.
+    /// </summary>
+    /// <remarks>
+    /// <b>What it is for is telling a corner from a line drawn round the houses.</b> The heading a chain's own
+    /// two ends ask for is the least it could spend; what it spends over that is winding, and a body pays for
+    /// it in the same coin either way — turning while it walks, or standing and pivoting at a kink.
+    /// </remarks>
+    public static float SweptRad(ReadOnlySpan<ArcSeg> arcs)
+    {
+        var sweptRad = 0f;
+        for (var at = 0; at < arcs.Length; at++)
+        {
+            sweptRad += MathF.Abs(arcs[at].LengthM * arcs[at].Curvature);
+            if (at == 0) continue;
+
+            sweptRad += MathF.Abs(
+                WrapRad(arcs[at].HeadingRad - arcs[at - 1].HeadingAtRad(arcs[at - 1].LengthM)));
+        }
+
+        return sweptRad;
+    }
+
+    /// <summary>
+    /// <b>The least heading any chain between a chain's own two ends could spend</b> (<see cref="SweptRad"/>),
+    /// which is the heading between them and nothing more.
+    /// </summary>
+    public static float AskedRad(ReadOnlySpan<ArcSeg> arcs) => MathF.Abs(TurnedRad(arcs));
+
+    /// <summary>
+    /// <b>The same heading, signed the way the chain turns through it</b> — positive to the driver's right,
+    /// as a piece's own curvature is (<see cref="ArcSeg.Curvature"/>). What the chain does between its two
+    /// ends is no more in this than it is in <see cref="AskedRad"/>.
+    /// </summary>
+    public static float TurnedRad(ReadOnlySpan<ArcSeg> arcs) =>
+        arcs.Length == 0
+            ? 0f
+            : WrapRad(arcs[^1].HeadingAtRad(arcs[^1].LengthM) - arcs[0].HeadingRad);
+
+    /// <summary>
     /// <b>The ground a closed chain encloses, exactly</b> — the polygon through every piece's own two ends
     /// plus the circular segment each bend cuts off its own chord, signed by which way the chain is walked.
     /// </summary>
@@ -342,7 +382,21 @@ internal static class Spline
     /// it started than to where it is going. What a caller wants is the nearest point to the progress it
     /// had, which is a local question.
     /// </remarks>
-    public static float ProjectM(ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM)
+    public static float ProjectM(ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM) =>
+        ProjectM(arcs, pointM, aroundM, windowM, out _);
+
+    /// <summary>
+    /// <b>The same projection, with how far off it landed</b> — the squared distance from the point to the
+    /// place returned, which this loop has in hand and a caller would otherwise sample the chain again to
+    /// find out.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the loop's own figure and not a second reading of the answer.</b> A caller measuring back
+    /// from <see cref="SampleAt"/> walks the chain a second time and can land on the other piece of a joint
+    /// the projection stood exactly on, so the two readings are not merely the same cost twice.
+    /// </remarks>
+    public static float ProjectM(
+        ReadOnlySpan<ArcSeg> arcs, Vector2 pointM, float aroundM, float windowM, out float offSq)
     {
         // The window's far end is not clamped to the chain's length, and does not need to be: nothing
         // this loop can offer stands past the last piece's end, so a ceiling above that never bites. The
@@ -372,6 +426,7 @@ internal static class Spline
             startM = endM;
         }
 
+        offSq = bestDistanceSq;
         return bestM;
     }
 
@@ -896,6 +951,106 @@ internal static class Spline
 
         return laid;
     }
+
+    /// <summary>
+    /// <b>The corner between two poses that something has to be able to hold</b> — the biarc between them
+    /// (<see cref="BiarcInto"/>), <b>refused where it turns tighter than <paramref name="tightestM"/> or
+    /// spends more heading than a corner has to spend</b> (<see cref="SweptRad"/>), in which case nothing is
+    /// written and the caller lays whatever it falls back on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>An equal-tangent biarc gives two arcs of its own choosing, and two of the answers it gives are no
+    /// use to anything that has to walk or drive the line.</b> It <b>runs away</b> where the two poses are
+    /// nearly parallel and offset sideways: a six-centimetre step between two stretches of one straight
+    /// pavement drew a 26 m loop. And it <b>hairpins</b> where they are not: a third of the corners in a town
+    /// came out tighter than the tightest circle a walker's feet can hold, some of them a centimetre across,
+    /// and a body handed one of those orbits it rather than reaching the point on the far side — measured, on
+    /// the day the mitre was wired in, as Odesa's given-up walks going from 37 a minute to 211.
+    /// </para>
+    /// <para>
+    /// <b>Both failures are one failure read in heading</b>, and that is the bound: <b>a corner spends at most
+    /// half a turn</b>. The heading between two poses is never more than that, so a corner that turns one way
+    /// through it never needs more — and everything past it is a corner turning twice where it needed to turn
+    /// once. The runaway spends a whole turn to arrive facing the way it set off; the hairpin at two
+    /// near-opposite poses spends a turn and a half. <b>What is left where the bound refuses is the pivot</b>,
+    /// and a pivot is possible: a body stands, turns and walks the straight, spending the heading its two ends
+    /// ask for and no more. It is not free, which is why the curve is preferred wherever the curve is a
+    /// corner.
+    /// </para>
+    /// <para>
+    /// So a corner has to be all three: <b>no tighter than the radius it is asked to hold</b> — which for a
+    /// walk is the circle the feet can hold at pace (<c>SimConfig.WalkerTightestTurnM</c>) — <b>no more wound
+    /// than half a turn</b>, and <b>no longer than a half turn's own share of the straight it bridges</b>
+    /// (<see cref="HalfATurnOfItsChord"/>). The heading catches what turns twice over; the length catches what
+    /// bows out past the ground between its two ends, which spends no extra heading at all and so is
+    /// invisible to the other two.
+    /// </para>
+    /// </remarks>
+    public static int CorneredInto(
+        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float tightestM,
+        Span<ArcSeg> into)
+    {
+        var laid = BiarcInto(fromM, fromHeadingRad, toM, toHeadingRad, into);
+        if (laid == 0) return 0;
+
+        var lengthM = 0f;
+        var bend = 0f;
+        for (var arc = 0; arc < laid; arc++)
+        {
+            lengthM += into[arc].LengthM;
+            bend = MathF.Max(bend, MathF.Abs(into[arc].Curvature));
+        }
+
+        if (bend > 1e-6f && 1f / bend < tightestM) return 0;
+        if (SweptRad(into[..laid]) > HalfATurnRad + LineTolerance.StraightOnRad) return 0;
+
+        return lengthM <= (HalfATurnOfItsChord * (toM - fromM).Length()) + LineTolerance.JoinedM ? laid : 0;
+    }
+
+    /// <summary>
+    /// <b>The most heading one corner spends</b> (<see cref="CorneredInto"/>): half a turn, which is the most
+    /// the heading between any two poses can ask for.
+    /// </summary>
+    public const float HalfATurnRad = MathF.PI;
+
+    /// <summary>
+    /// <b>The most ground one corner covers, as a share of the straight between its own two ends</b>
+    /// (<see cref="CorneredInto"/>): what a half turn on one circle covers of its own chord, which is
+    /// <c>(θ/2)/sin(θ/2)</c> at θ of half a turn — π/2, or a little over one and a half.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the shape's own figure and not a tolerance.</b> An arc of any turn covers that much of its
+    /// chord and no more, the ratio rising with the turn and the half turn being the most a corner asks for
+    /// (<see cref="HalfATurnRad"/>) — so a line over it is not an arc between its two ends at all but two
+    /// arcs bowing out past the ground between them.
+    /// </remarks>
+    public static readonly float HalfATurnOfItsChord = HalfATurnRad * 0.5f / MathF.Sin(HalfATurnRad * 0.5f);
+
+    /// <summary>
+    /// <b>What turning on the spot costs between two poses, in metres of the ground a curve would cover</b> —
+    /// the straight between them plus the heading a body standing still has to spend to walk it and arrive
+    /// facing the right way.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A pivot is priced in metres and the exchange rate is exact.</b> The tightest circle anything holds
+    /// is its pace over its turn rate, so a radian turned on the spot takes exactly as long as
+    /// <paramref name="tightestM"/> of walking — which makes the tightest arc and the pivot cost the same for
+    /// the same change of heading, and every wider arc a trade of heading for ground. The comparison needs no
+    /// clock and no speed: at one pace, time and distance are the same figure.
+    /// </para>
+    /// <para>
+    /// <b>The heading is what the two poses ask for and not what facing the straight would take.</b> A body
+    /// that turns to face a two-metre step, walks it and turns again spends more than that, and it is free not
+    /// to: it may cover a short step without committing to a heading. Priced at the least any plan could
+    /// spend, this is <b>the figure a curve has to beat to be worth curving</b>, which is the only honest
+    /// bar to hold a curve to.
+    /// </para>
+    /// </remarks>
+    public static float PivotedM(
+        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float tightestM) =>
+        (toM - fromM).Length() + (MathF.Abs(WrapRad(toHeadingRad - fromHeadingRad)) * tightestM);
 
     /// <summary>
     /// The single arc a pair of poses gets when no biarc joins them — two antiparallel tangents a lane

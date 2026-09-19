@@ -15,6 +15,11 @@ namespace TrafficSimulation.Core.Geometry;
 /// then becomes necessary is a per-query allocation.
 /// </para>
 /// <para>
+/// <b>Which is the trade <see cref="World.Physics.CellGrid"/> takes the other way round</b>, and it is
+/// right there for the same reason it is wrong here: a set of one size widens by nothing, and a set
+/// holding a tree beside a building would make every query pay for the building.
+/// </para>
+/// <para>
 /// A rebuild is linear in the items and never in the buckets, which is what makes an index over a
 /// whole town affordable sixty times a second: a bucket is live only while its stamp matches the
 /// current generation, so nothing is cleared between rebuilds and the counting sort's prefix runs over

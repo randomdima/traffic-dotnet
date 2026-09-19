@@ -191,20 +191,32 @@ internal sealed class PlayerHands
                 _fromPx = atPx;
                 break;
 
-            // CTL-2, CTL-3 and CTL-8: the order pins the goal the behaviour would otherwise have picked
-            // itself, and everything below goal selection is untouched. <b>The pointer decides which goal
-            // that is</b>, for both kinds — for a walker a building or a car is walked to and entered; for
-            // a car it is another car to follow, a bay to park in, a place on the road to stand at, or a
-            // place off it to park near and walk the rest of. Every selected unit takes the same order at
-            // the same point (CTL-1b).
             case MouseButton.Right:
-                foreach (var unit in world.Selected)
-                {
-                    if (unit.Kind == SelectionKind.Person) world.Order(unit.Index, pointM);
-                    else world.OrderCar(unit.Index, pointM);
-                }
-
+                Order(world, pointM);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// <b>The order at a place, given to every unit picked out</b> — a right-click, once the pointer has
+    /// been turned into a place on the town.
+    /// </summary>
+    /// <remarks>
+    /// CTL-2, CTL-3 and CTL-8: the order pins the goal the behaviour would otherwise have picked itself,
+    /// and everything below goal selection is untouched. <b>The place decides which goal that is</b>, for
+    /// both kinds — for a walker a building or a car is walked to and entered; for a car it is another car
+    /// to follow, a bay to park in, a place on the road to stand at, or a place off it to park near and
+    /// walk the rest of. Every selected unit takes the same order at the same point (CTL-1b).
+    /// <b>It is here rather than in the click</b> because a pointer is not the only thing that can ask for
+    /// one: a script driving by hand orders through this very call, so there is one translation from a
+    /// place to a goal and not two (CTL-6).
+    /// </remarks>
+    public static void Order(TownWorld world, Vector2 pointM)
+    {
+        foreach (var unit in world.Selected)
+        {
+            if (unit.Kind == SelectionKind.Person) world.Order(unit.Index, pointM);
+            else world.OrderCar(unit.Index, pointM);
         }
     }
 

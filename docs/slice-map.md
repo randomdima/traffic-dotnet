@@ -22,7 +22,7 @@ the same tier may depend on each other only in the one direction the tier's own 
 | **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight | core, citygen, world |
 | **Machine** | `runtime/` — the window, the device, the swapchain, `runtime/web/` — the canvas and WebGPU, and `runtime/android/` — the glass and the surface made of it | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
-| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, web, android | Everything |
+| **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, android | Everything |
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
@@ -42,7 +42,9 @@ hud → debug because the settings panel draws the switches the layers own and t
 drawn in the layers' path vocabulary (`PathMarks`), so one route lands on the same stones at the same
 weight whichever of them drew it. `app/shot/` sits under
 `app/main/` and over everything it photographs, so a picture has one staging path and the entry point
-only chooses it.
+only chooses it. `app/drive/` sits beside it on the same footing and over `app/playercontrol/`,
+`app/hud/` and `app/shot/`: a script at the wheel holds the hand that slice owns, prints the rows that one
+draws and asks this one for its pictures.
 
 **A folder named for a head is a second answer and never a second question.** `runtime/web/`,
 `app/render/web/` and `app/main/web/` hold the browser's half of something the desktop already has, and
@@ -100,3 +102,6 @@ rather than the type is what keeps the arrow pointing down**:
   caller hands over three spans (`PHY-7a`).
 - **`TownRenderer.SheetFrameAspect(sheet, columns, rows)`** — the renderer knows how big an image is;
   what it is cut into is a fact about the thing it draws, so the grid comes from the caller.
+- **`BuildingCatalog.Roofs`** — a building is sized by the roof it will wear (`GEN-54`), and the roofs are
+  read off the sheets by a slice above the plan. What crosses is the measurements (`CityGen.BuildingSizes`),
+  handed to `Maps.Plan` by whoever opens a map, so the generator never learns that a catalogue exists.

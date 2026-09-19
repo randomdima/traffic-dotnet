@@ -21,9 +21,10 @@ namespace TrafficSimulation.Tests.CityGen;
 /// <para>
 /// <b>The suite asks its questions of towns it owns, and never of a shipped city.</b> There are two of
 /// them: <see cref="Fixture"/>, the file every detailed check is staged on, and <see cref="City"/>, a
-/// whole town this class lays from <see cref="Brief"/> at a seed of its own. Between them they are a
-/// screen of every kind of ground and a working city with water, bridges, districts, bays, a hospital, a
-/// station and a depot on it — which is the whole of what a city was ever being asked for.
+/// whole town this class lays from <see cref="Brief"/> at a seed of its own — with <see cref="Built"/> the
+/// one of those laid with buildings and therefore with car parks on it. Between them they are a screen of
+/// every kind of ground and a working city with water, bridges, districts, yards, a hospital, a station and
+/// a depot on it — which is the whole of what a city was ever being asked for.
 /// </para>
 /// <para>
 /// <b>A shipped city is content and is not the suite's subject</b> (<see cref="Tier.Maps"/>). Whether
@@ -34,10 +35,10 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </para>
 /// <para>
 /// <b>A shared plan must not be written to.</b> A test that writes to one reads its own copy through
-/// <see cref="Fresh"/> — <c>ServicePlacementTests</c> is the whole of that today, since placing the
-/// services is the one authoring step that assigns into a plan — and the generator's determinism cases
-/// lay their town through <see cref="LayFresh"/> on purpose, because handed the shared one they would
-/// compare a town to itself and pass whatever the generator did.
+/// <see cref="Fresh"/>, and nothing wants one today — the services are a use the generator wrote as it
+/// stood each building (GEN-55) rather than an authoring pass that assigns into a finished plan. The
+/// generator's determinism cases lay their town through <see cref="LayFresh"/> on purpose, because handed
+/// the shared one they would compare a town to itself and pass whatever the generator did.
 /// </para>
 /// <para>
 /// <b>Standing a world up is not writing to a plan</b>, so a <see cref="World.Town.TownWorld"/> is built
@@ -92,10 +93,11 @@ internal static class Towns
     /// the same brief with one figure changed, and would silently ask nothing if it hand-copied the rest.
     /// </param>
     /// <param name="buildings">
-    /// <b>None, except where a case is about the car parks they are counted off</b> (GEN-53,
-    /// <see cref="SimConfig.CarParksFor"/>). A car park's arm ends at the bays nothing lays yet
-    /// ([the known gaps](../../../docs/index.md#known-gaps)), so a town carrying one has a lane a car is
-    /// driven onto and not off — which is the one thing GEN-50 is about, and not something to make every
+    /// <b>None, except for <see cref="Built"/> and the cases about what a town stands</b> (GEN-54). The
+    /// count is also what the car parks are cut off (GEN-53, <see cref="SimConfig.CarParksFor"/>), and a
+    /// car park's arm ends at the bays nothing lays yet
+    /// ([the known gaps](../../../docs/index.md#known-gaps)) — so a town carrying one has a lane a car is
+    /// driven onto and not off, which is the one thing GEN-50 is about and not something to make every
     /// other case on this brief carry an exemption for.
     /// </param>
     public static TownBrief Brief(
@@ -148,8 +150,8 @@ internal static class Towns
     /// <summary>A copy of a town nobody else holds — for the one test that writes into a plan.</summary>
     public static CityPlan Fresh(string map) =>
         map == City
-            ? TownGenerator.Lay(Brief(CitySeed), Figures)
-            : Maps.Plan(map, Figures);
+            ? TownGenerator.Lay(Brief(CitySeed), Figures, BuildingCatalog.Roofs)
+            : Maps.Plan(map, Figures, BuildingCatalog.Roofs);
 
     /// <summary>
     /// A generated town at one seed and one water, laid once per pair however many questions are asked of
@@ -167,7 +169,29 @@ internal static class Towns
         LayFresh(Brief(seed, water));
 
     /// <inheritdoc cref="LayFresh(ulong, WaterKind)"/>
-    public static CityPlan LayFresh(TownBrief brief) => TownGenerator.Lay(brief, Figures);
+    public static CityPlan LayFresh(TownBrief brief) =>
+        TownGenerator.Lay(brief, Figures, BuildingCatalog.Roofs);
+
+    /// <summary>
+    /// <b>The suite's own city with buildings standing on it</b> (GEN-54), laid once — the one brief that
+    /// asks for any, and therefore the one town that carries car parks.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is a town of its own and not the default</b>: a car park's arm ends at bays nothing lays yet
+    /// ([the known gaps](../../../docs/index.md#known-gaps)), so a town carrying one has a lane a car is
+    /// driven onto and not off — which is the one thing GEN-50 is about, and not something to make every
+    /// other case on this brief carry an exemption for.
+    /// </remarks>
+    public static CityPlan Built => _built.Value;
+
+    /// <summary>
+    /// How many buildings that town plans. <b>Enough that every service the roster asks for has a yard</b>
+    /// (AMB-1, SRV-1) and that the frontage is genuinely competed for, and small enough that laying it is a
+    /// fraction of a second.
+    /// </summary>
+    public const int BuildingsBuilt = 200;
+
+    static readonly Lazy<CityPlan> _built = new(() => LayFresh(Brief(CitySeed, buildings: BuildingsBuilt)));
 
     /// <summary>
     /// <b>Whether a map stands any car up at all.</b> A question about what traffic does at a junction is

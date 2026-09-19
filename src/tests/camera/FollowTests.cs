@@ -115,31 +115,47 @@ public class FollowTests
     }
 
     /// <summary>
-    /// The town steps at a fixed rate and is drawn at the window's, so a camera nailed to the unit shows
-    /// every tick boundary. What it does instead is close on the unit over a span of real time.
+    /// The town steps at a fixed rate and is drawn at the window's, so a frame runs two ticks or none.
+    /// The camera takes the whole of the unit's step, which is what leaves the unit itself exactly still
+    /// on the glass: a camera that closed on it instead would spend what it had not covered of each tick
+    /// on the one body the reader is watching.
     /// </summary>
     [Fact]
-    public void TheCameraClosesOnTheUnitRatherThanBeingNailedToIt()
+    public void ATickBoundaryDoesNotMoveTheUnitOnItsOwnPicture()
     {
+        var velocityMps = new Vector2(14f, 0f);
+        var stepM = velocityMps * FrameS;
         var (camera, follow) = Watching();
-        follow.Step(camera, UiPx, UnitM, Vector2.Zero, FrameS);
-        var steppedToM = UnitM + new Vector2(2f, 0f);
+        var atM = UnitM;
 
-        follow.Step(camera, UiPx, steppedToM, Vector2.Zero, FrameS);
+        // Settled first, so what is left to move the unit on the glass is the stepping and nothing else.
+        for (var frame = 0; frame < 600; frame++)
+        {
+            follow.Step(camera, UiPx, atM, velocityMps, FrameS);
+            atM += stepM;
+        }
 
-        Assert.InRange(camera.CentreM.X, UnitM.X + 1e-3f, steppedToM.X - 1e-3f);
-        Assert.Equal(UnitM.Y, camera.CentreM.Y, tolerance: 1e-3f);
+        follow.Step(camera, UiPx, atM, velocityMps, FrameS);
+        var onScreenPx = camera.ScreenAt(atM, UiPx);
+        foreach (var ticksThisFrame in (float[])[2f, 0f, 1f])
+        {
+            atM += stepM * ticksThisFrame;
+            follow.Step(camera, UiPx, atM, velocityMps, FrameS);
+
+            var movedPx = (camera.ScreenAt(atM, UiPx) - onScreenPx).Length();
+            Assert.True(movedPx < 0.5f, $"{ticksThisFrame} ticks in a frame moved the unit {movedPx:F2} px");
+        }
     }
 
     /// <summary>
-    /// And the same distance of it whatever the frame rate is: an ease written as a fraction of the frame
-    /// would close twice as fast on a machine drawing twice as often.
+    /// The lead swings the same distance whatever the frame rate is: an ease written as a fraction of the
+    /// frame would close twice as fast on a machine drawing twice as often.
     /// </summary>
     [Fact]
     public void TheEaseCoversTheSameGroundAtAnyFrameRate()
     {
-        var overTenFrames = ClosedOn(new Vector2(6f, 0f), frames: 10, FrameS);
-        var inOne = ClosedOn(new Vector2(6f, 0f), frames: 1, 10f * FrameS);
+        var overTenFrames = LedBy(new Vector2(6f, 0f), frames: 10, FrameS);
+        var inOne = LedBy(new Vector2(6f, 0f), frames: 1, 10f * FrameS);
 
         Assert.Equal(overTenFrames.X, inOne.X, tolerance: 1e-3f);
     }
@@ -185,15 +201,17 @@ public class FollowTests
         Assert.Equal(acrossTheTownM, camera.CentreM);
     }
 
-    /// <summary>Where a follow of a unit standing still at the given place ends up after so many frames.</summary>
-    static Vector2 ClosedOn(Vector2 offsetM, int frames, float seconds)
+    /// <summary>
+    /// How far a follow that started on a standing unit leads it after so many frames of the given speed.
+    /// </summary>
+    static Vector2 LedBy(Vector2 velocityMps, int frames, float seconds)
     {
         var (camera, follow) = Watching();
         follow.Step(camera, UiPx, UnitM, Vector2.Zero, FrameS);
         for (var frame = 0; frame < frames; frame++)
-            follow.Step(camera, UiPx, UnitM + offsetM, Vector2.Zero, seconds);
+            follow.Step(camera, UiPx, UnitM, velocityMps, seconds);
 
-        return camera.CentreM;
+        return camera.CentreM - UnitM;
     }
 
     /// <summary>The three ways a reader moves the camera themselves, each of which ends a follow.</summary>

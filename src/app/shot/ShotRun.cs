@@ -1,13 +1,9 @@
 using System.Numerics;
-using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
-using TrafficSimulation.App.Hud;
-using TrafficSimulation.App.Render;
 using TrafficSimulation.Bench;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
-using TrafficSimulation.Runtime;
 using TrafficSimulation.World.Town;
 
 using TrafficSimulation.World.Statics;
@@ -61,53 +57,15 @@ internal static class ShotRun
     /// </summary>
     public static ShotReport Take(ShotRequest ask, SimConfig config, ref TownStanding? standing)
     {
-        var ui = new Interface(config.Trim);
-        var wanted = ask.Ui ?? [];
-        // A frame of the town and nothing else, which is what a picture of the *ground* is judged as:
-        // the panels are the interface's own subject and belong to the frames that are about it.
-        var bare = Array.IndexOf(wanted, "none") >= 0;
-
-        // A shot is a picture of a town somebody asked for unless a switch says otherwise, so the menu
-        // starts as the popup under the gear rather than as the panel a run opens on.
-        ui.Menu.ShutOntoTheTown();
-        ui.Apply(wanted);
-        foreach (var pointM in ask.RulerPointsM ?? []) ui.Ruler.Click(pointM);
-
-        if (ask.PickedM is { } pickedM) ui.Pick.Click(pickedM);
-
-        var plan = Maps.Plan(ask.Map, config);
+        var ui = ShotStage.Dressed(ask, config);
 
         // GEN-1b in a picture: the start menu stands over the idle ring, so a picture of it is a picture of
         // the map that was asked for with the panel on top. Which map that is, is the request's.
-        var mesh = GroundMesh.Build(plan, config);
-        var looks = TownSprites.Load();
+        var plan = Maps.Plan(ask.Map, config, BuildingCatalog.Roofs);
+        using var stage = ShotStage.For(plan, config, ask.WidthPx, ask.HeightPx, ask.Validate);
+
         standing = TownStanding.For(ask, config, plan, standing);
         var world = standing.World;
-
-        using var vk = Vk.Open("traffic-dotnet", ask.Validate);
-        using var renderer = TownRenderer.Offscreen(
-            vk, ask.WidthPx, ask.HeightPx, mesh, ProjectPaths.GroundSurfaceFiles(), looks.Sheets,
-            TownSprites.CapacityFor(plan, config));
-
-        // OBS-2v: a layer the switches have taken out of the ground is out of the picture here as well.
-        // The game asks this of the renderer every frame; a shot is one frame and asks once.
-        renderer.ShowGround(ui.Switches.Ground.Shown);
-
-        // A shot has no desktop under it, so its interface pixels are the image's own unless
-        // UiScale asks for the picture a scaled display would have shown.
-        var uiScale = ask.UiScale > 0f ? ask.UiScale : 1f;
-        var uiPx = new Vector2(ask.WidthPx, ask.HeightPx) / uiScale;
-        var camera = new Camera2D(config, plan.WorldSizeM, uiPx) { DevicePxPerUiPx = uiScale };
-        if (ask.ViewM > 0f) camera.SetSpan(ask.ViewM, uiPx);
-
-        // Where a run opens looking (OBS-1b), so an unframed picture is the frame the game opens on
-        // rather than a second answer about the same map.
-        camera.LookAt(
-            ask.AtM ?? Opening.LooksAtM(world.Terrain, config, plan.WorldSizeM, camera.ViewSpanM(uiPx).Y * 0.5f));
-
-        // About the middle of the frame, so the turn moves what is in the picture round rather than
-        // moving the picture off what was framed (OBS-1c).
-        camera.Turn(float.DegreesToRadians(ask.TurnDeg), uiPx * 0.5f, uiPx);
 
         // A shot of a town that has never ticked is a town of walkers standing on their spawns, which
         // is a picture of the plan rather than of the simulation. Seconds says how far in.
@@ -127,49 +85,10 @@ internal static class ShotRun
 
         standing.Ticked(ticks);
 
-        looks.ReadAspects(renderer);
-        looks.Lay(plan, world.Uses);
-        var sprites = looks.Fill(world, config, camera.CentreM, camera.CullSpanM(uiPx), renderer.Sprites);
-        renderer.SetSpriteCount(sprites);
-
-        // The pointer is put outside the frame, so nothing is drawn hovered: a shot with a row lit
-        // under a pointer nobody can see is a shot of a state the reader cannot account for. <b>Unless the
-        // request asked for one</b> (OBS-2t) — a reading taken under the pointer is a thing to be looked
-        // at, and a picture of it has to be askable for without a window.
-        var pointerPx = ask.PointerM is { } pointerM ? camera.ScreenAt(pointerM, uiPx) : -Vector2.One;
-        var under = 0;
-        var quads = bare ? 0 : ui.Draw(renderer.Overlay, renderer.Underlay, new InterfaceFrame
-        {
-            World = world,
-            Ground = mesh,
-            Config = config,
-            Camera = camera,
-            UiPx = uiPx,
-            PointerPx = pointerPx,
-            MapName = plan.Name,
-            Tick = loop.Tick,
-
-            // The phases and nothing else: there is no window to time on this path, so the read-out
-            // says the frame was not measured rather than printing the zero it would come to.
-            Frame = new FrameFigures { Phases = loop.Phases, Sub = world.Sub },
-            Scenario = scenario,
-        }, out under);
-
-        renderer.SetOverlayCount(quads);
-        renderer.SetUnderlayCount(under);
-
-        var (centreM, clipPerM, facing) = camera.ForShader(uiPx);
-        var crossingsBefore = Vk.Crossings;
-        renderer.Frame(new CameraView(centreM, clipPerM, uiPx, facing));
-        var crossings = Vk.Crossings - crossingsBefore;
-
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(ask.Path))!);
-        renderer.Shot(ask.Path);
-
-        return new ShotReport(
-            plan.Name, ask.Path, ask.WidthPx, ask.HeightPx, camera.ViewSpanM(uiPx), camera.CentreM,
-            renderer.TriangleCount, sprites, TownSprites.CapacityFor(plan, config), loop.Tick, quads + under,
-            crossings, plan.Seed);
+        // The phases and nothing else: there is no window to time on this path, so the read-out says the
+        // frame was not measured rather than printing the zero it would come to.
+        return stage.Draw(
+            ask, ui, world, loop.Tick, scenario, new FrameFigures { Phases = loop.Phases, Sub = world.Sub });
     }
 }
 

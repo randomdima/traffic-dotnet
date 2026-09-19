@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Statics;
 
 namespace TrafficSimulation.Bench;
 
@@ -33,7 +34,7 @@ internal static class TownShape
                           $"{"bldg",7}{"bays",7}{"props",7}{"spawn",7}");
         foreach (var map in Maps.Shipped())
         {
-            var plan = Maps.Plan(map, config);
+            var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
             var roads = Figures(plan);
             Console.WriteLine(
                 $"{plan.Name,-10}{Extent(plan),12}{plan.Junctions.Count,7}{plan.Roads.Count,7}" +
@@ -44,7 +45,7 @@ internal static class TownShape
 
     public static void Run(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var roads = Figures(plan);
 
         Console.WriteLine($"{plan.Name}  seed {plan.Seed}  {Extent(plan)} m  pavement {plan.PavementWidthM:F1} m");
@@ -96,7 +97,7 @@ internal static class TownShape
     /// </remarks>
     public static void Parks(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var parks = plan.CarParks;
 
         Console.WriteLine(
@@ -226,7 +227,7 @@ internal static class TownShape
 
     public static void Joints(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var arms = plan.Ground.ArmsPerJunction();
         Deflections(plan, out var deflectionAt);
 

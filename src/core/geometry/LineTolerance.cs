@@ -1,8 +1,9 @@
 namespace TrafficSimulation.Core.Geometry;
 
 /// <summary>
-/// <b>How open a joint may be and still be one line.</b> Three tolerances, read by everything that lays a
-/// chain of arcs, cuts one against another, or asks whether two ends are the same place.
+/// <b>How open a joint may be and still be one line.</b> Four tolerances, read by everything that lays a
+/// chain of arcs, cuts one against another, or asks whether two ends are the same place or point the same
+/// way.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -44,4 +45,11 @@ internal static class LineTolerance
     /// actually meet at a right angle stand a millimetre apart.
     /// </remarks>
     public const float OnePlaceM = 0.15f;
+
+    /// <summary>
+    /// <b>How far a joint may read off and still be one line carrying straight on</b>: a hundredth of a
+    /// radian, which is half a degree. Below it there is no corner there to round, and a sum of headings is
+    /// at its own last bits.
+    /// </summary>
+    public const float StraightOnRad = 0.01f;
 }

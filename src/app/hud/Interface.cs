@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Numerics;
 using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Render;
@@ -215,8 +216,14 @@ internal sealed class Interface(TrimFigures trims)
                 case "grid":
                     Switches.Toggle(ref Switches.Grid);
                     break;
+                case "solver-grid":
+                    Switches.Toggle(ref Switches.SolverGrid);
+                    break;
                 case "ruler":
                     Switches.Toggle(ref Switches.Ruler);
+                    break;
+                case "shell":
+                    Switches.Toggle(ref Switches.Shell.Drawn);
                     break;
                 case "scenario":
                     Status.ShowSection(StatusPanel.Claims);
@@ -228,11 +235,23 @@ internal sealed class Interface(TrimFigures trims)
                         break;
                     }
 
+                    if (Probed(name, out var outwardM, out var roundedM))
+                    {
+                        Switches.Shell.SetOutwardM(outwardM);
+                        Switches.Shell.SetRoundedM(roundedM);
+                        Switches.Toggle(ref Switches.Shell.Drawn);
+                        break;
+                    }
+
                     throw new ArgumentException(
                         $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
                         "menu-ground, menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
-                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, ruler, and " +
-                        $"hide-<layer> for one layer of the ground ({string.Join(", ", GroundParts.Words)}).");
+                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, solver-grid, " +
+                        "ruler, shell, " +
+                        $"shell-<metres> and shell-<metres>-<metres> for the probe struck at a distance " +
+                        $"({ShellProbe.LeastM:F0} to {ShellProbe.MostM:F0} m) and rounded at a radius " +
+                        $"({ShellProbe.LeastRoundM:F0} to {ShellProbe.MostRoundM:F0} m), and hide-<layer> for " +
+                        $"one layer of the ground ({string.Join(", ", GroundParts.Words)}).");
             }
         }
     }
@@ -250,6 +269,38 @@ internal sealed class Interface(TrimFigures trims)
 
         var part = Array.IndexOf(GroundParts.Words, word[hide.Length..]);
         return part < 0 ? null : (GroundPart)part;
+    }
+
+    /// <summary>
+    /// <c>shell-&lt;metres&gt;</c>, and <c>shell-&lt;metres&gt;-&lt;metres&gt;</c> for both of its figures — the
+    /// distance moved and the radius rounded at:
+    /// the shell probe on, struck where the word says (OBS-2w). <b>A word carrying its figures, as
+    /// <c>hide-&lt;layer&gt;</c> carries a layer</b> — they are the figures on that page a picture can be
+    /// asked for without a hand on the slider, because they are the ones that change what is drawn rather
+    /// than what the town does.
+    /// </summary>
+    /// <remarks>
+    /// <b>The rounding the word leaves out is the one the probe starts at</b> and not the one a previous
+    /// word left standing: a picture is asked for by naming what is in it.
+    /// </remarks>
+    static bool Probed(string word, out float outwardM, out float roundedM)
+    {
+        outwardM = 0f;
+        roundedM = ShellProbe.StartsRoundM;
+
+        const string shell = "shell-";
+        if (!word.StartsWith(shell, StringComparison.Ordinal)) return false;
+
+        var figures = word[shell.Length..].Split('-');
+        return figures.Length switch
+        {
+            1 => Figure(figures[0], out outwardM),
+            2 => Figure(figures[0], out outwardM) && Figure(figures[1], out roundedM),
+            _ => false,
+        };
+
+        static bool Figure(string text, out float value) =>
+            float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
     }
 
     /// <summary>

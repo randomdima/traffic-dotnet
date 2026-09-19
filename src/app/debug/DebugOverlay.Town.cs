@@ -118,11 +118,23 @@ internal sealed partial class DebugOverlay
         // thing and leaves the lane the thing being looked at, which is the one of the two that moves.
         if (switches.Grid) Grid(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
+        // The solver's furniture on the same terms (OBS-2x): indexed once when the last static body was
+        // added, so it belongs in the cache beside the geometry it is an index of. Its moving half cannot.
+        if (switches.SolverGrid) SolverStatics(ref into, world, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+
         if (switches.Nodes) Nodes(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
 
         // Over the graphs where both are on, which is the reading it exists for: what the layer says is
         // which of the lines under it the town's outline actually runs along.
         if (switches.Perimeter) Perimeter(ref into, world, config, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+
+        // Over the town's own layers where both are on, which is what the probe is turned for: the reading
+        // is the one line against the lines the picture was laid from (OBS-2w).
+        if (switches.Shell.Drawn)
+        {
+            ProbedShell(
+                ref into, world, config, switches.Shell, _drawnCentreM, _drawnSpanM, pixelsPerMetre);
+        }
 
         // <b>Last, so a mesh dense enough to fill the buffer takes no quads off the layer beside it.</b> A
         // city's triangulation is more quads than the cache holds at any framing that admits it, and laid
@@ -182,66 +194,144 @@ internal sealed partial class DebugOverlay
         Movements(ref draw, roads, config, sagM, pitchM, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
         BayApproaches(ref draw, world.BayWays, sagM, pitchM, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
 
-        // And the same on the pavement, for the same reason: a walk covers a lane between the stations it
-        // joins and leaves at, and the claims cover the whole line.
-        var walking = world.Walking;
-        var foot = world.Foot;
-        for (var edge = 0; edge < foot.EdgeCount; edge++)
-        {
-            Chain(
-                ref draw, walking.LaneOf(edge), sagM, pitchM, OnOneLine(walking, edge), Theme.WalkingNodes,
-                viewCentreM, viewSpanM, _marks);
-        }
+        // And on the walking side, every lane of the town's pavement as the graph holds it (WLK-1), which is
+        // the same reading as the driving side above: the line a body is actually held on, walked its own way.
+        PavementLanes(ref draw, world.Foot, sagM, pitchM, viewCentreM, viewSpanM, _marks);
+        Unwalked(
+            ref draw, world.PavementLanes, viewCentreM, viewSpanM, sagM,
+            PathMarks.BarbPitchAt(pixelsPerMetre));
 
-        Mitres(ref draw, world, sagM, pitchM, Theme.WalkingNodes, viewCentreM, viewSpanM, _marks);
+        KerbEnds(ref draw, world.Plan.Paving(config).RoadEnds(config), viewCentreM, viewSpanM);
+        CrossingPoints(ref draw, world.CrossingWays, viewCentreM, viewSpanM);
     }
 
     /// <summary>
-    /// The corners of the walking network: from each stretch arriving at a node, the town's own mitre
-    /// onto each stretch it may leave for, read off the network rather than laid again here. <b>Every
-    /// mitre the town lays</b> (OBS-2d) — a way of the pavement with no line under it here is a
-    /// claim the picture cannot account for, and turning round on the spot lays none
-    /// (<see cref="WalkingNetwork.JoinArcs"/>).
+    /// <b>The points a crossing's junctions hand over at</b> (WLK-15): a disc at every end of every stretch
+    /// of every zebra — the two on the boundary where its paint stops, and the two on each lane of the walk
+    /// beside the road, which are the places that lane was parted at. <b>Six to a junction</b>, one per
+    /// connected lane, which is the reading that says whether the place joins what it is supposed to.
     /// </summary>
     /// <remarks>
-    /// Dotted where a mitre meets a stretch, as a junction movement is (<see cref="Movements"/>). Where
-    /// the two networks differ is what the dots then show: <b>a pavement hands over at a point per turn</b>
-    /// rather than at one point per end, because a walk running straight on through a node gives up no
-    /// ground while one turning off it gives up a corner's margin — so a corner carries a dot for the
-    /// straight and a dot a margin back for the turn, and a lane end carries one.
+    /// <b>Drawn exactly as a junction's movements are on the driving side</b> (<see cref="Link"/>): the
+    /// network's own colour and the size an agent dots the same places on its own route, because they are
+    /// the same kind of thing — the place a way leaves the stretch behind it and the place it meets the one
+    /// ahead. <b>A colour of its own would say a crossing is a different kind of way</b>, which is the
+    /// reading this layer exists to refuse; what a walk crosses at is the white pair a figure out from the
+    /// kerb's own end (<see cref="Theme.FootNode"/>), and these are where the lines that carry it begin.
     /// </remarks>
-    static void Mitres(
-        ref ScreenDraw draw, TownWorld world, float sagM, float pitchM, Vector4 colour, Vector2 viewCentreM,
-        Vector2 viewSpanM, MarkClaims claims)
+    static void CrossingPoints(
+        ref ScreenDraw draw, CrossingWays crossings, Vector2 viewCentreM, Vector2 viewSpanM)
     {
-        var foot = world.Foot;
-        var walking = world.Walking;
-        for (var edge = 0; edge < foot.EdgeCount; edge++)
+        foreach (var way in crossings.Ways)
         {
-            var turns = walking.TurnsFrom(edge);
-            for (var turn = 0; turn < turns.Length; turn++)
+            if (OnScreen(way.FromM, viewCentreM, viewSpanM, PathMarks.JoinDiscM))
             {
-                // The corner the lane carries is already drawn, as the bend at the end of the stretch that
-                // owns it.
-                if (walking.TurnSlotAt(edge, turn) == walking.TailOf(edge)) continue;
+                draw.DiscM(way.FromM, PathMarks.JoinDiscM, Theme.WalkingNodes);
+            }
 
-                // A mitre lies on top of the mitre back the other way exactly when both the lanes it joins
-                // do: it is the corner between their two lines, and where those are single lines so is it.
-                Link(
-                    ref draw, walking.JoinArcs(walking.TurnSlotAt(edge, turn)), sagM, pitchM,
-                    OnOneLine(walking, edge) && OnOneLine(walking, turns[turn]), colour, viewCentreM, viewSpanM,
-                    claims);
+            if (OnScreen(way.OntoM, viewCentreM, viewSpanM, PathMarks.JoinDiscM))
+            {
+                draw.DiscM(way.OntoM, PathMarks.JoinDiscM, Theme.WalkingNodes);
             }
         }
     }
 
     /// <summary>
-    /// Whether the two directions of a stretch are laid on one line, which is the town's own answer and not
-    /// a shape read back off the picture: the offset it was laid at <em>is</em> how far apart they are
-    /// (<see cref="World.Foot.WalkingNetwork.LaneOffsetM"/>), and it is nought where the ground had no room
-    /// for a lane either side.
+    /// <b>Where the town's outline stops following a road</b> (<see cref="CityGen.KerbEnds"/>): a disc at
+    /// every place the boundary hands over from one road's kerb to a mouth, to a movement's edge or to the
+    /// next road, which is where a walk beside that road has to end.
     /// </summary>
-    static bool OnOneLine(WalkingNetwork walking, int edge) => walking.LaneOffsetM(edge) * 2f < OneLineApartM;
+    /// <remarks>
+    /// <para>
+    /// <b>Under the walking lanes and not under the boundary</b>: the point is on the boundary but what it
+    /// is <em>for</em> is the pavement, so it is read against the lanes it will cut rather than against the
+    /// line it was found on. Read off the town and never worked out here, like every other shape in this
+    /// slice.
+    /// </para>
+    /// <para>
+    /// <b>A road's two ends at one box are drawn in two colours</b> (<see cref="Theme.KerbEndNearer"/>):
+    /// red for the kerb of it that runs further out along the road and green for the one that stops nearer
+    /// the middle. They stand either side of the carriageway, so the reading is taken across it — which is
+    /// why it is a colour and not a mark that has to be found twice. <b>Green last, so a pair that lands on
+    /// one place still says there are two.</b>
+    /// </para>
+    /// <para>
+    /// <b>And over both of them, the places the walk crosses</b> (<see cref="Theme.FootNode"/>): two to a
+    /// place, either side of the carriageway and square across it, struck off the red one at the figure the
+    /// page turns (<see cref="Core.Config.RoadFigures.FootNodeClearM"/>) — or one midway down a street too
+    /// short to be crossed twice (WLK-10a). Drawn last because they are what the layer is opened for and the
+    /// ends are the working behind them.
+    /// </para>
+    /// </remarks>
+    static void KerbEnds(
+        ref ScreenDraw draw, CityGen.KerbEnds ends, Vector2 viewCentreM, Vector2 viewSpanM)
+    {
+        foreach (var end in ends.Further)
+        {
+            if (!OnScreen(end.AtM, viewCentreM, viewSpanM, PathMarks.EndDiscM)) continue;
+
+            draw.DiscM(end.AtM, PathMarks.EndDiscM, Theme.KerbEnd);
+        }
+
+        foreach (var end in ends.Nearer)
+        {
+            if (!OnScreen(end.AtM, viewCentreM, viewSpanM, PathMarks.EndDiscM)) continue;
+
+            draw.DiscM(end.AtM, PathMarks.EndDiscM, Theme.KerbEndNearer);
+        }
+
+        foreach (var nodes in ends.CrossedM)
+        {
+            if (OnScreen(nodes.NearM, viewCentreM, viewSpanM, PathMarks.EndDiscM))
+            {
+                draw.DiscM(nodes.NearM, PathMarks.EndDiscM, Theme.FootNode);
+            }
+
+            if (OnScreen(nodes.FarM, viewCentreM, viewSpanM, PathMarks.EndDiscM))
+            {
+                draw.DiscM(nodes.FarM, PathMarks.EndDiscM, Theme.FootNode);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>Every lane of the town's pavement</b> (WLK-1, WLK-8, OBS-2d): the fine graph's own lines, as the
+    /// chains they are and walked the way they are walked.
+    /// </summary>
+    /// <remarks>
+    /// <b>Chevrons and not ticks</b> (<see cref="PathMarks.Marks"/>): a lane is walked one way as a car's
+    /// lane is driven one way, and the graph holds it laid that way — so the mark that reads a direction off
+    /// the line is the one that tells the truth about it. <b>Read off the graph and not off the shape it was
+    /// cut from</b>, because what a reader of this layer is asking is what a body may be held on.
+    /// </remarks>
+    static void PavementLanes(
+        ref ScreenDraw draw, FootGraph foot, float sagM, float pitchM, Vector2 viewCentreM, Vector2 viewSpanM,
+        MarkClaims claims)
+    {
+        for (var lane = 0; lane < foot.EdgeCount; lane++)
+        {
+            Chain(
+                ref draw, foot.ArcsOf(lane), sagM, pitchM, bothWays: false, Theme.WalkingNodes, viewCentreM,
+                viewSpanM, claims);
+        }
+    }
+
+    /// <summary>
+    /// <b>And what the move could not close</b> (<see cref="World.Foot.PavementLanes.LooseOf"/>): a run with
+    /// two ends where a course should be, which is nobody's lane and is drawn in the fault colour that every
+    /// other open run is.
+    /// </summary>
+    static void Unwalked(
+        ref ScreenDraw draw, World.Foot.PavementLanes pavement, Vector2 viewCentreM, Vector2 viewSpanM,
+        float sagM, float pitchM)
+    {
+        for (var lane = 0; lane < pavement.Count; lane++)
+        {
+            Boundaries(
+                ref draw, pavement.LooseOf(lane), Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM,
+                pitchM);
+        }
+    }
 
     /// <summary>
     /// The movements through every junction: from each lane arriving, the town's own join onto each lane
@@ -328,19 +418,17 @@ internal sealed partial class DebugOverlay
     {
         if (arcs.Length == 0) return;
 
-        var headM = arcs[0].StartM;
-        var tailM = arcs[^1].EndM;
-        if (!OnScreen((headM + tailM) * 0.5f, viewCentreM, viewSpanM, (tailM - headM).Length() * 0.5f)) return;
+        if (!OnScreen(arcs, viewCentreM, viewSpanM)) return;
 
         PathMarks.Chained(ref draw, arcs, 0f, Spline.TotalLengthM(arcs), pitchM, bothWays, sagM, colour, claims);
-        draw.DiscM(headM, PathMarks.JoinDiscM, colour);
-        draw.DiscM(tailM, PathMarks.JoinDiscM, colour);
+        draw.DiscM(arcs[0].StartM, PathMarks.JoinDiscM, colour);
+        draw.DiscM(arcs[^1].EndM, PathMarks.JoinDiscM, colour);
     }
 
     /// <summary>
     /// A chain of arcs as the line it is, with marks down it at a pitch on the ground. A cull that
-    /// admits a body is not a cull that admits its whole line, so the chain is rejected coarsely on its
-    /// ends before it is sampled finely.
+    /// admits a body is not a cull that admits its whole line, so the chain is rejected on the box it fits
+    /// in before it is sampled finely.
     /// </summary>
     static void Chain(
         ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, float pitchM, bool bothWays, Vector4 colour,
@@ -351,6 +439,29 @@ internal sealed partial class DebugOverlay
         Chain(
             ref draw, arcs, 0f, Spline.TotalLengthM(arcs), sagM, pitchM, bothWays, colour, viewCentreM, viewSpanM,
             claims);
+    }
+
+    /// <summary>
+    /// <b>Whether any part of a chain could be on screen</b>, asked of the box the chain fits in
+    /// (<see cref="ChainIndex.Box"/>) and never of the circle over its own two ends.
+    /// </summary>
+    /// <remarks>
+    /// <b>A chain is not inside the circle over its ends, and a town's pavement is full of the case.</b> A
+    /// walking lane that runs down one side of the wedge between two roads and back up the other stands its
+    /// two ends beside each other with a hundred and fifty metres of line between them, so that circle
+    /// rejects it at every framing that shows the wedge — and a frame taken there drew the concrete with no
+    /// line on it at all, which is a picture claiming the town has a hole it has not got. <b>A cull may cost
+    /// a quad and may never cost a line.</b>
+    /// </remarks>
+    static bool OnScreen(ReadOnlySpan<ArcSeg> arcs, Vector2 viewCentreM, Vector2 viewSpanM)
+    {
+        var leastM = new Vector2(float.MaxValue);
+        var mostM = new Vector2(float.MinValue);
+        foreach (ref readonly var arc in arcs) ChainIndex.Box(arc, ref leastM, ref mostM);
+
+        var halfM = viewSpanM * 0.5f;
+        return leastM.X <= viewCentreM.X + halfM.X && mostM.X >= viewCentreM.X - halfM.X
+               && leastM.Y <= viewCentreM.Y + halfM.Y && mostM.Y >= viewCentreM.Y - halfM.Y;
     }
 
     /// <summary>
@@ -365,10 +476,9 @@ internal sealed partial class DebugOverlay
     {
         if (arcs.Length == 0 || toM <= fromM) return;
 
-        var headM = Spline.SampleAt(arcs, fromM).PositionM;
-        var tailM = Spline.SampleAt(arcs, toM).PositionM;
-        var reachM = (tailM - headM).Length() * 0.5f;
-        if (!OnScreen((headM + tailM) * 0.5f, viewCentreM, viewSpanM, reachM)) return;
+        // The whole chain's box and not the span's, which is a superset of it: what the span leaves out is
+        // a corner's margin at either end, and boxing it apart would be a second reading of one line.
+        if (!OnScreen(arcs, viewCentreM, viewSpanM)) return;
 
         PathMarks.Chained(ref draw, arcs, fromM, toM, pitchM, bothWays, sagM, colour, claims);
     }

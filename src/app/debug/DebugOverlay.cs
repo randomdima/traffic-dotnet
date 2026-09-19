@@ -43,14 +43,6 @@ internal sealed partial class DebugOverlay
     const int TownQuadCapacity = TownRenderer.OverlayCapacity * 3 / 4;
 
     /// <summary>
-    /// How far apart the two directions of a stretch have to be laid before the picture may call them two
-    /// lines. Under it they are one stroke at any framing — which is what a pavement too narrow for a lane
-    /// either side of it actually is (<see cref="World.Foot.WalkingNetwork.LaneOffsetM"/>, and every
-    /// crossing in the town) — and the marks down it are ticks rather than chevrons.
-    /// </summary>
-    const float OneLineApartM = PathMarks.PathLineM;
-
-    /// <summary>
     /// <b>A hairline, and the thinnest thing this overlay draws.</b> The collision layer is the one layer
     /// whose whole reading is <em>where the edge falls against the picture underneath it</em> — how far a
     /// shape sits inside the bodywork, or past it — and a stroke wide enough to see from across the town
@@ -138,6 +130,11 @@ internal sealed partial class DebugOverlay
         // anything *could* go and the blocks say who has the ground now, so a chevron punching through a
         // claim reads as the lane still being open. The agents' own lines are in the other buffer and
         // so stay above both: a car's route running out of the front of its block is the picture the two make.
+        // <b>Before the claims and over the cache</b>: it is machinery rather than something the town did
+        // (OBS-2x), and the cells of the moving grid are reindexed twice a step, so they cannot be cached
+        // with the static half they are drawn against.
+        if (switches.SolverGrid) SolverMovers(ref ground, world, viewCentreM, viewSpanM, pixelsPerMetre);
+
         if (switches.Claims)
         {
             // The bays first, because a bay is ground several stretches of way lie across and the stretches

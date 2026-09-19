@@ -18,13 +18,12 @@ internal readonly struct GroundCatalog
     /// <summary>Indexed by <see cref="Ground"/>, so a lookup is a load and not a switch.</summary>
     static readonly GroundRules[] RuleTable =
     [
-        /* Grass        */ GroundRules.Walkable,
-        /* Road         */ GroundRules.Drivable,
-        /* Intersection */ GroundRules.Drivable,
-        /* Crosswalk    */ GroundRules.Walkable | GroundRules.Drivable,
-        /* Parking      */ GroundRules.Walkable | GroundRules.Drivable,
-        /* Water        */ GroundRules.None,
-        /* Sidewalk     */ GroundRules.Walkable | GroundRules.Preferred,
+        /* Grass     */ GroundRules.Walkable,
+        /* Road      */ GroundRules.Drivable,
+        /* Crosswalk */ GroundRules.Walkable | GroundRules.Drivable,
+        /* Parking   */ GroundRules.Walkable | GroundRules.Drivable,
+        /* Water     */ GroundRules.None,
+        /* Sidewalk  */ GroundRules.Walkable | GroundRules.Preferred,
     ];
 
     /// <summary>
@@ -33,7 +32,7 @@ internal readonly struct GroundCatalog
     /// </summary>
     static readonly bool[] PloughTable =
     [
-        /* Grass */ true, false, false, false, false, false, false,
+        /* Grass */ true, false, false, false, false, false,
     ];
 
     /// <summary>

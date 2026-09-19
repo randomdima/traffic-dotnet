@@ -2,6 +2,18 @@
 
 Why the panels read as they do. What they must be is [requirements.md](requirements.md).
 
+## 2026-09-19 — the panel's allocation gate warms until the draw is tier-1 code
+
+**It was failing for the runtime and not for the panel.** Two passes compiled the draw and did not promote
+it, so a method crossing its call-count threshold inside the measured hundred charged the recompilation to
+this thread — 7 KiB in one pass, at a pass that moved whenever anything upstream changed how often the draw
+had already been called. A town with more props in it was enough to move it, and the class passed inside the
+whole tier and failed run alone.
+
+**So it warms 256 passes.** The figure is the runtime's own thresholds and not a guess at them: past every
+tier a call count can cross, what the measured passes run is the code a frame runs. **The assertion is
+unchanged** — not a byte over a hundred draws (rule 2) — and it is the warm-up that was the fiction.
+
 ## 2026-09-12 — the switch page is now the taller of the popup's two bounds
 
 An eleventh layer went on the debug page (`OBS-2r`) and the popup reached 543 px of a 1 000 px window where

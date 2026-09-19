@@ -31,6 +31,12 @@ internal sealed partial class Game
     private partial long Crossings() => WebGpu.Crossings;
 
     /// <summary>
+    /// <b>Nothing, in a page.</b> A second seat is an instrument driven from a file on a disk (DRV-8), and
+    /// a page has neither — so nothing here opens a second target for one to look through.
+    /// </summary>
+    private partial BotEye? NewEye(CityPlan plan, GroundMesh ground, int widthPx, int heightPx) => null;
+
+    /// <summary>
     /// <b>Nothing, in a page.</b> The art has to be fetched before a town can be drawn and this is the end
     /// of a frame, so the loop would be waiting on the network; the boot's own <c>await</c> drains
     /// <see cref="TakeWanted"/> instead, and the card stands over every frame drawn until it has

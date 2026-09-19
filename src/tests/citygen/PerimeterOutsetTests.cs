@@ -31,7 +31,7 @@ public class PerimeterOutsetTests
     {
         var config = SimConfig.Shipped();
         var shell = Towns.Of(map).Paving(config).Perimeter(config);
-        var (rings, loose) = shell.Outset(MovedM, smoothing: 0f);
+        var (rings, loose) = shell.Outset(MovedM, roundedM: 0f);
 
         var openM = 0f;
         foreach (var run in loose) openM += Spline.TotalLengthM(run);

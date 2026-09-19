@@ -76,7 +76,12 @@ internal static class Conformance
         }
 
         Assert.True(plan.Props.Count > 0, $"{map} has buildings and bare verges");
-        Assert.True(plan.ParkingLots.SpaceCount > 0, $"{map} has buildings and nowhere to park");
+
+        // <b>Somewhere to park is a car park and not a space</b> (GEN-53): a car park is the junction its
+        // bays are the arms of, and the spaces on them are one of the known gaps
+        // ([docs/index.md](../../../docs/index.md#known-gaps)). What is asked is what a town with buildings
+        // on it owes — that somewhere was cut to park at — and it reads the bays the day they land.
+        Assert.True(plan.CarParks.Road.Length > 0, $"{map} has buildings and nowhere to park");
         for (var building = 0; building < plan.Buildings.Count; building++)
         {
             Assert.True(plan.Buildings.Capacity[building] > 0, $"{map}: building {building} holds nobody");

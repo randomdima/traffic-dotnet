@@ -36,6 +36,9 @@ internal static class SelectionMark
 
     const float LeastClearancePx = 3f;
 
+    /// <summary>The stroke the outline under a mark is drawn at, which is what makes it read on any paint.</summary>
+    const float OutlinePx = StrokePx + 2f;
+
     public static void Draw(ref ScreenDraw draw, TownWorld world, SimConfig config, float pixelsPerMetre)
     {
         if (pixelsPerMetre <= 0f) return;
@@ -46,6 +49,28 @@ internal static class SelectionMark
         {
             One(ref draw, world, config, selection, pixelsPerMetre);
         }
+
+        SecondHand(ref draw, world, config, pixelsPerMetre);
+    }
+
+    /// <summary>
+    /// <b>CTL-5d: the car somebody else has the wheel of, marked as well.</b> The same brackets in a hue of
+    /// its own, so a reader watching a bot drive can see which car is its — and nothing at all when the
+    /// reader has that car picked out themselves, since the selection is the answer they asked for.
+    /// </summary>
+    static void SecondHand(ref ScreenDraw draw, TownWorld world, SimConfig config, float pixelsPerMetre)
+    {
+        if (world.HandDrivenCar < 0) return;
+
+        var car = new Selection(SelectionKind.Car, world.HandDrivenCar);
+        if (world.IsSelected(SelectionKind.Car, car.Index)) return;
+
+        if (!BoxOf(world, config, car, out var centreM, out var sizeM, out var headingRad)) return;
+
+        // Outlined, and the selection's own mark is not: this one lands on a car nobody chose, so it has to
+        // read against whatever that car is painted — the first pink car under a pink mark is invisible.
+        Brackets(ref draw, centreM, sizeM, headingRad, pixelsPerMetre, Theme.MarkOutline, OutlinePx);
+        Brackets(ref draw, centreM, sizeM, headingRad, pixelsPerMetre, Theme.SecondHandMark);
     }
 
     static void One(
@@ -98,12 +123,17 @@ internal static class SelectionMark
     /// a thing the selection is on its way <em>into</em> (CTL-1a) — one shape said twice, because a goal
     /// that is a building or a car is marked by wrapping it exactly as the unit is.
     /// </summary>
+    /// <param name="strokePx">
+    /// How thick the arms are drawn. <b>A second pass at a wider stroke is how a mark is outlined</b>
+    /// (<see cref="SecondHand"/>), so it reads against the paint underneath it whatever colour that is.
+    /// </param>
     public static void Brackets(
-        ref ScreenDraw draw, Vector2 centreM, Vector2 sizeM, float headingRad, float pixelsPerMetre, Vector4 colour)
+        ref ScreenDraw draw, Vector2 centreM, Vector2 sizeM, float headingRad, float pixelsPerMetre,
+        Vector4 colour, float strokePx = StrokePx)
     {
         var forward = Heading.Unit(headingRad);
         var right = Heading.RightOf(forward);
-        var strokeM = StrokePx / pixelsPerMetre;
+        var strokeM = strokePx / pixelsPerMetre;
         var clearanceM = MathF.Max(MathF.Min(sizeM.X, sizeM.Y) * ClearanceShare, LeastClearancePx / pixelsPerMetre);
         var reachM = (sizeM * 0.5f) + new Vector2(clearanceM);
         var armM = reachM * ArmShare;

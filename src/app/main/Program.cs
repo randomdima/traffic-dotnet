@@ -12,6 +12,7 @@ using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
+using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Shot;
@@ -56,12 +57,33 @@ internal static class Program
         if (options.Bench is not null) return RunBench(options.Bench, options.Map, options.AtM, config);
         if (options.Check) return RunCheck(options, config);
         if (options.Sheet is not null) return RunSheet(options, config);
+
+        // A drive with nobody watching plays its script and ends; a live one opens the window below and
+        // follows the file while somebody looks at it (DRV-7).
+        if (options.Drive is not null && !options.Live) return RunDrive(options, config);
         if (options.Shot is not null) return RunShot(options, config);
 
         // A caption is a thing said about a picture, and a windowed run takes none.
         if (options.Caption)
             throw new ArgumentException(
                 "--caption, --title and --note are about a picture: take one with --shot PATH or --sheet FILE.");
+
+        // The same for the three words a drive takes: where its frames go, where its log is written and
+        // whether it is being watched say nothing about a run nobody is driving.
+        if (options.Drive is null && (options.Frames is not null || options.Out is not null || options.Live))
+            throw new ArgumentException(
+                "--frames, --out and --live are about a hand-driven run: ask for one with --drive FILE.");
+
+        // A seat is the car it holds, so the two words are one word said twice: a bot with no car would be
+        // a driver in the back, and a car with no steps a seat nobody is in.
+        if ((options.Bot is null) != (options.BotCar < 0))
+            throw new ArgumentException(
+                "A second driver is a file of steps and the car it drives: --bot FILE --bot-car N (DRV-8).");
+
+        // And the clock is only stopped for somebody: a run with no second seat in it has nobody to wait for.
+        if (options.Bot is null && options.BotWaits)
+            throw new ArgumentException(
+                "--bot-waits stops the town for a second driver: ask for one with --bot FILE --bot-car N (DRV-8).");
 
         // GEN-1b: with no map named, the game opens on the start menu with the idle ring behind it and
         // no city until one is picked. Naming one on the command line is that choice made earlier.
@@ -72,7 +94,22 @@ internal static class Program
         // --ui reaches the windowed run as it reaches a shot: a measured run of a town nobody is
         // sitting in front of is exactly the run that wants the read-out switched on from the start.
         game.Switch(Wanted(options.Ui));
-        return game.Run(options.Map, options.Seconds);
+
+        // DRV-8: a second driver, which is a seat of its own and not a drive — it holds a car nobody
+        // picked out and looks through an eye of its own, so a run may carry one, the other or both.
+        if (options.Bot is not null) game.Bot(Botting(options, config));
+
+        // DRV-7: and the drive, where this run is one somebody is watching being driven. A drive needs a
+        // town, so one that named no map opens on the fixture rather than on the start menu.
+        if (options.Drive is null)
+        {
+            return options.Bot is null
+                ? game.Run(options.Map, options.Seconds)
+                : game.Run(options.Map ?? Options.FixtureMap, options.Seconds);
+        }
+
+        game.Drive(Asked(options, config));
+        return game.Run(options.Map ?? Options.FixtureMap, options.Seconds);
     }
 
     /// <summary>The words <c>--ui</c> was given, matched whole by whichever path is about to apply them.</summary>
@@ -134,6 +171,68 @@ internal static class Program
         Console.WriteLine($"{"",-9}captioned at {whole.WidthPx}x{whole.HeightPx}, notes in " +
                           $"{ShotNotes.NotesFor(shot.Path)}");
         return 0;
+    }
+
+    /// <summary>
+    /// <b>A town driven by hand from a script</b> (DRV-1, <see cref="DriveRun"/>): one unit picked out and
+    /// the same keys the player holds pushed through the same seam, with a reading after every step and a
+    /// frame wherever the script asks for one.
+    /// </summary>
+    /// <remarks>
+    /// The frames are the shot path's and the figures are the unit panel's, so this only says which words
+    /// reached them: <c>--map</c>, <c>--size</c>, <c>--view</c> and <c>--ui</c> mean here what they mean to
+    /// a picture, <c>--frames</c> is where the pictures go and <c>--out</c> is where the whole drive is
+    /// written.
+    /// </remarks>
+    static int RunDrive(Options options, SimConfig config)
+    {
+        // A drive says where each of its frames goes in the script's own `shot` step, so a single path
+        // beside it would be every frame written over the one before.
+        if (options.Shot is not null)
+            throw new ArgumentException(
+                "A drive takes its pictures where the script asks for them: --frames DIR says where they go.");
+
+        return DriveRun.Run(Asked(options, config), config);
+    }
+
+    /// <summary>
+    /// The drive the words asked for, which is the same request whether it is played with no window or
+    /// followed in one (DRV-7).
+    /// </summary>
+    static DriveAsk Asked(Options options, SimConfig config) => new(
+        Map: options.Map ?? Options.FixtureMap,
+        Script: options.Drive!,
+        FramesDir: options.Frames ?? Options.DriveFrames,
+        Out: options.Out,
+        WidthPx: options.Width,
+        HeightPx: options.Height,
+        ViewM: options.ViewM > 0f ? options.ViewM : config.View.DriveViewM,
+        Ui: Wanted(options.Ui),
+        Validate: options.Validate,
+        FrameWidthPx: options.FrameWidth);
+
+    /// <summary>
+    /// <b>The second seat the words asked for</b> (DRV-8, <see cref="BotSeat"/>): the car it holds, the
+    /// file it is steered from, and the eye it looks through. The eye is laid at one size for the whole
+    /// run, as every renderer here is, and the aspect is the window's so that a bot and a reader are
+    /// looking at the same shape of town.
+    /// </summary>
+    static BotAsk Botting(Options options, SimConfig config) => new(
+        Car: options.BotCar,
+        Steps: options.Bot!,
+        FramesDir: options.BotFrames ?? Options.BotEyeFrames,
+        Out: options.BotOut,
+        EyeWidthPx: options.BotEyeWidth > 0 ? options.BotEyeWidth : config.View.BotEyeWidthPx,
+        EyeHeightPx: EyeHeight(options, config),
+        ViewM: options.BotViewM > 0f ? options.BotViewM : config.View.DriveViewM,
+        Waits: options.BotWaits);
+
+    /// <summary>How tall the eye is: its width at the window's own aspect, rounded to an even row.</summary>
+    static int EyeHeight(Options options, SimConfig config)
+    {
+        var widthPx = options.BotEyeWidth > 0 ? options.BotEyeWidth : config.View.BotEyeWidthPx;
+        var height = (int)MathF.Round(widthPx * ((float)options.Height / options.Width));
+        return height % 2 == 0 ? height : height + 1;
     }
 
     /// <summary>
@@ -209,10 +308,13 @@ internal static class Program
     {
         if (string.Equals(name, "all", StringComparison.Ordinal)) return Kept(CheckCatalogue.RunAll(config));
 
-        // Six checks are about a particular town, so the command line's --map reaches them; every other
+        // Seven checks are about a particular town, so the command line's --map reaches them; every other
         // check builds the world it needs.
         switch (name)
         {
+            case "load":
+                LoadProbe.Run(map ?? Options.FixtureMap, config);
+                return 0;
             case "outset":
                 return Kept(BoundaryProbe.Outset(map ?? Options.FixtureMap, config, atM));
             case "fill":
@@ -365,7 +467,7 @@ internal static class Program
     static void ReportTown(string map, SimConfig config)
     {
         var started = Stopwatch.GetTimestamp();
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var read = Stopwatch.GetElapsedTime(started);
 
         var mesh = GroundMesh.Build(plan, config);
@@ -416,13 +518,28 @@ internal static class Program
         string? Shot, Vector2? AtM, string Ui, float UiScale, string Present, List<Vector2> RulerPointsM,
         Vector2? PointerM, Vector2? PickedM,
         string? Sheet, bool Caption, string? Title, string? Note, bool Lamps,
-        bool Windowed, string? Display)
+        bool Windowed, string? Display, string? Drive, string? Frames, string? Out, bool Live, int FrameWidth,
+        string? Bot, int BotCar, string? BotFrames, string? BotOut, int BotEyeWidth, float BotViewM,
+        bool BotWaits)
     {
         /// <summary>
         /// What every check that is not about a particular town is staged on: it is one screen, it
         /// carries one of every kind of ground, and it opens in a fraction of the time a city does.
         /// </summary>
         public const string FixtureMap = "Test";
+
+        /// <summary>
+        /// Where a hand-driven run leaves its frames when <c>--frames</c> names nowhere: the scratch folder,
+        /// which is wiped without asking and is where every picture taken to be looked at goes.
+        /// </summary>
+        public const string DriveFrames = ".tmp/drive";
+
+        /// <summary>
+        /// And where a second driver's eye leaves its frames when <c>--bot-frames</c> names nowhere
+        /// (DRV-8). Beside the drive's, because they are the same kind of picture taken by a different
+        /// pair of eyes.
+        /// </summary>
+        public const string BotEyeFrames = ".tmp/bot";
 
         /// <summary>
         /// The words the other engines use: <c>--size W H</c>, <c>--map</c> and <c>--shot</c> are
@@ -440,6 +557,13 @@ internal static class Program
         /// leaves the choice a guess; and <c>--check</c> is the dependency read-out.
         /// </summary>
         /// <remarks>
+        /// <b>The driving words are their own set too</b> (<see cref="DriveAsk"/>): <c>--drive FILE|-</c>
+        /// takes a script and holds the player's own keys through it, <c>--frames DIR</c> is where the
+        /// pictures it asks for go, and <c>--out FILE.md</c> is where the whole drive is written.
+        /// <b>And a second driver's are its own set again</b> (<see cref="BotAsk"/>, DRV-8): <c>--bot FILE
+        /// --bot-car N</c> puts one in a named car, <c>--bot-frames</c>, <c>--bot-eye</c> and
+        /// <c>--bot-view</c> are the eye it looks through, <c>--bot-out</c> is its own log, and
+        /// <c>--bot-waits</c> stops the town's clock whenever it has run out of steps.
         /// <b>The review words are their own set</b> (<see cref="SheetRequest"/>): <c>--sheet</c> takes
         /// a document instead of flags and tiles what it names into one picture, and <c>--caption</c>,
         /// <c>--title</c> and <c>--note</c> put the same band and the same notes on a single
@@ -458,7 +582,10 @@ internal static class Program
                 Bench: null, Map: null, ViewM: 0f, TurnDeg: 0f, Shot: null, AtM: null, Ui: string.Empty, UiScale: 0f,
                 Present: "fifo", RulerPointsM: [], PointerM: null, PickedM: null, Sheet: null,
                 Caption: false, Title: null,
-                Note: null, Lamps: false, Windowed: false, Display: null);
+                Note: null, Lamps: false, Windowed: false, Display: null, Drive: null, Frames: null, Out: null,
+                Live: false, FrameWidth: 0,
+                Bot: null, BotCar: -1, BotFrames: null, BotOut: null, BotEyeWidth: 0, BotViewM: 0f,
+                BotWaits: false);
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -553,6 +680,64 @@ internal static class Program
                         options = options with { Sheet = args[i + 1] };
                         i++;
                         break;
+                    // A hand at the wheel is asked for as a script for the same reason a sheet is a document
+                    // (SHT-4): a drive is a sequence and a sequence on a command line is unreadable by the
+                    // second step. A dash reads it off standard input.
+                    case "--drive" when i + 1 < args.Length:
+                        options = options with { Drive = args[i + 1] };
+                        i++;
+                        break;
+                    // A drive somebody is watching: the window opens, the file is followed as it is
+                    // written, and the readings are said as they are taken (DRV-7).
+                    case "--live":
+                        options = options with { Live = true };
+                        break;
+                    // The town is drawn at whatever the window is; this is only how wide the frames handed
+                    // to whoever is driving are written (DRV-4).
+                    case "--frame-width" when i + 1 < args.Length:
+                        options = options with { FrameWidth = int.Parse(args[i + 1]) };
+                        i++;
+                        break;
+                    // DRV-8: the second seat's own words. They are its own rather than the drive's because a
+                    // run may carry both, and a frame written over the other one's would be two drivers
+                    // reading the same picture of different cars.
+                    case "--bot" when i + 1 < args.Length:
+                        options = options with { Bot = args[i + 1] };
+                        i++;
+                        break;
+                    case "--bot-car" when i + 1 < args.Length:
+                        options = options with { BotCar = int.Parse(args[i + 1]) };
+                        i++;
+                        break;
+                    case "--bot-frames" when i + 1 < args.Length:
+                        options = options with { BotFrames = args[i + 1] };
+                        i++;
+                        break;
+                    case "--bot-out" when i + 1 < args.Length:
+                        options = options with { BotOut = args[i + 1] };
+                        i++;
+                        break;
+                    case "--bot-eye" when i + 1 < args.Length:
+                        options = options with { BotEyeWidth = int.Parse(args[i + 1]) };
+                        i++;
+                        break;
+                    case "--bot-view" when i + 1 < args.Length:
+                        options = options with { BotViewM = float.Parse(args[i + 1]) };
+                        i++;
+                        break;
+                    // DRV-8: the town stands still whenever that driver has run out of steps, so what it
+                    // spends thinking costs it no ground.
+                    case "--bot-waits":
+                        options = options with { BotWaits = true };
+                        break;
+                    case "--frames" when i + 1 < args.Length:
+                        options = options with { Frames = args[i + 1] };
+                        i++;
+                        break;
+                    case "--out" when i + 1 < args.Length:
+                        options = options with { Out = args[i + 1] };
+                        i++;
+                        break;
                     case "--caption":
                         options = options with { Caption = true };
                         break;
@@ -571,7 +756,8 @@ internal static class Program
                                                     "--title TEXT, --note TEXT, --ui LAYERS, --rule X1 Y1 X2 Y2, " +
                                                     "--size W H, --ui-scale N, --present fifo|mailbox|immediate, " +
                                                     "--windowed, --display NAME|N, --seconds N, --validate, --check, " +
-                                                    "--bench NAME|all, --lamps.");
+                                                    "--bench NAME|all, --lamps, --drive FILE|-, --live, " +
+                                                    "--frames DIR, --frame-width PX, --out FILE.md.");
                 }
             }
 

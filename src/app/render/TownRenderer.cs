@@ -5,6 +5,7 @@ using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
 using Image = Silk.NET.Vulkan.Image;
@@ -20,9 +21,10 @@ namespace TrafficSimulation.App.Render;
 /// the call.
 /// </summary>
 /// <remarks>
-/// The frame is five crossings — acquire, wait, reset, submit, present — and not one takes the size of
-/// the town as an argument. The camera moves by a write into mapped memory and the recording never
-/// changes; a panel opening changes a count in the indirect buffer and nothing else. A Vulkan renderer
+/// The frame is five crossings — submit and present the frame that was filled, then acquire, wait and
+/// reset for the next one — and not one takes the size of the town as an argument. The camera moves by a
+/// write into mapped memory and the recording never changes; a panel opening changes a count in the
+/// indirect buffer and nothing else. A Vulkan renderer
 /// that re-recorded every frame would be worse than the OpenGL it replaced, and avoiding exactly that
 /// is what this shape is for. Rebuilding the target is the one place recording happens again.
 /// </remarks>
@@ -95,12 +97,6 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     readonly GpuBuffer _vertices;
     readonly GpuBuffer _indices;
     readonly GpuBuffer _indirect;
-    readonly GpuBuffer _instances;
-    readonly GpuBuffer _spriteIndirect;
-    readonly GpuBuffer _overlay;
-    readonly GpuBuffer _overlayIndirect;
-    readonly GpuBuffer _underlay;
-    readonly GpuBuffer _underlayIndirect;
 
     /// <summary>The ground it was laid for, kept so a part switched off can be packed out of the draw and back into it (<see cref="ShowGround"/>).</summary>
     readonly GroundMesh _mesh;
@@ -124,11 +120,32 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     DescriptorPool _descriptors;
     DescriptorSet[] _sets = [];
     GpuBuffer[] _cameras = [];
+
+    /// <summary>
+    /// <b>One of each per swapchain image.</b> Everything here is written by the CPU every frame, and a
+    /// frame is filled while the one or two before it are still being drawn — so a single buffer would
+    /// be the town's sprites being rewritten under a draw that is still fetching them. What that looks
+    /// like on screen is a moving car winking out for a frame as its slot is read from the other
+    /// frame's fill; a standing town writes the same bytes twice and shows nothing. The image is taken
+    /// before the fill (<see cref="TakeImage"/>) and its fence is what says the GPU has let go.
+    /// </summary>
+    GpuBuffer[] _instances = [];
+
+    GpuBuffer[] _spriteIndirect = [];
+    GpuBuffer[] _overlay = [];
+    GpuBuffer[] _overlayIndirect = [];
+    GpuBuffer[] _underlay = [];
+    GpuBuffer[] _underlayIndirect = [];
     CommandBuffer[] _commands = [];
     Fence[] _drawn = [];
     Semaphore[] _rendered = [];
     Semaphore[] _acquired = [];
     long _frame;
+    long _acquires;
+    int _acquireSlot;
+    uint _image;
+    bool _holding;
+    bool _rebuilding;
     uint _lastImage;
 
     TownRenderer(
@@ -171,25 +188,17 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _indices.Write(indices);
 
         SpriteCapacity = Math.Max(1, spriteCapacity);
-        _instances = vk.CreateBuffer((ulong)(SpriteCapacity * sizeof(SpriteInstance)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
-        _spriteIndirect = vk.CreateBuffer((ulong)sizeof(DrawIndirectCommand), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
-
         _glyphs = GpuTexture.LoadEmbedded(vk, GlyphSheet.Resource);
-        _overlay = vk.CreateBuffer((ulong)(OverlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
-        _overlayIndirect = vk.CreateBuffer((ulong)sizeof(DrawIndirectCommand), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
-        _underlay = vk.CreateBuffer((ulong)(UnderlayCapacity * sizeof(OverlayQuad)), BufferUsageFlags.VertexBufferBit, hostVisible: true);
-        _underlayIndirect = vk.CreateBuffer((ulong)sizeof(DrawIndirectCommand), BufferUsageFlags.IndirectBufferBit, hostVisible: true);
 
-        // The draws' counts live here, in memory, which is what lets the recording be final: a town
-        // that gains a walker changes a number the GPU reads, and not a command buffer.
+        // The draw's count lives here, in memory, which is what lets the recording be final: a ground
+        // layer switched off changes a number the GPU reads, and not a command buffer. The ground is
+        // written once and rewritten only under a device wait, so unlike what a frame fills it is one
+        // buffer rather than one per image.
         _indirect.Span<DrawIndexedIndirectCommand>()[0] = new DrawIndexedIndirectCommand
         {
             IndexCount = _indexCount,
             InstanceCount = 1,
         };
-        _spriteIndirect.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = 0 };
-        _overlayIndirect.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = 0 };
-        _underlayIndirect.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand { VertexCount = 4, InstanceCount = 0 };
 
         CreatePipeline();
         _target = NewTarget();
@@ -216,13 +225,14 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
     /// <summary>
     /// The instance buffer as the caller writes it: mapped memory the driver already owns, so filling
-    /// it is a write and not an upload.
+    /// it is a write and not an upload. <b>The one belonging to the image the next frame draws into</b>,
+    /// which is the image already taken and waited for — see <see cref="_instances"/>.
     /// </summary>
-    public Span<SpriteInstance> Sprites => _instances.Span<SpriteInstance>()[..SpriteCapacity];
+    public Span<SpriteInstance> Sprites => _instances[(int)_image].Span<SpriteInstance>()[..SpriteCapacity];
 
     /// <summary>How many of the instances just written are to be drawn. The only thing a frame changes about the sprite pass.</summary>
     public void SetSpriteCount(int count) =>
-        _spriteIndirect.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
+        _spriteIndirect[(int)_image].Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
         {
             VertexCount = 4,
             InstanceCount = (uint)Math.Clamp(count, 0, SpriteCapacity),
@@ -232,25 +242,25 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     /// The interface and the debug layers' own instance buffer, written the same way the sprites'
     /// is: mapped memory, no upload, no crossing.
     /// </summary>
-    public Span<OverlayQuad> Overlay => _overlay.Span<OverlayQuad>()[..OverlayCapacity];
+    public Span<OverlayQuad> Overlay => _overlay[(int)_image].Span<OverlayQuad>()[..OverlayCapacity];
 
     /// <summary>
     /// How many overlay quads are to be drawn. <b>A closed panel writes zero and its draw becomes a
     /// no-op the GPU skips</b> — which is the whole reason an interface opening re-records nothing.
     /// </summary>
     public void SetOverlayCount(int count) =>
-        _overlayIndirect.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
+        _overlayIndirect[(int)_image].Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
         {
             VertexCount = 4,
             InstanceCount = (uint)Math.Clamp(count, 0, OverlayCapacity),
         };
 
     /// <summary>The same buffer's worth of quads drawn <em>under</em> the bodies — the town's own ground marks.</summary>
-    public Span<OverlayQuad> Underlay => _underlay.Span<OverlayQuad>()[..UnderlayCapacity];
+    public Span<OverlayQuad> Underlay => _underlay[(int)_image].Span<OverlayQuad>()[..UnderlayCapacity];
 
     /// <summary>And how many of those are to be drawn, on the same terms.</summary>
     public void SetUnderlayCount(int count) =>
-        _underlayIndirect.Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
+        _underlayIndirect[(int)_image].Span<DrawIndirectCommand>()[0] = new DrawIndirectCommand
         {
             VertexCount = 4,
             InstanceCount = (uint)Math.Clamp(count, 0, UnderlayCapacity),
@@ -318,36 +328,29 @@ internal sealed unsafe partial class TownRenderer : IDisposable
     public double BlockedMs { get; private set; }
 
     /// <summary>
-    /// One frame. Everything that changes between frames is already in mapped memory, so what is left
-    /// is the five calls the design is named for.
+    /// One frame. Everything that changes between frames is already in mapped memory — the memory of
+    /// the image taken before it was written — so what is left is the five calls the design is named
+    /// for: submit and present this frame, then acquire, wait and reset for the next.
     /// </summary>
     public void Frame(CameraView view)
     {
+        // A rebuild that could not take an image — a window with no area, an acquire that came back
+        // out of date twice — leaves nothing to draw into, and a frame is skipped rather than drawn
+        // into an image nobody holds.
+        if (!_holding) TakeImage();
+        if (!_holding) return;
+
         var api = _vk.Api;
-        var acquired = _acquired[(int)(_frame % _acquired.Length)];
-        var waitedFrom = Stopwatch.GetTimestamp();
-
-        if (!_target.Acquire(acquired, out var image))
-        {
-            Recreate();
-            return;
-        }
-
-        var fence = _drawn[image];
-        Vk.Count();
-        Vk.Check(api.WaitForFences(_vk.Device, 1, &fence, true, ulong.MaxValue), "vkWaitForFences");
-        BlockedMs = Stopwatch.GetElapsedTime(waitedFrom).TotalMilliseconds;
-        Vk.Count();
-        Vk.Check(api.ResetFences(_vk.Device, 1, &fence), "vkResetFences");
-
+        var image = _image;
         _cameras[image].Span<CameraView>()[0] = view;
 
+        var acquired = _acquired[_acquireSlot];
         var commands = _commands[image];
         var rendered = _rendered[image];
         var waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
 
         // Nothing is being shown offscreen, so there is nothing to wait for the presenter to let go
-        // of and nothing to tell it when the frame is done: the fence above is the whole story.
+        // of and nothing to tell it when the frame is done: the fence is the whole story.
         var synchronised = _target.AcquireSignals;
         var submit = new SubmitInfo
         {
@@ -362,12 +365,70 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         };
 
         Vk.Count();
-        Vk.Check(api.QueueSubmit(_vk.Queue, 1, &submit, fence), "vkQueueSubmit");
-
-        if (!_target.Present(rendered, image)) Recreate();
+        Vk.Check(api.QueueSubmit(_vk.Queue, 1, &submit, _drawn[image]), "vkQueueSubmit");
+        _holding = false;
 
         _lastImage = image;
         _frame++;
+
+        if (!_target.Present(rendered, image)) Recreate();
+        else TakeImage();
+    }
+
+    /// <summary>
+    /// The image the next frame is drawn into, taken and waited for <em>before</em> that frame is
+    /// written rather than after. <b>This is what makes filling the buffers safe</b>: they are this
+    /// image's own, and the fence says the draw that last read them has finished — see
+    /// <see cref="_instances"/>.
+    /// </summary>
+    void TakeImage()
+    {
+        var api = _vk.Api;
+        var waitedFrom = Stopwatch.GetTimestamp();
+
+        _acquireSlot = (int)(_acquires++ % _acquired.Length);
+        if (!_target.Acquire(_acquired[_acquireSlot], out _image))
+        {
+            // Out of date: there is no image, and nothing to wait on. The rebuild takes one of its own
+            // — and a rebuild already under way is left to finish rather than started again inside
+            // itself.
+            if (!_rebuilding) Recreate();
+            return;
+        }
+
+        var fence = _drawn[_image];
+        Vk.Count();
+        Vk.Check(api.WaitForFences(_vk.Device, 1, &fence, true, ulong.MaxValue), "vkWaitForFences");
+        BlockedMs = Stopwatch.GetElapsedTime(waitedFrom).TotalMilliseconds;
+        Vk.Count();
+        Vk.Check(api.ResetFences(_vk.Device, 1, &fence), "vkResetFences");
+        _holding = true;
+    }
+
+    /// <summary>
+    /// The image held for a frame that will now never be drawn, given back. Its acquire has already
+    /// signalled a semaphore nothing is going to wait on, and a semaphore carrying a signal nobody
+    /// takes may not be destroyed — so one empty submit consumes it on the way into a rebuild.
+    /// </summary>
+    void DrainAcquire()
+    {
+        if (!_holding) return;
+
+        _holding = false;
+        if (!_target.AcquireSignals) return;
+
+        var acquired = _acquired[_acquireSlot];
+        var waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
+        var submit = new SubmitInfo
+        {
+            SType = StructureType.SubmitInfo,
+            WaitSemaphoreCount = 1,
+            PWaitSemaphores = &acquired,
+            PWaitDstStageMask = &waitStage,
+        };
+
+        Vk.Count();
+        Vk.Check(_vk.Api.QueueSubmit(_vk.Queue, 1, &submit, default), "vkQueueSubmit");
     }
 
     /// <summary>
@@ -381,19 +442,33 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         var size = _window.FramebufferSize;
         if (size.X == 0 || size.Y == 0) return;
 
-        Vk.Count();
-        _vk.Api.DeviceWaitIdle(_vk.Device);
-        DestroyTargetDependents();
-        _target.Dispose();
-        _target = NewTarget();
-        CreateTargetDependents();
+        _rebuilding = true;
+        try
+        {
+            DrainAcquire();
+            Vk.Count();
+            _vk.Api.DeviceWaitIdle(_vk.Device);
+            DestroyTargetDependents();
+            _target.Dispose();
+            _target = NewTarget();
+            CreateTargetDependents();
+        }
+        finally
+        {
+            _rebuilding = false;
+        }
     }
 
     /// <summary>
     /// The frame that was last drawn, read back off the image it was drawn into. The reason every target
     /// carries <c>TRANSFER_SRC</c>.
     /// </summary>
-    public void Shot(string path)
+    /// <param name="widestPx">
+    /// How wide the picture written out may be, or nought for the frame as it was drawn. <b>It is about
+    /// the file and never about the frame</b>: the town is drawn at whatever the window is, and a reader
+    /// who only wants to see what happened is handed a smaller copy of the same picture.
+    /// </param>
+    public void Shot(string path, int widestPx = 0)
     {
         if (_frame == 0) throw new InvalidOperationException("Nothing has been drawn yet: there is no frame to read back.");
 
@@ -433,11 +508,17 @@ internal sealed unsafe partial class TownRenderer : IDisposable
 
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         using var shot = SixLabors.ImageSharp.Image.LoadPixelData<Rgba32>(rgba, width, height);
+        if (widestPx > 0 && width > widestPx)
+        {
+            shot.Mutate(picture => picture.Resize(widestPx, height * widestPx / width));
+        }
+
         shot.SaveAsPng(path);
     }
 
     public void Dispose()
     {
+        DrainAcquire();
         Vk.Count();
         _vk.Api.DeviceWaitIdle(_vk.Device);
 
@@ -459,12 +540,6 @@ internal sealed unsafe partial class TownRenderer : IDisposable
         _vertices.Dispose();
         _indices.Dispose();
         _indirect.Dispose();
-        _instances.Dispose();
-        _spriteIndirect.Dispose();
-        _overlay.Dispose();
-        _overlayIndirect.Dispose();
-        _underlay.Dispose();
-        _underlayIndirect.Dispose();
         _glyphs.Dispose();
         _sheetTable.Dispose();
         _sheetPages.Dispose();

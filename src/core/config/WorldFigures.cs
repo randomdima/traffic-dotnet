@@ -58,6 +58,111 @@ internal sealed class RoadFigures
     public float WalkingLaneInPersonDiameters { get; init; } = 2f;
 
     /// <summary>
+    /// <b>Where a pedestrian node stands off the end of a road</b> (WLK-2): how far back along the road from
+    /// the point its lanes hand the car over to the junction (TER-5d), and how far off the carriageway's own
+    /// edge.
+    /// </summary>
+    /// <remarks>
+    /// <b>The owner's figures, and a place rather than a derivation.</b> A node is the corner a walk turns at
+    /// the mouth of a street, and where that corner stands is a choice about the town — far enough back that
+    /// the walk is clear of the ground the junction's movements are driven across, far enough out that it
+    /// stands on the walk rather than in the channel.
+    /// </remarks>
+    public float FootNodeBackM { get; init; } = 4f;
+
+    /// <inheritdoc cref="FootNodeBackM"/>
+    public float FootNodeAsideM { get; init; } = 2.5f;
+
+    /// <summary>
+    /// <b>How far clear of the end of a road's kerb a pedestrian node stands</b>, away from the junction
+    /// along the road (WLK-1). The kerb end is where the town's outline stops following the road
+    /// (<c>CityGen.KerbEnds</c>), so this is the gap between that place and where a walk beside the road is
+    /// cut.
+    /// </summary>
+    /// <remarks>
+    /// <b>The owner's figure, and a place rather than a derivation.</b> It is measured off the kerb's own
+    /// end rather than off the lane's, which is what <see cref="FootNodeBackM"/> measures and why the two
+    /// are different numbers: a road's line stops at the mouth of the box, and its kerb gives up the
+    /// boundary some way short of that wherever the mouth widens first.
+    /// </remarks>
+    public float FootNodeClearM { get; init; } = 4f;
+
+    /// <summary>
+    /// <b>How near a road's two pedestrian stations have to stand for the road to be crossed once</b>
+    /// (WLK-10a): a street short enough that its two ends' walks are cut within this of each other is
+    /// crossed once instead, midway between the two places, and met by the traffic from both hands. <b>Only
+    /// the paint moves</b>: the stations stay where they are, so the street is still cut at both ends and
+    /// still held at both (TER-6).
+    /// </summary>
+    /// <remarks>
+    /// <b>The owner's figure, and measured between the stations rather than between the kerb ends.</b> What
+    /// it weighs is how far a walker would go out of their way to use the other crossing, which is the gap
+    /// between the places they can stand — the kerb ends are <see cref="FootNodeClearM"/> further apart than
+    /// that at either hand, and a figure read off them would say a different thing every time that one moved.
+    /// </remarks>
+    public float CrossedOnceBelowM { get; init; } = 25f;
+
+    /// <summary>
+    /// <b>How far off the end of a zebra a walk may stand and still be the pavement that zebra is reached
+    /// on</b> (WLK-15): the crossing is cut into every course passing within this of where its paint ends,
+    /// and into nothing at all where the nearest of them stands further off than that.
+    /// </summary>
+    /// <remarks>
+    /// <b>A reach and not a tolerance.</b> The paint stops at the edge of the carriageway and every lane of
+    /// the walk stands its own distance beyond the driven ground's own boundary, which at a mouth reaches
+    /// past that edge — so the two are a stride apart down a straight street and further wherever the ground
+    /// a junction is driven over widens, or wherever a course was rounded back off a tight corner
+    /// (<see cref="WalkRoundedM"/>). What it refuses is the crossing whose nearest walk is across the road or
+    /// round the block, which is a way nobody takes and a line laid over whatever stands between.
+    /// <b>It is asked where the line passes the junction</b> and not at the hand-over point a setback along
+    /// it lands on: the setback says where to hand over, and reading the reach off it would refuse a course
+    /// the junction stands beside for the shape of the line further on. <b>How many are refused and how far
+    /// off the nearest of them stood is the census's to report.</b>
+    /// </remarks>
+    public float CrossingMeetsTheWalkWithinM { get; init; } = 6f;
+
+    /// <summary>
+    /// <b>How far along the kerb from a node the walk down its road and the walk round its junction are
+    /// handed over</b> (WLK-9) — measured along the driven ground's own boundary, so it follows a corner
+    /// round rather than running off down the arm's centreline.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own figure and not <see cref="FootNodeBackM"/>.</b> The two were one while they happened to
+    /// agree, and they answer different questions: that one says where the corner of a street stands, and
+    /// this says how far out of it a way is reached. Moving the node does not move the reach.
+    /// </remarks>
+    public float FootConnectorAlongM { get; init; } = 2.5f;
+
+    /// <summary>
+    /// <b>How near two pedestrian nodes have to stand to be one pedestrian junction</b> (WLK-3, WLK-15). Two
+    /// crossings at one corner put their mouths on the same stretch of pavement, and a corner a walk can
+    /// cross in two strides is one place to arrive at rather than two to choose between.
+    /// </summary>
+    /// <remarks>
+    /// <b>Twice <see cref="FootConnectorAlongM"/>, which is the figure it answers to.</b> A junction hands
+    /// over that far either side of itself along each lane of the walk, so two of them nearer than this have
+    /// their own ground overlapping — and what stands between them is not a stretch anybody walks but a
+    /// stride of pavement with a hand-over at each end of it. <b>It is authored rather than derived</b>: how
+    /// near two places have to stand to be one place is a choice about the town, and the two figures agreeing
+    /// today is what the choice came to and not an arithmetic one of them is bound by.
+    /// </remarks>
+    public float FootNodeMergeM { get; init; } = 5f;
+
+    /// <summary>
+    /// <b>How near the place a walking lane sets off from and the place it arrives at have to stand to be
+    /// one place</b> (WLK-12). A stride of walk between two places a stride apart is not a walk anybody
+    /// takes, so the two ends are welded into the point between them and the ways either side of it meet
+    /// there.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own figure and not <see cref="FootNodeMergeM"/>, which is a question about corners.</b> That
+    /// one asks how near two <em>nodes</em> stand, and answers it at the width of a corner a walk crosses in
+    /// two strides; this asks how near the two ends of one <em>lane</em> stand, and a lane is welded only
+    /// where there is nothing left of it at all — so the figure is a stride and not a corner.
+    /// </remarks>
+    public float FootConnectorMergeM { get; init; } = 1f;
+
+    /// <summary>
     /// <b>The kerb: how far the concrete stands proud of the ground it bounds</b> (TER-3c.3). Two hundred
     /// millimetres, which is a kerbstone's face, and it is struck twice — once where the carriageway hands
     /// over to the walk and once where the walk hands over to the grass.
@@ -69,33 +174,143 @@ internal sealed class RoadFigures
     /// </remarks>
     public float KerbWidthM { get; init; } = 0.2f;
 
+    /// <summary>
+    /// <b>How tightly any line struck off the driven ground's boundary is allowed to turn</b> (TER-3c.10):
+    /// the radius of the ball every one of them is rolled with (<c>Core.Geometry.ArcOutset.Of</c>) — the
+    /// kerb, the pavement's outer face and the courses a walking lane is a stretch of, all at the one figure
+    /// so that no two of them disagree about the same corner.
+    /// </summary>
+    /// <remarks>
+    /// <b>Under half a lane, which is what keeps it a rounding rather than a rubbing out.</b> A feature
+    /// narrower than twice the radius does not survive the roll: at this figure that is 2.8 m against a
+    /// lane's <see cref="LaneWidthInCarWidths"/> of car (3.6 m), so no mouth a car is driven through is ever
+    /// closed over and no ribbon of tarmac is ever swallowed. <b>Raising it to 1.8 m was tried and is not
+    /// here</b>: twice that is a lane exactly, and what it cost Odesa was the tarmac — the kerb's own ring
+    /// closed over every carriageway in the town, and a quarter of the kerb ends the walk is cut at went
+    /// with it (510 crossings to 376). <b>And it is a radius and not a share of any distance</b>, so the
+    /// boundary itself is rounded by it as much as the pavement's outer face is.
+    /// </remarks>
+    public float LineRoundedM { get; init; } = 1.4f;
+
+    /// <summary>
+    /// <b>And how tightly the line a walking lane is a stretch of may turn</b> (TER-3c.10, WLK-1): the same
+    /// roll at the courses' own figure, which is <em>not</em> the one the ground's layers are struck at
+    /// (<see cref="LineRoundedM"/>) — a course is a line a body is held on and not a thing the town is built
+    /// of, so what it owes is a walk nobody has to pick their way round rather than agreement with a
+    /// kerbstone.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>It fills and never cuts</b> (<c>Core.Geometry.ArcOutset.Corners.Filled</c>), which is what makes it
+    /// a figure with no bound: a corner the course turns <em>into</em> — the notch an offset's own fold
+    /// leaves — is filled at this radius, and a corner it turns away at comes back as the arc of the distance
+    /// moved however wide this is asked for. <b>So no radius pulls a walk towards the tarmac</b> and none
+    /// takes a course's closure, which a roll that cut the away-corners did at a tenth past the offset and
+    /// the ground's radius together.
+    /// </para>
+    /// <para>
+    /// <b>What it costs instead is the pockets</b>: a dip in a course narrower than twice this is closed over
+    /// rather than walked into, so at a sharp fork the walk stands off the apex by about this much and a
+    /// junction there hands over further from its own course. <b>How far is the census's to report</b>, and
+    /// what may not follow from it is a crossing left unreached (WLK-15).
+    /// </para>
+    /// </remarks>
+    public float WalkRoundedM { get; init; } = 2.4f;
+
     public float EdgeLineWidthM { get; init; } = 0.3f;
 
     /// <summary>One painted line: a lane dash, a bay stroke. A zebra's bar is twice it and a stop bar is the plan's own.</summary>
     public float PaintLineWidthM { get; init; } = 0.25f;
 
+    /// <summary>The dashed line between a road's two lanes: how long a dash is and how long the gap after it.</summary>
+    public float LaneDashLengthM { get; init; } = 2f;
+
+    public float LaneDashGapM { get; init; } = 2f;
+
     /// <summary>
-    /// A crossing as it is laid at a junction: how deep the band is along the road it crosses, and how far
-    /// past the ground the junction itself reaches it stands. <b>Every map that lays paint lays it here</b>,
-    /// so a crossing on the exam and a crossing in a generated town are the same distance off the box.
+    /// <b>How deep a crossing's band is along the road it crosses, and how far short of its arm's own end
+    /// it stands</b> (TER-6). The end is the line that arm's lanes hand the car over to the junction on
+    /// (TER-5d), so a skew junction's paint stands off where its own arm stops being driven rather than at a
+    /// distance every arm of the town shares.
     /// </summary>
     /// <remarks>
-    /// <b>The setback is measured from where the nearer of the arm's two kerb fillets lets go of the kerb</b>
-    /// (<see cref="SimConfig.JunctionArmReachM"/>) and never from the node, so a skew junction's paint stands
-    /// off the ground the junction actually takes rather than off an average of every junction in the town;
-    /// and the paint stands wholly past the further fillet, however little that leaves it past that one.
-    /// It is a stride of carriageway and not a slack allowance for the skew. <b>Five metres is the owner's
-    /// figure</b>: a car leaving the corner is straight before it reaches the paint, and a walker on the
-    /// paint stands clear of the traffic turning through the corner.
+    /// <b>Four metres of band and two of margin are the owner's figures</b>: two strides of carriageway to
+    /// walk over, and a car's length of road between the walk and the ground the junction's movements are
+    /// driven across — so a walker on the paint stands clear of the traffic turning through the corner.
     /// </remarks>
     public float CrossingDepthM { get; init; } = 4f;
 
-    public float CrossingSetbackM { get; init; } = 5f;
+    /// <inheritdoc cref="CrossingDepthM"/>
+    public float CrossingSetbackM { get; init; } = 2f;
 
-    /// <summary>And the bar behind it: how thickly it is painted, and how far behind the crossing it stands.</summary>
+    /// <summary>A zebra's bars: how wide one is and how far apart they are laid across the carriageway.</summary>
+    public float ZebraStripeWidthM { get; init; } = 0.5f;
+
+    public float ZebraStripePitchM { get; init; } = 1f;
+
+    /// <summary>And the bar behind it: how thickly it is painted.</summary>
     public float StopBarThicknessM { get; init; } = 0.4f;
 
+    /// <summary>
+    /// <b>The clear road between a crossing's near edge and the bar behind it</b> (TER-6): a metre, so a car
+    /// held at the paint is stopped short of the walk rather than on it, and a walker stepping off the zebra
+    /// is not stepping into a bumper.
+    /// </summary>
+    /// <remarks>
+    /// <b>A gap and not a distance to the bar's middle</b>, which is what makes the arm's whole bundle of
+    /// paint one sum (<see cref="SimConfig.ArmPaintM"/>) rather than a figure with the bar's thickness
+    /// folded into it twice.
+    /// </remarks>
     public float StopBarSetbackM { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>The arrow painted on a lane behind its bar</b> (TER-6a): how long one is down its lane, tail to the
+    /// far end of whichever branch reaches furthest, and <b>the least of that which is shaft</b> — what a
+    /// straight arrow leaves in front of its fork.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every arrow is the length, and the shaft is what the branches did not spend</b> (TER-6a): a turn
+    /// reaches less far down the lane for the room it takes, so its shaft is the longer and the two arrows end
+    /// together. <b>The run after the fork is the rest of the length</b> — a bend or a straight, and the head
+    /// — so the three figures are not independent and a shaft as long as the arrow leaves no arrow.
+    /// </remarks>
+    public float LaneArrowLengthM { get; init; } = 3.3f;
+
+    /// <inheritdoc cref="LaneArrowLengthM"/>
+    public float LaneArrowShaftM { get; init; } = 1.6f;
+
+    /// <summary>How wide the shaft and every branch off it are painted — a mark a driver reads at a glance, so several times a line.</summary>
+    public float LaneArrowShaftWidthM { get; init; } = 0.33f;
+
+    /// <summary>And the head each branch ends in: how far it reaches and how far across the barbs stand.</summary>
+    public float LaneArrowHeadLengthM { get; init; } = 0.7f;
+
+    /// <inheritdoc cref="LaneArrowHeadLengthM"/>
+    public float LaneArrowHeadWidthM { get; init; } = 0.88f;
+
+    /// <summary>
+    /// <b>How far across its lane a turning arrow reaches</b>, as a share of that lane's width — the figure
+    /// the bend's own radius is solved out of (TER-6a), so an arrow stays on the ground its lane is driven on
+    /// whatever the movement behind it turns through.
+    /// </summary>
+    /// <remarks>
+    /// <b>The far corner of the head and not the middle of it</b>: the whole glyph is inside this, so the
+    /// clear lane either side of the widest arrow is the rest of the half-lane — 0.4 m at the shipped
+    /// figures, which is a lane's own line and more.
+    /// </remarks>
+    public float LaneArrowReachAcrossInLaneWidths { get; init; } = 0.38f;
+
+    /// <summary>
+    /// The clear road between the bar and the arrow behind it, as the bar's own setback is the clear road in
+    /// front of it. <b>Every arrow stands at it</b>, being the one length whatever it says.
+    /// </summary>
+    public float LaneArrowSetbackM { get; init; } = 1.5f;
+
+    /// <summary>
+    /// The most an arrow's bend is drawn through, however sharply the movement itself turns: a head laid past
+    /// a quarter turn points back down the road at the driver reading it.
+    /// </summary>
+    public float LaneArrowBendMostDeg { get; init; } = 90f;
 
     /// <summary>
     /// <b>How much of a car's width a bay leaves clear at each end of it</b>: the room a car needs to get
@@ -419,6 +634,29 @@ internal sealed class CityGenFigures
     public int WanderNodesMost { get; init; } = 3;
 
     /// <summary>
+    /// <b>How often the pavement's outer face is offered a building</b> (GEN-54). <b>Shorter than the
+    /// narrowest thing the catalogue draws</b>: what spaces two neighbours is then their own padding
+    /// against each other rather than the step, so a stretch of kerb carries what fits along it — which is
+    /// the opposite of what a verge wants of its own step (<see cref="PropVergePitchM"/>, GEN-6b).
+    /// </summary>
+    public float BuildingPitchM { get; init; } = 6f;
+
+    /// <summary>
+    /// <b>How much of its own footprint a building keeps clear around it</b> (GEN-3), as a share: the
+    /// walkable padding every neighbour is held off by, so no pocket between two of them is too narrow to
+    /// walk through.
+    /// </summary>
+    /// <remarks>
+    /// <b>A share and not a length</b>, because what has to be walked round is the building: a quarter of a
+    /// ten-metre terrace is two and a half metres of gap and a quarter of a twenty-metre block is five, and
+    /// a fixed figure would be a passage beside the one and a seam beside the other.
+    /// </remarks>
+    public float BuildingPaddingShare { get; init; } = 0.25f;
+
+    /// <summary>How many people a building holds, which is what the town's roster is spread over.</summary>
+    public int BuildingCapacity { get; init; } = 3;
+
+    /// <summary>
     /// How many bays one car park holds, drawn between the two — which is how much frontage a lot takes
     /// (GEN-4b). <b>A car park is a handful of spaces beside a street and never an apron</b>: the widest
     /// one here is six bays, 24 m of kerb, which is about the frontage of one building.
@@ -527,21 +765,30 @@ internal sealed class CityGenFigures
 
     /// <summary>
     /// The band of grass a prop laid along a kerb stands in, measured out from the pavement's own outer
-    /// edge (GEN-6b) — <b>up against the walk rather than back off it</b>, because what a verge is for is
-    /// to be seen from the street. <b>The near edge is what the ground affords rather than what a figure
-    /// promises</b>: a prop owes its whole girth to grass (GEN-6a), so a narrow look reaches the near edge
-    /// of the band and a wide one is pushed out by its own width.
+    /// face (GEN-6b) — <b>up against the walk rather than back off it</b>, because what a verge is for is
+    /// to be seen from the street. <b>It is the prop's near rim that stands in the band and not its
+    /// centre</b>, so a narrow look reaches the near edge and a wide one is pushed out by its own width: a
+    /// prop owes its whole girth to grass (GEN-6a), and the concrete is a figure the boundary was struck at
+    /// rather than something the ground answers with.
     /// </summary>
-    public float PropVergeNearM { get; init; } = 0.5f;
+    /// <remarks>
+    /// <b>The near edge all but touches the stone</b>: the walk's own kerb reaches half its width past the
+    /// face (<see cref="SimConfig.WalkKerbOuterM"/>), so this leaves a hand's breadth of grass between the
+    /// kerbstone and the nearest a prop's rim may come. <b>And the band is narrow</b>, because a band as wide
+    /// as the verge scatters the row back off the street, where what a bin, a planter or a street tree is is
+    /// a thing standing at the kerb.
+    /// </remarks>
+    public float PropVergeNearM { get; init; } = 0.2f;
 
-    public float PropVergeFarM { get; init; } = 2f;
+    public float PropVergeFarM { get; init; } = 0.5f;
 
     /// <summary>
     /// How far apart along a kerb the verge pass takes its candidates, each jittered inside its own step.
-    /// <b>It is shorter than the props are wide</b>, so what spaces a verge is the props' own girth against
-    /// each other (GEN-6c) and not the pitch: a stretch of kerb carries what fits along it.
+    /// <b>It is longer than the props are wide</b>, so what spaces a verge is the step and not the props'
+    /// own girth against each other (GEN-6c): a kerb carries a scatter with the town visible through it,
+    /// rather than the unbroken run a pitch inside a girth fills every metre of.
     /// </summary>
-    public float PropVergePitchM { get; init; } = 1.5f;
+    public float PropVergePitchM { get; init; } = 5f;
 
     /// <summary>
     /// The grass two props leave between them, girth to girth (GEN-6c). <b>Not touching is not enough</b>:
@@ -551,16 +798,16 @@ internal sealed class CityGenFigures
     public float PropApartM { get; init; } = 0.5f;
 
     /// <summary>
-    /// How far a wild prop keeps off the walk and the car parks (GEN-6b) — <b>past the verge and not up
-    /// against it</b>, so the strip between the two passes reads as the edge of the town rather than as one
-    /// scatter that happens to change what it is made of.
+    /// How far a wild prop keeps off the town's paving (GEN-6b) — <b>past the verge and not up against
+    /// it</b>, so the strip between the two passes reads as the edge of the town rather than as one scatter
+    /// that happens to change what it is made of.
     /// </summary>
     public float PropWildStandOffM { get; init; } = 7f;
 
     /// <summary>
-    /// How much of a car park's verge is furniture rather than planting, and how much of the planting on
-    /// any verge is drawn from the wild set instead. <b>A verge is not a flower bed end to end</b>: a town
-    /// whose every kerb carried only the things it plants reads as a catalogue laid out along the street.
+    /// How much of a verge is furniture rather than planting, and how much of the planting on any verge is
+    /// drawn from the wild set instead. <b>A verge is not a flower bed end to end</b>: a town whose every
+    /// kerb carried only the things it plants reads as a catalogue laid out along the street.
     /// </summary>
     public float PropFurnitureShare { get; init; } = 0.5f;
 
@@ -586,6 +833,10 @@ internal sealed class CityGenFigures
 /// <summary>Tolerances the walkable and drivable graphs are built to.</summary>
 internal sealed class NetworkFigures
 {
+    /// <summary>
+    /// <b>How near two ends of the walking network have to land to be one place</b> (WLK-1a): a quarter of a
+    /// metre, which is the room a way drawn to a pedestrian node is allowed to have missed it by.
+    /// </summary>
     public float FootGraphNodeWeldM { get; init; } = 0.25f;
     public float SplineToleranceWalkedM { get; init; } = 0.1f;
 }

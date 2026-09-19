@@ -30,7 +30,7 @@ internal static class BuildingRoofs
     {
         var centreM = plan.Buildings.CentreM[building];
         var sizeM = plan.Buildings.SizeM[building];
-        var civic = CivicRoof(catalogue, uses.Of(building));
+        var civic = catalogue.RoofFor(uses.Of(building));
 
         var (variant, swapped) = civic >= 0
             ? (civic, DoorRunsAcrossTheBuilding(plan, building, centreM))
@@ -47,17 +47,6 @@ internal static class BuildingRoofs
 
         return new BuildingRoof(variant, footprintM, headingRad);
     }
-
-    /// <summary>The roof a building's use names, or −1 for the buildings that are only buildings.</summary>
-    static int CivicRoof(BuildingCatalog catalogue, BuildingUse use) => use switch
-    {
-        BuildingUse.Hospital => catalogue.Hospital,
-        BuildingUse.PoliceStation => catalogue.PoliceStation,
-        BuildingUse.Depot => catalogue.RepairShop,
-        _ => NoCivicRoof,
-    };
-
-    const int NoCivicRoof = -1;
 
     /// <summary>
     /// <b>A civic roof is fitted to its building's box rather than drawn at the size it was painted</b>

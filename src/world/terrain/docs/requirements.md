@@ -24,10 +24,16 @@ Two slices name a kind and no third may: the **plan**, which lays the ground and
 thing may stand without the plan learning what an agent is.
 
 **TER-3** `P4` The catalogue is data. It must distinguish at minimum: a default pedestrian ground; a
-carriageway; the ground roads share where they meet; a pedestrian-legal way across a carriageway; ground a
-car idles on that a pedestrian may stand on; paved pedestrian-only ground; and ground permitted to nobody.
-Two types differing only in what they draw are still two types, but no rule may turn on that difference
-alone.
+carriageway; a pedestrian-legal way across a carriageway; ground a car idles on that a pedestrian may stand
+on; paved pedestrian-only ground; and ground permitted to nobody. Two types differing only in what they draw
+are still two types, but no rule may turn on that difference alone.
+
+**The ground roads share where they meet is not among them, and that is TER-5 read here.** An intersection
+has no shape of its own: the tarmac inside one is the band its own movements sweep, which is the surface a
+lane lays. A kind for it would be a second name for the ground a car is driven over, told apart by which
+line happened to lay it and permitting exactly the same things — and every rule that could turn on the
+difference is a rule about a *junction*, which is `world/road`'s and is asked of the road graph rather than
+of the ground under a point.
 
 **TER-3a** `P3` Ground legal to nobody is terrain and not a hole: coverage still holds, and a body pushed onto
 it is on ground and can leave under its own power. What makes it impassable is only that no route is ever
@@ -121,34 +127,69 @@ walker refused ground it can see it is standing on.
 
 **TER-3c.1** `P4` The network a walking route is planned over *is* the pavement, its corners and its
 crossings; this is structure, not price. A bounded hop off the network to a nearby door is still allowed,
-and a road is still crossed only at a crossing.
+and a road is still crossed only at a crossing. **What that network is made of is
+[world/foot](../../foot/docs/requirements.md)** (WLK-1): the driven ground's own boundary moved off itself,
+and not a line discovered in this ground.
 
-**TER-3c.2** `P6` The building line stands behind it: a wall is set back from the kerb by the pavement plus
-padding, so nothing is built on the walk and a doorstep opens onto it. Street planting stands on the
-verge behind the walk for the same reason — a trunk in the middle of a four-metre pavement is a trunk
-everyone on that street goes round.
+**TER-3c.2** `P6` The building line stands behind it: a wall is set back from the carriageway by the whole
+of the pavement, standing on the walk's own outer kerbstone (`SimConfig.BuildingLineM`, `GEN-54`), so
+nothing is built on the walk and a doorstep opens onto it. Street planting stands on the verge behind the
+walk for the same reason — a trunk in the middle of a four-metre pavement is a trunk everyone on that
+street goes round.
 
 **TER-3c.3** `P4` **The pavement is the ground between the kerb and a walk beyond it**, at every angle two
 arms can meet at. The kerb's own line is the boundary of the driven ground said as closed rings
 (`LaneShell`) and every line the town has is that boundary moved by a figure (`GroundRings`) — the
-carriageway at nought, the kerb's outer face at half a kerb, the lane a walker follows at a kerb and half a
-walk, the pavement's outer face at a kerb and a walk, and the walk's own kerb a kerb beyond that. So
-**every one of them is an offset of one curve**, the ground between any two is exactly the difference
-between the distances that struck them, and a walker walks down the middle of it because the middle is where
-the walk's own line is. **Every figure is measured from the boundary and never from the line before it**,
-which is what keeps that difference true: an offset taken off an offset inherits whatever the first one
-rounded, so a walk struck that way comes out narrower on the bends than on the straights. Where the boundary
-turns a corner it turns it once, on the ring itself (TER-5), and every distance inherits that corner at its
-own radius. Nothing is smoothed, patched or rounded on top of it and nothing is measured twice — the kerb,
-the concrete, the lane and the answer are one construction read at five figures.
+carriageway at nought, the kerb's outer face at half a kerb, the pavement's outer face at a kerb and a walk,
+and the walk's own kerb a kerb beyond that. So **every one of them is an offset of one curve** and the
+ground between any two is exactly the difference between the distances that struck them. **Every figure is
+measured from the boundary and never from the line before it**, which is what keeps that difference true: an
+offset taken off an offset inherits whatever the first one rounded, so a walk struck that way comes out
+narrower on the bends than on the straights. Where the boundary turns a corner it turns it once, on the ring
+itself (TER-5), and every distance inherits that corner at its own radius. Nothing is patched and nothing is
+measured twice — the kerb, the concrete and the answer are one construction read at four figures.
 
-**One of the five is a shape and the rest are lines**, and a line is not cut out of a shape. The walk out to
+**TER-3c.10** `P4` **Every line struck off that boundary is rounded, and every line the ground is built of
+at the one radius.** A kerb is laid in stone and a pavement is walked, and neither follows a corner a fold
+in an offset cut: left sharp it is a spike of concrete nobody walks round and no kerbstone bends to. So the
+rounding is part of striking the line rather than a pass over it (`ArcOutset`), **and `Road.LineRoundedM` is
+one figure for the whole of the ground** — the carriageway, the kerb and the pavement's outer face. Two
+layers of concrete rounded at two radii disagree about the same corner, and the band between them is then
+wider on one bend than on the next.
+
+**A course a walking lane is a stretch of is not a layer of the ground, and takes its own**
+(`Road.WalkRoundedM`, WLK-1). It is a line a body is held on rather than a thing the town is built of:
+nothing is laid along it, no kerbstone bends to it, and what it owes is a walk nobody has to pick their way
+round. **And it fills without cutting**: the notch a fold left is filled at the course's own radius, and a
+corner the course turns away at comes back as the arc of the distance moved whatever that radius says. It is
+what the ground's own rounding may not do — a kerb is the line a ball rolls and not a shape moved — and it
+is what a line a body is held on needs, a radius that could cut being a radius that pulls a walk towards the
+tarmac. **So the course's figure has no bound**, and no radius takes a course its closure (WLK-1).
+
+**What it costs is the pockets, and the junctions that stand in them.** A dip in a course narrower than
+twice the radius is closed over rather than walked into, so at a sharp fork the walk stands off the apex by
+about the radius and a crossing there meets its course further off than one down a straight street does.
+**That is a reading and not a fault** (`Road.CrossingMeetsTheWalkWithinM`, WLK-15): what the reach refuses
+is the walk across the road or round the block, and how far off a course that was refused really stood is
+the census's to report.
+
+**The boundary itself is rounded by it, which costs the corner it rounds.** A corner the town turns away at
+already stands where the distance put it, so rounding it is a cut into the ground rather than a fill beside
+it — a right angle loses 0.41 of the radius. **The radius is therefore under half a lane**, which is what
+holds the cost to a corner: nothing a car is driven through is narrow enough to be closed over, and no
+ribbon of tarmac is thin enough to be swallowed by a ball of that size.
+
+**This is the ground and not the network.** Where a walk may go is the boundary moved off itself
+([WLK-1](../../foot/docs/requirements.md)) and is no reading of these rings; what they owe each other is
+that the lanes a walker is held on stand on the concrete these strike, which is what sizing both off the
+carriageway's own width buys.
+
+**One of the four is a shape and the rest are lines**, and a line is not cut out of a shape. The walk out to
 its outer face is the region, struck as the offset of the boundary with the driven ground taken back out of
-it. The two kerbs, the walking lane and the walk's outer face itself are lines: **a line is handed over as
-the closed line it is and given a thickness by whoever draws it** (TER-7b), which is one mesh and no offset,
-against the two offsets and the cut a region costs. **So no offset is struck at a figure only a line stands
-at** — the kerb's outer face and the walk's own kerb are figures a line ends at, and neither is a shape the
-town holds.
+it. The two kerbs and the walk's outer face itself are lines: **a line is handed over as the closed line it
+is and given a thickness by whoever draws it** (TER-7b), which is one mesh and no offset, against the two
+offsets and the cut a region costs. **So no offset is struck at a figure only a line stands at** — the
+kerb's outer face and the walk's own kerb are figures a line ends at, and neither is a shape the town holds.
 
 **TER-3c.7** `P6` **The carriageway ends where the pavement starts.** Everything inside the kerb is tarmac —
 carriageway, junction and car park, and the pockets the town's own pieces leave between them: a movement
@@ -158,11 +199,10 @@ and chamfered its way round every mouth in the town while the shell against the 
 them ran smoothly past, and the band came out a different width at each of them.
 
 **TER-3c.6** `P6` **A pavement is a ring and has no ends.** The boundary of the driven ground closes on
-itself — one ring round the outside of the town and one round every block it encloses — so the lane laid
-half a walk off it closes too, and the questions a heap of separate lines had to answer do not arise:
-which loose end meets which, which line leads somewhere, which pavement is another one said twice. **The
-one thing that cuts a ring is the ground's own veto**: a lane over water or off the map is not a lane
-however far it stands from the kerb, and that is the only place a pavement stops.
+itself — one ring round the outside of the town and one round every block it encloses — so the concrete laid
+a walk off it closes too, and the stack of layers beside a road is a set of closed shapes rather than a heap
+of pieces with ends to reconcile. **A band the boundary is merged from has square ends** and the ring turns
+them, which is why no piece of it ever finishes in mid-air.
 
 **TER-3c.8** `P0` **The walk wraps the tarmac as one shape, and never a piece of it.** What the pavement is,
 is a distance off the outline of the **union** of the driven ground, so a place on it belongs to exactly one
@@ -190,8 +230,9 @@ what it carries reaches standable ground at both ends.
 own**: it is the deck out to its own half-width, and the margin either side of the carriageway is what a
 parapet stands on. A deck sized to a walk of its own is a deck the street's pavement does not fit on, which
 is what the width on its plan record is for — but a deck that lays that walk itself is a line beside a road
-struck by arithmetic of its own, which is the one thing no line beside a road may be (TER-3c.3). The walk
-across a deck is the boundary's to strike, at the distance every other metre of pavement is struck at.
+struck by arithmetic of its own, which is the one thing no line beside a road may be (TER-3c.3). **The walk
+across a deck is the street's own, carried over it because the street is** (WLK-1): a road over water is a
+road, and what is walked beside it is walked beside it there as anywhere else.
 
 ## The edge line
 

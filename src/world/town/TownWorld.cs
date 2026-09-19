@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Car.Body;
@@ -126,6 +127,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly ulong _agentSeed;
 
     readonly FootGraph _foot;
+    readonly PavementLanes _pavementLanes;
+    readonly CrossingWays _crossingWays;
     readonly WalkingNetwork _walking;
     readonly DrivingNetwork _driving;
 
@@ -163,6 +166,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     HandInput _hands;
 
+    /// <summary>
+    /// CTL-5d — the car a second driver has the wheel of, or −1, and what that driver is holding. It is
+    /// kept beside the player's own hand rather than inside the selection, because the whole of what it is
+    /// for is to be held while somebody else picks units out.
+    /// </summary>
+    int _otherCar = -1;
+    HandInput _otherHand;
+
     int _ordered;
 
     /// <param name="agentSeed">
@@ -172,6 +183,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </param>
     public TownWorld(CityPlan plan, SimConfig config, bool standStatics = true, ulong? agentSeed = null)
     {
+        var stoodAt = Stopwatch.GetTimestamp();
         _config = config;
         _plan = plan;
         _agentSeed = agentSeed ?? plan.Seed;
@@ -183,7 +195,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _selected = new SelectionSet(config.View.SelectionMaxUnits);
         _orderedPeople = new int[_selected.Capacity];
         _orderedToM = new Vector2[_selected.Capacity];
+        var roadsAt = Stopwatch.GetTimestamp();
         _roads = RoadGraph.Build(plan, config);
+        RoadsMs = Stopwatch.GetElapsedTime(roadsAt).TotalMilliseconds;
+
         _signals = SignalService.Build(plan, _roads, config);
         _heads = SignalHeads.Place(plan, _roads, _signals, config);
 
@@ -200,8 +215,16 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // Both networks are read by the tick — cars over one, walkers over the other — so both are laid
         // with the town rather than the first time something asks.
-        _foot = FootGraph.Build(plan, config);
-        _walking = WalkingNetwork.Build(_foot, _terrain, config);
+        var footAt = Stopwatch.GetTimestamp();
+        _pavementLanes = PavementLanes.Of(plan, config);
+        _crossingWays = CrossingWays.Of(plan, _pavementLanes, config);
+        _foot = FootGraph.Build(_pavementLanes, _crossingWays, config);
+        FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;
+
+        var walkingAt = Stopwatch.GetTimestamp();
+        _walking = WalkingNetwork.Build(_foot, config);
+        WalkingMs = Stopwatch.GetElapsedTime(walkingAt).TotalMilliseconds;
+
         _walkSearch = new RouteSearch(_walking.Graph, mostEntries: 2, mostGoals: 2, MostRunsInARoute);
 
         // <b>And then the one table all of them are numbered in</b> (TER-4c.2, <see cref="TownWays"/>). It is
@@ -309,7 +332,28 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // One bucket the width of the widest question asked of it; the index is rebuilt into it every
         // tick and survives nothing.
         _nearby = new BucketGrid(plan.WorldSizeM, config.ProximityBucketM);
+
+        StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
     }
+
+    /// <summary>
+    /// <b>What standing this town up cost</b>, and how much of that went on each of the three graphs that
+    /// dominate it (<c>--bench load</c>). The town is stood once, so the readings are the object's own and
+    /// not a probe's second run of the same work.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three and not every stage</b>: the graphs are the seconds, and everything else the constructor does
+    /// — the fleets, the tables they are numbered in, the roster and the spawn — is the remainder the probe
+    /// prints against <see cref="StoodMs"/>. A row a line of the constructor would be an instrument nobody
+    /// could read.
+    /// </remarks>
+    public double StoodMs { get; }
+
+    public double RoadsMs { get; }
+
+    public double FootMs { get; }
+
+    public double WalkingMs { get; }
 
     /// <summary>
     /// How many runs one search may return. A bound on the work rather than a figure behaviour reads:
@@ -336,7 +380,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>What the traffic has written on the ground. Scenery: the town lays marks and nothing in it reads one.</summary>
     internal DriftMarks Marks { get; }
 
-    internal PhysicsWorld PhysicsForTrace => _physics;
+    /// <summary>The solver itself, for an instrument that measures it or draws it. Nothing in the town reaches it this way.</summary>
+    internal PhysicsWorld PhysicsForInstruments => _physics;
 
     public RoadGraph Roads => _roads;
 
@@ -479,6 +524,21 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </remarks>
     public FootGraph Foot => _foot;
 
+    /// <summary>
+    /// The town's pavement as the lanes it is walked down (WLK-1): the driven ground's boundary moved off
+    /// itself once per lane. <b>It is what <see cref="Foot"/> is laid from</b> and not a second answer
+    /// beside it — the graph holds these very lines, cut at the joints of the pieces the move came back
+    /// with, so a reader wanting the shape reads this and one wanting the network reads that.
+    /// </summary>
+    public PavementLanes PavementLanes => _pavementLanes;
+
+    /// <summary>
+    /// The ways the town's zebras are walked and the places they part that pavement at (WLK-15). <b>Kept
+    /// because the graph does not hold it</b>: a crossing there is a kind of lane and the place it meets the
+    /// walk is a node like any other, so what is asked of this is which places those were.
+    /// </summary>
+    public CrossingWays CrossingWays => _crossingWays;
+
     public WalkingNetwork Walking => _walking;
 
     /// <summary>
@@ -594,15 +654,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public bool HoldAgents { get; set; }
 
     /// <summary>
-    /// Whether this agent is one of the units under the player's hand. <b>A terminal unit is not</b>: a
-    /// selection may hold a wreck and a working car at once, so the wheel is refused per unit rather
-    /// than per selection.
+    /// Whether somebody has this agent's wheel — the player's own hand over the selection, or the second
+    /// driver's over the car it named (CTL-5d). <b>A terminal unit is not handed</b>: a selection may hold a
+    /// wreck and a working car at once, so the wheel is refused per unit rather than per selection.
     /// </summary>
     bool Handed(int agent) =>
-        _hands.Held && _selected.Any && !IsTerminal(agent) &&
+        !IsTerminal(agent) &&
         (Roster.IsCar(agent)
-            ? _selected.Holds(SelectionKind.Car, Roster.CarIndex(agent))
-            : _selected.Holds(SelectionKind.Person, agent));
+            ? WheelIsHeldOver(Roster.CarIndex(agent))
+            : _hands.Held && _selected.Holds(SelectionKind.Person, agent));
 
     public void TickAgent(int agent)
     {

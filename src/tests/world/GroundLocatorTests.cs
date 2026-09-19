@@ -3,6 +3,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Terrain;
 using Xunit;
 
@@ -198,6 +199,152 @@ public class GroundLocatorTests
     }
 
     /// <summary>
+    /// <b>The concrete is the ground within a walk of the tarmac and nothing beyond it</b> (TER-7b,
+    /// TER-3c.3). A layer is the town's own boundary moved by one figure, so every point the answer calls
+    /// pavement stands within the pavement's outer face of that boundary, and every point that does not is
+    /// the verge.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Measured off the boundary the walking network reads</b> (<see cref="KerbLines"/>) and not off the
+    /// bands the answer projects onto, so what is weighed here is two constructions against one another
+    /// rather than one against itself.
+    /// </para>
+    /// <para>
+    /// <b>The slack is the rounding and not a tolerance</b> (<see cref="RoadFigures.LineRoundedM"/>,
+    /// TER-3c.10): the boundary's corners are rounded where the bands they were merged from are square, so
+    /// the two stand up to that radius apart at a corner and nowhere else.
+    /// </para>
+    /// <para>
+    /// <b>A deck's margin and a shore are the two grounds that are concrete away from any kerb</b> — one a
+    /// ribbon about a road's own line and one a ring the water is set in — so they are excluded by name
+    /// rather than by a distance, which is what keeps this a claim about the layer.
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void NoConcreteStandsFurtherOffTheBoundaryThanTheWalkReaches(string map)
+    {
+        var plan = Towns.Of(map);
+        var ground = GroundOf(map);
+        var kerbs = KerbLines.Of(plan, Config);
+        var reachM = Config.WalkOuterM + Config.Road.LineRoundedM;
+        var stepM = Config.Terrain.GroundStepM * 3f;
+
+        var onTheWalk = 0;
+        for (var y = stepM * 0.5f; y < plan.WorldSizeM.Y; y += stepM)
+        {
+            for (var x = stepM * 0.5f; x < plan.WorldSizeM.X; x += stepM)
+            {
+                // Everything else in the town answers walkable-but-not-preferred or nothing at all, so the
+                // ground the claim is about is the only ground this costs anything to ask about.
+                var pointM = new Vector2(x, y);
+                if (!ground.At(pointM).Preferred) continue;
+
+                if (kerbs.NearestTo(pointM, out var kerb)
+                    && Vector2.Distance(pointM, kerb.PositionM) <= reachM)
+                {
+                    onTheWalk++;
+                    continue;
+                }
+
+                if (UnderABridge(plan, pointM) || InsideAnyRing(plan.Water.Shore, pointM)) continue;
+
+                Assert.Fail(
+                    $"{map}: {pointM.X:F0},{pointM.Y:F0} is answered {ground.GroundAt(pointM)} and stands " +
+                    $"more than {reachM:F2} m off the town's boundary");
+            }
+        }
+
+        Assert.True(onTheWalk > 0, $"{map}: no point of the town is answered as the pavement at all");
+    }
+
+    /// <summary>
+    /// <b>The lanes a walker is held on stand on the concrete</b> (TER-3c.3, WLK-1). The walking network is
+    /// the boundary moved off itself and reads no ground at all; the walk the ground answers is that same
+    /// boundary moved by its own figure. What the two owe each other is exactly this — every stretch of
+    /// pavement lane runs over ground a walker prefers — and it is owed because both are sized off the
+    /// carriageway's own width, not because either asked the other.
+    /// </summary>
+    /// <remarks>
+    /// A crossing is not asked: it is paint over a carriageway on purpose (TER-6), so the ground under one
+    /// is the road's and a walker is admitted to it by the crossing rather than by the surface.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void EveryPavementLaneRunsOverGroundAWalkerPrefers(string map)
+    {
+        var plan = Towns.Of(map);
+        var ground = GroundOf(map);
+        var ways = FootWays.Lay(plan, Config);
+
+        var walked = 0;
+        for (var way = 0; way < ways.Count; way++)
+        {
+            if (ways.KindOf(way) == FootConnectorKind.Crossing) continue;
+
+            for (var lane = 0; lane < FootConnectors.LanesPerWay; lane++)
+            {
+                var line = ways.LaneOf(way, lane);
+                if (line.Length == 0) continue;
+
+                walked++;
+                var lengthM = Spline.TotalLengthM(line);
+                for (var alongM = 0f; alongM <= lengthM; alongM += 2f)
+                {
+                    var atM = Spline.SampleAt(line, MathF.Min(alongM, lengthM)).PositionM;
+                    Assert.True(ground.At(atM).Preferred,
+                        $"{map}: a walk {ways.KindOf(way)} runs over {ground.GroundAt(atM)} at " +
+                        $"{atM.X:F0},{atM.Y:F0}, {alongM:F0} m along its own lane");
+                }
+            }
+        }
+
+        Assert.True(walked > 0, $"{map}: no walk is laid along the boundary at all");
+    }
+
+    /// <summary>
+    /// <b>The pavement is the same surface as the carriageway to a wheel</b> (TER-2): everything inside the
+    /// town's boundary is asphalt, so a car that puts two wheels over the kerb keeps its grip, its drag and
+    /// its mark threshold and loses only its legality. What it is <em>permitted</em> to do there is the
+    /// catalogue's and is a different answer.
+    /// </summary>
+    /// <remarks>
+    /// Compared against the tarmac this same town answers rather than against a figure, so the claim is that
+    /// the two grounds are one surface and not that either is worth some number.
+    /// </remarks>
+    [Fact]
+    public void ThePavementIsTheSameSurfaceAsTheCarriagewayToAWheel()
+    {
+        var plan = Towns.Of(Towns.Fixture);
+        var ground = GroundOf(Towns.Fixture);
+        var paving = plan.Paving(Config);
+        var ways = FootWays.Lay(plan, Config);
+
+        var onALaneM = Spline.SampleAt(paving.ArcsOfDriven(0), paving.DrivenLengthM(0) * 0.5f).PositionM;
+        Assert.Equal(Ground.Road, ground.GroundAt(onALaneM));
+        var tarmac = ground.EffectAt(onALaneM);
+
+        var walked = 0;
+        for (var way = 0; way < ways.Count; way++)
+        {
+            if (ways.KindOf(way) == FootConnectorKind.Crossing) continue;
+
+            for (var lane = 0; lane < FootConnectors.LanesPerWay; lane++)
+            {
+                var line = ways.LaneOf(way, lane);
+                if (line.Length == 0) continue;
+
+                walked++;
+                var atM = Spline.SampleAt(line, Spline.TotalLengthM(line) * 0.5f).PositionM;
+                Assert.Equal(tarmac, ground.EffectAt(atM));
+            }
+        }
+
+        Assert.True(walked > 0, "the fixture town lays no walk along its boundary at all");
+    }
+
+    /// <summary>
     /// Ground legal to nobody is terrain and not a hole in the map (TER-3a): inside a water outline the
     /// locator answers ground nobody is permitted on, everywhere the town has not deliberately carried a
     /// bridge over it.
@@ -300,6 +447,17 @@ public class GroundLocatorTests
             Assert.False(ground.Contains(pointM));
             Assert.Equal(Ground.Grass, ground.GroundAt(pointM));
         }
+    }
+
+    /// <summary>Whether the point stands inside any of a set of closed rings, by the same crossing count.</summary>
+    static bool InsideAnyRing(CityPlan.RingArrays rings, Vector2 pointM)
+    {
+        for (var ring = 0; ring < rings.Count; ring++)
+        {
+            if (Contains(rings.RingOf(ring), pointM)) return true;
+        }
+
+        return false;
     }
 
     /// <summary>

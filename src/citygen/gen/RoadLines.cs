@@ -69,6 +69,9 @@ internal sealed class RoadLines(
 
     readonly HashSet<int> _near = [];
 
+    /// <summary>One walk's cells, kept rather than made again — this is a build-time type on one thread.</summary>
+    readonly List<(int X, int Y)> _cells = [];
+
     public IReadOnlyList<ArcSeg[]> Laid => _laid;
 
     /// <summary>
@@ -122,7 +125,8 @@ internal sealed class RoadLines(
         var road = _laid.Count;
         _laid.Add(chain);
         _between.Add((edge.From, edge.To));
-        foreach (var cell in Cells(chain))
+        Cells(chain, _cells);
+        foreach (var cell in _cells)
         {
             if (!_inCell.TryGetValue(cell, out var here)) _inCell[cell] = here = [];
 
@@ -273,7 +277,8 @@ internal sealed class RoadLines(
         var apartM = config.RoadFootprintM;
 
         _near.Clear();
-        foreach (var cell in Cells(chain))
+        Cells(chain, _cells);
+        foreach (var cell in _cells)
         {
             for (var atX = cell.X - 1; atX <= cell.X + 1; atX++)
             {
@@ -337,11 +342,15 @@ internal sealed class RoadLines(
         return false;
     }
 
-    /// <summary>The cells one line's own walk passes through, each once and in order.</summary>
-    IEnumerable<(int X, int Y)> Cells(ArcSeg[] chain)
+    /// <summary>
+    /// The cells one line's own walk passes through, each once and in order, into the caller's own room.
+    /// <b>Filled rather than yielded</b>: it is walked for every road in the town every time a cut renumbers
+    /// the layout, and an iterator's state machine and its virtual step were a fifth of what that cost.
+    /// </summary>
+    void Cells(ArcSeg[] chain, List<(int X, int Y)> into)
     {
-        if (chain.Length == 0) yield break;
-
+        into.Clear();
+        if (chain.Length == 0) return;
 
         var cellM = config.RoadFootprintM;
         var lengthM = Spline.TotalLengthM(chain);
@@ -350,9 +359,9 @@ internal sealed class RoadLines(
         {
             var atM = Spline.SampleAt(chain, MathF.Min(alongM, lengthM)).PositionM;
             var cell = ((int)MathF.Floor(atM.X / cellM), (int)MathF.Floor(atM.Y / cellM));
-            if (cell != last) yield return last = cell;
+            if (cell != last) into.Add(last = cell);
 
-            if (alongM >= lengthM) yield break;
+            if (alongM >= lengthM) return;
         }
     }
 

@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.Core.Geometry;
 
@@ -127,11 +128,23 @@ internal sealed partial class BandShell
         /// <summary>The caller's index of those lines, which answers which of them are near a place.</summary>
         readonly ChainIndex _lines;
 
-        /// <summary>And an index of the ribbons, which answers which of them could cross which.</summary>
+        /// <summary>
+        /// <b>And an index of the ribbons' own pieces</b>, numbered as the cuts are, which answers which
+        /// pieces could cross which and which stand at a place.
+        /// </summary>
+        /// <remarks>
+        /// <b>Pieces and not ribbons, because what is asked of it is about a piece.</b> A ribbon is a dozen
+        /// pieces of which one is near any given place, so an index of ribbons hands back the other eleven
+        /// as well and every one of them is then weighed against its own box
+        /// (<see cref="Within"/>) — which is the box test the index exists to have done already.
+        /// </remarks>
         readonly ChainIndex _edges;
 
         /// <summary>Where one ribbon's pieces start in the flat numbering the cuts are held under.</summary>
         readonly int[] _firstPiece;
+
+        /// <summary>And which ribbon each of those pieces belongs to, which is what the index hands back.</summary>
+        readonly int[] _lineOfPiece;
 
         /// <summary>The distances along each piece that another boundary crosses it, or null where none does.</summary>
         readonly List<float>?[] _cutAtM;
@@ -152,25 +165,61 @@ internal sealed partial class BandShell
         readonly Vector2[] _leastM;
         readonly Vector2[] _mostM;
 
-        readonly int[] _near;
-        readonly float[] _alongM;
-        readonly int[] _candidate;
+        /// <summary>
+        /// <b>One thread's working set for cutting</b>: what it may ask the index of pieces, and the cuts it
+        /// has filed. <b>The cuts are held rather than written</b> because a cut lands on whichever piece
+        /// stands at the place, which is any piece in the town — so two threads filing at once would be
+        /// writing into one another's lists.
+        /// </summary>
+        /// <remarks>
+        /// <b>Held costs nothing, because what is filed is a multiset.</b> Every list of cuts is sorted
+        /// before it is read (<see cref="Alike"/>, <see cref="Uncovered"/>), so the order they are drained in
+        /// cannot reach the shape: the same cuts filed in any order sort to the same sequence.
+        /// </remarks>
+        sealed class Cutting(int pieces, ChainIndex.Scan scan)
+        {
+            public ChainIndex.Scan Scan { get; } = scan;
 
-        /// <summary>How far the place being weighed stands off each near band, and which way that band faces there.</summary>
-        readonly float[] _offTheEdgeM;
-        readonly float[] _facing;
+            public int[] Candidate { get; } = new int[Math.Max(1, pieces)];
 
-        /// <summary>And where each band's own edge stands, along the way the stretch faces out.</summary>
-        readonly float[] _edgeStandsM;
+            public List<(int At, float AtM)> Cuts { get; } = [];
+        }
 
-        /// <summary>Those bands in that order, innermost first, which is the order a run of one edge is read in.</summary>
-        readonly int[] _outward;
+        /// <summary>
+        /// <b>One thread's working set for weighing a stretch</b>: the bands near the place, how far it
+        /// stands off each and which way each faces there, and the order their own edges stand in.
+        /// </summary>
+        /// <remarks>
+        /// <b>A set and not fields, because weighing is the half of the merge that writes nothing shared</b>
+        /// (<see cref="Uncovered"/>). Every cut has been filed by the time a stretch is weighed, so what is
+        /// left is a question asked of the bands — and a question asked of a ribbon is answered without
+        /// reading anything another ribbon's answer depends on.
+        /// </remarks>
+        sealed class Weighing(int bands, ChainIndex.Scan scan)
+        {
+            public ChainIndex.Scan Scan { get; } = scan;
+
+            public int[] Near { get; } = new int[bands];
+
+            public float[] AlongM { get; } = new float[bands];
+
+            /// <summary>How far the place being weighed stands off each near band, and which way that band faces there.</summary>
+            public float[] OffTheEdgeM { get; } = new float[bands];
+
+            public float[] Facing { get; } = new float[bands];
+
+            /// <summary>And where each band's own edge stands, along the way the stretch faces out.</summary>
+            public float[] EdgeStandsM { get; } = new float[bands];
+
+            /// <summary>Those bands in that order, innermost first, which is the order a run of one edge is read in.</summary>
+            public int[] Outward { get; } = new int[bands];
+        }
 
         readonly List<ArcSeg> _kept = [];
 
         public Merge(
-            ArcSeg[][] along, ChainIndex lines, float cellM, ArcSeg[][] ribbons, float[] halfM,
-            float[] lengthM, float mostHalfM)
+            ArcSeg[][] along, ChainIndex lines, ArcSeg[][] ribbons, float[] halfM, float[] lengthM,
+            float mostHalfM)
         {
             _along = along;
             _ribbons = ribbons;
@@ -179,93 +228,146 @@ internal sealed partial class BandShell
             _mostHalfM = mostHalfM;
             _lines = lines;
 
-            var building = new ChainIndex.Builder();
             _firstPiece = new int[ribbons.Length + 1];
             for (var line = 0; line < ribbons.Length; line++)
             {
-                building.Add(line, ribbons[line], Reach(ribbons[line]));
                 _firstPiece[line + 1] = _firstPiece[line] + ribbons[line].Length;
             }
 
-            _edges = building.Seal(cellM);
-            _cutAtM = new List<float>?[_firstPiece[^1]];
-            _leastM = new Vector2[_firstPiece[^1]];
-            _mostM = new Vector2[_firstPiece[^1]];
+            var pieces = _firstPiece[^1];
+            _lineOfPiece = new int[pieces];
+            _cutAtM = new List<float>?[pieces];
+            _leastM = new Vector2[pieces];
+            _mostM = new Vector2[pieces];
+
+            var building = new ChainIndex.Builder();
             for (var line = 0; line < ribbons.Length; line++)
             {
                 for (var piece = 0; piece < ribbons[line].Length; piece++)
                 {
                     var at = _firstPiece[line] + piece;
+                    _lineOfPiece[at] = line;
+                    building.Add(at, ribbons[line].AsSpan(piece, 1), MathF.Abs(ribbons[line][piece].LengthM));
+
                     _leastM[at] = new Vector2(float.MaxValue);
                     _mostM[at] = new Vector2(float.MinValue);
                     ChainIndex.Box(ribbons[line][piece], ref _leastM[at], ref _mostM[at]);
                 }
             }
 
-            _near = new int[ribbons.Length];
-            _alongM = new float[ribbons.Length];
-            _candidate = new int[ribbons.Length];
-            _offTheEdgeM = new float[ribbons.Length];
-            _facing = new float[ribbons.Length];
-            _edgeStandsM = new float[ribbons.Length];
-            _outward = new int[ribbons.Length];
+            // <b>Binned as finely as the walk that bins it can tell apart</b> (<see cref="ChainIndex.FinestCellM"/>)
+            // and never at the caller's lattice for the lines. What is asked of this index is which pieces
+            // stand <em>at</em> a place, within a weld; a cell a road wide hands back every piece running
+            // through seventy square metres of a junction and each is then rejected by its own box.
+            _edges = building.Seal(ChainIndex.FinestCellM);
+            _pieces = pieces;
+        }
+
+        readonly int _pieces;
+
+        Cutting NewCutting() => new(_pieces, _edges.NewScan());
+
+        Weighing NewWeighing() => new(_ribbons.Length, _lines.NewScan());
+
+        /// <summary>
+        /// <b>One cutting pass over a count, held and then filed</b>: run on as many threads as there are,
+        /// each holding its own cuts (<see cref="Cutting"/>), and every one of them filed against the pieces
+        /// they cut once the pass is over.
+        /// </summary>
+        void Held(int count, Action<Cutting, int> pass)
+        {
+            var cuttings = new List<Cutting>();
+            InChunks.Over(
+                count,
+                NewCutting,
+                pass,
+                cutting =>
+                {
+                    lock (cuttings) cuttings.Add(cutting);
+                });
+
+            foreach (var cutting in cuttings)
+            {
+                foreach (var (at, atM) in cutting.Cuts) (_cutAtM[at] ??= []).Add(atM);
+            }
         }
 
         /// <summary>The rings the merge closed, and the runs it could not.</summary>
         public (ArcSeg[][] Chains, ArcSeg[][] Loose) Run()
         {
-            for (var line = 0; line < _ribbons.Length; line++) Crossed(line);
-
+            // <b>A ribbon at a time, on as many threads as there are</b>, each holding the cuts it makes
+            // until the pass is over (<see cref="Cutting"/>): a piece is cut by whichever pieces stand on it,
+            // and those belong to any ribbon in the town.
+            Held(_ribbons.Length, Crossed);
             Alike();
-            for (var line = 0; line < _ribbons.Length; line++) Uncovered(line);
+
+            // <b>A ribbon at a time, on as many threads as there are.</b> Every cut is filed by now, so
+            // weighing reads the bands and writes only its own ribbon's answer — and each answer is kept in
+            // its ribbon's own slot and strung in ribbon order, so the shape is the shape one thread would
+            // have come to whatever order they finish in.
+            var keptOfLine = new List<ArcSeg>[_ribbons.Length];
+            InChunks.Over(
+                _ribbons.Length,
+                NewWeighing,
+                (weighing, line) =>
+                {
+                    keptOfLine[line] = [];
+                    Uncovered(weighing, line, keptOfLine[line]);
+                });
+
+            foreach (var kept in keptOfLine) _kept.AddRange(kept);
 
             return ArcRings.Of(_kept);
         }
 
         /// <summary>
-        /// <b>One ribbon cut against every ribbon whose cells it reaches</b>, itself among them: a ribbon
-        /// crosses its own boundary wherever it folds. Each pair is taken once and both sides of it are cut,
-        /// which is what makes the two stops one place.
+        /// <b>One piece of one ribbon cut against every piece whose cells it reaches</b>, its own ribbon's
+        /// among them: a ribbon crosses its own boundary wherever it folds. Each pair is taken once and both
+        /// sides of it are cut, which is what makes the two stops one place.
         /// </summary>
-        void Crossed(int line)
+        /// <remarks>
+        /// <b>Asked a piece at a time and not a ribbon at a time</b>, which is the whole of what the index
+        /// being of pieces buys (<see cref="_edges"/>). A ribbon's query hands back every piece near any part
+        /// of it, and each of those was then weighed against every piece of this one — the product of two
+        /// ribbons, for a pair of pieces that are near each other.
+        /// </remarks>
+        void Crossed(Cutting cutting, int line)
         {
             var ribbon = _ribbons[line];
-            if (ribbon.Length == 0) return;
-
-            var offered = _edges.Crossing(ribbon, 0f, _candidate);
             Span<float> here = stackalloc float[MostCrossings];
             Span<float> there = stackalloc float[MostCrossings];
 
-            for (var at = 0; at < offered && at < _candidate.Length; at++)
+            for (var mine = 0; mine < ribbon.Length; mine++)
             {
-                var other = _candidate[at];
-                if (other < line) continue;
+                if (ribbon[mine].LengthM <= LeastPieceM) continue;
 
-                var against = _ribbons[other];
-                for (var mine = 0; mine < ribbon.Length; mine++)
+                var ours = _firstPiece[line] + mine;
+                var offered = _edges.Crossing(cutting.Scan, ribbon.AsSpan(mine, 1), 0f, cutting.Candidate);
+                for (var at = 0; at < offered && at < cutting.Candidate.Length; at++)
                 {
-                    if (ribbon[mine].LengthM <= LeastPieceM) continue;
+                    // <b>Each unordered pair of pieces once, on the flat numbering</b> — which is the ribbon
+                    // rule and the fold rule in one comparison: a piece is never cut against itself, and the
+                    // half of every pair this piece does not take is taken when the other one is walked.
+                    var theirsAt = cutting.Candidate[at];
+                    if (theirsAt <= ours) continue;
 
-                    var ours = _firstPiece[line] + mine;
-                    for (var theirs = 0; theirs < against.Length; theirs++)
+                    var other = _lineOfPiece[theirsAt];
+                    var theirs = theirsAt - _firstPiece[other];
+                    if (_ribbons[other][theirs].LengthM <= LeastPieceM) continue;
+
+                    // Two pieces that cross share a point and both boxes hold it, so what the boxes
+                    // pass over is nothing rather than a small thing.
+                    if (!Meet(ours, theirsAt)) continue;
+
+                    var found = Spline.CrossingsOf(ribbon[mine], _ribbons[other][theirs], here, there);
+                    for (var cut = 0; cut < found; cut++)
                     {
-                        if (other == line && theirs <= mine) continue;
-                        if (against[theirs].LengthM <= LeastPieceM) continue;
-
-                        // Two pieces that cross share a point and both boxes hold it, so what the boxes
-                        // pass over is nothing rather than a small thing.
-                        if (!Meet(ours, _firstPiece[other] + theirs)) continue;
-
-                        var found = Spline.CrossingsOf(ribbon[mine], against[theirs], here, there);
-                        for (var cut = 0; cut < found; cut++)
-                        {
-                            Cut(line, mine, here[cut]);
-                            Cut(other, theirs, there[cut]);
-                        }
-
-                        Ends(line, mine, ribbon[mine], against[theirs]);
-                        Ends(other, theirs, against[theirs], ribbon[mine]);
+                        Cut(cutting, ours, here[cut]);
+                        Cut(cutting, theirsAt, there[cut]);
                     }
+
+                    Ends(cutting, ours, ribbon[mine], _ribbons[other][theirs]);
+                    Ends(cutting, theirsAt, _ribbons[other][theirs], ribbon[mine]);
                 }
             }
         }
@@ -283,21 +385,21 @@ internal sealed partial class BandShell
         /// dropped by whatever its own middle happened to be, and the ring steps sideways by the length of
         /// the overlap.
         /// </remarks>
-        void Ends(int line, int piece, in ArcSeg mine, in ArcSeg theirs)
+        static void Ends(Cutting cutting, int at, in ArcSeg mine, in ArcSeg theirs)
         {
-            On(line, piece, mine, theirs.StartM);
-            On(line, piece, mine, theirs.EndM);
+            On(cutting, at, mine, theirs.StartM);
+            On(cutting, at, mine, theirs.EndM);
         }
 
         /// <summary>One place cut into a piece, where it stands on it at all.</summary>
-        void On(int line, int piece, in ArcSeg mine, Vector2 pointM)
+        static void On(Cutting cutting, int at, in ArcSeg mine, Vector2 pointM)
         {
             Span<ArcSeg> one = [mine];
             var atM = Spline.ProjectM(one, pointM, mine.LengthM * 0.5f, mine.LengthM);
             if (atM <= 0f || atM >= mine.LengthM) return;
             if (Vector2.DistanceSquared(mine.PointAtM(atM), pointM) > WeldM * WeldM) return;
 
-            Cut(line, piece, atM);
+            Cut(cutting, at, atM);
         }
 
         /// <summary>
@@ -346,27 +448,27 @@ internal sealed partial class BandShell
                 }
             }
 
-            foreach (var pointM in places) Alongside(pointM);
+            // A place at a time, on as many threads as there are: sweeping one asks the index which pieces
+            // stand at it and cuts each, which is the same held-then-filed pass the crossings are.
+            Held(places.Count, (cutting, at) => Alongside(cutting, places[at]));
         }
 
         /// <summary>One place cut into every piece of every ribbon standing within a weld of it.</summary>
-        void Alongside(Vector2 pointM)
+        void Alongside(Cutting cutting, Vector2 pointM)
         {
-            var offered = _edges.Around(pointM, WeldM, _candidate);
-            for (var at = 0; at < offered && at < _candidate.Length; at++)
+            var offered = _edges.Around(cutting.Scan, pointM, WeldM, cutting.Candidate);
+            for (var at = 0; at < offered && at < cutting.Candidate.Length; at++)
             {
-                var alongside = _ribbons[_candidate[at]];
-                var first = _firstPiece[_candidate[at]];
-                for (var piece = 0; piece < alongside.Length; piece++)
-                {
-                    if (alongside[piece].LengthM <= LeastPieceM) continue;
+                // Weighed against its own box before it is projected onto: a city cuts two thirds of a
+                // million places into its ribbons, and the cells a place reads are a metre across.
+                var pieceAt = cutting.Candidate[at];
+                if (!Within(pieceAt, pointM)) continue;
 
-                    // Weighed against its own box before it is projected onto: a city cuts two thirds of a
-                    // million places into its ribbons, and a ribbon is a dozen pieces of which one is near.
-                    if (!Within(first + piece, pointM)) continue;
+                var line = _lineOfPiece[pieceAt];
+                var piece = pieceAt - _firstPiece[line];
+                if (_ribbons[line][piece].LengthM <= LeastPieceM) continue;
 
-                    On(_candidate[at], piece, alongside[piece], pointM);
-                }
+                On(cutting, pieceAt, _ribbons[line][piece], pointM);
             }
         }
 
@@ -384,18 +486,14 @@ internal sealed partial class BandShell
             _leastM[ours].X - WeldM <= _mostM[theirs].X && _mostM[ours].X + WeldM >= _leastM[theirs].X
             && _leastM[ours].Y - WeldM <= _mostM[theirs].Y && _mostM[ours].Y + WeldM >= _leastM[theirs].Y;
 
-        /// <summary>One crossing filed against the piece it cuts.</summary>
-        void Cut(int line, int piece, float atM)
-        {
-            var at = _firstPiece[line] + piece;
-            (_cutAtM[at] ??= []).Add(atM);
-        }
+        /// <summary>One crossing held against the piece it cuts, to be filed when the pass is over.</summary>
+        static void Cut(Cutting cutting, int at, float atM) => cutting.Cuts.Add((at, atM));
 
         /// <summary>
         /// The stretches one ribbon's pieces are left in by their cuts, each kept where the ground a hair
         /// outside its middle is on no ribbon.
         /// </summary>
-        void Uncovered(int line)
+        void Uncovered(Weighing weighing, int line, List<ArcSeg> kept)
         {
             var ribbon = _ribbons[line];
             for (var piece = 0; piece < ribbon.Length; piece++)
@@ -404,7 +502,7 @@ internal sealed partial class BandShell
 
                 var cuts = _cutAtM[_firstPiece[line] + piece];
                 cuts?.Sort();
-                Kept(line, ribbon[piece], cuts);
+                Kept(weighing, line, ribbon[piece], cuts, kept);
             }
         }
 
@@ -413,7 +511,7 @@ internal sealed partial class BandShell
         /// behind it is the same cut</b> (<see cref="LeastPieceM"/>) and is passed over, so a cluster of them
         /// cuts the piece once instead of leaving a hole as wide as the cluster.
         /// </summary>
-        void Kept(int line, in ArcSeg piece, List<float>? cutAtM)
+        void Kept(Weighing weighing, int line, in ArcSeg piece, List<float>? cutAtM, List<ArcSeg> kept)
         {
             var cuts = cutAtM?.Count ?? 0;
             var fromM = 0f;
@@ -424,7 +522,7 @@ internal sealed partial class BandShell
 
                 var stretch = new ArcSeg(
                     piece.PointAtM(fromM), piece.HeadingAtRad(fromM), toM - fromM, piece.Curvature);
-                if (!Covered(line, stretch)) _kept.Add(stretch);
+                if (!Covered(weighing, line, stretch)) kept.Add(stretch);
 
                 fromM = toM;
             }
@@ -464,21 +562,21 @@ internal sealed partial class BandShell
         /// lowest number in a bundle takes every copy in it and the bundle comes back with no outline at all.
         /// </para>
         /// </remarks>
-        bool Covered(int line, in ArcSeg stretch)
+        bool Covered(Weighing weighing, int line, in ArcSeg stretch)
         {
             var middleM = stretch.LengthM * 0.5f;
             var outM = -Heading.RightOf(Heading.Unit(stretch.HeadingAtRad(middleM)));
             var pointM = stretch.PointAtM(middleM) + (outM * ProbeM);
 
-            var found = Reading(pointM, outM);
-            var (from, to) = Run(line, found);
+            var found = Reading(weighing, pointM, outM);
+            var (from, to) = Run(weighing, line, found);
             for (var at = 0; at < found; at++)
             {
-                var slot = _outward[at];
-                if (_near[slot] == line)
+                var slot = weighing.Outward[at];
+                if (weighing.Near[slot] == line)
                 {
                     // A ribbon folded through its own band, which is covered like anything else.
-                    if (_offTheEdgeM[slot] < -CoincidentM) return true;
+                    if (weighing.OffTheEdgeM[slot] < -CoincidentM) return true;
 
                     continue;
                 }
@@ -487,14 +585,14 @@ internal sealed partial class BandShell
                 // it answers is whether it has this place on it.
                 if (at < from || at > to)
                 {
-                    if (_offTheEdgeM[slot] < 0f) return true;
+                    if (weighing.OffTheEdgeM[slot] < 0f) return true;
 
                     continue;
                 }
 
-                if (_facing[slot] < -Squarely) return true;
-                if (_facing[slot] > Squarely && _near[slot] < line
-                    && MathF.Abs(_edgeStandsM[slot]) <= CoincidentM)
+                if (weighing.Facing[slot] < -Squarely) return true;
+                if (weighing.Facing[slot] > Squarely && weighing.Near[slot] < line
+                    && MathF.Abs(weighing.EdgeStandsM[slot]) <= CoincidentM)
                 {
                     return true;
                 }
@@ -515,27 +613,27 @@ internal sealed partial class BandShell
         /// of them drop every copy of one stretch of the outline. Read as the run they are, whichever
         /// of them the question is asked from, the answer is the same run and it has one lowest number.
         /// </remarks>
-        (int From, int To) Run(int line, int found)
+        (int From, int To) Run(Weighing weighing, int line, int found)
         {
-            var inward = Inward(found);
+            var inward = Inward(weighing, found);
             var from = inward + 1;
             var to = inward;
 
             var standsM = 0f;
             for (var at = inward; at >= 0; at--)
             {
-                if (_edgeStandsM[_outward[at]] < standsM - SameEdgeM(line, _outward[at])) break;
+                if (weighing.EdgeStandsM[weighing.Outward[at]] < standsM - SameEdgeM(weighing, line, weighing.Outward[at])) break;
 
-                standsM = _edgeStandsM[_outward[at]];
+                standsM = weighing.EdgeStandsM[weighing.Outward[at]];
                 from = at;
             }
 
             standsM = 0f;
             for (var at = inward + 1; at < found; at++)
             {
-                if (_edgeStandsM[_outward[at]] > standsM + SameEdgeM(line, _outward[at])) break;
+                if (weighing.EdgeStandsM[weighing.Outward[at]] > standsM + SameEdgeM(weighing, line, weighing.Outward[at])) break;
 
-                standsM = _edgeStandsM[_outward[at]];
+                standsM = weighing.EdgeStandsM[weighing.Outward[at]];
                 to = at;
             }
 
@@ -555,9 +653,9 @@ internal sealed partial class BandShell
         /// nothing can close, or kept twice, which is one stretch said twice and is settled where the rings
         /// are strung (<see cref="ArcRings"/>). The error is spent on the side that has an answer.
         /// </remarks>
-        float SameEdgeM(int line, int slot) =>
-            _facing[slot] < -Squarely ? TouchingM
-            : _facing[slot] > 0f && _near[slot] > line ? CoincidentM + ProbeM
+        static float SameEdgeM(Weighing weighing, int line, int slot) =>
+            weighing.Facing[slot] < -Squarely ? TouchingM
+            : weighing.Facing[slot] > 0f && weighing.Near[slot] > line ? CoincidentM + ProbeM
             : CoincidentM;
 
         /// <summary>
@@ -570,44 +668,46 @@ internal sealed partial class BandShell
         /// further out, and the two are opposite readings about the shape: which of them it is, is the way
         /// that band faces where the place stands.
         /// </remarks>
-        int Reading(Vector2 pointM, Vector2 outM)
+        int Reading(Weighing weighing, Vector2 pointM, Vector2 outM)
         {
-            var found = _lines.Near(pointM, _mostHalfM + WeldM, _near, _alongM);
-            if (found > _near.Length) found = _near.Length;
+            var found = _lines.Near(weighing.Scan, pointM, _mostHalfM + WeldM, weighing.Near, weighing.AlongM);
+            if (found > weighing.Near.Length) found = weighing.Near.Length;
 
             for (var at = 0; at < found; at++)
             {
                 // The probe's own step comes off the reading: a place a millimetre outside one edge stands
                 // a millimetre outside the edge that shares it, so what a coincident band reads is
                 // <see cref="ProbeM"/> and not nought.
-                _offTheEdgeM[at] = OffTheBandM(_near[at], _alongM[at], pointM, out var facingM) - ProbeM;
-                _facing[at] = facingM.LengthSquared() > 0f
+                weighing.OffTheEdgeM[at] =
+                    OffTheBandM(weighing.Near[at], weighing.AlongM[at], pointM, out var facingM) - ProbeM;
+                weighing.Facing[at] = facingM.LengthSquared() > 0f
                     ? Vector2.Dot(Vector2.Normalize(facingM), outM)
                     : 0f;
-                _edgeStandsM[at] = _facing[at] > 0f ? -_offTheEdgeM[at] : _offTheEdgeM[at];
-                _outward[at] = at;
+                weighing.EdgeStandsM[at] =
+                    weighing.Facing[at] > 0f ? -weighing.OffTheEdgeM[at] : weighing.OffTheEdgeM[at];
+                weighing.Outward[at] = at;
             }
 
             for (var at = 1; at < found; at++)
             {
-                var slot = _outward[at];
+                var slot = weighing.Outward[at];
                 var sorted = at - 1;
-                for (; sorted >= 0 && _edgeStandsM[_outward[sorted]] > _edgeStandsM[slot]; sorted--)
+                for (; sorted >= 0 && weighing.EdgeStandsM[weighing.Outward[sorted]] > weighing.EdgeStandsM[slot]; sorted--)
                 {
-                    _outward[sorted + 1] = _outward[sorted];
+                    weighing.Outward[sorted + 1] = weighing.Outward[sorted];
                 }
 
-                _outward[sorted + 1] = slot;
+                weighing.Outward[sorted + 1] = slot;
             }
 
             return found;
         }
 
         /// <summary>Where the edge being weighed stands in that order: the last band whose edge is inside it.</summary>
-        int Inward(int found)
+        static int Inward(Weighing weighing, int found)
         {
             var at = found - 1;
-            while (at >= 0 && _edgeStandsM[_outward[at]] > 0f) at--;
+            while (at >= 0 && weighing.EdgeStandsM[weighing.Outward[at]] > 0f) at--;
 
             return at;
         }
@@ -657,15 +757,6 @@ internal sealed partial class BandShell
             if (lengthSq <= 0f) return oneM;
 
             return oneM + (acrossM * Math.Clamp(Vector2.Dot(pointM - oneM, acrossM) / lengthSq, 0f, 1f));
-        }
-
-        /// <summary>How far a ribbon runs, for the index that bins it — a fold's backwards piece still reaches.</summary>
-        static float Reach(ReadOnlySpan<ArcSeg> ribbon)
-        {
-            var lengthM = 0f;
-            foreach (var piece in ribbon) lengthM += MathF.Abs(piece.LengthM);
-
-            return lengthM;
         }
     }
 }

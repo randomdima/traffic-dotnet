@@ -269,6 +269,6 @@ public class ShellFillTests
             building.Add(line, lines[line], Spline.TotalLengthM(lines[line]));
         }
 
-        return BandShell.Of([.. lines], widths, building.Seal(cellM), cellM);
+        return BandShell.Of([.. lines], widths, building.Seal(cellM));
     }
 }

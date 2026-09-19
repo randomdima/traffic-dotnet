@@ -1,5 +1,224 @@
 # CityGen — decision log
 
+## 2026-09-19 — the verge is spaced by its own step, not by the props' girth
+
+**The step the face was walked at was shorter than the props are wide**, which read as a design point and was
+really a density: a candidate every metre and a half, against a girth of up to two and a bit plus a
+clearance, meant every stretch of grass beside a kerb carried a prop wherever one would fit. What that draws
+is a hedge — an unbroken run of furniture down both sides of every street, which is the one thing a scatter
+must not be. **So the step is now longer than the widest prop** (`SimConfig.CityGen.PropVergePitchM`,
+`GEN-6b`) and it, rather than `GEN-6c`, is what spaces a verge: the clearance rule still holds and now almost
+never bites.
+
+**It is a step and not a share.** Refusing a fixed fraction of the candidates would have left the same
+crowded stretches with fewer props in them, because what a share cannot do is put a gap somewhere: the
+spacing would still have been the girth wherever three candidates in a row were kept. A step spaces every
+verge in the town the same way, and a stretch crowded by buildings or bays still carries what is left.
+
+**The step was settled by counting and not by arithmetic**, the old pitch having been girth-limited rather
+than step-limited: doubling it did not halve the props, because most of the candidates it dropped were ones
+the girth rule was refusing anyway. Odesa's verge count is what the figure was read off, and it now lays
+about half what the girth-limited pitch did.
+
+## 2026-09-19 — a building fronts the boundary, not a road, and a service is stood on its parking
+
+**The old stage cut frontage slots off every road and filled them.** It had to know what a road was: its
+half-width for the kerb, its class to refuse a roundabout, its ends to stand the paint clear, the bend it
+left a forkless node on. None of that says where the concrete actually stops — a junction's corner, a
+roundabout's island and the mouth of a rank are all kerb and none of them is a road's half-width — and the
+lane layer that replaced the old one does not carry the shapes any of it read. **So the face is walked
+instead** (`GEN-54`): the boundary moved by the figure the pavement is struck at is the whole town's outer
+kerb in one set of closed lines, and a building offered against it fronts a street, a block, a roundabout or
+a car park without this knowing that any of them exists. It is the same line the props were moved onto for
+the same reason (`GEN-6b`), and asking it twice was never in question.
+
+**The wall stands on the walk's own kerb rather than a setback behind it.** The building line was the
+pavement plus a padding share, which put a strip of nobody's grass between every wall and every walk;
+standing the wall on the outer kerbstone (`SimConfig.BuildingLineM`) is what a street of shopfronts is, and
+it leaves the verge to the stretches nothing was built on. What a building still owes is that **no part of
+it is nearer the carriageway than the face** — asked of the whole footprint and not of the wall, because a
+deep building laid against one street is the one that reaches into the pavement of the next.
+
+**A service is placed by cutting its parking first.** The old placement laid every building, then swept for
+one with a car park near it and marked it a hospital — two passes over a question that has one answer, and
+a hospital wherever a lot happened to land. Now the yards are cut before the town's own car parks
+(`GEN-55`): one rank, one side, the widest a car park gets, and the building stood past the far end of it.
+**The spread comes free**, the sites being ranked by distance from every car park already cut, so there is
+no second rule about keeping the depot away from the hospital. And **the pose is not a special case** — the
+walk wraps a rank of bays exactly as it wraps a street, so the hospital is stood against the face like
+everything else and only the stretch differs.
+
+**A car park's own stretch of face is not frontage except where it is flat.** The walk wraps a rank of bays
+like anything else, so the face round one is the flat over the line the bays end on, a rounding at each
+corner of the rank and the two sides running back to the street — and walked at a pitch, all of it was
+offered. What came of that was buildings perched across the rounding, fronting the mouth of the car park at
+an angle, and buildings down the sides fronting the row of bays edge-on. **The whole of a frontage now has
+to stand on the flat**, bounded by the rank's own reach along the street rather than by a figure of its own,
+which also means a rank narrower than the building drawn for it carries nothing behind it. And it is why
+**a service is slid to the middle of its rank** rather than stood at whichever station the walk stepped to:
+the three civic roofs are 18 m wide against a six-bay yard's 21.6, so a step of the pitch either way would
+put one over the corner.
+
+**How many services there are is one figure read in two places.** The generator cuts a yard per service and
+the fleets are laid off the finished plan, a vehicle and a crew apiece; the two disagreeing is an ambulance
+with no hospital to go home to. The share is struck once on `SimConfig.ServicesFor` and
+`World.Statics.BuildingRoster.CountIn` reads it.
+
+## 2026-09-19 — a kerb's end is read at the figure two places are one place at, and every handover is one
+
+**The reading asked a built line for an exact offset.** A piece of the boundary is a road's kerb when it
+stands half a lane off that lane's line, and the question was asked to a weld (`LineTolerance.JoinedM`, a
+centimetre). The line it is asked of is offset, merged, rounded at the kerb radius and joined again
+(`Spline.JoinedInto`), and it wanders off the exact half-width by more the longer the run joined into one
+piece: down one street of Odesa the ring stood 1.8000 m off its lane where half the lane is 1.8000, and
+1.7887 m eighteen metres further on. So **one unbroken kerb read as its street for 17 m and as nothing at
+all for the 19 after that**, and a road's end went where the drift happened to cross the tolerance. Asked at
+`LineTolerance.OnePlaceM` instead — the figure two places are one place at — and settled on the nearest line
+that answers rather than the first the grid hands back, a kerb reads as its street for the length of it.
+
+**And a piece was read at its two ends and halved once between them.** A straight kerb is one piece for
+every road it is straight through, so a piece answers a street, then the mouth it opens into, then the next
+street. Halving bounds a place only where the answer changes once, and what came out was the first change of
+however many there were, named after the road at the far end of the piece: one piece of Odesa's outline ran
+100.31 m reading road 1116, then no road, then road 1384, and the one end it yielded stood 20 m up road
+1116's kerb with road 1384's name on it. **Every piece is walked at a metre now** (`KerbEnds.Along`), each
+step that changes hands is halved inside itself, and each change is named by what stood either side of it.
+
+**A road that takes the outline back from itself has not ended.** What was left after those two was pairs of
+ends standing out where a road bends: the rounding cuts the corner of a bend inside a road (`TER-3c.10`),
+the outline leaves the kerb and picks the same one up a stride later, and both places read as that road's
+end — 72 m out of its box on Odesa, which is where the zebra and the bar then stood. A pair naming one road
+twice is the outline going round something rather than a street stopping, so both of them go
+(`KerbEnds.StepsRound`). A cul-de-sac head, where that shape is honest, is refused already for standing at a
+box that does not fork (`GEN-5a`).
+
+**The census reads the answer back**: how far out of its box a town's kerb ends stand, at the middle of them
+and at the furthest, with the road and the place of the worst. Nothing else says whether an end is a mouth's
+depth or a misreading, and **the furthest end of a road is the one the paint is laid off** — a walk is cut at
+it and a driver held behind it — so a reading that wanders is a zebra in a street. Odesa's now stand 6.20 m
+out at the middle against 6.69, and the furthest of them 15.52 m against 75.79; what is left at the far end
+is a gore whose two arms part at a shallow angle, where one kerb of a street really does give up the outline
+long before its other.
+
+## 2026-09-19 — a verge is the walk's own outer face, and the props are laid along it
+
+**The props were laid beside a road and the road stopped being where the concrete ends.** The verge pass
+walked every road's centreline on both hands and stood a candidate half a road plus half a metre out —
+which was a verge while nothing laid a pavement, and is the middle of the pavement now that the walk is a
+layer struck off the boundary (`TER-7b`). The picture showed it plainly: benches and planters on the
+concrete, down the whole of every street. **The ground could not refuse them**, because `GroundShapes.At`
+answers grass on the concrete ([known gaps](../../../docs/index.md#known-gaps)) — so nothing was wrong
+except the geometry the placement was read off.
+
+**So the pass walks the face itself** (`GroundRings.WalkEdge`), which is the one line the concrete stops at,
+and the verge is the band beyond it. What that deleted is worth more than what it fixed:
+
+- **The stub is gone.** Each road's walk started and stopped a junction's reach plus a lane from its ends,
+  because a verge walked into a junction was a verge over tarmac. The face wraps a junction, so there is no
+  end to leave out — and a roundabout's island and the inside of its ring are lined by the same walk, which
+  nothing had ever laid a prop along.
+- **The hand is gone.** A shell is walked with its ground on the right (`BandShell.Chains`), so the verge is
+  to the left of every ring, whether the ring runs round the outside of the town or round a block inside it.
+- **And the near edge is a figure again.** The band is measured to the prop's own near rim, so a wide look
+  is pushed out by its own width — which is what the ground used to do by refusing a girth that overhung
+  the kerb, and cannot while it answers grass on concrete.
+
+**The sweep's stand-off moved with it, and to the boundary rather than to the face.** It was a distance to
+the road records, which are where a road's lanes were laid and say nothing about a junction's corner. Read
+off the outer face instead it was wrong in a way worth keeping: **the face has its pockets closed** — a
+strip of grass between two roads narrower than two walks is concrete end to end and the face runs round the
+outside of the whole block — so a wild prop in such a strip measured thirteen metres from the paving and
+stood two from a carriageway. Measured to the boundary and a walk's figure past it, the strip answers as
+what it is, and Odesa's wild scatter went 82 643 → 77 783.
+
+**Odesa's verge went 20 479 props to 29 726**, which is what walking the face instead of the roads is worth:
+the concrete round every junction, every roundabout and every block is kerb the old pass had no line for.
+
+## 2026-09-19 — a reading of the kerb ends carries its own scan of the index
+
+**The index is the town's and the scan is one query's.** `Paving` lays the driven lines over the geometry
+grid once and hands the same `ChainIndex` to everything that asks about a place; the convenience overloads
+of that index answer from a working set it owns, which belongs to one thread at a time. `KerbEnds.Of` asks
+it once per piece of the boundary, so **two readings of one paving on two threads were two walks over one
+scratch** — and what came back was ends at places the kerb never changed at, differently on each run.
+
+**So the reading takes a scan of its own** (`ChainIndex.NewScan`), as it already takes its own candidate
+arrays. It is eight bytes a chain, once per reading, on a path that already allocates. The suite is where it
+showed — a shared fixture town, two classes asking it at once — but nothing about it is the suite's: a town
+laid while another is being read would have got the same answer.
+
+## 2026-09-18 — every line beside a road is rounded, and the boundary is rounded with them
+
+**The lines were exact and looked it.** Each was the boundary moved by a figure and cut against itself, so
+every fold in the offset came back as the corner the cut made — a spike of concrete at a car park's mouth,
+a notch in the pavement where two roads pass, a kerb turning through a right angle at a junction wedge. The
+arithmetic was right and nothing in a town is built like that: a kerbstone does not bend to a point and
+nobody walks out to one and back.
+
+**So the rounding is struck with the line and not laid over it** (`ArcOutset`, TER-3c.10), **at one radius
+for the whole town** (`RoadFigures.LineRoundedM`). One figure rather than one per layer, because two layers
+rounded differently are two answers about the same corner and the concrete between them then changes width
+along the bend. The walking courses take the same figure for the same reason: a lane is a line down the
+middle of a pavement, and a course rounded unlike its kerb is a lane that leaves the middle.
+
+**The boundary is rounded too, which is a cut.** At no distance at all the radius is past the distance, so
+a corner the town turns away at is taken off rather than filled — 0.41 of the radius at a right angle. That
+is the price of a rounded kerb and there is no construction that avoids it; **what holds it to a corner is
+the figure being under half a lane.** A feature narrower than twice the radius does not survive the roll, so
+at 1.4 m the ball is 2.8 m across against a lane of 3.6: no mouth a car is driven through is closed over and
+no ribbon of tarmac is swallowed. A figure past half a lane would start eating the town rather than
+smoothing it, which is what the probe's sweep shows at the far end of its dial.
+
+**What it cost, read off Odesa**: every metre of the 205.58 km of pavement lane still stands on its own
+course, the turns refused for want of a line fell 538 → 535, and **the lanes that cross themselves rose
+4 → 13**. The radius is past the inner course's own distance of a metre, so that course is cut at its
+corners rather than filled at them, and a stretch taken between two points on a cut corner can double back
+on itself. Thirteen of 3 046 is worth the kerb it bought; it is a reading and not a gate, and it is the one
+to watch if the figure is ever raised.
+
+## 2026-09-17 — the generator's three slowest questions, and the one that could not be moved
+
+**Laying Odesa was 918 ms on one core, a third of the whole open.** Three of the four things in it came
+apart; the fourth did not, and why is the useful part.
+
+**Where a junction could be cut is asked of every road at once.** `CutJunctions.Sites` reads the layout and
+writes nothing to it, and its inner test — does a node here stand a locality clear of every node the town
+has — is asked of all 2 150 of them for every place on every road, and asked again for every car park the
+brief wants. A road at a time on as many threads as there are, strung in road order, took it from 119 ms to
+about 80. The order is the loop's because each road's answer waits in its own slot (`InChunks`).
+
+**A sort was asking its key twice per comparison.** `CarParks.Spread` ranks candidate sites by how far each
+stands from the parks already taken, and the comparison worked that out for both sides every time it was
+called — `O(n log n)` distance walks over a list that does not move while the sort runs. Worked out once and
+carried into the sort, 113 ms became 13. **The order is the same order and not merely one as good**: the
+permutation a comparison sort arrives at is a function of how many elements there are and what the
+comparisons answered, and both are what they were, so this is the same walk of the same algorithm.
+
+**And the cells a road's line runs through are filled into the caller's room rather than yielded.** Every
+cut renumbers the layout and `RoadLines.Reset` walks every road in the town again; an iterator's state
+machine and its virtual step were a fifth of what that cost, and a few hundred thousand allocations with it.
+
+**The props could not be moved, and the reason is the stream.** `PropStage` sweeps cells over what the town
+is not, and at each one it draws a position, asks the ground about it, and *only then* draws the kind and
+the girth. So how far the stream has advanced by cell *n* depends on what the ground answered at every cell
+before it, and the positions to ask about cannot be known until the asking is done. Asking wide would mean
+drawing unconditionally, which is a different town. **It is a real bound and not a missing optimisation**:
+the sweep is the one pass here whose randomness and whose ground test are interleaved, and taking them
+apart is a change to what the generator lays, not to how fast it lays it.
+
+## 2026-09-16 — what a plan lays on the first ask, it lays once for everybody
+
+Everything drawn beside a road is struck off the boundary, so standing a town up asks `Paving` for it — and
+the suite stands several towns over one plan. Two of those asks met on a merge that was not there yet, and the two
+merges walked one `ChainIndex`, which carries a scratch of its own. **What came back was not a second copy
+but a wrong one**: the city's boundary came back with 164 runs it could not close against 135 it did, and
+every shape struck off it — both kerbs, the walk, the fill — failed with it, nine tests over four classes
+and none of them about the thing that changed. Alone, each passed.
+
+The products laid on the first ask are behind one gate. It is build-time and uncontended after the first
+ask, so it costs a frame nothing and a tick less than that; what it buys is that *laid once* means once
+however many askers there are.
+
 ## 2026-09-14 — a car park is a junction cut into a road, and a cut reads its arms off the line
 
 **The parting had to be exact, and that is what decided everything else.** A car park cut into a street

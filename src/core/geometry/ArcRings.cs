@@ -161,14 +161,14 @@ internal sealed class ArcRings
         {
             if (previous[at] >= 0) continue;
 
-            Take(Run(at, next, walked), chains, loose);
+            Take(Run(at, next, walked, out var shut), shut, chains, loose);
         }
 
         for (var at = 0; at < _kept.Count; at++)
         {
             if (walked[at]) continue;
 
-            Take(Run(at, next, walked), chains, loose);
+            Take(Run(at, next, walked, out var shut), shut, chains, loose);
         }
 
         return ([.. chains], [.. loose]);
@@ -184,11 +184,10 @@ internal sealed class ArcRings
     /// closing a ring's joints is a thing done to a shape that is closed: a run's are two ends of the
     /// boundary and not two sides of one place.
     /// </remarks>
-    void Take(ArcSeg[] run, List<ArcSeg[]> chains, List<ArcSeg[]> loose)
+    void Take(ArcSeg[] run, bool shut, List<ArcSeg[]> chains, List<ArcSeg[]> loose)
     {
         if (run.Length == 0) return;
 
-        var shut = Shut(run);
         if (!shut && TooShortToHaveTwoEnds(run)) return;
 
         var chain = Joined(run, shut);
@@ -221,15 +220,40 @@ internal sealed class ArcRings
         return lengthM <= _lostM + LineTolerance.RoundingM;
     }
 
-    /// <summary>One run followed from a stretch until it runs out or comes back to where it set off.</summary>
-    ArcSeg[] Run(int first, int[] next, bool[] walked)
+    /// <summary>
+    /// One run followed from a stretch until it runs out or comes back to where it set off, and
+    /// <b>whether it was the walk's own start it came back to</b>, which is the whole of what makes it a ring.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The walk says it and no measurement does.</b> Every stretch is given the one that takes over from
+    /// it by a pairing already bounded by how far a place may be spread — a weld (<see cref="Linked"/>), or
+    /// the boundary the caller's own arithmetic loses at a graze (<see cref="Lost"/>) — so a run that comes
+    /// back to its own first stretch is closed whatever the last hand-over measures. Asked of the distance
+    /// instead, at a weld, <b>a ring walked across a graze wider than that is handed back as a hole with its
+    /// two ends a hand's breadth apart</b>, taking half a kilometre of boundary with it, and the figure the
+    /// caller was allowed to lose does nothing at the one joint it was for.
+    /// </para>
+    /// <para>
+    /// <b>Except the one ring the walk cannot say it of</b>: neither pairing will let a stretch take itself
+    /// up — a place with one boundary arriving and the same one leaving offers no pair — so a ring kept as a
+    /// single stretch comes back to nothing and is read for where its own two ends stand instead. A shape
+    /// with no corner in it is exactly that: a circle offsets to one piece that closes onto itself.
+    /// </para>
+    /// </remarks>
+    ArcSeg[] Run(int first, int[] next, bool[] walked, out bool shut)
     {
         var run = new List<ArcSeg>();
-        for (var at = first; at >= 0 && !walked[at]; at = next[at])
+        var at = first;
+        for (; at >= 0 && !walked[at]; at = next[at])
         {
             walked[at] = true;
             run.Add(_kept[at]);
         }
+
+        shut = run.Count > 0
+            && (at == first
+                || Vector2.DistanceSquared(run[^1].EndM, run[0].StartM) <= WeldM * WeldM);
 
         return [.. run];
     }
@@ -349,21 +373,6 @@ internal sealed class ArcRings
 
         return flat;
     }
-
-    /// <summary>
-    /// <b>Whether a run comes back to where it set off</b>, which is the whole of what makes it a ring.
-    /// </summary>
-    /// <remarks>
-    /// <b>However few stretches it is made of.</b> Neither <see cref="Linked"/> nor <see cref="Lost"/>
-    /// will let a stretch take itself up — a place with one boundary arriving and the same one leaving
-    /// offers no pair — so a ring the merge kept as a single stretch is the one shape the walk can never
-    /// close. Which the town does lay: a movement whose own radius is barely wider than the lane it
-    /// carries folds its ribbon's inner edge into a hook a few centimetres across, and what is left of
-    /// that hook once its neighbours have cut it is one stretch. It is short enough to be dropped as no
-    /// hole at all (<see cref="TooShortToHaveTwoEnds"/>), which is where it goes.
-    /// </remarks>
-    static bool Shut(ArcSeg[] ring) =>
-        Vector2.DistanceSquared(ring[^1].EndM, ring[0].StartM) <= WeldM * WeldM;
 
     /// <summary>
     /// <b>Every stretch given the one that takes over where it stops</b>, place by place: at each, the

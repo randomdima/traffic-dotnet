@@ -13,10 +13,11 @@ namespace TrafficSimulation.App.Camera;
 /// kept, and a frame that finds the camera anywhere else knows the reader moved it themselves. That is
 /// one comparison for the pan, the zoom and the turn alike, and there is no way for a gesture to move the
 /// camera without this noticing — including gestures that have not been written yet.</para>
-/// <para><b>Both eases are in real time and neither is in ticks.</b> The town is stepped at a fixed rate
-/// and drawn at the window's, so a camera nailed to the followed unit shows the whole town stepping —
-/// two ticks one frame and none the next. Closing on the unit over a span of real time is what absorbs
-/// that, and it is the same span the pan is measured over.</para>
+/// <para><b>What eases is the lead and never the camera's own place.</b> The camera carries the unit's
+/// step exactly, so the unit itself does not move on the glass however coarsely the town is stepped; a
+/// camera closing on the unit instead would leave the residue of every tick boundary on the one body the
+/// reader is watching, which is a car that shakes in a hand's own picture. The ease is in real time and
+/// not in ticks, exactly as a pan is.</para>
 /// </remarks>
 internal sealed class Follow(SimConfig config)
 {
@@ -24,10 +25,10 @@ internal sealed class Follow(SimConfig config)
     (Vector2 CentreM, float PixelsPerMetre, float TurnRad)? _leftAt;
 
     /// <summary>
-    /// The unit's speed as the camera reads it rather than as the tick reports it: eased, so a heading
-    /// that changes swings the lead round instead of throwing it across the picture.
+    /// The lead the camera is standing at, which is the whole of what a follow eases: a heading that
+    /// changes swings it round instead of throwing it across the picture.
     /// </summary>
-    Vector2 _readsMps;
+    Vector2 _leadM;
 
     /// <summary>Whether the camera is on a unit.</summary>
     public bool On { get; private set; }
@@ -48,7 +49,7 @@ internal sealed class Follow(SimConfig config)
     {
         On = false;
         _leftAt = null;
-        _readsMps = Vector2.Zero;
+        _leadM = Vector2.Zero;
     }
 
     /// <summary>
@@ -56,7 +57,7 @@ internal sealed class Follow(SimConfig config)
     /// velocity rather than with the unit</b>, so what is followed can be a car, a walker, or the car a
     /// walker is riding in, and none of that is this class's to know.
     /// </summary>
-    /// <param name="seconds">The real time this frame covers, which is what both eases are measured over.</param>
+    /// <param name="seconds">The real time this frame covers, which is what the lead's ease is measured over.</param>
     public void Step(Camera2D camera, Vector2 uiPx, Vector2 atM, Vector2 velocityMps, float seconds)
     {
         if (!On) return;
@@ -67,17 +68,14 @@ internal sealed class Follow(SimConfig config)
             return;
         }
 
-        // The first frame of a follow has nothing to ease from: the camera is stood on the unit outright,
-        // and every frame after that closes on it.
-        var standing = _leftAt is not null;
-        _readsMps = standing
-            ? Vector2.Lerp(_readsMps, velocityMps, Closed(seconds, config.View.CameraFollowLeadEaseS))
-            : velocityMps;
+        // The first frame of a follow has no lead to swing from: it is stood at the whole of it outright,
+        // and every frame after that swings the one it is holding towards the one the unit now wants.
+        var wantedM = LeadM(camera, uiPx, velocityMps);
+        _leadM = _leftAt is null
+            ? wantedM
+            : Vector2.Lerp(_leadM, wantedM, Closed(seconds, config.View.CameraFollowLeadEaseS));
 
-        var standM = atM + LeadM(camera, uiPx, _readsMps);
-        camera.LookAt(standing && CanEaseTo(camera, uiPx, standM)
-            ? Vector2.Lerp(camera.CentreM, standM, Closed(seconds, config.View.CameraFollowEaseS))
-            : standM);
+        camera.LookAt(atM + _leadM);
         _leftAt = (camera.CentreM, camera.PixelsPerMetre, camera.TurnRad);
     }
 
@@ -93,18 +91,6 @@ internal sealed class Follow(SimConfig config)
         var mostM = MathF.Min(spanM.X, spanM.Y) * 0.5f * config.View.CameraFollowLeadShareOfView;
         var lengthM = leadM.Length();
         return lengthM > mostM ? leadM * (mostM / lengthM) : leadM;
-    }
-
-    /// <summary>
-    /// Whether the camera can close on where it is going rather than being put there: it can while that
-    /// place is on the picture it is already showing. <b>A unit that has jumped is stood on outright</b> —
-    /// somebody who got into a car, or a selection asked for across the town — because easing over a
-    /// screen's length is a camera that has lost the unit for as long as it takes to arrive.
-    /// </summary>
-    static bool CanEaseTo(Camera2D camera, Vector2 uiPx, Vector2 standM)
-    {
-        var spanM = camera.ViewSpanM(uiPx);
-        return (standM - camera.CentreM).LengthSquared() < MathF.Pow(MathF.Min(spanM.X, spanM.Y) * 0.5f, 2f);
     }
 
     /// <summary>

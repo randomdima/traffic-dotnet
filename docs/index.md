@@ -23,6 +23,7 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [citygen/](../src/citygen/) — the plan | [requirements](../src/citygen/docs/requirements.md) | [log](../src/citygen/docs/decision-log.md) |
 | [world/terrain/](../src/world/terrain/) — the ground | [requirements](../src/world/terrain/docs/requirements.md) | [log](../src/world/terrain/docs/decision-log.md) |
 | [world/road/](../src/world/road/) — streets, junctions, paint | [requirements](../src/world/road/docs/requirements.md) · [claims](../src/world/road/docs/claims.md) | [log](../src/world/road/docs/decision-log.md) |
+| [world/foot/](../src/world/foot/) — the walking network | [requirements](../src/world/foot/docs/requirements.md) | [log](../src/world/foot/docs/decision-log.md) |
 | [world/routing/](../src/world/routing/) — the two tiers | [requirements](../src/world/routing/docs/requirements.md) | [log](../src/world/routing/docs/decision-log.md) |
 | [world/physics/](../src/world/physics/) — the wall | [requirements](../src/world/physics/docs/requirements.md) · [solver](../src/world/physics/docs/solver.md) | [log](../src/world/physics/docs/decision-log.md) |
 | [world/containment/](../src/world/containment/) — being inside something | [requirements](../src/world/containment/docs/requirements.md) | — |
@@ -41,11 +42,12 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [app/debug/](../src/app/debug/) — the layers | [requirements](../src/app/debug/docs/requirements.md) | [decisions](../src/app/debug/docs/decision-log.md) |
 | [app/shot/](../src/app/shot/) — the picture taken for review | [requirements](../src/app/shot/docs/requirements.md) | [log](../src/app/shot/docs/decision-log.md) |
 | [app/playercontrol/](../src/app/playercontrol/) — the player's hands | [requirements](../src/app/playercontrol/docs/requirements.md) | — |
+| [app/drive/](../src/app/drive/) — those hands, held by a script | [requirements](../src/app/drive/docs/requirements.md) | [log](../src/app/drive/docs/decision-log.md) |
 | [runtime/](../src/runtime/) — the machine | [requirements](../src/runtime/docs/requirements.md) | [log](../src/runtime/docs/decision-log.md) |
 | [app/web/](../src/app/web/) — the town in a browser | [requirements](../src/app/web/docs/requirements.md) | [log](../src/app/web/docs/decision-log.md) |
 | [app/android/](../src/app/android/) — the town in a hand | [requirements](../src/app/android/docs/requirements.md) | [log](../src/app/android/docs/decision-log.md) |
 
-**Slices with no document own no rule.** `world/foot/` and `world/statics/` are implementations of rules
+**Slices with no document own no rule.** `world/statics/` is an implementation of rules
 stated in [terrain](../src/world/terrain/docs/requirements.md), [routing](../src/world/routing/docs/requirements.md),
 [agents/person](../src/agents/person/docs/requirements.md), [agents/ambulance](../src/agents/ambulance/docs/requirements.md),
 [agents/service](../src/agents/service/docs/requirements.md) and [requirements.md](requirements.md#the-object-catalogue); `world/town/` is the composition seam;
@@ -69,13 +71,14 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `AGT-5`, `AGT-7` | The terminal state; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `TER-1…3a`, `TER-3b…3c.6`, `TER-7`, `TER-7a`, `TER-7b`, `PHY-8` | The ground, the pavement, water and bridges, and the stack of layers the mesh drawing them is | [world/terrain](../src/world/terrain/docs/requirements.md) |
-| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5`…`TER-5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6` | Roads, junctions, crossings, paint, and the road a lane is one way of | [world/road](../src/world/road/docs/requirements.md) |
+| `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5`…`TER-5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint, the arrow a lane carries, and the road a lane is one way of | [world/road](../src/world/road/docs/requirements.md) |
+| `WLK-1`, `WLK-1a…3`, `WLK-8…13` | The pavement as the driven ground's boundary moved off itself once per walking lane, and — held in code and laid by no town — the pedestrian nodes placed off the road ends, what merges them into a junction, the points each of them hands its three ways over at, what welds two of those points into one, the lines laid between them, the turns a place is walked through on, and what a stretch is walked at | [world/foot](../src/world/foot/docs/requirements.md) |
 | `TER-4c`…`TER-4c.3`, `TER-5c`…`TER-5c.2`, `TER-5e`, `TER-5g` | What a movement takes off another, right of way, what a claim is and what is standing on a lane | [world/road/claims](../src/world/road/docs/claims.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…22`, `SOL-35`, `SOL-36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4m` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
-| `GEN-1…3`, `GEN-5…19`, `GEN-51…53` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, that no lane dangles, what a roundabout is made of, that a junction is a place roads meet, how one is cut into a road that already stands, and what a car park is | [citygen](../src/citygen/docs/requirements.md) |
+| `GEN-1…3`, `GEN-5…19`, `GEN-51…55` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, that no lane dangles, what a roundabout is made of, that a junction is a place roads meet, how one is cut into a road that already stands, what a car park is, where a building stands and which of them are the services | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1…11`, `PER-13…18`, `PER-23` | The walker, the trip, what it follows, how it crosses, when it takes a car and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the roof one wears, the apron of ambulances at them, the priority a call carries, what a rescue is and the standoff its crew walks in from | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
@@ -85,8 +88,9 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `OBS-1`, `OBS-1a` | The camera | [app/camera](../src/app/camera/docs/requirements.md) |
 | `OBS-2`, `OBS-2a`, `OBS-2e…2g`, `OBS-2i`, `OBS-2k…2n` | The status panel and its claims, the menu, the legend, the ruler, the unit read-out, the card a map is opened behind | [app/hud](../src/app/hud/docs/requirements.md) |
 | `OBS-2b…2d`, `OBS-2h`, `OBS-2j`, `OBS-2o…2v` | The debug layers, the read-out, the turn circle, the ground's own triangulation and the layers it is laid in, the driven ground and its outside | [app/debug](../src/app/debug/docs/requirements.md) |
-| `CTL-1…8d` | Selection, orders, a car's four of them, hand driving, the unit's own action | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
+| `CTL-1…9` | Selection, orders, a car's four of them, hand driving, a hand that names its car, the unit's own action, fingers | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |
+| `DRV-1…8` | The script at the wheel: what it may hold, what it reads back, what it photographs, what a claim is worth while it drives, and the second seat a driver who is not the reader sits in | [app/drive](../src/app/drive/docs/requirements.md) |
 | `P-*`, `E-*` | The driving manoeuvre catalogue — one page and one file per entry | [agents/car/maneuvers](../src/agents/car/maneuvers/docs/index.md) |
 | `MAN-1…7`, `S-1…7`, `S-2a` | Chaining, arbitration, interruption, and the rules that run under every entry | [agents/car/maneuvers](../src/agents/car/maneuvers/docs/index.md#the-framework) |
 
@@ -94,6 +98,20 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 Absences that are gaps rather than decisions, and none of them is silent:
 
+- **A town stands no pedestrian node, so the walk is the courses and the crossings cut into them.** The
+  pavement is laid and it is walkable, and the zebras a town paints are walked over: two moves of the driven
+  ground's boundary, each closed line one lane, parted wherever a crossing meets them and joined across the
+  carriageway (`WLK-1`, `WLK-8`, `WLK-15`, [world/foot](../src/world/foot/docs/requirements.md)) — so a walk
+  does now leave the block it is on. **What no town stands is the node network** (`WLK-1a`, `WLK-2`,
+  `WLK-3`, `WLK-9`, `WLK-12`, held in code and asked its questions by the unit tier): where a walk is cut
+  and crossed is read off the kerb ends instead (`CityGen.KerbEnds`), and what those rules place — the walk
+  down a road, the walk round a junction, and the corner a merge makes of two nodes — no town has. **Every
+  place a town's walk chooses at is a crossing's junction** (`WLK-15`), and a pavement's two lanes are joined
+  only across a carriageway, so a block with no zebra on it is walked round and not left.
+  Why the node network was put down is the slice's
+  [decision-log.md](../src/world/foot/docs/decision-log.md).
+- **Nobody walks, because no map asks for anybody.** Every shipped plan's roster is cars alone
+  (`--bench census`), so the walking network is laid, contracted and read by nothing.
 - **The lane layer was rebuilt and the town it carried was put down with it.** The lines a car is driven on
   are laid from the junction out now — a bearing and a standoff drawn for every arm, the movements laid
   between the points that produces, and the road drawn as the link is offered to arrive on them (`GEN-46`,
@@ -110,18 +128,31 @@ Absences that are gaps rather than decisions, and none of them is silent:
     geometry can be looked at (`qq town --parks Odesa`, `--at` a car park). **`GEN-4b` and `GEN-4d` are not
     reworded either**: a lot as a rectangle along a kerb and a lot's clearance from a junction are the bays'
     own arithmetic, and what replaces them is the next thing laid rather than something to guess at now.
-  - **No building.** The stage that stood them placed the car parks too, and a stage that places neither is
-    not a stage. `world/statics/`, the standing sprites and the boarding all stand empty.
-    **`GEN-9`'s service placement goes with it**: a hospital, a police station and a depot are buildings the
-    generator chose a use for, so no ambulance has a hospital to take a casualty to and no evacuator has a
-    yard to tow a wreck home to. The slices are kept whole and their subject is in this list.
-  - **No crossing, no stop bar and no kerb fillet** (`TER-6`, `TER-5`), and **nothing is lit** (`TLT-3`):
-    whether a junction carries a timetable was drawn in the road stage and is not drawn any more.
-    `agents/trafficlight/` stands over a town with no lit junction.
-  - **The roster rule GEN-7 is false of a generated town in both halves, and is not reworded.** It says a
-    car starts stopped in a parking space and a person starts inside a building; a car is stood on a lane because there
-    is no bay to stand one in, and nobody is stood at all because there is no door to stand them at. The
-    code is what is temporarily wrong here.
+  - **The buildings are back, and they are back off that boundary** (`GEN-54`, `GEN-55`). A building stands
+    against the pavement's outer face with its wall on the walk's own kerb and its door on the concrete
+    behind it, so nothing about where one goes knows that a road, a junction or a car park exists; and every
+    hospital, police station and depot the roster asks for is stood at the end of a car park cut for it.
+    **What is still empty is the apron** (`GEN-4k`): a station has a yard and the yard has no bays, so what
+    holds a bay for an ambulance finds none — which closes with the entry above this one and not with
+    another placement.
+  - **No kerb fillet** (`TER-5`), and **nothing is lit** (`TLT-3`): whether a junction carries a timetable
+    was drawn in the road stage and is not drawn any more, so `agents/trafficlight/` stands over a town with
+    no lit junction. **The crossing and the bar came back as paint alone**, hung off the end of the arm
+    rather than off the ground a junction reaches ([world/road](../src/world/road/docs/decision-log.md)):
+    the plan's own `Crosswalks` and `StopLines` are still empty, so no ground answers crosswalk where a
+    zebra is, no signal head hangs off a bar and nothing holds at one. **A walker is owed a way over one
+    now and a driver still cannot see it**: the walking network lays a pair of lanes over every zebra the
+    town paints and over no other (`WLK-15`, `CrossingWays`, all 510 of Odesa's), but what projects a
+    crossing onto the lanes under it reads the plan's empty array (`LaneFurniture`, `CrossingBands`) — so a
+    body on the paint holds no road, and the traffic it is in front of is not told. It closes when those two
+    read the bands the paint is laid from (`World.Road.Crossings`).
+    **And a node that forks nothing carries neither** (`TER-6`, `TER-5b`): the mid-block crossing an inline
+    junction exists to carry is not laid, which is the one placement rule of `TER-6` nothing answers.
+  - **The roster rule GEN-7 is still false of a generated town in both halves, and is not reworded.** It
+    says a car starts stopped in a parking space and a person starts inside a building; a car is stood on a
+    lane because there is no bay to stand one in, and nobody is stood at all — **the doors are there now
+    and no brief asks for anybody to stand at one** (`--bench census`). The code is what is temporarily
+    wrong here.
   - **The suite got smaller with the laboratories.** `Track` ×3, `Exam`, `Footway`, `Skidpad` and `Zebras`
     were laid against the layer that has been replaced, so they were deleted rather than carried across it —
     and with them the exam's staged junctions, the lap's drivetrain figures, the pad's circles and the
@@ -139,28 +170,35 @@ Absences that are gaps rather than decisions, and none of them is silent:
     the boundary's joints past a rounding fell 1 826 → 5 and the holes a line drawn down the ring shows
     779 → 0. `--bench outset` reports the joints of both lines and **does not gate on them**.
 
-- **The ground is struck off the kerb again, in the picture only.** The boundary is moved by the figure
-  `TER-3c.3` names a layer at (`GroundRings`), and the picture draws the walk that produces and the
-  carriageway over it, with a kerb struck along each of the two lines. **`GroundShapes.At` is not fed the
-  same rings**, so a point on the concrete is drawn as concrete and answered as grass — which is `TER-7`
-  deviated from in one direction rather than in both, the picture now being ahead of the answer instead of
-  behind it. **The rule is not reworded**: the code does not meet it, which is what this entry is, and it
-  closes when the answer walks the same ring sets in reverse.
-  - **The walking network is still empty**, the lane a walker follows being one of the five figures and
-    nothing laying it yet. What the concrete is for comes back with it.
-  - **And the ground answer still lacks the wedge a junction's corner is paved back over** (`TER-5`). It is
-    ground inside the boundary that no line claims, which only a boundary can say; the boundary is there
-    now, but the answer does not read it, so a junction's corners answer as grass and so does the middle of
-    a node whose two movements pass either side of it. What a prop is cleared against is the road records
-    instead (`GroundShapes.PavingWithin`). It closes with the entry above it.
-- **A deck carries no pavement.** A bridge is its deck and its carriageway, with the margin a parapet stands
-  on reaching all the way out, and the walk that ought to cross it is missing (`TER-3b.1`). The stack is
-  laid under the deck rather than across it, so what is owed is a boundary that knows where a deck carries
-  it.
-- **The paint is absent rather than hidden** — nothing lays a dash, a zebra, a bar or a bay stroke — and
-  `RoadFigures.PaintDrawn` goes with the marks it drew. `RoadFigures.CarriagewayDrawn` is gone: it hid the
-  road's own surface while the boundary was the thing being looked at, and the road wears its own surface
-  again.
+- **The ground beside a road is answered as one distance and drawn as two rings, and a corner is where they
+  part.** The answer is the layer `TER-7b` states — the ground within one figure of the driven bands, tarmac
+  at nought and concrete at a walk (`GroundShapes.At`) — while the picture fills the boundary *rounded* at
+  `Road.LineRoundedM` and offset by the same figure (`GroundRings`). Along a street the two are the same
+  region; **at a corner they stand up to that radius apart**, the rounding being a cut into the shape the
+  distance measures square. `TER-7` is deviated from by the picture's own rounding and not by a second
+  construction, which is as small as this gets without the fill following a line a kerbstone cannot bend to.
+  - **What closed with it is the pavement.** A point on the concrete was drawn as concrete and answered as
+    grass; it is answered as the walk now, and **the lanes the walking network holds a walker on run over it
+    for the whole of both towns** (`EveryPavementLaneRunsOverGroundAWalkerPrefers`) — which is what `TER-3c.3`
+    says the two owe each other, checked rather than reasoned about.
+  - **And the ground answer still lacks the wedge a junction's corner is paved back over** (`TER-3c.7`,
+    `TER-5`). It is ground inside the boundary that no driven line claims, which only a boundary can say: the
+    answer reads
+    the bands, so a junction's corner answers as the walk beside it where it stands within a walk of a
+    movement and as grass where the box is wide enough that it does not. It closes when the answer can be
+    asked which side of a ring a point is on for what a wheel costs.
+  - **What no longer waits on it is the scatter**, which asks the boundary where the paving is and places
+    off the walk's outer face rather than beside a road (`GEN-6b`, `GroundRings.PavedWithin`). A prop's
+    girth is cleared against the ground answer as well now (`GEN-6a`), so the concrete a prop may not stand
+    on is held twice: by the distance it was laid at, and by what the ground says about the point.
+- **A deck's pavement is not drawn.** The walk across a bridge is the driven ground's own boundary moved
+  like anywhere else (`WLK-1`, `TER-3b.1`) — but the ground stack is laid under the deck rather than across it,
+  so the concrete a walk would run on is not drawn and the deck answers as deck. What is owed is a boundary
+  that knows where a deck carries the walk.
+- **The paint is back except for the drift mark** — the dash, the bay stroke, the zebra and the bar — laid
+  off the plan rather than carried in it, and `RoadFigures.PaintDrawn` is gone with the switch that hid it.
+  `RoadFigures.CarriagewayDrawn` is gone too: it hid the road's own surface while the boundary was the thing
+  being looked at, and the road wears its own surface again.
 - **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
   — [agents/person](../src/agents/person/docs/requirements.md).
 

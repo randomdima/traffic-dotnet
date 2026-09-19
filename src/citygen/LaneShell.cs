@@ -40,6 +40,6 @@ internal static class LaneShell
             widthM[line] = paving.DrivenWidthM(line);
         }
 
-        return BandShell.Of(lines, widthM, paving.DrivenLines(config), config.NearestChainCellM);
+        return BandShell.Of(lines, widthM, paving.DrivenLines(config));
     }
 }

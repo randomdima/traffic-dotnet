@@ -56,7 +56,7 @@ internal sealed partial class Menu
         switch (Page)
         {
             case Maps: DrawMaps(ref draw, pointerPx); break;
-            case Figures: DrawTrims(ref draw, pointerPx, trims); break;
+            case Figures: DrawTrims(ref draw, pointerPx, switches, trims); break;
             case Ground: DrawGround(ref draw, pointerPx, switches.Ground, mesh); break;
             default: DrawSwitches(ref draw, pointerPx, switches); break;
         }
@@ -196,31 +196,42 @@ internal sealed partial class Menu
     /// track it is dragged along. <b>The track fills from the middle rather than from its left end</b>,
     /// because the middle is what the build ships and which way a figure has been taken is the reading.
     /// </summary>
-    void DrawTrims(ref ScreenDraw draw, Vector2 pointerPx, TrimFigures trims)
+    void DrawTrims(ref ScreenDraw draw, Vector2 pointerPx, DebugSwitches switches, TrimFigures trims)
     {
         Span<char> text = stackalloc char[16];
         var firstLinePx = (Theme.TallRowPx - (Theme.TextPx + Theme.GapPx + TrackPx)) * 0.5f;
 
-        for (var trim = 0; trim < TrimFigures.Count; trim++)
+        for (var slider = 0; slider < Sliders; slider++)
         {
-            var box = _trims[trim];
-            var share = trims.Of(trim);
-            var shipped = share == 1f;
-            Theme.Face(ref draw, box, pointerPx, trim == _held ? Theme.RowPicked : Theme.RowRest, trim == _held);
+            var box = _trims[slider];
+            var value = ValueOf(slider, switches, trims);
+            var atHome = value == HomeOf(slider);
+            Theme.Face(
+                ref draw, box, pointerPx, slider == _held ? Theme.RowPicked : Theme.RowRest, slider == _held);
 
             var namePx = box.AtPx + new Vector2(Theme.InsetPx, firstLinePx);
+            // The probe's two rows are lengths and a trim is the share of the shipped figure it is.
             var reading = new TextBuffer(text);
-            reading.Add((int)MathF.Round(share * 100f));
-            reading.Add("%");
+            if (slider >= ShellRow)
+            {
+                reading.Add(value, "F1");
+                reading.Add(" m");
+            }
+            else
+            {
+                reading.Add((int)MathF.Round(value * 100f));
+                reading.Add("%");
+            }
+
             var readingPx = GlyphSheet.WidthPx(reading.Written.Length, Theme.TextPx);
             draw.TextFitted(
-                namePx, TrimFigures.Names[trim], Theme.TextPx, Theme.Text,
+                namePx, NameOf(slider), Theme.TextPx, Theme.Text,
                 box.Right - Theme.InsetPx - readingPx - Theme.GapPx - namePx.X);
             draw.Text(
                 new Vector2(box.Right - Theme.InsetPx - readingPx, firstLinePx + box.AtPx.Y), reading.Written,
-                Theme.TextPx, shipped ? Theme.Dim : Theme.Heading);
+                Theme.TextPx, atHome ? Theme.Dim : Theme.Heading);
 
-            Track(ref draw, box, firstLinePx + Theme.TextPx + Theme.GapPx, share);
+            Track(ref draw, box, firstLinePx + Theme.TextPx + Theme.GapPx, slider, value);
         }
 
         // The row under the tracks, which is not one of them: it is the way back to the build's own figures
@@ -230,17 +241,20 @@ internal sealed partial class Menu
             ref draw, reset, pointerPx, "Reset to shipped", trims.Untouched ? Theme.RowRest : Theme.Accent);
     }
 
-    /// <summary>The track a trim is dragged along, with the shipped figure marked at the middle of it.</summary>
-    static void Track(ref ScreenDraw draw, Rect box, float downPx, float share)
+    /// <summary>
+    /// The track a slider is dragged along, with its own home figure marked on it — what the build ships
+    /// for a trim, and where the probe's distance starts (<see cref="HomeOf"/>).
+    /// </summary>
+    static void Track(ref ScreenDraw draw, Rect box, float downPx, int slider, float value)
     {
         var atPx = box.AtPx + new Vector2(TrackInsetPx, downPx);
         var widthPx = TrackWidthPx(box);
         draw.RoundedRect(atPx, new Vector2(widthPx, TrackPx), TrackPx * 0.5f, Theme.PanelEdge);
 
-        // From the middle to where the figure stands, so a doubled figure and a halved one read as the
-        // same length of bar either side of shipped.
-        var middlePx = WhereOnTheTrack(1f) * widthPx;
-        var standsPx = WhereOnTheTrack(share) * widthPx;
+        // From that mark to where the figure stands, so a doubled figure and a halved one read as the
+        // same length of bar either side of home.
+        var middlePx = WhereOnTheTrack(slider, HomeOf(slider)) * widthPx;
+        var standsPx = WhereOnTheTrack(slider, value) * widthPx;
         var fromPx = MathF.Min(middlePx, standsPx);
         draw.RoundedRect(
             atPx + new Vector2(fromPx, 0f), new Vector2(MathF.Abs(standsPx - middlePx), TrackPx), TrackPx * 0.5f,

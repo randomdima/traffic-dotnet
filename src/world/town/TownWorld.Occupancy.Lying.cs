@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
@@ -229,6 +230,7 @@ internal sealed partial class TownWorld
     /// must be written onto.
     /// </para>
     /// </remarks>
+    [SkipLocalsInit]
     void LieUnder(
         bool onThePavement, int car, Vector2 standingM, float standingRad, Vector2 committedToM,
         float committedRad, bool underWay)

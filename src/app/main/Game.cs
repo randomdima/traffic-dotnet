@@ -3,6 +3,7 @@ using System.Numerics;
 using Silk.NET.Input;
 using TrafficSimulation.App.Camera;
 using TrafficSimulation.App.Debug;
+using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.PlayerControl;
 using TrafficSimulation.App.Render;
@@ -52,6 +53,31 @@ internal sealed partial class Game : IDisposable
     readonly Hud.Interface _ui;
     readonly PlayerHands _hands = new();
     readonly FrameMeter _meter = new();
+
+    /// <summary>
+    /// <b>DRV-7 — the drive this run is being steered by, if it was handed one</b> (<c>--drive FILE --live</c>).
+    /// It is stood up with the town and follows a file that is still being written, so a hand can be
+    /// changed while somebody watches the window.
+    /// </summary>
+    /// <remarks>
+    /// <b>The keys are not read for driving while it exists</b>: two hands on one wheel is a fight nobody
+    /// can read, and the arrows, the wheel and the panels go on working for whoever is watching.
+    /// </remarks>
+    DriveAsk? _driving;
+
+    DriveSeat? _drive;
+
+    /// <summary>
+    /// <b>DRV-8 — the second seat this run was handed, if it was handed one</b> (<c>--bot FILE --bot-car N</c>).
+    /// It holds one named car through a file that is still being written and looks at the town through an
+    /// eye of its own, so whoever has the window keeps the selection, the camera, the keys and the panels.
+    /// </summary>
+    BotAsk? _botting;
+
+    BotSeat? _bot;
+
+    /// <summary>A frame a <c>shot</c> step asked for, read back off the glass once this frame is drawn.</summary>
+    string? _pendingShot;
 
     /// <summary>Whether the camera is standing on the unit picked out, and where that puts it (OBS-1a).</summary>
     readonly Follow _follow;
@@ -145,6 +171,12 @@ internal sealed partial class Game : IDisposable
     /// <summary>A renderer for the town about to stand, laid for the ground and the bodies it will hold.</summary>
     private partial TownRenderer NewRenderer(GroundMesh mesh, int spriteCapacity);
 
+    /// <summary>
+    /// An offscreen eye for a second seat (DRV-8), on the device this head draws with — or nothing at all
+    /// on a head that has no second target to draw into, where a bot drives blind rather than not at all.
+    /// </summary>
+    private partial BotEye? NewEye(CityPlan plan, GroundMesh ground, int widthPx, int heightPx);
+
     /// <summary>Crossings of the wall between managed code and the machine, since the process started. Zero where the counter is compiled out.</summary>
     private partial long Crossings();
 
@@ -208,6 +240,40 @@ internal sealed partial class Game : IDisposable
     public void Switch(string[] wanted) => _ui.Apply(wanted);
 
     /// <summary>
+    /// <b>The drive this run is steered by</b> (DRV-7), handed over before the first frame. The seat itself
+    /// is stood up with the town, because it drives a world and there is none until a map is opened.
+    /// </summary>
+    public void Drive(in DriveAsk ask) => _driving = ask;
+
+    /// <summary>
+    /// <b>The second driver this run carries</b> (DRV-8), handed over before the first frame. Like the
+    /// drive's, the seat itself is stood up with the town, because it holds a car of one and there is no
+    /// car until a map is opened.
+    /// </summary>
+    public void Bot(in BotAsk ask) => _botting = ask;
+
+    /// <summary>
+    /// A <c>shot</c> step in a run with a window: <b>the frame on the glass, read back off it</b> rather
+    /// than staged a second time. It is written uncaptioned — a live drive cannot be taken again (CTL-6),
+    /// so there is nothing for a band to say about how to.
+    /// </summary>
+    string Photograph(DriveFrame wanted)
+    {
+        // <b>The framing is the drive's own, so the follow is told</b> (OBS-1a): a camera moved by anything
+        // else is a reader taking it over, and the follow reads that off the camera itself rather than off a
+        // flag — so a span set here would otherwise stand the camera down and leave the car driving out of
+        // the picture.
+        if (wanted.ViewM > 0f && MathF.Abs(_camera.ViewSpanM(_uiPx).Y - wanted.ViewM) > 0.01f)
+        {
+            _camera.SetSpan(wanted.ViewM, _uiPx);
+            AskToFollow();
+        }
+
+        _pendingShot = wanted.Path;
+        return $"{wanted.Path} — the frame the window drew";
+    }
+
+    /// <summary>
     /// A town stood up before the first frame, for a run that is handed its loop rather than owning
     /// one. <b>The same thing the menu does when a map is picked</b>, and the same thing
     /// <see cref="Run"/> does with <c>--map</c>.
@@ -244,10 +310,19 @@ internal sealed partial class Game : IDisposable
             : $"{rate}, {_crossingsPerFrame} crossings in the last steady one");
         Budget();
 
+        // The drive's own document, where one was asked for. Its readings have already been said as they
+        // were taken (DRV-7), so nothing is printed twice.
+        if (_drive is { } drive && _driving is { Out: { } written }) drive.Log.Write(written);
+        if (_bot is { } bot && _botting is { Out: { } botWritten }) bot.Log.Write(botWritten);
+
         // What the town claimed about itself and whether it kept it — the panel's own table, printed on
         // the way out so that a run nobody sat in front of (`--seconds`) is a run something can gate on.
         // A broken claim is a failed run, which is the whole of what makes this more than a read-out.
-        return _world is not null && !ScenarioReport.Print(_map, _scenario, _world.ElapsedS) ? 1 : 0;
+        // <b>A drive breaks claims on purpose</b> (DRV-5), so a watched one reports them and exits nought.
+        if (_world is null) return 0;
+
+        var kept = ScenarioReport.Print(_map, _scenario, _world.ElapsedS);
+        return kept || _drive is not null ? 0 : 1;
     }
 
     /// <summary>
@@ -351,8 +426,8 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     void FollowTheSelection(float sinceLastFrameS)
     {
-        if (_world is not null && _world.SelectedCount == 1 &&
-            _world.Whereabouts(_world.Lead, out var atM, out var velocityMps))
+        if (_world is not null && Followed() is { Any: true } unit &&
+            _world.Whereabouts(unit, out var atM, out var velocityMps))
         {
             _follow.Step(_camera, _uiPx, atM, velocityMps, sinceLastFrameS);
             return;
@@ -360,6 +435,23 @@ internal sealed partial class Game : IDisposable
 
         _follow.Stop();
     }
+
+    /// <summary>
+    /// The unit the camera stands on: <b>the one picked out, and failing that the car a second driver is
+    /// holding</b> (DRV-8). A run carrying a bot is a run about that car, so the window opens on it and
+    /// comes back to it whenever the reader has nothing of their own picked out — and a reader who picks
+    /// something out, or pans, has taken the camera exactly as OBS-1a already says.
+    /// </summary>
+    Selection Followed() =>
+        _world is { SelectedCount: 1 } world ? world.Lead
+        : _bot is { } bot ? new Selection(SelectionKind.Car, bot.Hands.Car)
+        : default;
+
+    /// <summary>
+    /// Whether there is one unit for the camera to stand on at all, which is what a selection asks of the
+    /// follow (OBS-1a) — the reader's own, or the second driver's car when they have picked nothing.
+    /// </summary>
+    void AskToFollow() => _follow.Asked(_world is { SelectedCount: 1 } || _bot is not null);
 
     /// <summary>
     /// The last window's frame budget, printed on the way out. <b>It is what a run nobody sat in front
@@ -439,7 +531,8 @@ internal sealed partial class Game : IDisposable
         // enough to spend on the frames a hand is actually moving something. The map list scrolls under it
         // and gives back the row a press that never travelled had landed on (CTL-1b).
         var lifted = _ui.Menu.Pointer(
-            _window.PointerPx, _window.IsMouseDown(MouseButton.Left), _config.View.PointerDragPx, _ui.Trims);
+            _window.PointerPx, _window.IsMouseDown(MouseButton.Left), _config.View.PointerDragPx, _ui.Switches,
+            _ui.Trims);
 
         if (_ui.Menu.TakeFiguresMoved()) _world?.FiguresChanged();
         if (Took(lifted)) return;
@@ -459,7 +552,10 @@ internal sealed partial class Game : IDisposable
             // started — a pinch that was also finishing a drag would pan twice and select on the way up.
             _hands.ReadTouches(_window, _camera, _uiPx, _config);
             _hands.DriveCamera(_window, _camera, _uiPx, _config, seconds, _world!.HandsOn);
-            _world.Hands(_hands.ReadKeys(_window, _world));
+
+            // DRV-7: a run being steered by a drive is not also steered by the keyboard. The camera above
+            // is still whoever is watching's.
+            if (_drive is null) _world.Hands(_hands.ReadKeys(_window, _world));
         }
 
         if (!_window.TakeClick(out var button, out var atPx))
@@ -491,7 +587,8 @@ internal sealed partial class Game : IDisposable
         // A press and a release inside one frame is still a tap, so the menu is offered its way up in the
         // frame the press arrived in — which is what a scripted click is, both edges before one frame.
         if (Took(_ui.Menu.Pointer(
-                _window.PointerPx, _window.IsMouseDown(MouseButton.Left), _config.View.PointerDragPx, _ui.Trims)))
+                _window.PointerPx, _window.IsMouseDown(MouseButton.Left), _config.View.PointerDragPx,
+                _ui.Switches, _ui.Trims)))
         {
             return;
         }
@@ -512,7 +609,7 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     void ReadTheGesture()
     {
-        if (_hands.Pointer(_window, _camera, _uiPx, _config, _world!)) _follow.Asked(_world!.SelectedCount == 1);
+        if (_hands.Pointer(_window, _camera, _uiPx, _config, _world!)) AskToFollow();
     }
 
     /// <summary>
@@ -591,12 +688,33 @@ internal sealed partial class Game : IDisposable
         _ground = laid.Ground;
         _loop = new SimLoop<TownWorld>(laid.World, _config);
         _scenario = laid.Scenario;
+        // OBS-1a: a unit the drive picks out is a unit the camera stands on, exactly as it does for a unit
+        // somebody clicked — a window still looking where the run opened is a drive nobody can watch.
+        _drive = _driving is { } driving
+            ? new DriveSeat(
+                laid.World, laid.Scenario, driving, _config, Photograph, held => _ui.Run.AgentsHeld = held,
+                AskToFollow, _ui.Run.SetPace)
+            : null;
+
+        // DRV-8: the second seat is stood up with the town it drives in, and its eye is laid for the ground
+        // that town was laid from — the very one the window is drawing, at a frame size of its own.
+        _bot?.Dispose();
+        _bot = _botting is { } botting
+            ? new BotSeat(
+                botting, _config, laid.World,
+                NewEye(laid.Plan, laid.Ground, botting.EyeWidthPx, botting.EyeHeightPx),
+                held => _ui.Run.AgentsHeld = held, _ui.Run.SetPace)
+            : null;
         _clock = new SimClock(_config.TickSeconds, _config.Sim.SoakMaxTimeScale);
         _camera = new Camera2D(_config, laid.Plan.WorldSizeM, _uiPx) { DevicePxPerUiPx = _window.UiScale };
         FrameTheTown(laid.World, laid.Plan.WorldSizeM);
         _ui.TownChanged(behindTheMenu);
         _hands.TownChanged();
+
+        // The camera is nobody's over a town that has just stood — unless a second driver came up with it,
+        // and then the window opens on the car it is driving (DRV-8).
         _follow.Stop();
+        if (_bot is not null) AskToFollow();
     }
 
     /// <summary>
@@ -625,6 +743,15 @@ internal sealed partial class Game : IDisposable
     {
         if (_loop is not null)
         {
+            // DRV-8: the second seat is read before the clock is, because **a town waiting for a driver is
+            // due no ticks at all** — what lets it go is a step appended to the file since the last frame,
+            // and a seat only followed inside the tick loop would never see one arrive.
+            if (_bot is { } second)
+            {
+                second.Follow(_loop.Tick);
+                _ui.Run.WaitingForADriver = second.WaitingToBeTold;
+            }
+
             _clock.TimeScale = _ui.Run.TimeScale;
             _loop.Timed = parts.Timed;
             _loop.World.Timed = parts.Timed;
@@ -637,6 +764,22 @@ internal sealed partial class Game : IDisposable
             // and a frame is several ticks.
             for (var tick = 0; tick < due; tick++)
             {
+                // DRV-7: the drive is followed inside the tick loop and not once a frame, so a step that
+                // asks for a second of the town gets a second of it however many ticks this frame runs.
+                if (_drive is { } drive)
+                {
+                    drive.Follow(_loop.Tick);
+                    _loop.World.Hands(drive.Hand);
+                }
+
+                // CTL-5d: the second driver's own car, held through its own seam — the selection, the keys
+                // and the camera are whoever is watching the window's and are not touched here.
+                if (_bot is { } bot)
+                {
+                    bot.Follow(_loop.Tick);
+                    _loop.World.HandOnCar(bot.Hands.Car, bot.Hand);
+                }
+
                 _loop.Advance();
                 foreach (var watch in _scenario) watch.Saw(_loop.World);
             }
@@ -711,6 +854,13 @@ internal sealed partial class Game : IDisposable
         // swapchain's own calls, and a figure that included them would not be the frame's.
         if (_frames >= 1) _crossingsPerFrame = Crossings() - before;
         _frames++;
+
+        // DRV-7: the frame a `shot` step asked for, off the image that was just drawn — the picture the
+        // person watching is looking at, and not a second staging of it.
+        if (_pendingShot is not { } path) return;
+
+        _pendingShot = null;
+        _renderer.Shot(path, _driving?.FrameWidthPx ?? 0);
     }
 
     /// <summary>The run's state, gathered once, so the interface reaches for nothing while it draws.</summary>
@@ -734,6 +884,7 @@ internal sealed partial class Game : IDisposable
     public void Dispose()
     {
         ForgetWhatWasBeingOpened();
+        _bot?.Dispose();
         _world?.Dispose();
         _renderer.Dispose();
         Shutdown();

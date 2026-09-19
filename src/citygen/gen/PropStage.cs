@@ -13,8 +13,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <para>
 /// <b>Props are what the ground affords and not a count anybody authored</b> (GEN-6), and they are laid in
 /// passes that answer different questions (GEN-6b). <b>The kerbs are walked first</b>, because a verge is a
-/// line and not an area: what stands along one is found by following the road it belongs to, on that road's
-/// own bearing, and not by sweeping a lattice and asking each square whether it happens to be near a
+/// line and not an area: what stands along one is found by following the line the concrete stops at, on that
+/// line's own bearing, and not by sweeping a lattice and asking each square whether it happens to be near a
 /// street. <b>Then the ground the town is not on is swept</b>, well clear of the walk that pass took.
 /// </para>
 /// <para>
@@ -31,14 +31,14 @@ namespace TrafficSimulation.CityGen.Gen;
 internal static class PropStage
 {
     public static CityPlan.PropArrays Lay(
-        TownBrief brief, CityPlan.RoadArrays roads, GroundShapes ground, GenClaims claims, SimConfig config,
+        TownBrief brief, Paving paving, GroundShapes ground, GenClaims claims, SimConfig config,
         ref Rng draw)
     {
         var acrossM = new Vector2(brief.WidthM, brief.HeightM);
         var widestM = MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM);
         var scatter = PropScatter.Over(acrossM, widestM, config.CityGen.PropApartM);
 
-        AlongTheKerbs(roads, ground, claims, config, scatter, ref draw);
+        AlongTheKerbs(paving.Rings(config), ground, claims, config, scatter, ref draw);
         OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);
 
         return new CityPlan.PropArrays
@@ -51,51 +51,62 @@ internal static class PropStage
     }
 
     /// <summary>
-    /// <b>The first pass: what a town puts along its own kerbs</b> (GEN-6b). Every road is walked on both
-    /// hands and a candidate stands out in the verge — the band of grass beyond the pavement's outer edge —
-    /// <b>on the road's own bearing there</b>, so a look with a front runs with the street rather than with
-    /// the compass. The ends the walk leaves out are the stub every junction lays its own ground across.
+    /// <b>The first pass: what a town puts along its own kerbs</b> (GEN-6b). The line walked is the walk's
+    /// outer face (<see cref="GroundRings.WalkEdge"/>) — the whole town's kerb in one set of closed rings —
+    /// and a candidate stands out in the verge beyond it, <b>on that face's own bearing there</b>, so a look
+    /// with a front runs with the street rather than with the compass.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The band is measured to the prop's own near rim and not to its centre</b>, which is what puts a
+    /// narrow look at the near edge of the verge and pushes a wide one out by its own width (GEN-6b). It was
+    /// the ground's to do — a girth over the concrete was not all grass (GEN-6a) — and the ground does not
+    /// know the concrete is there
+    /// (<see href="../../../docs/index.md">known gaps</see>, <c>GroundShapes.At</c>), so what holds a prop
+    /// off the walk is the figure the walk was struck at rather than an answer about the point it stands on.
+    /// </para>
+    /// <para>
+    /// <b>A ring is walked once and the outward hand is the ring's own</b>: a shell is walked with the ground
+    /// it covers on its right (<see cref="BandShell.Chains"/>), so the verge is to its left, whether the ring
+    /// is the one round the outside of the town or one round a block inside it. Nothing here knows what a
+    /// junction, a roundabout or a bay is — the concrete wraps all of them, and the face is continuous over
+    /// every one.
+    /// </para>
+    /// </remarks>
     static void AlongTheKerbs(
-        CityPlan.RoadArrays roads, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
+        GroundRings rings, GroundShapes ground, GenClaims claims, SimConfig config, PropScatter scatter,
         ref Rng draw)
     {
         var nearM = config.CityGen.PropVergeNearM;
         var bandM = config.CityGen.PropVergeFarM - nearM;
         var pitchM = config.CityGen.PropVergePitchM;
-        // How much of each end of a road the junction's own ground reaches over: the standoff its arms'
-        // lanes end at, and the movements between them (TER-5). A verge walked into that is a verge over
-        // tarmac.
-        var stubM = config.JunctionRadiusM + config.LaneWidthM;
 
-        for (var road = 0; road < roads.Count; road++)
+        foreach (var face in rings.WalkEdge)
         {
-            var chain = roads.SegmentsOf(road);
-            if (chain.Length == 0) continue;
-
-            // The edge of the road being walked and never the catalogue's: a one-way street stands half a
-            // carriageway nearer its middle (TER-4d). <b>The road's own half and no walk beside it</b> —
-            // nothing lays a pavement, so the verge begins where the tarmac stops, and the figure the
-            // scatter is cleared against has to be the one the ground answers with (TER-7).
-            var kerbM = roads.WidthM[road] * 0.5f;
-            var lengthM = Spline.TotalLengthM(chain);
-            foreach (var hand in (ReadOnlySpan<int>)[-1, 1])
+            var lengthM = Spline.TotalLengthM(face);
+            var cursor = default(SplineCursor);
+            for (var alongM = 0f; alongM < lengthM; alongM += pitchM)
             {
-                for (var alongM = stubM; alongM <= lengthM - stubM; alongM += pitchM)
-                {
-                    var stationM = alongM + (draw.NextFloat() * pitchM);
-                    if (stationM > lengthM - stubM) continue;
+                var stationM = alongM + (draw.NextFloat() * pitchM);
+                if (stationM >= lengthM) continue;
 
-                    var on = Spline.SampleAt(chain, stationM);
-                    var atM = on.PositionM + (on.Right * hand * (kerbM + nearM + (draw.NextFloat() * bandM)));
-                    if (ground.At(atM) != Ground.Grass) continue;
+                // Drawn before the ground is asked about anything, so that what the stream has spent by
+                // station n is the rings' own length and never what the ground answered at the stations
+                // before it.
+                var kind = OnAVerge(config, ref draw);
+                var reachM = draw.NextFloat(config.CityGen.PropDiameterMinM, WidestM(kind, config)) * 0.5f;
+                var outM = reachM + nearM + (draw.NextFloat() * bandM);
 
-                    var kind = OnAVerge(config, ref draw);
-                    var reachM = draw.NextFloat(config.CityGen.PropDiameterMinM, WidestM(kind, config)) * 0.5f;
-                    if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
+                var on = Spline.SampleFrom(face, stationM, ref cursor);
+                var atM = on.PositionM - (on.Right * outM);
 
-                    scatter.Add(atM, reachM, on.HeadingRad, kind);
-                }
+                // The one point before the girth, because a disc is walked from its rim and most of a verge
+                // is somebody's tarmac: reading the ground round a place that has already failed buys
+                // nothing.
+                if (ground.At(atM) != Ground.Grass) continue;
+                if (!Stands(atM, reachM, config.Terrain.GroundStepM, ground, claims, scatter)) continue;
+
+                scatter.Add(atM, reachM, on.HeadingRad, kind);
             }
         }
     }

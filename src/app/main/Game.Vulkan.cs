@@ -1,4 +1,6 @@
+using TrafficSimulation.App.Drive;
 using TrafficSimulation.App.Render;
+using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Runtime;
 
@@ -29,6 +31,14 @@ internal sealed partial class Game
         _vk, _window, mesh, ProjectPaths.GroundSurfaceFiles(), _sheets, spriteCapacity);
 
     private partial long Crossings() => Runtime.Vk.Crossings;
+
+    /// <summary>
+    /// <b>DRV-8 — a second target on the device already drawing this town.</b> The ground and the looks are
+    /// the window's own, because they are what the town is: an eye laid from a second cut of either would
+    /// be a picture of a different town at the same tick.
+    /// </summary>
+    private partial BotEye? NewEye(CityPlan plan, GroundMesh ground, int widthPx, int heightPx) =>
+        new(_vk, plan, ground, _looks!, _config, widthPx, heightPx);
 
     /// <summary>
     /// The map picked, laid on a thread of its own (<see cref="LaidTown"/>) and stood up on the first

@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
@@ -520,6 +521,7 @@ internal sealed partial class TownWorld
     /// of what it is walking at, and a paramedic never gets near enough to a casualty to pick one up.
     /// </para>
     /// </remarks>
+    [SkipLocalsInit]
     void GrantWhereItStands(int person)
     {
         // PHY-7: inside a container there is no body in the world, and nothing outside is in its way.
@@ -819,6 +821,7 @@ internal sealed partial class TownWorld
     /// corner nobody could walk through.
     /// </para>
     /// </remarks>
+    [SkipLocalsInit]
     void StandInTheWay(int person)
     {
         var radiusM = People.RadiusM[person];

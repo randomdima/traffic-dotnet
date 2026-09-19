@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -59,9 +60,10 @@ public class ATownThatMovesTests
     }
 
     /// <summary>
-    /// <b>And what stands over nothing is inert rather than broken.</b> Parking, the crossings, the signals
-    /// and the buildings are all coming back, so their slices are kept standing over a town with none of
-    /// their subject on it — which is a state nothing exercises unless it is exercised on purpose.
+    /// <b>And what stands over nothing is inert rather than broken.</b> The bays, the crossings and the
+    /// signals are all coming back, and a brief that plans no buildings has no car park either — so their
+    /// slices are kept standing over a town with none of their subject on it, which is a state nothing
+    /// exercises unless it is exercised on purpose.
     /// </summary>
     /// <remarks>
     /// <b>One case for the lot of them</b>, because what is being checked is that an empty subject is a
@@ -84,6 +86,9 @@ public class ATownThatMovesTests
         Assert.Equal(0, world.Parking.BayCount);
         Assert.Equal(0, world.People.Count);
         Assert.Equal(0, world.Signals.CrossingCount);
-        Assert.Equal(0, world.Walking.TurnCount);
+
+        // The walk is not among them — a generated town lays its courses like any other (WLK-1) and crosses
+        // its carriageways where its kerbs end (WLK-15) — so what is asked of it here is only that the
+        // empty plan table above and the ways the graph really holds stand together.
     }
 }

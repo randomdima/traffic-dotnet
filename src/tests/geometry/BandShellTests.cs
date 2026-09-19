@@ -67,6 +67,6 @@ public class BandShellTests
             building.Add(line, lines[line], Spline.TotalLengthM(lines[line]));
         }
 
-        return BandShell.Of(lines, widthM, building.Seal(CellM), CellM);
+        return BandShell.Of(lines, widthM, building.Seal(CellM));
     }
 }

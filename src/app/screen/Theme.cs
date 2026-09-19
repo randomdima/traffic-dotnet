@@ -26,7 +26,7 @@ internal readonly record struct Rect(Vector2 AtPx, Vector2 SizePx)
 /// </summary>
 /// <remarks>
 /// Every figure here is about the interface and not about the town, so none belongs in
-/// <see cref="Shared.Config.SimConfig"/>: a panel's padding is not a fact about traffic.
+/// <see cref="Core.Config.SimConfig"/>: a panel's padding is not a fact about traffic.
 /// </remarks>
 internal static class Theme
 {
@@ -147,6 +147,37 @@ internal static class Theme
     /// </summary>
     public static readonly Vector4 PerimeterOutset = new(1f, 0.25f, 0.20f, 0.95f);
 
+    /// <summary>
+    /// The shape a debug session strikes off that boundary for itself (OBS-2w). <b>Neither the boundary's
+    /// colour nor a shipped layer's</b>: the whole reading is which of the lines on the glass the town was
+    /// actually laid with, so the one line nothing was laid from is the one line in violet.
+    /// </summary>
+    public static readonly Vector4 ShellProbe = new(0.65f, 0.45f, 1f, 0.95f);
+
+    /// <summary>
+    /// The place the town's outline stops following one road and starts following something else
+    /// (<c>CityGen.KerbEnds</c>), which is where a walk beside that road has to stop. <b>Red, and the only
+    /// thing on the walking layer that is not green</b>: everything else under that switch is a line a body
+    /// may be held on, and these are points on a shape nobody walks.
+    /// </summary>
+    public static readonly Vector4 KerbEnd = new(1f, 0.15f, 0.15f, 0.95f);
+
+    /// <summary>
+    /// The other kerb of the same road at the same box, which stops nearer the middle of it. <b>Green
+    /// against the red, because the pair is the reading</b>: what a viewer is weighing is which of a
+    /// street's two kerbs runs further into the mouth, and two shades of one hue would have them counting
+    /// dots instead of seeing which is which.
+    /// </summary>
+    public static readonly Vector4 KerbEndNearer = new(0.15f, 1f, 0.30f, 0.95f);
+
+    /// <summary>
+    /// Where a walk crosses a road (<c>CityGen.KerbEnds.CrossedM</c>). <b>White, which is
+    /// neither of the two colours the ends it was struck off are</b>: the reading is where the walk stops
+    /// against where the kerb stopped, so the answer may not be a shade of either question — and a pair of
+    /// them square across a street reads as a line at a glance, which is what they are for.
+    /// </summary>
+    public static readonly Vector4 FootNode = new(1f, 1f, 1f, 0.95f);
+
     public static readonly Vector4 Collision = new(0.95f, 0.35f, 0.85f, 0.85f);
 
     /// <summary>
@@ -190,6 +221,28 @@ internal static class Theme
     public static readonly Vector4 GeometryGridCell = new(0.35f, 0.65f, 0.95f, 0.40f);
 
     /// <summary>
+    /// A cell of the solver's static grid — the town's furniture as its broad phase bins it (OBS-2x).
+    /// <b>A hue of its own and not the geometry grid's</b>: both lattices can be on at once, they are laid
+    /// from different corners, and a reader looking at two offset rulings in one colour cannot say which
+    /// cell belongs to which index. Teal, which is cold like the other machinery and is not the blue beside it.
+    /// </summary>
+    public static readonly Vector4 SolverStaticCell = new(0.28f, 0.84f, 0.76f, 0.34f);
+
+    /// <summary>The same cell's outline: the same hue carried up, because the square and its wash are one reading.</summary>
+    public static readonly Vector4 SolverStaticEdge = new(0.28f, 0.84f, 0.76f, 0.55f);
+
+    /// <summary>
+    /// And a cell of the moving grid, which is the half of that layer rebuilt every step (OBS-2x).
+    /// <b>The one warm hue among the machinery</b>, because it is the half that is paid for sixty times a
+    /// second: what a reader is looking for is a cell holding half the traffic, and it has to carry over a
+    /// static lattice drawn under it.
+    /// </summary>
+    public static readonly Vector4 SolverMovingCell = new(1f, 0.70f, 0.24f, 0.40f);
+
+    /// <summary>Its outline, on the same terms as the static one's.</summary>
+    public static readonly Vector4 SolverMovingEdge = new(1f, 0.70f, 0.24f, 0.62f);
+
+    /// <summary>
     /// What the pointer is over, and what a picked cell holds (OBS-2t). <b>Near white and warm</b>: it has
     /// to lift a line out of whichever layer's colour that line is already drawn in — orange, blue, pink or
     /// green — so it is the one mark here that is told apart by being <em>brighter</em> rather than by being
@@ -208,6 +261,20 @@ internal static class Theme
 
     /// <summary>The brackets round the selected unit — the chrome's own accent, so the one mark standing on the town reads as the interface talking rather than as something the town is doing.</summary>
     public static readonly Vector4 SelectionMark = Accent;
+
+    /// <summary>
+    /// The brackets round a car a second driver has the wheel of (CTL-5d). <b>The selection's own shape in
+    /// a hue of its own</b>: it is the same question — which car is this one about — asked by somebody else,
+    /// so a different shape would read as a different kind of thing rather than as a different hand.
+    /// </summary>
+    public static readonly Vector4 SecondHandMark = new(1f, 0.78f, 0.22f, 1f);
+
+    /// <summary>
+    /// What a mark on a car nobody picked out is outlined in. <b>A mark the reader did not ask for lands on
+    /// whatever colour that car is painted</b>, and the town's own palette holds every hue a mark could be
+    /// — so the shape is cut out of the picture rather than tinted into it.
+    /// </summary>
+    public static readonly Vector4 MarkOutline = new(0.05f, 0.05f, 0.07f, 0.9f);
 
     /// <summary>
     /// The box a drag lays over the town (CTL-1b), as the wash inside it and the line round it. The

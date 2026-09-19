@@ -173,6 +173,18 @@ internal sealed partial class SimConfig
     public float WalkingLaneOffsetM => WalkingLaneWidthM * 0.5f;
 
     /// <summary>
+    /// <b>How far off the driven ground's own boundary one walking lane's line runs</b>, the pavement's band
+    /// lying against that boundary (WLK-9): half a lane for the one against the kerb and a whole lane further
+    /// for each one behind it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one place the figure is struck</b>, because two constructions read it: the points a node hands
+    /// a way over at, and the boundary moved off itself that the way between them is taken from. Struck twice,
+    /// the line would not run through the points.
+    /// </remarks>
+    public float WalkingLaneAtM(int lane) => WalkingLaneOffsetM + (lane * WalkingLaneWidthM);
+
+    /// <summary>
     /// <b>How far off the driven ground's own boundary the walk's own ground begins</b> (TER-3c.3): a kerb.
     /// It is a <em>line</em>'s figure and not a layer's, so nothing offsets the boundary by it.
     /// </summary>
@@ -196,6 +208,20 @@ internal sealed partial class SimConfig
     /// read at.
     /// </summary>
     public float WalkKerbOuterM => WalkOuterM + (Road.KerbWidthM * 0.5f);
+
+    /// <summary>
+    /// <b>The building line</b> (GEN-54, TER-3c.2): how far off the driven ground's boundary a front wall
+    /// stands, which is the outer face of the walk's own kerbstone — so a building touches the kerb it
+    /// fronts and nothing it is made of stands on the concrete.
+    /// </summary>
+    public float BuildingLineM => WalkKerbOuterM;
+
+    /// <summary>
+    /// <b>How far off that boundary a building's way in stands</b> (GEN-54, GEN-2a): the line of the
+    /// walking lane furthest from the carriageway, which is the one running past the front wall. It is on
+    /// the pavement, clear of both kerbs, and on a line the walk is actually held on (GEN-5).
+    /// </summary>
+    public float BuildingWayInM => WalkingLaneAtM(LanesPerPavement - 1);
 
     /// <summary>
     /// <b>How far clear of a walking lane's own line something has to stand for a walk to get past it</b>
@@ -398,10 +424,10 @@ internal sealed partial class SimConfig
     public float JunctionArmReachMaxM => JunctionArmReachM(ArmsApartMinRad);
 
     /// <summary>
-    /// How much road the paint on an arm takes past the ground its junction reaches: the crossing at its
-    /// setback and the bar behind it. What stands on an arm has to stand past this as well as past the
-    /// reach, and the reach is the bend an arm leaves on where that is further than the corner
-    /// (<c>Furniture.Corners</c>).
+    /// <b>How much road the paint on one arm takes</b>, measured back from the line that arm's lanes hand
+    /// over to the junction on (TER-5d): the margin in front of the crossing, its band, the clear road
+    /// behind it and the bar itself. An arm with no room for it behind both of its ends carries no paint at
+    /// all (TER-6, <c>Crossings</c>).
     /// </summary>
     public float ArmPaintM =>
         Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM + Road.StopBarThicknessM;
@@ -452,6 +478,35 @@ internal sealed partial class SimConfig
     /// <c>CarParks</c> lays as many of them as there are sites straight enough to take one.
     /// </remarks>
     public int CarParksFor(int buildings) => buildings / CityGen.BuildingsPerCarPark;
+
+    /// <summary>How many of a town's buildings are hospitals (AMB-1).</summary>
+    public int HospitalsFor(int buildings) =>
+        ServicesFor(buildings, Ambulance.HospitalsPerBuilding, Ambulance.MostHospitals);
+
+    /// <summary>How many are police stations (SRV-1).</summary>
+    public int PoliceStationsFor(int buildings) =>
+        ServicesFor(buildings, Service.StationsPerBuilding, Service.MostStations);
+
+    /// <summary>How many are depots (SRV-1).</summary>
+    public int DepotsFor(int buildings) => ServicesFor(buildings, Service.DepotsPerBuilding, Service.MostDepots);
+
+    /// <summary>
+    /// <b>How many buildings of one service use a town of this many buildings has</b> (AMB-1, SRV-1): a
+    /// share of the count the map plans, capped, and never none where there is a building to be one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Struck here because two readers want it and neither may hold a second copy</b>: the generator cuts
+    /// a yard for every one of them before it stands a building (GEN-55), and the fleets are laid off the
+    /// finished plan (<c>World.Statics.BuildingRoster.CountIn</c>) — a vehicle and a crew apiece. The two
+    /// disagreeing is an ambulance with no hospital to go home to.
+    /// </remarks>
+    public static int ServicesFor(int buildings, float perBuilding, int most)
+    {
+        if (buildings <= 0) return 0;
+
+        var wanted = (int)MathF.Round(buildings * perBuilding);
+        return Math.Clamp(wanted, 1, Math.Min(most, buildings));
+    }
 
     /// <summary>
     /// <b>The tightest a road may bend where a car park is cut into it</b> (GEN-53), as a curvature: the one

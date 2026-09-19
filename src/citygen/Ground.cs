@@ -1,7 +1,7 @@
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// The seven kinds of ground a town is laid out of. The type is named for the ground rather than for the
+/// The six kinds of ground a town is laid out of. The type is named for the ground rather than for the
 /// folder it sits in, because a type called <c>Terrain</c> inside <c>…World.Terrain</c> is ambiguous at
 /// every call site that imports both.
 /// </summary>
@@ -19,14 +19,18 @@ namespace TrafficSimulation.CityGen;
 /// against a type</b> — one written against <c>Sidewalk</c> breaks the day a town gains a boardwalk, and one
 /// written against <em>walkable</em> does not.
 /// </para>
+/// <para>
+/// <b>A junction is not among them</b> (TER-5, TER-3). The tarmac inside a box is the band its own
+/// movements sweep, which is the same surface a lane lays and is answered as one: a kind of its own would
+/// be a second name for the ground a car is driven over, told apart by which line happened to lay it.
+/// </para>
 /// </remarks>
 internal enum Ground : byte
 {
     Grass = 0,
     Road = 1,
-    Intersection = 2,
-    Crosswalk = 3,
-    Parking = 4,
-    Water = 5,
-    Sidewalk = 6,
+    Crosswalk = 2,
+    Parking = 3,
+    Water = 4,
+    Sidewalk = 5,
 }

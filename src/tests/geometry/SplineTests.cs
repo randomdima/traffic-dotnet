@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using Xunit;
 
@@ -164,6 +165,38 @@ public class SplineTests
         Assert.Equal(MathF.PI * 1.5f, Spline.TotalLengthM(laid), Tolerance);
         foreach (var arc in laid) Assert.True(1f / MathF.Abs(arc.Curvature) < 2f);
     }
+
+    /// <summary>
+    /// <b>A corner that would spend more than half a turn of heading is refused</b>
+    /// (<see cref="Spline.CorneredInto"/>): the heading between two poses is never more than half a turn, so
+    /// anything past it is a corner turning twice where once would do — and what the caller lays instead is
+    /// the straight and the pivots at its ends, which spend exactly what the two poses ask for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Staged where the radius is not the reason.</b> Two poses pointing the same way five metres apart
+    /// sideways get an S of a metre and a quarter of radius, well inside what a walker holds, and that S
+    /// spends the better part of two turns to arrive facing the way it set off.
+    /// </remarks>
+    [Fact]
+    public void ACornerSpendingMoreThanHalfATurnIsRefused()
+    {
+        var toM = new Vector2(0.2f, 5f);
+        Span<ArcSeg> join = stackalloc ArcSeg[2];
+        var written = Spline.BiarcInto(Vector2.Zero, 0f, toM, 0f, join);
+
+        // The staging: the construction does join these two poses, and what it joins them with winds.
+        Assert.Equal(2, written);
+        Assert.True(Spline.SweptRad(join[..written]) > Spline.HalfATurnRad);
+        foreach (var arc in join[..written]) Assert.True(1f / MathF.Abs(arc.Curvature) > WalkerTightestTurnM);
+
+        Assert.Equal(0, Spline.CorneredInto(Vector2.Zero, 0f, toM, 0f, WalkerTightestTurnM, join));
+    }
+
+    /// <summary>
+    /// The tightest circle the corner is asked to hold, which is the walker's
+    /// (<see cref="SimConfig.WalkerTightestTurnM"/>) because the walk is what lays corners at this scale.
+    /// </summary>
+    static float WalkerTightestTurnM => SimConfig.Shipped().WalkerTightestTurnM;
 
     /// <summary>
     /// A line that doubles back past itself has two nearest points, and what a car wants is the one

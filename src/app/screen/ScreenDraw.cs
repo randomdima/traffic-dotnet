@@ -261,6 +261,21 @@ internal ref struct ScreenDraw(Span<OverlayQuad> into)
     }
 
     /// <summary>
+    /// <b>Two strokes crossing at a place, where a ring would read as a line drawn round it</b> — a mark on
+    /// open ground that nothing is drawn through, so its shape has to be one no path could be.
+    /// </summary>
+    /// <remarks>
+    /// <b>Crossed corner to corner rather than square on</b>, because a mark on a network of lines stands
+    /// among lines running every way, and an upright cross at a corner reads as two of them meeting.
+    /// </remarks>
+    public void CrossM(Vector2 centreM, float reachM, float widthM, Vector4 colour)
+    {
+        var arm = new Vector2(reachM, reachM) * MathF.Sqrt(0.5f);
+        LineM(centreM - arm, centreM + arm, widthM, colour);
+        LineM(centreM - new Vector2(arm.X, -arm.Y), centreM + new Vector2(arm.X, -arm.Y), widthM, colour);
+    }
+
+    /// <summary>
     /// A bar square across a line, where a chevron would be a claim the line cannot make: the ground under
     /// it is travelled both ways. One stroke, and it says where the mark falls without saying which way
     /// anything goes.

@@ -63,6 +63,13 @@ namespace TrafficSimulation.CityGen.Gen;
 /// shortfall rather than the generator trying again.
 /// </para>
 /// <para>
+/// <b>The first few are cut for the services and not for the town</b> (GEN-55): every hospital, police
+/// station and depot the roster asks for gets a yard of its own — one rank, on one side, as wide as a car
+/// park gets — and the building is stood past the far end of it afterwards (<see cref="BuildingStage"/>).
+/// They are cut first because the sites are ranked by distance from the car parks already cut, so taking
+/// them first is what puts the services as far apart as the town's roads allow.
+/// </para>
+/// <para>
 /// <b>It is the last stage of the layout</b> (<see cref="TownGenerator"/>, <see cref="CutJunctions"/>): the
 /// streets that run one way are settled before it, so a cut into one parts a street that is already one way
 /// rather than leaving a scatter to choose a street in pieces (GEN-18), and nothing is offered to the layout
@@ -72,10 +79,16 @@ namespace TrafficSimulation.CityGen.Gen;
 internal static class CarParks
 {
     /// <summary>The car parks a town came out with, and every road their cuts made a cut road (GEN-52).</summary>
+    /// <param name="For">
+    /// Which use each car park was cut for (GEN-55): <see cref="BuildingUse.Ordinary"/> for the town's own,
+    /// and a service use for one cut to stand a special building's vehicles. <b>It is the stage's own answer
+    /// and not the plan's</b> — what holds a bay for a station is the apron, which finds the bays nearest
+    /// its door (GEN-4k) — so it travels only as far as the stage that stands the building on it.
+    /// </param>
     internal readonly record struct Laid(
-        int[] Junction, int[] BayOffsets, int[] Road, bool[] Right, int[] CutRoads)
+        int[] Junction, int[] BayOffsets, int[] Road, bool[] Right, int[] CutRoads, BuildingUse[] For)
     {
-        public static Laid None => new([], [0], [], [], []);
+        public static Laid None => new([], [0], [], [], [], []);
     }
 
     /// <summary>The two sides of a road, as the driver's right of its own direction and its left.</summary>
@@ -86,11 +99,14 @@ internal static class CarParks
         var wanted = config.CarParksFor(brief.Buildings);
         if (wanted <= 0) return Laid.None;
 
+        var services = TheServicesWanted(brief, config);
+
         var junction = new List<int>();
         var bayOffsets = new List<int> { 0 };
         var road = new List<int>();
         var right = new List<bool>();
         var cutRoads = new List<int>();
+        var forUse = new List<BuildingUse>();
         var atM = new List<Vector2>();
 
         Span<int> perSide = stackalloc int[Sides.Length];
@@ -103,7 +119,10 @@ internal static class CarParks
             // the street has to stand off is how far the longest rank reaches along it, so the size of the
             // car park is what decides which places can carry one — rather than a place being taken and the
             // bays that did not fit on it being taken back off again (GEN-10).
-            BaysPerSide(config, perSide, ref draw);
+            var use = want < services.Count ? services[want] : BuildingUse.Ordinary;
+            if (use == BuildingUse.Ordinary) BaysPerSide(config, perSide, ref draw);
+            else AYard(config, perSide, ref draw);
+
             var mostBays = Math.Max(perSide[0], perSide[1]);
             var standoffM = config.CarParkStandoffM(mostBays);
 
@@ -119,6 +138,7 @@ internal static class CarParks
             junction.Add(made.Junction);
             atM.Add(layout.NodeM[made.Junction]);
             cutRoads.AddRange(made.Roads);
+            forUse.Add(use);
             for (var bay = 0; bay < taken; bay++)
             {
                 road.Add(made.Arms[bay]);
@@ -128,7 +148,8 @@ internal static class CarParks
             bayOffsets.Add(road.Count);
         }
 
-        return new Laid([.. junction], [.. bayOffsets], [.. road], [.. right], [.. cutRoads]);
+        return new Laid(
+            [.. junction], [.. bayOffsets], [.. road], [.. right], [.. cutRoads], [.. forUse]);
     }
 
     /// <summary>
@@ -219,7 +240,16 @@ internal static class CarParks
             return;
         }
 
-        sites.Sort((one, other) => NearestM(other.AtM, takenM).CompareTo(NearestM(one.AtM, takenM)));
+        // <b>Each site's distance is worked out once and carried into the sort</b>, rather than twice for
+        // every comparison the sort makes: it is a question about the site and the parks already taken, and
+        // neither moves while the sort runs. The order is the same order, and not merely one as good — the
+        // permutation a comparison sort comes to is a function of how many there are and what the
+        // comparisons answered, and both are what they were.
+        var ranked = new List<(float NearestSq, CutJunctions.Site Site)>(sites.Count);
+        foreach (var site in sites) ranked.Add((NearestM(site.AtM, takenM), site));
+
+        ranked.Sort((one, other) => other.NearestSq.CompareTo(one.NearestSq));
+        for (var at = 0; at < sites.Count; at++) sites[at] = ranked[at].Site;
     }
 
     static float NearestM(Vector2 atM, List<Vector2> takenM)
@@ -243,6 +273,46 @@ internal static class CarParks
         foreach (var bays in perSide) any |= bays > 0;
 
         if (!any) perSide[draw.NextInt(perSide.Length)] = Bays(config, ref draw, orNone: false);
+    }
+
+    /// <summary>
+    /// <b>The uses a town cuts a yard for before it cuts a car park of its own</b> (GEN-55), one entry a
+    /// service building: as many hospitals, police stations and depots as the roster's own share of the
+    /// buildings the map plans (<see cref="SimConfig.HospitalsFor"/>, AMB-1, SRV-1).
+    /// </summary>
+    /// <remarks>
+    /// <b>They are cut first because the sites are ranked by distance from the car parks already cut</b>
+    /// (<see cref="Spread"/>): taken first, the services land as far apart as the town's roads allow, which
+    /// is the whole of what spreading them over a town is and needs no spacing of its own.
+    /// <para>
+    /// <b>And they are taken out of the town's own count</b> (GEN-53): a town with fewer car parks than its
+    /// roster asks for services stands fewer services, which the census reports (GEN-8, AMB-2, SRV-2).
+    /// </para>
+    /// </remarks>
+    static List<BuildingUse> TheServicesWanted(TownBrief brief, SimConfig config)
+    {
+        var wanted = new List<BuildingUse>();
+        Add(BuildingUse.Hospital, config.HospitalsFor(brief.Buildings));
+        Add(BuildingUse.PoliceStation, config.PoliceStationsFor(brief.Buildings));
+        Add(BuildingUse.Depot, config.DepotsFor(brief.Buildings));
+        return wanted;
+
+        void Add(BuildingUse use, int count)
+        {
+            for (var at = 0; at < count; at++) wanted.Add(use);
+        }
+    }
+
+    /// <summary>
+    /// <b>A service's own car park is a yard: one rank, on one side, as wide as a car park gets</b>
+    /// (GEN-55, GEN-4k). <b>One side</b> because a special building stands past the far end of its own rank
+    /// and there is only one of it; <b>the widest</b> because the apron it holds is the bays nearest its
+    /// door, and a station with three bays stands three vehicles.
+    /// </summary>
+    static void AYard(SimConfig config, Span<int> perSide, ref Rng draw)
+    {
+        var side = draw.NextInt(perSide.Length);
+        for (var at = 0; at < perSide.Length; at++) perSide[at] = at == side ? config.CityGen.BaysPerLotMost : 0;
     }
 
     static int Bays(SimConfig config, ref Rng draw, bool orNone)

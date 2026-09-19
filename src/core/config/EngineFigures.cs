@@ -44,6 +44,21 @@ internal sealed class SimFigures
 internal sealed class ViewFigures
 {
     public float CameraDefaultViewM { get; init; } = 70f;
+
+    /// <summary>
+    /// What a frame of a hand-driven run spans when the script names no span (DRV-4). Tighter than the
+    /// default view, because what such a frame is about is the car and the few metres it is steering
+    /// through rather than the town it is in.
+    /// </summary>
+    public float DriveViewM { get; init; } = 45f;
+
+    /// <summary>
+    /// How wide a second driver's eye is when nothing names a size (DRV-8), the short side following the
+    /// window's aspect. Small on purpose: what looks through it reads a picture over a wire, and a frame
+    /// that arrives is worth more to a driver than a frame with more in it.
+    /// </summary>
+    public int BotEyeWidthPx { get; init; } = 768;
+
     public float CameraZoomPerNotch { get; init; } = 1.15f;
     public float CameraPanPxPerS { get; init; } = 300f;
 
@@ -71,18 +86,11 @@ internal sealed class ViewFigures
     public float CameraFollowLeadShareOfView { get; init; } = 0.3f;
 
     /// <summary>
-    /// How long the camera takes to close about two thirds of the gap between where it stands and where
-    /// the followed unit wants it (OBS-1a). It is what makes a follow smooth rather than nailed: the town
-    /// is stepped at a fixed rate and drawn at the window's, so a camera nailed to the unit shows every
-    /// tick boundary. Long enough to absorb one, short enough that nobody reads it as drag.
-    /// </summary>
-    public float CameraFollowEaseS { get; init; } = 0.12f;
-
-    /// <summary>
-    /// And how long the lead itself takes to swing to a new heading or a new speed (OBS-1a) — longer than
-    /// the camera's own ease, because what it is smoothing is the unit's own manoeuvring: a walker who
-    /// stops at a kerb or a car that turns a corner would otherwise sweep the offset across the picture
-    /// in the time the body takes to change direction.
+    /// How long the lead takes to swing about two thirds of the way to a new heading or a new speed
+    /// (OBS-1a). It is the whole of what a follow eases, since the camera carries the unit's own step
+    /// exactly: what it smooths is the unit's manoeuvring, because a walker who stops at a kerb or a car
+    /// that turns a corner would otherwise sweep the offset across the picture in the time the body takes
+    /// to change direction.
     /// </summary>
     public float CameraFollowLeadEaseS { get; init; } = 0.6f;
 

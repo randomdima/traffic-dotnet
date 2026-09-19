@@ -149,6 +149,33 @@ is drawn through more points and a straight coast through few.
 **GEN-3** `P6` Spacing must leave the city walkable: every building is surrounded by walkable padding, and no
 pocket is too narrow for a pedestrian to pass.
 
+**GEN-54** `P6` **A building stands against the pavement's outer face, and its door opens onto the walk.**
+The face is the driven ground's own boundary moved by the figure the pavement is struck at (`TER-7b`,
+`GroundRings.WalkEdge`) — the whole town's outer kerb in one set of closed lines, round every block, round
+the outside of the town and round the mouth of every rank of bays. **It is walked and never swept**: what
+fronts a street is found by following the line the concrete stops at, so nothing about a building's place
+knows that a road, a junction, a roundabout or a car park exists, and all four are fronted on the same
+terms.
+
+- **The front wall stands on the walk's own kerb** (`SimConfig.BuildingLineM`, `TER-3c.2`) and **no part of
+  the building is nearer the carriageway than the face is** — its own street's or any other's. What holds
+  it off is the distance the walk was struck at, read off the boundary, because the ground answers grass on
+  the concrete (`GroundShapes.At`, [the known gaps](../../../docs/index.md#known-gaps)).
+- **The way in is on the line the walk beside it runs down** (`SimConfig.BuildingWayInM`, `GEN-2a`,
+  `GEN-5`): the walking lane furthest from the carriageway, which is the one that passes the door. Clear of
+  both kerbs, and on ground a body is actually held on rather than merely walkable.
+- **It is square to the face there** and so to the street it fronts (`GEN-2a`), and **sized by the roof it
+  will wear** — the footprints come from the catalogue that read them off the sheets
+  (`CityGen.BuildingSizes`), so the picture drawn on a building is the size the plan authored rather than
+  the nearest thing to it.
+- **Every place the face affords one is cut before any of them is filled, and they are filled in a drawn
+  order.** Filled ring by ring instead, a town whose brief asks for fewer buildings than its frontage
+  affords is built solid along whichever rings came first and empty everywhere else.
+- **It runs after every stage that lays driven ground and before the props** (`GEN-10`, `GEN-6b`): the
+  boundary is settled when it starts, so a building is cleared against the ground the finished map answers
+  with; and a verge crowded by buildings carries fewer props, which is the scatter taking what is left.
+- **A count the ground cannot carry is what fitted** (`GEN-8`), reported and never retried.
+
 **GEN-5** `P3` Connectivity is a hard constraint: the walkable terrain reachable by pedestrians forms **one
 connected region**, the drivable terrain likewise, and every building entrance and every parking space
 attaches to those regions.
@@ -181,26 +208,27 @@ which.** A stump and a planter are different kinds because they stand in differe
 look unalike. **The props are laid in two passes**, and everything they need — the roads, the pavement, the
 bays and the buildings — was laid before either of them runs.
 
-- **First the paved edges are walked**, because a verge is a line and not an area: what stands along one is
-  found by following the thing it belongs to and never by sweeping the ground and asking each square whether
-  it happens to be near a street. A candidate stands out in the **verge** — the band of grass between
-  `SimConfig.CityGen.PropVergeNearM` and `PropVergeFarM` beyond that edge's own walk — and it is
-  **furniture** where there is a car park to stand it beside and **planting** where there is not.
-- **A road's two kerbs and a car park's four sides are the same kind of edge**, and the band is measured
-  from each one's own walk: a kerb line has the pavement outside it already, and a lot's tarmac has the ring
-  of walkable grass a body gets round it (GEN-4d), which its verge begins past. Without this the ground
-  beyond a car park belongs to nobody — the road it fronts is a lot's depth away, and the road's own walk
-  lands on tarmac there. **All four of a lot's sides are walked and the ones facing the street are refused
-  by the ground under them**, because a lot carries its axis and its extent and never which side the road
-  was on.
+- **First the walk's outer face is walked**, because a verge is a line and not an area: what stands along
+  one is found by following the line the concrete stops at and never by sweeping the ground and asking each
+  square whether it happens to be near a street. A candidate stands out in the **verge** — the band of grass
+  between `SimConfig.CityGen.PropVergeNearM` and `PropVergeFarM` beyond that face — and it is **furniture**
+  or **planting** by the share the town furnishes its streets at (`PropFurnitureShare`).
+- **The face is the town's own boundary moved by the figure the pavement is struck at** (TER-7b,
+  `GroundRings.WalkEdge`) and never a line laid again beside a road. A road's half-width is the ground its
+  lanes were laid inside and says nothing about where the concrete ends; the face says it everywhere at
+  once, so a junction, a roundabout's island and a bay are lined by the same walk that lines a straight,
+  without this rule knowing that any of them exists.
+- **The band is measured to the prop's own near rim.** A prop owes GEN-6a its whole girth on grass, and the
+  concrete is a figure the boundary was struck at rather than something the ground answers with — so what
+  holds a prop off the walk is the distance it was placed at. A narrow look reaches the near edge of the
+  band and a wide one is pushed out by its own width.
 - **Then the ground the town is not on is swept**, on the stratified lattice, and everything within
-  `SimConfig.CityGen.PropWildStandOffM` of a walk or a car park is left to the first pass. What is laid
-  there is what grows **wild**. **The stand-off is past the verge and not up against it**, so the strip
-  between the two passes reads as the edge of the town rather than as one scatter quietly changing what it
-  is made of.
-- **A prop laid along a paved edge carries that edge's own bearing there**, and a look with a front — a
-  planter, a skip, a stack of crates — is turned onto it, so it runs with the street or with the car park it
-  stands beside rather than with the compass.
+  `SimConfig.CityGen.PropWildStandOffM` of the paving is left to the first pass. What is laid there is what
+  grows **wild**. **The stand-off is past the verge and not up against it**, so the strip between the two
+  passes reads as the edge of the town rather than as one scatter quietly changing what it is made of.
+- **A prop laid along the face carries the face's own bearing there**, and a look with a front — a planter,
+  a skip, a stack of crates — is turned onto it, so it runs with the street it stands beside rather than
+  with the compass.
   **Whether a look has a front is the art's to declare** (`PropVariant.Turns`) and never the placement's to
   assume: a tree seen from above has none, and turning one makes the same look read as several. **No wild
   look may declare one**, because the pass that lays it has no bearing to give it.
@@ -208,12 +236,11 @@ bays and the buildings — was laid before either of them runs.
   instead (`SimConfig.CityGen.PropWildOnAVergeShare`), because a street carrying only the things a town
   plants reads as a catalogue laid out along the kerb, and a self-sown bush at a kerb is the commoner sight.
   Such a prop is a wild one standing where the town put it, so it is drawn upright like every other.
-- **The near edge of the verge is what the ground affords rather than what a figure promises.** A prop owes
-  GEN-6a its whole girth on grass, so a narrow look reaches the near edge of the band and a wide one is
-  pushed out by its own width — and a candidate that cannot fit is simply not a prop.
-- **The pitch the kerb is walked at is shorter than the props are wide**, so what spaces a verge is the
-  props' own girth against each other (GEN-6c) rather than the step: a stretch of kerb carries what fits
-  along it, and one crowded by buildings or bays carries what is left.
+- **The pitch the face is walked at is longer than the props are wide**, so what spaces a verge is the step
+  rather than the props' own girth against each other (GEN-6c). A kerb walked at a pitch inside a girth
+  carries a prop wherever one will fit, which is a continuous line of them and not a street; the town has to
+  be visible through its own verges. A stretch crowded by buildings or bays carries what is left of that
+  scatter.
 - **A kind carries its own size band, because its set was authored in one.** The wild set reaches the great
   trees (`SimConfig.CityGen.PropWildDiameterMaxM`) and the other two stop at the widest thing drawn for them
   (`PropDiameterMaxM`). A prop drawn outside its own set's band is a planter stretched to the size of an
@@ -247,16 +274,49 @@ kerb. The clearance in GEN-6c is grass between two pictures and not slack for on
 hospital (AMB-1), a police station or a depot (SRV-1). It is a field of the record and therefore a fact
 about the map, the same for every run of it and for every agent seed, and it moves only when the map does.
 
-**Which buildings they are is settled as the town is laid.** Two things decide a place: a service building
-has to have somewhere for its vehicles to stand, and the services have to be spread over the town rather
-than dropped into it. Both are known to the stage that cut the slots and filled them, so the sweep that
-finds a building with parking outside it and puts the next service across town from the last is part of
-laying the map — and a shuffle, which could only ever say which buildings *exist*, would put the one
-hospital next door to the police station as often as anywhere else.
+**Which buildings they are is settled as the town is laid** (`GEN-55`), and it is settled by where their
+parking went rather than by a sweep over the buildings afterwards.
 
 **A building serves one use at most**, which one field settles: a byte cannot say two things. A map that
 declares none of them is a map whose services do nothing, and that is a state the census reports rather
 than a state anything papers over.
+
+**GEN-55** `P5` **A service building is stood at the end of the car park that was cut for it.** A hospital,
+a police station and a depot each need somewhere for their own vehicles to stand (`GEN-4k`, `AMB-1`,
+`SRV-1`), so the parking comes first and the building is stood on it — rather than the buildings being laid
+and one of them then found to have a car park outside it.
+
+- **A yard is a car park of its own** (`GEN-53`): one rank, on one side, as wide as a car park gets. One
+  side because there is one building and it stands past the far end of the rank; the widest because the
+  apron a station holds is the bays nearest its door, and a yard of three bays stands three vehicles.
+- **The yards are cut before the town's own car parks and out of the same count.** Each car park is cut at
+  the site furthest from every car park already cut (`GEN-53`), so taking the services first is what puts
+  them as far apart as the town's roads allow — and it needs no spacing rule of its own. **A town with
+  fewer car parks than its roster asks for services stands fewer services** (`GEN-8`), which the census
+  reports (`AMB-2`, `SRV-2`).
+- **How many there are is the roster's share of the buildings the map plans** (`GEN-6`,
+  `SimConfig.HospitalsFor` and its pair), which is the same figure the fleets are laid off
+  (`World.Statics.BuildingRoster`) — a vehicle and a crew apiece, so two readings of it would be an
+  ambulance with no hospital to go home to.
+- **The building stands on the rank's own normal**: past the far end of it, square to the street, **in the
+  middle of it**, with its door on the walk that wraps the rank. **That is the face again and not a second
+  placement** (`GEN-54`) — the pavement wraps a rank of bays exactly as it wraps a street, so a hospital is
+  stood against the boundary on the terms every other building is, and what differs is only which stretch
+  of it and that this one is centred rather than stepped to.
+
+**And nothing is built on the rounding round the end of a rank, or down its side.** The stretch of face a
+car park adds is the flat over the line its bays end on, a rounding round each corner of the rank, and the
+two sides running back to the street. **A building fronting a car park stands on the flat, and the whole of
+its frontage stands there** — the limit is the rank's own reach along the street and not a figure of its
+own. One perched on a rounding fronts the mouth of the car park at an angle and one down a side fronts the
+row of bays edge-on, and neither reads as a building beside its own parking.
+
+- **So a rank narrower than the frontage offered carries nothing behind it** (`GEN-8`). What is behind three
+  bays is a strip of verge, and the building the draw wanted there is not built — which is the rule holding
+  rather than failing.
+- **It is why a service is centred rather than stepped to.** The face is walked at a pitch (`GEN-54`), and a
+  hospital as wide as its own yard has to be on the middle of the flat to the metre; the station the rank's
+  normal reaches is therefore slid along that flat to the middle before the building is stood on it.
 
 **GEN-7** `P5` Initial state: cars start **stopped in parking spaces**, and **a person starts inside the
 building the map stood them at**, dwelling out the interval an arrival dwells (PER-11).
@@ -277,9 +337,10 @@ census, as every other absence is — and where a piece of a town is left joined
 deleted rather than linked up to whatever is nearest.
 
 **GEN-10** `P4` **Every stage of a generation runs once**, in the one order they can run in: the water before
-the nodes that avoid it, the districts before the streets laid inside them, the roads before the frontage
-cut off them, the slots before the props that take what is left, and the bays before the cars standing in
-them. **A stage constrains the next rather than checking it afterwards** — which is what makes the
+the nodes that avoid it, the districts before the streets laid inside them, the car parks before the
+buildings stood on them, the roads before the boundary the buildings front, the buildings before the props
+that take what is left, and the bays before the cars standing in them. **A stage constrains the next rather
+than checking it afterwards** — which is what makes the
 properties GEN-3, GEN-4 and GEN-5 name true by construction rather than true on the attempt that happened
 to pass.
 

@@ -122,6 +122,27 @@ public class SelectionMarkTests
         }
     }
 
+    /// <summary>
+    /// CTL-5d: <b>a car a second driver is holding is marked too</b>, in its own hue and cut out of the
+    /// picture with an outline, since it lands on whatever colour that car happens to be painted. And once
+    /// the reader picks that car out themselves, the selection is the answer and the second mark goes.
+    /// </summary>
+    [Fact]
+    public void ACarUnderASecondHandWearsAMarkOfItsOwn()
+    {
+        using var world = Town();
+        world.SelectNone();
+        world.HandOnCar(1, new HandInput(Held: true, Throttle: 0f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero));
+
+        var marks = Marks(world);
+        Assert.Equal(16, marks.Length);
+        Assert.Equal(8, marks.Count(mark => mark.Colour == Theme.SecondHandMark));
+        Assert.Equal(8, marks.Count(mark => mark.Colour == Theme.MarkOutline));
+
+        world.Select(new Selection(SelectionKind.Car, 1));
+        Assert.All(Marks(world), mark => Assert.Equal(Theme.SelectionMark, mark.Colour));
+    }
+
     static Vector2 Rotated(Vector2 offset, float byRad)
     {
         var (sin, cos) = MathF.SinCos(byRad);

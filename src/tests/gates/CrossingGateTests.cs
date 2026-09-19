@@ -14,8 +14,9 @@ namespace TrafficSimulation.Tests.Gates;
 
 /// <summary>
 /// Rule 1, as a test: the crossings of the managed→native wall are counted, bounded and flat in the
-/// size of the town. A frame is five of them once there is a frame — acquire, wait, reset, submit,
-/// present — and none of the five takes the size of the town as an argument.
+/// size of the town. A frame is five of them once there is a frame — submit and present the frame that
+/// was filled, then acquire, wait and reset for the next — and none of the five takes the size of the
+/// town as an argument.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Road;
@@ -26,6 +27,12 @@ namespace TrafficSimulation.World.Road;
 /// runs over a verge; ground the network never had is ground nobody can have claimed, and the terrain rule
 /// (<c>OnDrivableGround</c>) is what says whether a body may be there at all.
 /// </para>
+/// <para>
+/// <b>And the frame the ways are read into is not zeroed</b> (<c>SkipLocalsInit</c>).
+/// <see cref="GroundUnder.At"/> writes every slot below the count it returns before anything reads one, and
+/// nothing here reads past that count — so initialising it is a few kilobytes of stores paid and never read,
+/// once a car a tick down the road and again for every template a desk weighs.
+/// </para>
 /// </remarks>
 internal static class GroundAhead
 {
@@ -42,6 +49,7 @@ internal static class GroundAhead
     /// comes to rest inside it is one nothing was ever asked about. Where that end is what is taken, the
     /// answer is the last step that was clear, which is as fine as a stepped walk can say.
     /// </remarks>
+    [SkipLocalsInit]
     public static float ClearM(
         RoadGraph roads, LaneOccupancy claims, scoped ReadOnlySpan<ArcSeg> line, float fromM, float reachM,
         float halfWidthM, int car)
@@ -74,6 +82,7 @@ internal static class GroundAhead
     /// so a template asking only the lane nearest each of its samples is a manoeuvre that cannot see a single
     /// car in the box it is swinging through.
     /// </remarks>
+    [SkipLocalsInit]
     public static bool TakenAt(
         RoadGraph roads, LaneOccupancy claims, Vector2 atM, float halfWidthM, int car, out LaneClaim found)
     {

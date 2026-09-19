@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
 
@@ -152,16 +153,33 @@ internal static class CutJunctions
     /// <inheritdoc cref="SitesOn" path="/param[@name='standoffM']"/>
     public static List<Site> Sites(TownLayout layout, SimConfig config, float standoffM, float curvatureMax)
     {
-        var onARoad = new List<Site>();
-        var sites = new List<Site>();
-        for (var road = 0; road < layout.Edges.Count; road++)
-        {
-            onARoad.Clear();
-            SitesOn(layout, config, road, standoffM, curvatureMax, onARoad);
-            foreach (var site in onARoad)
+        // <b>A road at a time, on as many threads as there are, and strung in road order.</b> Nothing here
+        // writes to the layout, and the locality test below is asked of every node in the town for every
+        // place on every road — which is where a city's time in this method goes, and it is asked again for
+        // every car park the brief wants. Keeping each road's answer in its own slot is what makes the order
+        // the loop's rather than the threads'.
+        var onARoad = new List<Site>?[layout.Edges.Count];
+        InChunks.Over(
+            layout.Edges.Count,
+            () => new List<Site>(),
+            (room, road) =>
             {
-                if (ClearOfEveryJunction(layout, config, site.AtM)) sites.Add(site);
-            }
+                room.Clear();
+                SitesOn(layout, config, road, standoffM, curvatureMax, room);
+
+                List<Site>? kept = null;
+                foreach (var site in room)
+                {
+                    if (ClearOfEveryJunction(layout, config, site.AtM)) (kept ??= []).Add(site);
+                }
+
+                onARoad[road] = kept;
+            });
+
+        var sites = new List<Site>();
+        foreach (var kept in onARoad)
+        {
+            if (kept is not null) sites.AddRange(kept);
         }
 
         return sites;

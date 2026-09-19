@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.World.Road;
 
@@ -459,14 +460,45 @@ internal sealed class RoadGraph : ILaneEnds
         var wayCount = TownWays.WayOfRoadConnector(laneCount, lines.ConnectorCount);
         var clearanceM = config.JunctionCrossingClearanceM;
         var found = new List<CrossedSection>[wayCount];
-        var atThePlace = new List<int>();
 
-        // One buffer a movement, grown to the widest place the town has and kept for the next one.
-        var pointsM = new List<Vector2[]>();
-        var walked = new List<(int Count, float StepM)>();
+        // <b>A place at a time, on as many threads as there are, and filed afterwards in place order.</b>
+        // What a place has to say is a function of its own connectors' lines, which nothing here writes to.
+        // Each place holds what it found rather than filing it — not because two places could reach one
+        // way's list, which they cannot, but so that nothing rests on their not doing: strung in place
+        // order afterwards, the sections come out in the order one thread would have appended them, and
+        // that is a property of this loop rather than of the numbering underneath it.
+        var madeAt = new List<(int Way, CrossedSection Section)>[places.Count];
+        InChunks.Over(
+            places.Count,
+            () => new Placing(),
+            (placing, place) => madeAt[place] = AtOnePlace(placing, place));
 
-        for (var place = 0; place < places.Count; place++)
+        foreach (var made in madeAt)
         {
+            foreach (var (way, section) in made) (found[way] ??= []).Add(section);
+        }
+
+        var offsets = new int[wayCount + 1];
+        for (var way = 0; way < wayCount; way++) offsets[way + 1] = offsets[way] + (found[way]?.Count ?? 0);
+
+        var sections = new CrossedSection[offsets[wayCount]];
+        var most = 0;
+        for (var way = 0; way < wayCount; way++)
+        {
+            found[way]?.CopyTo(sections, offsets[way]);
+            most = Math.Max(most, offsets[way + 1] - offsets[way]);
+        }
+
+        return new WayCrossings(offsets, sections) { MostCrossedByOne = most };
+
+        // Every movement at the place sampled once and then paired, which is this method's third remark.
+        List<(int Way, CrossedSection Section)> AtOnePlace(Placing placing, int place)
+        {
+            var atThePlace = placing.AtThePlace;
+            var pointsM = placing.PointsM;
+            var walked = placing.Walked;
+            var made = new List<(int Way, CrossedSection Section)>();
+
             atThePlace.Clear();
             walked.Clear();
             foreach (var lane in places.LanesArriving(place))
@@ -492,41 +524,43 @@ internal sealed class RoadGraph : ILaneEnds
                     Measure(first, second);
                 }
             }
+
+            return made;
+
+            // <b>Both intervals go into both entries</b>: a car reads the far one to know what it takes and
+            // its own to know when it is past it. The measurement itself is <see cref="LineOverlap"/>'s,
+            // which is also what the ways laid off a junction are measured with.
+            void Measure(int first, int second)
+            {
+                var a = atThePlace[first];
+                var b = atThePlace[second];
+                var sampledA = new SampledWay(
+                    pointsM[first].AsSpan(0, walked[first].Count), 0f, walked[first].StepM,
+                    lines.ConnectorLengthM[a]);
+                var sampledB = new SampledWay(
+                    pointsM[second].AsSpan(0, walked[second].Count), 0f, walked[second].StepM,
+                    lines.ConnectorLengthM[b]);
+                if (!LineOverlap.Measure(sampledA, sampledB, clearanceM, out var onA, out var onB)) return;
+
+                var wayA = TownWays.WayOfRoadConnector(laneCount, a);
+                var wayB = TownWays.WayOfRoadConnector(laneCount, b);
+                made.Add((wayA, new CrossedSection(wayB, onB.FromM, onB.ToM, onA.FromM, onA.ToM)));
+                made.Add((wayB, new CrossedSection(wayA, onA.FromM, onA.ToM, onB.FromM, onB.ToM)));
+            }
         }
+    }
 
-        var offsets = new int[wayCount + 1];
-        for (var way = 0; way < wayCount; way++) offsets[way + 1] = offsets[way] + (found[way]?.Count ?? 0);
+    /// <summary>
+    /// One thread's working set for a junction: the movements it holds, a buffer of samples for each, and
+    /// how far each of them was walked. Grown to the widest place a thread has met and kept for its next.
+    /// </summary>
+    sealed class Placing
+    {
+        public List<int> AtThePlace { get; } = [];
 
-        var sections = new CrossedSection[offsets[wayCount]];
-        var most = 0;
-        for (var way = 0; way < wayCount; way++)
-        {
-            found[way]?.CopyTo(sections, offsets[way]);
-            most = Math.Max(most, offsets[way + 1] - offsets[way]);
-        }
+        public List<Vector2[]> PointsM { get; } = [];
 
-        return new WayCrossings(offsets, sections) { MostCrossedByOne = most };
-
-        // <b>Both intervals go into both entries</b>: a car reads the far one to know what it takes and its
-        // own to know when it is past it. The measurement itself is <see cref="LineOverlap"/>'s, which is
-        // also what the ways laid off a junction are measured with.
-        void Measure(int first, int second)
-        {
-            var a = atThePlace[first];
-            var b = atThePlace[second];
-            var sampledA = new SampledWay(
-                pointsM[first].AsSpan(0, walked[first].Count), 0f, walked[first].StepM,
-                lines.ConnectorLengthM[a]);
-            var sampledB = new SampledWay(
-                pointsM[second].AsSpan(0, walked[second].Count), 0f, walked[second].StepM,
-                lines.ConnectorLengthM[b]);
-            if (!LineOverlap.Measure(sampledA, sampledB, clearanceM, out var onA, out var onB)) return;
-
-            var wayA = TownWays.WayOfRoadConnector(laneCount, a);
-            var wayB = TownWays.WayOfRoadConnector(laneCount, b);
-            (found[wayA] ??= []).Add(new CrossedSection(wayB, onB.FromM, onB.ToM, onA.FromM, onA.ToM));
-            (found[wayB] ??= []).Add(new CrossedSection(wayA, onA.FromM, onA.ToM, onB.FromM, onB.ToM));
-        }
+        public List<(int Count, float StepM)> Walked { get; } = [];
     }
 
     /// <summary>Two lanes no connector joins, which is every pair that does not meet at a node.</summary>

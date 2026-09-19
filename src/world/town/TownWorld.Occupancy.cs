@@ -424,12 +424,11 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The ground one side of a stretch is actually walked down</b>, which is where its line was laid and
-    /// not the width the figures asked for (<see cref="WalkingNetwork.LaneOffsetM"/>). A stretch too tight
-    /// for a full lane is walked at whatever offset fits it, and taken at the shipped figure the two sides
-    /// of it stand over each other.
+    /// <b>The ground this lane is actually walked down</b> (<see cref="WalkingNetwork.LaneWidthM"/>), so a
+    /// zebra's band and a pavement's are each read off the lane that carries them rather than off one figure
+    /// for the town.
     /// </summary>
-    float WalkedWidthM(int edge) => _walking.LaneOffsetM(edge) * 2f;
+    float WalkedWidthM(int edge) => _walking.LaneWidthM(edge);
 
     /// <summary>
     /// <b>The right of way whoever is on a way holds its ground with</b> (TER-5e) — the same kinds

@@ -5,6 +5,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Terrain;
 using Xunit;
@@ -125,15 +126,16 @@ public class GroundMeshTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Read off the shades and not off the surfaces</b>, the walk and both kerbs wearing the same one:
-    /// what tells a kerb from the walk it bounds is the tint, which is the whole of how a line beside a road
-    /// is drawn here.
+    /// <b>Read off the shades and not off the surfaces</b>: each kerb wears the surface of the ground it
+    /// bounds — the walk's own the concrete, the town's the tarmac — so what tells a line from that fill is
+    /// the tint, which is the whole of how a line beside a road is drawn here.
     /// </para>
     /// <para>
     /// <b>The walk's own shade is the shore's too</b>, the shore being pavement drawn plain, so the first
     /// triangle wearing it is the walk's and the last is whichever of the two was laid later. That is why the
-    /// walk is read by where it starts. <b>And the last tarmac is a slab rather than the carriageway</b>, to
-    /// the same end: what the town's kerb is asked to be over is every piece of tarmac the town lays.
+    /// walk is read by where it starts. <b>And the last plain tarmac is a slab rather than the
+    /// carriageway</b>, to the same end: what the town's kerb is asked to be over is every piece of tarmac
+    /// the town lays as a surface.
     /// </para>
     /// </remarks>
     [Theory]
@@ -150,23 +152,31 @@ public class GroundMeshTests
         var tarmacLast = -1;
         for (var index = 0; index + 2 < mesh.Indices.Length; index += 3)
         {
+            // <b>The ground, and not the paint over it</b> (<see cref="GroundMesh.FirstMarkVertex"/>): a
+            // lane line wears the tarmac it is painted on and is laid after every kerb, so a walk counting
+            // it reads the last tarmac in the town as a dash.
+            if (mesh.Indices[index] >= mesh.FirstMarkVertex) break;
+
             var vertex = mesh.Vertices[(int)mesh.Indices[index]];
             if (vertex.Surface == Surface.Tarmac)
             {
-                tarmacFirst = Math.Min(tarmacFirst, index);
-                tarmacLast = index;
+                if (vertex.Tint == GroundMesh.Paint)
+                {
+                    kerbFirst = Math.Min(kerbFirst, index);
+                }
+                else
+                {
+                    tarmacFirst = Math.Min(tarmacFirst, index);
+                    tarmacLast = index;
+                }
             }
 
             if (vertex.Surface != Surface.Pavement) continue;
 
-            if (vertex.Tint == GroundMesh.Edge)
+            if (vertex.Tint == GroundMesh.Stone)
             {
                 walkKerbFirst = Math.Min(walkKerbFirst, index);
                 walkKerbLast = index;
-            }
-            else if (vertex.Tint == GroundMesh.Kerb)
-            {
-                kerbFirst = Math.Min(kerbFirst, index);
             }
             else if (vertex.Tint == Vector3.One)
             {
@@ -198,7 +208,7 @@ public class GroundMeshTests
         var config = SimConfig.Shipped();
         KerbCovers(
             map, Ground(map), Drawn(Towns.Of(map).Paving(config).Rings(config).Carriageway.Rings),
-            GroundMesh.Kerb, config.Road.KerbWidthM, "the boundary");
+            GroundMesh.Paint, config.Road.KerbWidthM, "the boundary");
     }
 
     /// <summary>
@@ -213,7 +223,7 @@ public class GroundMeshTests
         var config = SimConfig.Shipped();
         KerbCovers(
             map, Ground(map), Drawn(Towns.Of(map).Paving(config).Rings(config).WalkEdge),
-            GroundMesh.Edge, config.Road.KerbWidthM, "the walk's outer face");
+            GroundMesh.Stone, config.Road.KerbWidthM, "the walk's outer face");
     }
 
     /// <summary>
@@ -247,9 +257,9 @@ public class GroundMeshTests
         var kerbM = config.Road.KerbWidthM;
 
         FillHides(map, Ground(map), GroundMesh.Filled(Drawn(rings.Carriageway.Rings), kerbM),
-            GroundMesh.Kerb, "the carriageway");
+            GroundMesh.Paint, "the carriageway");
         FillHides(map, Ground(map), GroundMesh.Filled(Drawn(rings.WalkEdge), kerbM),
-            GroundMesh.Edge, "the walk");
+            GroundMesh.Stone, "the walk");
     }
 
     /// <summary>One fill's own boundary walked, with every place along it asked whether it wears kerb.</summary>
@@ -302,9 +312,8 @@ public class GroundMeshTests
         var rings = Towns.Of(map).Paving(config).Rings(config);
         var halfM = config.Road.KerbWidthM * 0.5f;
 
-        KerbKeepsTo(map, Ground(map), Drawn(rings.Carriageway.Rings), GroundMesh.Kerb, halfM, "the boundary");
-        KerbKeepsTo(map, Ground(map), Drawn(rings.WalkEdge), GroundMesh.Edge, halfM,
-            "the walk's outer face", Surface.Pavement);
+        KerbKeepsTo(map, Ground(map), Drawn(rings.Carriageway.Rings), GroundMesh.Paint, halfM, "the boundary");
+        KerbKeepsTo(map, Ground(map), Drawn(rings.WalkEdge), GroundMesh.Stone, halfM, "the walk's outer face");
     }
 
     /// <summary>
@@ -316,8 +325,7 @@ public class GroundMeshTests
     /// reaches, and a corner half a width off it stands in a cell that box may just fail to touch.
     /// </remarks>
     static void KerbKeepsTo(
-        string map, GroundMesh mesh, Vector2[][] lines, Vector3 tint, float halfM, string named,
-        Surface? surface = null)
+        string map, GroundMesh mesh, Vector2[][] lines, Vector3 tint, float halfM, string named)
     {
         var stretches = new Dictionary<(int X, int Y), List<(Vector2 FromM, Vector2 OntoM)>>();
         foreach (var line in lines)
@@ -339,7 +347,7 @@ public class GroundMeshTests
         }
 
         var strayed = new List<(Vector2 AtM, float OffM)>();
-        foreach (var triangle in Tinted(mesh, tint, surface))
+        foreach (var triangle in Tinted(mesh, tint))
         {
             foreach (var cornerM in triangle)
             {
@@ -505,19 +513,25 @@ public class GroundMeshTests
     }
 
     /// <summary>
-    /// Every triangle of the ground wearing one shade, as three corners each — and of one surface where the
-    /// caller names it, <b>a shade being shared by the two things drawn in it</b>: the walk's own kerb and a
-    /// deck's rim are both the surface darkened (<c>GroundMesh.Edge</c>), on the pavement and on the deck.
+    /// Every triangle of the ground wearing one shade, as three corners each — <b>which is what names a
+    /// line here</b>: each of the two kerbs wears the surface of the ground it bounds and is told from that
+    /// ground, and from the other kerb, by its tint alone.
     /// </summary>
-    static List<Vector2[]> Tinted(GroundMesh mesh, Vector3 tint, Surface? surface = null)
+    /// <remarks>
+    /// <b>The ground and not the marks over it</b> (<c>GroundMesh.FirstMarkVertex</c>): the town's kerb is
+    /// laid in the paint's own shade on the carriageway's own surface, so a dash is a triangle neither the
+    /// tint nor the surface tells from it and every claim here is about the line rather than about the
+    /// markings.
+    /// </remarks>
+    static List<Vector2[]> Tinted(GroundMesh mesh, Vector3 tint)
     {
         var vertices = mesh.Vertices;
         var triangles = new List<Vector2[]>();
         for (var index = 0; index + 2 < mesh.Indices.Length; index += 3)
         {
             var first = (int)mesh.Indices[index];
+            if (first >= mesh.FirstMarkVertex) break;
             if (vertices[first].Tint != tint) continue;
-            if (surface is not null && vertices[first].Surface != surface) continue;
 
             triangles.Add(
             [
@@ -675,11 +689,16 @@ public class GroundMeshTests
     /// says its marks begin at — the kerb line is paint too, so brightness alone no longer says what
     /// was painted <em>on</em> the carriageway rather than <em>at the edge of</em> it.
     /// </summary>
+    /// <remarks>
+    /// <b>And it stops where the arrows start</b> (<see cref="GroundMesh.FirstArrowVertex"/>): a glyph is a
+    /// ribbon and a head rather than a mark of four corners, so the walk in fours has nothing to say about
+    /// one and what an arrow claims is asked of <c>LaneArrows</c> instead.
+    /// </remarks>
     static List<Vector2> Marks(GroundMesh mesh)
     {
         var vertices = mesh.Vertices;
-        var marks = new List<Vector2>((vertices.Length - mesh.FirstMarkVertex) / 4);
-        for (var corner = mesh.FirstMarkVertex; corner + 3 < vertices.Length; corner += 4)
+        var marks = new List<Vector2>((mesh.FirstArrowVertex - mesh.FirstMarkVertex) / 4);
+        for (var corner = mesh.FirstMarkVertex; corner + 3 < mesh.FirstArrowVertex; corner += 4)
         {
             marks.Add((vertices[corner].PositionM + vertices[corner + 1].PositionM +
                        vertices[corner + 2].PositionM + vertices[corner + 3].PositionM) * 0.25f);
@@ -692,8 +711,8 @@ public class GroundMeshTests
     static List<Vector2[]> Quads(GroundMesh mesh)
     {
         var vertices = mesh.Vertices;
-        var quads = new List<Vector2[]>((vertices.Length - mesh.FirstMarkVertex) / 4);
-        for (var corner = mesh.FirstMarkVertex; corner + 3 < vertices.Length; corner += 4)
+        var quads = new List<Vector2[]>((mesh.FirstArrowVertex - mesh.FirstMarkVertex) / 4);
+        for (var corner = mesh.FirstMarkVertex; corner + 3 < mesh.FirstArrowVertex; corner += 4)
         {
             quads.Add(
             [
@@ -794,5 +813,205 @@ public class GroundMeshTests
         var thinned = GroundMesh.Filled(line, config.Road.KerbWidthM).Sum(ring => ring.Length);
 
         Assert.True(thinned < corners, $"{map} thins {corners} corners of its line to {thinned}");
+    }
+
+    /// <summary>
+    /// <b>Every lane line stands between two ribbons that touch</b> (TER-6): two bands of driven ground
+    /// reach the mark's own place and neither covers it, which is what "between" means and is the whole of
+    /// where this paint is allowed to be. Down a street the two are the lanes either way; across a junction
+    /// a run carries on through, the two straight movements over it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Measured against the ribbons and not against the line the paint was drawn on</b>, which would be
+    /// the shape checked against the field it was drawn from. How far a mark may stand off a ribbon's edge
+    /// is the sag its own chords are laid at (<see cref="GroundMesh.ChordSagM"/>), a mark being quadded
+    /// across the curve it is painted on.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void EveryLaneLineStandsBetweenTwoRibbonsThatTouch(string map)
+    {
+        var config = SimConfig.Shipped();
+        var plan = Towns.Of(map);
+        var paving = plan.Paving(config);
+        var beside = DrivenIndex(paving, config);
+
+        // The paint the mesh actually laid and not a second set struck here: what is being checked is the
+        // marks in the mesh, so a crossing this test placed for itself would exempt the wrong ground. The
+        // walk's two answers are kept apart the same way the mesh keeps them (WLK-10a): the stripes stand
+        // where it crosses and the bars behind what each arm holds behind.
+        var ends = paving.RoadEnds(config);
+        var crossings = Crossings.Lay(plan, config, ends.CrossedM);
+        var bars = BarCentres(paving, Crossings.Lay(plan, config, ends.HeldM), config);
+
+        var reachM = 0f;
+        for (var line = 0; line < paving.DrivenCount; line++)
+        {
+            reachM = MathF.Max(reachM, paving.DrivenWidthM(line) * 0.5f);
+        }
+
+        var near = new int[64];
+        var alongM = new float[64];
+        foreach (var atM in Marks(Ground(map)))
+        {
+            if (AtABar(bars, atM) || InACrossing(crossings, atM)) continue;
+
+            var found = Math.Min(beside.Near(atM, reachM + GroundMesh.ChordSagM, near, alongM), near.Length);
+            var touching = 0;
+            for (var line = 0; line < found; line++)
+            {
+                var offM = Vector2.Distance(
+                    atM, Spline.SampleAt(paving.ArcsOfDriven(near[line]), alongM[line]).PositionM);
+                if (MathF.Abs(offM - (paving.DrivenWidthM(near[line]) * 0.5f)) <= GroundMesh.ChordSagM) touching++;
+            }
+
+            Assert.True(touching >= 2,
+                $"{map} paints a mark at {atM} that {touching} of the {found} ribbons near it reach the edge of");
+        }
+    }
+
+    /// <summary>
+    /// <b>A line stands between one bay and the next, and none stands down the middle of a bay</b>
+    /// (GEN-4m). What a rank of bays shares is the one boundary the town's own geometry draws nowhere: the
+    /// outside of it is the kerb the pavement carries, so a stroke anywhere but between two of them is a
+    /// line painted twice or a bay cut in half.
+    /// </summary>
+    /// <remarks>
+    /// <b>Staged on a town of its own, because the maps this suite asks its ordinary questions of carry no
+    /// car park</b> (<c>Towns.Brief</c>): a lot is counted off the buildings, and the fixture and the city
+    /// plan none.
+    /// </remarks>
+    [Fact]
+    public void ALineStandsBetweenOneBayAndTheNext()
+    {
+        var config = SimConfig.Shipped();
+        var plan = Towns.LayFresh(Towns.Brief(Towns.CitySeed, buildings: BuildingsWithLots));
+        var quads = Quads(GroundMesh.Build(plan, config));
+        var parks = plan.CarParks;
+
+        // The staging and not the claim: a brief that stopped laying lots would leave every case below
+        // asking nothing, and pass.
+        Assert.True(parks.Count > 0, "the town staged here lays no car park");
+
+        for (var park = 0; park < parks.Count; park++)
+        {
+            var last = parks.BayOffsets[park + 1];
+            for (var bay = parks.BayOffsets[park]; bay < last; bay++)
+            {
+                var middleM = Middle(plan, parks.Road[bay]);
+                Assert.False(Painted(quads, middleM), $"a line stands down the middle of bay {bay}");
+
+                // The bays of one side are laid in the order they stand along the street (GEN-53), so the
+                // next one is the neighbour this bay shares a boundary with — and the first of the other
+                // side is nobody's neighbour.
+                if (bay + 1 >= last || parks.Right[bay + 1] != parks.Right[bay]) continue;
+
+                var besideM = Middle(plan, parks.Road[bay + 1]);
+                Assert.True(Painted(quads, (middleM + besideM) * 0.5f),
+                    $"no line stands between bays {bay} and {bay + 1}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Where the town's bars stand, so the claim above can leave them out: a bar is laid <em>across</em> one
+    /// lane rather than between two ribbons (<see cref="StopBars"/>), and the ribbon either side of it is
+    /// the same one.
+    /// </summary>
+    static HashSet<(int X, int Y)> BarCentres(Paving paving, Crossings crossings, SimConfig config)
+    {
+        var bars = StopBars.Lay(paving.Lanes, crossings, config);
+        var centres = new HashSet<(int X, int Y)>(bars.Count);
+        foreach (var centreM in bars.CentreM) centres.Add(Millimetres(centreM));
+
+        return centres;
+    }
+
+    /// <summary>A place to the millimetre, which is how a mark is told from the bar it was laid as.</summary>
+    static (int X, int Y) Millimetres(Vector2 atM) =>
+        ((int)MathF.Round(atM.X * 1000f), (int)MathF.Round(atM.Y * 1000f));
+
+    /// <summary>
+    /// Whether a mark stands inside a crossing's band, which is what a zebra's stripes are: paint laid
+    /// <em>across</em> the carriageway rather than between two ribbons of it. A lane line stops short of the
+    /// paint at the end of its arm (TER-6) and runs on through a band a short road is crossed midway at
+    /// (WLK-10a), so what this leaves out is the stripes and whatever dash they are painted over.
+    /// </summary>
+    static bool InACrossing(Crossings crossings, Vector2 atM)
+    {
+        for (var crossing = 0; crossing < crossings.Count; crossing++)
+        {
+            var halfAlongM = crossings.DepthM[crossing] * 0.5f;
+            var halfAcrossM = crossings.SpanM[crossing] * 0.5f;
+            var offM = atM - crossings.CentreM[crossing];
+            if (offM.LengthSquared() > (halfAlongM + halfAcrossM) * (halfAlongM + halfAcrossM)) continue;
+
+            var along = crossings.Axis[crossing];
+            if (MathF.Abs(Vector2.Dot(offM, along)) <= halfAlongM
+                && MathF.Abs(Vector2.Dot(offM, Heading.RightOf(along))) <= halfAcrossM)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether a mark is one of those bars, <b>to the millimetre either way</b>: a quad's four corners
+    /// averaged back are its own centre to within the last bits of a float over a town a kilometre across,
+    /// and no other mark stands that near the middle of a bar.
+    /// </summary>
+    static bool AtABar(HashSet<(int X, int Y)> bars, Vector2 atM)
+    {
+        var (x, y) = Millimetres(atM);
+        for (var offX = -1; offX <= 1; offX++)
+        {
+            for (var offY = -1; offY <= 1; offY++)
+            {
+                if (bars.Contains((x + offX, y + offY))) return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Enough buildings that the town counts car parks off them, which is <c>CarParkTests</c>' figure.</summary>
+    const int BuildingsWithLots = 48;
+
+    /// <summary>The middle of one road, which for a bay's way is the middle of the ground that bay is reached over.</summary>
+    static Vector2 Middle(CityPlan plan, int road)
+    {
+        var line = plan.Roads.SegmentsOf(road);
+
+        return Spline.SampleAt(line, Spline.TotalLengthM(line) * 0.5f).PositionM;
+    }
+
+    /// <summary>Whether any mark covers a place — the marks alone, the ground under them being neither here nor there.</summary>
+    static bool Painted(List<Vector2[]> quads, Vector2 pointM)
+    {
+        foreach (var quad in quads)
+        {
+            if (Covers(quad, pointM)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Every line the town is driven on over a grid of this test's own, so which ribbons reach a mark costs
+    /// the cells round it rather than every lane and movement in the city. <b>Not the town's own index</b>
+    /// (<c>Paving.DrivenLines</c>): that one is shared between every case staged on the same map and a
+    /// query carries its scratch on it.
+    /// </summary>
+    static ChainIndex DrivenIndex(Paving paving, SimConfig config)
+    {
+        var building = new ChainIndex.Builder();
+        for (var line = 0; line < paving.DrivenCount; line++)
+        {
+            building.Add(line, paving.ArcsOfDriven(line), paving.DrivenLengthM(line));
+        }
+
+        return building.Seal(config.NearestChainCellM);
     }
 }

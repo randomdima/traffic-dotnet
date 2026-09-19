@@ -1,5 +1,193 @@
 # The kernel — decision log
 
+## 2026-09-18 — the rounding is a radius, and the third move is what rounds the other hand
+
+**A rounding measured in the distance moved is no rounding at all where a reader most wants one.** It was a
+share of the move, so a shape struck a hand's breadth off a car park had a hand's breadth of radius and came
+back exactly as rugged as the car park however far the dial was turned — and a shape struck at no distance
+was handed straight back, the whole figure having nothing to be a share of. **It is a length now**, in
+metres of radius, and the two figures are two questions: how far off the town the line stands, and how
+tightly it is allowed to turn.
+
+**Which needed a third move, because the two hands are rounded by opposite ones.** A corner turning in on
+the shape is a notch the fold cut and only a move inward rounds it; a corner the shape turns away at is
+sharp until a move outward rounds it, and the distance itself is such a move — it comes back as the arc of
+`d` about the corner whatever the radius says. So out by `d+r`, in by `2r`, out by `r`: the second move
+rounds the notches and the third rounds what the distance did not, and the three come to the distance asked
+for. **Below `r = |d|` the third move is the identity and is skipped**: the corners turning away are already
+arcs of `d ≥ r`, and a shape standing `d` off another is one a ball of `r` rolls the whole way round. The
+two answers agree exactly at `r = |d|`, so nothing steps at the seam — and the courses a pavement is laid
+on, struck at half their own distance, are the construction they were before to the metre.
+
+**Past the distance it cuts the corner, and that is stated rather than guarded against.** A corner turning
+away stands at exactly the distance moved; a radius bigger than the distance laid across it is a chord of
+that arc, nearer the town the whole way. There is no construction that rounds such a corner and leaves the
+line where it was, so what the figure buys past that point is the shape a ball of that radius rolls round —
+which is precisely what a rounding at no distance at all has to mean. **The one-sidedness a kerb needs is
+still a property and not a test**: it holds wherever the radius is inside the distance, and the layers the
+town is laid with are all struck there.
+
+**A radius of several street widths is still a coin toss, and the reading says so.** The sweep the probe
+prints (`--bench outset`) now crosses distances with radii instead of shares: at nought moved, a city's
+boundary goes from 1 882 corners left at 180 degrees to 8 at 4 as the radius goes 0 → 8 m, and the
+half-metre and two-metre columns fall away evenly down every distance. **At eight metres of radius it does
+not**: a few dozen joins come back at 180 degrees and a handful of runs come back open, at distances from
+two metres up. The move inward of `2r` is 16 m there, which leaves a town's shape in slivers, and the graze
+the ring walk may close across is `√(2·ε·d) + 0.2` — three quarters of a metre at that move, against
+features a good deal smaller. It is a figure nothing in the town asks for and it is printed rather than
+hidden.
+
+## 2026-09-18 — a rounding is the same move run twice, and three corners were solved wrong
+
+**The smoothing was a figure that did nothing at a pavement's scale and something else at a probe's.** It
+trimmed each corner back by the tangent its own turn asked for and put a biarc across the gap, and then
+refused the fill where it turned further than what it replaced or read nearer the shape than the distance.
+Asked of a shipped city's boundary, the two guards refused most of what they were offered: at a metre moved
+and a half share, 861 fills of 3 539 corners were kept and the answer came back with 434 of its 1 024
+notches. **And the figure was not monotonic in either of its own two numbers** — at six metres a full
+rounding left 706 notches where five and a half left 65, because the bigger radius reaches inside more often
+and is refused for it. A dial that rounds a corner at four metres, leaves it at four and a half and rounds it
+again at five is not a figure anybody can set.
+
+**It is the move itself now, run twice**: out by the distance and the radius, then back in by the radius. A
+corner a move closes comes back as the arc of the distance moved about it, so the move back in rounds every
+notch at exactly the radius by the one construction that already closes a fold, cuts what went inside and
+strings what is left — and a straight stretch, moved out by `d+r` and back by `r`, is where it was. There is
+no claim, no biarc, no turn budget and no second one-sided test: **the answer cannot come nearer the shape
+than the distance because every place on it stands within `r` of a place standing `d+r` off**. Four hundred
+lines went with the guards. The city's boundary at a metre and a half share now comes back with 161 notches
+of 1 024, the sharpest of them 11 degrees against 142, and the count falls at every distance as the share
+rises. What is left is the ring's own grain: a rounding shorter than the tenth of a metre a piece has to be
+is a corner nothing can take out.
+
+**Running the same construction twice, at distances the town never asks it for, found three faults in it.**
+
+- **A piece the move turns inside out was dropped, and it took its two corners with it.** What stood between
+  its neighbours was then a chord, which the fold test deletes for standing inside — a two-metre hole with
+  both ends at exactly the right distance, four of them in a city. The piece is kept now, as the arc of
+  `|R−d|` about the same centre walked the other way: every point of it stands exactly the distance off the
+  piece it came from, so it is a candidate like any other and the loop it makes is a fold like any other.
+- **A corner's round was bent by the sign of the turn, and the turn is not what says which side the corner
+  is on.** A corner is offered on the chords its two pieces subtend and struck on the tangents they meet at,
+  and where a piece is a hand's breadth of tight bend the two disagree — at which point the arc is struck
+  about the corner's mirror image, twice the distance away, and runs *into* the shape. It is the move's own
+  sign that says where the centre is, the arc starting at the corner moved off it. That one was drawing
+  spikes a metre inside a pavement, and a walking lane that ran 656 metres between two points 3.8 metres
+  apart.
+- **A ring the walk closed across a graze was handed back as a hole.** The walk may pair two ends as far
+  apart as the caller's own arithmetic loses (`Grazed`, a third of a metre at these distances); whether the
+  run it came back with was shut was then read at a weld, a tenth. A ring walked right round to its own
+  first stretch is closed whatever the last hand-over measures, and it says so itself now — the one ring the
+  walk cannot say it of being the one kept as a single stretch, which is read for where its own two ends
+  stand as before.
+
+**What the probe reads is the figure across its range and not one example of it.** `--bench outset` sweeps
+the move and the share and prints the notches left with the sharpest of them, because a count alone cannot
+tell a degree of kink at the grain of the ring from a right angle in the middle of a pavement. It is asked
+at a half share now rather than a quarter, that being what a walking lane is struck at (WLK-14).
+
+**Two distances still leave a run open, and they are past anything the town asks for**: twelve metres, and a
+full rounding at three and at eight. The sweep prints them.
+
+## 2026-09-17 — a chain is refused by its box, and a parallel pass is handed chunks
+
+**A candidate was projected onto before anything asked whether it was near.** `ChainIndex.Near` reads the
+cells round a place and then walks every chain it was handed — an `Atan2` and a `Sinc` a piece — to find
+out that most of them are nowhere near it. The cells are the scale of the lattice and not of the question:
+the movements are binned eight metres across and asked what stands within two. Each chain's own box is kept
+at sealing now, and a place further outside it than the radius is refused before the projection. It is the
+box the binning already walked, so nothing is computed twice, and it is a superset of its chain by the
+half-step margin, so a refusal cannot change an answer. `Spline.ProjectM` fell from 2 626 ms of the open's
+CPU to 1 655, and **the tick took it too** — the shipped city's went 3 262.6 µs to 3 116.0.
+
+**This is not the floor that was tried and dropped below, and the difference is the shape of the bound.**
+That one bounded a place's distance by how long a piece is, which buys nothing on chains of one piece or
+two. A box is two dimensions rather than one and is the whole chain's rather than a piece's, which is
+exactly the case the other could not reach: a lane a street away shares a cell with nothing it is near.
+`Nearest` takes the same refusal against the best distance standing, and strictly rather than as far — a
+chain whose box is exactly as near could still tie and carry the lower number, which is what settles a tie.
+
+**`Parallel.For` charges per iteration and a town has hundreds of thousands of them.** Each one is a
+delegate call, a range step, a GC poll and a `TickCount64` read for the loop's own timeout: 1 171 ms of CPU
+in the ground stage, against the merge's 2 600 of real work. `InChunks.Over` hands out ranges instead —
+sixteen a processor, short enough that the tail is a sixteenth of a thread's share — and that CPU went to
+80 ms. **On sixteen cores it bought no wall clock**, the merge's parallel passes not being what the open
+waits on; it is kept because the waste was real and a handset has fewer cores to waste.
+
+**And the shape every build-time pass now takes is: ask wide, file in order.** Four of them were one thread
+walking thousands of independent items — the pavement's ground veto, the junction crossings, the props
+standing in the road, the places a car park could be cut. What they have in common is that the *question*
+is of standing data nothing writes to, while the *answer* goes somewhere order-dependent: a builder welds
+onto what it already holds, a claim map is a claim map. So the asking goes as wide as the machine and the
+filing stays the walk it was, each item's answer in a slot of its own. **That is a property of the loop and
+not of the numbering under it** — `RoadGraph.LayCrossings` holds its sections per place and strings them
+afterwards, though no two places can reach one way's list, so that nothing rests on their not doing.
+
+## 2026-09-16 — a query takes a scan, and the merge is asked a piece at a time
+
+**Opening Odesa cost six seconds and half of it was the merge.** A profile put a third of the whole open in
+`Spline.ProjectM` and the transcendentals under it, and `--bench load` now prints the stage that spent it.
+Four things came out of reading it, and **not one of them moves a figure**: the boundary, the rings, the
+lane offsets and every count `--bench outset` and `--bench census` print are the same on all three maps
+before and after.
+
+**A projection hands back how far off it landed.** Every caller that wanted a nearest sampled the chain a
+second time to measure what the loop had already computed — `ChainIndex.Near` did, and what it handed back
+was then sampled a third time by whoever weighed it. The distance is the loop's own float now, and it is
+that rather than a second reading of the answer: a caller measuring back from `SampleAt` walks the chain
+again and can land on the other piece of a joint the projection stood exactly on.
+
+**A floor that lets a piece be passed over before it is measured was tried and is not kept.** No point of a
+piece stands further from its own start than the piece is long, which bounds the distance to it for nothing
+— but the chains this is asked of are one piece or two, so there is nothing to pass over: the ground's own
+ask read 106–107 ns either way and an open read the same to within its noise. **What a projection must not
+buy speed with is the measuring itself**, because a nearest that moves moves which lane a body snaps to
+(`Spline.NearestOnArc`), and with the pruning worth nothing there was nothing left on that side to take.
+
+**The merge's index is of pieces and is binned as finely as the walk that bins it.** It held ribbons at the
+lattice the lines use — a cell two road widths across — so a place asking which boundaries stand at it was
+handed every piece running through seventy square metres of a junction, and each was then rejected against
+its own box. Both halves of that were wrong: the entries are pieces now, and the cell is
+`ChainIndex.FinestCellM`, below which a finer table holds the same pieces in more cells. The merge alone
+fell 2 700 ms to 2 200 on the shipped city.
+
+**And a query may name its own working set.** An index's candidate set and its stamps were the index's, so
+a query was a write and two threads could not ask at once — the reason the suite's geometry classes do not
+run beside one another ([verification](../../../docs/verification.md#fixtures)). They are a
+`ChainIndex.Scan` now, one per caller that wants one, and the index keeps one of its own for everybody
+else — so the tick's path is the same path and pays nothing for this.
+
+**What that bought is the merge on as many threads as there are.** It is three passes and each one is a
+loop with nothing shared in it, once the writes are held instead of made: **cutting holds its cuts** and
+files them when the pass is over (`Merge.Held`), because a cut lands on whichever piece stands at the place
+and that is any piece in the town; **weighing writes only its own ribbon's answer**, which is kept in that
+ribbon's slot and strung in ribbon order. The order they are drained in cannot reach the shape, because
+every list of cuts is sorted before it is read and the same cuts sort to the same sequence. Laid five times
+over, and once on three cores instead of sixteen, the city comes back byte for byte.
+
+## 2026-09-16 — a line beside a line is an offset, and an offset has corners
+
+`Spline.OffsetInto` moves each piece of a chain and hands back the same count, which is the whole of the
+answer only where the chain is one smooth curve. A chain that turns a corner comes apart at it: the two
+moved pieces stand `2·d·sin(θ/2)` apart where the corner opens, and run through one another where it
+closes. **That is not a tolerance to widen but a construction that was never finished** — the same one
+`ArcOutset` finishes for a ring, and `Beside` is it for an open line: the arc of the offset's own radius
+about the place the line turned (`Corner`) where the corner opens, the place the two moved pieces cross
+where it closes, and a chord where neither is there to be had.
+
+**The fold is cut against the two pieces that made it and never against the whole line**, which is what
+parts it from the ring's. A shape's offset is cut by every piece of the shape, because a feature anywhere
+may swallow an offset anywhere; a line beside a line is one hand of that over a few metres, and a fold
+deeper than the pieces that made it is a stretch the caller has already cut somewhere else.
+
+**And whether a joint is a corner is asked of the two moved ends, not of the angle between them.** A chain
+fitted to a bend turns a little at every joint by construction, so the angle says *corner* thousands of
+times where the moved ends already meet — and the crossing that would make one of those good is two nearly
+tangent circles meeting tens of metres away. Read off the angle, Odesa's pavement came back with cuts of
+up to 24 m taken out of it at joints turning a thousandth of a radian; read off the ends, with none. The
+crossing itself is now checked the same way: two readings of one place that do not agree are not a
+crossing.
+
 ## 2026-09-15 — a ring is handed back with its pieces meeting, and the walk is what makes them
 
 **A frame showed the boundary break.** At a corner of Odesa the red line of the perimeter layer stopped,

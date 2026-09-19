@@ -4,7 +4,7 @@ namespace TrafficSimulation.Agents.Person.Body;
 
 /// <summary>One look: a sheet, the one frame it lies down as, and the height it is drawn at. Only the look is data.</summary>
 /// <remarks>
-/// Walk speed, turn rate and the collision circle come from <see cref="Shared.Config.SimConfig"/> for
+/// Walk speed, turn rate and the collision circle come from <see cref="SimConfig"/> for
 /// everyone — a variant that could carry its own would be a second place a walker's pace is decided.
 /// </remarks>
 /// <param name="DownSheetPath">

@@ -1,4 +1,5 @@
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.World.Statics;
 
@@ -10,9 +11,9 @@ namespace TrafficSimulation.World.Statics;
 /// <remarks>
 /// <para>
 /// <b>Authored rather than drawn</b> (GEN-9). Which building is the hospital is a fact about the town it
-/// stands in — it is the one on a corner with the parking outside it — and a shuffle taken at load could
-/// only ever be told which buildings <em>exist</em>. The placement itself is
-/// <see cref="ServicePlacement"/>, run when a map is authored; what is here is the answer read back.
+/// stands in — it is the one standing at the end of the yard that was cut for it — and a shuffle taken at
+/// load could only ever be told which buildings <em>exist</em>. The placement itself is
+/// <c>CityGen.Gen.BuildingStage</c> (GEN-55), run as the town is laid; what is here is the answer read back.
 /// </para>
 /// <para>
 /// <b>A building serves one use at most</b> (SRV-1), which the file settles rather than the order the
@@ -65,11 +66,6 @@ internal sealed class BuildingRoster
     /// is</b> and a service vehicle is a car and a crew apiece, so the count has to be answerable from
     /// the plan alone.
     /// </summary>
-    public static int CountIn(CityPlan plan, float perBuilding, int most)
-    {
-        if (plan.Buildings.Count == 0) return 0;
-
-        var wanted = (int)MathF.Round(plan.Buildings.Count * perBuilding);
-        return Math.Clamp(wanted, 1, Math.Min(most, plan.Buildings.Count));
-    }
+    public static int CountIn(CityPlan plan, float perBuilding, int most) =>
+        SimConfig.ServicesFor(plan.Buildings.Count, perBuilding, most);
 }

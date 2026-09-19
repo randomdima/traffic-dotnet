@@ -15,6 +15,27 @@
          measurement of its own, never the default. -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- Both measured: server GC is worth nothing here and background GC costs 13 %. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Tiering promotes a method to tier 1 once it has been called enough times, but only after the
+         call-counting delay has expired — and that delay restarts every time any method is called for
+         the first time. It exists so that a startup finishes before the tiering machinery begins,
+         which assumes a process stops meeting new methods within a few hundred milliseconds. Opening
+         a map does not: it walks the generator, the geometry, the mesh and the world in sequence,
+         meeting new methods the whole way, so the timer is pushed forward until the load is over and
+         every stage of it runs in quick-JIT code. Odesa opens in 2844 ms with the delay and 1817 ms
+         without, and the tick is unmoved either way (the town probe reads 3325.8 against 3262.6 µs,
+         nothing allocated on both). Quick JIT and Dynamic PGO both stay on: turning either off is
+         slower than this, at 1992 ms and 2528 ms.
+         It is not a documented runtimeconfig property. It reaches the runtime through CLRConfig, the
+         same path as the DOTNET_TC_CallCountingDelayMs variable, and a runtime that renamed it would
+         slow the load back down in silence. The load probe is what would notice. -->
+    <RuntimeHostConfigurationOption Include="System.Runtime.TieredCompilation.CallCountingDelayMs" Value="0" />
+  </ItemGroup>
+
+  <PropertyGroup>
     <!-- The engine's sources are src/, minus the two projects of their own that live beside them and
          the other heads' halves of the machine: a folder named web/ or android/ under src/ is another
          head's (traffic-dotnet.web.csproj, traffic-dotnet.android.csproj), and this one compiles

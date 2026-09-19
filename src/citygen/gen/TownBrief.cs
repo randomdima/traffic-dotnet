@@ -92,14 +92,15 @@ internal sealed class TownBrief
     public required int Cars { get; init; }
 
     /// <summary>
-    /// How many buildings the town plans. <b>It is what its car parks are counted off</b>
-    /// (<see cref="SimConfig.CarParksFor"/>, GEN-53): they are cut into the roads that the buildings front,
-    /// spread as evenly over the town as the ground affords, and <b>a count the ground cannot carry is what
-    /// fitted</b> (GEN-8), reported and never retried.
+    /// How many buildings the town plans (GEN-54). <b>It is what its car parks and its services are counted
+    /// off too</b> (<see cref="SimConfig.CarParksFor"/>, <see cref="SimConfig.HospitalsFor"/>, GEN-53,
+    /// GEN-55), so a map that grows carries the parking and the stations for what it grew into without
+    /// anybody authoring a second count.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing stands a building yet</b>, the stage that placed them being one of the known gaps: what
-    /// reads this today is the car parks alone.
+    /// <b>A count the ground cannot carry is what fitted</b> (GEN-8): the buildings are stood along the
+    /// pavement's outer face and what does not fit is not built, which the census reports rather than the
+    /// generator trying again.
     /// </remarks>
     public int Buildings { get; init; }
 

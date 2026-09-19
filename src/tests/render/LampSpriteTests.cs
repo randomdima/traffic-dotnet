@@ -51,8 +51,8 @@ public class LampSpriteTests
     {
         var into = new SpriteInstance[fleet.Count * CarLamps.Most];
         written = LampSprites.Fill(
-            fleet, Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, TheHandsOn(handDrivenCar), viewCentreM,
-            new Vector2(200f, 200f), into);
+            fleet, Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, TheHandsOn(handDrivenCar),
+            alsoDrivenCar: -1, viewCentreM, new Vector2(200f, 200f), into);
 
         return into;
     }
@@ -251,12 +251,12 @@ public class LampSpriteTests
 
         var into = new SpriteInstance[CarLamps.Most];
         var first = LampSprites.Fill(
-            ambulance, Catalogue, Config, LensSheet, GlowSheet, 0f, TheHandsOn(-1), ambulance.PositionM[0],
+            ambulance, Catalogue, Config, LensSheet, GlowSheet, 0f, TheHandsOn(-1), alsoDrivenCar: -1, ambulance.PositionM[0],
             new Vector2(200f, 200f), into);
         var atStart = CellsOf(into, first).Where(cell => cell.Column >= 8).Select(cell => cell.Column).Order().ToArray();
 
         var swapped = LampSprites.Fill(
-            ambulance, Catalogue, Config, LensSheet, GlowSheet, halfPeriodS, TheHandsOn(-1), ambulance.PositionM[0],
+            ambulance, Catalogue, Config, LensSheet, GlowSheet, halfPeriodS, TheHandsOn(-1), alsoDrivenCar: -1, ambulance.PositionM[0],
             new Vector2(200f, 200f), into);
         var later = CellsOf(into, swapped).Where(cell => cell.Column >= 8).Select(cell => cell.Column).Order().ToArray();
 
@@ -308,7 +308,7 @@ public class LampSpriteTests
         var fleet = Lit(Catalogue.Ambulance);
         var into = new SpriteInstance[CarLamps.Most - 1];
         var written = LampSprites.Fill(
-            fleet, Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, TheHandsOn(-1),
+            fleet, Catalogue, Config, LensSheet, GlowSheet, elapsedS: 0f, TheHandsOn(-1), alsoDrivenCar: -1,
             fleet.PositionM[0], new Vector2(200f, 200f), into);
 
         Assert.Equal(0, written);

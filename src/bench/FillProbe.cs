@@ -4,6 +4,7 @@ using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Statics;
 
 namespace TrafficSimulation.Bench;
 
@@ -66,7 +67,7 @@ internal static class FillProbe
 
     public static void Run(string map, SimConfig config)
     {
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var shell = plan.Paving(config).Perimeter(config);
 
         var boundaryM = 0f;

@@ -10,15 +10,14 @@ so the ground it is about to cover is on screen rather than the ground behind it
 against the view** — a unit led off its own picture is a camera watching the road instead of the car. The
 same lead serves a walker and a car, because it is a time and not a distance.
 
-**A follow is eased and never nailed**, and in two places: the camera **closes on where it is going** over
-a span of real time, and the lead **swings round** over a longer one. The first is what the tick boundaries
-disappear into — the town is stepped at a fixed rate and drawn at the window's, so a camera pinned exactly
-to the unit steps the whole picture twice one frame and not at all the next. The second is what a change of
-heading disappears into: a walker stopping at a kerb reverses the offset, and an offset that crosses the
-picture in the time a body takes to turn is worse than no lead at all. **Both spans are real time and
-neither is ticks**, exactly as a pan is. **A unit that jumped is stood on outright** — a fresh selection, or
-somebody who got into a car — because easing across a screen's length is a camera that has lost it until it
-arrives.
+**The camera carries the unit's own motion exactly, and what is eased is the lead.** The unit stays on the
+same pixel while it moves, whether it stepped a hand's width or crossed the town — a camera that closed on
+it instead would pass on the part of every tick it had not yet covered, and that residue lands on the one
+body the reader is watching, which is a car shaking in the hand of whoever is driving it. What the ease is
+for is the unit's own manoeuvring: a walker stopping at a kerb reverses the lead, and a lead that crosses
+the picture in the time a body takes to turn is worse than no lead at all, so it **swings round** over a
+span of real time and not of ticks, exactly as a pan is measured. **What the town's own stepping shows is
+the town stepping**, which is the rate it is simulated at and not a fault of the camera.
 
 **Free pan always wins.** A manual pan, zoom or turn takes the camera off the unit it was following and
 **keeps it off until a selection is asked for again** — which is a click or a box on the town, so clicking

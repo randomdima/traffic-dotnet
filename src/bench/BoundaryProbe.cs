@@ -2,15 +2,17 @@ using System.Numerics;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Statics;
 
 namespace TrafficSimulation.Bench;
 
 /// <summary>
 /// <b>A town's own boundary, and that boundary moved off itself</b> (<see cref="ArcOutset"/>): how many rings
 /// each came to, <b>how well those rings join up</b>, and — where the move left a run open — <b>what the two
-/// ends of the hole are</b>. The move is read at one example distance, written out hole by hole, and then at
-/// each of the figures the town's own layers are struck at (<see cref="GroundRings"/>), which is a count of
-/// what closed and nothing more.
+/// ends of the hole are</b>. The move is read at one example distance, written out hole by hole, then
+/// <b>swept across the range the figure is offered over</b> (<see cref="Swept"/>), and then at each of the
+/// figures the town's own layers are struck at (<see cref="GroundRings"/>), which is a count of what closed
+/// and nothing more.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -41,11 +43,12 @@ internal static class BoundaryProbe
     const float MovedM = 5f;
 
     /// <summary>
-    /// And how round its corners are asked to be, <b>which is this probe's own and no layer of the town's</b>:
-    /// nothing struck off the boundary is smoothed (TER-3c.3), so what this reads is how the construction
-    /// behaves when it is asked to, which the bands below cannot say.
+    /// And the radius its corners are asked to come back at: <b>an example and a wide one, as the distance
+    /// is</b>. Every line the town lays is rounded at one figure of its own (TER-3c.10) and this is not it —
+    /// what this reads is how the construction behaves at half the distance moved, which is a corner fill
+    /// the size of a car and shows in a frame.
     /// </summary>
-    const float Smoothing = 0.25f;
+    const float RoundedM = MovedM * 0.5f;
 
     /// <summary>How many holes are written out one by one before the rest are left to the summary.</summary>
     const int Listed = 12;
@@ -64,11 +67,12 @@ internal static class BoundaryProbe
 
     public static bool Outset(string map, SimConfig config, Vector2? askedM = null)
     {
-        var plan = Maps.Plan(map, config);
+        var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var shell = plan.Paving(config).Perimeter(config);
-        var (rings, loose) = shell.Outset(MovedM, Smoothing);
+        var (rings, loose) = shell.Outset(MovedM, RoundedM);
 
-        Console.WriteLine($"outset — {plan.Name}, seed {plan.Seed}, moved {MovedM:F1} m, smoothing {Smoothing:F2}");
+        Console.WriteLine(
+            $"outset — {plan.Name}, seed {plan.Seed}, moved {MovedM:F1} m, rounded {RoundedM:F1} m");
         Console.WriteLine();
         Console.WriteLine($"  boundary     {shell.Chains.Length} rings, {Km(shell.Chains):F1} km, " +
                           $"{Pieces(shell.Chains)} pieces, {shell.Loose.Length} runs left open by the merge");
@@ -77,12 +81,19 @@ internal static class BoundaryProbe
                           $"{Hooked(shell.Chains, halfKerbM)} pieces turning in tighter than the " +
                           $"{halfKerbM:F2} m the kerb struck along them reaches");
         Console.WriteLine($"  moved        {rings.Length} rings, {Km(rings):F1} km, {Pieces(rings)} pieces");
-        Console.WriteLine($"  rounded      every notch asked for {Smoothing * MovedM:F1} m, " +
-                          $"{Notched(rings)} joins still turn in on the town");
+        var notches = Notched(rings, out var worstDeg, out var worstAtM);
+        Console.WriteLine($"  rounded      every corner asked for {RoundedM:F1} m of radius, " +
+                          $"{notches} joins still turn in on the town, " +
+                          $"worst {worstDeg:F1} deg at {worstAtM.X:F1}, {worstAtM.Y:F1}");
+        var kinks = Kinked(rings, out var kinkDeg, out var kinkAtM);
+        Console.WriteLine($"  cornered     {kinks} joins turn a corner either way, " +
+                          $"worst {kinkDeg:F1} deg at {kinkAtM.X:F1}, {kinkAtM.Y:F1} — " +
+                          $"the corners the town turns away at are the distance's until the radius passes it");
         Console.WriteLine($"  tightest     {Tightest(rings):F2} m of radius, against the {MovedM:F1} m it was moved");
         Console.WriteLine($"  open         {loose.Length} runs, {Km(loose):F1} km, {Pieces(loose)} pieces");
         Console.WriteLine($"  looped       {Looped(shell, rings)} pieces turn round without standing the distance off");
         Joints("  joints      ", shell.Chains);
+        Swept(shell);
 
         // <b>And the layers the town is actually drawn from</b> (<see cref="GroundRings"/>, TER-3c.3), at
         // their own figures rather than at this probe's example of one. Each is the same move asked at a
@@ -100,7 +111,7 @@ internal static class BoundaryProbe
         if (askedM is not null)
         {
             Console.WriteLine();
-            Around(shell, rings, loose, layers.Walk, askedM.Value);
+            Around(shell, rings, loose, layers, askedM.Value);
         }
 
         // <b>The bands are read and not gated on</b>, unlike the move above them. What gates is the example
@@ -134,7 +145,7 @@ internal static class BoundaryProbe
         if (askedM is null)
         {
             Console.WriteLine();
-            Around(shell, rings, loose, layers.Walk, loose[0][^1].EndM);
+            Around(shell, rings, loose, layers, loose[0][^1].EndM);
         }
 
         Console.WriteLine();
@@ -143,6 +154,52 @@ internal static class BoundaryProbe
         Console.WriteLine($"  ends off the move   {Strayed(shell, loose)} of {loose.Length * 2}");
         return false;
     }
+
+    /// <summary>
+    /// <b>The same move at a run of distances and a run of radii</b>, each read for the corners left in it —
+    /// <b>the reading that says whether the rounding is a figure or a coin toss</b>. A construction that
+    /// behaves takes fewer corners out as it is asked for less, and <b>reads down a column as well as
+    /// across</b>: the radius is a radius and not a share, so a column is one answer to one question and the
+    /// distance moved should barely move it.
+    /// </summary>
+    static void Swept(BandShell shell)
+    {
+        Console.WriteLine();
+        Console.WriteLine(
+            "  swept        corners left and the sharpest of them in degrees, " +
+            "by how far it was moved (down) and the radius asked for (across), both in m");
+        Console.Write($"  {"m",8}");
+        foreach (var roundedM in Rounds) Console.Write($"{roundedM,20:F1}");
+        Console.WriteLine();
+
+        foreach (var outwardM in SweptM)
+        {
+            Console.Write($"  {outwardM,8:F1}");
+            foreach (var roundedM in Rounds)
+            {
+                var (swept, sweptLoose) = shell.Outset(outwardM, roundedM);
+                var left = Kinked(swept, out var sharpestDeg, out _);
+                var open = sweptLoose.Length == 0 ? "" : $" +{sweptLoose.Length} open";
+                Console.Write($"{$"{left} at {sharpestDeg:F0}{open}",20}");
+            }
+
+            Console.WriteLine();
+        }
+    }
+
+    /// <summary>
+    /// How far the sweep moves the boundary: <b>the two a pavement is struck at, this probe's own, and the
+    /// ends of the range the debug dial offers</b> (OBS-2w) — a ladder rather than a step, because what the
+    /// reading is for is how the figure behaves across its range and not a curve to be plotted.
+    /// </summary>
+    static readonly float[] SweptM = [0f, 0.5f, 1f, 2f, 3f, 5f, 8f, 12f];
+
+    /// <summary>
+    /// The radii it asks for: none, the pavement's own, and two that pass the distances above them — which
+    /// is <b>the half of the range the town does not use and a reader turns the dial into</b> (OBS-2w),
+    /// where the corners the town turns away at are cut round as well.
+    /// </summary>
+    static readonly float[] Rounds = [0f, 0.5f, 2f, 8f];
 
     /// <summary>
     /// <b>How well a set of closed rings actually joins up</b>: at every joint, the gap between the piece
@@ -259,8 +316,9 @@ internal static class BoundaryProbe
     /// boundary is on the offset and an end standing on it is on the boundary itself, which are two
     /// different faults.
     /// </remarks>
-    static void Around(BandShell shell, ArcSeg[][] rings, ArcSeg[][] loose, GroundLayer kerb, Vector2 atM)
+    static void Around(BandShell shell, ArcSeg[][] rings, ArcSeg[][] loose, GroundRings layers, Vector2 atM)
     {
+        var kerb = layers.Walk;
         Console.WriteLine($"  at {atM.X:F3}, {atM.Y:F3}");
         Console.WriteLine();
         Console.WriteLine($"  the boundary within {ReachM:F0} m of it");
@@ -335,13 +393,33 @@ internal static class BoundaryProbe
     /// smoothing did not take out, each a place the line turns through a corner rather than a radius.
     /// </summary>
     /// <remarks>
-    /// <b>It is the whole of what the smoothing has to do</b>, since a corner turning the other way is the
-    /// offset of a corner of the town and is an arc of the distance moved already. At no smoothing it counts
-    /// every notch the offset has; the figure is how many are left.
+    /// <b>It is the half of the work the distance cannot do</b>: a corner turning the other way is the offset
+    /// of a corner of the town and is an arc of the distance moved already, until the radius asked for passes
+    /// that distance. At no rounding it counts every notch the offset has; the figure is how many are left.
     /// </remarks>
-    static int Notched(ArcSeg[][] rings)
+    static int Notched(ArcSeg[][] rings) => Notched(rings, out _, out _);
+
+    /// <summary>
+    /// The same count with <b>the sharpest of them and where it stands</b>, since how many notches are left
+    /// says nothing about whether a frame shows one: a degree of kink at the grain of the ring and a right
+    /// angle in the middle of a pavement are both one notch.
+    /// </summary>
+    static int Notched(ArcSeg[][] rings, out float worstDeg, out Vector2 worstAtM) =>
+        Cornered(rings, inward: true, out worstDeg, out worstAtM);
+
+    /// <summary>
+    /// <b>Every join that turns a corner, whichever way it turns</b> — which is what a radius past the
+    /// distance moved is asked to leave none of, the hand a fold cut and the hand the town turns away at
+    /// alike.
+    /// </summary>
+    static int Kinked(ArcSeg[][] rings, out float worstDeg, out Vector2 worstAtM) =>
+        Cornered(rings, inward: false, out worstDeg, out worstAtM);
+
+    static int Cornered(ArcSeg[][] rings, bool inward, out float worstDeg, out Vector2 worstAtM)
     {
         var count = 0;
+        worstDeg = 0f;
+        worstAtM = Vector2.Zero;
         foreach (var ring in rings)
         {
             if (ring.Length < 2) continue;
@@ -353,8 +431,15 @@ internal static class BoundaryProbe
                 var taking = onto.StartUnit;
                 var turnRad = MathF.Atan2(
                     (leaving.X * taking.Y) - (leaving.Y * taking.X), Vector2.Dot(leaving, taking));
+                var sharpRad = inward ? -turnRad : MathF.Abs(turnRad);
 
-                if (turnRad < -NotchRad) count++;
+                if (sharpRad <= NotchRad) continue;
+
+                count++;
+                if (sharpRad * 180f / MathF.PI <= worstDeg) continue;
+
+                worstDeg = sharpRad * 180f / MathF.PI;
+                worstAtM = ring[at].EndM;
             }
         }
 

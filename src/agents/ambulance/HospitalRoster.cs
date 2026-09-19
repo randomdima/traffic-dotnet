@@ -8,10 +8,11 @@ namespace TrafficSimulation.Agents.Ambulance;
 /// <b>How many of a town's buildings are hospitals</b> (AMB-1) — the places a casualty is delivered to
 /// and the places an ambulance waits near. Which ones they are is the map's own answer, read back
 /// through <see cref="BuildingRoster"/>; what is here is the share this slice's figures ask for when a
-/// map is authored.
+/// town is laid.
 /// </summary>
 /// <remarks>
-/// <b>Hospitals are placed first</b>, so a use added beside them cannot move which buildings they are.
+/// <b>Hospitals are placed first</b> (GEN-55), so a use added beside them cannot move which buildings they
+/// are.
 /// </remarks>
 internal static class HospitalRoster
 {

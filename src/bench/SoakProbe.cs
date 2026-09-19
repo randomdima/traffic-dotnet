@@ -119,7 +119,7 @@ internal static class SoakProbe
     /// </summary>
     public static TownWatch Sample(string map, SimConfig config)
     {
-        using var world = new TownWorld(Maps.Plan(map, config), config);
+        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Roofs), config);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 
@@ -148,7 +148,7 @@ internal static class SoakProbe
     /// </summary>
     public static void SweepOverlaps(TownWorld world, Span<float> into)
     {
-        var physics = world.PhysicsForTrace;
+        var physics = world.PhysicsForInstruments;
 
         for (var person = 0; person < world.People.Count; person++)
         {

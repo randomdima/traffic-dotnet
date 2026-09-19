@@ -227,12 +227,17 @@ second and there are a dozen questions to ask of it.
 handed the shared one they would compare a town to itself and pass whatever the generator did.
 
 **Nor asked a geometry question from two classes at once.** The indexes a town holds are built with it and
-never written to again, which is what lets a tick read one without a lock — but the scratch a *query* uses
-is the index's own and is not re-entrant. Two classes are two collections and run at once, so two of them
-asking one town which lines are near a place read each other's candidate sets, and **what comes back is a
-well-formed wrong answer**: a city's boundary came back with two hundred runs open in one run out of several
-and closed in the next. A class that asks a shared town a geometry question joins
-`TownGeometryCollection`, which does not run beside anything.
+never written to again, which is what lets a tick read one without a lock — but a query that names no scan
+of its own runs on the index's, and that one is not re-entrant (`ChainIndex.Scan`). Two classes are two
+collections and run at once, so two of them asking one town which lines are near a place read each other's
+candidate sets, and **what comes back is a well-formed wrong answer**: a city's boundary came back with two
+hundred runs open in one run out of several and closed in the next. A class that asks a shared town a
+geometry question joins `TownGeometryCollection`, which does not run beside anything.
+
+**A caller that means to ask off its own thread takes a scan** (`ChainIndex.NewScan`,
+`GroundShapes.NewScan`) and hands it to every query it makes, which is how the passes that lay a town use
+more than one core. A scan is one thread's working set and is the whole of what a query writes to; the test
+suite does not take one, because a collection that does not run beside anything has no reason to.
 
 **Ask a whole city the shallow questions only**; detailed geometry is asked of named places on the
 fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
@@ -306,8 +311,8 @@ person is put down at is the slide it leaves in them.
 **VER-11** `P8` **Every map states what it claims about itself, and every run of it says whether it kept it** —
 in the panel a player is looking at and in the output a script reads, off one watch. A map laid to measure
 one thing claims that thing; every town, laid or traced, claims the three above it: `PHY-1`, that nothing
-goes on driving into ground it was refused (`TER-4c.1`), and that nothing stands still with no clock
-running for it. A claim the run has not answered is reported as unanswered rather than counted either way.
+goes on driving into ground it was refused (`TER-4c.1`), and that nothing stands still with no clock running
+for it. A claim the run has not answered is reported as unanswered rather than counted either way.
 
 **What the second of those counts is a body going *deeper*, never a body being past.** A grant is worked
 out from the pose every tick, so a body that stopped where it was told to and overshot by a stride latches

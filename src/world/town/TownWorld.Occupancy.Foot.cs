@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Agents.TrafficLight.Control;
@@ -241,6 +242,7 @@ internal sealed partial class TownWorld
     /// anything else — which is the honest answer, since a man knocked into a lane is not directing traffic.
     /// </para>
     /// </remarks>
+    [SkipLocalsInit]
     void StandInTheRoad(int person)
     {
         var positionM = People.PositionM[person];

@@ -45,6 +45,20 @@ namespace TrafficSimulation.CityGen;
 /// </remarks>
 internal sealed class Paving
 {
+    /// <summary>
+    /// <b>One at a time over the things laid here on the first ask.</b> A plan is laid once and stood up
+    /// more than once — the suite stands several towns over one of them — so two askers can meet on a
+    /// product that is not there yet, and the merge each of them would then run walks the same index as the
+    /// other (<see cref="ChainIndex"/>, which carries a scratch of its own). What that leaves is not a
+    /// second copy but a wrong one: the boundary comes back with runs it could not close, and everything
+    /// struck off it inherits them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Build-time and uncontended</b> — every ask after the first takes it, finds the answer and gives it
+    /// back — so it costs nothing a frame can measure and nothing at all on a tick, which reads none of this.
+    /// </remarks>
+    readonly Lock _laying = new();
+
     Paving(GroundPieces pieces, LaneLines lanes)
     {
         Of = pieces;
@@ -117,15 +131,18 @@ internal sealed class Paving
     /// </remarks>
     public ChainIndex DrivenLines(SimConfig config)
     {
-        if (_drivenLines is not null) return _drivenLines;
-
-        var building = new ChainIndex.Builder();
-        for (var line = 0; line < DrivenCount; line++)
+        lock (_laying)
         {
-            building.Add(line, ArcsOfDriven(line), DrivenLengthM(line));
-        }
+            if (_drivenLines is not null) return _drivenLines;
 
-        return _drivenLines = building.Seal(config.NearestChainCellM);
+            var building = new ChainIndex.Builder();
+            for (var line = 0; line < DrivenCount; line++)
+            {
+                building.Add(line, ArcsOfDriven(line), DrivenLengthM(line));
+            }
+
+            return _drivenLines = building.Seal(config.NearestChainCellM);
+        }
     }
 
     BandShell? _perimeter;
@@ -139,7 +156,27 @@ internal sealed class Paving
     /// <b>Kept here because it is the town's and not a reader's.</b> The merge is the same for everyone who
     /// asks, and the picture redrawing on a pan asks it every frame.
     /// </remarks>
-    public BandShell Perimeter(SimConfig config) => _perimeter ??= LaneShell.Of(this, config);
+    public BandShell Perimeter(SimConfig config)
+    {
+        lock (_laying) return _perimeter ??= LaneShell.Of(this, config);
+    }
+
+    KerbEnds? _kerbEnds;
+
+    /// <summary>
+    /// <b>Where the kerb stops following one road and starts following something else</b>
+    /// (<see cref="KerbEnds"/>) — laid on the first ask, for the reason <see cref="Perimeter"/> is and off
+    /// the rounded line the tarmac actually stops at (<see cref="Rings"/>) rather than off the merge.
+    /// </summary>
+    /// <remarks>
+    /// <b>Kept here because the boundary and the lines it is read against are both kept here.</b> It is a
+    /// fact about how the town came out rather than about any reader of it, and every reader wants the
+    /// same answer.
+    /// </remarks>
+    public KerbEnds RoadEnds(SimConfig config)
+    {
+        lock (_laying) return _kerbEnds ??= KerbEnds.Of(this, config);
+    }
 
     GroundRings? _rings;
 
@@ -152,7 +189,10 @@ internal sealed class Paving
     /// <b>Kept here because the boundary is kept here.</b> The layers are a fact about the town's own shell,
     /// so a reader that struck its own would be moving a boundary the town does not have.
     /// </remarks>
-    public GroundRings Rings(SimConfig config) => _rings ??= GroundRings.Of(Perimeter(config), config);
+    public GroundRings Rings(SimConfig config)
+    {
+        lock (_laying) return _rings ??= GroundRings.Of(Perimeter(config), config);
+    }
 
     public static Paving Lay(GroundPieces pieces, SimConfig config) =>
         new(pieces, LaneLines.Of(pieces, config));

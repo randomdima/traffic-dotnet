@@ -40,6 +40,14 @@ namespace TrafficSimulation.Core.Geometry;
 /// broad phase.
 /// </para>
 /// <para>
+/// <b>Geometry, and never a body.</b> What is binned here is the town's fixed lines; the moving population
+/// has a lattice of its own (<see cref="World.Physics.CellGrid"/>, stamped into every cell a box touches and
+/// rebuilt twice a step) and the circles a third (<see cref="BucketGrid"/>, indexed at the centre and
+/// widened by the largest radius in the set). They are three because a query walking one population pays
+/// for the other two, and because what each is asked is different enough that one cell size would be wrong
+/// for two of them.
+/// </para>
+/// <para>
 /// A piece's box is taken by walking it at <see cref="SampleStepM"/> and grown by half that step, which
 /// contains the piece whatever it curves through: no point of an arc is more than half a step along it
 /// from a sample, and a chord is never longer than the arc it subtends.
@@ -49,6 +57,20 @@ internal sealed class ChainIndex
 {
     /// <summary>How finely a piece is walked when its cells are taken, and its box with them. Build-time only.</summary>
     const float SampleStepM = 1f;
+
+    /// <summary>
+    /// <b>The finest a lattice over this index is worth laying</b>: each sample of the walk claims the cells
+    /// within half a step of it (<see cref="Builder.Bin"/>), so below the step two cells hold the same
+    /// pieces and all a finer table buys is more of them.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the floor and not a default.</b> What a caller should bin at is the scale of the thing it
+    /// asks about — a set of long chains asked which of them is near a place wants a cell of that order,
+    /// since the answer is measured after the cells are read. A set of short pieces asked which of them
+    /// <em>stand at</em> a place wants this, because there is nothing finer to be had and every cell coarser
+    /// than a piece hands back pieces that are nowhere near.
+    /// </remarks>
+    public const float FinestCellM = SampleStepM;
 
     /// <summary>
     /// How far round a sample of a piece is taken to belong to the piece: half a step, which is what makes a
@@ -65,6 +87,21 @@ internal sealed class ChainIndex
     readonly float[] _lengthM;
     readonly int[] _chainId;
 
+    /// <summary>
+    /// <b>Each chain's own box, so a candidate is refused before it is projected onto</b>
+    /// (<see cref="OffTheBoxSq"/>). The cells a query reads are the scale of the lattice and not of the
+    /// question — the movements are binned eight metres across and asked what stands within two — so most of
+    /// what the grid offers is nowhere near the place, and finding that out by projecting costs an
+    /// <c>Atan2</c> and a <c>Sinc</c> for every piece of it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same box the binning already walked</b> (<see cref="Box"/>), kept rather than recomputed, and a
+    /// superset of its chain by the half-step margin — so a point outside it by more than the radius is
+    /// outside the chain by more than the radius, and refusing it cannot change an answer.
+    /// </remarks>
+    readonly Vector2[] _slotLeastM;
+    readonly Vector2[] _slotMostM;
+
     readonly float _cellM;
     readonly float _inverseCellM;
     readonly Vector2 _originM;
@@ -76,21 +113,22 @@ internal sealed class ChainIndex
 
     readonly int[] _entrySlot;
 
-    /// <summary>Which query last offered each slot, so a chain crossing several cells is measured once.</summary>
-    readonly int[] _stamp;
-
-    readonly int[] _candidate;
-    int _candidateCount;
-    int _generation;
+    /// <summary>
+    /// <b>The scan every query that names none of its own runs on.</b> One index answers one question at a
+    /// time through it, which is what a tick wants and what every reader here but a parallel one is.
+    /// </summary>
+    readonly Scan _own;
 
     ChainIndex(
-        ArcSeg[] arcs, int[] arcStart, float[] lengthM, int[] chainId, float cellM, Vector2 originM, int width,
-        int height, int[] cellStart, int[] entrySlot)
+        ArcSeg[] arcs, int[] arcStart, float[] lengthM, int[] chainId, Vector2[] slotLeastM, Vector2[] slotMostM,
+        float cellM, Vector2 originM, int width, int height, int[] cellStart, int[] entrySlot)
     {
         _arcs = arcs;
         _arcStart = arcStart;
         _lengthM = lengthM;
         _chainId = chainId;
+        _slotLeastM = slotLeastM;
+        _slotMostM = slotMostM;
         _cellM = cellM;
         _inverseCellM = 1f / cellM;
         _originM = originM;
@@ -98,14 +136,39 @@ internal sealed class ChainIndex
         _height = height;
         _cellStart = cellStart;
         _entrySlot = entrySlot;
-        _stamp = new int[chainId.Length];
-
-        // <b>Room for every chain there is, once.</b> A slot is stamped the first time a query meets it, so
-        // the candidate set can never be longer than the set itself — and sized to a guess instead, a query
-        // over ground that happens to be busy grows the array, which is an allocation on a path the tick
-        // reads (rule 2). It is four bytes a chain.
-        _candidate = new int[Math.Max(1, chainId.Length)];
+        _own = NewScan();
     }
+
+    /// <summary>
+    /// <b>One query's working set, so that two queries may run at once.</b> A scan belongs to whoever made
+    /// it and to one thread at a time; an index's own (<see cref="_own"/>) serves every caller that asks
+    /// without one.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is here rather than inside the query because it is the size of the index.</b> A slot is stamped
+    /// the first time a query meets it, so the candidate set can never be longer than the set itself — and
+    /// sized to a guess instead, a query over ground that happens to be busy grows the array, which is an
+    /// allocation on a path the tick reads (rule 2). It is eight bytes a chain, once per worker.
+    /// </remarks>
+    internal sealed class Scan
+    {
+        internal Scan(int chains)
+        {
+            Stamp = new int[chains];
+            Candidate = new int[Math.Max(1, chains)];
+        }
+
+        internal int[] Stamp { get; }
+
+        internal int[] Candidate { get; }
+
+        internal int Count { get; set; }
+
+        internal int Generation { get; set; }
+    }
+
+    /// <summary>A scan of this index's own size, for a caller that means to query it off its own thread.</summary>
+    public Scan NewScan() => new(_chainId.Length);
 
     /// <summary>How many chains were registered. A census, so a caller can say what its index is of.</summary>
     public int ChainCount => _chainId.Length;
@@ -170,15 +233,15 @@ internal sealed class ChainIndex
     {
         if (atX < 0 || atY < 0 || atX >= _width || atY >= _height) return 0;
 
-        _generation++;
+        _own.Generation++;
         var cell = (atY * _width) + atX;
         var chains = 0;
         for (var entry = _cellStart[cell]; entry < _cellStart[cell + 1]; entry++)
         {
             var slot = _entrySlot[entry];
-            if (_stamp[slot] == _generation) continue;
+            if (_own.Stamp[slot] == _own.Generation) continue;
 
-            _stamp[slot] = _generation;
+            _own.Stamp[slot] = _own.Generation;
             if (chains < ids.Length) ids[chains] = _chainId[slot];
             chains++;
         }
@@ -199,14 +262,18 @@ internal sealed class ChainIndex
     /// <b>A span shorter than the answer truncates it</b>, exactly as <c>Near</c>'s does, and a caller that
     /// cannot afford a missed candidate sizes it to <see cref="ChainCount"/>.
     /// </remarks>
-    public int Around(Vector2 pointM, float radiusM, Span<int> ids)
+    public int Around(Vector2 pointM, float radiusM, Span<int> ids) => Around(_own, pointM, radiusM, ids);
+
+    /// <inheritdoc cref="Around(Vector2, float, Span{int})"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for a query off its own thread.</param>
+    public int Around(Scan scan, Vector2 pointM, float radiusM, Span<int> ids)
     {
         if (ChainCount == 0) return 0;
 
         var reach = new Vector2(MathF.Max(radiusM, 0f));
-        Fresh();
-        Offer(pointM - reach, pointM + reach);
-        return Copied(ids);
+        Fresh(scan);
+        Offer(scan, pointM - reach, pointM + reach);
+        return Copied(scan, ids);
     }
 
     /// <summary>
@@ -230,28 +297,37 @@ internal sealed class ChainIndex
     /// disagree at a bend and the pair that is missed is the one the whole query is for.
     /// </para>
     /// </remarks>
-    public int Crossing(ReadOnlySpan<ArcSeg> chain, float withinM, Span<int> ids)
+    public int Crossing(ReadOnlySpan<ArcSeg> chain, float withinM, Span<int> ids) =>
+        Crossing(_own, chain, withinM, ids);
+
+    /// <inheritdoc cref="Crossing(ReadOnlySpan{ArcSeg}, float, Span{int})"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for a query off its own thread.</param>
+    public int Crossing(Scan scan, ReadOnlySpan<ArcSeg> chain, float withinM, Span<int> ids)
     {
         if (ChainCount == 0 || chain.Length == 0) return 0;
 
         var reach = new Vector2(MathF.Max(withinM, 0f));
-        Fresh();
+        Fresh(scan);
         for (var piece = 0; piece < chain.Length; piece++)
         {
             var leastM = new Vector2(float.MaxValue);
             var mostM = new Vector2(float.MinValue);
             Box(chain[piece], ref leastM, ref mostM);
-            Offer(leastM - reach, mostM + reach);
+            Offer(scan, leastM - reach, mostM + reach);
         }
 
-        return Copied(ids);
+        return Copied(scan, ids);
     }
 
     /// <summary>
     /// The chain whose line passes nearest the point, and how far along it that is — or −1 where nothing
     /// was registered at all.
     /// </summary>
-    public int Nearest(Vector2 pointM, out float alongM)
+    public int Nearest(Vector2 pointM, out float alongM) => Nearest(_own, pointM, out alongM);
+
+    /// <inheritdoc cref="Nearest(Vector2, out float)"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for a query off its own thread.</param>
+    public int Nearest(Scan scan, Vector2 pointM, out float alongM)
     {
         alongM = 0f;
         if (ChainCount == 0) return -1;
@@ -262,8 +338,8 @@ internal sealed class ChainIndex
         var acrossM = (_width + _height) * _cellM;
         while (true)
         {
-            Gather(pointM, radiusM);
-            var best = Weigh(pointM, out alongM, out var bestDistanceSq);
+            Gather(scan, pointM, radiusM);
+            var best = Weigh(scan, pointM, out alongM, out var bestDistanceSq);
 
             // Nothing nearer than what was found can lie outside a ring that already holds it, so a best
             // inside the ring is the whole network's answer.
@@ -287,20 +363,27 @@ internal sealed class ChainIndex
     /// part of one, exactly as <c>BucketGrid.Query</c>'s is. The order is the grid's and is not the ids';
     /// nothing here is a nearest, so nothing is settled on a tie.
     /// </remarks>
-    public int Near(Vector2 pointM, float radiusM, Span<int> ids, Span<float> alongM)
+    public int Near(Vector2 pointM, float radiusM, Span<int> ids, Span<float> alongM) =>
+        Near(_own, pointM, radiusM, ids, alongM);
+
+    /// <inheritdoc cref="Near(Vector2, float, Span{int}, Span{float})"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for a query off its own thread.</param>
+    public int Near(Scan scan, Vector2 pointM, float radiusM, Span<int> ids, Span<float> alongM)
     {
         if (ChainCount == 0) return 0;
 
-        Gather(pointM, radiusM);
+        Gather(scan, pointM, radiusM);
         var reachSq = radiusM * radiusM;
         var found = 0;
-        for (var index = 0; index < _candidateCount; index++)
+        for (var index = 0; index < scan.Count; index++)
         {
-            var slot = _candidate[index];
+            var slot = scan.Candidate[index];
+            if (OffTheBoxSq(slot, pointM) > reachSq) continue;
+
             var arcs = _arcs.AsSpan(_arcStart[slot], _arcStart[slot + 1] - _arcStart[slot]);
             var lengthM = _lengthM[slot];
-            var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
-            if ((Spline.SampleAt(arcs, atM).PositionM - pointM).LengthSquared() > reachSq) continue;
+            var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM, out var offSq);
+            if (offSq > reachSq) continue;
 
             if (found < ids.Length)
             {
@@ -322,18 +405,18 @@ internal sealed class ChainIndex
     /// here instead, a point standing beside a busy corner paid an insertion sort of the whole ring, and
     /// paid it again for every ring the search had to grow.
     /// </remarks>
-    void Gather(Vector2 pointM, float radiusM)
+    void Gather(Scan scan, Vector2 pointM, float radiusM)
     {
         var reach = new Vector2(radiusM);
-        Fresh();
-        Offer(pointM - reach, pointM + reach);
+        Fresh(scan);
+        Offer(scan, pointM - reach, pointM + reach);
     }
 
     /// <summary>A new candidate set, so what a query gathers is its own and never the last one's.</summary>
-    void Fresh()
+    static void Fresh(Scan scan)
     {
-        _generation++;
-        _candidateCount = 0;
+        scan.Generation++;
+        scan.Count = 0;
     }
 
     /// <summary>
@@ -341,10 +424,14 @@ internal sealed class ChainIndex
     /// already in it</b>, so a query over several boxes is several calls and the chain in two of them is
     /// still one candidate.
     /// </summary>
-    void Offer(Vector2 leastM, Vector2 mostM)
+    void Offer(Scan scan, Vector2 leastM, Vector2 mostM)
     {
         if (!Range(leastM, mostM, out var fromX, out var fromY, out var toX, out var toY)) return;
 
+        var stamp = scan.Stamp;
+        var candidate = scan.Candidate;
+        var generation = scan.Generation;
+        var count = scan.Count;
         for (var y = fromY; y <= toY; y++)
         {
             for (var x = fromX; x <= toX; x++)
@@ -353,34 +440,36 @@ internal sealed class ChainIndex
                 for (var entry = _cellStart[cell]; entry < _cellStart[cell + 1]; entry++)
                 {
                     var slot = _entrySlot[entry];
-                    if (_stamp[slot] == _generation) continue;
+                    if (stamp[slot] == generation) continue;
 
-                    _stamp[slot] = _generation;
-                    _candidate[_candidateCount++] = slot;
+                    stamp[slot] = generation;
+                    candidate[count++] = slot;
                 }
             }
         }
+
+        scan.Count = count;
     }
 
     /// <summary>The candidate set as the caller's own ids, truncated to the room it gave.</summary>
-    int Copied(Span<int> ids)
+    int Copied(Scan scan, Span<int> ids)
     {
-        for (var index = 0; index < _candidateCount && index < ids.Length; index++)
+        for (var index = 0; index < scan.Count && index < ids.Length; index++)
         {
-            ids[index] = _chainId[_candidate[index]];
+            ids[index] = _chainId[scan.Candidate[index]];
         }
 
-        return _candidateCount;
+        return scan.Count;
     }
 
-    int Weigh(Vector2 pointM, out float alongM, out float bestDistanceSq)
+    int Weigh(Scan scan, Vector2 pointM, out float alongM, out float bestDistanceSq)
     {
         alongM = 0f;
         bestDistanceSq = float.MaxValue;
         var best = -1;
-        for (var index = 0; index < _candidateCount; index++)
+        for (var index = 0; index < scan.Count; index++)
         {
-            Measure(_candidate[index], pointM, ref best, ref bestDistanceSq, ref alongM);
+            Measure(scan.Candidate[index], pointM, ref best, ref bestDistanceSq, ref alongM);
         }
 
         return best;
@@ -403,16 +492,29 @@ internal sealed class ChainIndex
     /// </summary>
     void Measure(int slot, Vector2 pointM, ref int best, ref float bestDistanceSq, ref float alongM)
     {
+        // Refused against its own box first, and strictly further than what stands rather than as far:
+        // a chain whose box is exactly as near as the nearest could still be the same distance away and
+        // carry the lower number, which is what settles a tie below.
+        if (OffTheBoxSq(slot, pointM) > bestDistanceSq) return;
+
         var arcs = _arcs.AsSpan(_arcStart[slot], _arcStart[slot + 1] - _arcStart[slot]);
         var lengthM = _lengthM[slot];
-        var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
-        var distanceSq = (Spline.SampleAt(arcs, atM).PositionM - pointM).LengthSquared();
+        var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM, out var distanceSq);
         if (distanceSq > bestDistanceSq || (distanceSq == bestDistanceSq && _chainId[slot] >= best)) return;
 
         bestDistanceSq = distanceSq;
         alongM = atM;
         best = _chainId[slot];
     }
+
+    /// <summary>
+    /// <b>How far a place stands off one chain's own box, squared</b> — nought for a place inside it
+    /// (<see cref="_slotLeastM"/>). Never further than the chain itself is, so it bounds the projection
+    /// from below and a candidate it refuses had no answer to give.
+    /// </summary>
+    float OffTheBoxSq(int slot, Vector2 pointM) =>
+        Vector2.Max(Vector2.Max(_slotLeastM[slot] - pointM, pointM - _slotMostM[slot]), Vector2.Zero)
+            .LengthSquared();
 
     /// <summary>
     /// <b>One piece's box</b>: the piece walked, grown by half a step so what falls between samples is
@@ -473,6 +575,8 @@ internal sealed class ChainIndex
         readonly List<int> _arcStart = [0];
         readonly List<float> _lengthM = [];
         readonly List<int> _chainId = [];
+        readonly List<Vector2> _slotLeastM = [];
+        readonly List<Vector2> _slotMostM = [];
         Vector2 _leastM = new(float.MaxValue);
         Vector2 _mostM = new(float.MinValue);
 
@@ -483,12 +587,22 @@ internal sealed class ChainIndex
 
             _chainId.Add(id);
             _lengthM.Add(lengthM);
+
+            // The chain's own box and the set's are the same walk (<see cref="Box"/>): the index keeps the
+            // first to refuse candidates and the second to lay the lattice, and taking them apart would be
+            // two answers to where a chain stands.
+            var leastM = new Vector2(float.MaxValue);
+            var mostM = new Vector2(float.MinValue);
             foreach (var arc in arcs)
             {
                 _arcs.Add(arc);
-                Box(arc, ref _leastM, ref _mostM);
+                Box(arc, ref leastM, ref mostM);
             }
 
+            _slotLeastM.Add(leastM);
+            _slotMostM.Add(mostM);
+            _leastM = Vector2.Min(_leastM, leastM);
+            _mostM = Vector2.Max(_mostM, mostM);
             _arcStart.Add(_arcs.Count);
         }
 
@@ -496,7 +610,7 @@ internal sealed class ChainIndex
         {
             var slots = _chainId.Count;
             var cellM = MathF.Max(cellSizeM, 1e-3f);
-            if (slots == 0) return new ChainIndex([], [0], [], [], cellM, Vector2.Zero, 0, 0, [0], []);
+            if (slots == 0) return new ChainIndex([], [0], [], [], [], [], cellM, Vector2.Zero, 0, 0, [0], []);
 
             // <b>The origin is snapped down to a whole cell, so the lattice belongs to the map</b> — two
             // indexes sealed at one cell size then bin the same ground into the same cells, whatever each of
@@ -547,8 +661,8 @@ internal sealed class ChainIndex
             }
 
             return new ChainIndex(
-                [.. _arcs], [.. _arcStart], [.. _lengthM], [.. _chainId], cellM, originM, width, height, start,
-                entries);
+                [.. _arcs], [.. _arcStart], [.. _lengthM], [.. _chainId], [.. _slotLeastM], [.. _slotMostM], cellM,
+                originM, width, height, start, entries);
         }
 
         /// <summary>

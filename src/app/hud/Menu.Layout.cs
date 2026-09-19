@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.App.Debug;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
@@ -103,8 +104,8 @@ internal sealed partial class Menu
 
     static float GroundHeightPx => GroundRows * LinePitchPx - Theme.GapPx;
 
-    /// <summary>And the figures page, which is one row a trim and the one under them that resets the lot.</summary>
-    static readonly float FiguresHeightPx = (TrimFigures.Count + 1) * TrimPitchPx - Theme.GapPx;
+    /// <summary>And the figures page, which is one row a slider and the one under them that resets the lot.</summary>
+    static readonly float FiguresHeightPx = (Sliders + 1) * TrimPitchPx - Theme.GapPx;
 
     /// <summary>A trim row carries its name and its share on two lines, as a map row carries its own.</summary>
     const float TrimPitchPx = Theme.TallRowPx + Theme.GapPx;
@@ -128,7 +129,7 @@ internal sealed partial class Menu
     readonly Rect[] _grounds = new Rect[GroundRows];
 
     /// <summary>One track a trim, and the reset row under them.</summary>
-    readonly Rect[] _trims = new Rect[TrimFigures.Count + 1];
+    readonly Rect[] _trims = new Rect[Sliders + 1];
 
     /// <summary>Which trim the pointer has hold of, or -1 while nothing is being dragged.</summary>
     int _held = -1;
@@ -499,10 +500,13 @@ internal sealed partial class Menu
             wantedPx = MathF.Max(wantedPx, GlyphSheet.WidthPx(group.Length + GroupMark.Length, Theme.TextPx));
         }
 
+        var widestSliderPx =
+            MathF.Max(WidestPx(TrimFigures.Names, Theme.TextPx), GlyphSheet.WidthPx(ShellProbe.Named.Length, Theme.TextPx));
+
         return MathF.Max(
             wantedPx,
             MathF.Max(
-                MathF.Max(WidestPx(Lines, Theme.TextPx), WidestPx(TrimFigures.Names, Theme.TextPx) + TrimShareRoomPx),
+                MathF.Max(WidestPx(Lines, Theme.TextPx), widestSliderPx + TrimShareRoomPx),
                 TickRoomPx + WidestPx(GroundParts.Names, Theme.TextPx) + Theme.GapPx + GroundReadingRoomPx));
     }
 
@@ -515,8 +519,13 @@ internal sealed partial class Menu
     static readonly float GroundReadingRoomPx =
         GlyphSheet.WidthPx("999999 tri  9999 ms".Length, Theme.SmallTextPx) + Theme.InsetPx;
 
-    /// <summary>The room a trim's own share is drawn in, kept off the end of its name so the two never meet.</summary>
-    static readonly float TrimShareRoomPx = GlyphSheet.WidthPx("1000%".Length, Theme.TextPx) + Theme.InsetPx * 2f;
+    /// <summary>
+    /// The room a slider's own reading is drawn in, kept off the end of its name so the two never meet:
+    /// the widest share a trim can read, against the widest distance the probe can (OBS-2w).
+    /// </summary>
+    static readonly float TrimShareRoomPx =
+        MathF.Max(GlyphSheet.WidthPx("1000%".Length, Theme.TextPx), GlyphSheet.WidthPx("20.0 m".Length, Theme.TextPx))
+        + Theme.InsetPx * 2f;
 
     /// <summary>The room a tick box and its inset take off a row, which is what the name beside it is left.</summary>
     const float TickRoomPx = Theme.RowPx + Theme.InsetPx * 2f;

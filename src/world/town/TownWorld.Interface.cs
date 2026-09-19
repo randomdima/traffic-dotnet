@@ -234,6 +234,23 @@ internal sealed partial class TownWorld
     public void Hands(HandInput input) => _hands = _selected.Any ? input : default;
 
     /// <summary>
+    /// <b>CTL-5d — a hand at one named car's wheel</b>, which is not the player's and reads no selection.
+    /// The car is named every tick, exactly as the hand is, so a driver that stops calling this has let go.
+    /// </summary>
+    /// <remarks>
+    /// <b>The player wins a car they are both holding</b>: the selection is a reader saying which car is
+    /// theirs, and a second driver that could take it out from under them would be a fight nobody watching
+    /// could read. Everything else about it is CTL-5's — the same seam, the same envelope, and the town
+    /// told nothing about either hand.
+    /// </remarks>
+    /// <param name="car">The car in the fleet, or −1 for nobody, which is how the wheel is given up.</param>
+    public void HandOnCar(int car, HandInput input)
+    {
+        _otherCar = car >= 0 && car < Cars.Count ? car : -1;
+        _otherHand = _otherCar >= 0 ? input : default;
+    }
+
+    /// <summary>
     /// <b>The reset</b> (CTL-4): the wheel is given up and so is manual mode, so every selected unit goes
     /// back to deciding for itself — a walker draws a trip again, a car takes a fare or picks its errand
     /// back up.
@@ -316,13 +333,24 @@ internal sealed partial class TownWorld
     public ReadOnlySpan<Selection> HandDriven => _hands.Held ? _selected.Units : default;
 
     /// <summary>
+    /// The one car a second driver has the wheel of, or −1 (CTL-5d) — the same fact as
+    /// <see cref="HandDriven"/> for a hand that names its car instead of picking it out.
+    /// </summary>
+    public int HandDrivenCar => _otherHand.Held ? _otherCar : -1;
+
+    /// <summary>
     /// <b>Whether this car's wheel is held over</b> by the player's own hand (CTL-5): no manoeuvre is
     /// selected, no soft rule is consulted and nothing but the ellipse holds the pedals back.
     /// </summary>
     bool HandAtTheWheel(int car) => !Cars.Broken[car] && WheelIsHeldOver(car);
 
-    /// <summary>The hand on this car's wheel, or nothing held.</summary>
-    HandInput WheelOn(int car) => WheelIsHeldOver(car) ? _hands : default;
+    /// <summary>
+    /// The hand on this car's wheel, or nothing held. <b>The player's before the second driver's</b>
+    /// (CTL-5d), for a car they are both holding.
+    /// </summary>
+    HandInput WheelOn(int car) => _hands.Held && _selected.Holds(SelectionKind.Car, car)
+        ? _hands
+        : _otherCar == car ? _otherHand : default;
 
     /// <summary>The unit under a point — a car first, then a walker — or nothing.</summary>
     /// <remarks>

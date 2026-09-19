@@ -79,6 +79,30 @@ internal sealed partial class DebugOverlay
     }
 
     /// <summary>
+    /// <b>The shape the reader struck for themselves</b> (OBS-2w): the same boundary moved out by the
+    /// distance standing on the figures page, drawn as any other outline is and in a colour of its own.
+    /// </summary>
+    /// <remarks>
+    /// <b>Its own switch, and it draws nothing the town was laid from</b> (<see cref="ShellProbe"/>). What
+    /// the perimeter's own switch draws is the boundary and the layers struck off it that the picture is
+    /// laid from (OBS-2u); this is a distance nobody built anything at, so the two are never on the same
+    /// switch and never in the same colour. <b>The runs the move could not close are drawn in the fault
+    /// colour like every other loose run</b>, a probe at ten metres closing nothing being the answer rather
+    /// than a fault of this layer's.
+    /// </remarks>
+    void ProbedShell(
+        ref ScreenDraw draw, TownWorld world, SimConfig config, ShellProbe probe, Vector2 viewCentreM,
+        Vector2 viewSpanM, float pixelsPerMetre)
+    {
+        var sagM = PathMarks.SagPx / pixelsPerMetre;
+        var pitchM = PathMarks.BarbPitchAt(pixelsPerMetre);
+        var (rings, loose) = probe.Off(world.Plan.Paving(config).Perimeter(config));
+
+        Boundaries(ref draw, loose, Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM, pitchM);
+        Boundaries(ref draw, rings, Theme.ShellProbe, false, viewCentreM, viewSpanM, sagM, pitchM);
+    }
+
+    /// <summary>
     /// <b>One outline drawn</b>: every stretch of it that reaches the view, as the line it is and the
     /// normals that say which side of it its ground is on — with a disc at either end of each chain where
     /// the chains are runs rather than rings (<paramref name="ends"/>).

@@ -289,7 +289,10 @@ internal sealed class StatusPanel
         line.Add(". ");
         line.Add(mapName);
         line.Add(". ");
-        if (run.Frozen) line.Add("frozen");
+        // DRV-8: a town waiting for a driver who is thinking says so, rather than reading as a freeze
+        // whoever is watching did not press.
+        if (run.WaitingForADriver) line.Add("waiting");
+        else if (run.Frozen) line.Add("frozen");
         else if (run.AgentsHeld) line.Add("held");
         else
         {

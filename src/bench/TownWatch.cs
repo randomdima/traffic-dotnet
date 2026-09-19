@@ -1,5 +1,6 @@
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.Bench;

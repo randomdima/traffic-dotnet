@@ -37,7 +37,7 @@ public class ArcOutsetTests
     [Fact]
     public void MovingASquareOutRoundsTheFourCornersItOpens()
     {
-        var (rings, loose) = ArcOutset.Of([Square(SideM)], MovedM, smoothing: 0f);
+        var (rings, loose) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
         Assert.Equal(
@@ -53,29 +53,30 @@ public class ArcOutsetTests
     [Fact]
     public void MovingASquareInTrimsTheFourCornersItCloses()
     {
-        var (rings, _) = ArcOutset.Of([Square(SideM)], -MovedM, smoothing: 0f);
+        var (rings, _) = ArcOutset.Of([Square(SideM)], -MovedM, roundedM: 0f);
 
         Assert.Equal(4f * MovedInSideM, Spline.TotalLengthM(Assert.Single(rings)), ToleranceM);
     }
 
     /// <summary>
-    /// <b>No part of a smoothed answer stands nearer the shape than the distance it was moved off it.</b>
-    /// A line laid to keep off something may keep further off than it was asked to and may never come
-    /// nearer, so <b>the rounding is one-sided</b>: it fills the notches, which takes the line away, and it
-    /// leaves the corners that turn away, which nothing could round without cutting inside them.
+    /// <b>No part of an answer rounded inside the distance it was moved stands nearer the shape than that
+    /// distance.</b> A line laid to keep off something may keep further off than it was asked to and may
+    /// never come nearer, so <b>a radius the distance covers is one-sided</b>: it fills the notches, which
+    /// takes the line away, and it leaves the corners that turn away, which are the arc of the distance
+    /// already (<see cref="ARadiusPastTheDistanceCutsTheCornersTheShapeTurnsAwayAt"/>).
     /// </summary>
     /// <remarks>
-    /// <b>It is the whole of what the figure may do, and it is asked of the answer rather than of the
+    /// <b>It is the whole of what the figure may do here, and it is asked of the answer rather than of the
     /// construction.</b> Read at a hand's breadth along every piece of the ring — the ends of a fill are on
     /// the offset by construction and it is the middle of one that leaves it.
     /// </remarks>
     [Theory]
-    [InlineData(0.25f)]
-    [InlineData(1f)]
-    public void SmoothingNeverBringsTheAnswerNearerTheShape(float smoothing)
+    [InlineData(MovedM * 0.25f)]
+    [InlineData(MovedM)]
+    public void ARadiusInsideTheDistanceNeverBringsTheAnswerNearerTheShape(float roundedM)
     {
-        var shape = SlottedSquare(SideM, slotM: 4f * MovedM, deepM: SideM * 0.5f);
-        var (rings, loose) = ArcOutset.Of([shape], MovedM, smoothing);
+        var shape = SlottedSquare(SideM, SmoothedSlotM, deepM: SideM * 0.5f);
+        var (rings, loose) = ArcOutset.Of([shape], MovedM, roundedM);
 
         Assert.Empty(loose);
         foreach (var piece in Assert.Single(rings))
@@ -94,6 +95,15 @@ public class ArcOutsetTests
     /// <summary>How finely the answer is read for having come inside: a hand's breadth.</summary>
     const float ReadEveryM = 0.1f;
 
+    /// <summary>
+    /// How wide the slot the rounding is asked of is: <b>wider than twice the widest move made of it</b> —
+    /// <c>2·(d+r)</c>, which at a radius of the whole distance is four times the move — so that the shape
+    /// still has a slot once the rounding's own move has been taken off it. <b>At exactly that width the two
+    /// walls lie on one another rather than crossing</b>, which is the one width the cut has no place to cut
+    /// (<see cref="ASlotNarrowerThanTheMoveIsGone"/>) and not a width to ask a rounding about.
+    /// </summary>
+    const float SmoothedSlotM = 5f * MovedM;
+
     /// <summary>How far one place stands off a shape, which is the distance to the nearest place on it.</summary>
     static float OffM(ArcSeg[] shape, Vector2 pointM)
     {
@@ -103,39 +113,110 @@ public class ArcOutsetTests
     }
 
     /// <summary>
-    /// <b>The smoothing takes the notches out and leaves every corner that turns away from the shape</b>,
-    /// which is the same rule told as a count: a slot's two mouths are corners the shape turns in at, so
-    /// their offset is a notch and the rounding fills it; the slot's own two far corners turn away, so
-    /// their offset is the arc of the distance moved and there is nothing to fill.
+    /// <b>A radius the distance covers takes the notches out and leaves every corner that turns away from
+    /// the shape</b>, which is the same rule told as a count: a slot's two mouths are corners the shape
+    /// turns in at, so their offset is a notch and the rounding fills it; the slot's own two far corners
+    /// turn away, so their offset is the arc of the distance moved and there is nothing to fill.
     /// </summary>
     [Fact]
-    public void SmoothingTakesTheNotchesOutAndLeavesTheCornersThatTurnAway()
+    public void ARadiusInsideTheDistanceTakesTheNotchesOutAndLeavesTheCornersThatTurnAway()
     {
-        var shape = SlottedSquare(SideM, slotM: 4f * MovedM, deepM: SideM * 0.5f);
+        var shape = SlottedSquare(SideM, SmoothedSlotM, deepM: SideM * 0.5f);
 
-        var (plain, _) = ArcOutset.Of([shape], MovedM, smoothing: 0f);
-        var (rounded, _) = ArcOutset.Of([shape], MovedM, smoothing: 1f);
+        var (plain, _) = ArcOutset.Of([shape], MovedM, roundedM: 0f);
+        var (rounded, _) = ArcOutset.Of([shape], MovedM, roundedM: MovedM);
 
         Assert.True(Notches(Assert.Single(plain)) > 0, "the offset had no notch in it to round");
         Assert.Equal(0, Notches(Assert.Single(rounded)));
     }
 
     /// <summary>
-    /// <b>And a shape with no notch in it is not smoothed at all.</b> Every corner of a square turns away
-    /// from it, so its offset is already the roundest line there is at that distance and <b>the figure has
-    /// nothing it is allowed to do</b> — the same answer at every share of it.
+    /// <b>And a shape with no notch in it is not rounded at all while the radius is inside the distance.</b>
+    /// Every corner of a square turns away from it, so its offset is already the roundest line there is at
+    /// that distance and <b>the figure has nothing it is allowed to do</b> — the same answer at every radius
+    /// up to the whole of the move.
     /// </summary>
     [Fact]
-    public void AndAShapeWithNoNotchIsNotSmoothedAtAll()
+    public void AndAShapeWithNoNotchIsNotRoundedAtAll()
     {
-        var (plain, _) = ArcOutset.Of([Square(SideM)], MovedM, smoothing: 0f);
-        var (rounded, _) = ArcOutset.Of([Square(SideM)], MovedM, smoothing: 1f);
+        var (plain, _) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: 0f);
+        var (rounded, _) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: MovedM);
 
         Assert.Equal(
             Spline.TotalLengthM(Assert.Single(plain)),
             Spline.TotalLengthM(Assert.Single(rounded)),
             ToleranceM);
     }
+
+    /// <summary>
+    /// <b>And past the distance it cuts them</b>, which is the other half of the figure and the whole of
+    /// what it is for at no distance at all: <b>a square rounded at a radius bigger than it was moved comes
+    /// back as four sides and four arcs of that radius</b> — <c>4·(L − 2·(r − d)) + 2·π·r</c> — where the
+    /// corners stand <c>(√2−1)·(r−d)</c> nearer the shape than the distance asked for, because a corner
+    /// cannot be rounded and left where it was.
+    /// </summary>
+    /// <remarks>
+    /// <b>The two rows are the same answer</b>: a rounding at no distance is the shape a ball of that radius
+    /// rolls round, and a rounding past a distance is that same shape moved out. Both are the reading the
+    /// debug dial is dragged for (OBS-2w), where the distance may be nothing and the radius anything.
+    /// </remarks>
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(MovedM)]
+    public void ARadiusPastTheDistanceCutsTheCornersTheShapeTurnsAwayAt(float outwardM)
+    {
+        var (rings, loose) = ArcOutset.Of([Square(SideM)], outwardM, PastTheMoveM);
+
+        Assert.Empty(loose);
+        Assert.Equal(
+            (4f * (SideM - (2f * (PastTheMoveM - outwardM)))) + (2f * MathF.PI * PastTheMoveM),
+            Spline.TotalLengthM(Assert.Single(rings)),
+            ToleranceM);
+    }
+
+    /// <summary>A radius past every distance the tests here move by, and inside half the square's own side.</summary>
+    const float PastTheMoveM = 2f * MovedM;
+
+    /// <summary>
+    /// <b>And a fill leaves them where the distance put them, however big the radius</b>
+    /// (<see cref="ArcOutset.Corners.Filled"/>): a line a body is held on may be smoothed as hard as a
+    /// caller likes without being pulled back towards the shape it was placed off, so a square's offset is
+    /// the same length at any radius at all.
+    /// </summary>
+    [Fact]
+    public void AFillLeavesTheCornersTheShapeTurnsAwayAtWhereverTheDistancePutThem()
+    {
+        var (plain, _) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: 0f);
+        var (filled, _) = ArcOutset.Of([Square(SideM)], MovedM, PastTheMoveM, ArcOutset.Corners.Filled);
+
+        Assert.Equal(
+            Spline.TotalLengthM(Assert.Single(plain)),
+            Spline.TotalLengthM(Assert.Single(filled)),
+            ToleranceM);
+    }
+
+    /// <summary>
+    /// <b>And it still takes the notches out at that radius</b>, which is what a caller asks a fill for: the
+    /// hand a fold cut is rounded at the figure given, and it is only the other hand that is left alone.
+    /// </summary>
+    [Fact]
+    public void AFillStillTakesTheNotchesOutAtARadiusPastTheDistance()
+    {
+        var shape = SlottedSquare(SideM, FilledSlotM, deepM: SideM * 0.5f);
+
+        var (plain, _) = ArcOutset.Of([shape], MovedM, roundedM: 0f);
+        var (filled, _) = ArcOutset.Of([shape], MovedM, PastTheMoveM, ArcOutset.Corners.Filled);
+
+        Assert.True(Notches(Assert.Single(plain)) > 0, "the offset had no notch in it to fill");
+        Assert.Equal(0, Notches(Assert.Single(filled)));
+    }
+
+    /// <summary>
+    /// A slot wide enough to survive a fill at <see cref="PastTheMoveM"/>: the move takes <c>2·d</c> off its
+    /// width and the fill closes what is narrower than <c>2·r</c>, so a slot the fill is asked about has to
+    /// be wider than both together.
+    /// </summary>
+    const float FilledSlotM = 7f * MovedM;
 
     /// <summary>How many joins of a ring turn in on the shape it was moved off, each of them a notch a fold cut left.</summary>
     static int Notches(ArcSeg[] ring)
@@ -171,7 +252,7 @@ public class ArcOutsetTests
     {
         const float RadiusM = 25f;
 
-        var (rings, _) = ArcOutset.Of([Circle(RadiusM)], MovedM, smoothing: 0.5f);
+        var (rings, _) = ArcOutset.Of([Circle(RadiusM)], MovedM, roundedM: MovedM * 0.5f);
 
         var piece = Assert.Single(Assert.Single(rings));
         Assert.Equal(1f / (RadiusM + MovedM), piece.Curvature, ToleranceM);
@@ -207,7 +288,7 @@ public class ArcOutsetTests
         const float SlotM = MovedM * 0.8f;
 
         var (rings, loose) = ArcOutset.Of(
-            [SlottedSquare(SideM, SlotM, deepM: SideM * 0.5f)], MovedM, smoothing: 0f);
+            [SlottedSquare(SideM, SlotM, deepM: SideM * 0.5f)], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
         Assert.Equal(
@@ -225,7 +306,7 @@ public class ArcOutsetTests
     [Fact]
     public void AShapeMovedInPastItsOwnSizeCollapses()
     {
-        var (rings, loose) = ArcOutset.Of([Square(SideM)], -SideM * 0.75f, smoothing: 0f);
+        var (rings, loose) = ArcOutset.Of([Square(SideM)], -SideM * 0.75f, roundedM: 0f);
 
         Assert.Empty(rings);
         Assert.Empty(loose);
@@ -242,7 +323,7 @@ public class ArcOutsetTests
         const float ApartM = MovedM;
 
         var (rings, loose) = ArcOutset.Of(
-            [Square(SideM), Square(SideM, new Vector2(SideM + ApartM, 0f))], MovedM, smoothing: 0f);
+            [Square(SideM), Square(SideM, new Vector2(SideM + ApartM, 0f))], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
         Assert.Single(rings);
@@ -266,31 +347,32 @@ public class ArcOutsetTests
         const float RadiusM = 6f;
 
         var (rings, loose) = ArcOutset.Of(
-            [Circle(RadiusM), Circle(RadiusM, new Vector2(2f * RadiusM + MovedM, 0f))], MovedM, smoothing: 0f);
+            [Circle(RadiusM), Circle(RadiusM, new Vector2(2f * RadiusM + MovedM, 0f))], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
         Assert.Single(rings);
     }
 
     /// <summary>
-    /// <b>Nothing in a smoothed answer turns further than the corner it fills.</b> A corner of an offset
+    /// <b>Nothing in a rounded answer turns further than the corner it fills.</b> A corner of an offset
     /// turns half a circle at the very most — that is the round of a needle, where the shape doubles back on
     /// itself — so a piece sweeping further than that is an arc nothing asked for.
     /// </summary>
     /// <remarks>
     /// <b>The shape is a square with one shallow kink in a side, and the kink is the whole of it.</b> Where
     /// the ring closes by less than the arithmetic can tell, neither moved piece is cut and the second
-    /// starts a few centimetres behind where the first stopped — and the smoothing, asked to fill a corner
+    /// starts a few centimetres behind where the first stopped — and the rounding, asked to fill a corner
     /// of half a degree across a gap of five, <b>can only get from one to the other by going all the way
     /// round</b>. A shipped city's boundary came back with twenty-five metres of arc at a radius of four
     /// sitting in the middle of a straight, drawn as a ring with nothing under it.
     /// </remarks>
     [Theory]
-    [InlineData(0.2f)]
-    [InlineData(1f)]
-    public void SmoothingPutsNoArcWhereTheRingMerelyDoublesBack(float smoothing)
+    [InlineData(MovedM * 0.2f)]
+    [InlineData(MovedM)]
+    [InlineData(PastTheMoveM)]
+    public void RoundingPutsNoArcWhereTheRingMerelyDoublesBack(float roundedM)
     {
-        var (rings, loose) = ArcOutset.Of([KinkedSquare(SideM)], MovedM, smoothing);
+        var (rings, loose) = ArcOutset.Of([KinkedSquare(SideM)], MovedM, roundedM);
 
         Assert.Empty(loose);
         foreach (var piece in Assert.Single(rings))
@@ -302,6 +384,62 @@ public class ArcOutsetTests
                 + $"at {piece.StartM.X:F1}, {piece.StartM.Y:F1}");
         }
     }
+
+    /// <summary>
+    /// <b>An open line moved to the hand its corner opens on is that line with the arc of the distance put
+    /// into the corner</b> (<see cref="ArcOutset.Beside"/>): an L moved to the walker's left keeps both of
+    /// its arms whole and gains a quarter circle of the distance between them — <c>2·L + π·d/2</c>. Moved
+    /// piece by piece it would be the two arms and <c>2·d·sin(θ/2)</c> of nothing between them.
+    /// </summary>
+    [Fact]
+    public void ALineMovedToTheHandItsCornerOpensOnGainsTheArcOfTheDistance()
+    {
+        Span<ArcSeg> beside = stackalloc ArcSeg[Elbow(SideM).Length * 2];
+
+        var written = ArcOutset.Beside(Elbow(SideM), -MovedM, beside);
+
+        Assert.Equal(
+            (2f * SideM) + (MathF.PI * MovedM * 0.5f),
+            Spline.TotalLengthM(beside[..written]),
+            ToleranceM);
+        Assert.Equal(0f, Apart(beside[..written]), ToleranceM);
+    }
+
+    /// <summary>
+    /// <b>And moved to the hand it closes on, the two arms are cut back to where they cross</b>: the corner
+    /// of an L moved inward stands a distance in along each arm, so what is left is <c>2·(L − d)</c>.
+    /// Moved piece by piece it would be the two arms whole, crossing each other and running a distance past
+    /// the crossing apiece.
+    /// </summary>
+    [Fact]
+    public void AndToTheHandItClosesOnTheArmsAreCutBackToWhereTheyCross()
+    {
+        Span<ArcSeg> beside = stackalloc ArcSeg[Elbow(SideM).Length * 2];
+
+        var written = ArcOutset.Beside(Elbow(SideM), MovedM, beside);
+
+        Assert.Equal(2f * (SideM - MovedM), Spline.TotalLengthM(beside[..written]), ToleranceM);
+        Assert.Equal(0f, Apart(beside[..written]), ToleranceM);
+    }
+
+    /// <summary>The widest any joint of a chain stands open, which is nought in a chain.</summary>
+    static float Apart(ReadOnlySpan<ArcSeg> chain)
+    {
+        var apartM = 0f;
+        for (var piece = 1; piece < chain.Length; piece++)
+        {
+            apartM = MathF.Max(apartM, Vector2.Distance(chain[piece - 1].EndM, chain[piece].StartM));
+        }
+
+        return apartM;
+    }
+
+    /// <summary>Two arms of one length meeting at a right angle turned to the walker's right, as an open line.</summary>
+    static ArcSeg[] Elbow(float armM) =>
+    [
+        new ArcSeg(Vector2.Zero, 0f, armM, 0f),
+        new ArcSeg(new Vector2(armM, 0f), MathF.PI * 0.5f, armM, 0f),
+    ];
 
     /// <summary>
     /// A square walked with its own ground on the walker's right, which is the hand every ring the merge

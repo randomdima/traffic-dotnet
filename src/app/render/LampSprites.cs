@@ -51,9 +51,14 @@ internal static class LampSprites
     /// The units the player has the wheel of, walkers and all: each car among them runs its beacon while
     /// it is held (CTL-5c), and on a car whose art draws no bar that says nothing.
     /// </param>
+    /// <param name="alsoDrivenCar">
+    /// The one car a second driver has the wheel of, or −1 (CTL-5d). It wears the beacon for the same
+    /// reason the selection does: a hand is a hand, whoever it belongs to.
+    /// </param>
     public static int Fill(
         CarFleet cars, CarCatalog catalogue, SimConfig config, int lensSheet, int glowSheet, float elapsedS,
-        ReadOnlySpan<Selection> handDriven, Vector2 viewCentreM, Vector2 viewSpanM, Span<SpriteInstance> into)
+        ReadOnlySpan<Selection> handDriven, int alsoDrivenCar, Vector2 viewCentreM, Vector2 viewSpanM,
+        Span<SpriteInstance> into)
     {
         var written = 0;
         var halfView = viewSpanM * 0.5f;
@@ -83,7 +88,9 @@ internal static class LampSprites
             if (MathF.Abs(offset.X) > halfView.X + reachM || MathF.Abs(offset.Y) > halfView.Y + reachM) continue;
 
             var count = CarLamps.Shown(
-                lenses, CarLamps.Showing(cars, car, config, Selection.Holds(handDriven, SelectionKind.Car, car)),
+                lenses,
+                CarLamps.Showing(
+                    cars, car, config, car == alsoDrivenCar || Selection.Holds(handDriven, SelectionKind.Car, car)),
                 config, elapsedS,
                 cars.FuseJitter[car], shown);
 

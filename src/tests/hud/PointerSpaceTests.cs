@@ -98,7 +98,8 @@ public class PointerSpaceTests
     static MenuChoice Click(Menu menu, Vector2 atPx)
     {
         var trims = new TrimFigures();
-        menu.Click(atPx, new DebugSwitches(), trims);
-        return menu.Pointer(atPx, held: false, SimConfig.Shipped().View.PointerDragPx, trims);
+        var switches = new DebugSwitches();
+        menu.Click(atPx, switches, trims);
+        return menu.Pointer(atPx, held: false, SimConfig.Shipped().View.PointerDragPx, switches, trims);
     }
 }

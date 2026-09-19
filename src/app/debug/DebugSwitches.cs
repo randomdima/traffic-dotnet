@@ -2,7 +2,7 @@ namespace TrafficSimulation.App.Debug;
 
 /// <summary>
 /// <b>OBS-2c — each thing a debug session can be opened for has a switch of its own, and no switch
-/// turns on anything a second one owns.</b> Eleven checkboxes, and the ground's own layers
+/// turns on anything a second one owns.</b> Thirteen checkboxes, and the ground's own layers
 /// (<see cref="Ground"/>) are not among them.
 /// </summary>
 /// <remarks>
@@ -116,8 +116,29 @@ internal sealed class DebugSwitches
     /// </remarks>
     public bool Grid;
 
+    /// <summary>
+    /// <b>And the lattice the solver's own bodies are binned into</b> (OBS-2x), as the cells of its two
+    /// broad-phase grids and how many bodies each holds.
+    /// </summary>
+    /// <remarks>
+    /// A switch of its own and not part of <see cref="Grid"/>, though both draw a lattice: that one is the
+    /// index a question about which line is where is narrowed with, and this is the index a question about
+    /// what could hit what is narrowed with. Two indexes, laid from different corners over different
+    /// things, so one switch drawing both would be a switch that answers two questions at once (OBS-2c).
+    /// <b>It does not take the mouse</b> — the pick belongs to the geometry grid alone (OBS-2t).
+    /// </remarks>
+    public bool SolverGrid;
+
     /// <summary>The measuring tool, which takes the mouse for as long as it is ticked.</summary>
     public bool Ruler;
+
+    /// <summary>
+    /// <b>The shape the reader strikes off that boundary for themselves</b> (OBS-2w,
+    /// <see cref="ShellProbe"/>), at a distance the figures page turns. It is a layer of its own and not
+    /// part of <see cref="Perimeter"/>: that one draws the town's own layers and this draws one the town
+    /// was not laid with, and a shape nobody stands on drawn under that switch would be read for one.
+    /// </summary>
+    public ShellProbe Shell { get; } = new();
 
     /// <summary>
     /// <b>And the ground's own layers, which are not layers of this overlay at all</b>
@@ -134,8 +155,11 @@ internal sealed class DebugSwitches
     /// <summary>
     /// Whether anything the town holds still is drawn at all, which is what decides whether the cache
     /// behind those layers is laid. Both of them are geometry that does not move once the town is laid.
+    /// <b><see cref="SolverGrid"/> is among them for its static half alone</b>: the furniture is indexed
+    /// once and cached with the rest, and the moving half of that layer is laid every frame like a claim.
     /// </summary>
-    public bool NeedsTownGeometry => Nodes || Perimeter || Ribbons || Wireframe || Grid;
+    public bool NeedsTownGeometry =>
+        Nodes || Perimeter || Ribbons || Wireframe || Grid || SolverGrid || Shell.Drawn;
 
     /// <summary>
     /// A number that changes whenever a switch does. The town's own graphs are re-emitted on it
@@ -146,8 +170,10 @@ internal sealed class DebugSwitches
     /// <b>The ground's own parts count among them</b> (<see cref="Ground"/>): the wireframe is a picture
     /// of what is being drawn, so a part taken out of the ground stales that cache the way a layer
     /// switched on does. Carried here rather than compared beside this, a caller can hold one number.
+    /// <b>And the probe's distance counts too</b> (<see cref="Shell"/>), which is the same statement about
+    /// a figure that changes what is drawn rather than whether it is.
     /// </remarks>
-    public int Generation => _generation + Ground.Generation;
+    public int Generation => _generation + Ground.Generation + Shell.Generation;
 
     int _generation;
 

@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen;
 
@@ -16,6 +17,13 @@ namespace TrafficSimulation.CityGen;
 /// the last piece laid over it is the first one met walking that order from the end. The two are one list
 /// in two directions, which is the whole of why drawn and answered-for cannot drift apart — the zebra
 /// included, which is struck last of all and so is asked about first.
+/// </para>
+/// <para>
+/// <b>And the ground beside a road is one distance off the driven bands</b> (TER-7b): the tarmac is the
+/// ground those bands lay, the concrete is the ground within a walk of them, and the grass is everything
+/// further out. One figure answers all three, so a layer added to the picture is a row added to a table
+/// here and never a shape to intersect — which is what makes the picture and the answer the same distance
+/// rather than two constructions that agree for now.
 /// </para>
 /// <para>
 /// <b>A crossing is paint on a carriageway and is nothing anywhere else</b> (TER-6), which is why it is a
@@ -67,13 +75,46 @@ internal sealed partial class GroundShapes
         _worldSizeM = pieces.WorldSizeM;
         _paving = paving;
         _config = config;
+        _walkOuterM = config.WalkOuterM;
         LayTheRoads(pieces, config);
-        LayTheTurns(paving, pieces.WorldSizeM, config);
+        LayTheDriven(paving, config);
         LayTheShapes(paving, config);
+        _ownScan = NewScan();
     }
+
+    /// <summary>
+    /// <b>One caller's working set for the three indexes <see cref="At"/> reads</b>, so that two threads may
+    /// ask about two places at once (<see cref="ChainIndex.Scan"/>). A scan belongs to one thread at a time.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three and not one, because the question is asked of three sets</b>: the roads, the driven ground,
+    /// and the ways into a bay. What is <em>not</em> here is the slabs and the water, which are boxes and
+    /// rings walked in place and hold nothing between one ask and the next.
+    /// </remarks>
+    internal sealed class Scan(ChainIndex.Scan roads, ChainIndex.Scan driven, ChainIndex.Scan bays)
+    {
+        internal ChainIndex.Scan Roads { get; } = roads;
+
+        internal ChainIndex.Scan Driven { get; } = driven;
+
+        internal ChainIndex.Scan Bays { get; } = bays;
+    }
+
+    /// <summary>A scan of this ground's own indexes, for a caller that means to ask off its own thread.</summary>
+    public Scan NewScan() => new(_roadIndex.NewScan(), _driven.NewScan(), _bays.NewScan());
+
+    /// <summary>The scan every ask that names none of its own runs on — the tick's, and every other reader's.</summary>
+    readonly Scan _ownScan;
 
     readonly Paving _paving;
     readonly SimConfig _config;
+
+    /// <summary>
+    /// <b>How far off the driven ground the pavement's outer face stands</b>
+    /// (<see cref="SimConfig.WalkOuterM"/>, TER-3c.3) — the one figure that parts the concrete from the
+    /// grass, held here because it is read once a query and not once a town.
+    /// </summary>
+    readonly float _walkOuterM;
 
     /// <summary>
     /// The last piece of ground laid over the point, found by asking the pieces in the reverse of the
@@ -92,25 +133,37 @@ internal sealed partial class GroundShapes
     /// and not carriageway — and read off the road it was carriageway with the pavement, laid off the
     /// boundary, standing on top of it.
     /// </para>
+    /// <para>
+    /// <b>And the concrete is the same distance one step further out</b> (TER-7b): the walk is the ground
+    /// within <see cref="SimConfig.WalkOuterM"/> of those bands, which is what the picture fills it as, so
+    /// the pavement is answered without a second shape being asked and a walker standing on it is standing
+    /// on what it can see it is standing on.
+    /// </para>
     /// </remarks>
-    public Ground At(Vector2 pointM)
+    public Ground At(Vector2 pointM) => At(_ownScan, pointM);
+
+    /// <inheritdoc cref="At(Vector2)"/>
+    /// <param name="scan">This caller's own working set (<see cref="NewScan"/>), for an ask off its own thread.</param>
+    public Ground At(Scan scan, Vector2 pointM)
     {
-        var roads = Roads(pointM);
+        var roads = Roads(scan.Roads, pointM);
         if (roads.Crossing) return Ground.Crosswalk;
-        if (Turns(pointM, 0f)) return Ground.Intersection;
-        if (Lanes(pointM, 0f)) return Ground.Road;
-        if (BayWays(pointM, 0f)) return Ground.Parking;
-        if (SlabReaches(pointM)) return Ground.Parking;
+
+        var offTheDrivenM = _driven.OffM(scan.Driven, pointM, _walkOuterM);
+        if (offTheDrivenM <= 0f) return Ground.Road;
+
+        var offTheBaysM = _bays.OffM(scan.Bays, pointM, _walkOuterM);
+        if (offTheBaysM <= 0f || SlabReaches(pointM)) return Ground.Parking;
 
         if (roads.Deck) return Ground.Sidewalk;
         if (_water.Covers(pointM)) return Ground.Water;
         if (_shore.Covers(pointM)) return Ground.Sidewalk;
 
-        // <b>And nothing off the kerb, because nothing is struck off the kerb</b>: the wedge a junction's
-        // corner is paved back over (TER-5) and the pavement beside a road were both a distance off the
-        // town's boundary, and the boundary is now the merge of the ribbons the driven lines lay
-        // (<see cref="LaneShell"/>) with no line taken off it. So what stands beside a road is the grass it
-        // was laid over, exactly as the picture draws it.
+        // The walk is asked after the water and not before it, because it is drawn before it: a bank the
+        // town happens to pave up to is water where the two overlap, and the order is the whole of what
+        // states that (TER-7).
+        if (MathF.Min(offTheDrivenM, offTheBaysM) <= _walkOuterM) return Ground.Sidewalk;
+
         return Ground.Grass;
     }
 
@@ -175,17 +228,20 @@ internal sealed partial class GroundShapes
     }
 
     /// <summary>
-    /// <b>Whether any of the town's paving stands within reach of a point</b> — a road's own band, a slab,
-    /// or the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
+    /// <b>Whether any of the town's paving stands within reach of a point</b> — the walk's outer face, a
+    /// slab, or the shore the water is set in. What a prop asks to be <em>well clear</em> of (GEN-6b).
     /// </summary>
     /// <remarks>
-    /// <b>Off the road records rather than off the tarmac as one shape.</b> It was one distance to the band
-    /// every driven line lays, and that band is not laid any more; a road's own half is what the plan
-    /// carries, and the lanes of a road stand inside it. When the boundary's stack comes back (TER-7b) this
-    /// is a question for the boundary and not for the records.
+    /// <b>Off the boundary and not off the road records</b> (TER-7b, <see cref="GroundRings.PavedWithin"/>).
+    /// A road's own half says where its lanes were laid and not where the concrete ends, and it says nothing
+    /// at all about a junction's corner or a roundabout's island; the boundary says all of it at once, and
+    /// it is the boundary the verge is measured off too, so the strip between the two passes is one figure
+    /// wide everywhere.
     /// </remarks>
     public bool PavingWithin(Vector2 pointM, float reachM) =>
-        RoadWithin(pointM, reachM) || SlabWithin(pointM, reachM) || _shore.Within(pointM, reachM);
+        _paving.Rings(_config).PavedWithin(pointM, reachM)
+        || SlabWithin(pointM, reachM)
+        || _shore.Within(pointM, reachM);
 
     /// <summary>
     /// Whether one point is the ground given, <b>and on the map at all</b>. It is the whole of GEN-2b as

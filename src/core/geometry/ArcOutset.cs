@@ -35,36 +35,37 @@ namespace TrafficSimulation.Core.Geometry;
 /// walk a merge uses (<see cref="ArcRings"/>).
 /// </para>
 /// <para>
-/// <b>The smoothing is a pass over the answer and never over the working.</b> Rounding a corner moves the
-/// line off the distance it was moved by, so a round cut before the fold test is a round the fold test
-/// deletes; and a round cut into a fold is a round put on a line that is about to go. The offset is taken
-/// exactly, the folds are cut, and only then are the corners of the rings that survived rounded.
+/// <b>The rounding is this same move again and never a pass over its answer</b> (<see cref="Of"/>): out by
+/// the distance <em>and</em> the radius, in by twice the radius, out by the radius. A corner a move closes
+/// comes back as the arc of that move about it (<see cref="Corner"/>), so each move rounds the hand it
+/// closes at exactly the figure it was given — <b>by the construction above and not a second one</b>, which
+/// is why there is no corner it can refuse and nothing to weigh a fill against.
 /// </para>
 /// <para>
-/// <b>And what it names is a curvature and not a length</b> (<see cref="Smoothed"/>): <b>one radius, asked
-/// of every corner of the answer alike</b>. A corner is the one place a line's curvature is unbounded, so
-/// the whole of what a smoothing can say is how tightly the answer is allowed to turn — and a figure that
-/// says it corner by corner, off the pieces each one happens to stand between, rounds a corner between long
-/// pieces at fifty metres and the one next to it at half a metre. The line comes back continuous and just
-/// as rugged as it went in, because <b>ruggedness is a curvature and it was never touched</b>.
+/// <b>And what it names is a curvature and not a length</b>: <b>one radius, asked of every corner of the
+/// answer alike</b>. A corner is the one place a line's curvature is unbounded, so the whole of what a
+/// smoothing can say is how tightly the answer is allowed to turn — and a figure that says it corner by
+/// corner, off the pieces each one happens to stand between, rounds a corner between long pieces at fifty
+/// metres and the one next to it at half a metre. The line comes back continuous and just as rugged as it
+/// went in, because <b>ruggedness is a curvature and it was never touched</b>.
 /// </para>
 /// <para>
-/// <b>The radius is a share of the distance moved, because that is the curvature the answer already has.</b>
-/// Every corner of the shape comes back as the arc of that distance about it (<see cref="Corner"/>) — the
-/// tightest the offset is ever obliged to turn — so rounding at the same radius is what leaves the whole
-/// line turning no tighter than part of it already did, and <b>one is the smoothest line there is at this
-/// distance</b>.
+/// <b>The radius is a length and not a share of the distance moved</b>, because the two say different
+/// things and a reader wants both. The distance is how far the line stands off the town; the radius is how
+/// tightly it is allowed to turn. Tied together, a line struck a hand's breadth off a car park has a hand's
+/// breadth of radius and is exactly as rugged as the park — which is the one thing a rounding was asked
+/// for. <b>Untied, the distance may be nothing at all and the shape still come back round.</b>
 /// </para>
 /// <para>
-/// <b>And it only ever goes outwards</b> (<see cref="Inside"/>). A line laid to keep off something may keep
-/// further off than it was asked to and may never come nearer, which is what a kerb off a carriageway is;
-/// and it happens to be the only thing the geometry allows in any case. <b>A corner turning away from the
-/// shape cannot be rounded at all</b>: it is the arc of the distance already, and every curve that rounds it
-/// further is a chord of that arc, standing nearer the shape the whole way across. What can be rounded is
-/// the corners turning <em>in</em> — the notches a fold cut left — and the bends the move made tighter than
-/// the shape's own, since a bend of radius <c>r</c> curving inwards offsets to <c>r−d</c> and can be as
-/// tight as nothing at all. Filling either of those takes the line away from the shape, and <b>every fill is
-/// weighed against the shape before it is kept</b>.
+/// <b>Which way a corner is rounded is which way it turns, and the distance rounds one hand for free.</b> A
+/// corner the shape turns away at comes back as the arc of the distance about it, so at a radius inside the
+/// distance there is nothing left to do to that hand and the rounding is the notches alone — <b>and then
+/// the answer never comes nearer the shape than it was moved</b>, which is what a kerb off a carriageway
+/// is. <b>A radius past the distance cuts those corners</b>, and there is no construction that does not: a
+/// corner turning away stands at exactly the distance, and every curve that rounds it further is a chord of
+/// that arc, nearer the shape the whole way across. <b>That is the trade the figure makes, and it is the
+/// reader's to make</b> — asked for a rounding with no distance at all, the only honest answer is the shape
+/// a ball of that radius rolls round.
 /// </para>
 /// <para>
 /// <b>The whole set of rings is offset at once and the count may change.</b> Rings that ran together come
@@ -96,30 +97,129 @@ internal static class ArcOutset
     const float SlackM = LineTolerance.RoundingM;
 
     /// <summary>
-    /// <b>One closed shape moved <paramref name="outwardM"/> off its own ground</b>, and then every corner
-    /// of the answer rounded at one radius, which is <paramref name="smoothing"/> of the answer's own grain
-    /// — nought for the offset untouched and one for as round as the shape can be made, clamped to the two
-    /// of them (<see cref="Smoothed"/>). <paramref name="rings"/> is the whole of the shape's boundary,
-    /// every ring of it walked with the ground on its right.
+    /// <b>One closed shape moved <paramref name="outwardM"/> off its own ground, and no corner of the answer
+    /// left turning tighter than <paramref name="roundedM"/></b> — a radius in metres and not a share of the
+    /// distance, so a shape can be rounded as hard as a reader likes at any distance at all, including none.
+    /// <paramref name="rings"/> is the whole of the shape's boundary, every ring of it walked with the ground
+    /// on its right.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The runs that would not close are handed back apart</b>, exactly as a merge hands its own back
-    /// (<see cref="BandShell.Loose"/>): the boundary of a shape moved off itself is closed, so a run with
-    /// two ends is a crossing this construction did not find rather than a shape the offset has.
+    /// <b>The rounding is this same move run again and not a pass over its answer</b>: out by the distance
+    /// <em>and</em> the radius, in by twice the radius, out by the radius — three moves that come to the
+    /// distance asked for. <b>A corner a move closes comes back as the arc of that move about it</b>
+    /// (<see cref="Corner"/>), so each move in the series rounds the hand it closes at exactly the figure it
+    /// was given, by the one construction that already closes a fold, cuts what went inside and strings what
+    /// is left. There is no second geometry to get right and no corner it can refuse.
     /// </para>
     /// <para>
-    /// <b>A move of nothing is not smoothed either.</b> Both figures are the offset's: the radius is measured
-    /// in the distance moved and the rounding is weighed against the shape it was moved off, so with no
-    /// distance there is neither a radius nor anything to weigh.
+    /// <b>The two hands are rounded by opposite moves, which is why there are three.</b> A corner turning in
+    /// on the shape is a notch the fold cut and only a move inward rounds it; a corner the shape turns away
+    /// at is sharp until a move outward rounds it, and <b>the distance itself is such a move</b> — it comes
+    /// back as the arc of <c>d</c> about the corner, whatever the radius says. <b>So the last move is worth
+    /// making only where the radius asks for more than the distance already gave</b> (<c>r &gt; |d|</c>) and
+    /// is skipped below that, where it is the identity: the two answers agree exactly at <c>r = |d|</c>.
+    /// <b>And it is the only move that can cut</b>, so a caller that wants the fill without the cut skips it
+    /// at every radius (<see cref="Corners.Filled"/>).
+    /// </para>
+    /// <para>
+    /// <b>While the radius is inside the distance the answer cannot come nearer the shape than it was
+    /// moved</b> — the one thing a line to lay a kerb along may never do — because every place on it stands
+    /// within <c>r</c> of a place standing <c>d+r</c> off the shape. <b>Past that it cuts the corner</b>, and
+    /// necessarily: a corner turning away is a point of the answer at exactly <c>d</c>, and a radius of more
+    /// than <c>d</c> laid across it is nearer the shape than the point it replaced. <b>A rounding with no
+    /// distance at all is that case</b>, and what it hands back is the shape a ball of that radius rolls
+    /// round rather than the shape itself.
+    /// </para>
+    /// <para>
+    /// <b>A pocket narrower than twice the radius is closed rather than rounded, and a spit thinner than
+    /// twice the radius goes</b>, since a ball of that radius fits into neither. That is the whole of the
+    /// difference between this and a fillet fitted at one corner: the answer is the line the ball rolls,
+    /// which is a shape rather than a corner treatment.
+    /// </para>
+    /// <para>
+    /// <b>The runs that would not close are handed back apart</b>, exactly as a merge hands its own back
+    /// (<see cref="BandShell.Loose"/>): the boundary of a shape moved off itself is closed, so a run with
+    /// two ends is a crossing this construction did not find rather than a shape the offset has. <b>Every
+    /// move hands its own back</b>, and what one could not close is not offered to the next.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// <b>What a rounding may do to a corner the shape turns away at.</b> A corner turning <em>in</em> is a
+    /// notch the fold cut and is filled either way; this is the other hand.
+    /// </summary>
+    internal enum Corners
+    {
+        /// <summary>
+        /// <b>Rolled on both hands</b>: a corner the shape turns away at tighter than the radius is cut, so
+        /// the answer is the line a ball of that radius rolls round rather than the shape moved.
+        /// </summary>
+        Rolled,
+
+        /// <summary>
+        /// <b>Filled and never cut</b>, whatever the radius: a corner the shape turns away at comes back as
+        /// the arc of the distance moved, as it does with no rounding at all. <b>It is what a line a body is
+        /// held on wants</b> — the answer never stands nearer the shape than it was moved, so no radius can
+        /// pull a walk towards the ground it was placed off (WLK-1).
+        /// </summary>
+        Filled,
+    }
+
+    /// <inheritdoc cref="Of(ReadOnlySpan{ArcSeg[]}, float, float, Corners)"/>
     public static (ArcSeg[][] Rings, ArcSeg[][] Loose) Of(
-        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float smoothing)
+        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM) =>
+        Of(rings, outwardM, roundedM, Corners.Rolled);
+
+    /// <inheritdoc cref="Of(ReadOnlySpan{ArcSeg[]}, float, float)"/>
+    /// <param name="corners">
+    /// Whether the corners the shape turns away at may be cut, which is the whole of the difference between
+    /// the two series (<see cref="Corners"/>).
+    /// </param>
+    public static (ArcSeg[][] Rings, ArcSeg[][] Loose) Of(
+        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM, Corners corners)
     {
         if (rings.Length == 0) return ([], []);
-        if (MathF.Abs(outwardM) <= LineTolerance.RoundingM) return (rings.ToArray(), []);
 
+        var radiusM = MathF.Max(roundedM, 0f);
+        var movedM = MathF.Abs(outwardM);
+        if (radiusM <= LineTolerance.RoundingM)
+        {
+            return movedM <= LineTolerance.RoundingM ? (rings.ToArray(), []) : Struck(rings, outwardM);
+        }
+
+        // Which way the series runs is the distance's, and a rounding asked for without one still runs
+        // outward — the shape grows by the radius and comes back, rather than the other way about.
+        var stepM = outwardM < -LineTolerance.RoundingM ? -radiusM : radiusM;
+
+        var (wide, loose) = Struck(rings, outwardM + stepM);
+        if (wide.Length == 0) return ([], loose);
+
+        // Two moves where the third would be the identity (r <= d), and where the caller will not have a
+        // corner cut at any radius: out by d + r and back in by r is the fill on its own.
+        if (radiusM <= movedM || corners == Corners.Filled)
+        {
+            var (closed, closedLoose) = Struck(wide, -stepM);
+            return (closed, Both(loose, closedLoose));
+        }
+
+        var (tight, tightLoose) = Struck(wide, -2f * stepM);
+        loose = Both(loose, tightLoose);
+        if (tight.Length == 0) return ([], loose);
+
+        var (rounded, roundedLoose) = Struck(tight, stepM);
+        return (rounded, Both(loose, roundedLoose));
+    }
+
+    /// <summary>What two moves of the series could not close, which is the caller's to see whichever move left it.</summary>
+    static ArcSeg[][] Both(ArcSeg[][] loose, ArcSeg[][] more) =>
+        loose.Length == 0 ? more : more.Length == 0 ? loose : [.. loose, .. more];
+
+    /// <summary>
+    /// <b>One closed shape moved off its own ground, once</b>: every ring offset whole, every corner joined,
+    /// and every stretch of that kept where nothing of the shape stands nearer to it than the distance.
+    /// </summary>
+    static (ArcSeg[][] Rings, ArcSeg[][] Loose) Struck(ReadOnlySpan<ArcSeg[]> rings, float outwardM)
+    {
         // The pieces of a ring the stringing handed back already meet (<see cref="ArcRings.Tightened"/>);
         // this is for the caller that hands over a ring of its own, since a corner at exactly the distance
         // moved has no headroom for two vertices a centimetre apart.
@@ -139,56 +239,8 @@ internal static class ArcOutset
             Uncovered(moved, ChainIndex.OfPieces(moved, cellM), source, standing, MathF.Abs(outwardM), outwardM),
             Grazed(outwardM));
 
-        return (Smoothed(chains, Math.Clamp(smoothing, 0f, 1f), outwardM, source, standing), loose);
+        return (chains, loose);
     }
-
-    /// <summary>
-    /// <b>Every finished ring with the corners that turn in on the shape rounded out</b>, at one radius —
-    /// <paramref name="share"/> of the distance moved — which at no smoothing is the rings themselves.
-    /// </summary>
-    /// <remarks>
-    /// <b>The radius is measured in the distance moved because that is the curvature the answer already
-    /// has.</b> Every corner of the shape comes back as the arc of that radius about it
-    /// (<see cref="Corner"/>), which is the tightest the offset itself ever turns; so a rounding at the same
-    /// radius is the one that leaves the whole line turning no tighter than any part of it already did, and
-    /// <b>one is the smoothest line there is at this distance</b>. A figure struck off anything else — the
-    /// length of the pieces, the grain of the answer — rounds one corner at fifty metres and the next at
-    /// half a metre, and the line comes back as rugged as it went in.
-    /// </remarks>
-    static ArcSeg[][] Smoothed(
-        ArcSeg[][] chains, float share, float outwardM, ArcSeg[] source, ChainIndex standing)
-    {
-        var radiusM = share * MathF.Abs(outwardM);
-        if (radiusM <= LineTolerance.RoundingM) return chains;
-
-        var near = new int[source.Length];
-        var alongM = new float[source.Length];
-        for (var at = 0; at < chains.Length; at++)
-        {
-            var asked = radiusM;
-            for (var pass = 0; pass < Passes && asked > LineTolerance.RoundingM; pass++, asked *= 0.5f)
-            {
-                chains[at] = Rounded(
-                    chains[at], asked, outwardM, source, standing, MathF.Abs(outwardM), near, alongM);
-            }
-        }
-
-        return chains;
-    }
-
-    /// <summary>
-    /// <b>How many times a ring is offered a smaller radius for what the last one could not have</b>, each
-    /// half the one before.
-    /// </summary>
-    /// <remarks>
-    /// <b>Because a notch that will not take the radius asked for will take some radius, and refusing it
-    /// outright is what leaves one corner sharp beside another that came out round.</b> The figure has to be
-    /// worth more the higher it is asked, and a single pass is not: <b>a town's boundary kept eight hundred
-    /// sharp notches at a radius of five metres and eighty at a radius of one</b>, because the bigger round
-    /// reaches inside the shape more often and is refused for it. A pass that has already rounded a corner
-    /// leaves no corner there, so the passes after it find nothing to do and cost a walk.
-    /// </remarks>
-    const int Passes = 3;
 
     /// <summary>
     /// <b>How much boundary one corner of the answer can be short</b>, which is what the walk that strings
@@ -231,6 +283,152 @@ internal static class ArcOutset
     }
 
     /// <summary>
+    /// <b>One open line moved sideways with its corners made good</b> — <paramref name="offsetM"/> positive
+    /// to the walker's right, as <see cref="Spline.OffsetInto"/> reads it — and the count of pieces written
+    /// into <paramref name="into"/>, which needs room for twice the line's own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A line beside a line is the same construction a ring's offset is, and a piecewise move is not
+    /// one.</b> Moved piece by piece, an offset chain stops being a chain at every corner its parent turns:
+    /// the corner opens a gap of <c>2·d·sin(θ/2)</c> on one hand — a metre and a half on the hairpin a
+    /// pavement turns round a wedge between two roads — and folds the line through itself on the other.
+    /// <b>What closes both is what closes them for a shape</b>: the arc of the offset's own radius about the
+    /// place the line turned at (<see cref="Corner"/>) where the corner opens, and the place the two moved
+    /// pieces cross where it closes.
+    /// </para>
+    /// <para>
+    /// <b>The fold is cut against the two pieces that made it and not against the whole line</b>, which is
+    /// what parts this from <see cref="Of"/>. A shape's offset is cut by every piece of the shape because a
+    /// feature anywhere may swallow an offset anywhere; a line beside a line is one hand of that, taken over
+    /// a stretch of pavement a few metres long, and a fold deeper than the pieces that made it is a
+    /// stretch the walking network has already cut somewhere else. Where the cut finds no crossing at all
+    /// the two ends are chorded (<see cref="Bridge"/>), so what comes back is a chain either way.
+    /// </para>
+    /// </remarks>
+    public static int Beside(ReadOnlySpan<ArcSeg> line, float offsetM, Span<ArcSeg> into)
+    {
+        if (line.Length == 0) return 0;
+        if (MathF.Abs(offsetM) <= LineTolerance.RoundingM)
+        {
+            line.CopyTo(into);
+            return line.Length;
+        }
+
+        var written = 0;
+        var from = -1;
+        Span<ArcSeg> one = stackalloc ArcSeg[1];
+        for (var piece = 0; piece < line.Length; piece++)
+        {
+            Spline.OffsetInto(line.Slice(piece, 1), offsetM, one);
+            if (one[0].LengthM <= LineTolerance.RoundingM) continue;
+
+            var moved = one[0];
+            if (written > 0) written = Joined(line, from, piece, ref moved, offsetM, into, written);
+            if (moved.LengthM <= LineTolerance.RoundingM) continue;
+
+            into[written++] = moved;
+            from = piece;
+        }
+
+        return written;
+    }
+
+    /// <summary>
+    /// What goes between the last moved piece written and the next one: nothing where they already meet, the
+    /// round of the corner where it opens, and a cut back to where they cross where it closes — <b>which may
+    /// take the piece already written with it</b>, a fold being as deep as it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>Whether there is a corner here at all is asked of the two moved ends and not of the angle between
+    /// them</b>, because the two say different things about the same joint. A chain fitted to a bend turns a
+    /// little at every joint of it by construction, and a joint that turns a little is one whose moved ends
+    /// are already within <see cref="LineTolerance.JoinedM"/> of each other — nothing to open and nothing to
+    /// fold. Read off the angle instead, every one of those is a corner to be made good, and the crossing
+    /// that would make it good is two nearly tangent circles meeting tens of metres away.
+    /// </remarks>
+    static int Joined(
+        ReadOnlySpan<ArcSeg> line, int from, int onto, ref ArcSeg moved, float offsetM, Span<ArcSeg> into,
+        int written)
+    {
+        var apartM = Vector2.Distance(into[written - 1].EndM, moved.StartM);
+        if (apartM <= LineTolerance.JoinedM) return written;
+
+        // A piece the move turned inside out stands between these two, so the line they were corners of is
+        // not there to take a corner off: what is between them is the gap it left.
+        var turnRad = Turn(into[written - 1], moved);
+        if (from + 1 != onto || MathF.Abs(turnRad) < StraightTurn)
+        {
+            return written + Bridged(into[written - 1].EndM, moved.StartM, into[written..]);
+        }
+
+        // <b>Outward is the walker's left</b> (<see cref="Of"/>), so a move to the right opens the corners a
+        // move outward closes.
+        if (Swung(line[from], line[onto]) * -offsetM >= 0f)
+        {
+            ref readonly var arriving = ref into[written - 1];
+            into[written] = Round(
+                arriving.EndM, arriving.HeadingAtRad(arriving.LengthM), turnRad, -offsetM);
+            return written + 1;
+        }
+
+        var cut = written;
+        while (cut > 0 && !Crossed(ref into[cut - 1], ref moved)) cut--;
+
+        // Nothing it ran into over the whole of what is laid, so the fold is deeper than this line goes: the
+        // line is left whole and chorded across, which is what a ring does with the same case.
+        return cut > 0 ? cut : written + Bridged(into[written - 1].EndM, moved.StartM, into[written..]);
+    }
+
+    /// <summary>
+    /// <b>The two moved pieces cut back to where they cross</b>, or false where they never do — in which case
+    /// the arriving one is inside the fold whole and is the caller's to drop.
+    /// </summary>
+    /// <remarks>
+    /// <b>The crossing taken is the one furthest along the piece that arrives</b>, because a fold is entered
+    /// once and left once and what is wanted is where it is left. <b>And a crossing the two pieces do not
+    /// read at the same place is not one</b>: two nearly tangent arcs lie on circles that meet where neither
+    /// of them goes, and a cut made at that reading leaves the two ends metres apart.
+    /// </remarks>
+    static bool Crossed(ref ArcSeg arriving, ref ArcSeg leaving)
+    {
+        Span<float> alongArriving = stackalloc float[2];
+        Span<float> alongLeaving = stackalloc float[2];
+        var found = Spline.CrossingsOf(arriving, leaving, alongArriving, alongLeaving);
+
+        var at = -1;
+        for (var crossing = 0; crossing < found; crossing++)
+        {
+            if (alongArriving[crossing] <= LineTolerance.RoundingM) continue;
+            if (alongLeaving[crossing] >= leaving.LengthM - LineTolerance.RoundingM) continue;
+
+            var apartM = Vector2.Distance(
+                arriving.PointAtM(alongArriving[crossing]), leaving.PointAtM(alongLeaving[crossing]));
+            if (apartM > LineTolerance.JoinedM) continue;
+            if (at < 0 || alongArriving[crossing] > alongArriving[at]) at = crossing;
+        }
+
+        if (at < 0) return false;
+
+        arriving = new ArcSeg(arriving.StartM, arriving.HeadingRad, alongArriving[at], arriving.Curvature);
+        leaving = new ArcSeg(
+            leaving.PointAtM(alongLeaving[at]), leaving.HeadingAtRad(alongLeaving[at]),
+            leaving.LengthM - alongLeaving[at], leaving.Curvature);
+        return true;
+    }
+
+    /// <summary>The straight across a gap written into a span, which is nothing at all unless there is one.</summary>
+    static int Bridged(Vector2 fromM, Vector2 toM, Span<ArcSeg> into)
+    {
+        var runM = toM - fromM;
+        var lengthM = runM.Length();
+        if (lengthM <= LineTolerance.RoundingM) return 0;
+
+        into[0] = new ArcSeg(fromM, MathF.Atan2(runM.Y, runM.X), lengthM, 0f);
+        return 1;
+    }
+
+    /// <summary>
     /// One ring moved: <b>each piece offset whole</b>, the pieces the move turned inside out left behind,
     /// and a join put in at each corner that opens.
     /// </summary>
@@ -247,43 +445,48 @@ internal static class ArcOutset
     /// took thirty kilometres of ring open with it.
     /// </para>
     /// <para>
-    /// <b>A piece whose own bend is tighter than the distance moved offsets to a length of nought or
-    /// less</b> (<see cref="Spline.OffsetInto"/>) and is dropped here rather than carried as a piece that
-    /// runs backwards. Every point within the distance of such a piece is within the distance of it
-    /// everywhere, so there is no offset of it to draw; what it leaves is a gap between two pieces that
-    /// never met, which <see cref="Closed"/> chords across for the fold test to judge.
+    /// <b>A piece whose own bend is tighter than the distance moved is turned inside out and kept</b>
+    /// (<see cref="Inverted"/>) rather than dropped. Its offset really is a line — the arc of
+    /// <c>|R−d|</c> about the same centre, walked the other way — and <b>every point of it stands exactly
+    /// the distance off the piece it came from</b>, so it is a candidate like any other and the loop it
+    /// makes is a fold like any other. <b>Dropped instead, it takes its two corners with it</b>: what is
+    /// left between its neighbours is a chord the fold test deletes for standing inside, and a town's
+    /// boundary came back with two-metre holes at every hand's breadth of tight bend that stood in one.
     /// </para>
     /// </remarks>
     static ArcSeg[] Moved(ReadOnlySpan<ArcSeg> ring, float outwardM)
     {
         var run = new List<ArcSeg>(ring.Length * 3);
-        var moved = new List<ArcSeg>(ring.Length);
-        var at = new List<int>(ring.Length);
 
         Span<ArcSeg> one = stackalloc ArcSeg[1];
         for (var piece = 0; piece < ring.Length; piece++)
         {
             Spline.OffsetInto(ring.Slice(piece, 1), -outwardM, one);
-            if (one[0].LengthM <= LineTolerance.RoundingM) continue;
+            var moved = one[0].LengthM < 0f ? Inverted(one[0]) : one[0];
+            if (moved.LengthM > LineTolerance.RoundingM) run.Add(moved);
 
-            moved.Add(one[0]);
-            at.Add(piece);
-        }
-
-        if (moved.Count == 0) return [];
-
-        for (var piece = 0; piece < moved.Count; piece++)
-        {
-            run.Add(moved[piece]);
-            var next = (piece + 1) % moved.Count;
-            if (Corner(ring, at[piece], at[next], moved[piece], moved[next], outwardM, out var round))
+            if (Corner(ring[piece], ring[(piece + 1) % ring.Length], outwardM, out var round))
             {
                 run.Add(round);
             }
         }
 
-        return Closed(run);
+        return run.Count == 0 ? [] : Closed(run);
     }
+
+    /// <summary>
+    /// <b>The piece a move turned inside out, as the line it is</b>: the offset of an arc the move reached
+    /// past the middle of comes back on the far side of that middle, so it is walked against its own bend
+    /// and <see cref="Spline.OffsetInto"/> hands it back with a negative length to say so.
+    /// </summary>
+    /// <remarks>
+    /// <b>It starts where the offset of the piece's own start stands and turns the way the piece did.</b>
+    /// The offset point of a place on an arc is that place carried through the centre, so the two run round
+    /// the centre together while the offset faces the other way — which is one arc of <c>|R−d|</c> from the
+    /// offset of the start to the offset of the end, and not the piece read backwards.
+    /// </remarks>
+    static ArcSeg Inverted(in ArcSeg moved) =>
+        new(moved.StartM, Spline.WrapRad(moved.HeadingRad + MathF.PI), -moved.LengthM, -moved.Curvature);
 
     /// <summary>
     /// <b>What one corner puts between two moved pieces</b>, which is something only where the corner opens.
@@ -303,7 +506,7 @@ internal static class ArcOutset
     /// corner at its point — further than the distance asked for, and a sharper corner than anything the
     /// shape it came from had. <b>Both of those are faults in the one thing this construction is for</b>: a
     /// line to lay a kerb along has a curvature it can hold, and the arc about the corner is the tightest
-    /// anything at this distance is ever obliged to turn (<see cref="Rounded"/>). What a mitre buys is a
+    /// anything at this distance is ever obliged to turn. What a mitre buys is a
     /// drawing convention for a stroked line, which is not what an offset is.
     /// </para>
     /// <para>
@@ -317,30 +520,43 @@ internal static class ArcOutset
     /// distance moved — <b>and the boundary that leaves short is the walk's to close over</b>
     /// (<see cref="Grazed"/>).
     /// </para>
+    /// <para>
+    /// <b>And it is read off the two pieces the corner is between, whatever the move did to them</b>: the
+    /// place is the ring's own and the two headings are the ones the offset keeps, so a piece the move
+    /// swallowed is still a piece its corners stand at.
+    /// </para>
     /// </remarks>
-    static bool Corner(
-        ReadOnlySpan<ArcSeg> ring, int from, int onto, in ArcSeg leaving, in ArcSeg taking, float outwardM,
-        out ArcSeg round)
+    static bool Corner(in ArcSeg leaving, in ArcSeg taking, float outwardM, out ArcSeg round)
     {
         round = default;
         var turnRad = Turn(leaving, taking);
+        if (MathF.Abs(turnRad) < StraightTurn) return false;
+        if (Swung(leaving, taking) * outwardM < 0f) return false;
 
-        // The two pieces met on the original only if nothing between them was dropped; otherwise there is
-        // no corner to take at all, and the chord across the gap is what there is to say about it.
-        var adjacent = (from + 1) % ring.Length == onto;
-        if (!adjacent || MathF.Abs(turnRad) < StraightTurn) return false;
-        if (Swung(ring[from], ring[onto]) * outwardM < 0f) return false;
-
-        round = Round(leaving.EndM, leaving.HeadingAtRad(leaving.LengthM), turnRad, MathF.Abs(outwardM));
+        // <b>Outward is the walker's left</b> (<see cref="Of"/>), which is where the corner's own place
+        // stands whether or not the piece that arrives at it came back with a length.
+        var headingRad = leaving.HeadingAtRad(leaving.LengthM);
+        var atM = leaving.EndM - (Heading.RightOf(Heading.Unit(headingRad)) * outwardM);
+        round = Round(atM, headingRad, turnRad, outwardM);
         return true;
     }
 
     /// <summary>
     /// The full round of a corner: the arc of the offset's own radius about the place the ring turned at,
-    /// <b>every point of which stands exactly the distance off that place</b>.
+    /// <b>every point of which stands exactly the distance off that place</b>. <paramref name="aboutM"/> is
+    /// where that place stands, signed to the right of the heading — the move itself, since the arc starts
+    /// at the corner moved off it.
     /// </summary>
-    static ArcSeg Round(Vector2 fromM, float headingRad, float turnRad, float radiusM) =>
-        new(fromM, headingRad, radiusM * MathF.Abs(turnRad), turnRad > 0f ? 1f / radiusM : -1f / radiusM);
+    /// <remarks>
+    /// <b>Which way it bends is the move's and never the turn's sign</b>, because the two are the same
+    /// reading only where the corner is read the way the move sees it. A corner is offered here on the chords
+    /// its two pieces subtend (<see cref="Swung"/>) and struck on the tangents they meet at
+    /// (<see cref="Turn"/>); where a piece is a hand's breadth of tight bend the two disagree, and <b>an arc
+    /// bent by the reading that disagreed is struck about the corner's mirror image</b> — the far side of the
+    /// line, twice the distance away, and running into the shape rather than round it.
+    /// </remarks>
+    static ArcSeg Round(Vector2 fromM, float headingRad, float turnRad, float aboutM) =>
+        new(fromM, headingRad, MathF.Abs(aboutM * turnRad), 1f / aboutM);
 
     /// <summary>
     /// <b>Every moved piece cut at every crossing, and each stretch kept where nothing of the original
@@ -505,340 +721,6 @@ internal static class ArcOutset
         }
 
         return sideM * outwardM > 0f;
-    }
-
-    /// <summary>
-    /// <b>The corners of one finished ring rounded at <paramref name="radiusM"/></b>: every corner cut back
-    /// by the tangent its own turn asks for at that radius, and <b>the two places the cut left</b> joined by
-    /// the arcs that leave and arrive along them (<see cref="Spline.BiarcInto"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The radius is the figure and the trim is worked out from it</b>, which is what makes the answer
-    /// one curvature all the way round rather than one length: a corner of ten degrees is cut back a tenth
-    /// of what a right angle is, and both come back turning at the same radius. The other way about — a trim
-    /// the caller names — is a different radius at every corner, and the sharper the corner the tighter it
-    /// comes out, which is ruggedness rewritten rather than rounded.
-    /// </para>
-    /// <para>
-    /// <b>The same amount either side, because a corner cut back further on one side than the other is not
-    /// a corner being rounded</b> — the biarc across an uneven pair turns out of the corner and back into
-    /// it, so a right angle between a long piece and a short one comes out as a swing of a hundred and
-    /// thirty degrees, which is then refused for turning further than what it replaces and leaves the corner
-    /// untouched. Struck evenly, a corner between two straights is exactly one arc through the turn and
-    /// nothing else.
-    /// </para>
-    /// <para>
-    /// <b>And where two corners want the same piece, they are one corner</b> (<see cref="Swallowed"/>). A
-    /// piece its two ends have claimed away is taken whole, and what fills the run is a single pair of arcs
-    /// from the last place the ring was left standing to the next — <b>which is the whole of how a radius
-    /// larger than the shape's own detail gets to mean anything</b>. Capped at what each corner's own two
-    /// pieces can spare instead, a stretch of half-metre steps rounds at a quarter of a metre however round
-    /// it is asked to be, and the figure stops doing anything at a fifth of its range: the answer is
-    /// continuous and exactly as rugged as it went in. Swallowed, the same stretch comes back as one curve.
-    /// </para>
-    /// <para>
-    /// <b>A ring that is claimed away entirely shares itself out instead</b> (<see cref="Shared"/>), which
-    /// is what keeps the far end of the figure a shape rather than a collapse: a square asked for more
-    /// radius than it has sides is <em>the circle through the middle of its four sides</em>, not a single
-    /// arc from one pose back to itself.
-    /// </para>
-    /// <para>
-    /// <b>Outwards only, and nothing is ever rounded off a corner that turns away from the shape.</b> A
-    /// corner turning away is the offset of a corner of the shape: it is the arc of the distance moved
-    /// already, and <b>the only curve that rounds it further is one that cuts inside it</b> — a chord of it,
-    /// nearer the shape than the distance the whole way across, which is not an offset of anything. So the
-    /// claims are laid at the corners that turn <em>in</em> — the notches a fold cut left — where filling
-    /// takes the line away from the shape, and <b>every fill is then weighed against the shape itself</b>
-    /// (<see cref="Nearer"/>) rather than trusted to the sign. That one test is what makes the figure
-    /// one-sided in fact and not just in intent: a fill spanning a run of corners can reach inside where
-    /// each of them alone would not, and it is refused for it.
-    /// </para>
-    /// <para>
-    /// <b>The trim and the join, rather than a fillet solved against two curves.</b> A corner between two
-    /// straights rounded this way is exactly the circle tangent to both — the biarc between two poses
-    /// symmetric about a corner is one arc — and a corner between two bends comes back tangent-continuous at
-    /// both ends without a circle having to be solved against two arcs.
-    /// </para>
-    /// <para>
-    /// <b>Every fill is struck between two places the ring itself has, and the ring is never scanned for
-    /// gaps to fill.</b> That is the whole of the difference between a smoothing and a loop generator. A
-    /// ring is walked by ends that stand within a weld of one another (<see cref="ArcRings.WeldM"/>), not on
-    /// top of one another, and it doubles back by a hand's breadth wherever a cut passed over a piece too
-    /// short to keep — so a pass that looks for two ends apart and puts an arc between them finds those, and
-    /// <b>a biarc between two poses on one heading with the far one a few centimetres behind is a full
-    /// circle</b>. A shipped city's boundary came back with twenty-five metres of arc at a radius of four in
-    /// the middle of a straight, drawn as a ring hanging off the line with nothing under it.
-    /// </para>
-    /// <para>
-    /// <b>A fill that is refused gives back everything it claimed</b> (<see cref="Fills"/>): a claim is a
-    /// claim on the pieces and not yet a cut, so the pass that would leave a hole leaves corners instead.
-    /// </para>
-    /// </remarks>
-    static ArcSeg[] Rounded(
-        ArcSeg[] ring, float radiusM, float outwardM, ArcSeg[] source, ChainIndex standing, float keepM,
-        int[] near, float[] alongM)
-    {
-        if (ring.Length < 2) return ring;
-
-        var wantM = new float[ring.Length];
-        var turnsRad = new float[ring.Length];
-        for (var at = 0; at < ring.Length; at++)
-        {
-            var onto = (at + 1) % ring.Length;
-            turnsRad[at] = Turn(ring[at], ring[onto]);
-            if (MathF.Abs(turnsRad[at]) < StraightTurn || turnsRad[at] * outwardM > 0f) continue;
-
-            wantM[at] = radiusM * MathF.Tan(MathF.Abs(turnsRad[at]) * 0.5f);
-        }
-
-        var tight = new bool[ring.Length];
-        for (var at = 0; at < ring.Length; at++)
-        {
-            if (MathF.Abs(ring[at].Curvature) * radiusM <= 1f) continue;
-
-            tight[at] = true;
-            var claimM = radiusM
-                * MathF.Tan(MathF.Min(MathF.Abs(ring[at].LengthM * ring[at].Curvature), MostBend) * 0.5f);
-
-            var back = (at + ring.Length - 1) % ring.Length;
-            wantM[back] = MathF.Max(wantM[back], claimM);
-            wantM[at] = MathF.Max(wantM[at], claimM);
-        }
-
-        var swallowed = new bool[ring.Length];
-        if (Swallowed(ring, wantM, tight, swallowed) < 2)
-        {
-            Shared(ring, wantM);
-            Array.Clear(swallowed);
-        }
-
-        var fills = new int[ring.Length];
-        var filled = new ArcSeg[ring.Length * 2];
-        Span<ArcSeg> biarc = stackalloc ArcSeg[2];
-        for (var at = 0; at < ring.Length; at++)
-        {
-            if (swallowed[at]) continue;
-
-            var onto = (at + 1) % ring.Length;
-            while (swallowed[onto]) onto = (onto + 1) % ring.Length;
-
-            fills[at] = Fills(ring, wantM, turnsRad, at, onto, biarc);
-            if (fills[at] > 0 && Inside(biarc, fills[at], source, standing, keepM, outwardM, near, alongM))
-            {
-                fills[at] = 0;
-            }
-
-            if (fills[at] == 0)
-            {
-                Given(wantM, swallowed, ring.Length, at, onto);
-                continue;
-            }
-
-            for (var piece = 0; piece < fills[at]; piece++) filled[(at * 2) + piece] = biarc[piece];
-        }
-
-        var run = new List<ArcSeg>(ring.Length * 3);
-        for (var at = 0; at < ring.Length; at++)
-        {
-            if (swallowed[at]) continue;
-
-            Kept(run, ring[at], wantM[(at + ring.Length - 1) % ring.Length], wantM[at]);
-            for (var piece = 0; piece < fills[at]; piece++) run.Add(filled[(at * 2) + piece]);
-        }
-
-        return run.Count == 0 ? [] : ArcRings.Joined(CollectionsMarshal.AsSpan(run), shut: true);
-    }
-
-    /// <summary>
-    /// <b>Whether any part of a fill stands nearer the shape than the distance it was moved off it</b> —
-    /// the one thing a smoothing may not do, and the reason it is asked here rather than argued from the
-    /// direction the corner turned.
-    /// </summary>
-    /// <remarks>
-    /// <b>A line to lay a kerb along may stand further off the carriageway than it was asked to and may
-    /// never stand nearer</b>, so the rounding is one-sided in the same terms the offset itself is: the test
-    /// is <see cref="Nearer"/>, the same one every stretch of the answer already passed. <b>Sampled along
-    /// the fill and not at its ends</b>, which are on the ring and so exactly at the distance by
-    /// construction — what a fill does is bow away from them, and the whole question is which way.
-    /// </remarks>
-    static bool Inside(
-        ReadOnlySpan<ArcSeg> biarc, int made, ArcSeg[] source, ChainIndex standing, float keepM,
-        float outwardM, int[] near, float[] alongM)
-    {
-        for (var piece = 0; piece < made; piece++)
-        {
-            var steps = Math.Clamp(
-                (int)MathF.Ceiling(biarc[piece].LengthM / (keepM * StationShare)), 1, MostStations);
-
-            for (var step = 0; step <= steps; step++)
-            {
-                var atM = biarc[piece].LengthM * step / steps;
-                if (Nearer(source, standing, biarc[piece].PointAtM(atM), keepM, outwardM, near, alongM))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// How finely a fill is read for whether it has gone inside, <b>as a share of the distance moved</b>: a
-    /// quarter of it, so a fill that dips in at all dips in over several stations rather than between two.
-    /// </summary>
-    const float StationShare = 0.25f;
-
-    /// <summary>And how many stations one arc of a fill is read at however long it is, which bounds the cost of the pass.</summary>
-    const int MostStations = 64;
-
-    /// <summary>
-    /// <b>Which pieces of a ring both of their own ends have claimed away</b>, and how many are left
-    /// standing. A piece with nothing left between the two claims on it is taken whole by the run of corners
-    /// around it; <b>a claim is never trimmed to make it fit</b>, because a corner given less than it asked
-    /// for is a corner at a radius nobody named.
-    /// </summary>
-    static int Swallowed(ArcSeg[] ring, float[] wantM, bool[] tight, bool[] swallowed)
-    {
-        var standing = 0;
-        for (var at = 0; at < ring.Length; at++)
-        {
-            var back = (at + ring.Length - 1) % ring.Length;
-            swallowed[at] =
-                tight[at] || ring[at].LengthM - wantM[back] - wantM[at] <= ArcRings.LeastPieceM;
-
-            if (!swallowed[at]) standing++;
-        }
-
-        return standing;
-    }
-
-    /// <summary>
-    /// <b>How far a piece the rounding takes out is credited with turning</b>, for the tangent it claims off
-    /// its neighbours: most of a half circle, because the tangent of a half turn is unbounded and a bend
-    /// that doubles back does not get to claim a kilometre of what stands either side of it.
-    /// </summary>
-    const float MostBend = MathF.PI * 0.9f;
-
-    /// <summary>
-    /// <b>A ring with nothing left standing, shared out</b>: every claim on it cut by the one share that
-    /// makes the tightest piece exactly meet, so each piece is divided between the two corners at its ends
-    /// and none is asked for more than it has.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is the only place a claim is cut, and the reason is that the alternative is not a shape.</b>
-    /// With every piece swallowed there is one place left standing in the whole ring and a single fill from
-    /// it back round to itself, which is a circle struck through one pose — the loop this construction spent
-    /// a city's boundary learning to refuse. Shared out, the ring is as round as its own material allows and
-    /// still its own shape: a square is the circle through the middle of its sides.
-    /// </remarks>
-    static void Shared(ArcSeg[] ring, float[] wantM)
-    {
-        var share = 1f;
-        for (var at = 0; at < ring.Length; at++)
-        {
-            var back = (at + ring.Length - 1) % ring.Length;
-            var claimedM = wantM[back] + wantM[at];
-            if (claimedM > 0f) share = MathF.Min(share, ring[at].LengthM / claimedM);
-        }
-
-        for (var at = 0; at < ring.Length; at++) wantM[at] *= share;
-    }
-
-    /// <summary>
-    /// <b>What a refused fill gives back</b>: the claims it was struck between, and the pieces it would have
-    /// taken whole — so the run comes back the corners it was rather than the hole the claims cut.
-    /// </summary>
-    static void Given(float[] wantM, bool[] swallowed, int pieces, int from, int onto)
-    {
-        for (var at = from; at != onto; at = (at + 1) % pieces)
-        {
-            wantM[at] = 0f;
-            if (at != from) swallowed[at] = false;
-        }
-    }
-
-    /// <summary>
-    /// <b>What fills the run of corners between two pieces still standing</b>: the arcs from where the claim
-    /// cut the piece arriving to where it cut the piece leaving, along the two headings there — and
-    /// <b>nothing at all where the fill is refused</b>, in which case the caller takes the claims back and
-    /// the run stays the corners it was.
-    /// </summary>
-    /// <remarks>
-    /// <b>What fills a run may not turn further than everything it replaces</b> (<see cref="Replaced"/>).
-    /// That one test is what separates a fillet from a loop, and it is read off the ring rather than off a
-    /// tolerance. <b>A ring doubles back</b>: two moved pieces folding through each other less deeply than
-    /// the arithmetic can tell (<see cref="SlackM"/>) are both kept whole, so the second starts a few
-    /// centimetres behind where the first stopped, and <b>the only arc from one pose to the other goes all
-    /// the way round</b>. A shipped city's boundary came back with twenty-five metres of it at a radius of
-    /// four, drawn as a ring hanging off a straight with nothing under it. Weighed against the degree the
-    /// ring actually turns there, that is a full circle where one degree was asked for, and it goes.
-    /// <b>The needle's own U-turn passes the same test</b>, which a rule about which way the far end lies
-    /// would not: where the offset doubles round the tip of a spike the corner really does turn half a
-    /// circle, and half a circle is what fills it.
-    /// </remarks>
-    static int Fills(
-        ArcSeg[] ring, float[] wantM, float[] turnsRad, int from, int onto, Span<ArcSeg> biarc)
-    {
-        var backM = wantM[from];
-        var headM = wantM[(onto + ring.Length - 1) % ring.Length];
-        if (backM <= 0f && headM <= 0f) return 0;
-
-        var awayM = ring[from].LengthM - backM;
-        var leavingRad = ring[from].HeadingAtRad(awayM);
-        var fromM = ring[from].PointAtM(awayM);
-        var toM = ring[onto].PointAtM(headM);
-        if (Vector2.DistanceSquared(fromM, toM) <= LineTolerance.RoundingM * LineTolerance.RoundingM)
-        {
-            return 0;
-        }
-
-        var made = Spline.BiarcInto(fromM, leavingRad, toM, ring[onto].HeadingAtRad(headM), biarc);
-        var turnedRad = 0f;
-        for (var piece = 0; piece < made; piece++)
-        {
-            turnedRad += MathF.Abs(biarc[piece].LengthM * biarc[piece].Curvature);
-        }
-
-        if (turnedRad > Replaced(ring, wantM, turnsRad, from, onto) + StraightTurn) return 0;
-
-        var kept = 0;
-        for (var piece = 0; piece < made; piece++)
-        {
-            if (biarc[piece].LengthM > LineTolerance.RoundingM) biarc[kept++] = biarc[piece];
-        }
-
-        return kept;
-    }
-
-    /// <summary>
-    /// <b>How far everything one fill takes away turns</b>: the tail of the piece it leaves, every corner
-    /// and every whole piece between, and the head of the piece it arrives at — <b>added up without sign</b>,
-    /// so a run that zig-zags is allowed the turning it really does rather than the little it nets out at.
-    /// </summary>
-    static float Replaced(ArcSeg[] ring, float[] wantM, float[] turnsRad, int from, int onto)
-    {
-        var turnedRad = MathF.Abs(wantM[from] * ring[from].Curvature)
-            + MathF.Abs(wantM[(onto + ring.Length - 1) % ring.Length] * ring[onto].Curvature);
-
-        for (var at = from; at != onto; at = (at + 1) % ring.Length)
-        {
-            turnedRad += MathF.Abs(turnsRad[at]);
-            if (at != from) turnedRad += MathF.Abs(ring[at].LengthM * ring[at].Curvature);
-        }
-
-        return turnedRad;
-    }
-
-    /// <summary>What is left of one piece once the corners at either end have taken their share.</summary>
-    static void Kept(List<ArcSeg> run, in ArcSeg piece, float ontoM, float backM)
-    {
-        var toM = piece.LengthM - backM;
-        if (toM - ontoM <= LineTolerance.RoundingM) return;
-
-        run.Add(
-            new ArcSeg(piece.PointAtM(ontoM), piece.HeadingAtRad(ontoM), toM - ontoM, piece.Curvature));
     }
 
     /// <summary>The straight across a gap, which is nothing at all unless there is one.</summary>

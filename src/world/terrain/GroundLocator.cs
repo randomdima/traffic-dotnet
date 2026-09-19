@@ -57,11 +57,20 @@ internal sealed class GroundLocator
     /// </summary>
     public void FiguresChanged(SimConfig config) => _catalog = new GroundCatalog(config);
 
-    public GroundSample At(Vector2 pointM)
-    {
-        var ground = _shapes.At(pointM);
-        return new GroundSample(ground, GroundCatalog.RulesOf(ground), _catalog.Coefficient(ground));
-    }
+    public GroundSample At(Vector2 pointM) => Sample(_shapes.At(pointM));
+
+    /// <summary>
+    /// A scan of the shapes behind this ground, for a caller that means to ask off its own thread
+    /// (<see cref="GroundShapes.Scan"/>). <b>The ground itself is shared and read-only</b>; the scan is the
+    /// whole of what an ask writes to.
+    /// </summary>
+    public GroundShapes.Scan NewScan() => _shapes.NewScan();
+
+    /// <inheritdoc cref="At(Vector2)"/>
+    public GroundSample At(GroundShapes.Scan scan, Vector2 pointM) => Sample(_shapes.At(scan, pointM));
+
+    GroundSample Sample(Ground ground) =>
+        new(ground, GroundCatalog.RulesOf(ground), _catalog.Coefficient(ground));
 
     public Ground GroundAt(Vector2 pointM) => _shapes.At(pointM);
 

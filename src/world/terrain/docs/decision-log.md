@@ -1,5 +1,75 @@
 # Terrain — decision log
 
+## 2026-09-19 — the cost of a ground answer is a figure per kind, and a road that answers nothing is not asked
+
+One figure for what a question costs hid the only thing worth knowing about it. Asked per kind
+(`--bench census`), the town answers **grass in 60 ns and carriageway in 555** — nine times as dear, and
+five times the mean every judgement had been made against. The two hot paths share almost nothing: a wheel's
+ask is the roads and the driven bands and stops there, and a walker's carries on through the water's rings
+into the walk. **A mean over the mix says what a town costs and nothing about what either of them costs**,
+which is why the rows carry the figure and the headline is now their mean rather than a sweep of its own.
+
+**The figure is taken by asking again rather than by timing in place.** A timestamp costs a fair share of a
+130 ns ask, so a per-kind clock inside the sweep would have been mostly the instrument; the sweep classifies,
+and a strided quarter-million of each kind is then timed as a tight loop. Strided because a kind lies in
+bands across a town — the first quarter-million points answering water are one end of the river, where every
+ask stands inside the same ring's box.
+
+**What it found first: four roads in five were in the index to answer no.** A road says two things about a
+point, a deck and a stretch of paint, and both are read off its own runs — so a road carrying neither is a
+candidate a query reads a cell for, projects onto, and learns nothing from, and there is no early-out to
+save it, because the loop has to weigh every candidate to establish that none of them is painted. Odesa
+carries 510 crossings and no bridges over 2054 roads. Asked of the roads that can answer, a carriageway ask
+went **689 ns → 555** and the mean **136 → 111**; the ring shrank with it, since the radius every query reads
+its cells by is the widest road in the *index* and not in the town.
+
+**And the working set is no longer zeroed.** `ChainIndex.Near` fills every slot below the count it returns
+before anything reads one, so initialising the frame was a kilobyte of stores a query paid and never read —
+worth a flat 6 to 15 ns of every ask. It is also what lets the caps above what one junction can hold be
+generous instead of measured: room nothing fills now costs the stack pointer, so the fallback that walks
+every driven line in the town sits behind 256 rather than behind a figure argued from a five-armed
+crossroads, in a city whose junctions stand three metres apart.
+
+**What the rows say to do next is measure the carriageway row and not the mean.** `Near` projects every
+candidate before it hands one back, so the early-out on the driven bands saves the band arithmetic and none
+of the projections — which is where the remaining 555 ns is, and it is a question about the cell the driven
+lines are binned at rather than about the arithmetic.
+
+
+## 2026-09-19 — the concrete is the same distance one step further out, and a junction has no kind
+
+The answer knew two grounds beside a road: the tarmac a driven line lays, and grass. The pavement was drawn
+and not answered, so a walker stood on concrete it could see and was told it was standing on a verge.
+
+**A layer is one distance off the driven bands, and the table says which.** Nought is the tarmac and a walk
+is the concrete (`SimConfig.WalkOuterM`), which is TER-7b's own construction rather than a second reading of
+it — so a layer added to the picture is a row added to a table and never a shape to intersect. One query
+answers all of them: a distance, where a query per layer was the same index walked again at another offset,
+and two walks that could disagree.
+
+**The three sets became two, because they answered two kinds and not three.** A lane and a movement through a
+box lay one surface — an intersection has no shape of its own (TER-5) — so they are one set answering
+carriageway, and `Ground.Intersection` is gone with the row in the catalogue that permitted exactly what a
+road does. TER-3 no longer asks for a kind for the ground roads meet on; what turns on a junction is asked of
+the road graph. The ways into a bay stay a set of their own, because a bay is ground a walker may stand on
+and a carriageway is not.
+
+**What was checked is the promise the two constructions make each other.** The walking network is the
+boundary moved off itself and reads no ground at all (WLK-1), the walk the answer gives is that boundary
+moved by its own figure, and TER-3c.3 says the first stands on the second. It does, over every stretch of
+pavement lane in both towns. Nothing here asked the other.
+
+**What it came to on the shipped city** (`--bench census`): 47.65 ha of Odesa — 6.9 % of it, against 5.9 %
+of carriageway — answers as the concrete it is already drawn as, and every hectare of that was grass. A
+question costs **128 ns**, two index walks where it was three.
+
+**And the corner is where the picture and the answer part.** The fill is the boundary rounded at
+`Road.LineRoundedM` and offset; the answer measures off the bands, which are square — so at a corner the two
+stand up to that radius apart, and it is the rounding that deviates from TER-7 rather than a second geometry.
+`RoadGround.Carriageway` went with the change: which road's carriageway a point was on had been computed
+every query since the lanes took that answer over, and read by nobody.
+
+
 ## 2026-09-12 — the ground answer is a line and a distance
 
 `At` asked the shapes in the reverse of the order they were drawn and took the first that covered the point,
@@ -23,67 +93,15 @@ Gone with them: the walk band, the kerb fillet as a shape, the grown road band, 
 candidate-and-cut scheme needed to make coincident lines behave.
 
 
-## 2026-09-07 — a zebra stands a stride clear of the bend, and is walked a lane each way
-
-At a node with no fork the bundle began where the corner's ground ends, so the paint stood its stride past
-an **arc** that curves away under it — the tightest zebras on both shipped towns, and the only ones that
-read as laid on a curve. The bundle now stands off the corner by the same stride, because the paint has to
-lie on straight kerb. And the offset a crossing is walked at is asked of the paint rather than of the whole
-kerb-to-kerb line: a station standing *on* the kerb refused every offset there is, since a step sideways at
-a kerb runs along it and lands on a junction mouth as often as not. Gated by
-`CrosswalkGeometryTests` and `WalkingNetworkTests`, the second asked only of generated towns — the
-hand-written fixtures carry what they were authored with.
-
-## 2026-09-07 — a walking lane turns the corner the pavement turns, at its own offset
-
-Every lane end gave up half a band to its corners, so the walk left the kerb it was laid off and the
-outside of every bend was pavement no lane reached. That is the figure the *crossing* case needs, charged
-to corners that are not crossings. What a corner costs is the arc it is turned on — `offset × tan(half the
-turn)` — which is nothing where the pavement runs straight and grows only as the corner sharpens. A
-crossing keeps its band, where the overlap really is a band. The gate that moved is that a lane never
-strays further from the pavement's line than its own offset: it failed on every shipped map at up to a
-third of a metre, and is the whole of what following the pavement means.
-
 ## 2026-09-06 — the pavement is the band the walk runs down, and the carriageway ends at its inner edge
 
 The band's outer edge was a dilation, which rounds a convex corner and swallows a narrow notch, while its
 inner edge was the tarmac's raw outline, which does neither — so wherever the town's pieces meet at
 different widths the band came out a different width at every mouth, and the kerb read as a chamfer across
-a corner the shell turned smoothly. The band is struck on one curve, the same one the walking lanes were
-laid on, with both edges offsets of it: one distance to answer, one skirt either side, and a half-round at
+a corner the shell turned smoothly. The band is struck on one curve, with both edges offsets of it: one
+distance to answer, one skirt either side, and a half-round at
 a run's end that fills the wedge where two runs give way. Cutting moved down into `Kerbs` so ground, mesh
 and foot graph share it (TER-7). Everything inside the kerb is tarmac now, pockets included.
-
-## 2026-09-06 — a pavement laid twice is dropped down to one
-
-Two pieces of tarmac lying along one another wrap into two lines lying along one another, and the cost is
-not the wasted stretch but the corner the town then lays and offers — a loop hanging off a footway that
-turns a body round. It is asked of a shared *node* rather than a shared pair of ends, since the two lines
-are cut by what each was laid off and rarely stop in the same place. Both halves are needed: a pavement
-closing on itself also leaves one node by two ways, and two short pieces meeting end to end each lie within
-a body's width of the other. What tells them apart is that a doubled way ends further down the other's line
-than it set off. Asked after the seams are run together, with the prune and the pass run again after it.
-
-## 2026-09-06 — a node of the pavement is a place a walk chooses, not a seam in the construction
-
-Odesa's footway came out as 4 896 stretches over 4 384 nodes, of which 3 313 forked nothing. Two stretches
-that are one line where they meet are now one stretch: across the line nothing may move, so the grace is
-the rounding divided by the offset the lanes are laid at; along it the weld has already had its say, so a
-joint may be open by as much as the weld put it. Nearly all of them were overruns — two pieces of the shell
-meeting tangentially are cut by two bisections of their own, so one runs past the other's cut by up to
-17 cm. It came to 2 748 stretches over 2 244 nodes, and the check is that every fork in the town is a
-crossing's mouth.
-
-## 2026-09-06 — a shell has no ends
-
-A band offered its two sides and nothing across the end it stops at, so wherever the kerb turned a corner
-no other piece stood beside, the pavement simply stopped — a hole of a few metres in a footway drawn
-continuous. A band ends square (TER-7a), so what stands outside one of its ends is a quarter turn about
-each corner and the straight between them, offered like any other line and cut by the one rule (TER-3c.6).
-Ends are joined *before* what leads nowhere is dropped: where two lines graze, the ends they are cut to
-stand centimetres apart, so the line closing the gap read as dead-ending and was dropped before the stitch
-ran. Odesa's pavement dead ends went 406 → 18. What is left is a pinch and not a hole, where a wedge
-between two pieces of tarmac is narrower than a walk.
 
 ## 2026-09-06 — a band ends square where its own line ends
 

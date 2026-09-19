@@ -117,7 +117,7 @@ internal static class RescueProbe
     static string Metres(float m) => float.IsPositiveInfinity(m) ? "—" : $"{m:F1}";
 
     public static RescueRow Sample(string map, SimConfig config) =>
-        Sample(map, Maps.Plan(map, config), config);
+        Sample(map, Maps.Plan(map, config, BuildingCatalog.Roofs), config);
 
     /// <summary>
     /// The same reading taken of a town already in hand. <b>A plan is what this measures</b>, and a caller

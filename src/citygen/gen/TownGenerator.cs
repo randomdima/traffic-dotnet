@@ -6,7 +6,7 @@ using TrafficSimulation.Core.Simulation;
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>A town from a brief and a seed</b> (GEN-1): the six stages, in the one order they can run in, each
+/// <b>A town from a brief and a seed</b> (GEN-1): the seven stages, in the one order they can run in, each
 /// of them once.
 /// </summary>
 /// <remarks>
@@ -15,9 +15,8 @@ namespace TrafficSimulation.CityGen.Gen;
 /// generated and rejected, and no stage retries: what makes that possible is that each stage constrains the
 /// next rather than checking it afterwards — the water is cut before a node is placed, the districts are
 /// convex so their streets mostly cannot cross, the arterials carry a node wherever a street meets one, a
-/// frontage slot claims its own padding before anything fills it, and the props take what is left. Where the
-/// ground cannot afford what the brief asked for, the town is what fitted and the census reports the
-/// shortfall.
+/// building claims its own padding as it is stood, and the props take what is left. Where the ground cannot
+/// afford what the brief asked for, the town is what fitted and the census reports the shortfall.
 /// </para>
 /// <para>
 /// <b>The nodes are placed, then settled, then joined — and no road is drawn twice</b> (GEN-16, GEN-49).
@@ -54,11 +53,16 @@ internal static class TownGenerator
     const ulong PropStream = 0x7072_6F70_7300_0000;
     const ulong SpawnStream = 0x7370_6177_6E73_0000;
     const ulong CarParkStream = 0x6361_7270_6172_6B00;
+    const ulong BuildingStream = 0x6275_696C_6469_6E67;
 
     /// <summary>Nothing has been refused yet when the layout is settled, so every corner is offered to the join (GEN-51).</summary>
     static readonly HashSet<Vector2> NothingHeld = [];
 
-    public static CityPlan Lay(TownBrief brief, SimConfig config)
+    /// <param name="sizes">
+    /// The footprints the buildings are sized at, handed down from the catalogue that read them
+    /// (<see cref="BuildingSizes"/>). A town laid with none stands no building.
+    /// </param>
+    public static CityPlan Lay(TownBrief brief, SimConfig config, BuildingSizes sizes)
     {
         brief.Check(brief.Name);
 
@@ -132,8 +136,16 @@ internal static class TownGenerator
         var paving = Paving.Lay(paved, config);
         var streets = new GroundShapes(paving, config);
 
+        // <b>And the buildings stand against the boundary that settles</b> (GEN-54): every one of them off
+        // the pavement's own outer face, the services first and each on the yard cut for it (GEN-55). It is
+        // before the props because a verge carries what is left over beside what is built (GEN-6b).
+        var building = new Rng(brief.Seed, BuildingStream);
+        var buildings = BuildingStage.Lay(
+            brief, carParks, roads.Roads, roads.Junctions.CentreM, paving, streets, claims, sizes, config,
+            ref building);
+
         var prop = new Rng(brief.Seed, PropStream);
-        var props = PropStage.Lay(brief, roads.Roads, streets, claims, config, ref prop);
+        var props = PropStage.Lay(brief, paving, streets, claims, config, ref prop);
 
         var spawn = new Rng(brief.Seed, SpawnStream);
         var spawns = SpawnStage.Lay(brief, paving, config, ref spawn);
@@ -158,10 +170,10 @@ internal static class TownGenerator
             Crosswalks = roads.Crosswalks,
             StopLines = roads.StopLines,
 
-            // <b>No car park and no building</b>: the stage that placed them was laid on the layer this
-            // milestone replaces, and both are named in the known gaps rather than half-kept.
+            // <b>No bay</b>: a car park is the junction its arms are cut as (GEN-53) and the spaces on them
+            // are not laid, which is named in the known gaps rather than half-kept.
             ParkingLots = paved.ParkingLots,
-            Buildings = CityPlan.BuildingArrays.None,
+            Buildings = buildings,
             Props = props,
             Spawns = spawns,
             Water = water.Rings,

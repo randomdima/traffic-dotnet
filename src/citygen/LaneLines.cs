@@ -231,7 +231,7 @@ internal sealed class LaneLines
             // it drives in over and backs out over, so its two lanes are the line itself and not two halves
             // of a carriageway. It is the same exception a one-way road's single lane already is.
             var overOneLine = roads.DrivenOverOneLine(road);
-            var laneOffsetM = roads.LanesOn(road) == 1 || overOneLine ? 0f : halfLaneM * config.RoadSideSign;
+            var laneOffsetM = roads.LanesMeetOnItsLine(road) ? halfLaneM * config.RoadSideSign : 0f;
 
             var forward = laneRoad.Count;
             var backward = forward + (runsWithTheRoad ? 1 : 0);

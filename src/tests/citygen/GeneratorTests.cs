@@ -1112,9 +1112,10 @@ public class GeneratorTests
         var plan = Lay(Brief(seed));
         Assert.True(plan.Props.Count > 0, "a town with no props asks this of nothing");
 
+        var edges = PavedEdge.Of(plan, Config);
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
-            AllGrassWithin(plan, prop, plan.Props.RadiusM[prop]);
+            AllGrassWithin(plan, prop, plan.Props.RadiusM[prop], edges);
         }
     }
 
@@ -1135,16 +1136,16 @@ public class GeneratorTests
 
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
-            if (edges.InAVerge(plan.Props.CentreM[prop], Config)) continue;
+            if (edges.InAVerge(plan.Props.CentreM[prop], plan.Props.RadiusM[prop], Config)) continue;
 
             swept++;
-            AllGrassWithin(plan, prop, plan.Props.RadiusM[prop] + Config.PavementCornerReachM);
+            AllGrassWithin(plan, prop, plan.Props.RadiusM[prop] + Config.PavementCornerReachM, edges);
         }
 
         Assert.True(swept > 0, "a town whose props are all on a verge asks this of nothing");
     }
 
-    static void AllGrassWithin(CityPlan plan, int prop, float standM)
+    static void AllGrassWithin(CityPlan plan, int prop, float standM, PavedEdge edges)
     {
         var atM = plan.Props.CentreM[prop];
         for (var downM = -standM; downM <= standM; downM += Config.Terrain.GroundStepM)
@@ -1158,7 +1159,8 @@ public class GeneratorTests
                 Assert.True(
                     GroundAt(plan, onM) == Ground.Grass,
                     $"prop {prop} at {atM.X:F1},{atM.Y:F1} reaches {GroundAt(plan, onM)} at " +
-                    $"{onM.X:F1},{onM.Y:F1} within {standM:F2} m");
+                    $"{onM.X:F1},{onM.Y:F1} within {standM:F2} m — r {plan.Props.RadiusM[prop]:F2}, " +
+                    $"{(PropKind)plan.Props.Kind[prop]}, nearest face {edges.NearestM(atM):F2} m");
             }
         }
     }
@@ -1185,7 +1187,7 @@ public class GeneratorTests
             // half a cell inside the edge this measures to; the verge band carries the sampling's own
             // tolerance. What is left between the two is still metres of strip.
             Assert.True(
-                edges.InAVerge(atM, Config)
+                edges.InAVerge(atM, plan.Props.RadiusM[prop], Config)
                 || edges.NearestM(atM) > Config.CityGen.PropWildStandOffM - Config.Terrain.GroundStepM,
                 $"the prop at {atM.X:F1},{atM.Y:F1} stands {edges.NearestM(atM):F2} m off the nearest " +
                 $"paving, which is neither a verge nor clear of one " +
@@ -1216,7 +1218,7 @@ public class GeneratorTests
             var atM = plan.Props.CentreM[prop];
             var bearingRad = plan.Props.BearingRad[prop];
             Assert.True(
-                edges.RunsOn(atM, bearingRad, Config),
+                edges.RunsOn(atM, plan.Props.RadiusM[prop], bearingRad, Config),
                 $"the {kind} at {atM.X:F1},{atM.Y:F1} carries {bearingRad:F3} rad, which is no paved " +
                 "edge's bearing within a verge of it");
         }
@@ -1225,19 +1227,23 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// Every edge a verge is measured from — each road's two kerb lines and each car park's four sides —
-    /// sampled a metre apart and bucketed, so what the paving was doing beside a prop is a look-up over
-    /// nine squares rather than a sweep over every arc and rectangle in the town.
+    /// The line a verge is measured from — the walk's outer face, which is the whole of the town's paved
+    /// edge (GEN-6b) — sampled finely and bucketed, so what the paving was doing beside a prop is a look-up
+    /// over nine squares rather than a sweep over every arc in the town's boundary.
     /// </summary>
     /// <remarks>
-    /// <b>A sample carries the walk that wraps its own edge</b>, because the two kinds of edge are measured
-    /// from different places: a road's kerb line already has the pavement outside it, and a car park's
-    /// tarmac has a claimed ring of walkable grass round it (GEN-4d) that its verge begins past. The stand
-    /// -off the wild pass keeps is off the paving itself either way, which is what these lines are.
+    /// <b>It is the plan's own rings and not a line laid again here</b> (<c>GroundRings.WalkEdge</c>). What
+    /// the pass is asked is whether it placed against the face the town was drawn with, so a second
+    /// construction of that face would be asking whether two constructions agree.
     /// </remarks>
     sealed class PavedEdge(float squareM)
     {
-        /// <summary>How far off a sample's bearing the exact one beside a prop may be, a metre of arc apart on the tightest bend a road is laid on.</summary>
+        /// <summary>
+        /// How far off a sample's bearing the exact one beside a prop may be. <b>It is also what bounds the
+        /// step</b>: the face is rounded at a radius of its own (TER-3c.10) and spends a quarter of a turn
+        /// over a metre of it, so a step fixed in metres would put a corner's samples further off each other
+        /// in bearing than this whole tolerance.
+        /// </summary>
         const float ApartRad = 0.05f;
 
         /// <summary>How far a distance measured to the samples may stand off the distance to the shape they were taken from.</summary>
@@ -1251,87 +1257,90 @@ public class GeneratorTests
         /// </summary>
         const float SampledM = 0.25f;
 
-        readonly Dictionary<(int Column, int Row), List<(Vector2 AtM, float Rad, float WalkM)>> _squares = [];
+        readonly Dictionary<(int Column, int Row), List<(Vector2 AtM, float Rad)>> _squares = [];
 
         public static PavedEdge Of(CityPlan plan, SimConfig config)
         {
             var edges = new PavedEdge(config.CityGen.PropWildStandOffM);
 
-            for (var road = 0; road < plan.Roads.Count; road++)
+            // Piece by piece and never over the chain, because the step is the piece's own: a bend a walk
+            // of the whole ring stepped into would spend its heading inside one step of a straight.
+            foreach (var face in plan.Paving(config).Rings(config).WalkEdge)
             {
-                var chain = plan.Roads.SegmentsOf(road).ToArray();
-                if (chain.Length == 0) continue;
-
-                // The road's own width and not the catalogue's: a one-way street stands half a carriageway
-                // nearer its middle (TER-4d). No walk beside it, because nothing lays one.
-                var kerbM = plan.Roads.WidthM[road] * 0.5f;
-                var lengthM = Spline.TotalLengthM(chain);
-                for (var alongM = 0f; alongM <= lengthM; alongM += SampledM)
+                foreach (var arc in face)
                 {
-                    var on = Spline.SampleAt(chain, alongM);
-                    foreach (var hand in (ReadOnlySpan<int>)[-1, 1])
+                    var stepM = StepM(arc.Curvature);
+                    for (var alongM = 0f; alongM < arc.LengthM; alongM += stepM)
                     {
-                        edges.Add(on.PositionM + (on.Right * hand * kerbM), on.HeadingRad, 0f);
+                        edges.Add(arc.PointAtM(alongM), arc.HeadingAtRad(alongM));
                     }
+
+                    edges.Add(arc.PointAtM(arc.LengthM), arc.HeadingAtRad(arc.LengthM));
                 }
             }
 
             return edges;
         }
 
-        /// <summary>How far the nearest paving is, whatever kind of edge it belongs to.</summary>
+        /// <summary>
+        /// How far along one piece the next sample stands: <see cref="SampledM"/>, or the arc a bend of this
+        /// curvature spends half of <see cref="ApartRad"/> over, whichever is shorter.
+        /// </summary>
+        static float StepM(float curvature)
+        {
+            var turningM = MathF.Abs(curvature) <= float.Epsilon
+                ? SampledM
+                : ApartRad * 0.5f / MathF.Abs(curvature);
+
+            return MathF.Max(MathF.Min(SampledM, turningM), 1e-3f);
+        }
+
+        /// <summary>How far the nearest paved edge is.</summary>
         public float NearestM(Vector2 atM)
         {
             var nearestM = float.PositiveInfinity;
-            foreach (var (onM, _, _) in Around(atM)) nearestM = MathF.Min(nearestM, Vector2.Distance(onM, atM));
+            foreach (var (onM, _) in Around(atM)) nearestM = MathF.Min(nearestM, Vector2.Distance(onM, atM));
 
             return nearestM;
         }
 
-        /// <summary>Whether the point stands in some edge's own verge — the band out past the walk that wraps it.</summary>
-        public bool InAVerge(Vector2 atM, SimConfig config)
+        /// <summary>
+        /// Whether a prop of this girth stands in the verge — <b>its near rim in the band</b> and not its
+        /// centre, which is how the pass places one (GEN-6b).
+        /// </summary>
+        public bool InAVerge(Vector2 atM, float reachM, SimConfig config)
         {
-            foreach (var (onM, _, walkM) in Around(atM))
+            foreach (var (onM, _) in Around(atM))
             {
-                var outM = Vector2.Distance(onM, atM) - walkM;
+                var outM = Vector2.Distance(onM, atM) - reachM;
                 if (outM <= config.CityGen.PropVergeFarM + NearEnoughM) return true;
             }
 
             return false;
         }
 
-        /// <summary>Whether an edge within a verge of the point was running on the bearing given.</summary>
-        public bool RunsOn(Vector2 atM, float bearingRad, SimConfig config)
+        /// <summary>Whether an edge within a verge of the prop was running on the bearing given.</summary>
+        public bool RunsOn(Vector2 atM, float reachM, float bearingRad, SimConfig config)
         {
             var onIt = Heading.Unit(bearingRad);
-            foreach (var (onM, rad, walkM) in Around(atM))
+            foreach (var (onM, rad) in Around(atM))
             {
-                if (Vector2.Distance(onM, atM) - walkM > config.CityGen.PropVergeFarM + NearEnoughM) continue;
+                if (Vector2.Distance(onM, atM) - reachM > config.CityGen.PropVergeFarM + NearEnoughM) continue;
                 if (Vector2.Dot(Heading.Unit(rad), onIt) >= MathF.Cos(ApartRad)) return true;
             }
 
             return false;
         }
 
-        void Side(Vector2 middleM, Vector2 tangent, float halfM, float walkM)
-        {
-            for (var alongM = -halfM; alongM <= halfM; alongM += SampledM)
-            {
-                Add(middleM + (tangent * alongM), MathF.Atan2(tangent.Y, tangent.X), walkM);
-            }
-
-            Add(middleM + (tangent * halfM), MathF.Atan2(tangent.Y, tangent.X), walkM);
-        }
-
-        void Add(Vector2 atM, float bearingRad, float walkM)
+        void Add(Vector2 atM, float bearingRad)
         {
             var square = Square(atM);
             if (!_squares.TryGetValue(square, out var here)) _squares[square] = here = [];
 
-            here.Add((atM, bearingRad, walkM));
+            here.Add((atM, bearingRad));
         }
 
-        IEnumerable<(Vector2 AtM, float Rad, float WalkM)> Around(Vector2 atM)
+        IEnumerable<(Vector2 AtM, float Rad)> Around(Vector2 atM)
         {
             var (column, row) = Square(atM);
             for (var down = -1; down <= 1; down++)

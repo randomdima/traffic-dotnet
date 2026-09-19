@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.World.Foot;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.App.Render;
@@ -155,23 +157,36 @@ internal sealed partial class GroundMesh
     static readonly Vector3 Plain = Vector3.One;
 
     /// <summary>
-    /// <b>An edge is the surface darkened</b>: the walk's own kerb, a deck's rim, and the shore. It is a
-    /// measurement and not a relation, and nothing else in the town is drawn in a colour of its own.
+    /// <b>An edge is the surface darkened</b>: a deck's rim, which is the one line here left where nothing
+    /// has a boundary to strike a stroke off. It is a measurement and not a relation, and nothing in the
+    /// town is drawn in a colour of its own.
     /// </summary>
     public static readonly Vector3 Edge = new(0.58f, 0.58f, 0.62f);
 
     /// <summary>
-    /// <b>And the town's kerb is the walk's own grain brightened</b>, on the terms the paint was drawn by: a
-    /// kerbstone is the concrete beside it catching the light, so what tells it from the walk is the shade
-    /// and not a second surface. The walk's own kerb takes <see cref="Edge"/> instead, being the side of the
-    /// same stone that faces away from the street.
+    /// <b>And paint is the surface brightened</b>: a mark is the tarmac under it catching the light, so the
+    /// factor is above one and the mark is read off the ground it is laid on rather than given a colour.
+    /// It is a measurement like <see cref="Edge"/> and not the inverse of one — 1/0.58 is 1.72 and lays a
+    /// dash two and a half times too dark.
     /// </summary>
     /// <remarks>
-    /// <b>Under the paint's 2.6 and lifted furthest in blue.</b> It multiplies the pavement rather than the
-    /// asphalt, which is already the lighter of the two, and the concrete it multiplies is warm — so an even
-    /// factor makes a cream kerb rather than a white one.
+    /// <b>The town's kerb is drawn in it, on the carriageway's own grain</b>: the line along the driven
+    /// ground's boundary is the white line at the edge of the road and reads as the dashes down the middle
+    /// of it do, which is one white in the town rather than two that nearly agree. It is still ground and
+    /// not a mark (<see cref="FirstMarkVertex"/>).
     /// </remarks>
-    public static readonly Vector3 Kerb = new(1.38f, 1.4f, 1.55f);
+    public static readonly Vector3 Paint = new(2.6f, 2.6f, 2.5f);
+
+    /// <summary>
+    /// <b>And the walk's own kerb is the pavement's own stone in shadow</b>: the concrete it bounds, on the
+    /// same grain, taken down to two thirds — the back of a pavement is the same slab standing on its side,
+    /// so what tells it from the walk is the light on it and not a second material.
+    /// </summary>
+    /// <remarks>
+    /// <b>Well short of <see cref="Edge"/>, which is a rim and not a kerb.</b> A line that dark beside the
+    /// turf reads as a shadow cast on the concrete rather than as the stone at the back of it.
+    /// </remarks>
+    public static readonly Vector3 Stone = new(0.66f, 0.66f, 0.69f);
 
     readonly List<GroundVertex> _vertices = [];
     readonly List<uint> _indices = [];
@@ -204,11 +219,23 @@ internal sealed partial class GroundMesh
     /// dash, a bar, a zebra's stripe or a bay stroke, four corners at a time.
     /// </summary>
     /// <remarks>
-    /// <b>The kerb line is not among them</b>, though it is laid as quads of its own (<see cref="Stroke"/>):
-    /// a kerb is a thing the town is built of and a mark is paint on it. The tint alone does not tell the
-    /// two apart, which is why anything asking what was <em>painted</em> asks this instead.
+    /// <b>The kerb line is not among them</b>, though it is laid as quads of its own (<see cref="Stroke"/>)
+    /// in the same surface and the same shade: a kerb is ground the town is built of and a mark is paint on
+    /// it. Neither the tint nor the surface tells the two apart, which is why anything asking what was
+    /// <em>painted</em> asks this instead.
     /// </remarks>
     public int FirstMarkVertex { get; private set; }
+
+    /// <summary>
+    /// And where the arrows start (TER-6a), which is where the mesh stops being four corners a mark: a
+    /// glyph is a ribbon and a head, so a reader walking marks in fours reads between these two.
+    /// </summary>
+    /// <remarks>
+    /// <b>They are laid last of the paint for this reason alone.</b> A mark asked about by its four corners
+    /// is every mark a lane, a bay or a crossing carries; an arrow is asked about as the arrow it is
+    /// (<see cref="LaneArrows"/>), which is the one reading that says which turns it is there to name.
+    /// </remarks>
+    public int FirstArrowVertex { get; private set; }
 
     /// <summary>
     /// What each layer of the ground came to, in the order they were laid: the run of the index buffer
@@ -320,11 +347,11 @@ internal sealed partial class GroundMesh
         // laid before it and not over it. <b>The walk is the offset filled whole</b> and the driven ground it
         // covers is covered back by the carriageway below, which is what a layer enclosing every layer inside
         // it means and what spares this fill a second copy of the boundary to carry and thin.
-        // Both wear the pavement's own surface and are told apart by the
-        // shade — an edge is the surface darkened, which is the rule the shore and a deck's rim are drawn by.
         // <b>The line is struck along the walk's own outer face and not cut out of the fill</b> (TER-3d): it
         // is a kerb's width about that line wherever it runs, which is what the thinning either fill is laid
-        // at cannot promise, and it is laid after the fill so the fill cannot eat into it.
+        // at cannot promise, and it is laid after the fill so the fill cannot eat into it. <b>And it wears
+        // the concrete it bounds, darkened</b> (<see cref="Stone"/>): the same surface as the walk, told
+        // from it by the light on the stone alone.
         var walk = mesh.Starting();
         mesh.Shell(walkFill, Surface.Pavement, Plain, periods);
         mesh.Laid(GroundPart.Walk, walk);
@@ -332,7 +359,7 @@ internal sealed partial class GroundMesh
         var walkKerb = mesh.Starting();
         foreach (var ring in walkLine)
         {
-            mesh.Stroke(ring, kerbM, closed: true, Surface.Pavement, Edge, periods);
+            mesh.Stroke(ring, kerbM, closed: true, Surface.Pavement, Stone, periods);
         }
 
         mesh.Laid(GroundPart.WalkKerb, walkKerb);
@@ -350,8 +377,9 @@ internal sealed partial class GroundMesh
         Water(mesh, plan.Water.Outline, Surface.Water, Plain, periods);
         mesh.Laid(GroundPart.Water, water);
 
-        // A deck is drawn out to its own half-width, with an edge line laid the way the pavement's is on
-        // land: the piece at full size in the edge shade, then a line's width smaller in its own.
+        // A deck is drawn out to its own half-width, with a rim rather than a stroke: the piece at full size
+        // in the edge shade, then a line's width smaller in its own. A ribbon about a road's line has no
+        // shell of its own to strike a kerb along, which is the one place a rim is what is left.
         // <b>And nothing but the deck</b> — the pavement that used to be carried across one at the width it
         // has on land was the last line beside a road struck by arithmetic of its own (TER-3c.3), so it is
         // gone and the margin outside the carriageway is deck all the way out.
@@ -390,27 +418,55 @@ internal sealed partial class GroundMesh
         // about the boundary itself, over everything the layers left along it. Last of the ground, so what it
         // covers is a kerb wherever the boundary runs — and so the place the walk meets the carriageway, each
         // of them thinned on its own terms, is under the middle of it rather than beside it.
+        // <b>Drawn as the road's own edge line</b> (<see cref="Paint"/>): the carriageway's grain through the
+        // shade every other white line in the town is laid in, and not the pavement's.
         var kerb = mesh.Starting();
         foreach (var ring in carriagewayLine)
         {
-            mesh.Stroke(ring, kerbM, closed: true, Surface.Pavement, Kerb, periods);
+            mesh.Stroke(ring, kerbM, closed: true, Surface.Tarmac, Paint, periods);
         }
 
         mesh.Laid(GroundPart.Kerb, kerb);
 
-        // <b>The paint is not drawn, because none of it is laid.</b> The dashes, the zebras, the bars and
-        // the bay strokes all read arrays that come back empty (TER-6), and they come back with the
-        // crossings and the signals rather than being drawn off nothing in the meantime.
+        // <b>Then the paint, which is the one layer above the ground rather than in it</b> (TER-7b): a mark
+        // sits on the surface it belongs to, and marks are not welded — a dash is read back out of the mesh
+        // as the four corners it was laid as (<see cref="FirstMarkVertex"/>).
+        // <b>And the whole of it is what the lanes and the roads say</b>: the lines between two ribbons, the
+        // zebra at the end of every arm a junction forks at, and the bar behind each of them.
         mesh.FirstMarkVertex = mesh._vertices.Count;
         mesh._welding = false;
         mesh._welds = [];
 
-        var paint = mesh.Starting();
-        mesh.Laid(GroundPart.Paint, paint);
+        // <b>Where the walk meets the road is the walk's to say</b> (WLK-10): the places a walk beside a road
+        // is cut are the two kerbs a band reaches between, so every mark here is asked for by the town's own
+        // kerb ends (<see cref="CityGen.KerbEnds"/>) rather than read off the roads a second time.
+        // <b>And the walk has two answers to give</b>: a street too short to be crossed twice is crossed once
+        // in the middle while still being held at both of its ends, so the zebra is laid off where the walk
+        // crosses and the bar — with the dashes that stop short of it — off what each arm holds behind,
+        // which there is the end of the road's own kerb (WLK-10a).
+        var ends = paving.RoadEnds(config);
+        var crossed = Crossings.Lay(plan, config, ends.CrossedM);
+        var held = Crossings.Lay(plan, config, ends.HeldM);
+
+        // <b>The bars are laid once and read twice</b>: the paint a driver holds at, and the arrows behind it
+        // that say what they are holding for (TER-6a). Laid again for the arrows, the two would be free to
+        // disagree about where the bar stands.
+        var bars = StopBars.Lay(paving.Lanes, held, config);
+
+        var marks = mesh.Starting();
+        mesh.LaneDashes(plan, config, held, Paint, periods);
+        mesh.BayStrokes(plan, config, Paint, periods);
+        mesh.Zebras(crossed, config, Paint, periods);
+        mesh.Bars(bars, Paint, periods);
+
+        mesh.FirstArrowVertex = mesh._vertices.Count;
+        mesh.Arrows(paving.Lanes, bars, config, Paint, periods);
+        mesh.Laid(GroundPart.Paint, marks);
 
         mesh.LaidMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
         return mesh;
     }
+
 
     /// <summary>
     /// Where the mesh stood as a part began, so what that part came to is the difference rather than a

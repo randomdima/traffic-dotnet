@@ -206,6 +206,19 @@ internal sealed class CityPlan
         public float LaneWidthM(int road) =>
             DrivenOverOneLine(road) ? WidthM[road] : WidthM[road] / LanesOn(road);
 
+        /// <summary>
+        /// <b>Whether a road's two ways are laid either side of its own line</b>, so the ground each of them
+        /// is driven over meets the other's along it. A one-way street carries one lane down the middle
+        /// (TER-4d) and a bay's way carries two over one line
+        /// (<see cref="DrivenOverOneLine(int)"/>): neither has two ribbons to part.
+        /// </summary>
+        /// <remarks>
+        /// <b>One question asked twice over</b>: it is the offset a lane is laid at
+        /// (<c>LaneLines.Of</c>) and the line the paint between the two goes down (TER-6), and the two would
+        /// otherwise be two readings of the same geometry that could disagree about which roads are which.
+        /// </remarks>
+        public bool LanesMeetOnItsLine(int road) => LanesOn(road) == 2 && !DrivenOverOneLine(road);
+
         /// <summary>A town whose every road runs both ways, which is every map that lays no one-way street.</summary>
         public static RoadFlow[] AllBothWays(int roads) => new RoadFlow[roads];
 
