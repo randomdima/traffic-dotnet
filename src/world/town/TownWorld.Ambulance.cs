@@ -2,7 +2,6 @@ using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
@@ -342,7 +341,7 @@ internal sealed partial class TownWorld
             // <b>Come to rest at the place and still short of the mark</b>: the car overshot it, or stopped
             // on the wrong side of it. A place behind the car is not a place to hold at (MAN-6), so the leg
             // is laid again from the pose it is actually in and the route takes it round.
-            if (atRest && Cars.Doing[car] == Maneuver.AttendTheScene) SendTo(car, standoffM, ParkingRegistry.NoBay);
+            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standoffM, ParkingRegistry.NoBay);
 
             return;
         }
@@ -531,13 +530,11 @@ internal sealed partial class TownWorld
         Cars.Driven[car] = true;
         Cars.ClearRoute(car);
         GiveUpTheTurn(car);
-        RestTheLadder(car);
-        Cars.Suspended[car] = Maneuver.None;
+        _driveProgress.Restart(car);
         Cars.HasDestination[car] = true;
         Cars.DestinationM[car] = toM;
 
-        PlanTheLeg(car);
-        TakeTheNextStep(car);
+        LayTheFirstLine(car);
     }
 
     /// <summary>
@@ -562,6 +559,14 @@ internal sealed partial class TownWorld
     /// body ten metres away across a kerb is not ten metres along the road; what a stop point has to be is
     /// a distance the profile can brake against, which is a place on the line the car is holding.
     /// </remarks>
+    /// <summary>
+    /// <b>Whether this car has come to rest where the place it was sent to stands on its line</b> — which
+    /// is what tells an arrival from a queue two streets short of one. A crew that is still out of reach
+    /// of the place after that has overshot it or stopped on the wrong side, and the answer is the leg
+    /// laid again from the pose the car is actually in.
+    /// </summary>
+    bool StoppedWhereItWasSent(int car) => ToTheSceneM(car) <= Cars.BuildOf(car).LengthM;
+
     float ToTheSceneM(int car)
     {
         // <b>And asked of a hand's order first of all</b> (CTL-8a, CTL-8c). A car sent to a place on the

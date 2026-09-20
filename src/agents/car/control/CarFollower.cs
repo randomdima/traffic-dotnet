@@ -26,9 +26,8 @@ internal readonly record struct HeadwayReading(float DistanceM, float AlongMps)
 /// a distance is the same reading whether it is a driver waiting his turn or a wreck.
 /// </summary>
 /// <remarks>
-/// It is a reading and never a decision. What it decides is only whether the way past something is
-/// <em>round</em> it: everything but <see cref="Obstruction"/> is waited behind, and the blocked-road
-/// clock is what eventually gets a car out from behind a queue that never moves.
+/// It is a reading and never a decision: everything in front is waited behind, and the leg's own clock
+/// is what eventually gets a car out from behind a queue that never moves (CAR-15).
 /// </remarks>
 internal enum HeadwayKind : byte
 {
@@ -44,25 +43,23 @@ internal enum HeadwayKind : byte
 
     /// <summary>
     /// Something on the road that is not going anywhere: a wreck, a car with nobody in it, a body shoved
-    /// off its own line. This is the one reading `E-4` may act on.
+    /// off its own line.
     /// </summary>
     Obstruction,
 
-    /// <summary>Ground somebody else has claimed and is crossing into — a bay being backed out of, a swerve about to swing.</summary>
+    /// <summary>Ground somebody else has claimed and is crossing into — a bay being backed out of, a junction being entered.</summary>
     Claimed,
 
     /// <summary>
     /// <b>A person standing in the lane</b> — on the paint or on bare carriageway, it is the same fact to a
-    /// driver. Waited behind while it is moving, and <b>gone round once it has stopped</b>: a walker is an
-    /// agent like any other, and what keeps a swerve off one is the body's own claim rather
-    /// than a rule that refuses to look at it (`E-4`).
+    /// driver, and the body's own claim is what holds the traffic off it (PER-26, TER-4c.2) rather than a
+    /// rule of the paint's own.
     /// </summary>
     Walker,
 
     /// <summary>
     /// Something the lane index does not account for: a walker, the town's furniture, a body off the
-    /// network altogether. <b>Never driven round</b>, because what the reading does not name it cannot
-    /// justify crossing the centreline to pass.
+    /// network altogether.
     /// </summary>
     Unknown,
 
@@ -105,11 +102,15 @@ internal enum HeadwayKind : byte
 /// <b>One for every car in every town</b>: it is the escort of a convoy, and nothing else, that keeps a
 /// gap other traffic would not.
 /// </param>
+/// <param name="PlaceStopM">
+/// How far ahead along the line the place this car was sent to stands — a casualty, a wreck, a scene, a
+/// place a hand named. Infinite for every car that is not on its way to one.
+/// </param>
 internal readonly record struct DriveContext(
     float HeadwayM, float HeadwaySpeedMps, float StopAtM, float GroundCoefficient,
     float CrossingStopM, float CrossingAtM, HeadwayKind Ahead = HeadwayKind.Nothing,
     float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
-    float FollowingShare = 1f)
+    float FollowingShare = 1f, float PlaceStopM = float.PositiveInfinity)
 {
     public DriveContext(float headwayM, float headwaySpeedMps, float stopAtM, float groundCoefficient)
         : this(
@@ -124,7 +125,7 @@ internal readonly record struct DriveContext(
 /// <summary>
 /// Which of the things that limit a car is the one limiting it. Speed is the minimum of everything, and
 /// <b>which term won is the only question worth asking of a car that is going slowly</b> — an instrument
-/// rather than a rule, and the first piece of the manoeuvre trace the catalogue will want.
+/// rather than a rule, and the whole of what a driver can be said to be doing (CAR-15).
 /// </summary>
 internal enum DrivingHold : byte
 {
@@ -155,13 +156,13 @@ internal enum DrivingHold : byte
     Crossing,
 
     /// <summary>
-    /// The manoeuvre in charge asked for it — a hold in the mouth of a bay, a stop point of its own, an
-    /// emergency. <b>The one term that is a decision rather than a reading</b>, which is why it is named
-    /// apart: everything else here is something the road did to the car.
+    /// <b>The place this car was sent to</b> — a casualty, a wreck, a scene an officer has closed the
+    /// road at, or a place a hand named (AMB-5, EVA-3, SRV-6, CTL-8a). It is named apart from the rest
+    /// because it is the one term somebody asked for rather than something the road did to the car.
     /// </summary>
-    Procedure,
+    Place,
 
-    /// <summary>It is not on its line at all (CAR-9), and what it does about that is the catalogue's.</summary>
+    /// <summary>It is not on its line at all (CAR-9), and what it does about that is the leg's.</summary>
     LostLine,
 }
 
@@ -331,6 +332,11 @@ internal static class CarFollower
         Bind(ref targetMps, ApproachMps(0f, lineLengthM - progressM - leadM, brakingMps2), DrivingHold.LineEnd, ref hold);
         Bind(ref targetMps, ApproachMps(0f, context.StopAtM - leadM, brakingMps2), DrivingHold.Waiting, ref hold);
 
+        // The place this car was sent to, which is a term of the same minimum rather than an errand's own
+        // hand on the wheel: an ambulance stopping at a casualty is running its line on the road that
+        // casualty left it.
+        Bind(ref targetMps, ApproachMps(0f, context.PlaceStopM - leadM, brakingMps2), DrivingHold.Place, ref hold);
+
         // The stop short of the paint, which is the crossing's own term rather than the junction's: what a
         // driver owes somebody on a crossing is a stop point on this car's own line and not a claim on a
         // box. <b>Paint with nobody's ground on it costs nothing</b> (TER-4c.1) — a crossing this car has
@@ -394,6 +400,40 @@ internal static class CarFollower
     /// </remarks>
     public static float BrakingMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
         car.UtmostBrakingMps2(groundCoefficient) * config.Driving.BrakingMargin;
+
+    /// <summary>
+    /// <b>The tick where the margin this profile plans against is no longer enough</b> (CAR-14): what is
+    /// in front cannot be stopped short of at <see cref="BrakingMps2"/>, so what is left of the tyre is
+    /// spent at once. Braking that ramps up wastes the most valuable distance there is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The closing speed and not this car's own</b>: a queue moving at the same pace is not an
+    /// emergency however close it is, and that difference is the second thing the reading carries.
+    /// </para>
+    /// <para>
+    /// <b>It is read against the utmost and never a figure of its own</b> (SIM-7). The profile plans
+    /// every stop at <see cref="DrivingFigures.BrakingMargin"/> of that, so a threshold below it fires on
+    /// the profile's own ordinary braking and takes the pedal off it — read at the grip margin it stood
+    /// at three quarters of what the profile was already planning with, and a proving ground spent a
+    /// sixth of every car-tick here.
+    /// </para>
+    /// </remarks>
+    public static bool IsAHazard(SimConfig config, in CarBuild car, float alongMps, in DriveContext context)
+    {
+        if (alongMps <= config.Driving.StopSpeedMps || float.IsPositiveInfinity(context.HeadwayM))
+        {
+            return false;
+        }
+
+        var closingMps = alongMps - MathF.Max(0f, context.HeadwaySpeedMps);
+        if (closingMps <= config.Driving.StopSpeedMps) return false;
+
+        var gapM = context.HeadwayM - car.HalfLengthM;
+        if (gapM <= 0f) return true;
+
+        return closingMps * closingMps / (2f * gapM) > car.UtmostBrakingMps2(context.GroundCoefficient);
+    }
 
     static void Bind(ref float targetMps, float limitMps, DrivingHold limit, ref DrivingHold hold)
     {

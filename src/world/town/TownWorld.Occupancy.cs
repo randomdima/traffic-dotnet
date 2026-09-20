@@ -63,7 +63,7 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// <para>
 /// <b>A body it does not describe is a body off the network</b> — one sliding into a lane from a collision,
 /// one on ground no way owns. Those are the solver's, and a car under geometry of its own asks the ways
-/// beneath that geometry instead (<see cref="GroundAhead"/>).
+/// beneath the body instead.
 /// </para>
 /// <para>
 /// <b>The claims are laid in four passes and this file holds the shape of it</b>: what each of them writes is
@@ -97,11 +97,11 @@ internal sealed partial class TownWorld
     /// claim on the road, and that is already counted here.
     /// </para>
     /// </remarks>
-    const int MostSlotsPerDrivingCar = MostWaysAlongALine + 1 + CarFleet.ClaimsAhead;
+    const int MostSlotsPerDrivingCar = MostWaysAlongALine + 1;
 
     /// <summary>
-    /// From how many places a body is laid where it lies: both ends of the sweep it is committed to
-    /// (<see cref="WhereTheTemplateSweepEndsM"/>), which for anything not on a template are the same place.
+    /// From how many places a body is laid where it lies: both ends of the stretch it is committed to,
+    /// which for a car holding its own line are the same place.
     /// Each costs the lane that end is nearest, the lane running back the other way, and every join of the
     /// junctions at either end of that lane (<see cref="GroundUnder"/>).
     /// </summary>
@@ -202,10 +202,10 @@ internal sealed partial class TownWorld
         }
 
         // <b>Every body first, and every claim ahead after all of them</b>. A body is the one hold nothing can
-        // take, so what is laid before a claim ahead is asked is the whole of the town's ground rather than
-        // whatever the cars before this one in the fleet happened to have laid — and a claim that is only the
-        // ground its holder has not reached (<see cref="LayTheMovement"/>) needs that holder's own road and
-        // own body already down, or it is clipped against the stretch the car held a tick ago.
+        // take, so what is laid is the whole of the town's ground rather than whatever the cars before this
+        // one in the fleet happened to have laid — and a claim that is only the ground its holder has not
+        // reached (<see cref="LayTheMovement"/>) needs that holder's own road and own body already down, or
+        // it is clipped against the stretch the car held a tick ago.
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         for (var car = 0; car < Cars.Count; car++)
         {
@@ -215,7 +215,6 @@ internal sealed partial class TownWorld
 
         for (var car = 0; car < Cars.Count; car++)
         {
-            PlaceTheClaimAhead(car);
             PlaceTheCrossing(car);
             KeepTheBay(car);
             CloseTheRoad(car);
@@ -227,11 +226,6 @@ internal sealed partial class TownWorld
         // standing on a carriageway, there being nothing on this side of the town that grants one.
         for (var person = 0; person < People.Count; person++) StateThePavementAhead(person, walk);
 
-        // And the claims ahead answered against every other, before anything is granted off them: a claim a
-        // stronger movement has taken is ground its holder no longer has, so nothing granted below may be
-        // cut at it (TER-5e).
-        for (var car = 0; car < Cars.Count; car++) AnswerTheClaimAhead(car);
-
         for (var car = 0; car < Cars.Count; car++) GrantTheGround(car, ways);
 
         // And every claim left holding the answer rather than the question (TER-4c.1), which is what every
@@ -241,8 +235,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// Whether this car is a driver on a route rather than a shape on the road — <b>the whole of what the
-    /// index is for</b>. A car that is gets queued behind however long it stands; a car that is not gets
-    /// driven round.
+    /// index is for</b>: a car that is gets queued behind however long it stands.
     /// </summary>
     /// <remarks>
     /// <b>Nothing here is worked out twice.</b> How far off its line the car is was measured by the sensing

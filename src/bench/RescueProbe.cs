@@ -1,5 +1,5 @@
 using TrafficSimulation.Agents.Ambulance;
-using TrafficSimulation.Agents.Car.Maneuvers;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -24,7 +24,7 @@ namespace TrafficSimulation.Bench;
 /// work from (AMB-6). <b>The two apart are the diagnosis</b>: near and never still is a car that drove past
 /// its casualty, and never near at all is a road it could not get through.
 /// </param>
-/// <param name="DoingThere">The catalogue entry in charge at its nearest approach — which entry was holding the car as the body came up.</param>
+/// <param name="HeldBy">What was limiting the vehicle at its nearest approach — the term the speed profile was bound by as it came up.</param>
 /// <param name="MostLoadedS">The furthest the crew's own clock ever got, against the interval a loading takes.</param>
 /// <param name="InReachS">How long in all it stood where the crew could have worked, and…</param>
 /// <param name="TopMpsInReach">…the fastest it was moving while it was there.</param>
@@ -33,7 +33,7 @@ namespace TrafficSimulation.Bench;
 internal readonly record struct RescueRow(
     string Map, int Hospitals, int Ambulances, long Raised, long Collected, long Delivered, long GivenUp,
     long DoorsFull, float ReachedInS, float DeliveredInS, float NearestM, float NearestAtRestM,
-    Maneuver DoingThere, float MostLoadedS, float InReachS, float TopMpsInReach, float OffTheLaneM,
+    DrivingHold HeldBy, float MostLoadedS, float InReachS, float TopMpsInReach, float OffTheLaneM,
     RescueStage EndedIn);
 
 /// <summary>
@@ -93,7 +93,7 @@ internal static class RescueProbe
                 $"{row.Map,-10}{row.Hospitals,11}{row.Ambulances,12}{row.Raised,8}{row.Collected,11}" +
                 $"{row.Delivered,11}{row.GivenUp,10}{row.DoorsFull,11}{Seconds(row.ReachedInS),11}" +
                 $"{Seconds(row.DeliveredInS),9}{Metres(row.NearestM),11}{Metres(row.NearestAtRestM),11}" +
-                $"{row.DoingThere,20}{row.MostLoadedS,10:F1}{row.InReachS,12:F1}{row.TopMpsInReach,9:F2}"
+                $"{row.HeldBy,20}{row.MostLoadedS,10:F1}{row.InReachS,12:F1}{row.TopMpsInReach,9:F2}"
                 + $"{row.OffTheLaneM,12:F1}{row.EndedIn,14}");
         }
 
@@ -136,7 +136,7 @@ internal static class RescueProbe
             return new RescueRow(
                 map, world.Hospitals.Count, world.Ambulances, 0, 0, 0, 0, 0,
                 float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity,
-                Maneuver.None, 0f, 0f, 0f, 0f, RescueStage.Waiting);
+                DrivingHold.None, 0f, 0f, 0f, 0f, RescueStage.Waiting);
         }
 
         world.Apply(new BodyTag(BodyKind.Person, casualty), DamageOutcome.Wounded);
@@ -145,7 +145,7 @@ internal static class RescueProbe
         var deliveredInS = float.PositiveInfinity;
         var nearestM = float.PositiveInfinity;
         var nearestAtRestM = float.PositiveInfinity;
-        var doingThere = Maneuver.None;
+        var heldBy = DrivingHold.None;
         var mostLoadedS = 0f;
         var inReachS = 0f;
         var topMpsInReach = 0f;
@@ -154,7 +154,7 @@ internal static class RescueProbe
         {
             loop.Advance(1);
             Watch(
-                world, config, casualty, ref nearestM, ref nearestAtRestM, ref doingThere, ref mostLoadedS,
+                world, config, casualty, ref nearestM, ref nearestAtRestM, ref heldBy, ref mostLoadedS,
                 ref inReachS, ref topMpsInReach, ref endedIn);
 
             var atS = (tick + 1) * config.TickSeconds;
@@ -168,7 +168,7 @@ internal static class RescueProbe
         return new RescueRow(
             map, world.Hospitals.Count, world.Ambulances, world.CasualtiesRaised, world.CasualtiesCollected,
             world.CasualtiesDelivered, world.CallsGivenUp, world.DoorsFoundFull, reachedInS, deliveredInS,
-            nearestM, nearestAtRestM, doingThere, mostLoadedS, inReachS, topMpsInReach, offTheLaneM, endedIn);
+            nearestM, nearestAtRestM, heldBy, mostLoadedS, inReachS, topMpsInReach, offTheLaneM, endedIn);
     }
 
     /// <summary>
@@ -182,7 +182,7 @@ internal static class RescueProbe
     /// </remarks>
     static void Watch(
         TownWorld world, SimConfig config, int casualty, ref float nearestM, ref float nearestAtRestM,
-        ref Maneuver doingThere, ref float mostLoadedS, ref float inReachS, ref float topMpsInReach,
+        ref DrivingHold heldBy, ref float mostLoadedS, ref float inReachS, ref float topMpsInReach,
         ref RescueStage endedIn)
     {
         if (!world.People.Wounded[casualty] || world.People.Inside[casualty].Any) return;
@@ -197,7 +197,7 @@ internal static class RescueProbe
             if (farM < nearestM)
             {
                 nearestM = farM;
-                doingThere = world.Cars.Doing[car];
+                heldBy = world.Cars.Hold[car];
             }
 
             // The same distance asked only of the ticks the crew could have worked in. The two columns

@@ -1,5 +1,4 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Agents.Service;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Parking;
@@ -285,7 +284,7 @@ internal sealed partial class TownWorld
         var atRest = Cars.VelocityMps[car].Length() <= _config.Driving.StopSpeedMps;
         if (!atRest || (Cars.PositionM[car] - sceneM).Length() > _config.PoliceClosureM)
         {
-            if (atRest && Cars.Doing[car] == Maneuver.AttendTheScene) SendTo(car, standoffM, ParkingRegistry.NoBay);
+            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standoffM, ParkingRegistry.NoBay);
 
             return;
         }

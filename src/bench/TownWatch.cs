@@ -32,8 +32,6 @@ internal sealed class TownWatch : ScenarioWatch
     /// <summary>TER-4c.1 as this town keeps it: what a body was granted is the whole of where it may be.</summary>
     public const int NothingIsPastItsGrant = 1;
 
-    const int NothingStandsUnclocked = 2;
-
     const int WhatArrived = 0;
     const int WhatItCost = 1;
 
@@ -41,7 +39,6 @@ internal sealed class TownWatch : ScenarioWatch
     [
         "no body is left inside another",
         "nobody goes on into ground it was refused",
-        "no car stands still with nothing running for it",
     ];
 
     static readonly string[] TheReadings =
@@ -69,8 +66,6 @@ internal sealed class TownWatch : ScenarioWatch
 
     long _gaveUpBefore = -1;
     long _setDownBefore = -1;
-    long _carTicks;
-    long _stoodUnclocked;
 
     readonly Vector2[] _stillFromM;
     readonly int[] _stillForTicks;
@@ -172,9 +167,6 @@ internal sealed class TownWatch : ScenarioWatch
             ? ClaimVerdict.Broken
             : ClaimVerdict.Kept,
 
-        NothingStandsUnclocked when _carTicks == 0 => ClaimVerdict.Waiting,
-        NothingStandsUnclocked => _stoodUnclocked > 0 ? ClaimVerdict.Broken : ClaimVerdict.Kept,
-
         _ => ClaimVerdict.Waiting,
     };
 
@@ -206,13 +198,6 @@ internal sealed class TownWatch : ScenarioWatch
                 into.Add(SoakProbe.PastAfterTicks);
                 into.Add(" ticks ");
                 Named(ref into, _pastBody);
-                break;
-
-            case NothingStandsUnclocked:
-                into.Add(_stoodUnclocked);
-                into.Add(" of ");
-                into.Add(_carTicks);
-                into.Add(" car-ticks stood with no clock");
                 break;
         }
     }
@@ -376,8 +361,6 @@ internal sealed class TownWatch : ScenarioWatch
 
         DrivenM += drivenM;
         Touches = world.Touches;
-        _carTicks = world.Trace.CarTicks;
-        _stoodUnclocked = world.Trace.StoodUnclocked;
 
         var down = 0;
         for (var person = 0; person < world.People.Count; person++)

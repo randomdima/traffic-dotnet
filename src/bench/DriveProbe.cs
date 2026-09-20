@@ -38,7 +38,7 @@ internal static class DriveProbe
         Console.WriteLine($"drive probe — {WarmupTicks} warm-up ticks, {MeasuredTicks} measured, {config.Solver.VelocityIterations} solver iterations");
         Console.WriteLine(
             $"{"map",-10}{"cars",6}{"driven",8}{"lanes",7}{"mean m/s",10}{"top m/s",9}{"off-line m",12}{"worst m",9}{"stopped",9}{"off road",10}" +
-            $"{"corner",8}{"line end",10}{"headway",9}{"granted",9}{"waiting",9}{"crossing",10}{"manoeuvre",11}{"lost",7}" +
+            $"{"corner",8}{"line end",10}{"headway",9}{"granted",9}{"waiting",9}{"crossing",10}{"place",11}{"lost",7}" +
             $"{"covered m",11}{"stuck",7}{"arrived",9}");
 
         foreach (var map in Maps.Shipped())
@@ -51,7 +51,7 @@ internal static class DriveProbe
                 $"{sample.Held(DrivingHold.Corner),8:P0}{sample.Held(DrivingHold.LineEnd),10:P0}" +
                 $"{sample.Held(DrivingHold.Headway),9:P0}{sample.Held(DrivingHold.Claimed),9:P0}" +
                 $"{sample.Held(DrivingHold.Waiting),9:P0}" +
-                $"{sample.Held(DrivingHold.Crossing),10:P0}{sample.Held(DrivingHold.Procedure),11:P0}" +
+                $"{sample.Held(DrivingHold.Crossing),10:P0}{sample.Held(DrivingHold.Place),11:P0}" +
                 $"{sample.Held(DrivingHold.LostLine),7:P0}{sample.CoveredM,11:F0}{sample.WentNowhere,7}{sample.Arrived,9}");
         }
 

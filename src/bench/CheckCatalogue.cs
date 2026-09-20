@@ -35,7 +35,6 @@ internal static class CheckCatalogue
         new("trips", "Whole trips, end to end: drawn, driven, parked, walked in", Quoted(TripProbe.Run)),
         new("rescue", "One staged casualty a town: whether an ambulance came, collected and delivered", Quoted(RescueProbe.Run)),
         new("recovery", "One staged wreck a town: whether an evacuator came, towed it home and mended it", Quoted(RecoveryProbe.Run)),
-        new("maneuvers", "Which manoeuvre every driver was in, and what the ladder came to", Quoted(ManeuverProbe.Run)),
         new("census", "What is in a town: bodies, buildings, props, lit junctions", Quoted(config => TownCensus.Run("Odesa", config))),
         new("load", "What opening a map costs, stage by stage", Quoted(config => LoadProbe.Run("Odesa", config))),
         new("shape", "What shape a town came out: how its roads bend, where its junctions stand", Quoted(config => TownShape.Run("Odesa", config))),

@@ -132,7 +132,7 @@ internal sealed partial class TownWorld
         if (People.Walking[person])
         {
             // A fresh chain is fresh ground to be measured against: the clock run up reaching the end of
-            // the last one is not time this leg spent getting nowhere (<see cref="WalkProgress"/>).
+            // the last one is not time this leg spent getting nowhere (<see cref="LegProgress"/>).
             _progress.Restart(person);
             return;
         }

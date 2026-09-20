@@ -1,7 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.World.Physics;
 using TrafficSimulation.Core.Geometry;
@@ -306,8 +305,8 @@ internal sealed partial class TownWorld
         Cars.Command[car] = DriveCommand.LockedAt(Cars.Command[car].SteerRad);
         Cars.Hold[car] = DrivingHold.None;
         Cars.Line[car] = default;
-        LeaveTheCatalogue(car);
-        RestTheLadder(car);
+        Cars.Reroutes[car] = 0;
+        _driveProgress.Restart(car);
         DropTheMovement(car);
 
         // An ambulance's stretcher is emptied into the road before anything else: a casualty inside a

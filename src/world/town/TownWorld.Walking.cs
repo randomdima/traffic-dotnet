@@ -340,7 +340,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>How much of this leg is left to walk</b>, which is what decides whether a walker is getting
-    /// anywhere (PER-25, <see cref="WalkProgress"/>): what remains of the way it is on, or the straight to
+    /// anywhere (PER-25, <see cref="LegProgress"/>): what remains of the way it is on, or the straight to
     /// the goal for a body on none of the network.
     /// </summary>
     /// <remarks>

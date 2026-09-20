@@ -3,7 +3,6 @@ using System.Numerics;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
@@ -107,7 +106,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly Vector2[] _impulseNs;
 
     /// <summary>How close each walker has come to where it is going, and how long since it last did better.</summary>
-    readonly WalkProgress _progress;
+    readonly LegProgress _progress;
 
     /// <summary>
     /// What every dynamic body carried into this tick, in roster order — walkers, then cars. Taken
@@ -267,7 +266,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         People = new PersonFleet(walkers);
         _impulseNs = new Vector2[walkers];
-        _progress = new WalkProgress(walkers);
+        _progress = new LegProgress(walkers);
 
         // The ways at the bays are laid with the road graph above, before the claims: they are sized to
         // every way in the town, and a bay's is a way like the rest of them.
@@ -302,10 +301,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _containers = new Containers(_plan.Buildings.Capacity, drivers, People.Inside);
         _parking = ParkingRegistry.Build(plan, _bayWays, config, drivers);
 
-        // The catalogue's two halves: what a driver has to hand, and the chain the planner fills in for
-        // each leg. Both are laid with the town because the tick reads both.
-        _desk = new ManeuverDesk(config, Cars, _terrain, _roads, _occupancy, _parking, _bayWays);
-        _drivePlans = new DrivePlan(drivers);
+        // How close each driver has come to the end of the way it is on, which is the clock a leg is
+        // given up by — the walkers' own, over the cars (<see cref="LegProgress"/>).
+        _driveProgress = new LegProgress(drivers);
         _carOrders = new PlayerOrders(drivers);
         _duty = new RescueDuty(drivers);
         _beat = new PatrolDuty(drivers);
@@ -544,17 +542,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public bool IsTerminal(int agent) => Roster.IsCar(agent) && Cars.Broken[Roster.CarIndex(agent)];
 
     /// <summary>
-    /// <b>The entry a car is in declares for itself whether it may be scheduled</b> — the ones
-    /// negotiating with something that is itself moving, and the ones that are a control loop wearing a
-    /// decision's clothes. Nothing on the walking side asks for it yet.
+    /// <b>Nobody decides on every tick.</b> What has to be asked at that rate is the sensing and the
+    /// claims, which are not decisions and are taken in the tick itself (<see cref="TickCar"/>); what a
+    /// decision is here is a leg's next line, which is about distances of tens of metres.
     /// </summary>
-    /// <remarks>
-    /// It is declared by the catalogue rather than worked out here on purpose: the catalogue is what
-    /// knows which of its entries those are, and a geometric test in the loop would be a second opinion
-    /// about it that had to be kept in step with every entry added afterwards.
-    /// </remarks>
-    public bool DecidesEveryTick(int agent) =>
-        Roster.IsCar(agent) && ManeuverCatalogue.ThinksEveryTick(Cars.Doing[Roster.CarIndex(agent)]);
+    public bool DecidesEveryTick(int agent) => false;
 
 
     /// <summary>

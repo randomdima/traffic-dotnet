@@ -28,7 +28,7 @@ internal sealed partial class SimConfig
     public TyreFigures Tyre { get; init; } = new();
     public LampFigures Lamps { get; init; } = new();
     public DrivingFigures Driving { get; init; } = new();
-    public LadderFigures Ladder { get; init; } = new();
+    public DrivePatienceFigures Patience { get; init; } = new();
     public PersonFigures Person { get; init; } = new();
     public AmbulanceFigures Ambulance { get; init; } = new();
     public ServiceFigures Service { get; init; } = new();

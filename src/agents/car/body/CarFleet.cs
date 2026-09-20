@@ -1,5 +1,4 @@
 using System.Numerics;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.World.Physics;
@@ -66,13 +65,10 @@ internal sealed class CarFleet
         Array.Fill(MovementWay, NoWay);
         LineWay = new int[capacity];
         Array.Fill(LineWay, NoWay);
-        ClaimAhead = new GroundClaim[capacity * ClaimsAhead];
-        Array.Fill(ClaimAhead, GroundClaim.Nothing);
         TailWay = new int[capacity];
         Array.Fill(TailWay, NoWay);
         TurnsBackOn = new int[capacity];
         Array.Fill(TurnsBackOn, NoLane);
-        ClaimAheadWasTaken = new bool[capacity];
         ClaimFromM = new float[capacity];
         ClaimToM = new float[capacity];
         StatedToM = new float[capacity];
@@ -97,23 +93,9 @@ internal sealed class CarFleet
         RouteRunsOut = new bool[capacity];
         DestinationM = new Vector2[capacity];
         HasDestination = new bool[capacity];
-        Doing = new Maneuver[capacity];
-        Suspended = new Maneuver[capacity];
-        Was = new Maneuver[capacity];
-        About = new int[capacity];
-        Limits = new DriveLimits[capacity];
-        Array.Fill(Limits, DriveLimits.None);
-        InManeuverS = new float[capacity];
-        BlockedS = new float[capacity];
-        HeldBackS = new float[capacity];
-        Rung = new int[capacity];
-        BackOffs = new byte[capacity];
         Reroutes = new byte[capacity];
-        Recoveries = new byte[capacity];
         FuseJitter = new float[capacity];
         BacksIntoBays = new bool[capacity];
-        ClimbedFromM = new Vector2[capacity];
-        ChangedAtM = new Vector2[capacity];
         LineIsReverse = new bool[capacity];
         InsideTheBox = new bool[capacity];
         LightAheadM = new float[capacity];
@@ -273,8 +255,8 @@ internal sealed class CarFleet
     /// <para>
     /// <b>It is the name of a claim and not a permission.</b> What the car actually holds is ground —
     /// the runs of that way the others are driven over it at
-    /// (<see cref="World.Road.WayCrossings"/>) — claimed from this field every tick,
-    /// exactly as <see cref="ClaimAhead"/> is. So two cars crossing one junction without being driven over
+    /// (<see cref="World.Road.WayCrossings"/>) — claimed from this field every tick.
+    /// So two cars crossing one junction without being driven over
     /// each other's ground take one each, and nothing about a junction is refused by anything other than
     /// what is standing on the metres wanted.
     /// </para>
@@ -288,47 +270,17 @@ internal sealed class CarFleet
     public int[] MovementWay { get; }
 
     /// <summary>
-    /// <b>The numbered way this car's line <em>is</em></b>, or <see cref="NoWay"/> where the line is a
-    /// chain of lanes or geometry of the car's own.
+    /// <b>The numbered way this car's line <em>is</em></b>, or <see cref="NoWay"/> where the line is the
+    /// route's chain of lanes.
     /// </summary>
     /// <remarks>
-    /// A bay's way out is the one line of this kind: it is not a lane, so it carries no chain, and it is not
-    /// a template, because the town laid it. What it buys is that a car driving it is a car on a way — its
+    /// A bay's own ways are the lines of this kind: they are not lanes, so they carry no chain, and the
+    /// town laid them, so they are not geometry a driver invented (CAR-15). What it buys is that a car driving it is a car on a way — its
     /// claim is laid along it, its grant is cut by the table, and nothing about it needs a second
     /// mechanism. <b>Read through <see cref="LineWayOf"/></b>, which is what makes it impossible for it to
     /// be stale.
     /// </remarks>
     public int[] LineWay { get; }
-
-    /// <summary>
-    /// <b>How many stretches of road one car may claim ahead of itself</b>: the lane a manoeuvre leaves and
-    /// the lane it crosses into. A carriageway is two lanes and `E-4` spans both of them.
-    /// </summary>
-    public const int ClaimsAhead = 2;
-
-    /// <summary>
-    /// <b>The stretches of road this car has claimed and is not on yet</b>, <see cref="ClaimsAhead"/> of
-    /// them, read through <see cref="ClaimsAheadOf"/>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// They are claims on <em>ground the body is about to cross into</em> and never on the road ahead of a
-    /// car already driving down it: what holds a car off the queue in front of it is the headway term, and
-    /// a claim that restated it would be a second gate on the same movement (SIM-7). The one entry that
-    /// needs them puts a body where the road did not send it — `E-4`, which leaves its own lane over a
-    /// named stretch and crosses into the one running back the other way for the length of the pass.
-    /// </para>
-    /// <para>
-    /// <b>They are a field and not a register</b>, re-laid into the index from here every tick. A claim
-    /// therefore cannot outlive the car that made it, cannot leak when one is wrecked, and needs nothing
-    /// released: an entry that stops wanting one writes <see cref="GroundClaim.Nothing"/> and it is gone
-    /// the next tick.
-    /// </para>
-    /// </remarks>
-    public GroundClaim[] ClaimAhead { get; }
-
-    /// <summary>This car's claims ahead, one slot apiece and each of them <see cref="GroundClaim.Nothing"/> where it holds none.</summary>
-    public Span<GroundClaim> ClaimsAheadOf(int car) => ClaimAhead.AsSpan(car * ClaimsAhead, ClaimsAhead);
 
     /// <summary>
     /// <b>The way this car's line finishes on past its last lane</b> — the way into the bay the leg is
@@ -355,19 +307,6 @@ internal sealed class CarFleet
     /// facts have to be able to say so separately.
     /// </remarks>
     public int[] TurnsBackOn { get; }
-
-    /// <summary>
-    /// <b>Whether one of the claims above was taken off this car since it last thought</b> (TER-5e) — a road an
-    /// officer closed across it, a rescue's, or a body that has been pushed onto the ground.
-    /// </summary>
-    /// <remarks>
-    /// <b>A claim is the one hold in the town that can be taken back</b>, because its holder has not reached
-    /// it and is not committed to it. Taking it and saying nothing left the car driving at ground that was no
-    /// longer its own, so the entry that took it is re-entered through its own <c>Sa</c> and either takes the
-    /// claim again or gives way to something else. Spent where it is read, so it survives exactly as long as
-    /// it takes the driver to notice.
-    /// </remarks>
-    public bool[] ClaimAheadWasTaken { get; }
 
     /// <summary>
     /// <b>The stretch of its own line this car is committed to</b>, from its own tail to where its nose
@@ -410,9 +349,8 @@ internal sealed class CarFleet
     /// a car on a template of its own, or one that is not under way at all.
     /// </summary>
     /// <remarks>
-    /// It is a distance from the nose and is walked in by the ground covered since it was granted, exactly
-    /// as a manoeuvre's stop point is (<see cref="DriveLimits.Carried"/>): a car that held it unchanged
-    /// while driving at it would be holding a point receding at its own speed. Negative where the car is
+    /// It is a distance from the nose and is walked in by the ground covered since it was granted: a car
+    /// that held it unchanged while driving at it would be holding a point receding at its own speed. Negative where the car is
     /// already inside ground somebody else has, which is a fact about a contact and not about a gap.
     /// </remarks>
     public float[] AuthorityM { get; }
@@ -510,66 +448,12 @@ internal sealed class CarFleet
 
     public bool[] HasDestination { get; }
 
-    /// <summary>
-    /// <b>Which entry of the closed catalogue this car is in</b> (AGT-7). A car has no goals of its own
-    /// (CAR-8), so every one of these is a bounded step of somebody's trip — and a car with nobody in it
-    /// is in none of them.
-    /// </summary>
-    public Maneuver[] Doing { get; }
-
-    /// <summary>
-    /// The planned manoeuvre a reactive one interrupted, to be <b>re-entered through its own
-    /// <c>Sa</c></b> and never resumed mid-procedure.
-    /// </summary>
-    public Maneuver[] Suspended { get; }
-
-    /// <summary>What it was doing before that, which is what says a pair is passing it back and forth.</summary>
-    public Maneuver[] Was { get; }
-
-    /// <summary>
-    /// What the entry in charge is <em>about</em>: the bay being left, the bay being parked in. The
-    /// plan's own parameter for the step being driven, carried here so an entry that hands over to
-    /// another about the same thing — `P-14` after `P-16` — hands the subject over with it.
-    /// </summary>
-    public int[] About { get; }
-
-    /// <summary>
-    /// What the entry in charge last asked of the car, which stands until the driver thinks again. <b>A
-    /// bounded staleness rather than an unrenewed command</b>: a limit here is at most one decision
-    /// interval old, and that interval is a stated figure.
-    /// </summary>
-    public DriveLimits[] Limits { get; }
-
-    /// <summary>How long this car has been in the manoeuvre it is in — MAN-4's bound, for every entry that carries a time.</summary>
-    public float[] InManeuverS { get; }
-
-    /// <summary>
-    /// The blocked-road clock: how long this car has stood still <b>with no lawful cause</b>. Waiting at
-    /// a red, yielding and waiting in a bay for a gap all spend nothing, because standing still for a
-    /// reason the car can see is waiting rather than being stuck.
-    /// </summary>
-    public float[] BlockedS { get; }
-
-    /// <summary>
-    /// The other patience: how long this car has been held <b>below the pace the road affords</b> by
-    /// something slow in front of it. <see cref="BlockedS"/> cannot answer that — a car crawling behind a
-    /// body reeling down its lane is never standing still, so no clock it keeps ever runs out.
-    /// </summary>
-    public float[] HeldBackS { get; }
-
-    /// <summary>Where on the escalation ladder this car has climbed to. <b>It rewinds on road covered, never on manoeuvres completed.</b></summary>
-    public int[] Rung { get; }
-
-    /// <summary>Attempts spent on the back-off in this jam, and on the reroute and the recoveries in this leg.</summary>
-    public byte[] BackOffs { get; }
-
+    /// <summary>Reroutes spent on this leg, which is what bounds the road being the thing that is wrong with it.</summary>
     public byte[] Reroutes { get; }
 
-    public byte[] Recoveries { get; }
-
     /// <summary>
-    /// This car's own share of every timeout, drawn once when it joins the roster. <b>Two cars jammed
-    /// against each other move in lockstep and stay jammed</b> without it.
+    /// This car's own share of the patience a leg is given up after, drawn once when it joins the roster.
+    /// <b>Two cars jammed against each other move in lockstep and stay jammed</b> without it.
     /// </summary>
     public float[] FuseJitter { get; }
 
@@ -579,12 +463,6 @@ internal sealed class CarFleet
     /// standing overrules it (<see cref="World.Parking.BayWays.TheStandingOnOffer"/>).
     /// </summary>
     public bool[] BacksIntoBays { get; }
-
-    /// <summary>Where the car stood when it started climbing the ladder, which is what road covered is measured from.</summary>
-    public Vector2[] ClimbedFromM { get; }
-
-    /// <summary>And where it stood when its manoeuvre last changed, which is what "in one spot" means to the trace.</summary>
-    public Vector2[] ChangedAtM { get; }
 
     /// <summary>
     /// Whether the line in hand is driven backwards. <b>A property of the line and not of the car</b>:
@@ -768,8 +646,6 @@ internal sealed class CarFleet
         Line[car] = default;
         MovementWay[car] = NoWay;
         LineWay[car] = NoWay;
-        ClaimsAheadOf(car).Fill(GroundClaim.Nothing);
-        ClaimAheadWasTaken[car] = false;
         TailWay[car] = NoWay;
         TurnsBackOn[car] = NoLane;
         AuthorityM[car] = float.PositiveInfinity;
@@ -784,24 +660,11 @@ internal sealed class CarFleet
         RouteTaken[car] = 0;
         RouteRunsOut[car] = false;
         HasDestination[car] = false;
-        Doing[car] = Maneuver.None;
-        Suspended[car] = Maneuver.None;
-        Was[car] = Maneuver.None;
-        About[car] = -1;
-        Limits[car] = DriveLimits.None;
-        InManeuverS[car] = 0f;
-        BlockedS[car] = 0f;
-        HeldBackS[car] = 0f;
-        Rung[car] = 0;
-        BackOffs[car] = 0;
         Reroutes[car] = 0;
-        Recoveries[car] = 0;
 
         // Drawn from the car's own stream, so the jitter is the town's seed and not the clock's.
         FuseJitter[car] = Draw[car].NextFloat(1f - FuseJitterShare, 1f + FuseJitterShare);
         BacksIntoBays[car] = backsIntoBays;
-        ClimbedFromM[car] = positionM;
-        ChangedAtM[car] = positionM;
         LineIsReverse[car] = false;
         InsideTheBox[car] = false;
         LightAheadM[car] = float.PositiveInfinity;

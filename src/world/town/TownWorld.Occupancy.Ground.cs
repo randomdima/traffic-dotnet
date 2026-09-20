@@ -9,115 +9,14 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The ask and the answer</b>: the road each car is committed to, the ground it claims ahead of that, the
-/// town's furniture standing in the way of both, and what is left of the road once everything already
-/// spoken for has been taken out of it.
+/// <b>The ask and the answer</b>: the road each car is committed to, the town's furniture standing in the
+/// way of it, and what is left of that road once everything already spoken for has been taken out of it.
 /// </summary>
 internal sealed partial class TownWorld
 {
-    /// <summary>The stretches this car has claimed and is not on yet, laid where its own field says.</summary>
-    /// <remarks>
-    /// <para>
-    /// Re-laid from the car every tick, so nothing is released and nothing leaks: a claim held by a car that
-    /// has been wrecked, unmanned or taken over by a hand is gone on the next rebuild without anything
-    /// having had to notice it.
-    /// </para>
-    /// <para>
-    /// <b>And never over ground this body is already holding</b> (TER-5c.2). A swerve claims the stretch of
-    /// its own lane it is standing in, and the sweep the template makes is over that very lane
-    /// (<see cref="PlaceTheBody"/>) — one body, laid twice, in two measures of one piece of ground. The
-    /// sweep is the reading taken from the body and it is the one that stands.
-    /// </para>
-    /// </remarks>
-    void PlaceTheClaimAhead(int car)
-    {
-        var claims = Cars.ClaimsAheadOf(car);
-        for (var slot = 0; slot < claims.Length; slot++)
-        {
-            ref var claim = ref claims[slot];
-            if (!claim.Any) continue;
-
-            if (!Cars.Driven[car] || Cars.Broken[car])
-            {
-                claim = GroundClaim.Nothing;
-                continue;
-            }
-
-            if (_occupancy.AlreadyHolds(claim.Way, claim.FromM, claim.ToM, car)) continue;
-
-            _occupancy.ClaimAhead(
-                claim.Way, claim.FromM, claim.ToM, Cars.AlongMps[car], car, ClaimPriority.Firm);
-        }
-    }
-
-    /// <summary>
-    /// <b>The claims ahead asked again, now that every body has laid its own</b> (TER-5e): given back where a
-    /// stronger movement has taken the ground.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>A claim is the one hold in the town that can be taken back</b>, because its holder has not reached
-    /// it and is not committed to it — which is the whole of what a right of way takes. Answered once, at the
-    /// moment it was taken (<see cref="ManeuverDesk"/>), and then re-laid unread every tick, a claim outlived
-    /// whatever came for the ground: a road an officer closed across it, a rescue's road, a body shoved onto
-    /// it. The stronger movement was not cut and neither was the claim's holder, and the two of them were
-    /// given the same metres.
-    /// </para>
-    /// <para>
-    /// <b>An ordinary claim over it is not this, and neither is a body standing on it</b>
-    /// (<see cref="LaneOccupancy.TakesAClaim"/>). A claim ahead lives on ground the traffic is also driving — the
-    /// lane a car is queued in, the stretch a swerve swings out of and the body it is swinging round — and
-    /// all of those cut the claimant's own grant already (SIM-7).
-    /// </para>
-    /// <para>
-    /// <b>Given back inside the tick that laid it</b> (<see cref="LaneOccupancy.Withdraw"/>), so nothing
-    /// granted afterwards is cut at ground whose holder has already let go of it.
-    /// </para>
-    /// <para>
-    /// <b>And given back together.</b> A swerve's two stretches are one manoeuvre's ground with a centreline
-    /// down the middle of them, and half of one is nowhere to drive: a car that keeps the lane it was
-    /// leaving after the lane it was crossing into has been taken is a car holding road it has no shape to
-    /// use. Both go, and the entry is asked again through its own <c>Sa</c>.
-    /// </para>
-    /// </remarks>
-    void AnswerTheClaimAhead(int car)
-    {
-        var claims = Cars.ClaimsAheadOf(car);
-        for (var slot = 0; slot < claims.Length; slot++)
-        {
-            ref readonly var claim = ref claims[slot];
-            if (!claim.Any || !TakenFromUnder(car, claim)) continue;
-
-            for (var other = 0; other < claims.Length; other++)
-            {
-                if (claims[other].Any) _occupancy.Withdraw(claims[other].Way, car, ClaimsAsked.Granted);
-
-                claims[other] = GroundClaim.Nothing;
-            }
-
-            Cars.ClaimAheadWasTaken[car] = true;
-            return;
-        }
-    }
-
-    /// <summary>Whether anything entitled to this stretch has come for it since it was taken (TER-5e).</summary>
-    bool TakenFromUnder(int car, in GroundClaim claim)
-    {
-        var mine = RightOfWayOf(car, claim.Way);
-        var at = LaneOccupancy.FromTheStart;
-        while (_occupancy.NextHeldOver(
-                   claim.Way, claim.FromM, claim.ToM, car, ref at, out var taken,
-                   asked: ClaimsAsked.HeldOrStated))
-        {
-            if (LaneOccupancy.TakesAClaim(taken, mine)) return true;
-        }
-
-        return false;
-    }
-
     /// <summary>
     /// <b>A bay a wreck has claimed is a place removed from the town</b>, and a wreck is the one way a
-    /// leg ends without anybody being left to give it up (<see cref="ManeuverDesk.GiveUpTheBay"/>).
+    /// leg ends without anybody being left to give it up (<see cref="GiveUpTheBay"/>).
     /// </summary>
     /// <remarks>
     /// It is the register's own release and not a claim on the road: what a car takes of the bay's way in on

@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Text;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
@@ -146,8 +145,8 @@ internal static class StuckProbe
             $"stuck probe — {map}, {WarmupTicks} warm-up ticks, {MeasuredTicks} measured ({seconds} s), " +
             $"still is {MovedM:F1} m for {StillTicks / config.Sim.TickRateHz} s");
         Console.WriteLine(
-            $"blocked-road clock {config.CarBlockedRoadS:F0} s, short fuse {config.CarShortFuseS:F0} s, " +
-            $"shunt-round clock {config.CarShuntRoundS:F0} s, signal cycle {config.Signals.CycleS:F0} s");
+            $"a leg's patience {config.CarPatienceS:F0} s over {config.Patience.ReroutesPerLeg} reroutes, " +
+            $"signal cycle {config.Signals.CycleS:F0} s");
 
         var down = 0;
         for (var person = 0; person < people.Count; person++)
@@ -164,16 +163,15 @@ internal static class StuckProbe
         Console.WriteLine(
             $"the town arrived at {world.WalkArrivals} walks and {world.BaysParkedIn} bays, gave up " +
             $"{world.WalksGivenUp} walks, set {world.WalkersSetDown} of them back on the pavement, and " +
-            $"abandoned {world.CarsAbandoned} cars over the run");
+            $"gave up {world.LegsGivenUp} drive legs over the run");
         Console.WriteLine(
             $"it cost {down} on the ground and {wrecked} wrecked, over {world.Touches} touches — " +
             $"{world.CasualtiesRaised} raised, {world.CasualtiesCollected} collected, " +
             $"{world.CasualtiesDelivered} delivered, {world.CallsGivenUp} given up");
         Console.WriteLine(
-            $"ladder: {world.LaddersClimbed} rungs — {world.BackOffsTaken} back-offs, {world.SwervesTaken} swerves, " +
-            $"{world.PlacesGivenUp} places given up, {world.ReroutesTaken} reroutes, " +
-            $"{world.GroundRecoveries} ground recoveries, {world.LegsSettled} settled, " +
-            $"{world.CarsAbandoned} abandoned");
+            $"legs: {world.ReroutesTaken} rerouted, {world.PlacesGivenUp} places given up, " +
+            $"{world.LinesReacquired} lines taken again, {world.LegsGivenUp} given up — and " +
+            $"{world.HardBrakings} car-ticks spent the braking margin");
 
         ReportCars(world, config, carStillTicks, carWorstTicks);
         ReportPeople(world, config, personStillTicks, personWorstTicks);
@@ -198,8 +196,7 @@ internal static class StuckProbe
     }
 
     /// <summary>A car standing still is only a finding while somebody is at the wheel and it is not parked on purpose.</summary>
-    static bool Watched(CarFleet cars, int car) =>
-        cars.Driven[car] && !cars.Broken[car] && cars.Doing[car] != Maneuver.StandParked;
+    static bool Watched(CarFleet cars, int car) => cars.Driven[car] && !cars.Broken[car];
 
     /// <summary>And a walker's, while it is on a leg at all: a casualty, a passenger and somebody indoors are all standing still lawfully.</summary>
     static bool Watched(PersonFleet people, int person) =>
@@ -235,7 +232,7 @@ internal static class StuckProbe
         {
             if (stillTicks[car] < StillTicks) continue;
 
-            var key = $"{Maneuvers.Code(cars.Doing[car])} {cars.Hold[car]} cut by {cars.GrantCutBy[car]}";
+            var key = $"{DrivingWords.CarName(cars, car)} cut by {cars.GrantCutBy[car]}";
             byHold[key] = byHold.GetValueOrDefault(key) + 1;
         }
 
@@ -255,13 +252,8 @@ internal static class StuckProbe
                 $"still {stillTicks[car] / (float)config.Sim.TickRateHz:F0} s now, worst " +
                 $"{worstTicks[car] / (float)config.Sim.TickRateHz:F0} s — {DrivingWords.CarName(cars, car)}");
             Console.WriteLine(
-                $"    doing {Maneuvers.Code(cars.Doing[car])} for {cars.InManeuverS[car]:F1} s, was " +
-                $"{Maneuvers.Code(cars.Was[car])}, suspended {Maneuvers.Code(cars.Suspended[car])}, " +
-                $"rung {cars.Rung[car]}, back-offs {cars.BackOffs[car]}, reroutes {cars.Reroutes[car]}, " +
-                $"recoveries {cars.Recoveries[car]}");
-            Console.WriteLine(
-                $"    hold {cars.Hold[car]}, blocked {cars.BlockedS[car]:F1} s, held back {cars.HeldBackS[car]:F1} s, " +
-                $"speed {cars.AlongMps[car]:F2} m/s, off-line {cars.OffLineM[car]:F2} m, " +
+                $"    hold {cars.Hold[car]}, getting nowhere for {world.GettingNowhereForS(car):F1} s, reroutes " +
+                $"{cars.Reroutes[car]}, speed {cars.AlongMps[car]:F2} m/s, off-line {cars.OffLineM[car]:F2} m, " +
                 $"drivable ground {world.Terrain.At(rearAxleM).Drivable}");
             Console.WriteLine(
                 $"    grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]}, headway " +
@@ -271,7 +263,7 @@ internal static class StuckProbe
             Console.WriteLine(
                 $"    line {cars.Line[car].ArcCount} arcs, progress {cars.ProgressM[car]:F1} m, lane " +
                 $"{cars.LaneOf(car)}, line way {cars.LineWay[car]}, movement way {cars.MovementWay[car]}, " +
-                $"claims ahead {ClaimsAhead(cars, car)}, tail way {cars.TailWay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
+                $"tail way {cars.TailWay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
                 $"ours {cars.BoxIsOurs[car]}, inside {cars.InsideTheBox[car]}, committed {cars.CommittedToTheBox[car]}, " +
                 $"light in {cars.LightAheadM[car]:F1} m");
             Console.WriteLine(
@@ -280,21 +272,6 @@ internal static class StuckProbe
                 $"({cars.DestinationM[car].X:F1}, {cars.DestinationM[car].Y:F1})");
             Neighbours(world, cars.PositionM[car]);
         }
-    }
-
-    /// <summary>The ways this car is holding ahead of itself and the metres of each, as "none" where it holds nothing.</summary>
-    static string ClaimsAhead(CarFleet cars, int car)
-    {
-        var said = new StringBuilder();
-        foreach (ref readonly var claim in cars.ClaimsAheadOf(car))
-        {
-            if (!claim.Any) continue;
-
-            if (said.Length > 0) said.Append(" and ");
-            said.Append($"way {claim.Way} {claim.FromM:F1}–{claim.ToM:F1} m");
-        }
-
-        return said.Length > 0 ? said.ToString() : "none";
     }
 
     static void ReportPeople(TownWorld world, SimConfig config, int[] stillTicks, int[] worstTicks)
@@ -551,7 +528,7 @@ internal static class StuckProbe
 
             Console.WriteLine($"    ring of {ring.Count}: " + string.Join(
                 " -> ", ring.Select(body =>
-                    $"{body} ({Maneuvers.Code(cars.Doing[body])} {cars.Hold[body]})")));
+                    $"{body} ({DrivingWords.CarName(cars, body)})")));
         }
 
         Console.WriteLine($"    {rings} ring(s) of cars each waiting on the next");

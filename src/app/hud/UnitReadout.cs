@@ -1,6 +1,5 @@
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.Screen;
@@ -142,17 +141,11 @@ internal static class UnitReadout
 
         line = rows.Next("doing");
         line.Add(DrivingWords.CarName(cars, car));
-        if (cars.Doing[car] != Maneuver.None)
-        {
-            line.Add(", ");
-            line.Add(cars.InManeuverS[car], "F1");
-            line.Add(" s");
-        }
-
         rows.Keep(in line);
 
-        // CTL-8: an ordered car's state is the order, so it is written beside what the catalogue calls the
-        // car rather than instead of it — a finished order still says the car is the player's and waiting.
+        // CTL-8: an ordered car's state is the order, so it is written beside what the controller calls
+        // the car rather than instead of it — a finished order still says the car is the player's and
+        // waiting.
         if (world.IsUnderOrders(car))
         {
             line = rows.Next("ordered");

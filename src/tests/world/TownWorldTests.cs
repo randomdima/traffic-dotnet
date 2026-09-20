@@ -156,15 +156,15 @@ public class TownWorldTests
         var loop = new SimLoop<TownWorld>(world, SimConfig.Shipped());
         loop.Advance(120);
 
-        var doing = world.Cars.Doing[0];
+        var line = world.Cars.Line[0];
         var progressM = world.Cars.ProgressM[0];
 
         world.HoldAgents = true;
         loop.Advance(600);
 
         // The body goes on stepping — it is under no hand and the solver is not held — but nothing decided
-        // for it, so what it was doing is what it is still doing.
-        Assert.Equal(doing, world.Cars.Doing[0]);
+        // for it, so the line it was given is the line it is still driving.
+        Assert.Equal(line, world.Cars.Line[0]);
         Assert.True(world.Cars.ProgressM[0] >= progressM, "the car was wound back rather than left alone");
     }
 

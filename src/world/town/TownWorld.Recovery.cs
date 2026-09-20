@@ -1,7 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.Agents.Car.Maneuvers;
 using TrafficSimulation.Agents.Ambulance;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Service;
@@ -296,7 +295,7 @@ internal sealed partial class TownWorld
             // Come to rest at the place and still out of reach: the evacuator overshot or stopped on the
             // wrong side of it. A place behind the car is not a place to hold at (MAN-6), so the leg is laid
             // again from the pose it is actually in and the route takes it round.
-            if (atRest && Cars.Doing[car] == Maneuver.AttendTheScene) SendTo(car, standM, ParkingRegistry.NoBay);
+            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standM, ParkingRegistry.NoBay);
 
             return;
         }
@@ -401,7 +400,7 @@ internal sealed partial class TownWorld
         {
             // Stopped at the yard and still short of every slot the crew could work from — the same
             // overshoot a rescue makes at a body, answered the same way.
-            if (Cars.Doing[car] == Maneuver.AttendTheScene) SendToTheYard(car);
+            if (StoppedWhereItWasSent(car)) SendToTheYard(car);
 
             return;
         }
@@ -689,8 +688,8 @@ internal sealed partial class TownWorld
         GiveUpTheBay(caught);
         Cars.Hold[caught] = DrivingHold.None;
         Cars.Line[caught] = default;
-        LeaveTheCatalogue(caught);
-        RestTheLadder(caught);
+        Cars.Reroutes[caught] = 0;
+        _driveProgress.Restart(caught);
         DropTheMovement(caught);
         Cars.Command[caught] = Cars.Broken[caught] ? DriveCommand.Locked : DriveCommand.Idle;
 

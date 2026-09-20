@@ -63,24 +63,13 @@ internal static class LineAssembler
     /// </remarks>
     /// <param name="lastLaneToM">
     /// How far along the final lane the line stops, where something past the road is going to take the
-    /// car off it — the place a way at a parking bay leaves its lane is the one case. The line ends there
-    /// rather than at the lane's own end, so the profile brakes for the manoeuvre and not for the kerb
-    /// beyond it.
-    /// </param>
-    /// <param name="tail">
-    /// A way to finish on that is not one of the graph's lanes — <b>the line into a parking bay</b>, which
-    /// leaves its lane at <paramref name="lastLaneToM"/> and carries the car to the bay's own pose.
-    /// <para>
-    /// <b>Arcs and not a way number</b>: what the assembler needs is geometry that begins where the last
-    /// lane's stops, and which of the town's features drew it is that feature's business. Threaded here
-    /// rather than driven as a line of its own, the whole of a leg is one chain the follower reads without
-    /// knowing which piece it is on — which is the same reason the joins through a junction are threaded.
-    /// </para>
+    /// car off it — the mouth of the way into the bay this leg is aimed at is the one case. The line ends
+    /// there rather than at the lane's own end, so the car is brought to rest where that way begins and
+    /// takes it as its next line (<c>TownWorld.TakeTheNextStepOfTheLeg</c>).
     /// </param>
     public static DrivenLine Assemble(
         RoadGraph graph, ReadOnlySpan<int> lanes, Span<ArcSeg> into, Span<float> laneStartM,
-        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity,
-        ReadOnlySpan<ArcSeg> tail = default, float tailToM = float.PositiveInfinity)
+        Span<float> laneEndM, float lastLaneToM = float.PositiveInfinity)
     {
         var written = 0;
         var lengthM = 0f;
@@ -118,17 +107,7 @@ internal static class LineAssembler
             arrivedOn = leavingOn;
         }
 
-        // Only ever off the end of a whole chain: a line cut short above never reached the lane the tail
-        // leaves, so there is nothing for it to be threaded onto.
-        //
-        // <b>And only as far as the tail is driven</b>: a way at a bay runs on past the pose a car comes to
-        // rest in, to the end of the space itself, and that run is ground rather than line
-        // (<c>BayWays.DrivenLengthM</c>). Threaded whole, every leg would end a car's length deeper in its
-        // bay than the paint puts it.
-        var tailArcs = Spline.SubChainInto(tail, 0f, tailToM, into[written..]);
-        for (var arc = 0; arc < tailArcs; arc++) lengthM += into[written + arc].LengthM;
-
-        return new DrivenLine(written + tailArcs, lanes.Length, lengthM);
+        return new DrivenLine(written, lanes.Length, lengthM);
     }
 
     /// <summary>

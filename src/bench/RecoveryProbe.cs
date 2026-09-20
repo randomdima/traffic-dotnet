@@ -1,6 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Car.Maneuvers;
+using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
@@ -24,7 +24,7 @@ namespace TrafficSimulation.Bench;
 /// through, and one that gave up from six metres is a truck that arrived and could not finish arriving.
 /// </param>
 /// <param name="NearestAtRestM">And the closest it got standing still, which is the only closeness the crew can work from.</param>
-/// <param name="DoingThere">The catalogue entry in charge at its nearest approach.</param>
+/// <param name="HeldBy">What was limiting the vehicle at its nearest approach — the term the speed profile was bound by as it came up.</param>
 /// <param name="TowedM">
 /// How far the wreck was actually dragged, measured along the ground it covered. <b>The column that says
 /// the coupling worked</b>: a tow that reports metres is a bar that held, and one that reports nothing is a
@@ -38,7 +38,7 @@ namespace TrafficSimulation.Bench;
 internal readonly record struct RecoveryRow(
     string Map, int Depots, int Evacuators, int YardSlots, long Raised, long Hitched, long Yarded,
     long Restored, long GivenUp, long YardFull, float ReachedInS, float YardedInS, float RestoredInS,
-    float NearestM, float NearestAtRestM, Maneuver DoingThere, float TowedM, float WorstStretchM,
+    float NearestM, float NearestAtRestM, DrivingHold HeldBy, float TowedM, float WorstStretchM,
     RecoveryStage EndedIn);
 
 /// <summary>
@@ -97,7 +97,7 @@ internal static class RecoveryProbe
                 $"{row.Map,-10}{row.Depots,8}{row.Evacuators,12}{row.YardSlots,7}{row.Raised,8}{row.Hitched,9}" +
                 $"{row.Yarded,8}{row.Restored,10}{row.GivenUp,10}{row.YardFull,11}{Seconds(row.ReachedInS),11}" +
                 $"{Seconds(row.YardedInS),9}{Seconds(row.RestoredInS),10}{Metres(row.NearestM),11}" +
-                $"{Metres(row.NearestAtRestM),11}{row.DoingThere,20}{row.TowedM,10:F1}{row.WorstStretchM,11:F2}" +
+                $"{Metres(row.NearestAtRestM),11}{row.HeldBy,20}{row.TowedM,10:F1}{row.WorstStretchM,11:F2}" +
                 $"{row.EndedIn,13}");
         }
 
@@ -144,7 +144,7 @@ internal static class RecoveryProbe
             return new RecoveryRow(
                 map, world.Depots.Count, world.Evacuators, slots, 0, 0, 0, 0, 0, 0,
                 float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity, float.PositiveInfinity,
-                float.PositiveInfinity, Maneuver.None, 0f, 0f, RecoveryStage.Waiting);
+                float.PositiveInfinity, DrivingHold.None, 0f, 0f, RecoveryStage.Waiting);
         }
 
         world.Apply(new BodyTag(BodyKind.Car, wreck), DamageOutcome.Broken);
@@ -170,7 +170,7 @@ internal static class RecoveryProbe
         return new RecoveryRow(
             map, world.Depots.Count, world.Evacuators, slots, world.WrecksRaised, world.WrecksHitched,
             world.WrecksYarded, world.WrecksRestored, world.RecoveriesGivenUp, world.YardsFoundFull,
-            reachedInS, yardedInS, restoredInS, watch.NearestM, watch.NearestAtRestM, watch.DoingThere,
+            reachedInS, yardedInS, restoredInS, watch.NearestM, watch.NearestAtRestM, watch.HeldBy,
             watch.TowedM, watch.WorstStretchM, watch.EndedIn);
     }
 
@@ -179,7 +179,7 @@ internal static class RecoveryProbe
     {
         public float NearestM = float.PositiveInfinity;
         public float NearestAtRestM = float.PositiveInfinity;
-        public Maneuver DoingThere = Maneuver.None;
+        public DrivingHold HeldBy = DrivingHold.None;
         public float TowedM;
         public float WorstStretchM;
         public RecoveryStage EndedIn = RecoveryStage.Waiting;
@@ -221,7 +221,7 @@ internal static class RecoveryProbe
             if (farM < watch.NearestM)
             {
                 watch.NearestM = farM;
-                watch.DoingThere = world.Cars.Doing[car];
+                watch.HeldBy = world.Cars.Hold[car];
             }
 
             if (world.Cars.VelocityMps[car].Length() <= config.Driving.StopSpeedMps && farM < watch.NearestAtRestM)

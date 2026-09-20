@@ -768,23 +768,12 @@ internal sealed partial class SimConfig
 
     public float CarCrossingStandOffM => Car.WidthM * Driving.CrossingStandOffInCarWidths;
 
-    /// <summary>The blocked-road clock, 30 s at the shipped figures — four full red phases.</summary>
-    public float CarBlockedRoadS => Signals.CycleS * Ladder.BlockedRoadInLightCycles;
+    /// <summary>The patience a drive leg is given up after, 30 s at the shipped figures — four full red phases.</summary>
+    public float CarPatienceS => Signals.CycleS * Patience.BlockedRoadInLightCycles;
 
-    /// <summary>The fuse a car standing across a lane is measured on instead, 6 s at the shipped figures.</summary>
-    public float CarShortFuseS => Ladder.ObstructionWaitS * Ladder.ShortFuseInObstructionWaits;
+    public float CarBlockedWayPriceM => CityGen.BlockSpacingAlongMinM * Patience.BlockedWayPriceInBlockSpacings;
 
-    public float CarLadderRewindM => Car.LengthM * Ladder.RewindInCarLengths;
-
-    /// <summary>How long a turn on the spot has to come round in (`P-19`), 18 s at the shipped figures.</summary>
-    public float CarShuntRoundS => CarShortFuseS * Ladder.ShuntRoundInShortFuses;
-
-    /// <summary>And how far round one leg of it sweeps, as an angle.</summary>
-    public float CarShuntSweepRad => Driving.ShuntSweepDeg * MathF.PI / 180f;
-
-    public float CarBlockedWayPriceM => CityGen.BlockSpacingAlongMinM * Ladder.BlockedWayPriceInBlockSpacings;
-
-    public float CarBlockedWayLifeS => CarBlockedRoadS * Ladder.BlockedWayLifeInBlockedClocks;
+    public float CarBlockedWayLifeS => CarPatienceS * Patience.BlockedWayLifeInBlockedClocks;
 
     /// <summary>How near its standoff mark an ambulance has to have stopped before the crew get out (AMB-10).</summary>
     public float AmbulanceSceneReachM => Car.LengthM * Ambulance.SceneReachInCarLengths;
@@ -796,16 +785,16 @@ internal sealed partial class SimConfig
     public float AmbulanceHomeM => CityGen.BlockSpacingAlongMinM * Ambulance.HomeWithinBlockSpacings;
 
     /// <summary>How long a call runs before the casualty is written off as unreachable, 120 s at the shipped figures.</summary>
-    public float AmbulanceGiveUpS => CarBlockedRoadS * Ambulance.GiveUpInBlockedClocks;
+    public float AmbulanceGiveUpS => CarPatienceS * Ambulance.GiveUpInBlockedClocks;
 
     /// <summary>And how far from its own building a police car or an evacuator stands waiting (SRV-2).</summary>
     public float ServiceHomeM => CityGen.BlockSpacingAlongMinM * Service.HomeWithinBlockSpacings;
 
     /// <summary>How long one leg of a beat may run before the patrol is sent somewhere else (SRV-5).</summary>
-    public float PatrolGiveUpS => CarBlockedRoadS * Service.GiveUpInBlockedClocks;
+    public float PatrolGiveUpS => CarPatienceS * Service.GiveUpInBlockedClocks;
 
     /// <summary>How long a hand who is out has to walk back to their seat before they are put in it (SRV-3).</summary>
-    public float ServiceRecallS => CarBlockedRoadS * Service.RecallInBlockedClocks;
+    public float ServiceRecallS => CarPatienceS * Service.RecallInBlockedClocks;
 
     /// <summary>How much road an officer holds either side of the scene he is closing (SRV-6).</summary>
     public float PoliceClosureM => Car.LengthM * Service.ClosureInCarLengths;
@@ -814,7 +803,7 @@ internal sealed partial class SimConfig
     public float PoliceStandoffM => Car.LengthM * Service.SceneStandoffInCarLengths;
 
     /// <summary>How long a closure may stand before the lane is given back to the town (SRV-6).</summary>
-    public float PoliceClosureLifeS => CarBlockedRoadS * Service.ClosureInBlockedClocks;
+    public float PoliceClosureLifeS => CarPatienceS * Service.ClosureInBlockedClocks;
 
     /// <summary>How near the wreck an evacuator has to stop before the crew can get a hook on it (EVA-5).</summary>
     public float EvacuatorSceneReachM => Car.LengthM * Evacuator.SceneReachInCarLengths;
@@ -823,7 +812,7 @@ internal sealed partial class SimConfig
     public float EvacuatorYardReachM => Car.LengthM * Evacuator.YardReachInCarLengths;
 
     /// <summary>How long one leg of a recovery may run before it is written off (EVA-8).</summary>
-    public float EvacuatorGiveUpS => CarBlockedRoadS * Evacuator.GiveUpInBlockedClocks;
+    public float EvacuatorGiveUpS => CarPatienceS * Evacuator.GiveUpInBlockedClocks;
 
     /// <summary>The ceiling on what the tow bar may spend, as an acceleration on the pair's reduced mass (EVA-5).</summary>
     public float EvacuatorHitchMostMps2 => Evacuator.HitchMostInGrips * Tyre.StandardGravityMps2;

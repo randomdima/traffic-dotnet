@@ -1,62 +1,42 @@
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Car.Maneuvers;
 
 namespace TrafficSimulation.Agents.Car.Control;
 
 /// <summary>
 /// What a car is doing, in words, for whatever puts it on screen. It lives with the car because it is a
 /// reading of the car's own state and not a fact about any panel: the interface and the debug layer both
-/// ask for it, and a second copy of this switch would drift from the catalogue the day an entry is added.
+/// ask for it, and a second copy of this switch would drift from the controller the day a term is added.
 /// </summary>
 internal static class DrivingWords
 {
     /// <summary>
-    /// What a car is, and then what is limiting it — <b>in that order</b>, because a car that took no
-    /// decision has no hold, and reading its <see cref="DrivingHold.None"/> off as a name called every
-    /// driverless car in every bay in the town <c>driving</c>.
+    /// <b>What a car is, and then what is limiting it</b> — in that order, because a car that is not
+    /// being driven has no hold, and reading its <see cref="DrivingHold.None"/> off as a name called
+    /// every driverless car in every bay in the town <c>driving</c>.
     /// </summary>
+    /// <remarks>
+    /// <b>The hold is the whole of what a car is doing</b> (CAR-15). There is no name beside it to drift
+    /// from it: what a driver is at is a line and a term of the speed profile, and which line it is on is
+    /// the one thing this adds — a bay's own way is the last dozen metres of a leg either way round.
+    /// </remarks>
     public static string CarName(CarFleet cars, int car)
     {
         if (cars.Broken[car]) return "wrecked";
         if (!cars.Driven[car]) return "parked";
         if (cars.Line[car].ArcCount == 0) return "no line";
 
-        // The manoeuvre first and the hold second, because they answer different questions: the entry
-        // is what the car is doing and the hold is what is limiting it, and a car driving a template
-        // is limited by things the route's own vocabulary cannot name.
-        var doing = cars.Doing[car];
-        return doing switch
+        if (cars.LineWayOf(car) != CarFleet.NoWay)
         {
-            Maneuver.LeaveTheBay =>
-                cars.Limits[car].HoldStill
-                    ? "P-2 waiting for a gap"
-                    : "P-2 backing out of a bay",
-            Maneuver.ShuntRound => "P-19 turning round",
-            Maneuver.ParkInTheBay => "P-14 parking",
-            Maneuver.SquareUpInTheBay => "P-16 squaring up",
-            Maneuver.StandParked => "P-17 parked",
-            Maneuver.EmergencyStop => "E-2 stopping hard",
-            Maneuver.BackOff => "E-3 backing off",
-            Maneuver.GoRound => "E-4 going round",
-            Maneuver.GiveUpThePlace => "E-6 taking another place",
-            Maneuver.Reroute => "E-7 rerouting",
-            Maneuver.ReturnToLegalGround => "E-8 back to legal ground",
-            Maneuver.SettleForHere => "E-9 settled for here",
-            Maneuver.AbandonTheCar => "E-10 abandoned",
-            Maneuver.None => HoldName(cars.Hold[car]),
-            _ => $"{Maneuvers.Maneuvers.Code(doing)} {HoldName(cars.Hold[car])}",
-        };
+            return cars.LineIsReverse[car] ? "backing at a bay" : "driving at a bay";
+        }
+
+        return HoldName(cars.Hold[car]);
     }
 
     /// <summary>
-    /// What is limiting a car, in the words its own controller uses. <b>A hold is not a manoeuvre</b>:
-    /// the entry the car is in says what it is doing, and this says which of the things that limit a
-    /// car is the one limiting it.
-    /// </summary>
-    /// <summary>
     /// What was found in front of a car, in the words the follower reads it by. <b>It names what the
-    /// thing is and never what the car will do about it</b>: whether an obstruction is driven round is the
-    /// catalogue's answer, and this is the reading the answer was reached on.
+    /// thing is and never what the car will do about it</b>: what the car does is the speed profile's
+    /// answer, and this is the reading that answer was reached on.
     /// </summary>
     public static string AheadName(HeadwayKind ahead) => ahead switch
     {
@@ -78,7 +58,6 @@ internal static class DrivingWords
         DrivingHold.Waiting => "waiting for the junction",
         DrivingHold.Crossing => "yielding at a crossing",
         DrivingHold.LostLine => "off its line",
-        DrivingHold.Procedure => "holding for its manoeuvre",
         _ => "driving",
     };
 }

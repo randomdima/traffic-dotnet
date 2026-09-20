@@ -471,54 +471,32 @@ internal sealed class DrivingFigures
     public float ShuntSweepDeg { get; init; } = 60f;
 }
 
-/// <summary>The escalation ladder: how long a car tolerates being stopped, and what it does about it.</summary>
-internal sealed class LadderFigures
+/// <summary>
+/// <b>How long a driver puts up with getting nowhere</b>, and what it does about it: the road priced up
+/// and the route laid again, and past that the leg given up (CAR-15). Every figure here is a fraction of
+/// something the town already states, so nothing in it is a duration somebody chose.
+/// </summary>
+internal sealed class DrivePatienceFigures
 {
-    public float ObstructionWaitS { get; init; } = 3f;
-
     /// <summary>
-    /// How long a reflex keeps its name after the thing that fired it has gone, imposing nothing while it
-    /// does. It is what tells one emergency stop from the twenty triggerings a single one is made of in
-    /// stop-start traffic, and it is a second — well past the settling the arbitration itself asks for
-    /// and well short of anything a car spends holding at something real.
-    /// </summary>
-    public float ReflexHoldS { get; init; } = 1f;
-    public int BackOffAttemptsPerJam { get; init; } = 2;
-
-    /// <summary>
-    /// The blocked-road clock, in light cycles: how long a car stands still with no lawful cause before
-    /// the ladder is walked. It must sit well above a full red phase, or every busy junction gets routed
-    /// around. Both phases share the cycle, so a red is half of one and this is four.
+    /// The patience a leg is given up after, in light cycles: how long a car covers no ground before the
+    /// road is priced up and, past the last reroute, the leg is over. It must sit well above a full red
+    /// phase, or every busy junction gets routed around. Both phases share the cycle, so a red is half of
+    /// one and this is four.
     /// </summary>
     public float BlockedRoadInLightCycles { get; init; } = 2f;
-
-    /// <summary>
-    /// The short fuse, in obstruction waits: what a car <em>standing across a lane</em> is measured on
-    /// instead, because it is itself the obstruction and patience is the wrong answer.
-    /// </summary>
-    public float ShortFuseInObstructionWaits { get; init; } = 2f;
-
-    /// <summary>How far a car must actually cover before the ladder rewinds. <b>Road covered, never manoeuvres completed.</b></summary>
-    public float RewindInCarLengths { get; init; } = 2f;
 
     /// <summary>How many times one leg may reroute before the road stops being the thing that is wrong with it.</summary>
     public int ReroutesPerLeg { get; init; } = 3;
 
     /// <summary>
-    /// What a blocked stretch is priced at, and how long the mark lives in blocked clocks. Expensive,
+    /// What a blocked stretch is priced at, and how long the mark lives in patiences. Expensive,
     /// never impassable: in a town this small the only road to a place may be the marked one, and a mark
     /// expires so a road nobody has driven since is tried again.
     /// </summary>
     public float BlockedWayPriceInBlockSpacings { get; init; } = 4f;
 
     public float BlockedWayLifeInBlockedClocks { get; init; } = 2f;
-
-    /// <summary>
-    /// How long a car has to get itself round on the spot (`P-19`), in short fuses: a handful of legs at
-    /// manoeuvring pace, and past it the ladder rather than a car rocking in a dead end for the rest of the
-    /// run.
-    /// </summary>
-    public float ShuntRoundInShortFuses { get; init; } = 3f;
 }
 
 /// <summary>A walker: its pace, its footing, and how it keeps out of the way.</summary>
