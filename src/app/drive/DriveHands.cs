@@ -47,8 +47,8 @@ internal sealed class DriveHands(
 
     /// <summary>
     /// <b>The player's <c>Pause</c> key</b>, which holds the town's own agents while their bodies go on
-    /// stepping (<see cref="Hud.RunState.AgentsHeld"/>). A watched run opens with them held, so a drive
-    /// that wants traffic round it presses the same key a reader would.
+    /// stepping (<see cref="Hud.RunState.AgentsHeld"/>). A run opens with them deciding, so a drive that
+    /// wants the town still around it presses the same key a reader would.
     /// </summary>
     public Action<bool>? Hold { get; init; }
 

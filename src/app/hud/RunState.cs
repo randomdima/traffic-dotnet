@@ -42,12 +42,12 @@ internal sealed class RunState
 
     /// <summary>The agents are not asked to decide, and the hand-driven one still is.</summary>
     /// <remarks>
-    /// <b>Held from the moment a town opens, temporarily</b>: what is being looked at while the lane layer
-    /// is rebuilt is the ground, and a town that drives itself away from the frame is a town being read
-    /// through moving cars. The <c>Pause</c> key still lets go of it, and the default goes back with the
-    /// rest of what the rework put down ([known gaps](../../../docs/index.md#known-gaps)).
+    /// <b>A town opens deciding</b>, and the <c>Pause</c> key is what holds it. Opening held is a reading
+    /// aid and cannot be the default while a person begins inside a building (GEN-7): leaving one is a
+    /// decision, so a held town is a town with nobody on foot in it at all, and the reader is shown an
+    /// empty pavement rather than a still one.
     /// </remarks>
-    public bool AgentsHeld { get; set; } = true;
+    public bool AgentsHeld { get; set; }
 
     public void SetPace(float scale)
     {
