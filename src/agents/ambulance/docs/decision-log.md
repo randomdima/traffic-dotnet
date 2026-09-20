@@ -48,13 +48,6 @@ entry has no swerve and `E-4` is reached from `P-4`. Handover waits until the pl
 car needs to stop in. The same episode is why `P-18` is watched despite standing still being its job: the
 crew's work is seconds and the call's own fuse is half a minute.
 
-## 2026-08-25 — a casualty on a zebra is a body and not somebody crossing
-
-Reading every walker's stretch of the lane held traffic short of a crossing for ever after a knock-down —
-including the ambulance coming to fetch them. The question now asks for `RightOfWay.OnThePaint`, which a
-body lying in the road does not hold. Their stretch still cuts every grant over it, so a driver is held
-off them exactly as off a wreck; what they stopped being is somebody a car stops *short of the paint* for.
-
 ## 2026-08-25 — the scene is projected forward along the line, and "behind the axle" is settled by the crew's reach
 
 Projected onto the nearest point, a route leaving a bay beside its own casualty put the stop behind the

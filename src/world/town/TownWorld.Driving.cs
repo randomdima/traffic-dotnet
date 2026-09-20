@@ -229,10 +229,11 @@ internal sealed partial class TownWorld
         }
 
         // A car backing out crosses the same paint anything else does.
-        CrossingOnTheTemplate(car, line, leadM, reachM, out var crossingStopM, out var crossingAtM);
+        CrossingOnTheTemplate(car, line, leadM, reachM, out var crossingAtM);
 
         var context = new DriveContext(
-            seen.DistanceM, seen.AlongMps, stopAtM, Cars.GroundCoefficient[car], crossingStopM, crossingAtM, kind,
+            seen.DistanceM, seen.AlongMps, stopAtM, Cars.GroundCoefficient[car], float.PositiveInfinity, crossingAtM,
+            kind,
             Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car]);
 
         Cars.Context[car] = context;
@@ -357,16 +358,16 @@ internal sealed partial class TownWorld
         // body — which is the same question the desk asked before it committed to this line at all.
         var clearM = GroundAhead.ClearM(_roads, _occupancy, line, tailM, reachM, build.FlankM, car);
 
-        // The paint is owed by a car under its own geometry as much as by one on its route (TER-5e): a
-        // swerve, a bay entry and a bay exit all cross the same crossings.
-        CrossingOnTheTemplate(car, line, tailM, reachM, out var crossingStopM, out var crossingAtM);
+        // Where the paint is, so a shape standing over it knows it has nowhere to swing to. What is on it
+        // is ground under the template and is the reading above (`PER-26`).
+        CrossingOnTheTemplate(car, line, tailM, reachM, out var crossingAtM);
 
         // <b>Unknown, still.</b> The ways under a template are not the ways it is driving, so what was
         // claimed there is a fact about somebody else's lane rather than about this car's own line — and a
         // reading that cannot be trusted to name what is in the way must never license driving round it.
         var context = new DriveContext(
             clearM < reachM ? clearM : float.PositiveInfinity, 0f, float.PositiveInfinity,
-            Cars.GroundCoefficient[car], crossingStopM, crossingAtM,
+            Cars.GroundCoefficient[car], float.PositiveInfinity, crossingAtM,
             clearM < reachM ? HeadwayKind.Unknown : HeadwayKind.Nothing);
 
         Cars.Context[car] = context;
@@ -758,19 +759,18 @@ internal sealed partial class TownWorld
     /// body or a wreck rather than inside a bay — and both directions of the stretch it stands on are
     /// offered, because only the search can say which of them reaches it first.
     /// </remarks>
-    int RouteGoalsFor(int car, Span<RouteGoal> into, out Vector2 goalPointM)
+    int RouteGoalsFor(int car, Span<RouteGoal> into)
     {
-        if (!IsAimedAtAPlaceInTheRoad(car)) return BayGoals(BayAimedAt(car), into, out goalPointM);
+        if (!IsAimedAtAPlaceInTheRoad(car)) return BayGoals(BayAimedAt(car), into);
 
-        goalPointM = Cars.DestinationM[car];
-        return _driving.GoalsAt(goalPointM, into);
+        return _driving.GoalsAt(Cars.DestinationM[car], into);
     }
 
     RouteFound TryPlan(int car, int fromLane)
     {
         var driving = Driving;
 
-        var goalCount = RouteGoalsFor(car, _driveSearch.Goals, out var goalPointM);
+        var goalCount = RouteGoalsFor(car, _driveSearch.Goals);
         if (goalCount == 0) return RouteFound.Nowhere;
 
         _driveSearch.Entries[0] = driving.EntryOnLane(fromLane, AlongTheEntryM(car, fromLane));
@@ -779,7 +779,7 @@ internal sealed partial class TownWorld
         // A place on a lane is arrived at and not got near, so a goal the car has driven past is searched
         // for rather than counted as reached: the route round the block is what a driver who has overshot
         // the turn-in actually does.
-        var linkCount = SearchTheDrivingNetwork(goalCount, goalPointM, out var goalSlot);
+        var linkCount = SearchTheDrivingNetwork(goalCount, out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return RouteFound.Nowhere;
 
         ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot]);
@@ -814,10 +814,10 @@ internal sealed partial class TownWorld
     /// (<see cref="RouteSearch.Entries"/>), because a body under way joins the network by the link it is
     /// already committed to.
     /// </summary>
-    int SearchTheDrivingNetwork(int goalCount, Vector2 goalPointM, out int goalSlot)
+    int SearchTheDrivingNetwork(int goalCount, out int goalSlot)
     {
         RouteSearches++;
-        return _driveSearch.Plan(1, goalCount, goalPointM, _surcharges, out goalSlot);
+        return _driveSearch.Plan(1, goalCount, _surcharges, out goalSlot);
     }
 
     /// <summary>The lanes a search's links are driven as, laid into this car's own queue.</summary>
@@ -851,68 +851,55 @@ internal sealed partial class TownWorld
         out bool ranOut)
     {
         var driving = Driving;
-        var runs = driving.Runs;
-        var written = 0;
-        var last = fromLane;
-        var joined = true;
-        turnsBackOn = CarFleet.NoLane;
-        ranOut = false;
 
-        for (var index = 0; index < links.Length && joined && !ranOut; index++)
-        {
-            var link = links[index];
-            var lanes = runs.PiecesOf(link);
+        // The first link is the one the car is already on, and the lanes behind it are spent. Where it is
+        // not, the network says where the movement onto it lands.
+        var firstSlot = links.Length > 0 && driving.LinkOfLane(fromLane) == links[0]
+            ? driving.SlotOfLane(fromLane) + 1
+            : -1;
 
-            // The first link is the one the car is already on, and the lanes behind it are spent. Every other
-            // link is joined where the movement onto it lands, which is its first lane at all but a merge —
-            // there, the lanes before the one the merge joins belong to the run and are not driven.
-            var from = index == 0 && driving.LinkOfLane(fromLane) == link
-                ? driving.SlotOfLane(fromLane) + 1
-                : JoinedAt(lanes, last);
-
-            // The last link is only travelled as far as the destination stands along it.
-            var to = lanes.Length;
-            if (index == links.Length - 1 && link == goal.Link) to = Math.Min(to, SlotAtM(runs, link, goal.AlongM) + 1);
-
-            for (var slot = from; slot < to; slot++)
-            {
-                if (written == into.Length)
-                {
-                    ranOut = true;
-                    break;
-                }
-
-                if (_roads.ConnectorBetween(last, lanes[slot]) == RoadGraph.NoConnector)
-                {
-                    turnsBackOn = _roads.LaneReverse[last] == lanes[slot] ? lanes[slot] : CarFleet.NoLane;
-                    joined = false;
-                    break;
-                }
-
-                last = lanes[slot];
-                into[written++] = last;
-            }
-        }
-
+        var joins = new RoadJoins(_roads);
+        var written = RouteChain.LayInto(ref joins, driving.Runs, links, fromLane, firstSlot, goal, into, out ranOut);
+        turnsBackOn = joins.TurnsBackOn;
         return written;
     }
 
-    /// <summary>Which piece of a run a place along it stands on.</summary>
-    static int SlotAtM(RunNetwork runs, int link, float alongM) => runs.PieceAt(link, alongM, out _);
-
     /// <summary>
-    /// Which piece of a run the lane behind it hands over onto — its first, unless the movement is a merge
-    /// partway along the run. <b>Nought where nothing joins it at all</b>, so that the walk fails on the
-    /// first piece the way it always did rather than on a slot chosen to make it fail.
+    /// How the carriageway answers <see cref="IRouteJoins"/>: <b>two lanes are travelled one after the
+    /// other where a connector runs between them</b>, and there is nothing between them of the route's own
+    /// — a junction's ground is assembled into the line (<see cref="LineAssembler"/>) rather than held on
+    /// the network the way a pavement's corner is.
     /// </summary>
-    int JoinedAt(ReadOnlySpan<int> lanes, int from)
+    /// <remarks>
+    /// <b>The one pair the search can return that the road does not join</b> is the two sides of a car
+    /// park's frontage, where the leg comes back the way it went (GEN-4l). The chain stops at the lane the
+    /// car turns off and <see cref="TurnsBackOn"/> carries which lane that was, the rest being a manoeuvre
+    /// and never a lane a line could be laid over.
+    /// </remarks>
+    struct RoadJoins(RoadGraph roads) : IRouteJoins
     {
-        for (var slot = 0; slot < lanes.Length; slot++)
+        public int TurnsBackOn { get; private set; } = CarFleet.NoLane;
+
+        /// <summary>Its first lane at all but a merge — there, the lanes before the one the merge joins are not driven.</summary>
+        public int JoinedAt(ReadOnlySpan<int> pieces, int from)
         {
-            if (_roads.ConnectorBetween(from, lanes[slot]) != RoadGraph.NoConnector) return slot;
+            for (var slot = 0; slot < pieces.Length; slot++)
+            {
+                if (roads.ConnectorBetween(from, pieces[slot]) != RoadGraph.NoConnector) return slot;
+            }
+
+            return 0;
         }
 
-        return 0;
+        public bool Reaches(int from, int onto)
+        {
+            if (roads.ConnectorBetween(from, onto) != RoadGraph.NoConnector) return true;
+
+            TurnsBackOn = roads.LaneReverse[from] == onto ? onto : CarFleet.NoLane;
+            return false;
+        }
+
+        public readonly int Between(int from, int onto) => RouteChain.NoWay;
     }
 
     /// <summary>

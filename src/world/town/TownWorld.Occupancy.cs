@@ -67,7 +67,7 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// </para>
 /// <para>
 /// <b>The claims are laid in four passes and this file holds the shape of it</b>: what each of them writes is
-/// the walkers' (<see cref="HoldTheRoadUnderIt"/>), the ground every body stands on
+/// the walkers' (<see cref="StandInTheRoad"/>), the ground every body stands on
 /// (<see cref="PlaceTheBody"/>), the crossings of a junction (<see cref="PlaceTheCrossing"/>) and
 /// the ask and the answer (<see cref="AskForTheGround"/>), each in the file its own name says.
 /// </para>
@@ -198,7 +198,7 @@ internal sealed partial class TownWorld
         for (var person = 0; person < People.Count; person++)
         {
             HoldThePavementUnderIt(person);
-            HoldTheRoadUnderIt(person);
+            StandInTheRoad(person);
         }
 
         // <b>Every body first, and every claim ahead after all of them</b>. A body is the one hold nothing can
@@ -223,13 +223,9 @@ internal sealed partial class TownWorld
 
         // <b>And what every walker says it is walking at, at p9</b> (PER-26), between the drivers' asks and
         // their grants. A statement is the weakest hold there is, so it goes in after every body and every
-        // ask; and the band a walker says it is stepping onto is what the traffic under that paint gives way
-        // to (TER-5e), so it goes in before anything is granted off those asks.
-        for (var person = 0; person < People.Count; person++)
-        {
-            StateThePavementAhead(person, walk);
-            StateTheBandAhead(person);
-        }
+        // ask. <b>It is stated on the pavement and on nothing else</b>: a walker's statement buys it no
+        // standing on a carriageway, there being nothing on this side of the town that grants one.
+        for (var person = 0; person < People.Count; person++) StateThePavementAhead(person, walk);
 
         // And the claims ahead answered against every other, before anything is granted off them: a claim a
         // stronger movement has taken is ground its holder no longer has, so nothing granted below may be

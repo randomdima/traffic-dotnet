@@ -4,6 +4,27 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-20 — a walker joins the network both ways, and could not before
+
+`EntriesNear` and `GoalsAt` both offered the way back only where the fine graph had a reverse
+(`_foot.Reverse(edge) >= 0`), and `FootGraph.Reverse` is **`-1` for everything, by design** (WLK-8): a lane
+is walked one way and the lane beside it is a line of its own a lane's width away, not this one read
+backwards. So the branch never ran. Both methods documented "both ways along the stretch it stands on" and
+handed back one — a walker could only ever set off whichever way the single nearest lane happened to run,
+and **anything behind it cost a lap of the ring**. Measured: one entry, always, for all 8611 edges of the
+suite's city.
+
+The second entry is now the nearest lane whose line heads *against* the first, looked up over the same
+chain index the first came from (`FootGraph.EdgesNear`, within a pavement's width). **Nearest and not
+merely opposed**, because at a corner the lanes of every course meeting there are within reach.
+
+**What it was worth**: an ordered walk to a point across the street fell from 215 m to 56 m, and over a
+shipped minute the trips a town finishes went from 5 to 13 on Odesa and 6 to 20 on River — the same
+walkers, no longer walking round a block to reach what was behind them.
+
+**What it did not fix is the zebras**, which are still walked by nothing
+([the known gaps](../../../../docs/index.md#known-gaps)).
+
 ## 2026-09-19 — a walk out of reach costs its own lane, and no longer the junction
 
 **A junction stood on every lane of the walk or on none**, so one course rounded away from a tight corner

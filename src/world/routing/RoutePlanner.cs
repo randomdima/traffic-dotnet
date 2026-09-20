@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace TrafficSimulation.World.Routing;
 
 /// <summary>
@@ -20,13 +18,20 @@ internal readonly record struct RouteEntry(int Link, float AlongM, float Remaini
 internal readonly record struct RouteGoal(int Link, float AlongM);
 
 /// <summary>
-/// One A* over an abstract weighted graph, used by both agent kinds. <b>The search state is a directed
-/// link, and the graph offers nothing else to settle</b> (<see cref="TravelGraph"/>), because what a turn
-/// costs depends on the way the body arrived as well as the way it leaves — settle where the ways meet
-/// instead and the planner quietly returns routes that are not the cheapest, which is not visibly wrong,
-/// just wrong.
+/// One Dijkstra over an abstract weighted graph, used by both agent kinds. <b>The search state is a
+/// directed link, and the graph offers nothing else to settle</b> (<see cref="TravelGraph"/>), because what
+/// a turn costs depends on the way the body arrived as well as the way it leaves — settle where the ways
+/// meet instead and the planner quietly returns routes that are not the cheapest, which is not visibly
+/// wrong, just wrong.
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>It reads no geometry and there is none to read.</b> A search over a graph of weights needs the
+/// weights and nothing else; steering it by the straight line to the destination would be faster and
+/// would make every route in the town depend on the graph carrying coordinates that agree with the
+/// ground it was contracted from. What that bought and what it cost is
+/// <see cref="TravelGraph"/>'s slice log.
+/// </para>
 /// <para>
 /// <b>The goal is tracked apart from the frontier.</b> A link runs one way, so a destination twenty
 /// metres behind is round the block and down this link again; a goal link settled cheaply on the way past
@@ -72,15 +77,10 @@ internal sealed class RoutePlanner
     /// <paramref name="goals"/>, written into <paramref name="intoLinks"/> in the order it is travelled.
     /// Returns how many were written, or zero where there is no route or the chain will not fit.
     /// </summary>
-    /// <param name="goalPointM">
-    /// Where the destination actually stands, which is what bounds the search. It has to be the place the
-    /// goals describe: the heuristic is the straight line to it, and a point somewhere else is a bound
-    /// that is not admissible.
-    /// </param>
     /// <param name="surcharges">What the town has priced up since the network was laid, or nothing.</param>
     public int Plan(
-        ReadOnlySpan<RouteEntry> entries, ReadOnlySpan<RouteGoal> goals, Vector2 goalPointM,
-        LinkSurcharges? surcharges, Span<int> intoLinks, out float costM, out int goalSlot)
+        ReadOnlySpan<RouteEntry> entries, ReadOnlySpan<RouteGoal> goals, LinkSurcharges? surcharges,
+        Span<int> intoLinks, out float costM, out int goalSlot)
     {
         _generation++;
         _heapCount = 0;
@@ -97,7 +97,7 @@ internal sealed class RoutePlanner
             {
                 _costM[entry.Link] = entry.RemainingM;
                 _cameFrom[entry.Link] = TravelGraph.NoLink;
-                Push(entry.Link, entry.RemainingM + Heuristic(entry.Link, goalPointM));
+                Push(entry.Link, entry.RemainingM);
             }
 
             // The goal on the link the body is already committed to, and only where it is still ahead:
@@ -152,7 +152,7 @@ internal sealed class RoutePlanner
 
                 _costM[onto] = throughM;
                 _cameFrom[onto] = link;
-                Push(onto, throughM + Heuristic(onto, goalPointM));
+                Push(onto, throughM);
             }
         }
 
@@ -173,14 +173,6 @@ internal sealed class RoutePlanner
 
         return length;
     }
-
-    /// <summary>
-    /// The straight line from where this link arrives to where the destination stands. Admissible because
-    /// no link is priced below the span between its own two ends and no two links are joined unless one
-    /// ends where the other starts (<see cref="TravelGraph.Builder"/>), so a continuation's spans are a
-    /// chain from here to there and cannot undercut the line across it.
-    /// </summary>
-    float Heuristic(int link, Vector2 goalPointM) => (_graph.EndAnchorM(link) - goalPointM).Length();
 
     void Touch(int link)
     {

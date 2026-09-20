@@ -98,8 +98,8 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 Absences that are gaps rather than decisions, and none of them is silent:
 
-- **The walking is deliberately simple, and three things it used to do are gone.** A walker follows the
-  line the network laid it and lays two claims (`PER-25`, `PER-26`); what was put down with the old layer
+- **The walking is deliberately simple, and three things it used to do are gone.** A walker holds a route
+  as the ways it is travelled and lays two claims (`PER-25`, `PER-26`); what was put down with the old layer
   was every rule about getting past somebody — the grant along the pavement, the step round a body, the
   wait at a kerb with its signal and its patience, and the two rules for a walker on a map with nothing on
   it. **Two walkers wanting one piece of pavement now meet in the solver rather than in the claims.** The
@@ -129,6 +129,16 @@ Absences that are gaps rather than decisions, and none of them is silent:
   only across a carriageway, so a block with no zebra on it is walked round and not left.
   Why the node network was put down is the slice's
   [decision-log.md](../src/world/foot/docs/decision-log.md).
+- **And no walk actually uses one.** The zebras are laid and they are joined: all 488 in `Towns.City` are
+  welded to the pavement at both ends, carry a link of their own, and the contracted graph offers 1102 turns
+  onto them and 1102 off. **Yet not one line laid carries a crossing point** — 0 of 46 over two minutes —
+  and a walker ordered to the far end of a 7 m zebra it is standing 3 m from walks 56 m round instead of
+  crossing. **It is not connectivity and it is not the claims**: a body on the paint is a body on a lane and
+  nothing more (`PER-26`), and the search is a plain Dijkstra with a walker's turn priced at nothing. What
+  is left is the shape of the contracted runs at a zebra's mouth — the lane a body stands on runs past the
+  mouth rather than into it, so reaching it costs a run the crossing never repays. Why a walker could not
+  turn round at all until 2026-09-20, and what fixing that was worth, is
+  [world/foot](../src/world/foot/docs/decision-log.md).
 - **The fixture map stands nobody, because it has no buildings to stand them at.** A walker begins inside
   a building (`GEN-7`) and `towns/Test.json` asks for none, so every detailed check is staged on a town
   with no walkers on it — the shipped cities carry theirs (`--bench census`). It closes when the fixture

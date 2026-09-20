@@ -2,28 +2,28 @@ using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Town;
 
-/// <summary>What a crossing does to a car approaching it: which one is being met, and whose ground its paint is.</summary>
+/// <summary>What a crossing does to a car approaching it, which is one thing: it may not be parked on.</summary>
+/// <remarks>
+/// <b>A body on a crossing is owed nothing here</b> (TER-5e). It stands on the lane under the paint and
+/// holds what it covers of it like any other body (`PER-26`), so the traffic is already held off it by the
+/// grant that stretch cuts — and a stop owed to the paint as well would be one gap kept twice (SIM-7).
+/// What is left is the car's own courtesy: not coming to rest on ground somebody has to walk over.
+/// </remarks>
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// <b>The whole of what a driver owes somebody on a crossing</b>: a stop short of the paint while
-    /// anyone is on it or has been refused it at the kerb (TER-4c.1, TER-5e).
+    /// <b>A stop short of the paint for a queue that would otherwise leave this car standing on it</b>
+    /// (TER-4c.1).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Paint is not a speed limit.</b> A crossing whose band this car has been granted the road
-    /// over takes nothing off it, and the car drives over it at whatever the rest of the road affords;
-    /// what slows a car at a zebra is the ground being somebody else's, which is one mechanism and not a
-    /// second (SIM-7).
+    /// <b>Paint is not a speed limit.</b> A crossing nobody is standing on takes nothing off a car, and the
+    /// car drives over it at whatever the rest of the road affords.
     /// </para>
     /// <para>
     /// <b>It is discharged here and by no manoeuvre of its own.</b> The answer is a term of the speed
     /// profile, taken every tick into the same minimum the corners and the grant are taken into, so a car
-    /// stopping at a zebra is running its line on the road the zebra left it (`P-4`). An entry named off
-    /// the term that won would have imposed nothing the profile was not already imposing, and a
-    /// <em>reactive</em> one would have entry conditions a person on foot cannot satisfy — refused, and a
-    /// refused reactive manoeuvre goes to the ladder, which answers a pedestrian by reversing away from
-    /// them.
+    /// stopping short of a zebra is running its line on the road the zebra left it (`P-4`).
     /// </para>
     /// <para>
     /// One crossing at a time: the nearest ahead is the one being approached. Asked as "is there paint
@@ -83,32 +83,20 @@ internal sealed partial class TownWorld
 
             atM = MathF.Max(0f, aheadM);
 
-            // Somebody on it or stepping onto it, or a queue that would leave this car standing on it — and
-            // only while the body has not yet started across, because a light governs the traffic outside a
-            // crossing and never the body inside one.
-            //
-            // <b>The stop is short of the ground a body on the paint holds and not short of the
-            // paintwork</b>: a band reaches a stride either side of the crossing (`PER-26`), so a car
-            // stopped at the paint is standing on the very ground it stopped to give up, and whoever it
-            // gave way to is refused by it for as long as it stands there (TER-5e).
-            //
-            // <b>Somebody stepping onto it is the same answer as somebody on it</b>, because a walker
-            // states the band in front of it at p9 with the paint's own right of way and this asks the
-            // claims rather than the pavement (`PER-26`). There is no second question about a body at a
-            // kerb, and so no courtesy for a habit or a blue light to drop: what a rescue outranks, it
-            // outranks in the ladder (AMB-4).
+            // <b>A queue that would leave this car standing on the paint, and nothing else.</b> Somebody on
+            // the crossing is a body standing on this lane and has already cut the road this car was
+            // granted (`PER-26`, TER-4c.2) — asked again here it would be one gap kept twice (SIM-7), and
+            // the one that is kept is the driver's own.
             var wouldRestOnIt = stopShortOfM + noseM < farEdgeM + Cars.BuildOf(car).LengthM;
-            stopAtM = centreM < nearEdgeM
-                      && (wouldRestOnIt || AnybodyOnTheCrossing(lane, painted.AlongM(slot)))
-                ? MathF.Max(
-                    0f, aheadM - Cars.BuildOf(car).CrossingStandOffM - (PaintClaimM(crossing) - halfDepthM))
+            stopAtM = centreM < nearEdgeM && wouldRestOnIt
+                ? MathF.Max(0f, aheadM - Cars.BuildOf(car).CrossingStandOffM)
                 : float.PositiveInfinity;
         }
     }
 
     /// <summary>
-    /// The same thing owed by a car under its own geometry (TER-5e): the same stop short of the paint, for
-    /// a car swinging out of a bay, into one, or round an obstruction.
+    /// <b>Where the paint is under a car driving geometry of its own</b> — a swerve, a bay entry, a bay
+    /// exit — so a shape standing over a crossing knows it has nowhere to swing to.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -118,22 +106,15 @@ internal sealed partial class TownWorld
     /// same measurement the town made to put the paint on the lane in the first place.
     /// </para>
     /// <para>
-    /// <b>The stop, and no bar and no light.</b> A template claims no movement and the ground it runs over
-    /// belongs to no lane, so there is no approach for a light to govern — what is left is the body on the
-    /// paint, which is owed a stop by a car under its own geometry exactly as by one on its route.
-    /// </para>
-    /// <para>
-    /// <b>Asked of the claims first and the geometry only after.</b> Nobody is on a crossing nearly all of
-    /// the time, and that answer is a walk of one way's occupants; the projection is what costs something,
-    /// so it is taken only where a claim has already said somebody is there — and where the paint is
-    /// under the car at all, which is what says the shape has nowhere to swerve to.
+    /// <b>Where it is and never a stop.</b> A body on a crossing is a body on the lane under it and cuts the
+    /// ground a template asked for like anything else standing there (`PER-26`), which is the reading
+    /// <see cref="GroundAhead"/> already takes; a second refusal owed to the paint would be that stop kept
+    /// twice (SIM-7).
     /// </para>
     /// </remarks>
     /// <param name="leadM">Where the leading edge of the body stands along the line, in whichever gear it is being driven.</param>
-    void CrossingOnTheTemplate(
-        int car, ReadOnlySpan<ArcSeg> line, float leadM, float reachM, out float stopAtM, out float atM)
+    void CrossingOnTheTemplate(int car, ReadOnlySpan<ArcSeg> line, float leadM, float reachM, out float atM)
     {
-        stopAtM = float.PositiveInfinity;
         atM = float.PositiveInfinity;
 
         var lane = _roads.NearestLane(Cars.PositionM[car], out _);
@@ -142,7 +123,6 @@ internal sealed partial class TownWorld
         var painted = _furniture.CrossingsOn(lane);
         for (var slot = painted.From; slot < painted.To; slot++)
         {
-            var occupied = AnybodyOnTheCrossing(lane, painted.AlongM(slot));
             var crossing = painted.CrossingAt(slot);
             var centreM = _plan.Crosswalks.CentreM[crossing];
             var halfDepthM = _plan.Crosswalks.DepthM[crossing] * 0.5f;
@@ -160,32 +140,6 @@ internal sealed partial class TownWorld
             if (aheadM < 0f || aheadM > reachM) continue;
 
             atM = MathF.Min(atM, aheadM);
-            if (occupied)
-            {
-                stopAtM = MathF.Min(
-                    stopAtM,
-                    MathF.Max(
-                        0f, aheadM - Cars.BuildOf(car).CrossingStandOffM - (PaintClaimM(crossing) - halfDepthM)));
-            }
         }
     }
-
-    /// <summary>
-    /// Whether anybody is on this crossing or about to step onto it, <b>read off the road's own claims</b>:
-    /// a walker crossing lays the band of every lane its paint is laid across, and this asks the one it is
-    /// driving down whether that band is spoken for.
-    /// </summary>
-    /// <remarks>
-    /// <b>The question belongs to the body that answers it</b>, which is why it is not a search of the
-    /// ground any more. Asked as "is there anybody within a stride of this paint" it was a query of the
-    /// proximity index per crossing per approaching car per tick, and it said yes for anybody merely
-    /// walking down the pavement past a zebra — which is a car stopped for somebody who was never going to
-    /// cross.
-    /// </remarks>
-    bool AnybodyOnTheCrossing(int lane, float alongM)
-    {
-        var way = _ways.OfRoadLane(lane);
-        return _occupancy.AnybodyCrossing(way, alongM, alongM);
-    }
-
 }

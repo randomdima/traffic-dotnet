@@ -219,8 +219,7 @@ internal sealed class RunNetwork
                 }
 
                 var arrivedAtPlace = places.Arriving(lane);
-                builder.AddLink(
-                    places.AnchorM(startPlace), places.AnchorM(arrivedAtPlace), runLengthM + weightM);
+                builder.AddLink(runLengthM + weightM);
                 linkFromPlace.Add(startPlace);
                 linkToPlace.Add(arrivedAtPlace);
                 pieceOffsets.Add(pieces.Count);

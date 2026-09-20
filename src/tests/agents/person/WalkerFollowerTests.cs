@@ -138,6 +138,21 @@ public class WalkerFollowerTests
         Assert.Equal(-MathF.PI + 0.1f, WalkerFollower.TurnToward(MathF.PI - 0.1f, -MathF.PI + 0.1f, 1f), 5);
     }
 
+    /// <summary>
+    /// <b>An aim under the body is a stand</b>, and it is the walking side's own answer to being asked for
+    /// nowhere to go: a body left declaring its last heading carries on walking out of the town while
+    /// whatever had charge of it thinks it is standing still.
+    /// </summary>
+    [Fact]
+    public void AnAimUnderTheBodyDeclaresAStandEvenWhileMoving()
+    {
+        var step = WalkerFollower.Step(
+            Config, headingRad: 0f, Vector2.One, Vector2.Zero, aimM: Vector2.One, moving: true,
+            terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
+
+        Assert.Equal(Vector2.Zero, step.DesiredMps);
+    }
+
     [Fact]
     public void AnAimUnderTheBodyLeavesTheHeadingAlone()
     {

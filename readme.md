@@ -126,7 +126,9 @@ dotnet run --project traffic-dotnet.csproj -- --map Odesa --live --drive .tmp/dr
 
 ```
 cars 320 190            # what is standing near a place, nearest first
+people 320 190          # and who is on foot near one, on the same terms
 select nearest 320 190  # the car there, picked out as a click on it
+select walker 320 190   # or the walker there, which a script cannot click on by hand
 shot standing           # a captioned frame, riding the car
 drive 2 throttle=1      # the keys, held for two seconds of the town
 drive 1.5 throttle=0.4 steer=-0.6

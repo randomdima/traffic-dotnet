@@ -41,7 +41,7 @@ internal static class StuckProbe
     public const int MeasuredTicks = 18_000;
 
     /// <summary>How far a body may drift and still be standing in the same place: a walker's own body, near enough.</summary>
-    const float MovedM = 1.0f;
+    public const float MovedM = 1.0f;
 
     /// <summary>How long standing still stops being a queue and starts being a fault: a minute.</summary>
     const int StillTicks = 3_600;
@@ -163,7 +163,8 @@ internal static class StuckProbe
 
         Console.WriteLine(
             $"the town arrived at {world.WalkArrivals} walks and {world.BaysParkedIn} bays, gave up " +
-            $"{world.WalksGivenUp} walks, and abandoned {world.CarsAbandoned} cars over the run");
+            $"{world.WalksGivenUp} walks, set {world.WalkersSetDown} of them back on the pavement, and " +
+            $"abandoned {world.CarsAbandoned} cars over the run");
         Console.WriteLine(
             $"it cost {down} on the ground and {wrecked} wrecked, over {world.Touches} touches — " +
             $"{world.CasualtiesRaised} raised, {world.CasualtiesCollected} collected, " +
@@ -343,13 +344,20 @@ internal static class StuckProbe
                 $"{worstTicks[person] / (float)config.Sim.TickRateHz:F0} s");
             Console.WriteLine(
                 $"    stage {people.Stage[person]}, timer {people.TimerS[person]:F1} s, walking " +
-                $"{people.Walking[person]}, line {people.WalkedTaken[person]}/{people.WalkedCount[person]} taken, " +
-                $"runs out {people.WalkedRunsOut[person]}, goal ({people.GoalM[person].X:F1}, " +
+                $"{people.Walking[person]}, route {people.RouteTaken[person]}/{people.RouteCount[person]} taken, " +
+                $"runs out {people.RouteRunsOut[person]}, goal ({people.GoalM[person].X:F1}, " +
                 $"{people.GoalM[person].Y:F1}), building {people.DestinationBuilding[person]}");
+            var ground = world.Terrain.At(people.PositionM[person]);
             Console.WriteLine(
-                $"    way {people.OnWay[person]} at {people.OnWayM[person]:F1} m, crossing ahead " +
-                $"{people.CrossingAhead(person)}, walkable " +
-                $"{world.Terrain.At(people.PositionM[person]).Walkable}");
+                $"    way {people.OnWay[person]} at {people.OnWayM[person]:F1} m, {people.OffWayM[person]:F2} m off, " +
+                $"crossing {people.OnCrossing[person]}, walkable {ground.Walkable} at {ground.Coefficient:F2}");
+
+            // <b>What it is aiming at and what it is doing about it</b>, which is the difference between a
+            // body that has nowhere to go and a body leaning on something that will not move.
+            Console.WriteLine(
+                $"    aiming {(people.DestinationM[person] - people.PositionM[person]).Length():F2} m away at " +
+                $"({people.DestinationM[person].X:F1}, {people.DestinationM[person].Y:F1}), at " +
+                $"{people.VelocityMps[person].Length():F2} m/s");
             Neighbours(world, people.PositionM[person]);
         }
     }
@@ -425,8 +433,8 @@ internal static class StuckProbe
 
             into.Add(
                 $"    walker {person} {(people.PositionM[person] - atM).Length():F1} m in — " +
-                $"{people.Stage[person]}, walking {people.Walking[person]}, line " +
-                $"{people.WalkedTaken[person]}/{people.WalkedCount[person]}, at " +
+                $"{people.Stage[person]}, walking {people.Walking[person]}, route " +
+                $"{people.RouteTaken[person]}/{people.RouteCount[person]}, at " +
                 $"{people.OnWayM[person]:F1} m of way {people.OnWay[person]}, building " +
                 $"{people.DestinationBuilding[person]}, goal ({people.GoalM[person].X:F1}, {people.GoalM[person].Y:F1})");
         }

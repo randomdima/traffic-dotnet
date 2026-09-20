@@ -207,23 +207,18 @@ public class DrivingNetworkTests
             }
 
             Assert.Equal(stations[^1] + roads.LaneLengthM[lanes[^1]], runs.LengthM(link), 3);
-
-            var spanM = (runs.Graph.EndAnchorM(link) - runs.Graph.StartAnchorM(link)).Length();
-            Assert.True(
-                runs.Graph.WeightM(link) >= spanM - 1e-3f,
-                $"{map}: run {link} is priced at {runs.Graph.WeightM(link):F2} m over a {spanM:F2} m span");
         }
     }
 
     /// <summary>
-    /// The pieces of a run are travelled in the order they are laid: each ends where the next begins, so
-    /// a driver handed a run drives one line and not a set of them.
+    /// The pieces of a run are travelled in the order they are laid: each arrives at the place the next
+    /// sets off from, so a driver handed a run drives one line and not a set of them.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
     public void ARunsPiecesAreTravelledEndToEnd(string map)
     {
-        var (roads, network) = Of(map);
+        var (_, network) = Of(map);
         var runs = network.Runs;
 
         for (var link = 0; link < runs.LinkCount; link++)
@@ -233,9 +228,6 @@ public class DrivingNetworkTests
             {
                 Assert.Equal(runs.PlaceArriving(lanes[slot - 1]), runs.PlaceLeaving(lanes[slot]));
             }
-
-            Assert.Equal(runs.AnchorM(runs.PlaceLeaving(lanes[0])), runs.Graph.StartAnchorM(link));
-            Assert.Equal(runs.AnchorM(runs.PlaceArriving(lanes[^1])), runs.Graph.EndAnchorM(link));
         }
     }
 
@@ -291,7 +283,8 @@ public class DrivingNetworkTests
 
             var goalCount = network.GoalsAt(toM, goals);
             var written = planner.Plan(
-                [network.EntryOnLane(lane, 0f)], goals[..goalCount], toM, null, route, out var costM, out var goalSlot);
+                [network.EntryOnLane(lane, 0f)], goals[..goalCount], null, route, out var costM,
+                out var goalSlot);
 
             Assert.True(written > 0, $"{map}: no route from lane {lane} to lane {toLane}, which is three turns away");
             Assert.InRange(goalSlot, 0, goalCount - 1);

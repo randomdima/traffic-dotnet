@@ -395,6 +395,7 @@ internal static class TownCensus
                           $"laid in {elapsed.TotalMilliseconds:F0} ms");
         Console.WriteLine($"  contracted to  {runs.LinkCount,7}  runs joined {WaysOn(runs.Graph)} ways on; " +
                           $"mean {(runs.LinkCount == 0 ? 0f : totalM / runs.LinkCount):F0} m, longest {longestM:F0} m, most lanes in one {mostPieces}");
+        Console.WriteLine($"  searched at    {Searching(runs)}");
         Joins(roads, plan, config);
 
         var footStarted = Stopwatch.GetTimestamp();
@@ -445,6 +446,7 @@ internal static class TownCensus
                           $"mean {(walkRuns.LinkCount == 0 ? 0f : totalWalkM / walkRuns.LinkCount):F0} m, longest {longestWalkM:F0} m, " +
                           $"mean lane {(lanes == 0 ? 0f : walkedM / lanes):F2} m wide of " +
                           $"{config.WalkingLaneWidthM:F2}");
+        Console.WriteLine($"  searched at    {Searching(walkRuns)}");
 
         Console.WriteLine($"  laid in        {walkElapsed.TotalMilliseconds,7:F0}  ms");
         Smoothness(foot, walking);
@@ -649,6 +651,58 @@ internal static class TownCensus
 
         return ways;
     }
+
+    /// <summary>How many routes are sampled to say what a search over a network costs.</summary>
+    const int RoutesSampled = 64;
+
+    /// <summary>Longer than any route either network holds, so a route is never refused for want of room.</summary>
+    const int MostLinksSampled = 1024;
+
+    /// <summary>
+    /// <b>What a route over this network costs to find</b>: how much of the graph a search settles before it
+    /// answers, over routes sampled end to end across the town.
+    /// </summary>
+    /// <remarks>
+    /// <b>The figure to read is the settled count against the link count beside it.</b> It is what a change
+    /// to the search's shape moves and a tick figure does not — a route is planned when a leg is drawn
+    /// rather than every tick, so what a search costs is invisible in a frame time and plain here.
+    /// </remarks>
+    static string Searching(RunNetwork runs)
+    {
+        if (runs.LinkCount < 2) return "no links to search over";
+
+        var planner = new RoutePlanner(runs.Graph);
+        var route = new int[MostLinksSampled];
+        var entries = new RouteEntry[1];
+        var goals = new RouteGoal[1];
+
+        var settled = 0L;
+        var found = 0;
+        for (var sample = 0; sample < RoutesSampled; sample++)
+        {
+            // Spread over the link numbering rather than drawn, so the figure is the same every run and
+            // two builds are comparable without a seed to carry.
+            var from = (int)((long)sample * runs.LinkCount / RoutesSampled);
+            var to = (int)((((long)sample * HalfTurn) + (RoutesSampled / 2)) % RoutesSampled * runs.LinkCount / RoutesSampled);
+            if (from == to) continue;
+
+            entries[0] = new RouteEntry(from, 0f, runs.LengthM(from));
+            goals[0] = new RouteGoal(to, runs.LengthM(to));
+
+            if (planner.Plan(entries, goals, null, route, out _, out var goalSlot) > 0 && goalSlot >= 0)
+            {
+                found++;
+            }
+
+            settled += planner.SettledLinks;
+        }
+
+        return $"{settled / RoutesSampled,7}  links settled per route on average, over " +
+               $"{RoutesSampled} routes of which {found} were found";
+    }
+
+    /// <summary>Half the sample count, coprime with it, so the far end of each sampled route is nowhere near the near one.</summary>
+    const int HalfTurn = 31;
 
     /// <summary>
     /// What the joins between the town's connection points came out at. <b>The figure to read is the tightest

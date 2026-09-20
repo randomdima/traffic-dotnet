@@ -4,6 +4,21 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-20 — the paint is not a rank, and the ranks are one shorter
+
+`RightOfWay` carried `OnThePaint` between `StraightOn` and `Closed`, for a walker crossing to hold the band
+of every lane its zebra was painted across. Nothing lays it any more: a body on a crossing is a body on the
+lane under it and holds what it covers, so the grant that claim cuts is the whole of what stops the traffic
+([agents/person](../../../agents/person/docs/decision-log.md) is why). Rather than leave a rank nothing
+writes — which reads as a mechanism to whoever finds it next — the value is gone and every rank above it
+moved down one.
+
+**Two questions went with it because nothing asked them.** `AnybodyCrossing` was the driver's "is somebody
+on this paint", and `AnybodyWaitingFor` with `ClaimsAsked.Refused` was the kerb wait's, already dead when
+that layer was put down. `ClaimPriority.Rejected` stays: nothing lays one, but the arbitration and the
+claim gate are both written in terms of it, and pulling it is a change to the claims core rather than to
+this.
+
 ## 2026-09-19 — the ways one place stands on are read into a frame nobody zeroes
 
 Every path that asks whose the ground under a body is takes its answer into a span of `WayUnder`, and that

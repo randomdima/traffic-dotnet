@@ -32,6 +32,16 @@ internal sealed class WalkingNetwork
     /// <summary>Two stretches with no turn between them, which is every pair that does not meet at a node.</summary>
     public const int NoTurn = -1;
 
+    /// <summary>No lane runs back past this place, which a body at the end of a cul-de-sac is standing at.</summary>
+    public const int NoLane = -1;
+
+    /// <summary>
+    /// How many lanes may be weighed as the one running back past a place. A corner is where the most of
+    /// them meet, and a bound on a stack span rather than a figure behaviour reads: reached, the ones not
+    /// weighed cost a walker a turn it could have made and never a wrong one.
+    /// </summary>
+    const int MostLanesWithinAPavement = 12;
+
     readonly FootGraph _foot;
     readonly int[] _linkOfEdge;
     readonly int[] _slotOfEdge;
@@ -39,9 +49,12 @@ internal sealed class WalkingNetwork
     readonly Lanes _lanes;
     readonly Joins _joins;
 
+    /// <summary>How far off a body the lane running the other way may stand: the pavement it is standing on.</summary>
+    readonly float _bothWaysWithinM;
+
     WalkingNetwork(
         FootGraph foot, RunNetwork runs, int[] linkOfEdge, int[] slotOfEdge, float[] laneOffsetM, Lanes lanes,
-        Joins joins)
+        Joins joins, float bothWaysWithinM)
     {
         _foot = foot;
         Runs = runs;
@@ -50,6 +63,7 @@ internal sealed class WalkingNetwork
         _laneOffsetM = laneOffsetM;
         _lanes = lanes;
         _joins = joins;
+        _bothWaysWithinM = bothWaysWithinM;
 
         Places = LanePlaces.Of(foot);
 
@@ -267,6 +281,13 @@ internal sealed class WalkingNetwork
     /// has no lane of its own to be pointing along, so unlike a driver it is offered both and the search
     /// settles it.
     /// </summary>
+    /// <remarks>
+    /// <b>The second is the lane beside this one and never this one read backwards</b> (WLK-8,
+    /// <see cref="FootGraph.Reverse"/>): a pavement is two one-way lanes a lane's width apart, so what a
+    /// body may set off down is whichever of them it is standing nearest — and both, because it is standing
+    /// on the ground of both. Offered one, a walker could only ever go the way its own lane happened to
+    /// run, and anything behind it cost a lap of the ring.
+    /// </remarks>
     public int EntriesNear(Vector2 pointM, Span<RouteEntry> into)
     {
         var edge = _foot.NearestEdge(pointM, out var alongM);
@@ -275,16 +296,36 @@ internal sealed class WalkingNetwork
         var count = 0;
         into[count++] = EntryOnEdge(edge, alongM);
 
-        var back = _foot.Reverse(edge);
-        if (back >= 0 && into.Length > 1)
-        {
-            into[count++] = EntryOnEdge(back, MathF.Max(0f, _foot.LengthM(back) - alongM));
-        }
+        var back = LaneBeside(edge, alongM, pointM, out var backM);
+        if (back >= 0 && into.Length > 1) into[count++] = EntryOnEdge(back, backM);
 
         return count;
     }
 
-    /// <summary>A destination as the search takes it: a place on a link, offered on both links that cover the stretch it stands on.</summary>
+    /// <summary>
+    /// <b>Which of the entries the search actually set off from</b>: the one standing on the first link it
+    /// returned. Expanding a chain from either of the others starts the walk facing backwards, so this is
+    /// the metre the first way of that chain is entered at.
+    /// </summary>
+    /// <remarks>
+    /// A route always begins on one of the entries it was offered — the planner marks an entry's link as
+    /// having nothing behind it and reconstructs back to one — so the first of them is a fallback that
+    /// nothing reaches rather than a case with an answer of its own.
+    /// </remarks>
+    public static RouteEntry SetOffFrom(ReadOnlySpan<RouteEntry> entries, int link)
+    {
+        foreach (var entry in entries)
+        {
+            if (entry.Link == link) return entry;
+        }
+
+        return entries[0];
+    }
+
+    /// <summary>
+    /// A destination as the search takes it: a place on a link, <b>offered on both lanes of the pavement it
+    /// stands on</b> — the same two <see cref="EntriesNear"/> offers, for the same reason.
+    /// </summary>
     public int GoalsAt(Vector2 pointM, Span<RouteGoal> into)
     {
         var edge = _foot.NearestEdge(pointM, out var alongM);
@@ -293,14 +334,139 @@ internal sealed class WalkingNetwork
         var count = 0;
         into[count++] = new RouteGoal(_linkOfEdge[edge], PlaceOfM(edge, alongM));
 
-        var back = _foot.Reverse(edge);
-        if (back >= 0 && into.Length > 1)
-        {
-            var backM = MathF.Max(0f, _foot.LengthM(back) - alongM);
-            into[count++] = new RouteGoal(_linkOfEdge[back], PlaceOfM(back, backM));
-        }
+        var back = LaneBeside(edge, alongM, pointM, out var backM);
+        if (back >= 0 && into.Length > 1) into[count++] = new RouteGoal(_linkOfEdge[back], PlaceOfM(back, backM));
 
         return count;
+    }
+
+    /// <summary>
+    /// <b>A way of a walked route, as the route chain numbers them</b>: a stretch's own directed lane, or
+    /// the complement of the corner leading onto one. <b>It is the one place that encoding is spent</b> —
+    /// everything else asks this type what a way is made of.
+    /// </summary>
+    public static bool IsACorner(int way) => way < 0;
+
+    /// <summary>The turn slot a corner way stands for.</summary>
+    public static int CornerOf(int way) => ~way;
+
+    /// <summary>And the way a corner is carried as.</summary>
+    public static int WayOfCorner(int turn) => ~turn;
+
+    /// <summary>The line a way is walked on, which is the network's own and is never copied.</summary>
+    public ReadOnlySpan<ArcSeg> WayArcs(int way) => IsACorner(way) ? JoinArcs(CornerOf(way)) : LaneOf(way);
+
+    /// <summary>How long that line is.</summary>
+    public float WayLengthM(int way) => IsACorner(way) ? JoinLengthM(CornerOf(way)) : LaneLengthM(way);
+
+    /// <summary>
+    /// And how wide the ground it is walked down. <b>A corner is the arriving lane's ground</b>, so it is
+    /// that lane's width (WLK-8).
+    /// </summary>
+    public float WayWidthM(int way) => LaneWidthM(IsACorner(way) ? TurnToEdge(CornerOf(way)) : way);
+
+    /// <summary>
+    /// <b>The stretch of one way of a route that the route actually covers</b>, given the ways either side
+    /// of it in the chain. A lane gives up the ground its corners stand on at both ends, so what is left is
+    /// the lane's own middle — and a corner is walked whole.
+    /// </summary>
+    /// <remarks>
+    /// <b>The chain says it and nothing else has to</b>: which corner a lane hands over at is a fact about
+    /// the pair, and the pair is two neighbouring slots. A corner the lane <em>carries</em> takes nothing
+    /// from it (<see cref="TailOf"/>) — the lane is already the corner and runs to where the next one is
+    /// walked from — so it is never a way of its own and never trims one.
+    /// </remarks>
+    public void SpanOfWay(int before, int way, int after, out float fromM, out float toM)
+    {
+        fromM = 0f;
+        toM = WayLengthM(way);
+        if (IsACorner(way)) return;
+
+        if (before != NoLane && IsACorner(before)) fromM = JoinToM(CornerOf(before));
+        if (after != NoLane && IsACorner(after)) toM = MathF.Min(toM, toM - JoinFromM(CornerOf(after)));
+
+        toM = MathF.Max(fromM, toM);
+    }
+
+    /// <summary>
+    /// A place measured along a stretch, in the metres of the lane that stretch is walked down. <b>Carried
+    /// over as a fraction and not as a distance</b>: the lane is shorter inside a bend and longer outside
+    /// it, and of the lane's own ground, since a corner the lane carries stands past the end of the stretch
+    /// and the corner arriving took the head of it.
+    /// </summary>
+    public float LaneMOf(int edge, float alongEdgeM)
+    {
+        var edgeLengthM = MathF.Max(1e-4f, _foot.LengthM(edge));
+        var headM = HeadLengthM(edge);
+        var alongTheStretchM = LaneLengthM(edge) - TailLengthM(edge) + headM;
+
+        return MathF.Max(0f, (alongEdgeM / edgeLengthM * alongTheStretchM) - headM);
+    }
+
+    /// <summary>
+    /// How the pavement answers <see cref="IRouteJoins"/>: <b>every piece of a run reaches the next</b>,
+    /// the contraction having been worked out from what joins them — and <b>the corner between two of them
+    /// is a way of the route in its own right</b>, because a walker is held on the network's own mitre
+    /// rather than on ground a line assembled for it.
+    /// </summary>
+    public readonly struct FootJoins(WalkingNetwork walking) : IRouteJoins
+    {
+        /// <summary>A link is joined at its first piece: places are where the runs were cut.</summary>
+        public int JoinedAt(ReadOnlySpan<int> pieces, int from) => 0;
+
+        public bool Reaches(int from, int onto) => true;
+
+        public int Between(int from, int onto)
+        {
+            if (from < 0) return RouteChain.NoWay;
+
+            var turn = walking.TurnSlot(from, onto);
+
+            // A corner the arriving lane carries is that lane's own ground and never a way of its own.
+            return turn == NoTurn || turn == walking.TailOf(from) ? RouteChain.NoWay : WayOfCorner(turn);
+        }
+    }
+
+    /// <summary>
+    /// <b>The lane running back the other way past this place</b>, or <see cref="NoLane"/> where there is
+    /// none within a pavement of it — the nearest lane whose line at that place heads against this one's.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nearest and not merely opposed</b>, because a place at a corner has the lanes of every course
+    /// meeting there within reach: the one a body may turn round onto is the one it is standing on the
+    /// ground of, which is the nearest of them. <b>A crossing is a candidate like any other</b> — a body
+    /// halfway over a zebra may turn back the way it came, if the town laid a way back.
+    /// </remarks>
+    int LaneBeside(int edge, float alongM, Vector2 pointM, out float besideAlongM)
+    {
+        besideAlongM = 0f;
+
+        Span<int> near = stackalloc int[MostLanesWithinAPavement];
+        Span<float> atM = stackalloc float[MostLanesWithinAPavement];
+        var found = _foot.EdgesNear(pointM, _bothWaysWithinM, near, atM);
+        if (found > near.Length) found = near.Length;
+
+        var heading = Spline.SampleAt(_foot.ArcsOf(edge), alongM).Direction;
+
+        var best = NoLane;
+        var bestSq = float.MaxValue;
+        for (var slot = 0; slot < found; slot++)
+        {
+            if (near[slot] == edge) continue;
+
+            var arcs = _foot.ArcsOf(near[slot]);
+            var at = Spline.SampleAt(arcs, atM[slot]);
+            if (Vector2.Dot(at.Direction, heading) >= 0f) continue;
+
+            var offSq = (at.PositionM - pointM).LengthSquared();
+            if (offSq >= bestSq) continue;
+
+            best = near[slot];
+            bestSq = offSq;
+            besideAlongM = atM[slot];
+        }
+
+        return best;
     }
 
     public static WalkingNetwork Build(FootGraph foot, SimConfig config)
@@ -325,7 +491,8 @@ internal sealed class WalkingNetwork
         var joins = LayJoins(foot, offset, laneOffsetM, config);
         var lanes = Carrying(foot, offset, joins);
         return new WalkingNetwork(
-            foot, runs, linkOfEdge, slotOfEdge, laneOffsetM, lanes, OnTheLanes(foot, joins, lanes));
+            foot, runs, linkOfEdge, slotOfEdge, laneOffsetM, lanes, OnTheLanes(foot, joins, lanes),
+            config.PavementWidthM);
     }
 
     /// <summary>

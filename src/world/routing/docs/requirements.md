@@ -9,7 +9,7 @@ the same search**; what differs is only what their network is made of — the la
 
 | Tier | Answers | Reads | Owned by |
 |---|---|---|---|
-| **Global** | which *ways* the whole trip uses, end to end | link weights, turn prices, where each link's own two ends are — **nothing else** | one planner, over an abstract graph |
+| **Global** | which *ways* the whole trip uses, end to end | link weights and turn prices — **nothing else** | one planner, over an abstract graph |
 | **Local** | how to get from the end of one link onto the next | road or pavement geometry, lane direction, static objects | each agent kind's own |
 
 Below the local tier is the **manoeuvre**, which is more detailed again: it is what waits at a red light,
@@ -55,12 +55,12 @@ a set of crossed ways happens to make (TER-5d) and a search able to name one wou
 it. Where the ways of a network meet is derived from what joins them, once, and is the fine tier's
 (`LanePlaces`).
 
-Its one geometric fact is **a link's own two ends**, used for exactly two things — aiming a search and
-bounding it. **Enforce at insertion the two relations the second depends on: a link is never priced below
-the span between its ends, and two links are only joined where one ends exactly where the other starts.**
-Together those make the straight line an admissible heuristic and therefore let the search be A\* rather
-than a flood; drop the second and a route's spans no longer add up to the line the first is measured
-against.
+**And it holds no geometry at all**, not so much as a point. A link is a weight and a list of links it may
+be left for; where any of it stands on the ground is the local tier's (`RunNetwork`). The search is
+therefore a flood and not a directed one — nothing in it may read a coordinate, because a search steered by
+where the town happens to have been laid is a search whose answers depend on the graph's numbers agreeing
+with ground it is not supposed to know about. What that costs is measured rather than argued: `--bench
+census` prints the links a route settles on its way to an answer.
 
 **A link is a way on, not a lane and not a road.** How many lanes a direction carries, which one a body
 ends up on, what shape any of it is and what is standing on it are all the local tier's.

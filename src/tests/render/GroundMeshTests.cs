@@ -914,6 +914,51 @@ public class GroundMeshTests
     }
 
     /// <summary>
+    /// <b>And none stands on the outside of a rank</b> (GEN-4m): what runs round a car park is the kerb the
+    /// pavement carries there, so a stroke laid along that is the same line painted twice.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked a half step past the bay at either end</b>, the step being what two of that rank's own bays
+    /// stand apart — so where the boundary is comes off the bays rather than off a figure carried here, and a
+    /// rank of one is left out for having no step and no shared line either.
+    /// </remarks>
+    [Fact]
+    public void NoLineStandsOnTheOutsideOfARank()
+    {
+        var config = SimConfig.Shipped();
+        var plan = Towns.LayFresh(Towns.Brief(Towns.CitySeed, buildings: BuildingsWithLots));
+        var quads = Quads(GroundMesh.Build(plan, config));
+        var parks = plan.CarParks;
+
+        Assert.True(parks.Count > 0, "the town staged here lays no car park");
+
+        for (var park = 0; park < parks.Count; park++)
+        {
+            var last = parks.BayOffsets[park + 1];
+            for (var first = parks.BayOffsets[park]; first < last;)
+            {
+                var beyond = first + 1;
+                while (beyond < last && parks.Right[beyond] == parks.Right[first]) beyond++;
+                if (beyond - first < 2)
+                {
+                    first = beyond;
+                    continue;
+                }
+
+                var firstM = Middle(plan, parks.Road[first]);
+                var stepM = Middle(plan, parks.Road[first + 1]) - firstM;
+                var outsideM = firstM - (stepM * 0.5f);
+                var farSideM = Middle(plan, parks.Road[beyond - 1]) + (stepM * 0.5f);
+
+                Assert.False(Painted(quads, outsideM), $"a line stands outside bay {first}");
+                Assert.False(Painted(quads, farSideM), $"a line stands outside bay {beyond - 1}");
+
+                first = beyond;
+            }
+        }
+    }
+
+    /// <summary>
     /// Where the town's bars stand, so the claim above can leave them out: a bar is laid <em>across</em> one
     /// lane rather than between two ribbons (<see cref="StopBars"/>), and the ribbon either side of it is
     /// the same one.

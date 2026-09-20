@@ -4,6 +4,7 @@ using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Routing;
 
 namespace TrafficSimulation.World.Town;
 
@@ -109,10 +110,33 @@ internal sealed partial class TownWorld
 
         // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
         if (People.Inside[person].Any) return;
-        if (!IsAfoot(person, out var way, out var alongM)) return;
 
-        People.OnWay[person] = way;
-        People.OnWayM[person] = alongM;
+        // Where the body stands on the way it is walking, worked out here because this is the first thing
+        // in the tick that needs it and everything after reads what it wrote (SIM-7). <see cref="OnWayM"/>
+        // is that projection and is not written again: a second opinion about one body's place on one way
+        // is exactly what this used to be.
+        People.OnCrossing[person] = PersonFleet.NoCrossing;
+
+        // <b>Where the walk has got to, worked out once and written once</b> (SIM-7): the body's place on
+        // the way it is walking, the next way off the chain where it has walked this one out, and the
+        // point along it to aim at. Split between here and the agent's own tick, the way and the metre
+        // along it were written at two different moments and disagreed at the end of every one.
+        WalkTheWay(person);
+
+        var on = People.CurrentRouteWay(person);
+        if (on == PersonFleet.NoWay) return;
+
+        // <b>Which paint the walk is on is a fact about the way being walked</b> and not about whether the
+        // body has reached that way's own line yet: a body crossing to the far lane of a pavement is
+        // walking onto the same zebra it was routed over. Written under the claim's own bar instead, it
+        // read "off the network" for the stretch at the start of every leg.
+        //
+        // A corner carries the paint of the stretch it leads onto, so a walker knows it is stepping onto a
+        // crossing from the near side of the kerb rather than once it is on it.
+        var edge = WalkingNetwork.IsACorner(on) ? Walking.TurnToEdge(WalkingNetwork.CornerOf(on)) : on;
+        People.OnCrossing[person] = _bands.CrossingOfEdge[edge];
+
+        if (IsAfoot(person, out var way)) People.OnWay[person] = way;
     }
 
     /// <summary>
@@ -178,7 +202,7 @@ internal sealed partial class TownWorld
     /// <b>It is the weakest hold there is and it is meant to be</b> (TER-5g). Everything stronger takes it
     /// and nothing on the pavement is refused by it, so two walkers walking at the same doorway both get
     /// there; what the statement is worth is that the town can see where somebody is going, which is what a
-    /// debug layer draws and what a crossing reads (<see cref="StateTheBandAhead"/>).
+    /// debug layer draws.
     /// </para>
     /// </remarks>
     void StateThePavementAhead(int person, Span<LineWay> ways)
@@ -188,7 +212,7 @@ internal sealed partial class TownWorld
         if (!People.Walking[person] || People.OnWay[person] == PersonFleet.NoWay) return;
 
         var alongMps = AlongItsWalkMps(person);
-        var count = WaysAlongTheWalk(person, backM: 0f, StatesAheadM(person), ways);
+        var count = WaysAlongTheWalk(person, StatesAheadM(person), ways);
         for (var index = 0; index < count; index++)
         {
             ref readonly var over = ref ways[index];
@@ -204,10 +228,7 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>Sized by the pace it walks at and not by what it is doing</b>, exactly as a driver's statement is:
     /// a walker stopped behind something states the ground it would set off into, or nothing would ever say
-    /// it meant to move. <b>It is also the reach of the statement on the road's side</b> — how near a lane of
-    /// a crossing has to be before this body says it is stepping onto it
-    /// (<see cref="StateTheBandAhead"/>) — so the carriageway and the footway are stated the same distance
-    /// in front of one body and not two figures that drift apart.
+    /// it meant to move.
     /// </remarks>
     float StatesAheadM(int person) =>
         StoppingM(_config.PersonWalkSpeedMps, FootGripMps2(person)) + _config.PersonStandstillGapM;
@@ -218,136 +239,52 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Its place is the point it is walking at, walked back to where the body actually is.</b> The step
-    /// back is the straight to that point and the ground is the way's own curve, so on a corner it reads
-    /// the body a centimetre or two further along than it stands — which is the short reading, and a short
-    /// reading of your own place is a longer gap to whoever is in front.
+    /// <b>Its place is read and never searched for</b>: the way is the one its route handed it and the
+    /// metre along it is where the body projects onto that way's own line, worked out once a tick with
+    /// the rest of the walk's state (<see cref="StationTheWalker"/>).
     /// </para>
     /// <para>
-    /// <b>A body that has not reached the way its point is on is still on the way behind it</b>, and this
-    /// is the common case rather than the corner one: a station is laid up to four metres up the walk, so
-    /// a walker rounding a corner spends whole seconds aiming at a point on ground it is not on yet. Read
-    /// off the near point alone it would stand at a negative distance, which is a body claimed before
-    /// the way it is on begins.
-    /// </para>
-    /// <para>
-    /// <b>The first point of a line is walked at like any other, and it is the ground that says so.</b>
-    /// There is no point behind it for the off-the-line test to measure across, so the same bar is put to
-    /// the way itself instead (<see cref="OffTheWayM"/>) — a body standing where it would be stationed is
-    /// on that way, and one standing across a field from it is on none and is walking at the network.
+    /// <b>Being on a way and holding a route are two questions</b> (<see cref="IsOnItsWay"/>). A body
+    /// routed down the far lane of the pavement it is standing on is between the two until it crosses,
+    /// and a body shoved aside is off its way long before it has lost it.
     /// </para>
     /// </remarks>
-    bool IsAfoot(int person, out int way, out float alongM)
+    bool IsAfoot(int person, out int way)
     {
         way = PersonFleet.NoWay;
-        alongM = 0f;
 
         if (!People.Walking[person] || !People.IsOnItsFeet(person)) return false;
 
-        // A hand at the keys aims a walker wherever it likes and the line under it is whatever was last
+        // A hand at the keys aims a walker wherever it likes and the route under it is whatever was last
         // laid, so what would be claimed is where that walker was going before the hand took it.
         if (_hands.Held && _selected.Holds(SelectionKind.Person, person)) return false;
 
-        var at = People.WalkedAt(person);
-        if (at < 0 || at >= People.WalkedCount[person]) return false;
-
-        var points = People.WalkedLineOf(person);
-        var alongsM = People.WalkedAlongOf(person);
-        var codes = People.WalkedWayOf(person);
-        var positionM = People.PositionM[person];
-
-        // The same bar the driving side holds a car to before it calls its line lost, in the walking side's
-        // own figures: a body further off the stretch of walk it is on than that stretch has ground either
-        // side of it is standing somewhere else, whatever its line still says — and a body standing
-        // somewhere else is one walking back onto the network (PER-25).
-        //
-        // <b>With no point behind it there is no stretch of its own walk to measure against</b>, so the
-        // same bar is held to the way instead, below.
-        if (at > 0
-            && OffTheWalkM(points[at - 1], points[at], positionM) > _config.WalkerOffLaneM * OffLineTolerance)
-        {
-            return false;
-        }
-
-        var on = WayOf(codes[at]);
+        var on = People.CurrentRouteWay(person);
         if (on == PersonFleet.NoWay) return false;
 
-        var toPointM = (points[at] - positionM).Length();
-        alongM = alongsM[at] - toPointM;
-        if (alongM < 0f)
-        {
-            // Standing before the way its own point is on. The ground under it is the way the point behind
-            // it was stationed on, and how much of the stretch between the two is still on that way is the
-            // near point's own distance short of it.
-            if (at == 0) return false;
+        // <b>On this way's own ground, and not merely near it</b> (<see cref="IsOnItsWay"/>). Held to the
+        // looser bar, this and the ground walk disagreed about which of a pavement's two lanes somebody
+        // was standing on — and disagreeing about that is two answers about one body.
+        //
+        // <b>Losing the route is a different question and a much looser bar</b>
+        // (<see cref="HasLostItsLine"/>): being shoved off your half of a pavement is not a reason to
+        // search the town again.
+        if (!IsOnItsWay(person)) return false;
 
-            var before = WayOf(codes[at - 1]);
-            if (before == PersonFleet.NoWay) return false;
-
-            on = before;
-            alongM = alongsM[at - 1] + MathF.Max(0f, (points[at] - points[at - 1]).Length() - toPointM);
-        }
-
-        way = on;
-        alongM = MathF.Min(alongM, _occupancy.WayLengthM(way));
-        return at > 0 || OffTheWayM(way, positionM, alongM, toPointM) <= _config.WalkerOffLaneM * OffLineTolerance;
+        way = WayOf(on);
+        return way != PersonFleet.NoWay;
     }
 
     /// <summary>
-    /// <b>Where on this way the body actually stands, and how far off it</b> — the same bar as
-    /// <see cref="OffTheWalkM"/> put to the ground rather than to the walk, for the one body that has no
-    /// stretch of its own walk behind it to be measured against.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// What it refuses is a body standing nowhere near the way its freshly laid line names. The distance
-    /// alone used to say so — a first point near the start of its own way leaves a body short of it a
-    /// negative distance along — but only while a stretch was short enough for that to be true of it. On a
-    /// pavement laid in one piece from junction to junction the first point stands eighty metres along one,
-    /// and a body that had walked none of its line claimed ground across a field.
-    /// </para>
-    /// <para>
-    /// <b>The line is searched and not sampled at the one metre</b>, and that is what makes the bar honest.
-    /// Stepping back from the first point by the straight to it reads the walk's own metres, and a body
-    /// standing <em>beside</em> that point has its whole sideways distance taken off its place on the way as
-    /// well. Read at that metre alone the body stands metres from a line it is on, so the subtraction only
-    /// seeds a window and the way itself is searched in it. <b>The metre is left as it was</b>: a way's
-    /// metres are its lane's, and this line is the stretch the lane is offset from, so a place found along
-    /// it is not a place along the way.
-    /// </para>
-    /// </remarks>
-    float OffTheWayM(int way, Vector2 atM, float aroundM, float windowM)
-    {
-        var arcs = _ways.KindOf(way) == WayKind.Footway
-            ? _pavement.ArcsOf(_ways.FootwayOf(way))
-            : _pavement.ConnectorArcs(_ways.MitreOf(way));
-        if (arcs.Length == 0) return 0f;
-
-        var alongM = Spline.ProjectM(arcs, atM, aroundM, windowM + _config.WalkerOffLaneM);
-
-        return (Spline.SampleAt(arcs, alongM).PositionM - atM).Length() - _config.WalkerOffLaneM;
-    }
-
-    /// <summary>How far a body stands off the stretch of its walk it is on, which is the walking side's own off-line.</summary>
-    static float OffTheWalkM(Vector2 fromM, Vector2 toM, Vector2 atM)
-    {
-        var run = toM - fromM;
-        var lengthSq = run.LengthSquared();
-        if (lengthSq < 1e-8f) return (atM - fromM).Length();
-
-        var at = Math.Clamp(Vector2.Dot(atM - fromM, run) / lengthSq, 0f, 1f);
-        return (atM - (fromM + (run * at))).Length();
-    }
-
-    /// <summary>
-    /// The town's way number for a point of a walked line, or <see cref="PersonFleet.NoWay"/> for the hop
-    /// off the network. <b>The one place a walked line's own encoding is spent</b>
-    /// (<see cref="WalkedLine"/>): a stretch's own edge, or the complement of a mitre's turn slot.
+    /// The town's way number for a way of a route chain, or <see cref="PersonFleet.NoWay"/> for the hop
+    /// off the network. <b>The one place the chain's own encoding is spent</b>
+    /// (<see cref="WalkingNetwork.IsACorner"/>): a stretch's own lane, or the complement of a corner's
+    /// turn slot.
     /// </summary>
     int WayOf(int code) =>
-        code == WalkedLine.NoWay ? PersonFleet.NoWay
-        : code >= 0 ? _ways.OfFootway(code)
-        : _ways.OfMitre(~code);
+        code == RouteChain.NoWay || code == WalkingNetwork.NoLane ? PersonFleet.NoWay
+        : WalkingNetwork.IsACorner(code) ? _ways.OfMitre(WalkingNetwork.CornerOf(code))
+        : _ways.OfFootway(code);
 
     /// <summary>
     /// The ways of the pavement under a stretch of one walk — from <paramref name="backM"/> behind the body
@@ -366,70 +303,38 @@ internal sealed partial class TownWorld
     /// the pavement leading up to it.
     /// </para>
     /// </remarks>
-    int WaysAlongTheWalk(int person, float backM, float aheadM, Span<LineWay> into)
+    int WaysAlongTheWalk(int person, float aheadM, Span<LineWay> into)
     {
-        var points = People.WalkedLineOf(person);
-        var codes = People.WalkedWayOf(person);
-        var alongsM = People.WalkedAlongOf(person);
-        var count = People.WalkedCount[person];
-        var at = People.WalkedAt(person);
+        var route = People.RouteOf(person);
+        var count = People.RouteCount[person];
+        var at = People.RouteAt(person);
+        if (at < 0 || at >= count) return 0;
 
-        var way = People.OnWay[person];
-        var alongM = People.OnWayM[person];
+        var walking = Walking;
         var written = 0;
-
-        // Behind: the body's own back, and what is left of it on the way before where the way it is on has
-        // not that much of itself behind the body.
-        var behindM = MathF.Min(backM, alongM);
-        if (backM > behindM && at > 0)
-        {
-            var overM = backM - behindM;
-            var before = WayOf(codes[at - 1]);
-            if (before != PersonFleet.NoWay && before != way)
-            {
-                var endM = alongsM[at - 1];
-                into[written++] = new LineWay(before, MathF.Max(0f, endM - overM), endM, -backM);
-            }
-        }
-
-        var fromM = alongM - behindM;
-        var sM = -behindM;
-        var toM = alongM;
         var walkedM = 0f;
-        var previousM = People.PositionM[person];
 
-        for (var index = at; index < count && walkedM < aheadM && written < into.Length; index++)
+        for (var slot = at; slot < count && walkedM < aheadM && written < into.Length; slot++)
         {
-            var stepM = (points[index] - previousM).Length();
-            previousM = points[index];
+            var townWay = WayOf(route[slot]);
+            if (townWay == PersonFleet.NoWay) break;
 
-            var onto = WayOf(codes[index]);
-            if (onto == PersonFleet.NoWay) break;
+            walking.SpanOfWay(
+                slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, route[slot],
+                slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out var fromM, out var endM);
 
-            if (onto != way)
-            {
-                into[written++] = new LineWay(way, fromM, toM, sM);
-                if (written == into.Length) return written;
+            if (slot == count - 1) endM = MathF.Min(endM, People.RouteToM[person]);
 
-                // <b>A way is entered the near point's own distance short of it</b>, which is what makes
-                // the hand-over a place on the walk rather than a place in the arrays: as much of the
-                // stretch between the two points as that way has of itself behind the point is on it, and
-                // the rest was on the way before.
-                var entryM = MathF.Min(alongsM[index], stepM);
-                way = onto;
-                fromM = alongsM[index] - entryM;
-                toM = fromM;
-                sM = walkedM + stepM - entryM;
-            }
+            // The body's own place is where the statement begins, and every way after it is stated from
+            // wherever the walk joins it.
+            if (slot == at) fromM = MathF.Max(fromM, People.OnWayM[person]);
+            if (endM <= fromM) continue;
 
-            // The statement may end part-way to a station. Metres along a way and metres walked are the
-            // same metres to within the bow of the straight between two of them, so what is left of it is
-            // spent as ground on the way — never past the station it is walking at.
-            toM = MathF.Min(alongsM[index], toM + MathF.Min(stepM, aheadM - walkedM));
-            walkedM += stepM;
+            // The statement may end part-way along a way, and what is left of it is spent as ground there.
+            var runM = MathF.Min(endM - fromM, aheadM - walkedM);
+            into[written++] = new LineWay(townWay, fromM, fromM + runM, walkedM);
+            walkedM += endM - fromM;
         }
-
-        if (written < into.Length) into[written++] = new LineWay(way, fromM, toM, sM);
 
         return written;
     }

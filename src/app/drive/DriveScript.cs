@@ -16,8 +16,14 @@ internal enum DriveVerb
     /// <summary>The car standing nearest a place, clicked where it stands.</summary>
     SelectNearest,
 
+    /// <summary>And the walker standing nearest one, on the same terms.</summary>
+    SelectWalker,
+
     /// <summary>What is parked or driving near a place, as a list to pick a number off.</summary>
     Cars,
+
+    /// <summary>And who is on foot near one, which is the same list for the other roster.</summary>
+    People,
 
     /// <summary>The camera pinned to a place, instead of riding the car.</summary>
     LookAt,
@@ -100,7 +106,8 @@ internal static class DriveScript
 {
     /// <summary>What a script may say, quoted at whoever wrote a line this cannot read.</summary>
     public const string Verbs =
-        "select car N | select at X Y | select nearest X Y | cars X Y | look car | look X Y | view METRES | " +
+        "select car N | select at X Y | select nearest X Y | select walker X Y | cars X Y | people X Y | " +
+        "look car | look X Y | view METRES | " +
         "ui WORDS | drive SECONDS [throttle=N] [brake=N] [steer=N] [handbrake=on] | coast SECONDS | " +
         "wait SECONDS | release | order X Y | action | shot NAME | agents on|off | pace N";
 
@@ -143,6 +150,7 @@ internal static class DriveScript
     {
         "select" => Select(said, line, words),
         "cars" => new DriveStep(DriveVerb.Cars, said, line, PointM: Place(said, line, words, 1)),
+        "people" => new DriveStep(DriveVerb.People, said, line, PointM: Place(said, line, words, 1)),
         "look" => words.Length == 2 && words[1] == "car"
             ? new DriveStep(DriveVerb.LookAtCar, said, line)
             : new DriveStep(DriveVerb.LookAt, said, line, PointM: Place(said, line, words, 1)),
@@ -165,14 +173,17 @@ internal static class DriveScript
     };
 
     static DriveStep Select(string said, int line, string[] words) => words.Length < 2
-        ? throw Bad(said, line, "select takes car N, at X Y or nearest X Y")
+        ? throw Bad(said, line, TheWaysToSelect)
         : words[1] switch
         {
             "car" => new DriveStep(DriveVerb.SelectCar, said, line, Car: Number(said, line, words, 2)),
             "at" => new DriveStep(DriveVerb.SelectAt, said, line, PointM: Place(said, line, words, 2)),
             "nearest" => new DriveStep(DriveVerb.SelectNearest, said, line, PointM: Place(said, line, words, 2)),
-            _ => throw Bad(said, line, "select takes car N, at X Y or nearest X Y"),
+            "walker" => new DriveStep(DriveVerb.SelectWalker, said, line, PointM: Place(said, line, words, 2)),
+            _ => throw Bad(said, line, TheWaysToSelect),
         };
+
+    const string TheWaysToSelect = "select takes car N, at X Y, nearest X Y or walker X Y";
 
     /// <summary>
     /// <c>drive SECONDS</c> and the pedals held for them. <b>The pedals are named rather than positional</b>,

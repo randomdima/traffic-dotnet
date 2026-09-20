@@ -202,15 +202,25 @@ internal sealed partial class GroundMesh
     /// toward the other, where the two stand exactly their two half-widths apart.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Asked of the pair rather than read off the rank's order</b> — the bays of one side are parallel
-    /// and a way apart (GEN-53), so which pairs touch is a measurement and the pairs across a street or two
-    /// steps down a rank fall out of it by standing further off than they are wide.
+    /// and a way apart (GEN-53), so which pairs touch is a measurement and two steps down a rank falls out
+    /// of it by standing further off than they are wide.
+    /// </para>
+    /// <para>
+    /// <b>The two have to run the same way as well as stand a width apart</b>, because the measurement is
+    /// taken across the one line and drops everything along it: the bays of the far side of the street
+    /// point back the other way and one of those, a step further along the street, reads exactly as a
+    /// neighbour does. What it would paint is the shorter rank's own outer boundary — the kerb line, in the
+    /// one place a driver is looking (GEN-4m).
+    /// </para>
     /// </remarks>
     static int Between(CityPlan.RoadArrays roads, int one, int other, Span<ArcSeg> into)
     {
         var line = roads.SegmentsOf(one);
         var beside = roads.SegmentsOf(other);
         if (line.Length == 0 || beside.Length == 0) return 0;
+        if (Vector2.Dot(line[0].StartUnit, beside[0].StartUnit) <= 0f) return 0;
 
         var at = Spline.SampleAt(line, 0f);
         var acrossM = Vector2.Dot(beside[0].StartM - at.PositionM, at.Right);

@@ -102,7 +102,7 @@ internal sealed partial class TownWorld
     void Contain(int person)
     {
         People.Walking[person] = false;
-        People.ClearWalkedLine(person);
+        People.ClearRoute(person);
         _impulseNs[person] = Vector2.Zero;
         _physics.Contain(People.Body[person]);
     }
@@ -116,7 +116,7 @@ internal sealed partial class TownWorld
         People.DestinationM[person] = atM;
         People.GoalM[person] = atM;
         People.Walking[person] = false;
-        People.ClearWalkedLine(person);
+        People.ClearRoute(person);
         _impulseNs[person] = Vector2.Zero;
         _progress.Restart(person);
         _physics.Release(People.Body[person], atM, headingRad);

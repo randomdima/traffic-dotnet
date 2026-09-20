@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace TrafficSimulation.World.Routing;
 
 /// <summary>
@@ -31,9 +29,8 @@ internal sealed class RouteSearch
     public ReadOnlySpan<int> Links(int count) => _links.AsSpan(0, count);
 
     /// <inheritdoc cref="RoutePlanner.Plan"/>
-    public int Plan(
-        int entryCount, int goalCount, Vector2 goalPointM, LinkSurcharges? surcharges, out int goalSlot) =>
+    public int Plan(int entryCount, int goalCount, LinkSurcharges? surcharges, out int goalSlot) =>
         _planner.Plan(
-            _entries.AsSpan(0, entryCount), _goals.AsSpan(0, goalCount), goalPointM, surcharges,
-            _links, out _, out goalSlot);
+            _entries.AsSpan(0, entryCount), _goals.AsSpan(0, goalCount), surcharges, _links, out _,
+            out goalSlot);
 }

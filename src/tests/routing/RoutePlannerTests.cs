@@ -1,50 +1,18 @@
-using System.Numerics;
 using TrafficSimulation.World.Routing;
 using Xunit;
 
 namespace TrafficSimulation.Tests.Routing;
 
 /// <summary>
-/// The one A* both agent kinds search with, asked on hand-laid graphs where every weight and every turn
+/// The one search both agent kinds plan with, asked on hand-laid graphs where every weight and every turn
 /// price is known by inspection. <b>Nothing here is a town</b> — the whole point of the global tier is
 /// that it could not tell a boulevard from a zebra, so a test that needed a town would be testing the
-/// wrong thing.
+/// wrong thing, and there is no geometry to lay one out of.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P4)]
 public class RoutePlannerTests
 {
-    /// <summary>
-    /// The relation the search's bound rests on: a link is never priced below the span between its own
-    /// two ends, enforced where a link is laid rather than asserted afterwards.
-    /// </summary>
-    [Fact]
-    public void ALinkIsNeverPricedBelowTheSpanBetweenItsAnchors()
-    {
-        var builder = new TravelGraph.Builder();
-        builder.AddLink(Vector2.Zero, new Vector2(100f, 0f), 1f);
-
-        var graph = builder.Build(new FreeTurns());
-
-        Assert.Equal(100f, graph.WeightM(0), 3);
-    }
-
-    /// <summary>
-    /// The other half of that bound: <b>the links of a route meet end to end</b>, so the spans a route is
-    /// made of add up to at least the straight line the heuristic reads. A join between ends that are not
-    /// the same point is refused where it is stated rather than costing routes that are quietly not the
-    /// cheapest.
-    /// </summary>
-    [Fact]
-    public void AJoinBetweenLinksThatDoNotMeetIsRefused()
-    {
-        var builder = new TravelGraph.Builder();
-        var into = builder.AddLink(Vector2.Zero, new Vector2(100f, 0f), 100f);
-        var away = builder.AddLink(new Vector2(150f, 0f), new Vector2(250f, 0f), 100f);
-
-        Assert.Throws<ArgumentException>(() => builder.Join(into, away));
-    }
-
     /// <summary>
     /// <b>What a link costs as the last one is not its weight.</b> The route stops part-way along it and
     /// pays for the run into the destination and no more — charge the whole link and the two directions
@@ -58,8 +26,8 @@ public class RoutePlannerTests
         Span<int> route = stackalloc int[8];
 
         var written = planner.Plan(
-            [new RouteEntry(town.IntoStart, 0f, 50f)], [new RouteGoal(town.Out, 10f)], new Vector2(10f, 0f),
-            null, route, out var costM, out var goalSlot);
+            [new RouteEntry(town.IntoStart, 0f, 50f)], [new RouteGoal(town.Out, 10f)], null, route,
+            out var costM, out var goalSlot);
 
         Assert.Equal(2, written);
         Assert.Equal(town.IntoStart, route[0]);
@@ -81,8 +49,8 @@ public class RoutePlannerTests
         Span<int> route = stackalloc int[8];
 
         var written = planner.Plan(
-            [new RouteEntry(block.South, 50f, 50f)], [new RouteGoal(block.South, 20f)], new Vector2(20f, 0f),
-            null, route, out var costM, out _);
+            [new RouteEntry(block.South, 50f, 50f)], [new RouteGoal(block.South, 20f)], null, route,
+            out var costM, out _);
 
         Assert.Equal(5, written);
         Assert.Equal([block.South, block.East, block.North, block.West, block.South], route[..written].ToArray());
@@ -101,8 +69,8 @@ public class RoutePlannerTests
         Span<int> route = stackalloc int[8];
 
         var written = planner.Plan(
-            [new RouteEntry(block.South, 20f, 80f)], [new RouteGoal(block.South, 50f)], new Vector2(50f, 0f),
-            null, route, out var costM, out _);
+            [new RouteEntry(block.South, 20f, 80f)], [new RouteGoal(block.South, 50f)], null, route,
+            out var costM, out _);
 
         Assert.Equal(1, written);
         Assert.Equal(block.South, route[0]);
@@ -125,7 +93,7 @@ public class RoutePlannerTests
         Span<RouteGoal> goals = [new RouteGoal(fork.Straight, 50f), new RouteGoal(fork.Rejoin, ForkTown.DiagonalM)];
 
         var written = planner.Plan(
-            [new RouteEntry(fork.Approach, 0f, 50f)], goals, new Vector2(100f, 0f), null, route, out _, out _);
+            [new RouteEntry(fork.Approach, 0f, 50f)], goals, null, route, out _, out _);
 
         Assert.Equal(expected, route[..written].ToArray());
     }
@@ -146,7 +114,7 @@ public class RoutePlannerTests
         marks.Advance(0f);
         marks.Mark(fork.Straight, priceM: 500f, forS: 10f);
         var diverted = planner.Plan(
-            [new RouteEntry(fork.Approach, 0f, 50f)], goals, new Vector2(100f, 0f), marks, route, out _, out _);
+            [new RouteEntry(fork.Approach, 0f, 50f)], goals, marks, route, out _, out _);
         Assert.Equal([fork.Approach, fork.Turn, fork.Rejoin], route[..diverted].ToArray());
 
         var marked = marks.Generation;
@@ -154,7 +122,7 @@ public class RoutePlannerTests
         Assert.NotEqual(marked, marks.Generation);
 
         var restored = planner.Plan(
-            [new RouteEntry(fork.Approach, 0f, 50f)], goals, new Vector2(100f, 0f), marks, route, out _, out _);
+            [new RouteEntry(fork.Approach, 0f, 50f)], goals, marks, route, out _, out _);
         Assert.Equal([fork.Approach, fork.Straight], route[..restored].ToArray());
     }
 
@@ -163,15 +131,15 @@ public class RoutePlannerTests
     public void AGoalOnAnotherPieceOfTheNetworkIsRefused()
     {
         var builder = new TravelGraph.Builder();
-        var near = builder.AddLink(Vector2.Zero, new Vector2(50f, 0f), 50f);
-        var far = builder.AddLink(new Vector2(900f, 0f), new Vector2(950f, 0f), 50f);
+        var near = builder.AddLink(50f);
+        var far = builder.AddLink(50f);
 
         var planner = new RoutePlanner(builder.Build(new FreeTurns()));
         Span<int> route = stackalloc int[8];
 
         var written = planner.Plan(
-            [new RouteEntry(near, 0f, 50f)], [new RouteGoal(far, 10f)], new Vector2(910f, 0f), null, route,
-            out var costM, out var goalSlot);
+            [new RouteEntry(near, 0f, 50f)], [new RouteGoal(far, 10f)], null, route, out var costM,
+            out var goalSlot);
 
         Assert.Equal(0, written);
         Assert.Equal(-1, goalSlot);
@@ -190,8 +158,8 @@ public class RoutePlannerTests
         Span<int> route = stackalloc int[3];
 
         var written = planner.Plan(
-            [new RouteEntry(block.South, 50f, 50f)], [new RouteGoal(block.South, 20f)], new Vector2(20f, 0f),
-            null, route, out _, out var goalSlot);
+            [new RouteEntry(block.South, 50f, 50f)], [new RouteGoal(block.South, 20f)], null, route, out _,
+            out var goalSlot);
 
         Assert.Equal(0, written);
         Assert.Equal(-1, goalSlot);
@@ -206,17 +174,16 @@ public class RoutePlannerTests
         var route = new int[8];
         var entries = new[] { new RouteEntry(block.South, 50f, 50f) };
         var goals = new[] { new RouteGoal(block.South, 20f) };
-        var goalPointM = new Vector2(20f, 0f);
 
         for (var warmUp = 0; warmUp < 32; warmUp++)
         {
-            planner.Plan(entries, goals, goalPointM, null, route, out _, out _);
+            planner.Plan(entries, goals, null, route, out _, out _);
         }
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         for (var search = 0; search < 500; search++)
         {
-            planner.Plan(entries, goals, goalPointM, null, route, out _, out _);
+            planner.Plan(entries, goals, null, route, out _, out _);
         }
 
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
@@ -239,13 +206,10 @@ public class RoutePlannerTests
 
     static LineTown Line()
     {
-        var behindM = new Vector2(-50f, 0f);
-        var endM = new Vector2(100f, 0f);
-
         var builder = new TravelGraph.Builder();
-        var into = builder.AddLink(behindM, Vector2.Zero, 50f);
-        var onward = builder.AddLink(Vector2.Zero, endM, 100f);
-        var back = builder.AddLink(endM, Vector2.Zero, 100f);
+        var into = builder.AddLink(50f);
+        var onward = builder.AddLink(100f);
+        var back = builder.AddLink(100f);
         builder.Join(into, onward);
         builder.Join(onward, back);
         builder.Join(back, onward);
@@ -258,17 +222,12 @@ public class RoutePlannerTests
 
     static BlockTown Block(float turnAroundM)
     {
-        var southWestM = Vector2.Zero;
-        var southEastM = new Vector2(100f, 0f);
-        var northEastM = new Vector2(100f, 100f);
-        var northWestM = new Vector2(0f, 100f);
-
         var builder = new TravelGraph.Builder();
-        var south = builder.AddLink(southWestM, southEastM, 100f);
-        var back = builder.AddLink(southEastM, southWestM, 100f);
-        var east = builder.AddLink(southEastM, northEastM, 100f);
-        var north = builder.AddLink(northEastM, northWestM, 100f);
-        var west = builder.AddLink(northWestM, southWestM, 100f);
+        var south = builder.AddLink(100f);
+        var back = builder.AddLink(100f);
+        var east = builder.AddLink(100f);
+        var north = builder.AddLink(100f);
+        var west = builder.AddLink(100f);
 
         builder.Join(south, back);
         builder.Join(south, east);
@@ -294,15 +253,11 @@ public class RoutePlannerTests
 
     static ForkTown Fork(float acrossM)
     {
-        var middleM = new Vector2(50f, 0f);
-        var endM = new Vector2(100f, 0f);
-        var offM = new Vector2(50f, 50f);
-
         var builder = new TravelGraph.Builder();
-        var approach = builder.AddLink(Vector2.Zero, middleM, 50f);
-        var straight = builder.AddLink(middleM, endM, 50f);
-        var turn = builder.AddLink(middleM, offM, 50f);
-        var rejoin = builder.AddLink(offM, endM, ForkTown.DiagonalM);
+        var approach = builder.AddLink(50f);
+        var straight = builder.AddLink(50f);
+        var turn = builder.AddLink(50f);
+        var rejoin = builder.AddLink(ForkTown.DiagonalM);
 
         builder.Join(approach, straight);
         builder.Join(approach, turn);

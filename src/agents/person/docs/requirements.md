@@ -32,12 +32,23 @@ check run afterwards (TER-3c.1): there is no edge that touches a carriageway exc
 PER-25's second walk and not a rule of its own: a body off the line it was laid walks back onto the
 network.
 
+**And where the walk back cannot be walked, the body is set down on it.** The straight back to the
+pavement is a straight, so a body shoved behind a building leans on the wall between for as long as the
+town runs; a walker steers at nothing and avoids nothing (PER-25), so there is no second answer to find.
+**It is the give-up clock that says when** — the same one that ends any leg going nowhere — and it applies
+only to a body that is on no way of the network, a body held up on one being held up by something the
+solver is already arguing with. **How often a town has to do it is a figure its instruments print**: a
+placement is the town papering over its own ground, and a town doing it often has doors opening onto
+places nothing can walk out of.
+
 ## Walking
 
-**PER-25** `P4` **A walker follows the line the walking network laid it, and there is nothing else it
-does.** The pavement is contracted once when the town is stood up and a walk is a search over it, so a
-walker steers at nothing, avoids nothing and plans nothing: the points of the route are where it goes and
-the order it goes in them.
+**PER-25** `P4` **A walker holds a route as the ways it is travelled and walks them one at a time, and
+there is nothing else it does.** The pavement is contracted once when the town is stood up and a walk is a
+search over it, expanded into the network's own ways exactly as a drive is expanded into lanes — so a
+walker steers at nothing, avoids nothing and plans nothing: the ways of the route are where it goes and the
+order it goes in them. **It is held on each way's own line**, which the network already carries, so a walk
+originates no geometry of its own beyond the one short hop off the network onto a doorstep.
 
 **A body that is on no way of the network walks straight at the nearest point of one.** That is the whole
 of the second case and it is the common one, not a corner of the rule — a doorway stands off the walk, a
@@ -56,7 +67,10 @@ to a body that has lost it, and needs no second mechanism.
 
 **A leg that gets nowhere is given up rather than walked down a ladder.** There is no arbitration between
 walking manoeuvres because there are no walking manoeuvres (AGT-7): a body that has got no nearer the
-point it is walking at for a stated time draws another destination, and how long that is, is data.
+**end of the way it is walking** for a stated time draws another destination, and how long that is, is
+data. **What that is measured against has to shrink as the walk goes well** — the point the follower aims
+at stands a stride in front of the body and travels with it, so a walker at full pace is exactly as far
+from it as a walker held against a wall.
 
 ## Reservation
 
@@ -70,8 +84,10 @@ mitres of a corner it is standing across, the lane it is standing in, the joins 
 and the ways of a bay. **Nothing takes it**, because its holder is already there.
 
 **The second is a statement of intent and the weakest hold there is.** It runs from the body's own front to
-where it is aiming, on each way that stretch crosses; everything stronger takes it, and a body on no way of
-the network states nothing at all, there being no way to state it on.
+where it is aiming, on each way of **the pavement** that stretch crosses; everything stronger takes it, and a
+body on no way of the network states nothing at all, there being no way to state it on. **It is stated on the
+walking network and on nothing else** — a walker's intent buys it no standing on a carriageway, there being
+nothing on this side of the town that grants one.
 
 **There is no grant on this side of the town, and that is the whole of the difference from a driver.** A
 driver asks for road and is handed a distance because a car has a speed profile to spend it on; PER-3
@@ -79,17 +95,18 @@ leaves a walker no profile, so a distance in front of one buys nothing the groun
 not already say. **A walker therefore never queues** — it walks at what it was laid, and what it walks into
 is the solver's (`PHY-1`) rather than a rule's.
 
-**What the two claims are for is that the rest of the town can see a walker.** The traffic is held off the
-body by the first, because a body on a lane cuts the road a driver was granted like anything else standing
-there; and the paint a body is stepping onto is held by the second, because a stated claim binds whatever
-ranks below it and **a body on a crossing has the right of way over the traffic in the lanes it is painted
-across** (TER-5e). A rescue coming through outranks it and is not bound (AMB-4), which is the whole of what
-the exemption costs.
+**What the two claims are for is that the rest of the town can see a walker**, and the first is the whole of
+it: a body on a lane cuts the road a driver was granted like anything else standing there.
 
-**Nothing waits at a kerb.** There is no gap to be judged, no patience to be spent and no signal to be
-read: a walker states the band it is stepping into and the traffic under that paint gives it up. What
-stops a walker walking into a car standing on the band is the car's own body and the solver, exactly as on
-any other ground.
+**A crossing is ground and not a rule.** A walker on the paint holds the lane under it exactly as a walker
+shoved onto bare tarmac does, and is owed nothing more for being on a zebra — no band, no rank, and nothing
+stated in front of it on a carriageway. What holds the traffic off somebody crossing is the same grant the
+same claim cuts anywhere else in the town (TER-5e), which is one mechanism rather than two (SIM-7).
+
+**Nothing waits at a kerb.** There is no gap to be judged, no patience to be spent and no signal to be read:
+a walker steps out when its line says to, and what stops it walking into a car standing there is the car's
+own body and the solver, exactly as on any other ground. **Whether a driver can stop in time is the
+driver's arithmetic and the solver's**, and a contact that follows is PER-23's.
 
 ## The trip
 

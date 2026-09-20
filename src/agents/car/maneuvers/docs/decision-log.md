@@ -153,16 +153,6 @@ a lie — its arclength is its own, and `WaysAlong` would carry its metres onto 
 lane under the car says which crossings there are and the template says where they are, by the same
 projection the town used to put the paint on the lane.
 
-## 2026-08-21 — a body crossing the road says so, and neither side searches for the other
-
-Both agent kinds met at a crossing by looking rather than by being told: one asked the proximity index per
-crossing per car per tick, the other asked *every car in the town*. Both are readings of the claims now — a
-body on a crossing claims the road as the band of the lane it stands in, and the walker asks the road's
-claims for the nearest body behind the band on each lane the paint crosses. Looking both ways falls out of
-the two lanes running opposite ways rather than out of a radius that also counted the next street. A body
-merely walking past a zebra no longer stops the traffic, and one refused by its signal no longer holds
-traffic on its own green.
-
 ## 2026-08-21 — a driver takes the road before it drives down it, and `P-5` is retired
 
 Following was an entry and a term, and both were wrong about what following is: a driver is not measuring a

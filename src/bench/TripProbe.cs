@@ -37,7 +37,7 @@ internal static class TripProbe
             $"({MeasuredTicks / config.Sim.TickRateHz} s), {config.Solver.VelocityIterations} solver iterations");
         Console.WriteLine(
             $"{"map",-10}{"walkers",9}{"cars",6}{"drawn",8}{"arrived",9}{"entered",9}{"full",6}" +
-            $"{"given up",10}{"down",6}{"wrecked",9}");
+            $"{"given up",10}{"set down",10}{"down",6}{"wrecked",9}");
 
         var walkers = 0;
         foreach (var map in Maps.Shipped())
@@ -47,7 +47,7 @@ internal static class TripProbe
             Console.WriteLine(
                 $"{map,-10}{sample.Walkers,9}{sample.Cars,6}{sample.TripsDrawn,8}{sample.WalkArrivals,9}" +
                 $"{sample.BuildingsEntered,9}{sample.DoorsFoundFull,6}{sample.TripsGivenUp,10}" +
-                $"{sample.Down,6}{sample.Wrecked,9}");
+                $"{sample.WalkersSetDown,10}{sample.Down,6}{sample.Wrecked,9}");
         }
 
         Console.WriteLine(
@@ -66,9 +66,13 @@ internal static class TripProbe
 
     /// <param name="TripsDrawn">PER-9's own count: how many times somebody picked somewhere to be.</param>
     /// <param name="WalkArrivals">And how many walks ended where they were going.</param>
+    /// <param name="WalkersSetDown">
+    /// And how many had to be lifted back onto the pavement (PER-8), which is the count of the times the
+    /// town's own ground beat a body rather than anything the walking does.
+    /// </param>
     public readonly record struct TripSample(
         int Walkers, int Cars, long TripsDrawn, long WalkArrivals, long BuildingsEntered, long DoorsFoundFull,
-        long TripsGivenUp, int Down, int Wrecked);
+        long TripsGivenUp, long WalkersSetDown, int Down, int Wrecked);
 
     public static TripSample Sample(string map, SimConfig config)
     {
@@ -81,6 +85,7 @@ internal static class TripProbe
         var entered = world.BuildingsEntered;
         var full = world.DoorsFoundFull;
         var givenUp = world.TripsGivenUp;
+        var setDown = world.WalkersSetDown;
 
         loop.Advance(MeasuredTicks);
 
@@ -99,6 +104,6 @@ internal static class TripProbe
         return new TripSample(
             world.People.Count, world.Cars.Count, world.TripsDrawn - drawn, world.WalkArrivals - arrived,
             world.BuildingsEntered - entered, world.DoorsFoundFull - full, world.TripsGivenUp - givenUp,
-            down, wrecked);
+            world.WalkersSetDown - setDown, down, wrecked);
     }
 }

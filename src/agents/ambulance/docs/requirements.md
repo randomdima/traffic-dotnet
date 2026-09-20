@@ -39,14 +39,15 @@ now that it stands empty, is `SRV-3`.
 
 ## The priority
 
-**AMB-4** `P5` An ambulance **answering a call** carries a right of way above every other movement and above
-the paint (TER-5e). While it does:
+**AMB-4** `P5` An ambulance **answering a call** carries a right of way above every other movement
+(TER-5e). While it does:
 
 - **AMB-4.1** `P5` Every stretch of road it asks for is held at that rank, so ground another movement has
   merely *claimed* is not ground it is refused by.
 - **AMB-4.2** `P5` A red light and a painted bar do not apply to it, and a red it crosses is not a violation.
-- **AMB-4.3** `P5` The band a walker states it is stepping onto does not refuse it, and a body **on** the
-  paint still does — which is the ladder's own answer (TER-5g) and not a courtesy this rule grants.
+- **AMB-4.3** `P5` A body on the paint refuses it exactly as any other body does — which is the ladder's own
+  answer (TER-5g) and not a courtesy this rule grants. **There is nothing else at a crossing for a blue
+  light to outrank**, a walker carrying no rank of its own.
 - **AMB-4.4** `P5` It crosses the centreline to get past what is in front of it without first spending the
   patience every other driver spends, and a queue counts as something to get past.
 **AMB-4a** `P3` **The blue light buys the road and never the tyres.** A rescue keeps every constraint the

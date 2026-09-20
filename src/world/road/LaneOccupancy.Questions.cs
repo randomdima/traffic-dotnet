@@ -45,9 +45,6 @@ internal enum ClaimsAsked : byte
 
     /// <summary>Anybody on foot, which is the one question the road's claims are asked about walkers.</summary>
     OnFoot,
-
-    /// <summary>An ask that was refused, which is nobody's ground and cuts nothing.</summary>
-    Refused,
 }
 
 /// <summary>
@@ -296,35 +293,6 @@ internal sealed partial class LaneOccupancy
         AnythingOver(way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.OnFoot, out _);
 
     /// <summary>
-    /// <b>Whether anybody is <em>using</em> this stretch of paint</b> — on foot over it and holding it with
-    /// the crossing's own right of way, which is what a driver owes a stop to (TER-5e).
-    /// </summary>
-    /// <remarks>
-    /// <b>It is narrower than <see cref="AnybodyOnFoot"/> and the difference is a body that is not going
-    /// anywhere</b>: somebody knocked down (PER-18) lies where they fell and holds the ground under them at
-    /// <see cref="RightOfWay.Traffic"/> like any other obstruction. A driver is still held off them — their
-    /// claim cuts every grant that runs over it — but they are not somebody to be stopped short of the
-    /// paint for, and read as one they hold a street shut until an ambulance that is itself being stopped
-    /// short of the same paint comes to fetch them.
-    /// </remarks>
-    public bool AnybodyCrossing(int way, float fromM, float toM) =>
-        AnythingOver(
-            way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.OnFoot, RightOfWay.OnThePaint, out _);
-
-    /// <summary>
-    /// <b>Whether anybody with the right of way was refused this stretch of the way</b> — a walker at a
-    /// kerb that asked for the band and did not get it (TER-5e), and the whole of what a car owes somebody
-    /// standing at an uncontrolled crossing.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is a question of its own because the answer is not a cut</b>. A refused ask is nobody's ground —
-    /// it is neither a body nor road anybody has taken — so no grant is cut at it; what it does is stop the
-    /// traffic short of the paint, which is a place and is asked about here.
-    /// </remarks>
-    public bool AnybodyWaitingFor(int way, float fromM, float toM) =>
-        AnythingOver(way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.Refused, out _);
-
-    /// <summary>
     /// <b>Whether a claim somebody else holds refuses an asker with this right of way</b> (TER-5e, TER-5g) —
     /// the one place the ladder and the ranks are compared, so that what a stronger movement takes cannot be
     /// answered two ways.
@@ -370,9 +338,9 @@ internal sealed partial class LaneOccupancy
     /// </para>
     /// <para>
     /// <b>It is the rank and never the priority</b>, so what takes a claim is whatever outranks it and not
-    /// only another claim: a walker on the paint holds its band at <see cref="RightOfWay.OnThePaint"/> and a
-    /// rescue its road at <see cref="RightOfWay.Emergency"/>, and both are entitled to ground nobody has
-    /// reached. What is <em>not</em> here is the ordinary body (SIM-7). Traffic, a wreck shoved onto the
+    /// only another claim: a rescue holds its road at <see cref="RightOfWay.Emergency"/> and is entitled to
+    /// ground nobody has reached. What is <em>not</em> here is the ordinary body (SIM-7) — <b>and a walker is
+    /// one</b>, on the paint as anywhere else. Traffic, a person, a wreck shoved onto the
     /// ground and the town's own furniture all hold it at <see cref="RightOfWay.Traffic"/>, which takes
     /// nothing off a claim held at the same rank — and they cut the claimant's own grant already, on the way
     /// it is driving, so a second refusal would make the first useless. It would also be wrong: the stretch
@@ -552,8 +520,7 @@ internal sealed partial class LaneOccupancy
         ClaimsAsked.TrafficHeld => claim.IsTraffic || claim.IsGranted,
         ClaimsAsked.Granted => claim.IsGranted,
         ClaimsAsked.Loose => claim.IsLoose,
-        ClaimsAsked.OnFoot => claim.HasBody && claim.Of == LaneRoster.Walking,
-        _ => claim.IsRejected,
+        _ => claim.HasBody && claim.Of == LaneRoster.Walking,
     };
 
     /// <summary>

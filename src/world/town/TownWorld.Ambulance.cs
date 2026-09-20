@@ -107,7 +107,7 @@ internal sealed partial class TownWorld
         _physics.PutOnLayer(People.Body[person], CollisionLayer.Downed);
         People.Wounded[person] = true;
         People.Walking[person] = false;
-        People.ClearWalkedLine(person);
+        People.ClearRoute(person);
         GiveUpTheClaims(person);
         _woundedCount++;
         CasualtiesRaised++;

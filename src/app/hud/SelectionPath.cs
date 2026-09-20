@@ -24,8 +24,9 @@ namespace TrafficSimulation.App.Hud;
 /// </para>
 /// <para>
 /// <b>What the unit is holding is read off it.</b> A car's is the line the assembler wove plus the lanes
-/// its own route has left in it; a walker's is the points its own line was laid as. A second opinion
-/// drawn beside the body would be the one thing in the frame that is not the simulation.
+/// its own route has left in it; a walker's is the chain of ways it is walking, stationed into points for
+/// the picture. A second opinion drawn beside the body would be the one thing in the frame that is not the
+/// simulation.
 /// </para>
 /// <para>
 /// <b>And where that runs out, the rest is asked of the town</b> (<see cref="TownWorld.RouteBeyond"/>): a
@@ -183,13 +184,23 @@ internal static class SelectionPath
     }
 
     /// <summary>
-    /// The walker: every point of the line it was given that it has not walked yet, run from the body
-    /// itself rather than from where the leg began, and on past it where the line stops short of the goal.
+    /// The walker: the chain of ways it is holding, stationed into points and run from the body itself
+    /// rather than from where the leg began, and on past it where the chain stops short of the goal.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>The walk it is holding and not a plan drawn beside it</b> (CTL-1a,
+    /// <see cref="TownWorld.WalkHeld"/>). A walker holds a route as the ways it is travelled and is held on
+    /// each way's own arc, so the straights between the points drawn here exist only because a screen draws
+    /// straights. Re-planned from under the body instead, the picture was a second opinion — and the
+    /// pavement offers a walk both ways along the stretch it stands on, so the opinion was regularly the
+    /// other one: a line drawn back the way the body had come while the body walked on.
+    /// </para>
+    /// <para>
     /// No dot is put where one stretch of pavement becomes the next. The whole route is on screen here,
     /// and a dot at every kerb of it is a row of beads over the thing they are punctuating — which is a
     /// reading the walker layer offers under its own switch, on the two stretches it draws.
+    /// </para>
     /// </remarks>
     static void WalkerPath(ref ScreenDraw draw, TownWorld world, int slot, int person, float pixelsPerMetre)
     {
@@ -199,27 +210,19 @@ internal static class SelectionPath
         // they come out has not been laid yet.
         if (people.Inside[person].Any || !people.Walking[person]) return;
 
-        var count = people.WalkedCount[person];
-        var at = people.WalkedAt(person);
-        if (at < 0 || at >= count) return;
-
         var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
         var colour = Theme.SelectionPath;
-        var points = people.WalkedLineOf(person);
         var fromM = people.PositionM[person];
 
-        // A body standing on the point it is walking at has finished that stretch and is about to be handed
-        // the next one, so the stretch in hand is the one starting at the first point it is not on already.
-        while (at < count - 1 && (points[at] - fromM).Length() <= people.RadiusM[person]) at++;
-
-        for (var point = at; point < count; point++)
+        foreach (var pointM in world.WalkHeld(slot, person))
         {
-            PathMarks.Chevroned(ref draw, fromM, points[point], pitchM, colour);
-            fromM = points[point];
+            PathMarks.Chevroned(ref draw, fromM, pointM, pitchM, colour);
+            fromM = pointM;
         }
 
-        // And the rest of the walk, where the line the walker holds stops short of where it is going.
-        if (people.WalkedRunsOut[person])
+        // And the rest of the way, where the chain the walker holds stops short of where it is going —
+        // planned from the end of that chain, which is where the body will plan it from itself.
+        if (people.RouteRunsOut[person])
         {
             foreach (var pointM in world.WalkBeyond(slot, person, fromM))
             {

@@ -9,8 +9,9 @@ branch anywhere in the driver, because there is no such state here.
 road affords ([`LaneOccupancy`](../../../../world/road/LaneOccupancy.cs)); a car behind another is running
 its line on a shorter road, which is `P-4` and needs no entry of its own.
 
-**Nor is stopping at a crossing.** The stop short of somebody on the paint (`TER-4c.1`, `TER-5e`) is a
-term of the same speed profile, so a car at a zebra is `P-4` on the road the zebra left it.
+**Nor is stopping at a crossing.** Somebody on the paint is a body standing on the lane and cuts the road
+this car was granted (`TER-4c.1`, `TER-5e`), so a car at a zebra is `P-4` on the road that body left it —
+the same answer a queue gets, and no rule of the paint's own.
 
 The pages below say **when an entry is the right thing to do, what it delivers, and the state either side
 of it**. How each one is written is its own file's XML docs; why any of it reads this way is
@@ -61,8 +62,8 @@ reused, so a code printed by a trace resolves to the same entry it always did.
 drivable and the router priced it out of reach from the day it was written. Coming back the way you came is
 now a bay's (`GEN-4l`) or `P-19`'s — [decision-log.md](decision-log.md).
 
-**`P-12` was the crossing, and what retired it is that a car slows at one without being told to**: the
-stop short of somebody on the paint is the ground it was granted (`TER-4c.1`, `TER-5e`), a term of a
+**`P-12` was the crossing, and what retired it is that a car slows at one without being told to**: what
+stops short of somebody on the paint is the ground it was granted (`TER-4c.1`, `TER-5e`), a term of a
 profile taken every tick. The entry set no limits, drove no
 geometry and had no bound of its own — it named the term that had already won and handed the car back when
 the paint was behind it, which is `P-4` with a second name on it —

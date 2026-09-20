@@ -169,6 +169,15 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     public int NearestEdge(Vector2 pointM, out float alongM) => _nearest.Nearest(pointM, out alongM);
 
     /// <summary>
+    /// <b>Every lane passing within <paramref name="radiusM"/> of a place</b>, and how far along each of them
+    /// that place stands. It is how the lane beside one is found (<see cref="Reverse"/> being none): the two
+    /// lanes of a pavement are a lane's width apart, so a body standing on either is within a pavement of both.
+    /// </summary>
+    /// <returns>How many there were, which may be more than the room given — the extras are not written.</returns>
+    public int EdgesNear(Vector2 pointM, float radiusM, Span<int> into, Span<float> alongM) =>
+        _nearest.Near(pointM, radiusM, into, alongM);
+
+    /// <summary>
     /// <b>Lays the graph off the town's pavement</b> (WLK-1, <see cref="PavementLanes"/>): every lane of
     /// every course, as the pieces its own move came back with.
     /// </summary>

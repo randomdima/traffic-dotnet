@@ -293,23 +293,28 @@ internal static class UnitReadout
 
         rows.Keep(in line);
 
-        line = rows.Next("line");
-        line.Add(people.WalkedCount[person] - people.WalkedTaken[person]);
-        line.Add(" points left");
-        if (people.WalkedRunsOut[person]) line.Add(", runs out");
+        line = rows.Next("route");
+        line.Add(people.RouteCount[person] - people.RouteTaken[person]);
+        line.Add(" ways left");
+        if (people.RouteRunsOut[person]) line.Add(", runs out");
         rows.Keep(in line);
 
-        // Where on the network the body stands, which is what says which of PER-25's two walks it is on:
-        // a way of the pavement, or none of them and a straight back onto it.
+        // Which of PER-25's two walks it is on: a way of the pavement, or none of them and a straight back
+        // onto it. <b>Asked of the route and not of <see cref="PersonFleet.OnWay"/></b> — that one is where
+        // the town agreed the body is standing, and it is empty for the stretch at the start of a leg spent
+        // crossing to the far lane of a pavement, which is a walk down a way like any other.
         line = rows.Next("on");
-        if (people.OnWay[person] == PersonFleet.NoWay) line.Add("no way of the network");
+        var walkedWay = people.CurrentRouteWay(person);
+        if (walkedWay == PersonFleet.NoWay) line.Add("no way of the network");
         else
         {
             line.Add("way ");
-            line.Add(people.OnWay[person]);
+            line.Add(walkedWay);
             line.Add(" at ");
             line.Add(people.OnWayM[person], "F1");
-            line.Add(" m");
+            line.Add(" m, ");
+            line.Add(people.OffWayM[person], "F1");
+            line.Add(" m off");
         }
 
         rows.Keep(in line);

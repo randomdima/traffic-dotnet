@@ -52,7 +52,7 @@ does not make the junction safer, it makes the phase useless: a box that takes o
 queue crossing on green in single file. A phase greens arms that are not driven over each other, so a car
 on a green is refused only by ground the phase never spoke about. What stays standing besides is
 everything that is not a duplicate of the signal — the headway reading, the stranded-in-the-box refusal,
-the stop line, and the yield to anybody on the paint.
+and the stop line.
 **Before adding a rule that slows a car at a junction, ask what has already refused the movement it is
 guarding against** (SIM-7).
 

@@ -27,15 +27,12 @@ rather than read, the same fact costs a body a fan of claims across ways it will
 ground of a box belongs to whoever aimed at it rather than to whoever is on it.
 
 **And the pavement is not a second town.** A zebra is a walk laid over a carriageway — the same ground is a
-band of a crossing way and a stretch of a lane — so the rule above is the rule here with the kinds swapped. A
-car writes the stretch of its own lane and nothing at all on the paint; a walker writes the band of the lane
-it is standing in and the band it has been granted, and nothing of a lane it has not asked for. Each reads
-the other on the way that ground belongs to, through the town's own table of where every lane falls on
-every crossing way. **The carriageway under a crossing has one claim and one owner**, which is what stops one
-piece of ground being two records that can disagree about who has it — and **the walk over it is still the
-walk's**, so a body on foot standing on the paint holds a stretch of the crossing way like any other ground
-it stands on. Nothing else reads that stretch: the look-up the paint replaces is about the traffic that is
-*coming*, and somebody standing in a lane is not an answer to it.
+stretch of a crossing way and a stretch of a lane — so the rule above is the rule here with the kinds
+swapped. **Each body writes what it covers of every way it is touching, of either network**: a walker on the
+paint holds its stretch of the crossing way it is walking and its stretch of the lane beneath, because it is
+standing on both, and a car holds the lane it is driving. Neither is granted anything by the paint and
+neither reads a table to find the other — one piece of ground carries one claim per way, and a body that is
+on two ways is on two ways.
 
 **Ground of one kind that no other kind runs over is the other case, and there the kind of body decides
 nothing.** A footway is not carriageway, a lane is not pavement and a bay is neither, so whoever is standing
@@ -121,10 +118,15 @@ leaving and a turn across the oncoming stream on the connector it is entering, a
 ways — and it is a fact about the movement, worked out once with the town from the turn that movement makes.
 **Straighter is stronger**: a stream that turns out of nobody's way, then the near-side turn, which crosses
 nothing of its own carriageway, and last the turn across the oncoming stream (TER-4a), which is the weakest
-movement a box admits because it is the last one there is (TER-5f). **A body on a crossing's paint has
-the right of way over the traffic in the lanes it is painted across**, which is what the paint is for.
+movement a box admits because it is the last one there is (TER-5f).
 Everything else — every stretch of way that is not a movement through a box — is ordinary traffic, neither
 given way to nor taken from.
+
+**A body on foot carries no rank, on a crossing's paint as anywhere else.** It is a body standing on the
+lane under it and holds what its own box covers of that lane (TER-4c.2), so the traffic is held off it by
+the grant that stretch cuts and by nothing further — the same hold a wreck, a parked car and somebody
+knocked down all have. **What the paint is for is that a car may not come to rest on it**, which is a rule
+about where a queue stops and not a right anybody carries.
 
 **Above all of those stand two ranks a road does not carry of itself.** A **closed road** is ground an
 officer is holding beside it ([agents/service](../../../agents/service/docs/requirements.md), `SRV-6`),
@@ -253,10 +255,9 @@ refusal there it stops the car in front of a rescue dead, which leaves the rescu
 an empty road.
 
 **And a body on foot states ground the same way** (`PER-26`), which is the whole of what a walker has
-instead of a grant: the pavement it is walking at, and the band of the crossing it is stepping onto. **It
-is not this rule's own arithmetic** — a walker has no planned speed to hold and nothing to stop from — but
-it is the same level of the same ladder, so what a stated band comes to is that the traffic under it ranks
-below the paint (TER-5e) and gives the ground up.
+instead of a grant: the pavement it is walking at, and nothing anywhere else. **It is not this rule's own
+arithmetic** — a walker has no planned speed to hold and nothing to stop from — and it is stated on the
+walking network alone, a statement on a carriageway being a standing this side of the town does not grant.
 
 **And the rank a car asks a box's ground with is the rank it will hold that ground at.** A body past the
 point it could stop short of a box is going in whatever anybody has claimed, so it asks with the rank that says
@@ -307,8 +308,7 @@ rule releases it — it is re-laid from the pose every tick and it is gone the t
   under it, and a car standing in a bay is a stretch of every way that bay is worked off (`GEN-4f`) for the
   same reason and by the same walk. The one exception is the car on ground two networks share — a crossing is
   carriageway a walk runs over, so a car on the paint claims the road alone, and what holds a
-  walker off it is that stretch of the lane. A body on foot there writes both, because that look-up is never
-  asked about it.
+  walker off it is that stretch of the lane.
 - **Every stretch carries the span its holder covers across its way's own line**, which is the one thing it
   says about the third dimension and the whole of what makes the rule above affordable. A stretch has no
   width, so without it a way written onto is a way shut, and a town whose every turning car closed the lane
@@ -355,7 +355,7 @@ SIM-7 is about; one that could grant the same metre twice would be no mechanism 
   in: each is cut at the other's near edge and the answer is the same whichever is asked first.
 - **Ground nothing of the asker's own reaches is a claim ahead, and one is checked before it is laid** — the
   places another way is driven over the one a car has committed to, whether that way is a connector or
-  a bay's way out, and the band of a zebra a walker steps into. There is no tail to anchor the answer to, so
+  a bay's way out. There is no tail to anchor the answer to, so
   the other claims are asked first and the ground is taken only if the answer is yes.
 - **A body driving geometry of its own holds the sweep of it, not the pose it is passing through.** A
   template is laid over no way, so what its driver holds is every way the rest of that line runs over, from
@@ -453,10 +453,8 @@ over a wreck. Naming a second rule to refuse the same movement would make the fi
 of two rosters and the stretch carries which, so a car excluding itself by number does not also excuse the
 walker that happens to hold the same number.
 
-**A crossing is carriageway and not a unit**, on both sides: what a body has of a zebra is the band of it
-one lane wide that it is on. A car has the stretch of its own lane, which is the same stretch the rest of
-its road is and is claimed where the rest of its road is claimed — on the road, once. A walker has
-the band of the lane it stands in at p0, and states the band in front of it at p9 (`PER-26`).
-**A band is a stretch of ground like any other**, so the two sides of the paint are held apart by the answer
-that holds the rest of the town apart, and **neither of them is ever refused by the paint**: what a stated
-band comes to is the traffic under it being cut at ground it ranks below (TER-5e).
+**A crossing is carriageway and not a unit**, on both sides. A car has the stretch of its own lane, which is
+the same stretch the rest of its road is and is claimed where the rest of its road is claimed — on the road,
+once. A walker has what its own box covers of every way beneath it, the lane included, at p0 and at no other
+rank (`PER-26`). **The paint refuses nobody**: the two sides of it are held apart by the answer that holds
+the rest of the town apart, which is a body cutting the grant that runs over it (TER-5e).

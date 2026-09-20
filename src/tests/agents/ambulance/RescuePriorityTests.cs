@@ -33,7 +33,6 @@ public class RescuePriorityTests
     [InlineData((byte)1)]
     [InlineData((byte)2)]
     [InlineData((byte)3)]
-    [InlineData((byte)4)]
     public void AClaimBelowARescueDoesNotBindIt(byte theirs)
     {
         Assert.False(LaneOccupancy.Binds(Claim((RightOfWay)theirs), RightOfWay.Emergency));
@@ -45,22 +44,20 @@ public class RescuePriorityTests
     [InlineData((byte)1)]
     [InlineData((byte)2)]
     [InlineData((byte)3)]
-    [InlineData((byte)4)]
     public void ARescuesClaimBindsEverythingBelowIt(byte mine)
     {
         Assert.True(LaneOccupancy.Binds(Claim(RightOfWay.Emergency), (RightOfWay)mine));
     }
 
     /// <summary>
-    /// <b>SRV-6, both halves at once</b>: a closed road refuses every ordinary movement and the paint, and
-    /// does not refuse a vehicle answering a call. It is the whole mechanism of the closure — one rank in
-    /// one order — so it is asserted here beside the rescue's rather than in a slice of its own.
+    /// <b>SRV-6, both halves at once</b>: a closed road refuses every ordinary movement, and does not refuse
+    /// a vehicle answering a call. It is the whole mechanism of the closure — one rank in one order — so it
+    /// is asserted here beside the rescue's rather than in a slice of its own.
     /// </summary>
     [Theory]
     [InlineData((byte)0)]
     [InlineData((byte)1)]
     [InlineData((byte)2)]
-    [InlineData((byte)3)]
     public void AClosedRoadBindsOrdinaryTrafficAndNotACall(byte mine)
     {
         Assert.True(LaneOccupancy.Binds(Claim(RightOfWay.Closed), (RightOfWay)mine));
@@ -106,20 +103,21 @@ public class RescuePriorityTests
     /// one thing that could break it silently is somebody inserting a value in the wrong place.
     /// </summary>
     [Fact]
-    public void ARescueStandsBetweenThePaintAndACommittedBody()
+    public void ARescueStandsBetweenTheTrafficAndACommittedBody()
     {
-        Assert.True(RightOfWay.Emergency > RightOfWay.OnThePaint);
+        Assert.True(RightOfWay.Emergency > RightOfWay.StraightOn);
         Assert.True(RightOfWay.Emergency < RightOfWay.Committed);
     }
 
     /// <summary>
-    /// <b>And a closed road stands between the paint and a rescue</b> (SRV-6) — the one placing in the order
-    /// that gives a closure both of the things it is for, and the one an inserted value could silently move.
+    /// <b>And a closed road stands between the traffic and a rescue</b> (SRV-6) — the one placing in the
+    /// order that gives a closure both of the things it is for, and the one an inserted value could silently
+    /// move.
     /// </summary>
     [Fact]
-    public void AClosedRoadStandsBetweenThePaintAndARescue()
+    public void AClosedRoadStandsBetweenTheTrafficAndARescue()
     {
-        Assert.True(RightOfWay.Closed > RightOfWay.OnThePaint);
+        Assert.True(RightOfWay.Closed > RightOfWay.StraightOn);
         Assert.True(RightOfWay.Closed < RightOfWay.Emergency);
     }
 }

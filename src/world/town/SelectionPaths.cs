@@ -4,14 +4,17 @@ using TrafficSimulation.World.Routing;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// The room the interface plans a whole route into (CTL-1a): a slot for each unit the selection may hold,
-/// carrying the rest of the way past what that unit is holding itself, and what it was planned for.
+/// The room the interface draws a whole route out of (CTL-1a): a slot for each unit the selection may
+/// hold, carrying what that unit is holding itself, the rest of the way past it, and what that rest was
+/// planned for.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>Laid with the town, like everything else the frame reads.</b> A slot is planned again only when the
 /// question it answers changes — which for a body under way is when its own route is planned again, since
 /// what is asked of the network is the far end of the queue in hand and not where the body has got to.
+/// <b>What the body is holding is not planned at all</b> and carries no question beside it: it is read off
+/// the body and laid out again every frame, because it begins where the body has got to.
 /// </para>
 /// <para>
 /// <b>Its own searches, and not the tick's.</b> The two the drive and the walk use hold the links of the
@@ -37,7 +40,9 @@ internal sealed class SelectionPaths
 
     readonly int[] _lanes;
     readonly Vector2[] _points;
+    readonly Vector2[] _held;
     readonly int[] _count;
+    readonly int[] _heldCount;
     readonly Asked[] _asked;
 
     public SelectionPaths(int slots, TravelGraph driving, TravelGraph walking, int mostLinks)
@@ -46,27 +51,23 @@ internal sealed class SelectionPaths
         Walk = new RouteSearch(walking, mostEntries: 2, mostGoals: 2, mostLinks);
         _lanes = new int[slots * MostStretches];
         _points = new Vector2[slots * MostPoints];
+        _held = new Vector2[slots * MostPoints];
         _count = new int[slots];
+        _heldCount = new int[slots];
         _asked = new Asked[slots];
-        Crossing = new int[MostPoints];
-        Way = new int[MostPoints];
-        AlongM = new float[MostPoints];
+        Ways = new int[MostStretches];
     }
+
+    /// <summary>
+    /// The ways a walked route expands into before it is stationed into points — the walker's own chain
+    /// (<see cref="Routing.RouteChain"/>) in the interface's room. <b>Shared and not kept</b>, one slot
+    /// being planned at a time.
+    /// </summary>
+    public int[] Ways { get; }
 
     public RouteSearch Drive { get; }
 
     public RouteSearch Walk { get; }
-
-    /// <summary>
-    /// What a walked line is laid alongside its points — which crossing each stands on, which way of the
-    /// pavement, and how far along it. <b>Shared and not kept</b>: the interface draws the points and
-    /// nothing else, and the line is laid one slot at a time.
-    /// </summary>
-    public int[] Crossing { get; }
-
-    public int[] Way { get; }
-
-    public float[] AlongM { get; }
 
     public int Slots => _count.Length;
 
@@ -90,6 +91,19 @@ internal sealed class SelectionPaths
     public ReadOnlySpan<int> LanesHeld(int slot) => _lanes.AsSpan(slot * MostStretches, _count[slot]);
 
     public ReadOnlySpan<Vector2> PointsHeld(int slot) => _points.AsSpan(slot * MostPoints, _count[slot]);
+
+    /// <summary>
+    /// The room the points of the walk a body is <b>already holding</b> are stationed into, which is a
+    /// different span from the plan laid past it. <b>Stationed again every frame and never cached</b>: it
+    /// begins under the body, so the question it answers changes as the body walks — which is the car's
+    /// line being drawn live while only the lanes past it are planned once.
+    /// </summary>
+    public Span<Vector2> HeldPointsOf(int slot) => _held.AsSpan(slot * MostPoints, MostPoints);
+
+    public ReadOnlySpan<Vector2> HeldPoints(int slot) => _held.AsSpan(slot * MostPoints, _heldCount[slot]);
+
+    /// <summary>How many points this slot's held walk was stationed into, which is not a cached answer and has no question beside it.</summary>
+    public void Stationed(int slot, int count) => _heldCount[slot] = count;
 
     /// <summary>
     /// What a slot's path was planned for: the unit, where the path it is drawn past ends — the last lane

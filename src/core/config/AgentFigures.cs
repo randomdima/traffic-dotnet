@@ -575,16 +575,12 @@ internal sealed class PersonFigures
     public float StandstillGapInDiameters { get; init; } = 1f;
 
     /// <summary>
-    /// How much more of a crossing's paint a body on it claims than the paint and the body between them
-    /// measure. <b>A body on a zebra is anywhere along it before a driver arrives</b>, so what the traffic is
-    /// held off is the marked ground rather than the metre the walker happens to be standing on.
+    /// How far along the way in front of itself a walker looks, in bodies — what it aims at, and how far
+    /// either side of its own place the way is searched when the solver has pushed it about. It is the
+    /// whole of how closely a walk holds the ground's own curve: aimed at the point under its feet a body
+    /// never turns, and aimed a stretch ahead it cuts the bend between.
     /// </summary>
-    /// <remarks>
-    /// <b>The paint's and no longer the tarmac's.</b> A body on bare carriageway holds what its own box covers
-    /// of the ways under it and nothing more (<c>TownWorld.StandInTheRoad</c>): the ground a driver keeps off
-    /// it is that driver's own margin (SIM-7), so a second one on the walker's side is one gap kept twice.
-    /// </remarks>
-    public float RoadClaimMargin { get; init; } = 1.15f;
+    public float WalkAheadInDiameters { get; init; } = 2f;
 
     /// <summary>
     /// The brief random idle before drawing a destination, so a town's worth of people do not all set off
@@ -604,9 +600,9 @@ internal sealed class PersonFigures
     public float WalkWorthInBlockSpacings { get; init; } = 1f;
 
     /// <summary>
-    /// <b>How long a walker may get no nearer the point it is walking at before the leg is given up</b>
-    /// (PER-25). What ends one is the line being drawn somewhere else, so this is the time a body spends
-    /// being leaned on by a crowd or held against a wall before that is worth doing.
+    /// <b>How long a walker may get no nearer the end of the way it is walking before the leg is given
+    /// up</b> (PER-25). What ends one is the line being drawn somewhere else, so this is the time a body
+    /// spends being leaned on by a crowd or held against a wall before that is worth doing.
     /// </summary>
     /// <remarks>
     /// <b>It is not a driver's obstruction wait</b> (<see cref="LadderFigures.ObstructionWaitS"/>) and is

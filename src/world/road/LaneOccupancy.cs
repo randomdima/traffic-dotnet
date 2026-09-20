@@ -37,11 +37,8 @@ internal enum RightOfWay : byte
     /// <summary>Straight through, which turns out of nobody's way.</summary>
     StraightOn,
 
-    /// <summary>A body on a crossing's paint, which is what the paint is for.</summary>
-    OnThePaint,
-
     /// <summary>
-    /// <b>A road an officer has closed</b> (SRV-6). It outranks every ordinary movement and the paint, so
+    /// <b>A road an officer has closed</b> (SRV-6). It outranks every ordinary movement, so
     /// traffic is held short of the ground it is laid on — and it is <em>below</em>
     /// <see cref="Emergency"/>, which is the whole of what "the other services are let through" means: a
     /// vehicle answering a call is not refused by it and needs to know nothing about why.
@@ -54,9 +51,9 @@ internal enum RightOfWay : byte
     Closed,
 
     /// <summary>
-    /// <b>An ambulance answering a call</b> (AMB-4). It outranks every ordinary movement and the paint
-    /// alike, which is the whole of what "every other agent gives way" means here: ground an ambulance
-    /// asks for stops being anybody else's to claim.
+    /// <b>An ambulance answering a call</b> (AMB-4). It outranks every ordinary movement, which is the
+    /// whole of what "every other agent gives way" means here: ground an ambulance asks for stops being
+    /// anybody else's to claim.
     /// </summary>
     /// <remarks>
     /// <b>It is still only a rank and takes only what a rank may take</b> — a claim, which its holder has

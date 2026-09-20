@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.Hud;
 using TrafficSimulation.App.PlayerControl;
 using TrafficSimulation.Bench;
@@ -114,6 +115,17 @@ internal sealed class DriveHands(
 
             case DriveVerb.Cars:
                 List(step.PointM);
+                break;
+
+            case DriveVerb.People:
+                ListPeople(step.PointM);
+                break;
+
+            case DriveVerb.SelectWalker:
+                // A walker is picked where it stands like a car is, and a body walks — so the nearest one
+                // is named at the tick the step runs and handed straight to the pick, which is the one
+                // place a script can hold a moving body still enough to click on.
+                Pick(Under(world.People.PositionM[NearestWalker(step.PointM, step.Line)], step.Line));
                 break;
 
             case DriveVerb.LookAt:
@@ -265,6 +277,53 @@ internal sealed class DriveHands(
                 $"car {car,-5} {distanceM,7:F1} m away at {cars.PositionM[car].X:F1},{cars.PositionM[car].Y:F1}  " +
                 $"{CarCatalog.Shared.Variants[cars.Variant[car]].Id,-14} {DrivingWords.CarName(cars, car)}");
         }
+    }
+
+    /// <summary>
+    /// The walkers nearest a place, which is the car listing's twin — <b>what a script needs before it can
+    /// pick one out</b>, a body being a thing that has moved by the time a reader has found it in a frame.
+    /// </summary>
+    void ListPeople(Vector2 pointM)
+    {
+        var people = world.People;
+        var near = new List<(float DistanceM, int Person)>(people.Count);
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (people.Inside[person].Any) continue;
+
+            near.Add(((people.PositionM[person] - pointM).Length(), person));
+        }
+
+        near.Sort((left, right) => left.DistanceM.CompareTo(right.DistanceM));
+        foreach (var (distanceM, person) in near.Take(CarsListed))
+        {
+            _told.Add(
+                $"walker {person,-5} {distanceM,7:F1} m away at {people.PositionM[person].X:F1}," +
+                $"{people.PositionM[person].Y:F1}  {WalkingWords.StageName(people.Stage[person]),-18} " +
+                $"{WalkingWords.WalkName(people, person)}");
+        }
+    }
+
+    /// <summary>The walker standing nearest a place, out of doors — one indoors is not in the town to be picked.</summary>
+    int NearestWalker(Vector2 pointM, int line)
+    {
+        var people = world.People;
+        var nearest = -1;
+        var nearestSq = float.MaxValue;
+        for (var person = 0; person < people.Count; person++)
+        {
+            if (people.Inside[person].Any) continue;
+
+            var distanceSq = (people.PositionM[person] - pointM).LengthSquared();
+            if (distanceSq >= nearestSq) continue;
+
+            nearest = person;
+            nearestSq = distanceSq;
+        }
+
+        return nearest >= 0
+            ? nearest
+            : throw new ArgumentException($"drive step at line {line}: {map} has nobody out of doors.");
     }
 
     /// <summary>Whatever the drive is driving, or a refusal: a hand with nothing picked out reaches nothing.</summary>

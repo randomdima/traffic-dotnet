@@ -41,11 +41,14 @@ internal static class WalkerFollower
         float terrainCoefficient, bool onFeet, float massKg, float dtS)
     {
         var toAim = aimM - positionM;
-        var heading = toAim.LengthSquared() > 1e-8f
+        var somewhereToGo = toAim.LengthSquared() > 1e-8f;
+        var heading = somewhereToGo
             ? TurnToward(headingRad, MathF.Atan2(toAim.Y, toAim.X), config.PersonTurnRateDegPerS * MathF.PI / 180f * dtS)
             : headingRad;
 
-        var desired = moving
+        // <b>An aim under the body is a stand</b>, the same as being asked for none: a walker with nowhere
+        // to be does not carry on the way it was last pointed until something else stops it.
+        var desired = moving && somewhereToGo
             ? Heading.Unit(heading) * config.PersonWalkSpeedMps * terrainCoefficient
             : Vector2.Zero;
 

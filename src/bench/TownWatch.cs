@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.World.Road;
@@ -67,8 +68,13 @@ internal sealed class TownWatch : ScenarioWatch
     int _pastBody = -1;
 
     long _gaveUpBefore = -1;
+    long _setDownBefore = -1;
     long _carTicks;
     long _stoodUnclocked;
+
+    readonly Vector2[] _stillFromM;
+    readonly int[] _stillForTicks;
+    int _longestStillTicks;
 
     /// <summary>How long one tick is, which is what turns a speed into the metres a car covered in it.</summary>
     readonly float _tickSeconds;
@@ -84,6 +90,8 @@ internal sealed class TownWatch : ScenarioWatch
         _pastM = new float[_overlapM.Length];
         _wasPastM = new float[_overlapM.Length];
         _pastForTicks = new int[_overlapM.Length];
+        _stillFromM = new Vector2[world.People.Count];
+        _stillForTicks = new int[world.People.Count];
     }
 
     /// <summary>The roster these figures were taken over, because a figure with no census beside it says nothing.</summary>
@@ -134,6 +142,16 @@ internal sealed class TownWatch : ScenarioWatch
     public float DrivenM { get; private set; }
 
     public long WalksGivenUp { get; private set; }
+
+    /// <summary>And how many of those had to be lifted back onto the pavement to walk at all (PER-8).</summary>
+    public long WalkersSetDown { get; private set; }
+
+    /// <summary>
+    /// <b>The longest any one walker has gone on walking without getting anywhere</b> — the reading that
+    /// says whether the give-up clock is doing its work. A body wedged where its straight back to the
+    /// pavement runs through a wall reports the whole run here, and nothing else in the town notices it.
+    /// </summary>
+    public int LongestStillTicks => _longestStillTicks;
 
     public long Touches { get; private set; }
 
@@ -207,7 +225,11 @@ internal sealed class TownWatch : ScenarioWatch
                 into.Add((long)DrivenM);
                 into.Add(" m driven, ");
                 into.Add(WalksGivenUp);
-                into.Add(" walks given up");
+                into.Add(" walks given up, ");
+                into.Add(WalkersSetDown);
+                into.Add(" set back on the pavement, longest ");
+                into.Add(_longestStillTicks * _tickSeconds, "F0");
+                into.Add(" s walking nowhere");
                 break;
 
             case WhatItCost:
@@ -274,6 +296,7 @@ internal sealed class TownWatch : ScenarioWatch
         // What the town had already given up on when this watch began, so what is quoted is what happened
         // while it was watching and not what the warm-up before it did.
         if (_gaveUpBefore < 0) _gaveUpBefore = world.WalksGivenUp;
+        if (_setDownBefore < 0) _setDownBefore = world.WalkersSetDown;
 
         _ticks++;
         SoakProbe.SweepOverlaps(world, _overlapM);
@@ -323,6 +346,25 @@ internal sealed class TownWatch : ScenarioWatch
         }
 
         WalksGivenUp = world.WalksGivenUp - _gaveUpBefore;
+        WalkersSetDown = world.WalkersSetDown - _setDownBefore;
+
+        // <b>How long a walker has been walking and getting nowhere</b>, which is the one thing about the
+        // walking that nothing else in the town reports: every other figure here counts an event, and a
+        // body that is never given up and never arrives raises none of them.
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            var people = world.People;
+            var afoot = people.Acts(person) && people.Walking[person] && !people.Inside[person].Any;
+            if (!afoot || (people.PositionM[person] - _stillFromM[person]).Length() > StuckProbe.MovedM)
+            {
+                _stillFromM[person] = people.PositionM[person];
+                _stillForTicks[person] = 0;
+                continue;
+            }
+
+            _stillForTicks[person]++;
+            _longestStillTicks = Math.Max(_longestStillTicks, _stillForTicks[person]);
+        }
 
         var drivenM = 0f;
         for (var car = 0; car < world.Cars.Count; car++)

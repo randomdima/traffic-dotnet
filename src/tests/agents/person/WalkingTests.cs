@@ -1,11 +1,14 @@
+using System.Numerics;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
 using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
+using TrafficSimulation.World.Routing;
 using TrafficSimulation.World.Town;
 using Xunit;
 
@@ -49,9 +52,18 @@ public class WalkingTests
     /// takes (TER-5g, p0) — which is the whole of what stops a driver reaching it.
     /// </summary>
     /// <remarks>
-    /// <b>Asked of the way the body is stationed on</b> and not of every way in the town: where a walker
-    /// stands on the network is what the town itself read off the line (<see cref="PersonFleet.OnWay"/>),
-    /// so a walker on a way that held nothing there is the claim missing rather than the reading differing.
+    /// <para>
+    /// <b>Asked of whether the claim is there and not of which way carries it.</b> Two answers decide
+    /// that: the route says which way a body is <em>walking</em> (<see cref="PersonFleet.OnWay"/>) and the
+    /// ground walk says which ways its box is <em>over</em>, and where two of the town's lines run within
+    /// a body's width of each other — courses meeting, a crossing's mouth — the two name different ways
+    /// for the same patch of ground and both are right. Asserting they agree asserted a coincidence.
+    /// </para>
+    /// <para>
+    /// <b>What the claim covering an exact metre is worth is asked where the metre is known</b>, which is
+    /// <see cref="AWalkerInALaneHoldsTheGroundItIsStandingOn"/> — a body stood on a lane's own centreline
+    /// by construction, so there is nothing for a second reading to differ about.
+    /// </para>
     /// </remarks>
     [Fact]
     public void AWalkerOutOfDoorsHoldsTheGroundItStandsOn()
@@ -60,12 +72,10 @@ public class WalkingTests
 
         foreach (var person in afoot)
         {
-            var way = world.People.OnWay[person];
-            var alongM = world.People.OnWayM[person];
-
             Assert.True(
-                Holds(world, way, person, ClaimPriority.Hard, alongM),
-                $"walker {person} stands at {alongM:F1} m of way {way} and holds none of it");
+                HoldsAnyPavement(world, person),
+                $"walker {person} is out of doors at {world.People.OnWayM[person]:F1} m of way " +
+                $"{world.People.OnWay[person]} and holds no ground at all");
         }
     }
 
@@ -122,7 +132,6 @@ public class WalkingTests
             {
                 ref readonly var claim = ref claims[at];
                 if (claim.Of != LaneRoster.Walking || claim.Priority != ClaimPriority.Soft) continue;
-                if (claim.Right == RightOfWay.OnThePaint) continue;
 
                 Assert.True(
                     world.People.OnWay[claim.Occupant] != PersonFleet.NoWay,
@@ -132,28 +141,177 @@ public class WalkingTests
     }
 
     /// <summary>
-    /// <b>PER-25: a walk begins on the network.</b> Whatever ground a body is standing on when its line is
-    /// laid, the first point of that line is a place on the pavement's own network — which is what makes
-    /// the leg off it a straight back onto the walk rather than a line struck out across the town.
+    /// <b>PER-25: a body that is walking is walking a route.</b> A search that comes back with nothing is
+    /// a leg that cannot be walked at all — and a body sent off at its goal regardless walks the straight
+    /// line to it over whatever lies between, a carriageway included, which is the one thing the pavement
+    /// network exists to stop.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of every walker and not only the ones on a way</b>, because what it refuses is precisely a
+    /// body walking while it holds nothing to walk: the goal getting nearer every tick keeps the give-up
+    /// clock from ever running up, so nothing else in the town would ever notice.
+    /// </remarks>
+    [Fact]
+    public void ABodyThatIsWalkingIsWalkingARoute()
+    {
+        using var world = Walking(out _);
+
+        var walking = 0;
+        for (var person = 0; person < world.People.Count; person++)
+        {
+            if (!world.People.Walking[person]) continue;
+
+            Assert.True(
+                world.People.RouteCount[person] > 0,
+                $"walker {person} is walking with no route to walk");
+            walking++;
+        }
+
+        Assert.True(walking > 0, "nobody in the town was walking, so nothing was asked");
+    }
+
+    /// <summary>
+    /// <b>And the way it is on is a way of that route</b>: a walker is seated on the chain it holds and
+    /// carried along it, so where it stands on the network is read and never searched for.
     /// </summary>
     [Fact]
-    public void EveryWalkBeginsAtAPointOfTheNetwork()
+    public void AWalkerStandsOnTheWayOfItsRouteItHasTaken()
     {
         using var world = Walking(out var afoot);
 
-        var walked = 0;
         foreach (var person in afoot)
         {
-            if (world.People.WalkedCount[person] == 0) continue;
+            var route = world.People.RouteOf(person);
+            var at = world.People.RouteAt(person);
 
-            var ways = world.People.WalkedWayOf(person);
+            Assert.InRange(at, 0, world.People.RouteCount[person] - 1);
+            Assert.Equal(route[at], world.People.CurrentRouteWay(person));
+        }
+    }
+
+    /// <summary>
+    /// <b>CTL-1a: what is drawn for a walker is the walk it is holding.</b> The picture sets off the way
+    /// the body is going — the first point of it lies on the side the follower is aiming at and never back
+    /// past the body.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is the one thing a re-plan drawn beside the body gets wrong, and it gets it wrong often.</b>
+    /// The pavement offers a walk both ways along the stretch a body stands on
+    /// (<see cref="WalkingNetwork.EntriesNear"/>), so a search run again from under a walker is free to
+    /// answer with the lane running back — and then the line drawn is a U-turn across the pavement while
+    /// the body walks on down the chain it is actually holding.
+    /// </remarks>
+    [Fact]
+    public void TheWalkDrawnForAWalkerSetsOffTheWayTheBodyIsWalking()
+    {
+        using var world = Walking(out var afoot);
+
+        var drawn = 0;
+        foreach (var person in afoot)
+        {
+            var atM = world.People.PositionM[person];
+            var aim = world.People.DestinationM[person] - atM;
+            var points = world.WalkHeld(slot: 0, person);
+            if (points.Length == 0 || aim.LengthSquared() < 1e-6f) continue;
+
             Assert.True(
-                ways[0] != WalkedLine.NoWay,
-                $"walker {person} was laid a line whose first point stands on no way of the network");
-            walked++;
+                Vector2.Dot(Vector2.Normalize(points[0] - atM), Vector2.Normalize(aim)) > 0f,
+                $"the walk drawn for walker {person} sets off at {points[0] - atM} while the body walks at {aim}");
+            drawn++;
         }
 
-        Assert.True(walked > 0, "nobody in the town was carrying a line to be asked about");
+        Assert.True(drawn > 0, "no walker of the town had a walk to draw, so nothing was asked");
+    }
+
+    /// <summary>
+    /// <b>A walker standing on the pavement is offered both ways along it</b> (WLK-8): the lane it stands
+    /// nearest and the lane beside it running back, so a search may send it either way. A walker has no
+    /// lane of its own to be pointing along, and offered one it could only ever go the way that lane
+    /// happened to run — putting anything behind it a lap of the ring away.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two links and not two readings of one.</b> A pavement is two one-way lines a lane's width apart
+    /// (<see cref="FootGraph.Reverse"/> is none), so the second entry is a stretch of its own — and where
+    /// the two offered were the same link, nothing would have been offered at all.
+    /// </remarks>
+    [Fact]
+    public void AWalkerIsOfferedBothWaysAlongThePavement()
+    {
+        using var world = Walking(out var afoot);
+
+        var entries = new RouteEntry[2];
+        foreach (var person in afoot)
+        {
+            var count = world.Walking.EntriesNear(world.People.PositionM[person], entries);
+
+            Assert.True(count == 2, $"walker {person} was offered {count} ways onto the network rather than two");
+            Assert.True(
+                entries[0].Link != entries[1].Link,
+                $"walker {person} was offered link {entries[0].Link} twice");
+        }
+    }
+
+    /// <summary>
+    /// <b>A walker standing on a carriageway holds the lane under it</b> (PER-26, TER-4c.2) — which since
+    /// the paint stopped carrying a rank of its own is the whole of what stops a driver reaching somebody
+    /// crossing the road. <b>On a zebra or on bare tarmac alike</b>: the claim is laid from the body's own
+    /// box off the ways beneath it, and what is painted there is not a question it asks.
+    /// </summary>
+    /// <remarks>
+    /// <b>Stood on the lane's own line rather than found there</b>, because whether a town's walk happens
+    /// to take somebody into a road within the ticks a town-tier case affords is not what this is asking —
+    /// and a body sampled off the centreline is on that lane by construction, so the case fails for the
+    /// claim being missing and for nothing else.
+    /// </remarks>
+    [Fact]
+    public void AWalkerInALaneHoldsTheGroundItIsStandingOn()
+    {
+        using var world = Walking(out var afoot);
+
+        var person = afoot[0];
+        var lane = LongestLane(world.Roads);
+        var alongM = world.Roads.LaneLengthM[lane] * 0.5f;
+
+        world.People.PositionM[person] = Spline.SampleAt(world.Roads.ArcsOf(lane), alongM).PositionM;
+        world.People.VelocityMps[person] = Vector2.Zero;
+        world.RebuildProximityIndex();
+
+        var way = world.Ways.OfRoadLane(lane);
+        Assert.True(
+            Holds(world, way, person, ClaimPriority.Hard, alongM),
+            $"walker {person} stands in lane {lane} at {alongM:F1} m and holds none of it");
+    }
+
+    /// <summary>The lane with the most room to stand a body in the middle of, so no case is a question about length.</summary>
+    static int LongestLane(RoadGraph roads)
+    {
+        var best = 0;
+        for (var lane = 1; lane < roads.LaneCount; lane++)
+        {
+            if (roads.LaneLengthM[lane] > roads.LaneLengthM[best]) best = lane;
+        }
+
+        return best;
+    }
+
+    /// <summary>Whether this body holds a stretch of any way of the pavement at p0, which is PER-26's first claim.</summary>
+    static bool HoldsAnyPavement(TownWorld world, int person)
+    {
+        var claims = new LaneClaim[MostClaimsOnAWay];
+        foreach (var way in world.Occupancy.OccupiedWays)
+        {
+            if (world.Ways.KindOf(way) is not (WayKind.Footway or WayKind.Mitre)) continue;
+
+            var count = world.Occupancy.CopyTo(way, claims);
+            for (var at = 0; at < count; at++)
+            {
+                ref readonly var claim = ref claims[at];
+                if (claim.Occupant != person || claim.Of != LaneRoster.Walking) continue;
+                if (claim.Priority == ClaimPriority.Hard) return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Whether this body holds a stretch of that way covering that metre, at that rank.</summary>

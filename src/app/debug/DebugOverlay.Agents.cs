@@ -6,6 +6,7 @@ using TrafficSimulation.App.Screen;
 using TrafficSimulation.Runtime;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
@@ -42,46 +43,65 @@ internal sealed partial class DebugOverlay
 
             if (!people.Walking[person]) continue;
 
-            // OBS-2h for a walker, which is OBS-2h for a car in the walking network's own words: the points
-            // of a walked line carry which crossing each stands on, so a run sharing one crossing is one
-            // pavement up to the kerb it stops at or one crossing of one road — the walker's lane. Two of
-            // them, the one being walked and the one it leads onto, and the point between them is a dot.
-            var count = people.WalkedCount[person];
-            var at = people.WalkedAt(person);
+            // OBS-2h for a walker, which is OBS-2h for a car in the walking network's own words: <b>the
+            // way it is walking and the one that way leads onto</b>, and the dot between them is where it
+            // hands over. A walker holds a route as ways and is held on each way's own arc, so what is
+            // drawn is sampled off that arc rather than read out of the body.
+            var route = people.RouteOf(person);
+            var at = people.RouteAt(person);
+            var count = people.RouteCount[person];
             if (at < 0 || at >= count) continue;
 
-            var points = people.WalkedLineOf(person);
-            var crossings = people.WalkedCrossingOf(person);
-
-            // A body standing on the point it is walking at has finished that stretch and is about to be
-            // handed the next one — a kerb is where this is always true, because that is what waiting to
-            // cross is. Drawn from the point underfoot the stretch is a dot, so the stretch in hand is the
-            // one starting at the first point the body is not already standing on.
-            while (at < count - 1 && (points[at] - atM).Length() <= people.RadiusM[person]) at++;
-
-            var crossing = crossings[at];
-            var stretches = 1;
+            var walking = world.Walking;
             var fromM = atM;
             draw.DiscM(fromM, PathMarks.EndDiscM, colour);
-            PathMarks.Chevroned(ref draw, fromM, points[at], pitchM, colour);
-            fromM = points[at];
-            for (var point = at + 1; point < count; point++)
+
+            for (var slot = at; slot < count && slot < at + StretchesDrawn; slot++)
             {
-                if (crossings[point] != crossing)
-                {
-                    if (++stretches > StretchesDrawn) break;
+                var way = route[slot];
+                walking.SpanOfWay(
+                    slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, way,
+                    slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out var startM, out var endM);
 
-                    draw.DiscM(fromM, PathMarks.JoinDiscM, colour);
-                    crossing = crossings[point];
-                }
+                if (slot == count - 1) endM = MathF.Min(endM, people.RouteToM[person]);
+                if (slot == at) startM = MathF.Max(startM, people.OnWayM[person]);
+                if (slot > at) draw.DiscM(fromM, PathMarks.JoinDiscM, colour);
 
-                PathMarks.Chevroned(ref draw, fromM, points[point], pitchM, colour);
-                fromM = points[point];
+                fromM = Chevroned(ref draw, walking.WayArcs(way), startM, endM, fromM, pitchM, colour);
             }
 
             draw.DiscM(fromM, PathMarks.EndDiscM, colour);
         }
     }
+
+    /// <summary>
+    /// Chevrons along one way's own arc between two distances, and answers where it got to. <b>Sampled for
+    /// the picture</b>: a screen draws straights and the ground is arcs, which is the one place that
+    /// difference belongs.
+    /// </summary>
+    static Vector2 Chevroned(
+        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, Vector2 atM, float pitchM,
+        Vector4 colour)
+    {
+        if (arcs.Length == 0) return atM;
+
+        for (var alongM = fromM; alongM < toM;)
+        {
+            alongM = MathF.Min(alongM + DrawnStepM, toM);
+            var pointM = Spline.SampleAt(arcs, alongM).PositionM;
+            PathMarks.Chevroned(ref draw, atM, pointM, pitchM, colour);
+            atM = pointM;
+        }
+
+        return atM;
+    }
+
+    /// <summary>
+    /// How far apart a drawn way is sampled, which is a picture's tolerance and not the town's — <b>the
+    /// same step the interface stations a whole walk at</b> (<see cref="WalkedLine.StepM"/>), because it is
+    /// the same ground converted from arcs to straights for the same reason.
+    /// </summary>
+    const float DrawnStepM = WalkedLine.StepM;
 
     /// <summary>
     /// The cars: the two pieces of route each is driving, what it found ahead of it and where it

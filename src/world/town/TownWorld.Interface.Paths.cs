@@ -51,10 +51,49 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The points past the end of the line this walker is holding, out to where it is going — nothing
-    /// where the line already reaches it (<see cref="PersonFleet.WalkedRunsOut"/>).
+    /// <b>The walk this body is already holding</b>, as the points a picture is drawn through: the ways of
+    /// its own chain still to be walked (<see cref="PersonFleet.RouteWays"/>), from where it stands on the
+    /// one it is on to where the chain stops. <b>The walker's <c>LineOf</c></b> — what a car's assembled
+    /// line is to <see cref="RouteBeyond"/>, this is to <see cref="WalkBeyond"/>.
     /// </summary>
-    /// <param name="fromM">The last point of that line, which is where the rest of the walk is laid from.</param>
+    /// <remarks>
+    /// <b>Stationed rather than planned</b>, so it is neither a search nor a second opinion: a walker holds
+    /// ways and is held on each way's own arc, and the straights between the points written here exist only
+    /// because a screen draws straights (<see cref="WalkedLine"/>). It is laid again every frame because it
+    /// begins under the body.
+    /// </remarks>
+    public ReadOnlySpan<Vector2> WalkHeld(int slot, int person)
+    {
+        if (slot < 0 || slot >= _paths.Slots) return default;
+
+        var route = People.RouteOf(person);
+        var at = People.RouteAt(person);
+        var count = People.RouteCount[person];
+        if (at < 0 || at >= count)
+        {
+            _paths.Stationed(slot, 0);
+            return default;
+        }
+
+        _paths.Stationed(
+            slot,
+            WalkedLine.Station(
+                Walking, route[at..count], People.OnWayM[person], People.RouteToM[person],
+                _config.Network.SplineToleranceWalkedM, _paths.HeldPointsOf(slot), out _));
+
+        return _paths.HeldPoints(slot);
+    }
+
+    /// <summary>
+    /// The walk past the end of the chain this body is holding, out to where it is going — nothing where
+    /// the chain it holds already ends there (<see cref="PersonFleet.RouteRunsOut"/>, which is what the
+    /// caller asks before it asks this).
+    /// </summary>
+    /// <param name="fromM">
+    /// Where the rest is planned from, which is the end of the chain in hand and <b>not the body</b>: asked
+    /// from under a body that is walking, this is a search a frame — and the answer to a question the town
+    /// is not asking, since what the body will do next is plan from where its chain stops.
+    /// </param>
     public ReadOnlySpan<Vector2> WalkBeyond(int slot, int person, Vector2 fromM)
     {
         if (slot < 0 || slot >= _paths.Slots) return default;
@@ -80,23 +119,27 @@ internal sealed partial class TownWorld
         if (!Cars.HasDestination[car]) return 0;
 
         var search = _paths.Drive;
-        var goalCount = RouteGoalsFor(car, search.Goals, out var goalPointM);
+        var goalCount = RouteGoalsFor(car, search.Goals);
         if (goalCount == 0) return 0;
 
         search.Entries[0] = _driving.EntryOnLane(fromLane, _roads.LaneLengthM[fromLane]);
         if (search.Entries[0].Link == TravelGraph.NoLink) return 0;
 
-        var linkCount = search.Plan(1, goalCount, goalPointM, _surcharges, out var goalSlot);
+        var linkCount = search.Plan(1, goalCount, _surcharges, out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return 0;
 
         return LayRouteLanes(fromLane, search.Links(linkCount), search.Goals[goalSlot], into, out _, out _);
     }
 
     /// <summary>
-    /// The rest of the walk from <paramref name="fromM"/>, laid as the same points
-    /// <see cref="LayWalk"/> lays — the goal itself is not one of them, because the hop off the network
-    /// onto it is the last thing the walker's own line does and the goal already carries its own mark.
+    /// The rest of the walk from <paramref name="fromM"/>: <b>the walker's own steps</b> — one search, one
+    /// expansion into ways (<see cref="RouteChain"/>) — and then those ways stationed into the points a
+    /// picture is drawn through, which is the one thing the interface wants that a body does not.
     /// </summary>
+    /// <remarks>
+    /// The goal itself is not one of them, the hop off the network onto it being the last thing a walk
+    /// does and the goal already carrying its own mark.
+    /// </remarks>
     int PlanTheRestOfTheWalk(int person, Vector2 fromM, Span<Vector2> into)
     {
         var walking = Walking;
@@ -106,20 +149,24 @@ internal sealed partial class TownWorld
         var goalCount = walking.GoalsAt(goalM, search.Goals);
         if (entryCount == 0 || goalCount == 0) return 0;
 
-        var linkCount = search.Plan(entryCount, goalCount, goalM, _surcharges, out var goalSlot);
+        var linkCount = search.Plan(entryCount, goalCount, _surcharges, out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return 0;
 
-        // Which of the two ways along its own stretch the search set off down is the first link it
-        // returned; laying the line from the other one starts the walk facing backwards.
         var links = search.Links(linkCount);
-        var entry = search.Entries[0];
-        for (var at = 0; at < entryCount; at++)
-        {
-            if (search.Entries[at].Link == links[0]) entry = search.Entries[at];
-        }
+        var entry = WalkingNetwork.SetOffFrom(search.Entries[..entryCount], links[0]);
 
-        return WalkedLine.Lay(
-            walking, links, entry, search.Goals[goalSlot], _config.Network.SplineToleranceWalkedM,
-            _bands.CrossingOfEdge, into, _paths.Crossing, _paths.Way, _paths.AlongM, out _);
+        var runs = walking.Runs;
+        var goal = search.Goals[goalSlot];
+        var joins = new WalkingNetwork.FootJoins(walking);
+        var ways = _paths.Ways.AsSpan();
+        var written = RouteChain.LayInto(
+            ref joins, runs, links, fromWay: NothingBehind,
+            firstSlot: runs.PieceAt(links[0], entry.AlongM, out var enteredAtM), goal, ways, out var ranOut);
+
+        if (written == 0) return 0;
+
+        return WalkedLine.Station(
+            walking, ways[..written], walking.LaneMOf(ways[0], enteredAtM),
+            StopsAtM(walking, ways[..written], goal, ranOut), _config.Network.SplineToleranceWalkedM, into, out _);
     }
 }

@@ -231,36 +231,6 @@ public class LaneOccupancyTests
     }
 
     /// <summary>
-    /// <b>Ground somebody is waiting for is claimed and is in nothing else</b> (TER-5e). It is the ask a
-    /// walker at a kerb was refused: no grant is cut at it, nobody reads it as a body or as traffic, and the
-    /// one question it answers is the one a driver approaching that paint asks.
-    /// </summary>
-    /// <remarks>
-    /// <b>Both halves are the point.</b> Unclaimed, a right of way nobody can see is not one (TER-4c);
-    /// in it as a body, a car that could not stop at the kerb line brakes as hard as it can for somebody
-    /// still on the pavement.
-    /// </remarks>
-    [Fact]
-    public void GroundSomebodyIsWaitingForIsSeenAndCutsNothing()
-    {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
-
-        index.Begin();
-        index.ClaimAhead(way, 20f, 26f, 0f, 4, ClaimPriority.Rejected, LaneRoster.Walking, RightOfWay.OnThePaint);
-
-        Assert.True(index.AnybodyWaitingFor(way, 23f, 23f));
-        Assert.False(index.AnybodyWaitingFor(way, 30f, 40f));
-
-        var at = LaneOccupancy.FromTheStart;
-        Assert.False(index.NextHeld(way, 0f, 60f, LaneOccupancy.Nobody, ref at, out _));
-        Assert.False(index.AheadBody(way, 0f, 60f, LaneOccupancy.Nobody, out _));
-        Assert.False(index.AnybodyOnFoot(way, 23f, 23f));
-        Assert.False(index.AnyTrafficOver(way, 20f, 26f));
-        Assert.False(index.SpokenForByAnother(way, 20f, 26f, LaneOccupancy.Nobody, out _));
-    }
-
-    /// <summary>
     /// <b>A right of way takes a claim and never a body</b> (TER-5e): ground nobody has reached is given up
     /// to the stronger movement, and ground somebody is standing on — or committed to being able to stop in —
     /// refuses everything, whatever ranks the two of them carry.

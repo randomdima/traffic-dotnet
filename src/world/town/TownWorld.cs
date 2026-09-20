@@ -508,13 +508,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public WalkingNetwork Walking => _walking;
 
-    /// <summary>
-    /// Where the two networks lie over one another: the band of each crossing way each lane under it covers
-    /// (<see cref="CrossingBands"/>). It is what either side reads to ask the other's claims about ground it
-    /// is about to be on, and neither side writes to it.
-    /// </summary>
-    public CrossingBands Bands => _bands;
-
     public DrivingNetwork Driving => _driving;
 
 
@@ -667,29 +660,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // follows cannot tell this walker from any other.
         if (_hands.Held && _selected.Holds(SelectionKind.Person, agent)) HandWalk(agent);
 
-        // Arriving is the manoeuvre's own end condition, so it is asked every tick and not on the
-        // decision clock: at a walker's pace a tenth of a second is two thirds of a metre, and a
-        // walker that is only allowed to notice its destination six times a second walks past it. The
-        // same applies to reaching a point of its line and taking the next one, which is the same
-        // question asked of a shorter leg.
-        while (People.Walking[agent] &&
-               (People.DestinationM[agent] - positionM).Length() <= People.RadiusM[agent])
-        {
-            if (People.TakeNextWalkedPoint(agent, out var nextM))
-            {
-                // Reaching a point of the line *is* progress, and the clock that decides a walker has
-                // given up is measured against the point it is walking at. Left standing, it would run
-                // up on the leg after a long one and call a walker that had just arrived stuck.
-                People.DestinationM[agent] = nextM;
-                _progress.Restart(agent);
-                continue;
-            }
-
-            People.Walking[agent] = false;
-        }
-
-        // <b>The aim is the point of the line and nothing else</b> (PER-25). There is no grant to read and
-        // no offset to apply: a walker walks at what it was laid, and what it walks into is the solver's.
+        // <b>The aim is a point along the way in front of it and nothing else</b> (PER-25). There is no
+        // grant to read and no offset to apply: a walker walks the way it was handed, on that way's own
+        // line, and what it walks into is the solver's. Where that point is was settled with the rest of
+        // the walk's own state this tick (<see cref="StationTheWalker"/>).
         var aimM = People.DestinationM[agent];
 
         var step = WalkerFollower.Step(
@@ -762,11 +736,18 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         if (HasLostItsLine(agent))
         {
             LayWalk(agent, reachTheGoal: People.Stage[agent] is TripStage.WalkingToTheDoor or TripStage.UnderOrders);
-            _progress.Restart(agent);
-            return;
+
+            // A route that could not be laid again leaves nothing to walk (PER-25). Left walking, the body
+            // would set off at its goal in a straight line over whatever lay between.
+            People.Walking[agent] = People.RouteCount[agent] > 0;
         }
 
-        _progress.Note(agent, (People.DestinationM[agent] - People.PositionM[agent]).Length(), sinceLastDecisionS);
+        // <b>And the clock runs through that</b>, which is the half that was missing. A body that has lost
+        // its line is a body that has got nowhere, and a line laid again from the same place is the same
+        // answer: restarted here, a walker wedged against a wall with the pavement four metres through it
+        // re-laid, restarted and re-laid for the rest of the run, never walking and never giving up — and
+        // the leg it could not finish was the one thing nothing in the town was counting.
+        _progress.Note(agent, RemainingOnTheWalkM(agent), _config.PersonDiameterM, sinceLastDecisionS);
 
         // Standing here means the follower has already answered: either it arrived, or it never had
         // anywhere to go. Being stuck is the other way a leg ends, and it is the one that needs a
@@ -779,6 +760,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             // Held up long enough to give up on where it was going. Not an arrival and not counted as
             // one: conflating the two would report a jammed town as a busy one.
             WalksGivenUp++;
+
+            // PER-8: and where it is off the network as well as getting nowhere, the leg it draws next
+            // will not move it either — so it is set down on the pavement rather than left to draw
+            // destinations it cannot walk to.
+            PutItBackOnThePavement(agent);
 
             // A failed order runs the normal recovery and ends in idle-awaiting-orders rather than in a
             // new goal of the walker's own.

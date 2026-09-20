@@ -158,14 +158,14 @@ at an unlit junction for a minute is a queue, and a car with nobody in it is an 
 it stopped.
 
 **A body in the road is one** (`PER-1`), whether it is standing or walking. A walker is an agent like any
-other — paint is where a walker's priority lives, and a car owes a crossing its stop short of the band
-(`TER-4c.1`) long before this entry is reached. What keeps the swerve off the body is the same thing that keeps
-it off a wreck: the body holds a claim with a margin round it (`PER-26`), and a template over
-that stretch is refused by the ground test. **A second rule that refused the same movement would make the
-ground test useless** (SIM-7).
+other and carries no priority of its own, on a crossing as anywhere else; what it has is the ground it
+stands on, and a car is held off that long before this entry is reached (`TER-4c.1`). What keeps the swerve
+off the body is the same thing that keeps it off a wreck: the body holds a claim (`PER-26`), and a template
+over that stretch is refused by the ground test. **A second rule that refused the same movement would make
+the ground test useless** (SIM-7).
 
 **And never at a crossing**, which is the paint's half of "a manoeuvre of open road". A body on the paint
-lays the band of the lane it is standing in, so somebody two lanes over leaves this shape a clear run and
+holds the metre it is standing on and no more, so somebody two lanes over leaves this shape a clear run and
 the ground test above says yes — and what the car would then be doing is overtaking the queue that stopped
 for the zebra, across the paint the people on it are about to reach. **Nothing else refuses that**, which is
 why the refusal is here (`DriveScene.ClearOfThePaint`) and is not a second gate.

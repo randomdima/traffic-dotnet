@@ -128,8 +128,14 @@ internal sealed partial class TownWorld
         // the body has got to. A leg that cannot be laid at all is one this trip has no way of
         // finishing, and it is given up rather than re-asked sixty times a second.
         LayWalk(person, reachTheGoal: true);
-        People.Walking[person] = People.WalkedCount[person] > 0;
-        if (People.Walking[person]) return;
+        People.Walking[person] = People.RouteCount[person] > 0;
+        if (People.Walking[person])
+        {
+            // A fresh chain is fresh ground to be measured against: the clock run up reaching the end of
+            // the last one is not time this leg spent getting nowhere (<see cref="WalkProgress"/>).
+            _progress.Restart(person);
+            return;
+        }
 
         // A failed order idles awaiting the next one and never draws a goal of its own.
         if (People.Manual[person]) People.Stage[person] = TripStage.UnderOrders;
@@ -154,6 +160,12 @@ internal sealed partial class TownWorld
         People.Stage[person] = TripStage.StandingBy;
         People.TimerS[person] = People.Draw[person].NextFloat(0f, _config.Person.StandByIdleMaxS);
         People.Manual[person] = false;
+
+        // <b>Standing by is not walking</b>, and the draw below may well find nowhere to go. Left true from
+        // the leg that just failed, a body stood here holding no route at all — which is neither of PER-25's
+        // two walks — and every clock in the town went on treating it as a walker under way.
+        People.Walking[person] = false;
+        People.ClearRoute(person);
 
         var buildings = _plan.Buildings;
         if (buildings.Count == 0) return;
@@ -221,7 +233,7 @@ internal sealed partial class TownWorld
     bool RouteExistsToTheBay(int fromLane, int bay)
     {
         var goals = _driveSearch.Goals;
-        var goalCount = BayGoals(bay, goals, out var goalPointM);
+        var goalCount = BayGoals(bay, goals);
         if (goalCount == 0) return false;
 
         var entry = _driving.EntryOnLane(fromLane, _roads.LaneLengthM[fromLane]);
@@ -233,7 +245,7 @@ internal sealed partial class TownWorld
             if (goals[slot].Link == entry.Link) return true;
         }
 
-        return SearchTheDrivingNetwork(goalCount, goalPointM, out var goalSlot) > 0 && goalSlot >= 0;
+        return SearchTheDrivingNetwork(goalCount, out var goalSlot) > 0 && goalSlot >= 0;
     }
 
     /// <summary>
@@ -252,9 +264,8 @@ internal sealed partial class TownWorld
     /// directions and neither of their ends is where the car is going.
     /// </para>
     /// </remarks>
-    int BayGoals(int bay, Span<RouteGoal> into, out Vector2 goalPointM)
+    int BayGoals(int bay, Span<RouteGoal> into)
     {
-        goalPointM = Vector2.Zero;
         if (bay < 0) return 0;
 
         var written = 0;
@@ -279,7 +290,6 @@ internal sealed partial class TownWorld
             into[written++] = new RouteGoal(link, _driving.PlaceOfM(lane, _bayWays.AtLaneM(way)));
         }
 
-        if (written > 0) goalPointM = _parking.CentreM(bay);
         return written;
     }
 
@@ -311,7 +321,12 @@ internal sealed partial class TownWorld
     {
         People.GoalM[person] = goalM;
         LayWalk(person, reachTheGoal: true);
-        People.Walking[person] = People.WalkedCount[person] > 0 || !HasReached(person, People.RadiusM[person]);
+
+        // <b>A walk with no route is not a walk</b> (PER-25). Struck out for the goal regardless, a body
+        // whose search came back with nothing walked at a door on the far side of town in a straight line,
+        // over whatever lay between it and the carriageway included — and nothing stopped it, the goal
+        // getting nearer every tick keeping the give-up clock from ever running up.
+        People.Walking[person] = People.RouteCount[person] > 0;
         _progress.Restart(person);
     }
 }

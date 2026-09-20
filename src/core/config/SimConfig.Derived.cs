@@ -244,6 +244,13 @@ internal sealed partial class SimConfig
     /// </summary>
     public float PersonStandstillGapM => PersonDiameterM * Person.StandstillGapInDiameters;
 
+    /// <summary>
+    /// How far along the way in front of it a walker looks — a metre at the shipped figures. It is what the
+    /// follower is aimed at (PER-25), the ground ahead being the way's own line rather than a straight
+    /// anybody laid, and the window its place on that way is searched in.
+    /// </summary>
+    public float PersonWalkAheadM => PersonDiameterM * Person.WalkAheadInDiameters;
+
 
     /// <summary>
     /// How far off a pavement lane's own line a body is still standing on that lane: a quarter of the band,

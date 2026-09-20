@@ -48,16 +48,17 @@ internal sealed class PersonFleet
         Draw = new Rng[capacity];
         DistanceWalkedM = new float[capacity];
         GroundCoefficient = new float[capacity];
-        WalkedLineM = new Vector2[capacity * WalkedPointsPerPerson];
-        WalkedCrossing = new int[capacity * WalkedPointsPerPerson];
-        WalkedWay = new int[capacity * WalkedPointsPerPerson];
-        WalkedAlongM = new float[capacity * WalkedPointsPerPerson];
-        WalkedCount = new int[capacity];
-        WalkedTaken = new int[capacity];
-        WalkedRunsOut = new bool[capacity];
+        RouteWays = new int[capacity * RouteWaysPerPerson];
+        RouteCount = new int[capacity];
+        RouteTaken = new int[capacity];
+        RouteRunsOut = new bool[capacity];
+        RouteToM = new float[capacity];
         OnWay = new int[capacity];
         Array.Fill(OnWay, NoWay);
         OnWayM = new float[capacity];
+        OffWayM = new float[capacity];
+        OnCrossing = new int[capacity];
+        Array.Fill(OnCrossing, NoCrossing);
         GoalM = new Vector2[capacity];
         Stage = new TripStage[capacity];
         DestinationBuilding = new int[capacity];
@@ -72,11 +73,19 @@ internal sealed class PersonFleet
     /// <summary>What a person holds when the pavement has no way to put it on.</summary>
     public const int NoWay = -1;
 
+    /// <summary>And when the way it is on is pavement rather than paint.</summary>
+    public const int NoCrossing = -1;
+
     /// <summary>
-    /// How much of a walked line a body carries at once. A bound on the work rather than a figure
-    /// behaviour reads: a longer walk is laid again from where the body has got to.
+    /// How much of a route a body carries at once, in ways. A bound on the work rather than a figure
+    /// behaviour reads: a longer route is laid again from where the body has got to.
     /// </summary>
-    public const int WalkedPointsPerPerson = 64;
+    /// <remarks>
+    /// <b>The same bound a car carries</b> (<see cref="Agents.Car.Body.CarFleet.RouteLanesPerCar"/>), for
+    /// the same reason and at the same tier — which is the whole point of both holding a route rather than
+    /// one of them holding a route and the other a line.
+    /// </remarks>
+    public const int RouteWaysPerPerson = 64;
 
     public int Count { get; private set; }
 
@@ -101,33 +110,56 @@ internal sealed class PersonFleet
     /// <summary>Where the walk ends. The line is what gets there; this is what it is a line to.</summary>
     public Vector2[] GoalM { get; }
 
-    /// <summary>The points still to be walked, in order, on the lane each stretch's own side asks for.</summary>
-    public Vector2[] WalkedLineM { get; }
-
-    /// <summary>Which crossing each of those points stands on, or −1 where it is pavement.</summary>
-    public int[] WalkedCrossing { get; }
-
     /// <summary>
-    /// And which way of the pavement each of them stands on, as <see cref="World.Foot.WalkedLine"/> writes
-    /// it: the stretch's own directed edge, or the complement of a mitre's turn slot on a corner.
+    /// <b>The ways still to be walked, in order</b> — the route, as the walking network numbers its ways: a
+    /// stretch's own directed lane, or the complement of the corner leading onto one
+    /// (<see cref="World.Foot.WalkingNetwork.IsACorner"/>).
     /// </summary>
-    public int[] WalkedWay { get; }
+    /// <remarks>
+    /// <b>It is the car's <see cref="Agents.Car.Body.CarFleet.RouteLanes"/> in the pavement's own ways.</b>
+    /// Both agent kinds search one graph, are handed the same run-links, and keep the chain those expand
+    /// into (<see cref="World.Routing.RouteChain"/>) rather than a line laid over the whole of it — a body
+    /// walks the chain one way at a time and needs the shape of only the way it is on, which the network
+    /// already holds and never hands out a copy of.
+    /// </remarks>
+    public int[] RouteWays { get; }
 
-    /// <summary>How far along that way's own line the point stands.</summary>
-    public float[] WalkedAlongM { get; }
+    /// <summary>How far along the <em>last</em> way of the chain the walk stops, the destination standing part-way along it.</summary>
+    public float[] RouteToM { get; }
 
     /// <summary>
-    /// The way this body stands on now, or <see cref="NoWay"/> — read off the point it is walking at
-    /// rather than searched for, since the line already knows where it goes.
+    /// <b>The way this body is walking now</b>, or <see cref="NoWay"/> where it is on none of the network —
+    /// the way of the chain it has been handed, and the car's <c>LaneOf</c> for a walker.
     /// </summary>
     /// <remarks>
     /// <b>It is also the question the walk itself turns on</b> (PER-25): a body on a way of the network
-    /// walks the line the network laid it, and a body on none of it walks straight at the network.
+    /// walks that way's own line, and a body on none of it walks straight at the network.
     /// </remarks>
     public int[] OnWay { get; }
 
-    /// <summary>And how far along that way it stands, which is where its own ground begins.</summary>
+    /// <summary>
+    /// And how far along that way's own line it stands, which is where its own ground begins and where it
+    /// aims from. <b>The car's <c>ProgressM</c> for a walker</b>, and written rather than recovered.
+    /// </summary>
     public float[] OnWayM { get; }
+
+    /// <summary>
+    /// <b>And how far off that line it stands</b>, which is the walking side's own off-line: past the
+    /// ground the way has either side of itself, the body has lost it and the route is laid again (PER-25).
+    /// </summary>
+    /// <remarks>
+    /// <b>Worked out once a tick, where the body's place on its way is</b> (SIM-7): the projection that
+    /// answers *where along* answers *how far off* in the same breath, and asking it twice was two
+    /// answers about one body a tick apart.
+    /// </remarks>
+    public float[] OffWayM { get; }
+
+    /// <summary>
+    /// Which crossing the way it is walking is part of, or −1 where that way is pavement. <b>Written where
+    /// the way is</b>, so that what a walker is doing is one reading and not a walk of the route by
+    /// everybody who wants to know.
+    /// </summary>
+    public int[] OnCrossing { get; }
 
     /// <summary>
     /// PER-9's own state: what this person is doing about the trip they are on. <b>Observable</b> — it
@@ -148,21 +180,23 @@ internal sealed class PersonFleet
     /// </summary>
     public Contained[] Inside { get; }
 
-    public int[] WalkedCount { get; }
+    /// <summary>How many ways of the chain are laid.</summary>
+    public int[] RouteCount { get; }
 
-    /// <summary>How many of them are behind the body.</summary>
-    public int[] WalkedTaken { get; }
+    /// <summary>And how many have been taken off it — the one being walked is the last one handed out.</summary>
+    public int[] RouteTaken { get; }
 
     /// <summary>
-    /// Whether the line stops short of where the walker is going: <see cref="WalkedPointsPerPerson"/>
-    /// points were not enough for the route the search found, so the rest of it will be laid again from
-    /// where the body has got to. <b>A line that reaches its goal answers no.</b>
+    /// Whether the chain stops short of where the walker is going: <see cref="RouteWaysPerPerson"/> ways
+    /// were not enough for the route the search found, so the rest of it is laid again from where the body
+    /// has got to. <b>A chain that reaches its goal answers no.</b>
     /// </summary>
     /// <remarks>
-    /// The car's <c>RouteRunsOut</c> for walkers, and asked for by the same reader: the interface draws
-    /// past the end of a line only where there is a walk past it (CTL-1a).
+    /// The car's <see cref="Agents.Car.Body.CarFleet.RouteRunsOut"/>, at the same tier and asked by the
+    /// same reader: the interface draws past the end of a route only where there is a walk past it
+    /// (CTL-1a).
     /// </remarks>
-    public bool[] WalkedRunsOut { get; }
+    public bool[] RouteRunsOut { get; }
 
     public bool[] Walking { get; }
 
@@ -252,11 +286,14 @@ internal sealed class PersonFleet
         DistanceWalkedM[person] = 0f;
         GroundCoefficient[person] = 1f;
         GoalM[person] = positionM;
-        WalkedCount[person] = 0;
-        WalkedTaken[person] = 0;
-        WalkedRunsOut[person] = false;
+        RouteCount[person] = 0;
+        RouteTaken[person] = 0;
+        RouteRunsOut[person] = false;
+        RouteToM[person] = 0f;
         OnWay[person] = NoWay;
         OnWayM[person] = 0f;
+        OffWayM[person] = 0f;
+        OnCrossing[person] = NoCrossing;
         Stage[person] = TripStage.StandingBy;
         DestinationBuilding[person] = NoBuilding;
         TimerS[person] = 0f;
@@ -274,47 +311,57 @@ internal sealed class PersonFleet
     /// </summary>
     public bool Acts(int person) => !Wounded[person];
 
-    public Span<Vector2> WalkedLineOf(int person) =>
-        WalkedLineM.AsSpan(person * WalkedPointsPerPerson, WalkedPointsPerPerson);
-
-    public Span<int> WalkedCrossingOf(int person) =>
-        WalkedCrossing.AsSpan(person * WalkedPointsPerPerson, WalkedPointsPerPerson);
-
-    public Span<int> WalkedWayOf(int person) =>
-        WalkedWay.AsSpan(person * WalkedPointsPerPerson, WalkedPointsPerPerson);
-
-    public Span<float> WalkedAlongOf(int person) =>
-        WalkedAlongM.AsSpan(person * WalkedPointsPerPerson, WalkedPointsPerPerson);
+    /// <summary>This person's own stretch of the chain, which is where a route is written.</summary>
+    public Span<int> RouteOf(int person) =>
+        RouteWays.AsSpan(person * RouteWaysPerPerson, RouteWaysPerPerson);
 
     /// <summary>
-    /// Which point of the line the body is walking at, or −1 where it is walking at none of them. <b>The
-    /// point already taken</b>: what the body is aiming at is the last one handed out and not the next one.
+    /// <b>The way of the chain this body is walking</b>, or <see cref="NoWay"/> where it holds no route.
+    /// It is the cursor; <see cref="OnWay"/> is that same way once the town has agreed the body is
+    /// actually standing on it.
     /// </summary>
-    public int WalkedAt(int person) => WalkedTaken[person] - 1;
+    public int CurrentRouteWay(int person) =>
+        RouteTaken[person] < 1 ? NoWay : RouteWays[(person * RouteWaysPerPerson) + RouteTaken[person] - 1];
 
-    /// <summary>Which crossing the next point of the line stands on, or −1.</summary>
-    public int CrossingAhead(int person) =>
-        WalkedTaken[person] < WalkedCount[person]
-            ? WalkedCrossing[(person * WalkedPointsPerPerson) + WalkedTaken[person]]
-            : -1;
+    /// <summary>
+    /// Which slot of the chain the body is walking, or −1 where it is walking none of it. <b>The way
+    /// already taken</b>: what the body is on is the last one handed out and not the next one.
+    /// </summary>
+    public int RouteAt(int person) => RouteTaken[person] - 1;
 
-    /// <summary>The next point of the line, or false where there is none left.</summary>
-    public bool TakeNextWalkedPoint(int person, out Vector2 pointM)
+    /// <summary>The way after the one being walked, or <see cref="NoWay"/> where the chain ends here.</summary>
+    public int PeekNextRouteWay(int person) =>
+        RouteTaken[person] >= RouteCount[person] ? NoWay : RouteWays[(person * RouteWaysPerPerson) + RouteTaken[person]];
+
+    /// <summary>The way before it, or <see cref="NoWay"/> where the body is on the first of the chain.</summary>
+    public int RouteWayBefore(int person) =>
+        RouteTaken[person] < 2 ? NoWay : RouteWays[(person * RouteWaysPerPerson) + RouteTaken[person] - 2];
+
+    /// <summary>The next way of the chain, or false where there is none left.</summary>
+    public bool TakeNextRouteWay(int person, out int way)
     {
-        if (WalkedTaken[person] >= WalkedCount[person])
+        if (RouteTaken[person] >= RouteCount[person])
         {
-            pointM = PositionM[person];
+            way = NoWay;
             return false;
         }
 
-        pointM = WalkedLineM[(person * WalkedPointsPerPerson) + WalkedTaken[person]++];
+        way = RouteWays[(person * RouteWaysPerPerson) + RouteTaken[person]++];
         return true;
     }
 
-    public void ClearWalkedLine(int person)
+    /// <summary>Whether the way being walked is the last of the chain, which is the one the destination stands on.</summary>
+    public bool OnTheLastWay(int person) => RouteTaken[person] >= RouteCount[person];
+
+    public void ClearRoute(int person)
     {
-        WalkedCount[person] = 0;
-        WalkedTaken[person] = 0;
-        WalkedRunsOut[person] = false;
+        RouteCount[person] = 0;
+        RouteTaken[person] = 0;
+        RouteRunsOut[person] = false;
+        RouteToM[person] = 0f;
+        OnWay[person] = NoWay;
+        OnWayM[person] = 0f;
+        OffWayM[person] = 0f;
+        OnCrossing[person] = NoCrossing;
     }
 }
