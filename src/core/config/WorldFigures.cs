@@ -346,7 +346,7 @@ internal sealed class RoadFigures
     /// metres.
     /// </summary>
     /// <remarks>
-    /// <b>It is bought with the oncoming lane, which is what makes it small</b> (GEN-4j, P-14). A floor
+    /// <b>It is bought with the oncoming lane, which is what makes it small</b> (GEN-4j). A floor
     /// above what the geometry affords is not free straight — it is met by swinging the template away from
     /// the bay first, and every metre of that swing is ground taken off the far side of the street. On the
     /// shipped lot a quarter of a car length here cost a 27° swing, five metres of extra path and a body

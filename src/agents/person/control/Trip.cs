@@ -8,9 +8,8 @@ namespace TrafficSimulation.Agents.Person.Control;
 /// <remarks>
 /// <b>There are five of them because a walk is the whole of what a walker does</b> (PER-25): it is inside
 /// a building, walking to the next one, waiting for room at the door it reached, or standing between the
-/// two. Nothing here is a manoeuvre and nothing here arbitrates — the catalogue AGT-7 asks for is the
-/// absence recorded in the known gaps, and numbering these as though it existed would claim behaviour
-/// that is not here.
+/// two. Nothing here arbitrates and nothing here is an action — a leg is what an agent does (AGT-7), and
+/// this is the errand the legs are being walked for.
 /// </remarks>
 internal enum TripStage : byte
 {

@@ -13,7 +13,7 @@ namespace TrafficSimulation.World.Town;
 /// <summary>
 /// <b>The recovery</b> (EVA-1…8): the depots a map has, the evacuator standing at each, and the errand it
 /// runs when a car is wrecked in the street. <b>The driving itself is the catalogue's</b> — an evacuator
-/// runs `P-2`, `P-4`, `P-8`, `P-14`, `P-17`, `P-18` and the ladder like every other car — and what is here
+/// drives the legs every other car drives (CAR-15) — and what is here
 /// is only the errand those manoeuvres are being run for.
 /// </summary>
 /// <remarks>
@@ -243,7 +243,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The run to the wreck and the work at it: keep the destination on it, and get it onto the bar once
-    /// the evacuator has come to rest within the crew's reach of it (`P-18`).
+    /// the evacuator has come to rest within the crew's reach of it.
     /// </summary>
     /// <remarks>
     /// <b>Two stages and one method</b>, because the difference between them is one question asked of the
@@ -270,7 +270,7 @@ internal sealed partial class TownWorld
         }
 
         // A leg that ended before the wreck was reached — settled, abandoned, or a bay left and nowhere gone
-        // — is begun again from where the evacuator actually stands (MAN-3). A wreck is shunted about by
+        // — is begun again from where the evacuator actually stands (CAR-15). A wreck is shunted about by
         // whatever hits it, so the standing place is re-read rather than remembered.
         if (!TheHitchingPlaceM(car, wreck, out var standM))
         {
@@ -293,7 +293,7 @@ internal sealed partial class TownWorld
             ShowTheStage(car, RecoveryStage.Running);
 
             // Come to rest at the place and still out of reach: the evacuator overshot or stopped on the
-            // wrong side of it. A place behind the car is not a place to hold at (MAN-6), so the leg is laid
+            // wrong side of it. A place behind the car is not a place to hold at, so the leg is laid
             // again from the pose it is actually in and the route takes it round.
             if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standM, ParkingRegistry.NoBay);
 
@@ -358,7 +358,7 @@ internal sealed partial class TownWorld
     /// <summary>
     /// The haul to the yard: the same shape as the run to the wreck, aimed at a slot instead of at a body.
     /// <b>The haul ends by the evacuator standing where the crew can reach a free slot</b> and never by the
-    /// leg running out, because a leg aimed at a place does not end — `P-18` is what stops the car, and
+    /// leg running out, because a leg aimed at a place does not end — the stop point is what stops the car, and
     /// what it stops it at is the slot (<see cref="ToTheSceneM"/>).
     /// </summary>
     void HaulToTheYard(int car)
@@ -371,7 +371,7 @@ internal sealed partial class TownWorld
 
         // <b>A haul that has run out of clock is drawn again</b> (EVA-8), because there is no answer to a
         // road that would not let this leg through better than laying it again from where the evacuator has
-        // actually got to (MAN-3) — <b>and only so many times</b>. A rescue's delivery is never given up
+        // actually got to (CAR-15) — <b>and only so many times</b>. A rescue's delivery is never given up
         // because a casualty is aboard and there is nothing better to do with them; a wreck set down is no
         // worse off than where it fell, and what giving up buys is the town's evacuator back.
         if (_recovery.SinceS[car] >= _config.EvacuatorGiveUpS)
@@ -871,7 +871,7 @@ internal sealed partial class TownWorld
         IsAnEvacuator(car) && _recovery.Stage[car] is not (RecoveryStage.Waiting or RecoveryStage.GoingHome);
 
     /// <summary>
-    /// <b>Where `P-18` is to stop this evacuator</b>, and infinity when nothing is asking it to: the wreck
+    /// <b>Where this evacuator is to be stopped</b>, and infinity when nothing is asking it to: the wreck
     /// while it is being fetched, and the slot the haul was aimed at while it is being brought in and
     /// unhitched. <b>The place has to outlast the arrival</b> — a stop point that went away the moment the
     /// truck reached it would set the crew to work on a car that had started driving off again.

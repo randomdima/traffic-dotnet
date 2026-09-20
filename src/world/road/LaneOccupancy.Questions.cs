@@ -345,7 +345,7 @@ internal sealed partial class LaneOccupancy
     /// nothing off a claim held at the same rank — and they cut the claimant's own grant already, on the way
     /// it is driving, so a second refusal would make the first useless. It would also be wrong: the stretch
     /// a swerve claims is the stretch containing the very body it is swinging round
-    /// (<c>ManeuverDesk.TakeTheSwervesGround</c>), so a claim given back for a body over it is a claim `E-4`
+    /// on a lane, so a claim given back for a body over it is a claim the movement
     /// could never keep for one tick.
     /// </para>
     /// </remarks>

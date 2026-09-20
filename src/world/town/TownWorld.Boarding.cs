@@ -172,7 +172,7 @@ internal sealed partial class TownWorld
         return -1;
     }
 
-    /// <summary>`E-9`: the trip failed. Every claim is released and a fresh one is drawn from where the body actually is.</summary>
+    /// <summary>The trip failed. Every claim is released and a fresh one is drawn from where the body actually is.</summary>
     void GiveUpTheTrip(int person)
     {
         TripsGivenUp++;

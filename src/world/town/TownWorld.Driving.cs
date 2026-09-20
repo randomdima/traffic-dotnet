@@ -438,8 +438,7 @@ internal sealed partial class TownWorld
     /// that ground and stopping there leaves the one case this is most needed for with no answer at all: a
     /// body shoved across the centreline stands nearest the oncoming line, pointing the way it always was,
     /// and the lane it wants is that one's reverse. Refusing it left the car standing in the other stream
-    /// on ground a car may drive on, so `E-8` had nothing to say either, and the ladder took it all the way
-    /// down to giving the journey up.
+    /// on ground a car may drive on, and nothing but the leg's own clock had anything to say about it.
     /// </remarks>
     void Reacquire(int car, Vector2 rearAxleM)
     {
@@ -592,7 +591,7 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>A stretch with no way out of it at all is the exception</b>, because driving on is what it does
     /// not offer: the queue ends there whether or not a bay was found, and the car turns itself round on
-    /// the spot (`P-19`) at the one place a town promises the room for it (TER-5a).
+    /// the spot at the one place a town promises the room for it (TER-5a).
     /// </para>
     /// </remarks>
     bool TurnsBackHere(int car, int fromLane) =>

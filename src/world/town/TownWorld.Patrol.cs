@@ -94,7 +94,7 @@ internal sealed partial class TownWorld
 
             case PatrolStage.ReturningToStation:
                 // <b>Home, or out of clock, or a leg that ended short of it.</b> The last of those is laid
-                // again from where the car has got to rather than given up on (MAN-3): a patrol that stood
+                // again from where the car has got to rather than given up on (CAR-15): a patrol that stood
                 // down in the street the first time the traffic stopped it would leave its apron empty for
                 // the rest of the run, which is the whole thing the apron is held for.
                 if (_parking.BayOf(car) == _beat.HomeBay[car] || _beat.SinceS[car] >= _config.PatrolGiveUpS)
@@ -366,7 +366,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Where `P-18` is to stop this police car</b>, and false when nothing is asking it to (SRV-6). The
+    /// <b>Where this police car is to be stopped</b>, and false when nothing is asking it to (SRV-6). The
     /// place outlasts the arrival for the reason a recovery's does: a stop point that went away the moment
     /// the car reached it would let the vehicle roll off with its officer standing at the kerb.
     /// </summary>

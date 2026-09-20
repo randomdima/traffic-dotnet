@@ -7,8 +7,8 @@ of their own, because each one's errand is a whole machine
 [agents/evacuator](../../evacuator/docs/requirements.md)); what is here is what all three are made of, how
 all three do their work in human form, where they stand, and the two errands a police car runs.
 
-**A service vehicle is a car and drives the car's catalogue** ([agents/car](../../car/docs/requirements.md),
-[the manoeuvres](../../car/maneuvers/docs/index.md)). Nothing here is a second driver. Why it reads this
+**A service vehicle is a car and drives what every car drives**
+([agents/car](../../car/docs/requirements.md) `CAR-15`). Nothing here is a second driver. Why it reads this
 way is [decision-log.md](decision-log.md).
 
 ## The places

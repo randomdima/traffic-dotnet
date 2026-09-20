@@ -117,7 +117,7 @@ internal sealed class ParkingRegistry
     /// </summary>
     /// <remarks>
     /// <b>A registration is not a position.</b> A car is written into a bay by the manoeuvre that put it
-    /// there and out of one by the manoeuvre that drove it away (`P-2`), so a body that left by any other
+    /// there and out of one by the leg that drove it away (CAR-15), so a body that left by any other
     /// route — a hand at the wheel, a shove, a wreck dragged off — is still registered in a bay it may be
     /// streets from. Anything that reads the standing as a place to lay the body has to ask this first.
     /// </remarks>

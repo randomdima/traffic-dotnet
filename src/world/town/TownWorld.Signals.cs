@@ -46,7 +46,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     /// <param name="toTheBoxM">
     /// How far ahead the box the car's own line enters stands, or infinity where its line enters none.
-    /// It is what the catalogue names `P-8` off, and it is a fact about the geometry rather than about
+    /// It is what a car's indicator is read off (CAR-14.1), and it is a fact about the geometry rather than about
     /// the lane under the car.
     /// </param>
     /// <param name="claimed">Whether the way through is this car's to take: the claim held, or the car already inside the box.</param>

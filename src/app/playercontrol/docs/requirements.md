@@ -107,7 +107,7 @@ point rather than at a bay, so the route search picks whichever direction of the
 and the car comes to rest driving that lane. **Aligning to the lane is the line and never a correction
 applied after it** — nothing turns the body to face anywhere.
 
-It is `P-18` that stops the car there, which is the same entry that stops a rescue beside its casualty and
+It is the same stop point that holds a rescue beside its casualty and
 a recovery beside its wreck: one entry, three errands and a hand. The order is finished when the car is at
 rest within reach of the place — and, like every other order, when the leg ends any other way (CTL-4).
 

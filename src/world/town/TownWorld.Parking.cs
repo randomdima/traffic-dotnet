@@ -295,8 +295,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A car park with nothing free to turn in is a way priced up</b>, on the same mark `E-7` lays on a
-    /// road somebody gave up entering (<see cref="MarkTheWayBlocked"/>) and for the same reason: a route
+    /// <b>A car park with nothing free to turn in is a way priced up</b>, on the same mark a leg lays on a
+    /// road it could not get into (<see cref="MarkTheWayBlocked"/>) and for the same reason: a route
     /// through a turn that cannot be made is a route nobody can drive, and a search asked again over an
     /// unmarked graph comes back with it every time. The mark expires, so a bay given back a minute later
     /// is a frontage the town uses again.

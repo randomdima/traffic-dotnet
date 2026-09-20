@@ -29,7 +29,6 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [world/containment/](../src/world/containment/) — being inside something | [requirements](../src/world/containment/docs/requirements.md) | — |
 | [world/parking/](../src/world/parking/) — bays and lots | [requirements](../src/world/parking/docs/requirements.md) | [log](../src/world/parking/docs/decision-log.md) |
 | [agents/car/](../src/agents/car/) — the driver | [requirements](../src/agents/car/docs/requirements.md) | [log](../src/agents/car/docs/decision-log.md) |
-| [agents/car/maneuvers/](../src/agents/car/maneuvers/) — the driving catalogue | [the catalogue](../src/agents/car/maneuvers/docs/index.md) | [log](../src/agents/car/maneuvers/docs/decision-log.md) |
 | [agents/ambulance/](../src/agents/ambulance/) — the rescue | [requirements](../src/agents/ambulance/docs/requirements.md) | [log](../src/agents/ambulance/docs/decision-log.md) |
 | [agents/service/](../src/agents/service/) — the patrol and what a service vehicle is | [requirements](../src/agents/service/docs/requirements.md) | [log](../src/agents/service/docs/decision-log.md) |
 | [agents/evacuator/](../src/agents/evacuator/) — the recovery | [requirements](../src/agents/evacuator/docs/requirements.md) | [log](../src/agents/evacuator/docs/decision-log.md) |
@@ -68,7 +67,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `WEB-1…9` | The browser head: what is halved, the crossing budget, what a page does not carry, what it weighs, what a publish must hold, and what nothing waits for | [app/web](../src/app/web/docs/requirements.md) |
 | `AND-1…8` | The handset head: what is halved, how little the bootstrap is, where the town's files are unpacked, what it does not carry, the intent's extras, the fingers, a lost surface, and the driver it asks for | [app/android](../src/app/android/docs/requirements.md) |
 | `OBJ-2`, `OBJ-4…5a` | The object catalogue, and what a building is collided as | [requirements.md](requirements.md#the-object-catalogue) |
-| `AGT-5`, `AGT-7` | The terminal state; the closed-catalogue rule | [requirements.md](requirements.md#agents) |
+| `AGT-5`, `AGT-7` | The terminal state; what an agent does, which is a leg | [requirements.md](requirements.md#agents) |
 | `VER-1…12` | What must be demonstrated | [verification.md](verification.md) |
 | `TER-1…3a`, `TER-3b…3c.6`, `TER-7`, `TER-7a`, `TER-7b`, `PHY-8` | The ground, the pavement, water and bridges, and the stack of layers the mesh drawing them is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5`…`TER-5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint, the arrow a lane carries, and the road a lane is one way of | [world/road](../src/world/road/docs/requirements.md) |
@@ -79,7 +78,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `PHY-7`, `PHY-7a`, `OBJ-4` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4m` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
 | `GEN-1…3`, `GEN-5…19`, `GEN-51…55` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, that no lane dangles, what a roundabout is made of, that a junction is a place roads meet, how one is cut into a road that already stands, what a car park is, where a building stands and which of them are the services | [citygen](../src/citygen/docs/requirements.md) |
-| `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
+| `CAR-1…15b` | The driver and its leg, the car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
 | `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25`, `PER-26` | The walker, the line it follows, the two claims it lays, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the roof one wears, the apron of ambulances at them, the priority a call carries, what a rescue is and the standoff its crew walks in from | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
 | `SRV-1…6` | Police stations and depots, the roofs a station and a repair shop wear, what a service vehicle is made of and how its crew works the street on foot, what a wrecked one costs its building, the beat a police car drives and the road its officer closes | [agents/service](../src/agents/service/docs/requirements.md) |
@@ -91,8 +90,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `CTL-1…9` | Selection, orders, a car's four of them, hand driving, a hand that names its car, the unit's own action, fingers | [app/playercontrol](../src/app/playercontrol/docs/requirements.md) |
 | `SHT-1…6` | The frame taken with no window, its caption, the sheet and the document that asks for one | [app/shot](../src/app/shot/docs/requirements.md) |
 | `DRV-1…8` | The script at the wheel: what it may hold, what it reads back, what it photographs, what a claim is worth while it drives, and the second seat a driver who is not the reader sits in | [app/drive](../src/app/drive/docs/requirements.md) |
-| `P-*`, `E-*` | The driving manoeuvre catalogue — one page and one file per entry | [agents/car/maneuvers](../src/agents/car/maneuvers/docs/index.md) |
-| `MAN-1…7`, `S-1…7`, `S-2a` | Chaining, arbitration, interruption, and the rules that run under every entry | [agents/car/maneuvers](../src/agents/car/maneuvers/docs/index.md#the-framework) |
+| `S-1…7`, `S-2a` | The standing rules every tick of a car answers to: the line, the profile, the looking, the grant and the movements | [agents/car](../src/agents/car/docs/requirements.md#the-standing-rules) |
 
 ## Known gaps
 
@@ -103,8 +101,9 @@ Absences that are gaps rather than decisions, and none of them is silent:
   was every rule about getting past somebody — the grant along the pavement, the step round a body, the
   wait at a kerb with its signal and its patience, and the two rules for a walker on a map with nothing on
   it. **Two walkers wanting one piece of pavement now meet in the solver rather than in the claims.** The
-  slice's [decision-log.md](../src/agents/person/docs/decision-log.md) is why; what comes back is a walking
-  catalogue (`AGT-7`), which is the absence under all three.
+  slice's [decision-log.md](../src/agents/person/docs/decision-log.md) is why. **The driving was cut to
+  the same shape and for the same reason** ([agents/car](../src/agents/car/docs/decision-log.md)), so what
+  is absent here is absent from both: nothing in this town gets past anything.
 - **Nothing in this town is done on foot but walking.** No leg of a trip is driven (`PER-25`) and no
   service vehicle carries a crew (`SRV-3`), so four errands lost the body that used to work them and each
   covers the ground another way, named where it happens rather than hidden:
@@ -233,8 +232,20 @@ Absences that are gaps rather than decisions, and none of them is silent:
   off the plan rather than carried in it, and `RoadFigures.PaintDrawn` is gone with the switch that hid it.
   `RoadFigures.CarriagewayDrawn` is gone too: it hid the road's own surface while the boundary was the thing
   being looked at, and the road wears its own surface again.
-- **No walking catalogue.** `AGT-7` asks for one per agent type and the walker has none
-  — [agents/person](../src/agents/person/docs/requirements.md).
+- **Nothing gets past anything.** A driver is held behind whatever is in front of it for as long as its
+  patience lasts and then gives the leg up (`CAR-15a`); it does not cross the centreline to pass a wreck, a
+  broken-down car or a body standing in its lane, and no walker steps round another. The overtake the
+  driving used to carry was **entered nought times on either shipped city** and its own log records 352 of
+  353 shapes refused by the terrain, so what went with it was a mechanism that had never run — but the
+  absence is real and it is what a jammed street now waits out.
+  The rule that permits crossing the centreline to pass a stationary obstacle is **not reworded**, and
+  nothing exercises it. It closes when getting past something comes back as a movement the road offers
+  rather than a shape a driver draws.
+- **A car that is off the road and pointing the wrong way is not recovered.** It takes the lane under it
+  where one runs its way (`CAR-9`) and stands until its leg is given up otherwise; there is no straight
+  back onto the carriageway and no reversing out of a jam, both of which the driving used to carry. Over
+  five minutes of Odesa the two together fired 16 back-offs and 20 ground recoveries, and what replaces
+  them is 31 lines taken again and a leg ended.
 
 **The verge is a decision rather than a gap**: it is one rectangle under the whole town, and whether it
 must be cut to the complement of the paving is a question for the owner. It costs nothing under `TER-7b`

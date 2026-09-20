@@ -39,7 +39,7 @@ end.
 **And no junction turns a route round at all** (TER-5f). The two lanes of one stretch have no turn between
 them, so the only links a route may put back to back that way are the two sides of a stretch a car can come
 back down some other way: a car park's frontage, where it parks and unparks (`GEN-4l`), and a dead end,
-where it works itself round (`P-19`). Both are priced well above three sides of any block, because turning
+where the road runs out. Both are priced well above three sides of any block, because turning
 round is what a driver does when there is no block to take.
 
 ## What the global tier may not know
@@ -83,15 +83,15 @@ Three consequences, each a bug before it was a rule:
 ## The search is asked once a leg, not once a junction
 
 **A leg is routed and then driven.** The global search runs when the leg is drawn, again where the route
-in hand runs out, and again where something has invalidated it — a stretch priced up by `E-7`, a
-destination given up by `E-6`. Between those the way ahead is *read*: the pieces of a link are contracted
+in hand runs out, and again where something has invalidated it — a stretch a leg priced up after getting
+nowhere, a destination it gave up for one nearer (CAR-15a). Between those the way ahead is *read*: the pieces of a link are contracted
 with the town and copied into the lane queue, and the geometry over them is assembled once per lane the
 body leaves.
 
 Nothing about a body's own progress is a reason to search again. A car re-deriving its way at every
 junction drives exactly the same and costs tens of searches a leg, so the fault is invisible from
 outside: what reports it is `RouteSearches` against the legs begun over the same window, printed by
-`--bench maneuvers` and bounded by a test.
+`--bench drive` and bounded by a test.
 
 ## How a soft rule reaches the planner
 

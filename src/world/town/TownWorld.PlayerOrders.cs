@@ -14,8 +14,8 @@ namespace TrafficSimulation.World.Town;
 /// <remarks>
 /// <para>
 /// <b>Nothing below goal selection is touched</b> (CTL-2). Every order here ends in a destination and a
-/// chain, handed to the same <see cref="SendTo"/> a rescue's leg is handed to; from there it is the
-/// catalogue, the routing, the road and the tyres, exactly as for a car nobody has ever clicked on.
+/// place, handed to the same <see cref="SendTo"/> a rescue's leg is handed to; from there it is the leg,
+/// the routing, the road and the tyres, exactly as for a car nobody has ever clicked on.
 /// </para>
 /// <para>
 /// <b>An order needs no driver</b> (CTL-8d). CAR-1 makes a driverless car furniture because nothing is
@@ -255,7 +255,7 @@ internal sealed partial class TownWorld
         Cars.PositionM[lead] - (ForwardOf(lead) * _config.OrderedFollowGapM);
 
     /// <summary>
-    /// <b>Where an order stops the car</b> — `P-18`'s place, asked of a hand's order the same way it is
+    /// <b>Where an order stops the car</b> — the same stop point, asked of a hand's order the same way it is
     /// asked of a rescue's casualty and a recovery's wreck.
     /// </summary>
     bool TheOrderStopsAt(int car, out Vector2 placeM)

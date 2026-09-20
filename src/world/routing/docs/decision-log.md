@@ -4,6 +4,27 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-20 — the clock a leg is given up by belongs to both agent kinds
+
+The walker's give-up clock and the driver's were the same arithmetic in two places and two vocabularies —
+a record low of what is left to cover, a clock against it, and a patience — and only one of them was
+right. The walker's had already been taught the two things that break such a clock: measure against
+ground that *shrinks* rather than the point the follower is aiming at, and count progress to a body's
+width rather than to the millimetre. The driving side measured against a line it regrew every few lanes,
+which stands at a sight distance whether a leg is going well or not at all.
+
+It is `LegProgress` here now and both use it. **This is where it belongs and not in either agent**: the
+two slices are siblings and the thing they share is a fact about travelling a chain of ways, which is
+this slice's subject. What each side keeps is its own: the distance fed in, the patience it is asked
+against, and — the driver's alone — a red light, which **holds** the clock rather than giving it back,
+because a light is there again every cycle and a wait excused by rewinding is a wait excused for ever.
+
+**The lane handover restarts it, as the walker's way handover always did.** Left running across a
+handover the clock spends a whole lane's worth of ground before the car has covered any of the next one,
+and a car driving perfectly well down a long street is called stuck at the far end of it. That was
+measured rather than reasoned: with the restart missing, five minutes of Odesa gave up 1 051 legs and
+priced up 3 880 stretches; with it, 654 and 2 729.
+
 ## 2026-09-20 — the search reads no geometry, and the graph has none to read
 
 The travel graph carried each link's two end points, and the planner was an A\* whose bound was the

@@ -48,7 +48,7 @@ internal static class ExitSpots
     /// of the side of the car the pavement is on rather than the side the traffic is.
     /// </summary>
     /// <param name="anyGround">
-    /// Whether ground a person may not stand on will do. <b>It is `E-10`'s and nothing else's</b>: a
+    /// Whether ground a person may not stand on will do. <b>It is an abandoned car's and nothing else's</b>: a
     /// wrecked car in a lane has to be got out of at once, and the rule that gets the body off the road
     /// afterwards is the walker's own. Every other exit takes PHY-7a literally and waits for walkable
     /// ground.

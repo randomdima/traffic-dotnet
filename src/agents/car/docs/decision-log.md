@@ -1,9 +1,50 @@
 # The car agent — decision log
 
-**The manoeuvre catalogue keeps its own log**, in
-[maneuvers/docs/decision-log.md](../maneuvers/docs/decision-log.md): what an entry is, how the plan is
-chained, why an entry is entered on one thing and left on another. What is here is the body and the
-tyres.
+Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
+are here: a superseded one is deleted, not annotated.
+
+## 2026-09-20 — the manoeuvre catalogue is gone, and a driver is a line, a route and a clock
+
+Seventeen named entries, a desk, a scene of forty-six fields, a nine-rung escalation ladder, a plan
+skeleton and a trace — and **the three entries that carried all of the driving imposed nothing**. `P-4`,
+`P-6` and `P-8` set no limits at all; they were names read off the term that had already bound the speed
+profile, which is exactly the argument that retired `E-1` and `P-12` one at a time. Applied to the rest of
+the list it takes the whole of it.
+
+**The measurement was the deciding one.** Over a minute of each shipped city, 86–90 % of car-ticks were
+spent in `Maneuver.None` — cars with no leg at all, toured by the spawn rule and driven entirely by the
+standing rules and the claims — and nine of the seventeen entries were never entered on either map. The
+town's traffic did not reach the catalogue.
+
+**What a driver is now is the walker's own tick** (`PER-25`, `CAR-15`): one search of the network, a chain
+of the town's own ways, the body held on each in turn, and the leg laid again from wherever it got to.
+The clock a leg is given up by is the walker's class moved down a tier (`World.Routing.LegProgress`) and
+used by both. The driver's own extras are three and they are stated rather than scattered — the assembled
+line over the next few lanes, the gear a bay's way is driven in, and a light, which holds the clock rather
+than spending it.
+
+**Parking is driving down the bay's own way, and so is unparking.** The way is not threaded onto the
+route's line any more: the car is brought to rest at its mouth and takes it as the next line, in whichever
+gear it was laid for. One rule either way round, and it is what deleted the bay templates — a route is
+driven forwards, so threading only ever worked for half of them.
+
+**Two entries became terms of the speed profile rather than names beside it.** The emergency stop is
+`CarFollower.IsAHazard`, asked of the profile's own answer on every tick, and the place an errand sent a
+car to is `DrivingHold.Place`, a term of the same minimum the bar and the box are in. Neither imposed
+anything a term could not.
+
+**What went with them, and what it cost.** The swerve (`E-4`), the back-off (`E-3`), the straight back to
+legal ground (`E-8`) and the shunt (`P-19`) were the four entries that drew geometry, and the swerve's own
+log already recorded 352 of 353 shapes refused by the terrain. Measured over five minutes of Odesa,
+against the tree this replaced: **cars standing still at the end 350 → 170, the longest any one of them
+held a spot 300 s → 142 s, never moved at all 1 → 0.** The drive probe did not move — mean 11.79 → 11.85
+m/s, off-line 0.193 → 0.190 m, 352 → 353 m covered — **which is the whole point**: the catalogue was not
+driving. What is genuinely given up is named in [the known gaps](../../../../docs/index.md#known-gaps):
+nothing in this town gets past anything, and a car off the road pointing the wrong way is not recovered.
+
+**And the read-out lost nothing by losing the name.** What a car is doing is the line it is on and the
+term that bound it (`CAR-15b`), which is what the panel drew beside the entry's code anyway — and a car
+that was queueing while its name said something else can no longer happen.
 
 ## 2026-09-07 — a speed cap is a figure, and `CAR-5` is retired
 
@@ -13,7 +54,7 @@ reverse cap is authored; nothing cited the paragraph.
 
 ## 2026-09-01 — paint is not a speed limit, and `CAR-7b` is retired
 
-The pace bound whenever paint was within reach, so the panel read `P-4 yielding at a crossing` on an empty
+The pace bound whenever paint was within reach, so the panel read `yielding at a crossing` on an empty
 crossing with nothing claimed against it. A crossing is ground and the claims on it already say whose it is
 (`TER-4c.1`, `TER-5e`), so the pace was a second gate on a movement the claims had answered (`SIM-7`) —
 and, being owed whether or not anybody was there, the one term of the profile no reading of the world could
@@ -280,12 +321,11 @@ shipped one per variant; only the nominal figure ever reached it, so every car i
 front-wheel drive whatever it was drawn as. What it bought was a comparison: a front-drive car tops out a
 sixth under the other two down the straight and takes a quarter longer to get back up to speed.
 
-## 2026-08-20 — which procedure runs is the line's question, not the name's
+## 2026-08-20 — which procedure runs is the line's question
 
-A reactive entry that lays no line leaves the car driving what it was already on, so the standing rules
-pick the route or the template procedure by looking at the line. A dispatch keyed on the entry's name would
-hand a car in `E-2` — which lays nothing — to the route procedure with no lanes under its line. The entry
-decides *what*, the line decides *how it is driven*.
+The standing rules pick the route procedure or the bay-way one by looking at the line itself: a line with
+lanes under it is the route's, one that is a numbered way is a bay's. Anything keyed on what the car was
+last told to do can hand a car to the route procedure with no lanes under its line.
 
 ## 2026-08-19 — a car at a standstill has no tyres to work out
 

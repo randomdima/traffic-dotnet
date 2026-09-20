@@ -639,8 +639,8 @@ the kerb band, the walk the ground answer widened every road by, the paint and t
 all went the same way. **None of that is judged unwanted** — every one of them is named in the known gaps —
 it is judged not worth porting onto a layer being replaced this month. What keeps the milestone observable
 is the one thing outside the lane layer that was rewritten rather than deleted: the spawn stage stands the
-brief's cars on the town's own lanes, one a lane, and `--bench maneuvers` enters the ordinary driving
-entries on every map while the parking, paint and light entries are the set nothing entered.
+brief's cars on the town's own lanes, one a lane, and `--bench drive` reads the ordinary driving on
+every map while the parking, the paint and the lights are what no town stands.
 
 ## 2026-09-13 — the boundary turns where the ground turns, and a cut is not a corner
 

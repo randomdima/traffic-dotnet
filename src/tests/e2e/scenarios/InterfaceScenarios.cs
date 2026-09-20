@@ -260,7 +260,7 @@ internal static class InterfaceScenarios
                 + "where it happens.",
             ],
             Expected: "debug-car-leave-bay.png",
-            ExpectedNote: "The reference is one car executing P-2 leave the bay at a lot; this frame "
+            ExpectedNote: "The reference is one car driving the way out of its bay at a lot; this frame "
                           + "is the same layer over moving traffic. Compare what the layer draws — "
                           + "the label, the rear-axle line, the pose it ends on — not the place."),
 

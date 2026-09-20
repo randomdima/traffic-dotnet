@@ -197,7 +197,7 @@ public class LaneOccupancyTests
     /// <b>A body on foot takes the road it stands on and is not traffic.</b> It cuts the grant of anybody
     /// driving through it, exactly as a car standing there would; what it is <em>not</em> is an answer to
     /// somebody asking what is coming down the lane, and it is not an obstruction either — that reading is
-    /// a walker `E-4` would cross the centreline to drive round.
+    /// a walker standing in the lane.
     /// </summary>
     [Fact]
     public void AWalkerOnTheRoadCutsTheGrantAndIsNotTraffic()

@@ -447,7 +447,7 @@ internal sealed partial class TownWorld
     /// this is laid from the pose every tick like every other claim.
     /// </para>
     /// <para>
-    /// <b>And it is a reading of the body and never of the register</b> (`P-2`). A standing is written by the
+    /// <b>And it is a reading of the body and never of the register</b>. A standing is written by the
     /// manoeuvre that made it and given up by the manoeuvre that drives away, so a car taken out of a bay by
     /// anything else — a hand at the wheel, a shunt, an arm — keeps the register's word for where it was; laid
     /// from that it held a bay it might be streets from, and stood on the road holding none of it. The bay a

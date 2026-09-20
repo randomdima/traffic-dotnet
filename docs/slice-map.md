@@ -34,7 +34,7 @@ split the same way and for the same reason**: the lanes and the connectors betwe
 (`citygen/LaneLines`), because they are what the tarmac is drawn from, and the rules laid over them — where
 they meet, what each movement takes off the others — are `world/road/`'s. Inside `agents/`, it is `ambulance/` and `service/` → `world/statics/` and
 nothing else, and `evacuator/` → nothing at all: each is a roster of buildings and what stands at them, and
-the driving they ask for is the car's catalogue, reached from the composition seam like every other leg.
+the driving they ask for is the car's own leg, reached from the composition seam like every other one.
 **An errand's slice never depends on `agents/car/`**, which is why the arithmetic of a tow is `TowBar` in
 `agents/car/body/` beside the tyre model and not in the slice whose rules it serves: what happens to a car
 on a hook is a fact about a car. Inside `app/`, it is screen ← render ← hud, screen ← render ← debug, and

@@ -16,9 +16,9 @@ namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>The rescue</b> (AMB-1…9): the hospitals a map has, the ambulances standing at them, and the errand
-/// each one runs when somebody is knocked down. <b>The driving itself is the catalogue's</b> — an
-/// ambulance runs `P-2`, `P-4`, `P-8`, `P-14`, `P-17` and the ladder like every other car — and what is
-/// here is only the errand those manoeuvres are being run for.
+/// each one runs when somebody is knocked down. <b>The driving itself is the leg's</b> — an ambulance
+/// drives what every other car drives (CAR-15) — and what is here is only the errand those legs are
+/// being run for.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,10 +29,8 @@ namespace TrafficSimulation.World.Town;
 /// </para>
 /// <para>
 /// <b>The whole of what a blue light does to the road is elsewhere</b>, because it belongs to the road:
-/// the rank a stretch is laid with (<see cref="RightOfWayOf"/>), the red that stops applying
-/// (<see cref="SignalStopM"/>) and the patience an overtake no longer waits out
-/// (<see cref="DriveScene.WorthGettingPastOnACall"/>). What
-/// this file decides is only whether the light is on.
+/// the rank a stretch is laid with (<see cref="RightOfWayOf"/>) and the red that stops applying
+/// (<see cref="SignalStopM"/>). What this file decides is only whether the light is on.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -189,7 +187,7 @@ internal sealed partial class TownWorld
                 // <b>A delivery that has run out of clock is drawn again and never given up</b> (AMB-9):
                 // the casualty is aboard and alive, and there is no answer to a road that would not let
                 // this leg through better than laying the leg again from where the car has actually got to
-                // (MAN-3). The bay it claims may well be a different one by now.
+                // (CAR-15). The bay it claims may well be a different one by now.
                 if (_duty.SinceS[car] >= _config.AmbulanceGiveUpS)
                 {
                     _duty.SinceS[car] = 0f;
@@ -315,7 +313,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The drive to the standoff</b> (AMB-10): keep the destination the standoff short of the body, and
-    /// put the crew out once the car has come to rest at it (`P-18`).
+    /// put the crew out once the car has come to rest at it.
     /// </summary>
     void RunToTheScene(int car)
     {
@@ -324,7 +322,7 @@ internal sealed partial class TownWorld
         var standoffM = TheStandoffM(car, casualty);
 
         // A leg that ended before the standoff was reached — settled, abandoned, or a bay left and nowhere
-        // gone — is begun again from where the car actually stands (MAN-3). The body is shunted by whatever
+        // gone — is begun again from where the car actually stands (CAR-15). The body is shunted by whatever
         // hits it, so the mark is re-read rather than remembered.
         if (!Cars.Driven[car])
         {
@@ -339,7 +337,7 @@ internal sealed partial class TownWorld
             _duty.LoadedForS[car] = 0f;
 
             // <b>Come to rest at the place and still short of the mark</b>: the car overshot it, or stopped
-            // on the wrong side of it. A place behind the car is not a place to hold at (MAN-6), so the leg
+            // on the wrong side of it. A place behind the car is not a place to hold at, so the leg
             // is laid again from the pose it is actually in and the route takes it round.
             if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standoffM, ParkingRegistry.NoBay);
 
@@ -515,7 +513,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>One leg of a call</b>: the place, the bay it claims if it has one, and the chain re-derived from
-    /// the pose the car is actually in (MAN-3).
+    /// the pose the car is actually in (CAR-15).
     /// </summary>
     /// <remarks>
     /// It is <see cref="SetOff"/> with the destination named rather than looked up. A drive leg's
@@ -552,7 +550,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>How far ahead of the rear axle the place this car was sent to stands</b>, along the line it is
-    /// driving — `P-18`'s whole <c>Sa</c>, and infinity for every car that is not on its way to one.
+    /// driving (`DrivingHold.Place`), and infinity for every car that is not on its way to one.
     /// </summary>
     /// <remarks>
     /// <b>It is the casualty projected onto the line and not the distance to them.</b> A line bends, and a
@@ -570,7 +568,7 @@ internal sealed partial class TownWorld
     float ToTheSceneM(int car)
     {
         // <b>And asked of a hand's order first of all</b> (CTL-8a, CTL-8c). A car sent to a place on the
-        // road is stopped at it by `P-18` exactly as a rescue is stopped at its casualty, and one sent
+        // road is stopped at it exactly as a rescue is stopped at its casualty, and one sent
         // after another car is stopped a gap short of it — one entry, three errands and a hand.
         if (TheOrderStopsAt(car, out var orderedM))
         {
@@ -596,7 +594,7 @@ internal sealed partial class TownWorld
         }
 
         // <b>The same question asked of a wreck</b> (EVA-3, EVA-6). A recovery stops beside what it has come
-        // for and again beside where it is putting it, and `P-18` is what stops it every time — what differs
+        // for and again beside where it is putting it, and one term of the profile stops it every time — what differs
         // is the place and how near the crew has to be to work.
         return TheRecoveryStopsAt(car, out var placeM, out var reachM)
             ? ToThePlaceOnTheLineM(car, placeM, reachM)
@@ -605,7 +603,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>How far ahead of the rear axle a place stands along the line this car is driving</b>, or infinity
-    /// where the line does not come past it — `P-18`'s whole <c>Sa</c>.
+    /// where the line does not come past it.
     /// </summary>
     float ToThePlaceOnTheLineM(int car, Vector2 placeM, float workingReachM)
     {
@@ -623,7 +621,7 @@ internal sealed partial class TownWorld
         var offM = (Spline.SampleAt(line, atM).PositionM - placeM).Length();
 
         // A casualty the line does not actually run past is not a place to stop at: the ambulance is still
-        // routing, and `P-4` goes on driving until the line does reach them.
+        // routing, and the leg goes on driving until the line does reach them.
         if (offM > workingReachM) return float.PositiveInfinity;
 
         // <b>A place behind the axle is one of two things, and the crew's reach is what tells them apart.</b>
@@ -676,7 +674,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>And whether it is at one</b> — the run to the standoff and the loading there (AMB-10). It is what
-    /// keeps `P-18` holding the vehicle still while the body is got aboard, which the arrival on its own
+    /// keeps the stop point holding the vehicle still while the body is got aboard, which the arrival on its own
     /// would not.
     /// </summary>
     bool IsAtOrOnItsWayToAScene(int car) =>

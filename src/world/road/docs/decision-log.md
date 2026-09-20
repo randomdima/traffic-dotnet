@@ -459,7 +459,7 @@ same metres from opposite sides. It is answered again after every body has claim
 granted off it, and the holder is told, because the only thing that knows what a claim was for is the entry
 that took it. A rank above it takes a claim and nothing else does: giving one back for a body standing on
 the ground is the duplicate SIM-7 is about, and refuses the one thing a claim is for, since the stretch
-`E-4` claims is by construction the one containing the body it is swinging round.
+a movement claims is by construction the one containing the body it is driven over.
 
 ## 2026-08-27 — a junction admits no movement that reverses the direction of travel
 
@@ -712,7 +712,7 @@ ask.
 ## 2026-08-22 — neither network's claims are one roster's
 
 A walker on a crossing claimed the road and was in none of the road's questions: half right, since a walker
-read as an obstruction is one `E-4` crosses the centreline to drive round and one read as a committed claim
+read as an obstruction is one a driver is held off and one read as a committed claim
 cuts a car three lanes away. What that cost was invisible until the ray went — nothing cut a driver's road
 at a body standing in it. `OnFoot` is in every query a grant is taken against and carries its own reading,
 so the one thing it must never be is a property of the reading and not of which query happened to skip it.

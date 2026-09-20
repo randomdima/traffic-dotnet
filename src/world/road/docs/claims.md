@@ -444,7 +444,7 @@ ground that was.
 
 **A person in a lane is a body like any other and carries a reading of its own.** It cuts the road a driver
 is granted exactly as a car standing there would; it is waited behind while it is moving, and once it has
-come to rest it is something the rule that drives round an obstruction (`E-4`) may act on. **What keeps a
+come to rest it is an obstruction rather than traffic. **What keeps a
 swerve off it is the ground it holds and never a name it is refused by** — its own claim carries
 a margin (`PER-26`), and a template laid over that stretch is refused by the same test that refuses one
 over a wreck. Naming a second rule to refuse the same movement would make the first useless (SIM-7).

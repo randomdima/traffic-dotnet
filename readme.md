@@ -53,7 +53,7 @@ that display instead, by the desktop's own name for it, and `--windowed` opens i
 to be looked at beside something else. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `load`, `shape`, `joints`, `parks`, `shapes`, `drive`, `maneuvers`, `trips`, `rescue`, `recovery`,
+(`census`, `load`, `shape`, `joints`, `parks`, `shapes`, `drive`, `trips`, `rescue`, `recovery`,
 `crash`, `soak`, `stuck`, `tick`, `town`, `solver`, `walk`); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
@@ -310,8 +310,8 @@ src/        every line of C#, and nothing else — the nine slices below
   citygen/  the city plan as pure data: its structure, its cell vocabulary, and gen/ — the generator
             that lays one from a brief
   world/    terrain, road, foot, routing, physics, containment, statics, parking, town
-  agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the maneuvers:
-            one file per entry of the closed catalogue (src/agents/car/maneuvers/docs/index.md)
+  agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the errands
+            the legs of a trip are run for
   runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/, the browser's half
   app/      screen, render, camera, hud, debug, playercontrol, shot, web, android, main — the shell
   bench/    the census and the probes

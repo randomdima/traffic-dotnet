@@ -23,7 +23,7 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>It is discharged here and by no manoeuvre of its own.</b> The answer is a term of the speed
     /// profile, taken every tick into the same minimum the corners and the grant are taken into, so a car
-    /// stopping short of a zebra is running its line on the road the zebra left it (`P-4`).
+    /// stopping short of a zebra is running its line on the road the zebra left it (CAR-15).
     /// </para>
     /// <para>
     /// One crossing at a time: the nearest ahead is the one being approached. Asked as "is there paint
@@ -73,8 +73,7 @@ internal sealed partial class TownWorld
 
             // Behind it entirely — the tail is past the far edge — or too far ahead to be this car's
             // business yet. A crossing stays this car's business until the body is off it and not only
-            // up to it: what is under the car is what says it has nowhere to swerve to
-            // (<see cref="DriveScene.ClearOfThePaint"/>).
+            // up to it, because a car may not come to rest on the paint (TER-5e).
             if (tailM > farEdgeM || aheadM > reachM) continue;
 
             // One manoeuvre, one crossing: the nearest ahead is the one being approached — or the one
@@ -108,7 +107,7 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>Where it is and never a stop.</b> A body on a crossing is a body on the lane under it and cuts the
     /// ground a template asked for like anything else standing there (`PER-26`), which is the reading
-    /// <see cref="GroundAhead"/> already takes; a second refusal owed to the paint would be that stop kept
+    /// the grant already takes; a second refusal owed to the paint would be that stop kept
     /// twice (SIM-7).
     /// </para>
     /// </remarks>

@@ -126,7 +126,7 @@ internal sealed class Containers
         _personIsIn[person] = Contained.Nowhere;
     }
 
-    /// <summary>CAR-2: a car contains at most one driver, and taking the seat is one atomic question (`P-6`).</summary>
+    /// <summary>CAR-2: a car contains at most one driver, and taking the seat is one atomic question.</summary>
     public bool TryBoard(int car, int person)
     {
         if (_carDriver[car] != NoDriver) return false;

@@ -101,13 +101,15 @@ against **the queries it joins**, not against what it draws.
 person knocked down takes no actions either, and is **not** terminal: an ambulance is coming for them
 (PER-18), and a state something else can end is not one an agent is in for good.
 
-**AGT-7** `P4` Everything an agent does is a **named manoeuvre from a closed catalogue** per agent type, every
-failure exit names its successor, and every entry is bounded by time, distance or attempts. **A situation
-the catalogue does not cover is a gap in the catalogue, never a licence to improvise.** A stuck agent
-walks **one** ordered escalation ladder that ends, always, at "get as close as your actions allow and take
-the goal you actually reached".‡
+**AGT-7** `P4` **An agent travels the ways the network laid it and nothing else**, and **every leg is
+bounded**: what one does is one search, a chain of the town's own ways taken in turn, and the leg laid
+again from wherever the body got to — the same code for both agent kinds at the tier where they are the
+same thing (`World.Routing`). A leg that covers no ground for its own patience is given up, and there is
+no other exit.‡
 
-**An entry is a file, and its contract is a page.** The driver's catalogue is
-[agents/car/maneuvers/](../src/agents/car/maneuvers/docs/index.md): one file per entry holding its `Sa`, its
-procedure and its exits, one page per entry saying when it is the right thing to do and what state it
-leaves the car in, and one dispatch that the two are wired through. **The walker has none yet.**
+**A situation nothing covers is a leg given up, never a licence to improvise.** An agent lays no geometry
+of its own: where it is not on the network it heads straight back onto it (PER-25, CAR-9), and where it
+cannot, the clock ends the leg. What each agent kind adds to that is stated in its own slice —
+[agents/car](../src/agents/car/docs/requirements.md) `CAR-15`, [agents/person](../src/agents/person/docs/requirements.md) `PER-25`
+— and the errands above it (`AMB-*`, `SRV-*`, `EVA-*`) are legs with a place named rather than actions of
+their own.

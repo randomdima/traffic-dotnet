@@ -3,9 +3,9 @@
 The rescue: the hospitals a town has, the ambulances standing at them, and what happens between somebody
 being knocked down and being put back on the pavement healed.
 
-**An ambulance is a car and drives the car's catalogue** ([agents/car](../../car/docs/requirements.md),
-[the manoeuvres](../../car/maneuvers/docs/index.md)). Nothing here is a second driver: what is below is
-the *errand* those manoeuvres are run for, and the one thing that errand changes about the road. Why it
+**An ambulance is a car and drives what every car drives** ([agents/car](../../car/docs/requirements.md)
+`CAR-15`). Nothing here is a second driver: what is below is the *errand* those legs are run for, and the
+one thing that errand changes about the road. Why it
 reads this way is [decision-log.md](decision-log.md).
 
 ## The places and the vehicles
@@ -77,7 +77,7 @@ brought to it (AMB-10).
 and the last of the distance is a placement. Three things follow, and the first is the point of the rule.
 
 - **The vehicle stands clear of the accident.** The standoff is measured back along the lane the body is
-  lying beside, because a vehicle can only arrive along the road — and it is where `P-18` stops the car, on
+  lying beside, because a vehicle can only arrive along the road — and it is where the stop point holds the car, on
   the terms every other place the catalogue is stopped at is asked on. An ambulance parked on the casualty
   is an ambulance in the lane it needs kept clear for itself, and one nobody can work round.
 - **The last of the distance is the winch said of a person** (`EVA-5`): the body is set down at the

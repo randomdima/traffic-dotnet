@@ -21,9 +21,8 @@ namespace TrafficSimulation.World.Town;
 /// is its own (`CAR-1`), and the two rosters meet only on the ground they share.
 /// </para>
 /// <para>
-/// <b>What is not here is the catalogue.</b> Each stage covers the ground a named manoeuvre would own,
-/// and what is missing between them is the arbitration table and the escalation ladder — so a leg that
-/// fails is given up and drawn again rather than walked down a ladder.
+/// <b>A stage is an errand and never an action</b> (AGT-7): what a body does is a leg, and a leg that
+/// fails is given up and drawn again.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -105,7 +104,7 @@ internal sealed partial class TownWorld
             case TripStage.WaitingForAPlace:
                 People.TimerS[person] -= sinceLastDecisionS;
 
-                // `E-6`: past a patience well above one dwell this is not a turnover, so the place is
+                // Past a patience well above one dwell this is not a turnover, so the place is
                 // given up rather than waited for. Dwell is bounded, so an ordinary one always ends.
                 if (People.TimerS[person] > 0f) EnterTheBuilding(person);
                 else DrawTrip(person);
@@ -151,7 +150,7 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// Both ends are screened when the trip is chosen, with the strict question rather than the
-    /// best-effort one: a door has to be walkable-to, or this is a trip that can only end in the ladder.
+    /// best-effort one: a door has to be walkable-to, or this is a trip that can only end in a leg given up.
     /// A draw that finds nowhere stands and draws again on its own clock.
     /// </remarks>
     void DrawTrip(int person)

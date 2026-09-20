@@ -229,7 +229,7 @@ internal sealed partial class TownWorld
     /// reached</em>. A bay is the only thing in a town that gives a car a destination
     /// (<c>TownWorld.Parking</c>), so a town whose every bay is unreachable is one where no trip can be
     /// drawn however many car parks the plan drew — which is the town this build lays. Each car takes the
-    /// lane it is standing on, exactly as `E-8` puts a recovered one back on the road, and drives from there
+    /// lane it is standing on, exactly as a car that has lost its line takes one back (CAR-9), and drives from there
     /// under the standing rules — no destination, so it is carried by the tour.
     /// </remarks>
     /// <remarks>

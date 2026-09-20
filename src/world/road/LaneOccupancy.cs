@@ -206,7 +206,7 @@ internal readonly record struct LaneClaim(
 
     /// <summary>
     /// <b>A body lying where it is rather than driving down this way</b>: a wreck, a car with nobody in it,
-    /// one shoved off its line, one under a hand. <b>What a driver may be taken round</b> (`E-4`), and what
+    /// one shoved off its line, one under a hand. <b>What a driver is held off rather than following</b>, and what
     /// the town's own furniture is not — a prop is nobody's body and is driven round by its own geometry.
     /// </summary>
     public bool IsLoose => HasBody && !OnItsLine && !IsFurniture;
@@ -429,9 +429,8 @@ internal sealed partial class LaneOccupancy
     /// its callers want: a movement is laid as one claim per run of its join
     /// (<c>TownWorld.LayTheMovement</c>) and is given up whole. So <b>an occupant may not hold two
     /// independent claims of one priority on one way</b> — the town's two granted claims are told apart by
-    /// the ways they are laid on, a manoeuvre's on a lane (<c>ManeuverDesk.TakeTheSwervesGround</c>) and a
-    /// movement's on a junction's join or a bay's way out, and nothing may put both on one number without
-    /// giving this an interval to take.
+    /// the ways they are laid on — a movement's on a junction's join or on a bay's own way — and nothing
+    /// may put two on one number without giving this an interval to take.
     /// </para>
     /// <para>
     /// The row itself is left where it is rather than compacted out: the claims are rebuilt from nothing
@@ -537,7 +536,7 @@ internal sealed partial class LaneOccupancy
     /// <b>It is not a judgement that the body is an obstruction.</b> A car halfway across the oncoming lane
     /// lays one there while it is driving perfectly well, and what the traffic in that lane does about it is
     /// that traffic's own business. What this says is only that the interval is the bare box and that its
-    /// holder is not driving down <em>this</em> way — which is what a driver may be taken round (`E-4`).
+    /// holder is not driving down <em>this</em> way.
     /// </remarks>
     /// <param name="standsToM">
     /// Where the box itself ends, which is <paramref name="toM"/> for anything standing still. <b>A body on a

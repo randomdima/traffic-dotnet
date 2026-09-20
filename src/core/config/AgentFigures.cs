@@ -112,7 +112,7 @@ internal sealed class CarFigures
     /// not sitting on its stop for the whole of an arc a car has to hold in both gears.
     /// </summary>
     /// <remarks>
-    /// <b>The margin is paid for in street</b> (P-14, GEN-4j). A single arc turning into a perpendicular bay
+    /// <b>The margin is paid for in street</b> (GEN-4j). A single arc turning into a perpendicular bay
     /// carries the rear axle exactly its own radius sideways, so every centimetre of margin is a centimetre
     /// less of the gap between the lane and the bay — and once the arcs no longer reach, the shortfall is
     /// met by swinging away from the bay first, out over the oncoming lane. At a tenth it took the shipped
@@ -403,7 +403,8 @@ internal sealed class DrivingFigures
     /// <remarks>
     /// <b>What it costs is a shade of the stop and never its accuracy</b> — the demand still arrives, a
     /// pedal-travel later — so it is well inside the reaction lead every distance is already measured
-    /// through. `E-2` is not held to it: an emergency is the one place the pedal is allowed to snap.
+    /// through. <b>Spending the braking margin is not held to it</b> (CAR-14): that is the one place the
+    /// pedal is allowed to snap.
     /// </remarks>
     public float PedalTravelS { get; init; } = 0.3f;
 
@@ -420,19 +421,6 @@ internal sealed class DrivingFigures
     /// costs to reach full lock, and the same again is what letting go costs to come back.</b>
     /// </remarks>
     public float WheelTravelS { get; init; } = 0.641f;
-
-    /// <summary>
-    /// <b>How much slower than its own pace something has to be going before a driver crosses the
-    /// centreline to get past it</b> (`E-4`): the share of what this car would be doing with the road to
-    /// itself. Above it, following is the cheaper answer and the wrong side of the road buys a few seconds.
-    /// </summary>
-    /// <remarks>
-    /// It is read against the profile's own <c>plannedMps</c> and not against a stated speed, so what
-    /// counts as worth passing is the road's answer where the car is: half of what a 40 m/s straight
-    /// affords is a different thing from half of what a hairpin does, and a walker in a hairpin is not
-    /// holding anybody up.
-    /// </remarks>
-    public float PassWorthShare { get; init; } = 0.6f;
 
     /// <summary>How far either side of its last progress a car looks for itself on its own line.</summary>
     public float ProjectionWindowInCarLengths { get; init; } = 2f;
@@ -456,19 +444,12 @@ internal sealed class DrivingFigures
     public float TurnPriceAcrossOncomingCarLengths { get; init; } = 4f;
 
     /// <summary>
-    /// <b>What coming back the other way costs</b> (GEN-4l, `P-19`): a whole park and a whole unpark at a
-    /// car park, or a car shunted round on the spot at a dead end. It is quoted well above three sides of
-    /// any block in these towns, because turning round is what a driver does when there is no block to
-    /// take — a route that prefers it to a loop is a town's traffic parking in its own streets.
+    /// <b>What coming back the other way costs</b> (GEN-4l): a whole park and a whole unpark at a car
+    /// park. It is quoted well above three sides of any block in these towns, because turning round is
+    /// what a driver does when there is no block to take — a route that prefers it to a loop is a town's
+    /// traffic parking in its own streets.
     /// </summary>
     public float TurnPriceComingBackCarLengths { get; init; } = 100f;
-
-    /// <summary>
-    /// How far round one leg of a turn on the spot goes before the gear changes (`P-19`). A quarter of a
-    /// turn or so: short enough that each leg fits across an ordinary street, long enough that half a dozen
-    /// of them come round.
-    /// </summary>
-    public float ShuntSweepDeg { get; init; } = 60f;
 }
 
 /// <summary>
@@ -635,8 +616,8 @@ internal sealed class AmbulanceFigures
     /// every other car's speed down here is the corners, the queues, the reds and the crossings, and a
     /// driver exempted from three of those reaches the gear's own cap on the first straight it meets: at
     /// the shipped figures an uncapped rescue crossed River at 75 m/s and wrecked itself, which is a
-    /// second casualty rather than a fast ambulance. It sits well above the traffic so that overtaking is
-    /// still worth doing (<see cref="DrivingFigures.PassWorthShare"/>).
+    /// second casualty rather than a fast ambulance. It sits well above the traffic, so a rescue is held
+    /// up by what is in front of it and not by a pace of its own.
     /// </remarks>
     public float CallPaceMps { get; init; } = 22f;
 
@@ -645,7 +626,7 @@ internal sealed class AmbulanceFigures
 
     /// <summary>
     /// <b>How far short of the casualty the ambulance is stopped</b> (AMB-10), in car lengths — the standoff
-    /// `P-18` parks at, measured along the lane the body is lying beside.
+    /// an ambulance is stopped at, measured along the lane the body is lying beside.
     /// </summary>
     /// <remarks>
     /// <b>It is what a crew on foot buys.</b> An ambulance that has to be within reach of the body itself is
@@ -669,7 +650,7 @@ internal sealed class AmbulanceFigures
     public float SceneReachInCarLengths { get; init; } = 2.5f;
 
     /// <summary>
-    /// How long one leg of a call may run before it is written off, in blocked-road clocks. <b>MAN-4's
+    /// How long one leg of a call may run before it is written off, in a driver's own patiences. <b>CAR-15a's
     /// bound said of a rescue</b>: a body the traffic never lets an ambulance reach must not hold that
     /// ambulance off every later call for the rest of the run.
     /// </summary>

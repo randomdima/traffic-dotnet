@@ -680,7 +680,7 @@ public class JunctionClaimTests
     /// behind for the same movement claims the run through the body in front of it, since a claim is laid
     /// from where its holder's own road was cut; read as a cut, that claim answers the leader from a car's
     /// length behind its own nose, and a grant of minus seven metres is a car no clear road in front of it
-    /// can ever release. What it looked like on screen was `P-8` queueing with nothing there to queue behind.
+    /// can ever release. What it looked like on screen was a car queueing with nothing there to queue behind.
     /// </remarks>
     [Theory]
     [MemberData(nameof(Maps))]

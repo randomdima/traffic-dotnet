@@ -5,8 +5,8 @@ The walker, and the trip that gives it a reason to move. Containment is
 is [world/foot](../../../world/foot/docs/requirements.md); what a claim is and how strong one is, is
 [world/road/claims](../../../world/road/docs/claims.md).
 
-**There is no named walking catalogue yet.** AGT-7 asks for one and this slice does not have it; that is
-a gap, recorded in [docs/index.md](../../../../docs/index.md), not a decision.
+**A walker travels a leg and nothing else** (AGT-7), which is what a driver does over the same code at
+the tier where the two are the same thing ([agents/car](../../car/docs/requirements.md) `CAR-15`).
 
 ## What a person is and does
 
@@ -65,10 +65,10 @@ is on none of it, and that is the same bar the driving side calls a line lost by
 than that is walked as far as it reaches and laid again from there — which is the same thing that happens
 to a body that has lost it, and needs no second mechanism.
 
-**A leg that gets nowhere is given up rather than walked down a ladder.** There is no arbitration between
-walking manoeuvres because there are no walking manoeuvres (AGT-7): a body that has got no nearer the
-**end of the way it is walking** for a stated time draws another destination, and how long that is, is
-data. **What that is measured against has to shrink as the walk goes well** — the point the follower aims
+**A leg that gets nowhere is given up.** There is nothing to arbitrate between, because a leg is the
+whole of what a walker does (AGT-7): a body that has got no nearer the **end of the way it is walking**
+for a stated time draws another destination, and how long that is, is data. It is one clock over both
+agent kinds (`World.Routing.LegProgress`). **What that is measured against has to shrink as the walk goes well** — the point the follower aims
 at stands a stride in front of the body and travels with it, so a walker at full pace is exactly as far
 from it as a walker held against a wall.
 

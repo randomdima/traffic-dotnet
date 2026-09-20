@@ -7,9 +7,9 @@ namespace TrafficSimulation.Agents.Evacuator;
 /// <c>TownWorld.Recovery.cs</c>.
 /// </summary>
 /// <remarks>
-/// <b>These are not manoeuvres and do not pretend to be.</b> An evacuator drives the same closed catalogue
-/// every other car drives (AGT-7) and the recovery gained no entry for it; what is here is the errand those
-/// manoeuvres are being run for.
+/// <b>These are not actions and do not pretend to be.</b> An evacuator drives the legs every other car
+/// drives (AGT-7, CAR-15), with the wreck and the yard slot named as the places it is stopped at; what is
+/// here is the errand those legs are being run for.
 /// </remarks>
 internal enum RecoveryStage : byte
 {

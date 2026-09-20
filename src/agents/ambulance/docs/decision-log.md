@@ -41,13 +41,6 @@ Nothing here posts a speed limit — corners, queues, reds and crossings hold a 
 driver has only corners. The cap is a figure about the ambulance, set well above the traffic so overtaking
 still pays: the blue light buys the road and never the tyres (AMB-4a).
 
-## 2026-08-25 — the approach belongs to `P-4` and only the last few metres to `P-18`
-
-`P-18` owning the whole run-in left an ambulance stuck forty metres short behind a stopped van, since the
-entry has no swerve and `E-4` is reached from `P-4`. Handover waits until the place is inside the road the
-car needs to stop in. The same episode is why `P-18` is watched despite standing still being its job: the
-crew's work is seconds and the call's own fuse is half a minute.
-
 ## 2026-08-25 — the scene is projected forward along the line, and "behind the axle" is settled by the crew's reach
 
 Projected onto the nearest point, a route leaving a bay beside its own casualty put the stop behind the

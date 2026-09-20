@@ -222,7 +222,7 @@ internal sealed class BayWays
 
     /// <summary>
     /// <b>The lanes a leg may come back the other way from</b>, one flag per lane of the town — a bay of a
-    /// car park it can turn in (GEN-4l), or a dead end it can shunt round in (`P-19`, TER-5a). <b>The data
+    /// car park it can turn in (GEN-4l). <b>The data
     /// the driving network is priced off</b>, handed over as flags rather than as this type because the
     /// road is below the car parks that hang off it and a slice may not reach up.
     /// </summary>
@@ -234,7 +234,7 @@ internal sealed class BayWays
             var back = roads.LaneReverse[lane];
 
             // <b>And a stretch with no way out of it</b>, which is a dead end: what turns a car round there
-            // is the car itself (`P-19`), on the room TER-5a promises, and no bay is wanted for it.
+            // is the car itself, on the room TER-5a promises, and no bay is wanted for it.
             turns[lane] = back >= 0 && (bays.ATurnIsLaidBetween(lane, back) || roads.LanesFrom(lane).Length == 0);
         }
 

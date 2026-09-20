@@ -6,10 +6,11 @@ namespace TrafficSimulation.Agents.Ambulance;
 /// between two of them is one line of <c>TownWorld.Ambulance.cs</c>.
 /// </summary>
 /// <remarks>
-/// <b>These are not manoeuvres and do not pretend to be.</b> An ambulance drives the same closed
-/// catalogue every other car drives (AGT-7); what is here is the errand those manoeuvres are being run
-/// for, exactly as <c>TripStage</c> is for a walker. The one entry the catalogue gained for this is
-/// `P-18`, which is what <see cref="Loading"/> is driven by.
+/// <b>These are not actions and do not pretend to be.</b> An ambulance drives the legs every other car
+/// drives (AGT-7, CAR-15); what is here is the errand those legs are being run for, exactly as
+/// <c>TripStage</c> is for a walker. The one thing a rescue asks of the driving is a <em>place</em> to be
+/// stopped at, which is a term of the speed profile like any other (<c>DrivingHold.Place</c>) and is what
+/// <see cref="Loading"/> is held at.
 /// </remarks>
 internal enum RescueStage : byte
 {
@@ -19,7 +20,7 @@ internal enum RescueStage : byte
     /// <summary>Under way to the standoff short of the scene, blue light on: the leg the priority is for.</summary>
     Running,
 
-    /// <summary>Standing at the standoff while the casualty is got aboard — `P-18`, AMB-6, AMB-10.</summary>
+    /// <summary>Standing at the standoff while the casualty is got aboard — AMB-6, AMB-10.</summary>
     Loading,
 
     /// <summary>Under way to the hospital with the casualty aboard, blue light still on.</summary>
@@ -80,7 +81,7 @@ internal sealed class RescueDuty
     /// <summary>How long this call has been running, which is the bound that ends an unreachable one.</summary>
     public float[] SinceS { get; }
 
-    /// <summary>And how long the crew has been getting the casualty aboard — `P-18`'s own clock.</summary>
+    /// <summary>And how long the crew has been getting the casualty aboard, standing at the place it stopped at.</summary>
     public float[] LoadedForS { get; }
 
     public const int Nobody = -1;

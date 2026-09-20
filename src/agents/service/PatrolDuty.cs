@@ -7,9 +7,9 @@ namespace TrafficSimulation.Agents.Service;
 /// <c>TownWorld.Patrol.cs</c>.
 /// </summary>
 /// <remarks>
-/// <b>These are not manoeuvres and do not pretend to be.</b> A police car drives the same closed catalogue
-/// every other car drives (AGT-7) and gained no entry for this; what is here is the errand those
-/// manoeuvres are being run for.
+/// <b>These are not actions and do not pretend to be.</b> A police car drives the legs every other car
+/// drives (AGT-7, CAR-15), with the scene named as the place it is stopped at; what is here is the errand
+/// those legs are being run for.
 /// </remarks>
 internal enum PatrolStage : byte
 {

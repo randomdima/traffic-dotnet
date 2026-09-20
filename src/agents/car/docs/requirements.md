@@ -1,9 +1,30 @@
 # The car agent — requirements
 
-The driver and the body it drives. **The manoeuvre catalogue is not here**: `P-*` and `E-*` are
-[maneuvers/](../maneuvers/docs/index.md) — one file and one page per entry, the framework rules `MAN-1…7`
-and the standing rules `S-1…7`. What is below is what a car *is*, which is what the catalogue is written
-against.
+The driver and the body it drives: what a car *is*, what the driver does with it, and the standing rules
+`S-1…S-7` every tick of one answers to.
+
+## What a driver is
+
+**CAR-15** `P4` **A driver holds a line and nothing else.** It is given a chain of the town's own ways by
+one search of the network (`world/routing/`), it is held on each in turn, and the leg is laid again from
+wherever the body has got to when a chain runs out — **which is the walker's own tick** (PER-25) and the
+same code at the tier where the two are the same thing. **A driver lays no geometry**: every line it
+drives is the town's lanes and the joins between them, or one of the town's own ways at a bay. What a
+driver has that a walker has not is three things and they are named: the **line assembled over the next
+few lanes**, because a car at road speed must see the corners a walker takes one stride at a time; the
+**gear**, because a bay's ways are driven in whichever one they were laid for (GEN-4j); and **a light**,
+which holds its clock rather than spending it.
+
+**CAR-15a** `P4` **A leg that covers no ground is given up.** The patience is one clock over both agent
+kinds (`World.Routing.LegProgress`), measured against what is left of the way the body is on and never
+against the point the wheel is aimed at. Past it the road is priced up and the route laid again; past the
+last reroute the place is given up for another near where the car got to; past that the leg is over and
+the car is stood down where it stands. **There is no other exit**, and it is finite because the clock is.
+
+**CAR-15b** `P4` **What a driver is doing is which line it is on and which term bound its speed**
+(`DrivingHold`). There is no name beside those to drift from them, no state to be in and no step to be
+recorded: which part of a leg a car is at is read off where it is standing — a bay's way under it, a
+bay's way in front of it, or the road.
 
 ## What a car is and does
 
@@ -70,14 +91,17 @@ may be on (CAR-6.2), the road it was granted (S-2a) and the paint it owes (TER-5
 the line itself. A car far enough off its line that it is no longer driving it is a recovery (CAR-9) and
 not a correction applied to the body.
 
-**CAR-10b** `P5` Where the town's own geometry does not suit the car that turns up, **the car lays its own** —
-a bay's way whose start is not where this car's axle stands is replaced by the same shape drawn from the
-pose it is actually in. A car is never shuffled onto a line to make a precomputed one fit.
+**CAR-10b** `P5` Where the town's own geometry does not begin where the car that turns up is standing,
+**the car is seated on it where its axle actually is** and drives on from there. A bay's ways are laid for
+the nominal car and a body stops with its nose at the end of the line it was given, so neither end of one
+is where a particular car's axle stands; the line is taken from the metre the body projects onto, over
+that way's first car length and no further. **A car is never shuffled onto a line to make a precomputed
+one fit**, and it never draws a shape of its own to reach one either (CAR-15).
 
 **CAR-11** `P4` A car is driven by **its own body**: its footprint and mass, where its axles sit under it, how
 wide its track is, what its tyres hold, and what its gearing and brakes are worth. Every one of those is
 the variant's, and every decision taken for that car — the wheel, the pedals, the road it asks for, the
-gap it keeps, the shape it draws to park — is taken against them. **A fleet whose cars differ only in
+gap it keeps, the bay it will fit in — is taken against them. **A fleet whose cars differ only in
 their pictures is a fleet of one car.**
 
 **CAR-11a** `P4` The **town's geometry is the nominal car's**: lane widths, junction radii, bays and the ways
@@ -135,8 +159,8 @@ leave to legal ground.
 **CAR-6.4** `P5` Do not idle, except in a parking space, while obeying a signal, or while waiting for other
 agents.
 
-**CAR-6.5** `P5` Reverse **only as part of a manoeuvre** that owns it — entering or leaving a bay, squaring up
-in one, backing off, working round on the spot.
+**CAR-6.5** `P5` Reverse **only along one of the town's own ways at a bay**, in the gear that way was laid
+for (GEN-4j). There is nowhere else in the town a car goes backwards.
 
 **CAR-7** `P5` Yielding to another agent that blocks the path is legitimate idling and is the normal way cars
 resolve conflicts.
@@ -163,11 +187,66 @@ counted, so the count and `TownWorld.RecklessDrivers` are read together and neit
 
 ## Recovery
 
-**CAR-9** `P5` On a soft rule violation the car **stops**, then may move off-rule along the shortest path back
-to legal ground.
+**CAR-9** `P5` A car that is no longer driving the line it was given **stops and takes the lane it is
+actually standing on** — the shortest way back onto the network, which is the walker's own answer to the
+same state said of a driver (PER-25). Nothing is placed and nothing is corrected: the follower steers the
+body back onto that lane's line like any other.
 
-**CAR-9a** `P5` If no such path exists, **the driver exits and continues the trip on foot**. The car is then
-abandoned, which makes it no longer an agent (CAR-1) and exempt from the stuck-agent check (VER-3).
+**CAR-9a** `P5` Where no lane runs the way the body is pointing, the car covers no ground, **the leg's own
+clock ends it** (CAR-15a) and the driver continues the trip on foot. The car is then abandoned, which
+makes it no longer an agent (CAR-1) and exempt from the stuck-agent check (VER-3).
+
+## The standing rules
+
+These run underneath every tick of every car, and **they are not a step of anything**: they are how a car
+is driven at all, and they live in `world/town/TownWorld.Driving.cs`. Nothing selects them and nothing
+may repeat them.
+
+**S-1** `P5` Hold the driven line, measured at the rear axle, aiming a speed-scaled distance ahead and
+never further than the corner being driven is wide.
+
+**S-2** `P5` Speed is the minimum of every constraint — the gear cap, the corners, the end of the line, the
+headway, **the road the car was granted**, the stop point, the stop short of a crossing and the place the
+car was sent to — every distance taken a lead ahead of where the car is, against *usable* grip. The lead
+is the staleness of the driver's own decision and the travel of the pedal that answers it.
+
+**S-2a** `P3` **Take the road ahead before driving down it.** Every tick, a driver asks for the stretch of
+its own way from a margin behind its tail (TER-5c.2) to where it plans to be able to stop, and is
+granted what is left of it in front of the nearest car already on it. Nobody is granted ground another car will still be standing on
+once that car has stopped, and **that is the whole of following**: the car behind has less road to stop
+in and holds the speed that road affords. **The grant alone is read at a following time** rather than at
+the lead above, which is what settles a queue at the standstill gap and a second of travel rather than at
+a tenth of one — **and that time is kept from what is being followed and from nothing else**: a grant cut
+at a wreck, at somebody on foot, at ground somebody has claimed or at the place two movements meet
+already ends the asker's own margin short of it, and a second of travel on top of that is a car holding a
+street shut at speed for something it needed only to stop short of. **And it is cut by the ways this car
+is driven *over* as well as by the ways it is driving** (TER-5c.1), so the grant means one body to a piece
+of ground across a junction and not only along a lane. **What is asked for stops where a rule stops the
+car** (TER-4c.1) — a red, a bar, a zebra it must stop short of — the gap it keeps included, so a car
+standing at a stop holds the ground it is on and none of what it stopped for.
+
+**S-3** `P5` Watch ahead along the line actually being driven, in the gear it is being driven in. **Every
+tick, and out of the town's own claims** — what is in front, what it is and how far off it is are one walk
+of the ways being driven, over the same stretches the grant in S-2a was taken against, so the reading
+and the road the car was given can never disagree. **Everything that can be on a lane has claimed it**:
+the traffic, anybody on foot in it, and the town's own furniture (TER-4c).
+
+**S-4** `P3` Take up the ground **on your own way through** the box ahead, at the places the other movements
+cross it, and give back the box behind (TER-5c). Every tick, never on the clock — a red can change
+under a car, and nothing here is a claim on the junction. **What another movement's ground costs you
+is looked up and never marked** (TER-5c.1): a car claims the ways it is going to be on, and reads the
+ways it is only driven over. **And what it costs you turns on the right of way each of you has there**
+(TER-5e): ground held by a movement that gives way to yours is ground you are not cut at, and ground
+held by a body past the point it could stop short is ground nobody's rank takes. A crossing already taken
+is **given back** when something with the right of way over it asks for the same ground — while this car
+can still stop short of the box, and never after.
+
+**S-5** `P5` Hold a stop you have already made: the handbrake is pulled only at rest.
+
+**S-6** `P3` Hard rules bind everywhere. Only lane legality and the no-idling rule may be suspended, and
+only where a rule here says so.
+
+**S-7** `P7` A hand at the wheel suspends all of it.
 
 ## The tyre model
 
@@ -232,13 +311,13 @@ so what a car announces and what it gives way to are one answer about one moveme
 
 **A bend is not a turn.** A road of constant radius bends past any threshold for ever, and a car announcing
 that all the way round a circuit is announcing something nobody can act on: there is nowhere else for it to
-go. The same is true of a car going straight on through a crossroads, and of a car on a way or a template
+go. The same is true of a car going straight on through a crossroads, and of a car on a bay's own way
 with no junction ahead of it at all.
 
-**Which side is still read off the geometry** and never off the manoeuvre: the side the line bends to over
-the stretch of it a driver would be announcing, so no entry of the catalogue has to declare itself. A line
-laid the way the rear axle travels (`E-3`, the bay templates) bends the body the other way round, and is
-read in the body's frame. It is the **front corner pair** that flashes.
+**Which side is read off the geometry**: the side the line bends to over the stretch of it a driver would
+be announcing. A line driven the way the rear axle travels rather than the way the car points — a bay's
+way in reverse — bends the body the other way round, and is read in the body's frame. It is the **front
+corner pair** that flashes.
 
 **CAR-14.2** `P6` The **brake lamps are the pedal**: what the driver is asking of the brakes, never what the
 tyres are doing about it. A car standing on its handbrake with nobody's foot down shows none.

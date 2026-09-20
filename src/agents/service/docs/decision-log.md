@@ -53,8 +53,8 @@ A beat is the first errand that is not *for* anything, so there is nothing to ai
 along the town's lanes off the car's own stream. Searched: the quarter nothing has driven through for
 longest, which needs a coverage map kept per tick and a walk of it on the hot path, to buy something
 indistinguishable from a shuffle. It is a lane and not a junction because a leg ends with the car standing
-where it got to, and the fixture town's patrol was wrecked inside the first box it reached. It gained no
-catalogue entry (AGT-7): it is the rescue machine with the urgency taken out.
+where it got to, and the fixture town's patrol was wrecked inside the first box it reached. It asked the driving
+for nothing of its own (AGT-7): it is the rescue machine with the urgency taken out.
 
 ## 2026-08-25 — a station keeps its bays, and standing four cars costs the town four places
 

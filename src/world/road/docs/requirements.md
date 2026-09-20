@@ -75,7 +75,7 @@ every other junction: what is there is the road that stops, and the road stops w
 It carries no crossing and no lights.
 
 **A dead end is therefore not a place a car can turn round in**, which is a change from what this rule used
-to promise: there is no head, and a car working itself round on the spot (`P-19`) has only the width of its
+to promise: there is no head, and a car turning round at one has only the width of its
 own road to do it in. A leg that has to come back the way it came does it in a car park's bay (`GEN-4l`), and
 a dead end with no bay off it is a place nothing that drives in can leave. **A map that wants a turning head
 has to lay it** — as paved ground of its own, which the plan already carries and every reading of the ground
@@ -120,7 +120,7 @@ face each other across an intersection is not joined at all: no turn is classifi
 drawn, no ground is measured against it and no route may be handed one. The arithmetic is why — the line
 between two opposing lanes a lane's width apart is a semicircle of a metre and a half, tighter than any
 car's lock at any setback — and the consequence is deliberate: **a leg that has to come back the way it
-came does it in a car park's bay (`GEN-4l`) or by working itself round at a dead end (`P-19`, TER-5a),
+came does it in a car park's bay (`GEN-4l`),
 which are manoeuvres a driver makes and not movements a junction offers.**
 
 **TER-5i** `P5` **A lane is one way of one road, and it is cut nowhere at all.** Its two ends are its road's

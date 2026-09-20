@@ -131,7 +131,7 @@ the street beside it — Odesa's parks 17 → 4. The picture of a taken bay come
 
 ## 2026-08-24 — the departure is a movement, and the bay's own claim is a register
 
-The way in was one of the road's ways and the way out was not, so `P-2` held the street off with a sweep, a
+The way in was one of the road's ways and the way out was not, so leaving a bay held the street off with a sweep, a
 gap probe, a patience and a random beat — the town already knows what a car crossing a stream of traffic
 does, and a car leaving a bay was doing it by hand. The way out is driven (`CarFleet.LineWay`), leaving the
 entry's `Sa` and three lines. A movement is a way and not a turn (`CarFleet.MovementWay`), so one protocol

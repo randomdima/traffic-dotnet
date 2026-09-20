@@ -3,10 +3,10 @@
 The recovery: the depots a town has, the evacuator standing at each, and what happens between a car being
 wrecked in the street and being a car again.
 
-**An evacuator is a service vehicle and drives the car's catalogue**
-([agents/service](../../service/docs/requirements.md), [agents/car](../../car/docs/requirements.md),
-[the manoeuvres](../../car/maneuvers/docs/index.md)). What it is made of, where it stands and what happens
-when one is wrecked are `SRV-1` to `SRV-4`; what is here is the *errand* those manoeuvres are run for, and
+**An evacuator is a service vehicle and drives what every car drives**
+([agents/service](../../service/docs/requirements.md), [agents/car](../../car/docs/requirements.md)
+`CAR-15`). What it is made of, where it stands and what happens
+when one is wrecked are `SRV-1` to `SRV-4`; what is here is the *errand* those legs are run for, and
 the one thing in this project that couples two bodies together. Why it reads this way is
 [decision-log.md](decision-log.md).
 
@@ -138,7 +138,7 @@ costing the town its evacuator. The instrument that says how far each map's reco
 
 **The errand still winches the last few metres.** `CTL-7`'s action is the same call for both, but a player
 drives the truck onto the car and an errand cannot: an evacuator coming up a lane behind a wreck queues
-behind it like everything else, and nothing in the catalogue (`MAN-4`) will take a body past an obstruction
+behind it like everything else, and nothing a driver does (`CAR-15`) will take a body past an obstruction
 and stop it a set-down beyond. So a truck standing within reach of its wreck and finding the arm empty
 **pulls the wreck onto the fork** — a placement (`PHY-7a`) over the last few metres — and works the arm on
 it. What is missing is a manoeuvre that backs a truck onto a body, and until there is one the two ends of

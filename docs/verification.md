@@ -18,7 +18,7 @@ model, not a new soak scene.**
 qq tests [--changed] [tiers]   one or more tiers, each in the configuration its answer is true in
 qq tests e2e --judge           the frames, judged by an agent
 qq doclint                     every rule stated once, and every ID the code cites resolving
-dotnet run --project traffic-dotnet.csproj -- --bench maneuvers --map Odesa
+dotnet run --project traffic-dotnet.csproj -- --bench drive --map Odesa
 dotnet run --project traffic-dotnet.csproj -- --bench exam        # a scenario's claims, and an exit code
 dotnet run --project traffic-dotnet.csproj -- --shot .tmp/town.png --map Test
 dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json
@@ -172,7 +172,7 @@ for nothing else.** Four shapes are not tests, and none of them may be added:
   fair smoke test, because there zero is a real thing that can happen.
 - **The guard that the case arose.** `count > 0` over a simulated minute goes red when the town moves and
   says nothing about a rule, so a rule is asserted on its own and **whether the run had anything to say is
-  the instruments' to report** — the census, the probes, `--bench maneuvers`' own last line — where it is
+  the instruments' to report** — the census, the probes, `--bench stuck`'s own tallies — where it is
   read rather than gated. A rule with no coverage but the census is a rule owing a **staged** case, and
   staging it is the work; a `> 0` in front of it is not.
 
@@ -387,9 +387,10 @@ are for.
 ## The instruments say what is missing
 
 **No document holds a list of what is unbuilt**, because such a list is stale the week after it is
-written. The last line of `--bench maneuvers` is the set of catalogue entries nothing entered, which is
-how an unbuilt entry and an unreachable one are told apart; `--check` prints the dependency read-out; and
-every figure is quoted with the census that says whether the town it ran was a town.
+written. `--bench drive` says which term bound every car-tick, so a term nothing ever binds on is read
+rather than reasoned about; `--bench stuck` says how many legs the town gave up and what each of them was
+held by; `--check` prints the dependency read-out; and every figure is quoted with the census that says
+whether the town it ran was a town.
 
 **A probe with claims behind it ends with them**, and its exit code is the answer: the table is what a
 person reads and the last line is what a script does. The ones that gate nothing say so where they are

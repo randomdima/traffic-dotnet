@@ -141,7 +141,7 @@ reverse.
   standing it served.
 
   **But the swing is a cost and not a feature, and how many bays pay it is settled by two figures rather
-  than by the street** (`P-14`): the arc's own margin over the tightest circle the car has, and the straight
+  than by the street**: the arc's own margin over the tightest circle the car has, and the straight
   the template ends on. Both come off the gap between the lane and the bay, and a town whose lots stand a
   turning radius clear of their lanes lays every nose-in as a single arc that never leaves its own side of
   the road. The shipped figures are set so that it does.
@@ -158,7 +158,7 @@ reverse.
 
 **GEN-4l** `P5` **A car that has to come back the way it came turns in a bay: it parks and it unparks.** No
 junction admits a movement that reverses the direction of travel (TER-5f), so this and a dead end
-(`P-19`) are the two ways round a town has, and this is the one an ordinary street offers.
+at a dead end are the two ways round a town has, and this is the one an ordinary street offers.
 
 - **It is the bay's own two ways and nothing new** (`GEN-4f`): the way in off the lane the car is coming
   down, and the way out onto the lane running back. Both are the road's own, so the traffic is held off the

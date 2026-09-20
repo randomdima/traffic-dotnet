@@ -129,7 +129,7 @@ public class LineAssemblerTests
     /// </summary>
     /// <remarks>
     /// The town measures its furniture against lanes and a driver meets all of it on one assembled line, so
-    /// this conversion stands under `P-8`'s bar and a crossing's paint alike. Checked by sampling both — the
+    /// this conversion stands under a junction's bar and a crossing's paint alike. Checked by sampling both — the
     /// arithmetic can only agree by describing one point.
     /// </remarks>
     [Theory]
