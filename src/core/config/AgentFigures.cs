@@ -575,28 +575,6 @@ internal sealed class PersonFigures
     public float StandstillGapInDiameters { get; init; } = 1f;
 
     /// <summary>
-    /// The room between two bodies as one steps round the other (PER-24), in bodies — added to the two
-    /// radii, so a quarter is shoulders brushing past at a comfortable distance rather than a second
-    /// following gap.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is a step sideways and not a gap kept in front</b>, which is why it is a figure of its own and
-    /// a small one: the walk it diverges from is the thing being kept, and a step wide enough to be
-    /// generous is a step off the far edge of the pavement.
-    /// </remarks>
-    public float ShoulderRoomInDiameters { get; init; } = 0.25f;
-
-    /// <summary>
-    /// How far past a kerb line the middle of a body may be while stepping round somebody (PER-24), in
-    /// bodies. <b>Sized by the step it has to allow and not by taste</b>: a body standing on a pavement
-    /// lane's own line is <see cref="SimConfig.WalkingLaneOffsetM"/> from the kerb and the step round it
-    /// reaches <see cref="ShoulderRoomInDiameters"/> further than that, so anything under a quarter of a
-    /// body sends the commonest step in the town the other way instead. Half of one clears that with room
-    /// to spare and still leaves the middle at the channel rather than in the lane.
-    /// </summary>
-    public float RoadGrazeInDiameters { get; init; } = 0.5f;
-
-    /// <summary>
     /// How much more of a crossing's paint a body on it claims than the paint and the body between them
     /// measure. <b>A body on a zebra is anywhere along it before a driver arrives</b>, so what the traffic is
     /// held off is the marked ground rather than the metre the walker happens to be standing on.
@@ -608,39 +586,6 @@ internal sealed class PersonFigures
     /// </remarks>
     public float RoadClaimMargin { get; init; } = 1.15f;
 
-    public float RedWaitSetbackM { get; init; } = 2f;
-
-    /// <summary>Only traffic spends it.</summary>
-    public float KerbPatienceS { get; init; } = 8f;
-
-    /// <summary>
-    /// How long one lurch of a body reeling down a carriageway lasts, which with the pace above is how far
-    /// it carries — 20 m at the shipped figures. <b>Long enough that a driver behind one is following it
-    /// rather than arriving at it</b>, and short enough that where it ends up across the road is not a
-    /// decision taken once a minute.
-    /// </summary>
-    public float LurchS { get; init; } = 3f;
-
-    /// <summary>
-    /// How many lurches a body takes, on average, between standing where it is for a beat. <b>It is what
-    /// makes a drunk two things to a driver rather than one</b>: something slow to be followed while it is
-    /// walking, and something to be got past once it has stopped — and both of those are wanted, so neither
-    /// may be so rare that a run never contains it.
-    /// </summary>
-    public int LurchesPerStand { get; init; } = 4;
-
-    /// <summary>
-    /// And how long that stand lasts, drawn up to twice this. <b>It is not
-    /// <see cref="StandAboutS"/></b>: a pacer stands until something has come to rest for it and the beat is
-    /// only the bound on that, while a body reeling down a road is waiting for nothing at all.
-    /// </summary>
-    /// <remarks>
-    /// <b>It has to be worth more than a driver's obstruction wait</b>
-    /// (<see cref="LadderFigures.ObstructionWaitS"/>) or nothing is ever got past, and it has to be worth
-    /// well under the blocked-road clock or a road with fifteen of them on it is a road nothing gets down.
-    /// </remarks>
-    public float LurchStandS { get; init; } = 6f;
-
     /// <summary>
     /// The brief random idle before drawing a destination, so a town's worth of people do not all set off
     /// on the same tick. A stagger and not a wait: longer than the decision interval, far shorter than a dwell.
@@ -648,37 +593,29 @@ internal sealed class PersonFigures
     public float StandByIdleMaxS { get; init; } = 1f;
 
     /// <summary>
-    /// How long a walker with nowhere to be will stand out in the lane waiting to be stopped for — this much
-    /// at least, and up to twice it. <b>It bounds the stand and is never the reason one ends</b>: a body
-    /// steps back onto the pavement the moment something has come to rest for it, and steps out again as
-    /// soon as the road is clear, so on a road anything drives this figure is never reached.
+    /// How far a bay a car is aiming at may stand from where that leg is going, in block spacings — one
+    /// block, so a car parks on the destination's own block rather than the next one along.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>What it is really for is the road nothing comes down</b>, which would otherwise leave a body
-    /// standing in a lane for good. It has to sit under the blocked-road fuse
-    /// (<see cref="LadderFigures.BlockedRoadInLightCycles"/>), or a car that arrived at the start of a stand
-    /// would walk the ladder around a body that was about to move.
-    /// </para>
-    /// <para>
-    /// <b>Each stand is drawn afresh from the walker's own stream</b>, and that is the load-bearing half. A
-    /// lap settles into a period, so a beat any small number of laps is a multiple of meets the same walkers
-    /// at the same point of their pacing for ever — with the beat held fixed, two of the five shapes on the
-    /// proving ground were blocked on almost every pass and two on almost none.
-    /// </para>
-    /// </remarks>
-    public float StandAboutS { get; init; } = 12f;
-
-    /// <summary>
-    /// How far a person will walk when the trip is theirs to choose, in block spacings: one block, so a
-    /// destination inside the block the walker is standing in is walked to and anything past it is worth a car.
-    /// </summary>
-    /// <remarks>
-    /// One figure rather than two, deliberately: it also caps the walk a trip <em>hands</em> somebody —
-    /// the bay a drive aims at is looked for within it of the destination, a car further off is not this
-    /// trip's car, and a leg that would end further away drops the destination instead.
+    /// <b>It is the walking side's figure by history and not by use.</b> No leg of a trip is driven
+    /// (PER-25), so what is left of it is the reach a bay search is bounded by — which is the one thing it
+    /// is read for.
     /// </remarks>
     public float WalkWorthInBlockSpacings { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>How long a walker may get no nearer the point it is walking at before the leg is given up</b>
+    /// (PER-25). What ends one is the line being drawn somewhere else, so this is the time a body spends
+    /// being leaned on by a crowd or held against a wall before that is worth doing.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is not a driver's obstruction wait</b> (<see cref="LadderFigures.ObstructionWaitS"/>) and is
+    /// several times it. A driver that waits has a ladder to climb and something to be got round; a walker
+    /// has neither, and nothing about the pavement holds it up on purpose — so a clock as short as the
+    /// road's reads an ordinary shove at a doorway as a trip that cannot be finished, and a town's walkers
+    /// then spend the run drawing destinations instead of walking to them.
+    /// </remarks>
+    public float GivesUpAfterS { get; init; } = 20f;
 
     public float DiameterInPropDiameters { get; init; } = 0.5f;
     public float ExitSearchRadiusInPropDiameters { get; init; } = 1f;

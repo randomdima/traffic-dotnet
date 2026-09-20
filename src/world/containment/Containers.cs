@@ -30,8 +30,8 @@ internal readonly record struct Contained(ContainerKind Kind, int Index)
 /// (OBJ-5). Refused there is a real state — the building is full — and not a failure.
 /// </para>
 /// <para>
-/// <b>Nothing here decides whether a car may be boarded.</b> PER-4's free, stopped and intact is asked
-/// of the car's own arrays at the moment of boarding, because two of the three are about motion and
+/// <b>Nothing here decides whether a car may be boarded.</b> Whether one is free, stopped and intact is
+/// asked of the car's own arrays at the moment of boarding, because two of the three are about motion and
 /// damage and neither belongs in a register of who is inside what.
 /// </para>
 /// </remarks>

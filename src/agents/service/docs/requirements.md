@@ -34,40 +34,27 @@ fewer free bays near it than the apron asks for stands fewer, and one with none 
 AMB-2 stands a hospital's ambulances on. **A depot's apron is its evacuator's bay and its yard's slots
 besides**, and what a yard is for is [agents/evacuator](../../evacuator/docs/requirements.md) (EVA-2).
 
-**SRV-3** `P5` A service vehicle is an ordinary car with two facts about it: it wears a variant from the
-**service list** rather than one of the fleet's, and it carries a **crew** — a driver who keeps the wheel,
-and a **hand whose whole job is to get out and do the work in the street**. Every errand in this town is
-worked in human form: the paramedic walks to the casualty (AMB-10), the recovery man stands at the arm
-(`EVA-5`), the officer stands beside the road he is closing (SRV-6). Five things follow.
+**SRV-3** `P5` A service vehicle is an ordinary car with one fact about it: it wears a variant from the
+**service list** rather than one of the fleet's. Three things follow.
 
-- **What makes it a car that acts is the errand and not the seat.** CAR-1 asks for a driver, and a vehicle
-  whose whole crew is out in the road has none — so nothing about a service vehicle's own acting is decided
-  by who is inside it, and its light stays on with the doors open (AMB-4b).
-- **And what keeps it out of everybody else's trip is the building it stands on the strength of.** PER-4
-  asks for a car nobody is in, and an ambulance standing empty at a scene is exactly one; what refuses a
-  passer-by is that it belongs to a hospital, a station or a depot. A vehicle struck off its building
-  (`EVA-7`) is an ordinary car in service paint and is free to whoever reaches it.
-- **A hand out is an ordinary walker.** The same pavement, the same kerbs, the same claims, and knocked down
-  by the same cars — a crew member put in the road is a casualty like anybody else (`PER-18`), and the
-  vehicle's next errand is worked by whoever is left.
-- **Nothing drives while a hand is out**, and no errand is given up without walking them in first.
-- **Getting one back is bounded.** A pavement that will not give a hand back would strand a vehicle
-  mid-errand and leave its building one short for the rest of the run, so past that bound the body is
-  **placed at its own door** — the winch's fallback (`EVA-5`) said of a person, and named rather than
-  hidden.
+- **What makes it a car that acts is the errand and not a seat.** CAR-1 asks for a driver and a service
+  vehicle has none, so nothing about its own acting is decided by who is inside it, and its light stays on
+  regardless (AMB-4b).
+- **And what keeps it out of anybody else's hands is the building it stands on the strength of**, and never
+  who is sitting in it. A vehicle struck off its building (`EVA-7`) is an ordinary car in service paint.
+- **No errand is worked on foot**, and that is where this slice stands rather than what it wants: the
+  casualty is got aboard at the standoff (AMB-10), the arm is worked from the truck (`EVA-5`) and the
+  closure is the police car's own claim (SRV-6). What it costs is recorded in the known gaps
+  ([docs/index.md](../../../../docs/index.md#known-gaps)) rather than written here as a decision.
 
-**SRV-3a** `P6` A crew wears **its own service's uniform** — the paramedic's aboard an ambulance, the
-officer's in a police car, the recovery man's in an evacuator — and **nobody else in the town may wear
-one**. The uniforms are a second list in the person catalogue on the terms SRV-3's service list is the
-fleet's: a walker's look is drawn by wrapping the ordinary list, and that wrap cannot reach past it, so a
-uniform is worn only by somebody named to wear it. It is what a service vehicle's paint is, said of the
-body rather than the car — a crew put out of its own wreck (PHY-6) is read as the crew and not as a
-passer-by who stopped to look.
+**SRV-3a** `P6` **Nobody in the town wears a service uniform.** The uniforms are a second list in the
+person catalogue on the terms SRV-3's service list is the fleet's: a walker's look is drawn by wrapping
+the ordinary list, and that wrap cannot reach past it, so a uniform is worn only by somebody named to wear
+one — and while no vehicle carries a crew, nobody is. It is what a service vehicle's paint is, said of the
+body rather than the car, and it is what will dress a crew the day one goes back out.
 
-**SRV-4** `P5` **A service vehicle breaks like every other car** (PHY-3), the evacuator included. **Its whole
-crew goes down beside it** on PHY-6's terms — the driver and the hand alike, and one already out in the
-street is struck off the crew where it stands rather than waited for. Three more things follow from the one
-that can be towing something when it happens.
+**SRV-4** `P5` **A service vehicle breaks like every other car** (PHY-3), the evacuator included. Three
+things follow from the one that can be towing something when it happens.
 
 - **A wrecked evacuator drops what it was pulling where it stands.** The car on the arm is a call again
   from that moment, no worse off than where it fell — EVA-8's own argument about a haul that will not get
@@ -76,8 +63,8 @@ that can be towing something when it happens.
   and the bay held for it goes back to the town; the yard's slots stay held for the wrecks standing in
   them. A depot whose evacuator broke and whose town has no other one is a town that has stopped
   collecting, which is `EVA-2`'s own state and is counted rather than hidden.
-- **And a mended one comes back as an ordinary car**, on `EVA-7`'s terms: its crew got out when it broke,
-  and nothing hands a depot its truck back.
+- **And a mended one comes back as an ordinary car**, on `EVA-7`'s terms: nothing hands a depot its truck
+  back.
 
 ## The beat
 
@@ -103,7 +90,7 @@ stand again. Five things follow, and the third is the point of the rule:
 
 ## The closure
 
-**SRV-6** `P5` **A scene is a call, and an officer closes the road round it.** A casualty lying in the street
+**SRV-6** `P5` **A scene is a call, and the police car sent to it closes the road round it.** A casualty lying in the street
 (`AMB-5`) and a wreck standing in one (`EVA-1`) each raise one, taken on the terms a rescue and a recovery
 take theirs: the nearest free patrol, **nearest measured against every other free patrol and not against
 every other scene**, one call to a scene and one scene to a call. Six things follow, and the third is the
@@ -112,9 +99,10 @@ point of the rule.
 - **The leg out carries the priority and nothing else does** — the whole of `AMB-4` for that one leg, on
   `EVA-4`'s terms. What is urgent about a closure is getting the road shut before somebody else drives into
   the scene; the drive home afterwards is a police car going back to work.
-- **The officer works it on foot** (SRV-3), and **stands beside the carriageway rather than in it**. What a
-  closure is, is ground spoken for; a body standing in the lane would be a thing the rescue itself has to be
-  held off (`AMB-4a`), which is the closure working backwards.
+- **What is laid is a claim and never a body** (SRV-3). What a closure is, is ground spoken for, and
+  nothing has to be standing in the lane to say so — one that did would be a thing the rescue itself has to
+  be held off (`AMB-4a`), which is the closure working backwards. The car stands at its own standoff and
+  the claim does the refusing.
 - **A closed road is a claim at a rank of its own** (`TER-5e`), above every ordinary movement and below a
   call. That one placing is the whole mechanism: ordinary traffic is refused it and stops short, and an
   ambulance or an evacuator answering a call is not refused it and drives through. **Nothing reading the
@@ -122,10 +110,9 @@ point of the rule.
 - **It is a claim and takes only what a claim may take.** A body, and the road a body is committed to being
   able to stop in, are no more an officer's than anybody's — a closure orders who waits and is never a way
   to stop somebody who cannot stop.
-- **A body closing the road is a body that holds more road than it stands on**, and holds it **once**
-  (`TER-5c.2`). An officer shoved into the lane holds the ground under him like any other walker and stops
-  holding anything else, which is the honest answer: a man knocked into a carriageway is not directing
-  traffic.
+- **A closure is one stretch of one way and is held once** (`TER-5c.2`), laid round the scene rather than
+  round the car — what is being kept clear is the ground somebody is working on and not the ground the
+  patrol happened to stop on.
 - **A closure ends when its scene does, and is bounded besides.** The casualty collected and the wreck on
   the bar are both the scene over; the bound is what stops a scene nothing ever clears holding a street out
   of the town for the rest of the run.

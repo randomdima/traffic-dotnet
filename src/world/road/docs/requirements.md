@@ -288,6 +288,6 @@ Six rules govern all of it:
   slice above lays off them — carrying every
   body on the network and the stretch each driver has taken, so that **who is in front and how much road
   is whose** are answered from the town's own claims rather than from geometry (`S-2a`). It is laid over
-  ways the caller measures, so the pavement keeps a second set of the same kind (PER-13). **The two
+  ways the caller measures, so the pavement keeps a second set of the same kind (`PER-26`). **The two
   are told apart by which network the ground belongs to and never by which kind of body is standing on
   it.**

@@ -93,15 +93,6 @@ internal sealed partial class TownWorld
                 HoldTheRoadClosed(car, elapsedS);
                 return;
 
-            case PatrolStage.BoardingAtTheScene:
-                // The officer walking back to his seat. Nothing is driven until he is in it (SRV-3), and
-                // the lane he was holding is already the town's again — the closure goes with the body.
-                if (!TheHandIsAboard(car, elapsedS)) return;
-
-                _beat.ClearTheCall(car);
-                TakeTheNextPlace(car);
-                return;
-
             case PatrolStage.ReturningToStation:
                 // <b>Home, or out of clock, or a leg that ended short of it.</b> The last of those is laid
                 // again from where the car has got to rather than given up on (MAN-3): a patrol that stood
@@ -289,8 +280,8 @@ internal sealed partial class TownWorld
 
         // <b>Near the scene rather than on its own mark</b>, and that is the standoff paying for itself: a
         // police car queues behind whatever else has been called here — the ambulance is aimed at a mark
-        // half as far back (AMB-10) — and what closes the road is a man walking, so where the traffic let
-        // the car stop matters only up to how far he is willing to walk.
+        // half as far back (AMB-10) — and what closes the road is a claim round the scene, so where the
+        // traffic let the car stop matters only up to how near it got.
         var atRest = Cars.VelocityMps[car].Length() <= _config.Driving.StopSpeedMps;
         if (!atRest || (Cars.PositionM[car] - sceneM).Length() > _config.PoliceClosureM)
         {
@@ -303,48 +294,50 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The road held closed</b> (SRV-6): the officer standing beside the carriageway the scene lies on,
-    /// holding a stretch of it at a rank ordinary traffic does not outrank and a rescue does.
+    /// <b>The road held closed</b> (SRV-6): the police car standing at the scene holds a stretch of the
+    /// carriageway that scene lies on, at a rank ordinary traffic does not outrank and a rescue does.
     /// </summary>
     /// <remarks>
-    /// <b>Beside the road and not in it.</b> What a closure is, is ground spoken for; a body standing in the
-    /// lane would be a thing the rescue itself has to be held off (AMB-4a), which is the closure working
-    /// backwards. So the officer stands on the far side of the kerb line and the claim does the refusing.
+    /// <b>The claim is the vehicle's and is laid where every other claim is</b>
+    /// (<see cref="CloseTheRoad"/>). What a closure is, is ground spoken for, so nothing standing in the
+    /// lane is needed to state it — and a body put there would be a thing the rescue itself has to be held
+    /// off (AMB-4a), which is the closure working backwards. What runs here is the clock and the errand.
     /// </remarks>
     void HoldTheRoadClosed(int car, float sinceLastDecisionS)
     {
-        if (!TheSceneStillStands(car, out var sceneM)) return;
+        if (!TheSceneStillStands(car, out _)) return;
 
         // <b>A closure is bounded</b> (SRV-6). A scene nothing ever clears would otherwise hold a street out
         // of the town for the rest of the run, which is the one failure a closure's claim can cause.
         _beat.ClosedForS[car] += sinceLastDecisionS;
-        if (_beat.ClosedForS[car] >= _config.PoliceClosureLifeS)
-        {
-            GiveUpTheScene(car);
-            return;
-        }
-
-        if (!TheHandHasReached(car, TheClosingPlaceM(car, sceneM))) return;
-
-        People.ClosesTheRoadM[TheHandOf(car)] = _config.PoliceClosureM;
+        if (_beat.ClosedForS[car] >= _config.PoliceClosureLifeS) GiveUpTheScene(car);
     }
 
     /// <summary>
-    /// <b>Where the officer stands to close this scene's road</b>: beside the lane it lies on, a body's
-    /// width the far side of the kerb line, <b>on the side his own car came up</b> — which is the side of
-    /// that carriageway there is a pavement on, without anything here having to know which way the town
-    /// drives.
+    /// <b>The stretch of lane this police car is holding closed</b> (SRV-6), laid with the rest of the
+    /// claims: ground granted and not reached, at the closure's own rank.
     /// </summary>
-    Vector2 TheClosingPlaceM(int car, Vector2 sceneM)
+    /// <remarks>
+    /// <b>Nothing reading it learns a new word.</b> It is refused by whoever <see cref="LaneOccupancy.Binds"/>
+    /// says it refuses — every ordinary movement, and not an ambulance or an evacuator answering a call
+    /// (AMB-4, EVA-4). That is the whole of "the police give way to the other services", and neither of
+    /// them is told a policeman exists.
+    /// </remarks>
+    void CloseTheRoad(int car)
     {
-        var lane = _roads.NearestLane(sceneM, out var alongM);
-        if (lane < 0) return sceneM;
+        if (!IsAPatrolCar(car) || _beat.Stage[car] != PatrolStage.Closing) return;
 
-        var at = Spline.SampleAt(_roads.ArcsOf(lane), alongM);
-        var across = new Vector2(-at.Direction.Y, at.Direction.X);
-        var offM = Vector2.Dot(Cars.PositionM[car] - at.PositionM, across);
-        var side = offM != 0f ? MathF.Sign(offM) : _config.RoadSideSign;
-        return at.PositionM + (across * side * ((_roads.LaneWidthM[lane] * 0.5f) + _config.PersonDiameterM));
+        var casualty = _beat.Casualty[car];
+        var wreck = _beat.Wreck[car];
+        if (casualty < 0 && wreck < 0) return;
+
+        var lane = _roads.NearestLane(TheSceneM(casualty, wreck), out var alongM);
+        if (lane < 0) return;
+
+        var closedM = _config.PoliceClosureM;
+        _occupancy.ClaimAhead(
+            _ways.OfRoadLane(lane), alongM - closedM, alongM + closedM, 0f, car,
+            Road.ClaimPriority.Firm, Road.LaneRoster.Driving, Road.RightOfWay.Closed);
     }
 
     /// <summary>
@@ -381,11 +374,7 @@ internal sealed partial class TownWorld
     bool TheClosureStopsAt(int car, out Vector2 standoffM)
     {
         standoffM = default;
-        if (_beat.Stage[car] is not (PatrolStage.Attending or PatrolStage.Closing
-            or PatrolStage.BoardingAtTheScene))
-        {
-            return false;
-        }
+        if (_beat.Stage[car] is not (PatrolStage.Attending or PatrolStage.Closing)) return false;
 
         if (!Cars.HasDestination[car]) return false;
 
@@ -394,22 +383,12 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The scene let go of: the lane given back to the town, the officer walked in before the car drives
-    /// anywhere (SRV-3), and <b>the beat picked up where the call interrupted it</b> — a patrol with places
-    /// left goes to the next one rather than home, since a call is an interruption and not the end of a
-    /// shift (SRV-5).
+    /// The scene let go of: the lane given back to the town — the closure is laid from the stage every
+    /// tick, so leaving the stage is the whole of releasing it — and <b>the beat picked up where the call
+    /// interrupted it</b>, since a call is an interruption and not the end of a shift (SRV-5).
     /// </summary>
     void GiveUpTheScene(int car)
     {
-        var hand = TheHandOf(car);
-        if (hand >= 0) People.ClosesTheRoadM[hand] = 0f;
-
-        if (TheHandIsOut(car))
-        {
-            EnterThePatrolStage(car, PatrolStage.BoardingAtTheScene);
-            return;
-        }
-
         _beat.ClearTheCall(car);
         TakeTheNextPlace(car);
     }

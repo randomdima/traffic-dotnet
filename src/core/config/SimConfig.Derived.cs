@@ -139,7 +139,7 @@ internal sealed partial class SimConfig
     /// </remarks>
     public float PersonCasualtyKj => Person.MassKg * PersonSlidingGripMps2 * Damage.SlideToCasualtyM / 1000f;
 
-    /// <summary>The longest walk anybody chooses, and the ceiling on the one a trip hands them.</summary>
+    /// <summary>How far a bay a car is aiming at may stand from where that leg is going.</summary>
     public float PersonWalkWorthM => CityGen.BlockSpacingAlongMinM * Person.WalkWorthInBlockSpacings;
 
     /// <summary>
@@ -244,31 +244,6 @@ internal sealed partial class SimConfig
     /// </summary>
     public float PersonStandstillGapM => PersonDiameterM * Person.StandstillGapInDiameters;
 
-    /// <summary>
-    /// The room a walker leaves between itself and a body it is stepping round (PER-24) — a quarter of a
-    /// metre at the shipped figures, on top of the two bodies' own radii.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is the least that gets past and is sized as nothing else.</b> A pavement lane's line is
-    /// <see cref="WalkingLaneOffsetM"/> from the edge of the band, so a step round a body standing on that
-    /// line reaches the ground beyond it whatever this is set to — which is why the side is answered by the
-    /// terrain and not by a figure that could be tuned until it fits.
-    /// </remarks>
-    public float PersonShoulderRoomM => PersonDiameterM * Person.ShoulderRoomInDiameters;
-
-    /// <summary>
-    /// <b>How far past a kerb line the middle of a body may be while it steps round somebody</b> (PER-24) —
-    /// half a metre at the shipped figures, which is a body at the channel and over the kerb rather than one
-    /// standing in a lane.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is measured off the lane's band and never off the ground grid.</b> A walker's line runs
-    /// <see cref="WalkingLaneOffsetM"/> from the edge of its band and a step reaches
-    /// <see cref="PersonShoulderRoomM"/> past the two bodies, so a step round somebody on that line is a
-    /// quarter of a body over the kerb — under this, and taken, which is what stops nearly every step in the
-    /// town being turned back the other way.
-    /// </remarks>
-    public float PersonRoadGrazeM => PersonDiameterM * Person.RoadGrazeInDiameters;
 
     /// <summary>
     /// How far off a pavement lane's own line a body is still standing on that lane: a quarter of the band,

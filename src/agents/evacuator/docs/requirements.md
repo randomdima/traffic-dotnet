@@ -31,7 +31,7 @@ wrecks and for nobody else (`GEN-4k`). Three things follow.
 ## The errand
 
 **EVA-3** `P5` The nearest evacuator with nothing else to do takes the nearest wreck nobody is on their way to,
-and **nearest is measured against every other free evacuator and not against every other wreck**: a crew
+and **nearest is measured against every other free evacuator and not against every other wreck**: a truck
 that is not the nearest to the wreck it would have gone to takes nothing and asks again. **One wreck to a
 recovery and one recovery to a wreck.**
 
@@ -55,13 +55,12 @@ the point of the rule.
 **EVA-5** `P3` A wreck is **towed and never carried**. It stays a body in the world the whole way (`PHY-5`),
 and the tow is five things and no more:
 
-- **One action, worked by somebody standing at it.** The arm is **worked** — swung out onto whatever is
+- **One action, worked from the truck.** The arm is **worked** — swung out onto whatever is
   within its reach behind the truck, or back in when there is nothing there — and **working it is the whole
-  of a recovery vehicle's action** (`CTL-7`). One call does it, and a crew and a hand on the keys reach for
-  the same one, so what an evacuator can do is exactly what a player can. **The crew reaches it on foot**
-  (`SRV-3`): the recovery man gets out, walks to the wreck, and the interval the hitch takes does not begin
-  until he is standing at it — nothing about the arm is reached from inside the cab, and the same is true of
-  setting a wreck down in a yard slot (EVA-6). **What it catches, it catches by either end**, and a wreck
+  of a recovery vehicle's action** (`CTL-7`). One call does it, and the errand and a hand on the keys reach
+  for the same one, so what an evacuator can do is exactly what a player can. **Nobody gets out to it**
+  (`SRV-3`): what covers the last few metres is the winch below, and the same is true of setting a wreck
+  down in a yard slot (EVA-6). **What it catches, it catches by either end**, and a wreck
   is not special: anything with a body may go on the bar, and what is on the bar takes no decisions until it
   is let off. **Its wheels are straightened as it goes on**, because the pair left on the ground may be its
   steered one and a car dragged on a wheel wound over is being scrubbed sideways down the road.
@@ -92,20 +91,19 @@ and the tow is five things and no more:
   trailer was a car the traffic beside it could not see; asking under its own number, it cut its own hauler's
   grant and the tow stopped dead on the first metre of road it stood on.
 
-**EVA-6** `P5` A wreck is **set down in a free yard slot** by the crew, once the evacuator is standing within
-their reach of one, **the man is out and standing at it** (`SRV-3`), and the hitching interval has been
+**EVA-6** `P5` A wreck is **set down in a free yard slot**, once the evacuator is standing within
+reach of one and the hitching interval has been
 spent on it. It is the one placement in this errand — a container's own operation (`PHY-7a`) over the width
 of a parking space — and it is refused while no slot is within reach, which is a wait and not a failure.
 
 **EVA-7** `P5` A wreck standing in a yard slot is **restored** after the repair interval: put back together
-where it stands and left there, an ordinary parked car in an ordinary space, free for whoever walks past to
-drive away (`PER-4`). Two consequences.
+where it stands and left there, an ordinary parked car in an ordinary space. Two consequences.
 
-- **A restored service vehicle comes back as an ordinary car.** Its crew got out when it broke and is not
+- **A restored service vehicle comes back as an ordinary car.** Nothing is
   coming back, so the hospital, station or depot it belonged to lets it go and the bay held for it is given
   back to the town.
-- **The slot is the town's until somebody takes the car out of it.** A yard that fills with mended cars
-  nobody has walked to is a depot that has stopped collecting, which is `EVA-2`'s own state and is counted
+- **The slot is the town's until something takes the car out of it.** A yard that fills with mended cars
+  nothing has come for is a depot that has stopped collecting, which is `EVA-2`'s own state and is counted
   rather than hidden.
 
 **EVA-8** `P5` **Every leg of a recovery is bounded.** A wreck the traffic never lets an evacuator reach is
@@ -119,7 +117,7 @@ evacuator back.
 ## Where the numbers are
 
 On `SimConfig.Evacuator` ([core](../../../core/docs/requirements.md#where-a-figure-lives)): how many slots a
-yard holds, how long the crew and the workshop take, how near the wreck and how near a slot the crew can
+yard holds, how long the hitch and the workshop take, how near the wreck and how near a slot the arm can
 work from, the bound on a leg and how many hauls a wreck is worth, how far inside a car's nose the fork takes hold —
 and the coupling's own three: how quickly the arm pulls its stretch out, the most it may spend and what
 share of that it may spend sideways.
@@ -138,13 +136,13 @@ dense city there is geometry a tow gets no further through than a rerouting, and
 costing the town its evacuator. The instrument that says how far each map's recovery actually gets is
 `--bench recovery`.
 
-**A crew still winches the last few metres.** `CTL-7`'s action is the same call for both, but a player
-drives the truck onto the car and a crew cannot: an evacuator coming up a lane behind a wreck queues behind
-it like everything else, and nothing in the catalogue (`MAN-4`) will take a body past an obstruction and
-stop it a set-down beyond. So a crew standing within reach of its wreck and finding the arm empty **pulls
-the wreck onto the fork** — a placement (`PHY-7a`) over the last few metres — and works the arm on it. What
-is missing is a manoeuvre that backs a truck onto a body, and until there is one the two ends of `CTL-7`
-are the same action reached from the same place but not the same drive.
+**The errand still winches the last few metres.** `CTL-7`'s action is the same call for both, but a player
+drives the truck onto the car and an errand cannot: an evacuator coming up a lane behind a wreck queues
+behind it like everything else, and nothing in the catalogue (`MAN-4`) will take a body past an obstruction
+and stop it a set-down beyond. So a truck standing within reach of its wreck and finding the arm empty
+**pulls the wreck onto the fork** — a placement (`PHY-7a`) over the last few metres — and works the arm on
+it. What is missing is a manoeuvre that backs a truck onto a body, and until there is one the two ends of
+`CTL-7` are the same action reached from the same place but not the same drive.
 
 **Getting the truck onto its mark is the whole of what the winch is covering**, and how much of the last of
 it is left to cover is a figure rather than a rule: the leg is aimed at the exact place the fork takes hold

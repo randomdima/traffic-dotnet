@@ -37,14 +37,8 @@ internal sealed partial class DebugOverlay
 
             var colour = Theme.AgentLine(person);
 
-            // A body held at a kerb is marked where it stands: standing still with a line ahead of it is
-            // the one state this layer could otherwise not tell from walking. The body itself is not
-            // ringed — the sprite is already there, and a mark on it says nothing.
-            if (people.HeldAtTheKerb[person]) draw.RingM(atM, people.RadiusM[person] * 1.6f, PathMarks.PathLineM, colour, segments: 12);
-
             Label(
-                ref draw, atM, WalkingWords.WalkName(people, person, world.StopsInM(person)), viewCentreM, viewSpanM,
-                pixelsPerMetre);
+                ref draw, atM, WalkingWords.WalkName(people, person), viewCentreM, viewSpanM, pixelsPerMetre);
 
             if (!people.Walking[person]) continue;
 

@@ -113,9 +113,8 @@ rest within reach of the place — and, like every other order, when the leg end
 
 **CTL-8b** `P7` **Parking is the bay machinery, and a place off the road is a park and then a walk.** A park
 order claims a bay and drives the ordinary leg to it. **The bay is the free one nearest the point**, over
-the whole town rather than within a walk of it: a trip is bounded because nobody parks a mile from the
-door they are going to (PER-10a), while a player who clicked a full car park asked for the nearest free
-bay to it and a refusal reads as a click that did not land.
+the whole town rather than within a walk of it: a player who clicked a full car park asked for the nearest
+free bay to it, and a refusal reads as a click that did not land.
 
 Where the point is somewhere no car may be, **the order is the drive and the walk both**: the car parks
 nearest, and the rest of it is handed to the driver as a walker's own order (CTL-3) at the moment they are
@@ -143,9 +142,6 @@ falls through to the ground under it, so it reads as an order to drive to where 
 choosing for it; **a hand giving it goals is exactly that choice**, and it is the same substitution CTL-5
 already makes at the wheel. So an empty car takes all four orders and drives itself to them, showing its
 lamps like any other car being driven (`CAR-14.5`).
-
-**A car with a leg in hand is not one a passer-by may take** (PER-4): it is a car standing at a red rather
-than a car parked, and somebody who got into it would end the order by driving off in it.
 
 **And the reset stands an empty one down where it has got to**, rather than leaving it to finish the last
 goal it was given: the hand was the whole of what was choosing for it, and `CAR-1` is back the moment the

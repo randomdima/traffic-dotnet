@@ -83,25 +83,23 @@ internal sealed partial class TownWorld
 
             atM = MathF.Max(0f, aheadM);
 
-            // Somebody on it or stepping onto it, somebody with the right of way waiting at it, or a queue
-            // that would leave this car standing on it — and only while the body has not yet started
-            // across, because a light governs the traffic outside a crossing and never the body inside one.
+            // Somebody on it or stepping onto it, or a queue that would leave this car standing on it — and
+            // only while the body has not yet started across, because a light governs the traffic outside a
+            // crossing and never the body inside one.
             //
             // <b>The stop is short of the ground a body on the paint holds and not short of the
-            // paintwork</b>: a band reaches a stride either side of the crossing (`PER-15`), so a car
+            // paintwork</b>: a band reaches a stride either side of the crossing (`PER-26`), so a car
             // stopped at the paint is standing on the very ground it stopped to give up, and whoever it
             // gave way to is refused by it for as long as it stands there (TER-5e).
             //
-            // <b>Only the courtesy is what a reckless driver drops</b> (CAR-13), and it is the same
-            // courtesy a blue light drops (AMB-4.3). Giving way to somebody still on the kerb is a stop
-            // owed to a person who has not started; a body already on the paint is a body, and neither a
-            // habit of the driver's nor a rescue makes it anything else — which is why
-            // <see cref="AnybodyOnTheCrossing"/> is asked ahead of the pair of them and not beside them.
+            // <b>Somebody stepping onto it is the same answer as somebody on it</b>, because a walker
+            // states the band in front of it at p9 with the paint's own right of way and this asks the
+            // claims rather than the pavement (`PER-26`). There is no second question about a body at a
+            // kerb, and so no courtesy for a habit or a blue light to drop: what a rescue outranks, it
+            // outranks in the ladder (AMB-4).
             var wouldRestOnIt = stopShortOfM + noseM < farEdgeM + Cars.BuildOf(car).LengthM;
             stopAtM = centreM < nearEdgeM
-                      && (wouldRestOnIt || AnybodyOnTheCrossing(lane, painted.AlongM(slot))
-                          || (!Cars.BlueLight[car] && !RecklessAtTheWheel(car)
-                              && GivingWayAtTheKerb(lane, painted.AlongM(slot))))
+                      && (wouldRestOnIt || AnybodyOnTheCrossing(lane, painted.AlongM(slot)))
                 ? MathF.Max(
                     0f, aheadM - Cars.BuildOf(car).CrossingStandOffM - (PaintClaimM(crossing) - halfDepthM))
                 : float.PositiveInfinity;
@@ -190,35 +188,4 @@ internal sealed partial class TownWorld
         return _occupancy.AnybodyCrossing(way, alongM, alongM);
     }
 
-    /// <summary>
-    /// <b>Whether this car owes the paint a stop to somebody who has not stepped onto it yet</b> — an
-    /// uncontrolled crossing with a walker at its kerb, refused the band of this very lane (TER-5e).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The stop is what hands the ground back.</b> A body stopped short of a crossing holds none of it
-    /// (TER-4c.1), so the band the walker was refused is free on the next tick and the walker takes it: the
-    /// right of way is spent by the traffic giving up ground rather than by anybody being ordered off it,
-    /// which is one mechanism and not a second (SIM-7).
-    /// </para>
-    /// <para>
-    /// <b>And it is bounded by the road a car needs to stop in</b>, because the ask is (TER-4c.1): a car too
-    /// close to stop keeps the paint, the band stays refused, and the wait lasts another moment. Nobody is
-    /// waved in front of a car that could not have stopped for them.
-    /// </para>
-    /// <para>
-    /// <b>Nothing here asks whether the crossing is lit, and nothing needs to.</b> A walker held by a red
-    /// asks for no ground at all (`PER-7.3`), so at a lit crossing the only body this can find is one that
-    /// began on green and is still on the paint — which is exactly the body a driver owes a stop to
-    /// whatever the lamps say (TLT-2a), and the same yield the stop above already carries. A test on the lamps
-    /// here would be a second gate on a phase that has already decided (SIM-7).
-    /// </para>
-    /// </remarks>
-    bool GivingWayAtTheKerb(int lane, float alongM)
-    {
-        if (!_occupancy.AnybodyWaitingFor(_ways.OfRoadLane(lane), alongM, alongM)) return false;
-
-        GaveWayAtAKerb++;
-        return true;
-    }
 }

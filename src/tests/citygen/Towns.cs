@@ -100,11 +100,16 @@ internal static class Towns
     /// driven onto and not off, which is the one thing GEN-50 is about and not something to make every
     /// other case on this brief carry an exemption for.
     /// </param>
+    /// <param name="people">
+    /// <b>None, unless the case is about somebody walking</b> (GEN-7). A walker is stood at a door, so a
+    /// brief with no buildings on it stands nobody whatever this says.
+    /// </param>
     public static TownBrief Brief(
         ulong seed, WaterKind water = WaterKind.River, int cars = 60, float gridDistrictShare = 0.5f,
-        int buildings = 0) => new()
+        int buildings = 0, int people = 0) => new()
     {
         Buildings = buildings,
+        People = people,
         Name = City,
         Description = "The suite's own town, laid to ask questions of a city without shipping one",
         Seed = seed,
@@ -191,7 +196,16 @@ internal static class Towns
     /// </summary>
     public const int BuildingsBuilt = 200;
 
-    static readonly Lazy<CityPlan> _built = new(() => LayFresh(Brief(CitySeed, buildings: BuildingsBuilt)));
+    /// <summary>
+    /// And how many people stand at their doors (GEN-7). <b>It is the one town the suite asks the walking
+    /// its questions of</b>, because a walker begins inside a building and the fixture has none — enough
+    /// that a pavement carries more than one body and few enough that the town is laid in a fraction of a
+    /// second.
+    /// </summary>
+    public const int PeopleBuilt = 60;
+
+    static readonly Lazy<CityPlan> _built = new(
+        () => LayFresh(Brief(CitySeed, buildings: BuildingsBuilt, people: PeopleBuilt)));
 
     /// <summary>
     /// <b>Whether a map stands any car up at all.</b> A question about what traffic does at a junction is
@@ -344,7 +358,6 @@ internal static class Towns
     /// <see cref="Bench.RescueProbe"/>'s own choice, for its own reason: a service vehicle arrives along the
     /// road, so somebody knocked down in the middle of a park is a call nothing can be got to (AMB-9).
     /// </summary>
-    /// <remarks>Crews are passed over: knocking a paramedic down stages the rescue against itself.</remarks>
     public static int NearestWalkerToARoad(TownWorld world)
     {
         var best = -1;
@@ -352,7 +365,6 @@ internal static class Towns
         for (var person = 0; person < world.People.Count; person++)
         {
             if (world.People.Inside[person].Any || world.People.Wounded[person]) continue;
-            if (world.People.Stage[person] is TripStage.OnDuty or TripStage.Attending) continue;
 
             var positionM = world.People.PositionM[person];
             var lane = world.Roads.NearestLane(positionM, out var alongM);

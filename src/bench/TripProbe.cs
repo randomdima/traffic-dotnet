@@ -14,9 +14,9 @@ namespace TrafficSimulation.Bench;
 /// <remarks>
 /// <para>
 /// <b>Every column is the count of one thing actually happening</b>, and they are printed together
-/// because no one of them means anything alone: doors entered without boardings is a town nobody
-/// drives in, boardings without bays parked in is a town whose cars set off and never arrive, and
-/// trips drawn without either is a town of people walking about with a destination.
+/// because no one of them means anything alone: trips drawn without arrivals is a town of people
+/// walking about with a destination, and arrivals without doors entered is a town whose buildings are
+/// all full.
 /// </para>
 /// <para>
 /// <b>The trips given up are printed beside them rather than hidden.</b> A leg that fails here is
@@ -36,8 +36,8 @@ internal static class TripProbe
             $"trip probe — {WarmupTicks} warm-up ticks, {MeasuredTicks} measured " +
             $"({MeasuredTicks / config.Sim.TickRateHz} s), {config.Solver.VelocityIterations} solver iterations");
         Console.WriteLine(
-            $"{"map",-10}{"walkers",9}{"cars",6}{"drawn",8}{"drive",7}{"boarded",9}{"parked",8}{"got out",9}" +
-            $"{"entered",9}{"full",6}{"given up",10}{"down",6}{"wrecked",9}");
+            $"{"map",-10}{"walkers",9}{"cars",6}{"drawn",8}{"arrived",9}{"entered",9}{"full",6}" +
+            $"{"given up",10}{"down",6}{"wrecked",9}");
 
         var walkers = 0;
         foreach (var map in Maps.Shipped())
@@ -45,31 +45,30 @@ internal static class TripProbe
             var sample = Sample(map, config);
             walkers += sample.Walkers;
             Console.WriteLine(
-                $"{map,-10}{sample.Walkers,9}{sample.Cars,6}{sample.TripsDrawn,8}{sample.TripsWorthACar,7}" +
-                $"{sample.Boardings,9}{sample.BaysParkedIn,8}{sample.Alightings,9}{sample.BuildingsEntered,9}" +
-                $"{sample.DoorsFoundFull,6}{sample.TripsGivenUp,10}{sample.Down,6}{sample.Wrecked,9}");
+                $"{map,-10}{sample.Walkers,9}{sample.Cars,6}{sample.TripsDrawn,8}{sample.WalkArrivals,9}" +
+                $"{sample.BuildingsEntered,9}{sample.DoorsFoundFull,6}{sample.TripsGivenUp,10}" +
+                $"{sample.Down,6}{sample.Wrecked,9}");
         }
 
         Console.WriteLine(
-            "VER-8 is met while a town's people are entering doors they walked and drove to: boarded → parked → " +
-            "got out → entered is one whole trip, and the four counts move together or not at all.");
+            "VER-8 is met while a town's people are entering doors they walked to: drawn → arrived → entered " +
+            "is one whole trip, and the three counts move together or not at all.");
 
         // <b>A probe that could not stage its scenario says so</b>, because "nothing went wrong" and "nothing
-        // happened" are the same row otherwise. A trip is drawn between two buildings and driven to a bay,
-        // and no town this build lays carries either (`docs/index.md#known-gaps`).
+        // happened" are the same row otherwise.
         if (walkers == 0)
         {
             Console.WriteLine(
-                "NOT STAGED: no town this build lays stands anybody up, there being no door to stand them at, " +
-                "so no trip was drawn. It is the buildings and the bays that are missing and not the trip.");
+                "NOT STAGED: no town this build lays stands anybody up, so no trip was drawn. It is the " +
+                "roster that is missing and not the trip.");
         }
     }
 
     /// <param name="TripsDrawn">PER-9's own count: how many times somebody picked somewhere to be.</param>
-    /// <param name="TripsWorthACar">And how many of those PER-17 judged worth a car, which is the town's traffic.</param>
+    /// <param name="WalkArrivals">And how many walks ended where they were going.</param>
     public readonly record struct TripSample(
-        int Walkers, int Cars, long TripsDrawn, long TripsWorthACar, long Boardings, long BaysParkedIn,
-        long Alightings, long BuildingsEntered, long DoorsFoundFull, long TripsGivenUp, int Down, int Wrecked);
+        int Walkers, int Cars, long TripsDrawn, long WalkArrivals, long BuildingsEntered, long DoorsFoundFull,
+        long TripsGivenUp, int Down, int Wrecked);
 
     public static TripSample Sample(string map, SimConfig config)
     {
@@ -78,10 +77,7 @@ internal static class TripProbe
         loop.Advance(WarmupTicks);
 
         var drawn = world.TripsDrawn;
-        var drives = world.TripsWorthACar;
-        var boarded = world.Boardings;
-        var parked = world.BaysParkedIn;
-        var out_ = world.Alightings;
+        var arrived = world.WalkArrivals;
         var entered = world.BuildingsEntered;
         var full = world.DoorsFoundFull;
         var givenUp = world.TripsGivenUp;
@@ -101,8 +97,8 @@ internal static class TripProbe
         }
 
         return new TripSample(
-            world.People.Count, world.Cars.Count, world.TripsDrawn - drawn, world.TripsWorthACar - drives,
-            world.Boardings - boarded, world.BaysParkedIn - parked, world.Alightings - out_,
-            world.BuildingsEntered - entered, world.DoorsFoundFull - full, world.TripsGivenUp - givenUp, down, wrecked);
+            world.People.Count, world.Cars.Count, world.TripsDrawn - drawn, world.WalkArrivals - arrived,
+            world.BuildingsEntered - entered, world.DoorsFoundFull - full, world.TripsGivenUp - givenUp,
+            down, wrecked);
     }
 }

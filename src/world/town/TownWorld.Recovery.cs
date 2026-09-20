@@ -143,27 +143,12 @@ internal sealed partial class TownWorld
                 RunToTheWreck(car, elapsedS);
                 return;
 
-            case RecoveryStage.BoardingAtTheScene:
-                // The wreck is on the bar and the man is walking back: nothing is hauled until he is in his
-                // seat, for the reason a rescue lays no delivery until its paramedic is in theirs (SRV-3).
-                if (!TheHandIsAboard(car, elapsedS)) return;
-
-                EnterTheRecoveryStage(car, RecoveryStage.Hauling);
-                SendToTheYard(car);
-                return;
-
             case RecoveryStage.Hauling:
                 HaulToTheYard(car);
                 return;
 
             case RecoveryStage.Unhitching:
                 UnhitchIntoTheYard(car, elapsedS);
-                return;
-
-            case RecoveryStage.BoardingAtTheYard:
-                if (!TheHandIsAboard(car, elapsedS)) return;
-
-                GoBackToTheDepot(car);
                 return;
 
             case RecoveryStage.GoingHome:
@@ -294,10 +279,7 @@ internal sealed partial class TownWorld
             return;
         }
 
-        // <b>Nothing is driven while the man is out</b> (SRV-3). A leg re-laid under a crew standing at the
-        // wreck would be a truck pulling away from its own recovery man, so the approach is only ever begun
-        // again from a cab everybody is in.
-        if (!Cars.Driven[car] && !TheHandIsOut(car))
+        if (!Cars.Driven[car])
         {
             ShowTheStage(car, RecoveryStage.Running);
             SendTo(car, standM, ParkingRegistry.NoBay);
@@ -305,8 +287,7 @@ internal sealed partial class TownWorld
         }
 
         var atRest = Cars.VelocityMps[car].Length() <= _config.Driving.StopSpeedMps;
-        var withinReach = TheHandIsOut(car)
-            || (Cars.PositionM[car] - standM).Length() <= _config.EvacuatorSceneReachM;
+        var withinReach = (Cars.PositionM[car] - standM).Length() <= _config.EvacuatorSceneReachM;
         if (!atRest || !withinReach)
         {
             _recovery.HitchedForS[car] = 0f;
@@ -322,11 +303,6 @@ internal sealed partial class TownWorld
 
         ShowTheStage(car, RecoveryStage.Hitching);
 
-        // <b>The work is done in human form</b> (SRV-3, EVA-5): the man gets out and stands at the wreck,
-        // and only then does the interval the hitch takes begin to run. Nothing about the arm is reached
-        // from inside the cab.
-        if (!TheHandHasReached(car, TheNearestPointOnTheBodyM(wreck, Cars.PositionM[car]))) return;
-
         _recovery.HitchedForS[car] += sinceLastDecisionS;
         if (_recovery.HitchedForS[car] < _config.Evacuator.HitchingS) return;
 
@@ -338,7 +314,8 @@ internal sealed partial class TownWorld
 
         WorkTheArm(car);
         _recovery.HaulsLeft[car] = _config.Evacuator.HaulsBeforeSettingItDown;
-        EnterTheRecoveryStage(car, RecoveryStage.BoardingAtTheScene);
+        EnterTheRecoveryStage(car, RecoveryStage.Hauling);
+        SendToTheYard(car);
     }
 
     /// <summary>
@@ -453,10 +430,9 @@ internal sealed partial class TownWorld
             _recovery.HitchedForS[car] = 0f;
 
             // Out of clock at the yard is a leg laid again and never a wreck abandoned: the evacuator has
-            // something on the bar, and standing further off the slots than the crew can work is answered by
-            // driving at them again rather than by giving up (EVA-8). <b>And not while the man is out</b>
-            // (SRV-3) — the recall is what brings him in first.
-            if (_recovery.SinceS[car] >= _config.EvacuatorGiveUpS && !TheHandIsOut(car))
+            // something on the bar, and standing further off the slots than the arm can work is answered by
+            // driving at them again rather than by giving up (EVA-8).
+            if (_recovery.SinceS[car] >= _config.EvacuatorGiveUpS)
             {
                 _recovery.SinceS[car] = 0f;
                 EnterTheRecoveryStage(car, RecoveryStage.Hauling);
@@ -465,10 +441,6 @@ internal sealed partial class TownWorld
 
             return;
         }
-
-        // Setting a wreck down is core work too (SRV-3): the man is out at the slot before the interval
-        // that gets it off the bar begins to run.
-        if (!TheHandHasReached(car, _parking.CentreM(slot))) return;
 
         _recovery.HitchedForS[car] += sinceLastDecisionS;
         if (_recovery.HitchedForS[car] < _config.Evacuator.HitchingS) return;
@@ -484,13 +456,12 @@ internal sealed partial class TownWorld
         _mendingCount++;
         WrecksYarded++;
 
-        EnterTheRecoveryStage(car, RecoveryStage.BoardingAtTheYard);
+        GoBackToTheDepot(car);
     }
 
     /// <summary>
     /// <b>EVA-7: a wreck standing in a yard is a car again once the workshop has had it long enough.</b> It
-    /// is put back together where it stands and left there, an ordinary parked car in an ordinary space,
-    /// free for whoever walks past to drive away (PER-4).
+    /// is put back together where it stands and left there, an ordinary parked car in an ordinary space.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -754,21 +725,11 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>The recovery given up: the wreck released for whoever can reach it, and the evacuator sent home.</summary>
-    /// <remarks>
-    /// <b>A man out in the road is walked back before the truck goes anywhere</b> (SRV-3) — the whole of
-    /// <see cref="GiveUpTheCall"/>'s argument said of a recovery.
-    /// </remarks>
     void GiveUpTheRecovery(int car, bool counted)
     {
         if (counted) RecoveriesGivenUp++;
 
         _recovery.Wreck[car] = RecoveryDuty.Nothing;
-        if (TheHandIsOut(car))
-        {
-            EnterTheRecoveryStage(car, RecoveryStage.BoardingAtTheYard);
-            return;
-        }
-
         GoBackToTheDepot(car);
     }
 
@@ -922,17 +883,15 @@ internal sealed partial class TownWorld
         {
             case RecoveryStage.Running:
             case RecoveryStage.Hitching:
-            case RecoveryStage.BoardingAtTheScene:
                 // The standing place the leg was laid to and not the wreck itself: what the truck has to be
                 // stopped at is where its arm reaches the wreck from, which is a set-down further on. <b>It
-                // outlasts the work</b> (SRV-3), or the truck would roll off while its man was at the arm.
+                // outlasts the work</b>, or the truck would roll off part way through the hitch.
                 placeM = Cars.DestinationM[car];
                 reachM = _config.EvacuatorSceneReachM;
                 return Cars.HasDestination[car];
 
             case RecoveryStage.Hauling:
             case RecoveryStage.Unhitching:
-            case RecoveryStage.BoardingAtTheYard:
                 // The destination the leg was actually laid to, and not a slot looked up again: the two
                 // could disagree the moment a slot is taken, and a stop point the route never aimed at is a
                 // car braking for somewhere it is not going.

@@ -238,16 +238,6 @@ internal static class SelectionPath
     static void Goal(ref ScreenDraw draw, TownWorld world, int person, float pixelsPerMetre)
     {
         var people = world.People;
-        var car = people.TripCar[person];
-        if (people.Stage[person] == TripStage.WalkingToTheCar && car >= 0)
-        {
-            ref readonly var build = ref world.Cars.BuildOf(car);
-            SelectionMark.Brackets(
-                ref draw, world.Cars.PositionM[car], new Vector2(build.LengthM, build.WidthM),
-                world.Cars.HeadingRad[car], pixelsPerMetre, Theme.SelectionGoal);
-            return;
-        }
-
         var building = people.DestinationBuilding[person];
         if (building != PersonFleet.NoBuilding)
         {

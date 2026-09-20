@@ -31,8 +31,8 @@ namespace TrafficSimulation.World.Town;
 /// <para>
 /// <b>The whole of what a blue light does to the road is elsewhere</b>, because it belongs to the road:
 /// the rank a stretch is laid with (<see cref="RightOfWayOf"/>), the red that stops applying
-/// (<see cref="SignalStopM"/>), the kerb that is not given way to (<see cref="GivingWayAtTheKerb"/>) and
-/// the patience an overtake no longer waits out (<see cref="DriveScene.WorthGettingPastOnACall"/>). What
+/// (<see cref="SignalStopM"/>) and the patience an overtake no longer waits out
+/// (<see cref="DriveScene.WorthGettingPastOnACall"/>). What
 /// this file decides is only whether the light is on.
 /// </para>
 /// </remarks>
@@ -108,7 +108,6 @@ internal sealed partial class TownWorld
         People.Wounded[person] = true;
         People.Walking[person] = false;
         People.ClearWalkedLine(person);
-        People.HeldAtTheKerb[person] = false;
         GiveUpTheClaims(person);
         _woundedCount++;
         CasualtiesRaised++;
@@ -127,10 +126,6 @@ internal sealed partial class TownWorld
     /// </remarks>
     void ThrowTheDriverClear(int car)
     {
-        // A hand already out in the road when the vehicle broke under them is nobody's crew any more, on
-        // EVA-7's terms — it is standing where it stood and the errand it was on is over.
-        LetGoOfTheHand(car);
-
         ThrowClear(car, _containers.DriverOf(car));
         for (var seat = 0; seat < Containers.CrewSeats; seat++)
         {
@@ -145,9 +140,7 @@ internal sealed partial class TownWorld
 
         var doorM = DriverDoorM(car);
         _containers.Alight(car, person);
-        People.TripCar[person] = PersonFleet.NoCar;
         People.Stage[person] = TripStage.StandingBy;
-        People.ClosesTheRoadM[person] = 0f;
         Place(person, doorM, MathF.Atan2(doorM.Y - Cars.PositionM[car].Y, doorM.X - Cars.PositionM[car].X));
         RaiseTheCall(person);
     }
@@ -180,33 +173,8 @@ internal sealed partial class TownWorld
                 RunToTheScene(car);
                 return;
 
-            case RescueStage.Fetching:
-                FetchTheCasualty(car);
-                return;
-
-            case RescueStage.Tugging:
-                TugTheCasualtyToTheVehicle(car);
-                return;
-
             case RescueStage.Loading:
                 LoadTheCasualty(car, elapsedS);
-                return;
-
-            case RescueStage.Boarding:
-                // The paramedic walking back to their own seat: nothing is driven until they are in it —
-                // an ambulance that drove off with its crew standing in the road is a station one paramedic
-                // short for the rest of the run. What it drives to is whether there is anybody on the
-                // stretcher, which is also how a call given up mid-scene gets its crew back.
-                if (!TheHandIsAboard(car, elapsedS)) return;
-
-                if (_containers.PassengerOf(car) < 0)
-                {
-                    GoHome(car);
-                    return;
-                }
-
-                EnterTheStage(car, RescueStage.Carrying);
-                SendToTheHospital(car);
                 return;
 
             case RescueStage.Carrying:
@@ -379,49 +347,18 @@ internal sealed partial class TownWorld
             return;
         }
 
-        EnterTheStage(car, RescueStage.Fetching);
+        EnterTheStage(car, RescueStage.Loading);
     }
 
     /// <summary>
-    /// <b>The paramedic out and over to the body</b> (AMB-10) — the leg the standoff bought, and an ordinary
-    /// walk on the ordinary pavement while it lasts.
+    /// <b>The casualty onto the stretcher</b> (AMB-6): the vehicle's bounded interval, spent standing at
+    /// the standoff while the body is got aboard.
     /// </summary>
-    void FetchTheCasualty(int car)
-    {
-        if (!TheCallStillStands(car, out var casualty)) return;
-        if (!TheHandHasReached(car, People.PositionM[casualty])) return;
-
-        EnterTheStage(car, RescueStage.Tugging);
-    }
-
-    /// <summary>
-    /// <b>And the body back to the vehicle</b> (AMB-10): the crew walks to their own door and the casualty
-    /// comes along behind them, which is the winch (EVA-5) said of a person.
-    /// </summary>
-    void TugTheCasualtyToTheVehicle(int car)
-    {
-        if (!TheCallStillStands(car, out var casualty)) return;
-
-        var hand = TheHandOf(car);
-        if (hand < 0 || !TheHandIsOut(car))
-        {
-            GiveUpTheCall(car, counted: true);
-            return;
-        }
-
-        // Reached the vehicle with the body in tow: the tug is over and the loading begins. The door is the
-        // one on the side the crew is walking back from, which is the side they went out of. <b>The body is
-        // brought along whether or not this was the step that arrived</b>, or a casualty would be left a
-        // stride short of the ambulance on the tick the crew reached it.
-        var arrived = TheHandHasReached(car, TheWorkingDoorM(car, People.PositionM[hand]));
-        TugAlong(hand, casualty);
-        if (arrived) EnterTheStage(car, RescueStage.Loading);
-    }
-
-    /// <summary>
-    /// <b>The casualty onto the stretcher</b> (AMB-6): the crew's bounded interval, spent standing at the
-    /// vehicle rather than out in the road where the body was found.
-    /// </summary>
+    /// <remarks>
+    /// <b>The last of the distance is a placement and nobody walks it</b> (AMB-10, EVA-5). It is the
+    /// winch's own fallback said of a person, and it is what the rescue has in place of a crew on foot
+    /// while the walking side carries none — named in the known gaps rather than hidden here.
+    /// </remarks>
     void LoadTheCasualty(int car, float sinceLastDecisionS)
     {
         if (!TheCallStillStands(car, out var casualty)) return;
@@ -434,7 +371,8 @@ internal sealed partial class TownWorld
         CasualtiesCollected++;
         _woundedCount--;
 
-        EnterTheStage(car, RescueStage.Boarding);
+        EnterTheStage(car, RescueStage.Carrying);
+        SendToTheHospital(car);
     }
 
     /// <summary>
@@ -506,23 +444,11 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>The call given up: the casualty released for whoever can reach them, and the ambulance sent home.</summary>
-    /// <remarks>
-    /// <b>A crew out in the road is walked back before the vehicle goes anywhere</b> (SRV-3). An ambulance
-    /// that drove off the moment its call ran out of clock would leave a paramedic standing at a scene it
-    /// had given up on — a body somebody would then have to send another ambulance for, and a hospital one
-    /// crew short for the rest of the run.
-    /// </remarks>
     void GiveUpTheCall(int car, bool counted)
     {
         if (counted) CallsGivenUp++;
 
         _duty.Casualty[car] = RescueDuty.Nobody;
-        if (TheHandIsOut(car))
-        {
-            EnterTheStage(car, RescueStage.Boarding);
-            return;
-        }
-
         GoHome(car);
     }
 
@@ -744,13 +670,12 @@ internal sealed partial class TownWorld
     bool IsOnItsWayToAScene(int car) => Cars.Ambulance[car] && _duty.Stage[car] == RescueStage.Running;
 
     /// <summary>
-    /// <b>And whether it is at one</b> — every stage between arriving at the standoff and having the crew
-    /// back aboard (AMB-10). It is what keeps `P-18` holding the vehicle still while the work is done on
-    /// foot, which the arrival on its own would not.
+    /// <b>And whether it is at one</b> — the run to the standoff and the loading there (AMB-10). It is what
+    /// keeps `P-18` holding the vehicle still while the body is got aboard, which the arrival on its own
+    /// would not.
     /// </summary>
     bool IsAtOrOnItsWayToAScene(int car) =>
-        _duty.Stage[car] is RescueStage.Running or RescueStage.Fetching or RescueStage.Tugging
-            or RescueStage.Loading or RescueStage.Boarding;
+        _duty.Stage[car] is RescueStage.Running or RescueStage.Loading;
 
     /// <summary>
     /// <b>Whether this leg finishes at a place on a lane rather than in a bay</b> — the one thing about an

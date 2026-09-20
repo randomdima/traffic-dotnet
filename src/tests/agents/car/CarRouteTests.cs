@@ -102,11 +102,11 @@ public class CarRouteTests
     public void ALegIsRoutedAHandfulOfTimes(string map)
     {
         var world = Driven(map);
-        if (world.Boardings == 0) return;
+        if (world.BaysParkedIn == 0) return;
 
         Assert.True(
-            world.RouteSearches <= world.Boardings * MostSearchesPerLeg,
-            $"{map}: {world.RouteSearches} searches of the driving network over {world.Boardings} legs");
+            world.RouteSearches <= world.BaysParkedIn * MostSearchesPerLeg,
+            $"{map}: {world.RouteSearches} searches of the driving network over {world.BaysParkedIn} legs");
     }
 
     /// <summary>What a leg may spend on finding its way before it is re-deriving rather than routing.</summary>

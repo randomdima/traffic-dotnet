@@ -134,10 +134,10 @@ internal sealed partial class TownWorld
                 return;
 
             case PlayerOrder.ParkAndWalkThere:
-                // The driving is over; what is left of the order is a walk, and it is taken up where the
-                // car puts its driver down (<see cref="WalkTheRestOfTheOrder"/>). A car nobody is in has
-                // nobody to walk it, so the order ends with the leg.
-                if (!Cars.Driven[car] && _containers.DriverOf(car) < 0) _carOrders.Done(car);
+                // <b>The driving is the whole of it while nobody is in a car</b> (CTL-8b): what would carry
+                // the rest of the order is the driver walking, and no leg of a trip is driven (PER-25). It
+                // is named in the known gaps rather than quietly a second park-there.
+                if (!Cars.Driven[car]) _carOrders.Done(car);
                 return;
 
             case PlayerOrder.FollowThatCar:
@@ -183,9 +183,9 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <b>The search is the whole town and not a walk of the place</b>, which is the one way an order's
-    /// choice of bay differs from a trip's. A trip is bounded because nobody parks a mile from the door
-    /// they are going to (PER-10a); a player who clicked on a full car park asked for the nearest free bay
-    /// to it, and answering with nothing is a click that looks like it did not land.
+    /// choice of bay differs from a leg the town drew for itself: a player who clicked on a full car park
+    /// asked for the nearest free bay to it, and answering with nothing is a click that looks like it did
+    /// not land.
     /// </remarks>
     bool SendToABayNearTheOrder(int car)
     {
@@ -198,25 +198,6 @@ internal sealed partial class TownWorld
 
     /// <summary>Far enough to reach every bay in the town from any point in it, which is its own diagonal.</summary>
     float TheWholeTownM => _plan.WorldSizeM.Length();
-
-    /// <summary>
-    /// <b>The rest of a park-and-walk order</b> (CTL-8b), taken up at the moment the car puts its driver
-    /// down — which is the only moment there is a body in the town to give a walk to.
-    /// </summary>
-    /// <remarks>
-    /// It is the walker's own order and not a second kind of one (CTL-3): the point is handed to
-    /// <see cref="TakeTheOrder(int, Vector2)"/>, so a building at the end of it is walked to and entered
-    /// exactly as it would be had the player clicked it with the walker selected.
-    /// </remarks>
-    bool WalkTheRestOfTheOrder(int car, int person)
-    {
-        if (_carOrders.Kind[car] != PlayerOrder.ParkAndWalkThere) return false;
-
-        var toM = _carOrders.PointM[car];
-        _carOrders.Done(car);
-        TakeTheOrder(person, toM);
-        return true;
-    }
 
     /// <summary>
     /// <b>Another car</b> (CTL-8c): the leg is aimed at a place back along the road from it, which is the
@@ -305,22 +286,4 @@ internal sealed partial class TownWorld
     bool IsOrderedToAPlaceInTheRoad(int car) =>
         _carOrders.Kind[car] is PlayerOrder.DriveThere or PlayerOrder.FollowThatCar;
 
-    /// <summary>
-    /// <b>Whether a leg ending puts this car's driver out of it</b>. A trip's does, because a drive that has
-    /// finished is a walk to the door; and so does the one order that ends in a walk (CTL-8b). Under every
-    /// other order the driver keeps their seat and idles awaiting the next one (CTL-4).
-    /// </summary>
-    bool LetsItsDriverOut(int car) =>
-        !_carOrders.Manual[car] || _carOrders.Kind[car] == PlayerOrder.ParkAndWalkThere;
-
-    /// <summary>
-    /// A person sitting in a car that is under orders is at the wheel of it and not a passenger waiting to
-    /// be let out — which is what stops <see cref="TripStage.Driving"/> putting them on the pavement the
-    /// moment an order is carried out.
-    /// </summary>
-    bool SitsAtTheWheelOfAnOrderedCar(int person)
-    {
-        var inside = _containers.WhereIs(person);
-        return inside.Kind == ContainerKind.Car && _carOrders.Manual[inside.Index];
-    }
 }

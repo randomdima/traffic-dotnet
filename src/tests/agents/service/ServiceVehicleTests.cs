@@ -58,18 +58,14 @@ public class ServiceVehicleTests
             Assert.False(world.Cars.Driven[car], $"{map}: a service vehicle is driving before it was given anything to do");
             Assert.True(world.Parking.BayOf(car) >= 0, $"{map}: a service vehicle did not start in a bay");
 
-            // SRV-3: a driver who keeps the wheel, and a hand whose whole job is to get out and work the
-            // street (SRV-6, EVA-5). Both are aboard before the town has given the vehicle anything to do.
-            var driver = world.Containment.DriverOf(car);
-            var hand = world.Containment.CrewOf(car, 0);
-            Assert.True(driver >= 0, $"{map}: a service vehicle was stood with nobody at the wheel");
-            Assert.True(hand >= 0, $"{map}: a service vehicle was stood with no hand to work with");
-
-            foreach (var crew in (ReadOnlySpan<int>)[driver, hand])
-            {
-                Assert.Equal(TripStage.OnDuty, world.People.Stage[crew]);
-                Assert.Equal(ContainerKind.Car, world.People.Inside[crew].Kind);
-            }
+            // SRV-3: nobody aboard. Nothing a service vehicle does is done on foot while the walking side
+            // carries no crew (`docs/index.md#known-gaps`), so a body in a seat would be one the town
+            // stands up and never uses.
+            Assert.True(
+                world.Containment.DriverOf(car) < 0,
+                $"{map}: a service vehicle was stood with somebody at the wheel");
+            Assert.True(
+                world.Containment.CrewOf(car, 0) < 0, $"{map}: a service vehicle was stood with a crew aboard");
         }
 
         Assert.Equal(world.PoliceCars, police);

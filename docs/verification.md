@@ -268,7 +268,7 @@ is not something anybody could settle by looking at the town.
 | The suite | the town tier, asserting the same claims off the same watch |
 
 **A claim fails a run and a reading never does.** The split is the project's own: what must hold on every
-map is a claim, and what is a fact about one town — the drunks' swerves, the laps a fleet got round, how
+map is a claim, and what is a fact about one town — the swerves a street cost, the laps a fleet got round, how
 far an articulated pair gets through a dense city — is quoted beside it, because asserting it would be
 tuning the towns until the instrument could no longer report the thing it was laid to find. **A probe that
 gates nothing says so at the point it is listed** (`CheckCatalogue.Quoted`), rather than leaving a caller
@@ -316,8 +316,8 @@ for it. A claim the run has not answered is reported as unanswered rather than c
 
 **What the second of those counts is a body going *deeper*, never a body being past.** A grant is worked
 out from the pose every tick, so a body that stopped where it was told to and overshot by a stride latches
-there: read as a state it is a walker at a kerb reported for the whole minute it waits, and the claim then
-says nothing about anybody driving on. Read as a run of ticks each deeper than the last, it says exactly
+there: read as a state it is a car stopped short of a crossing reported for the whole minute it waits, and
+the claim then says nothing about anybody driving on. Read as a run of ticks each deeper than the last, it says exactly
 what it is for — and the run it allows is longer than any stop from town speed, because the ticks a body
 spends arriving at rest are the mechanism working rather than a body ignoring it.
 

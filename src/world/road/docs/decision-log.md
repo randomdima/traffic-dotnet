@@ -714,9 +714,9 @@ minute of Odesa and not one grant cut. The walker's half was live and over-held,
 lane the crossing crosses: 6,003 of 7,921 crossing stops were for somebody not in that driver's lane. So
 the missing projection got built (`CrossingBands`): what either side has of a zebra is a band and never the
 whole of it, and the near edge of a band is a place on the ground rather than the start of a way, which is
-what makes a grant cut at it at all. The patience is spent on a named lane and given back when the body is
-standing in it (PER-15) — reset each tick it buys one tick and starts again, latched to the far kerb it is
-the whole-zebra picture back again.
+what makes a grant cut at it at all. Both sides still read the band that way: a walker holds the band it is
+standing in and states the one in front of it (`PER-26`), and a driver is cut at each of them where its own
+lane runs under the paint.
 
 ## 2026-08-22 — braking has its own margin, and it is nearly all of the grip
 

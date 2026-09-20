@@ -7,7 +7,7 @@ using TrafficSimulation.World.Parking;
 
 namespace TrafficSimulation.World.Town;
 
-/// <summary>The legs of a trip that are not walking: a door gone through, a car got into and out of, and the containment that hides a body while it is inside one.</summary>
+/// <summary>The one leg of a trip that is not walking: a door gone through, and the containment that hides a body while it is behind one.</summary>
 internal sealed partial class TownWorld
 {
     /// <summary>
@@ -25,11 +25,9 @@ internal sealed partial class TownWorld
         var building = People.DestinationBuilding[person];
         if (building < 0)
         {
-            // A wander, an order to a point, or one end of a paced road: arriving is the end of it. Only
-            // the lane end of a pace is stood in — back on the pavement there is nothing to wait for, so
-            // the road is asked again at once and the body steps out as soon as it is clear.
+            // An order to a point: arriving is the end of it, and what follows is the next order or the
+            // next trip.
             if (People.Manual[person]) People.Stage[person] = TripStage.UnderOrders;
-            else if (PacesARoad(person, out _, out var inTheLane) && inTheLane) StandABeat(person);
             else DrawTrip(person);
             return;
         }
@@ -52,92 +50,6 @@ internal sealed partial class TownWorld
         Contain(person);
         People.Stage[person] = TripStage.Dwelling;
         People.TimerS[person] = People.Draw[person].NextFloat(_config.Building.DwellMinS, _config.Building.DwellMaxS);
-    }
-
-    /// <summary>
-    /// `P-6`: the car's eligibility is asked at this moment and not when the trip was drawn. On refusal
-    /// this is not a retry — something else took the car, and a walker who has already walked to it is
-    /// closer to walking the whole way than to walking to a second one.
-    /// </summary>
-    void BoardTheCar(int person)
-    {
-        var car = People.TripCar[person];
-        if (car < 0 || !CanBeBoarded(car) || !_containers.TryBoard(car, person))
-        {
-            GiveUpTheCar(person);
-            WalkTheTripInstead(person);
-            return;
-        }
-
-        Boardings++;
-        People.TripCar[person] = car;
-        People.Stage[person] = TripStage.Driving;
-        Contain(person);
-        SetOff(car);
-    }
-
-    /// <summary>The drive fell through: the destination stands, so what is left of the trip is a walk to it.</summary>
-    void WalkTheTripInstead(int person)
-    {
-        var building = People.DestinationBuilding[person];
-        if (building < 0)
-        {
-            DrawTrip(person);
-            return;
-        }
-
-        People.Stage[person] = TripStage.WalkingToTheDoor;
-        WalkTo(person, DoorOf(building, People.PositionM[person]));
-    }
-
-    /// <summary>
-    /// PHY-7a: a spot beside the car, preferring the side the pavement is on — the difference between the
-    /// next leg being a formality and being a road crossing. Refused means every position round the car
-    /// is taken, so the person stays in it and asks again.
-    /// </summary>
-    void TryAlight(int person)
-    {
-        var where = _containers.WhereIs(person);
-        if (where.Kind != ContainerKind.Car)
-        {
-            People.Stage[person] = TripStage.StandingBy;
-            return;
-        }
-
-        var car = where.Index;
-        var wayOutM = WayInOf(car);
-
-        // `E-10`: out of a wrecked car at once, and onto whatever the car offers — road or not. Getting
-        // off the road afterwards is the walker's own rule and is the next leg's problem.
-        if (!ExitSpots.TryFind(
-                _config, _terrain, _physics, _nearby, StandingPeople, wayOutM, wayOutM, _spotNearby, out var spotM,
-                anyGround: Cars.Broken[car]))
-        {
-            return;
-        }
-
-        Alightings++;
-        _containers.Alight(car, person);
-        People.TripCar[person] = PersonFleet.NoCar;
-        Place(person, spotM, MathF.Atan2(spotM.Y - Cars.PositionM[car].Y, spotM.X - Cars.PositionM[car].X));
-
-        // CTL-8b: the car was ordered somewhere it could not be driven, so the rest of that order is a
-        // walk. It is taken up here because here is the first moment there is a body in the town to give
-        // one to — the order was given while this person was inside the car.
-        if (WalkTheRestOfTheOrder(car, person)) return;
-
-        // A leg that has landed the person further from the door than they would ever have walked drops
-        // the destination rather than handing over the walk; standing by draws a whole fresh trip.
-        var building = People.DestinationBuilding[person];
-        var doorM = building >= 0 ? DoorOf(building, spotM) : spotM;
-        if (building < 0 || Trip.IsTooFarToWalk(_config, (doorM - spotM).Length()))
-        {
-            DrawTrip(person);
-            return;
-        }
-
-        People.Stage[person] = TripStage.WalkingToTheDoor;
-        WalkTo(person, doorM);
     }
 
     /// <summary>PHY-7a: the building places its occupant outside, and refuses while there is nowhere to put them.</summary>
@@ -191,8 +103,6 @@ internal sealed partial class TownWorld
     {
         People.Walking[person] = false;
         People.ClearWalkedLine(person);
-        People.HeldAtTheKerb[person] = false;
-        People.WaitingToCrossS[person] = 0f;
         _impulseNs[person] = Vector2.Zero;
         _physics.Contain(People.Body[person]);
     }
@@ -207,8 +117,6 @@ internal sealed partial class TownWorld
         People.GoalM[person] = atM;
         People.Walking[person] = false;
         People.ClearWalkedLine(person);
-        People.HeldAtTheKerb[person] = false;
-        People.WaitingToCrossS[person] = 0f;
         _impulseNs[person] = Vector2.Zero;
         _progress.Restart(person);
         _physics.Release(People.Body[person], atM, headingRad);
@@ -216,12 +124,12 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The order pins the goal the behaviour would otherwise have picked, and nothing under it changes.
-    /// What the pointer was over decides which goal that is — a building or a car is walked to <em>and
-    /// entered</em>, and ground is walked to and then stood on.
+    /// What the pointer was over decides which goal that is — a building is walked to <em>and entered</em>,
+    /// and ground is walked to and then stood on.
     /// </summary>
     /// <remarks>
-    /// All containment checks bind unchanged: the door is still asked at the door and the car at the
-    /// car, so an ordered walker can find a building full or a car taken.
+    /// The containment check binds unchanged: the door is still asked at the door, so an ordered walker
+    /// can find a building full.
     /// </remarks>
     void TakeTheOrder(int person, Vector2 toM)
     {
@@ -239,15 +147,6 @@ internal sealed partial class TownWorld
             _containers.Claim(building);
             People.Stage[person] = TripStage.WalkingToTheDoor;
             WalkTo(person, DoorOf(building, People.PositionM[person]));
-            return;
-        }
-
-        var car = CarAt(toM);
-        if (car >= 0 && CanBeBoarded(car))
-        {
-            People.TripCar[person] = car;
-            People.Stage[person] = TripStage.WalkingToTheCar;
-            WalkTo(person, WayInOf(car));
             return;
         }
 
@@ -280,23 +179,13 @@ internal sealed partial class TownWorld
         DrawTrip(person);
     }
 
-    /// <summary>What a trip holds on the town's behalf: a building's claim and a car with a bay claimed for it.</summary>
+    /// <summary>What a trip holds on the town's behalf, which is one thing: the building's claim.</summary>
     void GiveUpTheClaims(int person)
     {
         var building = People.DestinationBuilding[person];
         if (building >= 0) _containers.GiveUpClaim(building);
 
         People.DestinationBuilding[person] = PersonFleet.NoBuilding;
-        GiveUpTheCar(person);
-    }
-
-    void GiveUpTheCar(int person)
-    {
-        var car = People.TripCar[person];
-        if (car < 0) return;
-
-        GiveUpTheBay(car);
-        People.TripCar[person] = PersonFleet.NoCar;
     }
 
     /// <summary>

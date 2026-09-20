@@ -19,17 +19,8 @@ internal enum RescueStage : byte
     /// <summary>Under way to the standoff short of the scene, blue light on: the leg the priority is for.</summary>
     Running,
 
-    /// <summary>Stopped at the standoff with the paramedic out and walking to the casualty (AMB-10).</summary>
-    Fetching,
-
-    /// <summary>And walking them back to the vehicle, the casualty coming along behind (AMB-10).</summary>
-    Tugging,
-
-    /// <summary>Standing at the vehicle while the crew get the casualty aboard — `P-18`, AMB-6.</summary>
+    /// <summary>Standing at the standoff while the casualty is got aboard — `P-18`, AMB-6, AMB-10.</summary>
     Loading,
-
-    /// <summary>The casualty aboard and the paramedic walking back to their own seat (SRV-3).</summary>
-    Boarding,
 
     /// <summary>Under way to the hospital with the casualty aboard, blue light still on.</summary>
     Carrying,
@@ -106,12 +97,10 @@ internal sealed class RescueDuty
     /// until the casualty is through the door</b>, driving legs and scene alike.
     /// </summary>
     /// <remarks>
-    /// <b>The light belongs to the errand and not to who is sitting in the vehicle</b> (AMB-4b, SRV-3). The
-    /// crew get out to work now, and a rescue whose light went out because the paramedic opened the door
-    /// would be a town where the ground round an accident stops being spoken for at the moment somebody is
-    /// standing in it. What it costs is stated where it is spent: an ambulance standing at a scene holds its
-    /// ground at the emergency rank, so a crossing under one does not clear for a walker's patience
-    /// (AMB-4.5) until the scene is done with — which is seconds, and bounded by AMB-9 above that.
+    /// <b>The light belongs to the errand and not to who is sitting in the vehicle</b> (AMB-4b, SRV-3),
+    /// which is what lets one stay on over a vehicle nobody is in. What it costs is stated where it is
+    /// spent: an ambulance standing at a scene holds its ground at the emergency rank for as long as the
+    /// scene lasts — which is seconds, and bounded by AMB-9 above that.
     /// </remarks>
     public bool IsHurrying(int car) =>
         Stage[car] is not (RescueStage.Waiting or RescueStage.HandingOver or RescueStage.GoingHome);

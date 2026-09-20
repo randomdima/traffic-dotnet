@@ -299,8 +299,9 @@ internal sealed class TownWatch : ScenarioWatch
         // it took is inside nothing at all, and is the tick before the contact rather than the contact.
         //
         // <b>What is counted is going deeper and never being past</b>. A body stops where it was told to and
-        // stays there, so a stride's worth of overshoot latches: read as a state it is a walker at a kerb
-        // reported for the whole minute it waits, and the claim then says nothing about anybody driving on.
+        // stays there, so a stride's worth of overshoot latches: read as a state it is a car stopped short of
+        // a crossing reported for the whole minute it waits, and the claim then says nothing about anybody
+        // driving on.
         for (var body = 0; body < _pastM.Length; body++) _wasPastM[body] = _pastM[body];
 
         SoakProbe.SweepPastTheGrant(world, _pastM);

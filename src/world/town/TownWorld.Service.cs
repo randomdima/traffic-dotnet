@@ -129,8 +129,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>And every apron filled</b> (AMB-2, SRV-2): one vehicle and one crew a bay, each bay then held for
-    /// the vehicle standing in it for the rest of the run.
+    /// <b>And every apron filled</b> (AMB-2, SRV-2): one vehicle a bay, each bay then held for the vehicle
+    /// standing in it for the rest of the run.
     /// </summary>
     void StandTheServiceVehicles()
     {
@@ -142,7 +142,7 @@ internal sealed partial class TownWorld
             {
                 var car = FillAnApronBay(
                     _apronBays[(entry * _apronStride) + slot], (byte)CarCatalog.Shared.Ambulance,
-                    (byte)PersonCatalog.Shared.Paramedic, RescueStream);
+                    RescueStream);
                 if (car < 0) continue;
 
                 TakeUpTheRescue(car, hospital);
@@ -157,8 +157,7 @@ internal sealed partial class TownWorld
             for (var slot = 0; slot < apron; slot++)
             {
                 var car = FillAnApronBay(
-                    _apronBays[run + slot], (byte)CarCatalog.Shared.Police, (byte)PersonCatalog.Shared.Police,
-                    PoliceStream);
+                    _apronBays[run + slot], (byte)CarCatalog.Shared.Police, PoliceStream);
                 if (car < 0) continue;
 
                 BeginTheBeat(car, station, _parking.BayOf(car));
@@ -172,7 +171,7 @@ internal sealed partial class TownWorld
         {
             var car = FillAnApronBay(
                 _apronBays[(TheFirstYard + yard) * _apronStride], (byte)CarCatalog.Shared.Evacuator,
-                (byte)PersonCatalog.Shared.Recovery, EvacuatorStream);
+                EvacuatorStream);
             if (car < 0) continue;
 
             TakeUpTheRecovery(car, Depots.BuildingOf(yard), yard);
@@ -180,11 +179,11 @@ internal sealed partial class TownWorld
         }
     }
 
-    int FillAnApronBay(int bay, byte variant, byte uniform, ulong stream)
+    int FillAnApronBay(int bay, byte variant, ulong stream)
     {
         if (bay < 0) return NoCar;
 
-        var car = StandAServiceVehicle(bay, variant, uniform, stream);
+        var car = StandAServiceVehicle(bay, variant, stream);
         _parking.HoldForTheCar(bay, car);
         return car;
     }
@@ -192,29 +191,23 @@ internal sealed partial class TownWorld
     const int NoCar = -1;
 
     /// <summary>
-    /// <b>How many people a town stands in each service vehicle</b> (SRV-3): the driver, and the hand who
-    /// works the street. It is what the walker roster is sized by, so it is a constant here rather than a
-    /// figure — a town cannot be given a different number of crew after its rosters are laid.
+    /// <b>How many people a town stands in each service vehicle</b> (SRV-3), which is nobody while no
+    /// errand is worked on foot. It is what the walker roster is sized by, so it is a constant here rather
+    /// than a figure — a town cannot be given a different number of crew after its rosters are laid.
     /// </summary>
-    const int CrewPerServiceVehicle = 2;
+    const int CrewPerServiceVehicle = 0;
 
     /// <summary>
-    /// One service vehicle and its crew, standing in the bay (SRV-3). <b>The same pose a spawned car comes
+    /// One service vehicle standing in its bay (SRV-3). <b>The same pose a spawned car comes
     /// to rest in</b> (GEN-4i): the bay's ways meet at it, so the first thing it does when it is given
     /// something to do is drive rather than recover.
     /// </summary>
     /// <remarks>
-    /// <b>A driver and a hand</b> (SRV-3): one at the wheel for the whole run, and one whose whole job is to
-    /// get out and do the work in the street (SRV-6, AMB-10, EVA-5). What makes it a car that acts is the
-    /// errand rather than the seat, and what keeps it out of everybody else's trip is the building it stands
-    /// on the strength of (<see cref="IsAServiceVehicle"/>) — so a vehicle whose whole crew is out in the
-    /// road is still nobody's to drive away.
+    /// <b>Nobody aboard</b> (SRV-3): what makes it a car that acts is the errand rather than the seat, and
+    /// what keeps it out of anybody else's hands is the building it stands on the strength of
+    /// (<see cref="IsAServiceVehicle"/>).
     /// </remarks>
-    /// <param name="uniform">
-    /// Which of the person catalogue's service looks this crew wears (SRV-3a). It is named here rather
-    /// than drawn, because the wrap an ordinary walker's look comes off cannot reach one.
-    /// </param>
-    int StandAServiceVehicle(int bay, byte variant, byte uniform, ulong stream)
+    int StandAServiceVehicle(int bay, byte variant, ulong stream)
     {
         // Its own stream, off the bay it stands in, so standing one cannot move what any spawn draws.
         var draw = new Rng(_agentSeed, stream + (ulong)bay);
@@ -230,32 +223,10 @@ internal sealed partial class TownWorld
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
         _parking.Occupy(bay, car);
 
-        var driver = StandACrewMember(bay, positionM, headingRad, uniform, stream + CrewStream);
-        _containers.TryBoard(car, driver);
-        Contain(driver);
-        People.Stage[driver] = TripStage.OnDuty;
-
-        var hand = StandACrewMember(bay, positionM, headingRad, uniform, stream + HandStream);
-        _containers.TryTakeACrewSeat(car, hand);
-        Contain(hand);
-        People.Stage[hand] = TripStage.OnDuty;
-
+        // <b>No crew</b> (SRV-3). Nothing on this vehicle's errands is done on foot while the walking side
+        // carries no crew at all, so a body sat in a seat for the whole run would be a person the town
+        // stands up, feeds a person slot and never once uses. It is named in the known gaps.
         return car;
-    }
-
-    /// <summary>One of a service vehicle's crew, made and put in the world at the vehicle's own pose.</summary>
-    int StandACrewMember(int bay, Vector2 positionM, float headingRad, byte uniform, ulong stream)
-    {
-        var body = _physics.AddPerson(positionM);
-        var person = People.Add(
-            body, positionM, headingRad, _physics.MassOf(body), _config.PersonDiameterM * 0.5f, uniform,
-            new Rng(_agentSeed, stream + (ulong)bay),
-            PersonFleet.DrawsReckless(_agentSeed, stream + (ulong)bay, _config.Driving.RecklessShare));
-        if (People.Reckless[person]) RecklessDrivers++;
-
-        _physics.Tag(body, new BodyTag(BodyKind.Person, person));
-        _progress.Restart(person);
-        return person;
     }
 
     /// <summary>
@@ -274,8 +245,4 @@ internal sealed partial class TownWorld
 
     const ulong EvacuatorStream = 0x45564143;
 
-    /// <summary>The crew's own offsets within whichever stream stood the vehicle they are inside.</summary>
-    const ulong CrewStream = 0x10000;
-
-    const ulong HandStream = 0x20000;
 }

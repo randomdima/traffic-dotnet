@@ -13,15 +13,6 @@ off (AMB-4a) and would hold two stretches of one way, which `TER-5c.2` forbids. 
 clocks, because a closure only buys something while somebody is working and every errand is written off at
 ten.
 
-## 2026-08-27 — a crew is two, and what a vehicle is for stops depending on who is in it
-
-"A crew never gets out" was carrying CAR-1 and PER-4 on its back. The errand acts rather than the seat,
-which is AMB-4b applied a second time; and the building refuses the passer-by, which `IsAServiceVehicle`
-already asked, promoted from a predicate to a rule. Two aboard rather than one who leaves, because one
-would strand the vehicle mid-errand and make every question about it a race. The driver is a fallback: a
-hand knocked down is a casualty like anybody else. Past the recall bound the body is put in its own
-doorway — EVA-5's winch said of a person — rather than leaving a hospital a crew short for the run.
-
 ## 2026-08-26 — a depot wears the repair shop's roof, and that reverses what SRV-1a used to say
 
 A depot was given an ordinary roof on the argument that it is a yard and not a front door. EVA-7 mends a

@@ -160,7 +160,7 @@ it stopped.
 **A body in the road is one** (`PER-1`), whether it is standing or walking. A walker is an agent like any
 other — paint is where a walker's priority lives, and a car owes a crossing its stop short of the band
 (`TER-4c.1`) long before this entry is reached. What keeps the swerve off the body is the same thing that keeps
-it off a wreck: the body holds a claim with a margin round it (`PER-15`), and a template over
+it off a wreck: the body holds a claim with a margin round it (`PER-26`), and a template over
 that stretch is refused by the ground test. **A second rule that refused the same movement would make the
 ground test useless** (SIM-7).
 

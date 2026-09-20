@@ -19,20 +19,14 @@ internal enum RecoveryStage : byte
     /// <summary>Under way to the wreck, carrying the priority: the one leg of a recovery that is urgent (EVA-4).</summary>
     Running,
 
-    /// <summary>Stopped beside the wreck with the recovery man out at the arm, working it onto the hook (EVA-5).</summary>
+    /// <summary>Stopped beside the wreck, working the arm onto the hook (EVA-5).</summary>
     Hitching,
-
-    /// <summary>The wreck on the bar and the recovery man walking back to his own seat (SRV-3).</summary>
-    BoardingAtTheScene,
 
     /// <summary>Under way to the depot's yard with the wreck on the bar, and no priority at all — a loaded evacuator is ordinary traffic.</summary>
     Hauling,
 
-    /// <summary>Standing at the yard with the man out at the slot, asking it for a place. A full yard refuses, which is a wait and not a failure.</summary>
+    /// <summary>Standing at the yard asking it for a place. A full yard refuses, which is a wait and not a failure.</summary>
     Unhitching,
-
-    /// <summary>The wreck in its slot and the man walking back to his seat (SRV-3).</summary>
-    BoardingAtTheYard,
 
     /// <summary>Driving back to its own bay with nothing on the hook.</summary>
     GoingHome,

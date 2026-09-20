@@ -1,19 +1,16 @@
-using TrafficSimulation.Core.Config;
-
 namespace TrafficSimulation.Agents.Person.Control;
 
 /// <summary>
-/// What a person is doing about the trip they are on. <b>The life cycle as observable states</b>
-/// every one of them is a state somebody watching can be told about, and
-/// there is no state a body can be in that this does not name.
+/// What a person is doing about the trip they are on. <b>The life cycle as observable states</b> — every
+/// one of them is a state somebody watching can be told about, and there is no state a body can be in
+/// that this does not name.
 /// </summary>
 /// <remarks>
-/// <b>These are not the manoeuvre catalogue's entries and do not pretend to be.</b> Each covers the
-/// stretch of a trip an entry of the walker's own catalogue would own — leaving a building, walking
-/// the block, approaching the car, boarding, alighting, entering, dwelling, waiting for a place,
-/// standing by — and what is missing is the arbitration and the escalation ladder between them. The
-/// catalogue itself is the absence AGT-7 names; numbering these as if it existed would claim
-/// behaviour that is not here, in a family the driver's catalogue already owns.
+/// <b>There are five of them because a walk is the whole of what a walker does</b> (PER-25): it is inside
+/// a building, walking to the next one, waiting for room at the door it reached, or standing between the
+/// two. Nothing here is a manoeuvre and nothing here arbitrates — the catalogue AGT-7 asks for is the
+/// absence recorded in the known gaps, and numbering these as though it existed would claim behaviour
+/// that is not here.
 /// </remarks>
 internal enum TripStage : byte
 {
@@ -23,16 +20,7 @@ internal enum TripStage : byte
     /// <summary>Walking to the destination building's own way in.</summary>
     WalkingToTheDoor,
 
-    /// <summary>Walking to the way in of the car this trip is using (GEN-4e).</summary>
-    WalkingToTheCar,
-
-    /// <summary>Inside the car, which is driving. The person supplies the car's action set (PER-6) and nothing else.</summary>
-    Driving,
-
-    /// <summary>Asking the car for a spot beside it, which is refused while every position round it is taken (PHY-7a).</summary>
-    Alighting,
-
-    /// <summary>The building was full at the door, so standing on walkable ground near it and asking again.</summary>
+    /// <summary>The building was full at the door, so standing where it arrived and asking again.</summary>
     WaitingForAPlace,
 
     /// <summary>Inside, for the bounded interval that guarantees whoever is waiting outside gets a place (PER-11).</summary>
@@ -40,42 +28,4 @@ internal enum TripStage : byte
 
     /// <summary>CTL-2: the goal was pinned by a hand, so nothing here draws another when it is reached.</summary>
     UnderOrders,
-
-    /// <summary>
-    /// <b>A service vehicle's crew, in their seat</b> (SRV-3). It is a stage of its own because every other
-    /// stage inside a car ends by getting out of it and drawing a trip, and a crew's does not: what takes
-    /// this one out of its seat is the errand its vehicle is on, and what it does out there is
-    /// <see cref="Attending"/>.
-    /// </summary>
-    OnDuty,
-
-    /// <summary>
-    /// <b>And out of it, working</b> (SRV-3): a paramedic walking to a casualty, a recovery man at the arm,
-    /// an officer standing beside a closed road. <b>The walking is an ordinary walker's</b> — kerbs, lanes
-    /// and the claims — and what says where it is going is the vehicle's own duty and never a trip.
-    /// </summary>
-    Attending,
-}
-
-/// <summary>The trip's own decisions, as pure functions of the figures — what a walker chooses, and never how it gets there.</summary>
-internal static class Trip
-{
-    /// <summary>
-    /// <b>PER-17, and it is structural rather than a weighted coin</b>: a trip is walked when the
-    /// destination is in the same block — a route to it that never sets foot on a carriageway — or when
-    /// it is inside the walk-worth distance. Anything else is worth a car.
-    /// </summary>
-    /// <param name="crossesACarriageway">
-    /// Whether the walk this person would actually take steps onto a road, read off the line the
-    /// planner laid rather than guessed at from the distance: <b>same block is a fact about the route</b>.
-    /// </param>
-    public static bool IsWorthWalking(SimConfig config, float farM, bool crossesACarriageway) =>
-        !crossesACarriageway || farM <= config.PersonWalkWorthM;
-
-    /// <summary>
-    /// PER-10a's ceiling: no leg of a trip is a longer walk than the person would ever have chosen, so
-    /// a drive that would land them further out than this from the door is not a drive worth taking —
-    /// and one that ends there anyway drops the destination rather than handing over the walk.
-    /// </summary>
-    public static bool IsTooFarToWalk(SimConfig config, float farM) => farM > config.PersonWalkWorthM;
 }

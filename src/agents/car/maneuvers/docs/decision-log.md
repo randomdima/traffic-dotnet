@@ -109,7 +109,7 @@ begun in a minute 47 → 115.
 ## 2026-08-23 — a walker in the road is an agent and not a rule
 
 The ground a swerve takes is already asked — `E-4` walks its template and asks whose every point under it
-is, and a body on a carriageway has claimed it with a margin (`PER-15`). The rule was a second thing
+is, and a body on a carriageway has claimed it with a margin (`PER-26`). The rule was a second thing
 refusing a movement the first already refuses (`SIM-7`). Paint is where a walker's priority lives; a body
 on bare carriageway is in the way of a road it was never entitled to.
 

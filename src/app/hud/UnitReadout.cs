@@ -241,15 +241,15 @@ internal static class UnitReadout
     };
 
     /// <summary>
-    /// What a walker is doing and what is in its way: the trip it is on, the line it is holding, and the
-    /// ground it has been granted to walk into.
+    /// What a walker is doing: the trip it is on, the line it is walking, and where on the network it
+    /// stands.
     /// </summary>
     static void Walker(ref RowWriter rows, TownWorld world, int person)
     {
         var people = world.People;
 
         var line = rows.Next("doing");
-        line.Add(WalkingWords.WalkName(people, person, world.StopsInM(person)));
+        line.Add(WalkingWords.WalkName(people, person));
         if (people.Manual[person]) line.Add(", under orders");
         rows.Keep(in line);
 
@@ -299,38 +299,20 @@ internal static class UnitReadout
         if (people.WalkedRunsOut[person]) line.Add(", runs out");
         rows.Keep(in line);
 
-        line = rows.Next("room");
-        if (float.IsFinite(people.AuthorityM[person]))
+        // Where on the network the body stands, which is what says which of PER-25's two walks it is on:
+        // a way of the pavement, or none of them and a straight back onto it.
+        line = rows.Next("on");
+        if (people.OnWay[person] == PersonFleet.NoWay) line.Add("no way of the network");
+        else
         {
-            line.Add(people.AuthorityM[person], "F1");
+            line.Add("way ");
+            line.Add(people.OnWay[person]);
+            line.Add(" at ");
+            line.Add(people.OnWayM[person], "F1");
             line.Add(" m");
         }
-        else
-        {
-            line.Add("the pavement to itself");
-        }
 
         rows.Keep(in line);
-
-        line = rows.Next("held by");
-        if (people.HeldBy[person] == PersonFleet.NoBody) line.Add("nothing");
-        else
-        {
-            // The pavement holds whatever is standing on it (TER-4c.2), so the number is a number in one of
-            // two fleets and the roster is what says which.
-            line.Add(people.HeldByOf[person] == LaneRoster.Walking ? "walker " : "car ");
-            line.Add(people.HeldBy[person]);
-        }
-
-        rows.Keep(in line);
-
-        if (people.WaitingToCrossS[person] > 0f)
-        {
-            line = rows.Next("waiting");
-            line.Add(people.WaitingToCrossS[person], "F1");
-            line.Add(" s to cross");
-            rows.Keep(in line);
-        }
     }
 
     /// <summary>

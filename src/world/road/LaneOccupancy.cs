@@ -160,8 +160,6 @@ internal enum LaneRoster : byte
 /// <b>The margin</b> (<see cref="LaneCredit.Of"/>): such a claim begins a gap behind its owner's tail
 /// (TER-5c.2), so whoever is cut at it stops at the near edge; everything else is laid at its true extent
 /// and the asker keeps its own margin off it.
-/// <b>And what a walker may step round</b> (PER-24): a body going down the walk is one to wait behind, and
-/// a body merely lying across it is one to walk round.
 /// </para>
 /// <para>
 /// It is meaningless where nothing is standing in the claim, and readers ask it only together with the body
@@ -211,8 +209,8 @@ internal readonly record struct LaneClaim(
 
     /// <summary>
     /// <b>A body lying where it is rather than driving down this way</b>: a wreck, a car with nobody in it,
-    /// one shoved off its line, one under a hand. <b>What a walker steps round</b> (PER-24), and what the
-    /// town's own furniture is not — a prop is nobody's body and is walked round by its own geometry.
+    /// one shoved off its line, one under a hand. <b>What a driver may be taken round</b> (`E-4`), and what
+    /// the town's own furniture is not — a prop is nobody's body and is driven round by its own geometry.
     /// </summary>
     public bool IsLoose => HasBody && !OnItsLine && !IsFurniture;
 
@@ -542,7 +540,7 @@ internal sealed partial class LaneOccupancy
     /// <b>It is not a judgement that the body is an obstruction.</b> A car halfway across the oncoming lane
     /// lays one there while it is driving perfectly well, and what the traffic in that lane does about it is
     /// that traffic's own business. What this says is only that the interval is the bare box and that its
-    /// holder is not driving down <em>this</em> way — which is what a walker may step round (PER-24).
+    /// holder is not driving down <em>this</em> way — which is what a driver may be taken round (`E-4`).
     /// </remarks>
     /// <param name="standsToM">
     /// Where the box itself ends, which is <paramref name="toM"/> for anything standing still. <b>A body on a

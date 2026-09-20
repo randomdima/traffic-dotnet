@@ -92,6 +92,13 @@ internal sealed class TownBrief
     public required int Cars { get; init; }
 
     /// <summary>
+    /// How many people the town stands up, if its buildings have that many doors to stand them at (GEN-7).
+    /// <b>One person a door</b> (<see cref="SpawnStage"/>), so the bound is the doors the buildings were
+    /// laid with and a brief asking for more gets what fitted.
+    /// </summary>
+    public int People { get; init; }
+
+    /// <summary>
     /// How many buildings the town plans (GEN-54). <b>It is what its car parks and its services are counted
     /// off too</b> (<see cref="SimConfig.CarParksFor"/>, <see cref="SimConfig.HospitalsFor"/>, GEN-53,
     /// GEN-55), so a map that grows carries the parking and the stations for what it grew into without
@@ -117,6 +124,7 @@ internal sealed class TownBrief
         if (string.IsNullOrWhiteSpace(Name)) throw new InvalidDataException($"{what}: a brief with no name.");
         if (Districts < 1) throw new InvalidDataException($"{what}: {Districts} districts is no town.");
         if (Cars < 0) throw new InvalidDataException($"{what}: a negative roster.");
+        if (People < 0) throw new InvalidDataException($"{what}: a negative number of people.");
         if (Buildings < 0) throw new InvalidDataException($"{what}: a negative number of buildings.");
     }
 

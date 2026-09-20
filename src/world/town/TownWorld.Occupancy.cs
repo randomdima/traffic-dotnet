@@ -67,7 +67,7 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// </para>
 /// <para>
 /// <b>The claims are laid in four passes and this file holds the shape of it</b>: what each of them writes is
-/// the walkers' (<see cref="PlaceTheWalkerOnTheRoad"/>), the ground every body stands on
+/// the walkers' (<see cref="HoldTheRoadUnderIt"/>), the ground every body stands on
 /// (<see cref="PlaceTheBody"/>), the crossings of a junction (<see cref="PlaceTheCrossing"/>) and
 /// the ask and the answer (<see cref="AskForTheGround"/>), each in the file its own name says.
 /// </para>
@@ -187,8 +187,19 @@ internal sealed partial class TownWorld
         _standing.LayInto(_occupancy);
 
         // Where every walker stands on the pavement's own ways, before anything is laid: the carriageway
-        // needs it to say which lane a body on the paint stands in, and the walker's own ask begins from it.
+        // needs it to say which lane a body on the paint stands in, and the walker's own claims begin from
+        // it. It is also what says which of PER-25's two walks each body is taking.
         for (var person = 0; person < People.Count; person++) StationTheWalker(person);
+
+        // <b>And every walker's own ground, at p0, before any of it</b> (PER-26, TER-5g). A body is the one
+        // hold nothing takes, so a car's ask is laid against the whole of what is standing in the town
+        // rather than against whichever bodies happened to be written first.
+        Span<LineWay> walk = stackalloc LineWay[MostWaysAlongAWalk];
+        for (var person = 0; person < People.Count; person++)
+        {
+            HoldThePavementUnderIt(person);
+            HoldTheRoadUnderIt(person);
+        }
 
         // <b>Every body first, and every claim ahead after all of them</b>. A body is the one hold nothing can
         // take, so what is laid before a claim ahead is asked is the whole of the town's ground rather than
@@ -207,15 +218,18 @@ internal sealed partial class TownWorld
             PlaceTheClaimAhead(car);
             PlaceTheCrossing(car);
             KeepTheBay(car);
+            CloseTheRoad(car);
         }
 
-        // <b>The walkers between the asks and the grants, because they are on both sides of one question</b>
-        // (TER-4c). What a body at a kerb may step onto is whether a driver's road is over the band, so the
-        // asks have to be laid before it; and a person in a lane cuts the road a driver is granted exactly as
-        // a car standing there would, so the band has to be claimed before the grants are taken. Laid
-        // after them, every band was claimed where no driver read it again until the next rebuild wiped it, and
-        // the only thing holding a car off somebody on the paint was the crossing's own stop.
-        for (var person = 0; person < People.Count; person++) PlaceTheWalkerOnTheRoad(person);
+        // <b>And what every walker says it is walking at, at p9</b> (PER-26), between the drivers' asks and
+        // their grants. A statement is the weakest hold there is, so it goes in after every body and every
+        // ask; and the band a walker says it is stepping onto is what the traffic under that paint gives way
+        // to (TER-5e), so it goes in before anything is granted off those asks.
+        for (var person = 0; person < People.Count; person++)
+        {
+            StateThePavementAhead(person, walk);
+            StateTheBandAhead(person);
+        }
 
         // And the claims ahead answered against every other, before anything is granted off them: a claim a
         // stronger movement has taken is ground its holder no longer has, so nothing granted below may be
@@ -227,15 +241,6 @@ internal sealed partial class TownWorld
         // And every claim left holding the answer rather than the question (TER-4c.1), which is what every
         // reader after this rebuild — the junction gate above all — is entitled to find in it.
         for (var car = 0; car < Cars.Count; car++) CutTheGroundToTheGrant(car, ways);
-
-        // <b>And the walkers' own ask and answer, after all of it</b>: what a walk is held at is the band
-        // the road refused this body (<see cref="WhereTheWalkRunsOut"/>), which is not known until every
-        // band has been asked for — and what it is cut at is the whole of what is on the ground. Asked in
-        // one walk and answered in the next, exactly as the drivers' is.
-        Span<LineWay> walk = stackalloc LineWay[MostWaysAlongAWalk];
-        for (var person = 0; person < People.Count; person++) AskForThePavement(person, walk);
-
-        for (var person = 0; person < People.Count; person++) GrantThePavement(person, walk);
     }
 
     /// <summary>
@@ -261,52 +266,6 @@ internal sealed partial class TownWorld
         return Cars.OffLineM[car] <= OffTheLineAllowanceM(car);
     }
 
-    /// <summary>
-    /// <b>Whether the body a stretch belongs to is coming through ground a walk wants</b> rather than
-    /// standing in it — which is what a walker has to know about a body laid where it lies, since one it
-    /// cannot get past on its feet is one it must stop short of (PER-24). <b>Asked the same way of either
-    /// roster</b>: a car that has mounted a kerb is not a different kind of body from the walker beside it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Neither the claim nor the row alone can answer it.</b> A claim says how the ground
-    /// was measured and not what the body is doing — a hand at the wheel, a shove and a slide all lay a body
-    /// where it lies at whatever speed they are doing — so the speed is read off the body itself and only
-    /// the direction is the row's.
-    /// </para>
-    /// <para>
-    /// <b>What a walker can get past is what it can out-walk down its own way</b>
-    /// (<see cref="SimConfig.PersonWalkSpeedMps"/>, the same bar a body at a kerb holds a rescue to), and
-    /// PER-24 already says which body that is: one under way <em>along the same lane</em>. So a body going
-    /// the walker's way no faster than the walker goes is stepped round like anything else standing there —
-    /// which is what a walker off its own line for a stride is — and one coming across the walk or down it
-    /// faster than a walk is a body no step gets past.
-    /// </para>
-    /// <para>
-    /// <b>It is the walking side's question and not the driving side's</b>, because only one of the two acts
-    /// on a body in its way the tick it meets one. A driver is held off the same stretch by the same claim,
-    /// and what stops it driving round something that is about to be gone is the wait every swerve costs
-    /// (<c>DriveScene.WorthGoingRound</c>) — a walker has no such wait and steps round in the tick, so this
-    /// is what it is held by instead.
-    /// </para>
-    /// <para>
-    /// <b>The town's own furniture is nobody's body and is going nowhere by construction</b>
-    /// (<see cref="LaneOccupancy.Nobody"/>).
-    /// </para>
-    /// </remarks>
-    bool IsComingThrough(in LaneClaim slot)
-    {
-        if (slot.Occupant == LaneOccupancy.Nobody) return false;
-
-        var velocityMps = slot.Of == LaneRoster.Walking
-            ? People.VelocityMps[slot.Occupant]
-            : Cars.VelocityMps[slot.Occupant];
-
-        var stoppedMps = _config.Driving.StopSpeedMps;
-        if (velocityMps.LengthSquared() <= stoppedMps * stoppedMps) return false;
-
-        return slot.AlongMps <= 0f || slot.AlongMps > _config.PersonWalkSpeedMps;
-    }
 
     /// <summary>
     /// Where a place on one of this car's lanes falls on the line it is driving — <see cref="WaysAlong"/>'s

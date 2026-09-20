@@ -195,9 +195,9 @@ levels happen to be written in, and the gaps in it are levels nothing claims yet
   was merely thinking about.
 - **p10 rejected** — **an ask that was refused, left standing so the traffic can see it.** Nobody's
   ground: it binds nobody, it cuts nothing, and it is **the one thing on a way that is not a claim on
-  ground** — so it is laid over the very stretch the traffic holds and is outside TER-4c.3. Made exclusive
-  like the rest, it would be cut away by whatever it was marking and the traffic would never learn that
-  anybody was waiting.
+  ground** — so it is laid over the very stretch the traffic holds and is outside TER-4c.3. **Nothing lays
+  one**: the one asker that ever did was a walker refused a band, and a walker is refused nothing now
+  (`PER-26`). It is a level of the ladder nothing claims yet, like the numbers between the others.
 
 **The ladder says which comparison is made and the right of way says who wins it.** A right of way is a
 fact about the *way* and not about the body on it — a junction's every movement is a way of its own, so the
@@ -252,9 +252,11 @@ holder — so along a lane it lies over the traffic in front of that holder rath
 refusal there it stops the car in front of a rescue dead, which leaves the rescue behind a body instead of
 an empty road.
 
-**Nothing on foot states anything.** Such a claim is in no question about where a body is or what is
-coming down a lane — nothing is standing on it — so a walker at a kerb is held off the road by the traffic
-and never by the traffic's ambitions.
+**And a body on foot states ground the same way** (`PER-26`), which is the whole of what a walker has
+instead of a grant: the pavement it is walking at, and the band of the crossing it is stepping onto. **It
+is not this rule's own arithmetic** — a walker has no planned speed to hold and nothing to stop from — but
+it is the same level of the same ladder, so what a stated band comes to is that the traffic under it ranks
+below the paint (TER-5e) and gives the ground up.
 
 **And the rank a car asks a box's ground with is the rank it will hold that ground at.** A body past the
 point it could stop short of a box is going in whatever anybody has claimed, so it asks with the rank that says
@@ -324,7 +326,7 @@ rule releases it — it is re-laid from the pose every tick and it is gone the t
   aside asks about the ground it has stepped to. Read off the holder's distance from the line instead, a way
   is two-dimensional for whoever is written into it and one-dimensional for everybody reading it — and then
   a body cannot move out from under an answer it has been given, which is a pavement nobody can ever get
-  past anybody on (`PER-24`).
+  past anybody on (`PER-26`).
 - **It is written where nothing else already answers for the ground** (SIM-7). A driver under way has its
   own claim on the ways of its line and the crossing table on the box it is crossing (TER-5c.1); a
   second copy of either would be one refusal made twice, and a body nobody can give up deadlocks what a rank
@@ -444,8 +446,8 @@ ground that was.
 is granted exactly as a car standing there would; it is waited behind while it is moving, and once it has
 come to rest it is something the rule that drives round an obstruction (`E-4`) may act on. **What keeps a
 swerve off it is the ground it holds and never a name it is refused by** — its own claim carries
-a margin (PER-15), and a template laid over that stretch is refused by the same test that refuses one over
-a wreck. Naming a second rule to refuse the same movement would make the first useless (SIM-7).
+a margin (`PER-26`), and a template laid over that stretch is refused by the same test that refuses one
+over a wreck. Naming a second rule to refuse the same movement would make the first useless (SIM-7).
 
 **A body's own claim is the one thing that is never held against it.** An occupant is an index into one
 of two rosters and the stretch carries which, so a car excluding itself by number does not also excuse the
@@ -454,7 +456,7 @@ walker that happens to hold the same number.
 **A crossing is carriageway and not a unit**, on both sides: what a body has of a zebra is the band of it
 one lane wide that it is on. A car has the stretch of its own lane, which is the same stretch the rest of
 its road is and is claimed where the rest of its road is claimed — on the road, once. A walker has
-the band of the lane it stands in, and the band in front of it once that one has been granted (PER-15).
+the band of the lane it stands in at p0, and states the band in front of it at p9 (`PER-26`).
 **A band is a stretch of ground like any other**, so the two sides of the paint are held apart by the answer
-that holds the rest of the town apart, and **neither of them is ever refused by the paint**: a body that
-cannot cross is one the lane under the paint already belongs to.
+that holds the rest of the town apart, and **neither of them is ever refused by the paint**: what a stated
+band comes to is the traffic under it being cut at ground it ranks below (TER-5e).

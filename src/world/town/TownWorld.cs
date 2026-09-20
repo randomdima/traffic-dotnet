@@ -310,9 +310,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _duty = new RescueDuty(drivers);
         _beat = new PatrolDuty(drivers);
         _recovery = new RecoveryDuty(drivers);
-        _handOut = new int[drivers];
-        Array.Fill(_handOut, NoHand);
-        _recallS = new float[drivers];
 
         if (standStatics) StandStatics();
 
@@ -466,22 +463,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>How many walks have ended where they were going. The same figure for the other agent kind.</summary>
     public long WalkArrivals { get; private set; }
 
-    /// <summary>How many times a walker has stood at a kerb and asked the road, which is PER-15 running.</summary>
-    public long KerbWaitsBegun { get; private set; }
-
-    /// <summary>
-    /// And how many times one has begun crossing on a red. The lit-town soak wants zero, and it is
-    /// counted where it happens rather than sampled.
-    /// </summary>
-    public long CrossingsBegunOnRed { get; private set; }
-
-    /// <summary>
-    /// <b>How many car-ticks a driver has been stopped short of an uncontrolled crossing for somebody
-    /// standing at its kerb</b> — TER-5e's pedestrian right of way, counted where the ground is given up
-    /// rather than inferred from a walker having got across.
-    /// </summary>
-    public long GaveWayAtAKerb { get; private set; }
-
     /// <summary>
     /// <b>And how many crossings already taken have been given back to a movement with the right of way over
     /// them</b> (TER-5e) — the revocation, counted where it happens. A town where it never happens is one
@@ -495,20 +476,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// are the whole of how a leg ends; reporting only the first would call a jammed town a busy one.
     /// </summary>
     public long WalksGivenUp { get; private set; }
-
-    /// <summary>
-    /// How many walker-ticks have been spent stepping round a body in the way (PER-24), and how many of
-    /// those went the other way because the ground refused the right.
-    /// </summary>
-    /// <remarks>
-    /// <b>The second is the one worth watching.</b> The right is the rule and the left is what the terrain
-    /// leaves of it, so a town where most steps go left is a town where the rule is the exception — which is
-    /// a fact about the figures and the pavements rather than about the code, and is invisible without a
-    /// count.
-    /// </remarks>
-    public long StepsRound { get; private set; }
-
-    public long StepsRoundToTheLeft { get; private set; }
 
     public GroundLocator Terrain => _terrain;
 
@@ -705,47 +672,29 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // walker that is only allowed to notice its destination six times a second walks past it. The
         // same applies to reaching a point of its line and taking the next one, which is the same
         // question asked of a shorter leg.
-        var atTheKerb = AtTheKerb(agent, positionM);
-        while (People.Walking[agent] && !atTheKerb &&
+        while (People.Walking[agent] &&
                (People.DestinationM[agent] - positionM).Length() <= People.RadiusM[agent])
         {
-            var steppingOnto = _terrain.At(positionM).Drivable ? -1 : People.CrossingAhead(agent);
             if (People.TakeNextWalkedPoint(agent, out var nextM))
             {
-                // Counted where it happens: the tick a body leaves a kerb for the paint. A sample taken
-                // afterwards finds a walker on a crossing and cannot say what it was shown when it set
-                // off.
-                if (steppingOnto >= 0 && _signals.CrossingIsLit(steppingOnto) &&
-                    _signals.ForCrossing(steppingOnto, _elapsedS) != SignalColour.Green)
-                {
-                    CrossingsBegunOnRed++;
-                }
-
                 // Reaching a point of the line *is* progress, and the clock that decides a walker has
                 // given up is measured against the point it is walking at. Left standing, it would run
                 // up on the leg after a long one and call a walker that had just arrived stuck.
                 People.DestinationM[agent] = nextM;
                 _progress.Restart(agent);
-                atTheKerb = AtTheKerb(agent, positionM);
                 continue;
             }
 
             People.Walking[agent] = false;
         }
 
-        // What the pavement granted this walker, read as the permission it is (PER-13): there is
-        // ground in front of it to walk into, or it stands where it is until whoever has that ground moves.
-        // A body going nowhere is stepped round by asking for the pavement beside it (PER-24), so the aim
-        // here is the offset that ask was granted at — and where no step was granted, the grant runs out at
-        // the body and standing is the reply, exactly as it was before there was a step.
-        var aimM = atTheKerb ? WaitAimM(agent) : StepAimM(agent, People.DestinationM[agent]);
-
-        var moving = People.Walking[agent] && !People.IsHeldByTheClaims(agent, StopsInM(agent)) &&
-                     (!atTheKerb || (aimM - positionM).Length() > People.RadiusM[agent]);
+        // <b>The aim is the point of the line and nothing else</b> (PER-25). There is no grant to read and
+        // no offset to apply: a walker walks at what it was laid, and what it walks into is the solver's.
+        var aimM = People.DestinationM[agent];
 
         var step = WalkerFollower.Step(
-            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], aimM, moving, ground.Coefficient,
-            People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
+            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], aimM, People.Walking[agent],
+            ground.Coefficient, People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
 
         People.HeadingRad[agent] = step.HeadingRad;
         _impulseNs[agent] = step.ImpulseNs;
@@ -797,31 +746,23 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             return;
         }
 
-        // Held at a kerb is not stuck, and the clock that gives a leg up is frozen while it is: a walker
-        // waiting out a long red would otherwise be handed somewhere else to be, halfway through a
-        // crossing it had not begun.
-        //
-        // <b>Unless what is holding it is a body standing on the band</b> (PER-15,
-        // <see cref="PersonFleet.RefusedBy"/>). A red ends and a road is driven on; a car parked over the
-        // paint does neither, so this is a standstill wearing a kerb wait's clothes and the clock is the
-        // only thing that ever answers one.
-        if (People.HeldAtTheKerb[agent] && People.RefusedBy[agent] == PersonFleet.NoBody) return;
-
-        // Nor is queueing: the body in front is under way and the ground it holds is ground it is about to
-        // give back, so the clock that gives a leg up would be counting a wait that ends itself.
-        //
-        // A body going nowhere is the other case and is not one of these (PER-24). It holds the ground it is
-        // standing on for as long as it stands there, so a walker cut at it is stopped rather than waiting —
-        // and it has to keep deciding, or the clock never runs and nothing ever draws it a line round.
-        if (People.StepsRound[agent] == PersonFleet.NoBody && !IsHeldByAStandstill(agent) &&
-            People.IsHeldByTheClaims(agent, StopsInM(agent))) return;
-
-        // Nor is a beat stood on purpose. It is the walking side's own idle — between two goals, and in the
-        // road while a body paces one — and a clock that gave a leg up while it ran would end the stand
-        // rather than the stand ending itself.
+        // A beat stood on purpose is not a leg going wrong. It is the walking side's own idle between two
+        // goals, and a clock that gave a leg up while it ran would end the stand rather than the stand
+        // ending itself.
         if (!People.Walking[agent] && People.Stage[agent] == TripStage.StandingBy)
         {
             StandingStill(agent, sinceLastDecisionS);
+            return;
+        }
+
+        // <b>PER-25's second half, asked once a decision.</b> A body further off its line than the pavement
+        // is wide has lost it — shoved, knocked aside, put down beside a vehicle — and what it is owed is
+        // the line laid again from where it now stands, whose first leg is the straight back onto the
+        // network. Left alone it would walk at a point on ground it is no longer near.
+        if (HasLostItsLine(agent))
+        {
+            LayWalk(agent, reachTheGoal: People.Stage[agent] is TripStage.WalkingToTheDoor or TripStage.UnderOrders);
+            _progress.Restart(agent);
             return;
         }
 
@@ -830,16 +771,11 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // Standing here means the follower has already answered: either it arrived, or it never had
         // anywhere to go. Being stuck is the other way a leg ends, and it is the one that needs a
         // clock — a walker held up by something is not a walker that has finished.
-        var stuck = _progress.IsStuck(agent, _config.Ladder.ObstructionWaitS);
+        var stuck = _progress.IsStuck(agent, _config.Person.GivesUpAfterS);
         if (People.Walking[agent] && !stuck) return;
 
         if (stuck)
         {
-            // A crew out working has no trip to give up (SRV-3). What it is walking at is its vehicle's
-            // errand, and that errand's own bound is what ends this — the recall clock, or the call's.
-            // Handed a trip here, a paramedic ten metres from a casualty would walk off to a shop.
-            if (People.Stage[agent] == TripStage.Attending) return;
-
             // Held up long enough to give up on where it was going. Not an arrival and not counted as
             // one: conflating the two would report a jammed town as a busy one.
             WalksGivenUp++;

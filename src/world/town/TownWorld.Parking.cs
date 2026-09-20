@@ -95,15 +95,6 @@ internal sealed partial class TownWorld
         Cars.Context[car] = DriveContext.Clear;
         DropTheMovement(car);
 
-        var driver = _containers.DriverOf(car);
-        // A service vehicle's crew stays aboard between errands (AMB-3, SRV-3): a leg ending is the
-        // errand's own business, and a crew that got out would leave a car CAR-1 says is no longer an agent
-        // — with no way of ever standing it down again. <b>So does the driver of a car under orders</b>
-        // (CTL-8b), for the same reason said of a hand: they are waiting at the wheel for the next one.
-        if (driver >= 0 && !IsAServiceVehicle(car) && LetsItsDriverOut(car))
-        {
-            People.Stage[driver] = TripStage.Alighting;
-        }
     }
 
     /// <summary>

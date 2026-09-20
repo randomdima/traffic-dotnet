@@ -6,14 +6,14 @@ using TrafficSimulation.Core.Simulation;
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>Where the roster stands at the first tick</b>: a car on a lane, and nobody anywhere.
+/// <b>Where the roster stands at the first tick</b>: a car on a lane, and a person at a door.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>GEN-7 says a car starts stopped in a parking space and a person starts inside a building, and both
-/// halves are false of a town this build lays.</b> There is no bay to stand a car in and no door to stand
-/// anybody at, and the rule is named in the known gaps rather than reworded to match the code — the code is
-/// what is temporarily wrong here.
+/// <b>GEN-7 says a car starts stopped in a parking space and a person starts inside a building.</b> The
+/// second half holds now — a body stood at a way in walks through it before the town's first tick
+/// (<c>TownWorld.MoveIn</c>) — and the first does not, there being no bay to stand a car in. That half is
+/// named in the known gaps rather than reworded to match the code.
 /// </para>
 /// <para>
 /// <b>A car is stood on a lane because otherwise the town does not move at all.</b> Nothing else stands one
@@ -31,7 +31,11 @@ internal static class SpawnStage
 {
     const byte Car = 1;
 
-    public static CityPlan.SpawnArrays Lay(TownBrief brief, Paving paving, SimConfig config, ref Rng draw)
+    /// <summary>Which is also the value an unwritten slot holds, so a person is the kind a spawn is by default.</summary>
+    const byte Person = 0;
+
+    public static CityPlan.SpawnArrays Lay(
+        TownBrief brief, Paving paving, CityPlan.BuildingArrays buildings, SimConfig config, ref Rng draw)
     {
         var lanes = paving.Lanes;
 
@@ -53,9 +57,11 @@ internal static class SpawnStage
         }
 
         var cars = Math.Min(brief.Cars, standable.Count);
-        var kind = new byte[cars];
-        var positionM = new Vector2[cars];
-        var headingRad = new float[cars];
+        var doors = buildings.EntryPointM.Length;
+        var people = Math.Min(brief.People, doors);
+        var kind = new byte[cars + people];
+        var positionM = new Vector2[cars + people];
+        var headingRad = new float[cars + people];
 
         var taken = 0;
         foreach (var lane in Spread(standable.Count, cars, ref draw))
@@ -69,8 +75,39 @@ internal static class SpawnStage
             taken++;
         }
 
+        // <b>One person a door, spread over the whole town's worth of them</b> (GEN-7). A body stood at a
+        // way in is a body inside that building before the first tick, so what the count is bounded by is
+        // how many doors the buildings were laid with — and a door already taken would be two people
+        // walking out of one doorway onto one another.
+        foreach (var slot in Spread(doors, people, ref draw))
+        {
+            var doorM = buildings.EntryPointM[slot];
+            var building = BuildingOfEntry(buildings, slot);
+
+            kind[taken] = Person;
+            positionM[taken] = doorM;
+            // Facing out of the door it is standing at, which is the way a body that has just come
+            // through one is pointing.
+            headingRad[taken] = Bearing(doorM - buildings.CentreM[building]);
+            taken++;
+        }
+
         return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad };
     }
+
+    /// <summary>Which building a way in belongs to, walked from the offsets that index them.</summary>
+    static int BuildingOfEntry(CityPlan.BuildingArrays buildings, int entry)
+    {
+        for (var building = 0; building < buildings.Count; building++)
+        {
+            if (entry < buildings.EntryOffsets[building + 1]) return building;
+        }
+
+        return buildings.Count - 1;
+    }
+
+    static float Bearing(Vector2 outwardM) =>
+        outwardM.LengthSquared() > 1e-6f ? MathF.Atan2(outwardM.Y, outwardM.X) : 0f;
 
     /// <summary>
     /// Which of the lanes are stood on: every <c>n</c>th one from a drawn start, so the traffic is spread

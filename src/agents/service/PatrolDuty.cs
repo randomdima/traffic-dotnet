@@ -22,11 +22,8 @@ internal enum PatrolStage : byte
     /// <summary>Under way to a scene it has been called to, and carrying the priority for that leg (SRV-6).</summary>
     Attending,
 
-    /// <summary>Stopped short of the scene with the officer out beside the road, holding it closed (SRV-6).</summary>
+    /// <summary>Stopped short of the scene, holding the road round it closed (SRV-6).</summary>
     Closing,
-
-    /// <summary>The scene done with and the officer walking back to his own seat (SRV-3).</summary>
-    BoardingAtTheScene,
 
     /// <summary>The beat driven out, on its way back to its own bay.</summary>
     ReturningToStation,

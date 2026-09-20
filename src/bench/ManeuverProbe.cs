@@ -50,7 +50,7 @@ internal static class ManeuverProbe
         // their first car is not what it does once it is running.
         world.Trace.Reset();
         var searched = world.RouteSearches;
-        var begun = world.Boardings;
+        var begun = world.BaysParkedIn;
         loop.Advance(MeasuredTicks);
 
         var trace = world.Trace;
@@ -80,10 +80,10 @@ internal static class ManeuverProbe
         // What a leg spends on finding its way. A leg is routed once and driven, so this is a handful per
         // leg and never a figure that climbs with the junctions the town's cars went through.
         var searches = world.RouteSearches - searched;
-        var legs = world.Boardings - begun;
+        var legs = world.BaysParkedIn - begun;
         Console.WriteLine(legs == 0
-            ? $"routing: {searches} searches of the driving network, no leg begun to measure them against"
-            : $"routing: {searches} searches of the driving network over {legs} legs begun, {searches / (double)legs:F1} each");
+            ? $"routing: {searches} searches of the driving network, no leg finished to measure them against"
+            : $"routing: {searches} searches of the driving network over {legs} legs finished, {searches / (double)legs:F1} each");
 
         var worst = trace.WorstShuttle();
         Console.WriteLine(worst.Count == 0

@@ -17,15 +17,6 @@ internal enum ClaimsAsked : byte
     /// <summary>Only what a holder has stated it means to use, which is nothing anybody has been granted.</summary>
     Stated,
 
-    /// <summary>
-    /// As <see cref="Held"/>, less a body lying across the way rather than going down it. <b>The walker's
-    /// own scope</b>, and it leaves that body out only because the walker cuts itself at one on its own
-    /// terms — the margin it keeps rather than a follower's headway (<c>TownWorld.GrantThePavement</c>).
-    /// <b>Nothing here is ground a walk may cross</b> (TER-4c.3): what the scope decides is which of two
-    /// numbers cuts it, never whether it is cut.
-    /// </summary>
-    Walkable,
-
     /// <summary>Where a body actually is, of whichever roster — read to the body edge and not to the far one.</summary>
     Bodies,
 
@@ -111,15 +102,13 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// <b>Every body in front lying where it is rather than driving down this way</b>, near edge first: a
-    /// wreck, somebody knocked down, a walker shoved off its own line, a car that has mounted a kerb. <b>It
-    /// is the other half of the walker's own grant</b> (PER-24) — what <see cref="ClaimsAsked.Walkable"/>
-    /// leaves out is cut here instead, on the margin the walker keeps rather than on a follower's headway.
+    /// wreck, somebody knocked down, a walker shoved off its own line, a car that has mounted a kerb.
     /// <b>What to do about each is the asker's</b>; all this hands back is which body it was.
     /// </summary>
     /// <remarks>
     /// <b>Walked and not answered with the nearest one</b>, because the two things an asker does with these
-    /// are not decided by the same body: every one of them cuts the grant (TER-4c.3), and which is stepped
-    /// round is the nearest going nowhere (<c>TownWorld.IsComingThrough</c>).
+    /// are not decided by the same body: every one of them cuts the grant (TER-4c.3), and which one a
+    /// manoeuvre is about is that manoeuvre's own question.
     /// </remarks>
     public bool NextLying(
         int way, float fromM, float untilM, int excluding, ref int at, out LaneClaim found,
@@ -176,8 +165,8 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// <b>Whether a wheeled body is standing over this stretch</b> — going nowhere on it rather than coming
-    /// through it (PER-15). <b>The one thing on a road that no patience buys</b>: a driver's road is handed
-    /// back by driving on, and a body is not handed back at all.
+    /// through it. <b>The one thing on a road no rank takes</b>: a driver's road is handed back by driving
+    /// on, and a body is not handed back at all (TER-5e).
     /// </summary>
     /// <remarks>
     /// <b>The bar is a pace and never zero</b>, exactly as <see cref="AnyRescueOver"/>'s is and for the same
@@ -422,8 +411,8 @@ internal sealed partial class LaneOccupancy
     /// <param name="heldBy">The claim the answer was cut at, or <see cref="LaneClaim.Nothing"/> where none was.</param>
     /// <param name="asked">
     /// Which claims may cut it. <b>A scope and not a second walk</b>, and never a way past anything
-    /// (TER-4c.3): the walker asks with <see cref="ClaimsAsked.Walkable"/> because a body going nowhere cuts
-    /// it on the walker's own margin instead, and not because such a body may be walked through.
+    /// (TER-4c.3): what a scope decides is which claims are in the walk, never whether one that is may be
+    /// driven through.
     /// </param>
     public float GrantedOn(
         int way, float fromM, float untilM, int occupant, in LaneCredit asker, out LaneClaim heldBy,
@@ -557,7 +546,6 @@ internal sealed partial class LaneOccupancy
         ClaimsAsked.Held => claim.HasBody || claim.IsGranted,
         ClaimsAsked.HeldOrStated => claim.HasBody || claim.IsGranted || claim.IsStated,
         ClaimsAsked.Stated => claim.IsStated,
-        ClaimsAsked.Walkable => (claim.HasBody || claim.IsGranted) && !claim.IsLoose,
         ClaimsAsked.Bodies => claim.HasBody,
         ClaimsAsked.UnderWay => claim.HasBody && claim.OnItsLine,
         ClaimsAsked.Traffic => claim.IsTraffic,

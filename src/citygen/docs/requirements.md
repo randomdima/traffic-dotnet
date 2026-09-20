@@ -323,12 +323,15 @@ building the map stood them at**, dwelling out the interval an arrival dwells (P
 
 **It closes the loop rather than adding a stage to it.** A trip ends by walking through a door and
 dwelling, so a body that begins there begins in the state every later trip returns it to, and everything
-after the first dwell is the ordinary round: out of the building, to a car if the trip is worth one
-(PER-10), to the destination, in. Started on the pavement instead, everybody's first leg was a leg no rule
-of theirs had drawn. **Which building is read off the pose the map left the body in** — the way in it is
-standing at — so the format carries nothing to say it, exactly as the pacing and the reeling walkers are
-told apart by where they were put down (PER-16). A door with no room behind it leaves the body standing
-outside it, which is a state that already has a name.
+after the first dwell is the ordinary round: out of the building, to the destination, in
+(`PER-25`). Started on the pavement instead, everybody's first leg was a leg no rule
+of theirs had drawn. **Which building is read off the pose the plan left the body in** — the way in it is
+standing at — so the format carries nothing to say it. A door with no room behind it leaves the body
+standing outside it, which is a state that already has a name.
+
+**How many of each is the brief's**, and **the bound is the town rather than the count**: a car is stood
+on a lane long enough to hold one and a person at a way in, so a brief asking for more than the ground
+carries gets what fitted (GEN-8).
 
 **GEN-8** `P6` **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the
 arrangement rather than a seed to throw away, and the gate that catches it is the suite. Where the ground

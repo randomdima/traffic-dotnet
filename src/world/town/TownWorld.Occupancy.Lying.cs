@@ -297,9 +297,8 @@ internal sealed partial class TownWorld
         var box = new BodyFootprint(build.HalfLengthM, build.FlankM, forward);
 
         // <b>The paint is the road's and never the walk's</b> (TER-5c.1): a crossing is carriageway a walk
-        // runs over, so a car on it is a stretch of the lane and what holds a walker off it is that stretch,
-        // looked up where the crossing crosses (<see cref="WhereTheWalkRunsOut"/>). Written here as well, one
-        // car holds one piece of ground twice, under two claims free to disagree.
+        // runs over, so a car on it is a stretch of the lane and nothing at all on the walk. Written here as
+        // well, one car holds one piece of ground twice, under two claims free to disagree.
         if (onThePavement)
         {
             return WalkedAlone(
@@ -335,7 +334,7 @@ internal sealed partial class TownWorld
     /// <summary>
     /// The ways of that reading a <em>car</em> answers for on the walk, which is every one of them but a
     /// crossing's (TER-5c.1). A body on foot writes the paint like any other way it stands on
-    /// (<see cref="StandInTheWay"/>).
+    /// (<see cref="HoldThePavementUnderIt"/>).
     /// </summary>
     int WalkedAlone(int found, Span<WayUnder> into)
     {
@@ -486,11 +485,9 @@ internal sealed partial class TownWorld
     /// under the box is written and the ground the body could not stop short of goes with it.
     /// </para>
     /// <para>
-    /// <b>What a walker does about it is the walker's</b> (SIM-7): a car standing across a pavement is
-    /// stepped round rather than queued behind (PER-24, <see cref="LaneOccupancy.UnderWay"/>), which is the
-    /// same answer given for anything else lying there — and one <em>coming through</em> is waited
-    /// for, because going nowhere is the body's own movement and not a property of its claim
-    /// (<see cref="IsComingThrough"/>).
+    /// <b>What a walker does about it is the walker's</b> (SIM-7, PER-26): nothing on the walking side is
+    /// granted a distance, so a car standing across a pavement is a body in the solver rather than a stretch
+    /// to be queued behind — which is the same answer given for anything else lying there.
     /// </para>
     /// </remarks>
     void LieOnThePavement(

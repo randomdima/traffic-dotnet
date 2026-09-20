@@ -80,7 +80,7 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 | `GEN-4…4m` | Bays and lots, the ways at one, which way round a car stands in it, the claim on one, the apron held for a special building's own vehicles, the section's own nodes, and turning round in a bay | [world/parking](../src/world/parking/docs/requirements.md) |
 | `GEN-1…3`, `GEN-5…19`, `GEN-51…55` | The plan, what laying a town owes, what a building declares it is for, what two of a kind standing on the same ground are, where two roads may touch, which of a grid's streets are driven one way, that no lane dangles, what a roundabout is made of, that a junction is a place roads meet, how one is cut into a road that already stands, what a car park is, where a building stands and which of them are the services | [citygen](../src/citygen/docs/requirements.md) |
 | `CAR-1…14` | The car agent, its controls, its tyres and its lamps | [agents/car](../src/agents/car/docs/requirements.md) |
-| `PER-1…11`, `PER-13…18`, `PER-23` | The walker, the trip, what it follows, how it crosses, when it takes a car and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
+| `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25`, `PER-26` | The walker, the line it follows, the two claims it lays, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the roof one wears, the apron of ambulances at them, the priority a call carries, what a rescue is and the standoff its crew walks in from | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
 | `SRV-1…6` | Police stations and depots, the roofs a station and a repair shop wear, what a service vehicle is made of and how its crew works the street on foot, what a wrecked one costs its building, the beat a police car drives and the road its officer closes | [agents/service](../src/agents/service/docs/requirements.md) |
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the priority a tow carries only outbound, the arm and the two wheels under what it pulls | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
@@ -98,6 +98,25 @@ beside the statement and `qq req --rungs` lists the owner's own band.
 
 Absences that are gaps rather than decisions, and none of them is silent:
 
+- **The walking is deliberately simple, and three things it used to do are gone.** A walker follows the
+  line the network laid it and lays two claims (`PER-25`, `PER-26`); what was put down with the old layer
+  was every rule about getting past somebody — the grant along the pavement, the step round a body, the
+  wait at a kerb with its signal and its patience, and the two rules for a walker on a map with nothing on
+  it. **Two walkers wanting one piece of pavement now meet in the solver rather than in the claims.** The
+  slice's [decision-log.md](../src/agents/person/docs/decision-log.md) is why; what comes back is a walking
+  catalogue (`AGT-7`), which is the absence under all three.
+- **Nothing in this town is done on foot but walking.** No leg of a trip is driven (`PER-25`) and no
+  service vehicle carries a crew (`SRV-3`), so four errands lost the body that used to work them and each
+  covers the ground another way, named where it happens rather than hidden:
+  - **A casualty is got aboard at the ambulance's standoff by a placement** rather than fetched and tugged
+    (`AMB-10`) — the winch's own fallback (`EVA-5`) said of a person.
+  - **A wreck is hitched and set down from the truck** (`EVA-5`, `EVA-6`), which is what the winch already
+    covered the last few metres of.
+  - **A police car's closure is the car's own claim** round the scene rather than an officer's beside it
+    (`SRV-6`). The rule is reworded to that; what it gives up is a body standing there to look at.
+  - **And `CTL-8b`'s park-and-walk order is a park-there order**, there being no driver to hand the walk
+    to.
+  **Nobody wears a service uniform** (`SRV-3a`), since nobody is named to.
 - **A town stands no pedestrian node, so the walk is the courses and the crossings cut into them.** The
   pavement is laid and it is walkable, and the zebras a town paints are walked over: two moves of the driven
   ground's boundary, each closed line one lane, parted wherever a crossing meets them and joined across the
@@ -110,8 +129,10 @@ Absences that are gaps rather than decisions, and none of them is silent:
   only across a carriageway, so a block with no zebra on it is walked round and not left.
   Why the node network was put down is the slice's
   [decision-log.md](../src/world/foot/docs/decision-log.md).
-- **Nobody walks, because no map asks for anybody.** Every shipped plan's roster is cars alone
-  (`--bench census`), so the walking network is laid, contracted and read by nothing.
+- **The fixture map stands nobody, because it has no buildings to stand them at.** A walker begins inside
+  a building (`GEN-7`) and `towns/Test.json` asks for none, so every detailed check is staged on a town
+  with no walkers on it — the shipped cities carry theirs (`--bench census`). It closes when the fixture
+  can carry buildings without carrying the car parks counted off them (`GEN-53`).
 - **The lane layer was rebuilt and the town it carried was put down with it.** The lines a car is driven on
   are laid from the junction out now — a bearing and a standoff drawn for every arm, the movements laid
   between the points that produces, and the road drawn as the link is offered to arrive on them (`GEN-46`,
@@ -144,15 +165,18 @@ Absences that are gaps rather than decisions, and none of them is silent:
     now and a driver still cannot see it**: the walking network lays a pair of lanes over every zebra the
     town paints and over no other (`WLK-15`, `CrossingWays`, all 510 of Odesa's), but what projects a
     crossing onto the lanes under it reads the plan's empty array (`LaneFurniture`, `CrossingBands`) — so a
-    body on the paint holds no road, and the traffic it is in front of is not told. It closes when those two
-    read the bands the paint is laid from (`World.Road.Crossings`).
+    body on the paint holds no road, and the traffic it is in front of is not told. **It is what PER-26's
+    second claim waits on**: a walker states the band it is stepping onto at p9 with the paint's own right
+    of way, and with no band to state it states nothing — what holds the traffic off a body on a zebra
+    today is the ordinary ground under it (TER-4c.2) and never the paint. It closes when those two read the
+    bands the paint is laid from (`World.Road.Crossings`).
     **And a node that forks nothing carries neither** (`TER-6`, `TER-5b`): the mid-block crossing an inline
     junction exists to carry is not laid, which is the one placement rule of `TER-6` nothing answers.
-  - **The roster rule GEN-7 is still false of a generated town in both halves, and is not reworded.** It
-    says a car starts stopped in a parking space and a person starts inside a building; a car is stood on a
-    lane because there is no bay to stand one in, and nobody is stood at all — **the doors are there now
-    and no brief asks for anybody to stand at one** (`--bench census`). The code is what is temporarily
-    wrong here.
+  - **The roster rule GEN-7 is still false of a generated town in one half, and is not reworded.** It
+    says a car starts stopped in a parking space and a person starts inside a building. **The second half
+    holds now** — a brief asks for people and each is stood at a way in and walks through it before the
+    first tick — and the first does not, a car being stood on a lane because there is no bay to stand one
+    in. The code is what is temporarily wrong here.
   - **The suite got smaller with the laboratories.** `Track` ×3, `Exam`, `Footway`, `Skidpad` and `Zebras`
     were laid against the layer that has been replaced, so they were deleted rather than carried across it —
     and with them the exam's staged junctions, the lap's drivetrain figures, the pad's circles and the

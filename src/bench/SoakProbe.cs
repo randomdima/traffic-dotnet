@@ -177,13 +177,15 @@ internal static class SoakProbe
     /// <b>A body nothing cut is left out</b> rather than counted as clear: an infinite grant is an empty road,
     /// a parked car or a wreck, and none of them is a body that was refused anything.
     /// </para>
+    /// <para>
+    /// <b>It is the drivers' alone</b> (PER-26). Nothing hands a walker a distance to be past, so a walker's
+    /// row is nought — the walking side holds ground and states ground, and neither of those is a grant a
+    /// body can be found outside of.
+    /// </para>
     /// </remarks>
     public static void SweepPastTheGrant(TownWorld world, Span<float> into)
     {
-        for (var person = 0; person < world.People.Count; person++)
-        {
-            into[person] = PastM(world.People.AuthorityM[person]);
-        }
+        into[..world.People.Count].Clear();
 
         for (var car = 0; car < world.Cars.Count; car++)
         {

@@ -193,9 +193,8 @@ internal sealed partial class TownWorld
     /// <summary>
     /// The building whose way in this body is standing at, or −1 — the nearest one within touching reach
     /// of the door, which on a street of terraces is the difference between somebody's own house and
-    /// their neighbour's. <b>Read off the pose the map left it in</b>, as the reeling and the pacing
-    /// walkers are (PER-16): a map says somebody lives here by standing them at the door, and nothing in
-    /// the format has to name it.
+    /// their neighbour's. <b>Read off the pose the plan left it in</b> (GEN-7): a plan says somebody lives
+    /// here by standing them at the door, and nothing in the format has to name it.
     /// </summary>
     int BuildingWithADoorAt(Vector2 positionM)
     {

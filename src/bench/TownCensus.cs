@@ -173,7 +173,7 @@ internal static class TownCensus
         Console.WriteLine("the roster the plan asks for");
         Console.WriteLine($"  {people} people, {cars} cars");
 
-        // What the map's service buildings lay on top of its own spawns: a crewed car for every bay of
+        // What the map's service buildings lay on top of its own spawns: a car for every bay of
         // every apron and one at each depot (AMB-2, SRV-2). They are what the town has room for — a
         // building with fewer bays near it than the apron asks for stands fewer, and one with none stands
         // none. Where the shares this build would place them at differ from what the file declares, the
@@ -181,7 +181,7 @@ internal static class TownCensus
         var uses = BuildingUses.Of(plan);
         var apron = (uses.Hospitals.Count + uses.PoliceStations.Count) * config.Service.ApronBays;
         Console.WriteLine(
-            $"  plus an apron of {config.Service.ApronBays} cars — a driver and a hand apiece (SRV-3) — at " +
+            $"  plus an apron of {config.Service.ApronBays} cars, nobody aboard any of them (SRV-3), at " +
             $"each of the map's own hospitals ({uses.Hospitals.Count} of {HospitalRoster.CountIn(plan, config)} " +
             $"this build would place) and police stations ({uses.PoliceStations.Count} of " +
             $"{PoliceStationRoster.CountIn(plan, config)}), and one at each of its depots " +

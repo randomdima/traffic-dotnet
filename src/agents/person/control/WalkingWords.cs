@@ -16,15 +16,20 @@ internal static class WalkingWords
     /// not there.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Every answer is a literal, and the return is the string rather than a span over one</b>: a panel
     /// draws it into a buffer and an instrument keeps it, and taking a copy of a span is an allocation on
     /// a hot path for a word that never changes.
+    /// </para>
+    /// <para>
+    /// <b>There is no word for being held</b> (PER-26). Nothing hands a walker a distance it may walk, so a
+    /// body that is not getting anywhere is one whatever is in front of it is leaning on — which is the
+    /// solver's reading and not a state this roster carries.
+    /// </para>
     /// </remarks>
-    /// <param name="stopsInM">How much room this body needs to stop, which is what says a line ahead of it is blocked.</param>
-    public static string WalkName(PersonFleet people, int person, float stopsInM)
+    public static string WalkName(PersonFleet people, int person)
     {
         if (people.Wounded[person]) return "wounded, waiting for an ambulance";
-        if (people.HeldAtTheKerb[person]) return "held at the kerb";
 
         // What the trip is doing outranks what the body is doing, because a body standing still is the
         // one thing several of these states have in common.
@@ -33,29 +38,19 @@ internal static class WalkingWords
             return people.Stage[person] switch
             {
                 TripStage.WaitingForAPlace => "waiting for a place",
-                TripStage.Alighting => "getting out",
                 TripStage.UnderOrders => "awaiting orders",
                 TripStage.StandingBy => "standing by",
                 _ => "standing",
             };
         }
 
-        // Standing still with a line ahead of it and no kerb in front: the ground it wanted is somebody
-        // else's, which is the other state this layer could not otherwise tell from walking. The lane it
-        // was refused is worth naming apart from the pavement it is queueing on — one is traffic and the
-        // other is a crowd, and they look identical from here.
-        if (people.IsHeldByTheClaims(person, stopsInM))
-        {
-            return people.RefusedWay[person] == PersonFleet.NoWay
-                ? "waiting behind somebody"
-                : "waiting for a lane";
-        }
-
         var taken = people.WalkedTaken[person];
         var line = people.WalkedCrossingOf(person);
         if (taken > 0 && taken <= line.Length && line[taken - 1] >= 0) return "on the crossing";
 
-        return people.Stage[person] == TripStage.WalkingToTheCar ? "walking to a car" : "walking";
+        // Off every way of the network, which is a walk in a straight line at the nearest of them
+        // (PER-25) and is worth naming apart from a walk down a lane.
+        return people.OnWay[person] == PersonFleet.NoWay ? "walking to the pavement" : "walking";
     }
 
     /// <summary>
@@ -66,14 +61,9 @@ internal static class WalkingWords
     {
         TripStage.StandingBy => "between trips",
         TripStage.WalkingToTheDoor => "to a door",
-        TripStage.WalkingToTheCar => "to a car",
-        TripStage.Driving => "driving",
-        TripStage.Alighting => "getting out",
         TripStage.WaitingForAPlace => "waiting for a place",
         TripStage.Dwelling => "inside",
         TripStage.UnderOrders => "under orders",
-        TripStage.OnDuty => "on duty, in the seat",
-        TripStage.Attending => "attending",
         _ => "on a trip",
     };
 }
