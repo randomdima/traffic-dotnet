@@ -46,10 +46,9 @@ internal interface ILaneEnds
 /// bay (GEN-4l) because nothing would offer the pair.
 /// </para>
 /// <para>
-/// <b>One derivation, read by the two things that need it</b> (SIM-7): the contraction that decides where a
-/// run of road ends (<see cref="Routing.RunNetwork"/>) and the walk that lays a body onto the ground it is
-/// standing on (<see cref="GroundUnder"/>). Worked out twice, the router and the claims would be entitled to
-/// disagree about which lane ends are one piece of the world.
+/// <b>One derivation</b> (SIM-7): the contraction that decides where a run of road ends
+/// (<see cref="Routing.RunNetwork"/>) reads it, and anything else that asks which lane ends are one piece of
+/// the world asks it here rather than working it out again.
 /// </para>
 /// </remarks>
 internal sealed class LanePlaces

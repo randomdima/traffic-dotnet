@@ -42,8 +42,7 @@ internal static class DrivingWords
     {
         HeadwayKind.Queue => "a queue",
         HeadwayKind.Obstruction => "an obstruction",
-        HeadwayKind.Claimed => "claimed ground",
-        HeadwayKind.Stated => "road somebody means to use",
+        HeadwayKind.Claimed => "road somebody means to use",
         HeadwayKind.Walker => "a walker",
         HeadwayKind.Unknown => "something unnamed",
         _ => "nothing",

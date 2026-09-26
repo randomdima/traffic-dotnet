@@ -26,20 +26,6 @@ internal sealed class RoadFigures
     public float LaneWidthInCarWidths { get; init; } = 1.8f;
 
     /// <summary>
-    /// <b>How far past a way's own edge a body has to reach before it is on that way</b>, in car widths
-    /// (TER-4c.2) — the line has to be crossed and not merely touched.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is what keeps a graze from being claimed.</b> A body is written onto every way it is on and a
-    /// stretch has no width, so a wing mirror over the paint would claim a car's place in the next lane for as
-    /// long as it hung there — and the two lanes of every carriageway would trade bodies on the noise in a
-    /// pose. Three twentieths of a car — 30 cm at the shipped one — is enough that a body has to be leaning
-    /// into the next lane rather than brushing it, and well short of the half-body that would let a car sit
-    /// in one unseen.
-    /// </remarks>
-    public float CrossesOntoAWayInCarWidths { get; init; } = 0.15f;
-
-    /// <summary>
     /// <b>How far apart the points of the ribbon atlas stand</b>, in car widths (TER-4c.4) — the lattice a
     /// body's collider is read against to find the ways it stands on.
     /// </summary>

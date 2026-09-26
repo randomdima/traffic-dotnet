@@ -173,7 +173,7 @@ re-taken on the largest town the project can open:
 | `CrossingGateTests` | The frame's managed→native crossings are flat in the size of the town (rule 1) |
 | `OverlapGateTests` | `PHY-1` on a town that is *running*, not on a staged pair |
 | `SolverGateTests` | `SOL-20`, including **across contact churn** as bodies touch and separate |
-| `ClaimGateTests` | `TER-4c.3`, `TER-5c.2`, `TER-4c.1` and `TER-5g.1` on the shape of every way's claims: nothing held twice, no hold with a hole in it, nothing held that the answer refused, and nothing held more strongly than the road to it |
+| `ClaimGateTests` | `TER-4c.3`, `TER-5c.2`, `TER-5c.1`, `TER-4c.1` and `TER-5g.1` on the planned layer of every way: no metre planned by two holders, no hold in two pieces, no marked stretch without its linked section, no plan over a body, no rung that grows along a hold — and nothing dropped for want of room. Bodies are free to overlap and are the solver's gates' question |
 
 `OverlapGateTests` asserts that no **one** body stays inside another, and not that nothing is ever inside
 anything — the second is not a fact about this town: a soft-step solver answers an approach by letting a

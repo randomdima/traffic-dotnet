@@ -12,90 +12,71 @@ namespace TrafficSimulation.Tests.Agents.Ambulance;
 [Trait(Priority.Key, Priority.P2)]
 public class RescuePriorityTests
 {
-    /// <summary>Ground granted and not reached, at the rung its movement carries.</summary>
-    static LaneClaim Claim(ClaimPriority rung) => new(10f, 20f, 10f, 0f, 7, rung);
+    /// <summary>A holder asking for the metre at <paramref name="rung"/>, as near it as the other and able to stop short of it.</summary>
+    static PlannedAsk Asking(ClaimPriority rung) =>
+        new(0, 1, LaneRoster.Driving, rung, 10f, 10f, AheadM: 5f, CommittedToM: float.NegativeInfinity, AlongMps: 10f);
 
-    /// <summary>A body standing on the ground, whichever way it was measured.</summary>
-    static LaneClaim Body(bool onItsLine) =>
-        new(10f, 20f, 20f, 0f, 7, ClaimPriority.Hard, OnItsLine: onItsLine);
+    /// <summary>Another holder's plan over the same metre, at <paramref name="rung"/>.</summary>
+    static LaneClaim Planned(ClaimPriority rung, bool committed = false) =>
+        new(10f, 20f, 10f, 2, rung, AheadM: 5f, CommittedToM: committed ? 20f : float.NegativeInfinity);
+
+    static bool Keeps(ClaimPriority mine, in LaneClaim theirs) =>
+        LaneOccupancy.Beats(Asking(mine), 10f, false, theirs, 10f, false);
 
     /// <summary>
-    /// A rescue outranks every ordinary movement, the paint and <b>a closed road</b> (SRV-6), so none of
-    /// their claims refuses it — the last of those is the whole of "the officer lets the other services
-    /// through".
+    /// A rescue outranks every ordinary movement, the paint and <b>a closed road</b> (SRV-6), so none of their
+    /// plans keeps ground a rescue asks for — the last of those is the whole of "the officer lets the other
+    /// services through".
     /// </summary>
     /// <remarks>
-    /// <b>The movements are named by their byte</b>, because a theory's parameters are as public as the
-    /// test and the ladder is not: 4, 5 and 6 are straight on, ordinary and the turn across.
+    /// <b>The movements are named by their byte</b>, because a theory's parameters are as public as the test
+    /// and the ladder is not: 5, 6 and 7 are straight on, ordinary and the turn across.
     /// </remarks>
     [Theory]
-    [InlineData((byte)4)]
     [InlineData((byte)5)]
     [InlineData((byte)6)]
-    public void AClaimBelowARescueDoesNotBindIt(byte theirs)
+    [InlineData((byte)7)]
+    public void ARescueKeepsGroundAgainstEveryOrdinaryMovement(byte theirs)
     {
-        Assert.False(LaneOccupancy.Binds(Claim((ClaimPriority)theirs), ClaimPriority.Special));
-        Assert.False(LaneOccupancy.Binds(Claim(ClaimPriority.Closed), ClaimPriority.Special));
-        Assert.False(LaneOccupancy.Binds(Claim(ClaimPriority.Reserved), ClaimPriority.Special));
+        Assert.True(Keeps(ClaimPriority.Special, Planned((ClaimPriority)theirs)));
+        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Closed)));
+        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Crossing)));
     }
 
-    /// <summary>And the mirror of it: everything below is refused by a rescue's claim, which is what "yield" means here.</summary>
+    /// <summary>And the mirror of it: everything below a rescue gives it way, which is what "yield" means here.</summary>
     [Theory]
-    [InlineData((byte)4)]
     [InlineData((byte)5)]
     [InlineData((byte)6)]
-    public void ARescuesClaimBindsEverythingBelowIt(byte mine)
+    [InlineData((byte)7)]
+    public void EverythingBelowARescueGivesItWay(byte mine)
     {
-        Assert.True(LaneOccupancy.Binds(Claim(ClaimPriority.Special), (ClaimPriority)mine));
-        Assert.True(LaneOccupancy.Binds(Claim(ClaimPriority.Special), ClaimPriority.Closed));
+        Assert.False(Keeps((ClaimPriority)mine, Planned(ClaimPriority.Special)));
+        Assert.False(Keeps(ClaimPriority.Closed, Planned(ClaimPriority.Special)));
     }
 
     /// <summary>
-    /// <b>SRV-6, both halves at once</b>: a closed road refuses every ordinary movement, and does not refuse
-    /// a vehicle answering a call. It is the whole mechanism of the closure — one rung in one order — so it
-    /// is asserted here beside the rescue's rather than in a slice of its own.
+    /// <b>SRV-6, both halves at once</b>: a closed road keeps its ground against every ordinary movement, and
+    /// gives it up to a vehicle answering a call. It is the whole mechanism of the closure — one rung in one
+    /// order — so it is asserted here beside the rescue's rather than in a slice of its own.
     /// </summary>
     [Theory]
-    [InlineData((byte)4)]
     [InlineData((byte)5)]
     [InlineData((byte)6)]
-    public void AClosedRoadBindsOrdinaryTrafficAndNotACall(byte mine)
+    [InlineData((byte)7)]
+    public void AClosedRoadKeepsOrdinaryTrafficOutAndLetsACallThrough(byte theirs)
     {
-        Assert.True(LaneOccupancy.Binds(Claim(ClaimPriority.Closed), (ClaimPriority)mine));
-        Assert.False(LaneOccupancy.Binds(Claim(ClaimPriority.Closed), ClaimPriority.Special));
+        Assert.True(Keeps(ClaimPriority.Closed, Planned((ClaimPriority)theirs)));
+        Assert.False(Keeps(ClaimPriority.Closed, Planned(ClaimPriority.Special)));
     }
 
     /// <summary>
-    /// And a closure takes a claim and nothing else: a body standing in a closed street, and the road a body
-    /// is committed to being able to stop in, are no more an officer's than anybody's (AMB-4a).
-    /// </summary>
-    [Fact]
-    public void AClosureTakesNoBody()
-    {
-        Assert.True(LaneOccupancy.Binds(Body(onItsLine: true), ClaimPriority.Closed));
-        Assert.True(LaneOccupancy.Binds(Claim(ClaimPriority.Hard), ClaimPriority.Closed));
-    }
-
-    /// <summary>
-    /// <b>A body past the point it could stop short is nobody's to take</b> — the one rung a rescue does
+    /// <b>Ground its holder can no longer stop short of is nobody's to take</b> — the one plan a rescue does
     /// not outrank, because the ladder orders who waits and is not a licence to drive into somebody.
     /// </summary>
     [Fact]
-    public void ARescueGivesWayToABodyThatCanNoLongerGiveGroundBack()
+    public void ARescueGivesWayToGroundItsHolderCanNoLongerStopShortOf()
     {
-        Assert.True(LaneOccupancy.Binds(Claim(ClaimPriority.Hard), ClaimPriority.Special));
-    }
-
-    /// <summary>
-    /// <b>And it takes a claim and nothing else.</b> Ground a body is standing on, and the road a body is
-    /// committed to being able to stop in, refuse a rescue exactly as they refuse anybody.
-    /// </summary>
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void ARescueIsRefusedByABodyHoweverItWasMeasured(bool onItsLine)
-    {
-        Assert.True(LaneOccupancy.Binds(Body(onItsLine), ClaimPriority.Special));
+        Assert.False(Keeps(ClaimPriority.Special, Planned(ClaimPriority.FirmAcross, committed: true)));
     }
 
     /// <summary>
@@ -103,10 +84,10 @@ public class RescuePriorityTests
     /// one thing that could break it silently is somebody inserting a rung in the wrong place.
     /// </summary>
     [Fact]
-    public void ARescueStandsBetweenTheTrafficAndACommittedBody()
+    public void ARescueStandsBetweenTheTrafficAndCommittedGround()
     {
         Assert.True(ClaimPriority.Special < ClaimPriority.FirmStraight);
-        Assert.True(ClaimPriority.Special > ClaimPriority.Hard);
+        Assert.True(ClaimPriority.Special > ClaimPriority.Committed);
     }
 
     /// <summary>
@@ -119,21 +100,5 @@ public class RescuePriorityTests
     {
         Assert.True(ClaimPriority.Closed < ClaimPriority.FirmStraight);
         Assert.True(ClaimPriority.Closed > ClaimPriority.Special);
-    }
-
-    /// <summary>
-    /// <b>A rescue's stated road is a rescue's road</b> (AMB-4, TER-5g): the stated band mirrors the granted
-    /// one, so a call that has said where it is going refuses everything an ordinary movement could have
-    /// stated and is still taken by a body.
-    /// </summary>
-    [Theory]
-    [InlineData((byte)4)]
-    [InlineData((byte)5)]
-    [InlineData((byte)6)]
-    public void ARescuesStatedRoadBindsOrdinaryTrafficAndNoBody(byte mine)
-    {
-        Assert.True(LaneOccupancy.Binds(Claim(ClaimPriority.SoftSpecial), (ClaimPriority)mine));
-        Assert.False(LaneOccupancy.Binds(Claim(ClaimPriority.SoftSpecial), ClaimPriority.Special));
-        Assert.Equal(ClaimPriority.Special, LaneOccupancy.SaidAhead(ClaimPriority.SoftSpecial));
     }
 }

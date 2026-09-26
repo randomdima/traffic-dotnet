@@ -29,7 +29,7 @@ namespace TrafficSimulation.World.Town;
 /// </para>
 /// <para>
 /// <b>The whole of what a blue light does to the road is elsewhere</b>, because it belongs to the road:
-/// the rung a stretch is laid at (<see cref="FirmOf"/>) and the red that stops applying
+/// the rung a plan is laid at (<see cref="RungOn"/>) and the red that stops applying
 /// (<see cref="SignalStopM"/>). What this file decides is only whether the light is on.
 /// </para>
 /// </remarks>

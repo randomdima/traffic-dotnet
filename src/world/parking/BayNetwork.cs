@@ -8,8 +8,7 @@ namespace TrafficSimulation.World.Parking;
 /// <summary>
 /// <b>The bays as <see cref="IWayNetwork"/></b>: every way a bay is worked off is a lane of its own, and the
 /// bay itself is the node they all end at — the town's third network, read in the same words the carriageway
-/// and the pavement are, so that one walk lays a body onto whichever of them it is standing on (TER-4c.2,
-/// <see cref="GroundUnder"/>).
+/// and the pavement are (TER-4c.2).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -121,8 +120,6 @@ internal readonly struct BayNetwork(BayWays bays, RoadGraph roads, float spaceWi
     public float ConnectorLengthM(int connector) => 0f;
 
     public float ConnectorWidthM(int connector) => spaceWidthM;
-
-    public int MostWaysUnderAPlace => GroundUnder.MostWaysUnderAPlace(0, bays.MostWaysAtABay);
 
     /// <summary>
     /// Where the pose in the bay falls in a way's own metres (GEN-4f) — the far end of a way in, less the

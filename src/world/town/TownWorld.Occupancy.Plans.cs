@@ -165,8 +165,8 @@ internal sealed partial class TownWorld
     public int DriveHold(int car) => _carHold[car];
 
     /// <summary>
-    /// <b>Where a car means to be able to stop</b> (TER-5g): as far as it gets in the stated run
-    /// (<see cref="DrivingFigures.StatedRunS"/>) pulling up to the speed it is planning for at its own
+    /// <b>Where a car means to be able to stop</b> (TER-4c.1): as far as it gets in the planned run
+    /// (<see cref="DrivingFigures.PlannedRunS"/>) pulling up to the speed it is planning for at its own
     /// acceleration, and a stop from what that leaves it doing.
     /// </summary>
     /// <remarks>
@@ -176,7 +176,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     float MeansToM(float alongMps, float plannedMps, float accelerationMps2, float brakingMps2)
     {
-        var runS = _config.Driving.StatedRunS;
+        var runS = _config.Driving.PlannedRunS;
         if (plannedMps <= alongMps) return (plannedMps * runS) + StoppingM(plannedMps, brakingMps2);
 
         var climbS = MathF.Min(runS, (plannedMps - alongMps) / accelerationMps2);
@@ -347,7 +347,7 @@ internal sealed partial class TownWorld
             return;
         }
 
-        var through = endsAtM >= _carBoxEndsAtM[car];
+        var through = MathF.Min(endsAtM, Cars.ClaimToM[car]) >= _carBoxEndsAtM[car];
         var queueing = Cars.MovementWay[car] == box && cutBy.HasBody;
         Cars.MovementWay[car] = through || queueing ? box : CarFleet.NoWay;
     }

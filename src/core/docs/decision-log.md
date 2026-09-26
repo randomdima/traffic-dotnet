@@ -49,7 +49,7 @@ because a handset has fewer to waste.
 **Every build-time pass takes the shape "ask wide, file in order"** — the pavement's ground veto, the junction
 crossings, the props in the road, the car-park cuts. The question is of standing data nothing writes to; the
 answer goes into a slot per item and is filed in the walk's order, so no pass rests on its items not
-colliding (`RoadGraph.LayCrossings` holds its sections per place for that reason alone).
+colliding (`RibbonAtlas.Lay` files every thread's marks under their ways, in order, for that reason alone).
 
 ## 2026-09-16 — a query takes a scan, and the merge is asked a piece at a time
 

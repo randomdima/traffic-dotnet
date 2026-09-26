@@ -99,7 +99,7 @@ internal sealed class RibbonAtlas
     /// over the band is never between two points, and two ribbons marked against each other are always two
     /// ways a body on one of them could be read onto the other from.
     /// </summary>
-    static float ReachOf(float stepM) => stepM * MathF.Sqrt(2f) * 0.5f;
+    public static float ReachOf(float stepM) => stepM * MathF.Sqrt(2f) * 0.5f;
 
     /// <summary>How many lattice points some ribbon covers — a census.</summary>
     public int PointCount { get; }

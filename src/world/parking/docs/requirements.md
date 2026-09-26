@@ -106,7 +106,7 @@ power and one in reverse, ending at the axle's own pose in the space (`GEN-4i`).
 - **A standing needs both its ways** (`BayWays.CanStand`), and a bay that lays neither standing is a bay
   with no way (`GEN-4f`).
 - **What a way takes of the street is the table's question and not a second bar here** (`SIM-7`): it is
-  measured for a bay's way exactly as for a junction's join (`TER-5c`, `BayCrossings`), and whoever is
+  marked for a bay's way exactly as for a junction's join (`TER-5c`), and whoever is
   coming the other way is held off it by that and by nothing else.
 - **Which way round a driver parks is a habit and not a decision**, drawn once per car, so the two askings
   that lay a leg's line agree. A bay that lays only the other standing overrules it

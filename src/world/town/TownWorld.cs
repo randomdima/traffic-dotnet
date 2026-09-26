@@ -62,9 +62,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     readonly TownWays _ways;
 
-    /// <summary>The pavement read in the words a walk over ground is written in, over that numbering.</summary>
-    readonly PavementWays _pavement;
-
     /// <summary>
     /// <b>Who is on each way of the town</b>, rebuilt from the bodies in phase 2 —
     /// <see cref="RebuildLaneOccupancy"/>. One set of claims over one set of ways: a car that has mounted a
@@ -239,10 +236,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>And then the one table all of them are numbered in</b> (TER-4c.2, <see cref="TownWays"/>). It is
         // laid last of the networks because it is laid over them: what it takes from each is a run of
         // lengths, so no network below it learns that the others are there.
-        _ways = TownWays.Of(
-            _roads, _bayWays.LengthsM, PavementLengthsM(_walking, out var mitreLengthM), mitreLengthM,
-            config.LanePassableAsideM, config.WalkPassableAsideM);
-        _pavement = _walking.WaysIn(_ways);
+        _ways = TownWays.Of(_roads, _bayWays.LengthsM, PavementLengthsM(_walking, out var mitreLengthM), mitreLengthM);
 
         // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.

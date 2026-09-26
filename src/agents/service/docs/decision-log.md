@@ -14,7 +14,7 @@ The owner ruled the code the source of truth for this audit.
 A sixth lane use would have been a decision in a dozen queries about whether a closure counts, and a
 closure a query forgot is a street that shuts against nobody or against everybody. Weighting the routing
 is more faithful and needs a second thing that has to agree with the claims. A closure is therefore an
-ordinary claim at a rung between the paint and a call, which `Binds` already reads. Fitting it found the
+ordinary claim at a rung between the paint and a call, which the one comparison already reads. Fitting it found the
 grant on a car's *own* way cut at every spoken-for stretch without asking the rung, so `AMB-4.1` was half
 implemented and a closure would have shut the road against the rescue it was put there for. The bound is
 ten clocks, because a closure only buys something while somebody is working and every errand is written

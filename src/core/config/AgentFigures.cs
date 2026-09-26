@@ -377,19 +377,19 @@ internal sealed class DrivingFigures
     public float FollowingHeadwayS { get; init; } = 1f;
 
     /// <summary>
-    /// <b>How long a driver says it means to hold the speed it is planning for</b> (TER-5g) — the middle
-    /// term of the road it states, between getting up to that speed and stopping from it.
+    /// <b>How long a driver means to hold the speed it is planning for</b> (TER-4c.1) — the middle term of
+    /// how far its plan reaches, between getting up to that speed and stopping from it.
     /// </summary>
     /// <remarks>
-    /// <b>It is what tells a plan from a commitment, and without it there is no difference.</b> A
-    /// committed claim already holds one decision interval of travel and a stop
-    /// (<see cref="SimConfig.CarReactionS"/>, a tenth of a second), so a stated claim measured at the same
-    /// interval is exactly the committed one again for any car already doing the speed it is planning for —
-    /// which is every car on an open road, and the ones whose intentions are worth having stated.
-    /// <b>What it costs is room</b>: it is metres held at every speed by every car in the town, so what
-    /// the town can afford is the soak's answer and not a rule's.
+    /// <b>It is what tells a plan from a commitment, and without it there is no difference.</b> The ground a
+    /// car can no longer stop short of is one decision interval of travel and a stop
+    /// (<see cref="SimConfig.CarReactionS"/>, a tenth of a second), so a plan measured at the same interval is
+    /// exactly that ground again for any car already doing the speed it is planning for — which is every car on
+    /// an open road, and the ones whose intentions are worth having planned. <b>What it costs is room</b>: it
+    /// is metres planned at every speed by every car in the town, each weighed against every other plan it
+    /// meets, so what the town can afford is the soak's answer and not a rule's.
     /// </remarks>
-    public float StatedRunS { get; init; } = 2f;
+    public float PlannedRunS { get; init; } = 2f;
 
     /// <summary>
     /// How long a pedal takes to travel from one stop to the other, which is what bounds the rate the

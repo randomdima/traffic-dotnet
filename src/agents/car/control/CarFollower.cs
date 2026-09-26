@@ -47,33 +47,25 @@ internal enum HeadwayKind : byte
     /// </summary>
     Obstruction,
 
-    /// <summary>Ground somebody else has claimed and is crossing into — a bay being backed out of, a junction being entered.</summary>
+    /// <summary>
+    /// <b>Ground another holder plans to use</b> (TER-4c.1) — a movement this car gives way to, a bay being
+    /// backed out of, a closed road. A place and not a body, so it is stopped short of rather than followed,
+    /// and no station is kept behind it.
+    /// </summary>
     Claimed,
 
     /// <summary>
     /// <b>A person standing in the lane</b> — on the paint or on bare carriageway, it is the same fact to a
-    /// driver, and the body's own claim is what holds the traffic off it (PER-26, TER-4c.2) rather than a
-    /// rule of the paint's own.
+    /// driver, and the body's own reservation is what holds the traffic off it (PER-26, TER-4c.2) rather than
+    /// a rule of the paint's own.
     /// </summary>
     Walker,
 
     /// <summary>
-    /// Something the lane index does not account for. <b>No reading is this</b>: walkers and the town's
-    /// furniture are claimed like the traffic, and every claim names what it is.
+    /// Something the reservations do not account for. <b>No reading is this</b>: every body on a way is laid
+    /// there under the roster it is in, and names what it is.
     /// </summary>
     Unknown,
-
-    /// <summary>
-    /// <b>Road another driver stated it means to use and has not reached</b> (TER-5g) — a place and not
-    /// a body, so it is stopped short of rather than followed, and no station is kept behind it.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is the one reading that says a car is giving way rather than queueing.</b> A grant cut here
-    /// belongs to a movement this one is weaker than, and what the driver does about it is the same thing it
-    /// does about every other short grant: hold the speed the road it was left with affords, which is an
-    /// ease-off where there is road and a stop where there is none.
-    /// </remarks>
-    Stated,
 }
 
 /// <summary>

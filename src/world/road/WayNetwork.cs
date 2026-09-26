@@ -4,16 +4,15 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.World.Road;
 
 /// <summary>
-/// <b>The shape of a network a body's ground can be read off</b> (<see cref="GroundUnder"/>): lanes with
-/// lines, widths and setbacks, the places their ends meet at, and a connector over each of those with a line
-/// of its own. The town has three of these — the carriageway, the pavement and the parking bays — and <b>they
-/// are one system read three times, never three systems</b> (TER-4c.2).
+/// <b>The shape of a network of ways</b>: lanes with lines, widths and setbacks, the places their ends meet
+/// at, and a connector over each of those with a line of its own. The town has three of these — the
+/// carriageway, the pavement and the parking bays — and <b>they are one system read three times, never three
+/// systems</b> (TER-4c.2).
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>Implemented by readonly structs and taken as a generic argument</b>, so every call below is a direct
-/// one and the walk allocates nothing. Taken as an interface instead it is a virtual call per way per body
-/// per tick on the town's hottest path.
+/// one and a walk over one allocates nothing.
 /// </para>
 /// <para>
 /// <b>Each names its own block of the town's one numbering</b> (<see cref="TownWays"/>). A network holds
@@ -79,9 +78,6 @@ internal interface IWayNetwork
     /// reader of its band takes rather than the width of whichever of its two lanes it happens to hold.
     /// </summary>
     float ConnectorWidthM(int connector);
-
-    /// <summary>How much room the walk over this network needs (<see cref="GroundUnder.MostWaysUnderAPlace"/>).</summary>
-    int MostWaysUnderAPlace { get; }
 }
 
 /// <summary>The carriageway as <see cref="IWayNetwork"/>: the town's lanes, its junctions and the joins across them.</summary>
@@ -128,7 +124,4 @@ internal readonly struct RoadWays(RoadGraph roads) : IWayNetwork
 
     /// <summary>The narrower of the two lanes a movement joins (TER-5d.1).</summary>
     public float ConnectorWidthM(int connector) => roads.ConnectorWidthM(connector);
-
-    public int MostWaysUnderAPlace =>
-        GroundUnder.MostWaysUnderAPlace(roads.MostConnectorsAtAPlace, roads.Places.MostLanesAtOne);
 }

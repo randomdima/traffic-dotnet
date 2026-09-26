@@ -64,6 +64,12 @@ public class RibbonAtlasTests
     }
 
     /// <summary>
+    /// How far apart two lines stand whose ribbons, as laid, meet edge to edge: the band and the lattice's
+    /// reach either side of each (<see cref="RibbonAtlas.ReachOf"/>).
+    /// </summary>
+    static float EdgeToEdgeM => WidthM + (2f * RibbonAtlas.ReachOf(Config.RibbonLatticeStepM));
+
+    /// <summary>
     /// <b>Ribbons laid edge to edge share an edge and no ground</b>: the two lanes of a carriageway, and a
     /// lane and the way that carries on from its end.
     /// </summary>
@@ -72,7 +78,7 @@ public class RibbonAtlasTests
     {
         var atlas = Laid(
             (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
-            (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)),
+            (new Vector2(LengthM, EdgeToEdgeM), new Vector2(0f, EdgeToEdgeM)),
             (new Vector2(LengthM, 0f), new Vector2(LengthM * 2f, 0f)));
 
         for (var way = 0; way < atlas.Marks.WayCount; way++) Assert.Empty(atlas.Marks.Of(way).ToArray());
@@ -84,7 +90,7 @@ public class RibbonAtlasTests
     {
         var atlas = Laid(
             (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
-            (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)),
+            (new Vector2(LengthM, EdgeToEdgeM), new Vector2(0f, EdgeToEdgeM)),
             (new Vector2(LengthM * 0.5f, -WidthM), new Vector2(LengthM * 0.5f, WidthM * 2f)));
 
         var across = atlas.Marks.Of(2).ToArray();

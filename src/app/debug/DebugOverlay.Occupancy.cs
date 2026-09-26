@@ -72,7 +72,7 @@ internal sealed partial class DebugOverlay
     /// <summary>What the strongest claim there is (<see cref="ClaimPriority.Hard"/>) is let down to.</summary>
     const float StrongestWash = 0.5f;
 
-    /// <summary>And the weakest (<see cref="ClaimPriority.Soft"/>), which is the faintest anything is drawn.</summary>
+    /// <summary>And the weakest (<see cref="ClaimPriority.FirmAcross"/>), which is the faintest anything is drawn.</summary>
     const float WeakestWash = 0.1f;
 
     /// <summary>

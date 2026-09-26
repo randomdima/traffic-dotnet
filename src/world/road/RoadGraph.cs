@@ -57,10 +57,9 @@ internal sealed class RoadGraph : ILaneEnds
 
     RoadGraph(
         LaneLines lines, int[] junctionOutOffsets, int[] junctionOutLanes, int[] junctionInOffsets,
-        int[] junctionInLanes, LanePlaces places, WayCrossings crossings, float nearestCellM)
+        int[] junctionInLanes, LanePlaces places, float nearestCellM)
     {
         _lines = lines;
-        Crossings = crossings;
         Places = places;
         _junctionOutOffsets = junctionOutOffsets;
         _junctionOutLanes = junctionOutLanes;
@@ -212,8 +211,8 @@ internal sealed class RoadGraph : ILaneEnds
     public LaneTurn KindOf(int connector) => _lines.ConnectorKind[connector];
 
     /// <summary>
-    /// The way a connector is, in the numbering <see cref="Crossings"/> is laid in — the town's own
-    /// (<see cref="TownWays"/>), whose first two blocks are this graph's lanes and then its connectors.
+    /// The way a connector is, in the town's own numbering (<see cref="TownWays"/>), whose first two blocks
+    /// are this graph's lanes and then its connectors.
     /// </summary>
     public int WayOfConnector(int connector) => TownWays.WayOfRoadConnector(LaneCount, connector);
 
@@ -263,20 +262,6 @@ internal sealed class RoadGraph : ILaneEnds
         return NoConnector;
     }
 
-    /// <summary>
-    /// <b>The ground each way through a junction takes off the others</b> (TER-5c), laid once with the town
-    /// like the joins it is measured off, and <b>indexed the way the claims number ways</b>
-    /// (<see cref="IWayNetwork.WayOfConnector"/>). It is a property of the movement and never of the
-    /// intersection: a street bending through a box is driven over nothing and takes nothing.
-    /// </summary>
-    /// <remarks>
-    /// A lane's own row is empty: it hands over clear of the box it ends at (TER-5d), so nothing a junction
-    /// admits is driven over one. <b>A way laid off a junction has a row</b> — the line into a parking space,
-    /// which sweeps the oncoming lane's metres — and it is measured the same way as any pair of movements.
-    /// One table, one walk, whichever of the two it is.
-    /// </remarks>
-    public WayCrossings Crossings { get; }
-
     /// <summary>Which turn joins these two lanes, or <see langword="null"/> where they are not joined at all.</summary>
     public LaneTurn? TurnBetween(int fromLane, int toLane)
     {
@@ -322,78 +307,6 @@ internal sealed class RoadGraph : ILaneEnds
     public SplineSample EndOf(int lane) => Spline.SampleAt(ArcsOf(lane), LaneLengthM[lane]);
 
     /// <summary>
-    /// Whether a body stands on one way, which is <b>whether its box reaches inside that way's band at all</b>
-    /// — and, where it does, how far aside of the way's own line it stands.
-    /// <b>The band the way is laid to and never a radius of the caller's choosing</b>: everything on the
-    /// map is nearest some lane, and claiming that lane for a body on the pavement beside it would
-    /// hold a street up for the traffic it is parked next to.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Across the way and along it, and the second half is not redundant.</b> A projection onto a way is
-    /// clamped to that way's own ends (<see cref="Spline.ProjectM"/>), so a body standing past one of them
-    /// answers at the endpoint — and measured across the band alone, anything lined up with a way's end is
-    /// standing on it however far up the road it really is. What that claimed was a body on joins it
-    /// was nowhere near, which is a junction shut by a car in the next street. Inside the way the nearest
-    /// point is square to the line and the second test costs nothing; it bites only where the clamp did.
-    /// </para>
-    /// <para>
-    /// <b>Bare overlap and no verdict</b> (TER-4c.2). A body touching a way's band is on that way, and where
-    /// across it stands is <see cref="BandReach.AcrossFromM"/> — a figure for whoever is trying to
-    /// get past (<see cref="LaneOccupancy.StandsAside"/>) and never a reason to leave the fact out of the
-    /// claims. Asked as a clear width instead, a car straddling the line between two lanes left enough of each
-    /// of them clear to be written onto neither, and stood in the middle of a road that could not see it.
-    /// </para>
-    /// </remarks>
-    /// <param name="body">
-    /// The box the asking body stands in, read against this way's own line
-    /// (<see cref="BodyFootprint.CoversOn"/>) — what of it is inside the band, and how far past the way's
-    /// own ends it may stand and still be on it. <b>Both come out of the pose</b>: a body lying across a way
-    /// reaches its length over the band and its width along it.
-    /// </param>
-    /// <param name="reach">
-    /// What this way has of the body: the run of the line it covers, how far aside of that line it stands,
-    /// and which way the line runs there — <b>all of it handed back rather than left to the caller</b>, since
-    /// this test has reduced the angle already and a caller that asks <see cref="SplineSample.Direction"/>
-    /// for it again reduces the same one a third time.
-    /// </param>
-    public static bool WithinTheBand(
-        ReadOnlySpan<ArcSeg> arcs, float alongM, Vector2 atM, float bandM, in BodyFootprint body,
-        float crossesByM, out BandReach reach)
-    {
-        reach = default;
-
-        var on = Spline.SampleAt(arcs, alongM);
-        var alongUnit = on.Direction;
-        body.ReachOn(alongUnit, out var alongReachM, out var acrossReachM);
-
-        // <b>Past the end of the way and not merely off the line</b>. A projection is clamped to the way it
-        // is taken on (<see cref="Spline.ProjectM"/>), so a body standing off one end answers at the endpoint
-        // — and measured across the band alone, anything lined up with a way's end is standing on it however
-        // far up the road it really is.
-        var offsetM = atM - on.PositionM;
-        if (MathF.Abs(Vector2.Dot(offsetM, alongUnit)) > alongReachM) return false;
-        // <b>Crossed and not touched</b>: the body's near edge has to be this far inside the band's own edge
-        // before it is on the way at all, which is what keeps a wing mirror over the paint out of the next
-        // lane's claims. Nought asks the bare question, which is what a walk over ground wants.
-        if (MathF.Abs(Vector2.Dot(offsetM, Heading.RightOf(alongUnit))) - acrossReachM
-            >= (bandM * 0.5f) - crossesByM)
-        {
-            return false;
-        }
-
-        if (!body.CoversOn(alongUnit, offsetM, bandM * 0.5f, out var backM, out var aheadM)) return false;
-
-        // Where the box falls across the line, to the way's right — the span and not the clearance, because
-        // whether one body is in another's way is a fact about the pair of them and a clearance can only be
-        // asked by whatever travels the line itself.
-        var acrossM = Vector2.Dot(offsetM, Heading.RightOf(alongUnit));
-        reach = new BandReach(
-            alongUnit, acrossM - acrossReachM, acrossM + acrossReachM, backM, aheadM);
-        return true;
-    }
-
-    /// <summary>
     /// The graph over the lines the plan laid with the town (<see cref="LaneLines"/>), which is the only
     /// place a lane or a connector is ever drawn.
     /// </summary>
@@ -407,9 +320,9 @@ internal sealed class RoadGraph : ILaneEnds
         Build(plan.Paving(config).Lanes, config);
 
     /// <summary>
-    /// <b>The rules laid over lines that already exist</b>: where the lanes meet, what each movement through
-    /// a box takes off the others, and the index a body is stood up against. Nothing here draws a line, so a
-    /// graph and the ground under it cannot disagree about where the traffic runs.
+    /// <b>The rules laid over lines that already exist</b>: where the lanes meet and the index a body is
+    /// stood up against. Nothing here draws a line, so a graph and the ground under it cannot disagree about
+    /// where the traffic runs.
     /// </summary>
     public static RoadGraph Build(LaneLines lines, SimConfig config)
     {
@@ -419,7 +332,7 @@ internal sealed class RoadGraph : ILaneEnds
 
         return new RoadGraph(
             lines, junctionOutOffsets, junctionOutLanes, junctionInOffsets, junctionInLanes, places,
-            LayCrossings(config, places, lines), config.NearestChainCellM);
+            config.NearestChainCellM);
     }
 
     /// <summary>
@@ -440,136 +353,6 @@ internal sealed class RoadGraph : ILaneEnds
 
         public Vector2 EndsAtM(int lane) =>
             Spline.SampleAt(lines.ArcsOf(lane), lines.LaneLengthM[lane]).PositionM;
-    }
-
-    /// <summary>
-    /// <b>Which ground each movement through a junction takes off the others</b> (TER-5c), worked out once
-    /// from the lines themselves: the stretch of every other connector at that place this one is driven over.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Only the pairs at one place are ever compared, and nothing is settled without measuring.</b> A
-    /// shared entry lane and a shared exit lane are cheap to recognise and neither is this rule's
-    /// business — they are held apart by the road each car was granted.
-    /// </para>
-    /// <para>
-    /// <b>The measurement is between the two lines and not between their crossing points</b>: two
-    /// movements that pass within a car's width never touch each other's paint and still cannot both be
-    /// made, so the question is how near the lines come rather than whether they intersect.
-    /// </para>
-    /// <para>
-    /// <b>Every movement at a place is sampled once and then paired</b>, rather than walked again for each
-    /// pair it is in: a four-armed box offers a dozen of them, and sampled per pair each line is walked a
-    /// score of times to be compared a score of times.
-    /// </para>
-    /// </remarks>
-    static WayCrossings LayCrossings(SimConfig config, LanePlaces places, LaneLines lines)
-    {
-        var laneCount = lines.LaneCount;
-        var wayCount = TownWays.WayOfRoadConnector(laneCount, lines.ConnectorCount);
-        var clearanceM = config.JunctionCrossingClearanceM;
-        var found = new List<CrossedSection>[wayCount];
-
-        // <b>A place at a time, on as many threads as there are, and filed afterwards in place order.</b>
-        // What a place has to say is a function of its own connectors' lines, which nothing here writes to.
-        // Each place holds what it found rather than filing it — not because two places could reach one
-        // way's list, which they cannot, but so that nothing rests on their not doing: strung in place
-        // order afterwards, the sections come out in the order one thread would have appended them, and
-        // that is a property of this loop rather than of the numbering underneath it.
-        var madeAt = new List<(int Way, CrossedSection Section)>[places.Count];
-        InChunks.Over(
-            places.Count,
-            () => new Placing(),
-            (placing, place) => madeAt[place] = AtOnePlace(placing, place));
-
-        foreach (var made in madeAt)
-        {
-            foreach (var (way, section) in made) (found[way] ??= []).Add(section);
-        }
-
-        var offsets = new int[wayCount + 1];
-        for (var way = 0; way < wayCount; way++) offsets[way + 1] = offsets[way] + (found[way]?.Count ?? 0);
-
-        var sections = new CrossedSection[offsets[wayCount]];
-        var most = 0;
-        for (var way = 0; way < wayCount; way++)
-        {
-            found[way]?.CopyTo(sections, offsets[way]);
-            most = Math.Max(most, offsets[way + 1] - offsets[way]);
-        }
-
-        return new WayCrossings(offsets, sections) { MostCrossedByOne = most };
-
-        // Every movement at the place sampled once and then paired, which is this method's third remark.
-        List<(int Way, CrossedSection Section)> AtOnePlace(Placing placing, int place)
-        {
-            var atThePlace = placing.AtThePlace;
-            var pointsM = placing.PointsM;
-            var walked = placing.Walked;
-            var made = new List<(int Way, CrossedSection Section)>();
-
-            atThePlace.Clear();
-            walked.Clear();
-            foreach (var lane in places.LanesArriving(place))
-            {
-                for (var id = lines.ConnectorAt[lane]; id < lines.ConnectorAt[lane + 1]; id++)
-                {
-                    if (pointsM.Count == atThePlace.Count) pointsM.Add(new Vector2[LineOverlap.MostSamples]);
-
-                    var lengthM = lines.ConnectorLengthM[id];
-                    var count = LineOverlap.Sample(
-                        lines.ArcsOfConnector(id), 0f, lengthM, lengthM, clearanceM, pointsM[atThePlace.Count],
-                        out var stepM);
-
-                    atThePlace.Add(id);
-                    walked.Add((count, stepM));
-                }
-            }
-
-            for (var first = 0; first < atThePlace.Count; first++)
-            {
-                for (var second = first + 1; second < atThePlace.Count; second++)
-                {
-                    Measure(first, second);
-                }
-            }
-
-            return made;
-
-            // <b>Both intervals go into both entries</b>: a car reads the far one to know what it takes and
-            // its own to know when it is past it. The measurement itself is <see cref="LineOverlap"/>'s,
-            // which is also what the ways laid off a junction are measured with.
-            void Measure(int first, int second)
-            {
-                var a = atThePlace[first];
-                var b = atThePlace[second];
-                var sampledA = new SampledWay(
-                    pointsM[first].AsSpan(0, walked[first].Count), 0f, walked[first].StepM,
-                    lines.ConnectorLengthM[a]);
-                var sampledB = new SampledWay(
-                    pointsM[second].AsSpan(0, walked[second].Count), 0f, walked[second].StepM,
-                    lines.ConnectorLengthM[b]);
-                if (!LineOverlap.Measure(sampledA, sampledB, clearanceM, out var onA, out var onB)) return;
-
-                var wayA = TownWays.WayOfRoadConnector(laneCount, a);
-                var wayB = TownWays.WayOfRoadConnector(laneCount, b);
-                made.Add((wayA, new CrossedSection(wayB, onB.FromM, onB.ToM, onA.FromM, onA.ToM)));
-                made.Add((wayB, new CrossedSection(wayA, onA.FromM, onA.ToM, onB.FromM, onB.ToM)));
-            }
-        }
-    }
-
-    /// <summary>
-    /// One thread's working set for a junction: the movements it holds, a buffer of samples for each, and
-    /// how far each of them was walked. Grown to the widest place a thread has met and kept for its next.
-    /// </summary>
-    sealed class Placing
-    {
-        public List<int> AtThePlace { get; } = [];
-
-        public List<Vector2[]> PointsM { get; } = [];
-
-        public List<(int Count, float StepM)> Walked { get; } = [];
     }
 
     /// <summary>Two lanes no connector joins, which is every pair that does not meet at a node.</summary>

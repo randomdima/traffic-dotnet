@@ -1,22 +1,13 @@
-using System.Collections.Concurrent;
-using System.Numerics;
-using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Car.Control;
-using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
-using TrafficSimulation.Core.Geometry;
-using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
-using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
-using TrafficSimulation.World.Town;
 using Xunit;
 
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// The lane index as arithmetic: stretches go in, the nearest one in front comes out, and a rebuild
-/// leaves nothing of the tick before it.
+/// The reservations as arithmetic: bodies go in and are read back nearest first, holds are settled against
+/// each other on one way and through the marks, and a rebuild leaves nothing of the tick before it.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P1)]
@@ -24,540 +15,519 @@ public class LaneOccupancyTests
 {
     static readonly SimConfig Config = SimConfig.Shipped();
 
-    static LaneOccupancy Index(out RoadGraph roads, int mostSlots = 16)
+    static readonly RoadGraph Roads = RoadGraph.Build(Towns.Of("Test"), Config);
+
+    /// <summary>The reservations over the fixture's road, with the marks given and room for a handful of each.</summary>
+    static LaneOccupancy Index(WayCrossings? marks = null, int mostSlots = 32, int mostHolds = 8)
     {
-        roads = RoadGraph.Build(Towns.Of("Test"), Config);
-        return new LaneOccupancy(TownWays.OfTheRoad(roads), mostSlots, roads.Crossings);
+        var ways = TownWays.OfTheRoad(Roads);
+        return new LaneOccupancy(ways, mostSlots, mostHolds, marks ?? WayCrossings.None);
+    }
+
+    /// <summary>Three ways long enough to lay these tests' stretches on, distinct and in no relation to each other.</summary>
+    static (int A, int B, int C) ThreeWays()
+    {
+        var found = new List<int>();
+        for (var lane = 0; lane < Roads.LaneCount && found.Count < 3; lane++)
+        {
+            if (Roads.LaneLengthM[lane] >= 60f) found.Add(TownWays.OfTheRoad(Roads).OfRoadLane(lane));
+        }
+
+        Assert.Equal(3, found.Count);
+        return (found[0], found[1], found[2]);
     }
 
     /// <summary>
-    /// <b>What a body covers of a way is the part of its box inside that way's band</b> (TER-4c.2), at every
-    /// angle it can meet the band at and every distance it can stand off it — checked against the box itself,
-    /// walked corner to corner.
+    /// A table of marks over the fixture's ways, each pair filed under both ways as the atlas files it —
+    /// <paramref name="mine"/> of <paramref name="one"/> over <paramref name="theirs"/> of <paramref name="other"/>.
     /// </summary>
-    /// <remarks>
-    /// <b>The shadow of the whole box is the wrong answer everywhere but square on.</b> A body at an angle
-    /// casts its own length down a way it reaches by a corner, so the two agree only when the box is entirely
-    /// inside the band — which is exactly the case a reading taken from the shadow was written for.
-    /// </remarks>
-    [Theory]
-    [InlineData(0f)]
-    [InlineData(15f)]
-    [InlineData(30f)]
-    [InlineData(45f)]
-    [InlineData(70f)]
-    [InlineData(90f)]
-    public void ABoxCoversOfABandTheCornersOfItThatAreInside(float turnedDeg)
+    static WayCrossings Marks(params (int One, (float FromM, float ToM) Mine, int Other, (float FromM, float ToM) Theirs)[] pairs)
     {
-        const float halfLengthM = 2f;
-        const float flankM = 1f;
-        const float halfBandM = 1.8f;
-        var box = new BodyFootprint(halfLengthM, flankM, Heading.Unit(turnedDeg * MathF.PI / 180f));
-
-        for (var acrossM = -6f; acrossM <= 6f; acrossM += 0.1f)
+        var wayCount = TownWays.OfTheRoad(Roads).Count;
+        var filed = new List<CrossedSection>[wayCount];
+        foreach (var (one, mine, other, theirs) in pairs)
         {
-            var offsetM = new Vector2(0f, acrossM);
-            var inside = box.CoversOn(Vector2.UnitX, offsetM, halfBandM, out var backM, out var aheadM);
-            Walked(box, offsetM, halfBandM, out var leastM, out var mostM, out var anyInside);
-
-            Assert.Equal(anyInside, inside);
-            if (!anyInside) continue;
-
-            // The walk is a grid over the box, so it lands inside the true run rather than on its ends: it
-            // may fall a step short of each, and never past either.
-            Assert.InRange(backM, leastM - Step, leastM + Step);
-            Assert.InRange(aheadM, mostM - Step, mostM + Step);
+            (filed[one] ??= []).Add(new CrossedSection(other, theirs.FromM, theirs.ToM, mine.FromM, mine.ToM));
+            (filed[other] ??= []).Add(new CrossedSection(one, mine.FromM, mine.ToM, theirs.FromM, theirs.ToM));
         }
+
+        var offsets = new int[wayCount + 1];
+        for (var way = 0; way < wayCount; way++) offsets[way + 1] = offsets[way] + (filed[way]?.Count ?? 0);
+
+        var sections = new CrossedSection[offsets[wayCount]];
+        for (var way = 0; way < wayCount; way++)
+        {
+            if (filed[way] is not { } marks) continue;
+
+            marks.Sort(static (first, second) => first.MineFromM.CompareTo(second.MineFromM));
+            marks.CopyTo(sections, offsets[way]);
+        }
+
+        return new WayCrossings(offsets, sections) { MostCrossedByOne = 2 };
     }
 
-    /// <summary>How coarsely <see cref="Walked"/> samples the box, and so how near its answer can be trusted.</summary>
-    const float Step = 0.02f;
+    /// <summary>One piece a holder asks for, from <paramref name="fromM"/> of a way that begins its line.</summary>
+    static PlannedAsk Ask(
+        int hold, int occupant, ClaimPriority rung, float fromM, float aheadM = 0f,
+        float committedToM = float.NegativeInfinity, bool held = false, LaneRoster of = LaneRoster.Driving) =>
+        new(hold, occupant, of, rung, fromM, LineFromM: fromM, AheadM: aheadM, CommittedToM: committedToM,
+            AlongMps: 5f, Held: held);
 
-    /// <summary>
-    /// The same run arrived at by walking the box corner to corner: the least and greatest metre along the
-    /// line of every point of it that is inside the band. <b>The answer this is checked against</b>, which is
-    /// why it is a grid and not a second clip.
-    /// </summary>
-    static void Walked(
-        in BodyFootprint box, Vector2 offsetM, float halfBandM, out float leastM, out float mostM,
-        out bool any)
+    /// <summary>A whole hold of one piece: answered, laid over what the answer gave, and finished.</summary>
+    static float Plan(LaneOccupancy index, int way, float toM, Func<int, PlannedAsk> ask)
     {
-        leastM = float.PositiveInfinity;
-        mostM = float.NegativeInfinity;
-        any = false;
-
-        var flank = Heading.RightOf(box.Forward);
-        for (var alongTheBody = -box.HalfLengthM; alongTheBody <= box.HalfLengthM; alongTheBody += Step)
-        {
-            for (var acrossTheBody = -box.FlankM; acrossTheBody <= box.FlankM; acrossTheBody += Step)
-            {
-                var pointM = offsetM + (box.Forward * alongTheBody) + (flank * acrossTheBody);
-                if (MathF.Abs(pointM.Y) > halfBandM) continue;
-
-                any = true;
-                leastM = MathF.Min(leastM, pointM.X);
-                mostM = MathF.Max(mostM, pointM.X);
-            }
-        }
+        var hold = index.BeginHold(standingMarginM: 0f);
+        var asked = ask(hold);
+        var reachM = index.Reach(asked, way, toM, asked.FromM, out var cutBy);
+        index.Take(asked, way, reachM);
+        index.EndHold(hold, reachM < toM ? reachM : float.PositiveInfinity, 0f, cutBy);
+        return reachM;
     }
 
-    /// <summary>The order stretches go in is not the order they are read back in — the near edge is.</summary>
+    static float EndsAtM(LaneOccupancy index, int hold) => index.HoldEndsAtM(hold, out _, out _);
+
+    /// <summary>The order bodies go in is not the order they are read back in — the near edge is.</summary>
     [Fact]
     public void TheNearestBodyInFrontIsTheOneWithTheLeastNearEdge()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
         index.Begin();
-        index.ClaimUnderWay(way, 40f, 44f, 44f, 3f, 7);
-        index.ClaimUnderWay(way, 12f, 16f, 16f, 0f, 3);
-        index.ClaimWhereItStands(way, 25f, 29f, 29f, 1f, 5);
+        index.LayBody(way, 40f, 44f, 3f, 7, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 12f, 16f, 0f, 3, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 25f, 29f, 1f, 5, LaneRoster.Driving, onItsLine: false);
 
         Assert.True(index.AheadBody(way, 0f, 60f, excluding: LaneOccupancy.Nobody, out var found));
         Assert.Equal(3, found.Occupant);
 
-        // From past the first, the next one — and from past all of them, nothing.
         Assert.True(index.AheadBody(way, 20f, 60f, LaneOccupancy.Nobody, out found));
         Assert.Equal(5, found.Occupant);
         Assert.False(index.AheadBody(way, 50f, 60f, LaneOccupancy.Nobody, out _));
     }
 
-    /// <summary>A driver never finds itself in front of itself, which is what the exclusion is for.</summary>
+    /// <summary>A body never finds itself in front of itself, which is what the exclusion is for.</summary>
     [Fact]
     public void TheAskerIsNeverWhatIsInFrontOfIt()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
         index.Begin();
-        index.ClaimUnderWay(way, 10f, 14f, 14f, 0f, 1);
-        index.ClaimUnderWay(way, 30f, 34f, 34f, 0f, 2);
+        index.LayBody(way, 10f, 14f, 0f, 1, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 30f, 34f, 0f, 2, LaneRoster.Driving, onItsLine: true);
 
         Assert.True(index.AheadBody(way, 0f, 60f, excluding: 1, out var found));
         Assert.Equal(2, found.Occupant);
     }
 
     /// <summary>
-    /// A claim is not a body and a body is not a claim. The two are asked apart because they are answered
-    /// apart: one is something to keep a gap behind, the other a place to be stopped short of.
+    /// <b>An occupant is named with its roster</b>: car 4 and walker 4 are two bodies, and excluding one of
+    /// them is not excluding the other.
     /// </summary>
     [Fact]
-    public void AClaimIsNeverReturnedAsABodyNorABodyAsAClaim()
+    public void ABodyIsExcludedOnlyUnderItsOwnRoster()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
         index.Begin();
-        index.ClaimAhead(way, 10f, 14f, 0f, 1, ClaimPriority.Firm);
-        index.ClaimUnderWay(way, 30f, 34f, 34f, 0f, 2);
+        index.LayBody(way, 20f, 21f, 0f, 4, LaneRoster.Walking, onItsLine: false);
 
-        Assert.True(index.AheadBody(way, 0f, 60f, LaneOccupancy.Nobody, out var body));
-        Assert.Equal(2, body.Occupant);
-
-        Assert.True(index.AheadClaim(way, 0f, 60f, LaneOccupancy.Nobody, out var claim));
-        Assert.Equal(1, claim.Occupant);
-        Assert.Equal(1, index.ClaimCount);
+        Assert.True(index.AheadBody(way, 0f, 60f, excluding: 4, out var found));
+        Assert.Equal(LaneRoster.Walking, found.Of);
+        Assert.False(index.AheadBody(way, 0f, 60f, excluding: 4, out _, LaneRoster.Walking));
     }
 
     /// <summary>
-    /// <b>A claim the asker is standing on is not a cut</b> (TER-5e). A claim is ground its holder has
-    /// <em>not reached</em>, so one whose near edge is behind the asker is ground the asker has — and a
-    /// grant answered at it is no longer a distance in front of the nose but a body's length of negative
-    /// road, which nothing can drive out of by stopping.
+    /// <b>Bodies are never compared</b> (TER-4c.2): two of them over one metre are both laid, because the
+    /// physical layer is a record of what is there and not of what anybody was allowed.
     /// </summary>
-    /// <remarks>
-    /// <b>It is a body that is answered from behind and never a claim.</b> A stretch this asker overlaps is
-    /// a contact, and the grant is left free to say so — which is the whole of the difference between the
-    /// two halves of this case.
-    /// </remarks>
     [Fact]
-    public void AClaimBehindTheAskerCutsNothingAndABodyBehindItStillDoes()
+    public void TwoBodiesMayLieOverOneMetre()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
-        var asker = new LaneCredit(2f, LaneRoster.Driving, ClaimPriority.Firm);
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
-        // The car queueing behind for the same movement, claiming the run through the body in front of it.
         index.Begin();
-        index.ClaimAhead(way, 10f, 30f, 0f, 1, ClaimPriority.Firm);
+        index.LayBody(way, 10f, 15f, 0f, 1, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 12f, 18f, 0f, 2, LaneRoster.Driving, onItsLine: false);
 
-        Assert.Equal(
-            float.PositiveInfinity, index.GrantedOn(way, 20f, 60f, occupant: 2, asker, out _));
-
-        // From behind its near edge the same claim is a place to be stopped a margin short of.
-        Assert.Equal(8f, index.GrantedOn(way, 5f, 60f, occupant: 2, asker, out _), 3);
-
-        // And a body reaching back past the asker is a contact, which the grant is left to report.
-        index.Begin();
-        index.ClaimUnderWay(way, 10f, 30f, 30f, 0f, 1);
-        Assert.Equal(10f, index.GrantedOn(way, 20f, 60f, occupant: 2, asker, out _), 3);
+        Span<LaneClaim> bodies = stackalloc LaneClaim[4];
+        Assert.Equal(2, index.CopyBodiesTo(way, bodies));
     }
 
     /// <summary>
-    /// <b>A body on foot takes the road it stands on and is not traffic.</b> It cuts the grant of anybody
-    /// driving through it, exactly as a car standing there would; what it is <em>not</em> is an answer to
-    /// somebody asking what is coming down the lane, and it is not an obstruction either — that reading is
-    /// a walker standing in the lane.
+    /// <b>One body is one stretch of one way</b> (TER-5c.2): laid twice under the same name it grows to cover
+    /// both, and it is on its line where either laying said so.
     /// </summary>
     [Fact]
-    public void AWalkerOnTheRoadCutsTheGrantAndIsNotTraffic()
+    public void ABodyLaidTwiceOnOneWayGrowsToCoverBoth()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
         index.Begin();
-        index.ClaimUnderWay(way, 20f, 26f, 26f, 0f, 4, of: LaneRoster.Walking);
+        index.LayBody(way, 10f, 12f, 0f, 1, LaneRoster.Driving, onItsLine: false);
+        index.LayBody(way, 11f, 16f, 0f, 1, LaneRoster.Driving, onItsLine: true);
 
-        // The ground it stands on is spoken for, so no driver is granted the road through it.
-        var at = LaneOccupancy.FromTheStart;
-        Assert.True(index.NextHeld(way, 0f, 60f, LaneOccupancy.Nobody, ref at, out var taken));
-        Assert.Equal(LaneRoster.Walking, taken.Of);
-        Assert.Equal(20f, taken.FromM);
+        Span<LaneClaim> bodies = stackalloc LaneClaim[4];
+        Assert.Equal(1, index.CopyBodiesTo(way, bodies));
+        Assert.Equal((10f, 16f, true), (bodies[0].FromM, bodies[0].ToM, bodies[0].OnItsLine));
+    }
 
-        // And it is a body in front to be stopped short of.
-        Assert.True(index.AheadBody(way, 0f, 60f, LaneOccupancy.Nobody, out var body));
-        Assert.Equal(LaneRoster.Walking, body.Of);
+    /// <summary><b>A hold is cut at the near edge of the first body in front of it</b> (TER-4c.1), and says which body that was.</summary>
+    [Fact]
+    public void AHoldIsCutAtTheFirstBodyInFrontOfIt()
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
-        // But never traffic, and never a claim: a walker at a kerb asking what is coming must not be
-        // answered by another walker standing in the road.
-        Assert.False(index.BehindBody(way, 60f, 0f, LaneOccupancy.Nobody, out _));
-        Assert.False(index.AheadClaim(way, 0f, 60f, LaneOccupancy.Nobody, out _));
-        Assert.False(index.ClaimedByAnother(way, 20f, 26f, LaneOccupancy.Nobody));
-        Assert.Equal(0, index.ClaimCount);
+        index.Begin();
+        index.LayBody(way, 30f, 34f, 0f, 2, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 20f, 24f, 0f, 3, LaneRoster.Walking, onItsLine: false);
 
-        Assert.True(index.AnybodyOnFoot(way, 23f, 23f));
-        Assert.True(index.AnybodyOnFoot(way, 18f, 21f));
-        Assert.False(index.AnybodyOnFoot(way, 30f, 40f));
+        var hold = index.BeginHold(0f);
+        var reachM = index.Reach(Ask(hold, 1, ClaimPriority.Special, 5f), way, 50f, 5f, out var cutBy);
+
+        Assert.Equal(20f, reachM);
+        Assert.Equal((3, LaneRoster.Walking, true), (cutBy.Occupant, cutBy.Of, cutBy.HasBody));
     }
 
     /// <summary>
-    /// <b>A crossing somebody has reserved cuts no grant, and a granted movement takes it</b> (PER-27,
-    /// TER-5g p8): the traffic drives over a reservation and keeps the metres it was granted, which is the
-    /// whole of what the rung sitting below <see cref="ClaimPriority.Firm"/> comes to.
+    /// <b>A body the holder's own already reaches past cuts nothing</b>: it is beside or behind the holder,
+    /// and a plan is laid in front of a body and never through the one next to it.
     /// </summary>
-    /// <remarks>
-    /// <b>And it outlasts a statement</b>, which is the other half of where it sits: a driver saying it
-    /// means to use those metres does not take them off somebody who is walking the paint.
-    /// </remarks>
     [Fact]
-    public void ACrossingReservedCutsNoGrantAndIsTakenByAGrantedMovement()
+    public void ABodyBesideTheHolderCutsNothing()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
-        var asker = new LaneCredit(2f, LaneRoster.Driving, ClaimPriority.Firm);
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
         index.Begin();
-        index.ClaimAhead(way, 20f, 26f, 0f, 4, ClaimPriority.Reserved, LaneRoster.Walking);
+        index.LayBody(way, 8f, 12f, 0f, 2, LaneRoster.Driving, onItsLine: false);
 
-        Assert.Equal(
-            float.PositiveInfinity, index.GrantedOn(way, 0f, 60f, occupant: 2, asker, out _));
-
-        // And what the traffic is granted it takes: the reservation gives the metres up to a firm claim
-        // over them and is left holding the paint nobody has taken.
-        index.ClaimAhead(way, 22f, 40f, 0f, 2, ClaimPriority.Firm);
-        Assert.Equal(22f, Held(index, way, 4).ToM, 3);
-
-        // A statement over the same metres is the other way about, and is the one thing the rung buys.
-        index.Begin();
-        index.ClaimAhead(way, 20f, 26f, 0f, 4, ClaimPriority.Reserved, LaneRoster.Walking);
-        index.ClaimAhead(way, 22f, 40f, 0f, 2, ClaimPriority.Soft);
-        Assert.Equal(26f, Held(index, way, 4).ToM, 3);
+        var hold = index.BeginHold(0f);
+        Assert.Equal(50f, index.Reach(Ask(hold, 1, ClaimPriority.Firm, 12f), way, 50f, standsToM: 12f, out var cutBy));
+        Assert.False(cutBy.Found);
     }
 
-    /// <summary>The one stretch of a way an occupant holds, or <see cref="LaneClaim.Nothing"/>.</summary>
-    static LaneClaim Held(LaneOccupancy index, int way, int occupant)
+    /// <summary>
+    /// <b>A stronger rung keeps the ground, and the weaker hold is cut back to where the two met</b>
+    /// (TER-5e) — its end on its own line is the metre the stronger one took from.
+    /// </summary>
+    [Fact]
+    public void AStrongerRungTakesTheGroundAndCutsTheWeakerWhereTheyMet()
     {
-        Span<LaneClaim> slots = stackalloc LaneClaim[16];
-        var count = index.CopyTo(way, slots);
-        for (var slot = 0; slot < count; slot++)
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+
+        index.Begin();
+        var weaker = index.BeginHold(0f);
+        index.Take(Ask(weaker, 1, ClaimPriority.FirmAcross, 0f), way, 40f);
+        index.EndHold(weaker, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+
+        Assert.Equal(50f, Plan(index, way, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 25f)));
+        Assert.Equal(25f, EndsAtM(index, weaker));
+    }
+
+    /// <summary>And the weaker of the two, asking second, is answered short of the stronger one's near edge.</summary>
+    [Fact]
+    public void AWeakerRungIsAnsweredShortOfAStrongerOne()
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+
+        index.Begin();
+        Plan(index, way, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 25f));
+
+        var weaker = index.BeginHold(0f);
+        var reachM = index.Reach(Ask(weaker, 1, ClaimPriority.FirmAcross, 0f), way, 40f, 0f, out var cutBy);
+        Assert.Equal(25f, reachM);
+        Assert.Equal(2, cutBy.Occupant);
+    }
+
+    /// <summary>
+    /// <b>Which of two holds keeps the ground does not turn on which was laid first</b> (TER-4c.3): the
+    /// comparison is symmetric, so the same pair laid in either order ends the same way.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void TheOrderTwoHoldsAreLaidInDecidesNothing(bool strongerFirst)
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+        index.Begin();
+
+        var stronger = (Func<int, PlannedAsk>)(hold => Ask(hold, 2, ClaimPriority.Crossing, 25f));
+        var weaker = (Func<int, PlannedAsk>)(hold => Ask(hold, 1, ClaimPriority.Firm, 0f));
+        if (strongerFirst)
         {
-            if (slots[slot].Occupant == occupant) return slots[slot];
+            Plan(index, way, 50f, stronger);
+            Plan(index, way, 40f, weaker);
+        }
+        else
+        {
+            Plan(index, way, 40f, weaker);
+            Plan(index, way, 50f, stronger);
         }
 
-        return LaneClaim.Nothing;
+        Assert.Equal(25f, index.PlannedToM(way, 0f, occupant: 1, LaneRoster.Driving));
+        Assert.Equal(50f, index.PlannedToM(way, 25f, occupant: 2, LaneRoster.Driving));
+    }
+
+    /// <summary><b>Ground its holder can no longer stop short of beats every rung</b> (TER-5e), a call included.</summary>
+    [Fact]
+    public void CommittedGroundBeatsEveryRung()
+    {
+        var committed = Ask(0, 1, ClaimPriority.FirmAcross, 20f, aheadM: 10f, committedToM: 30f);
+        var call = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.Special, AheadM: 1f);
+
+        Assert.True(LaneOccupancy.Beats(committed, 20f, false, call, 20f, false));
     }
 
     /// <summary>
-    /// <b>A stronger movement takes a claim and never a body</b> (TER-5e): ground nobody has reached is
-    /// given up to it, and ground somebody is standing on — or committed to being able to stop in — refuses
-    /// everything, at whatever rungs the two of them hold it.
+    /// <b>Of two holders that can no longer stop, the one that gets there first keeps the ground</b> —
+    /// whatever either one's rung, and whichever was given the box before: both are going in, and the one
+    /// further off is the one with road left to brake on.
     /// </summary>
     [Fact]
-    public void AStrongerMovementTakesAClaimAndNeverABody()
+    public void OfTwoCommittedHoldersTheNearerKeepsTheGround()
     {
-        var claim = new LaneClaim(0f, 6f, 0f, 0f, 1, ClaimPriority.FirmAcross);
-        Assert.False(LaneOccupancy.Binds(claim, ClaimPriority.FirmStraight));
-        Assert.True(LaneOccupancy.Binds(claim, ClaimPriority.FirmAcross));
+        var nearer = Ask(0, 1, ClaimPriority.FirmAcross, 20f, aheadM: 3f, committedToM: 30f);
+        var further = new LaneClaim(
+            20f, 40f, 5f, 2, ClaimPriority.FirmStraight, AheadM: 12f, CommittedToM: 30f, Held: true);
 
-        // The same ground held by a car that can no longer stop short of the box it is entering.
-        Assert.True(
-            LaneOccupancy.Binds(claim with { Priority = ClaimPriority.Hard }, ClaimPriority.FirmStraight));
-
-        // And a body, which is nothing's to take at any rung.
-        var body = claim with { StandsToM = 6f, Priority = ClaimPriority.Hard };
-        Assert.True(LaneOccupancy.Binds(body with { OnItsLine = true }, ClaimPriority.FirmStraight));
-        Assert.True(LaneOccupancy.Binds(body, ClaimPriority.FirmStraight));
-        Assert.True(LaneOccupancy.Binds(body with { Of = LaneRoster.Walking }, ClaimPriority.FirmStraight));
+        Assert.True(LaneOccupancy.Beats(nearer, 20f, false, further, 20f, false));
     }
 
     /// <summary>
-    /// <b>A soft claim is taken by a stronger movement and not by an equal one</b> (TER-5g) — the one
-    /// place the two revocable tiers are compared differently, because a tie that refused both would leave
-    /// two movements each waiting on ground the other was only thinking about.
+    /// <b>A holder whose body is already on the ground keeps it</b> against a higher rung: a plan over metres
+    /// somebody stands on cannot be driven until that body leaves them.
     /// </summary>
     [Fact]
-    public void ASoftClaimIsTakenByAStrongerMovementAndNotByAnEqualOne()
+    public void AHolderStandingOnTheGroundKeepsItAgainstAHigherRung()
     {
-        var stated = new LaneClaim(0f, 6f, 0f, 0f, 1, ClaimPriority.Soft);
+        var standing = Ask(0, 1, ClaimPriority.FirmAcross, 20f, aheadM: 0f);
+        var straight = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.FirmStraight, AheadM: 1f);
 
-        Assert.False(LaneOccupancy.Binds(stated, ClaimPriority.FirmStraight));
-        Assert.False(LaneOccupancy.Binds(stated, ClaimPriority.Firm));
-        Assert.True(LaneOccupancy.Binds(stated, ClaimPriority.FirmAcross));
-
-        // Where the same ground granted refuses the equal movement as well.
-        Assert.True(
-            LaneOccupancy.Binds(stated with { Priority = ClaimPriority.Firm }, ClaimPriority.Firm));
-
-        // And the stated band is the granted one read seven rungs down, which is what makes a street's
-        // statement refuse the turn across it and the turn's refuse nobody but itself.
-        Assert.Equal(ClaimPriority.Firm, LaneOccupancy.SaidAhead(ClaimPriority.Soft));
-        Assert.True(
-            LaneOccupancy.Binds(stated with { Priority = ClaimPriority.SoftStraight }, ClaimPriority.Firm));
-        Assert.False(
-            LaneOccupancy.Binds(stated with { Priority = ClaimPriority.SoftAcross }, ClaimPriority.Firm));
+        Assert.True(LaneOccupancy.Beats(standing, 20f, askStands: true, straight, 20f, otherStands: false));
+        Assert.False(LaneOccupancy.Beats(standing, 20f, askStands: false, straight, 20f, otherStands: false));
     }
 
     /// <summary>
-    /// <b>What a claim is is read off its own edges</b> (TER-5g): whether a body is standing in it, whether
-    /// it is the town's own furniture, and whether it is one a walker steps round — none of it a tag carried
-    /// beside the numbers that decide it.
+    /// <b>Of two equal movements, the one given the box last time keeps it</b> — even against one that has
+    /// come nearer since, so a box does not change hands under a car on its way into it.
     /// </summary>
     [Fact]
-    public void WhatAClaimIsIsReadOffItsOwnEdges()
+    public void ABoxAlreadyGivenStaysWithItsHolderAgainstAnEqualOneNearer()
     {
-        var stated = new LaneClaim(0f, 6f, 0f, 0f, 1, ClaimPriority.Soft);
-        Assert.False(stated.HasBody);
-        Assert.True(stated.IsStated);
-        Assert.False(stated.IsGranted);
+        var given = Ask(0, 1, ClaimPriority.Firm, 20f, aheadM: 15f, held: true);
+        var nearer = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.Firm, AheadM: 2f);
 
-        var granted = stated with { Priority = ClaimPriority.Firm };
-        Assert.True(granted.IsGranted);
-        Assert.False(granted.HasBody);
+        Assert.True(LaneOccupancy.Beats(given, 20f, false, nearer, 20f, false));
+    }
 
-        var body = new LaneClaim(0f, 6f, 6f, 0f, 1, ClaimPriority.Hard);
-        Assert.True(body.HasBody);
-        Assert.True(body.IsLoose);
-        Assert.False((body with { OnItsLine = true }).IsLoose);
-        Assert.False(body.IsFurniture);
-        Assert.True((body with { Occupant = LaneOccupancy.Nobody }).IsFurniture);
-        Assert.False((body with { Occupant = LaneOccupancy.Nobody }).IsLoose);
+    /// <summary>And with nothing else between them, whoever has less of its own line to cover gets there first.</summary>
+    [Fact]
+    public void OfTwoEqualHoldersTheNearerKeepsTheGround()
+    {
+        var nearer = Ask(0, 1, ClaimPriority.Firm, 20f, aheadM: 2f);
+        var further = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.Firm, AheadM: 15f);
+
+        Assert.True(LaneOccupancy.Beats(nearer, 20f, false, further, 20f, false));
     }
 
     /// <summary>
-    /// <b>And the same comparison read from the claim's own side</b> (TER-4c.1): what takes a claim away from
-    /// its holder is a rank above the one the holder is keeping it at, and nothing else — so a claim survives
-    /// the traffic driving over it and the very body a swerve took it to get round, and does not survive a
-    /// closed road or a rescue.
+    /// <b>The comparison is total and antisymmetric</b>: of any two different holders meeting on one metre,
+    /// exactly one keeps it — over every combination of the terms it is made on.
     /// </summary>
     [Fact]
-    public void OnlyAStrongerRankTakesAClaimFromItsHolder()
+    public void OfAnyTwoHoldersExactlyOneKeepsTheGround()
     {
-        var mine = ClaimPriority.Firm;
-        var over = new LaneClaim(0f, 6f, 6f, 0f, 1, ClaimPriority.Hard, OnItsLine: true);
+        ClaimPriority[] rungs = [ClaimPriority.Special, ClaimPriority.Crossing, ClaimPriority.FirmStraight, ClaimPriority.FirmAcross];
+        float[] aheads = [0f, 4f];
+        bool[] flags = [false, true];
 
-        Assert.False(LaneOccupancy.TakesAClaim(over, mine));
-        Assert.False(LaneOccupancy.TakesAClaim(over with { OnItsLine = false }, mine));
-        Assert.False(LaneOccupancy.TakesAClaim(over with { Of = LaneRoster.Walking }, mine));
-        Assert.False(LaneOccupancy.TakesAClaim(over with { Occupant = LaneOccupancy.Nobody }, mine));
+        var terms = new List<(ClaimPriority Rung, float AheadM, bool Committed, bool Held, bool Stands)>();
+        foreach (var rung in rungs)
+        foreach (var aheadM in aheads)
+        foreach (var committed in flags)
+        foreach (var held in flags)
+        foreach (var stands in flags) terms.Add((rung, aheadM, committed, held, stands));
 
-        var granted = over with { StandsToM = 0f };
-        Assert.True(LaneOccupancy.TakesAClaim(granted with { Priority = ClaimPriority.Closed }, mine));
-        Assert.True(LaneOccupancy.TakesAClaim(granted with { Priority = ClaimPriority.Special }, mine));
+        foreach (var one in terms)
+        {
+            foreach (var other in terms)
+            {
+                var ask = Ask(0, 1, one.Rung, 20f, one.AheadM, one.Committed ? 30f : float.NegativeInfinity, one.Held);
+                var claim = new LaneClaim(
+                    20f, 40f, 5f, 2, other.Rung, AheadM: other.AheadM,
+                    CommittedToM: other.Committed ? 30f : float.NegativeInfinity, Held: other.Held);
+                var flipped = Ask(0, 2, other.Rung, 20f, other.AheadM, other.Committed ? 30f : float.NegativeInfinity, other.Held);
+                var back = new LaneClaim(
+                    20f, 40f, 5f, 1, one.Rung, AheadM: one.AheadM,
+                    CommittedToM: one.Committed ? 30f : float.NegativeInfinity, Held: one.Held);
 
-        // And a rung the holder itself keeps its ground at takes nothing: a rescue does not give its own
-        // road back. Neither does anything merely stated, whatever movement stated it.
-        Assert.False(
-            LaneOccupancy.TakesAClaim(
-                granted with { Priority = ClaimPriority.Special }, ClaimPriority.Special));
-        Assert.False(
-            LaneOccupancy.TakesAClaim(granted with { Priority = ClaimPriority.SoftSpecial }, mine));
+                Assert.NotEqual(
+                    LaneOccupancy.Beats(ask, 20f, one.Stands, claim, 20f, other.Stands),
+                    LaneOccupancy.Beats(flipped, 20f, other.Stands, back, 20f, one.Stands));
+            }
+        }
     }
 
     /// <summary>
-    /// <b>Straighter is stronger</b> (TER-5e), and the order is the ladder rather than a table of pairs: the
-    /// stream that turns out of nobody's way, ordinary traffic, and the turn across the oncoming stream,
-    /// which is the last movement a box admits (TER-5f).
+    /// <b>Taking a marked stretch writes the linked section whole</b> (TER-5c.1): the other way carries the
+    /// whole of the section the mark names, under the same holder, marked as linked.
     /// </summary>
     [Fact]
-    public void AMovementIsGrantedItsGroundAtTheRungOfTheTurnItMakes()
+    public void TakingAMarkedStretchWritesTheLinkedSectionWhole()
     {
-        Assert.True(RoadGraph.FirmOn(LaneTurn.Straight) < RoadGraph.FirmOn(LaneTurn.NearSide));
-        Assert.True(RoadGraph.FirmOn(LaneTurn.NearSide) < RoadGraph.FirmOn(LaneTurn.FarSide));
-
-        // Ordinary traffic is the middle of the band, so nothing that is not a movement through a box is
-        // either given way to or taken from.
-        Assert.Equal(ClaimPriority.Firm, RoadGraph.FirmOn(LaneTurn.NearSide));
-    }
-
-    /// <summary>
-    /// <b>Two cars that each found the lane clear on the same tick must not both take it.</b> It is the
-    /// junction registry's argument applied to a stretch of lane, and the whole of what makes a claim
-    /// binding rather than a note.
-    /// </summary>
-    [Fact]
-    public void GroundSomebodyHasClaimedIsRefusedToTheNextAsker()
-    {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (a, b, _) = ThreeWays();
+        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
 
         index.Begin();
-        index.ClaimAhead(way, 20f, 26f, 0f, 1, ClaimPriority.Firm);
+        Plan(index, a, 50f, hold => Ask(hold, 1, ClaimPriority.Firm, 0f));
 
-        Assert.True(index.ClaimedByAnother(way, 24f, 30f, excluding: 2));
-        Assert.False(index.ClaimedByAnother(way, 24f, 30f, excluding: 1));
-        Assert.False(index.ClaimedByAnother(way, 40f, 46f, excluding: 2));
+        Span<LaneClaim> planned = stackalloc LaneClaim[4];
+        Assert.Equal(1, index.CopyPlannedTo(b, planned));
+        Assert.Equal((30f, 35f, 1, true), (planned[0].FromM, planned[0].ToM, planned[0].Occupant, planned[0].Linked));
     }
 
     /// <summary>
-    /// <b>A driver under way is one stretch and is read to two different edges</b>: the road it has taken is
-    /// what a grant behind it is cut at, and the body at the near end of that road is what anybody asking
-    /// what is in front of it is answered with.
+    /// <b>A marked section is held whole or not at all</b>: a hold that cannot have the section a mark links
+    /// to is answered at the start of its own side of the mark — however little of the section it lost.
     /// </summary>
     [Fact]
-    public void ADriverIsOneStretchWhoseBodyIsItsNearEnd()
+    public void AHoldRefusedTheLinkedSectionIsAnsweredAtTheMark()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (a, b, _) = ThreeWays();
+        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
 
         index.Begin();
-        index.ClaimUnderWay(way, 10f, standsToM: 14f, toM: 38f, 8f, occupant: 1);
-        index.ClaimWhereItStands(way, 45f, 49f, 49f, 0f, 2);
+        Plan(index, b, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 34f));
 
-        // One entry and not two: the car is laid once, so a walk of what is spoken for passes from its road
-        // straight to the wreck beyond it.
-        var at = LaneOccupancy.FromTheStart;
-        Assert.True(index.NextHeld(way, 0f, 60f, LaneOccupancy.Nobody, ref at, out var found));
-        Assert.True(found.HasBody && found.OnItsLine);
-        Assert.Equal(10f, found.FromM);
-        Assert.Equal(38f, found.ToM);
-
-        Assert.True(index.NextHeld(way, 0f, 60f, LaneOccupancy.Nobody, ref at, out found));
-        Assert.Equal(45f, found.FromM);
-        Assert.False(index.NextHeld(way, 0f, 60f, LaneOccupancy.Nobody, ref at, out _));
-
-        // And a driver's own stretch is never what it is cut at.
-        at = LaneOccupancy.FromTheStart;
-        Assert.True(index.NextHeld(way, 0f, 60f, excluding: 1, ref at, out found));
-        Assert.Equal(45f, found.FromM);
-
-        // The body is where the car stands and not where its road ends: from twenty metres up the way that
-        // car is behind, and the only thing in front is the wreck.
-        Assert.True(index.AheadBody(way, 0f, 60f, LaneOccupancy.Nobody, out var body));
-        Assert.Equal(1, body.Occupant);
-        Assert.True(index.AheadBody(way, 20f, 60f, LaneOccupancy.Nobody, out body));
-        Assert.Equal(2, body.Occupant);
+        var hold = index.BeginHold(0f);
+        var reachM = index.Reach(Ask(hold, 1, ClaimPriority.FirmAcross, 0f), a, 50f, 0f, out var cutBy);
+        Assert.Equal(20f, reachM);
+        Assert.Equal(2, cutBy.Occupant);
     }
 
     /// <summary>
-    /// <b>A stretch that reaches back past the asker is still in front of it or still behind it, and where
-    /// its body has got to is which.</b> A car doing thirty has taken road well past the car in front of it;
-    /// cutting that car at it would hold up a driver on behalf of the one behind him.
+    /// <b>And a stronger hold taking the section cuts the weaker at its own side of the mark</b>, the metre it
+    /// needed the section from.
     /// </summary>
     [Fact]
-    public void WhatIsBehindIsNeverCutAtHoweverFarItsRoadReaches()
+    public void AHoldWhoseLinkedSectionIsTakenIsCutAtTheMark()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (a, b, _) = ThreeWays();
+        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
 
         index.Begin();
-        index.ClaimUnderWay(way, 4f, standsToM: 8f, toM: 50f, 20f, occupant: 1);
+        var weaker = index.BeginHold(0f);
+        index.Take(Ask(weaker, 1, ClaimPriority.FirmAcross, 0f), a, 50f);
+        index.EndHold(weaker, float.PositiveInfinity, 0f, LaneClaim.Nothing);
 
-        var behind = LaneOccupancy.FromTheStart;
-        Assert.False(index.NextHeld(way, 20f, 60f, LaneOccupancy.Nobody, ref behind, out _));
-
-        var ahead = LaneOccupancy.FromTheStart;
-        Assert.True(index.NextHeld(way, 0f, 60f, LaneOccupancy.Nobody, ref ahead, out _));
-
-        // Nor is it a body in front, which is the same fact asked the other way round: what reaches past
-        // the asker is that car's road and the car itself is well behind.
-        Assert.False(index.AheadBody(way, 20f, 60f, LaneOccupancy.Nobody, out _));
-        Assert.False(index.BehindBody(way, 60f, 20f, LaneOccupancy.Nobody, out _));
+        Assert.Equal(50f, Plan(index, b, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 34f)));
+        Assert.Equal(20f, EndsAtM(index, weaker));
+        Assert.Equal(20f, index.PlannedToM(a, 0f, occupant: 1, LaneRoster.Driving));
     }
 
     /// <summary>
-    /// A body the asker is already overlapping is a contact and not an empty road — <b>and one reaching
-    /// exactly as far as the asker's own near edge is the boundary of that and not the exception to it</b>,
-    /// which is the bar a walk of what is spoken for holds a stretch to as well.
+    /// <b>Two linked sections on one way are no answer to each other</b>: two holders whose ground each lies
+    /// over a third way meet on their own ways where they meet at all, so held against each other there, two
+    /// cars would be refused a corner of pavement neither of them drives.
     /// </summary>
     [Fact]
-    public void SomethingOverlappingTheAskerAnswersAtItsOwnNearEdge()
+    public void TwoLinkedSectionsOnOneWayDoNotMeet()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (a, b, c) = ThreeWays();
+        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f)), (c, (10f, 14f), b, (32f, 37f))));
 
         index.Begin();
-        index.ClaimWhereItStands(way, 8f, 14f, 14f, 0f, 1);
+        Assert.Equal(50f, Plan(index, a, 50f, hold => Ask(hold, 1, ClaimPriority.Firm, 0f)));
+        Assert.Equal(50f, Plan(index, c, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 0f)));
 
-        Assert.True(index.AheadBody(way, 10f, 60f, LaneOccupancy.Nobody, out var found));
-        Assert.Equal(8f, found.FromM);
+        Span<LaneClaim> planned = stackalloc LaneClaim[4];
+        Assert.Equal(2, index.CopyPlannedTo(b, planned));
+    }
 
-        Assert.True(index.AheadBody(way, 14f, 60f, LaneOccupancy.Nobody, out found));
-        Assert.Equal(8f, found.FromM);
+    /// <summary>
+    /// <b>A hold is one stretch</b> (TER-5c.2): cut on its first way, it gives up everything past the cut —
+    /// its pieces on the ways after and the sections it had written through their marks.
+    /// </summary>
+    [Fact]
+    public void AHoldCutGivesUpEverythingPastTheCut()
+    {
+        var (a, b, c) = ThreeWays();
+        var index = Index(Marks((b, (5f, 8f), c, (40f, 44f))));
 
-        var at = LaneOccupancy.FromTheStart;
-        Assert.True(index.NextHeld(way, 14f, 60f, LaneOccupancy.Nobody, ref at, out _));
+        index.Begin();
+        var cut = index.BeginHold(0f);
+        index.Take(new PlannedAsk(cut, 1, LaneRoster.Driving, ClaimPriority.Firm, 30f, 0f, 0f, float.NegativeInfinity, 5f), a, 60f);
+        index.Take(new PlannedAsk(cut, 1, LaneRoster.Driving, ClaimPriority.Firm, 0f, 30f, 30f, float.NegativeInfinity, 5f), b, 20f);
+        index.EndHold(cut, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+
+        Plan(index, a, 60f, hold => Ask(hold, 2, ClaimPriority.Special, 45f, aheadM: 0f));
+
+        Assert.Equal(15f, EndsAtM(index, cut));
+        Span<LaneClaim> planned = stackalloc LaneClaim[4];
+        Assert.Equal(0, index.CopyPlannedTo(b, planned));
+        Assert.Equal(0, index.CopyPlannedTo(c, planned));
     }
 
     /// <summary><b>Nothing survives a rebuild</b>, which is the guarantee that makes the index need no release path.</summary>
     [Fact]
     public void ARebuildLeavesNothingOfTheTickBeforeIt()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (way, _, _) = ThreeWays();
+        var index = Index();
 
         index.Begin();
-        index.ClaimUnderWay(way, 10f, 14f, 14f, 0f, 1);
-        index.ClaimAhead(way, 30f, 34f, 0f, 2, ClaimPriority.Firm);
+        index.LayBody(way, 10f, 14f, 0f, 1, LaneRoster.Driving, onItsLine: true);
+        Plan(index, way, 50f, hold => Ask(hold, 2, ClaimPriority.Firm, 30f));
 
         index.Begin();
-        Assert.Equal(0, index.SlotCount);
-        Assert.Equal(0, index.ClaimCount);
+        Assert.Equal((0, 0), (index.SlotCount, index.HoldCount));
         Assert.False(index.AheadBody(way, 0f, 60f, LaneOccupancy.Nobody, out _));
-        Assert.False(index.AheadClaim(way, 0f, 60f, LaneOccupancy.Nobody, out _));
-    }
-
-    /// <summary>Past the bound a stretch is not laid, and a refusal is what the caller is told.</summary>
-    [Fact]
-    public void PastItsBoundTheIndexRefusesRatherThanGrows()
-    {
-        var index = Index(out var roads, mostSlots: 2);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
-
-        index.Begin();
-        Assert.True(index.ClaimUnderWay(way, 10f, 14f, 14f, 0f, 1));
-        Assert.True(index.ClaimUnderWay(way, 20f, 24f, 24f, 0f, 2));
-        Assert.False(index.ClaimUnderWay(way, 30f, 34f, 34f, 0f, 3));
-        Assert.Equal(2, index.SlotCount);
+        Assert.Equal(30f, index.PlannedToM(way, 30f, 2, LaneRoster.Driving));
     }
 
     /// <summary>
-    /// <b>A way is named once among the ways somebody is on, however often it is laid on and given back.</b>
-    /// A car gives its crossing back and the car behind takes the same join in the same walk, so a way the
-    /// withdrawal emptied is laid on again — and listed twice, every reader counts what is on it
-    /// twice.
+    /// <b>Past its bound the index drops rather than grows, and counts what it dropped</b> — a body or a plan
+    /// nobody could see, which is a gate's failure and never an outcome.
     /// </summary>
     [Fact]
-    public void AWayEmptiedAndLaidOnAgainIsNamedOnce()
+    public void PastItsBoundTheIndexDropsAndCountsIt()
     {
-        var index = Index(out var roads);
-        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var (way, _, _) = ThreeWays();
+        var index = Index(mostSlots: 2, mostHolds: 1);
 
         index.Begin();
-        index.ClaimAhead(way, 10f, 14f, 0f, 1, ClaimPriority.Firm);
-        index.Withdraw(way, occupant: 1, ClaimsAsked.Granted);
-        Assert.Equal(0, index.ClaimCount);
+        index.LayBody(way, 10f, 14f, 0f, 1, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 20f, 24f, 0f, 2, LaneRoster.Driving, onItsLine: true);
+        index.LayBody(way, 30f, 34f, 0f, 3, LaneRoster.Driving, onItsLine: true);
+        Assert.NotEqual(LaneOccupancy.NoHold, index.BeginHold(0f));
+        Assert.Equal(LaneOccupancy.NoHold, index.BeginHold(0f));
 
-        index.ClaimAhead(way, 30f, 34f, 0f, 2, ClaimPriority.Firm);
+        Assert.Equal(2, index.SlotCount);
+        Assert.Equal(2, index.Dropped);
+    }
+
+    /// <summary>
+    /// <b>A way is named once among the ways somebody is on</b>, however many reservations are laid on it —
+    /// or every reader counts what is on it as many times.
+    /// </summary>
+    [Fact]
+    public void AWayLaidOnTwiceIsNamedOnce()
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+
+        index.Begin();
+        index.LayBody(way, 10f, 14f, 0f, 1, LaneRoster.Driving, onItsLine: true);
+        Plan(index, way, 50f, hold => Ask(hold, 2, ClaimPriority.Firm, 30f));
 
         var named = 0;
         foreach (var listed in index.OccupiedWays)
@@ -566,39 +536,5 @@ public class LaneOccupancyTests
         }
 
         Assert.Equal(1, named);
-    }
-
-    /// <summary>A lane and the join out of it are different ways, and nothing on one is on the other.</summary>
-    [Fact]
-    public void AJoinIsAWayOfItsOwn()
-    {
-        var index = Index(out var roads);
-        var lane = FirstLongLane(roads, 60f);
-        var join = index.Ways.OfRoadConnector(roads.ConnectorsFrom(lane)[0]);
-        Assert.NotEqual(index.Ways.OfRoadLane(lane), join);
-
-        index.Begin();
-        index.ClaimUnderWay(join, 0f, MathF.Min(4f, index.WayLengthM(join)), MathF.Min(4f, index.WayLengthM(join)), 5f, 1);
-
-        Assert.True(index.AheadBody(join, 0f, index.WayLengthM(join), LaneOccupancy.Nobody, out _));
-        Assert.False(index.AheadBody(index.Ways.OfRoadLane(lane), 0f, 60f, LaneOccupancy.Nobody, out _));
-    }
-
-    /// <summary>
-    /// A lane long enough to hold the stretches these tests lay, whose first way out is a join with metres
-    /// of its own: two lanes that meet at a point have a way of no length between them, which is nothing to
-    /// put a body on.
-    /// </summary>
-    static int FirstLongLane(RoadGraph roads, float atLeastM)
-    {
-        for (var lane = 0; lane < roads.LaneCount; lane++)
-        {
-            if (roads.LaneLengthM[lane] < atLeastM || roads.LanesFrom(lane).Length == 0) continue;
-            if (roads.ConnectorLengthM(roads.ConnectorsFrom(lane)[0]) <= 0f) continue;
-
-            return lane;
-        }
-
-        throw new InvalidOperationException($"the fixture town has no lane {atLeastM} m long with a join out of it");
     }
 }

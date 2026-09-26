@@ -6,9 +6,8 @@ namespace TrafficSimulation.World.Foot;
 
 /// <summary>
 /// <b>The pavement as <see cref="IWayNetwork"/></b>: every stretch's two lanes, the places they meet at and
-/// the mitre each corner is turned on — the walking network read in the same words the carriageway is, so
-/// that one walk lays a body onto whichever of them it is standing on (TER-4c.2,
-/// <see cref="GroundUnder"/>).
+/// the mitre each corner is turned on — the walking network read in the same words the carriageway is
+/// (TER-4c.2).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -81,8 +80,4 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
 
     /// <summary>A mitre is the ground of the lane it leads onto, and that lane's width (WLK-8).</summary>
     public float ConnectorWidthM(int connector) => walking.LaneWidthM(walking.TurnToEdge(connector));
-
-    public int MostWaysUnderAPlace =>
-        GroundUnder.MostWaysUnderAPlace(walking.MostTurnsAtANode, walking.Places.MostLanesAtOne);
-
 }

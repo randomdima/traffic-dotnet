@@ -70,14 +70,14 @@ retired number, which the owning slice's log records.
 | `GEN-1…3`, `GEN-5…19`, `GEN-46…55` | The brief and the maps, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks cut into a road, where a building stands and which are services | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint and the arrow a lane carries | [world/road](../src/world/road/docs/requirements.md) |
-| `TER-4c…4c.3`, `TER-5c…5c.2`, `TER-5e`, `TER-5g`, `TER-5g.1` | What a movement takes off another, right of way, what a claim is and what is standing on a lane | [world/road/claims](../src/world/road/docs/claims.md) |
+| `TER-4c…4c.5`, `TER-5c…5c.2`, `TER-5e`, `TER-5g`, `TER-5g.1` | The ribbon atlas and its marks, where the bodies are, where they mean to be, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
 | `WLK-1`, `WLK-1a…3`, `WLK-8…15` | The pavement's lanes, the zebras and the junction a crossing is, the joints a walk carries on at, and the node network held in code | [world/foot](../src/world/foot/docs/requirements.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…22`, `SOL-35`, `SOL-36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4m` | A car park as a junction whose arms are bays, the ways at one, the claim on one, and the apron held for a service building's vehicles | [world/parking](../src/world/parking/docs/requirements.md) |
 | `CAR-1…15b`, `CAR-45`, `S-1…7`, `S-2a` | The driver and its leg, the car, its controls, its tyres and its lamps, and the standing rules every tick answers to | [agents/car](../src/agents/car/docs/requirements.md) |
-| `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25…27` | The walker, its route, the claims it lays and the crossing it reserves, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
+| `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25…27` | The walker, its route, its body and its plan, the crossing it plans to the far kerb, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the apron of ambulances, the priority a call carries, the rescue and the standoff it stops at | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
 | `SRV-1…6` | Police stations and depots, what a service vehicle is and that none carries a crew, what a wrecked one costs, the beat, and the road a police car closes by its own claim | [agents/service](../src/agents/service/docs/requirements.md) |
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the tow's priority, the arm and the set-down | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
@@ -124,10 +124,9 @@ owning slice's log; this list says only what is absent now and what closes it.
 - **Nothing gets past anything.** A driver is held behind whatever is in front of it until its leg's
   patience runs out and the leg is given up (`CAR-15a`); it does not cross the centreline to pass a wreck,
   a broken-down car or a body standing in its lane (`CAR-6.2b` is not reworded, and nothing exercises it).
-  A walker lays its claims and reserves the crossing it steps onto (`PER-25`…`PER-27`) and waits at a kerb
-  only while traffic has the crossing: no signal, no patience, and no step round another walker — two
-  wanting one piece of pavement meet in the solver. It closes when getting past something comes back as a movement the
-  road offers rather than a shape an agent draws
+  A walker queues behind what is in front of it on its way and waits at a kerb while the crossing is
+  somebody else's (`PER-25`…`PER-27`): no signal, no patience, and no step round another walker. It closes
+  when getting past something comes back as a movement the road offers rather than a shape an agent draws
   ([agents/car](../src/agents/car/docs/decision-log.md), [agents/person](../src/agents/person/docs/decision-log.md)).
 - **A car is neither brought back nor turned round.** A car whose rear axle is off drivable ground gives
   its leg up; on the road it takes the nearest lane only where that runs its way (`CAR-9`). There is no

@@ -214,17 +214,17 @@ headway, **the road the car was granted**, the stop point, the stop short of a c
 car was sent to — every distance taken a lead ahead of where the car is, against *usable* grip. The lead
 is the staleness of the driver's own decision and the travel of the pedal that answers it.
 
-**S-2a** `P3` **Take the road ahead before driving down it.** Every tick, a driver asks for the stretch of
-its own way from a margin behind its tail (TER-5c.2) to where it plans to be able to stop, and is
-granted what is left of it in front of the nearest car already on it. Nobody is granted ground another car will still be standing on
-once that car has stopped, and **that is the whole of following**: the car behind has less road to stop
+**S-2a** `P3` **Take the road ahead before driving down it.** Every tick, a driver plans the stretch of
+its own line from its nose (TER-4c.1) to where it means to be able to stop, and is granted what is left of
+it in front of the first body on it and short of ground another plan keeps. Nobody is granted ground
+another car is standing on, and **that is the whole of following**: the car behind has less road to stop
 in and holds the speed that road affords. **The grant alone is read at a following time** rather than at
 the lead above, which is what settles a queue at the standstill gap and a second of travel rather than at
 a tenth of one — **and that time is kept from what is being followed and from nothing else**: a grant cut
 at a wreck, at somebody on foot, at ground somebody has claimed or at the place two movements meet
 already ends the asker's own margin short of it, and a second of travel on top of that is a car holding a
-street shut at speed for something it needed only to stop short of. **And it is cut by the ways this car
-is driven *over* as well as by the ways it is driving** (TER-5c.1), so the grant means one body to a piece
+street shut at speed for something it needed only to stop short of. **And it is cut through the marks by
+the ground its ways share with the ways it only crosses** (TER-5c.1), so the grant means one plan to a piece
 of ground across a junction and not only along a lane. **What is asked for stops where a rule stops the
 car** (TER-4c.1) — a red, a bar, a zebra it must stop short of — the gap it keeps included, so a car
 standing at a stop holds the ground it is on and none of what it stopped for.

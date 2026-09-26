@@ -9,16 +9,15 @@ namespace TrafficSimulation.World.Parking;
 /// <summary>
 /// <b>The ways at a bay</b> (GEN-4f): a pair per standing the bay affords and per lane it is worked off —
 /// into the bay, and out of it. They are ways of the road in every sense — arcs, a length, metres of their
-/// own, and a row in the town's table of what is driven over what — and they are the whole of what would
-/// make a car park a place the ordinary mechanisms reach.
+/// own, and a ribbon in the town's atlas — and they are the whole of what would make a car park a place the
+/// ordinary mechanisms reach.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A bay is a mini-junction and not a special case.</b> Which ground a way takes off the lanes it crosses
-/// is the same question a junction's joins ask of each other (TER-5c), measured with the same code
-/// (<see cref="LineOverlap"/>) and read out of the same table (<see cref="WayCrossings"/>) — so a car
-/// entering a bay is held off the traffic, and the traffic off it, by the mechanism that already holds a
-/// junction apart, and by no second one (SIM-7).
+/// <b>A bay is a mini-junction and not a special case.</b> Which ground a way shares with the lanes it
+/// crosses is the same question a junction's joins ask of each other (TER-5c), answered by the same marks
+/// (<see cref="RibbonAtlas.Marks"/>) — so a car entering a bay is held off the traffic, and the traffic off
+/// it, by the mechanism that already holds a junction apart, and by no second one (SIM-7).
 /// </para>
 /// <para>
 /// <b>The pair is two ways</b>, because a way's metres run in the direction it is driven and everything that
@@ -294,9 +293,8 @@ internal sealed class BayWays
 
     /// <summary>
     /// <b>And how much of it is driven</b>: from the lane to the pose in the bay for a way in, and the whole
-    /// of a way out, which begins at that pose. What is past it is ground and nothing else — nothing is
-    /// driven over it (<see cref="BayCrossings"/>), no route is threaded through it, and a car standing at
-    /// the pose has come to the end of its line.
+    /// of a way out, which begins at that pose. What is past it is ground and nothing else — no route is
+    /// threaded through it, and a car standing at the pose has come to the end of its line.
     /// </summary>
     public float DrivenLengthM(int way) => _drivenM[way - _firstWay];
 

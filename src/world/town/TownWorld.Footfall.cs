@@ -35,13 +35,13 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// How many ways one walker's statement may run over: the way it is on and the ones its walk crosses
-    /// onto before it gets where it is aiming. A bound on a stack span and not a figure behaviour reads.
+    /// How many ways one walker's plan may run over: the way it is on and the ones its walk crosses onto
+    /// before it gets where it is aiming. A bound on a stack span and not a figure behaviour reads.
     /// </summary>
     /// <remarks>
-    /// <b>Reached, the ways at the far end go unstated</b>, which costs a walker nothing it was holding — a
-    /// statement is not ground anybody was given. A corner is two short ways within a stride, so the count
-    /// is what a body on a corner can cover rather than what a stretch of pavement suggests.
+    /// <b>Reached, the ways at the far end go unplanned</b>, which is a walker planning less far than it
+    /// might and never one planning through somebody. A corner is two short ways within a stride, so the
+    /// count is what a body on a corner can cover rather than what a stretch of pavement suggests.
     /// </remarks>
     const int MostWaysAlongAWalk = 5;
 
@@ -53,13 +53,6 @@ internal sealed partial class TownWorld
     /// each way down every stretch, and the mitre at every corner. Handed to <see cref="TownWays"/>, which
     /// is what makes them ways of the same table the carriageway's are.
     /// </summary>
-    /// <remarks>
-    /// <b>What stands far enough aside of one of these lines to be walked past is half a body</b>
-    /// (<see cref="SimConfig.WalkPassableAsideM"/>, <see cref="TownWays.ClearsAsideM"/>), which is the
-    /// road's own bar in the walking side's figures. At nought a stretch stopped being in the way the moment
-    /// it was a hair clear of the line — so a car parked across a footway was walked straight through, the
-    /// walker's own width being the whole of what it had left over.
-    /// </remarks>
     static float[] PavementLengthsM(WalkingNetwork walking, out float[] mitreLengthM)
     {
         var lanesM = new float[walking.Foot.EdgeCount];
@@ -144,8 +137,8 @@ internal sealed partial class TownWorld
     /// already on.
     /// </para>
     /// <para>
-    /// <b>From a stop away, which is the figure the walker already states with</b>
-    /// (<see cref="StatesAheadM"/>): what it takes to come to rest at the pace it walks. A walker held here
+    /// <b>From a stop away, which is the figure the walker already plans with</b>
+    /// (<see cref="PlansAheadM"/>): what it takes to come to rest at the pace it walks. A walker held here
     /// comes to rest at the kerb rather than in the road, and no distance of this rule's own is authored.
     /// </para>
     /// </remarks>
@@ -158,7 +151,7 @@ internal sealed partial class TownWorld
         if (_bands.CrossingOfEdge[edge] == PersonFleet.NoCrossing) return PersonFleet.NoWay;
 
         var leftM = EndOfTheWayM(person, Walking) - People.OnWayM[person];
-        return leftM <= StatesAheadM(person) ? edge : PersonFleet.NoWay;
+        return leftM <= PlansAheadM(person) ? edge : PersonFleet.NoWay;
     }
 
 
@@ -192,7 +185,7 @@ internal sealed partial class TownWorld
         if (!People.Walking[person] || People.OnWay[person] == PersonFleet.NoWay) return;
 
         var frontM = People.RadiusM[person];
-        var count = WaysAlongTheWalk(person, frontM + StatesAheadM(person), ways, toTheFarKerb: true);
+        var count = WaysAlongTheWalk(person, frontM + PlansAheadM(person), ways, toTheFarKerb: true);
 
         // From the front of the body: what is behind that is the body's own, at p0.
         var first = 0;
@@ -210,6 +203,8 @@ internal sealed partial class TownWorld
         var hold = _occupancy.BeginHold(_config.PersonStandstillGapM);
         _walkerHold[person] = hold;
         var alongMps = AlongItsWalkMps(person);
+        Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
+        LevelTheWalk(ways[..count], rungs);
 
         var cutLineM = float.PositiveInfinity;
         var cutBy = LaneClaim.Nothing;
@@ -217,7 +212,8 @@ internal sealed partial class TownWorld
         for (var index = first; index < count; index++)
         {
             ref readonly var way = ref ways[index];
-            var reachM = _occupancy.Reach(WalkAsk(person, hold, way, frontM, alongMps), way.Way, way.ToM, way.FromM, out var by);
+            var reachM = _occupancy.Reach(
+                WalkAsk(person, hold, way, rungs[index], frontM, alongMps), way.Way, way.ToM, way.FromM, out var by);
             if (reachM >= way.ToM) continue;
 
             cutLineM = OnTheLineM(way, reachM);
@@ -243,7 +239,7 @@ internal sealed partial class TownWorld
             ref readonly var way = ref ways[index];
             if (way.LineFromM >= cutLineM) break;
 
-            _occupancy.Take(WalkAsk(person, hold, way, frontM, alongMps), way.Way, OnTheWayM(way, cutLineM));
+            _occupancy.Take(WalkAsk(person, hold, way, rungs[index], frontM, alongMps), way.Way, OnTheWayM(way, cutLineM));
         }
 
         _occupancy.EndHold(hold, cutLineM, marginM, cutBy, cutOn >= 0 ? ways[cutOn].Way : LaneOccupancy.NoHold);
@@ -253,10 +249,27 @@ internal sealed partial class TownWorld
     public int WalkHold(int person) => _walkerHold[person];
 
     /// <summary>One piece of a walker's plan as the terms it is asked on.</summary>
-    PlannedAsk WalkAsk(int person, int hold, in LineWay way, float frontM, float alongMps) =>
-        new(
-            hold, person, LaneRoster.Walking, IsTheCrossing(way.Way) ? ClaimPriority.Crossing : ClaimPriority.Firm,
-            way.FromM, way.LineFromM, way.LineFromM - frontM, float.NegativeInfinity, alongMps);
+    PlannedAsk WalkAsk(int person, int hold, in LineWay way, ClaimPriority rung, float frontM, float alongMps) =>
+        new(hold, person, LaneRoster.Walking, rung, way.FromM, way.LineFromM, way.LineFromM - frontM, float.NegativeInfinity, alongMps);
+
+    /// <summary>
+    /// <b>The rung each piece of a walk is held at</b> (TER-5g.1): the paint's on a crossing and on the pavement
+    /// leading to it, and the pavement's everywhere else.
+    /// </summary>
+    /// <remarks>
+    /// <b>The kerb is worth what the zebra is.</b> Held at the pavement's rung, the last metres before the
+    /// paint — which lie over the kerbside lane at a corner — went to any car going straight on, and a walker
+    /// that would have been given the crossing was cut short of it by the traffic the crossing gives way to.
+    /// </remarks>
+    void LevelTheWalk(ReadOnlySpan<LineWay> ways, Span<ClaimPriority> rungs)
+    {
+        var next = ClaimPriority.Firm;
+        for (var index = ways.Length - 1; index >= 0; index--)
+        {
+            if (IsTheCrossing(ways[index].Way)) next = ClaimPriority.Crossing;
+            rungs[index] = next;
+        }
+    }
 
     /// <summary>Whether one of the town's ways is the paint of a zebra, walked from one kerb to the other.</summary>
     bool IsTheCrossing(int way) =>
@@ -275,15 +288,14 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>How far in front of itself a body states ground</b>: what it needs to come to rest at the pace it
-    /// walks, plus the gap it keeps.
+    /// <b>How far in front of itself a walker plans</b>: what it needs to come to rest at the pace it walks,
+    /// plus the gap it keeps.
     /// </summary>
     /// <remarks>
-    /// <b>Sized by the pace it walks at and not by what it is doing</b>, exactly as a driver's statement is:
-    /// a walker stopped behind something states the ground it would set off into, or nothing would ever say
-    /// it meant to move.
+    /// <b>Sized by the pace it walks at and not by what it is doing</b>: a walker stopped behind something
+    /// plans the ground it would set off into, or nothing would ever say it meant to move.
     /// </remarks>
-    float StatesAheadM(int person) =>
+    float PlansAheadM(int person) =>
         StoppingM(_config.PersonWalkSpeedMps, FootGripMps2(person)) + _config.PersonStandstillGapM;
 
     /// <summary>

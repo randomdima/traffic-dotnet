@@ -178,9 +178,9 @@ internal static class SoakProbe
     /// a parked car or a wreck, and none of them is a body that was refused anything.
     /// </para>
     /// <para>
-    /// <b>It is the drivers' alone</b> (PER-26). Nothing hands a walker a distance to be past, so a walker's
-    /// row is nought — the walking side holds ground and states ground, and neither of those is a grant a
-    /// body can be found outside of.
+    /// <b>It is the drivers' alone</b> (PER-26). A walker aims no further than its grant at a pace a stride
+    /// stops, so what puts one past it is a shove — the solver's to report and not this row's — and a
+    /// walker's row is nought.
     /// </para>
     /// </remarks>
     public static void SweepPastTheGrant(TownWorld world, Span<float> into)

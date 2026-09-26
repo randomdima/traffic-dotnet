@@ -326,15 +326,6 @@ internal static class Program
             case "census":
                 TownCensus.Run(map ?? Options.FixtureMap, config);
                 return 0;
-            case "incidents":
-                IncidentProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "wrecks":
-                WreckProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
-            case "grants":
-                GrantProbe.Run(map ?? Options.FixtureMap, config);
-                return 0;
             case "shape":
                 TownShape.Run(map ?? Options.FixtureMap, config);
                 return 0;

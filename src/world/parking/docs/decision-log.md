@@ -104,7 +104,7 @@ Bay ways are walked as finely as the sample budget allows.
 
 The last dozen metres of every leg were outside the ways altogether: a car park was somewhere the town's
 own mechanisms did not reach. The two lines at a bay are laid once with the town as ways of the road, so
-the traffic is held off by the table through [`LineOverlap`](../../road/LineOverlap.cs) like any other. The whole bay was asked for first
+the traffic is held off by the marks ([`RibbonAtlas`](../../road/RibbonAtlas.cs)) like any other. The whole bay was asked for first
 and cannot be had: laid from the mouth in, it takes 0.77 m of the lane's own driven ground, and every parked
 car cut the street beside it — Odesa's parks 17 → 4.
 
@@ -116,5 +116,5 @@ The way out is driven like any way, and a movement is a way and not a turn, so o
 way out and a junction's join. A bay's own claim is a register — the hold begins before anybody has a line
 to hold ground along. Odesa's emergency stops went 121 → 41 and abandonments 14 → 1; legs settled 1 → 8 is
 the price, and it is the yield's to tune rather than the bay's to special-case. A parked neighbour can
-still stand in a way out: `LineOverlap` reads a section from first contact to last, which costs nothing
-while a row is half empty and will bite a full one.
+still stand in a way out: a mark reads a section from first contact to last, which costs nothing while a
+row is half empty and will bite a full one.

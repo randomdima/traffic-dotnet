@@ -1,8 +1,8 @@
 # Roads, junctions and crossings — requirements
 
 The street network: what a road is, what a junction is, where crossings go and what is painted on any of
-it. **How ground is handed out over that network — which movements conflict, who gives way, and what a
-claim is — is [claims.md](claims.md).** The ground itself is
+it. **How ground is held over that network — where the bodies are, what two ways share, who gives way — is
+[claims.md](claims.md).** The ground itself is
 [world/terrain](../../terrain/docs/requirements.md).
 
 ## Roads
@@ -186,8 +186,8 @@ beyond their terrain attributes.
   (TER-4c).
 
 **A crossing with no conflicting traffic to phase against carries no lights** (TLT-3), and what governs an
-uncontrolled one is the claims alone (TER-5e): a body on the paint holds the lane under it, and a car may not
-come to rest on the paint.
+uncontrolled one is the reservations alone (TER-5e): a walker plans the paint to the far kerb at a rung above
+every movement, a body on the paint is on the lane under it, and a car may not come to rest on the paint.
 
 ## Markings
 
@@ -263,13 +263,12 @@ Six rules govern all of it:
   read off thereafter, and **no connector at all between a lane and the one running back down its own
   stretch** (TER-5f). Which turn a connector makes is a fact about the road, not about the car on it.
 - A crossing registry queryable by junction, and a stop-line registry carrying the bars actually painted.
-- A table, filled once from the lines themselves and **indexed by way**, of where each of the town's ways
-  is driven over the others, in both ways' own metres (TER-5c). **There is no register of who is inside a
-  junction**: the table is read as a claim is laid and as a grant is cut, and the answer comes off the claims
-  everything else reads (TER-5c.1). It is laid over every numbered way, so a slice above the road can measure its own
-  ways into it with the same code and be read by the same walk.
-- A lane occupancy index over every way of the town in one numbering (TER-4c.2) — the lanes, the connectors
-  between them, the ways a slice above lays off them and the pavement's — carrying every body and the
-  stretch each has taken, so that **who is in front and how much road is whose** are answered from the
-  town's own claims rather than from geometry (`S-2a`). **Ways are told apart by the kind of ground each is
-  and never by which kind of body is standing on it.**
+- **A ribbon atlas over every way of the town** (TER-4c.4), laid once from the lines and widths each network
+  hands over as data: which ways a collider stands over, and the marks — every pair of ways whose ribbons share
+  ground, in both ways' own metres (TER-5c). **There is no register of who is inside a junction**: the marks
+  are read as a plan is laid, and the answer comes off the reservations everything else reads (TER-5c.1).
+- **The reservations over every way of the town in one numbering** (TER-4c.2) — the lanes, the connectors
+  between them, the ways a slice above lays off them and the pavement's — carrying every body where it is and
+  every plan where it means to be, so that **who is in front and how much road is whose** are answered from
+  the town's own reservations rather than from geometry (`S-2a`). **Ways are told apart by the kind of ground
+  each is and never by which kind of body is standing on it.**

@@ -2,14 +2,12 @@ namespace TrafficSimulation.World.Road;
 
 /// <summary>
 /// <b>What kind of ground one of the town's ways is.</b> Every way is a lane somebody travels down; the
-/// kind says which of the town's surfaces it is laid on and, through that, what travels there
-/// (<see cref="TownWays.ClearsAsideM"/>).
+/// kind says which of the town's surfaces it is laid on and, through that, what travels there.
 /// </summary>
 /// <remarks>
 /// <b>It is a property of the ground and never of the body standing on it</b> (TER-4c.2). A person in a
 /// lane is a stretch of that lane and a car that has mounted a kerb is a stretch of the footway under it,
-/// so nothing reads this to decide whether a claim may be laid — only to say how wide the ground is and
-/// what has to be clear of its line.
+/// so nothing reads this to decide whether a reservation may be laid — only to say how wide the ground is.
 /// </remarks>
 internal enum WayKind : byte
 {
@@ -66,19 +64,9 @@ internal sealed class TownWays
 
     readonly float[] _lengthM;
 
-    readonly float _clearsAsideOnTheRoadM;
-    readonly float _clearsAsideOnAFootwayM;
-
-    /// <param name="clearsAsideOnTheRoadM">
-    /// <b>How far aside of a carriageway way's own line a body has to stand to stop being in the way of its
-    /// traffic</b> (TER-4c.2, <see cref="ClearsAsideM"/>) — half a car, since what travels a way travels
-    /// its line.
-    /// </param>
-    /// <param name="clearsAsideOnAFootwayM">And half a body, which is the same statement over the pavement.</param>
     TownWays(
         int laneCount, int connectorCount, ReadOnlySpan<float> laneLengthM, ReadOnlySpan<float> connectorLengthM,
-        ReadOnlySpan<float> bayLengthM, ReadOnlySpan<float> footwayLengthM, ReadOnlySpan<float> mitreLengthM,
-        float clearsAsideOnTheRoadM, float clearsAsideOnAFootwayM)
+        ReadOnlySpan<float> bayLengthM, ReadOnlySpan<float> footwayLengthM, ReadOnlySpan<float> mitreLengthM)
     {
         _firstConnector = laneCount;
         _firstBay = laneCount + connectorCount;
@@ -91,9 +79,6 @@ internal sealed class TownWays
         bayLengthM.CopyTo(_lengthM.AsSpan(_firstBay));
         footwayLengthM.CopyTo(_lengthM.AsSpan(_firstFootway));
         mitreLengthM.CopyTo(_lengthM.AsSpan(_firstMitre));
-
-        _clearsAsideOnTheRoadM = clearsAsideOnTheRoadM;
-        _clearsAsideOnAFootwayM = clearsAsideOnAFootwayM;
     }
 
     /// <summary>
@@ -102,7 +87,7 @@ internal sealed class TownWays
     /// </summary>
     public static TownWays Of(
         RoadGraph roads, ReadOnlySpan<float> bayLengthM, ReadOnlySpan<float> footwayLengthM,
-        ReadOnlySpan<float> mitreLengthM, float clearsAsideOnTheRoadM, float clearsAsideOnAFootwayM)
+        ReadOnlySpan<float> mitreLengthM)
     {
         // Laid once with the town, so the array is the standing cost of having a table at all.
         var connectorLengthM = new float[roads.ConnectorCount];
@@ -110,7 +95,7 @@ internal sealed class TownWays
 
         return new TownWays(
             roads.LaneCount, roads.ConnectorCount, roads.LaneLengthM, connectorLengthM, bayLengthM,
-            footwayLengthM, mitreLengthM, clearsAsideOnTheRoadM, clearsAsideOnAFootwayM);
+            footwayLengthM, mitreLengthM);
     }
 
     /// <summary>
@@ -118,8 +103,7 @@ internal sealed class TownWays
     /// itself always has the other three blocks, and they are empty here rather than absent, so that
     /// everything reading a way number reads the same numbering either way.
     /// </summary>
-    public static TownWays OfTheRoad(RoadGraph roads, float clearsAsideOnTheRoadM = 0f) =>
-        Of(roads, [], [], [], clearsAsideOnTheRoadM, clearsAsideOnTheRoadM);
+    public static TownWays OfTheRoad(RoadGraph roads) => Of(roads, [], [], []);
 
     /// <summary>
     /// <b>Where the joins begin, for a caller that knows how many lanes there are and holds no table</b> —
@@ -156,18 +140,6 @@ internal sealed class TownWays
 
     /// <summary>Whether this way is one the town's traffic drives, as against one it walks.</summary>
     public bool IsDriven(int way) => way < _firstFootway;
-
-    /// <summary>
-    /// <b>How far aside of this way's own line a body has to stand to be got past</b> (TER-4c.2,
-    /// <see cref="LaneOccupancy.StandsAside"/>) — half the width of whatever travels there, which is half a
-    /// car on anything the traffic drives and half a body on anything it walks.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is asked of the line and not of the band.</b> A body a metre inside the edge of a three-metre
-    /// lane has left two metres of it clear and none of them is any use to a car whose own line runs through
-    /// the body; one that clips the kerbside edge has left the line alone.
-    /// </remarks>
-    public float ClearsAsideM(int way) => IsDriven(way) ? _clearsAsideOnTheRoadM : _clearsAsideOnAFootwayM;
 
     /// <summary>A carriageway lane's own way number. The lanes are numbered first, so the two are one integer.</summary>
     public int OfRoadLane(int lane) => lane;

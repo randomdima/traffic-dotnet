@@ -226,14 +226,6 @@ internal sealed partial class SimConfig
     public float BuildingWayInM => WalkingLaneAtM(LanesPerPavement - 1);
 
     /// <summary>
-    /// <b>How far clear of a walking lane's own line something has to stand for a walk to get past it</b>
-    /// (TER-4c.2) — the pavement's <see cref="LanePassableAsideM"/>, and the same statement: half a body,
-    /// because what walks a lane walks its line and takes half its width either side of it. Anything nearer
-    /// than this is in the way, however much of the band it has left over.
-    /// </summary>
-    public float WalkPassableAsideM => PersonDiameterM * 0.5f;
-
-    /// <summary>
     /// <b>How much deeper into the verge the walk reaches at a corner than down a straight</b>: half a
     /// walk, which covers the 0.41 of one a right angle grown on the full width actually stands proud by
     /// (TER-3c.3). It is what something laid near a kerb is asked to stand clear of (GEN-6a).
@@ -297,13 +289,6 @@ internal sealed partial class SimConfig
     /// </summary>
     public float RoadFootprintM => RoadWidthM + (PavementWidthM * 2f);
 
-    /// <summary>
-    /// <b>How far past a way's own edge a body has to reach before it is on that way</b> (TER-4c.2): the
-    /// line is crossed and not merely touched, which is what keeps a wing mirror over the paint out of the
-    /// next lane's claims (<see cref="RoadFigures.CrossesOntoAWayInCarWidths"/>).
-    /// </summary>
-    public float CrossesOntoAWayM => Car.WidthM * Road.CrossesOntoAWayInCarWidths;
-
     /// <summary>How far apart the ribbon atlas's points stand (<see cref="RoadFigures.RibbonLatticeInCarWidths"/>).</summary>
     public float RibbonLatticeStepM => Car.WidthM * Road.RibbonLatticeInCarWidths;
 
@@ -312,13 +297,6 @@ internal sealed partial class SimConfig
 
     /// <summary>Half the carriageway is one direction's, and a lane's own line is the middle of that.</summary>
     public float LaneOffsetM => LaneWidthM * 0.5f;
-
-    /// <summary>
-    /// <b>How far clear of a lane's own line something has to stand for the traffic to drive past it</b>
-    /// (TER-4c.2): half a car, because what drives a lane drives its line and takes half its width either
-    /// side of it. Anything nearer than this is in the way, however much of the lane it has left over.
-    /// </summary>
-    public float LanePassableAsideM => Car.WidthM * 0.5f;
 
     /// <summary>The ground the roads share: one road width.</summary>
     public float IntersectionReachM => RoadWidthM;
@@ -421,14 +399,6 @@ internal sealed partial class SimConfig
     /// </summary>
     public float ArmPaintM =>
         Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM + Road.StopBarThicknessM;
-
-    /// <summary>
-    /// How near two lines through a junction pass before one is driven over the other (TER-5c): a car's
-    /// own width, because a line is where a body is driven and two lines a body's width apart are two
-    /// bodies touching. Half the carriageway at the shipped figures, so two opposing straights clear each
-    /// other by a metre.
-    /// </summary>
-    public float JunctionCrossingClearanceM => Car.WidthM;
 
     /// <summary>
     /// The tightest circle a roundabout may be driven round (GEN-19): what its own design speed affords on

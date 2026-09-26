@@ -80,62 +80,93 @@ public class WalkingTests
     }
 
     /// <summary>
-    /// <b>PER-26's second claim: what a walker states is ground in front of it.</b> A statement runs from
-    /// the body's own front to where it is aiming, so no stretch of it reaches back over the ground the
-    /// body is standing on — which is the one thing that would make it two answers about one piece of the
-    /// world.
+    /// <b>A walker is a body on the way it is walking</b>, over the stretch its own body takes of it and at
+    /// the place it stands (PER-26) — the one way its reservation must never be missing from, however finely
+    /// the atlas's lattice happens to fall under a body narrower than it.
     /// </summary>
-    /// <remarks>
-    /// <b>How far it reaches is not asked</b>, because it is data and asserting it would be the arithmetic
-    /// written out twice (VER-12). <b>And a statement cut to nothing is the ordinary answer</b> — stronger
-    /// ground in front takes it (TER-5g) — so what is asked is where the ones that survive begin.
-    /// </remarks>
     [Fact]
-    public void WhatAWalkerStatesBeginsInFrontOfIt()
+    public void AWalkerIsABodyOnTheWayItWalks()
     {
         using var world = Walking(out var afoot);
 
-        var stated = 0;
+        // Read straight off a rebuild: a walk moves its body's place on its way during the tick, and what is
+        // asked is where the two stood when the reservations were laid.
+        world.RebuildProximityIndex();
+
+        Span<LaneClaim> bodies = stackalloc LaneClaim[MostClaimsOnAWay];
+        foreach (var person in afoot)
+        {
+            var way = world.People.OnWay[person];
+            if (way == PersonFleet.NoWay) continue;
+
+            var atM = world.People.OnWayM[person];
+            var found = false;
+            var count = world.Occupancy.CopyBodiesTo(way, bodies);
+            for (var slot = 0; slot < count && !found; slot++)
+            {
+                found = bodies[slot].Of == LaneRoster.Walking && bodies[slot].Occupant == person
+                        && bodies[slot].OnItsLine && bodies[slot].FromM <= atM && bodies[slot].ToM >= atM;
+            }
+
+            Assert.True(found, $"walker {person} walks way {way} at {atM:0.00} m and is no body there");
+        }
+    }
+
+    /// <summary>
+    /// <b>PER-26's second reservation: what a walker plans is ground in front of it.</b> A plan runs from the
+    /// body's own front down its walk, so no piece of it reaches back over the ground the body is standing on
+    /// — which is the one thing that would make it two answers about one piece of the world.
+    /// </summary>
+    /// <remarks>
+    /// <b>How far it reaches is not asked</b>, because it is data and asserting it would be the arithmetic
+    /// written out twice (VER-12). <b>And a plan cut to nothing is the ordinary answer</b> — stronger ground
+    /// in front takes it (TER-5e) — so what is asked is where the ones that survive begin.
+    /// </remarks>
+    [Fact]
+    public void WhatAWalkerPlansBeginsInFrontOfIt()
+    {
+        using var world = Walking(out var afoot);
+
+        var planned = 0;
         foreach (var person in afoot)
         {
             var way = world.People.OnWay[person];
             var alongM = world.People.OnWayM[person];
 
-            foreach (var claim in ClaimsOf(world, way, person, ClaimPriority.Soft))
+            foreach (var piece in PlannedOf(world, way, person))
             {
                 Assert.True(
-                    claim.FromM >= alongM,
-                    $"walker {person} stands at {alongM:F1} m of way {way} and states from {claim.FromM:F1} m");
-                stated++;
+                    piece.FromM >= alongM,
+                    $"walker {person} stands at {alongM:F1} m of way {way} and plans from {piece.FromM:F1} m");
+                planned++;
             }
         }
 
-        Assert.True(stated > 0, "nobody in the town was walking a way of its own, so nothing was stated");
+        Assert.True(planned > 0, "nobody in the town was walking a way of its own, so nothing was planned");
     }
 
     /// <summary>
-    /// <b>PER-26: a body on no way of the network states nothing</b>, there being no way to state it on. It
-    /// is the other half of the walk off the network (PER-25) — such a body is walking straight at the
-    /// pavement over ground the town does not number, and what it holds while it does is the box it is
-    /// standing in.
+    /// <b>PER-26: a body on no way of the network plans nothing</b>, there being no way to plan it on. It is
+    /// the other half of the walk off the network (PER-25) — such a body is walking straight at the pavement
+    /// over ground the town does not number, and what it holds while it does is its body.
     /// </summary>
     [Fact]
-    public void ABodyOnNoWayOfTheNetworkStatesNothing()
+    public void ABodyOnNoWayOfTheNetworkPlansNothing()
     {
         using var world = Walking(out _);
 
         Span<LaneClaim> claims = stackalloc LaneClaim[MostClaimsOnAWay];
         foreach (var way in world.Occupancy.OccupiedWays)
         {
-            var count = world.Occupancy.CopyTo(way, claims);
+            var count = world.Occupancy.CopyPlannedTo(way, claims);
             for (var at = 0; at < count; at++)
             {
                 ref readonly var claim = ref claims[at];
-                if (claim.Of != LaneRoster.Walking || claim.Priority != ClaimPriority.Soft) continue;
+                if (claim.Of != LaneRoster.Walking) continue;
 
                 Assert.True(
                     world.People.OnWay[claim.Occupant] != PersonFleet.NoWay,
-                    $"walker {claim.Occupant} is on no way of the network and states {way}");
+                    $"walker {claim.Occupant} is on no way of the network and plans {way}");
             }
         }
     }
@@ -295,9 +326,9 @@ public class WalkingTests
     }
 
     /// <summary>
-    /// <b>PER-27: a walker walking a crossing reserves it to the far kerb.</b> The paint in front of the
-    /// body on the stretch it is taking, and the band of every lane that paint is laid across, are
-    /// stretches of this walker's at p7 — the far kerb spoken for from the moment the walk is on the zebra,
+    /// <b>PER-27: a walker walking a crossing plans it to the far kerb.</b> The paint in front of the body on
+    /// the stretch it is taking, and through the marks the section of every lane that paint lies over, are
+    /// this walker's at the paint's rung — the far kerb spoken for from the moment the walk is on the zebra,
     /// and not only the metre under the feet.
     /// </summary>
     /// <remarks>
@@ -319,25 +350,26 @@ public class WalkingTests
         WalkTheCrossing(world, person, edge, lengthM * 0.5f);
 
         Assert.True(
-            Holds(world, way, person, ClaimPriority.Reserved, lengthM * 0.75f),
-            $"walker {person} is half way over crossing way {way} and has not reserved the rest of it");
+            Holds(world, way, person, ClaimPriority.Crossing, lengthM * 0.75f),
+            $"walker {person} is half way over crossing way {way} and has not planned the rest of it");
 
-        // And the carriageway under it, which is where the traffic meets the reservation at all.
-        var lane = world.Ways.OfRoadLane(world.Bands.On(edge)[0].Lane);
+        // And the carriageway it has still to cross, which is where the traffic meets the plan at all: the
+        // last lane under the paint, the one a walker half way over has not reached.
+        var lane = world.Ways.OfRoadLane(world.Bands.On(edge)[^1].Lane);
         Assert.True(
-            ClaimsOf(world, lane, person, ClaimPriority.Reserved).Count > 0,
-            $"walker {person} walks crossing way {way} and has reserved no band of lane way {lane} under it");
+            ClaimsOf(world, lane, person, ClaimPriority.Crossing).Count > 0,
+            $"walker {person} walks crossing way {way} and holds no section of lane way {lane} under it");
     }
 
     /// <summary>
-    /// <b>PER-27: what a walker reserves is the stretch of paint it is taking and not the crossing's other
+    /// <b>PER-27: what a walker plans is the stretch of paint it is taking and not the crossing's other
     /// one.</b> A zebra is two walking lanes over one carriageway (WLK-15) and the second of them is the
-    /// walk back, which this body is not on — so nothing of it is this walker's at p7.
+    /// walk back, which this body is not on — so nothing of it is this walker's plan.
     /// </summary>
     /// <remarks>
     /// <b>It is what keeps the cut at the body's near edge cut.</b> The two lanes run the same paint
-    /// opposite ways, so a reservation laid on both covered from the other one's far end exactly the half
-    /// the walker had already crossed.
+    /// opposite ways, so a plan laid on both covered from the other one's far end exactly the half the walker
+    /// had already crossed.
     /// </remarks>
     [Fact]
     public void AWalkerWalkingACrossingLeavesItsOtherStretchAlone()
@@ -356,15 +388,15 @@ public class WalkingTests
 
         var twin = world.Ways.OfFootway(back);
         Assert.True(
-            ClaimsOf(world, twin, person, ClaimPriority.Reserved).Count == 0,
-            $"walker {person} walks crossing way {way} and has reserved the walk back over it,"
+            PlannedOf(world, twin, person).Count == 0,
+            $"walker {person} walks crossing way {way} and plans the walk back over it,"
             + $" way {twin}, which carries {WhatIsOn(world, twin)}");
     }
 
     /// <summary>
-    /// <b>PER-27: a walker at a kerb stands off a crossing the traffic has.</b> The reservation is asked of
-    /// the claims, and a wheeled body on the paint is the answer that a walker still on the corner may not
-    /// step out — which is the whole of what the reservation buys, since it refuses the traffic nothing.
+    /// <b>PER-27: a walker at a kerb stands off a crossing the traffic has.</b> The crossing is the far kerb
+    /// or none, and a wheeled body on the paint is ground the walk cannot be had over — so a walker still on
+    /// the corner is granted nothing past it and does not step out.
     /// </summary>
     /// <remarks>
     /// <b>Asked of a crossing nothing is on</b>, so that the clear answer is the case's own construction
@@ -383,8 +415,8 @@ public class WalkingTests
         var person = afoot[0];
         StandAtTheKerbOf(world, person, from, edge);
         Assert.Equal(world.Bands.CrossingOf(edge), world.People.OnCrossing[person]);
-        Assert.False(
-            world.People.WaitsToCross[person],
+        Assert.True(
+            world.People.GrantM[person] > 0f,
             $"walker {person} waits at the kerb of crossing {edge} with nothing on it");
 
         // Square across the paint, which is how a car comes to be standing on one.
@@ -394,9 +426,9 @@ public class WalkingTests
         StandTheBodyAt(world, on.PositionM, MathF.Atan2(across.Y, across.X));
 
         Assert.True(
-            world.People.WaitsToCross[person],
-            $"walker {person} is at the kerb of crossing {edge} with a car standing on it and does not wait"
-            + $" — paint way {way} carries {WhatIsOn(world, way)}");
+            world.People.GrantM[person] <= 0f,
+            $"walker {person} is at the kerb of crossing {edge} with a car standing on it and is granted "
+            + $"{world.People.GrantM[person]:0.00} m — paint way {way} carries {WhatIsOn(world, way)}");
 
         // And the wait is the walk standing still: the body aims at its own feet, so nothing steps onto the
         // paint while somebody else is on it.
@@ -590,6 +622,22 @@ public class WalkingTests
         }
 
         return false;
+    }
+
+    /// <summary>Every piece of one way this walker plans on its own walk, whatever its rung.</summary>
+    static List<LaneClaim> PlannedOf(TownWorld world, int way, int person)
+    {
+        var found = new List<LaneClaim>();
+        if (way == PersonFleet.NoWay) return found;
+
+        var claims = new LaneClaim[MostClaimsOnAWay];
+        var count = world.Occupancy.CopyPlannedTo(way, claims);
+        for (var at = 0; at < count; at++)
+        {
+            if (claims[at].Occupant == person && claims[at].Of == LaneRoster.Walking && !claims[at].Linked) found.Add(claims[at]);
+        }
+
+        return found;
     }
 
     /// <summary>Every stretch of one way this walker holds at one rank.</summary>
