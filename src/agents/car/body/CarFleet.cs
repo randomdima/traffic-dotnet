@@ -71,9 +71,7 @@ internal sealed class CarFleet
         Array.Fill(TurnsBackOn, NoLane);
         ClaimFromM = new float[capacity];
         ClaimToM = new float[capacity];
-        StatedToM = new float[capacity];
-        StatedGrantM = new float[capacity];
-        Array.Fill(StatedGrantM, float.PositiveInfinity);
+        CommittedToM = new float[capacity];
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
         GrantCutBy = new Control.HeadwayKind[capacity];
@@ -228,18 +226,16 @@ internal sealed class CarFleet
     /// </summary>
     public bool[] TurningAtTheBox { get; }
 
+    /// <summary>
+    /// <b>Whether the road this car was granted reaches into that box</b> — for the read-out and the
+    /// instruments. Nothing decides on it: the grant is what the car drives to.
+    /// </summary>
     public bool[] BoxIsOurs { get; }
 
     /// <summary>
-    /// <b>Whether this car is past the point it could stop short of that box</b> — going in whatever
-    /// anything says, and therefore holding the ground of its movement against everything, whatever right
-    /// of way anything else has (TER-5e).
+    /// <b>Whether this car is past the point it could stop short of that box</b> — an instrument's reading of
+    /// the same relation the plan is laid on (<see cref="CommittedToM"/>).
     /// </summary>
-    /// <remarks>
-    /// It is written where it is decided (<c>JunctionStopM</c>) and read where the movement's ground is laid
-    /// as a claim, so that <em>committed</em> is one relation stated once rather than a stopping
-    /// distance worked out twice from two different speeds.
-    /// </remarks>
     public bool[] CommittedToTheBox { get; }
 
     /// <summary>
@@ -252,25 +248,12 @@ internal sealed class CarFleet
     public DrivenLine[] Line { get; }
 
     /// <summary>
-    /// <b>The way of the movement this car is committed to making</b>, or <see cref="NoWay"/>. <b>At most
-    /// one</b>: the one behind is dropped as soon as the car is queueing for the next.
+    /// <b>The way through a box this car has been given</b> — the movement its plan won whole the last time the
+    /// plans were laid — or <see cref="NoWay"/>. <b>Plan state</b> (TER-4c.1): it is written when the answer
+    /// is read and nowhere in the middle of anybody's decision, and what it buys is that the ground on the
+    /// way to and through that box is held (<see cref="World.Road.LaneClaim.Held"/>) — kept against an equal
+    /// movement that came nearer since, and committed whole once the car can no longer stop short of it.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It is the name of a claim and not a permission.</b> What the car actually holds is ground —
-    /// the runs of that way the others are driven over it at
-    /// (<see cref="World.Road.WayCrossings"/>) — claimed from this field every tick.
-    /// So two cars crossing one junction without being driven over
-    /// each other's ground take one each, and nothing about a junction is refused by anything other than
-    /// what is standing on the metres wanted.
-    /// </para>
-    /// <para>
-    /// <b>A way and not a turn, because a junction is not the only movement of this shape.</b> A car backing
-    /// out of a bay is committed to the bay's own way out exactly as a car turning is committed to its join
-    /// — it is driven over the carriageway, it takes the ground where it is driven over it, and it gives it
-    /// back where the body is past it. One field says which, and the same three procedures serve both.
-    /// </para>
-    /// </remarks>
     public int[] MovementWay { get; }
 
     /// <summary>
@@ -313,44 +296,24 @@ internal sealed class CarFleet
     public int[] TurnsBackOn { get; }
 
     /// <summary>
-    /// <b>The stretch of its own line this car is committed to</b>, from its own tail to where its nose
-    /// comes to rest if it holds this pedal until its next decision and then stops. In the line's metres,
-    /// and meaningful only while the index is being laid — the grant taken off it is <see cref="AuthorityM"/>.
+    /// <b>The stretch of its own line this car plans to use</b> (TER-4c.1): from its nose to where it means
+    /// to be able to stop, in the line's metres, as the last rebuild asked for it — the grant taken off it is
+    /// <see cref="AuthorityM"/>. Both are the nose for a car that plans nothing.
     /// </summary>
     public float[] ClaimFromM { get; }
 
     public float[] ClaimToM { get; }
 
     /// <summary>
-    /// <b>And the stretch beyond that one it means to use</b> (TER-5g): where its nose comes to rest if it
-    /// takes this line up to the speed it is planning for, holds that speed for as long as it says it will,
-    /// and then stops. In the line's metres, never behind <see cref="ClaimToM"/> and never past the end of
-    /// the line the car actually has.
+    /// <b>Where the ground this car can no longer stop short of ends</b>, in the line's metres — the part of
+    /// its plan held at <see cref="World.Road.ClaimPriority.Committed"/>, which nothing takes.
     /// </summary>
-    /// <remarks>
-    /// <b>It is the ground a stronger movement is entitled to take</b>, and the whole of what the car
-    /// states about where it is going. What comes back off it is the same grant the committed claim gets,
-    /// because the two are one ask read to two edges.
-    /// </remarks>
-    public float[] StatedToM { get; }
+    public float[] CommittedToM { get; }
 
     /// <summary>
-    /// <b>How much of that the answer left it</b> — the stated claim's own grant, from the nose, and
-    /// infinite where nothing took any of it.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is not <see cref="AuthorityM"/> and must not be folded into it.</b> The two are answered over
-    /// different reaches: the grant is taken inside the road the car means to be keeping, and this is taken
-    /// out to the end of what was stated — so a cut found only out there shortens what the car is saying
-    /// without touching what it is committed to, and no car brakes for a junction the gate has not let it
-    /// near. Nothing the driver reads is on it; what it feeds is the claim.
-    /// </remarks>
-    public float[] StatedGrantM { get; }
-
-    /// <summary>
-    /// <b>How far ahead of its nose the car was granted room to stop</b> — its own asked-for stretch cut at
-    /// the near edge of the nearest one already spoken for. Infinite where nothing cut it: an empty road, or
-    /// a car that is not under way at all.
+    /// <b>How far ahead of its nose the car was granted room to stop</b> — its plan as it survived every
+    /// body and every other plan, less the ground it keeps off whatever cut it. Infinite where nothing cut
+    /// it: an empty road, or a car that is not under way at all.
     /// </summary>
     /// <remarks>
     /// It is a distance from the nose and is walked in by the ground covered since it was granted: a car
@@ -366,9 +329,9 @@ internal sealed class CarFleet
     /// <remarks>
     /// <b>The reason a body is being held is a fact about what is in front and not about the distance</b>: a
     /// queue is followed at a following time and a wreck is only stopped short of, and the two are the same
-    /// number of metres. The walk worked it out to make the cut (<see cref="World.Road.LaneOccupancy.GrantedOn"/>
-    /// hands the stretch back), so anything that has to say <em>why</em> a car is held reads it rather than
-    /// searching for the answer again — the speed profile's following term, the read-out and the stuck probe.
+    /// number of metres. The laying knew it when it made the cut, so anything that has to say <em>why</em> a
+    /// car is held reads it rather than searching for the answer again — the speed profile's following term,
+    /// the read-out and the stuck probe.
     /// </remarks>
     public Control.HeadwayKind[] GrantCutBy { get; }
 

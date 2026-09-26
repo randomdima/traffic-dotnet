@@ -306,7 +306,7 @@ internal static class CarFollower
         // piece at a time and not a sample at a time: a piece is one constant curvature by
         // construction, so one corner speed per arc is the whole answer and costs the arc rather than
         // the metre.
-        var rangeM = alongMps * alongMps / (2f * brakingMps2) + leadM;
+        var rangeM = (alongMps * alongMps / (2f * brakingMps2)) + leadM + lookaheadM;
         var startM = 0f;
         foreach (var arc in line)
         {
@@ -318,8 +318,9 @@ internal static class CarFollower
 
                 // A corner is reached by the *lead point* before it is reached by the car, and the
                 // wheel is already turning into it by then. Counting the lookahead as well as the
-                // reaction lead is what stops a car arriving at the corner speed a lookahead too late,
-                // which is a car on the pavement at the exit of every tight bend.
+                // reaction lead — in the range as well as the approach — is what stops a car arriving
+                // at the corner speed a lookahead too late, which is a car on the pavement at the exit of
+                // every tight bend.
                 Bind(
                     ref targetMps,
                     ApproachMps(CornerMps(arc.Curvature, lateralMps2), aheadM - leadM - lookaheadM, brakingMps2),

@@ -315,13 +315,13 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The stretch of lane this police car is holding closed</b> (SRV-6), laid with the rest of the
-    /// claims: ground granted and not reached, at the closure's own rung.
+    /// plans: a hold of its own at the closure's own rung, over the scene and whatever stands in it.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing reading it learns a new word.</b> It is refused by whoever <see cref="LaneOccupancy.Binds"/>
-    /// says it refuses — every ordinary movement, and not an ambulance or an evacuator answering a call
-    /// (AMB-4, EVA-4). That is the whole of "the police give way to the other services", and neither of
-    /// them is told a police car exists.
+    /// <b>Nothing reading it learns a new word.</b> It keeps its ground against whatever
+    /// <see cref="LaneOccupancy.Beats"/> says it beats — every ordinary movement, and not an ambulance or an
+    /// evacuator answering a call (AMB-4, EVA-4), nor a car that can no longer stop. That is the whole of
+    /// "the police give way to the other services", and neither of them is told a police car exists.
     /// </remarks>
     void CloseTheRoad(int car)
     {
@@ -334,10 +334,19 @@ internal sealed partial class TownWorld
         var lane = _roads.NearestLane(TheSceneM(casualty, wreck), out var alongM);
         if (lane < 0) return;
 
-        var closedM = _config.PoliceClosureM;
-        _occupancy.ClaimAhead(
-            _ways.OfRoadLane(lane), alongM - closedM, alongM + closedM, 0f, car,
-            Road.ClaimPriority.Closed, Road.LaneRoster.Driving);
+        var way = _ways.OfRoadLane(lane);
+        var fromM = MathF.Max(0f, alongM - _config.PoliceClosureM);
+        var toM = MathF.Min(_ways.LengthM(way), alongM + _config.PoliceClosureM);
+        if (toM <= fromM) return;
+
+        // The scene is inside the closure and so is whatever stands there: the hold is laid over the bodies
+        // it closes the road round, and given up only to a plan that beats it.
+        var hold = _occupancy.BeginHold(0f);
+        var ask = new Road.PlannedAsk(
+            hold, car, Road.LaneRoster.Driving, Road.ClaimPriority.Closed, fromM, 0f, 0f, float.NegativeInfinity, 0f);
+        var reachM = _occupancy.Reach(ask, way, toM, toM, out var by);
+        _occupancy.Take(ask, way, reachM);
+        _occupancy.EndHold(hold, reachM < toM ? reachM - fromM : float.PositiveInfinity, 0f, by);
     }
 
     /// <summary>

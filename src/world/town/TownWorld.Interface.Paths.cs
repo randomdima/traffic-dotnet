@@ -149,7 +149,7 @@ internal sealed partial class TownWorld
         var goalCount = walking.GoalsAt(goalM, search.Goals);
         if (entryCount == 0 || goalCount == 0) return 0;
 
-        var linkCount = search.Plan(entryCount, goalCount, _surcharges, out var goalSlot);
+        var linkCount = search.Plan(entryCount, goalCount, _walkSurcharges, out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return 0;
 
         var links = search.Links(linkCount);

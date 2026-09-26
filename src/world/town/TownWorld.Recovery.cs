@@ -693,7 +693,6 @@ internal sealed partial class TownWorld
         Cars.Line[caught] = default;
         Cars.Reroutes[caught] = 0;
         _driveProgress.Restart(caught);
-        DropTheMovement(caught);
         Cars.Command[caught] = Cars.Broken[caught] ? DriveCommand.Locked : DriveCommand.Idle;
 
         CoupleUp(car, caught);

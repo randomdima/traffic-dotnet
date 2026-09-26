@@ -61,7 +61,8 @@ internal sealed class PersonFleet
         Array.Fill(OnCrossing, NoCrossing);
         OnCrossingWay = new int[capacity];
         Array.Fill(OnCrossingWay, NoWay);
-        WaitsToCross = new bool[capacity];
+        GrantM = new float[capacity];
+        Array.Fill(GrantM, float.PositiveInfinity);
         GoalM = new Vector2[capacity];
         Stage = new TripStage[capacity];
         DestinationBuilding = new int[capacity];
@@ -166,8 +167,7 @@ internal sealed class PersonFleet
     /// <remarks>
     /// <b>It is what a walker wants of a zebra and not where its feet are</b> (PER-27): a crossing of this
     /// town runs kerb to kerb, so a body that is on one is already in the road and anything it asked for
-    /// there it would have to ask standing on the carriageway. <see cref="WaitsToCross"/> is the half of it
-    /// that is only ever true off the paint.
+    /// there it would have to ask standing on the carriageway.
     /// </remarks>
     public int[] OnCrossing { get; }
 
@@ -185,17 +185,15 @@ internal sealed class PersonFleet
     public int[] OnCrossingWay { get; }
 
     /// <summary>
-    /// <b>Whether the traffic has the crossing this walker is about to step onto</b> (PER-27): a wheeled
-    /// body, or road a driver has been granted, over the paint or a lane beneath it — and the walker stands
-    /// where it is until there is none. <b>Asked where the reservation is laid, of the same metres</b>, so
-    /// it is one reading of the ground the walker wants.
+    /// <b>How far down its walk this walker was granted room to stop</b> (PER-26): its plan as it survived
+    /// every body and every other plan, from the front of its body, less the gap it keeps — infinite where
+    /// nothing cut it. <b>A walker's counterpart of a driver's grant</b>, and what it walks to.
     /// </summary>
     /// <remarks>
-    /// <b>Only ever true of a body that has not stepped onto the paint.</b> A walker already on a zebra
-    /// carries on: half a crossing is where nobody may be left standing, and the ground under it is its own
-    /// at p0 whatever anybody else wanted (PER-26).
+    /// <b>A walker refused a crossing stands at the kerb</b> (PER-27): its plan runs to the far kerb or none,
+    /// so a crossing the traffic has leaves it nothing past the near one.
     /// </remarks>
-    public bool[] WaitsToCross { get; }
+    public float[] GrantM { get; }
 
     /// <summary>
     /// PER-9's own state: what this person is doing about the trip they are on. <b>Observable</b> — it
@@ -331,7 +329,7 @@ internal sealed class PersonFleet
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
         OnCrossingWay[person] = NoWay;
-        WaitsToCross[person] = false;
+        GrantM[person] = float.PositiveInfinity;
         Stage[person] = TripStage.StandingBy;
         DestinationBuilding[person] = NoBuilding;
         TimerS[person] = 0f;
@@ -402,6 +400,6 @@ internal sealed class PersonFleet
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
         OnCrossingWay[person] = NoWay;
-        WaitsToCross[person] = false;
+        GrantM[person] = float.PositiveInfinity;
     }
 }

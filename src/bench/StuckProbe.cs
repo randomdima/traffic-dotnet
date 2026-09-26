@@ -256,13 +256,14 @@ internal static class StuckProbe
                 $"{cars.Reroutes[car]}, speed {cars.AlongMps[car]:F2} m/s, off-line {cars.OffLineM[car]:F2} m, " +
                 $"drivable ground {world.Terrain.At(rearAxleM).Drivable}");
             Console.WriteLine(
-                $"    grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]}, headway " +
+                $"    grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]} {WhatHeld(world, world.DriveHold(car))}, headway " +
                 $"{cars.Context[car].HeadwayM:F2} m of {cars.Context[car].Ahead} at " +
                 $"{cars.Context[car].HeadwaySpeedMps:F2} m/s, stop at {cars.Context[car].StopAtM:F2} m, " +
                 $"crossing stop {cars.Context[car].CrossingStopM:F2} m");
             Console.WriteLine(
                 $"    line {cars.Line[car].ArcCount} arcs, progress {cars.ProgressM[car]:F1} m, lane " +
-                $"{cars.LaneOf(car)}, line way {cars.LineWay[car]}, movement way {cars.MovementWay[car]}, " +
+                $"{cars.LaneOf(car)}, line way {cars.LineWay[car]}, plan {cars.ClaimFromM[car]:F1}–{cars.ClaimToM[car]:F1} m " +
+                $"committed to {cars.CommittedToM[car]:F1} m, " +
                 $"tail way {cars.TailWay[car]}, box in {cars.ToTheBoxM[car]:F1} m " +
                 $"ours {cars.BoxIsOurs[car]}, inside {cars.InsideTheBox[car]}, committed {cars.CommittedToTheBox[car]}, " +
                 $"light in {cars.LightAheadM[car]:F1} m");
@@ -335,6 +336,7 @@ internal static class StuckProbe
                 $"    aiming {(people.DestinationM[person] - people.PositionM[person]).Length():F2} m away at " +
                 $"({people.DestinationM[person].X:F1}, {people.DestinationM[person].Y:F1}), at " +
                 $"{people.VelocityMps[person].Length():F2} m/s");
+            Console.WriteLine($"    grant {people.GrantM[person]:F2} m {WhatHeld(world, world.WalkHold(person))}");
             Neighbours(world, people.PositionM[person]);
         }
     }
@@ -532,6 +534,23 @@ internal static class StuckProbe
         }
 
         Console.WriteLine($"    {rings} ring(s) of cars each waiting on the next");
+    }
+
+    /// <summary>
+    /// <b>What cut a hold, and where</b> — the reservation it ended at, whose it is, how strong, and on which
+    /// way — or that nothing did.
+    /// </summary>
+    static string WhatHeld(TownWorld world, int hold)
+    {
+        var endsAtM = world.Occupancy.HoldEndsAtM(hold, out _, out var by);
+        if (float.IsPositiveInfinity(endsAtM)) return "(its plan whole)";
+
+        var way = world.Occupancy.HoldCutOn(hold);
+        var onWay = way < 0 ? "no way" : $"{world.Ways.KindOf(way)} way {way}";
+        return by.Found
+            ? $"(a {(by.HasBody ? "body" : by.Linked ? "marked section" : "plan")} of {by.Of} {by.Occupant} at " +
+              $"{by.Priority}{(by.OnItsLine ? ", on its line" : "")}, {by.FromM:F1}–{by.ToM:F1} m of {onWay})"
+            : $"(a place, on {onWay})";
     }
 
     /// <summary>What is standing round the body, because a body that stopped is usually stopped by another one.</summary>

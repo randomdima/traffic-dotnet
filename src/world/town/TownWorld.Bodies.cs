@@ -307,7 +307,6 @@ internal sealed partial class TownWorld
         Cars.Line[car] = default;
         Cars.Reroutes[car] = 0;
         _driveProgress.Restart(car);
-        DropTheMovement(car);
 
         // An ambulance's stretcher is emptied into the road before anything else: a casualty inside a
         // wreck is a person nothing will ever come for again (AMB-7).

@@ -77,9 +77,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The paint each lane meets — its stop bar and the crossings across it — projected once at load.</summary>
     readonly LaneFurniture _furniture;
 
-    /// <summary>And the town's furniture, as the stretches of lane it stands on — claimed every tick.</summary>
-    readonly StandingGround _standing;
-
     /// <summary>Whether each car's nose was behind its approach's painted bar last tick — the other half of a crossing event.</summary>
     readonly bool[] _behindTheBar;
 
@@ -89,7 +86,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The walking side's own, which enters a stretch from either end.</summary>
     readonly RouteSearch _walkSearch;
 
+    /// <summary>What the driving network's links cost beyond their length: the ways a driver was blocked entering.</summary>
     readonly LinkSurcharges _surcharges;
+
+    /// <summary>
+    /// <b>And the walking network's own</b>, which nothing marks. A link is an index into its own network, so
+    /// a table shared with the drivers priced whichever walking link had a blocked driving link's number.
+    /// </summary>
+    readonly LinkSurcharges _walkSurcharges;
 
     /// <summary>Where the interface's own plans are kept, and the searches they are made over — <see cref="RouteBeyond"/>.</summary>
     readonly SelectionPaths _paths;
@@ -118,9 +122,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>One tick's working set for the fleet's wheels; it survives no tick.</summary>
     readonly WheelScratch _wheels;
 
-    /// <summary>What each body last laid of the ground it stands on, and the pose it was laid from — <see cref="PlaceTheBody"/>.</summary>
-    readonly LyingClaims _lying;
-
     readonly CarBuilds _builds;
 
     readonly ulong _agentSeed;
@@ -138,13 +139,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>The ways at every bay, laid with the town like the joins through a junction.</summary>
     readonly BayWays _bayWays;
-
-    /// <summary>
-    /// <b>The town's whole table of what is driven over what</b>: the road's own, grown by the ways the bays
-    /// lay off it. Every decision reads this and never <see cref="RoadGraph.Crossings"/>, which knows only
-    /// the junctions it was built from.
-    /// </summary>
-    readonly WayCrossings _crossings;
 
     /// <summary>The ground of every way, and which ways share it (<see cref="RibbonAtlas"/>).</summary>
     readonly RibbonAtlas _atlas;
@@ -221,6 +215,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _driving = DrivingNetwork.Build(_roads, BayWays.WhereALegMayTurn(_roads, _bayWays), plan, config);
         _driveSearch = new RouteSearch(_driving.Graph, mostEntries: 1, mostGoals: 2, MostRunsInARoute);
         _surcharges = new LinkSurcharges(MostWaysGivenUpOn);
+        _walkSurcharges = new LinkSurcharges(MostWaysGivenUpOn);
 
         // Both networks are read by the tick — cars over one, walkers over the other — so both are laid
         // with the town rather than the first time something asks.
@@ -254,13 +249,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _paths = new SelectionPaths(_selected.Capacity, _driving.Graph, _walking.Graph, MostRunsInARoute);
         _furniture = LaneFurniture.Project(plan, _zebras, _roads);
         _bands = CrossingBands.Project(_zebras, _roads, _furniture, _walking);
-        _standing = StaticsOnTheRoad();
 
         // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
         // it. Laid over the one numbering, so it comes after every network that numbers a way.
         var atlasAt = Stopwatch.GetTimestamp();
         _atlas = RibbonAtlas.Lay(new TownRibbons(this), config.RibbonLatticeStepM, config.RibbonTouchM);
         AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
+        RefuseFurnitureOnTheRoad();
 
         var walkers = 0;
         var drivers = 0;
@@ -289,32 +284,25 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _impulseNs = new Vector2[walkers];
         _progress = new LegProgress(walkers);
 
-        // The ways at the bays are laid with the road graph above, before the claims: they are sized to
-        // every way in the town, and a bay's is a way like the rest of them.
-        _crossings = BayCrossings.Over(_bayWays, _roads, config);
-
         // <b>A town stands the fleet</b> (CAR-11a). The maps that stood one look apiece were laid to compare
         // one thing against itself, and they were parked with the layer they were laid on.
         _builds = CarBuilds.OfTheFleet(config, CarCatalog.Shared);
 
         Cars = new CarFleet(drivers, LineAssembler.ArcsFor(_roads) + _bayWays.MostArcs, _builds);
 
-        // <b>One table, sized for every shape either roster can be in on any of the ways</b> (TER-4c.2): a
-        // car holds the road it is driving and the footway it has mounted, and a walker holds the pavement
-        // it is on and the band of the lane it has stepped into.
+        // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
+        // over, and a plan down its own line with every section its marks link it to. A driver may also
+        // hold a road shut (SRV-6), which is a second plan of one way.
         _occupancy = new LaneOccupancy(
             _ways,
-            (drivers * (MostSlotsPerCar(_roads.Ways, _crossings, _bayWays.Ways) + MostPavementRowsPerCar(_pavement)))
-            + (walkers
-               * (MostRoadSlotsPerWalker(_roads.Ways, _bayWays.Ways, _furniture)
-                  + MostSlotsPerWalker(_pavement)))
-            + _standing.Count,
-            _crossings);
-
-        // One record per body, over every kind of way: a pose is laid once and its rows go back into the one
-        // table they were numbered in.
-        _lying = new LyingClaims(
-            drivers, MostLyingRowsPerCar(_roads.Ways, _bayWays.Ways) + MostPavementRowsPerCar(_pavement));
+            (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)))
+            + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(MostWaysAlongAWalk, _atlas.Marks))),
+            (drivers * 2) + walkers,
+            _atlas.Marks);
+        _carHold = new int[drivers];
+        _carBox = new int[drivers];
+        _carBoxEndsAtM = new float[drivers];
+        _walkerHold = new int[walkers];
         _wheels = new WheelScratch(drivers);
         _behindTheBar = new bool[drivers];
         Marks = new DriftMarks(config.Marks.Capacity);
@@ -489,13 +477,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>How many walks have ended where they were going. The same figure for the other agent kind.</summary>
     public long WalkArrivals { get; private set; }
 
-    /// <summary>
-    /// <b>And how many crossings already taken have been given back to a movement with the right of way over
-    /// them</b> (TER-5e) — the revocation, counted where it happens. A town where it never happens is one
-    /// where the ranks are never compared, whatever the code says.
-    /// </summary>
-    public long CrossingsGivenBack { get; private set; }
-
 
     /// <summary>
     /// And how many ended because the body stopped making progress for long enough to give up. The two
@@ -545,13 +526,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
 
     public int StaticBodyCount => _physics.StaticBodyCount;
-
-    /// <summary>
-    /// How many stretches of lane the town's own furniture stands on. <b>The instrument that says whether
-    /// the road's claims know about the immovable things at all</b> — a town reading zero here is a town
-    /// where nothing was built in a carriageway, which is the answer a well-formed map file gives.
-    /// </summary>
-    public int StandingSlots => _standing.Count;
 
     public int IntegratedBodyCount => _physics.IntegratedBodyCount;
 

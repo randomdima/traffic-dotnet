@@ -151,7 +151,7 @@ internal static class TownProbe
         world.Timed = false;
 
         return new TownSample(
-            world.People.Count, world.Cars.Count, world.StaticBodyCount, world.StandingSlots, standMs, allocated / (double)measured,
+            world.People.Count, world.Cars.Count, world.StaticBodyCount, world.Occupancy.Capacity, standMs, allocated / (double)measured,
             OwnBytesPerTick(world, config), elapsed.TotalMicroseconds / measured, GC.CollectionCount(0) - gen0,
             measured, phases, sub);
     }

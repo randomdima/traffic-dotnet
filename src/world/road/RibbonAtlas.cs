@@ -29,15 +29,17 @@ internal interface IRibbonLines
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A ribbon is a way's line swept to its width, with square ends.</b> Two ways meet where their ribbons
-/// share ground, and only there: the two lanes of a carriageway and a lane's hand-over to its connector
-/// touch along an edge and share none of it (<see cref="SimConfig.RibbonTouchM"/>).
+/// <b>A ribbon is a way's line swept to the width of what travels it, with square ends</b> — the band a car
+/// sweeps down a lane or a join, and a body down a pavement — <b>widened by half the lattice's diagonal
+/// either side</b> (<see cref="ReachOf"/>). Two ways meet where their ribbons share ground, and only there:
+/// the two lanes of a carriageway, a lane's hand-over to its connector and two streams passing a lane apart
+/// share none of it (<see cref="SimConfig.RibbonTouchM"/>).
 /// </para>
 /// <para>
 /// <b>The lattice samples a point and never a cell.</b> A body covers a way where a lattice point lies inside
 /// both the body and that way's ribbon, so nothing is claimed that is not really overlapped — a car centred
-/// in its lane is on that lane and never on the one beside it, however coarse the lattice — and what a
-/// point can miss is an overlap thinner than the lattice (<see cref="SimConfig.RibbonLatticeStepM"/>).
+/// in its lane is on that lane and never on the one beside it — and the widening is what keeps a body over a
+/// band from falling between two points (<see cref="SimConfig.RibbonLatticeStepM"/>).
 /// </para>
 /// <para>
 /// <b>Only points some ribbon covers are stored</b>, a row at a time: each row holds one entry per way over
@@ -90,6 +92,14 @@ internal sealed class RibbonAtlas
 
     /// <summary>How far apart the lattice's points stand.</summary>
     public float StepM => _stepM;
+
+    /// <summary>
+    /// <b>How much wider than the band its traffic sweeps a ribbon is laid</b>: half the lattice's diagonal
+    /// either side, which is the furthest any ground is from the nearest point standing for it — so a body
+    /// over the band is never between two points, and two ribbons marked against each other are always two
+    /// ways a body on one of them could be read onto the other from.
+    /// </summary>
+    static float ReachOf(float stepM) => stepM * MathF.Sqrt(2f) * 0.5f;
 
     /// <summary>How many lattice points some ribbon covers — a census.</summary>
     public int PointCount { get; }
@@ -276,7 +286,7 @@ internal sealed class RibbonAtlas
         {
             var arcs = lines.LineOf(way, out var widthM);
             lengthM[way] = Spline.TotalLengthM(arcs);
-            foreach (var arc in arcs) Bound(arc, widthM * 0.5f, ref leastM, ref mostM);
+            foreach (var arc in arcs) Bound(arc, (widthM * 0.5f) + ReachOf(stepM), ref leastM, ref mostM);
         }
 
         if (leastM.X > mostM.X) leastM = mostM = Vector2.Zero;
@@ -398,8 +408,9 @@ internal sealed class RibbonAtlas
     {
         found.Clear();
         var arcs = lines.LineOf(way, out var widthM);
-        var halfM = widthM * 0.5f;
-        if (arcs.Length == 0 || halfM <= 0f || lengthM <= 0f) return [];
+        if (arcs.Length == 0 || widthM <= 0f || lengthM <= 0f) return [];
+
+        var halfM = (widthM * 0.5f) + ReachOf(stepM);
 
         var startM = 0f;
         for (var index = 0; index < arcs.Length; index++)

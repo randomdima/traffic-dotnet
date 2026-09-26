@@ -106,12 +106,11 @@ internal sealed partial class DebugOverlay
     /// <para>
     /// <b>Off the ladder's own numbers and not off a table of its own.</b> A rung added between two that
     /// exist takes the wash its number earns, and a level nothing claims yet costs the layer nothing.
-    /// <see cref="ClaimPriority.Rejected"/> is past the weakest hold and washes with it.
     /// </para>
     /// </remarks>
     static Vector4 Wash(ClaimPriority priority)
     {
-        var rung = MathF.Min((float)priority, (float)ClaimPriority.Soft) / (float)ClaimPriority.Soft;
+        var rung = (float)priority / (float)ClaimPriority.FirmAcross;
         return new Vector4(1f, 1f, 1f, StrongestWash + ((WeakestWash - StrongestWash) * rung));
     }
 
@@ -168,11 +167,6 @@ internal sealed partial class DebugOverlay
             var count = index.CopyTo(way, slots);
             for (var slot = 0; slot < count; slot++)
             {
-                // Ground somebody is only *waiting* for is not ground anybody has (TER-5e). Drawn in the
-                // asker's own colour on the lane it was refused, it reads as a band that walker holds, which
-                // is the one thing about a refusal that is not true.
-                if (slots[slot].IsRejected) continue;
-
                 // Clamped to the way rather than skipped: a stretch that runs off the end of a lane is a
                 // car halfway into the junction, and the half of it that is on this way is worth seeing.
                 var fromM = MathF.Max(0f, slots[slot].FromM);

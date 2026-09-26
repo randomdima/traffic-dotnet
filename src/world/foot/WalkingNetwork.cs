@@ -389,6 +389,36 @@ internal sealed class WalkingNetwork
     }
 
     /// <summary>
+    /// <b>Where a walk down these ways ends</b>: <paramref name="stopsAtM"/> along the last of them — or,
+    /// where that is a corner of no length, the end of the stretch before it, which is the point the two
+    /// stretches meet at. False where no way of the chain has a line at all.
+    /// </summary>
+    /// <remarks>
+    /// A corner of no length has no line to sample, and sampled regardless it came back as the town's
+    /// origin — which a walker whose chain ran out on one then walked at, across whatever carriageway lay
+    /// between.
+    /// </remarks>
+    public bool EndOfTheWalk(ReadOnlySpan<int> ways, float stopsAtM, out Vector2 atM)
+    {
+        for (var slot = ways.Length - 1; slot >= 0; slot--)
+        {
+            var arcs = WayArcs(ways[slot]);
+            if (arcs.Length == 0) continue;
+
+            if (slot < ways.Length - 1)
+            {
+                SpanOfWay(slot > 0 ? ways[slot - 1] : NoLane, ways[slot], ways[slot + 1], out _, out stopsAtM);
+            }
+
+            atM = Spline.SampleAt(arcs, stopsAtM).PositionM;
+            return true;
+        }
+
+        atM = default;
+        return false;
+    }
+
+    /// <summary>
     /// A place measured along a stretch, in the metres of the lane that stretch is walked down. <b>Carried
     /// over as a fraction and not as a distance</b>: the lane is shorter inside a bend and longer outside
     /// it, and of the lane's own ground, since a corner the lane carries stands past the end of the stretch

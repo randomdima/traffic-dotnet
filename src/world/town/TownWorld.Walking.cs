@@ -108,7 +108,7 @@ internal sealed partial class TownWorld
         var goalCount = walking.GoalsAt(people.GoalM[person], _walkSearch.Goals);
         if (entryCount == 0 || goalCount == 0) return;
 
-        var linkCount = _walkSearch.Plan(entryCount, goalCount, _surcharges, out var goalSlot);
+        var linkCount = _walkSearch.Plan(entryCount, goalCount, _walkSurcharges, out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return;
 
         var links = _walkSearch.Links(linkCount);
@@ -170,7 +170,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     void MoveTheGoalOntoTheWalk(int person, bool reachTheGoal, WalkingNetwork walking, ReadOnlySpan<int> ways)
     {
-        var endsAtM = Spline.SampleAt(walking.WayArcs(ways[^1]), People.RouteToM[person]).PositionM;
+        if (!walking.EndOfTheWalk(ways, People.RouteToM[person], out var endsAtM)) return;
         if (!reachTheGoal)
         {
             People.GoalM[person] = endsAtM;
@@ -215,13 +215,10 @@ internal sealed partial class TownWorld
         var walking = Walking;
         PlaceItOnItsWay(person, walking, AStrideM);
 
-        // <b>A crossing the traffic has is a crossing this body stands off</b> (PER-27): when it last
-        // reserved the crossing, a wheeled body or a driver's granted road was over the paint or a lane
-        // beneath it, and a walker that stepped out regardless would be walking into it. It is never true of
-        // a body on the paint, so nothing here can stop one in the road — and the clock that gives up on a
-        // leg going nowhere runs through the wait, which is what gets a walker away from a crossing that
-        // never clears.
-        if (People.WaitsToCross[person])
+        // <b>A walker with no road granted stands where it is</b> (PER-26): the body in front of it on its
+        // way, somebody else's plan it gives way to, or a crossing the traffic has (PER-27). It is the grant
+        // the last rebuild left it, and the clock that gives up on a leg going nowhere runs through the wait.
+        if (People.GrantM[person] <= 0f)
         {
             People.DestinationM[person] = People.PositionM[person];
             return;
@@ -249,9 +246,12 @@ internal sealed partial class TownWorld
             // The chain is walked out. What is left is the hop onto the goal, over ground the network does
             // not number — or, where the chain stopped for want of room rather than because it arrived,
             // nothing at all: the walk ends on the network and the rest of it is laid again from there.
-            var endsAtM = People.RouteRunsOut[person]
-                ? Spline.SampleAt(walking.WayArcs(way), stopsAtM).PositionM
-                : People.GoalM[person];
+            var endsAtM = People.GoalM[person];
+            if (People.RouteRunsOut[person]
+                && !walking.EndOfTheWalk(People.RouteOf(person)[..People.RouteCount[person]], stopsAtM, out endsAtM))
+            {
+                endsAtM = People.PositionM[person];
+            }
 
             People.DestinationM[person] = endsAtM;
 
@@ -266,7 +266,9 @@ internal sealed partial class TownWorld
             return;
         }
 
-        var aheadM = MathF.Min(People.OnWayM[person] + _config.PersonWalkAheadM, stopsAtM);
+        // Aimed a stride ahead, and never past the road it was granted.
+        var strideM = MathF.Min(_config.PersonWalkAheadM, People.RadiusM[person] + People.GrantM[person]);
+        var aheadM = MathF.Min(People.OnWayM[person] + strideM, stopsAtM);
         People.DestinationM[person] = Spline.SampleAt(walking.WayArcs(way), aheadM).PositionM;
     }
 

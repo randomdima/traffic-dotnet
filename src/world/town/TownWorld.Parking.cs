@@ -196,8 +196,6 @@ internal sealed partial class TownWorld
         Cars.Command[car] = DriveCommand.Parked;
         Cars.Hold[car] = DrivingHold.None;
         Cars.Context[car] = DriveContext.Clear;
-        DropTheMovement(car);
-
     }
 
     /// <summary>

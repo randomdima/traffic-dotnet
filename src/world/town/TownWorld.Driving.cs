@@ -108,7 +108,6 @@ internal sealed partial class TownWorld
         // which is what the leg's clock is for (<see cref="WatchTheProgress"/>).
         if (Cars.OffLineM[car] > OffTheLineAllowanceM(car))
         {
-            DropTheMovement(car);
             Cars.InsideTheBox[car] = false;
             Cars.LightAheadM[car] = float.PositiveInfinity;
             Cars.ToTheBoxM[car] = float.PositiveInfinity;
@@ -144,25 +143,15 @@ internal sealed partial class TownWorld
             + (build.LengthM * 2f),
             MathF.Max(0f, Cars.Line[car].LengthM - centreProgressM));
 
-        // S-3: what is in front, what it is and how far off — one walk of the claims the grant was taken
+        // S-3: what is in front, what it is and how far off — one walk of the bodies the grant was taken
         // against, so the reading and the road this car was given can never disagree.
-        var seen = LookAhead(car, progressM + build.NoseAheadOfAxleM, reachM, out var kind, out var claimM);
+        var seen = LookAhead(car, progressM + build.NoseAheadOfAxleM, reachM, out var kind);
 
-        // S-4: the junction ahead is claimed and the one behind released, on every tick and never on the
-        // decision clock — a red is what actually refuses a car a box, and it can change under one.
-        var junctionStopM = JunctionStopM(car, progressM, alongMps, seen.DistanceM, out var toTheBoxM, out var claimed);
+        // S-4: the light at the junction ahead, on every tick and never on the decision clock — a red can
+        // change under a car. Whether the box is this car's is its grant's to say.
+        var junctionStopM = JunctionStopM(car, progressM, out var toTheBoxM, out var claimed);
         Cars.ToTheBoxM[car] = toTheBoxM;
         Cars.BoxIsOurs[car] = claimed;
-
-        // Ground somebody else has claimed is a place to be stopped short of and not a body to keep a gap
-        // behind: it is empty now, which is exactly why a reading taken off the bodies lets two cars take
-        // it at once. It joins the stop point rather than the headway for that reason.
-        if (claimM < junctionStopM)
-        {
-            junctionStopM = claimM;
-            if (kind == HeadwayKind.Nothing || claimM < seen.DistanceM) kind = HeadwayKind.Claimed;
-        }
-
 
         // The paint, asked after the junction because a crossing is the stop line for the junction
         // behind it — a car held by the box stops short of the paint rather than a dozen metres past it,
@@ -191,14 +180,13 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>A car whose line is one of the town's own ways</b> — a bay's way out, driven backwards. The same
-    /// wheel and the same profile as a route, and the same claims underneath: what is in front comes off the
-    /// index, the road ahead is the grant, and the movement is taken and given back exactly as a junction's
-    /// is.
+    /// wheel and the same profile as a route, and the same reservations underneath: what is in front comes
+    /// off the index, and the road ahead is the grant.
     /// </summary>
     /// <remarks>
-    /// <b>It is one of the town's own ways, and that is the whole point</b>: the claim runs along it, the
-    /// traffic on the lane it crosses is cut by the town's own table, and there is nothing here that a car on
-    /// a lane does not also do.
+    /// <b>It is one of the town's own ways, and that is the whole point</b>: the plan runs along it, the
+    /// lanes it crosses are settled against it by the marks, and there is nothing here that a car on a lane
+    /// does not also do.
     /// </remarks>
     void DriveTheWay(int car, in CarPose pose)
     {
@@ -220,103 +208,18 @@ internal sealed partial class TownWorld
 
         var leadM = progressM + LeadingEdgeAheadOfTheAxleM(car);
         var reachM = MathF.Max(0f, lengthM - leadM);
-        var seen = LookAhead(car, leadM, reachM, out var kind, out var claimM);
-
-        // The movement is taken and given back on the same argument a junction's is (S-4): the crossings on
-        // the car's own way are held from the moment it commits to them, and the car stops short of the
-        // first of them while anything else has the ground.
-        var stopAtM = MovementStopM(car, progressM, alongMps);
-        if (claimM < stopAtM)
-        {
-            stopAtM = claimM;
-            if (kind == HeadwayKind.Nothing || claimM < seen.DistanceM) kind = HeadwayKind.Claimed;
-        }
+        var seen = LookAhead(car, leadM, reachM, out var kind);
+        Cars.CommittedToTheBox[car] = false;
 
         // A car backing out crosses the same paint anything else does.
         CrossingOnTheTemplate(car, line, leadM, reachM, out var crossingAtM);
 
         var context = new DriveContext(
-            seen.DistanceM, seen.AlongMps, stopAtM, Cars.GroundCoefficient[car], float.PositiveInfinity, crossingAtM,
-            kind,
-            Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car]);
+            seen.DistanceM, seen.AlongMps, float.PositiveInfinity, Cars.GroundCoefficient[car],
+            float.PositiveInfinity, crossingAtM, kind, Cars.AuthorityM[car] - coveredM, Cars.GrantCutBy[car]);
 
         Cars.Context[car] = context;
         Drive(car, build, pose, line, progressM, lengthM, context, travel, alongMps, reverse);
-    }
-
-    /// <summary>
-    /// <b>Where a car on a way of its own is stopped short</b>, and where it commits: the first place another
-    /// way is driven over this one is its box, and the whole of the way past that point is what it takes.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It is `JunctionStopM`'s argument on a way that is not a join</b>, and it is here rather than there
-    /// because a bay's way out enters no junction and has no lane ahead of it to be measured against. What
-    /// the two share is the protocol: read the table, take the ground before moving onto it, hold nothing
-    /// before the car is near enough to want it, and be refused at the place the ground is somebody's rather
-    /// than at the first crossing on the way — as far up as the body can be brought to rest without standing
-    /// on one (<see cref="WaitsClearOfTheCrossings"/>).
-    /// </para>
-    /// <para>
-    /// <b>Past the point it could stop at, the car is going in whatever anything says</b> — the same
-    /// exception a junction makes, and for the same reason: ground given back there is handed straight back
-    /// on the next tick, and between the two the sections read free to whoever crosses them. <b>And it is
-    /// written to the car on the same terms</b> (<see cref="CarFleet.CommittedToTheBox"/>,
-    /// <see cref="JunctionStopM"/>), because that flag is the whole of how the rung a committed body holds
-    /// its ground at reaches its claim (<see cref="FirmOnTheMovement"/>). Left to the junction's own
-    /// reading, a car on a way of its own carried whatever its last route decision wrote — a rescue waved
-    /// across one that could no longer stop, or ground nothing could take held by one that had stopped
-    /// streets away.
-    /// </para>
-    /// </remarks>
-    float MovementStopM(int car, float progressM, float alongMps)
-    {
-        var way = Cars.LineWayOf(car);
-        Cars.CommittedToTheBox[car] = false;
-        if (Cars.MovementWay[car] != way) DropTheMovement(car);
-
-        var crossedAtM = FirstCrossedOnTheWayM(way);
-        if (float.IsPositiveInfinity(crossedAtM)) return float.PositiveInfinity;
-
-        ref readonly var build = ref Cars.BuildOf(car);
-        var brakingMps2 = CarFollower.BrakingMps2(_config, build, Cars.GroundCoefficient[car]);
-        var toTheCrossingM = crossedAtM - progressM - LeadingEdgeAheadOfTheAxleM(car);
-
-        // Read a decision ahead, exactly as a junction's is: the claims that carry this to the rest of the
-        // town are laid at the top of a tick from what the last decision wrote, so a car that will be past
-        // stopping by the time the rungs are next compared has to count as committed now.
-        Cars.CommittedToTheBox[car] =
-            toTheCrossingM - (MathF.Max(0f, alongMps) * _config.CarReactionS)
-            <= StoppingM(alongMps, brakingMps2);
-
-        if (Cars.MovementWay[car] == way) return float.PositiveInfinity;
-        if (toTheCrossingM <= StoppingM(alongMps, brakingMps2)) return float.PositiveInfinity;
-
-        var claimAtM = MathF.Min(
-            StoppingM(alongMps, brakingMps2) + build.LengthM, _config.CarJunctionClaimM);
-
-        if (toTheCrossingM > claimAtM) return float.PositiveInfinity;
-
-        var heldFromM = FirstHeldOnTheMovementM(car, way);
-        if (float.IsFinite(heldFromM))
-        {
-            var restM = heldFromM - build.BodyMarginM;
-            return WaitsClearOfTheCrossings(car, way, restM)
-                ? restM - progressM - LeadingEdgeAheadOfTheAxleM(car)
-                : toTheCrossingM - build.HalfLengthM;
-        }
-
-        TakeTheMovement(car, way);
-        return float.PositiveInfinity;
-    }
-
-    /// <summary>The first metre of a way that any other way of the town is driven over it at, or infinity.</summary>
-    float FirstCrossedOnTheWayM(int way)
-    {
-        var leastM = float.PositiveInfinity;
-        foreach (ref readonly var run in _crossings.OwnRuns(way)) leastM = MathF.Min(leastM, run.FromM);
-
-        return leastM;
     }
 
     /// <summary>
@@ -395,26 +298,22 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>What is down the line ahead, what it is, and how far off it is</b> — all three out of the town's
-    /// own claims, which are the whole of what a driver on a route looks at.
+    /// own reservations, which are the whole of what a driver on a route looks at.
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>There is no ray here and that is the point.</b> A cast found a shape at a distance and could not
-    /// say whose it was, so the distance was the geometry's and the naming came off the claims, and the two
-    /// regularly disagreed — a body the network never had came back as <c>Unknown</c>, and a claim
-    /// with nothing standing on it yet came back as an empty road. Everything that can be on a lane is
-    /// claimed now: the traffic, the people and the town's own furniture
-    /// (<see cref="StandingGround"/>), so one question answers all of it.
+    /// say whose it was; every body in the town is on the ways its collider stands over, so one question
+    /// answers all of it.
     /// </para>
     /// <para>
-    /// <b>And the reading cannot disagree with the grant any more.</b> Both are walks of the same ways over
-    /// the same metres of the same tick's claims — where a cast was a second opinion about a road the car had
-    /// already been granted or refused.
+    /// <b>And the reading cannot disagree with the grant.</b> Both are walks of the same ways over the same
+    /// metres of the same tick's reservations.
     /// </para>
     /// </remarks>
-    HeadwayReading LookAhead(int car, float noseM, float reachM, out HeadwayKind kind, out float claimM)
+    HeadwayReading LookAhead(int car, float noseM, float reachM, out HeadwayKind kind)
     {
-        AheadOnTheLine(car, noseM, reachM, out var onTheLine, out var bodyM, out claimM);
+        AheadOnTheLine(car, noseM, reachM, out var onTheLine, out var bodyM);
         if (!onTheLine.Found)
         {
             kind = HeadwayKind.Nothing;
@@ -485,14 +384,12 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The car has reached the second lane of its chain: the way through the junction behind it is let
-    /// go, the chain shifts down by one and a new lane is drawn onto the end of it, and the line is
-    /// re-laid.
+    /// The car has reached the second lane of its chain: the chain shifts down by one, a new lane is drawn
+    /// onto the end of it, and the line is re-laid.
     /// </summary>
     float AdvanceLane(int car, Vector2 rearAxleM, float progressM)
     {
         var chain = Cars.ChainOf(car);
-        DropTheMovement(car);
 
         // <b>Taking the next lane is progress</b>, and the clock that decides a leg is getting nowhere is
         // measured against what is left of the lane the car is on (<see cref="RemainingOnTheDriveM"/>).

@@ -457,17 +457,15 @@ internal sealed partial class TownWorld
                 Cars.BuildOf(car), Cars.LineOf(car), rearAxleM, Cars.ProgressM[car]);
             if (CarFollower.OffLineM(Cars.LineOf(car), rearAxleM, progressM) > _config.CarOffPathM * OffLineTolerance)
             {
-                DropTheMovement(car);
                 Cars.Line[car] = default;
             }
             else
             {
                 Cars.ProgressM[car] = progressM;
 
-                // The claim is what the other cars read; what it would have told this car to do is
-                // discarded, and the headway is handed in as unbounded so a queue in front cannot
-                // stop the player taking the box.
-                JunctionStopM(car, progressM, alongMps, float.PositiveInfinity, out _, out _);
+                // Where the car stands against the junction ahead is still the town's to count — a red run
+                // under a hand is a red run — and what it would have told this car to do is discarded.
+                JunctionStopM(car, progressM, out _, out _);
             }
         }
 
