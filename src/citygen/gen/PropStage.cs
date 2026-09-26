@@ -59,11 +59,11 @@ internal static class PropStage
     /// <remarks>
     /// <para>
     /// <b>The band is measured to the prop's own near rim and not to its centre</b>, which is what puts a
-    /// narrow look at the near edge of the verge and pushes a wide one out by its own width (GEN-6b). It was
-    /// the ground's to do — a girth over the concrete was not all grass (GEN-6a) — and the ground does not
-    /// know the concrete is there
-    /// (<see href="../../../docs/index.md">known gaps</see>, <c>GroundShapes.At</c>), so what holds a prop
-    /// off the walk is the figure the walk was struck at rather than an answer about the point it stands on.
+    /// narrow look at the near edge of the verge and pushes a wide one out by its own width (GEN-6b). The
+    /// girth is still asked of the ground (GEN-6a), but the ground's answer parts from the drawn walk at a
+    /// corner (<see href="../../../docs/index.md">known gaps</see>, <c>GroundShapes.At</c>), so what places a
+    /// prop off the walk is the figure the walk was struck at rather than an answer about the point it
+    /// stands on.
     /// </para>
     /// <para>
     /// <b>A ring is walked once and the outward hand is the ring's own</b>: a shell is walked with the ground
@@ -157,11 +157,10 @@ internal static class PropStage
     /// keeps a prop on the map (GEN-2b): off the town is not grass.
     /// </para>
     /// <para>
-    /// <b>And no collar</b>, because the ground answered here is the ground that is drawn (TER-7). Every
-    /// pass used to owe one: the walk is drawn as a union of pieces grown by one figure (TER-3c.3), and a
-    /// candidate reading a raster painted from the pieces alone could stand in the middle of a corner
-    /// nothing had stamped. The corners are in the answer now, so a candidate cleared against it is
-    /// clear — and a collar over that would only hold the verge back from the street it is a verge of.
+    /// <b>And no collar</b> (GEN-6a): the girth is cleared against the ground's answer, which is the walk
+    /// down every street, and a collar over that would only hold the verge back from the street it is a
+    /// verge of. Where the answer and the drawn walk part at a corner is TER-7's gap in the
+    /// <see href="../../../docs/index.md">known gaps</see>, not a margin this pass owes.
     /// </para>
     /// <para>
     /// <b>And clear of the props already laid</b> (GEN-6c). The ground cannot see them: a prop is no shape

@@ -5,8 +5,7 @@ a script holding the keys through it, with figures after every step and a frame 
 for one. It is the instrument an assistant drives a car with — what the player does with a keyboard
 ([app/playercontrol](../../playercontrol/docs/requirements.md)), asked for in writing.
 
-**What it is not** is a second way to move a body. Everything it can ask for is something `CTL-5`,
-`CTL-7` or `CTL-8` already offers; this slice stages the run, arranges the readings and asks
+It is not a second way to move a body (DRV-1): this slice stages the run, arranges the readings and asks
 [app/shot](../../shot/docs/requirements.md) for the pictures.
 
 **DRV-1** `P7` **A script may hold the keys and nothing else.** The pedals, the wheel and the handbrake are
@@ -76,13 +75,10 @@ may carry a driver who is not the one watching it (`--bot FILE --bot-car N`). It
 machine — the same steps, the same seam, the same tape — with three things different, and every one of them
 is there so that **two people can drive one town at once**.
 
-- **The car is named and never picked out** (`CTL-5d`). The selection, the panels, the switches and the
-  keys stay with whoever has the window, so a reader may drive a second car by hand, pan the town, open the
-  menu and click whatever they like while the seat drives. **A car they are both holding is theirs**, not
-  the seat's.
-- **What the reader sees of it is the mark and the camera** (`CTL-5d`): the car wears brackets of its own
-  and the window opens standing on it, because a run somebody opened to watch a bot drive is a run about
-  that car. Both give way the moment the reader picks something out or moves the camera themselves.
+- **The car is named and never picked out, and the reader sees it by its own mark and the camera standing
+  on it** (`CTL-5d`). The selection, the panels, the switches and the keys stay with whoever has the
+  window, so a reader may drive a second car by hand, pan the town, open the menu and click whatever they
+  like while the seat drives.
 - **It takes the wheel when it sits down**, not when it first presses a pedal: a car whose driver has said
   nothing yet coasts with somebody in it (`CTL-5b`), rather than driving its own route until the first
   step arrives.

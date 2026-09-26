@@ -10,21 +10,16 @@ so the ground it is about to cover is on screen rather than the ground behind it
 against the view** — a unit led off its own picture is a camera watching the road instead of the car. The
 same lead serves a walker and a car, because it is a time and not a distance.
 
-**The camera carries the unit's own motion exactly, and what is eased is the lead.** The unit stays on the
-same pixel while it moves, whether it stepped a hand's width or crossed the town — a camera that closed on
-it instead would pass on the part of every tick it had not yet covered, and that residue lands on the one
-body the reader is watching, which is a car shaking in the hand of whoever is driving it. What the ease is
-for is the unit's own manoeuvring: a walker stopping at a kerb reverses the lead, and a lead that crosses
-the picture in the time a body takes to turn is worse than no lead at all, so it **swings round** over a
-span of real time and not of ticks, exactly as a pan is measured. **What the town's own stepping shows is
-the town stepping**, which is the rate it is simulated at and not a fault of the camera.
+**The camera carries the unit's own motion exactly, and what is eased is the lead**, which **swings round**
+over a span of real time rather than of ticks. The unit stays on the same pixel while it moves; **what the
+town's own stepping shows is the town stepping**, which is the rate it is simulated at and not a fault of
+the camera.
 
 **Free pan always wins.** A manual pan, zoom or turn takes the camera off the unit it was following and
 **keeps it off until a selection is asked for again** — which is a click or a box on the town, so clicking
 the unit already picked out is how a reader asks to be put back on it.
 
-The zoom is about the **pointer**, and the view opens on a fixed span at the middle of the town rather
-than on a whole-town fit, which on a small map is unreadably small.
+The zoom is about the **pointer**.
 
 **OBS-1b** `P7` A run **opens looking at the middle of the town, or at the nearest ground a car could be on**
 where no road is in the frame there at all. The middle of a city is a street and the middle of a ring is
@@ -33,13 +28,11 @@ not in the middle of its bounding box — anything laid around a park, a lake or
 such ground and never a fit to the whole town**: the opening span is a figure, and what moves is where the
 camera stands rather than how much it shows.
 
-**A town standing behind the start menu is framed like any other** (GEN-1b). The panel stands in the middle
-of the screen and the middle of the ring is the field inside it, so the menu sits in the hole and the road
-is on screen all the way round; a town shoved aside to clear a panel that is no longer in a corner would be
-half off the window instead. **That framing follows the window** until somebody moves the camera
-themselves: a canvas that settles its size a moment after the town stood up, or a window dragged wider,
-would otherwise leave what the reader opened on half off the screen. The first pan, zoom or turn is theirs
-and ends it (OBS-1a).
+**A town standing behind the start menu is framed like any other** (GEN-1b), so the menu sits in the
+field inside the ring with the road on screen all the way round. **That framing follows the window** until
+somebody moves the camera themselves: a canvas that settles its size a moment after the town stood up, or a
+window dragged wider, would otherwise leave what the reader opened on half off the screen. The first pan,
+zoom or turn is theirs and ends it (OBS-1a).
 
 **OBS-1c** `P7` **The town turns.** A street runs the way it runs, and a reader following one along the bottom of
 the window is reading it sideways. So the view carries a **turn**: how far the town is drawn clockwise from

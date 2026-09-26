@@ -58,8 +58,8 @@ internal enum HeadwayKind : byte
     Walker,
 
     /// <summary>
-    /// Something the lane index does not account for: a walker, the town's furniture, a body off the
-    /// network altogether.
+    /// Something the lane index does not account for. <b>No reading is this</b>: walkers and the town's
+    /// furniture are claimed like the traffic, and every claim names what it is.
     /// </summary>
     Unknown,
 
@@ -84,13 +84,13 @@ internal enum HeadwayKind : byte
 /// <param name="HeadwaySpeedMps">How fast that thing is going <em>along this car's heading</em> — the whole difference between a queue that will move and an obstruction that will not.</param>
 /// <param name="StopAtM">How far ahead along the line the car must be stopped: an unclaimed junction, a stop bar, a red light. Infinite where nothing stops it.</param>
 /// <param name="GroundCoefficient">What the surface under it is worth, which scales every grip figure the profile plans against.</param>
-/// <param name="CrossingStopM">Where a crossing says to stop short of its paint — somebody on it, somebody refused it at the kerb, or a queue that would leave this car standing on it. Infinite where none does.</param>
+/// <param name="CrossingStopM">Where a crossing says to stop short of its paint: a queue beyond it that would leave this car standing on it. Somebody on the paint has already cut the grant. Infinite where none does.</param>
 /// <param name="CrossingAtM">How far ahead the nearest paint within reach begins, and zero while the body is over it. Infinite where there is none within reach.</param>
 /// <param name="Ahead">What the thing <see cref="HeadwayM"/> is about actually is, which decides whether the way past it is round it.</param>
 /// <param name="AuthorityM">
 /// How far ahead of the nose the lane index cut this car's own ask short, or
-/// <see cref="float.PositiveInfinity"/> where nothing cut it — an empty road, a car on a template of its
-/// own, or one the road has nothing to say about. <b>It is what makes a queue a queue</b>: no two grants
+/// <see cref="float.PositiveInfinity"/> where nothing cut it — an empty road, or one the road has nothing
+/// to say about. <b>It is what makes a queue a queue</b>: no two grants
 /// overlap, so the car behind simply has less road to stop in.
 /// </param>
 /// <param name="GrantCutBy">
@@ -138,25 +138,25 @@ internal enum DrivingHold : byte
     /// <summary>The end of the line it has been given.</summary>
     LineEnd,
 
-    /// <summary>The shape the rays found in front of it — a walker, a wreck, the car it is following.</summary>
+    /// <summary>The nearest body claimed on the line in front of it — a walker, a wreck, the car it is following.</summary>
     Headway,
 
     /// <summary>
     /// The ground it was granted to stop in has run out: somebody in front claimed the rest of it.
     /// <b>This is what queueing is</b> — the whole of following, and a speed behaviour rather than a
-    /// decision. It binds where a claim says something the rays cannot see: road spoken for round a
-    /// bend, across a join, or by a car that is not in the corridor yet.
+    /// decision. It binds where the grant says more than the nearest body does: road spoken for round a
+    /// bend, across a join, or by a car that is not on this line yet.
     /// </summary>
     Claimed,
 
     /// <summary>A junction it has not been given, a bar or a red.</summary>
     Waiting,
 
-    /// <summary>A crossing whose ground is somebody else's: a body on the paint, or one refused it at the kerb (TER-4c.1, TER-5e).</summary>
+    /// <summary>A crossing it would come to rest on: the paint ahead, with a queue beyond it (TER-5e).</summary>
     Crossing,
 
     /// <summary>
-    /// <b>The place this car was sent to</b> — a casualty, a wreck, a scene an officer has closed the
+    /// <b>The place this car was sent to</b> — a casualty, a wreck, a scene a police car is closing the
     /// road at, or a place a hand named (AMB-5, EVA-3, SRV-6, CTL-8a). It is named apart from the rest
     /// because it is the one term somebody asked for rather than something the road did to the car.
     /// </summary>
@@ -337,10 +337,10 @@ internal static class CarFollower
         // casualty left it.
         Bind(ref targetMps, ApproachMps(0f, context.PlaceStopM - leadM, brakingMps2), DrivingHold.Place, ref hold);
 
-        // The stop short of the paint, which is the crossing's own term rather than the junction's: what a
-        // driver owes somebody on a crossing is a stop point on this car's own line and not a claim on a
-        // box. <b>Paint with nobody's ground on it costs nothing</b> (TER-4c.1) — a crossing this car has
-        // been granted the road over is driven at the speed the rest of the road affords.
+        // The stop short of the paint, which is the crossing's own term rather than the junction's: a car
+        // may not come to rest on a crossing (TER-5e), so a queue that would leave it standing there stops
+        // it short. Somebody on the paint is not asked here — their claim has already cut the grant. <b>Paint
+        // with no queue beyond it costs nothing</b> — it is driven at the speed the rest of the road affords.
         Bind(ref targetMps, ApproachMps(0f, context.CrossingStopM - leadM, brakingMps2), DrivingHold.Crossing, ref hold);
 
         // <b>The gap to a shape, which is a different measurement from the grant below and not a second
@@ -395,14 +395,13 @@ internal static class CarFollower
     /// <b>It is a figure along the roll and takes no notice of what the wheel is doing.</b> A driver
     /// slowing into a corner spends the whole of it on top of the lateral demand the corner is already
     /// making, and the tyres answer to one ellipse — so where a fast corner follows a fast approach the
-    /// combined ask is over the budget and the car drifts. The proving ground's long arc is where it shows:
-    /// <c>--bench track</c> reads a metre and a half off the line there against a tenth on every other shape.
+    /// combined ask is over the budget and the car drifts.
     /// </remarks>
     public static float BrakingMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
         car.UtmostBrakingMps2(groundCoefficient) * config.Driving.BrakingMargin;
 
     /// <summary>
-    /// <b>The tick where the margin this profile plans against is no longer enough</b> (CAR-14): what is
+    /// <b>The tick where the usable grip this profile plans against is no longer enough</b> (S-2): what is
     /// in front cannot be stopped short of at <see cref="BrakingMps2"/>, so what is left of the tyre is
     /// spent at once. Braking that ramps up wastes the most valuable distance there is.
     /// </summary>
@@ -415,8 +414,8 @@ internal static class CarFollower
     /// <b>It is read against the utmost and never a figure of its own</b> (SIM-7). The profile plans
     /// every stop at <see cref="DrivingFigures.BrakingMargin"/> of that, so a threshold below it fires on
     /// the profile's own ordinary braking and takes the pedal off it — read at the grip margin it stood
-    /// at three quarters of what the profile was already planning with, and a proving ground spent a
-    /// sixth of every car-tick here.
+    /// at three quarters of what the profile was already planning with, and a sixth of every car-tick was
+    /// spent here.
     /// </para>
     /// </remarks>
     public static bool IsAHazard(SimConfig config, in CarBuild car, float alongMps, in DriveContext context)

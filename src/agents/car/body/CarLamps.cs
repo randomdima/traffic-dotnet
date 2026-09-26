@@ -103,8 +103,8 @@ internal enum CarLamp : byte
 /// is telling the traffic at a junction which way out of it this car is taking, so it is asked only within
 /// reach of one (<see cref="LampFigures.JunctionAheadM"/>) and only where the movement into it is a turn
 /// rather than straight on (<see cref="CarFleet.TurningAtTheBox"/>). <b>Which</b> side is still the
-/// geometry's and never the manoeuvre's: a car's intent is already written down as the line it is about to
-/// drive, so no entry of the catalogue has to state itself.
+/// geometry's and never the driver's say-so: a car's intent is already written down as the line it is
+/// about to drive, so nothing has to state it.
 /// </para>
 /// <para>
 /// This is kept beside the body it is a fact about rather than in the renderer that draws it, on the
@@ -138,7 +138,7 @@ internal static class CarLamps
     {
         // A hand at the wheel is a driver (CTL-5c). Without this a car taken over from a stand shows
         // nothing at all — not the beacon and not its brake lamps — because standing down clears
-        // <see cref="CarFleet.Driven"/> while its crew is still aboard.
+        // <see cref="CarFleet.Driven"/> and the hand does not set it.
         if (cars.Broken[car] || (!cars.Driven[car] && !handAtTheWheel)) return CarLampSet.None;
 
         // Off the command and never off the body: the brake lamps are the pedal (CAR-14.2) and the

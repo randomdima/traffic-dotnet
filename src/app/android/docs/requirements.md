@@ -1,8 +1,9 @@
 # The town in a hand — requirements
 
-The activity, the glass it hands over, and the thread the loop runs on. **What the picture must look
-like is [app/render](../../render/docs/requirements.md)** and **what a frame costs is
-[runtime](../../../runtime/docs/requirements.md)**; this is the head whose window is an activity.
+The activity, the glass it hands over, and the thread the loop runs on. Everything above that is the
+desktop's own machine and answers to the documents the desktop does
+([app/render](../../render/docs/requirements.md), [runtime](../../../runtime/docs/requirements.md)); this
+is the head whose window is an activity.
 
 ## What the handset head is
 
@@ -10,7 +11,7 @@ like is [app/render](../../render/docs/requirements.md)** and **what a frame cos
 compiles `src/` exactly as the desktop build does and draws with the same Vulkan, the same swapchain,
 the same renderer and the same SPIR-V — so **rule 1 is not restated here**: a frame crosses the wall the
 five times [runtime](../../../runtime/docs/requirements.md#the-crossing-budget) counts, because it is the
-same five crossings in the same file. What differs is the bootstrap, and it is three files:
+same five crossings in the same file. What differs is the bootstrap:
 
 | The desktop's | The handset's |
 |---|---|
@@ -19,8 +20,8 @@ same five crossings in the same file. What differs is the bootstrap, and it is t
 
 **What the two Vulkan heads answer alike is written once** — the device, the renderer, the crossing
 counter and the thread a town is laid on are [`Game.Vulkan.cs`](../../main/Game.Vulkan.cs), compiled by
-both and by neither of the browser's halves. There is no `#if` anywhere in the shared code; the three
-project files pick which half is compiled and that is the whole mechanism.
+both and by neither of the browser's halves. How the halves are picked is WEB-1's mechanism: no `#if`,
+and the project file chooses.
 
 **AND-2** `P4` **The bootstrap is one activity and nothing else.** No view, no layout, no Android widget:
 the activity takes its own window's surface (`Window.TakeSurface`), hands the native window down to the
@@ -29,26 +30,19 @@ line is the town's own interface**, drawn by the same [`Interface`](../../hud/In
 and the page draw — a platform control over it would be a second interface answering questions the first
 one already answers, in a second style, on one screen.
 
-**The one call that needs the platform is `ANativeWindow_fromSurface`**, and it is in the activity
-because it needs a JNI environment and a `jobject`. What crosses down to `runtime/` is a pointer, which
-is why the machine knows nothing about Android.
-
 **AND-3** `P4` **The town's files are unpacked once and then read where they always are.** An APK is a
 zip and [`ProjectPaths`](../../../core/config/ProjectPaths.cs) walks a tree, so the build packs
 `assets/` and `towns/` into one archive, [`Papers`](../Papers.cs) unpacks it into the app's own folder on
 the first run after an install, and `ProjectPaths` is **told** where that is. **There is no second asset
-story** — no provider threaded through fifteen call sites, and no path that means one thing here and
-another on a desk. An archive rather than four hundred assets for the same reason the page has one: it is
-one open, one inflate and one pass.
+story** (WEB-4). One archive rather than four hundred assets, because it is one open, one inflate and one
+pass.
 
-**AND-4** `P4` **The handset carries the picture and none of the instruments.** The interface, the debug
-layers, the scenario panel and the figures page are the town's own picture and are all here. **The
-offscreen picture, the sheet, the probes and the workshop steps are not**: `--shot`, `--sheet`, `--bench`
-and `--lamps` are how a run is *measured*, and they want a file system to write to and a process that
-can exit. It is the same line the page draws (WEB-3), drawn in the same place.
+**AND-4** `P4` **The handset carries the picture and none of the instruments** — the line the page draws
+(WEB-3), drawn in the same place: `--shot`, `--sheet`, `--bench` and `--lamps` want a file system to write
+to and a process that can exit.
 
-**AND-5** `P7` **The intent's extras are the command line.** `-e map Odesa -e ui nodes,paths` is `--map
-Odesa --ui nodes,paths`, and `-e seconds` and `-e ui-scale` are the words they look like. The words are
+**AND-5** `P7` **The intent's extras are the command line.** `-e map Odesa -e ui nodes,claims` is `--map
+Odesa --ui nodes,claims`, and `-e seconds` and `-e ui-scale` are the words they look like. The words are
 the desktop's, and the ones a handset cannot answer are not offered.
 
 **AND-6** `P7` **The fingers are the page's fingers.** The first one down is the pointer and the button
@@ -73,18 +67,14 @@ with a 1.3 driver has a 64-bit userland.
 
 ## How it is checked
 
-**The APK is built by a pipeline of its own** — [`.github/workflows/android.yml`](../../../../.github/workflows/android.yml),
-which is a tag push and a `workflow_dispatch` and shares nothing with the page's. It builds the release
-package, signs it when the keystore secrets are configured and debug-signs it when they are not, and
-leaves both an APK and an AAB as the run's artifacts. **A green build is the whole of what it claims**:
+**The APK is built by a pipeline of its own** —
+[`.github/workflows/android.yml`](../../../../.github/workflows/android.yml), on a tag push or a
+`workflow_dispatch`, sharing nothing with the page's. **A green build is the whole of what it claims**:
 that this head compiles, packs the town and packages, on a machine that is not the one it was written on.
-
-**A tag ends in a release and a dispatch ends in an artifact.** At a tag the same run creates the GitHub
-release, attaches both packages to it, and says in the notes which key signed them — because a package
-that can only be reached through a run number is not something a reader can download, and an install
-signed by one key is not one Android will replace with the other. A tag with a suffix — `v0.2.0-rc1` — is
-a pre-release; rebuilding a tag uploads over what is attached rather than failing on a release that
-already exists.
+A dispatch ends in an APK and an AAB as the run's artifacts; a tag ends in a GitHub release with both
+attached and the notes saying which key signed them, because a package reachable only through a run
+number is not something a reader can download, and Android will not replace an install signed by one key
+with a package signed by the other.
 
 **What a build cannot answer is answered on an emulator, and the picture is the check** — exactly as it
 is for the other two heads:
@@ -101,25 +91,21 @@ adb exec-out screencap -p > .tmp/handset.png
 
 **`EmbedAssembliesIntoApk` is not optional in that loop**: a Debug package is built for fast deployment
 and its assemblies are pushed separately, so one installed by hand aborts on a runtime that finds none.
-**`-gpu host` is not optional either** — the emulator's software driver answers Vulkan 1.1, which cannot
-create this engine's instance (AND-8).
+**`-gpu host` is not optional either** — the emulator's software driver answers Vulkan 1.1 (AND-8).
 
-**The figure that head is judged on is the frame rate, and it is read off the read-out in a picture.** On
-an x86_64 emulator over the fixture town it is 60 fps compiled ahead of time and 55 interpreted, which
-says the pace is the display's rather than this build's — a handset's own figure is a fact about that
-handset.
+**The figure the head is judged on is the frame rate, read off the read-out in a picture.** On an x86_64
+emulator over the fixture town it is 60 fps compiled ahead of time and 55 interpreted, which says the pace
+is the display's rather than this build's — a handset's own figure is a fact about that handset.
 
 **A named map lays before the first frame, and on a handset that is a black screen** (`-e map Odesa` is
 the whole of a city being generated on one core). It is the desktop's own semantics and the extras are a
 testing affordance; **the menu is the way in that never waits**, and what it shows while a city is laid
 is the card (OBS-2n).
 
-**The tiers do not reach this head, and the reason is the target framework.** The suite is `net10.0` and
-compiles against the desktop head ([tests](../../../tests/)), so a test cannot construct an activity or a
-handset window. What *is* checked is everything above the bootstrap, which is the engine the two other
-heads are already checked through — and **what is left to a device is the bootstrap itself**: a surface,
-a size, a density, fingers, and the pictures a reader takes of it.
+**The tiers do not reach this head, because the suite is `net10.0`** and compiles against the desktop head
+([tests](../../../tests/)), so a test cannot construct an activity or a handset window. Everything above
+the bootstrap is checked through the other two heads; **what is left to a device is the bootstrap itself**
+— a surface, a size, a density, fingers, and the pictures a reader takes of it.
 
-**A run says what it is doing in logcat.** Everything the engine prints — the framebuffer line, the
-crossing count, the frame budget, the claims table — comes out under the `town` tag
+**A run says what it is doing in logcat.** Everything the engine prints comes out under the `town` tag
 ([`LogWriter`](../LogWriter.cs)), so `adb logcat -s town` is what a handset has in place of a terminal.

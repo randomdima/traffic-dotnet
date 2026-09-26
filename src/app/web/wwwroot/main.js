@@ -50,7 +50,7 @@ if (refused) {
         // megabytes each, neither needs the other, and asked for in turn a page waits for the sum.
         //
         // **When one was not, nothing is asked for here at all.** The menu is the destination then,
-        // and it stands on two small files — so the art is not put on the same wire as them, even
+        // and it stands on a few small files — so the art is not put on the same wire as them, even
         // unawaited: it is asked for once the menu is drawn and the run has a frame in it
         // (src/app/main/web/Boot.cs). A menu waits for nothing.
         if (wanted) prefetch(ART);
@@ -105,7 +105,7 @@ function missing() {
     return null;
 }
 
-// The command line, spelled as a query string: ?map=Test&ui=nodes,paths reads as --map Test --ui …,
+// The command line, spelled as a query string: ?map=Test&ui=nodes,claims reads as --map Test --ui …,
 // so a link to a town is the same words the desktop takes.
 function arguments_() {
     const query = new URLSearchParams(location.search);

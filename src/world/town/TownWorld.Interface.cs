@@ -252,8 +252,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The reset</b> (CTL-4): the wheel is given up and so is manual mode, so every selected unit goes
-    /// back to deciding for itself — a walker draws a trip again, a car takes a fare or picks its errand
-    /// back up.
+    /// back to deciding for itself — a walker draws a trip again, a service vehicle picks its errand back
+    /// up, and any other car still driving is stood down where it is (CTL-8d).
     /// </summary>
     /// <remarks>
     /// It reaches the selection and not the town. A unit ordered somewhere and then deselected is still
@@ -279,15 +279,15 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <para>
     /// <b>A build is read <c>in</c> from the array it lives in</b>, so refilling that array is the whole of
-    /// what most of a figure does: the tyres, the templates and the follower all reach for it every tick
-    /// and get the new one on the next. The two that do not are the weight, which the solver holds its own
+    /// what most of a figure does: the tyres and the follower both reach for it every tick and get the new
+    /// one on the next. The two that do not are the weight, which the solver holds its own
     /// copy of, and the ground, which is a table built once with the town.
     /// </para>
     /// <para>
-    /// <b>What it deliberately does not do is re-plan.</b> A car halfway round a line drawn for the car it
-    /// used to be keeps that line until its manoeuvre ends, which is a second or two of a body driving to
-    /// a plan slightly wider or tighter than it needs — and watching it settle out is worth more than
-    /// tearing the town down to avoid it.
+    /// <b>What it deliberately does not do is re-plan.</b> A car halfway along a line laid for the car it
+    /// used to be keeps that line until it is next laid, which is a second or two of a body driving to a
+    /// plan slightly longer or shorter than it needs — and watching it settle out is worth more than tearing
+    /// the town down to avoid it.
     /// </para>
     /// </remarks>
     public void FiguresChanged()
@@ -306,7 +306,7 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>Every selected unit's own action, worked once</b> (CTL-7), and whether any of them had one to
     /// work. It is a lever and not a pedal: what a press reaches is the vehicle's own machinery, which
-    /// the town's own crews reach through the same call and no other (<see cref="WorkTheArm"/>).
+    /// the recovery's own errand reaches through the same call (<see cref="WorkTheArm"/>).
     /// </summary>
     /// <remarks>
     /// It needs no hand at the wheel. A player who has driven a truck into place and let the keys go still
@@ -339,8 +339,8 @@ internal sealed partial class TownWorld
     public int HandDrivenCar => _otherHand.Held ? _otherCar : -1;
 
     /// <summary>
-    /// <b>Whether this car's wheel is held over</b> by the player's own hand (CTL-5): no manoeuvre is
-    /// selected, no soft rule is consulted and nothing but the ellipse holds the pedals back.
+    /// <b>Whether this car's wheel is held over</b> by either hand (CTL-5, CTL-5d): no leg is decided, no
+    /// soft rule is consulted and nothing but the ellipse holds the pedals back.
     /// </summary>
     bool HandAtTheWheel(int car) => !Cars.Broken[car] && WheelIsHeldOver(car);
 

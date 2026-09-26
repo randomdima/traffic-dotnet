@@ -44,6 +44,9 @@ internal static class WalkingWords
             };
         }
 
+        // A crossing the traffic has is a walker standing at a kerb (PER-27), which is a state of its
+        // own and not a walk: what it is doing is the thing a watcher wants named.
+        if (people.WaitsToCross[person]) return "waiting to cross";
         if (people.OnCrossing[person] != PersonFleet.NoCrossing) return "on the crossing";
 
         // Off every way of the network, which is a walk in a straight line at the nearest of them

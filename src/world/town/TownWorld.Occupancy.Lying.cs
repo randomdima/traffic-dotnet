@@ -8,15 +8,16 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.World.Town;
 
 /// <summary>
-/// <b>The ground every body stands on, claimed whatever that body is doing</b>: the lane it is
-/// nearest, the lane running back the other way where it reaches into it, every join of a junction it is
-/// lying in, and — for a car driving a template — the sweep it is committed to making.
+/// <b>The ground every body stands on, claimed whatever that body is doing</b>: every way its box touches,
+/// of every kind and in every direction — the lane it is in, the lane running back the other way, the joins
+/// of a junction it is lying across, a bay, the paint of a crossing — and, for a car driving a template, the
+/// sweep it is committed to making.
 /// </summary>
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// <b>The space this car occupies, taken from its pose and claimed</b> — for every car, on
-    /// every way that space touches and nothing else already answers for (TER-4c.2, <see cref="LieUnder"/>).
+    /// <b>The space this car occupies, taken from its pose and claimed</b> — for every car, on every way
+    /// that space touches (TER-4c.2, <see cref="LieUnder"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -29,8 +30,9 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>It is the ground and never the road ahead.</b> What a body has taken in front of itself is its
     /// committed claim (<see cref="AskForTheGround"/>), which is laid first and covers the ways of that car's
-    /// own line; this pass is what covers the rest, and the dedupe is what keeps the two to one stretch apiece
-    /// (<see cref="LaneOccupancy.AlreadyHolds"/>).
+    /// own line; this pass is what covers the rest, and a row that meets one of those stretches is laid into
+    /// it rather than beside it, which is what keeps the two to one stretch apiece
+    /// (<see cref="LaneOccupancy.StandOutTo"/>).
     /// </para>
     /// <para>
     /// <b>And a body that has not moved lies where it lay</b> (<see cref="LyingClaims"/>). The geometry below
@@ -124,21 +126,32 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// One recorded row claimed, unless this body is already holding ground these metres run over
-    /// (TER-5c.2) — <b>the one place the dedupe is made</b>, so a row laid from the geometry and the same row
-    /// laid again from the record cannot be answered two ways.
+    /// One recorded row claimed — <b>into the stretch this body already holds over those metres where there
+    /// is one</b> (TER-5c.2, <see cref="LaneOccupancy.StandOutTo"/>), and as a stretch of its own where
+    /// there is not. So a row laid from the geometry and the same row laid again from the record cannot be
+    /// answered two ways.
     /// </summary>
     /// <remarks>
-    /// <b>What it is normally answered by is the car's own committed claim</b>, which was laid first over the
+    /// <para>
+    /// <b>What it is normally met by is the car's own committed claim</b>, which was laid first over the
     /// ways of this body's line. So a driver under way keeps the stretch that carries its road, and what this
     /// pass adds is every way that line does not name: the lane it is reaching into, the join it is lying
     /// across on its way somewhere else. Asked and answered under <see cref="LaidAs"/> rather than under the
-    /// car, so that a trailer meets its hauler's claim as its own and is deduped against it.
+    /// car, so that a trailer meets its hauler's claim as its own and is laid into it.
+    /// </para>
+    /// <para>
+    /// <b>Met is not the same as covered, and dropping the row took the difference off the town</b>
+    /// (TER-4c.2). The claim already there is the body measured from the line it is driving and this row is
+    /// the same body measured from its pose: the leading corner of a car standing at an angle to its line
+    /// reaches past the nose that claim ends its body at, and those metres are ground the box is standing
+    /// on. Left to the claim alone they read as road its holder was merely granted — which is ground a
+    /// stronger movement takes (TER-5e), out from under a body that is on it.
+    /// </para>
     /// </remarks>
     void Lay(int car, in LyingRow row)
     {
         var occupant = LaidAs(car);
-        if (_occupancy.AlreadyHolds(row.Way, row.FromM, row.ToM, occupant)) return;
+        if (_occupancy.StandOutTo(row.Way, occupant, row.FromM, row.StandsToM, row.ToM)) return;
 
         _occupancy.ClaimWhereItStands(
             row.Way, row.FromM, row.StandsToM, row.ToM, row.AlongMps, occupant, acrossFromM: row.AcrossFromM,
@@ -195,39 +208,27 @@ internal sealed partial class TownWorld
     /// act of leaving.
     /// </para>
     /// <para>
-    /// <b>A body driving a line of the town's own writes only where nothing else already answers for the
-    /// ground</b> (SIM-7). Three things do, and each is a way this pass leaves alone:
+    /// <b>Every way the box touches and no reading of the body at all</b> (TER-4c.2): every kind of way,
+    /// whichever way it runs, and whatever the body standing on it is doing. A lane, the lane running back
+    /// against it, the joins of the box it is lying in, the arms' own lanes past their ends, a bay's way, the
+    /// paint of a crossing — a body on one of those is on it, and what a reader makes of that is the reader's
+    /// (<see cref="LaneClaim.AsideM"/>, <see cref="KindOf"/>).
     /// </para>
-    /// <list type="bullet">
-    /// <item>
-    /// <b>The ways of its own line</b> carry its committed claim, which is the same body measured from the line
-    /// instead of the pose (<see cref="AskForTheGround"/>, <see cref="LaneOccupancy.AlreadyHolds"/>).
-    /// </item>
-    /// <item>
-    /// <b>The joins of a junction</b> are the crossing table's (TER-5c.1): a driver crossing a box is read on
-    /// every join its own way is driven over by looking that way up (<see cref="WhereTheGroundIsCrossed"/>),
-    /// which is where the right of way is applied. Written onto those joins as a body as well it is the same
-    /// refusal made twice — and the second one nobody can give up, since a rank takes a claim and never a
-    /// body (TER-5e), so four cars meeting at a crossroads each hold the ground the other three are waiting
-    /// for and the box never clears. The arms' own lanes go with them, because a body answering on a lane
-    /// past that lane's own end is standing on the box and not on the lane (TER-5d,
-    /// <see cref="WayUnder.PastTheEndM"/>).
-    /// </item>
-    /// <item>
-    /// <b>The lane running back against it</b> is the one piece of ground the town has no rule for. Nothing
-    /// is ever driven between a carriageway's two lanes (TER-5f), so two bodies meeting there are two bodies
-    /// neither of which can be made to give way — and a car that stops while still angled across the line
-    /// holds the oncoming lane for the rest of the run. <b>This is a gap and not a mechanism</b>: what should
-    /// close it is the bar that decides a car is still on its line at all
-    /// (<see cref="OffTheLineAllowanceM"/>), which lets a car sit a full lane's width off it and still count
-    /// as driving. A body far enough out to be in the other lane ought to be a body that is no longer under
-    /// way — and then it is written here like anything else.
-    /// </item>
-    /// </list>
     /// <para>
-    /// <b>A body that is not driving a line of the town's own has none of those readings</b> — its line says
-    /// one thing and its pose another, or it has no line at all — so every way under it is exactly what it
-    /// must be written onto.
+    /// <b>What a body is standing on is never something another reading answers for</b> (SIM-7). Three
+    /// readings were once taken to answer for it — the crossing table for the joins (TER-5c.1), the box for
+    /// the ground past a lane's end (TER-5d), and the bar that decides a car is still on its line for the
+    /// lane running back — and each of them answers a different question than <em>what is standing here</em>:
+    /// the first two are about ground a movement is driven <em>over</em> and the third about ground a body
+    /// may be on with nobody having said so. What they cost was a car lying across a junction that every car
+    /// crossing it read as empty ground.
+    /// </para>
+    /// <para>
+    /// <b>The one hold that is not laid here is the ways of the body's own line</b>, and it is not left out
+    /// either: those carry its committed claim, which is the same body measured from the line instead of the
+    /// pose, so the row for one of them is laid <em>into</em> that claim rather than beside it
+    /// (<see cref="AskForTheGround"/>, <see cref="LaneOccupancy.StandOutTo"/>) — one body, one stretch of one
+    /// way (TER-5c.2), reaching whichever of the two readings reaches further.
     /// </para>
     /// </remarks>
     [SkipLocalsInit]
@@ -245,9 +246,9 @@ internal sealed partial class TownWorld
         Span<WayUnder> standing = stackalloc WayUnder[room];
         Span<WayUnder> committed = stackalloc WayUnder[room];
         var sweeping = committedToM != standingM;
-        var standingCount = ReadTheGroundUnder(onThePavement, car, standingM, standingRad, underWay, standing);
+        var standingCount = ReadTheGroundUnder(onThePavement, car, standingM, standingRad, standing);
         var committedCount = sweeping
-            ? ReadTheGroundUnder(onThePavement, car, committedToM, committedRad, underWay, committed)
+            ? ReadTheGroundUnder(onThePavement, car, committedToM, committedRad, committed)
             : 0;
 
         for (var index = 0; index < standingCount; index++)
@@ -282,11 +283,19 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The ways one pose of this body stands on, less the ones a driver under way already answers for — the
-    /// walk and the three exclusions of <see cref="LieUnder"/>'s own remark, made once for each pose.
+    /// <b>Every way one pose of this body stands on</b> (TER-4c.2) — the walk itself and nothing taken out
+    /// of it, made once for each pose.
     /// </summary>
+    /// <remarks>
+    /// <b>Which ways these are is a question about the ground and the box, and about nothing else</b>: not
+    /// what the body is doing, not which way the way runs, not what kind of way it is, and not what some
+    /// other reading of the town would have said about the same metres. A driver under way used to have
+    /// three of them held back — the joins it was standing in, the lanes it stood past the end of, and every
+    /// way running against its heading — on the grounds that something else answered for each, and a car
+    /// lying across two of those was a car that ground could not see.
+    /// </remarks>
     int ReadTheGroundUnder(
-        bool onThePavement, int car, Vector2 atM, float headingRad, bool underWay, Span<WayUnder> into)
+        bool onThePavement, int car, Vector2 atM, float headingRad, Span<WayUnder> into)
     {
         // <b>The box this body stands in, at the heading it is standing at</b>
         // (<see cref="BodyFootprint"/>). Read at one radius instead, the same figure is wrong on both axes at
@@ -296,61 +305,13 @@ internal sealed partial class TownWorld
         var forward = Heading.Unit(headingRad);
         var box = new BodyFootprint(build.HalfLengthM, build.FlankM, forward);
 
-        // <b>The paint is the road's and never the walk's</b> (TER-5c.1): a crossing is carriageway a walk
-        // runs over, so a car on it is a stretch of the lane and nothing at all on the walk. Written here as
-        // well, one car holds one piece of ground twice, under two claims free to disagree.
-        if (onThePavement)
-        {
-            return WalkedAlone(
-                GroundUnder.At(_pavement, atM, box, _config.CrossesOntoAWayM, into), into);
-        }
+        // <b>The paint is a way like any other</b> (TER-4c.2): a car standing on a zebra is standing on the
+        // crossing way as much as on the lane beneath it, and it writes both for the same reason a walker
+        // there does. One piece of ground carries one claim per way, so two ways is two claims and not one
+        // body held twice.
+        if (onThePavement) return GroundUnder.At(_pavement, atM, box, _config.CrossesOntoAWayM, into);
 
-        var found = TheRoadsGroundUnder(atM, box, into);
-        if (!underWay) return found;
-
-        var kept = 0;
-        for (var index = 0; index < found; index++)
-        {
-            ref readonly var way = ref into[index];
-
-            // The three readings a driver under way already has, in the order the remark gives them: the box
-            // is the table's, the ground past a lane's own end is the box, and the lane running back against
-            // it is the gap nothing resolves. <b>A bay's way goes with the box</b>: what a driver is driven
-            // over there is the same table's (<see cref="BayCrossings"/>), so a car working into a bay holds
-            // it by the claim on the way it is driving and not twice — which is what the first of the
-            // three says of it, since a bay's way is no lane of the road's.
-            if (_ways.KindOf(way.Way) != WayKind.Lane || way.PastTheEndM > 0f
-                || Vector2.Dot(way.AlongUnit, forward) < 0f)
-            {
-                continue;
-            }
-
-            into[kept++] = way;
-        }
-
-        return kept;
-    }
-
-    /// <summary>
-    /// The ways of that reading a <em>car</em> answers for on the walk, which is every one of them but a
-    /// crossing's (TER-5c.1). A body on foot writes the paint like any other way it stands on
-    /// (<see cref="HoldThePavementUnderIt"/>).
-    /// </summary>
-    int WalkedAlone(int found, Span<WayUnder> into)
-    {
-        var kept = 0;
-        for (var index = 0; index < found; index++)
-        {
-            var way = into[index].Way;
-            var edge = _ways.KindOf(way) == WayKind.Footway
-                ? _ways.FootwayOf(way)
-                : _pavement.TurnToLane(_ways.MitreOf(way));
-            if (_pavement.IsACrossing(edge)) continue;
-
-            into[kept++] = into[index];
-        }
-
-        return kept;
+        return TheRoadsGroundUnder(atM, box, into);
     }
 
     /// <summary>Where one way stands in a reading of the ground, or <c>-1</c> — a walk, since a body is on a handful.</summary>

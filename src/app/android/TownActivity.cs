@@ -82,7 +82,7 @@ public sealed partial class TownActivity : Activity, ISurfaceHolderCallback2
         Console.SetOut(new LogWriter());
 
         // AND-5: the extras are the command line. `adb shell am start -n dev.trafficdotnet.town/... -e
-        // map Odesa -e ui nodes,paths` is `--map Odesa --ui nodes,paths`.
+        // map Odesa -e ui nodes,claims` is `--map Odesa --ui nodes,claims`.
         _map = Intent?.GetStringExtra("map");
         _ui = (Intent?.GetStringExtra("ui") ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

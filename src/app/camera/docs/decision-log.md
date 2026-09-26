@@ -31,14 +31,12 @@ lead is measured off the unit's speed and the picture is not.
 
 ## The lead eases and the camera's own place does not
 
-A body is drawn where its last tick left it, so a camera that eased towards that place kept whatever
-fraction of the step it had not covered and spent it on the picture — as a swim of a few pixels on the
-followed body itself, worst under a hand at speed, which is the one case the follow exists for. Moving
-the camera by the unit's own step instead makes the body exactly still on the glass and leaves the
-staircase where it belongs: on the town going past, where it is the tick rate and reads as one. What is
-left to ease is the lead, over about half a second, which smooths the unit's manoeuvring rather than the
-frame rate. That span is real time, since a lead easing in sim time would swing three times as fast at
-three times pace.
+A body is drawn where its last tick left it, so a camera easing towards that place spent the part of each
+step it had not covered on the picture — a swim of a few pixels on the followed body itself, worst under a
+hand at speed, the one case the follow exists for. Moving the camera by the unit's own step makes the body
+still on the glass and leaves the staircase on the town going past, where it is the tick rate and reads as
+one. What is left to ease is the lead, over about half a second of real time, since a lead easing in sim
+time would swing three times as fast at three times pace.
 
 Drawing every body at an interpolated position would smooth the town going past as well, and costs a
 second position per body for one consumer. It is worth that only once something other than the camera

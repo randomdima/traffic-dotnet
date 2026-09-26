@@ -21,13 +21,10 @@ radians or degrees stated in the name.
 
 ## Where a figure lives
 
-Every number the simulation runs on is on `SimConfig`. Its shape says which kind it is: the nested groups
-are **authored**, and they are the only figures the override file may set; everything on the root is
-**derived** from them. That is why moving one authored ratio moves the whole town, and why the override
-file refuses a derived key.
-
-**A literal in behaviour code is a defect**, and a number that exists in two places eventually disagrees
-with itself.
+Every number the simulation runs on is on `SimConfig`: the nested groups are **authored** and are the only
+figures the override file may set, and everything on the root is **derived** from them. That is why moving
+one authored ratio moves the whole town, and why the override file refuses a derived key. **A literal in
+behaviour code is a defect.**
 
 ## The two random streams
 
@@ -53,8 +50,8 @@ shift the draws of the passes after it.
 **The loop order is fixed and it matters:**
 
 1. read the player's direct input, so the keys land before the decisions they feed;
-2. rebuild the **proximity index** from the body roster — where every walker and moving car is this tick,
-   with its velocity and its half-width;
+2. rebuild from the body roster what the tick knows about where bodies are — the walkers' **proximity
+   index** and the lanes' **occupancy**;
 3. `Decide` for every non-terminal agent, in a stable roster order;
 4. `Step` every body — this is where impulses are applied;
 5. end-of-tick contact arbitration → damage.
@@ -63,29 +60,23 @@ Nothing in the index survives a tick and no body moves before step 4, so **every
 taken against the same instant of the world**. A host with no index — a test fixture, a single-agent rig
 — reports "nothing nearby" rather than crashing.
 
-Two traps that are silent in the tick they happen and simply wrong in the next:
-
-- **A body spawned into a running world skips its first tick.** Expect the mass of a newly created body to
-  reach the solver a step behind the code that set it, which divides the first impulse by a default mass
-  and applies it at hundreds of times the intended magnitude. Nothing in this town has anywhere to be
-  inside 16 ms.
-- **Never place a body at a velocity it did not accelerate into.** Drive it up to speed instead; a tyre
-  model reading a velocity no wheel produced reports an acceleration no tyre could have caused.
+**Never place a body at a velocity it did not accelerate into.** Drive it up to speed instead; a tyre model
+reading a velocity no wheel produced reports an acceleration no tyre could have caused — silent in the tick
+it happens and simply wrong in the next.
 
 ## The decision clock
 
-**Bodies move every tick. Manoeuvre *procedures* do not.** Each agent runs its catalogue every
-`AgentDecisionIntervalS`, staggered by the agent's own index so the town's thinking spreads across the
-ticks rather than spiking on one. Three rules hold it honest:
+**Bodies move every tick. Decisions do not.** Each agent decides — its errand, and the next line of its
+leg — every `AgentDecisionIntervalS`, staggered by the agent's own index so the town's thinking spreads
+across the ticks rather than spiking on one. Three rules hold it honest:
 
 - **It is stated in seconds, never in ticks**, because what it bounds is how far the world moves under a
   stale answer.
-- **It is a floor on the rate, never a ceiling.** A manoeuvre declares for itself that it runs every tick,
-  and two kinds always do: one **negotiating with something that is itself moving**, and one **steering to
-  a pose**.
-- **Hard rules and the junction claim are asked every tick regardless.** Setting the interval to 0
-  must make every agent think every tick and reproduce the un-clocked town exactly; that equivalence is
-  the test that the clock changed no behaviour it should not have.
+- **It is a floor on the rate, never a ceiling**: an agent may declare that it decides every tick
+  (`ISimWorld.DecidesEveryTick`).
+- **The hard rules, the sensing and the claims are taken every tick regardless**, and are not decisions.
+  Setting the interval to 0 must make every agent decide every tick and reproduce the un-clocked town
+  exactly; that equivalence is the test that the clock changed no behaviour it should not have.
 
 ## Determinism, and how far it goes
 

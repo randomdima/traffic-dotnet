@@ -14,9 +14,9 @@ namespace TrafficSimulation.World.Parking;
 /// <para>
 /// <b>A claim on a bay is a register and the movement is not</b> (GEN-4g), and the line between the two is
 /// the whole of what this type is for. A bay a leg is on its way to is held here, in an index of the bays
-/// themselves, because the hold begins when the trip picks the bay and the walker sets off — minutes before
-/// anybody is at the wheel, over ground the car has no line to and no claim on. Nothing else in the
-/// town holds ground it is not driving towards, so nothing else in the town could answer it.
+/// themselves, because the hold is taken when the leg is sent — before the car has a line to it, over ground
+/// it has no claim on. Nothing else in the town holds ground it is not driving along, so nothing else in
+/// the town could answer it.
 /// </para>
 /// <para>
 /// <b>What such a claim is not is a second opinion about the road.</b> It says which bay a leg is aimed at
@@ -25,14 +25,14 @@ namespace TrafficSimulation.World.Parking;
 /// refuses it there rather than here.
 /// </para>
 /// <para>
-/// <b>The bays are indexed by where they stand</b> (<see cref="BaysNear"/>), because the question a trip
-/// asks is a question about a place: the free bays within a walk of a door, nearest first. Walked over
-/// every bay in the town it was a scan per leg drawn.
+/// <b>The bays are indexed by where they stand</b> (<see cref="BaysNear"/>), because the question asked of
+/// them is a question about a place: the free bays near it, nearest first. Walked over every bay in the town
+/// it was a scan per ask.
 /// </para>
 /// <para>
-/// <b>The way in is the bay's, not the car's</b> (GEN-4e): a walker is aimed at the ground off the driver's
-/// door of a car standing squarely in the middle of the bay (GEN-4i), which is a point the town settled when
-/// it painted the bay.
+/// <b>The way in is the bay's, not the car's</b> (GEN-4e): a walker would be aimed at the ground off the
+/// driver's door of a car standing squarely in the middle of the bay (GEN-4i), which is a point the town
+/// settled when it painted the bay. No walk is aimed at a car.
 /// Worked out from where the car has actually come to rest, it moves every time something nudges the car,
 /// and a body nudged out of a bay is a walk re-planned round the lot.
 /// </para>
@@ -106,8 +106,7 @@ internal sealed class ParkingRegistry
     /// <summary>
     /// <b>Whether a body this size stands inside a bay at all</b> (CAR-11b). The spaces are one size,
     /// painted for the nominal car with a margin either side, and a car longer than that is one parked
-    /// across the aisle behind it — so it is asked before a line into a bay is laid rather than discovered
-    /// once the car is in it.
+    /// across the aisle behind it. <b>Nothing asks it</b>: no bay is refused a car for its size.
     /// </summary>
     public bool Takes(float lengthM, float widthM) => lengthM <= _spaceLengthM && widthM <= _spaceWidthM;
 
@@ -116,8 +115,9 @@ internal sealed class ParkingRegistry
     /// against the middle of the body, which is where a parked car's middle stands (GEN-4i).
     /// </summary>
     /// <remarks>
-    /// <b>A registration is not a position.</b> A car is written into a bay by the manoeuvre that put it
-    /// there and out of one by the leg that drove it away (CAR-15), so a body that left by any other
+    /// <b>A registration is not a position.</b> A car is written into a bay by whatever put it there — a leg
+    /// that parked it, a spawn, a wreck set down — and out of one by the leg that drove it away (CAR-15), so a
+    /// body that left by any other
     /// route — a hand at the wheel, a shove, a wreck dragged off — is still registered in a bay it may be
     /// streets from. Anything that reads the standing as a place to lay the body has to ask this first.
     /// </remarks>

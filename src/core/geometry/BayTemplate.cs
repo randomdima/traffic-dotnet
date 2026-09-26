@@ -8,49 +8,23 @@ namespace TrafficSimulation.Core.Geometry;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>The line between the lane and the bay is the town's</b> and not this file's any more: a bay's ways
-/// are laid with the town (<c>World.Parking.BayWays</c>) and driven like any other way of it (CAR-15).
-/// What is left here is what a pose in a bay <em>is</em>, which both the laying and the standing read.
-/// </para>
-/// <para>
-/// <b>There was one shape because there is one line.</b> A way in that is not the way out is two shapes to
-/// solve, two landings to check against the lane and two answers that can disagree about whether a bay is
-/// usable at all; the same line travelled the other way is a shape that lands on the lane by construction
-/// — it started there — and a bay that can be driven into can by definition be driven out of.
-/// </para>
-/// <para>
-/// <b>Which way round the car ends up standing is a different shape, not a different traversal</b>
-/// (GEN-4j). Nose-first, the axle comes up the lane and turns in; backed in, the car has driven past the
-/// bay first and the axle travels back down the lane before it turns. Both are this shape — the second is
-/// asked for with the lane's direction reversed and the bay's axle at the deep end of the space — and each
-/// of the two is driven forwards one way round and in reverse the other.
-/// </para>
-/// <para>
-/// <b>It is drawn for the rear axle</b>, like every other line in this engine, and it is four pieces: a
-/// straight along the lane, a swing away from the bay, the turn into it, and the straight that ends in the
-/// bay. The swing is the piece a driver makes without thinking and the arithmetic cannot do without: a
-/// quarter turn of radius <c>R</c> moves the axle <c>R</c> sideways, so a bay standing nearer its lane than
-/// that is one no single arc reaches — swinging <c>φ</c> the other way first brings the sideways travel down
-/// to <c>R(2cos φ − 1)</c>, which is what lets a car turn into a bay off the lane beside it rather than only
-/// off the far one.
-/// </para>
-/// <para>
-/// <b>The lane is treated as straight over the template's own length.</b> A template is a dozen metres of a
-/// road whose bends are laid at a hundred and more, and the alternative is solving a pose against an arc
-/// chain to place a manoeuvre that ends in a four-metre-wide bay.
+/// <b>The line between the lane and the bay is the town's</b> and not this file's: a bay's ways are the
+/// town's (<c>World.Parking.BayWays</c>), which lays none in this build. What is here is what a pose in a
+/// bay <em>is</em> — which way round the car stands (GEN-4j) and where its rear axle is (GEN-4i) — read by
+/// whatever stands a car in one.
 /// </para>
 /// </remarks>
 internal static class BayTemplate
 {
     /// <summary>
-    /// How square to the lane a bay has to stand before this template describes it. Below it the bay is
-    /// parallel to the kerb, which is a different manoeuvre and not one this engine lays.
+    /// How square to the lane a bay has to stand to be one a car turns into. Below it the bay is parallel
+    /// to the kerb, which this engine does not lay.
     /// </summary>
     const float SquareEnoughRad = 30f * MathF.PI / 180f;
 
     /// <summary>
-    /// Whether a turn of this size is the shape here rather than a slide along a kerb — asked by whoever
-    /// lays a bay's own ways as well, so the bar is stated once.
+    /// Whether a turn of this size is a turn into a bay rather than a slide along a kerb, stated once for
+    /// whoever asks.
     /// </summary>
     public static bool SquareEnough(float turnRad) =>
         MathF.Abs(turnRad) >= SquareEnoughRad && MathF.Abs(turnRad) <= MathF.PI - SquareEnoughRad;
@@ -63,8 +37,7 @@ internal static class BayTemplate
     /// <remarks>
     /// <b>The body stands in the same place either way round and the axle does not</b> (GEN-4j). Nose in,
     /// the axle is the wheelbase's half behind the middle of the space; backed in, it is that far past it,
-    /// at the deep end — which is why a way to a backed-in car runs a metre further into the bay than a way
-    /// to one that drove in.
+    /// at the deep end. Nothing calls it while no bay's ways are laid.
     /// </remarks>
     public static Vector2 RearAxleOfBayM(
         float centreAheadOfAxleM, Vector2 bayCentreM, float bayHeadingRad, bool noseIn) =>

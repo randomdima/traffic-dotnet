@@ -51,9 +51,10 @@ internal static class LaneTour
     /// <summary>The cheaper the turn, the likelier it is drawn — at the prices the router quotes.</summary>
     static float Weight(RoadGraph graph, SimConfig config, int connector)
     {
-        // A lane with no connector out of it is a dead end, and the way back out of one is a park and an
-        // unpark in a bay of its own. Declining it keeps a car nobody is routing on roads it can drive off
-        // again; it is not a rule — a dead end is a real place and a real driver goes down it.
+        // A lane with no connector out of it is a dead end, and nothing turns a car round in one: driven
+        // in, a car stands at the end until its leg's clock runs out. Declining it keeps a car nobody is
+        // routing on roads it can drive off again; it is not a rule — a dead end is a real place and a real
+        // driver goes down it.
         if (graph.ConnectorsFrom(graph.ConnectorTo(connector)).Count == 0) return 0f;
 
         return graph.KindOf(connector) switch

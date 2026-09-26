@@ -44,11 +44,11 @@ internal interface IEdgeTurnPricer
 /// between two decisions is therefore one link — which is what stops the search asking a question at every
 /// bend in the town, and what makes a turn price mean something when it is asked. <b>Nowhere is promoted
 /// for being somewhere a body is sent</b>: a destination is a place on a link and carries how far into it
-/// stands (<see cref="RouteGoal"/>), so a car park's frontage needs no node of its own to be aimed at.
+/// stands (<see cref="RouteGoal"/>), so a bay or a doorway needs no node of its own to be aimed at.
 /// </para>
 /// <para>
-/// <b>A closed run with no split anywhere on it would contract to nothing</b> — the band a car park is
-/// wrapped in, the arc round a dead end's head. One place of it is promoted, and the ring becomes two
+/// <b>A closed run with no split anywhere on it would contract to nothing</b> — a course of the pavement no
+/// crossing parts. One place of it is promoted, and the ring becomes two
 /// links leaving and returning to that place. The lowest place is promoted rather than whichever the walk
 /// reached first, so the answer does not depend on how the town was built.
 /// </para>

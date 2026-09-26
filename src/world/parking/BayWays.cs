@@ -7,76 +7,44 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.World.Parking;
 
 /// <summary>
-/// <b>The ways at a bay, laid once with the town</b> (GEN-4f): a line per standing the bay affords and per
-/// lane it can be worked off, each carried as the pair of ways it is driven as — into the bay, and out of
-/// it. They are ways of the road in every sense — arcs, a length, metres of their own, and a row in
-/// the town's table of what is driven over what — and they are the whole of what makes a car park a place
-/// the ordinary mechanisms reach.
+/// <b>The ways at a bay</b> (GEN-4f): a pair per standing the bay affords and per lane it is worked off —
+/// into the bay, and out of it. They are ways of the road in every sense — arcs, a length, metres of their
+/// own, and a row in the town's table of what is driven over what — and they are the whole of what would
+/// make a car park a place the ordinary mechanisms reach.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A bay is a mini-junction and not a special case.</b> A way leaves a lane at a place on it, sweeps
-/// whatever stands between and ends at the bay's own pose. Which ground it takes off the lanes it crosses is
-/// the same question a junction's joins ask of each other (TER-5c), measured with the same code
+/// <b>A bay is a mini-junction and not a special case.</b> Which ground a way takes off the lanes it crosses
+/// is the same question a junction's joins ask of each other (TER-5c), measured with the same code
 /// (<see cref="LineOverlap"/>) and read out of the same table (<see cref="WayCrossings"/>) — so a car
 /// entering a bay is held off the traffic, and the traffic off it, by the mechanism that already holds a
 /// junction apart, and by no second one (SIM-7).
 /// </para>
 /// <para>
-/// <b>The way in and the way out are one line</b> (GEN-4f): one shape is solved and the way out is that
-/// shape reversed, so it lands on the lane by construction rather than by a second solve aimed back at it, a
-/// bay that can be driven into can be driven out of, and a car leaving retraces the ground it arrived over.
-/// <b>The pair is two ways all the same</b>, because a way's metres run in the direction it is
-/// driven and everything that reads one — a claim, a grant, a crossing — counts from its start.
-/// The two directions of a street are two lanes here for exactly the same reason.
+/// <b>The pair is two ways</b>, because a way's metres run in the direction it is driven and everything that
+/// reads one — a claim, a grant, a crossing — counts from its start. The two directions of a street are two
+/// lanes here for exactly the same reason.
 /// </para>
 /// <para>
-/// <b>A car stands in a bay one of two ways round, and they are different shapes</b> (GEN-4j). Nose in, it
-/// drove in and must reverse out; backed in, it reversed in and drives out. Both are the one template,
-/// asked with the lane's direction reversed for the second, and the four ways that come of them differ only
-/// in which end is the bay's and which gear the car is in — <see cref="IsDrivenInReverse"/>.
-/// </para>
-/// <para>
-/// <b>Reversing is between the bay and the lane beside it and nowhere else</b> (GEN-4j). Both standings are
-/// laid off the near lane, where the car may reverse either into the bay or out of it. The far lane is
-/// asked the same question and kept only in the direction that is driven <em>forwards</em>: a car may nose
-/// into a bay across the carriageway, and one that backed in may drive out across it, but nobody reverses
-/// over a lane of moving traffic to do either. <b>So the near lane is what a bay is usable off at all</b> —
-/// a standing needs both its ways, and only the near lane lays both — and what the far lane adds is an
-/// approach and a departure, never a standing of its own.
-/// </para>
-/// <para>
-/// <b>How near a shape passes the oncoming lane is not asked here</b> (SIM-7). The turn into a bay swings
-/// away from it first, out over the carriageway, and how much of the street that takes is the table's
-/// question and is answered for every way in the town by one piece of code
-/// (<see cref="BayCrossings"/>). A second bar held up here — the body off the oncoming lane's own paint —
-/// refuses shapes the table has already said nobody meets on, and refusing a shape costs a bay the
-/// standing it served: on a four-metre lane that is every nose-in in the town.
+/// <b>A car stands in a bay one of two ways round</b> (GEN-4j). Nose in, it drove in and must reverse out;
+/// backed in, it reversed in and drives out — so the four ways differ only in which end is the bay's and
+/// which gear the car is in (<see cref="IsDrivenInReverse"/>).
 /// </para>
 /// <para>
 /// <b>The way is the bay's and not the car's</b> (GEN-4e, and the same argument the walker's way in is
 /// settled by). Laid from the pose the car happens to be standing in, the line into a bay is a different
 /// line every time it is asked for, so nothing can be said about the ground it takes until the car is on top
-/// of it — which is a manoeuvre nobody can be held off. Laid once from the lane, it is a way, and the car
-/// converges onto it the way it converges onto every other line in the town.
+/// of it. A way of the town's is one line, and the car converges onto it the way it converges onto every
+/// other line in the town.
 /// </para>
 /// <para>
-/// <b>A way is the manoeuvre and not the approach to it.</b> It begins at the metre of the lane where the
-/// car stops driving straight, so the ground before that is the lane's own — driven under the lane's own
-/// claim on the way in, and not reversed back up on the way out. A car part-way onto a way still has
-/// its tail on the lane behind, and the traffic there is cut by that tail like any other. The lane is
-/// treated as straight over the template's own length, which is <see cref="BayTemplate"/>'s stated
-/// approximation and not a new one.
-/// </para>
-/// <para>
-/// <b>A bay whose template refuses the near lane both ways round is a bay with no way</b>, and that is the
-/// whole of what <see cref="CanBeReached"/> means. It is a refusal of the geometry and never a shortage the
-/// caller can work around.
+/// <b>Nothing lays one</b> (<see cref="Build"/>): every bay is a bay with no way, and that is the whole of
+/// what <see cref="CanBeReached"/> means.
 /// </para>
 /// </remarks>
 internal sealed class BayWays
 {
-    /// <summary>A bay the template refuses on every lane, which is a bay no trip ever claims.</summary>
+    /// <summary>No way: what a bay no way reaches answers, and a bay no leg ever claims.</summary>
     public const int NoWay = -1;
 
     /// <summary>Asking of whichever lane has one, rather than of a named lane.</summary>
@@ -154,10 +122,8 @@ internal sealed class BayWays
     public int BayCount => _firstWayOfBay.Length - 1;
 
     /// <summary>
-    /// <b>The ways this bay is worked off</b>, the near lane's first and each shape's pair together — the
-    /// pair for every standing the near lane lays, and past them the single forward-driven way each
-    /// standing gets off the far one. They are laid with the bay, so a bay's ways are a run of the band and
-    /// not a set to gather.
+    /// <b>How many ways this bay is worked off</b>. They are numbered together, so a bay's ways are a run of
+    /// the band and not a set to gather.
     /// </summary>
     public int WayCountOf(int bay) => _firstWayOfBay[bay + 1] - _firstWayOfBay[bay];
 
@@ -178,7 +144,7 @@ internal sealed class BayWays
 
     /// <summary>
     /// <b>The other half of this way's pair</b> — one shape driven the other way (GEN-4f) — or
-    /// <see cref="NoWay"/> where the lane laid only the one, which is every way off the far lane.
+    /// <see cref="NoWay"/> where the lane laid only the one.
     /// </summary>
     public int PairOf(int way) => TheWay(BayOfWay(way), LaneOf(way), !IsEntry(way), IsNoseIn(way));
 
@@ -207,9 +173,8 @@ internal sealed class BayWays
     /// </summary>
     /// <remarks>
     /// <b>The standing is the turn's and not the driver's</b> (GEN-4j, GEN-4l): what a car parks like here
-    /// is whatever comes out the other way. Off the lane a bay's kerb is on that is backing in and driving
-    /// out across the carriageway; off the lane across the street it is nosing in and reversing out. The
-    /// nose-in shape is asked for first, being the one a leg can drive without stopping to change gear.
+    /// is whatever comes out the other way. The nose-in shape is asked for first, being the one a leg can
+    /// drive without stopping to change gear.
     /// </remarks>
     public int TheWayToTurnIn(int bay, int offLane, int ontoLane) =>
         TurningWayIn(bay, offLane, ontoLane, noseIn: true) is var noseIn and not NoWay
@@ -233,8 +198,9 @@ internal sealed class BayWays
         {
             var back = roads.LaneReverse[lane];
 
-            // <b>And a stretch with no way out of it</b>, which is a dead end: what turns a car round there
-            // is the car itself, on the room TER-5a promises, and no bay is wanted for it.
+            // <b>And a stretch with no way out of it</b>, which is a dead end: a search may turn a leg there
+            // with no bay, and nothing turns the car round when it arrives — it stands at the end until its
+            // leg's clock gives the leg up (CAR-15a).
             turns[lane] = back >= 0 && (bays.ATurnIsLaidBetween(lane, back) || roads.LanesFrom(lane).Length == 0);
         }
 
@@ -352,16 +318,16 @@ internal sealed class BayWays
     public int MostArcs { get; private init; }
 
     /// <summary>
-    /// <b>Read off the lines the plan carries</b> rather than laid here. A bay's way is ground the town is
+    /// <b>The ways, as the plan would carry them</b> rather than laid here. A bay's way is ground the town is
     /// made of — it is what a car park <em>is</em>, the way a junction is its own movements (TER-5) — so it
-    /// is laid where the ground is laid and this holds what the driving makes of it: which lane each way
-    /// works, which way round the car ends up, and the numbering the rest of the network reads them by.
+    /// would be laid where the ground is laid, and this holds what the driving makes of it: which lane each
+    /// way works, which way round the car ends up, and the numbering the rest of the network reads them by.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing lays a bay's way</b>, so every bay the plan carries is a bay no way reaches — which is
-    /// what <see cref="CanBeReached"/> already answers for, and is the state a map with no frontage has
-    /// always stood up in. The slice stands rather than being unpicked: parking is in the road back, and
-    /// the lines it reads come with it.
+    /// <b>Nothing lays a bay's way and nothing is read</b>: every bay the plan carries is given none, so each
+    /// is a bay no way reaches — which is what <see cref="CanBeReached"/> already answers for, and is the
+    /// state a map with no frontage has always stood up in. The slice stands rather than being unpicked:
+    /// parking is in the road back, and the lines it will read come with it.
     /// </remarks>
     public static BayWays Build(CityPlan plan, RoadGraph roads, SimConfig config) =>
         new(

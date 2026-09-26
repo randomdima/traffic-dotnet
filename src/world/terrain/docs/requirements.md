@@ -28,12 +28,10 @@ carriageway; a pedestrian-legal way across a carriageway; ground a car idles on 
 on; paved pedestrian-only ground; and ground permitted to nobody. Two types differing only in what they draw
 are still two types, but no rule may turn on that difference alone.
 
-**The ground roads share where they meet is not among them, and that is TER-5 read here.** An intersection
-has no shape of its own: the tarmac inside one is the band its own movements sweep, which is the surface a
-lane lays. A kind for it would be a second name for the ground a car is driven over, told apart by which
-line happened to lay it and permitting exactly the same things — and every rule that could turn on the
-difference is a rule about a *junction*, which is `world/road`'s and is asked of the road graph rather than
-of the ground under a point.
+**The ground roads share where they meet is not among them** (TER-5): the tarmac inside a junction is the
+band its own movements sweep, so a kind for it would be a second name for the ground a car is driven over,
+and every rule that could turn on the difference is a junction's — `world/road`'s, asked of the road graph
+rather than of the ground under a point.
 
 **TER-3a** `P3` Ground legal to nobody is terrain and not a hole: coverage still holds, and a body pushed onto
 it is on ground and can leave under its own power. What makes it impassable is only that no route is ever
@@ -57,26 +55,25 @@ running at 40° is a kerb running at 40°.
 as its own record, or it is ground that is drawn from nothing and answered for by nothing — and the two
 readers of that record, the picture and the query, take it off the one array.
 
-**A raster is scratch and never an answer.** The generator paints one while a town is being decided, so a
-stage can ask what has been laid where; it agrees with the shapes only to within a cell, it is never
-shipped, and no rule about a finished town may be argued from it.
+**A raster is scratch and never an answer.** The generator keeps one of what its statics have taken
+(`GenClaims`); it agrees with the shapes only to within a cell, it is never shipped, and no rule about a
+finished town may be argued from it. What the ground is while a town is being laid is asked of the shapes
+laid so far (`GroundPieces`), exactly as the finished town's is.
 
 **TER-7a** `P4` **A band of ground ends where its own line ends**, square across, and not in a half-disc of its
-own half-width past the last point. It is the difference between a shape and the arithmetic that is
-cheapest to measure it by, and the two readers of a band had settled it differently: the answer at a point
-said square and the tarmac's own outline said round. What the round end put into the town was tarmac
-nothing is drawn on and nothing drives over — half a lane of it past the point a movement starts at, which
-is inside the box and therefore invisible, until it reached out under the pavement corner beside the mouth
-and took the corner's own line away with it.
+own half-width past the last point. The round end is the arithmetic cheapest to measure a band by and not
+its shape: it is tarmac nothing is drawn on and nothing drives over, half a lane of it past the point a
+movement starts at, reaching out under the pavement corner beside the mouth.
 
-**TER-7b** `P0` **The ground is a stack of layers, and a layer is one region of the town's own boundary.**
-The town is drawn bottom to top — the grass, then the pavement and the kerb along its outer face, then the
-water and the decks, then the driven ground at its own size and what the blocks take back, then the town's
-own kerb, then the paint — and **each of those layers is the ground within one distance of the kerb**, filled
-as the shape it is. The boundary is computed once (`LaneShell`) and every layer is it moved by a figure
-(`GroundRings`), so a layer has an edge that is a line rather than whatever a heap of overlapping pieces
-happened to leave. **A layer reaches the boundary and encloses every layer inside it**, so what the order
-states is the difference between two of them and no layer is cut to leave room for the next.
+**TER-7b** `P0` **The ground is a stack of layers, and a layer struck off the town's own boundary is one region
+of it.** The town is drawn bottom to top — the grass over the whole world, then the pavement and the kerb
+along its outer face, then the water and the decks, then the driven ground at its own size and the slabs,
+then the town's own kerb, then the paint — and **the pavement and the driven ground are each the ground
+within one distance of the kerb**, filled as the shape it is. The boundary is computed once (`LaneShell`)
+and each of the two is it moved by a figure (`GroundRings`), so a layer has an edge that is a line rather
+than whatever a heap of overlapping pieces happened to leave. **A layer reaches the boundary and encloses
+every layer inside it**, so what the order states is the difference between two of them and no layer is
+cut to leave room for the next.
 
 Four consequences follow and all four are the point.
 
@@ -98,10 +95,11 @@ Four consequences follow and all four are the point.
   it, and what survives is a stroke on the outer one's own edge. Such a line has no ends to close and no
   corners to turn — the layer turned them — and an edge shade is struck *inside* what it rims. **It is what
   is left where there is no shell to strike a line off**, a deck being a ribbon about a road's own line.
-- **A block is a hole and is filled after every region, in the other order.** Outside the town the
-  distances nest inwards; inside a block, a ring nearer the kerb leaves *more* of the block beyond it, so
-  the same order paves a block kerb to kerb. What a block shows is the sequence read outwards from its own
-  kerb.
+- **A block is a hole, and takes no pass of its own**: which ring is an outside and which a hole is read
+  off the sign of the area it encloses (`ShellFill`). Outside the town the distances nest inwards; inside a
+  block, a ring nearer the kerb leaves *more* of the block beyond it, so the same fills in the same order lay
+  a block's kerb, its walk and the grass inside it. What a block shows is the sequence read outwards from
+  its own kerb.
 
 **What this rule does not license is drawing the same thing twice in one layer to hide a seam.** Two bands
 that abut are two offsets of one curve; laid as two shapes each is sampled to its own curvature and they
@@ -115,15 +113,14 @@ second copy of the ground it stands on.
 
 **TER-3c** `P6` A town is laid with a **pavement**: a band of preferred walkable ground running the whole
 length of every carriageway on both sides, touching the kerb, turning the corner of every junction and
-wrapping every lot. **It is stamped by what it is not** — it takes only ground nothing else has claimed, so the
-carriageway, the crossings, the corner flares and the bridge decks keep their own cells and the band
-falls out as the two strips either side, without anything having to know where a kerb is.
+wrapping every lot. **It is the kerb line moved off itself** — the driven ground's own boundary
+(`LaneShell`) moved by `SimConfig.WalkOuterM` and filled whole (`GroundRings.Walk`) — and the carriageway is
+laid back over what it covers, so the band is what the carriageway leaves of it: the two strips either side
+of every street, round every corner the boundary turns.
 
-**It is laid once, as a step of its own, and everything reads that one laying.** What the pavement is
-made of is a list of pieces the town is laid with (`Paving`); the picture draws that list and the answer
-to what the ground is at a point is given off the same one. Worked out a second time by whoever needed
-it, the two are a figure in two places — and a band widened in the picture and not in the answer is a
-walker refused ground it can see it is standing on.
+**It is laid once, as a step of its own (`Paving`), and the picture and the answer both read that one
+laying.** Worked out a second time by whoever needed it, a band widened in the picture and not in the answer
+is a walker refused ground it can see it is standing on.
 
 **TER-3c.1** `P4` The network a walking route is planned over *is* the pavement, its corners and its
 crossings; this is structure, not price. A bounded hop off the network to a nearby door is still allowed,
@@ -141,13 +138,17 @@ street goes round.
 arms can meet at. The kerb's own line is the boundary of the driven ground said as closed rings
 (`LaneShell`) and every line the town has is that boundary moved by a figure (`GroundRings`) — the
 carriageway at nought, the kerb's outer face at half a kerb, the pavement's outer face at a kerb and a walk,
-and the walk's own kerb a kerb beyond that. So **every one of them is an offset of one curve** and the
+and the walk's own kerb half a kerb beyond that. So **every one of them is an offset of one curve** and the
 ground between any two is exactly the difference between the distances that struck them. **Every figure is
 measured from the boundary and never from the line before it**, which is what keeps that difference true: an
 offset taken off an offset inherits whatever the first one rounded, so a walk struck that way comes out
 narrower on the bends than on the straights. Where the boundary turns a corner it turns it once, on the ring
 itself (TER-5), and every distance inherits that corner at its own radius. Nothing is patched and nothing is
 measured twice — the kerb, the concrete and the answer are one construction read at four figures.
+
+**One of the four is a shape and the rest are lines.** The walk out to its outer face is the region; the two
+kerbs and the walk's outer face itself are lines, handed over as the closed lines they are and given a
+thickness by whoever draws them (TER-7b) — so no offset is struck at a figure only a line stands at.
 
 **TER-3c.10** `P4` **Every line struck off that boundary is rounded, and every line the ground is built of
 at the one radius.** A kerb is laid in stone and a pavement is walked, and neither follows a corner a fold
@@ -157,46 +158,25 @@ one figure for the whole of the ground** — the carriageway, the kerb and the p
 layers of concrete rounded at two radii disagree about the same corner, and the band between them is then
 wider on one bend than on the next.
 
-**A course a walking lane is a stretch of is not a layer of the ground, and takes its own**
-(`Road.WalkRoundedM`, WLK-1). It is a line a body is held on rather than a thing the town is built of:
-nothing is laid along it, no kerbstone bends to it, and what it owes is a walk nobody has to pick their way
-round. **And it fills without cutting**: the notch a fold left is filled at the course's own radius, and a
-corner the course turns away at comes back as the arc of the distance moved whatever that radius says. It is
-what the ground's own rounding may not do — a kerb is the line a ball rolls and not a shape moved — and it
-is what a line a body is held on needs, a radius that could cut being a radius that pulls a walk towards the
-tarmac. **So the course's figure has no bound**, and no radius takes a course its closure (WLK-1).
+**The boundary itself is rounded at that radius too, and there it is a cut** — a corner the town turns away
+at loses up to 0.41 of the radius — which is why the radius is under half a lane.
 
-**What it costs is the pockets, and the junctions that stand in them.** A dip in a course narrower than
-twice the radius is closed over rather than walked into, so at a sharp fork the walk stands off the apex by
-about the radius and a crossing there meets its course further off than one down a straight street does.
-**That is a reading and not a fault** (`Road.CrossingMeetsTheWalkWithinM`, WLK-15): what the reach refuses
-is the walk across the road or round the block, and how far off a course that was refused really stood is
-the census's to report.
-
-**The boundary itself is rounded by it, which costs the corner it rounds.** A corner the town turns away at
-already stands where the distance put it, so rounding it is a cut into the ground rather than a fill beside
-it — a right angle loses 0.41 of the radius. **The radius is therefore under half a lane**, which is what
-holds the cost to a corner: nothing a car is driven through is narrow enough to be closed over, and no
-ribbon of tarmac is thin enough to be swallowed by a ball of that size.
+**A course a walking lane is a stretch of is not a layer of the ground, and takes its own radius**
+(`Road.WalkRoundedM`, WLK-1). It is a line a body is held on rather than a thing the town is built of, so
+what it owes is a walk nobody has to pick their way round rather than agreement with a kerbstone — and it
+fills without cutting, so no radius pulls a walk towards the tarmac or takes a course its closure. What that
+costs, a pocket narrower than twice the radius closed over and a crossing at a sharp fork meeting its course
+further off, is a reading and not a fault (`Road.CrossingMeetsTheWalkWithinM`, WLK-15).
 
 **This is the ground and not the network.** Where a walk may go is the boundary moved off itself
 ([WLK-1](../../foot/docs/requirements.md)) and is no reading of these rings; what they owe each other is
-that the lanes a walker is held on stand on the concrete these strike, which is what sizing both off the
-carriageway's own width buys.
-
-**One of the four is a shape and the rest are lines**, and a line is not cut out of a shape. The walk out to
-its outer face is the region, struck as the offset of the boundary with the driven ground taken back out of
-it. The two kerbs and the walk's outer face itself are lines: **a line is handed over as the closed line it
-is and given a thickness by whoever draws it** (TER-7b), which is one mesh and no offset, against the two
-offsets and the cut a region costs. **So no offset is struck at a figure only a line stands at** — the
-kerb's outer face and the walk's own kerb are figures a line ends at, and neither is a shape the town holds.
+that the lanes a walker is held on stand on the concrete these strike.
 
 **TER-3c.7** `P6` **The carriageway ends where the pavement starts.** Everything inside the kerb is tarmac —
 carriageway, junction and car park, and the pockets the town's own pieces leave between them: a movement
 narrower than the arm it leaves, a car park set back off the street it fronts, a street meeting a wider
-street. Such a pocket is not a bay of concrete. Drawn as the tarmac's own outline instead, the kerb stepped
-and chamfered its way round every mouth in the town while the shell against the grass and the lane between
-them ran smoothly past, and the band came out a different width at each of them.
+street. Such a pocket is not a bay of concrete: a kerb drawn round it steps and chamfers at every mouth
+while the walk beyond runs smoothly past, and the band comes out a different width at each.
 
 **TER-3c.6** `P6` **A pavement is a ring and has no ends.** The boundary of the driven ground closes on
 itself — one ring round the outside of the town and one round every block it encloses — so the concrete laid
@@ -212,7 +192,7 @@ movement running edge to edge with the arm it leaves two — and a boundary comp
 break: it is one line because it was never several.
 
 **TER-3c.9** `P3` **A line the town strikes off its boundary is struck by name, and its normal points inside
-the perimeter.** The name and the figure are joined in one place (`GroundLine`, `GroundRings.OutM`) so that
+the perimeter.** The name and the figure are joined in one place (`GroundLayer`'s `Named` and `OutwardM`) so that
 a line gains a reader without gaining a literal, and every one of them is walked with the driven ground on
 the walker's right — on the ring round the town and on the ring round every block it encloses alike. **So the
 right of travel is the inward side everywhere**, and whatever is laid along such a line reads its own inward
@@ -240,12 +220,9 @@ The outside of the pavement and of a bridge deck each carry a line, the way the 
 kerb. **An edge is the surface drawn darker; paint is the surface drawn brighter**, and the grain of
 the ground comes through both.
 
-**A deck's edge is what its layer leaves of the one under it** (TER-7b) — the deck laid at full size in the
-line's shade and again its own width smaller in the surface's own — because a deck is a ribbon about a
-road's own line and has no shell to strike anything off. **The pavement's is a kerb and not a rim**: the
-walk's outer face is a closed line the boundary struck, so the concrete's outer edge is a stroke laid along
-it at a kerbstone's width, drawn after the walk and covering whatever the walk's own thinning left short of
-it. Nothing walks an edge or probes a region.
+**A deck's edge is a rim** (TER-7b), a deck being a ribbon about a road's own line with no shell to strike
+anything off; **the pavement's is a kerb**, struck along the walk's outer face (TER-3d). Nothing walks an
+edge or probes a region.
 
 **TER-3d** `P6` **A kerb straddles the ground it bounds, and is a stroke along that ground's own shell.**
 The town's kerb is the driven ground's boundary laid at a kerb's width with that boundary running down the
@@ -255,25 +232,14 @@ kerb ever stands further from the line it was struck from than half its own widt
 and at the tightest hook the boundary has alike, and a kerb seen to bulge off its own line is a defect in
 the stroke rather than a shape the town has.
 
-**And the ground beside it is drawn to a coarser line than the kerb is.** A shell is read as corners before
-anything is laid from it; the kerb is struck from that reading and the fill beneath it is that same reading
-thinned, because **a fill has no edge anybody sees** — every shell drawn here carries a kerb along its
-boundary, the kerb is laid over it, and where the fill cuts a corner what shows through is the layer under
-it. So what the fill may be got wrong by is what the kerb hides, and the kerb's own line is cut for the
-picture instead. **A fill whose edge reaches out from under its kerb is the defect**, and it is the only one
-the thinning can cause.
+**A fill has no edge anybody sees**: every shell drawn here carries a kerb along its boundary, laid over it,
+so the fill beneath may be thinned by what the kerb hides while the kerb's own line is cut for the picture.
+**A fill whose edge reaches out from under its kerb is the defect**, and the only one the thinning can cause.
 
-**Its two faces are that line at half its width either side**, so wherever the shell steps — one road
-narrower than the one it meets, a movement leaving an arm, a car park set back off its street — the kerb
-steps with it. **And it is a constant width because it is a stroke and not a difference**: struck as the
-ground between a line and an offset of it, it is two filled shapes subtracted, each thinned for the picture
-on its own terms, and it comes out a kerb wide only where the two thinnings happened to agree. **It borrows
-no triangle from either fill and is drawn after them both.** Struck on a curve of its own instead, a kerb reads
-as a chamfer cut across a corner the pavement beside it turns smoothly.
-
-**Where the shell turns tighter than half a kerb, that side of the stroke stops at the middle of the turn**
-rather than carrying on past it, which is the one place the width gives: an edge carried further comes back
-on the far side of the line it is an edge of, and half a kerb off its own line is the rule the width serves.
+**Its two faces are that line at half its width either side**, so wherever the shell steps the kerb steps
+with it, and it borrows no triangle from either fill (TER-7b). **Where the shell turns tighter than half a
+kerb, that side of the stroke stops at the middle of the turn** — the one place the width gives, since an
+edge carried further comes back on the far side of its own line.
 
 ## What this slice must produce
 

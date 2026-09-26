@@ -18,7 +18,7 @@ internal interface ISimWorld
     /// <summary>A terminal agent is not asked to think. Its body is still stepped, struck and pushed.</summary>
     bool IsTerminal(int agent);
 
-    /// <summary>Manoeuvres negotiating with something moving, or steering to a pose, declare this and run every tick.</summary>
+    /// <summary>Whether this agent is decided on every tick rather than on the staggered clock. A town answers no for every agent.</summary>
     bool DecidesEveryTick(int agent);
 
     /// <summary>Phase 1 — the player's input, so keys land before the decisions they feed.</summary>
@@ -30,7 +30,7 @@ internal interface ISimWorld
     /// <summary>Phase 3a — hard rules and the junction claim, asked every tick regardless of the clock.</summary>
     void TickAgent(int agent);
 
-    /// <summary>Phase 3b — the manoeuvre catalogue, run on the decision clock.</summary>
+    /// <summary>Phase 3b — each agent's own decision, run on the decision clock: a car's errand and its leg, a walker's trip.</summary>
     void DecideAgent(int agent, float sinceLastDecisionS);
 
     /// <summary>Phase 4 — every body stepped, where phase 3's impulses are applied.</summary>

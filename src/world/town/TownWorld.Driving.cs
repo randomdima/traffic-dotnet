@@ -38,7 +38,7 @@ internal sealed partial class TownWorld
     {
         // EVA-5: <b>a car on somebody's arm is not driving</b>. One end of it is off the ground and the other
         // is rolling where the truck takes it, which is exactly a wreck's state said of a car nobody broke —
-        // so what it gets is the trailer's two wheels and no manoeuvre at all.
+        // so what it gets is the trailer's two wheels and no driving at all.
         if (_recovery.OnTheHookOf[car] >= 0)
         {
             TrailerWheels(car);
@@ -61,7 +61,7 @@ internal sealed partial class TownWorld
 
         Cars.SinceDecisionS[car] += _config.TickSeconds;
 
-        // <b>A car with a driver in it and no line still has its leg</b>, and the clock still runs: a leg
+        // <b>A car being driven with no line still has its leg</b>, and the clock still runs: a leg
         // that can be given no line at all is ended by the clock like every other one that gets nowhere
         // (<see cref="WatchTheProgress"/>). It has nothing to drive, so the body holds — but it is decided
         // about like any other car.
@@ -137,7 +137,7 @@ internal sealed partial class TownWorld
         // — and it is the rate the profile actually brakes at, against what the tyres can put down, not what
         // the pedal is allowed to ask for. Sized to the pedal it was a third short of the stop it was for,
         // so a body standing on an open road at the gear's own cap came into view too late to be stopped
-        // for. It is the same figure the line is grown to (<see cref="SimConfig.CarSightM"/>), for the same reason.
+        // for. It is the same figure the line is grown to (<see cref="CarBuild.SightM"/>), for the same reason.
         var reachM = MathF.Min(
             (alongMps * _config.CarReactionS)
             + (alongMps * alongMps / (2f * CarFollower.BrakingMps2(_config, build, Cars.GroundCoefficient[car])))
@@ -173,9 +173,9 @@ internal sealed partial class TownWorld
 
         // The grant was taken against the claims while they were being laid, so it is a distance from where the
         // nose stood then: walking it in by the ground covered since is what stops it receding at exactly
-        // the car's own speed, which is the same correction a manoeuvre's stop point gets.
+        // the car's own speed, which is the same correction a bay's way gets (<see cref="DriveTheWay"/>).
         // <b>And the place this car was sent to is a stop point like any other</b> (AMB-5, EVA-3, SRV-6,
-        // CTL-8a): a casualty, a wreck, a scene an officer has closed the road at, or a place a hand
+        // CTL-8a): a casualty, a wreck, a scene a police car is closing the road at, or a place a hand
         // named. It is a term of the same minimum the bar and the box are in, so a driver stopping for
         // one is running its line on the road that place left it.
         var context = new DriveContext(
@@ -196,10 +196,9 @@ internal sealed partial class TownWorld
     /// is.
     /// </summary>
     /// <remarks>
-    /// <b>It is not a template and the difference is the whole point.</b> A template is laid over no way, so
-    /// its driver holds the sweep it is committed to and reads the ground under it with a walk of its own;
-    /// a way is one of the town's own, so the claim runs along it, the traffic on the lane it crosses is cut by
-    /// the town's own table, and there is nothing here that a car on a lane does not also do.
+    /// <b>It is one of the town's own ways, and that is the whole point</b>: the claim runs along it, the
+    /// traffic on the lane it crosses is cut by the town's own table, and there is nothing here that a car on
+    /// a lane does not also do.
     /// </remarks>
     void DriveTheWay(int car, in CarPose pose)
     {
@@ -263,8 +262,8 @@ internal sealed partial class TownWorld
     /// exception a junction makes, and for the same reason: ground given back there is handed straight back
     /// on the next tick, and between the two the sections read free to whoever crosses them. <b>And it is
     /// written to the car on the same terms</b> (<see cref="CarFleet.CommittedToTheBox"/>,
-    /// <see cref="JunctionStopM"/>), because that flag is the whole of how the rank a committed body holds
-    /// its ground with reaches its claim (<see cref="RightOnTheMovement"/>). Left to the junction's own
+    /// <see cref="JunctionStopM"/>), because that flag is the whole of how the rung a committed body holds
+    /// its ground at reaches its claim (<see cref="FirmOnTheMovement"/>). Left to the junction's own
     /// reading, a car on a way of its own carried whatever its last route decision wrote — a rescue waved
     /// across one that could no longer stop, or ground nothing could take held by one that had stopped
     /// streets away.
@@ -285,7 +284,7 @@ internal sealed partial class TownWorld
 
         // Read a decision ahead, exactly as a junction's is: the claims that carry this to the rest of the
         // town are laid at the top of a tick from what the last decision wrote, so a car that will be past
-        // stopping by the time the ranks are next compared has to count as committed now.
+        // stopping by the time the rungs are next compared has to count as committed now.
         Cars.CommittedToTheBox[car] =
             toTheCrossingM - (MathF.Max(0f, alongMps) * _config.CarReactionS)
             <= StoppingM(alongMps, brakingMps2);
@@ -353,9 +352,9 @@ internal sealed partial class TownWorld
             targetMps = MathF.Min(targetMps, build.ReverseMaxMps);
         }
 
-        // AMB-4: <b>a blue light buys the road and never the tyres.</b> A rescue keeps every constraint the
-        // profile already takes and loses three that hold every other car's speed down — the reds, the
-        // bars and the wait at a kerb — so without a pace of its own it reaches the gear's cap on the
+        // AMB-4: <b>a blue light buys the road and never the tyres.</b> A car on a call keeps every
+        // constraint the profile already takes and loses what holds every other car at a light — the red and
+        // the bar it is shown at (AMB-4.2) — so without a pace of its own it reaches the gear's cap on the
         // first straight it meets and arrives as a second casualty.
         if (Cars.BlueLight[car]) targetMps = MathF.Min(targetMps, _config.Ambulance.CallPaceMps);
 
@@ -373,8 +372,8 @@ internal sealed partial class TownWorld
             _config, build, steerRad, targetMps, alongMps, _config.TickSeconds, lastMps2);
         var command = reverse ? Reversed(pedals) : pedals;
 
-        // <b>The margin the profile kept back, spent</b> (CAR-14): the profile plans every stop against a
-        // margin of the grip, and this is the tick where that margin is no longer enough. It is asked of
+        // <b>The margin the profile kept back, spent</b>: the profile plans every stop against usable grip
+        // (S-2), and this is the tick where that margin is no longer enough. It is asked of
         // the profile's own answer rather than instead of it — what it overrides is the pedal and nothing
         // else — and it is asked on every tick, because a hazard inside braking distance is not something
         // to discover at the end of a decision interval. Braking and never swerving: verifying a lane is
@@ -590,8 +589,8 @@ internal sealed partial class TownWorld
     /// </para>
     /// <para>
     /// <b>A stretch with no way out of it at all is the exception</b>, because driving on is what it does
-    /// not offer: the queue ends there whether or not a bay was found, and the car turns itself round on
-    /// the spot at the one place a town promises the room for it (TER-5a).
+    /// not offer: the queue ends there whether or not a bay was found. Nothing turns the car round — it
+    /// stands at the end of the stretch until the leg's own clock gives the leg up (CAR-15a).
     /// </para>
     /// </remarks>
     bool TurnsBackHere(int car, int fromLane) =>
@@ -654,9 +653,9 @@ internal sealed partial class TownWorld
     /// car is going (CTL-1a), and two readings of that would be two routes.
     /// </summary>
     /// <remarks>
-    /// Where the leg ends is the place the bay's own template is staged from, and never the nearest lane
-    /// to the bay: the bay is entered from the lane the arithmetic allows, which is regularly the one on
-    /// the other side of the road. <b>An errand's leg ends on a lane instead</b> (AMB-5, EVA-3) — beside a
+    /// Where the leg ends is the metre the bay's own way in leaves its lane (<see cref="BayGoals"/>), and
+    /// never the nearest lane to the bay: the bay is entered from whichever lane lays it a way, which may be
+    /// the one on the other side of the road. <b>An errand's leg ends on a lane instead</b> (AMB-5, EVA-3) — beside a
     /// body or a wreck rather than inside a bay — and both directions of the stretch it stands on are
     /// offered, because only the search can say which of them reaches it first.
     /// </remarks>
@@ -686,7 +685,7 @@ internal sealed partial class TownWorld
         ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot]);
 
         // A route with nothing left in it is an arrival; one that stops at a frontage to turn (GEN-4l) is
-        // a leg with a manoeuvre still in front of it, whether or not it has a lane left to drive first.
+        // a leg with a turn in a bay still in front of it, whether or not it has a lane left to drive first.
         return Cars.RouteCount[car] > 0 || Cars.TurnsBackOn[car] >= 0 ? RouteFound.Route : RouteFound.Arrived;
     }
 
@@ -741,7 +740,7 @@ internal sealed partial class TownWorld
     /// <b>The queue holds only lanes the road joins</b>, and there is one pair it can be asked for that the
     /// road does not: the two sides of a car park's frontage, where the search has come back the way the
     /// leg went (GEN-4l). The queue stops at the lane the car turns off, and what is past it is the bay —
-    /// a manoeuvre, and never a lane a line could be laid over.
+    /// its own ways, and never a lane a line could be laid over.
     /// </remarks>
     /// <param name="ranOut">
     /// Whether <paramref name="into"/> filled with route still to come, which is the difference between a
@@ -774,8 +773,8 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>The one pair the search can return that the road does not join</b> is the two sides of a car
     /// park's frontage, where the leg comes back the way it went (GEN-4l). The chain stops at the lane the
-    /// car turns off and <see cref="TurnsBackOn"/> carries which lane that was, the rest being a manoeuvre
-    /// and never a lane a line could be laid over.
+    /// car turns off and <see cref="TurnsBackOn"/> carries which lane that was, the rest being a bay's own
+    /// ways and never a lane a line could be laid over.
     /// </remarks>
     struct RoadJoins(RoadGraph roads) : IRouteJoins
     {

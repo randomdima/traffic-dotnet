@@ -112,7 +112,10 @@ internal sealed class ViewFigures
     /// <summary>
     /// The grid the ground, the buildings and the props are cut on. <b>The default view is 70 m over
     /// the short side, so a metre is about 13 screen pixels</b> and this is two and a half times what
-    /// a standing town shows; the headroom is the zoom's, and it stops at one texel to one pixel.
+    /// a standing town shows; the headroom is the zoom's. <b>The zoom does not stop at it</b>: its stop is
+    /// the car art's grid magnified (<see cref="CarSpritePixelsPerMetre"/> times
+    /// <see cref="CameraMaxSpriteMagnification"/>, <c>Camera2D</c>), past which a ground texel is drawn over
+    /// several pixels.
     /// </summary>
     /// <remarks>Moved with <c>qq art --fix --art=…</c>, which is what puts the sheets on it.</remarks>
     public float ArtPixelsPerMetre { get; init; } = 31.5f;

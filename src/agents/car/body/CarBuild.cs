@@ -153,10 +153,10 @@ internal readonly record struct CarBuild
         }
     }
 
-    /// <summary>The radius this car's own parking templates are drawn at: its circle, with the steering off its stop.</summary>
+    /// <summary>This car's own circle with the steering off its stop, at the margin a bay is turned into on. Nothing reads it.</summary>
     public required float ParkingTemplateRadiusM { get; init; }
 
-    /// <summary>And how much straight it ends on, which is what puts <em>this</em> body in the bay square.</summary>
+    /// <summary>And how much straight a way into a bay would end on to put <em>this</em> body in it square. Nothing reads it.</summary>
     public required float ParkingStraightensUpM { get; init; }
 
     /// <summary>How far ahead this car has to be able to see: its own stopping distance from its own top speed.</summary>
@@ -226,10 +226,8 @@ internal readonly record struct CarBuild
     }
 
     /// <summary>
-    /// <b>The nominal car, with one variant's drive layout on it</b> — the proving ground's car and nobody
-    /// else's (CAR-11a). A lap whose cars differ in weight as well as in layout is three anecdotes rather
-    /// than a comparison, so the instrument stands its cars on the figures the town was sized against and
-    /// varies the one thing it is measuring.
+    /// <b>The nominal car, with one variant's drive layout on it</b> — the crash sandbox's car and no town's
+    /// (CAR-11a): its cars stand on the figures the town was sized against and differ in layout alone.
     /// </summary>
     public static CarBuild Nominal(SimConfig config, float drivenFrontShare) => Resolve(
         config, config.Car.LengthM, config.Car.WidthM,
@@ -368,8 +366,8 @@ internal sealed class CarBuilds
     public static CarBuilds OfTheFleet(SimConfig config, CarCatalog catalogue) => Made(config, catalogue, nominal: false);
 
     /// <summary>
-    /// And each of them as the nominal car driving through its own variant's end, which is the proving
-    /// ground's fleet (CAR-11a) and no town's.
+    /// And each of them as the nominal car driving through its own variant's end, which is the crash
+    /// sandbox's fleet (CAR-11a) and no town's.
     /// </summary>
     public static CarBuilds OfTheNominalCar(SimConfig config, CarCatalog catalogue) =>
         Made(config, catalogue, nominal: true);

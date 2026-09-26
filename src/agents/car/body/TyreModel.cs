@@ -29,6 +29,7 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// </list>
 /// </para>
 /// <para>Nothing here touches a body, so the whole model is judged against arithmetic.</para>
+/// </remarks>
 internal static partial class TyreModel
 {
     /// <summary>Front right, front left, rear right, rear left — <c>+y</c> in the body's frame being the driver's side.</summary>

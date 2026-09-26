@@ -4,8 +4,8 @@ using TrafficSimulation.Core.Config;
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// The pieces of ground that belong to no road and to no line through a box: the wedge a junction's kerbs
-/// turn on, the rectangles a car park and a slab of paving are, and the rings the water is cut from.
+/// The pieces of ground that belong to no road and to no line through a box: the rectangles a slab of
+/// paving is, and the rings the water and its shore are cut from.
 /// </summary>
 /// <remarks>
 /// <b>Not indexed, and that is the reading.</b> A town's slabs are a few dozen boxes and its water a

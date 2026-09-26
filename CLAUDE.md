@@ -13,7 +13,8 @@ decides where a new thing goes, and it applies to prose and pictures exactly as 
 
 **All the code is under `src/`**, and a slice is named by its path within it — `core/` is `src/core/`,
 and this page names slices the short way. `assets/`, `towns/` and [docs/](docs/index.md) sit beside
-`src/` at the root, so `bin/` and `obj/` are the only other folders there.
+`src/` at the root, with `raw_assets/` — generated source art the build never reads — and the build's
+own `bin/` and `obj/`.
 
 - **Code.** `agents/car/`, `world/terrain/`, `app/hud/`. A dependency points **down** the tiers in
   [docs/slice-map.md](docs/slice-map.md), never up, and **there are no cycles**. Where a lower slice
@@ -76,7 +77,7 @@ A change that costs either of them is not a trade to be weighed in passing — i
 an external constraint belongs on the type that has it. A separate page describing how a class works is a
 second copy that disagrees with the first within a month.
 
-What is written down is only what the code cannot state: what the town must be true of, and why. Four
+What is written down is only what the code cannot state: what the town must be true of, and why. Five
 rules bind all of it.
 
 1. **A rule states a relation; a number is data.**
@@ -110,8 +111,8 @@ one thing about a rule you may not decide.
 read off the documents rather than kept beside them.
 
 **No document holds a list of what is unbuilt.** Such a list is stale the week after it is written: the
-instruments report it instead — the last line of `--bench maneuvers` is the set of catalogue entries
-nothing entered. Any absence big enough to be structural is named in
+instruments report it instead — `--bench drive` says which term bound every car-tick, `--bench stuck`
+which legs were given up and what held each. Any absence big enough to be structural is named in
 [docs/index.md](docs/index.md#known-gaps).
 
 ## Verification
@@ -131,7 +132,7 @@ dotnet build
 dotnet run --project traffic-dotnet.csproj -- --map Odesa
 dotnet run --project traffic-dotnet.csproj -- --shot .tmp/town.png --map Test --caption
 dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json
-dotnet run --project traffic-dotnet.csproj -- --bench maneuvers --map Odesa
+dotnet run --project traffic-dotnet.csproj -- --bench drive
 ```
 
 **A map says whether it kept what it claims, and a broken claim fails the run.** A scenario run draws the
@@ -167,11 +168,11 @@ wall clock measures the machine as much as the suite — but it is the figure a 
 and **what gives way when it is spent is chosen from the bottom of the priority ladder and never from the
 top**. Every test class names a rung as well as a tier (`[Trait(Priority.Key, …)]`,
 [tests/Priority.cs](src/tests/Priority.cs)), answering one question: *what is the town if this is wrong?* —
-`P0` is the engine is not one, `P9` is a detail is off. `TierTests` fails the suite for a class naming
-neither, and `--upto=N` cuts a run at a rung.
+`P0` is the engine is not one, `P9` is a detail is off. `TierTests` fails the suite for a class missing
+either, and `--upto=N` cuts a run at a rung.
 
 **The suite asks its questions of towns it lays for itself, and never of a shipped city.** There are two:
-`Towns.Fixture`, the file every detailed check is staged on, and `Towns.City`, a whole town laid from a
+`Towns.Fixture`, the small town every detailed check is staged on, and `Towns.City`, a whole town laid from a
 brief in [tests/citygen/Towns.cs](src/tests/citygen/Towns.cs) at a seed of its own. What the generator owes
 whatever seed it was given is `GeneratorTests`' over four of them; what a laboratory map claims is that
 map's own watch. **A city is content** — a brief, a seed and whatever the generator made of them — so a

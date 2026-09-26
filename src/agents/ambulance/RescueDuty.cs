@@ -81,7 +81,7 @@ internal sealed class RescueDuty
     /// <summary>How long this call has been running, which is the bound that ends an unreachable one.</summary>
     public float[] SinceS { get; }
 
-    /// <summary>And how long the crew has been getting the casualty aboard, standing at the place it stopped at.</summary>
+    /// <summary>And how long the casualty has been being got aboard, the ambulance standing at the place it stopped at.</summary>
     public float[] LoadedForS { get; }
 
     public const int Nobody = -1;

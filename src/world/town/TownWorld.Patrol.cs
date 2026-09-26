@@ -7,22 +7,23 @@ namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>The beat</b> (SRV-5): the police cars standing on a station's apron, and the errand that takes each
-/// of them round the town and brings it back. <b>The driving itself is the catalogue's</b> — a police car
-/// runs the same entries and the same ladder every other car runs — and what is here is only the reason
-/// those manoeuvres are being run.
+/// of them round the town and brings it back. <b>The driving itself is the leg's</b> — a police car
+/// drives what every other car drives (CAR-15) — and what is here is only the reason those legs are
+/// being driven.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>It is the rescue's machine with nothing urgent in it</b>, and deliberately built the same way: a
 /// stage per observable state, one place each transition happens, and the leg itself handed to the
-/// ordinary drive-leg machinery. What it does not have is the whole of AMB-4 — a patrol carries no
-/// priority, no blue light and no pace of its own, and holds its road like anybody else. A police car in
-/// this town is traffic that goes somewhere nobody lives.
+/// ordinary drive-leg machinery. What a beat does not have is the whole of AMB-4 — it carries no
+/// priority, no blue light and no pace of its own, and holds its road like anybody else; the leg out to a
+/// scene is the one that does (SRV-6). A police car on its beat is traffic that goes somewhere nobody
+/// lives.
 /// </para>
 /// <para>
 /// <b>Where it goes is drawn and never searched for.</b> Nothing in the town asks for a police car, so a
-/// beat cannot be aimed at anything; what a patrol is, is a car that keeps choosing a junction and driving
-/// to it. Picking the least-patrolled quarter would be a better beat and a worse rule — a search over the
+/// beat cannot be aimed at anything; what a patrol is, is a car that keeps choosing a place on a lane and
+/// driving to it. Picking the least-patrolled quarter would be a better beat and a worse rule — a search over the
 /// town on every arrival, buying something nobody watching could tell from a draw.
 /// </para>
 /// </remarks>
@@ -49,8 +50,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// One decision of one patrol's crew, taken before the driver's own. <b>It decides the errand and never
-    /// the driving</b>: what comes out of it is a destination and a chain, and the catalogue does the rest.
+    /// One decision of one patrol's errand, taken before the leg's own. <b>It decides the errand and never
+    /// the driving</b>: what comes out of it is a destination and a chain, and the leg does the rest.
     /// </summary>
     void RunThePatrol(int car, float sinceLastDecisionS)
     {
@@ -224,7 +225,7 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>Whether this is the patrol SRV-6 means</b> — the nearest one with nothing else to do — asked of
     /// the scene it was about to take. <see cref="IsTheNearestFreeAmbulanceTo"/>'s own argument said of a
-    /// station: the call belongs to the scene and the choice belongs to the crew, and asking them the other
+    /// station: the call belongs to the scene and the choice belongs to the patrol, and asking them the other
     /// way round sends whichever car's decision happened to run first.
     /// </summary>
     bool IsTheNearestFreePatrolTo(int car, Vector2 sceneM, float farM)
@@ -255,7 +256,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The drive out to a scene</b>, and the officer out of the car once it has stopped short of one.
+    /// <b>The drive out to a scene</b>, and the closure begun once the car has stopped near one.
     /// The bound is the beat's own (SRV-5): a scene the traffic will not let a patrol reach costs it the
     /// leg and nothing more, because the closure is a courtesy to whoever is working there and never the
     /// thing that saves anybody.
@@ -294,7 +295,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The road held closed</b> (SRV-6): the police car standing at the scene holds a stretch of the
-    /// carriageway that scene lies on, at a rank ordinary traffic does not outrank and a rescue does.
+    /// carriageway that scene lies on, at a rung ordinary traffic does not outrank and a rescue does.
     /// </summary>
     /// <remarks>
     /// <b>The claim is the vehicle's and is laid where every other claim is</b>
@@ -314,13 +315,13 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The stretch of lane this police car is holding closed</b> (SRV-6), laid with the rest of the
-    /// claims: ground granted and not reached, at the closure's own rank.
+    /// claims: ground granted and not reached, at the closure's own rung.
     /// </summary>
     /// <remarks>
     /// <b>Nothing reading it learns a new word.</b> It is refused by whoever <see cref="LaneOccupancy.Binds"/>
     /// says it refuses — every ordinary movement, and not an ambulance or an evacuator answering a call
     /// (AMB-4, EVA-4). That is the whole of "the police give way to the other services", and neither of
-    /// them is told a policeman exists.
+    /// them is told a police car exists.
     /// </remarks>
     void CloseTheRoad(int car)
     {
@@ -336,7 +337,7 @@ internal sealed partial class TownWorld
         var closedM = _config.PoliceClosureM;
         _occupancy.ClaimAhead(
             _ways.OfRoadLane(lane), alongM - closedM, alongM + closedM, 0f, car,
-            Road.ClaimPriority.Firm, Road.LaneRoster.Driving, Road.RightOfWay.Closed);
+            Road.ClaimPriority.Closed, Road.LaneRoster.Driving);
     }
 
     /// <summary>
@@ -368,7 +369,7 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>Where this police car is to be stopped</b>, and false when nothing is asking it to (SRV-6). The
     /// place outlasts the arrival for the reason a recovery's does: a stop point that went away the moment
-    /// the car reached it would let the vehicle roll off with its officer standing at the kerb.
+    /// the car reached it would let the vehicle roll off from the scene it is closing.
     /// </summary>
     bool TheClosureStopsAt(int car, out Vector2 standoffM)
     {

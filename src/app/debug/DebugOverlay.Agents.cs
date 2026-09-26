@@ -133,6 +133,7 @@ internal sealed partial class DebugOverlay
     /// it sits off the car's own line and looks like a detection that has drifted. What a driver can see
     /// is the claims, and they are drawn as the ground they are.
     /// </para>
+    /// </remarks>
     static void CarLines(
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
@@ -258,13 +259,13 @@ internal sealed partial class DebugOverlay
     /// <summary>
     /// <b>What a held wheel is asking for, in the terms it was asked in</b>: how much of this car's own
     /// lock is wound on and which way, and how much of its own pedal is down and in which gear. It is read
-    /// off the command rather than off whatever set it, so it says the same thing about a car on the
-    /// skidpad and about one under a player's hand.
+    /// off the command rather than off whatever set it, so it says the same thing about a car under a
+    /// second driver's hand and about one under a player's (CTL-5d).
     /// </summary>
     /// <remarks>
     /// <b>Shares of the car's own figures and not the figures themselves</b> (CAR-11): "half the pedal" is
     /// the same instruction to a supercar and to a truck, and the m/s² each of them makes of it is the
-    /// difference the pad is being read for rather than something to write over the body.
+    /// difference a reader is looking for rather than something to write over the body.
     /// </remarks>
     static void WheelWords(in DriveCommand command, in CarBuild build, ref TextBuffer into)
     {

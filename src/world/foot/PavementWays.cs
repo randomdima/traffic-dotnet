@@ -33,9 +33,7 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
 
     public int NearestLane(Vector2 atM, out float alongM)
     {
-        // The graph's own line is the middle of the band and a lane is half a band to one side of it, so the
-        // stretch is what is searched for and the two lanes are read off it. Which of them the place is on
-        // is not decided here: both are written, and the band each is in is what settles it.
+        // Every stretch of the graph is one lane (WLK-8), so the nearest stretch is the nearest lane.
         var edge = walking.Foot.NearestEdge(atM, out var alongEdgeM);
         if (edge < 0)
         {
@@ -43,9 +41,9 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
             return -1;
         }
 
-        // The stretch's metres are not the lane's — a lane offset out of a bend is longer than the kerb
-        // inside it — so the share walked is the seed and the lane's own line is what the place is projected
-        // onto, exactly as every other lane of the walk is.
+        // The stretch's metres are not the lane's — the lane has the corners at its ends cut off and the one
+        // it carries added on — so the share walked is the seed and the lane's own line is what the place is
+        // projected onto, exactly as every other lane of the walk is.
         var edgeLengthM = MathF.Max(1e-4f, walking.Foot.LengthM(edge));
         var laneLengthM = walking.LaneLengthM(edge);
         var seedM = alongEdgeM / edgeLengthM * laneLengthM;
@@ -84,14 +82,4 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
     public int MostWaysUnderAPlace =>
         GroundUnder.MostWaysUnderAPlace(walking.MostTurnsAtANode, walking.Places.MostLanesAtOne);
 
-    /// <summary>
-    /// <b>Whether a stretch is paint over a carriageway rather than ground the walk has to itself.</b> The
-    /// ground under a crossing has two names and one owner (TER-5c.1): what holds a walker off a car there is
-    /// that car's stretch of the <em>lane</em>, looked up where the crossing runs over it. Written here as
-    /// well, one car would hold one piece of ground twice, under two claims whose answers could differ.
-    /// </summary>
-    public bool IsACrossing(int lane) => walking.Foot.KindOf(lane) == FootEdgeKind.Crossing;
-
-    /// <summary>The stretch a mitre leads onto, which is whose ground the corner is.</summary>
-    public int TurnToLane(int slot) => walking.TurnToEdge(slot);
 }

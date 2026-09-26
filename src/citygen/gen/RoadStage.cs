@@ -25,9 +25,9 @@ internal static class RoadStage
     /// road that really creases does so by tenths of a radian.
     /// </summary>
     /// <remarks>
-    /// <b>The furthest line off a carriageway is a lane's own</b> (<see cref="SimConfig.LaneOffsetM"/>). It
-    /// used to be the pavement's, laid half a walk outside the kerb — and nothing lays a pavement, so the
-    /// figure follows the line that is actually there rather than the one it was calibrated against.
+    /// <b>The furthest line off a carriageway is a lane's own</b> (<see cref="SimConfig.LaneOffsetM"/>). The
+    /// pavement is struck off the driven ground's boundary and not off a road's line (TER-3c.3), so the
+    /// figure follows the one line that is struck off it.
     /// </remarks>
     public static float CreaseRad(SimConfig config) => LineTolerance.RoundingM / config.LaneOffsetM;
 

@@ -26,7 +26,7 @@ public class SelectionPathTests
     /// <summary>A street framing, so the marks are drawn at a readable weight and the pitch is not culled.</summary>
     const float PixelsPerMetre = 24f;
 
-    /// <summary>The fixture map: one screen, one of every kind of ground, with buildings to be sent into.</summary>
+    /// <summary>The fixture map, stood up.</summary>
     static TownWorld Town() => new(Towns.Of(Towns.Fixture), Config);
 
     static OverlayQuad[] Marks(TownWorld world)

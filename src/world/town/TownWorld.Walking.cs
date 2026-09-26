@@ -215,6 +215,18 @@ internal sealed partial class TownWorld
         var walking = Walking;
         PlaceItOnItsWay(person, walking, AStrideM);
 
+        // <b>A crossing the traffic has is a crossing this body stands off</b> (PER-27): when it last
+        // reserved the crossing, a wheeled body or a driver's granted road was over the paint or a lane
+        // beneath it, and a walker that stepped out regardless would be walking into it. It is never true of
+        // a body on the paint, so nothing here can stop one in the road — and the clock that gives up on a
+        // leg going nowhere runs through the wait, which is what gets a walker away from a crossing that
+        // never clears.
+        if (People.WaitsToCross[person])
+        {
+            People.DestinationM[person] = People.PositionM[person];
+            return;
+        }
+
         while (People.OnWayM[person] >= EndOfTheWayM(person, walking) && !People.OnTheLastWay(person))
         {
             var before = People.CurrentRouteWay(person);

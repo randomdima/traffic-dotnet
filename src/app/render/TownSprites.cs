@@ -19,9 +19,9 @@ namespace TrafficSimulation.App.Render;
 /// <para>
 /// <b>One sheet list, one slot per look</b> — walkers, cars, wrecks, tow arms, roofs, prop looks, in that
 /// order.
-/// The sprite pipeline reads a sheet by index out of one descriptor array, so what decides which picture
-/// an instance is drawn with is a number in the instance and never a bind, which is what keeps a frame
-/// five crossings whatever the town is full of.
+/// The sprite pipeline reaches a sheet by its index into the atlas's table of places
+/// (<see cref="SheetAtlas"/>), so what decides which picture an instance is drawn with is a number in the
+/// instance and never a bind, which is what keeps a frame's crossings flat whatever the town is full of.
 /// </para>
 /// <para>
 /// <b>The order the four kinds are written in is painter's order and nothing more</b>: a walker passes

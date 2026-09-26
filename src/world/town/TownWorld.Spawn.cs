@@ -170,8 +170,8 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>It closes the loop rather than adding a stage to it.</b> A trip ends by walking through a door
     /// and dwelling (PER-11), so a body that begins there begins in the state every later trip returns it
-    /// to, and everything after the first dwell is the ordinary round — out of the building, to a car if
-    /// the trip is worth one, to the destination, in. Started on the pavement instead, everybody's first
+    /// to, and everything after the first dwell is the ordinary round — out of the building, a walk to the
+    /// destination, in (PER-11). Started on the pavement instead, everybody's first
     /// leg was a leg no rule of theirs had drawn.
     /// </para>
     /// <para>
@@ -219,25 +219,23 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A map with nowhere to be on it drives its own cars.</b> CAR-1 makes every metre of a town's
-    /// traffic somebody's trip, and a car with nobody in it therefore does nothing — but a map with no
-    /// building to go to and no bay to be claimed out of has no trips for that rule to be about, and its
-    /// cars would stand where they were put for ever.
+    /// <b>A map with no bay a car can reach drives its own cars</b> (CAR-8). A car does nothing unless
+    /// something is driving it (CAR-1), and on such a map nothing but an order ever sends one anywhere — an
+    /// errand needs an apron, and an apron needs a bay — so its cars would stand where they were put for ever.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>It is a fact about the map and not a name in a list</b>, and the fact is <em>whether a bay can be
-    /// reached</em>. A bay is the only thing in a town that gives a car a destination
-    /// (<c>TownWorld.Parking</c>), so a town whose every bay is unreachable is one where no trip can be
-    /// drawn however many car parks the plan drew — which is the town this build lays. Each car takes the
-    /// lane it is standing on, exactly as a car that has lost its line takes one back (CAR-9), and drives from there
-    /// under the standing rules — no destination, so it is carried by the tour.
-    /// </remarks>
-    /// <remarks>
-    /// <b>It is a standing rule and not something done once.</b> A leg ends by the car being stood down —
-    /// parked, settled for where it got to, or abandoned — and on a town that is what hands the car back to
-    /// whoever will draw the next trip in it. Here there is nobody to draw one, so a car the ladder stood
-    /// down would stand there for the rest of the run: the rule that put it on the road is the same rule
-    /// that puts it back on it.
+    /// reached</em> — which in this build none can (<c>BayWays.Build</c> lays no way), so every town
+    /// runs it. Each car takes the lane it is standing on, exactly as a car that has lost its line takes one
+    /// back (CAR-9), and drives from there under the standing rules — no destination, so it is carried by
+    /// the tour.
+    /// </para>
+    /// <para>
+    /// <b>It is asked every tick and not done once.</b> A toured car's leg ends the way every leg does, by
+    /// the car being stood down where its clock ran out, and nothing else would send it anywhere: the rule
+    /// that put it on the road is the same rule that puts it back on it.
+    /// </para>
     /// </remarks>
     void DriveTheEmptyMap()
     {
@@ -270,14 +268,14 @@ internal sealed partial class TownWorld
         (_hands.Held && _selected.Holds(SelectionKind.Car, car)) || (_otherHand.Held && _otherCar == car);
 
     /// <summary>
-    /// A car starts stopped in a parking space, in the pose that space stands its cars at, with nobody in
-    /// it — an inert dynamic object that can be pushed and takes no action of its own, holding its
+    /// A car starts stopped where the plan put it — in the bay under it, where that bay can be reached — with
+    /// nobody in it: an inert dynamic object that can be pushed and takes no action of its own, holding its
     /// handbrake.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Its bay is the registry's from the first tick, so a car is claimed out of a bay rather than found
-    /// on a road: every metre this town's traffic covers is somebody's trip.
+    /// Its bay, where it has one, is the registry's from the first tick. Where it has none — every car of
+    /// this build, no bay being reachable (GEN-7) — it stands at the plan's own pose.
     /// </para>
     /// <para>
     /// <b>And the pose is the bay's own and not the plan's</b> (GEN-4i), for a spawn that lands in one: the
@@ -331,7 +329,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The bay a spawned car is standing in, or −1. Read off the pose rather than assumed: a car that
-    /// stands anywhere else is one this town treats as parked at a kerb.
+    /// stands anywhere else is stood where the plan put it.
     /// </summary>
     /// <remarks>
     /// <b>And a bay no way reaches is not a bay a car is in</b> (GEN-4f). The space is still drawn on the

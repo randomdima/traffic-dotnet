@@ -15,7 +15,7 @@ namespace TrafficSimulation.World.Town;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Every trip is walked</b> (PER-25). A person draws a building, walks to its way in over the
+/// <b>Every trip is walked</b> (PER-11). A person draws a building, walks to its way in over the
 /// pavement's own network and dwells inside it before drawing the next one; there is no leg that is
 /// driven, no car to be chosen and no bay to be claimed on anybody's behalf. What a car does in this town
 /// is its own (`CAR-1`), and the two rosters meet only on the ground they share.
@@ -39,7 +39,7 @@ internal sealed partial class TownWorld
     readonly int[] _bayCandidates = new int[BaysConsideredPerLeg];
     readonly int[] _spotNearby = new int[SpotsNearAWayOut];
 
-    /// <summary>How many bays a drive leg considers, nearest the destination first. A bound on the work, not a preference.</summary>
+    /// <summary>How many bays a search for one considers, nearest the place first. A bound on the work, not a preference.</summary>
     const int BaysConsideredPerLeg = 4;
 
     /// <summary>How many of those are worth a route search each, which is what actually costs something.</summary>
@@ -199,9 +199,10 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// Where a walk to a car is aimed: the bay's own way in where it is parked in one, and the ground
+    /// Where a walk to a car would be aimed: the bay's own way in where it is parked in one, and the ground
     /// off the driver's door where it is not — one at a kerb, one stopped in the road (GEN-4e). Which flank
-    /// of the bay that is is the standing the car came to rest in (GEN-4j).
+    /// of the bay that is is the standing the car came to rest in (GEN-4j). <b>Nothing calls it</b>: no
+    /// walk is aimed at a car, every trip being walked (PER-11).
     /// </summary>
     Vector2 WayInOf(int car)
     {
@@ -216,7 +217,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The ground off a car's driver door — the flank away from the way the traffic runs, a body's width
-    /// clear of the panels. It is where one is thrown when the car breaks (PHY-6).
+    /// clear of the panels. It is where anybody aboard is thrown when the car breaks (PHY-6).
     /// </summary>
     Vector2 DriverDoorM(int car)
     {
@@ -255,9 +256,9 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>The metre and not a node.</b> A destination has always been a place on a link
     /// (<see cref="RouteGoal"/>), and the place a way in leaves its lane is exactly where the leg stops
-    /// driving the road — so the search, the price, the reroute and the line all name that one place, with
-    /// no node cut into the road to carry it (GEN-4h). The way in is threaded onto the end of the route as
-    /// the line is assembled (<c>LineAssembler</c>), which is what covers the rest of the distance.
+    /// driving the road — so the search, the price, the reroute and the line all name that one place. The
+    /// route's line stops there and the way in is driven as the next line
+    /// (<see cref="TakeTheNextStepOfTheLeg"/>), which is what covers the rest of the distance.
     /// <para>
     /// <b>The bay itself is what the search steers by</b>, because the two lanes are driven in opposite
     /// directions and neither of their ends is where the car is going.

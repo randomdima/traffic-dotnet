@@ -10,7 +10,7 @@ namespace TrafficSimulation.World.Road;
 /// angle, and a caller working any of them out again is working it out a second time.
 /// </summary>
 internal readonly record struct BandReach(
-    Vector2 AlongUnit, float PastTheEndM, float AcrossFromM, float AcrossToM, float BackM, float AheadM);
+    Vector2 AlongUnit, float AcrossFromM, float AcrossToM, float BackM, float AheadM);
 
 /// <summary>
 /// One of the town's ways a place stands on: which way, how far along that way's own metres the place
@@ -23,12 +23,6 @@ internal readonly record struct BandReach(
 /// <param name="AlongUnit">
 /// Which way the way's own line runs where the place falls on it, handed back by the band test that had to
 /// work it out anyway (<see cref="RoadGraph.WithinTheBand"/>).
-/// </param>
-/// <param name="PastTheEndM">
-/// <b>How far beyond this way's own two ends the body stands</b>, and nought where it is square to the line.
-/// A projection is clamped to the way it is taken on (<see cref="Spline.ProjectM"/>), so a body in a junction
-/// answers on the arms' lanes at their own ends — ground that is the box's and not theirs (TER-5d), and the
-/// one thing that tells a body <em>on</em> a lane from a body past it.
 /// </param>
 /// <param name="AcrossFromM">
 /// <b>Where across this way's own line the body begins</b>, signed to the way's right
@@ -44,8 +38,8 @@ internal readonly record struct BandReach(
 /// </param>
 /// <param name="AheadM">And where that run ends, on the same terms.</param>
 internal readonly record struct WayUnder(
-    int Way, float AlongM, float BandM, Vector2 AlongUnit, float PastTheEndM, float AcrossFromM,
-    float AcrossToM, float BackM, float AheadM);
+    int Way, float AlongM, float BandM, Vector2 AlongUnit, float AcrossFromM, float AcrossToM, float BackM,
+    float AheadM);
 
 /// <summary>
 /// <b>Which of the town's ways one place stands on</b> — the lane it is in, the lane running back the other
@@ -230,8 +224,8 @@ internal static class GroundUnder
         }
 
         into[written++] = new WayUnder(
-            way, alongM, bandM, reach.AlongUnit, reach.PastTheEndM, reach.AcrossFromM, reach.AcrossToM,
-            reach.BackM, reach.AheadM);
+            way, alongM, bandM, reach.AlongUnit, reach.AcrossFromM, reach.AcrossToM, reach.BackM,
+            reach.AheadM);
     }
 
     static void WriteTheConnectors<TWays>(
@@ -254,8 +248,8 @@ internal static class GroundUnder
                 if (!RoadGraph.WithinTheBand(arcs, alongM, atM, bandM, body, crossesByM, out var reach)) continue;
 
                 into[written++] = new WayUnder(
-                    ways.WayOfConnector(connector), alongM, bandM, reach.AlongUnit, reach.PastTheEndM,
-                    reach.AcrossFromM, reach.AcrossToM, reach.BackM, reach.AheadM);
+                    ways.WayOfConnector(connector), alongM, bandM, reach.AlongUnit, reach.AcrossFromM,
+                    reach.AcrossToM, reach.BackM, reach.AheadM);
             }
         }
     }

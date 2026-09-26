@@ -146,7 +146,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     readonly WayCrossings _crossings;
 
-    /// <summary>And how much of a bay's ways the body standing in it may hold, off that table.</summary>
+    /// <summary>
+    /// <b>The zebras this town paints, laid once and read by both networks</b> (TER-6, WLK-10): the walk is
+    /// cut and joined at them, the lanes they are painted across carry them as furniture, and the bands
+    /// under each stretch of paint are projected off them. <b>One source</b> — laid twice, the paint a body
+    /// walks and the paint a driver knows about were two different sets of zebras and the town agreed with
+    /// neither.
+    /// </summary>
+    readonly Crossings _zebras;
 
     /// <summary>
     /// What each of the town's buildings is for — its hospitals, its police stations and its depots
@@ -202,8 +209,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _heads = SignalHeads.Place(plan, _roads, _signals, config);
 
         // The bays' own ways come before the network that prices them: the one movement a route may make
-        // that no junction admits is a turn at a car park (GEN-4l), and whether a frontage lays one is a
-        // question about its bays' ways.
+        // that no junction admits is a turn back — at a car park (GEN-4l) or at a dead end — and whether a
+        // frontage lays one is a question about its bays' ways.
         _bayWays = BayWays.Build(plan, _roads, config);
 
         // Laid with the town rather than on demand: a structure the tick reads belongs to the town's
@@ -216,7 +223,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // with the town rather than the first time something asks.
         var footAt = Stopwatch.GetTimestamp();
         _pavementLanes = PavementLanes.Of(plan, config);
-        _crossingWays = CrossingWays.Of(plan, _pavementLanes, config);
+
+        // <b>The town's zebras, once</b> (TER-6): where the walk is crossed is where the road is crossed,
+        // so the walk that is cut at them, the lanes that carry them and the bands under them are all read
+        // off this one laying.
+        _zebras = Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM);
+        _crossingWays = CrossingWays.Of(plan, _pavementLanes, _zebras, config);
         _foot = FootGraph.Build(_pavementLanes, _crossingWays, config);
         FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;
 
@@ -237,8 +249,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.
         _paths = new SelectionPaths(_selected.Capacity, _driving.Graph, _walking.Graph, MostRunsInARoute);
-        _furniture = LaneFurniture.Project(plan, _roads);
-        _bands = CrossingBands.Project(plan, _roads, _furniture, _walking);
+        _furniture = LaneFurniture.Project(plan, _zebras, _roads);
+        _bands = CrossingBands.Project(_zebras, _roads, _furniture, _walking);
         _standing = StaticsOnTheRoad();
 
         var walkers = 0;
@@ -249,8 +261,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             else if (kind == SpawnKindCar) drivers++;
         }
 
-        // The service vehicles are laid on top of the plan's own spawns: a car and its crew for every bay of
-        // every hospital's and every station's apron, and one for every depot (AMB-2, SRV-2), which is why
+        // The service vehicles are laid on top of the plan's own spawns: a car for every bay of every
+        // hospital's and every station's apron, and one for every depot (AMB-2, SRV-2), which is why
         // the counts have to be answerable from the plan alone. A building that turns out to have no bay
         // near it leaves its slots unused, which is what makes the rosters the fleets' own counts rather
         // than these capacities. Which buildings they are is the map's (GEN-9).
@@ -259,8 +271,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         var served = ((_uses.Hospitals.Count + _uses.PoliceStations.Count) * config.Service.ApronBays)
                      + _uses.Depots.Count;
 
-        // <b>A driver and a hand apiece</b> (SRV-3): the one who keeps the wheel, and the one who gets out
-        // and does the work in the street (AMB-10, EVA-5, SRV-6).
+        // <b>The car roster grows by the vehicles, and the walker roster by the crew each carries, which is
+        // none</b> (SRV-3, <see cref="CrewPerServiceVehicle"/>).
         walkers += served * CrewPerServiceVehicle;
         drivers += served;
 
@@ -285,8 +297,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             _ways,
             (drivers * (MostSlotsPerCar(_roads.Ways, _crossings, _bayWays.Ways) + MostPavementRowsPerCar(_pavement)))
             + (walkers
-               * (MostRoadSlotsPerWalker(_roads.Ways, _bayWays.Ways, _furniture) + MostSlotsPerWalker(_pavement)))
-            + _standing.Count);
+               * (MostRoadSlotsPerWalker(_roads.Ways, _bayWays.Ways, _furniture)
+                  + MostSlotsPerWalker(_pavement)))
+            + _standing.Count,
+            _crossings);
 
         // One record per body, over every kind of way: a pose is laid once and its rows go back into the one
         // table they were numbered in.
@@ -398,7 +412,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>Every way in the town and what kind of ground each is, for whoever holds a way number.</summary>
     public TownWays Ways => _ways;
 
-    /// <summary>The one town-wide lookup both agent kinds read, and the only thing that knows what colour anything is.</summary>
+    /// <summary>The one town-wide lookup a car reads — a walker reads no signal — and the only thing that knows what colour anything is.</summary>
     public SignalService Signals => _signals;
 
     /// <summary>The heads, for whoever draws them. No agent reads one.</summary>
@@ -412,19 +426,18 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// as it happens rather than sampled.
     /// </summary>
     /// <remarks>
-    /// <b>It has two sources and neither of them is zero</b>, so it is read against
-    /// <see cref="RecklessDrivers"/> rather than against nothing. A share of the town does not keep the
-    /// rule at all (CAR-13); the rest cross a bar the way anything crosses ground it did not mean to — a
-    /// shunt, or a phase that turned while the car was already committed — and a lit shipped map reports a
-    /// handful of those in a minute with nobody reckless on it. What a rise in this figure means therefore
-    /// depends on which of the two moved, and the figure alone does not say.
+    /// <b>It has two sources</b>, so it is read against <see cref="RecklessDrivers"/> rather than against
+    /// nothing. A share of the town does not keep the rule at all (CAR-13), which counts only while one of
+    /// them is at a wheel; the rest cross a bar the way anything crosses ground it did not mean to — a
+    /// shunt, or a phase that turned while the car was already committed. What a rise in this figure means
+    /// therefore depends on which of the two moved, and the figure alone does not say.
     /// </remarks>
     public long RedBarCrossings { get; private set; }
 
     /// <summary>
     /// <b>How many of this town's people do not keep the driver's courtesies</b> (CAR-13) — the
-    /// denominator <see cref="RedBarCrossings"/> is read against, and the reason a lit town no longer
-    /// reports zero of them. A red one of these crosses is a violation and is counted (CAR-13.3), which
+    /// denominator <see cref="RedBarCrossings"/> is read against. A red one of these crosses is a violation
+    /// and is counted (CAR-13.3), which
     /// is the whole of how they differ from an ambulance: AMB-4.2 exempts a rescue, so it breaches
     /// nothing and adds to neither figure.
     /// </summary>
@@ -438,8 +451,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public RedBarCrossing LastRedBarCrossing { get; private set; }
 
     /// <summary>
-    /// How many times a car's route has run out on the lane its bay is entered from — the last thing the
-    /// search has to say about a leg, after which the leg is a template.
+    /// How many times a car's route has run out on the lane its bay is entered from, or the lane its place
+    /// stands on — the last thing the search has to say about a leg, after which the leg is that bay's own
+    /// way in or the stop at that place.
     /// </summary>
     /// <remarks>
     /// Not how many drive legs finished — a car reaches its bay by coming to rest in it, which is
@@ -505,6 +519,13 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     public CrossingWays CrossingWays => _crossingWays;
 
     public WalkingNetwork Walking => _walking;
+
+    /// <summary>
+    /// <b>Which carriageway runs under each stretch of paint</b>, for whoever has to hold one network's
+    /// metres against the other's — which crossing a walk is on (PER-27), and which lanes that crossing is
+    /// painted across.
+    /// </summary>
+    public CrossingBands Bands => _bands;
 
     public DrivingNetwork Driving => _driving;
 
@@ -677,11 +698,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // Which way to go at the junction ahead is decided when the line is re-laid, not on the clock:
         // the interval is a floor on staleness, never a ceiling on thinking. What is taken here is the
-        // catalogue's decision — whether this car is stuck rather than waiting, and which rung answers.
+        // leg's decision — the next line where the one in hand is spent, and whether the leg is getting
+        // anywhere (<see cref="DecideDriver"/>).
         if (Roster.IsCar(agent))
         {
             // The errand before the driving (AMB-5): what comes out of it is a destination and a chain,
-            // and the catalogue's own tick below is what drives them.
+            // and the leg's own decision below is what drives them.
             var car = Roster.CarIndex(agent);
 
             // EVA-5: what is on a bar takes no decisions, the way a casualty on a stretcher takes none.

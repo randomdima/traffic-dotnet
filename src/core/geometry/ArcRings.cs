@@ -270,7 +270,6 @@ internal sealed class ArcRings
     /// the other, and two readings of what a ring's corners are would be two shapes.
     /// </para>
     /// <para>
-    /// <para>
     /// <b>A cut is not a corner.</b> A stretch stops wherever any other band's boundary crossed it,
     /// which is every place the ground changed hands <em>and</em> every place it did not — two lanes of
     /// one carriageway are cut at every junction either of them passes, a bay's way is cut by each of

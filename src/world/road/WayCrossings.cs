@@ -25,11 +25,12 @@ internal readonly record struct CrossedSection(int OnWay, float FromM, float ToM
 /// merged, and the metres between two crossings that touch neither left out.
 /// </summary>
 /// <remarks>
-/// <b>It is the one thing a car committed to a crossing claims</b>, and it is on the way that
-/// car is itself driving. A driver's own road ahead is a braking distance and no more, which does not reach
-/// the place two lines meet until it is nearly on top of the junction; the runs are that same ground held
-/// from the moment the movement is committed to, so a car on any way crossing this one finds it there —
-/// merged only so that one body cannot appear twice over one metre of one way.
+/// <b>It is what a car committed to a crossing claims across</b>, on the way that car is itself driving:
+/// one stretch from the first run it has still to reach to the last (TER-5c.1, TER-5c.2). A driver's own
+/// road ahead is a braking distance and no more, which does not reach the place two lines meet until it is
+/// nearly on top of the junction; the hold is that same ground from the moment the movement is committed
+/// to, so a car on any way crossing this one finds it there — and the runs are merged so that one body
+/// cannot appear twice over one metre of one way.
 /// </remarks>
 internal readonly record struct OwnRun(float FromM, float ToM);
 
@@ -48,8 +49,9 @@ internal readonly record struct OwnRun(float FromM, float ToM);
 /// <para>
 /// <b>It is looked up and never written into</b> (TER-5c), and that is what keeps a claim to the ways
 /// a car is actually going to be on. A driver lays its road on the ways it drives; where its own way is
-/// driven over another, it reads this table and asks that other way's own claims what is standing on the
-/// metres named there. Marked instead — a stretch written onto every way a movement crossed — one car
+/// driven over another, the stretch is settled against that other way's own claims at the metres named
+/// here as it is laid (<see cref="LaneOccupancy"/>), and the driver's grant asks them what is standing
+/// there. Marked instead — a stretch written onto every way a movement crossed — one car
 /// approaching a junction claimed a fan of ways it would never touch, and the ground of a box belonged to
 /// whoever aimed at it first rather than to whoever was on it.
 /// </para>
@@ -128,6 +130,13 @@ internal sealed class WayCrossings
         _ownRuns = [.. runs];
     }
 
+    /// <summary>
+    /// <b>A town whose ways are driven over nothing</b> — a fixture that stands one carriageway and no
+    /// junction. It is an empty table and never an absent one, so that the claims ask the same question of a
+    /// laboratory map as of a city and no reader has to know which it is on.
+    /// </summary>
+    public static WayCrossings None { get; } = new([0], []);
+
     /// <summary>How many ways the table is laid over, which is the whole of the claims' own numbering.</summary>
     public int WayCount => _offsets.Length - 1;
 
@@ -173,16 +182,15 @@ internal sealed class WayCrossings
             : _sections.AsSpan(_offsets[way], _offsets[way + 1] - _offsets[way]);
 
     /// <summary>
-    /// <b>The runs of a way's own line the same crossings fall on</b>, in that way's own metres — the ground
-    /// a car committed to this movement holds, and what refuses a car coming the other way before either
-    /// one's own road has reached the place the two lines meet. Empty where its line is driven over nothing.
+    /// <b>The runs of a way's own line the same crossings fall on</b>, in that way's own metres — what the
+    /// ground a car committed to this movement holds is measured off, and what refuses a car coming the other
+    /// way before either one's own road has reached the place the two lines meet. Empty where its line is
+    /// driven over nothing.
     /// </summary>
     /// <remarks>
-    /// <b>The places and not the span between them.</b> Held as one interval from the first crossing point
-    /// to the last, a movement across a wide box took the whole of its own way through it — including the
-    /// metres in the middle no other line comes near — and a car making a movement that crosses only those
-    /// middle metres was refused ground nothing was ever going to be driven over. The runs are a fact about
-    /// the lines and so are settled with them, rather than accumulated per car per tick.
+    /// <b>The places, and the hold spans them.</b> A car holds one stretch from the first run it has still
+    /// to reach to the last (TER-5c.2), the metres between two runs being driven over by nothing. The runs
+    /// are a fact about the lines and so are settled with them, rather than accumulated per car per tick.
     /// </remarks>
     public ReadOnlySpan<OwnRun> OwnRuns(int way) =>
         way < 0 || way + 1 >= _ownOffsets.Length
@@ -191,7 +199,8 @@ internal sealed class WayCrossings
 
     /// <summary>
     /// How many ways the busiest movement in the town crosses — <b>how many ways one driver may have to
-    /// look up</b>, and not how many claims it wants room for, since it writes to none of them.
+    /// look up and be settled against</b>, and not how many claims it wants room for, since it writes to
+    /// none of them.
     /// </summary>
     public int MostCrossedByOne { get; init; }
 

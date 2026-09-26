@@ -20,11 +20,11 @@ namespace TrafficSimulation.Tests.CityGen;
 /// <remarks>
 /// <para>
 /// <b>The suite asks its questions of towns it owns, and never of a shipped city.</b> There are two of
-/// them: <see cref="Fixture"/>, the file every detailed check is staged on, and <see cref="City"/>, a
+/// them: <see cref="Fixture"/>, the small town every detailed check is staged on, and <see cref="City"/>, a
 /// whole town this class lays from <see cref="Brief"/> at a seed of its own — with <see cref="Built"/> the
-/// one of those laid with buildings and therefore with car parks on it. Between them they are a screen of
-/// every kind of ground and a working city with water, bridges, districts, yards, a hospital, a station and
-/// a depot on it — which is the whole of what a city was ever being asked for.
+/// one of those laid with buildings and therefore with car parks, yards and services on it. Between them
+/// they carry water, bridges, districts, and on <see cref="Built"/> a hospital, a station and a depot —
+/// which is the whole of what a city was ever being asked for.
 /// </para>
 /// <para>
 /// <b>A shipped city is content and is not the suite's subject</b> (<see cref="Tier.Maps"/>). Whether
@@ -49,7 +49,7 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </remarks>
 internal static class Towns
 {
-    /// <summary>The fixture map: one screen, one of every kind of ground, and what detailed checks are staged on.</summary>
+    /// <summary>The fixture map: a small town with a river and no buildings, and what detailed checks are staged on.</summary>
     public const string Fixture = "Test";
 
     /// <summary>

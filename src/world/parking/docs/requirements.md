@@ -1,23 +1,22 @@
 # Parking — requirements
 
-What a bay is, where a lot may stand, and what must be true of one before a car aims at it. Which bay a
-trip claims is the walker's ([agents/person](../../../agents/person/docs/requirements.md)); how a car
-gets into one is the driver's catalogue
-([agents/car](../../../agents/car/docs/requirements.md)).
+What a bay is, where a lot may stand, and what must be true of one before a car aims at it. How a car drives
+into and out of one is the driver's ([agents/car](../../../agents/car/docs/requirements.md) `CAR-15`).
 
-The `GEN-` rules below are laid by whatever generates a town. **This project reads plans and does not lay
-them** ([citygen](../../../citygen/docs/requirements.md)), so they bind the exporter and are checked here
-only in the sense that a bay which fails them cannot be used.
+The `GEN-` rules below bind whatever lays a town ([citygen](../../../citygen/docs/requirements.md)), and are
+checked here only in the sense that a bay which fails them cannot be used.
 
 **GEN-4** `P6` Every parking space is reachable by car from the road network and by pedestrians from walkable
-terrain, and is **enterable *and* exitable by a legal manoeuvre**, reverse permitted.
+terrain, and is **enterable *and* exitable by a legal manoeuvre**, reverse permitted. That every space
+demonstrably is, is `VER-2` ([docs/verification.md](../../../../docs/verification.md#the-verification-intentions)).
 
 **GEN-4e** `P4` **The way in is the bay's and not the car's**: where a walker is aimed to reach a car parked in
 a space is a fact about that space, settled with the ground it was painted on, and it is the ground off the
 driver's door of a body standing square in it. Read instead off wherever the car has actually come to rest,
 the point moves whenever anything nudges the body, and a walk already under way is re-planned round the lot
 by a shove nobody chose. A space has one such point per standing (`GEN-4j`), on opposite flanks, and which
-of them a walk aims at is the way round the car is facing.
+of them a walk aims at is the way round the car is facing. **Nothing asks for it** (`ParkingRegistry.WayInM`):
+no walk is aimed at a car, every trip being walked (PER-11).
 
 **GEN-4b** `P6` Parking is laid as **lots** — a handful of spaces each, every space square to its kerb — and
 the count is whatever satisfies the relation that matters: **every building stands within a walking
@@ -41,26 +40,22 @@ lot that counted it twice would be a row of detached bays with a stripe of bare 
 and no line either of them shares.
 
 **The clearance beside a car and the clearance at either end of it are two figures, and the side one is
-bounded by the lane the bay is worked off** (`SimConfig.ParkingSpaceWidthM` under `LaneWidthM`). What sizes
-the ends is a manoeuvre — a parallel bay is reversed into — and what sizes the sides is a door; nothing
-manoeuvres sideways, so one figure serving both makes a space wider than the traffic lane its way is driven
-out of, which is a bay reaching further across the street than the ground that serves it.
+bounded by the lane the bay is worked off** (`SimConfig.ParkingSpaceWidthM` under `LaneWidthM`): what sizes
+the ends is a manoeuvre and what sizes the sides is a door, and a space wider than the lane its way is driven
+out of is a bay reaching further across the street than the ground that serves it.
 
 **What a space is wide sizes the car standing in it and never the ground driven to it.** A bay's way is a
 driven line like any other and lays the band the lane it is worked off lays (`GEN-4f`) — one width for every
 metre of driven ground in the town, so a car park is the same tarmac as the street beside it rather than a
-narrower kind of it. Laid at the space's own width instead, every way in the town laid a band a hand
-narrower than the lane it left, and the outside of the driven ground (`OBS-2p`) stepped in and out at every
-bay to say so.
+narrower kind of it, and the outside of the driven ground (`OBS-2p`) does not step in and out at every bay.
 
 **GEN-4i** `P6` **A car stands square in the middle of its bay**, the clearance the space carries along its own
-length shared between its nose and its tail. It is the pose the bay's ways end at, so it is what the
-manoeuvres are solved *to* and not a matter of comfort, and where the walk to that car is aimed (`GEN-4e`)
-is off the body at that pose. **The body stands over the same ground either way round and the axle does
-not** (`GEN-4j`): the ways are drawn for the axle, so a bay backed into is reached over a way that runs a
-wheelbase's half deeper into it. **What the depth behind the tail has to be worth is the street's own
-crossing**: the outermost metres of a bay are ground the lane beside it is driven over, and a body standing
-inside that ground would cut the street it is parked beside rather than being clear of it.
+length shared between its nose and its tail. It is the pose a car is stood at wherever one is put in a
+bay — a spawn, a service vehicle on its apron, a wreck set down in a yard slot — and the pose a bay's way
+ends at (`BayWays.AtTheBayM`), and where the walk to that car is aimed (`GEN-4e`) is off the body at that
+pose. **The body stands over the same ground either way round and the axle does not** (`GEN-4j`,
+`BayTemplate.RearAxleOfBayM`): nose in, the rear axle is half a wheelbase short of the middle of the space,
+and backed in, half a wheelbase past it.
 
 **GEN-4d** `P6` A lot keeps its distance, both figures measured **along the kerb it hangs off**: clear of a
 junction, on top of everything the junction already takes, so a car park's flank is not in the face of
@@ -71,85 +66,51 @@ is the walk that wraps a lot** (TER-3c.3): two standing closer than two of those
 them, which is the apron this refuses — and the verge they pinch out between them is a cusp nothing can be
 given ground on.
 
-That every space is demonstrably enterable and leavable is `VER-2`, in
-[docs/verification.md](../../../../docs/verification.md#the-verification-intentions).
-
 ## The ways at a bay, and which way round a car stands in it
 
-**GEN-4f** `P4` **A bay is reached over the town's own ways, and the way in is the way out.** One shape is
-solved per standing and per lane the bay can be worked off — **laid once with the town and not per car**,
-like the join across a junction — and it is carried as the pair of ways that shape is driven as: in from
-the lane, and out to it. Every one of them is drawn for the rear axle, carries metres of its own, and is in
-the town's table of what is driven over what (`TER-5c`): a car working into a bay is held off the traffic,
-and the traffic off it, by the ground each of them holds and by no second mechanism (`SIM-7`).
+**GEN-4f** `P4` **A bay is reached over the town's own ways, and the way in is the way out.** A bay's ways are
+carried per standing and per lane as a pair — in from the lane, and out to it (`BayWays.PairOf`) — and each
+is one of the town's own ways: numbered with the rest, carrying metres of its own, in the table of what is
+driven over what (`TER-5c`) and driven as a line like any other (`CAR-15`). So a car working into a bay is
+held off the traffic, and the traffic off it, by the ground each of them holds and by no second mechanism
+(`SIM-7`). **Nothing lays one**: `BayWays.Build` lays no way, so every bay is one no way reaches
+(`BayWays.CanBeReached`), and that is the whole of what "cannot be reached" means.
 
-Six consequences, and the last three are the reason for the rule:
+Four consequences of what is there, and the last is the reason for the rule:
 
 - **A way runs the length of the space and is driven as far as the pose.** Its own metres reach the far end of
-  the space it serves; the drive ends where the car comes to rest, which is a setback inside the way's own end
-  exactly as a lane's is (`TER-5d`). The metres past the pose are ground and nothing else — nothing is driven
-  over them (`TER-5c`) and no route is threaded through them. **A way that stopped at the pose left most of
-  its own space on no way at all**, the ground a nose-in car's bonnet stands over included, so a body standing
-  there claimed nothing and the driver aiming at the space read it as free.
+  the space it serves (`BayWays.LengthM`), so the whole space is on a way; the drive ends where the car comes
+  to rest (`BayWays.DrivenLengthM`), which is a setback inside the way's own end exactly as a lane's is
+  (`TER-5d`). The metres past the pose are ground and nothing else.
 - **A body standing in a bay holds those ways, and holds them like any other body** (TER-4c.2). Its stretch on
   each is the box it stands in projected onto that way's own line, laid by the walk that lays a body onto a
   lane and onto a footway — not by an arithmetic of the bay's, and not from the register that says which bay
   it claimed. So an occupied bay is a fact the town reads rather than a flag it is told; a car standing across
   a bay it never claimed is on that bay's ways too; and what stops a driver aiming at the bay is the body at
   the end of the way, on the headway that stops it behind anything else. **A body and not a car**: a person on
-  foot in a space is a stretch of that space's ways on the same terms, because which roster the body is in
-  decides nothing about the ground it is standing on.
-- **The last dozen metres of a leg are driven, not manoeuvred around.** A route's line finishes on the way
-  in, so the whole of a leg is one chain over the town's ways and a driver working into a bay is a driver
-  on a way.
-- **A way is the manoeuvre and not the approach to it.** It begins where the car stops driving straight
-  down the lane; the metres before that are the lane's own, driven under the lane's own claim and not
-  driven back up on the way out.
-- **A bay that can be driven into can be driven out of**, because it is the same line — a shape laid at all
-  is laid in both directions off the lane its standing is settled on (`GEN-4j`). A way out lands on the
-  lane's own centreline by construction rather than by a second solve aimed back at it, and there is no
-  overshoot to allow for and no bay whose two answers disagree.
-- **Either lane of the carriageway, and the arithmetic says which of them lay.** A bay standing far enough
-  off the lane beside it is turned into off that lane; one standing nearer is turned into off it over a
-  template that swings away before it turns in. The oncoming lane is asked the same question and kept where
-  it answers — so a car may work into a bay from either side of the street, **crossing the carriageway to do
-  it**, which is what a driver does and what the table holds everyone else off. What it may do from over
-  there is bounded by `GEN-4j`. A bay whose geometry admits no line at all is a bay no trip may claim, and
-  that is the whole of what "cannot be reached" means.
+  foot in a space is a stretch of that space's ways on the same terms.
+- **The last dozen metres of a leg are driven, not manoeuvred around.** A route's line stops where the bay's
+  way leaves its lane and the car takes that way as its next line (`CAR-15`), so a driver working into a bay
+  is a driver on a way.
 - **Leaving a bay is a movement like a junction's and is nothing else.** The car drives the town's own way
   out; its claim runs along that way; the ground where the way crosses the street is taken before
   the car moves onto it and given back where its body is past it — the protocol of `TER-5c.1` with a bay's
-  way for the join. There is no gap looked at, no patience spent and no wait of its own, because a bay is a
-  place a car gives way at and the town already knows how one of those works.
+  way for the join. There is no gap looked at, no patience but the leg's own (`CAR-15a`) and no wait of its
+  own, because a bay is a place a car gives way at and the town already knows how one of those works.
 
-**GEN-4j** `P5` **A car stands in a bay one of two ways round, and reversing happens between that bay and the
-lane beside it and nowhere else.** Nose first, it drove in and must reverse out; backed in, it reversed in
-and drives out. The two are different shapes rather than one shape driven differently — the axle they end
-at is a wheelbase's half either side of the middle of the space, and the approach runs up the lane for one
-and back down it for the other — and each is a pair of ways all the same, one driven under power and one in
-reverse.
+**GEN-4j** `P5` **A car stands in a bay one of two ways round, and reversing happens on a bay's own ways and
+nowhere else** (`CAR-6.5`). Nose first, it drove in and must reverse out; backed in, it reversed in and
+drives out (`BayWays.IsDrivenInReverse`). Each standing is a pair of ways all the same, one driven under
+power and one in reverse, ending at the axle's own pose in the space (`GEN-4i`).
 
-- **The near lane is what a standing is settled off**, because a standing needs both its ways and only the
-  lane beside the bay lays both. A bay that lays neither is a bay with no way (`GEN-4f`).
-- **How far over the street that manoeuvre reaches is the table's question and not a second bar here**
-  (`SIM-7`). Where a bay stands nearer its lane than the turn into it can reach, the shape swings away from
-  the bay before it turns in — out over the carriageway, and far enough to carry the body over the
-  centreline. What that takes of the oncoming lane is measured for a bay's way exactly as it is measured
-  for a junction's join (`TER-5c`), and whoever is coming the other way is held off it by that and by
-  nothing else. A bar held up before the measurement — the body clear of the oncoming lane's own paint —
-  refuses shapes the table has already found nobody meets on, and refusing a shape costs the bay the
-  standing it served.
-
-  **But the swing is a cost and not a feature, and how many bays pay it is settled by two figures rather
-  than by the street**: the arc's own margin over the tightest circle the car has, and the straight
-  the template ends on. Both come off the gap between the lane and the bay, and a town whose lots stand a
-  turning radius clear of their lanes lays every nose-in as a single arc that never leaves its own side of
-  the road. The shipped figures are set so that it does.
-- **The far lane is kept in the forward direction only.** A car may nose into a bay across the carriageway,
-  and one that backed in may drive out across it. Neither reverses over a lane of moving traffic to do it.
-  So the far lane adds an approach and a departure and never a standing of its own.
+- **A standing needs both its ways** (`BayWays.CanStand`), and a bay that lays neither standing is a bay
+  with no way (`GEN-4f`).
+- **What a way takes of the street is the table's question and not a second bar here** (`SIM-7`): it is
+  measured for a bay's way exactly as for a junction's join (`TER-5c`, `BayCrossings`), and whoever is
+  coming the other way is held off it by that and by nothing else.
 - **Which way round a driver parks is a habit and not a decision**, drawn once per car, so the two askings
-  that lay a leg's line agree. A bay that lays only the other standing overrules it.
+  that lay a leg's line agree. A bay that lays only the other standing overrules it
+  (`BayWays.TheStandingOnOffer`).
 - **The standing is read off the pose and never off the register.** Which way a car standing in a bay may
   leave, which flank its driver's door is on (`GEN-4e`), and which end of the body lies along the way it
   stands on are all answered from the direction the body is actually pointing.
@@ -157,16 +118,16 @@ reverse.
 ## Turning round in a bay
 
 **GEN-4l** `P5` **A car that has to come back the way it came turns in a bay: it parks and it unparks.** No
-junction admits a movement that reverses the direction of travel (TER-5f), so this and a dead end
-at a dead end are the two ways round a town has, and this is the one an ordinary street offers.
+junction admits a movement that reverses the direction of travel (TER-5f), so a bay is the one place a car is
+turned round. **The router also lets a leg come back from a dead end** (`BayWays.WhereALegMayTurn`), and
+nothing turns a car round there: it stands at the end until its leg's clock gives the leg up (`CAR-15a`).
 
 - **It is the bay's own two ways and nothing new** (`GEN-4f`): the way in off the lane the car is coming
   down, and the way out onto the lane running back. Both are the road's own, so the traffic is held off the
   car and the car off the traffic by the ground each holds, exactly as at any other park.
-- **The standing is the turn's and not the driver's habit** (`GEN-4j`). Only one standing comes out the
-  other way off a given lane: nose in across the carriageway and reverse out onto the kerb-side lane, or
-  back in off the kerb-side lane and drive out across the carriageway. Which one a frontage offers is the
-  arithmetic's, and where it offers both the habit settles it.
+- **The standing is the turn's and not the driver's habit** (`GEN-4j`): the one whose way in leaves the lane
+  the car is coming down and whose way out lands on the lane running back (`BayWays.TheWayToTurnIn`). Where
+  a bay lays both, nose in is taken, being the one driven without stopping to change gear.
 - **The bay is held while the turn is made, and that hold is a second claim of the same kind** (`GEN-4g`). A leg turning
   keeps the place it is going to — the destination has not changed, only the way round to it — and gives
   the turning bay back the moment it is out of it. Every way a leg can end gives back both.
@@ -177,6 +138,8 @@ at a dead end are the two ways round a town has, and this is the one an ordinary
 - **What the router knows is which stretches lay the pair of ways at all**, and never which bay is free:
   the first is a fact about the town, laid with it; the second is a fact about this moment, and it is
   asked at the frontage by the leg that has got there.
+
+## The paint, the car park, and who holds a bay
 
 **GEN-4m** `P6` **A bay paints the line it shares with the next bay, and nothing else.** A car park is a piece
 of the town's tarmac like any other: the walk wraps it like any other, and the line round the outside of a
@@ -189,14 +152,16 @@ geometry says that nowhere. It is offered by both bays and painted once.
 **GEN-4k** `P5` **A special building's bays are held for its own vehicles and for nobody else.** A hospital and
 a police station ([agents/ambulance](../../../agents/ambulance/docs/requirements.md),
 [agents/service](../../../agents/service/docs/requirements.md)) each keep an **apron** — the free bays
-nearest them, up to the figure — and each bay of one is held for the single vehicle stood in it, for the
-whole run and not only while that vehicle is in it. Three consequences:
+nearest them, up to the figure — and a depot its evacuator's bay and its yard (`EVA-2`). Each bay of an
+apron is held for the single vehicle stood in it, for the whole run and not only while that vehicle is in
+it; **a vehicle struck off its building leaves its bay held for nobody** (`ParkingRegistry.Claimed`,
+`SRV-4`, `EVA-7`). Five consequences:
 
 - **A hold is not a leg's claim** (`GEN-4g`). That is what one leg has and every way a leg can end gives
   it back; a hold outlives every leg its vehicle drives, because the point of it is the bay being there
   when the vehicle comes back.
 - **A held bay is free to its holder and to nobody else**, which is the whole of the mechanism: it is
-  refused to every trip, to every retarget and to every spawn by the one question those already ask, and
+  refused to every leg, to every retarget and to every spawn by the one question those already ask, and
   there is no second register of who may park where (`SIM-7`).
 - **An apron is claimed before the town's own cars are stood, and filled once they have been.** The ground
   is taken first, so a bay a plan's car already stands in is never one a station wants; and the vehicles go
@@ -207,48 +172,30 @@ whole run and not only while that vehicle is in it. Three consequences:
 - **An apron stands along one kerb, and that kerb is the building's own where the map has one.** Every bay
   of an apron is on the same side of the road as the first — a yard is a yard and not two halves of a
   street — and the first is looked for on the building's own side before it is looked for anywhere. Only
-  where its own side carries no free bay at all does an apron cross the road, which shipped maps do make
-  necessary: a building whose only parking is over the road from it is a building, not a mistake.
-- **An apron takes the bays the map has**, which is the bays still free on that kerb: the plan's own cars
-  are stood before it and it takes none of theirs. A building with fewer bays near it than the figure asks
-  for stands fewer vehicles, and one with none stands none — which is a real state and is reported
-  (`AMB-2`, `SRV-2`).
+  where its own side carries no free bay at all does an apron cross the road.
+- **An apron takes the bays the map has.** A building with fewer bays near it than the figure asks for
+  stands fewer vehicles, and one with none stands none — which is a real state and is reported (`AMB-2`,
+  `SRV-2`).
 
 **GEN-4h** `P4` **A car park is a junction cut into the road, and every bay of it is an arm of that
-junction** ([citygen](../../../citygen/docs/requirements.md) GEN-52, GEN-53). The road is parted at the place
-the car park stands and **does not move an inch for it**: the carriageway either side is the ground it was
-already laid on, and what a car takes to reach a bay is a movement across a box like every other turn it
-makes. A bay's own way (`GEN-4f`) is that arm's lane — one lane wide, driven both ways over the one line.
-Three consequences:
+junction** — the cut of `GEN-52`, which does not move the road, laid as `GEN-53` lays it
+([citygen](../../../citygen/docs/requirements.md)): what a car takes to reach a bay is a movement across a
+box like every other turn it makes, and a bay's own way (`GEN-4f`) is that arm's lane. Three consequences:
 
 - **A car park has a node, and everything about one is decided on the road.** It is granted, refused and
   ranked by the rules a junction already carries (TER-5c, TER-5e) — so there is no second mechanism for
   turning into a car park, no bar held up before the manoeuvre and no register of who may cross what
   (`SIM-7`).
 - **A leg aimed at a bay is routed to that bay's own arm**, which is an ordinary route over the town's own
-  lanes ending on the lane the bay is. It used to be routed to the metre a way in left the carriageway at —
-  a destination part way along a link — and a bay that is an arm needs none of that.
+  lanes ending on the lane the bay is.
 - **A car park still needs room**: the ground its junction takes, a locality clear of every other junction
   on the road (GEN-16), and a road straight enough there to carry one (GEN-53). A stretch of street without
   that room carries buildings rather than a car park.
 
-**GEN-4g** `P4` **Which bay a leg is aimed at is a claim, and it lives in a register.** It is the one hold in
-the town that is not a piece of road, and it is a register because it has to be: the hold begins when the
-trip picks the bay and the walker sets off, which is minutes before anybody is at the wheel and over ground
-the car has no line to. It says which bay and nothing more — a bay is free when nobody has claimed it and
-nobody is standing in it, and everything about the ground between the car and that bay is the road's own
-claims (`TER-4c.1`). The bays are indexed by where they stand, because what a trip asks is *the free bays within a
-walk of this door*.
-
-## What this slice must produce
-
-- The ways at every bay and the standing each of them serves (`GEN-4j`), <b>which stretches a leg may turn
-  at</b> (`GEN-4l`), and the sections of the carriageway and of its neighbours' ways that each of them is
-  driven over — measured with the same code a
-  junction's joins are measured with.
-- The choice layer: the free bays near a place, nearest first, off an index of where the bays stand.
-- The leg's claim (`GEN-4g`), the turn's own (`GEN-4l`) and the hold (`GEN-4k`): which bay each leg is aimed
-  at, which one it is turning in, which bay each car has been left in, and which bay belongs to which
-  vehicle for the whole run.
-- Where a walk to a car left in a bay is aimed (`GEN-4e`).
-
+**GEN-4g** `P4` **Which bay a leg is aimed at is a claim, and it lives in a register.** It is a hold on no
+piece of road, and it is a register because it has to be: the hold is taken when a leg is sent to the bay
+or re-aimed at another, before the car has a line to it and over ground it holds no claim on. It says which
+bay and nothing more — a bay is free when a way reaches it, nobody has claimed it, nobody is standing or
+turning in it, and nothing holds it (`GEN-4k`), and everything about the ground between the car and that bay is the road's own
+claims (`TER-4c.1`). The bays are indexed by where they stand, because what is asked of them is *the free
+bays near a place* — an apron's building, an order's point, where a leg has got to.

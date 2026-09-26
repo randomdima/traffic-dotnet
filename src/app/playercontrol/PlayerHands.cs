@@ -204,7 +204,7 @@ internal sealed class PlayerHands
     /// <remarks>
     /// CTL-2, CTL-3 and CTL-8: the order pins the goal the behaviour would otherwise have picked itself,
     /// and everything below goal selection is untouched. <b>The place decides which goal that is</b>, for
-    /// both kinds — for a walker a building or a car is walked to and entered; for a car it is another car
+    /// both kinds — for a walker a building is walked to and entered, and anywhere else walked to; for a car it is another car
     /// to follow, a bay to park in, a place on the road to stand at, or a place off it to park near and
     /// walk the rest of. Every selected unit takes the same order at the same point (CTL-1b).
     /// <b>It is here rather than in the click</b> because a pointer is not the only thing that can ask for

@@ -12,9 +12,9 @@ namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>The recovery</b> (EVA-1…8): the depots a map has, the evacuator standing at each, and the errand it
-/// runs when a car is wrecked in the street. <b>The driving itself is the catalogue's</b> — an evacuator
+/// runs when a car is wrecked in the street. <b>The driving itself is the leg's</b> — an evacuator
 /// drives the legs every other car drives (CAR-15) — and what is here
-/// is only the errand those manoeuvres are being run for.
+/// is only the errand those legs are being run for.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -114,9 +114,9 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// One decision of one evacuator's crew, taken before the driver's own (EVA-3). <b>It decides the errand
+    /// One decision of one evacuator's errand, taken before the leg's own (EVA-3). <b>It decides the errand
     /// and never the driving</b>: what comes out of it is a destination, a chain and whether the priority is
-    /// carried, and the catalogue does the rest.
+    /// carried, and the leg does the rest.
     /// </summary>
     void RunTheRecovery(int car, float sinceLastDecisionS)
     {
@@ -225,7 +225,8 @@ internal sealed partial class TownWorld
     /// <b>Whether this is the evacuator EVA-3 means</b> — the nearest one with nothing else to do and a slot
     /// to put it in — asked of the wreck it was about to take. It is <see cref="IsTheNearestFreeAmbulanceTo"/>
     /// said of a depot, and it is asked for the same reason: the recovery belongs to the wreck and the choice
-    /// belongs to the crew, so a town with two depots cannot send the far one because its decision ran first.
+    /// belongs to the evacuator, so a town with two depots cannot send the far one because its decision ran
+    /// first.
     /// </summary>
     bool IsTheNearestFreeEvacuatorTo(int car, int wreck, float farM)
     {
@@ -243,11 +244,11 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The run to the wreck and the work at it: keep the destination on it, and get it onto the bar once
-    /// the evacuator has come to rest within the crew's reach of it.
+    /// the evacuator has come to rest within working reach of it.
     /// </summary>
     /// <remarks>
     /// <b>Two stages and one method</b>, because the difference between them is one question asked of the
-    /// pose — standing where the crew can work, or not yet — and every guard above that question is the
+    /// pose — standing where the arm can be worked, or not yet — and every guard above that question is the
     /// same on either side of it. Split in two, the bound, the wreck's own validity and the re-lay would
     /// each have had to be written twice and would have drifted apart.
     /// </remarks>
@@ -269,7 +270,7 @@ internal sealed partial class TownWorld
             return;
         }
 
-        // A leg that ended before the wreck was reached — settled, abandoned, or a bay left and nowhere gone
+        // A leg that ended before the wreck was reached — given up, or a bay left and nowhere gone
         // — is begun again from where the evacuator actually stands (CAR-15). A wreck is shunted about by
         // whatever hits it, so the standing place is re-read rather than remembered.
         if (!TheHitchingPlaceM(car, wreck, out var standM))
@@ -305,10 +306,10 @@ internal sealed partial class TownWorld
         _recovery.HitchedForS[car] += sinceLastDecisionS;
         if (_recovery.HitchedForS[car] < _config.Evacuator.HitchingS) return;
 
-        // <b>The crew works the same arm a hand works</b> (EVA-5, CTL-7) — and winches the wreck onto the
+        // <b>The errand works the same arm a hand works</b> (EVA-5, CTL-7) — and winches the wreck onto the
         // fork first when the truck could not be driven right onto it. See the decision log: a truck cannot
-        // get its own tail onto a body lying in the lane ahead of it without a manoeuvre the catalogue does
-        // not have, so the last few metres are a placement (PHY-7a) and never more than the arm's own reach.
+        // get its own tail onto a body lying in the lane ahead of it without reversing onto it, which no
+        // driver does off a bay's own way (CAR-6.5), so the last few metres are a placement (PHY-7a).
         if (WhatTheArmIsTouching(car, out _) != wreck) WinchItOntoTheFork(car, wreck);
 
         WorkTheArm(car);
@@ -357,7 +358,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The haul to the yard: the same shape as the run to the wreck, aimed at a slot instead of at a body.
-    /// <b>The haul ends by the evacuator standing where the crew can reach a free slot</b> and never by the
+    /// <b>The haul ends by the evacuator standing within reach of a free slot</b> and never by the
     /// leg running out, because a leg aimed at a place does not end — the stop point is what stops the car, and
     /// what it stops it at is the slot (<see cref="ToTheSceneM"/>).
     /// </summary>
@@ -398,7 +399,7 @@ internal sealed partial class TownWorld
 
         if (AFreeYardSlotWithinReach(car) < 0)
         {
-            // Stopped at the yard and still short of every slot the crew could work from — the same
+            // Stopped at the yard and still short of every slot it could set the wreck down in — the same
             // overshoot a rescue makes at a body, answered the same way.
             if (StoppedWhereItWasSent(car)) SendToTheYard(car);
 
@@ -409,8 +410,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The wreck off the bar and into a slot</b> (EVA-6), once the crew has spent the same interval on it
-    /// they spent putting it on. A yard with no free slot within reach refuses, which is a wait and not a
+    /// <b>The wreck off the bar and into a slot</b> (EVA-6), once the same interval has been spent on it that
+    /// putting it on took. A yard with no free slot within reach refuses, which is a wait and not a
     /// failure — the same wait a full hospital's door puts an ambulance in (OBJ-5).
     /// </summary>
     void UnhitchIntoTheYard(int car, float sinceLastDecisionS)
@@ -470,10 +471,9 @@ internal sealed partial class TownWorld
     /// pause.
     /// </para>
     /// <para>
-    /// <b>A restored service vehicle comes back as an ordinary car.</b> Its crew got out when it broke and
-    /// is not coming back, so the hospital, station or depot it belonged to has to let it go — otherwise the
-    /// town would hold a bay for a vehicle nothing runs an errand for, and the next driver to park it would
-    /// be a walker who could never get out of it.
+    /// <b>A restored service vehicle comes back as an ordinary car</b> (EVA-7): the hospital or station it
+    /// belonged to strikes it off, so no errand is run for it again, and the bay held for it is held for
+    /// nobody (<see cref="LetTheBuildingLetItGo"/>). A depot struck its evacuator off when it broke.
     /// </para>
     /// </remarks>
     void MendTheYards(float dtS)
@@ -512,9 +512,10 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// A restored vehicle struck off whatever strength it was on, and the bay that was held for it given
-    /// back to the town (GEN-4k). <b>An evacuator has already been struck off by the tick it broke</b>
-    /// (<see cref="LoseTheEvacuator"/>), so what this releases is an ambulance's or a patrol car's.
+    /// A restored vehicle struck off whatever strength it was on, and the bay that was held for it held for
+    /// nobody from then on (<see cref="ParkingRegistry.Claimed"/>, GEN-4k) — not given back to the town.
+    /// <b>An evacuator has already been struck off by the tick it broke</b> (<see cref="LoseTheEvacuator"/>),
+    /// so what this releases is an ambulance or a patrol car.
     /// </summary>
     void LetTheBuildingLetItGo(int car)
     {
@@ -532,8 +533,9 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The depot's evacuator wrecked</b> (SRV-4): the load off the bar where it stands, the errand given
-    /// up, and the depot let go of a truck that is not coming back. Everything it was holding is dropped on
-    /// the tick it breaks rather than left to be discovered by whatever asks next.
+    /// up, and the depot let go of a truck that is not coming back — its bay held for nobody
+    /// (<see cref="ParkingRegistry.Claimed"/>) rather than given back to the town. Everything it was holding
+    /// is dropped on the tick it breaks rather than left to be discovered by whatever asks next.
     /// </summary>
     /// <remarks>
     /// <b>It leaves two calls where there was one recovery</b> — the truck and, if it was hauling, the car
@@ -590,10 +592,11 @@ internal sealed partial class TownWorld
     /// when it is touching nothing, and letting go of whatever is already on it. Whether it did anything.
     /// </summary>
     /// <remarks>
-    /// <b>A crew reaches for it through this and so does a hand on the keys</b> (CTL-7), which is the whole
-    /// point of it being one call: an evacuator's driver has to have put the truck where the fork actually
-    /// reaches the car, exactly as a player does, so what the town does to fetch a wreck is a thing that can
-    /// be watched being done rather than a rule the player is outside of.
+    /// <b>The recovery reaches for it through this and so does a hand on the keys</b> (CTL-7), which is the
+    /// whole point of it being one call: what the town does to couple a wreck is the lever a player pulls,
+    /// and can be watched being done rather than being a rule the player is outside of. <b>The errand has one
+    /// thing a press has not</b>: where the fork is not under the wreck it winches the wreck onto it first
+    /// (<see cref="WinchItOntoTheFork"/>, EVA-5).
     /// </remarks>
     public bool WorkTheArm(int car)
     {
@@ -757,7 +760,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// The leg to the yard: aimed at a free slot rather than at the depot's door, because the slot is what
-    /// the crew has to be standing within reach of and aiming at the building would leave the arrival a
+    /// the truck has to be standing within reach of and aiming at the building would leave the arrival a
     /// street's width from it.
     /// </summary>
     void SendToTheYard(int car)
@@ -784,7 +787,7 @@ internal sealed partial class TownWorld
         return -1;
     }
 
-    /// <summary>And the nearest one of them the crew can actually work from, which is what says a haul has arrived.</summary>
+    /// <summary>And the nearest one of them within the truck's yard reach, which is what says a haul has arrived.</summary>
     int AFreeYardSlotWithinReach(int car)
     {
         var yard = _recovery.Yard[car];
@@ -809,7 +812,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>A body put down where the crew put it</b> — the one placement in this errand, and the containment
+    /// <b>A wreck put down where the errand puts it</b> — the one placement in this errand, and the containment
     /// slice's own operation rather than a second one (PHY-7a): the solver is handed the pose before the body
     /// is back in the world, so nothing sees it cross the ground between.
     /// </summary>
@@ -874,7 +877,7 @@ internal sealed partial class TownWorld
     /// <b>Where this evacuator is to be stopped</b>, and infinity when nothing is asking it to: the wreck
     /// while it is being fetched, and the slot the haul was aimed at while it is being brought in and
     /// unhitched. <b>The place has to outlast the arrival</b> — a stop point that went away the moment the
-    /// truck reached it would set the crew to work on a car that had started driving off again.
+    /// truck reached it would let it roll off part way through the hitch.
     /// </summary>
     bool TheRecoveryStopsAt(int car, out Vector2 placeM, out float reachM)
     {

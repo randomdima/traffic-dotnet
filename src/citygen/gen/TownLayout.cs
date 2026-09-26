@@ -215,7 +215,6 @@ internal sealed class TownLayout(
     /// the crossing on each arm and the bar behind it are all laid across an arm on the assumption that the
     /// next arm round is not lying against it; two carriageways meeting at a shallow angle overlap for tens
     /// of metres, and everything laid on either of them lands on the other.</item>
-    /// </list>
     /// <item><b>A link whose line cannot be laid</b> (<see cref="RoadLines"/>) — one that cannot meet both of
     /// its drawn bearings inside its own floor, one that would run off the world or over water, or one that
     /// would share ground with a road already laid (GEN-47, GEN-49). <b>The line is drawn here rather than

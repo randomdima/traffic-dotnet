@@ -1,76 +1,5 @@
 namespace TrafficSimulation.World.Road;
 
-
-/// <summary>
-/// <b>How strong a claim on ground its holder has</b> (TER-5e) — carried by every stretch, and the whole
-/// of what says which of two bodies coming to one piece of the world gives it up.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>It settles claims of one strength and never bodies</b> (<see cref="ClaimPriority"/>). What a greater
-/// right of way takes is ground nobody has reached, and never a body nor the road a body is committed to
-/// being able to stop in. A right of way is a rule about who waits.
-/// </para>
-/// <para>
-/// <b>It is a fact about the way and not about the body on it.</b> A junction's every movement is a way of
-/// its own, so the claim on the left-turn connector is a left turn by the ground it is on; two cars on one
-/// lane are ordinary traffic alike and are held apart by the road each was granted, neither giving way to
-/// the other.
-/// </para>
-/// <para>
-/// <b>The zero of it is the weakest movement a box admits and not the middle</b>, because the order has to
-/// run one way and a byte starts at nothing. <b>Asking at the zero is asking with no rank at all</b>, which
-/// is what a walker and a template do.
-/// </para>
-/// </remarks>
-internal enum RightOfWay : byte
-{
-    /// <summary>
-    /// The turn across the oncoming stream (TER-4a) — the weakest there is, no box admitting a movement
-    /// that reverses the direction of travel (TER-5f).
-    /// </summary>
-    TurningAcross,
-
-    /// <summary>Ordinary traffic: the near-side turn, and every stretch of way that is not a movement through a box.</summary>
-    Traffic,
-
-    /// <summary>Straight through, which turns out of nobody's way.</summary>
-    StraightOn,
-
-    /// <summary>
-    /// <b>A road an officer has closed</b> (SRV-6). It outranks every ordinary movement, so
-    /// traffic is held short of the ground it is laid on — and it is <em>below</em>
-    /// <see cref="Emergency"/>, which is the whole of what "the other services are let through" means: a
-    /// vehicle answering a call is not refused by it and needs to know nothing about why.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is a rank and not a kind of claim.</b> What an officer holds is ground it has been granted and
-    /// not reached (<see cref="ClaimPriority.Firm"/>) like any other, so nothing reading the claims learns a
-    /// new word — and a closure cannot take a body or the road a body is committed to stopping in.
-    /// </remarks>
-    Closed,
-
-    /// <summary>
-    /// <b>An ambulance answering a call</b> (AMB-4). It outranks every ordinary movement, which is the
-    /// whole of what "every other agent gives way" means here: ground an ambulance asks for stops being
-    /// anybody else's to claim.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is still only a rank and takes only what a rank may take</b> — a claim, which its holder has
-    /// not reached and can give back. A body, and the road a body is committed to being able to stop in,
-    /// are no more an ambulance's than anybody's: a blue light buys the road and never the tyres, and a
-    /// rule that took those would be a licence to drive into somebody.
-    /// </remarks>
-    Emergency,
-
-    /// <summary>
-    /// <b>Ground its holder can no longer give back</b>: a body past the point it could stop short of it.
-    /// Nothing outranks it, because a right of way is a rule about who waits and not about who is driven
-    /// into.
-    /// </summary>
-    Committed,
-}
-
 /// <summary>
 /// <b>Which roster a stretch's occupant is named in.</b> The road's claims are not one roster's — a person
 /// in a lane is on the road like anything else — so an occupant is an integer into one of two fleets, and
@@ -120,17 +49,12 @@ internal enum LaneRoster : byte
 /// neither roster.
 /// </param>
 /// <param name="Priority">
-/// <b>How strong the claim is</b> (TER-5g): whether it can be taken, and by whom. The one property besides
-/// who and where, and the whole of what the ladder decides — which of two claims of one strength wins is
-/// the right of way of the movement each is on.
+/// <b>How strong the claim is</b> (TER-5g): whether it can be taken, and by whom — <b>the one property
+/// besides who and where</b>. What movement it is on is in it and not beside it (TER-5e): the same car is
+/// granted the lane it is leaving at one rung and the turn across the oncoming stream at another, and those
+/// are two claims on two ways.
 /// </param>
 /// <param name="Of">Which of the town's two rosters <paramref name="Occupant"/> is an index into.</param>
-/// <param name="Right">
-/// <b>The right of way its holder has to it</b> (TER-5e), which is what decides between two claims of one
-/// strength. It belongs to the claim and not to the body: one car is straight through on the lane it is
-/// leaving and a turn across the oncoming stream on the join it is entering, and those are two claims on two
-/// ways.
-/// </param>
 /// <param name="AcrossFromM">
 /// <b>Where across this way's own line the holder's body begins</b>, signed to the way's right — the one
 /// thing a claim says about the third dimension, and the reason a body may be written onto a way it barely
@@ -165,7 +89,7 @@ internal enum LaneRoster : byte
 /// </param>
 internal readonly record struct LaneClaim(
     float FromM, float ToM, float StandsToM, float AlongMps, int Occupant, ClaimPriority Priority,
-    LaneRoster Of = LaneRoster.Driving, RightOfWay Right = RightOfWay.Traffic, float AcrossFromM = 0f,
+    LaneRoster Of = LaneRoster.Driving, float AcrossFromM = 0f,
     float AcrossToM = 0f, bool OnItsLine = false)
 {
     public static LaneClaim Nothing => new(
@@ -212,19 +136,19 @@ internal readonly record struct LaneClaim(
     public bool IsLoose => HasBody && !OnItsLine && !IsFurniture;
 
     /// <summary>
-    /// <b>Ground its holder has been granted and not reached</b> (<see cref="ClaimPriority.Firm"/> and
-    /// above): the far end of a box, a bay being backed out of, a swerve about to cross, a road an officer
-    /// is holding. <b>The one hold a caller can both lay and take back inside a tick</b>, which is what the
-    /// count of them is for.
+    /// <b>Ground its holder has been granted and not reached</b> (the granted band,
+    /// <see cref="ClaimPriority.FirmAcross"/> and above): the far end of a box, a bay being backed out of, a
+    /// swerve about to cross, a road a police car at a scene is holding shut. <b>The one hold a caller can both lay and take
+    /// back inside a tick</b>, which is what the count of them is for.
     /// </summary>
-    public bool IsGranted => !HasBody && Priority <= ClaimPriority.Firm;
+    public bool IsGranted => !HasBody && Priority <= ClaimPriority.FirmAcross;
 
     /// <summary>
-    /// <b>Road its holder has stated it means to use and has not reached</b>
-    /// (<see cref="ClaimPriority.Soft"/>, TER-5g) — nothing is standing in it and nothing has been granted
-    /// it; it is a statement of where a body is going.
+    /// <b>Road its holder has stated it means to use and has not reached</b> (the stated band,
+    /// <see cref="ClaimPriority.Soft"/> and its movements, TER-5g) — nothing is standing in it and nothing
+    /// has been granted it; it is a statement of where a body is going.
     /// </summary>
-    public bool IsStated => Priority == ClaimPriority.Soft;
+    public bool IsStated => Priority is >= ClaimPriority.SoftSpecial and <= ClaimPriority.SoftAcross;
 
     /// <summary>
     /// <b>An ask that was refused, left among the claims so the traffic can see it</b>
@@ -255,18 +179,17 @@ internal readonly record struct LaneClaim(
 /// apart, and never which kind of body is standing on it.</b>
 /// </para>
 /// <para>
-/// <b>Ground of two kinds laid over one another is where a car is the exception</b> (TER-5c.1). A zebra is carriageway a
-/// walk runs over, so a car on the paint writes the stretch of its own lane and nothing at all on the walk,
-/// and what holds a walker off it is that same stretch, looked up where the crossing runs over the lane.
-/// Written in both, one car would hold one piece of ground twice over, in two records free to disagree about
-/// who has it.
+/// <b>Ground of two kinds laid over one another is two ways and no exception</b> (TER-4c.2). A zebra is
+/// carriageway a walk runs over, so whoever stands on the paint writes the band of the lane beneath and the
+/// stretch of the crossing way alike, whatever kind of body it is. One piece of ground carries one claim per
+/// way and a body on two ways is on two ways: the pair cannot disagree about who has the ground, because
+/// neither of them is the other's record of it.
 /// </para>
 /// <para>
-/// <b>A body on foot on the paint writes both ways, because the look-up above is not asked about it.</b> What
-/// a walker asks the road is what traffic is <em>coming</em> (<see cref="AnyTrafficOver"/>), and it asks it of
-/// the one band it is about to step into — so a person standing on a crossing that was written on the lane
-/// alone was a person no other walker could see. It is the same two writes a walker crossing under its own
-/// power has always made: the bands of the lanes it is on, and its stretch of the crossing way it is walking.
+/// <b>What each of those two writes is for is a different question, and neither is the write's.</b> A
+/// walker asks the road what traffic is <em>coming</em> (<see cref="AnyTrafficOver"/>), of the one band it is
+/// about to step into; a driver is held off the paint by the bodies standing in its own lane. Written on the
+/// lane alone, a car or a person on a crossing was a body no reader of that crossing could see.
 /// </para>
 /// <para>
 /// <b>It is rebuilt from the bodies every tick and never written to during a decision</b>, which is what
@@ -325,6 +248,20 @@ internal sealed partial class LaneOccupancy
     /// </summary>
     readonly TownWays _ways;
 
+    /// <summary>
+    /// <b>Which ways share ground with which</b> (<see cref="WayCrossings"/>, TER-5c) — the whole of what the
+    /// claims know about the world outside one way's own arclength, and what makes a stretch of a lane mean
+    /// something about the town rather than about the lane.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is read when a claim is laid and never written to</b> (TER-5c.1). A body takes ground on the ways
+    /// it is on; where one of those is driven over another, the arbitration reaches across into that way's own
+    /// claims and takes the ground from whichever of the two gives it up — so no stretch is ever laid on a way
+    /// its holder will not be on, and no reader has to ask a second question to find out who else has the
+    /// metres it was granted.
+    /// </remarks>
+    readonly WayCrossings _crossings;
+
     /// <summary>The first slot on each way, or <see cref="NoSlot"/>. Only the ways in <see cref="_touched"/> are ever stale.</summary>
     readonly int[] _head;
 
@@ -358,9 +295,15 @@ internal sealed partial class LaneOccupancy
     /// actually be reached: a dropped stretch is a body nobody's grant is cut at. It is sized from the two
     /// rosters and the town's own furniture, and the gates hold it clear of its own ceiling.
     /// </param>
-    public LaneOccupancy(TownWays ways, int mostSlots)
+    /// <param name="crossings">
+    /// <b>Which of those ways share ground with which</b> (TER-5c), so that a claim laid on one is arbitrated
+    /// against the claims on every way its own stretch is driven over. <see cref="WayCrossings.None"/> for a
+    /// fixture whose ways touch nothing.
+    /// </param>
+    public LaneOccupancy(TownWays ways, int mostSlots, WayCrossings crossings)
     {
         _ways = ways;
+        _crossings = crossings;
 
         _head = new int[ways.Count];
         Array.Fill(_head, NoSlot);
@@ -426,11 +369,10 @@ internal sealed partial class LaneOccupancy
     /// <remarks>
     /// <para>
     /// <b>Every claim of that occupant at that priority on that way and not one of them</b>, which is what
-    /// its callers want: a movement is laid as one claim per run of its join
-    /// (<c>TownWorld.LayTheMovement</c>) and is given up whole. So <b>an occupant may not hold two
-    /// independent claims of one priority on one way</b> — the town's two granted claims are told apart by
-    /// the ways they are laid on — a movement's on a junction's join or on a bay's own way — and nothing
-    /// may put two on one number without giving this an interval to take.
+    /// its callers want: a movement given back is given back whole, wherever the seam between the car's road
+    /// and the ground beyond it happened to fall that tick (<c>TownWorld.ClaimWhatTheAnswerTook</c>). The
+    /// town's two granted claims are told apart by the ways they are laid on — a movement's on a junction's
+    /// join or on a bay's own way — so there is nothing here for a caller to name more finely.
     /// </para>
     /// <para>
     /// The row itself is left where it is rather than compacted out: the claims are rebuilt from nothing
@@ -479,14 +421,48 @@ internal sealed partial class LaneOccupancy
     /// </remarks>
     public void CutTo(
         int way, int occupant, float toM, ClaimsAsked asked = ClaimsAsked.UnderWay,
-        LaneRoster of = LaneRoster.Driving)
+        LaneRoster of = LaneRoster.Driving) =>
+        Cut(way, occupant, of, asked, float.NegativeInfinity, float.PositiveInfinity, toM);
+
+    /// <summary>
+    /// <b>One ask brought back to its answer, over every stretch that ask laid</b> (TER-4c.1) — the piece
+    /// with the body in it and <b>the pieces ahead of the body alike</b>, which is what keeps one hold to one
+    /// answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The stretches of one ask are told from an occupant's others by the ground they are on</b>
+    /// (<paramref name="askedFromM"/>, <paramref name="askedToM"/>) and not by what they look like. A body's
+    /// road ahead of its own nose carries no body, so it is ground granted and not reached like the box a car
+    /// holds beyond it and like the road a police car at a scene holds shut — and scoped by the look of the
+    /// stretch, the answer either missed the road it was about or cut a hold that was never asked here.
+    /// </para>
+    /// <para>
+    /// <b>Cut to nothing, a piece goes out</b>, which is the ordinary answer for a way the grant never
+    /// reached: a hold is one run of ways, and what the ways past the answer keep is nothing.
+    /// </para>
+    /// </remarks>
+    /// <param name="askedFromM">The near edge of what was asked for on this way, in the way's own metres.</param>
+    /// <param name="askedToM">And its far edge, which is where the ask ran out or the way did.</param>
+    public void CutTheAskTo(
+        int way, int occupant, float askedFromM, float askedToM, float toM,
+        LaneRoster of = LaneRoster.Driving) =>
+        Cut(way, occupant, of, ClaimsAsked.Held, askedFromM, askedToM, toM);
+
+    /// <summary>
+    /// The walk both of those are, <b>over the stretches of one way that are one occupant's, in one scope and
+    /// over one piece of ground</b>.
+    /// </summary>
+    void Cut(
+        int way, int occupant, LaneRoster of, ClaimsAsked asked, float overFromM, float overToM, float toM)
     {
         var previous = NoSlot;
         for (var at = _head[way]; at != NoSlot;)
         {
             var next = _next[at];
             ref var slot = ref _slots[at];
-            if (slot.Occupant != occupant || slot.Of != of || !Counts(slot, asked))
+            if (slot.Occupant != occupant || slot.Of != of || !Counts(slot, asked)
+                || slot.ToM <= overFromM || slot.FromM >= overToM)
             {
                 previous = at;
                 at = next;
@@ -510,9 +486,210 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
+    /// <b>The near edge of one occupant's stretch of one way brought back to where its own answer left
+    /// off</b> (TER-5c.2), so that the metres an answer took off the stretch before it are still somebody's.
+    /// <b>False where the occupant holds no such stretch here</b>, which is the caller's cue to lay one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Back over ground nobody holds and never through anybody</b> (TER-4c.3): a near edge moves to the
+    /// metre asked for or to the far edge of the nearest stretch behind it, whichever of the two is the
+    /// further on. The list stays ascending by near edge, because nothing is ever moved behind the stretch it
+    /// follows.
+    /// </para>
+    /// <para>
+    /// <b>The body edge goes with it.</b> What this is asked of is ground its holder has stated and not
+    /// reached, so the two edges are one metre; left where it was, the metres gained would read as a body
+    /// standing in them (<see cref="LaneClaim.StandsToM"/>).
+    /// </para>
+    /// </remarks>
+    public bool ReachBackTo(
+        int way, int occupant, float fromM, ClaimsAsked asked, LaneRoster of = LaneRoster.Driving)
+    {
+        var found = false;
+        var behindM = 0f;
+        for (var at = _head[way]; at != NoSlot; at = _next[at])
+        {
+            ref var slot = ref _slots[at];
+
+            // A refused ask is nobody's ground and is laid over the very stretch the traffic holds (TER-5g),
+            // so it is no barrier to anything reaching back over it.
+            if (slot.IsRejected) continue;
+
+            if (slot.Occupant == occupant && slot.Of == of && Counts(slot, asked))
+            {
+                found = true;
+                var toFromM = MathF.Max(fromM, behindM);
+                if (toFromM < slot.FromM)
+                {
+                    slot = slot with
+                    {
+                        FromM = toFromM, StandsToM = slot.HasBody ? slot.StandsToM : toFromM,
+                    };
+                }
+            }
+
+            behindM = MathF.Max(behindM, slot.ToM);
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// <b>The body inside one occupant's stretch of one way, grown to the ground that body's box actually
+    /// covers</b> (TER-4c.2) — the three edges every other body is laid on, said of a stretch that is
+    /// already there. <b>False where the occupant has no body over these metres</b>, which is the caller's
+    /// cue to lay one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One body is one stretch of one way</b> (TER-5c.2), so a body read a second way — from its pose,
+    /// where the stretch already there was measured from its line
+    /// (<c>TownWorld.PlaceTheBody</c>, <c>TownWorld.AskForTheGround</c>) — may not be laid beside itself.
+    /// <b>Dropped instead of merged, the metres the second reading had and the first did not belonged to
+    /// nobody</b>: a claim's body edge is the nose of the line the car is driving, and the leading corner of
+    /// a car standing at an angle to that line reaches past it. Those metres stayed inside the claim as
+    /// ground its holder had been <em>granted</em> — which a stronger movement is entitled to take
+    /// (TER-5e), with the body standing on it.
+    /// </para>
+    /// <para>
+    /// <b>Out over ground nobody holds and never through anybody</b> (TER-4c.3), at both ends and on the
+    /// same terms as <see cref="ReachBackTo"/>: the near edge moves back to the metre asked for or to the far
+    /// edge of the nearest stretch behind it, and the body edge out to the metre asked for or to the near
+    /// edge of the nearest stretch in front. What it cannot reach is ground somebody else is already on, and
+    /// the claims stay disjoint.
+    /// </para>
+    /// <para>
+    /// <b>The body edge takes the far edge with it where it has to.</b> A stretch is near, body and far in
+    /// that order, so a body grown past the end of the road its holder asked for is a body that has reached
+    /// the end of it — which is what a car standing at a bar with its nose over the line is.
+    /// </para>
+    /// <para>
+    /// <b>How far across the way its holder stands is left where the stretch has it.</b> That figure is
+    /// whether the traffic on this way can get past (<see cref="LaneClaim.AsideM"/>), a car on the line it
+    /// is driving is recorded as being on that line, and a body on its line is the thing nothing gets past.
+    /// </para>
+    /// </remarks>
+    /// <param name="fromM">Where the box's ground on this way begins, which is the near edge it wants.</param>
+    /// <param name="standsToM">And where the box itself ends.</param>
+    /// <param name="toM">
+    /// And where the ground it is holding ends, which is the whole of what it is matched against a stretch
+    /// by: a row whose own stopping ground runs over a stretch of the same body is that body twice over as
+    /// much as one standing on it is (TER-5c.2).
+    /// </param>
+    public bool StandOutTo(
+        int way, int occupant, float fromM, float standsToM, float toM, LaneRoster of = LaneRoster.Driving)
+    {
+        var found = false;
+        var behindM = 0f;
+        for (var at = _head[way]; at != NoSlot; at = _next[at])
+        {
+            ref var slot = ref _slots[at];
+
+            // A refused ask is nobody's ground and is laid over the very stretch the traffic holds (TER-5g),
+            // so it is neither something to grow into nor something to be stopped by.
+            if (slot.IsRejected) continue;
+
+            if (slot.Occupant != occupant || slot.Of != of || !slot.HasBody
+                || slot.ToM <= fromM || slot.FromM >= toM)
+            {
+                behindM = MathF.Max(behindM, slot.ToM);
+                continue;
+            }
+
+            found = true;
+            var outToM = MathF.Max(slot.StandsToM, MathF.Min(standsToM, AheadOfTheSlot(at, way)));
+            slot = slot with
+            {
+                FromM = MathF.Min(slot.FromM, MathF.Max(fromM, behindM)),
+                StandsToM = outToM,
+                ToM = MathF.Max(slot.ToM, outToM),
+            };
+
+            behindM = MathF.Max(behindM, slot.ToM);
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// <b>The first metre past one stretch that is not its own to take</b> — the near edge of the next
+    /// stretch on the way, or the end of the way where there is none.
+    /// </summary>
+    /// <remarks>
+    /// The list is kept ascending by near edge and the stretches on a way are disjoint (TER-4c.3), so the
+    /// next one along is the nearest thing in front of this one. <b>A refused ask is not one of them</b>: it
+    /// is nobody's ground and lies over whatever the traffic holds.
+    /// </remarks>
+    float AheadOfTheSlot(int slot, int way)
+    {
+        for (var at = _next[slot]; at != NoSlot; at = _next[at])
+        {
+            if (!_slots[at].IsRejected) return _slots[at].FromM;
+        }
+
+        return _ways.LengthM(way);
+    }
+
+    /// <summary>
+    /// <b>One occupant's own stretches of one way, held at a stronger rung</b> (TER-5g.1) — the road to
+    /// ground it has been granted, worth what the ground at the end of it is worth. What is already held at
+    /// that rung or above it is left where it is.
+    /// </summary>
+    /// <remarks>
+    /// <b>The rung and nothing else.</b> Whose the ground is, where it runs and how fast its holder is
+    /// coming are facts the stretch already carries and none of them change; what moves is the one thing the
+    /// ladder is read for, which is whether somebody else may take these metres.
+    /// </remarks>
+    public void RaiseTo(
+        int way, int occupant, float fromM, float toM, ClaimPriority rung,
+        LaneRoster of = LaneRoster.Driving) =>
+        Rung(way, occupant, of, fromM, toM, rung, stronger: true);
+
+    /// <summary>
+    /// <b>And at a weaker one</b> (TER-5g.1): ground its holder cannot reach, held at what the road to it is
+    /// held at.
+    /// </summary>
+    /// <remarks>
+    /// <b>A body's ground is never let down</b> (TER-5e). The stretch a body stands in and the road it can no
+    /// longer give back are p0 because nothing takes them, and a rung that could be walked down would be a
+    /// licence to drive into somebody — so both are passed over here whatever the caller asked for.
+    /// </remarks>
+    public void LowerTo(
+        int way, int occupant, float fromM, float toM, ClaimPriority rung,
+        LaneRoster of = LaneRoster.Driving) =>
+        Rung(way, occupant, of, fromM, toM, rung, stronger: false);
+
+    /// <summary>
+    /// The walk both of those are, over the stretches of one way that are one occupant's and run over one
+    /// piece of ground. <b>A refused ask is not one of them</b> (TER-5g): it is nobody's ground and it has
+    /// no rung to move.
+    /// </summary>
+    void Rung(
+        int way, int occupant, LaneRoster of, float fromM, float toM, ClaimPriority rung, bool stronger)
+    {
+        for (var at = _head[way]; at != NoSlot; at = _next[at])
+        {
+            ref var slot = ref _slots[at];
+            if (slot.Occupant != occupant || slot.Of != of || slot.IsRejected || slot.HasBody) continue;
+            if (slot.ToM <= fromM || slot.FromM >= toM) continue;
+            if (stronger ? slot.Priority <= rung : slot.Priority >= rung) continue;
+            if (!stronger && slot.Priority == ClaimPriority.Hard) continue;
+
+            var held = slot.IsGranted;
+            slot = slot with { Priority = rung };
+            if (slot.IsGranted == held) continue;
+
+            if (slot.IsGranted) _claimCount++;
+            else _claimCount--;
+        }
+    }
+
+    /// <summary>
     /// <b>Ground its holder has been granted or has stated and is not on</b>: the far end of a box a car
-    /// has committed to crossing, a bay being backed out of, a swerve about to cross, a road an officer is
-    /// holding, the stretch a driver means to use beyond its own, the band a walker at a kerb was refused.
+    /// has committed to crossing, a bay being backed out of, a swerve about to cross, a road a police car at
+    /// a scene is holding shut, the stretch a driver or a walker means to use beyond its own, and the crossing
+    /// a walker has reserved.
     /// <b>Nothing is standing in it</b>, which is exactly why a reading taken off the bodies alone lets two
     /// bodies take it at once.
     /// </summary>
@@ -520,11 +697,21 @@ internal sealed partial class LaneOccupancy
     /// <b>It is on a way its holder is going to be on</b>, like every other claim, and never a mark
     /// left on somebody else's road (TER-5c.1).
     /// </remarks>
+    /// <param name="takingUpAgain">
+    /// <b>Whether this stretch may begin past ground somebody else holds</b> instead of being given up whole
+    /// (TER-4c.3). It is for the one shape that is not a hold reaching into ground its holder was refused:
+    /// <b>the span between two stretches of one hold</b> — a car's road and the box it has already been
+    /// granted, with somebody standing on the lane in between. Laid whole or not at all, those metres are
+    /// nobody's and the hold has a hole in it (TER-5c.2); everything else asks with this false, since a claim
+    /// that took up past a body would be holding road it could not reach.
+    /// </param>
     public bool ClaimAhead(
         int way, float fromM, float toM, float alongMps, int occupant, ClaimPriority priority,
-        LaneRoster of = LaneRoster.Driving, RightOfWay right = RightOfWay.Traffic, float acrossFromM = 0f,
-        float acrossToM = 0f) =>
-        Lay(way, fromM, fromM, toM, alongMps, occupant, priority, of, right, acrossFromM, acrossToM, onItsLine: true);
+        LaneRoster of = LaneRoster.Driving, float acrossFromM = 0f,
+        float acrossToM = 0f, bool takingUpAgain = false) =>
+        Lay(
+            way, fromM, fromM, toM, alongMps, occupant, priority, of, acrossFromM, acrossToM,
+            onItsLine: true, takingUpAgain);
 
     /// <summary>
     /// <b>A body laid from its own pose, at the true extent of the box it stands in</b>
@@ -548,8 +735,8 @@ internal sealed partial class LaneOccupancy
     public bool ClaimWhereItStands(
         int way, float fromM, float standsToM, float toM, float alongMps, int occupant,
         ClaimPriority priority = ClaimPriority.Hard, LaneRoster of = LaneRoster.Driving,
-        RightOfWay right = RightOfWay.Traffic, float acrossFromM = 0f, float acrossToM = 0f) =>
-        Lay(way, fromM, standsToM, toM, alongMps, occupant, priority, of, right, acrossFromM, acrossToM, onItsLine: false);
+        float acrossFromM = 0f, float acrossToM = 0f) =>
+        Lay(way, fromM, standsToM, toM, alongMps, occupant, priority, of, acrossFromM, acrossToM, onItsLine: false);
 
     /// <summary>
     /// <b>A body under way down this very way, as the one claim it is</b>: from the margin it keeps behind
@@ -575,16 +762,30 @@ internal sealed partial class LaneOccupancy
     public bool ClaimUnderWay(
         int way, float fromM, float standsToM, float toM, float alongMps, int occupant,
         ClaimPriority priority = ClaimPriority.Hard, LaneRoster of = LaneRoster.Driving,
-        RightOfWay right = RightOfWay.Traffic, float acrossFromM = 0f, float acrossToM = 0f) =>
-        Lay(way, fromM, standsToM, toM, alongMps, occupant, priority, of, right, acrossFromM, acrossToM, onItsLine: true);
+        float acrossFromM = 0f, float acrossToM = 0f) =>
+        Lay(way, fromM, standsToM, toM, alongMps, occupant, priority, of, acrossFromM, acrossToM, onItsLine: true);
 
     /// <summary>
     /// The insertion all three of the above are, <b>taking the three edges in the order they lie on the
     /// way</b> — near, body, far. They are three floats and nothing but the order tells them apart, so there
-    /// is one order and every caller writes it. <b>Returns whether any of it was laid</b>: past the bound, off
-    /// the end of the way, or wholly over ground somebody else already holds, it is not.
+    /// is one order and every caller writes it. <b>Returns whether the stretch went in whole</b>: false past
+    /// the bound, off the end of the way, wholly over ground somebody else holds, and <b>false where either
+    /// edge had to give way</b>.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Whole is what a caller laying one stretch over several ways needs</b> (TER-5c.2). Such a run is a
+    /// hold on the ways of one line, and a way in the middle of it that gave ground up is where the hold
+    /// ends: laid on regardless, the ways past it carry stretches beginning at their own first metre, and
+    /// between them and the metres this one gave up is road belonging to nobody.
+    /// </para>
+    /// <para>
+    /// <b>Ground given up to its own holder is a seam and not an end</b> (TER-4c.3). A near edge pushed onto
+    /// the far edge of a stretch the same body already holds leaves no metre unheld — the two are one hold —
+    /// so such a run carries on over the ways past it. Counted as an end, a car's statement stopped at the
+    /// first metre of its own road it met and never reached the box beyond, which is the hole this whole
+    /// arrangement is against.
+    /// </para>
     /// <para>
     /// <b>What comes out of here is a way whose claims are disjoint</b> (TER-4c.3). The metres a claim would
     /// have shared with one already on the way are taken off it before it goes in, so the two abut on an
@@ -600,17 +801,20 @@ internal sealed partial class LaneOccupancy
     /// </remarks>
     bool Lay(
         int way, float fromM, float standsToM, float toM, float alongMps, int occupant,
-        ClaimPriority priority, LaneRoster of, RightOfWay right, float acrossFromM, float acrossToM,
-        bool onItsLine)
+        ClaimPriority priority, LaneRoster of, float acrossFromM, float acrossToM,
+        bool onItsLine, bool takingUpAgain = false)
     {
         if (toM < fromM) return false;
         if (toM <= 0f || fromM >= _ways.LengthM(way)) return false;
 
         var laying = new LaneClaim(
-            fromM, toM, Math.Clamp(standsToM, fromM, toM), alongMps, occupant, priority, of, right,
+            fromM, toM, Math.Clamp(standsToM, fromM, toM), alongMps, occupant, priority, of,
             acrossFromM, acrossToM, onItsLine);
 
-        return MakeRoomFor(way, ref laying) && Insert(way, in laying, laying.FromM, laying.ToM);
+        if (!MakeRoomFor(way, ref laying, takingUpAgain, out var pastAnother)) return false;
+
+        var whole = laying.ToM == toM && (laying.FromM == fromM || !pastAnother);
+        return Insert(way, in laying, laying.FromM, laying.ToM) && whole;
     }
 
     /// <summary>
@@ -666,6 +870,220 @@ internal sealed partial class LaneOccupancy
     /// where nothing of it is left</b>, and then it is not laid at all.
     /// </summary>
     /// <remarks>
+    /// <b>Two walks and one arbitration</b> (TER-5c.1). A claim shares ground with the claims on its own way
+    /// and with the claims on every way that way is driven over, and those are the same fact about the same
+    /// world: the ground is made nobody else's along the one (<see cref="AlongTheWay"/>) and across the
+    /// others (<see cref="AcrossTheWays"/>), by one comparison (<see cref="Yields"/>). <b>The order is
+    /// load-bearing</b> — the stretch is settled on its own way before it is carried over any crossing, so
+    /// what a crossed way is arbitrated against is the ground this claim is actually going to hold.
+    /// </remarks>
+    bool MakeRoomFor(int way, ref LaneClaim laying, bool takingUpAgain, out bool pastAnother)
+    {
+        pastAnother = false;
+
+        // <b>A refused ask is a mark and not a hold</b> (TER-5g): it is nobody's ground, it binds nobody and
+        // it cuts nothing, so it neither takes metres from a claim nor gives any up to one. It is laid on
+        // the very ground the traffic holds — that is the whole of what it is for, since what it says is
+        // that somebody is waiting for exactly those metres.
+        if (laying.IsRejected) return true;
+
+        return AlongTheWay(way, ref laying, takingUpAgain, ref pastAnother)
+               && AcrossTheWays(way, ref laying, takingUpAgain, ref pastAnother);
+    }
+
+    /// <summary>
+    /// <b>And the same ground made nobody else's on every way this one is driven over</b> (TER-5c, TER-4c.3)
+    /// — the claims of the crossed ways, read where they lie and cut where they give way. <b>Nothing is laid
+    /// on any of them</b>: what happens there is that somebody else's stretch gets shorter, or this one does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is what makes one claim mean one piece of the world.</b> A stretch is stated in one way's
+    /// metres and the ground it stands for is the town's, so two ways that meet inside a junction are one
+    /// piece of the world under two names — and a claim that only ever looked at its own name for it would be
+    /// granted the metre two lines meet on at the same moment as the claim on the other line (TER-5c.1).
+    /// </para>
+    /// <para>
+    /// <b>Both sides see one crossing, so neither has to be asked first.</b> The table records what each of a
+    /// pair takes of the other and files it under both (<see cref="WayCrossings"/>), and the comparison is a
+    /// fact about the pair rather than about the walk (<see cref="YieldsAcross"/>) — so whichever of two
+    /// claims is laid first, the same one of them ends up holding the ground.
+    /// </para>
+    /// <para>
+    /// <b>A section is the whole of what is known about where</b>. Within it there is no correspondence
+    /// between one way's metres and the other's, so a claim reaching into a section is cut at that section's
+    /// own near edge and a claim on the crossed way gives up the whole of the section's own metres. Read
+    /// finer than the table was measured, the cut would be a number this has no right to.
+    /// </para>
+    /// </remarks>
+    bool AcrossTheWays(int way, ref LaneClaim laying, bool takingUpAgain, ref bool pastAnother)
+    {
+        foreach (ref readonly var section in _crossings.Of(way))
+        {
+            if (section.MineToM <= laying.FromM || section.MineFromM >= laying.ToM) continue;
+
+            if (!OverTheCrossing(in section, ref laying, takingUpAgain, ref pastAnother)) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// One crossing settled: <b>the claims on the crossed way over the metres this one shares with it</b>,
+    /// each either cut back off that ground or left holding it with this stretch cut short of it.
+    /// <b>False where nothing of the incoming stretch is left.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A stretch of this way's own holder is no answer</b> (<see cref="SameHolder"/>, TER-5c.2). One body's
+    /// ground is one hold however many ways it is numbered in — a car's road and the way it is turning onto,
+    /// a car working into a bay and the lane it is sweeping — and a hold read as its own obstruction is a body
+    /// that refuses itself.
+    /// </para>
+    /// <para>
+    /// <b>The loser gives up the section and never half of it.</b> On the crossed way the shared ground is
+    /// the section's own metres, so a claim beaten there ends where the section begins, or — beaten at its own
+    /// near edge — gives up the whole of itself, which is the same rule the claims of one way are settled by
+    /// (TER-4c.3).
+    /// </para>
+    /// </remarks>
+    bool OverTheCrossing(
+        in CrossedSection section, ref LaneClaim laying, bool takingUpAgain, ref bool pastAnother)
+    {
+        var way = section.OnWay;
+        var previous = NoSlot;
+        for (var at = _head[way]; at != NoSlot;)
+        {
+            var next = _next[at];
+            ref var taken = ref _slots[at];
+            if (taken.IsRejected || SameHolder(in laying, in taken)
+                || taken.ToM <= section.FromM || taken.FromM >= section.ToM)
+            {
+                previous = at;
+                at = next;
+                continue;
+            }
+
+            var layingStands = laying.StandsToM > section.MineFromM;
+            var takenStands = taken.StandsToM > section.FromM;
+
+            // <b>Neither gives way, and that is an outcome</b> (TER-4c.2, PHY-1). Two holds that cannot be
+            // given back over one piece of the world are two bodies in one box, which is the collision
+            // layer's question and not this one's — and read as "the one already there gives way" it is a
+            // body cut out from under itself, which is the one shape the claims may never have.
+            if (Firm(in laying, layingStands) && Firm(in taken, takenStands))
+            {
+                previous = at;
+                at = next;
+                continue;
+            }
+
+            if (YieldsAcross(in laying, layingStands, in taken, takenStands))
+            {
+                // In front of the crossing this stretch stops where it begins; over it, this stretch is
+                // beaten at its own near edge and gives up the whole of itself — ground it could not have
+                // reached without crossing ground it was refused (TER-4c.3).
+                //
+                // <b>Except the span between two stretches of one hold</b> (<paramref name="takingUpAgain"/>,
+                // TER-5c.2), which takes up again past the crossing: those metres are not ground their holder
+                // was refused, they are the middle of a hold whose two ends it has, and given up whole they
+                // are a hole in it — road belonging to nobody with the same body on both sides.
+                if (section.MineFromM > laying.FromM)
+                {
+                    laying = laying with { ToM = section.MineFromM };
+                }
+                else if (!layingStands && !takingUpAgain)
+                {
+                    return false;
+                }
+                else
+                {
+                    pastAnother = true;
+                    laying = laying with { FromM = section.MineToM };
+                }
+
+                if (laying.ToM <= laying.FromM) return false;
+
+                laying = laying with { StandsToM = Math.Clamp(laying.StandsToM, laying.FromM, laying.ToM) };
+                previous = at;
+                at = next;
+                continue;
+            }
+
+            // And the same again for the one already there, on the crossed way's own metres: what it gives up
+            // is the section, and a stretch left with no length at all goes out of that way's list.
+            if (section.FromM > taken.FromM) taken = taken with { ToM = section.FromM };
+            else if (!takenStands) taken = taken with { FromM = taken.ToM };
+            else taken = taken with { FromM = section.ToM };
+
+            if (taken.ToM > taken.FromM)
+            {
+                taken = taken with { StandsToM = Math.Clamp(taken.StandsToM, taken.FromM, taken.ToM) };
+                previous = at;
+                at = next;
+                continue;
+            }
+
+            if (taken.IsGranted) _claimCount--;
+            if (previous == NoSlot) _head[way] = next;
+            else _next[previous] = next;
+
+            at = next;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// <b>Which of two claims over one crossing gives the ground up</b> — <see cref="Yields"/> asked of a pair
+    /// on two ways, where the shared ground is the section and neither claim's metres mean anything in the
+    /// other's.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>What cannot be given back is not taken</b> (TER-5e, <see cref="Binds"/>): a body standing on the
+    /// crossing, and the road a body can no longer stop short of, which is the same p0 by the same fact. The
+    /// ladder orders who waits and never who is driven into, so a claim at that rung beats one merely
+    /// reaching over the ground whatever the other is claiming with — and <b>a claim ahead of a committed car
+    /// carries no body at all</b>, which is exactly the hold this would otherwise hand to whoever crossed it.
+    /// </para>
+    /// <para>
+    /// <b>Two of those over one piece of the world are two, and neither gives way.</b> That is a collision
+    /// and not a question the claims have an opinion about (PHY-1): a hold cut out from under a body standing
+    /// in it is a body the town cannot see, which is worse than the two the town can.
+    /// </para>
+    /// <para>
+    /// <b>Below that it is the ladder</b> (TER-5g), and <b>a tie is settled by the holders and never by the
+    /// walk</b>. On one way a tie can go to whoever is already there, because the pair is one list and one of
+    /// them demonstrably is; across two there is no such fact, so an order that read the table's state would
+    /// hand the ground to whichever claim happened to be laid first — which is the order dependency the whole
+    /// arrangement is against (TER-4c.1). The roster and the occupant are arbitrary and they are the same
+    /// arbitrary answer every tick, which is the whole of what is wanted: exactly one of the two holds it, and
+    /// the other is cut and goes round again.
+    /// </para>
+    /// </remarks>
+    static bool YieldsAcross(in LaneClaim laying, bool layingStands, in LaneClaim taken, bool takenStands)
+    {
+        var layingFirm = Firm(in laying, layingStands);
+        var takenFirm = Firm(in taken, takenStands);
+        if (layingFirm != takenFirm) return takenFirm;
+        if (taken.Priority != laying.Priority) return taken.Priority < laying.Priority;
+
+        return taken.Of != laying.Of ? taken.Of < laying.Of : taken.Occupant < laying.Occupant;
+    }
+
+    /// <summary>
+    /// <b>Whether a claim's hold on a crossing is one nothing takes</b> (TER-5e): a body standing over it, or
+    /// ground its holder can no longer give back, which is the same p0 by the same fact.
+    /// </summary>
+    static bool Firm(in LaneClaim claim, bool standsOnIt) =>
+        standsOnIt || claim.Priority == ClaimPriority.Hard;
+
+    /// <summary>
+    /// <b>The ground made nobody else's on the way the stretch is laid on</b> — the claims of one way, which
+    /// are one list and one interval apiece.
+    /// </summary>
+    /// <remarks>
     /// <para>
     /// <b>The incoming one is cut at the near edge of the first thing that beats it</b> and never split in
     /// two around it: one body is one stretch of one way (TER-5c.2), and every claim that reaches past
@@ -674,20 +1092,25 @@ internal sealed partial class LaneOccupancy
     /// crossing them.
     /// </para>
     /// <para>
+    /// <b>And one that is beaten from behind begins where that ground ends</b>, which is what makes a body's
+    /// road and the stretch beyond it one piece (TER-5c.2): the claim a car lays over the box it is crossing
+    /// is laid over its own road as well, and the seam is the metre that road actually reached rather than
+    /// the same figure worked out a second time. <b>No road belonging to nobody is ever left between the
+    /// two</b>: what the incoming one gives up here is metres somebody is already holding.
+    /// </para>
+    /// <para>
     /// <b>An existing claim is cut and never dropped</b>, so the pair still covers between them everything
     /// either of them covered — a metre that changes hands is still a metre the town can see somebody on.
     /// One left with no length goes out of the way's list, since an interval no query can tell from a point
     /// is not a hold.
     /// </para>
     /// </remarks>
-    bool MakeRoomFor(int way, ref LaneClaim laying)
+    /// <param name="pastAnother">
+    /// Whether the near edge was moved onto the far edge of somebody <em>else's</em> ground — which is what
+    /// tells a run that ended from a run that met its own other stretch and carries on (<see cref="Lay"/>).
+    /// </param>
+    bool AlongTheWay(int way, ref LaneClaim laying, bool takingUpAgain, ref bool pastAnother)
     {
-        // <b>A refused ask is a mark and not a hold</b> (TER-5g): it is nobody's ground, it binds nobody and
-        // it cuts nothing, so it neither takes metres from a claim nor gives any up to one. It is laid on
-        // the very ground the traffic holds — that is the whole of what it is for, since what it says is
-        // that somebody is waiting for exactly those metres.
-        if (laying.IsRejected) return true;
-
         var previous = NoSlot;
         for (var at = _head[way]; at != NoSlot;)
         {
@@ -702,9 +1125,23 @@ internal sealed partial class LaneOccupancy
 
             if (Yields(in laying, in taken))
             {
-                // Behind it, the incoming one starts where it ends; in front of it, it stops where it starts.
-                if (taken.FromM <= laying.FromM) laying = laying with { FromM = taken.ToM };
-                else laying = laying with { ToM = taken.FromM };
+                // In front of it, the incoming one stops where it starts; behind it, it begins where that
+                // ground ends — and where that ground is somebody else's and nothing is standing in the one
+                // being laid, it is not laid at all (TER-5c.2). A hold that begins past another body has the
+                // metres between belonging to that body until it moves, and then to nobody.
+                if (taken.FromM > laying.FromM)
+                {
+                    laying = laying with { ToM = taken.FromM };
+                }
+                else if (!laying.HasBody && !SameHolder(in laying, in taken) && !takingUpAgain)
+                {
+                    return false;
+                }
+                else
+                {
+                    pastAnother |= !SameHolder(in laying, in taken);
+                    laying = laying with { FromM = taken.ToM };
+                }
 
                 if (laying.ToM <= laying.FromM) return false;
 
@@ -714,8 +1151,11 @@ internal sealed partial class LaneOccupancy
                 continue;
             }
 
-            if (laying.FromM <= taken.FromM) taken = taken with { FromM = laying.ToM };
-            else taken = taken with { ToM = laying.FromM };
+            // And the same again for the one already there, on the same terms: a bodiless stretch taken from
+            // its own near edge by somebody else's ground is given up whole rather than pushed past it.
+            if (laying.FromM > taken.FromM) taken = taken with { ToM = laying.FromM };
+            else if (!taken.HasBody && !SameHolder(in taken, in laying)) taken = taken with { FromM = taken.ToM };
+            else taken = taken with { FromM = laying.ToM };
 
             if (taken.ToM > taken.FromM)
             {
@@ -736,6 +1176,19 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
+    /// <b>Whether two stretches are one body's</b> — the same occupant of the same roster, and never the
+    /// town's own furniture, which is a claim apiece under one name and no body at all (TER-4c).
+    /// </summary>
+    /// <remarks>
+    /// <b>It is what tells a seam from a hole</b> (TER-5c.2). A stretch that begins where its own holder's
+    /// other one ends is one piece of road said in two claims — a car's road and the box beyond it. One that
+    /// begins where somebody else's ends is a hold with that body's ground inside it, and there is nothing in
+    /// those metres for a reader to be cut at once that body has moved on.
+    /// </remarks>
+    static bool SameHolder(in LaneClaim one, in LaneClaim other) =>
+        !one.IsFurniture && one.Occupant == other.Occupant && one.Of == other.Of;
+
+    /// <summary>
     /// <b>Which of two claims over one piece of a way gives it up</b> — asked of the ground they share and
     /// not of either claim as a whole.
     /// </summary>
@@ -750,7 +1203,7 @@ internal sealed partial class LaneOccupancy
     /// <para>
     /// <b>Between two bodies it is whichever is further back that gives way</b>, which is the same answer
     /// the grant itself arrives at — a follower is cut at the near edge of the body in front, and the body in
-    /// front keeps every metre of its own. Read off the priorities instead, two bodies of one rank were
+    /// front keeps every metre of its own. Read off the rungs instead, two bodies of one rung were
     /// settled by which went into the table first, and a car close enough behind for its nose to reach into
     /// the margin the leader keeps could take the leader's own ground out from under it.
     /// </para>

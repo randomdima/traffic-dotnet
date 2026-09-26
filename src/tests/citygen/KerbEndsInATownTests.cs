@@ -11,8 +11,8 @@ namespace TrafficSimulation.Tests.CityGen;
 /// cannot — <b>every shape a generator lays, read off a boundary that was built rather than measured</b>.
 /// </summary>
 /// <remarks>
-/// <b>Asked of both of the suite's towns</b>: the fixture carries one of every kind of ground on a screen,
-/// and the city carries the bends, the forks and the long joined kerbs that only a town laid at length has.
+/// <b>Asked of both of the suite's towns</b>: the fixture is small enough to read at a glance, and the city
+/// carries the bends, the forks and the long joined kerbs that only a town laid at length has.
 /// A reading that wanders does it where a kerb runs far enough for it to.
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]

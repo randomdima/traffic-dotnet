@@ -34,9 +34,8 @@ internal sealed class CarFigures
     /// </summary>
     /// <remarks>
     /// <b>It is load-bearing and not decoration.</b> A car's sight distance is its own stopping distance from
-    /// this figure (<see cref="Agents.Car.Body.CarBuild.SightM"/>), which is also the ceiling on any
-    /// manoeuvre's geometry, so a cap set where no road vehicle goes buys every car a lookahead measured in
-    /// blocks and a manoeuvre allowed to reach across the town.
+    /// this figure (<see cref="Agents.Car.Body.CarBuild.SightM"/>), which is how far ahead its line is laid,
+    /// so a cap set where no road vehicle goes buys every car a lookahead measured in blocks.
     /// </remarks>
     public float MaxSpeedMps { get; init; } = 40f;
 
@@ -108,16 +107,14 @@ internal sealed class CarFigures
     public float ReverseBoundM { get; init; } = 8f;
 
     /// <summary>
-    /// How much wider than the car's own turning circle a manoeuvring template is drawn, so the steering is
-    /// not sitting on its stop for the whole of an arc a car has to hold in both gears.
+    /// How much wider than the car's own turning circle the turn into a bay is taken, so the steering is
+    /// not sitting on its stop for the whole of an arc a car has to hold in both gears. What reads it is the
+    /// circle a car park's turn is sized off (<see cref="SimConfig.CarParkTurnRadiusM"/>).
     /// </summary>
     /// <remarks>
-    /// <b>The margin is paid for in street</b> (GEN-4j). A single arc turning into a perpendicular bay
-    /// carries the rear axle exactly its own radius sideways, so every centimetre of margin is a centimetre
-    /// less of the gap between the lane and the bay — and once the arcs no longer reach, the shortfall is
-    /// met by swinging away from the bay first, out over the oncoming lane. At a tenth it took the shipped
-    /// lot past the point one arc reaches; at a twentieth it does not, and what the wider figure bought
-    /// was two degrees of squareness the follower does not keep anyway.
+    /// <b>The margin is paid for in ground</b> (GEN-53): how much of the road a car park's junction takes,
+    /// along the street and off it, is read off that one turn (<see cref="SimConfig.CarParkStandoffM"/>,
+    /// <see cref="SimConfig.CarParkBayLeadM"/>), so every centimetre of margin is a bigger cut.
     /// </remarks>
     public float ParkingTemplateArcMargin { get; init; } = 1.05f;
 }
@@ -403,8 +400,8 @@ internal sealed class DrivingFigures
     /// <remarks>
     /// <b>What it costs is a shade of the stop and never its accuracy</b> — the demand still arrives, a
     /// pedal-travel later — so it is well inside the reaction lead every distance is already measured
-    /// through. <b>Spending the braking margin is not held to it</b> (CAR-14): that is the one place the
-    /// pedal is allowed to snap.
+    /// through. <b>Spending the braking margin is not held to it</b> (<c>CarFollower.IsAHazard</c>): that is
+    /// the one place the pedal is allowed to snap.
     /// </remarks>
     public float PedalTravelS { get; init; } = 0.3f;
 
@@ -553,7 +550,7 @@ internal sealed class PersonFigures
     /// </summary>
     /// <remarks>
     /// <b>It is the walking side's figure by history and not by use.</b> No leg of a trip is driven
-    /// (PER-25), so what is left of it is the reach a bay search is bounded by — which is the one thing it
+    /// (PER-11), so what is left of it is the reach a bay search is bounded by — which is the one thing it
     /// is read for.
     /// </remarks>
     public float WalkWorthInBlockSpacings { get; init; } = 1f;
@@ -564,11 +561,10 @@ internal sealed class PersonFigures
     /// spends being leaned on by a crowd or held against a wall before that is worth doing.
     /// </summary>
     /// <remarks>
-    /// <b>It is not a driver's obstruction wait</b> (<see cref="LadderFigures.ObstructionWaitS"/>) and is
-    /// several times it. A driver that waits has a ladder to climb and something to be got round; a walker
-    /// has neither, and nothing about the pavement holds it up on purpose — so a clock as short as the
-    /// road's reads an ordinary shove at a doorway as a trip that cannot be finished, and a town's walkers
-    /// then spend the run drawing destinations instead of walking to them.
+    /// <b>It is its own figure and not a driver's patience</b> (<see cref="SimConfig.CarPatienceS"/>), which
+    /// is read off the light cycle a driver queues at: nothing about the pavement holds a walker up on
+    /// purpose. Too short, it reads an ordinary shove at a doorway as a trip that cannot be finished, and a
+    /// town's walkers then spend the run drawing destinations instead of walking to them.
     /// </remarks>
     public float GivesUpAfterS { get; init; } = 20f;
 
@@ -621,7 +617,7 @@ internal sealed class AmbulanceFigures
     /// </remarks>
     public float CallPaceMps { get; init; } = 22f;
 
-    /// <summary>How long the crew spends getting a casualty aboard, standing still at the vehicle while they do it.</summary>
+    /// <summary>How long getting a casualty aboard takes, the ambulance standing still at its standoff meanwhile (AMB-6).</summary>
     public float LoadingS { get; init; } = 4f;
 
     /// <summary>
@@ -629,9 +625,10 @@ internal sealed class AmbulanceFigures
     /// an ambulance is stopped at, measured along the lane the body is lying beside.
     /// </summary>
     /// <remarks>
-    /// <b>It is what a crew on foot buys.</b> An ambulance that has to be within reach of the body itself is
-    /// an ambulance parked on the accident, in the lane it is trying to keep clear for itself; ten metres
-    /// back is a vehicle somebody can work round, and the last of the distance is a paramedic's to walk.
+    /// <b>It keeps the vehicle off the accident.</b> An ambulance that has to be within reach of the body
+    /// itself is an ambulance parked on the accident, in the lane it is trying to keep clear for itself; ten
+    /// metres back is a vehicle somebody can work round, and the last of the distance is a placement that
+    /// nobody walks (AMB-10).
     /// </remarks>
     public float StandoffInCarLengths { get; init; } = 2.5f;
 
@@ -643,9 +640,8 @@ internal sealed class AmbulanceFigures
 
     /// <summary>
     /// How near <see cref="StandoffInCarLengths"/>'s own mark the ambulance has to have come to rest before
-    /// the crew get out, in car lengths. <b>It is the tolerance on a parking place and no longer a reach</b>
-    /// (AMB-10): what covers the last of the distance to the body is somebody walking it, so it is as wide
-    /// as it ever was and the change is where the mark is rather than how near it has to be got.
+    /// the loading begins, in car lengths. <b>It is the tolerance on a parking place and not a reach</b>
+    /// (AMB-10): what covers the last of the distance to the body is the placement at the end of the loading.
     /// </summary>
     public float SceneReachInCarLengths { get; init; } = 2.5f;
 
@@ -699,8 +695,8 @@ internal sealed class ServiceFigures
 
     /// <summary>
     /// <b>How many bays a hospital's and a police station's apron holds</b> (GEN-4k), and therefore how
-    /// many vehicles each of them stands. A depot has no apron and stands its one evacuator in whatever is
-    /// near it.
+    /// many vehicles each of them stands. A depot's apron is not this figure: it is its one evacuator's bay
+    /// and the yard's slots (<see cref="EvacuatorFigures.YardSlots"/>, SRV-2).
     /// </summary>
     /// <remarks>
     /// Four is a shift rather than a vehicle: one ambulance to a hospital meant a second casualty across
@@ -714,7 +710,7 @@ internal sealed class ServiceFigures
     /// <summary>
     /// <b>How many places a patrol visits before it is due back at its station</b> (SRV-5), drawn from one
     /// to this. A beat of several legs is what keeps a police car out on the streets rather than shuttling
-    /// to one junction and back, and the return is what keeps its apron in use.
+    /// to one place and back, and the return is what keeps its apron in use.
     /// </summary>
     public int MostPlacesOnABeat { get; init; } = 5;
 
@@ -735,8 +731,9 @@ internal sealed class ServiceFigures
     public float GiveUpInBlockedClocks { get; init; } = 10f;
 
     /// <summary>
-    /// <b>How near a thing a crew on foot has to be standing to take hold of it</b> (SRV-3) — a casualty, a
-    /// wreck's fork, a yard slot, the door of their own vehicle. An arm's length and a stride.
+    /// <b>How near a thing a crew on foot would have to be standing to take hold of it</b> — a casualty, a
+    /// wreck's fork, a yard slot, the door of their own vehicle. An arm's length and a stride. <b>Nothing
+    /// reads it</b>: no service vehicle carries a crew (SRV-3).
     /// </summary>
     /// <remarks>
     /// <b>Metres and not car lengths</b>, unlike every reach a vehicle is held to: what this measures is a
@@ -745,15 +742,14 @@ internal sealed class ServiceFigures
     public float CrewReachM { get; init; } = 1.5f;
 
     /// <summary>
-    /// <b>How long a hand who is out has to get back to their seat</b> before they are put in it, in
-    /// blocked-road clocks (SRV-3). It is the winch's own argument said of a person: a pavement that will
-    /// not give a paramedic back is a vehicle stranded mid-errand, and the fallback is a placement over the
-    /// last few metres rather than a call nothing can end.
+    /// <b>How long a hand who is out would have to get back to their seat</b> before being put in it, in
+    /// blocked-road clocks. <b>Nothing reads it but <see cref="SimConfig.ServiceRecallS"/>, and nothing reads
+    /// that</b>: no service vehicle carries a crew (SRV-3).
     /// </summary>
     public float RecallInBlockedClocks { get; init; } = 3f;
 
     /// <summary>
-    /// <b>How much road an officer closes</b> (SRV-6), in car lengths, either side of the scene along the
+    /// <b>How much road a police car closes</b> (SRV-6), in car lengths, either side of the scene along the
     /// lane it lies on. Long enough that traffic is stopped well short of somebody working in the road, and
     /// short enough that a closure is one street's business rather than a quarter's.
     /// </summary>
@@ -767,7 +763,7 @@ internal sealed class ServiceFigures
     public float SceneStandoffInCarLengths { get; init; } = 5f;
 
     /// <summary>
-    /// How long a closure may stand before the officer is recalled and the lane given back, in blocked-road
+    /// How long a closure may stand before it is given up and the lane given back, in blocked-road
     /// clocks (SRV-6). <b>A closure that outlived its scene would hold a street out of the town for the rest
     /// of the run</b>, which is the one failure a closure's claim can cause.
     /// </summary>
@@ -783,7 +779,7 @@ internal sealed class ServiceFigures
 }
 
 /// <summary>
-/// The recovery: how many wrecks a depot's yard holds, how long the crew and the workshop take, and what
+/// The recovery: how many wrecks a depot's yard holds, how long the hitch and the workshop take, and what
 /// the bar between an evacuator and the car on its hook is worth.
 /// </summary>
 internal sealed class EvacuatorFigures
@@ -797,9 +793,10 @@ internal sealed class EvacuatorFigures
     public int YardSlots { get; init; } = 6;
 
     /// <summary>
-    /// How long the recovery man spends getting a wreck onto the hook, and again getting it off — <b>standing
-    /// at it on foot</b> (SRV-3), and the clock only begins once he is there. Longer than a stretcher
-    /// (<see cref="AmbulanceFigures.LoadingS"/>) because a car has to be winched and a person is carried.
+    /// How long getting a wreck onto the hook takes, and again getting it off — <b>the truck standing at its
+    /// mark</b>, and the clock only begins once it has stopped within reach (EVA-5, EVA-6). Longer than a
+    /// stretcher (<see cref="AmbulanceFigures.LoadingS"/>) because a car has to be winched and a person is
+    /// carried.
     /// </summary>
     public float HitchingS { get; init; } = 8f;
 
@@ -811,10 +808,9 @@ internal sealed class EvacuatorFigures
     public float RepairS { get; init; } = 30f;
 
     /// <summary>
-    /// <b>How near its hitching place the evacuator has to have stopped</b> before the man gets out to work
-    /// the arm, in car lengths (EVA-5). <b>Tighter than a rescue's standoff and for the opposite reason</b>
-    /// (AMB-10): an ambulance stands ten metres off on purpose and sends somebody to walk the rest, and a
-    /// fork that cannot reach the car it is being swung onto is a thing nobody on foot can carry to it.
+    /// <b>How near its hitching place the evacuator has to have stopped</b> before the arm is worked, in car
+    /// lengths (EVA-5). <b>Tighter than a rescue's standoff and for the opposite reason</b> (AMB-10): an
+    /// ambulance stands ten metres off on purpose, and a fork has to be got to the car it is swung onto.
     /// </summary>
     /// <remarks>
     /// <b>It is a tolerance and not the reach itself.</b> The leg is aimed at the exact place the fork takes
@@ -822,11 +818,11 @@ internal sealed class EvacuatorFigures
     /// may settle and still be worked from — and what covers the remainder is the winch, which is the stated
     /// fallback rather than the ordinary answer. Tightened to one car length the shipped maps stopped
     /// recovering anything at all: a truck that is refused its own mark re-lays the leg until the clock ends
-    /// the recovery, and a crew that never gets out never reaches the winch either.
+    /// the recovery, and a truck that never stops within reach never reaches the winch either.
     /// </remarks>
     public float SceneReachInCarLengths { get; init; } = 2f;
 
-    /// <summary>And how near a free yard slot it has to have got before the crew can set the wreck down in it.</summary>
+    /// <summary>And how near a free yard slot it has to have got before the wreck can be set down in it.</summary>
     public float YardReachInCarLengths { get; init; } = 4f;
 
     /// <summary>

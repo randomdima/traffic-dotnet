@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Agents.TrafficLight.Control;
@@ -78,7 +79,7 @@ internal sealed partial class TownWorld
         // CAR-14.1 reads its indicator off this same classification, so what the car states and what it
         // gives way to are one answer about one movement rather than two readings of the geometry.
         Cars.TurningAtTheBox[car] = movement != RoadGraph.NoConnector
-            && _roads.RightOfWayOfConnector(movement) != RightOfWay.StraightOn;
+            && _roads.FirmOnConnector(movement) != ClaimPriority.FirmStraight;
 
         if (Cars.MovementWay[car] != movementWay) DropTheMovement(car);
 
@@ -89,8 +90,8 @@ internal sealed partial class TownWorld
         if (progressM >= ends[ahead])
         {
             // Ground taken from in there is a statement of fact and is asked of nobody: a claim that said
-            // otherwise would be describing a town other than the one that exists. Being in there is also
-            // what puts this car on the short fuse — it is standing on everything its line crosses.
+            // otherwise would be describing a town other than the one that exists — it is standing on
+            // everything its line crosses.
             Cars.InsideTheBox[car] = true;
             Cars.CommittedToTheBox[car] = true;
             if (Cars.MovementWay[car] != movementWay) TakeTheMovement(car, movementWay);
@@ -249,10 +250,10 @@ internal sealed partial class TownWorld
     /// </remarks>
     float FirstHeldOnTheMovementM(int car, int movementWay)
     {
-        // <b>The rank it will hold the ground at</b> (<see cref="RightOnTheMovement"/>) and not the
+        // <b>The rung it will hold the ground at</b> (<see cref="FirmOnTheMovement"/>) and not the
         // movement's alone: a car past the point it could stop short of the box is going in whatever anybody
         // has claimed, so refusing it here would be refusing a body already committed (TER-5e).
-        var mine = RightOnTheMovement(car, movementWay);
+        var mine = FirmOnTheMovement(car, movementWay);
 
         // Read on the movement's own metres, so that what it is refused by and what it would take are one
         // set: ground it is already past is ground it is not asking for.
@@ -306,20 +307,19 @@ internal sealed partial class TownWorld
     /// are one question about one piece of ground, and answered by two loops they were free to disagree.
     /// </para>
     /// </remarks>
-    bool NobodyElseIsOn(int car, int movementWay, int way, float fromM, float toM, RightOfWay mine) =>
+    bool NobodyElseIsOn(int car, int movementWay, int way, float fromM, float toM, ClaimPriority mine) =>
         float.IsPositiveInfinity(FirstHeldOn(car, way, fromM, toM, mine, out _, crossingOn: movementWay));
 
     /// <summary>
-    /// <b>Whether something with the right of way over this movement has come for the ground it is
-    /// holding</b> (TER-5e) — the one thing that takes a crossing back off a car that has already been given
+    /// <b>Whether something stronger than this movement has come for the ground it is holding</b> (TER-5e) — the one thing that takes a crossing back off a car that has already been given
     /// one, and the whole of what a revocation is.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Greater and never equal</b>, which is what keeps this from being the crossing recomputed. Two
-    /// movements of the same right of way settle by whichever asked first and go on holding what they were
-    /// given; a movement that gives way to the one now asking never had a claim on that ground to begin
-    /// with, and hands it over the moment the ask appears.
+    /// <b>Stronger and never equal</b>, which is what keeps this from being the crossing recomputed. Two
+    /// movements of one rung settle by whichever asked first and go on holding what they were given; a
+    /// movement that gives way to the one now asking never had a claim on that ground to begin with, and
+    /// hands it over the moment the ask appears.
     /// </para>
     /// <para>
     /// <b>The sections and not this movement's own runs.</b> What is coming lays its road on its <em>own</em>
@@ -328,14 +328,14 @@ internal sealed partial class TownWorld
     /// </para>
     /// <para>
     /// <b>It is asked of a car that could still stop short and of no other</b>
-    /// (<see cref="JunctionStopM"/>). Past that point the car is going in whatever anything says, and a
-    /// right of way that took ground from a body already committed to it would be a rule about who is driven
-    /// into rather than about who waits.
+    /// (<see cref="JunctionStopM"/>). Past that point the car is going in whatever anything says, and a rung
+    /// that took ground from a body already committed to it would be a rule about who is driven into rather
+    /// than about who waits.
     /// </para>
     /// </remarks>
     bool TheMovementIsTakenBack(int car, int movementWay)
     {
-        var mine = RightOfWayOf(car, movementWay);
+        var mine = FirmOf(car, movementWay);
         var passedM = PastOnTheMovementM(car, movementWay);
         foreach (ref readonly var section in _crossings.Of(movementWay))
         {
@@ -346,7 +346,7 @@ internal sealed partial class TownWorld
                        section.OnWay, section.FromM, section.ToM, car, ref at, out var taken,
                        asked: ClaimsAsked.HeldOrStated))
             {
-                if (taken.Right > mine) return true;
+                if (LaneOccupancy.TakesAClaim(taken, mine)) return true;
             }
         }
 
@@ -354,14 +354,26 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The movement taken up: the car's own field, and the runs of its own join claimed at
-    /// the moment they are taken, so that a car later in this same walk is refused ground this one has just
-    /// been given. <see cref="DropTheMovement"/> is the pair of it, and neither half is ever done alone.
+    /// The movement taken up: the car's own field, the ground of its own join claimed at the moment it is
+    /// taken — so that a car later in this same walk is refused what this one has just been given — and the
+    /// road between the car and that ground stated with it (TER-5c.2).
+    /// <see cref="DropTheMovement"/> is the pair of it, and neither half is ever done alone.
     /// </summary>
+    [SkipLocalsInit]
     void TakeTheMovement(int car, int movementWay)
     {
         Cars.MovementWay[car] = movementWay;
         LayTheMovement(car, movementWay);
+
+        // And the road between the car and what it has just been given (TER-5c.2): the rebuild writes it for
+        // every car holding a movement, and this is the tick that movement was not one of them on.
+        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
+        StateTheRoadToTheMovement(car, ways);
+
+        // At the rung the box itself is held at (TER-5g.1), for the same reason and on the same tick: a
+        // movement taken mid-walk that left the road to it stated is read by every car after this one in the
+        // walk as a junction whose approach is going spare.
+        LevelTheRungToTheBox(car, ways);
     }
 
     /// <summary>
@@ -372,27 +384,40 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>And from what the driver was told, which is the third reader of the same fact.</b> The two are one
     /// hold seen from two sides — the registry, which refuses the traffic crossing it, and
-    /// <see cref="CarFleet.BoxIsOurs"/>, which the catalogue's entry turns on — so a drop that left the
-    /// second standing would be a driver crossing a junction on ground the town had already given away. It
+    /// <see cref="CarFleet.BoxIsOurs"/>, which the read-out and the stuck probe report — so a drop that left
+    /// the second standing would be a car shown crossing a junction on ground the town had already given away. It
     /// is cleared here rather than at each of the eight places a movement is dropped, because a pairing kept
     /// by hand is a pairing that comes apart: the one that came apart was a car re-aimed mid-junction by an
     /// errand (AMB-9, SRV-5), which is the one drop that happens outside the driving step.
     /// <para>
     /// <b>And being committed to it goes with it</b> (<see cref="CarFleet.CommittedToTheBox"/>), for the same
-    /// reason. That flag says at what rank the movement's ground is held (<see cref="RightOnTheMovement"/>),
+    /// reason. That flag says at what rung the movement's ground is held (<see cref="FirmOnTheMovement"/>),
     /// so a car holding no movement has nothing for it to be true of — and left standing it is read again by
     /// whatever movement the car takes next, which is a fact about a box it has left.
     /// </para>
     /// </remarks>
+    [SkipLocalsInit]
     void DropTheMovement(int car)
     {
         var held = Cars.MovementWay[car];
         if (held == CarFleet.NoWay) return;
 
+        // <b>And the road to it back to what it was worth before the box was given</b> (TER-5g.1), while the
+        // car still says which box that was. Raised and left, it is an approach held firm against everything
+        // crossing it for a junction this car is no longer going through.
+        Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
+        UnlevelTheRoadToTheBox(car, ways);
+
         Cars.MovementWay[car] = CarFleet.NoWay;
         Cars.BoxIsOurs[car] = false;
         Cars.CommittedToTheBox[car] = false;
         _occupancy.Withdraw(held, car, ClaimsAsked.Granted);
+
+        // <b>And what this car was saying about that way goes with it</b> (TER-5c.2). A statement on the
+        // join is the span carried to ground the car held (<see cref="StateTheRoadToTheMovement"/>) or what
+        // is left of one the claim took the near edge of; with the claim gone it is a hold on the far side
+        // of an empty box, which is the one shape a hold may not have.
+        _occupancy.Withdraw(held, car, ClaimsAsked.Stated);
     }
 
     /// <summary>
@@ -414,7 +439,7 @@ internal sealed partial class TownWorld
     /// </summary>
     float SignalStopM(int car, int ahead, int lane, float progressM)
     {
-        // AMB-4: a red is a rule about whose turn it is, and an ambulance on a call is not taking a turn.
+        // AMB-4: a red is a rule about whose turn it is, and a car on a call (EVA-4, SRV-6) is not taking a turn.
         // Nothing else is lifted with it — the box is still refused by a body in it, and the profile still
         // stops for whatever is standing on the far side.
         if (Cars.BlueLight[car]) return float.PositiveInfinity;
@@ -467,7 +492,7 @@ internal sealed partial class TownWorld
         // Measured at exactly the point the stop rule stops governing the car — its rear axle reaching
         // the paint's near edge. Judging it half a metre later instead would count every car the light
         // turned red behind, which is a car that had already gone.
-        // An ambulance on a call is exempt from the rule (AMB-4), so it cannot be in breach of it. Counted
+        // A car on a call is exempt from the rule (AMB-4), so it cannot be in breach of it. Counted
         // anyway, the soak's own invariant would report a town where nobody had run a red as one where the
         // rescue had run several.
         var behind = progressM < barOnLineM - (_furniture.StopBarThicknessM(lane) * 0.5f);

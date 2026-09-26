@@ -23,15 +23,16 @@ internal sealed partial class SimConfig
     /// </summary>
     public float CarTrackM => Car.WidthM;
 
-    /// <summary>≈ 3.9 m, and what sizes a dead end's turning head.</summary>
+    /// <summary>≈ 3.9 m: the nominal car's own circle, which <see cref="CarParkingTemplateRadiusM"/> is opened from.</summary>
     public float CarTurningRadiusM => Car.WheelbaseM / MathF.Tan(Car.MaxSteeringDeg * MathF.PI / 180f);
 
     /// <summary>How far the middle of the body stands ahead of the rear axle the line is driven for.</summary>
     public float CarCentreAheadOfAxleM => Car.WheelbaseM * 0.5f;
 
     /// <summary>
-    /// The circle a bay's own way is turned on: the nominal car's, opened by the margin a template is drawn
-    /// with so the shape is one a car holds rather than one it is exactly at the limit of.
+    /// The nominal car's circle opened by <see cref="CarFigures.ParkingTemplateArcMargin"/>, so a turn laid on
+    /// it is one a car holds rather than one it is exactly at the limit of. <see cref="CarParkTurnRadiusM"/>
+    /// is taken in from it, and nothing else reads it.
     /// </summary>
     public float CarParkingTemplateRadiusM => CarTurningRadiusM * Car.ParkingTemplateArcMargin;
 
@@ -82,8 +83,8 @@ internal sealed partial class SimConfig
 
     /// <summary>
     /// <b>The widest a line has to be drawn for a car to hold this speed round it</b> — the corner formula
-    /// the speed profile reads, turned round. A template laid tighter is not refused; it is driven slower,
-    /// because the profile's corner term reads the arcs of a template exactly as it reads the arcs of a road.
+    /// the speed profile reads, turned round. A line laid tighter is not refused; it is driven slower,
+    /// because the profile's corner term reads the arcs of every line exactly as it reads the arcs of a road.
     /// </summary>
     public float CarCorneringRadiusM(float atMps, float groundCoefficient) =>
         atMps * atMps / (TyreGripMps2 * groundCoefficient * Driving.GripMargin);
@@ -139,7 +140,7 @@ internal sealed partial class SimConfig
     /// </remarks>
     public float PersonCasualtyKj => Person.MassKg * PersonSlidingGripMps2 * Damage.SlideToCasualtyM / 1000f;
 
-    /// <summary>How far a bay a car is aiming at may stand from where that leg is going.</summary>
+    /// <summary>How far from a place the bays a car may be given there are looked for: a spawn's, and a leg's retarget.</summary>
     public float PersonWalkWorthM => CityGen.BlockSpacingAlongMinM * Person.WalkWorthInBlockSpacings;
 
     /// <summary>
@@ -197,8 +198,9 @@ internal sealed partial class SimConfig
 
     /// <summary>
     /// <b>How far off that boundary the pavement's outer face stands</b> (TER-3c.3): a kerb and a walk. The
-    /// ground within it is the layer the concrete is drawn as, and the walking lane's own line runs down the
-    /// middle of the band between it and <see cref="WalkInnerM"/>.
+    /// ground within it is the layer the concrete is drawn as. The walking lanes are measured off the
+    /// boundary itself and not off <see cref="WalkInnerM"/> (<see cref="WalkingLaneAtM"/>), so they stand a
+    /// kerb's width nearer the carriageway than the middle of their halves of this band.
     /// </summary>
     public float WalkOuterM => WalkInnerM + PavementWidthM;
 
@@ -278,8 +280,8 @@ internal sealed partial class SimConfig
 
     /// <summary>
     /// <b>How far off the kerb the roadside perimeter stands</b> — half a lane, 1.8 m at the shipped car.
-    /// It is the first of the town's lines to be struck off the boundary by name
-    /// (<c>CityGen.GroundLine.Roadside</c>) rather than by a bare distance.
+    /// <b>Nothing reads it</b>: the ground's layers (<c>CityGen.GroundLayer</c>) are the carriageway and the
+    /// walk, and no roadside line is struck off the boundary.
     /// </summary>
     /// <remarks>
     /// <b>Half a lane and not half a walk</b>, which is the point of naming it: it is quoted against the
@@ -406,10 +408,10 @@ internal sealed partial class SimConfig
     public float JunctionArmReachMaxM => JunctionArmReachM(ArmsApartMinRad);
 
     /// <summary>
-    /// <b>How much road the paint on one arm takes</b>, measured back from the line that arm's lanes hand
-    /// over to the junction on (TER-5d): the margin in front of the crossing, its band, the clear road
-    /// behind it and the bar itself. An arm with no room for it behind both of its ends carries no paint at
-    /// all (TER-6, <c>Crossings</c>).
+    /// <b>How much road the paint on one arm would take</b>, measured back from the line that arm's lanes
+    /// hand over to the junction on (TER-5d): the margin in front of the crossing, its band, the clear road
+    /// behind it and the bar itself. <b>Nothing reads it</b>: the paint an arm carries is measured off the
+    /// band actually laid there (<c>CentrelineRuns.PaintedM</c>).
     /// </summary>
     public float ArmPaintM =>
         Road.CrossingSetbackM + Road.CrossingDepthM + Road.StopBarSetbackM + Road.StopBarThicknessM;
@@ -479,7 +481,7 @@ internal sealed partial class SimConfig
     /// <remarks>
     /// <b>Struck here because two readers want it and neither may hold a second copy</b>: the generator cuts
     /// a yard for every one of them before it stands a building (GEN-55), and the fleets are laid off the
-    /// finished plan (<c>World.Statics.BuildingRoster.CountIn</c>) — a vehicle and a crew apiece. The two
+    /// finished plan (<c>World.Statics.BuildingRoster.CountIn</c>) — a vehicle a bay, nobody aboard. The two
     /// disagreeing is an ambulance with no hospital to go home to.
     /// </remarks>
     public static int ServicesFor(int buildings, float perBuilding, int most)
@@ -620,7 +622,7 @@ internal sealed partial class SimConfig
     /// <summary><b>How long a bay is</b> (GEN-53, <see cref="CityGenFigures.BayLengthM"/>).</summary>
     /// <remarks>
     /// <b>What it has to clear is the longest vehicle the town draws and not the nominal car</b>
-    /// (<see cref="AgentFigures.LongestLengthM"/>): every bay is one anything in the town can stand in, so
+    /// (<see cref="CarFigures.LongestLengthM"/>): every bay is one anything in the town can stand in, so
     /// the one that sizes them is the one nothing else is longer than. <b>And it is a length driven and not
     /// a length manoeuvred</b> — a bay square to the street is entered off its own turn and left the same
     /// way, where the parallel bay on a kerb has to be reversed into (<see cref="ParkingSpaceLengthM"/>).
@@ -651,7 +653,7 @@ internal sealed partial class SimConfig
     /// </summary>
     public float ParkingSpaceWidthM => Car.WidthM * (1f + Road.ParkingSpaceSideMarginInCarWidths * 2f);
 
-    /// <summary>How far before a bay a way in leaves its lane, which is also the run-in the template needs.</summary>
+    /// <summary>How far before a bay a way in leaves its lane. Read by <see cref="ParkingFrontageClearOfTheEndsM"/> alone.</summary>
     public float ParkingStagedInM => Car.LengthM * Road.ParkingStagedInCarLengths;
 
     /// <summary>And how much straight it ends on, which is what puts the car in the bay square.</summary>
@@ -660,7 +662,8 @@ internal sealed partial class SimConfig
     /// <summary>
     /// <b>How far clear of its road's own ends a car park's frontage has to stand</b>: the run-in every
     /// bay's way in is staged over (<see cref="ParkingStagedInM"/>), and a stretch of street beyond that for
-    /// the car to have been driving down before it turns in.
+    /// the car to have been driving down before it turns in. <b>Nothing reads it</b>: no bay's way is laid
+    /// (GEN-4f).
     /// </summary>
     public float ParkingFrontageClearOfTheEndsM =>
         ParkingStagedInM + (Car.LengthM * Road.ParkingFrontageClearInCarLengths);
@@ -758,9 +761,9 @@ internal sealed partial class SimConfig
     /// <summary>
     /// <b>How far ahead a car has to be able to see</b>: its stopping distance from its top speed, against
     /// what the tyres can put down and not what the pedal asks for, because that is the figure the profile
-    /// brakes with. A line laid to the pedal's stopping distance is two and a half times too short. It is
-    /// also the ceiling on any manoeuvre's own geometry — ground further off than this is ground nothing
-    /// has looked at.
+    /// brakes with. A line laid to the pedal's stopping distance is two and a half times too short.
+    /// <b>The nominal car's, and nothing reads it</b>: what a car's line is laid out to is its own
+    /// (<see cref="Agents.Car.Body.CarBuild.SightM"/>).
     /// </summary>
     public float CarSightM =>
         Car.MaxSpeedMps * Car.MaxSpeedMps
@@ -775,10 +778,10 @@ internal sealed partial class SimConfig
 
     public float CarBlockedWayLifeS => CarPatienceS * Patience.BlockedWayLifeInBlockedClocks;
 
-    /// <summary>How near its standoff mark an ambulance has to have stopped before the crew get out (AMB-10).</summary>
+    /// <summary>How near its standoff mark an ambulance has to have stopped before the casualty is got aboard (AMB-10).</summary>
     public float AmbulanceSceneReachM => Car.LengthM * Ambulance.SceneReachInCarLengths;
 
-    /// <summary>And how far short of the casualty that mark stands, which is what the crew then walk (AMB-10).</summary>
+    /// <summary>And how far short of the casualty that mark stands, which the loading covers by a placement (AMB-10).</summary>
     public float AmbulanceStandoffM => Car.LengthM * Ambulance.StandoffInCarLengths;
 
     /// <summary>How far from its hospital an ambulance waits, which is the walk-worth distance said of a bay.</summary>
@@ -793,22 +796,25 @@ internal sealed partial class SimConfig
     /// <summary>How long one leg of a beat may run before the patrol is sent somewhere else (SRV-5).</summary>
     public float PatrolGiveUpS => CarPatienceS * Service.GiveUpInBlockedClocks;
 
-    /// <summary>How long a hand who is out has to walk back to their seat before they are put in it (SRV-3).</summary>
+    /// <summary>
+    /// How long a hand who is out would have to walk back to their seat before being put in it. <b>Nothing
+    /// reads it</b>: no service vehicle carries a crew (SRV-3).
+    /// </summary>
     public float ServiceRecallS => CarPatienceS * Service.RecallInBlockedClocks;
 
-    /// <summary>How much road an officer holds either side of the scene he is closing (SRV-6).</summary>
+    /// <summary>How much road a police car holds either side of the scene it is closing (SRV-6).</summary>
     public float PoliceClosureM => Car.LengthM * Service.ClosureInCarLengths;
 
-    /// <summary>And how far short of that scene his own car is parked (SRV-6).</summary>
+    /// <summary>And how far short of that scene the car itself is parked (SRV-6).</summary>
     public float PoliceStandoffM => Car.LengthM * Service.SceneStandoffInCarLengths;
 
     /// <summary>How long a closure may stand before the lane is given back to the town (SRV-6).</summary>
     public float PoliceClosureLifeS => CarPatienceS * Service.ClosureInBlockedClocks;
 
-    /// <summary>How near the wreck an evacuator has to stop before the crew can get a hook on it (EVA-5).</summary>
+    /// <summary>How near its hitching place an evacuator has to stop before the hitch is worked (EVA-5).</summary>
     public float EvacuatorSceneReachM => Car.LengthM * Evacuator.SceneReachInCarLengths;
 
-    /// <summary>And how near a yard slot it has to have got before the crew can set the wreck down in it (EVA-6).</summary>
+    /// <summary>And how near a yard slot it has to have got before the wreck can be set down in it (EVA-6).</summary>
     public float EvacuatorYardReachM => Car.LengthM * Evacuator.YardReachInCarLengths;
 
     /// <summary>How long one leg of a recovery may run before it is written off (EVA-8).</summary>

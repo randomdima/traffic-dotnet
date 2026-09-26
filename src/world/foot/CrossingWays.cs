@@ -153,13 +153,16 @@ internal sealed class CrossingWays
     /// <see cref="KerbEnds.CrossedM"/>) — where the walk crosses, which is not always where its traffic is
     /// held (WLK-10a).
     /// </summary>
-    public static CrossingWays Of(CityPlan plan, PavementLanes pavement, SimConfig config)
-    {
-        var paving = plan.Paving(config);
-        return Lay(
-            pavement, KerbLines.Of(paving.Perimeter(config), config),
-            Crossings.Lay(plan, config, paving.RoadEnds(config).CrossedM), config);
-    }
+    public static CrossingWays Of(CityPlan plan, PavementLanes pavement, SimConfig config) =>
+        Of(plan, pavement, Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM), config);
+
+    /// <summary>
+    /// The same, off zebras somebody has already laid — <b>which is how a town keeps one set of them</b>:
+    /// what the walk is cut at is what the road is crossed by, and a second laying is a second set.
+    /// </summary>
+    public static CrossingWays Of(
+        CityPlan plan, PavementLanes pavement, Crossings crossings, SimConfig config) =>
+        Lay(pavement, KerbLines.Of(plan.Paving(config).Perimeter(config), config), crossings, config);
 
     /// <summary>
     /// Lays every crossing's junctions and ways and files the places they part the walk at. Build-time only —

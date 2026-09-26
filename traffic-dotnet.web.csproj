@@ -109,8 +109,8 @@
 
   <!-- Every assembly is published under a hash of itself and nothing sweeps up the one it replaced, so
        a folder that is published twice holds two runtimes and a folder published all afternoon holds
-       an afternoon's worth. Only _framework is cleared: wwwroot also holds the two symlinks below, and
-       a delete that followed those would take the art and the towns with it. -->
+       an afternoon's worth. Only _framework is cleared: the rest of wwwroot is the page, the archive,
+       the figures and the briefs, which the targets below lay on every publish. -->
   <Target Name="ForgetTheLastFramework" BeforeTargets="PrepareForPublish">
     <RemoveDir Directories="$(PublishDir)wwwroot/_framework" />
   </Target>

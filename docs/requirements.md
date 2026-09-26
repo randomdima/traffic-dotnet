@@ -9,9 +9,6 @@ number is never reused, because the code cites these codes. **Every rule carries
 are the owner's and bend for nothing and for very little; `P2`–`P9` are the assistant's, ranked by what
 bending one costs ([priority.md](priority.md)).
 
-`†` formalises a consequence of the original brief; `‡` is a design decision that could have gone another
-way.
-
 ## Purpose and scope
 
 **What this project is for, what it refuses to be, and the bar every judgement call is settled against
@@ -51,8 +48,8 @@ occupies, and its liveness state.
 
 **A ban lifts only where keeping it would leave the agent with no route at all** — being stranded is
 worse than being illegal — and it lifts for that agent, on that plan, never in general. Where a ban is
-lifted the *manner* of the act is unchanged: it is still performed by the manoeuvre that owns it, with
-that manoeuvre's own guards. **Hard rules never lift**, in planning or in recovery.
+lifted the *manner* of the act is unchanged: it is still performed by whatever performs it everywhere
+else, with that mechanism's own guards. **Hard rules never lift**, in planning or in recovery.
 
 **SIM-7** `P4` Where a decision has already been taken by one mechanism, **no second mechanism may guard it**.
 A duplicate gate does not make the town safer; it makes the first mechanism useless. **Before adding a
@@ -64,20 +61,19 @@ Units, the two seeds, the tick and the decision clock are [core](../src/core/doc
 
 ## The object catalogue
 
-**OBJ-2** `P4` Five kinds, two shapes:
-
-**One shape**, an oriented box with its corners rounded, and the five kinds are what they set it to:
+**OBJ-2** `P4` Four kinds and **one shape** — an oriented box with its corners rounded — and the four kinds
+are what they set it to:
 
 | Object | Shape | Kind | Contains |
 |---|---|---|---|
 | Prop | small disc — a radius with no box | static | — |
-| Traffic light | small disc | static | — |
 | Building | one or more square-cornered rectangles | static | 0..capacity persons |
 | Person | small disc | dynamic | — |
 | Car | one rounded rectangle | dynamic | 0..1 driver |
 
 **A disc is not a second shape**: it is the same rounded box with nothing in the middle of it, and the
-solver holds one shape and one narrow phase for all five (`SOL-1`).
+solver holds one shape and one narrow phase for all four (`SOL-1`). **A traffic light has no body**: its
+heads are drawn and never collided (`SignalHeads`).
 
 **A car collides as a shape fitted inside its picture** and not as the footprint that picture was drawn
 in (`CAR-12b`). A per-variant hull is still not what the town is laid against.
@@ -105,7 +101,7 @@ person knocked down takes no actions either, and is **not** terminal: an ambulan
 bounded**: what one does is one search, a chain of the town's own ways taken in turn, and the leg laid
 again from wherever the body got to — the same code for both agent kinds at the tier where they are the
 same thing (`World.Routing`). A leg that covers no ground for its own patience is given up, and there is
-no other exit.‡
+no other exit.
 
 **A situation nothing covers is a leg given up, never a licence to improvise.** An agent lays no geometry
 of its own: where it is not on the network it heads straight back onto it (PER-25, CAR-9), and where it

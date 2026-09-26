@@ -16,10 +16,9 @@ namespace TrafficSimulation.World.Foot;
 /// networks can only be held against each other in one measure, which is this one.
 /// </para>
 /// <para>
-/// <b>It is read from both sides and written to by neither</b> (TER-5c.1). Where the two networks lie over
-/// one another the ground has one claim and one owner, and this says which stretch of the other network stands
-/// for the same ground — which lane a body on the paint is standing in, and where on a walk the lane a body
-/// was refused begins.
+/// <b>It is written to by neither network.</b> Where the two lie over one another a body writes a claim on
+/// each of them (TER-4c.2); what this holds is which crossing a stretch of the walk is
+/// (<see cref="CrossingOfEdge"/>) and, in the crossing way's own metres, where each lane under it falls.
 /// </para>
 /// <para>
 /// <b>It is the turning-over of a projection already made</b> — <see cref="LaneFurniture.LanesUnder"/>
@@ -43,16 +42,12 @@ internal sealed class CrossingBands
 
     readonly int[] _first;
     readonly Band[] _bands;
-    readonly int[] _wayFirst;
-    readonly int[] _wayOfCrossing;
     readonly int[] _crossingOfEdge;
 
-    CrossingBands(int[] first, Band[] bands, int[] wayFirst, int[] wayOfCrossing, int[] crossingOfEdge)
+    CrossingBands(int[] first, Band[] bands, int[] crossingOfEdge)
     {
         _first = first;
         _bands = bands;
-        _wayFirst = wayFirst;
-        _wayOfCrossing = wayOfCrossing;
         _crossingOfEdge = crossingOfEdge;
     }
 
@@ -89,20 +84,9 @@ internal sealed class CrossingBands
     }
 
     /// <summary>
-    /// The pavement's own ways one crossing is made of — <b>what anybody asking about a whole zebra rather
-    /// than about the way one body is walking has to look at</b>, since the pavement holds everything as a
-    /// stretch of one of its ways.
-    /// </summary>
-    /// <remarks>
-    /// Every stretch of foot graph is a walking lane of its own, so a crossing is at least the two
-    /// directions of it and is a run rather than a pair.
-    /// </remarks>
-    public ReadOnlySpan<int> WaysOf(int crossing) =>
-        _wayOfCrossing.AsSpan(_wayFirst[crossing], _wayFirst[crossing + 1] - _wayFirst[crossing]);
-
-    /// <summary>
     /// Which crossing each stretch of the foot graph <em>is</em>, or <see cref="CityPlan.NoRecord"/> where
-    /// it is pavement — what a walker asks a kerb about, and what a walked line carries.
+    /// it is pavement — which is how a walker knows the way it is walking, or about to step onto, is paint
+    /// (PER-27).
     /// </summary>
     public ReadOnlySpan<int> CrossingOfEdge => _crossingOfEdge;
 
@@ -110,9 +94,9 @@ internal sealed class CrossingBands
     public int CrossingOf(int edge) => _crossingOfEdge[edge];
 
     public static CrossingBands Project(
-        CityPlan plan, RoadGraph roads, LaneFurniture furniture, WalkingNetwork walking)
+        Crossings zebras, RoadGraph roads, LaneFurniture furniture, WalkingNetwork walking)
     {
-        var crossingOfFootEdge = CrossingsOnFootEdges(plan, walking.Foot);
+        var crossingOfFootEdge = CrossingsOnFootEdges(zebras, walking.Foot);
         var edges = walking.Foot.EdgeCount;
         var first = new int[edges + 1];
         var bands = new List<Band>();
@@ -128,7 +112,7 @@ internal sealed class CrossingBands
             if (line.Length == 0) continue;
 
             var lengthM = walking.LaneLengthM(edge);
-            var depthM = plan.Crosswalks.DepthM[crossing];
+            var depthM = zebras.DepthM[crossing];
             var under = furniture.LanesUnder(crossing);
             for (var slot = under.From; slot < under.To; slot++)
             {
@@ -143,9 +127,7 @@ internal sealed class CrossingBands
         }
 
         first[edges] = bands.Count;
-
-        var (wayFirst, wayOfCrossing) = WaysUnderCrossings(plan.Crosswalks.Count, crossingOfFootEdge);
-        return new CrossingBands(first, [.. bands], wayFirst, wayOfCrossing, crossingOfFootEdge);
+        return new CrossingBands(first, [.. bands], crossingOfFootEdge);
     }
 
     /// <summary>
@@ -156,12 +138,11 @@ internal sealed class CrossingBands
     /// The foot graph does not carry the plan's crossing index: a crossing there is a kind of edge and
     /// nothing else, which is what makes crossing at a crossing structural rather than looked-up.
     /// </remarks>
-    static int[] CrossingsOnFootEdges(CityPlan plan, FootGraph foot)
+    static int[] CrossingsOnFootEdges(Crossings crossings, FootGraph foot)
     {
         var of = new int[foot.EdgeCount];
         Array.Fill(of, CityPlan.NoRecord);
 
-        var crossings = plan.Crosswalks;
         for (var edge = 0; edge < foot.EdgeCount; edge++)
         {
             if (foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
@@ -225,28 +206,6 @@ internal sealed class CrossingBands
         fromM = MathF.Max(0f, fromM - stepM);
         toM = MathF.Min(lengthM, toM + stepM);
         return true;
-    }
-
-    /// <summary>The stretches of foot graph each crossing is made of, as a run per crossing.</summary>
-    static (int[] First, int[] Way) WaysUnderCrossings(int crossings, ReadOnlySpan<int> crossingOfFootEdge)
-    {
-        var first = new int[crossings + 1];
-        foreach (var crossing in crossingOfFootEdge)
-        {
-            if (crossing >= 0) first[crossing + 1]++;
-        }
-
-        for (var at = 1; at < first.Length; at++) first[at] += first[at - 1];
-
-        var cursor = (int[])first.Clone();
-        var wayOfSlot = new int[first[^1]];
-        for (var edge = 0; edge < crossingOfFootEdge.Length; edge++)
-        {
-            var crossing = crossingOfFootEdge[edge];
-            if (crossing >= 0) wayOfSlot[cursor[crossing]++] = edge;
-        }
-
-        return (first, wayOfSlot);
     }
 
     /// <summary>The bands of one way in the order it meets them, which is what makes the first of them the one a body enters first.</summary>

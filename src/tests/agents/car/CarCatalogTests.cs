@@ -311,7 +311,7 @@ public class CarCatalogTests
 
     /// <summary>
     /// <b>No variant outgrows the car the town lays its bays to</b>
-    /// (<see cref="AgentFigures.LongestLengthM"/>, GEN-53). The plan is laid before a car exists and sizes a
+    /// (<see cref="CarFigures.LongestLengthM"/>, GEN-53). The plan is laid before a car exists and sizes a
     /// bay against that figure, so a variant drawn longer than it is a car that parks across the bay it was
     /// sent to — which is a thing to fail a build for and not to discover in a car park.
     /// </summary>

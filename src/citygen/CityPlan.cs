@@ -419,7 +419,7 @@ internal sealed class CityPlan
 
     internal sealed class BuildingArrays
     {
-        /// <summary>A town with nothing standing on it, which is every town this build lays.</summary>
+        /// <summary>A town with nothing standing on it: a brief that asks for no building, or a face with no place to stand one.</summary>
         public static BuildingArrays None => new()
         {
             CentreM = [], SizeM = [], HeadingRad = [], Capacity = [], Use = [], EntryOffsets = [0],

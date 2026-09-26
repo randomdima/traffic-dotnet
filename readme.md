@@ -11,8 +11,7 @@ Two rules decide everything else:
   ([runtime](src/runtime/docs/requirements.md#the-crossing-budget)).
 - **The steady state allocates nothing.** The roster is laid once as structure-of-arrays, transient
   working sets come from a pool or the stack, and the hot path holds no LINQ, iterator, closure, boxing
-  or interface call the JIT cannot devirtualise. The one exception is the solver's step, which is
-  measured and printed.
+  or interface call the JIT cannot devirtualise — the solver's step included.
 
 The physics is not a package: `src/world/physics/` is this project's own broad phase, narrow phase and
 contact solver. Box2D.NET is referenced by the unit suite alone, as the independent implementation the
@@ -53,45 +52,36 @@ that display instead, by the desktop's own name for it, and `--windowed` opens i
 to be looked at beside something else. Other
 entries: `--check` prints the dependency read-out, `--shot` takes a picture with no window at all,
 `--ui` opens the panels and the debug layers, and `--bench <name>` runs one of the probes in `src/bench/`
-(`census`, `load`, `shape`, `joints`, `parks`, `shapes`, `drive`, `trips`, `rescue`, `recovery`,
-`crash`, `soak`, `stuck`, `tick`, `town`, `solver`, `walk`); `--bench all` runs the lot, and
+(`census`, `load`, `shape`, `joints`, `parks`, `shapes`, `outset`, `fill`, `drive`, `trips`, `rescue`,
+`recovery`, `crash`, `soak`, `stuck`, `tick`, `town`, `solver`, `walk`); `--bench all` runs the lot, and
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 
 **A figure can be turned while the town runs.** The menu's `Figures` page (`--ui menu-figures`) carries a
-track a figure — **each naming the raw term it moves and never what that term comes to**: the coefficient of
-friction between rubber and tarmac, and the ground's own resistance to a wheel going round. **Only what the
-whole town stands on is here.** A steering lock, a mass, a centre of gravity or an engine belongs to one car
-and is stated in that car's own file, where nineteen bodies keep nineteen answers; a dial over them is one
-figure pretending to speak for all of them. Each is a share of what the build ships, a decade either side, with shipped at
-the middle of the track. **Dragging one changes it under the town that is standing, as the hand moves** —
-every look is built again and the ground is worth what it is now worth, while the marks stay on the road
-and every body stays where it was — which is what makes the page a rig rather than a read-out. Nothing is authored by it: every trim is 100% unless the page has been opened, and the shipped
-run is the run this suite measures.
+track for each raw term the whole town stands on — the coefficient of friction between rubber and tarmac,
+and the ground's own resistance to a wheel going round — as a share of what the build ships, a decade
+either side. What belongs to one car stays in that car's own file. **Dragging one changes it under the
+town that is standing**, as the hand moves; nothing is authored by it, and the shipped run is the run the
+suite measures.
 
 **The last two rows of that page are not trims**: they are the shell probe's own figures (`OBS-2w`) — the
-town's driven boundary moved out by nought to twenty metres, and how round the corners turning in on it come
-back, as a share of that distance. It is drawn in violet under its own switch (`--ui shell`, or `--ui
-shell-6` and `--ui shell-6-0.5` for six metres at half rounding, with no hand on the slider). They are the
-figures there that change what is *drawn* rather than what the town does, and what they are for is the
-outset itself: where the move swallows a corner, where two kerbs come back as one line, and which notch is
-the distance's and which the rounding's.
+town's driven boundary moved out by nought to twenty metres, and the radius, also nought to twenty metres,
+its corners are rounded at. It is drawn in violet under its own switch (`--ui shell`, or `--ui shell-6`
+and `--ui shell-6-0.5` for six metres out at a half-metre radius, with no hand on the slider), and changes
+what is *drawn* rather than what the town does.
 
 **And the ground can be taken apart while the town runs.** The menu's `Ground` page (`--ui menu-ground`)
 carries a row a layer of the town's standing ground — the grass, the walk and its kerb, the water, the
 decks, the carriageway, the slabs, the town's kerb and the paint — each saying what it came to in triangles
-and in the milliseconds it took to cut, with the whole mesh and the boundary's share of that time under
-them. **A box unticked takes that layer out of the picture**, and out of the wireframe over it, so what is
-under it can be looked at; the triangles are cut once when the town stands and the switch only shortens the
-draw, so no figure moves and putting a layer back costs nothing. A picture wants it by name:
+and in the milliseconds it took to cut. **A box unticked takes that layer out of the picture** and out of
+the wireframe over it; the switch only shortens the draw, so no figure moves. A picture wants it by name:
 `--ui hide-carriageway`, and `grass`, `walk`, `walk-kerb`, `water`, `decks`, `slabs`, `kerb` and `paint`
 for the rest. The same table is printed headless by `--bench census`.
 
-**Every map says what it claims about itself and whether it is keeping it.** A windowed run draws it as the
-last section of the status panel — a broken claim counted on the panel's own always-on title, the rows
-behind it opened by `--ui scenario` or by clicking down to them —
-and every headless run prints the same table: a row a claim, the figures behind each verdict, and a last
-line a script can read. **A broken claim is a failed run**, so `--bench soak` and
+**Every map says what it claims about itself and whether it is keeping it.** Every headless run prints the
+table — a row a claim, the figures behind each verdict, and a last line a script can read — and a windowed
+run of a scenario map draws the same rows as the status panel's last section (`--ui scenario`), though no
+scenario map ships today. **A broken claim is a failed run**, so `--bench soak` and
 `--map Odesa --seconds 300` both exit non-zero when the town breaks something it claims. What is quoted
 beside the claims fails nothing: it is a fact about that town rather than a bound
 ([verification](docs/verification.md#what-a-map-claims-about-itself)).
@@ -100,6 +90,19 @@ beside the claims fails nothing: it is a fact about that town rather than a boun
 with the map, the framing, the moment and the seed, tiled into one sheet for review
 ([app/shot](src/app/shot/docs/requirements.md)). `--caption` puts that band and those notes on a single
 `--shot`, and every captioned picture writes its figures beside it as `<picture>.png.json`.
+
+```json
+{
+  "out": ".tmp/junctions.png", "map": "Test", "size": [640, 480], "view": 45, "seconds": 20,
+  "note": "the paint must stop at the give-way line",
+  "cells": [
+    { "label": "crossroad", "at": [120, 90] },
+    { "label": "tee",       "at": [200, 90] },
+    { "label": "bend",      "at": [120, 160], "ui": ["nodes"] },
+    { "label": "zebra",     "at": [200, 160], "view": 30 }
+  ]
+}
+```
 
 **A car can be driven by hand with nobody at the keyboard.** `--drive FILE|-` reads a script of steps —
 pick a car out, hold the pedals and the wheel for a while, give an order, work the lever, take a frame —
@@ -115,7 +118,8 @@ that.
 **`--drive FILE --live` is the same drive in a window somebody is watching.** The run opens as usual and
 follows the file as it is written: a step appended while the town runs is driven when it arrives, and its
 reading is printed as it is taken. `pace N` runs the town at a fraction of real time — which is what makes
-a hand with seconds of lag able to drive at all — `agents on` lets go of the hold a run opens with, and
+a hand with seconds of lag able to drive at all — `agents off` holds the town's agents and `agents on`
+lets them decide again, and
 `--frame-width PX` writes the frames a driver reads back as a scaled copy while the window keeps drawing
 at full size.
 
@@ -155,8 +159,8 @@ thinking costs it no ground and the frame it answers is still true when the answ
 
 `qq pilot` is the harness that puts a model in that seat: it opens the run, reads the handbook to it, waits
 for each frame, asks OpenRouter what to hold, checks the answer is something a key could have done and
-appends it. The key comes from `OPENROUTER_API_KEY` or `~/.qq/openrouter.key` and no part of it is written
-into the project.
+appends it. The key comes from `OPENROUTER_API_KEY`, `~/.qq/openrouter.key` or `~/.config/openrouter.key`,
+and no part of it is written into the project.
 
 ```
 qq pilot --map Odesa --car 387 --minutes 10        # the model drives; the window is yours
@@ -167,21 +171,9 @@ dotnet run --project traffic-dotnet.csproj -- --map Odesa --windowed --bot-waits
 
 **A picture can be taken with the pointer somewhere**, which is how the layers' own readings are asked for
 without a window (`OBS-2t`): `--point X Y` stands the pointer on that place in the town, so the ribbon and
-the boundary under it are drawn picked out and named, and `--pick X Y` clicks there, which picks the cell of
-the geometry grid and lights every line the index holds in it.
-
-```json
-{
-  "out": ".tmp/junctions.png", "map": "Test", "size": [640, 480], "view": 45, "seconds": 20,
-  "note": "the paint must stop at the give-way line",
-  "cells": [
-    { "label": "crossroad", "at": [120, 90] },
-    { "label": "tee",       "at": [200, 90] },
-    { "label": "bend",      "at": [120, 160], "ui": ["nodes"] },
-    { "label": "zebra",     "at": [200, 160], "view": 30 }
-  ]
-}
-```
+the boundary under it are drawn picked out and named (with `--ui ribbons` or `perimeter` on), and
+`--pick X Y` clicks there, which picks the cell of the geometry grid and lights every line the index holds
+in it (with `--ui grid` on).
 
 `--bench census --map NAME` says what a town holds and what the graphs made of it; `--bench shape`,
 `--bench joints` and `--bench parks` say what shape it came out — how its roads bend, where its junctions
@@ -192,8 +184,8 @@ cuts that boundary into the triangles the ground is drawn out of and reads the c
 say whether it is the right one: **how long it takes, how many triangles it comes to, how near those
 triangles are to equilateral, and how much of the shell it lost** against the area the arcs themselves
 enclose. It prints the shell's open joints beside them, since the straights a fill draws across them are
-ground nothing else accounts for. `qq town` is the same five
-readings from the shell.
+ground nothing else accounts for. `qq town` runs `shapes`, `shape`, `joints`, `parks` and `outset` from
+the shell.
 
 **`--bench load --map NAME` says what opening that map cost**, stage by stage: the plan, the ground — the
 merge, the boundary struck off it and the layers cut from those — and the town stood up, with its three
@@ -201,7 +193,7 @@ graphs. It is a cold open in a fresh process and never
 a benchmark loop: every stage here keeps its answer, so a second run of any of it measures the cache.
 
 `--lamps` cuts the town's lamp sheet out of the fleet's own sprites — every lens a variant draws, in
-each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.png`.
+each colour it can burn (CAR-14a) — and writes it to `assets/agents/car/variants/common/lamp_atlas.webp`.
 It is a **workshop step and never a build one**: run it when a variant's art or its lens rectangles
 change, and commit the picture. The line it prints per lens is the instrument for the one thing the
 arithmetic cannot answer — a rectangle over bodywork nobody painted a lamp on cuts the paint around it
@@ -214,10 +206,8 @@ is [citygen](src/citygen/docs/requirements.md#the-maps)**; what follows is only 
 |---|---|---|
 | `Idle` | one loop of road and nothing else — a square with rounded corners, an armoured car between two police running it one way and a sports car the other — the picture the game idles on, and what a run that names no map opens over | `--map Idle` |
 
-**The laboratories are parked.** `Track` ×3, `Exam`, `Footway`, `Skidpad` and `Zebras` were laid against
-the lane layer this build replaced, so they were deleted with it rather than carried across a rework they
-would have had to be written for twice; what they measured is named in
-[the known gaps](docs/index.md#known-gaps), and the ones that come back will be laid against the new layer.
+**No laboratory map ships** — the ones there were went with the lane layer they were laid against
+([known gaps](docs/index.md#known-gaps)).
 
 **Every other map is generated.** `towns/Odesa.json`, `towns/River.json` and `towns/Test.json` are briefs —
 a seed, an extent, the water, the districts and the counts — and the town is laid from one when the map is
@@ -242,8 +232,8 @@ is `--map Odesa --ui nodes`. Without a map it opens on the start menu over the i
 desktop does; the page differs only in the order, since it shows the menu the moment the engine runs and
 fetches the town behind it.
 
-**It wants a browser with WebGPU** — Chrome or Edge 137+ on Linux, Safari 26, a Firefox where it has
-shipped — and says so under the canvas when it has not got one. **Build it Release**: `RunAOTCompilation`
+**It wants a browser with WebGPU**, and says so under the canvas — naming the versions that have it — when
+it has not got one. **Build it Release**: `RunAOTCompilation`
 is on there and off in Debug, and the interpreter is about ten times off a 60 Hz loop.
 
 **`qq web` publishes it, `qq web --serve` serves it, and `qq web --shot FILE` takes its picture** —
@@ -253,16 +243,15 @@ of this except presenting a WebGPU canvas ([decision log](src/app/web/docs/decis
 an interpreted town whose frame rate means nothing.
 
 **A frame crosses the wall three times** whatever the town holds — the animation callback in, the input
-out, the frame — against the desktop's five, and the counter that says so is
-[`WebGpu.Crossings`](src/runtime/web/WebGpu.cs). Rule 1 is the same rule.
+out, the frame — against the desktop's five (`WEB-2`). Rule 1 is the same rule.
 
 **The page carries the visual layers and none of the instruments.** `--shot`, `--sheet`, `--bench` and
 `--lamps` are how a run is measured and they stay on the desktop, which has a file system and a process
 that can exit.
 
-**The page downloads the art before the first frame and a map when that map is picked.** A frame cannot
-wait on a fetch, so the menu's click writes a name down and the boot's own loop — the one place a
-browser run may wait — fetches the plan and stands the town up
+**The page draws its first frame before it has the art, and lays a town after it.** A frame cannot wait
+on a fetch, so the menu's click writes a name down and the boot's own loop — the one place a browser run
+may wait — awaits the art and stands the town up from its brief
 ([decision log](src/app/web/docs/decision-log.md)).
 
 ## The same town, in a hand
@@ -312,14 +301,16 @@ src/        every line of C#, and nothing else — the nine slices below
   world/    terrain, road, foot, routing, physics, containment, statics, parking, town
   agents/   car, person, ambulance, service, evacuator, trafficlight — body / control, and the errands
             the legs of a trip are run for
-  runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/, the browser's half
-  app/      screen, render, camera, hud, debug, playercontrol, shot, web, android, main — the shell
+  runtime/  the machine: the window, raw Vulkan, the swapchain, the shaders — and web/ and android/, the
+            other heads' halves
+  app/      screen, render, camera, hud, debug, playercontrol, shot, drive, web, android, main — the shell
   bench/    the census and the probes
   tests/    the unit suite, laid out folder for folder as the tree it tests
   tools/    workshop tools, which may depend on what the runtime may not
 assets/     the art and the .json data read at startup, mirroring the code tree
 towns/      a city's brief — the seed and the intent it is generated from, a few hundred bytes each,
             and the whole of what a town is carried as
+raw_assets/ generated source art, never read by the build — converted into assets/ first
 bin/, obj/  build output — the only folders at the root the project file writes
 ```
 

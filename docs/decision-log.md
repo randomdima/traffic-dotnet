@@ -4,6 +4,20 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-09-26 — rules reworded to what the code does
+
+The owner ruled the code the source of truth for the documentation audit.
+
+- `OBJ-2`: four kinds, not five — a traffic light has no body, its heads being drawn and never collided.
+- `SIM-6`: a lifted ban is performed by whatever performs the act elsewhere; the manoeuvres it named are gone.
+- `VER-2`: one way round, a bay; the dead-end shunt it cited (`P-19`) is gone.
+
+## 2026-09-20 — every town claims two things, and the clock is a leg's rather than a claim's
+
+`VER-11` had every town claim that nothing stands still with no clock running for it. The claim went from
+`TownWatch` with the driver's catalogue, when every leg of both agent kinds came to be bounded by one clock
+(`LegProgress`, `AGT-7`), and `VER-11` is reworded to the two claims the watch holds.
+
 ## 2026-09-17 — a load is not a steady state, and tiering was tuned for the other one
 
 A third of the time it took to open a map was spent running code the JIT had not optimised yet. Tiering
@@ -28,17 +42,11 @@ as a rule with authority over the owner's own instruction that render geometry m
 the failure this scale exists to make impossible: **read back later, nothing distinguished a rule the owner
 had asked for from one the assistant had inferred and then cited as though it had been handed down.**
 
-So every rule now carries a rung after its ID ([priority.md](priority.md)). **`P0` and `P1` are the
-owner's and record authority; `P2`–`P9` are the assistant's and record consequence** — what bending one
-costs, on the same shape of ladder [tests/Priority.cs](../src/tests/Priority.cs) already uses for a
-different question, and named the same way deliberately rather than given a second alphabet to learn.
-Nothing may be argued into the owner's band; it is granted in as many words or it is not granted.
-
-**The existing 331 all took an assistant rung**, and that is the honest starting point rather than a
-shortcoming: the assistant wrote these documents and cannot now say which sentences began as the owner's,
-so claiming any of them would be the same fabrication in the other direction. The register fills as the
-owner promotes rules, and `qq req --rungs` reads it off the documents rather than keeping a list beside
-them. `qq doclint` fails on a rule with no rung, so the scale cannot rot back into prose.
+So every rule now carries a rung after its ID ([priority.md](priority.md)), named on the same shape of
+ladder [tests/Priority.cs](../src/tests/Priority.cs) already uses deliberately rather than given a second
+alphabet to learn. **The existing 331 all took an assistant rung**, and that is the honest starting point:
+the assistant wrote these documents and cannot now say which sentences began as the owner's, so claiming
+any of them would be the same fabrication in the other direction.
 
 The first `P0` is `TER-7b`, and the code did not meet it for as long as it demanded a partition — which is
 the arrangement working: the rule stood as stated, the gap was named in [index.md](index.md#known-gaps),
@@ -47,21 +55,15 @@ and nothing was quietly reworded to match the renderer. What closed it was the o
 ## 2026-09-07 — the suite gets five minutes, and what gives way is chosen from the bottom of a ladder
 
 A suite with no budget grows until somebody stops running it, and then the tiers stop meaning anything.
-`qq tests all` now has five minutes and prints what it spent of them — a reading and never an assertion,
+`qq tests all` has five minutes and prints what it spent of them — a reading and never an assertion,
 because a wall clock measures the machine as much as the suite, but the figure a new test is weighed
-against. It is at one minute twenty-five.
+against.
 
 Weighing needs a second axis, because a tier says what a question *costs* and nothing about what its answer
 is *worth*: the cheapest class in the suite guards the solver and one of the dearest checked where a lamp
-was drawn. Every class now names a rung too ([tests/Priority.cs](../src/tests/Priority.cs)), answering one
-question — *what is the town if this is wrong?* — from `P0`, the engine is not one, to `P9`, a detail is
-off. `TierTests` fails the suite for a class naming neither, `qq tests --upto=N` cuts a run at a rung, and
-when the budget is spent what is dropped or made cheaper comes off the bottom.
-
-The first three drops came off it immediately: a minute of a city counting brake lamps (`P9`, seven
-seconds, and a `count > 0` the arithmetic already covered from a command), a glyph sweep that stood a world
-up for every shipped map to read strings six maps already carry (`P6`, twelve seconds), and a second
-drivability check of the one town `GeneratorTests` already drives over four seeds.
+was drawn. So every class names a rung too ([tests/Priority.cs](../src/tests/Priority.cs)), and what is
+dropped or made cheaper when the budget is spent comes off the bottom — the first three drops were a `P9`
+lamp count, a `P6` glyph sweep and a drivability check `GeneratorTests` already made.
 
 ## 2026-09-07 — a shipped city is content, so the suite lays its own town and asks a city nothing
 
@@ -113,9 +115,11 @@ now the authored terms and the rest derive. Three figures that state no relation
 ## 2026-08-28 — what a claim costs is the run it needs, and the suite had stopped asking
 
 The town tier was eighty-three seconds because the same minute of the same town was re-driven for every
-question put to it. Four rules in [verification.md](verification.md) now price a claim: derive once, one
+question put to it; four days earlier the same fault had `qq tests all` at 2 m 50 s for what one run per
+map answered in 36 s. Four rules in [verification.md](verification.md) now price a claim: derive once, one
 run answers every claim about it, soak only where there is traffic, and a claim that something happened
-ends its run.
+ends its run. `SolverCollection` is for what the machine being busy could break and nothing else, and the
+gates are measured in Release.
 
 ## 2026-08-28 — a map states what it claims, and the panel, the probe and the tier read one machine
 
@@ -142,12 +146,6 @@ reached either old band. `PER-12` and `PER-12a` are retired.
 perimeter carried empty box in front of the wall. The answer is more rectangles rather than a new shape —
 statics are never integrated (`SOL-22`) and their grid is built once (`SOL-21`) — and which roof a
 building wears is `world/statics/BuildingRoofs`, not the renderer's.
-
-## 2026-08-24 — the suite is four minutes' worth of question asked in forty seconds
-
-`qq tests all` went from 2 m 50 s to 36 s with the same assertions passing: a town is ticked once per map
-and every claim about that minute is read off the one run, `SolverCollection` is for what the machine
-being busy could break and nothing else, and the gates are measured in Release.
 
 ## 2026-08-20 — the code moved under `src/`, and the project file did not
 
@@ -180,9 +178,9 @@ verbatim because the code cites them.
 ## 2026-08-20 — the tiers were audited, and four slices were in the wrong place
 
 One pass over the imports found four files put where they were first needed rather than where they
-belonged: the `.town` reader, `TownRenderer`, the plan's cell type, and the drawing kit that became
-`app/screen/`. The lesson is general — **where a lower slice needs something a higher one has, hand over
-the data and not the type.**
+belonged — `TownRenderer`, the plan's cell type, the drawing kit that became `app/screen/`, and a reader
+since deleted. The lesson became [CLAUDE.md](../CLAUDE.md#everything-is-a-vertical-slice)'s: **hand over the
+data and not the type.**
 
 ## 2026-08-17 — structure of arrays is pinned, and it is the one thing pinned
 

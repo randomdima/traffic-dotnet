@@ -6,9 +6,9 @@ namespace TrafficSimulation.CityGen;
 
 /// <summary>
 /// <b>What is on the ground at a point</b>, solved against the shapes the town is drawn from — the road's
-/// own curve, the lines a car is turned through a box on, the wedge its kerbs turn on, the rectangles a car
-/// park is, and the rings the water is cut from. There is one geometry and this reads it (TER-7); nothing
-/// here is quantised, so a kerb running at 40° is a kerb running at 40°.
+/// own curve, the lanes and the lines a car is turned through a box on, the slabs of paving, and the rings
+/// the water is cut from. There is one geometry and this reads it (TER-7); nothing here is quantised, so a
+/// kerb running at 40° is a kerb running at 40°.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -50,7 +50,8 @@ namespace TrafficSimulation.CityGen;
 /// <para>
 /// <b>Written once when it is made, and never afterwards.</b> The pieces it reads are finished before they
 /// are handed over, so there is no state here that could drift from the geometry. The scratch a query uses
-/// is the indexes' own and is not re-entrant, on the same footing as the solver's broad phase.
+/// is a <see cref="Scan"/>, which belongs to one thread at a time: an ask that names none runs on this
+/// one's own, and a caller asking off its own thread brings its own (<see cref="NewScan"/>).
 /// </para>
 /// </remarks>
 internal sealed partial class GroundShapes
@@ -204,7 +205,7 @@ internal sealed partial class GroundShapes
     public bool IsAll(Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground) =>
         IsAll(centreM, axis, halfExtentM, stepM, ground, ground);
 
-    /// <summary>And of either of two grounds: a car park reaches back over the pavement it fronts (GEN-4b).</summary>
+    /// <summary>And of either of two grounds.</summary>
     public bool IsAll(
         Vector2 centreM, Vector2 axis, Vector2 halfExtentM, float stepM, Ground ground, Ground orGround)
     {

@@ -47,12 +47,17 @@ internal sealed class LaneFurniture
         _crossedAlongM = crossedAlongM;
     }
 
-    public static LaneFurniture Project(CityPlan plan, RoadGraph roads)
+    /// <param name="zebras">
+    /// <b>The town's own crossings</b> (<see cref="Crossings"/>, TER-6) and never a second laying of them:
+    /// what the walk is cut at is what the lanes carry, or a body is on paint the traffic has never heard
+    /// of.
+    /// </param>
+    public static LaneFurniture Project(CityPlan plan, Crossings zebras, RoadGraph roads)
     {
         var (barM, thicknessM) = StopBars(plan, roads);
-        var spanM = Spans(plan);
-        var (first, crossing, alongM) = Crossings(plan, roads, spanM);
-        var (laneFirst, crossedLane, crossedAlongM) = LanesUnderCrossings(plan, first, crossing, alongM);
+        var spanM = zebras.SpanM.ToArray();
+        var (first, crossing, alongM) = Crossings(zebras, roads, spanM);
+        var (laneFirst, crossedLane, crossedAlongM) = LanesUnderCrossings(zebras.Count, first, crossing, alongM);
 
         var most = 0;
         for (var on = 0; on + 1 < laneFirst.Length; on++) most = Math.Max(most, laneFirst[on + 1] - laneFirst[on]);
@@ -124,9 +129,8 @@ internal sealed class LaneFurniture
     /// answer to the same question.
     /// </summary>
     static (int[] First, int[] Lane, float[] AlongM) LanesUnderCrossings(
-        CityPlan plan, int[] crossingFirst, int[] crossing, float[] alongM)
+        int count, int[] crossingFirst, int[] crossing, float[] alongM)
     {
-        var count = plan.Crosswalks.Count;
         var first = new int[count + 1];
         foreach (var on in crossing) first[on + 1]++;
         for (var at = 1; at < first.Length; at++) first[at] += first[at - 1];
@@ -198,22 +202,14 @@ internal sealed class LaneFurniture
         return (alongM, thicknessM);
     }
 
-    /// <summary>The plan's own answer for every crossing at once (TER-6), taken here because it is a projection.</summary>
-    static float[] Spans(CityPlan plan)
-    {
-        var spanM = new float[plan.Crosswalks.Count];
-        for (var crossing = 0; crossing < spanM.Length; crossing++) spanM[crossing] = plan.CrossingSpanM(crossing);
-        return spanM;
-    }
-
     /// <summary>
     /// A crossing adds no node to the road graph — a zebra is a band of the same carriageway and nothing
     /// turns at one — so a lane's own list is kept rather than a junction's: only the crossing on the arm
     /// being approached counts, and a junction paints its far arm too.
     /// </summary>
-    static (int[] First, int[] Crossing, float[] AlongM) Crossings(CityPlan plan, RoadGraph roads, float[] spanM)
+    static (int[] First, int[] Crossing, float[] AlongM) Crossings(
+        Crossings crossings, RoadGraph roads, float[] spanM)
     {
-        var crossings = plan.Crosswalks;
         var first = new int[roads.LaneCount + 1];
         var found = new List<(int Lane, int Crossing, float AlongM)>();
 
@@ -288,7 +284,7 @@ internal sealed class LaneFurniture
     /// </para>
     /// </remarks>
     static void OnTheNodeItself(
-        RoadGraph roads, CityPlan.CrosswalkArrays crossings, int crossing, Vector2 axis,
+        RoadGraph roads, Crossings crossings, int crossing, Vector2 axis,
         List<(int Lane, int Crossing, float AlongM)> found)
     {
         var junction = crossings.Junction[crossing];

@@ -13,35 +13,39 @@ stretch of another movement's line that comes within a car's width of its own, o
 measurement. The town works the table out once, from the lines themselves. A movement whose line goes near
 nothing crosses nothing.
 
-**TER-5c.1** `P3` **A body claims the ways it is going to be on, and no others.** The way under it and the
-ways its plan takes it down are its own to hold; a way it is merely driven *over* is one it never writes to.
-What that ground costs it is instead **looked up**: a driver reads the table above for the way it is on,
-and asks each way named there — among that way's own claims, at that way's own metres — what is standing on
-it. A grant is cut at the first of those the answer is anybody's.
+**TER-5c.1** `P3` **A body writes the ways it is standing on and the ways its plan takes it down, and the
+ground it is merely driven *over* ahead of itself is settled and looked up rather than marked.** The two
+halves are about two different things and neither bends for the other. **What it is standing on is its box**
+(TER-4c.2): every way that box touches, of every kind, whichever way that way runs, and whatever the body
+is doing — held at p0, since a body cannot give the ground it is on back. **What it is going to be on is
+its line**: the road ahead of it on the ways that line names. **What it is driven over is neither, and
+nothing is written there.** Every stretch is settled against it as the stretch is laid: each section the
+table above names for the metres the stretch covers is weighed against the claims on the crossed way over
+that section's own metres, and whichever of each pair gives way (TER-4c.3) is cut back off the crossing on
+its own way — the stretch being laid or the one already there. **What is left of a driver's ask is its
+grant** (TER-4c.1). **How far its nose may go is looked up besides**: a driver reads the table for each way
+ahead of its nose and asks each way named there — among that way's own claims, at that way's own metres —
+what holds it, and the grant is cut short of the first section where the answer binds it (TER-5e). The two
+part company at one body: a car past the point it could stop gives its ground back to nobody and still
+brakes for whatever is standing in the box.
 
 The rule this exists to hold is that **no two bodies are given the same piece of the world**. A claim
 is stated in one way's metres, but the ground it stands for is the town's: two ways that meet inside a
 junction are one piece of the world under two names, and a driver that only ever read its own name for it
-would be granted the metre two lines meet on at the same time as the driver on the other line. Marked
-rather than read, the same fact costs a body a fan of claims across ways it will never touch, and the
-ground of a box belongs to whoever aimed at it rather than to whoever is on it.
+would be granted the metre two lines meet on at the same time as the driver on the other line. **What is
+settled rather than marked is the road a movement has not reached**, and marking that instead costs a body
+a fan of claims across ways it will never touch, with the ground of a box belonging to whoever aimed at it
+rather than to whoever is on it. **What is written is the body itself**, and leaving that out to keep the
+fan away cost the opposite: a car lying across a junction that every car crossing it read as empty ground.
 
 **And the pavement is not a second town.** A zebra is a walk laid over a carriageway — the same ground is a
 stretch of a crossing way and a stretch of a lane — so the rule above is the rule here with the kinds
-swapped. **Each body writes what it covers of every way it is touching, of either network**: a walker on the
-paint holds its stretch of the crossing way it is walking and its stretch of the lane beneath, because it is
-standing on both, and a car holds the lane it is driving. Neither is granted anything by the paint and
-neither reads a table to find the other — one piece of ground carries one claim per way, and a body that is
-on two ways is on two ways.
-
-**Ground of one kind that no other kind runs over is the other case, and there the kind of body decides
-nothing.** A footway is not carriageway, a lane is not pavement and a bay is neither, so whoever is standing
-on any of them holds it (TER-4c.2): a person in a lane is a stretch of that lane, a car that has mounted a
-kerb is a stretch of the footway under it, and **anybody at all** in a bay — a car whether the register knows
-it is there or not, and a person on foot — is a stretch of that bay's ways. **What kind of ground a hold goes
-onto is a fact about the ground and never about its holder**, so the walk that finds the ways under a body
-names every kind, once, for every roster: a kind one caller walks and another forgets is one where half the
-town is invisible.
+swapped. **Each body writes what it covers of every way it is touching, of either network, and the kind of
+body decides nothing**: a walker on the paint holds its stretch of the crossing way and its stretch of the
+lane beneath because it is standing on both, and **a car on the paint holds the same two for the same
+reason**. Neither is granted anything by the paint and neither reads a table to find the other — one piece of
+ground carries one claim per way, and a body that is on two ways is on two ways. Ground of one kind that no
+other kind runs over is the same rule with nothing laid over it (TER-4c.2).
 
 **A crossing is a place and not a period, so it is given back where it is passed.** What a car holds on its
 own way through is the crossing points it has still to reach — a body a clearance past one is not going
@@ -52,15 +56,44 @@ refusing the corner behind it is refusing a movement nothing was ever going to b
 is a braking distance and no more, which does not reach the middle of a box until the car is nearly on top
 of it; two cars asking from opposite arms would each look the other's connector up, find the metres where they
 cross still empty, and both go. So the ground where the lines meet is held from the moment a movement is
-committed to — on the mover's *own* way, where the traffic crossing it reads it. The ground between two
-crossing points is driven over by nothing and is nobody's to hold, and the metres behind the body are the
-crossing already spent.
+committed to — on the mover's *own* way, where the traffic crossing it is settled against it and reads it.
+The ground between two crossing points is driven over by nothing, so holding it refuses nobody and leaving
+it out would be a hold
+with a hole in it (TER-5c.2): what a car holds there is **one stretch, from the first crossing point it has
+still to reach to the last**. The metres behind the body are the crossing already spent.
 
 **TER-5c.2** `P3` **A body holds one metre of one way once.** One body is one stretch: **the margin it keeps, the
 body, and the road it is committed to**, in that order and in one interval of every way it is on. What the
 crossing adds is only the ground that stretch has not got to — the metres ahead of it — and never a second
 piece behind the tail, which would hold nothing the claim was not holding and would count one body as
 two.
+
+**And what one body holds has no hole in it**, on one way or across the run of ways its line is numbered in.
+Where its stretches are two, the metres between them are **somebody's** — its own, or whatever it was cut at.
+A hold that takes up again past road nobody has is a body nothing can be cut at through the metres in the
+middle: a grant ends at the first thing in front of it, so a gap in a hold is a body that cannot be seen
+coming. Five things keep it, and they are one rule read at five places:
+
+- **What a car holds of its own way through a junction is one stretch** (TER-5c.1), and **the road between
+  that and the body is what the car states** (TER-5g).
+- **A stretch nothing is standing in is not laid past ground somebody else holds.** Cut in front it is
+  shorter; taken from its own near edge it is given up whole, because what is beyond is ground its holder
+  could not have reached without crossing what it was refused (TER-4c.3). **A body is the exception**: it is
+  written wherever it stands or it is a shape the town cannot see (TER-4c.2). **And so is the span between two
+  stretches of one hold** — a car's road and a box the town has already given it, with somebody standing on the
+  lane in between: those metres are not ground their holder was refused, they are the middle of a hold whose
+  two ends it has, and given up whole they are the hole this rule is about.
+- **A hold laid over a run of ways ends at the first of them that would not take the whole of it.** Laid on
+  regardless, the ways past it carry stretches beginning at their own first metre, and between those and
+  the metres given up is road belonging to nobody. **Ground given up to its own holder is a seam and not an
+  end**, since a run that meets a stretch of its own has left no metre unheld.
+- **What an answer takes off an ask, it takes off the whole of it** (TER-4c.1). A hold is a run of ways and
+  only the first of them carries the body, so an answer written back to the stretch a body is standing in
+  leaves the far end of the ask holding the ways past it.
+- **And the metres an answer took are stated** (TER-5g): road a car asked for, did not get and is still going
+  down is road it means to use and has not reached, which is the one name for them that is true. Nothing is
+  needed to make them affordable — everything stronger takes a soft claim — and without them the answer
+  leaves a hole exactly where it cut.
 
 **The margin is what that reading owes, and it is the same margin wherever a body stands.** A
 stretch is one interval of one way's arclength, which is the width of the road thrown away; a crossing point
@@ -76,8 +109,7 @@ coming up is queued out of. The share is data (`DrivingFigures.TailMarginShare`)
 tail's is never the larger, and which shares the town can afford is the soak's answer and not a rule's.
 
 **What holds no margin is what is not somebody's road**: a wreck, a claim, a body on foot in a lane, the
-town's own furniture, the metre where another movement crosses, the kerb line of a lane a walker was refused.
-None of those is a body that swings, and **the asker keeps its own margin off them** — so the clearance is
+town's own furniture, the metre where another movement crosses. None of those is a body that swings, and **the asker keeps its own margin off them** — so the clearance is
 kept exactly once in every case, by whichever of the two has a reason to hold it.
 
 **And the margin is measured, not chosen**, held to whatever the soak says it must be rather than to what
@@ -113,30 +145,35 @@ ground however it got there. Two bodies in one box is PHY-1's question, not this
 ## Right of way
 
 **TER-5e** `P3` **Where two bodies come to one piece of the world, a right of way says which of them gives it
-up.** It is carried by the stretch and not by the body — one car is straight through on the lane it is
-leaving and a turn across the oncoming stream on the connector it is entering, and those are two stretches of two
-ways — and it is a fact about the movement, worked out once with the town from the turn that movement makes.
-**Straighter is stronger**: a stream that turns out of nobody's way, then the near-side turn, which crosses
-nothing of its own carriageway, and last the turn across the oncoming stream (TER-4a), which is the weakest
-movement a box admits because it is the last one there is (TER-5f).
-Everything else — every stretch of way that is not a movement through a box — is ordinary traffic, neither
-given way to nor taken from.
+up — and a right of way is the rung its ground is held at** (TER-5g). It is carried by the stretch and not
+by the body: one car is granted the lane it is leaving at one rung and the turn across the oncoming stream
+at another, and those are two claims on two ways, worked out once with the town from the turn each movement
+makes. **Straighter is stronger**: a stream that turns out of nobody's way, then the near-side turn, which
+crosses nothing of its own carriageway, and last the turn across the oncoming stream (TER-4a), which is the
+weakest movement a box admits because it is the last one there is (TER-5f). Everything else — every stretch
+of way that is not a movement through a box — is ordinary traffic, neither given way to nor taken from.
 
-**A body on foot carries no rank, on a crossing's paint as anywhere else.** It is a body standing on the
-lane under it and holds what its own box covers of that lane (TER-4c.2), so the traffic is held off it by
+**There is no rank beside the ladder, and that is the whole of the mechanism.** What a claim carries is who,
+where and how strongly, and the third of those answers both questions a meeting asks: whether the ground can
+be taken at all, and which of the two takes it. A second value beside it could be strong where the rung is
+weak, which is a table of pairs pretending to be a rule.
+
+**A body on foot is granted nothing to outrank anybody with, on a crossing's paint as anywhere else.** It is
+a body standing on the lane under it and holds what its own box covers of that lane (TER-4c.2), so the traffic is held off it by
 the grant that stretch cuts and by nothing further — the same hold a wreck, a parked car and somebody
 knocked down all have. **What the paint is for is that a car may not come to rest on it**, which is a rule
 about where a queue stops and not a right anybody carries.
 
-**Above all of those stand two ranks a road does not carry of itself.** A **closed road** is ground an
-officer is holding beside it ([agents/service](../../../agents/service/docs/requirements.md), `SRV-6`),
-above every ordinary movement and above the paint; a **call** is above that
+**Above all of those stand two rungs a road does not carry of itself.** A **closed road** is ground a
+police car stopped at a scene holds shut round it
+([agents/service](../../../agents/service/docs/requirements.md), `SRV-6`), above every ordinary movement; a
+**call** is above that
 ([agents/ambulance](../../../agents/ambulance/docs/requirements.md), `AMB-4`), which is the whole of what
 lets a rescue and a recovery through a road that is shut to everybody else. The order is one comparison and
-the placing is the mechanism: nothing reading the claims learns what a policeman or an ambulance is.
+the placing is the mechanism: nothing reading the claims learns what a police car or an ambulance is.
 
-**What a rank takes, it takes on every way alike.** Ground somebody has merely *claimed* is not ground a
-stronger movement is refused by — on the way that movement is driving as much as on the ways it is only
+**What a stronger movement takes, it takes on every way alike.** Ground somebody has merely *claimed* is not
+ground a stronger movement is refused by — on the way that movement is driving as much as on the ways it is only
 driven over. A cut made one way and not the other is a rescue held up by a claim it outranks, and a closure
 that shuts the road against the rescue it was put there for.
 
@@ -144,15 +181,13 @@ that shuts the road against the rescue it was put there for.
 is not committed to (TER-4c.1), so it can be handed back; a body, and the road a body is committed to being
 able to stop in, cannot be, **and a rule that took those would not be a right of way — it would be a licence
 to drive into somebody**. So the ground of a box is given up the moment a stronger movement asks for it, and
-the same ground held by a car past the point it could stop short is held against everything, whatever ranks
-anything else has.
+the same ground held by a car past the point it could stop short is held against everything, at whatever
+rungs anything else holds its own.
 
-**It is therefore one-sided where the old arrangement was mutual, and that is the whole of what it buys.**
-Two crossing movements each read the other's ground and each were cut at it, so the box went to whichever
-asked first — which is an order dependency dressed as a rule, and it is why a car turning across a stream
-could take a junction from the traffic going straight on simply by getting there a tick earlier. Read against
-the ranks, the weaker of the two is cut and the stronger is not, and the pair resolve the same way round
-whichever of them looked first.
+**It is therefore one-sided, and that is the whole of what it buys.** Read against the ladder, the weaker
+of two crossing movements is cut and the stronger is not, so the pair resolve the same way round whichever of
+them looked first — and a car turning across a stream cannot take a junction from the traffic going straight
+on by getting there a tick earlier.
 
 **And what is taken is taken from somebody, who is told.** A claim is answered again every tick against the
 whole of them (TER-4c.1), and the holder of one a stronger movement has taken has it withdrawn and the entry
@@ -163,8 +198,8 @@ standing on, cut off its grant like everything else (SIM-7).
 **And it is spent by the traffic giving ground up, never by anybody being ordered off it.** A body that gives
 way is stopped short of what it is giving way to, and **a body stopped short holds none of the ground beyond
 the stop** (TER-4c.1) — so the ground is free on the next tick and whoever had the right of way simply takes
-it. There is no second mechanism here and no register of whose turn it is: what the ranks decide is which of
-two askers is cut, and everything after that is the one arrangement the rest of the town runs on (SIM-7).
+it. There is no second mechanism here and no register of whose turn it is: what the ladder decides is which
+of two askers is cut, and everything after that is the one arrangement the rest of the town runs on (SIM-7).
 
 **A stop is bounded by the road it takes to make one**, which is what keeps this a rule about who waits. A
 car too close to stop keeps what it holds, the ground stays taken, and whoever was waiting waits another
@@ -182,30 +217,35 @@ is its occupant and roster; the town's own furniture is a claim nobody owns.
 levels happen to be written in, and the gaps in it are levels nothing claims yet.
 
 - **p0 hard** — **a body, and the road that body can no longer give back.** Nothing takes it, whatever
-  anybody asks with, because a right of way orders who waits and never who is driven into (TER-5e). It
+  anybody asks with, because the ladder orders who waits and never who is driven into (TER-5e). It
   needs no rule of its own for a car nobody is driving: a wreck, a parked car and a car under a hand are
   bodies, and a body is this by construction.
 - **p1 special** — **ground somebody answering a call has been granted and not reached.** Taken by p0 and
   by nothing else.
-- **p5 firm** — **ground anybody else has been granted and not reached**: the far end of a box, a bay being
-  backed out of, a swerve about to cross, a road an officer is holding. Taken by a strictly stronger
-  movement.
-- **p9 soft** — **road a driver has stated it means to use and has not reached.** The weakest there is, and
-  the one every stronger movement is entitled to. **An equal right of way takes it, where an equal right of
-  way does not take a firm claim** — that single difference is what keeps the two levels apart, and
+- **p2 closed** — **a road a police car at a scene is holding shut.** Above every ordinary movement and
+  below a call, which is the whole of what lets the other services through a road that is shut (`SRV-6`).
+- **p4, p5, p6 — ground a movement has been granted and not reached**, at the rung the turn it makes
+  earns it (TER-5e): straight through, then ordinary traffic — the near-side turn and every stretch that is
+  not a movement through a box — and then the turn across the oncoming stream. The far end of a box, the
+  road between the car and that box (TER-5g.1), a bay being backed out of and a swerve about to cross are
+  all held here. **Taken by a strictly stronger movement**, which is the comparison, and by nothing weaker
+  or equal.
+- **p7 reserved** — **a crossing somebody on foot is walking** (`PER-27`): the paint ahead of the body on
+  the one stretch of it being walked, and the band of every lane the crossing is laid across. **It refuses
+  nobody** — the traffic drives over it and takes off it
+  whatever it was granted — and what being above the stated band buys it is that a car saying it means to
+  use those metres does not take them from somebody crossing.
+- **p8, p11, p12, p13 — road its holder has stated it means to use and has not reached**: the stated band,
+  which mirrors the granted one seven rungs down — a call's statement, then the three movements. The
+  weakest holds there are, and the ones every stronger movement is entitled to. **A statement is compared
+  at the rung its holder would have been granted**, so **an equal movement takes it, where an equal
+  movement does not take a granted claim** — that single difference is what keeps the two bands apart, and
   collapsing them either deadlocks a junction or leaves every weaker movement waiting on ground the other
   was merely thinking about.
-- **p10 rejected** — **an ask that was refused, left standing so the traffic can see it.** Nobody's
+- **p15 rejected** — **an ask that was refused, left standing so the traffic can see it.** Nobody's
   ground: it binds nobody, it cuts nothing, and it is **the one thing on a way that is not a claim on
   ground** — so it is laid over the very stretch the traffic holds and is outside TER-4c.3. **Nothing lays
-  one**: the one asker that ever did was a walker refused a band, and a walker is refused nothing now
-  (`PER-26`). It is a level of the ladder nothing claims yet, like the numbers between the others.
-
-**The ladder says which comparison is made and the right of way says who wins it.** A right of way is a
-fact about the *way* and not about the body on it — a junction's every movement is a way of its own, so the
-claim on the left-turn connector is a left turn by the ground it is on. Folded into the priority, a turn
-across the oncoming stream and a street going straight through it would be one number: p0 is compared with
-nothing, p10 with nothing, and the middle three are settled on TER-5e's ranks.
+  one** (`PER-26`): it is a level of the ladder nothing claims yet, like the numbers between the others.
 
 **The lifecycle is one word throughout.** A claim is **asked** for before any of them is answered
 (TER-4c.1); what comes back short is a claim **cut**, and what a stronger movement takes afterwards is a
@@ -222,20 +262,10 @@ one interval of the way continuing the committed claim's own, so no metre is hel
 is answered by the same grant: a car refused the road has stopped saying it is coming, on the tick it was
 refused.
 
-**What it buys is that a body's intentions are claimed at all.** A driver reads further up the road
-than the ground it is committed to reaches, so before this every car could see what the others could not
-undo and none of them said where it was going — and a car pulling out of a side road in front of one
-coming at speed was refused by nothing, because nothing said it was coming.
-
-**What makes it affordable is that it can be taken.** The same ask held as ground the car was committed to
-was a quarter of a kilometre of empty straight held against everybody, because nothing could ask for it
-back. Held at p9 it costs whoever outranks it nothing at all.
-
-**A tie refuses a granted claim and does not refuse a soft one**, and the difference is what each is for. A
-granted claim is one movement's ground, settled by whoever took it; a soft claim is laid by everybody at
-once, so two movements of one rank that each refused the other's would each be waiting on ground the other
-was merely stating and neither would ever ask for it. A tie is settled by the granted claim, exactly as it
-was before either of them stated anything.
+**What it buys is that a body's intentions are claimed at all**: a driver reads further up the road than
+the ground it is committed to reaches, and a car coming at speed has to say so for the one pulling out in
+front of it to be refused. **What makes it affordable is that it can be taken**: held in the stated band it
+costs whoever outranks it nothing at all, and a tie does not refuse it (the stated band above).
 
 **And a soft claim is bounded by everything the committed one is bounded by** — a red, a bar, a crossing, a
 box this car has not been given. That is the whole of what a signal refusing a soft claim comes to: a
@@ -248,6 +278,23 @@ rest is going nowhere until it moves. Laid from a standstill it is the pull-away
 every queue in the town, held against every movement those queues cross — a car at a give-way line holding
 a box shut against the traffic it is itself waiting for.
 
+**Except the road to ground it already holds**, moving or not (TER-5c.2). A car granted its way through a box
+holds the crossings on it long before its committed road reaches them — at a standstill that road is the
+car's own length and a metre — so what carries the hold across the approach is the statement, and without it
+the car holds the far side of a junction and not the way in to it. **It costs the town nothing it had
+not already paid**: whatever crosses those metres is refused by the movement's own claim whether the
+statement is there or not, a statement is no refusal along the way its holder is driving, and a body on foot
+waits on no statement (`PER-27`). A car holding no movement holds nothing ahead for a statement to
+reach, so this names exactly the case it is for and grants a standstill nothing anywhere else.
+
+**It is written the moment a movement is taken and taken back with it.** A movement is taken during a tick's
+decisions as well as at the rebuild, and a box held with nothing between it and the car is the hole this
+exists to close; a movement given back leaves a statement carrying a span to nothing, so it goes with it.
+
+**And the answer does not cut it back past what the car holds.** What a grant decides is the road the car is
+asking for; these metres are the span between it and ground the town has already given the car, and cut at
+the first body on the paint in front they are the same hole again.
+
 **A stated claim refuses on the ways a body crosses and never along the way it is driving.** Two cars on
 one way are held apart by the road each was granted (TER-5c), and a stated claim is laid *ahead* of its
 holder — so along a lane it lies over the traffic in front of that holder rather than behind it. Read as a
@@ -256,18 +303,33 @@ an empty road.
 
 **And a body on foot states ground the same way** (`PER-26`), which is the whole of what a walker has
 instead of a grant: the pavement it is walking at, and nothing anywhere else. **It is not this rule's own
-arithmetic** — a walker has no planned speed to hold and nothing to stop from — and it is stated on the
-walking network alone, a statement on a carriageway being a standing this side of the town does not grant.
+arithmetic** — a walker has no planned speed to hold, so what it states is the ground it would come to rest
+in from its walking pace, and the gap it keeps — and it is stated on the walking network alone, a statement
+on a carriageway being a standing this side of the town does not grant.
 
-**And the rank a car asks a box's ground with is the rank it will hold that ground at.** A body past the
-point it could stop short of a box is going in whatever anybody has claimed, so it asks with the rank that says
+**And the rung a car asks a box's ground with is the rung it will hold that ground at.** A body past the
+point it could stop short of a box is going in whatever anybody has claimed, so it asks with the rung that says
 so — refused there instead, it would be stopped in the middle of a box on the strength of somebody else's
-intentions, which is the one shape the ranks exist to prevent.
+intentions, which is the one shape the ladder exists to prevent.
 
 **What a loser does about it is drive to the road it has left**, and there is no second mechanism (SIM-7).
 Ground taken back shortens a grant like any other, the grant inverts to a speed like any other, and that is
 an ease-off where there is road and a stop where there is none. **A car that cannot stop in what is left
 does not stop**, and what happens then is the solver's (`PHY-1`) rather than a rule's.
+
+**TER-5g.1** `P3` **The rung never grows along a hold.** One body's ground is one run from the body outward
+(TER-5c.2), and nothing it holds further along that run is held more strongly than what it holds this side
+of it. A hold whose rung grows is a hold with a hole in it that the geometry cannot see: the far piece is
+one every stronger movement must give way to and the near piece is one an equal movement may simply take,
+so the body is left holding the far side of a junction and not the road it has to cross to reach it.
+
+**Where the two disagree, the answer is what settles it** (TER-4c.1). Granted as far as the ground at the
+end of the run, the metres in between are the holder's and nobody else is going to be given them, so they
+are worth what that ground is worth. Stopped short of it by the answer, it is the other way about: the body
+is not getting there, and ground held firm at the end of a road it was refused is ground shut against the
+traffic for nothing. **A body past the point it could stop is the one thing the answer does not settle**
+(TER-5e) — it is going in whatever the town says, so the road between it and what it holds is road it can no
+longer give back, which is p0 by the same fact that its own body is.
 
 ## The claims
 
@@ -293,22 +355,24 @@ rule releases it — it is re-laid from the pose every tick and it is gone the t
 - **It is laid from the pose and never from a register.** Which bay a car is standing in is a claim in the
   register (`GEN-4g`), given back by the manoeuvre that drives out of one and by nothing else, so a body
   taken out by a hand at the wheel, a shunt or a recovery arm is a car on the road that the register still
-  calls parked. Laid from that claim, such a car held two ways of a bay it was streets from and no metre of
-  the lane it was standing in the middle of.
+  calls parked, and laid from that claim it would hold two ways of a bay it is streets from and no metre of
+  the lane it is standing in.
 - **A body is *on* a way once it has crossed that way's edge**, and the write asks nothing else — not
   whether it obstructs, and not what anybody would call it. A car half over the paint claims both
-  lanes it is half in. Withheld until the body obstructed the band, a car straddling the line left most of
-  each lane clear of it and was written onto neither: it stood in the middle of a road that could not see it.
+  lanes it is half in; withheld until it obstructs a band, a car straddling the line is written onto neither.
   **Crossed and not merely touched**, by a figure of the town's: a stretch has no width, so a wing mirror
   over the paint would claim the next lane for as long as it hung there, and the two lanes of
   a carriageway would trade bodies on the noise in a pose.
 - **And what kind of ground the way is laid on is not a question the write asks** (TER-5c.1). A body
   holds carriageway, footway and parking bay on the same terms, whatever kind of body it is: a person
   standing in a lane is a stretch of that lane, a car that has mounted a kerb is a stretch of the pavement
-  under it, and a car standing in a bay is a stretch of every way that bay is worked off (`GEN-4f`) for the
-  same reason and by the same walk. The one exception is the car on ground two networks share — a crossing is
-  carriageway a walk runs over, so a car on the paint claims the road alone, and what holds a
-  walker off it is that stretch of the lane.
+  under it, and **anybody at all** in a bay — a car whether the register knows it is there or not, and a
+  person on foot — is a stretch of every way that bay is worked off (`GEN-4f`). **What kind of ground a hold
+  goes onto is a fact about the ground and never about its holder**, so the walk that finds the ways under a
+  body names every kind, once, for every roster: a kind one caller walks and another forgets is one where
+  half the town is invisible. **There is no exception for ground two networks share**: a crossing is
+  carriageway a walk runs over, and a car on the paint is on both of them, so it writes the lane and the
+  crossing way alike (TER-5c.1).
 - **Every stretch carries the span its holder covers across its way's own line**, which is the one thing it
   says about the third dimension and the whole of what makes the rule above affordable. A stretch has no
   width, so without it a way written onto is a way shut, and a town whose every turning car closed the lane
@@ -327,10 +391,9 @@ rule releases it — it is re-laid from the pose every tick and it is gone the t
   is two-dimensional for whoever is written into it and one-dimensional for everybody reading it — and then
   a body cannot move out from under an answer it has been given, which is a pavement nobody can ever get
   past anybody on (`PER-26`).
-- **It is written where nothing else already answers for the ground** (SIM-7). A driver under way has its
-  own claim on the ways of its line and the crossing table on the box it is crossing (TER-5c.1); a
-  second copy of either would be one refusal made twice, and a body nobody can give up deadlocks what a rank
-  was there to resolve.
+- **Where the body's own claim already has the ground, it is that claim** (TER-5c.2, SIM-7). A driver under
+  way holds the ways of its line through the claim it is committed to, and the box read from its pose grows
+  that stretch rather than laying a second one beside it.
 - **A coupled pair is one occupant of it** (`TER-5c.2`, `EVA-5`). The car on the bar is one movement's worth
   of body and holds the ground it is dragged over under the number of the vehicle pulling it — so the truck's
   own grant is not cut at its own trailer, and the lane the trailer swings into as the pair turns is ground
@@ -364,16 +427,13 @@ SIM-7 is about; one that could grant the same metre twice would be no mechanism 
 - **And it reads every way under each place that line would put it**, which is the same set of ways a body
   standing there is written onto: the lane, the lane running back the other way where the body reaches into
   it, and every connector it is lying under. **Asked of a narrower set than it is written to, a
-  manoeuvre cannot see what a body standing in the same place wrote** — and that is exactly a junction,
-  where every car crossing holds its road on a *connector* and on no lane at all, so a swerve or a back-off
-  through a box read the whole box as empty.
+  manoeuvre cannot see what a body standing in the same place wrote** — above all in a box, where the road a
+  crossing car holds is on a *connector*.
 - **A claim is answered every tick and not only on the tick it was taken.** It is re-laid from the body
   like everything else, so what a re-laid claim needs is the same question asked again: a claim over ground
   a stronger movement has since taken is given back, and **the body that had it is told**, because the only
-  thing that knows what the claim was for is the manoeuvre that took it. Laid unread instead, the stronger
-  movement drove through and the claim's holder was never cut, and the two of them held one piece of the
-  world between them for as long as the claim lasted.
-- **What takes a claim is a rank above its own and nothing else** (TER-5e). Ordinary traffic over it, a
+  thing that knows what the claim was for is the manoeuvre that took it.
+- **What takes a claim is a rung above its own and nothing else** (TER-5e). Ordinary traffic over it, a
   wreck shoved onto it, somebody on foot across it — all of those cut the claimant's grant already, on the
   way it is driving, and a second refusal here would be the duplicate SIM-7 is about. It would also refuse
   the one thing a claim exists for: the stretch a swerve claims is the stretch containing the body it is
@@ -403,13 +463,27 @@ seam between two claims and is not overlap.
   a fact the town has an opinion about, only that exactly one of them does. The one that gave it up is still
   standing there — its own shape reaches past what it holds — and that costs nothing, because the ground is
   claimed either way and it is the ground that a reader is asking about.
+- **A pair on two ways is settled over the section the table names** (TER-5c.1), where neither way's metres
+  mean anything in the other's and nobody is further back or already there. **A hold is firm there** where
+  its body stands over the section or it is held at p0 — the road a body can no longer stop short of — and a
+  firm hold beats one that is not. **Two firm holds over one crossing both stay**: that is two bodies in one
+  box, which is PHY-1's question, and a hold cut out from under a body is a body the town cannot see. Below
+  that it is the ladder, and **a tie goes by roster and then by occupant** — arbitrary, the same every tick,
+  and never the order the two were laid in. The loser gives up the section and never part of it: cut short
+  of it where it began before it, and given up whole where it is beaten at its own near edge — unless its
+  body stands over the section or it is the span between two stretches of one hold, which begin again past
+  it.
 - **One stretch and never two.** A claim cut at something in front of it gives up the metres beyond that
   thing rather than resuming on its far side, because a body is one stretch of one way (TER-5c.2) and every
   reader is built on that. **What the loser gives up is ground it could not have reached without crossing
-  ground it was refused**, so for everything laid from a line the two say the same thing. It is not yet true
-  of a stretch laid from a *pose* that reaches past a body — a swerve's corridor, a movement's runs — and
-  those are the open edge of this rule rather than a settled part of it.
-- **A refused ask is not a claim on ground and is not in this** (TER-5g, p10). It is a mark left where a
+  ground it was refused**, so for everything laid from a line the two say the same thing. **And one beaten
+  at its own near edge gives up the whole of itself**, which is that read from the other end — unless the
+  ground beating it is its own holder's, where the two are one hold and the near edge is the seam between
+  them, **or the stretch is the span between two stretches its holder has**, where beginning past the body in
+  the middle is the only reading that leaves no metre unheld (TER-5c.2). What is still open is a stretch
+  laid from a *pose* that reaches past a body — a swerve's corridor — which does not leave road nobody holds
+  and is not yet this.
+- **A refused ask is not a claim on ground and is not in this** (TER-5g, p15). It is a mark left where a
   body was told it could not go, laid over the very stretch the traffic holds, because what it says is that
   somebody is waiting for those metres.
 
@@ -427,34 +501,19 @@ way somebody is travelling, and the table says which pairs of ways to read again
 
 **One numbering, because a claim that cannot be compared with another is not a claim.** The lanes are
 numbered first, the connectors after them, the bays after those and the pavement last, so a reader holding a way
-number asks the same question of every kind of ground. Held as a network apiece instead, one piece of the
-world had two records that nothing could compare: a walker was granted the footway a car was parked across
-and each book was right about itself.
+number asks the same question of every kind of ground. What kind a way is decides what has to be clear of
+its line (TER-4c.2) and never who may claim it.
 
-**What kind a way is decides what has to be clear of its line and nothing else** — half a car on anything
-the traffic drives, half a body on anything it walks (TER-4c.2). It never decides who may claim: a person in
-a lane, a car on a kerb and a bollard on a verge are the same kind of fact to the ground under them.
-
-**The table of crossings is therefore indexed by way and not by movement.** A connector is only ever driven
-over another connector, because the lanes hand over clear of the box (TER-5d) — so every lane's row is
-empty and the table reads as the junction table it began as. What needs the wider index is a way laid
-*along* a street rather than across a box: the line into a parking bay leaves its lane part-way along and
-sweeps the lane running back the other way, and a table that could only name connectors could not say which
-ground that was.
+**The table of crossings is therefore indexed by way and not by movement.** Through a box a connector is only
+ever driven over another connector, the lanes handing over clear of it (TER-5d); what needs the wider index is
+a way laid *along* a street — the line into a parking bay leaves its lane part-way along and sweeps the lane
+running back the other way.
 
 **A person in a lane is a body like any other and carries a reading of its own.** It cuts the road a driver
 is granted exactly as a car standing there would; it is waited behind while it is moving, and once it has
-come to rest it is an obstruction rather than traffic. **What keeps a
-swerve off it is the ground it holds and never a name it is refused by** — its own claim carries
-a margin (`PER-26`), and a template laid over that stretch is refused by the same test that refuses one
-over a wreck. Naming a second rule to refuse the same movement would make the first useless (SIM-7).
+come to rest it is an obstruction rather than traffic. **What keeps a swerve off it is the ground it holds
+and never a name it is refused by** — it holds its true extent and the asker keeps its own margin off it
+(TER-5c.2), and a template laid over that stretch is refused by the same test that refuses one over a wreck. Naming a second rule to refuse the same movement would make the first useless (SIM-7).
 
-**A body's own claim is the one thing that is never held against it.** An occupant is an index into one
-of two rosters and the stretch carries which, so a car excluding itself by number does not also excuse the
-walker that happens to hold the same number.
-
-**A crossing is carriageway and not a unit**, on both sides. A car has the stretch of its own lane, which is
-the same stretch the rest of its road is and is claimed where the rest of its road is claimed — on the road,
-once. A walker has what its own box covers of every way beneath it, the lane included, at p0 and at no other
-rank (`PER-26`). **The paint refuses nobody**: the two sides of it are held apart by the answer that holds
-the rest of the town apart, which is a body cutting the grant that runs over it (TER-5e).
+**A body's own claim is the one thing that is never held against it**, and an occupant is always named with
+its roster (`LaneOccupancy.Is`).

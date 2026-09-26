@@ -21,10 +21,10 @@ namespace TrafficSimulation.World.Foot;
 /// stride away.
 /// </para>
 /// <para>
-/// <b>Every stretch has a lane each way, and the offset is one figure for the whole stretch</b> (WLK-8):
-/// a quarter of the band, which is the middle of the half of it that direction is walked down. Nothing
-/// asks the ground about it — a way is placed where a way may be (WLK-1a), so a reading of the terrain
-/// under it could only take away pavement the town says is there.
+/// <b>Every stretch of the fine graph is one lane, and its offset is nought</b> (WLK-1, WLK-8,
+/// <see cref="LaneOffsets"/>): the line the graph holds was struck at the lane's own distance by the move
+/// that laid the town's pavement, so nothing is left here to move it by and nothing asks the ground about
+/// it.
 /// </para>
 /// </remarks>
 internal sealed class WalkingNetwork
@@ -121,8 +121,8 @@ internal sealed class WalkingNetwork
 
     /// <summary>
     /// <b>The length of the line a walker going this way is actually held on</b>, which is not the
-    /// stretch's own: a lane is offset a quarter of the band, so it is longer than the kerb outside a bend
-    /// and shorter inside one. Everything measured along a lane — a place on it, a stretch of it somebody
+    /// stretch's own: the corners at its two ends come off it and the corner it carries goes on
+    /// (<see cref="Carrying"/>). Everything measured along a lane — a place on it, a stretch of it somebody
     /// has taken — is in these metres.
     /// </summary>
     public float LaneLengthM(int edge) => _lanes.LengthM[edge];
@@ -161,14 +161,14 @@ internal sealed class WalkingNetwork
 
     /// <summary>
     /// <b>The line a walker going this way down this stretch is actually held on</b>: the stretch's own
-    /// curve moved to the lane its own side asks for, <b>with the corner off the end of it where that
+    /// curve cut to the ground its mitres leave it, <b>with the corner off the end of it where that
     /// corner is not a choice</b> (<see cref="TailOf"/>).
     /// </summary>
     /// <remarks>
-    /// The graph carries the pavement's centreline and the offset is this network's, so a reader that took
-    /// the graph's chain would be drawing a lane nobody walks. Laid once with the town rather than offset
-    /// into a caller's span: every caller wanted the same line, and the span each brought had a bound on it
-    /// past which a long stretch came back empty.
+    /// The graph's own chain is the lane before its corners are cut and carried, so a reader that took it
+    /// would be drawing ground no walk covers at the two ends. Laid once with the town rather than into a
+    /// caller's span: every caller wanted the same line, and the span each brought had a bound on it past
+    /// which a long stretch came back empty.
     /// </remarks>
     public ReadOnlySpan<ArcSeg> LaneOf(int edge) => _lanes.Of(edge);
 

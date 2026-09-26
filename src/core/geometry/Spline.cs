@@ -243,8 +243,9 @@ internal static class Spline
     /// <remarks>
     /// An offset arc subtends the angle its parent does, so it is shorter on the inside of a bend and
     /// longer on the outside: the parent's <c>k·L</c> is preserved and the radius moves by the offset.
-    /// A lane offset at or past the radius of the bend it is on would invert the curve, and the plan
-    /// cannot produce one — a road's own lanes sit a quarter of its width from its centre.
+    /// An offset past the radius of the bend it is on inverts the piece, which comes back with a negative
+    /// length (and at the radius exactly, with none): what that is is the caller's to say, and a move of a
+    /// shell's boundary keeps it as the line it is (<see cref="ArcOutset"/>, <c>ArcOutset.Inverted</c>).
     /// </remarks>
     public static void OffsetInto(ReadOnlySpan<ArcSeg> arcs, float offsetM, Span<ArcSeg> into)
     {

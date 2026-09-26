@@ -8,7 +8,7 @@ namespace TrafficSimulation.Bench;
 
 /// <summary>
 /// <b>What every town this build opens has to keep while it runs</b>, whichever map it is: nothing is
-/// left inside anything else (`PHY-1`), and no car stands still that nothing is timing.
+/// left inside anything else (`PHY-1`), and nobody goes on into ground it was refused (`TER-4c.1`).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -17,11 +17,10 @@ namespace TrafficSimulation.Bench;
 /// this panel cannot disagree about what being stuck is.
 /// </para>
 /// <para>
-/// <b>The arrivals are quoted and never gated</b>, because what a town is able to arrive at is a fact
-/// about that map: the proving grounds have nowhere to walk to and the crossings map has nobody to
-/// drive. They are here because they are what makes the two claims worth anything — a town where
-/// nothing ever moves overlaps by nothing and stands nobody unclocked, and would keep both while
-/// modelling none of it.
+/// <b>The readings are quoted and never gated</b>, because how far a town drives and what it costs its
+/// people is a fact about that map. They are here because they are what makes the two claims worth
+/// anything — a town where nothing ever moves overlaps by nothing and trespasses nowhere, and would keep
+/// both while modelling none of it.
 /// </para>
 /// </remarks>
 internal sealed class TownWatch : ScenarioWatch
@@ -129,10 +128,9 @@ internal sealed class TownWatch : ScenarioWatch
     /// there was any traffic for the rest of it to be about.
     /// </summary>
     /// <remarks>
-    /// <b>It used to be what arrived</b> — walks completed and bays parked in — and both are structurally
-    /// nought on every town this build lays: there is no walking network and there is no bay
-    /// (<c>docs/index.md#known-gaps</c>). A car touring a lane arrives nowhere, so saying it arrived
-    /// somewhere would be a second answer; what it does do is cover ground, and that is what is printed.
+    /// <b>Ground covered and not arrivals</b>: no town this build lays has a bay (<c>docs/index.md#known-gaps</c>),
+    /// so a car touring a lane arrives nowhere, and saying it arrived somewhere would be a second answer;
+    /// what it does do is cover ground, and that is what is printed.
     /// </remarks>
     public float DrivenM { get; private set; }
 

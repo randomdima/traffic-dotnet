@@ -5,9 +5,9 @@ using TrafficSimulation.Core.Config;
 namespace TrafficSimulation.World.Statics;
 
 /// <summary>One rectangle of a roof's own walls, in the picture's axes and measured off the picture.</summary>
-/// <param name="AtM">Its middle, from the middle of the footprint, <c>+y</c> being the door's side.</param>
 internal sealed class BuildingPartFile
 {
+    /// <summary>Its middle, from the middle of the footprint, <c>+y</c> being the door's side.</summary>
     public required Vector2 AtM { get; init; }
 
     public required Vector2 SizeM { get; init; }

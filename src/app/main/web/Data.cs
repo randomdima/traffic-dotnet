@@ -17,11 +17,11 @@ namespace TrafficSimulation.App.Main;
 /// </para>
 /// <para>
 /// <b>What the menu needs, and then what a town needs.</b> <see cref="Boot"/> fetches the papers — the
-/// catalogues, the figures, the ground the menu is drawn over — and that is the whole of what stands
-/// between a page opening and a menu on it. <see cref="Art"/> fetches the sheets, and it is called
-/// when the first map is picked, because a menu draws glyphs and quads and not one sprite. It is the
-/// difference between a page that waits on three hundred files and a page that waits on a hundred and
-/// fifty small ones.
+/// map listing, the figures and every city's brief — and that is the whole of what stands between a page
+/// opening and a menu on it. <see cref="Art"/> fetches the catalogues and the sheets, and it is called
+/// for the first town opened, after the first frame, because a menu draws glyphs and quads and not one
+/// sprite. It is the difference between a page whose menu waits on one archive and a page whose menu
+/// waits on a handful of small files.
 /// </para>
 /// <para>
 /// <b>No town crosses the wire at all.</b> A city is generated from a brief of a few hundred bytes and a
@@ -102,7 +102,7 @@ internal static class Data
 
     /// <summary>
     /// Everything the town itself is read and drawn from — the catalogues, the variant files and the
-    /// sheets — into the file system and decoded, once. <b>Called when a map is picked and not at
+    /// sheets — into the file system and decoded, once. <b>Called when a town is opened and not at
     /// boot</b>: nothing the menu draws is a sprite and nothing it reads is a catalogue.
     /// </summary>
     /// <remarks>
@@ -145,7 +145,7 @@ internal static class Data
     /// </summary>
     /// <remarks>
     /// <b>The menu waits for nothing, and that includes an unawaited fetch.</b> Three megabytes on the
-    /// same wire as the two small files a menu stands on is a menu that comes up later, so the archive
+    /// same wire as the few small files a menu stands on is a menu that comes up later, so the archive
     /// is not asked for until there is something to look at.
     /// </remarks>
     public static void ExpectArt()

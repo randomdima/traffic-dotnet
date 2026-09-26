@@ -52,11 +52,12 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// covered since they were taken rather than carried.
 /// </para>
 /// <para>
-/// <b>A body takes ground on the ways it drives and on no others</b> (TER-5c.1). Inside a junction two ways
-/// run over one piece of the world, and what settles that is a table filled once from the lines themselves
-/// (<see cref="WayCrossings"/>): a driver looks its own way up and reads the metres named there in the
-/// crossed way's own claims, so its grant is cut by ground it will never be on without its ever having
-/// written to it (<see cref="WhereTheGroundIsCrossed"/>). <b>A claim is stated in one way's metres and
+/// <b>A body takes ground on the ways it drives and stands on, and on no others</b> (TER-5c.1). Inside a
+/// junction two ways run over one piece of the world, and what settles that is a table filled once from the
+/// lines themselves (<see cref="WayCrossings"/>): a stretch is weighed against the crossed way's own claims at
+/// the metres named there as it is laid (<see cref="LaneOccupancy.AcrossTheWays"/>), and a driver's nose is
+/// cut short of the first crossing whose ground binds it (<see cref="WhereTheGroundIsCrossed"/>) — so its
+/// grant is cut by ground it will never be on without its ever having written to it. <b>A claim is stated in one way's metres and
 /// means something about the whole town</b>, which is what makes one body to a piece of ground true across a
 /// box and not only along a lane.
 /// </para>
@@ -66,7 +67,7 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// beneath the body instead.
 /// </para>
 /// <para>
-/// <b>The claims are laid in four passes and this file holds the shape of it</b>: what each of them writes is
+/// <b>The claims are laid in passes and this file holds the order of them</b>: what each of them writes is
 /// the walkers' (<see cref="StandInTheRoad"/>), the ground every body stands on
 /// (<see cref="PlaceTheBody"/>), the crossings of a junction (<see cref="PlaceTheCrossing"/>) and
 /// the ask and the answer (<see cref="AskForTheGround"/>), each in the file its own name says.
@@ -78,7 +79,7 @@ internal sealed partial class TownWorld
     /// How many ways one line may be cut into: every lane it is laid over, the join between each pair, and
     /// the one way at a bay it may finish on. A bound on a stack span and not a figure behaviour reads.
     /// </summary>
-    const int MostWaysAlongALine = (LineAssembler.MostLanes * 2) - 1 + 1;
+    public const int MostWaysAlongALine = (LineAssembler.MostLanes * 2) - 1 + 1;
 
     /// <summary>
     /// How many stretches a car under way may put in the index at once <em>on the road it is driving</em>:
@@ -146,27 +147,28 @@ internal sealed partial class TownWorld
     /// <para>
     /// <b>Nothing here is sized by the ways a car is driven <em>over</em></b> (TER-5c). A car takes ground
     /// on the ways it drives and on those it stands on; where its line crosses another way it stands on
-    /// none of, the grant is cut by looking that way up (<see cref="WhereTheGroundIsCrossed"/>) rather than
-    /// by writing a stretch onto it.
+    /// none of, its stretch is settled against that way's claims as it is laid
+    /// (<see cref="LaneOccupancy.AcrossTheWays"/>) and its grant is cut by looking that way up
+    /// (<see cref="WhereTheGroundIsCrossed"/>), rather than by writing a stretch onto it.
     /// </para>
     /// </remarks>
     static int MostSlotsPerCar(in RoadWays roads, WayCrossings crossings, in BayNetwork bays) =>
         MostSlotsPerDrivingCar + crossings.MostOwnRuns + 1 + MostLyingRowsPerCar(roads, bays);
 
     /// <summary>
-    /// How many claims one walker may lay on the <em>road</em>: the bands of a crossing it is
-    /// standing on and the one in front of it, which at worst is every lane the crossing is painted
-    /// across — or, standing on bare tarmac, every way of the road the place is under
-    /// (<see cref="TheRoadsGroundUnder"/>), since a body in a junction is on the joins that run beneath it
-    /// and a body in a bay is on that bay's ways, like anything else.
+    /// How many claims one walker may lay on the <em>road</em>: every way of the road the place it stands on
+    /// is under (<see cref="TheRoadsGroundUnder"/>), since a body in a junction is on the joins that run
+    /// beneath it and a body in a bay is on that bay's ways like anything else — <b>and the band of every
+    /// lane a crossing it is walking is painted across</b> (PER-27).
     /// </summary>
     /// <remarks>
-    /// Never less than one, because a town with no paint on it still has people who can stand in a road —
-    /// and a dropped stretch here is a body no driver's grant is cut at.
+    /// <b>A sum and not the wider of the two</b>: a body on a zebra is standing on the lane under it and
+    /// reserving its way to the far kerb at the same moment. Never less than one lane's worth, because a town
+    /// with no paint on it still has people who can stand in a road — and a dropped stretch here is a body no
+    /// driver's grant is cut at.
     /// </remarks>
     static int MostRoadSlotsPerWalker(in RoadWays roads, in BayNetwork bays, LaneFurniture furniture) =>
-        Math.Max(
-            Math.Max(1, furniture.MostLanesUnderACrossing), MostWaysUnderAPlaceOnTheRoad(roads, bays));
+        MostWaysUnderAPlaceOnTheRoad(roads, bays) + Math.Max(1, furniture.MostLanesUnderACrossing);
 
     /// <summary>
     /// <b>The index rebuilt from the bodies</b>, in phase 2, before any driver has decided anything. Every
@@ -220,8 +222,8 @@ internal sealed partial class TownWorld
             CloseTheRoad(car);
         }
 
-        // <b>And what every walker says it is walking at, at p9</b> (PER-26), between the drivers' asks and
-        // their grants. A statement is the weakest hold there is, so it goes in after every body and every
+        // <b>And what every walker says it is walking at, at p12</b> (PER-26), between the drivers' asks and
+        // their grants. A statement is in the weakest band there is, so it goes in after every body and every
         // ask. <b>It is stated on the pavement and on nothing else</b>: a walker's statement buys it no
         // standing on a carriageway, there being nothing on this side of the town that grants one.
         for (var person = 0; person < People.Count; person++) StateThePavementAhead(person, walk);
@@ -231,6 +233,18 @@ internal sealed partial class TownWorld
         // And every claim left holding the answer rather than the question (TER-4c.1), which is what every
         // reader after this rebuild — the junction gate above all — is entitled to find in it.
         for (var car = 0; car < Cars.Count; car++) CutTheGroundToTheGrant(car, ways);
+
+        // <b>And the ladder read along each hold once every metre of it is settled</b> (TER-5g.1). It is the
+        // last pass because it is the only one that can be: the rung the road to a box is worth is the rung
+        // the box is worth, and whether the car was granted the road in between is the answer above.
+        for (var car = 0; car < Cars.Count; car++) LevelTheRungToTheBox(car, ways);
+
+        // <b>And last of all, the crossings the walkers want</b> (PER-27). A reservation refuses nobody, so
+        // nothing laid above this reads one and laying it here costs the traffic nothing — and what it buys
+        // is that <em>whether it went in</em> is an answer about the settled town rather than about whoever
+        // happened to have been written before it. It is the one claim on this side of the town that is
+        // answered, and the answer is the whole of what a walker waits on (SIM-7).
+        for (var person = 0; person < People.Count; person++) ReserveTheCrossing(person);
     }
 
     /// <summary>
@@ -272,7 +286,7 @@ internal sealed partial class TownWorld
     /// the line over a lane is that lane's own arcs from its own first metre, so a stretch carried across is
     /// the same stretch of the same bending ground and not a chord over it.
     /// </remarks>
-    int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into)
+    public int WaysAlong(int car, float fromLineM, float toLineM, Span<LineWay> into)
     {
         // A line that <em>is</em> one of the town's ways — a bay's way out — is that way and no other, and
         // its metres are the line's own: there is no chain under it and no setback to carry across.
@@ -387,25 +401,31 @@ internal sealed partial class TownWorld
     /// are held apart by the road each was granted and neither gives way to the other — and a way laid off
     /// the road is a car joining the traffic rather than one crossing it, which is ordinary traffic too.
     /// </remarks>
-    RightOfWay RightOfWayOn(int way) =>
+    ClaimPriority FirmOn(int way) =>
         _ways.KindOf(way) == WayKind.Connector
-            ? _roads.RightOfWayOfConnector(_ways.RoadConnectorOf(way))
-            : RightOfWay.Traffic;
+            ? _roads.FirmOnConnector(_ways.RoadConnectorOf(way))
+            : ClaimPriority.Firm;
 
     /// <summary>
     /// <b>The same question asked of a named car</b>, which is the one place a blue light gets into the
-    /// road (AMB-4): an ambulance answering a call holds every stretch it asks for with
-    /// <see cref="RightOfWay.Emergency"/>, whichever way it is on.
+    /// road (AMB-4): an ambulance answering a call holds every stretch it asks for at
+    /// <see cref="ClaimPriority.Special"/>, whichever way it is on.
     /// </summary>
     /// <remarks>
-    /// <b>It replaces the movement's rank rather than adding to it</b>, and that is the point: a rescue
+    /// <b>It replaces the movement's rung rather than adding to it</b>, and that is the point: a rescue
     /// turning across the oncoming stream is not a turn that gives way, and one going straight on is not
-    /// merely ordinary traffic. What the rank still cannot take is a body or the road a body is committed
-    /// to (<see cref="LaneOccupancy.Binds"/>), so the priority is absolute over who waits and over nothing
-    /// else.
+    /// merely ordinary traffic. What the rung still cannot take is a body or the road a body is committed
+    /// to (<see cref="LaneOccupancy.Binds"/>), so it is absolute over who waits and over nothing else.
     /// </remarks>
-    RightOfWay RightOfWayOf(int car, int way) =>
-        Cars.BlueLight[car] ? RightOfWay.Emergency : RightOfWayOn(way);
+    ClaimPriority FirmOf(int car, int way) =>
+        Cars.BlueLight[car] ? ClaimPriority.Special : FirmOn(way);
+
+    /// <summary>
+    /// <b>And the rung the same car states that ground at</b> (TER-5g): the granted one read in the stated
+    /// band, which is where a statement is compared from (<see cref="LaneOccupancy.SaidAhead"/>).
+    /// </summary>
+    ClaimPriority SoftOf(int car, int way) =>
+        (ClaimPriority)(FirmOf(car, way) + (ClaimPriority.SoftSpecial - ClaimPriority.Special));
 
     /// <summary>One way written into a caller's span, as the count of them it now holds.</summary>
     static int Written(Span<LineWay> into, in LineWay way)

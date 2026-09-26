@@ -3,6 +3,13 @@
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md) and
 [solver.md](solver.md).
 
+## 2026-09-26 — rules reworded to what the code does
+
+The owner ruled the code the source of truth for this audit.
+
+- `PHY-5b`: a casualty is moved by being taken aboard at an ambulance's standoff (`AMB-10`), not dragged by
+  a stretcher crew.
+
 ## 2026-09-07 — how the solver is written is the project's rule, not the solver's
 
 `SOL-27`…`SOL-34` named structure of arrays, spans, `Vector2`, one thread and no LINQ — which is
@@ -33,12 +40,9 @@ driver inside a wreck no ambulance can reach (`AMB-7`).
 
 ## 2026-08-26 — the circle stopped being a shape
 
-`SOL-1` said two shapes and says one: a disc is a rounded box with no core, so `ShapeKind` is gone.
-`Collide`'s three branches are not three shapes — the general path answers every pair correctly and the
-two closed forms are kept because they cover most of a town's narrow phase.
-`TheDiscShortcutsAgreeWithTheGeneralShape` holds them together over forty thousand pairs. The one honest
-wrongness is rotational
-inertia, unreachable because every coreless body here is rotation-locked, and it is said on the method.
+`SOL-1` said two shapes and says one: a disc is a rounded box with no core, so `ShapeKind` is gone. The
+general path answers every pair and the two closed forms are kept because they cover most of a town's narrow
+phase; `TheDiscShortcutsAgreeWithTheGeneralShape` holds them together over forty thousand pairs.
 
 ## 2026-08-26 — a car is collided as its picture, not as the rectangle the picture was drawn in
 
@@ -62,10 +66,8 @@ real distance.
 
 ## 2026-08-21 — going into a container no longer marks the moving index stale
 
-`Contain` rebuilt the whole moving grid mid-phase for a body that had merely had a bit cleared. Every
-reader of that index already tests the bit, so the stale entry is filtered rather than found.
-`IntegratedBodyCount` was retaking its census as a side effect of the rebuild and is now kept where it
-changes. Coming back out still marks it: a released body stands somewhere new.
+`Contain` rebuilt the whole moving grid mid-phase for a body that had merely had a bit cleared; every reader
+already tests the bit, so the stale entry is filtered rather than found. Coming back out still marks it.
 
 ## 2026-08-19 — the solver stopped being a package
 

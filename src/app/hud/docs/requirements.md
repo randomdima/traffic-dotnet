@@ -14,36 +14,32 @@ entry names something that exists, and everything that exists appears in the lis
 
 The maps are cut into two collapsible groups — the places, and the scenarios laid to put one behaviour
 under a microscope. **Which of them a menu opens on is a property of which menu it is.** The popup under
-the gear opens on the places alone: a menu of two cities should not read as a menu of two cities and a
-laboratory, and a mis-click on the row under a city should not lose somebody's game. **The start menu opens
-on both** (`GEN-1b`) — nothing is running behind it, so a mis-click costs nobody a game, and reading the
-whole catalogue is what somebody is at it for.
+the gear opens on the places alone: a menu of cities should not read as a menu of cities and a laboratory,
+and a mis-click on the row under a city should not lose somebody's game. **The start menu opens on both**
+(`GEN-1b`): nothing is running behind it, and reading the whole catalogue is what somebody is at it for.
 
-**OBS-2n** `P7` **A map picked says so until it is standing.** Opening one is a plan read, a ground laid and a
-fleet stood up — and in a page a fetch before any of that — so the click is answered by a card in the
+**OBS-2n** `P7` **A map picked says so until it is standing.** Opening one is a plan laid from its brief, a
+ground laid and a fleet stood up — and in a page a fetch before any of that — so the click is answered by a card in the
 middle of the window naming the map, from the press until the town it names is running.
 
-- **The frame that took the click draws the card and opens nothing.** A town stood up inside that frame
-  would be the whole wait spent behind the frame before it, and what the reader would see is a picture that
-  stopped answering. What acts on the name is the loop's next turn, or in a page the boot's own wait.
+- **The frame that took the click draws the card and opens nothing.** What acts on the name is the loop's
+  next turn, or in a page the boot's own wait.
 - **No frame waits for the open, on either head.** The window keeps pumping, the town already standing
-  keeps ticking and the card keeps being drawn for as long as the open takes — a run that stops answering
-  its window for the seconds a town takes to lay is one the desktop reports as hung. **Only what the
-  device owns may be done in the frame**: laying a plan, a ground and a fleet touches neither the device
-  nor the town on screen, so a head with threads does it on one of its own.
-- **It names the map and claims nothing about how far along it is.** The stages of an open are not the
-  same two things on the two heads — a fetch, against a lay — so a bar or a spinner would be measuring
-  one head's work in the other's units, and a card that moved in a page and froze on the desktop would be
-  two pieces of furniture wearing one name.
+  keeps ticking and the card keeps being drawn — a run that stops answering its window for the seconds a
+  town takes to lay is one the desktop reports as hung. **Only what the device owns may be done in the
+  frame**: laying a plan, a ground and a fleet touches neither, so a head with threads does it on one of
+  its own.
+- **It names the map and claims nothing about how far along it is**: the two heads wait for different
+  things — a fetch against a lay — and a bar would measure one in the other's units.
 - **While it is up it is the whole of the interface.** No panel, button, popup or layer is drawn and
-  nothing takes a click — a map list still standing under the card is a second map waiting to be picked
-  while the first is on the wire, and what arrived while the wait was on is dropped rather than banked.
+  nothing takes a click, and what arrived while the wait was on is dropped rather than banked.
 
 **OBS-2g** `P7` **Escape opens and shuts the settings popup, and the way out of the game is the button inside
 it.** A scene with no such panel keeps Escape as its own way out. The popup holds which map to open, the
 debug switches, the figures a session turns and the ground's own layers (`OBS-2v`), and nothing else — one
-page a question, and the way out standing beside their tabs. **The start menu is the exception and not such a scene** (`GEN-1b`):
-it cannot be shut, so Escape does nothing at it and the way out is the tab that says so.
+page a question, and the way out standing beside their tabs. **The start menu is the exception and not
+such a scene** (`GEN-1b`): it cannot be shut, so Escape does nothing at it and the way out is the tab that
+says so.
 
 **OBS-2e** `P7` **How big the town is, is on screen at all times**: a graduated scale legend in the
 bottom-right corner.
@@ -54,28 +50,23 @@ bottom-right corner.
   standing.
 - **Nothing is drawn behind it or behind any figure its marks write** — a casing and an outline carry
   them against the town instead.
-- It reads the zoom off the viewport transform and metres off the conversion helper, so it is handed
-  nothing and cannot be pointed at the wrong camera.
 
 **OBS-2i** `P8` **What the map on screen claims about itself, and whether it is keeping it, is on screen while
 it runs**: the last section of the status panel, a row a claim with the figures behind its verdict under
 it.
 
-- **It is there on a scenario map and on no other.** A place is a town somebody plays, and a laboratory
-  read-out over a city is a read-out with no question behind it — so on a place the section is not drawn,
-  is not counted in the panel's height and takes no clicks. Which a map is, is the catalogue's answer and
-  not the panel's.
-- **A broken claim is on the line that is always on screen.** The panel is shut by default and so is
-  everything under it, so a count of what is broken goes on the title itself: a town that has broken one
-  of its own claims says so without being asked. Which claim, and on what figures, is what the panel and
-  then the section open to — a scenario is read at two depths. `--ui scenario` opens both.
-- It draws **the run's own watches** (`Bench.ScenarioWatch`) and does no arithmetic of its own, so the
-  section, the table a headless run prints and the tier that asserts on the map are three readings of one
-  machine ([verification](../../../../docs/verification.md#what-a-map-claims-about-itself)).
+- **It is there on a scenario map and on no other.** A laboratory read-out over a city is a read-out with
+  no question behind it, so on a place the section is not drawn, is not counted in the panel's height and
+  takes no clicks. Which a map is, is the catalogue's answer and not the panel's.
+- **A broken claim is on the line that is always on screen**: the panel starts shut, so a count of what
+  is broken goes on the title itself. Which claim, and on what figures, is what the panel and then the
+  section open to; `--ui scenario` opens both.
+- It draws **the run's own watches** (`Bench.ScenarioWatch`) and does no arithmetic of its own — one
+  machine and three readers ([verification](../../../../docs/verification.md#what-a-map-claims-about-itself)).
 - **A claim and a reading are drawn differently and neither is invented here**: a claim carries a verdict
   in the three words the report uses, and a reading carries a figure and no verdict at all.
-- **Nothing here is about one body.** A claim is a statement about the town; what a watch has to say about
-  one unit is a row on that unit's own panel (`OBS-2m`), beside the figures it is a finding about.
+- **Nothing here is about one body.** What a watch has to say about one unit is a row on that unit's own
+  panel (`OBS-2m`).
 
 **OBS-2f** `P7` A distance between two places is measurable **without a rebuild**:
 
@@ -88,51 +79,22 @@ it.
 
 ## The status panel
 
-**The top-left corner is one panel, and its title is furniture.** The rate, the map and the pace are what
-somebody watching a run quotes, so they are on screen from the moment a town is standing and have no
-switch. Under that title, on the title, opens **what the frame cost, where it went, and where the tick's
-own time went under it**.
+**The top-left corner is one panel, and its title is furniture** (`OBS-2`). Under the title, on the title,
+opens **what the frame cost, where it went, and where the tick's own time went under it**; why each of
+these is so is [`StatusPanel`](../StatusPanel.cs)'s own account.
 
-- **It is priced on the same footing as what it measures** (`OBS-2b`). The title is a rate the frame loop
-  measures anyway; **nothing else is stamped while the body is shut**, so a run that did not ask for the
-  partition takes no timestamps at all. The body starts shut.
-- **It quotes two rates and says which is whose.** What the town is drawn at is the display's figure
-  under FIFO and moves not at all with the size of the town; beside it is the rate this build's own
-  work would allow, and **the distance between them is the headroom** — the one thing on the panel that
-  answers whether a town costing twice as much would still be drawn at the same rate. The second is a
-  ceiling on the work and not a promise about the machine: what it leaves out is exactly what the
-  blocked row holds.
-- **It ranks the tick by phase and must account for the frame.** A read-out whose rows do not sum to the
-  thing they are rows of is a read-out nobody can act on: the row somebody is about to go and optimise
-  might be three percent of the frame, and until the rows close there is no way to know it from thirty.
-  What no row claimed is printed as `other` rather than dropped.
-- **It is a per-run instrument and not a per-frame one**: every timing is a window's mean, because a
-  figure that changes sixty times a second cannot be read. The counts beside them are not averaged — a
-  body count is the state of the town rather than a measurement of it.
-- **Each state is one width, and the shut bar is the width of its own line.** A bar sized on the body it
-  hides reached a third of the way across the town to say four words. Both widths are budgets rather than
-  measurements: a panel that grew a character when the rate went from 9 to 10 fps, narrowed as a section
-  collapsed, or widened the moment a claim broke, is a panel that moves while it is being read. **A
-  scenario map is budgeted for its claims in both states**, whether or not any of them is broken or open.
-- **Sections collapse because the panel is read at two depths.** Watching a run wants the frame, its rate
-  and its worst; chasing a row wants ten more lines under it.
-
-**What a map is for shows on the map.** The proving ground carries figures no town has — what each shape
-of road costs each drivetrain — drawn as a panel of their own under the status panel, one collapsible
-section per shape:
-
-- It is **a debug switch like the layers** and it shows on the proving ground and nowhere else: every other
-  map is a town, and a town has no shapes to name. **It is the one switch that starts on**, because it draws
-  the only thing that map is for and a rig whose read-out has to be found in a settings panel is a rig
-  nobody reads.
-- It reads the same instrument `--bench track` prints (`Bench.TrackMetrics`) and does no arithmetic of its
-  own. A second implementation would be a second answer, and the two disagreeing is not something anybody
-  could settle by looking at the track.
-- **The header carries the figure and the rows carry the account of it**, because the panel is read at two
-  depths: watching the lap wants the top speed of each shape, and asking why one drivetrain is slower wants
-  four more lines under it.
-- **Where it starts is handed to it** by the panel above it, which changes height as its body opens. A
-  figure copied from that panel stops being that panel's the first time it grows a row.
+- **It is priced on the same footing as what it measures** (`OBS-2b`): nothing but the rate is stamped
+  while the body is shut, and the body starts shut.
+- **It quotes two rates and says which is whose** — what the town is drawn at, and what this build's own
+  work would allow — and **the distance between them is the headroom**.
+- **Its rows sum to what they are rows of**, and what no row claimed is printed as `other` rather than
+  dropped.
+- **It is a per-run instrument and not a per-frame one**: every timing is a window's mean, and the counts
+  beside them are not averaged.
+- **Each state is one width, and the shut bar is the width of its own line.** Both are budgets rather
+  than measurements, so the panel does not move while it is read — and **a scenario map is budgeted for
+  its claims in both states**, whether or not any of them is broken or open.
+- **Sections collapse, because the panel is read at two depths.**
 
 ## The unit read-out
 
@@ -142,54 +104,46 @@ fast, what is claimed in front of it, how much room that leaves, how much of its
 the run's watches have against it.
 
 - **Nothing about a unit is written on the town** (`CTL-1`). What stands at the unit is the mark and only
-  the mark: a shape says which one, and words beside a car cover the ground the car is about to drive over.
-  Which unit the corner means is never in doubt, because the brackets are on it and the camera can be
-  stood on it (`OBS-1a`).
+  the mark, and which unit the corner means is never in doubt, because the brackets are on it and the
+  camera can be stood on it (`OBS-1a`).
 - **A group is counted, not described** (`CTL-1b`): how many of each kind, and nothing else.
-- **It does not need the unit on the picture.** Somebody indoors or riding is not drawn and wears no
-  brackets (`PHY-7`), and a unit the camera has been panned off has nothing on screen either — this still
-  says what it is doing and where.
+- **It does not need the unit on the picture.** Somebody indoors or riding is not drawn (`PHY-7`), and a
+  unit the camera has been panned off has nothing on screen either — this still says what it is doing and
+  where.
 - **Every figure is read off the body and none is worked out here**, and the words for both kinds are their
-  own slices' (`Car.Control.DrivingWords`, `Person.Control.WalkingWords`). A panel doing its own arithmetic
-  is a second opinion drawn beside the first.
+  own slices' (`Car.Control.DrivingWords`, `Person.Control.WalkingWords`).
 - **It appears with a selection rather than with a switch**, and its title shuts the body like the status
-  panel's. A read-out about a unit is already something somebody asked for by picking that unit out.
+  panel's.
 
 ## The popups hang off the buttons that open them
 
-There are two buttons in the top-right corner and a popup under each: the gear opens the menu, and the
-question mark opens the control legend. Both obey the same three rules.
+The gear opens the menu and the question mark opens the control legend, each in a popup under its own
+button. Both obey the same three rules.
 
 - **A popup opens under its own button and is aligned to that button's trailing edge**, so what was
-  pressed and what appeared are visibly the same thing. One site decides that for both. **It reaches no
-  further than half way down the window**: one running from the corner button to the bottom edge is the
-  full-screen panel it replaced, over the very town its rows are questions about. A page longer than that
-  **scrolls**, and the ceiling never cuts into what the switch page needs whole, since those rows are laid
-  at a pitch rather than scrolled.
-- **The button that opens it shuts it**, and so does a click anywhere off the panel, and so does Escape.
-  There is no close button inside a popup: a panel with two ways to shut it teaches neither.
-- **The start menu obeys none of these three** (`GEN-1b`, `Menu.AtTheStart`). It is the same panel and the
-  same rows, but it is the screen rather than furniture beside a town: it stands in the middle of the
-  window at **one size whatever is open in it**, it carries one page and so no tab strip — the way out
-  stands on the title's own line — its map names are written a size larger and their descriptions wrap, it
-  opens on both groups, it cannot be shut, and the two corner buttons and the read-out are not drawn under
-  it. **The popup is as tall as its page and this one is as tall as the field it stands in**, which is why
-  it is the one panel here that can be showing fewer rows than it has room to draw.
+  pressed and what appeared are visibly the same thing; one site decides that for both. **It reaches no
+  further than half way down the window** — one running to the bottom edge is a panel over the very town
+  its rows are questions about — and a page longer than that **scrolls**. The ceiling never cuts into what
+  the switch page needs whole, since those rows are laid at a pitch rather than scrolled.
+- **The button that opens it shuts it**, and so do a click anywhere off the panel and Escape. There is no
+  close button inside a popup: a panel with two ways to shut it teaches neither.
 - **A popup is not a mode.** The town keeps its keys and its camera while one is up; only the wheel is
   taken, and only while the pointer is over the panel. A click off an open popup shuts it and is **taken**
-  — dismissing a panel and selecting the car that happened to be under the pointer are two intentions, and
-  one click is one of them.
+  — dismissing a panel and selecting the car under the pointer are two intentions, and one click is one of
+  them.
+
+**The start menu obeys none of these** (`GEN-1b`, `Menu.AtTheStart`). It is the same panel and the same
+rows, but it is the screen rather than furniture beside a town: it stands in the middle of the window at
+**one size whatever is open in it**, carries one page and so no tab strip — the way out stands on the
+title's own line — writes its map names a size larger and wraps their descriptions, opens on both groups,
+cannot be shut, and has neither the gear, the question mark nor the unit read-out drawn under it.
 
 **A list that scrolls is dragged as well as wheeled, and a row is opened on the way up.** A handset has no
-wheel to take (`CTL-9`), so a page longer than the panel would otherwise be a list nothing could reach the
-bottom of — and the gesture that reaches it is the one the town already answers: **a press starts a
-gesture rather than picking** (`CTL-1b`), the rows follow the pointer while it is down, and the row the
-press landed on is opened when it comes up without having travelled. It is the same travel that tells a
-drag from a click on the road, so a tap means one thing wherever it lands.
-
-**The rows come and go whole.** A list whose descriptions wrap has no pitch to divide a scroll in pixels
-by: what a drag has travelled is held and spent as each row's own height goes by, and what is left over at
-either end of the list is dropped rather than banked.
+wheel (`CTL-9`), and the gesture is the one the town already answers: **a press starts a gesture rather
+than picking** (`CTL-1b`), the rows follow the pointer while it is down, and the row the press landed on
+is opened when it comes up without having travelled — the same travel that tells a drag from a click on
+the road. **The rows come and go whole**: what a drag has travelled is spent as each row's own height goes
+by, and what is left over at either end of the list is dropped rather than banked.
 
 **The control legend is its own popup and not a page of the menu.** The menu is where somebody goes to
 change something; the legend is where they go to find out what a key does, and a legend behind a tab of
@@ -203,9 +157,8 @@ into each other.
 ## The interface is in the window's own pixels
 
 The panels, the legend and the ruler's figures are laid in window pixels and not in world space, so a
-zoom does not resize the interface and a scale factor does not have to be threaded through every
-measurement. A pointer position is converted **once**, at the boundary, and everything downstream is in
-one space. A turned town does not turn them either (`OBS-1c`): they are the reader's furniture.
+zoom does not resize the interface and a turned town does not turn it (`OBS-1c`). A pointer position is
+converted **once**, at the boundary, and everything downstream is in one space.
 
 **OBS-2k** `P7` **A label is drawn at the size it was designed, and it is the panel that gives way.** How dense an
 interface pixel is drawn is the display's own factor — a 4K screen would otherwise write a 15-pixel label
@@ -214,17 +167,15 @@ two thirds. **Where a panel wants more room than the window has, the panel is la
 density is left where the display put it.
 
 - **The floor under it is the narrowest window the panels are still laid out for**, not the width they
-  would like: below that the interface is laid denser than the display asked, on the argument that a label
-  drawn under a pixel a glyph is not a label. It is a size in interface pixels and not a device to detect —
-  a handset and a desktop window dragged down to a strip are the same problem and get the same answer — and
-  **both sides bind**, so a window held either way up is fitted by whichever of them is short.
+  would like: below that the interface is laid denser than the display asked, since a label drawn under a
+  pixel a glyph is not a label. It is a size in interface pixels and not a device to detect, and **both
+  sides bind**, so a window held either way up is fitted by whichever of them is short.
 - **An ordinary window never reaches it**, which is what keeps a reference frame the picture it was.
 - **`--ui-scale` is not floored either.** Naming one at all says the guess underneath was wrong, and a
   figure asked for and then quietly moved is a switch that does nothing.
 - **The town is unaffected.** The camera opens on a span in metres, so what changes is how much of the
   window the chrome is worth and nothing about what is being looked at.
-- **And no panel is ever wider than the window.** A panel as wide as its own widest row is still laid to
-  the window when the window is narrower than that: what does not fit is cut where the line is drawn, or
+- **And no panel is ever wider than the window.** What does not fit is cut where the line is drawn, or
   wrapped where the panel wraps, and reads as a line with more behind it.
 
 **OBS-2l** `P7` **The window fills the screen from a button as well as from a key.** `F11` is the key and it is on
@@ -232,17 +183,8 @@ the legend; the button is the same lever for a reader who has not got one, which
 reader — and a handset is where it is worth most, since the browser's own furniture is a third of a screen
 that is already small.
 
-- **It is the one corner button drawn under the start menu** (`GEN-1b`), and it stands in the corner there.
-  The gear and the question mark are about a town and there is none yet; this is about the window a town
-  will stand in, and the screen is at its smallest exactly while somebody is choosing on it.
-- **It says nothing about its own state**, where the other two say whether their popup is showing. A popup
-  is hidden behind its button; a window filling the screen is the thing being looked at.
-
-## Rebuilding a town
-
-- **Clear and refill the rosters rather than replacing them** — the overlay, the player control and every
-  debug rig hold those very list instances.
-- **A generation failure replaces nothing**: the message goes to the panel and the town on screen keeps
-  running (GEN-8).
-- A rebuild tells the ruler only that the town has changed; its two points are world coordinates on a
-  town that no longer exists.
+- **It is the one corner button drawn under the start menu** (`GEN-1b`), and it stands in the corner there:
+  the gear and the question mark are about a town and there is none yet, and the screen is at its smallest
+  exactly while somebody is choosing on it.
+- **It says nothing about its own state**, where the other two say whether their popup is showing: a
+  window filling the screen is the thing being looked at.

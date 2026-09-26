@@ -67,8 +67,8 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// <b>And a car with nobody in it is stood down rather than left driving</b> (CAR-1). The hand was the
     /// whole of what was choosing for it, so a leg still in hand once the hand is gone is a car driving
-    /// itself somewhere for no reason at all. A service vehicle is not one of those — its crew is out
-    /// working and its errand is still choosing (AMB-10, SRV-3).
+    /// itself somewhere for no reason at all. A service vehicle is not one of those — its errand is still
+    /// choosing (SRV-3).
     /// </remarks>
     public void ReleaseOrderOfCar(int car)
     {
@@ -112,7 +112,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>One decision of a car under orders</b>, taken before the driver's own and in place of whatever
-    /// errand the vehicle would otherwise be running — the same seam a rescue's crew decides at.
+    /// errand the vehicle would otherwise be running — the same seam a rescue decides at.
     /// </summary>
     /// <remarks>
     /// <b>A hand at the wheel suspends it</b> (S-7): the wheel substitutes the whole behaviour concern and
@@ -135,7 +135,7 @@ internal sealed partial class TownWorld
 
             case PlayerOrder.ParkAndWalkThere:
                 // <b>The driving is the whole of it while nobody is in a car</b> (CTL-8b): what would carry
-                // the rest of the order is the driver walking, and no leg of a trip is driven (PER-25). It
+                // the rest of the order is the driver walking, and no leg of a trip is driven (PER-11). It
                 // is named in the known gaps rather than quietly a second park-there.
                 if (!Cars.Driven[car]) _carOrders.Done(car);
                 return;
@@ -159,7 +159,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// And the arrival: at rest, near enough to the place to be said to have got there. <b>Every other way
-    /// a leg can end finishes the order too</b> (CTL-4) — settled, abandoned or given up, an order that has
+    /// a leg can end finishes the order too</b> (CTL-4) — parked or given up, an order that has
     /// run its recovery idles awaiting the next one instead of being tried again.
     /// </summary>
     void RunToTheOrderedPlace(int car)

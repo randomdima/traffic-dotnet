@@ -236,14 +236,17 @@ internal sealed class RoadGraph : ILaneEnds
     /// generator does not lay (GEN-18).
     /// </para>
     /// </remarks>
-    public RightOfWay RightOfWayOfConnector(int connector) => RightOfWayOf(_lines.ConnectorKind[connector]);
+    public ClaimPriority FirmOnConnector(int connector) => FirmOn(_lines.ConnectorKind[connector]);
 
-    /// <summary>The same, for a caller holding the kind rather than the slot.</summary>
-    public static RightOfWay RightOfWayOf(LaneTurn turn) => turn switch
+    /// <summary>
+    /// The same, for a caller holding the kind rather than the slot — <b>the rung a movement is granted its
+    /// ground at</b> (TER-5e), which is the whole of what "straighter is stronger" comes to.
+    /// </summary>
+    public static ClaimPriority FirmOn(LaneTurn turn) => turn switch
     {
-        LaneTurn.Straight => RightOfWay.StraightOn,
-        LaneTurn.NearSide => RightOfWay.Traffic,
-        _ => RightOfWay.TurningAcross,
+        LaneTurn.Straight => ClaimPriority.FirmStraight,
+        LaneTurn.NearSide => ClaimPriority.Firm,
+        _ => ClaimPriority.FirmAcross,
     };
 
     /// <summary>
@@ -361,9 +364,12 @@ internal sealed class RoadGraph : ILaneEnds
         var alongUnit = on.Direction;
         body.ReachOn(alongUnit, out var alongReachM, out var acrossReachM);
 
+        // <b>Past the end of the way and not merely off the line</b>. A projection is clamped to the way it
+        // is taken on (<see cref="Spline.ProjectM"/>), so a body standing off one end answers at the endpoint
+        // — and measured across the band alone, anything lined up with a way's end is standing on it however
+        // far up the road it really is.
         var offsetM = atM - on.PositionM;
-        var pastTheEndM = MathF.Abs(Vector2.Dot(offsetM, alongUnit));
-        if (pastTheEndM > alongReachM) return false;
+        if (MathF.Abs(Vector2.Dot(offsetM, alongUnit)) > alongReachM) return false;
         // <b>Crossed and not touched</b>: the body's near edge has to be this far inside the band's own edge
         // before it is on the way at all, which is what keeps a wing mirror over the paint out of the next
         // lane's claims. Nought asks the bare question, which is what a walk over ground wants.
@@ -380,7 +386,7 @@ internal sealed class RoadGraph : ILaneEnds
         // asked by whatever travels the line itself.
         var acrossM = Vector2.Dot(offsetM, Heading.RightOf(alongUnit));
         reach = new BandReach(
-            alongUnit, pastTheEndM, acrossM - acrossReachM, acrossM + acrossReachM, backM, aheadM);
+            alongUnit, acrossM - acrossReachM, acrossM + acrossReachM, backM, aheadM);
         return true;
     }
 

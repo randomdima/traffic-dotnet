@@ -38,7 +38,7 @@ internal sealed class TrimFigures
     /// <summary>
     /// The ground's own resistance to a wheel simply going round. <b>It is the only thing a held throttle
     /// settles against</b>: with no speed-squared term in the model, a fixed lock and a fixed pedal come to
-    /// rest where the drive meets this, so it is what a skidpad row's equilibrium is made of.
+    /// rest where the drive meets this, so it is what a car held at one lock and one pedal settles at.
     /// </summary>
     public float RollingResistance { get; set; } = 1f;
 

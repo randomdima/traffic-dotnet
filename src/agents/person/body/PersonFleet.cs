@@ -59,6 +59,9 @@ internal sealed class PersonFleet
         OffWayM = new float[capacity];
         OnCrossing = new int[capacity];
         Array.Fill(OnCrossing, NoCrossing);
+        OnCrossingWay = new int[capacity];
+        Array.Fill(OnCrossingWay, NoWay);
+        WaitsToCross = new bool[capacity];
         GoalM = new Vector2[capacity];
         Stage = new TripStage[capacity];
         DestinationBuilding = new int[capacity];
@@ -155,11 +158,44 @@ internal sealed class PersonFleet
     public float[] OffWayM { get; }
 
     /// <summary>
-    /// Which crossing the way it is walking is part of, or −1 where that way is pavement. <b>Written where
-    /// the way is</b>, so that what a walker is doing is one reading and not a walk of the route by
-    /// everybody who wants to know.
+    /// <b>The crossing this walk is on or is arriving at</b>, or −1 where it is neither: the crossing the
+    /// way being walked is part of, and otherwise the one the next way of the chain is, from a stop short
+    /// of it. <b>Written where the way is</b>, so that what a walker is doing is one reading and not a walk
+    /// of the route by everybody who wants to know.
     /// </summary>
+    /// <remarks>
+    /// <b>It is what a walker wants of a zebra and not where its feet are</b> (PER-27): a crossing of this
+    /// town runs kerb to kerb, so a body that is on one is already in the road and anything it asked for
+    /// there it would have to ask standing on the carriageway. <see cref="WaitsToCross"/> is the half of it
+    /// that is only ever true off the paint.
+    /// </remarks>
     public int[] OnCrossing { get; }
+
+    /// <summary>
+    /// <b>The one stretch of paint that crossing is walked on</b>, as the walking network numbers its lanes,
+    /// or <see cref="NoWay"/> where there is no crossing — the way of <see cref="OnCrossing"/> this body is
+    /// on, and where it is still at the kerb the way it is about to step onto.
+    /// </summary>
+    /// <remarks>
+    /// <b>A zebra is walked one way at a time</b> (PER-27, WLK-15): its two lanes are the two directions
+    /// over the same carriageway, and what a walker reserves is the one it is taking. Written where
+    /// <see cref="OnCrossing"/> is, off the same reading of the route (SIM-7), so nothing walks the chain
+    /// again to recover which direction a crossing was being taken in.
+    /// </remarks>
+    public int[] OnCrossingWay { get; }
+
+    /// <summary>
+    /// <b>Whether the traffic has the crossing this walker is about to step onto</b> (PER-27): a wheeled
+    /// body, or road a driver has been granted, over the paint or a lane beneath it — and the walker stands
+    /// where it is until there is none. <b>Asked where the reservation is laid, of the same metres</b>, so
+    /// it is one reading of the ground the walker wants.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only ever true of a body that has not stepped onto the paint.</b> A walker already on a zebra
+    /// carries on: half a crossing is where nobody may be left standing, and the ground under it is its own
+    /// at p0 whatever anybody else wanted (PER-26).
+    /// </remarks>
+    public bool[] WaitsToCross { get; }
 
     /// <summary>
     /// PER-9's own state: what this person is doing about the trip they are on. <b>Observable</b> — it
@@ -294,6 +330,8 @@ internal sealed class PersonFleet
         OnWayM[person] = 0f;
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
+        OnCrossingWay[person] = NoWay;
+        WaitsToCross[person] = false;
         Stage[person] = TripStage.StandingBy;
         DestinationBuilding[person] = NoBuilding;
         TimerS[person] = 0f;
@@ -363,5 +401,7 @@ internal sealed class PersonFleet
         OnWayM[person] = 0f;
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
+        OnCrossingWay[person] = NoWay;
+        WaitsToCross[person] = false;
     }
 }

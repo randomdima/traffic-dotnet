@@ -17,9 +17,10 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// A drive leg begins — the car acts because there is somebody in it. <b>A car standing in a bay
-    /// drives the bay's own way out; one standing anywhere else takes the lane it is on and is routed
-    /// from there.</b>
+    /// A drive leg begun for whoever has got in, aimed at the bay that leg claimed. <b>A car standing in a
+    /// bay drives the bay's own way out; one standing anywhere else takes the lane it is on and is routed
+    /// from there.</b> <b>Nothing calls it</b>: nobody boards a car (CAR-1), and every leg a car is sent on is
+    /// begun by <see cref="SendTo"/>.
     /// </summary>
     void SetOff(int car)
     {
@@ -180,9 +181,8 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// A car with nothing left to do: no line, no route, no claim, handbrake on — and whoever is sitting
-    /// in it is asked to get out wherever the leg ended, because a driver in a car that has stopped
-    /// driving is a body nothing is running for.
+    /// A car with nothing left to do: no line, no route, no turn, no destination and no movement, handbrake
+    /// on. <b>Nobody is let out</b>: nobody is ever in a car to let out (CAR-1).
     /// </summary>
     void StandTheCarDown(int car)
     {
@@ -358,8 +358,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>And the same refused any bay across the carriageway from a place</b> (GEN-4k) — how an apron is
-    /// kept to one kerb. A crew walking out of a station to a car parked over the road crosses the road on
-    /// every call, and a station whose vehicles stand on both sides of the street does not read as a
+    /// kept to one kerb. A station whose vehicles stand on both sides of the street does not read as a
     /// station at all.
     /// </summary>
     int FreeBayNear(Vector2 ofM, float withinM, Vector2 sameSideAsM)
@@ -440,7 +439,7 @@ internal sealed partial class TownWorld
     /// <b>The driver's habit is what picks between the two standings</b> (GEN-4j), and it is a habit rather
     /// than a draw precisely so that the two askings agree — <b>except at a turn, where the way out is what
     /// picks</b> (GEN-4l): a car parking here to come back the other way has one standing that gets it out
-    /// onto that lane, and the habit is what settles a bay that lays both.
+    /// onto that lane, and nose in is taken where a bay lays both (<c>BayWays.TheWayToTurnIn</c>).
     /// <para>
     /// <b>And never a way whose mouth is already behind the body</b> (<see cref="StandsShortOfTheWay"/>). A
     /// way into a bay leaves its lane part-way along it, so a leg that has driven past that point has

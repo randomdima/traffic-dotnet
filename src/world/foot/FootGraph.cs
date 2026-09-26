@@ -40,11 +40,11 @@ internal enum FootEdgeKind : byte
 /// no chain to relax. Nodes within a quarter-metre are welded.
 /// </para>
 /// <para>
-/// <b>A node here is a seam and not a junction, because a course has no junctions</b> — it is a closed line
-/// nothing meets. The seams are the shape's own corners rather than stations somebody chose, every one of
-/// them is of degree two, and the contraction folds each course back into the single run it is. <b>A place
-/// a walk chooses between ways will arrive with the crossings</b> and not before: until something joins one
-/// course to another there is nothing anywhere in this graph to choose.
+/// <b>A node here is a seam, or a place a crossing parts a course.</b> The seams are the shape's own corners
+/// rather than stations somebody chose, every one of them is of degree two, and the contraction folds them
+/// into the runs they are part of. <b>The places a walk chooses between ways are the crossings' ends</b>
+/// (WLK-15, <see cref="CrossingWays"/>): a course is parted there and the crossing's ways join it, which is
+/// what joins one course to another.
 /// </para>
 /// </remarks>
 internal sealed partial class FootGraph : IFineGraph, ILaneEnds
@@ -179,16 +179,17 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
 
     /// <summary>
     /// <b>Lays the graph off the town's pavement</b> (WLK-1, <see cref="PavementLanes"/>): every lane of
-    /// every course, as the pieces its own move came back with.
+    /// every course, as the pieces its own move came back with and parted where the crossings meet it, and
+    /// the crossings' own ways (WLK-15).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The pieces are the shape's own and no seam is invented.</b> A course is a closed line with no end
-    /// and nothing meeting it, so a graph over it has to be cut somewhere; what it is cut at is the joints
-    /// between the arcs the move produced, which are the corners of the town rather than a station somebody
-    /// chose. Every one of them is a node of degree two, so the contraction folds each course back into the
-    /// one run it is (<see cref="World.Routing.RunNetwork"/>, which promotes a place on a ring nothing
-    /// splits).
+    /// <b>The pieces are the shape's own and no seam is invented.</b> A course is a closed line with no end,
+    /// so a graph over it has to be cut somewhere; what it is cut at is the joints between the arcs the move
+    /// produced, which are the corners of the town rather than a station somebody chose, and the places a
+    /// crossing parts it (<see cref="Parted"/>). A joint is a node of degree two, which the contraction folds
+    /// into the run it is part of (<see cref="World.Routing.RunNetwork"/>, which promotes a place on a ring
+    /// nothing splits).
     /// </para>
     /// <para>
     /// <b>Kept and handed out, it is still not safe</b>: the index it answers <see cref="NearestEdge"/>

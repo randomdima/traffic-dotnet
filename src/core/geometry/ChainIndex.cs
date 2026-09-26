@@ -36,8 +36,9 @@ namespace TrafficSimulation.Core.Geometry;
 /// <b>It is built once and never written to again.</b> The networks it serves are laid with the town
 /// and immutable afterwards, which is what keeps an index of them one truth rather than a second: there
 /// is no state here that could drift from the geometry, because the geometry cannot change. The
-/// scratch a query uses is the index's own and is not re-entrant, on the same footing as the solver's
-/// broad phase.
+/// scratch a query uses is a <see cref="Scan"/>, which belongs to one thread at a time: a query that names
+/// none runs on the index's own, and a caller querying off its own thread brings its own
+/// (<see cref="NewScan"/>).
 /// </para>
 /// <para>
 /// <b>Geometry, and never a body.</b> What is binned here is the town's fixed lines; the moving population
@@ -286,7 +287,8 @@ internal sealed class ChainIndex
     /// <para>
     /// <b>Two lines that cross share a cell, so nothing that crosses is missed.</b> The crossing point lies
     /// in some cell of the lattice; each line has a piece through that point, and a piece is entered in
-    /// every cell its own box touches — so both lines are in that cell's run. The same holds of two lines
+    /// every cell its own walk passes within half a step of (<see cref="Builder.Bin"/>) — so both lines are
+    /// in that cell's run. The same holds of two lines
     /// standing <paramref name="withinM"/> apart once the boxes are grown by it. What comes back is
     /// therefore a superset, and the pair that actually crosses is found by whatever solves crossings
     /// (<see cref="Spline.CrossingsM"/>) over what is left.

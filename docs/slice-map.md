@@ -5,28 +5,29 @@ requirements, its decisions, its tests, its art. This page names the slices and 
 dependency may point.
 
 **All the code is under `src/`, and a slice is named here by its path within it** — `core/` is
-`src/core/`. `assets/`, `towns/` and [docs/](index.md) sit beside `src/` at the root and are named in
-full; `bin/` and `obj/` are then the only other folders there, which is the point of the arrangement.
+`src/core/`. `assets/`, `towns/`, `raw_assets/` and [docs/](index.md) sit beside `src/` at the root and
+are named in full.
 
 ## The tiers
 
-Dependencies point **down this table and never up**, and **there are no cycles anywhere**. Two slices in
-the same tier may depend on each other only in the one direction the tier's own row gives.
+The table runs from the bottom tier up: **a slice may know about the rows before its own and never the
+rows after it**, and **there are no cycles anywhere**. Two slices in the same tier may depend on each
+other only in the one direction the tier's own row gives.
 
 | Tier | Slices | May know about |
 |---|---|---|
 | **Kernel** | `core/` — config, geometry, simulation | Nothing else in the project. **Not a town** |
-| **Plan** | `citygen/` — the plan, its ground vocabulary, the lines a car is driven on, its reader and writer | core |
+| **Plan** | `citygen/` — the plan, its ground vocabulary, the lines a car is driven on, and the generator that lays it from a brief | core |
 | **World** | `world/` — terrain, road, foot, routing, physics, containment, statics, parking | core, citygen, and each other in one direction |
-| **Composition** | `world/town/` | Everything below it. **This is the seam, and it is the only thing allowed to be** |
 | **Agents** | `agents/` — car, person, ambulance, service, evacuator, trafficlight | core, citygen, world |
+| **Composition** | `world/town/` | Everything before it. **This is the seam, and it is the only thing allowed to be** |
 | **Machine** | `runtime/` — the window, the device, the swapchain, `runtime/web/` — the canvas and WebGPU, and `runtime/android/` — the glass and the surface made of it | core. **Not the shell, not an agent, not a town** |
 | **Chrome** | `app/screen/` — the quad, the glyphs, the theme, the text buffer | Nothing. It is the vocabulary a frame's overlay is written in |
 | **Shell** | `app/` — main, camera, render, hud, debug, playercontrol, shot, drive, web, android | Everything |
 | **Workshop** | `tests/`, `bench/`, `tools/` | Everything. They may depend on what the runtime may not |
 
 Inside `world/`, the settled direction is terrain ← road ← foot, both networks → routing, parking →
-road, containment → physics. **The ground is split across the Plan tier and the World tier on purpose**:
+road, containment → physics and terrain. **The ground is split across the Plan tier and the World tier on purpose**:
 what shape is at a point is the plan's (`citygen/GroundShapes`), so a town half-laid can be asked where a
 thing may stand, and what that kind of ground *permits* is `world/terrain/`'s, because a permission is a
 rule about agents and the plan does not know what an agent is (TER-2a). **The lines a car is driven on are
@@ -71,12 +72,7 @@ pair pointing both ways. Run it when a slice gains a dependency, not on a schedu
 - **A stale `using` nobody removed.** It costs nothing at run time and makes a slice look coupled to
   something it stopped needing, which is how a false break survives a real audit.
 
-## Where a document, a number and an asset go
-
-The same rule applied to prose, to figures and to art, and it is stated in
-[CLAUDE.md](../CLAUDE.md#everything-is-a-vertical-slice) — which is read before the first edit, so
-saying it twice here only gives the two copies somewhere to disagree. What is this page's own is
-below: which way a dependency may point, and where the code does not yet comply.
+Where a document, a number and an asset go is [CLAUDE.md](../CLAUDE.md#everything-is-a-vertical-slice).
 
 ## The couplings that are deliberate
 
@@ -85,13 +81,12 @@ Named here so they are not mistaken for breaks:
 - **`app/hud/` depends on `bench/`** — the status panel and the unit panel draw what a map claims about
   itself, and a claim, its watch and its reading are the bench's (`ScenarioWatch`, `Scenarios.For`). A
   panel that worked a claim out for itself would be a second answer to what the probe already asks.
-- **`tests/e2e/` depends on `app/shot/`** — the visual tier stages its scenarios through the game's own
-  shot path and tiles them with the engine's own sheet, because a second staging path or a second
-  tiler would be a picture of the test rather than of the game (`SHT-1`, `SHT-3`).
-- **`world/parking/ → agents/car/`** — a bay is sized against the car that fits it. One way, and the
-  reverse would be a car that knows what a car park is.
-- **`world/town/` depends on everything below it.** It is the composition seam and the only slice that
-  may be; a second one would mean there is no seam.
+
+## Where the code does not comply
+
+- **`world/road/` and `world/routing/` point at each other.** `DrivingNetwork` contracts the road through
+  `World.Routing`, and `RunNetwork` takes `World.Road.LanePlaces` back — a cycle the World row forbids.
+  It closes when `LanePlaces` moves into `world/routing/`, which every network already points at.
 
 ## The three seams that keep the tiers apart
 

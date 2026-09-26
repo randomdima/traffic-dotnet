@@ -22,7 +22,7 @@ namespace TrafficSimulation.World.Road;
 /// </para>
 /// <para>
 /// <b>A turn a body cannot make is priced, not refused</b> — a fact about a body is not the global tier's,
-/// and the manoeuvre refuses the shape if it comes to it.
+/// and a leg that cannot be driven is given up by its own clock (CAR-15a).
 /// </para>
 /// </remarks>
 internal sealed class DrivingNetwork

@@ -55,17 +55,16 @@ internal enum ClaimsAsked : byte
 /// <remarks>
 /// <para>
 /// <b>Which claims an answer is allowed to count is a scope and not a second loop</b>
-/// (<see cref="ClaimsAsked"/>): a walker at a kerb asks about traffic, a driver's grant is cut by everything
-/// held, a crossing asks only about bodies on foot, and a driver approaching one asks who was refused it —
-/// four questions of one set of claims, each naming what it is about in one place rather than missing it in
-/// one of them.
+/// (<see cref="ClaimsAsked"/>): a walker at a kerb asks about traffic and a driver's grant is cut by
+/// everything held — questions of one set of claims, each naming what it is about in one place rather than
+/// missing it in one of them.
 /// </para>
 /// <para>
-/// <b>And how strong a claim counts as is the same thing said of the rank</b> (TER-5e): whoever is asking
+/// <b>And how strong a claim counts as is the same question read off the rung</b> (TER-5e): whoever is asking
 /// after a rescue or after a body on the paint is asking one walk with a floor under it, not a walk of its
 /// own that filters what came back. <b>The grant itself is one of these questions</b>
-/// (<see cref="GrantedOn"/>) and not a loop each asker writes for itself — the road and the pavement ask it
-/// in the same words, in their own figures (<see cref="LaneCredit"/>).
+/// (<see cref="GrantedOn"/>) and not a loop each asker writes for itself, in the asker's own figures
+/// (<see cref="LaneCredit"/>).
 /// </para>
 /// </remarks>
 internal sealed partial class LaneOccupancy
@@ -126,15 +125,13 @@ internal sealed partial class LaneOccupancy
         AnythingOver(way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.TrafficHeld, out _);
 
     /// <summary>
-    /// <b>Whether an ambulance answering a call is coming through this stretch</b> (AMB-4) — the one
-    /// question about the road a walker's patience does not get to override.
+    /// <b>Whether an ambulance answering a call is coming through this stretch</b> (AMB-4).
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is the rank and not the vehicle.</b> Whoever holds ground with
-    /// <see cref="RightOfWay.Emergency"/> is the thing being got out of the way of; an ambulance driving
-    /// home holds its road at <see cref="RightOfWay.Traffic"/> like anybody else, and a walker's escape from
-    /// a crossing that never clears applies to it exactly as it applies to a bus.
+    /// <b>It is the rung and not the vehicle.</b> Whoever holds ground at a call's own rung
+    /// (<see cref="ClaimPriority.Special"/>) is the thing being got out of the way of; an ambulance driving
+    /// home holds its road at the rung of the movement it is making like anybody else.
     /// </para>
     /// <para>
     /// <b>And it is the ones actually coming through</b> (<paramref name="comingThroughMps"/>), because the
@@ -152,8 +149,12 @@ internal sealed partial class LaneOccupancy
         var at = FromTheStart;
         while (NextOver(
                    way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.TrafficHeld,
-                   RightOfWay.Emergency, ref at, out var rescue))
+                   ClaimPriority.Rejected, ref at, out var rescue))
         {
+            // <b>The call's own two rungs and not everything above them</b>: a rescue's body is a body like
+            // any other (<see cref="ClaimPriority.Hard"/>), so a band read as "this rung or stronger" is
+            // every car in the town. What says a rescue is coming is the road it has taken or stated.
+            if (rescue.Priority is not (ClaimPriority.Special or ClaimPriority.SoftSpecial)) continue;
             if (rescue.AlongMps >= comingThroughMps) return true;
         }
 
@@ -162,7 +163,7 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// <b>Whether a wheeled body is standing over this stretch</b> — going nowhere on it rather than coming
-    /// through it. <b>The one thing on a road no rank takes</b>: a driver's road is handed back by driving
+    /// through it. <b>The one thing on a road no rung takes</b>: a driver's road is handed back by driving
     /// on, and a body is not handed back at all (TER-5e).
     /// </summary>
     /// <remarks>
@@ -178,7 +179,7 @@ internal sealed partial class LaneOccupancy
         var at = FromTheStart;
         while (NextOver(
                    way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.Traffic,
-                   RightOfWay.TurningAcross, ref at, out found))
+                   ClaimPriority.Rejected, ref at, out found))
         {
             if (MathF.Abs(found.AlongMps) < comingThroughMps) return true;
         }
@@ -229,11 +230,11 @@ internal sealed partial class LaneOccupancy
     bool AnythingOver(
         int way, float fromM, float toM, int excluding, LaneRoster excludingOf, ClaimsAsked asked,
         out LaneClaim found) =>
-        AnythingOver(way, fromM, toM, excluding, excludingOf, asked, RightOfWay.TurningAcross, out found);
+        AnythingOver(way, fromM, toM, excluding, excludingOf, asked, ClaimPriority.Rejected, out found);
 
     bool AnythingOver(
         int way, float fromM, float toM, int excluding, LaneRoster excludingOf, ClaimsAsked asked,
-        RightOfWay atLeast, out LaneClaim found)
+        ClaimPriority atLeast, out LaneClaim found)
     {
         var at = FromTheStart;
         return NextOver(way, fromM, toM, excluding, excludingOf, asked, atLeast, ref at, out found);
@@ -254,23 +255,23 @@ internal sealed partial class LaneOccupancy
     public bool NextHeldOver(
         int way, float fromM, float toM, int excluding, ref int at, out LaneClaim found,
         LaneRoster excludingOf = LaneRoster.Driving, ClaimsAsked asked = ClaimsAsked.Held) =>
-        NextOver(way, fromM, toM, excluding, excludingOf, asked, RightOfWay.TurningAcross, ref at, out found);
+        NextOver(way, fromM, toM, excluding, excludingOf, asked, ClaimPriority.Rejected, ref at, out found);
 
     /// <param name="atLeast">
-    /// The weakest right of way an answer may be held at. <b>A rank is a filter and not a second loop</b>:
-    /// whoever is asking after a rescue or after a body on the paint is asking one question of one walk,
-    /// exactly as the scope is one reading rather than a walk apiece.
+    /// The weakest rung an answer may be held at. <b>A rung is a filter and not a second loop</b>: whoever
+    /// is asking after a rescue or after a body on the paint is asking one question of one walk, exactly as
+    /// the scope is one reading rather than a walk apiece.
     /// </param>
     bool NextOver(
         int way, float fromM, float toM, int excluding, LaneRoster excludingOf, ClaimsAsked asked,
-        RightOfWay atLeast, ref int at, out LaneClaim found)
+        ClaimPriority atLeast, ref int at, out LaneClaim found)
     {
         for (at = at == FromTheStart ? _head[way] : _next[at]; at != NoSlot; at = _next[at])
         {
             ref readonly var claim = ref _slots[at];
             if (claim.FromM > toM) break;
             if (Is(claim, excluding, excludingOf) || !Counts(claim, asked) || claim.ToM < fromM) continue;
-            if (claim.Right < atLeast) continue;
+            if (claim.Priority > atLeast) continue;
 
             found = claim;
             return true;
@@ -293,63 +294,93 @@ internal sealed partial class LaneOccupancy
         AnythingOver(way, fromM, toM, Nobody, LaneRoster.Driving, ClaimsAsked.OnFoot, out _);
 
     /// <summary>
-    /// <b>Whether a claim somebody else holds refuses an asker with this right of way</b> (TER-5e, TER-5g) —
-    /// the one place the ladder and the ranks are compared, so that what a stronger movement takes cannot be
-    /// answered two ways.
+    /// <b>Whether a claim somebody else holds refuses an asker claiming at this rung</b> (TER-5e, TER-5g) —
+    /// <b>the one comparison there is</b>, so that what a stronger movement takes cannot be answered two
+    /// ways.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>What a greater right of way takes is ground nobody has reached and nothing else</b>: a claim
-    /// granted across a box and a road a driver merely stated can both be given back, and a body — or the
-    /// road a body is committed to being able to stop in (<see cref="ClaimPriority.Hard"/>) — cannot. A rule
-    /// that took those would not be a right of way, it would be a licence to drive into somebody.
+    /// <b>What a stronger movement takes is ground nobody has reached and nothing else</b>: a claim granted
+    /// across a box and a road a driver merely stated can both be given back, and a body — or the road a
+    /// body is committed to being able to stop in (<see cref="ClaimPriority.Hard"/>) — cannot. A rule that
+    /// took those would not be a rule about who waits, it would be a licence to drive into somebody.
     /// </para>
     /// <para>
     /// <b>A tie refuses a granted claim and does not refuse a stated one</b> (TER-5g), and the difference
     /// is what each of the two is for. A granted claim is one movement's ground and is settled by whoever was
-    /// granted it; stated claims are laid by everybody at once, so two movements of one rank that each
+    /// granted it; stated claims are laid by everybody at once, so two movements of one rung that each
     /// refused the other's would each be waiting for ground the other had merely stated, and neither would
     /// ever ask for it. What a tie is settled by is the granted claim, exactly as it was before either of them
     /// stated anything.
     /// </para>
     /// <para>
+    /// <b>A statement is read at the rung its holder would have been granted</b>
+    /// (<see cref="SaidAhead"/>), which is the whole of how one ladder carries both: the stated band mirrors
+    /// the granted one a fixed distance below it, so a street's statement refuses the turn across it and
+    /// the turn's refuses nobody but itself.
+    /// </para>
+    /// <para>
     /// <b>And a rescue's granted ground is taken only by a body</b> (<see cref="ClaimPriority.Special"/>),
-    /// which falls out of the rank rather than being said twice: nothing a road carries of itself outranks
-    /// <see cref="RightOfWay.Emergency"/>.
+    /// which falls out of the ladder rather than being said twice: nothing a road carries of itself is
+    /// stronger than a call.
+    /// </para>
+    /// <para>
+    /// <b>A crossing somebody has reserved refuses nobody at all</b> (<see cref="ClaimPriority.Reserved"/>,
+    /// PER-27), which is the one arm here that compares nothing: what a walker wants of a zebra is ground
+    /// the traffic drives over and takes, and this line is the whole of what would ever make it wait for
+    /// one.
     /// </para>
     /// </remarks>
-    public static bool Binds(in LaneClaim taken, RightOfWay mine) => taken.Priority switch
+    /// <param name="mine">
+    /// The rung the asker would hold this ground at — its movement's own (<c>TownWorld.FirmOn</c>), a call's
+    /// or a closure's where it is answering one, and <see cref="ClaimPriority.Hard"/> where it is past the
+    /// point it could stop.
+    /// </param>
+    public static bool Binds(in LaneClaim taken, ClaimPriority mine) => taken.Priority switch
     {
         ClaimPriority.Hard => true,
         ClaimPriority.Rejected => false,
-        ClaimPriority.Soft => taken.Right > mine,
-        _ => taken.Right >= mine,
+        ClaimPriority.Reserved => false,
+        >= ClaimPriority.SoftSpecial => SaidAhead(taken.Priority) < mine,
+        _ => taken.Priority <= mine,
     };
 
     /// <summary>
+    /// <b>The granted rung a stated one mirrors</b> (<see cref="ClaimPriority"/>): the two bands are one
+    /// order a fixed distance apart, so a statement is compared as the grant its holder would have asked
+    /// for. <b>The one place the distance is named</b>, and what makes the movements a claim can be on a
+    /// property of the ladder rather than a second field beside it.
+    /// </summary>
+    public static ClaimPriority SaidAhead(ClaimPriority stated) =>
+        (ClaimPriority)(stated - (ClaimPriority.SoftSpecial - ClaimPriority.Special));
+
+    /// <summary>
     /// <b>Whether a claim somebody else holds takes a granted claim away from an asker holding it at this
-    /// rank</b> (TER-5e) — the other side of <see cref="Binds"/>, and the one place that comparison is made.
+    /// rung</b> (TER-5e) — the other side of <see cref="Binds"/>, and the one place that comparison is made.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A rank above the claim's own takes it, and nothing else does.</b> That is the whole of what a right
+    /// <b>A rung above the claim's own takes it, and nothing else does.</b> That is the whole of what a right
     /// of way is entitled to: a granted claim can be handed back because its holder has not reached it, and a
     /// body — or the road a body is committed to being able to stop in — cannot.
     /// </para>
     /// <para>
-    /// <b>It is the rank and never the priority</b>, so what takes a claim is whatever outranks it and not
-    /// only another claim: a rescue holds its road at <see cref="RightOfWay.Emergency"/> and is entitled to
-    /// ground nobody has reached. What is <em>not</em> here is the ordinary body (SIM-7) — <b>and a walker is
-    /// one</b>, on the paint as anywhere else. Traffic, a person, a wreck shoved onto the
-    /// ground and the town's own furniture all hold it at <see cref="RightOfWay.Traffic"/>, which takes
-    /// nothing off a claim held at the same rank — and they cut the claimant's own grant already, on the way
-    /// it is driving, so a second refusal would make the first useless. It would also be wrong: the stretch
-    /// a swerve claims is the stretch containing the very body it is swinging round
-    /// on a lane, so a claim given back for a body over it is a claim the movement
-    /// could never keep for one tick.
+    /// <b>It is the granted band and nothing else that takes</b>: a rescue holds its road at
+    /// <see cref="ClaimPriority.Special"/> and is entitled to ground nobody has reached, while a statement
+    /// takes nothing off anybody however straight the movement that made it — what a statement buys is that
+    /// it is not <em>ignored</em> (<see cref="Binds"/>), never that somebody must hand ground back for it.
+    /// </para>
+    /// <para>
+    /// <b>And a body takes nothing at all</b> (SIM-7) — <b>a walker included</b>, on the paint as anywhere
+    /// else. Traffic, a person, a wreck shoved onto the ground and the town's own furniture all stand on it
+    /// rather than claiming it, and they cut the claimant's own grant already on the way it is driving, so a
+    /// second refusal would make the first useless. It would also be wrong: the stretch a swerve claims is
+    /// the stretch containing the very body it is swinging round, so a claim given back for a body over it
+    /// is a claim the movement could never keep for one tick.
     /// </para>
     /// </remarks>
-    public static bool TakesAClaim(in LaneClaim taken, RightOfWay mine) => taken.Right > mine;
+    public static bool TakesAClaim(in LaneClaim taken, ClaimPriority mine) =>
+        taken.Priority is > ClaimPriority.Hard and <= ClaimPriority.FirmAcross && taken.Priority < mine;
 
     /// <summary>
     /// <b>How far up one way the asker is granted</b>, in that way's own metres: of everything held in
@@ -358,10 +389,9 @@ internal sealed partial class LaneOccupancy
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>This is the grant, and it is one walk rather than one per asker.</b> A driver on a lane and a
-    /// walker on the pavement are asking the same question of two networks — how much of the road in front of
-    /// me is still mine — and answered apart they answered it differently: the same switch, the same margin,
-    /// written twice and free to drift.
+    /// <b>One of the bounds a driver's grant is cut at</b> (<c>TownWorld.GrantTheGround</c>), beside what
+    /// the laying left of its own ask (<see cref="HeldToM"/>) and the first crossing ahead that binds it:
+    /// how much of the road in front of the nose is still the driver's, with what each claim there is worth.
     /// </para>
     /// <para>
     /// <b>The least and never the nearest</b> (<see cref="NextHeld"/>). What a claim is worth is not the same
@@ -395,7 +425,7 @@ internal sealed partial class LaneOccupancy
             // <b>A claim a stronger movement outranks is not a cut</b> (AMB-4.1, TER-5e). Ground its holder
             // has not reached can be given back; a body, and the road a body is committed to stopping in,
             // are nobody's to take.
-            if (!Binds(taken, asker.Right)) continue;
+            if (!Binds(taken, asker.Asking)) continue;
 
             // <b>And ground the asker is already standing on is not a cut either</b> (TER-5e). A claim with
             // nothing in it is ground its holder has <em>not reached</em>, so one whose near edge is behind
@@ -432,8 +462,8 @@ internal sealed partial class LaneOccupancy
     /// already stopped, and the binding one is whoever is still coming through it.
     /// </para>
     /// <para>
-    /// It excludes nobody, because the asker is not on the way at all: what a walker beside a road asks is
-    /// whether the road is anybody's, and its own presence is not yet part of the answer.
+    /// It excludes nobody, because the asker is not on the way at all, and its own presence is not yet part
+    /// of the answer.
     /// </para>
     /// </remarks>
     public bool TakenUpTo(int way, float beforeM, out LaneClaim found)
@@ -452,6 +482,42 @@ internal sealed partial class LaneOccupancy
         }
 
         return any;
+    }
+
+    /// <summary>
+    /// <b>How far up one way this occupant's own hold actually reaches</b>, in that way's own metres — the
+    /// answer it was left holding once every claim in the town had been laid against it (TER-4c.1), and
+    /// <paramref name="fromM"/> where it holds none of the ground it asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the answer the laying gave.</b> A stretch is cut back where it gives way, on its own way
+    /// and on every way that way is driven over (<see cref="MakeRoomFor"/>), so what is left of it is the road
+    /// its holder was not refused — the ground where two lines meet included — without a second question
+    /// about a way the holder will not be on. A driver's grant is cut here and at <see cref="GrantedOn"/>.
+    /// </para>
+    /// <para>
+    /// <b>The furthest edge of the occupant's own stretches and not the first of them.</b> One hold may be
+    /// several stretches of one way with the seam wherever the answer fell (TER-5c.2) — a car's road and the
+    /// box beyond it — and what the holder has is the far end of the run, the metres between being its own.
+    /// </para>
+    /// </remarks>
+    public float HeldToM(
+        int way, float fromM, float toM, int occupant, LaneRoster of = LaneRoster.Driving,
+        ClaimsAsked asked = ClaimsAsked.HeldOrStated)
+    {
+        var heldToM = fromM;
+        for (var at = _head[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var claim = ref _slots[at];
+            if (claim.FromM >= toM) break;
+            if (claim.Occupant != occupant || claim.Of != of || !Counts(claim, asked)) continue;
+            if (claim.ToM <= fromM) continue;
+
+            heldToM = MathF.Max(heldToM, claim.ToM);
+        }
+
+        return heldToM;
     }
 
     /// <summary>

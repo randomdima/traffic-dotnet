@@ -8,7 +8,7 @@ namespace TrafficSimulation.Tests;
 /// <para>
 /// <b>A tier is what a question costs; a priority is what its answer is worth.</b> The two are orthogonal
 /// on purpose — the cheapest class in the suite guards the solver and one of the dearest checks where a
-/// lamp is drawn — and neither can be read off the other. `qq tests --upto=p4` cuts by the second, which is
+/// lamp is drawn — and neither can be read off the other. `qq tests --upto=4` cuts by the second, which is
 /// how a run is made short without deciding that a whole tier does not matter.
 /// </para>
 /// <para>

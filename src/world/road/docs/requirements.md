@@ -52,13 +52,13 @@ car takes. Arms, movements and fillets come out as one region because each of th
 actually goes, so a box that is skewed, one-way, five-armed or barely a bend is right without anything
 having to recognise which of those it is.
 
-**A junction's radius is a planning figure and never a piece of ground.** It says how far back the arms are
-cut so the movements have room to be drawn, and it is what crossings and lots measure from — **"how far the
-junction reaches"** being that radius plus the corner radius. Nothing reads it as a surface: no ground is
-answered from it, no pavement is laid round it, and none is drawn.
+**A junction's radius is a planning figure and never a piece of ground.** It is the standoff its arms'
+lanes end at (`GEN-46`, TER-5d) — one figure for every junction the town lays, the arms following the
+standoff and never the standoff the arms — and a car park's junction takes the standoff its rank needs
+(`GEN-53`). Nothing is placed off it and nothing reads it as a surface: no ground is answered from it, no
+pavement is laid round it, and none is drawn. The census prints its mean as the junctions' reach.
 
-**The radius is sized on the arm whose ground reaches furthest from the node — its own half and however far
-off the node its road stands — and a corner is solved on the two it stands between** (TER-4d). Where a
+**A corner is solved on the two arms it stands between** (TER-4d). Where a
 one-way street meets a full carriageway their kerbs cross off the bisector, further out along the narrow
 arm than along the wide one, and each arm is reached as far as its own tangent point rather than to one
 figure both share. **An arm's kerb is where its road actually carries it**, which for a street standing on
@@ -74,27 +74,19 @@ the controller's problem.
 every other junction: what is there is the road that stops, and the road stops where its own last point is.
 It carries no crossing and no lights.
 
-**A dead end is therefore not a place a car can turn round in**, which is a change from what this rule used
-to promise: there is no head, and a car turning round at one has only the width of its
-own road to do it in. A leg that has to come back the way it came does it in a car park's bay (`GEN-4l`), and
+**A dead end is therefore not a place a car can turn round in**: there is no head, and a car turning round
+at one has only the width of its own road to do it in. A leg that has to come back the way it came does it in a car park's bay (`GEN-4l`), and
 a dead end with no bay off it is a place nothing that drives in can leave. **A map that wants a turning head
 has to lay it** — as paved ground of its own, which the plan already carries and every reading of the ground
 already answers for.
 
 **TER-5b** `P6` An **inline junction** has exactly two arms leaving in opposite directions — a place *on* a
 road rather than a place roads meet. The two carriageways must align exactly, so a driver sees
-uninterrupted road. It exists to
-carry one pedestrian crossing and the signals that govern it, which is what makes a lit mid-block
-crossing possible at all.
+uninterrupted road. It exists to carry one pedestrian crossing and the signals that govern it, which is what
+makes a lit mid-block crossing possible at all.
 
-Two arms meeting at an **angle** are not this: that is a road that turns, rounded to a kerb radius. Worth
-saying twice, because it is the commonest authoring mistake — a corner is a road, a mid-block crossing is
-a junction, and they look alike in a map file.
-
-**Corners are decided per corner by which arms are present**: two arms give a fillet tangent to both
-carriageways; neither arm is the outside of a turn, so the disc's own corner is *cut* back to an arc of
-the same radius; one arm is a straight kerb running on, and nothing is drawn. Both kinds pave their
-square whole first and then take the ground back along the arc.
+Two arms meeting at an **angle** are not this: that is a road that turns, rounded to a kerb radius. **A
+corner is a road and a mid-block crossing is a junction**, and they look alike on a plan.
 
 **TER-5d** `P4` **A junction is a set of connection points, and the connectors are what run between them.** Every
 movement out of a lane starts at that lane's own last point and every movement into one lands on its own
@@ -111,9 +103,7 @@ hand over at the same place because there is only one place to hand over at.
 **TER-5d.1** `P4` **The ground a movement is driven over is as wide as the narrower of the two lanes it
 joins**, and that is one figure the whole town reads — the tarmac's own shape, the answer at a point and
 the picture. Its two ends are on lanes that need not be the same width and a band has only one, so the
-narrower is the only choice that never claims ground outside the arm it leaves or the arm it arrives on:
-drawn at the arriving lane's width, a movement out of a narrow street onto a wide one stood half a metre
-past the narrow street's own kerb, in the pavement.
+narrower is the only choice that never claims ground outside the arm it leaves or the arm it arrives on.
 
 **TER-5f** `P5` **No box admits a movement that reverses the direction of travel.** A pair of lanes that would
 face each other across an intersection is not joined at all: no turn is classified between them, no line is
@@ -125,9 +115,8 @@ which are manoeuvres a driver makes and not movements a junction offers.**
 
 **TER-5i** `P5` **A lane is one way of one road, and it is cut nowhere at all.** Its two ends are its road's
 own connection points (`GEN-46`) — the exit point of the arm it sets off on and the entry point of the arm it
-arrives at — so a lane is that road's line moved to its share of the carriageway and it runs the whole of it.
-Nothing is cut back to make room for the movements off it: there is no figure a reader has to add to a lane's
-metres, and no ground carries both a lane and a line drawn across it.
+arrives at — so a lane is that road's line moved to its share of the carriageway and it runs the whole of it,
+and no ground carries both a lane and a line drawn across it (TER-5d).
 
 **Every movement therefore hands over at a lane's own start**, and a lane is arrived at and left and never
 driven through. **What spares a driver the junctions that decide nothing is the layout and not the lane**: a
@@ -141,35 +130,36 @@ both of them places a driver really is committed, and both reported by the censu
 **TER-6** `P6` Crossings and parking are variants of the road/intersection family and need only a type tag
 beyond their terrain attributes.
 
-- A crossing is **a band of the same carriageway pedestrians may walk over**. It is a plan entity of its
-  own and the road graph never reads it, so **a crossing adds no node and nothing can turn at one**.
-- **A crossing has no width of its own.** How far it reaches is the two kerbs its walk crosses between
-  (`WLK-10`) — the carriageway's width where the kerb runs straight, and more at a mouth, where the ground
-  a junction's movements are driven over reaches past the arm's own edge. That one figure is what it is
-  drawn, walked, stopped for and asked about at. A span carried beside it is a second answer to a question
+- A crossing is **a band of the same carriageway pedestrians may walk over**. It is an entity of its own
+  (`Crossings`) and the road graph never reads it, so **a crossing adds no node and nothing can turn at one**.
+- **A crossing has no width of its own.** How far it reaches is the two points it is handed (`WLK-10`) —
+  the carriageway's two edges at the place it stands, read off the width of the lanes there. That one
+  figure is what it is drawn, walked, stopped for and asked about at. A span carried beside it is a second answer to a question
   the walk has already answered (GEN-15), and the two disagree the first time either is laid again: a zebra
   wider than what it crosses stands its end bars on the pavement, and a narrower one leaves a strip of road
   nobody is walking over.
 - The terrain carries the rule: crosswalk ground is person-allowed *and* car-allowed, and it is a stretch of
   the road it is painted across rather than a shape of its own — so the lane runs underneath it and a car on
   a crossing is still held to that lane.
-- **Placement is the walk's and not the road's** (`WLK-10`): a zebra stands wherever two pedestrian nodes
-  hand a crossing over to each other across a road, running from the kerb one stands off to the kerb the
-  other does, and nowhere else. **Nothing here decides it** — not whether the junction behind it forks, not
-  how far back the arm's lanes hand the car over, not how much road is left behind the paint. Each is still
-  tagged with the junction it approaches, so a junction's signal bundle greens *its own* arms' crossings.
-- **The walk hands over two answers and the road reads both** (`WLK-10a`): where it crosses, which is what is
-  painted, and what each end of each street is held behind, which is where the bar stands and what the lane
-  line stops behind. They are the same list but for a street crossed once midway between its ends, which is
-  held at its two kerb ends — places carrying no paint, so the bar's setback is taken clear of the place
-  itself.
-- **A road end that stands no pair of nodes carries no paint**, which is what leaves a bay, a roundabout's
-  circulating carriageway (GEN-19) and a car park's junction with none. **Nor does the ring carry a bar**: a
+- **Placement is not the road's** (`WLK-10`): a town paints a zebra wherever its kerb ends put a station
+  (`CityGen.KerbEnds`) — across each end of each street at a box where three or more roads meet,
+  `Road.FootNodeClearM` out along the road past the further of the street's two kerb ends, from one edge of
+  the carriageway to the other. **Nothing in this slice decides it** — not how far back the arm's lanes hand
+  the car over, not how much road is left behind the paint. Each is still tagged with the junction it
+  approaches, so a junction's signal bundle greens *its own* arms' crossings.
+- **The kerb ends hand over two answers and the road reads both** (`WLK-10a`): where the walk crosses, which
+  is what is painted, and what each end of each street is held behind, which is where the bar stands and
+  what the lane line stops behind. They are the same list but for a street crossed once midway between its
+  ends, which is held at its two kerb ends — places carrying no paint, so the bar's setback is taken clear of
+  the place itself.
+- **A road end the kerb ends put no station at carries no paint**: a bay, a roundabout's circulating
+  carriageway (GEN-19), every end at a car park's junction, and every end at a box where fewer than three
+  roads meet. **Nor does the ring carry a bar**: a
   bar is where a driver holds when the junction refuses them, and circulating traffic is never refused — the
   entries hold for it and it holds for nothing, so the ring is a road with no paint on it at all.
-- **Nothing refuses a band for what it lands on.** A zebra at a mouth is longer than its carriageway is
-  wide, and two arms meeting at a sharp angle can lay paint over the corner they share. **How far one
-  overruns is the census's to report** (`--bench census`, the crossings row) rather than a case to add here.
+- **Nothing refuses a band for what it lands on.** Two arms meeting at a sharp angle can lay paint over the
+  corner they share. **How far one reaches past its carriageway is the census's to report** (`--bench
+  census`, the crossings row) rather than a case to add here.
 - **A lane line stops for paint and not for a node.** A lane line is the seam between two ribbons, and a
   node nothing turns at leaves that seam whole: the two straight movements over its ground meet along the
   line the roads either side of it hand over on, so the line runs **through the bend and the node** and on
@@ -188,19 +178,16 @@ beyond their terrain attributes.
   at that arm's station, and where the arm carries none it stops where the carriageway does: the
   ground past a junction that forks is driven over by movements crossing one another rather than by two
   ribbons running side by side, and there is nothing there for a line to be between.
-- **How much road an arm's paint takes is one figure**, `SimConfig.ArmPaintM` — the band, the clear road
-  behind it and the bar — and it is what a lane line stops short of. **It no longer refuses anything**: a
-  road too short to carry its two ends' paint used to carry none at all, and where a zebra stands is the
-  walk's now (`WLK-10`), so a short street carries whatever its nodes ask for.
 - The inline junction is the exception and takes a single crossing laid on the node itself. **Being on the
-  node, it is past the end of every lane there** — the disc reaches further than the paint is wide — so it
+  node, it is past the end of every lane there** — a lane ends a standoff out from the node (`GEN-46`),
+  further than the paint is wide — so it
   is laid across the lanes that meet at the node, each at its own end, rather than found by projecting it
   down one of them. A crossing no lane carries is paint no driver slows for and a walker no driver can see
   (TER-4c).
 
-**A crossing with no conflicting traffic to phase against carries no lights** (TLT-3), and an uncontrolled
-crossing is where the walker's right of way is the whole of what governs it (TER-5e): the traffic gives way
-to whoever is standing at the kerb, which is what the paint is there to say.
+**A crossing with no conflicting traffic to phase against carries no lights** (TLT-3), and what governs an
+uncontrolled one is the claims alone (TER-5e): a body on the paint holds the lane under it, and a car may not
+come to rest on the paint.
 
 ## Markings
 
@@ -229,19 +216,16 @@ and never a glyph of its own** — there is no catalogue of shapes and no combin
 Everything painted on the ground is **engine-drawn primitives, never art**: lane centrelines (dashed, and
 **laid between two lane ribbons that touch and nowhere else** — the line a road's two ways were laid either
 side of, `CityPlan.RoadArrays.LanesMeetOnItsLine` — so a one-way street and a bay's way have nothing to part
-and carry none; stopping at the outermost paint an arm carries, its bar where it has one and its crossing
-where the junction is unlit, rather than running on into the junction behind it), kerb lines (broken exactly
+and carry none; stopping behind the outermost paint an arm carries, TER-6), kerb lines (broken exactly
 where the pavement's edge is, and over a car park's mouth, where the ground on the far side of the line
 is the lot's own tarmac and there is no kerb to be the edge of), pavement and deck edge lines, stop bars
 (square across *that arm's* direction, covering one lane only — the one driving at the paint — and
 stopping at the kerb; **standing a setback clear of the crossing in front of them**, so an arm with no
 crossing carries no bar and an arm the traffic only leaves on carries its crossing without one), zebras
-(spanning kerb to kerb, running along the direction
-of the traffic that crosses them, between their bar and the junction without overlapping the bar, or
-between their two bars at a node that forks nothing), bay
-lane arrows (a shaft and a
-branch per turn, behind the bar and on the lane's own line, TER-6a), bay
-strokes (**solid, and the line one bay shares with the next and nothing else** —
+(spanning kerb to kerb, running along the direction of the traffic that crosses them, between their bar and
+the junction without overlapping the bar, or midway along a street crossed once, between the bars at its two
+ends, `WLK-10a`), lane arrows (a shaft and a branch per turn, behind the bar and on the lane's own line,
+TER-6a), bay strokes (**solid, and the line one bay shares with the next and nothing else** —
 [GEN-4m](../../parking/docs/requirements.md), which is the same relation as the lane centreline's with the
 dash the length of the run) and drift marks.
 
@@ -281,13 +265,11 @@ Six rules govern all of it:
 - A crossing registry queryable by junction, and a stop-line registry carrying the bars actually painted.
 - A table, filled once from the lines themselves and **indexed by way**, of where each of the town's ways
   is driven over the others, in both ways' own metres (TER-5c). **There is no register of who is inside a
-  junction**: the table is looked up and the answer comes off the claims everything else reads
-  (TER-5c.1). It is laid over every numbered way, so a slice above the road can measure its own
+  junction**: the table is read as a claim is laid and as a grant is cut, and the answer comes off the claims
+  everything else reads (TER-5c.1). It is laid over every numbered way, so a slice above the road can measure its own
   ways into it with the same code and be read by the same walk.
-- A lane occupancy index over the ways of TER-4c — the lanes, the connectors between them, and the ways a
-  slice above lays off them — carrying every
-  body on the network and the stretch each driver has taken, so that **who is in front and how much road
-  is whose** are answered from the town's own claims rather than from geometry (`S-2a`). It is laid over
-  ways the caller measures, so the pavement keeps a second set of the same kind (`PER-26`). **The two
-  are told apart by which network the ground belongs to and never by which kind of body is standing on
-  it.**
+- A lane occupancy index over every way of the town in one numbering (TER-4c.2) — the lanes, the connectors
+  between them, the ways a slice above lays off them and the pavement's — carrying every body and the
+  stretch each has taken, so that **who is in front and how much road is whose** are answered from the
+  town's own claims rather than from geometry (`S-2a`). **Ways are told apart by the kind of ground each is
+  and never by which kind of body is standing on it.**

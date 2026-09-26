@@ -144,7 +144,11 @@ internal sealed class CarFleet
 
     public Rng[] Draw;
 
-    /// <summary>CAR-1: a car acts only while it contains a driver. Without one it is an inert dynamic object holding its handbrake.</summary>
+    /// <summary>
+    /// CAR-1: a car acts only while something is driving it — an errand, an order or the tour of a map with
+    /// no bay to reach. Set by whatever sends it and cleared where it is stood down; nobody sitting in it
+    /// sets it. Without it the car is an inert dynamic object holding its handbrake.
+    /// </summary>
     public bool[] Driven { get; }
 
     /// <summary>
@@ -157,20 +161,22 @@ internal sealed class CarFleet
 
     /// <summary>
     /// <b>AMB-3: whether this car is an ambulance</b> — a fact about the car and never about what it is
-    /// doing. It is drawn from no catalogue and changes for no reason: an ambulance is one from the tick
-    /// the town is stood up, whether or not anybody has been run over yet.
+    /// doing. It is drawn from no catalogue and changes for one reason only, a wreck mended in a yard
+    /// (EVA-7): an ambulance is one from the tick the town is stood up, whether or not anybody has been run
+    /// over yet.
     /// </summary>
     public bool[] Ambulance { get; }
 
     /// <summary>
-    /// <b>And whether it is answering a call</b> (AMB-4). This is the whole of the difference a rescue makes
-    /// to the road: what carries <see cref="RightOfWay.Emergency"/>, what the lights and the painted bars
-    /// stop applying to, and what lets a driver cross the centreline without first waiting out its patience.
+    /// <b>And whether it is answering a call</b> (AMB-4). This is the whole of the difference a call makes
+    /// to the road: what claims its ground at <c>ClaimPriority.Special</c>, what the lights and the painted
+    /// bars stop applying to, and what holds the car to the call's own pace.
     /// </summary>
     /// <remarks>
-    /// <b>It is never true of a car <see cref="Ambulance"/> is false of</b>, and it goes out the moment the
-    /// casualty is delivered: an ambulance driving home is ordinary traffic, and one that kept its priority
-    /// between calls would be a town where a whole lane belongs to a parked van.
+    /// <b>It is the errand's and not the vehicle's</b>: an ambulance on a call, an evacuator on its way to a
+    /// wreck (EVA-4), a police car on its way to a scene (SRV-6) — and the idle map's escort, which is stood
+    /// with it lit. It goes out with the leg that carries it: an ambulance driving home is ordinary traffic,
+    /// and one that kept its priority between calls would be a town where a whole lane belongs to a parked van.
     /// </remarks>
     public bool[] BlueLight { get; }
 
@@ -198,10 +204,9 @@ internal sealed class CarFleet
     public float[] ProgressM { get; }
 
     /// <summary>
-    /// How fast the body is going <b>along the direction its line is driven in</b>, which for a template
-    /// taken in reverse is the way the car is not pointing. The sensing half of the tick works it out
-    /// and the catalogue reads it, so an entry never has to know which gear its line is in to ask
-    /// whether the car is moving.
+    /// How fast the body is going <b>along the direction its line is driven in</b>, which for a bay's way
+    /// taken in reverse is the way the car is not pointing. The tick works it out and the leg reads it, so
+    /// nothing has to know which gear the line is in to ask whether the car is moving.
     /// </summary>
     public float[] AlongMps { get; }
 
@@ -238,10 +243,9 @@ internal sealed class CarFleet
     public bool[] CommittedToTheBox { get; }
 
     /// <summary>
-    /// How long since this driver last ran its procedure. <b>The decision's own elapsed time and not the
-    /// loop's nominal interval</b>: an entry that declares itself unschedulable is asked on every tick,
-    /// and handing it a whole interval each time would run every clock inside the catalogue at six times
-    /// real time.
+    /// How long this car has been driven since its leg last decided — run up by the tick, spent by the
+    /// decision. <b>The decision's own elapsed time and not the loop's nominal interval</b>, which is what the
+    /// leg's clock and an errand's clocks integrate over.
     /// </summary>
     public float[] SinceDecisionS { get; }
 
@@ -345,8 +349,8 @@ internal sealed class CarFleet
 
     /// <summary>
     /// <b>How far ahead of its nose the car was granted room to stop</b> — its own asked-for stretch cut at
-    /// the near edge of the nearest one already spoken for. Infinite where nothing cut it: an empty road,
-    /// a car on a template of its own, or one that is not under way at all.
+    /// the near edge of the nearest one already spoken for. Infinite where nothing cut it: an empty road, or
+    /// a car that is not under way at all.
     /// </summary>
     /// <remarks>
     /// It is a distance from the nose and is walked in by the ground covered since it was granted: a car
@@ -361,11 +365,10 @@ internal sealed class CarFleet
     /// </summary>
     /// <remarks>
     /// <b>The reason a body is being held is a fact about what is in front and not about the distance</b>: a
-    /// queue is waited behind and a wreck is driven round, and the two are the same number of metres. The
-    /// walk worked it out to make the cut (<see cref="World.Road.LaneOccupancy.GrantedOn"/> hands the stretch
-    /// back), so anything that has to say <em>why</em> a car is held reads it rather than searching for the
-    /// answer again — the trace, the overlay, and the proving ground's own rule that the people pacing its
-    /// road are the instrument rather than the traffic.
+    /// queue is followed at a following time and a wreck is only stopped short of, and the two are the same
+    /// number of metres. The walk worked it out to make the cut (<see cref="World.Road.LaneOccupancy.GrantedOn"/>
+    /// hands the stretch back), so anything that has to say <em>why</em> a car is held reads it rather than
+    /// searching for the answer again — the speed profile's following term, the read-out and the stuck probe.
     /// </remarks>
     public Control.HeadwayKind[] GrantCutBy { get; }
 
@@ -433,8 +436,8 @@ internal sealed class CarFleet
     /// Whether the queue stops short of where the car is going: <see cref="RouteLanesPerCar"/> lanes were
     /// not enough for the route the search found, so the rest of it will be planned again from the last
     /// lane in hand. <b>A route that ends at its destination answers no</b>, and so does one that ends at a
-    /// frontage it turns back on (<see cref="TurnsBackOn"/>), which is a leg with a manoeuvre in front of
-    /// it rather than a road.
+    /// frontage it turns back on (<see cref="TurnsBackOn"/>), which is a leg with a turn in a bay in front
+    /// of it rather than a road.
     /// </summary>
     /// <remarks>
     /// It is asked from outside the drive: what the interface draws past the end of a held route (CTL-1a)
@@ -465,22 +468,23 @@ internal sealed class CarFleet
     public bool[] BacksIntoBays { get; }
 
     /// <summary>
-    /// Whether the line in hand is driven backwards. <b>A property of the line and not of the car</b>:
-    /// the reverse-out template, the back-off's straight and the reverse-in template are laid in the
-    /// direction the rear axle travels, and the follower steers against it.
+    /// Whether the line in hand is driven backwards. <b>A property of the line and not of the car</b>: a
+    /// bay's way laid for reverse (GEN-4j) is laid in the direction the rear axle travels, and the follower
+    /// steers against it.
     /// </summary>
     public bool[] LineIsReverse { get; }
 
     /// <summary>
-    /// Whether the body is <em>in</em> the junction box rather than approaching one, which is what
-    /// decides the fuse it is watched on. <b>Waiting at a boundary is not standing across a lane.</b>
+    /// Whether the body is <em>in</em> the junction box rather than approaching one. <b>Waiting at a
+    /// boundary is not standing across a lane.</b> An instrument's: the stuck probe prints it and nothing
+    /// decides by it.
     /// </summary>
     public bool[] InsideTheBox { get; }
 
     /// <summary>
     /// How far ahead stands the light showing this car anything but green, or infinity where there is
-    /// none. <b>A car queueing for a light spends neither clock</b>, and this is the whole of how the
-    /// watchdog knows one.
+    /// none. <b>A car queueing for a light spends none of its leg's clock</b>, and this is the whole of how
+    /// the clock knows one.
     /// </summary>
     public float[] LightAheadM { get; }
 
@@ -589,8 +593,8 @@ internal sealed class CarFleet
 
     /// <summary>
     /// The way the line in hand finishes on past its last lane, or <see cref="NoWay"/>. <b>A line with no
-    /// lanes has no tail</b>, whatever was last written — which is what makes a template laid over the top
-    /// of a route drop the tail with it, and nothing has to remember to.
+    /// lanes has no tail</b>, whatever was last written — which is what makes a bay's way taken as the line
+    /// drop the route's tail with it, and nothing has to remember to.
     /// </summary>
     public int TailWayOf(int car) => Line[car].LaneCount > 0 ? TailWay[car] : NoWay;
 
@@ -694,8 +698,8 @@ internal sealed class CarFleet
     public const int NoLane = -1;
 
     /// <summary>
-    /// No way at all: a car committed to no movement, claiming no stretch, and whose line is a chain
-    /// of lanes or geometry of its own.
+    /// No way at all: a car committed to no movement, claiming no stretch, or whose line is a chain of
+    /// lanes.
     /// </summary>
     public const int NoWay = -1;
 

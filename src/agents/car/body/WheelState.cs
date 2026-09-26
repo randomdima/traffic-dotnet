@@ -9,6 +9,7 @@ namespace TrafficSimulation.Agents.Car.Body;
 /// an impulse the moment it is given, so a wheel that read the body back would be reading three
 /// wheels' work, and the order the wheels happened to be stepped in would break the cancellation
 /// between the two ends of an axle.
+/// </remarks>
 internal readonly record struct CarPose(
     Vector2 PositionM, float HeadingRad, Vector2 VelocityMps, float YawRateRadPerS, float MassKg, Vector2 AccelerationMps2)
 {

@@ -168,7 +168,7 @@ internal sealed class LaneLines
     /// <summary>
     /// <b>How wide the ground a movement is driven over is: the narrower of the two lanes it joins</b>
     /// (TER-5d.1). One figure, read by everything that has to know what a box is paved with — the tarmac's
-    /// own shape (<c>Kerbs</c>), the ground under a point (<c>GroundShapes</c>) and the picture.
+    /// own shape (<see cref="LaneShell"/>), the ground under a point (<c>GroundShapes</c>) and the picture.
     /// </summary>
     /// <remarks>
     /// <b>The narrower, because a band is one width and the two ends are not.</b> Drawn at the arriving

@@ -5,8 +5,8 @@ costs, and — at the top of the ladder — who has to be asked. It is written a
 directly after the ID, and nothing else on the line moves:
 
 ```
-**TER-3d** `P0` Render geometry does not overlap.
-**TER-7a** `P3` A band of ground ends where its own line ends, square across …
+**TER-7b** `P0` The ground is a stack of layers, and a layer struck off the town's own boundary is one region of it.
+**TER-7a** `P4` A band of ground ends where its own line ends, square across …
 ```
 
 The rungs, the marker and the check are here; what each rule *says* stays in the document that owns it

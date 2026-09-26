@@ -142,10 +142,10 @@ internal sealed partial class DebugOverlay
     /// its pace inside a fifth of its own body and the whole of what it asks for is the gap it keeps.
     /// </para>
     /// <para>
-    /// <b>A car that has mounted a kerb is drawn on the footway</b> (TER-4c.2): a body holds the ground it
-    /// stands on whatever kind of ground that is. <b>What is never on a walk is a car on a zebra</b>
-    /// (TER-5c.1) — the paint is carriageway a walk runs over, so its ground is a stretch of the lane and is
-    /// drawn as the lane's block. A copy of it on the walk drew one body twice.
+    /// <b>A car that has mounted a kerb is drawn on the footway, and a car on a zebra on the crossing way</b>
+    /// (TER-4c.2): a body holds the ground it stands on whatever kind of ground that is, and the paint is a
+    /// way like any other. Such a car is two blocks because it is on two ways — the lane it is driving and
+    /// the walk laid over it — and not one body drawn twice.
     /// </para>
     /// <para>
     /// <b>Each way is drawn at the width its own ground was measured at</b>

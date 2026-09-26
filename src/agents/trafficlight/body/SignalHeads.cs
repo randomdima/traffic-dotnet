@@ -9,8 +9,8 @@ namespace TrafficSimulation.Agents.TrafficLight.Body;
 /// <summary>One head standing in the town: where it is, which way round it is, and what it is showing.</summary>
 /// <remarks>
 /// <para>
-/// A head is <b>the bundle's visual and nothing else</b> — no agent reads one, because both agent kinds
-/// read <see cref="SignalService"/>. What it carries is therefore what a picture of it needs: a place, a
+/// A head is <b>the bundle's visual and nothing else</b> — no agent reads one: a car reads
+/// <see cref="SignalService"/> and a walker reads no signal. What it carries is therefore what a picture of it needs: a place, a
 /// bearing, and the thing to ask for its colour — a lane for a car head, a crossing for a walker's.
 /// </para>
 /// <para>
@@ -29,8 +29,7 @@ internal readonly record struct SignalHead(Vector2 CentreM, float HeadingRad, bo
 /// <remarks>
 /// <para>
 /// A car head stands a fixed distance past its own stop bar, measured along the road, on the bar's own
-/// centre line — which is the middle of the approaching lane, and therefore on the tarmac. The rule
-/// "never out on the tarmac" contradicts that; the placement rule is what is reproduced.
+/// centre line — which is the middle of the approaching lane, and therefore on the tarmac.
 /// </para>
 /// <para>
 /// <b>A car head's lamps run along the driver's right</b>, red first, so a head governing the opposite

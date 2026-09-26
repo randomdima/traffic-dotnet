@@ -78,12 +78,11 @@ internal sealed class CentrelineRuns
     /// driver holds at.
     /// </para>
     /// <para>
-    /// <b>Measured off the band that is there and not off a figure for where one would be</b>
-    /// (<see cref="SimConfig.ArmPaintM"/> is that figure, and is still what says whether an arm has room
-    /// for the bundle at all). Where a walk meets a road is the walk's to say, and it is cut off the end of
-    /// the road's kerb rather than off the end of its lane — which is further back, and further by however
-    /// early the mouth began to widen. A trim taken at the figure then leaves the dashes running into the
-    /// bar on exactly the arms whose mouths open soonest.
+    /// <b>Measured off the band that is there and not off a figure for where one would be.</b> Where a walk
+    /// meets a road is the kerb ends' to say (<see cref="KerbEnds"/>), and it is cut off the end of the road's
+    /// kerb rather than off the end of its lane — which is further back, and further by however early the
+    /// mouth began to widen. A trim taken at a fixed figure would leave the dashes running into the bar on
+    /// exactly the arms whose mouths open soonest.
     /// </para>
     /// <para>
     /// <b>Asked of what each arm holds behind and not of the paint</b> (<see cref="KerbEnds.HeldM"/>): what a

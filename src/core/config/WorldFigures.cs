@@ -503,9 +503,9 @@ internal sealed class MarkFigures
     /// mark and no agent sees one.
     /// </summary>
     /// <remarks>
-    /// <b>The skidpad is what sets it.</b> A town's traffic marks the road rarely and any figure would do
-    /// there; the pad has ninety-odd cars writing with every wheel at once, and a circle the ring wrapped
-    /// halfway round is a circle nobody can measure. This is a couple of turns of the whole pad.
+    /// <b>Sized for a crowd marking at once, not for a town.</b> A town's traffic marks the road rarely and
+    /// any figure would do there; this is a couple of turns of ninety-odd cars writing with every wheel, so
+    /// a circle is not overwritten halfway round before it can be measured.
     /// </remarks>
     public int Capacity { get; init; } = 80000;
 }
@@ -694,7 +694,7 @@ internal sealed class CityGenFigures
     /// <summary>
     /// <b>How long a bay is</b> (GEN-53, <see cref="SimConfig.CarParkBayLengthM"/>): a length of ground,
     /// authored like every other length of ground in this file, and <b>longer than the longest vehicle the
-    /// town draws</b> (<see cref="AgentFigures.LongestLengthM"/>, which <c>SimConfigTests</c> holds it to).
+    /// town draws</b> (<see cref="CarFigures.LongestLengthM"/>, which <c>SimConfigTests</c> holds it to).
     /// </summary>
     /// <remarks>
     /// <b>Five metres, which is the clearance and nothing else</b> — a bay square to the street is driven
@@ -751,8 +751,8 @@ internal sealed class CityGenFigures
 
     /// <summary>
     /// How finely a shoreline is sampled: the most a chord may stand off the curve it is drawn through.
-    /// <b>Half a cell</b>, which is the finest the ground under it is classified, so the drawn bank and the
-    /// classified one agree everywhere and the outline is as smooth as the map can tell.
+    /// The rings are the bank the ground is answered off as well as the one drawn (TER-7), so this is how
+    /// far both stand off the wave the water is laid from.
     /// </summary>
     public float ShoreChordToleranceM { get; init; } = 0.5f;
 

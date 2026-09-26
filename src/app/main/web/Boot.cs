@@ -60,9 +60,9 @@ try
     //
     // **It is handed over before any town is opened, which is the whole of what a page does
     // differently here.** The menu stands on the files Data.Boot already fetched, so the reader has it
-    // the moment the engine is running; a page that awaited three megabytes of art and a plan first
-    // would show a blank canvas for the whole of that wait (WEB-6, WEB-9) — and a desktop run, whose
-    // plan is on the disk it started from, opens the two together.
+    // the moment the engine is running; a page that awaited three megabytes of art first would show a
+    // blank canvas for the whole of that wait (WEB-6, WEB-9) — and a desktop run, whose art is on the
+    // disk it started from, opens the two together.
     var step = game.Step;
     WebGpu.Ticker(step);
 

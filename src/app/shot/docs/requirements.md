@@ -54,7 +54,8 @@ sheet unable to photograph the interface.
 ## What this slice may know
 
 `app/shot/` depends on the shell it photographs — the camera, the renderer, the interface, the debug
-layers — and on `bench/` for the proving ground's instrument, exactly as
-[app/main](../../../../docs/slice-map.md) does. **Nothing depends on it but `app/main/` and the
-workshop**, so the arrow stays pointing down: the e2e visual tier stages its scenarios through
-`ShotRun` and tiles them with `Sheet`, and there is no second copy of either.
+layers — and on `bench/` for the watches a map's claims are read from (`Scenarios.For`,
+[slice-map](../../../../docs/slice-map.md)).
+**Nothing depends on it but `app/main/`, `app/drive/` and the workshop**, so the arrow stays pointing
+down: a drive asks it for its frames, the e2e visual tier stages its scenarios through `ShotRun` and tiles
+them with `Sheet`, and there is no second copy of either.

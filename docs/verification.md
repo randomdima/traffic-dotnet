@@ -18,8 +18,8 @@ model, not a new soak scene.**
 qq tests [--changed] [tiers]   one or more tiers, each in the configuration its answer is true in
 qq tests e2e --judge           the frames, judged by an agent
 qq doclint                     every rule stated once, and every ID the code cites resolving
-dotnet run --project traffic-dotnet.csproj -- --bench drive --map Odesa
-dotnet run --project traffic-dotnet.csproj -- --bench exam        # a scenario's claims, and an exit code
+dotnet run --project traffic-dotnet.csproj -- --bench drive
+dotnet run --project traffic-dotnet.csproj -- --bench soak        # a town's claims, and an exit code
 dotnet run --project traffic-dotnet.csproj -- --shot .tmp/town.png --map Test
 dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json
 ```
@@ -28,9 +28,10 @@ dotnet run --project traffic-dotnet.csproj -- --sheet .tmp/junctions.json
 stated there and nowhere else — a figure that drifts is worse than no figure, and four copies of it drift
 apart.
 
-**Judging is spelled `--judge` and happens nowhere else.** It is the one thing in this project that
-spends money, so no command reaches it by default and every route to the suite that is not
-`qq tests e2e --judge` takes the frames unjudged or leaves the tier out.
+**Judging is spelled `--judge`.** It is the one thing in this project that spends money, so every `qq`
+route to the suite that is not `qq tests e2e --judge` takes the frames unjudged or leaves the tier out.
+The untiered `dotnet test` does judge — `VisualJudge` judges unless `TRAFFIC_E2E_JUDGE=off` — which is
+one more reason it is not a command typed here.
 
 ## The suite is selected by tier, not by folder
 
@@ -44,14 +45,14 @@ class in no tier's filter is never run again and nothing says so.
 |---|---|---|---|
 | `Unit` | engine-free arithmetic, and the fixture map where a question needs a place | Release | yes |
 | `Town` | a question asked of a town that is stood up — read, laid out over, or ticked | Release | yes |
-| `Perf` | the four gates below: what is measured over a whole town | Release, and Debug for one class | yes |
+| `Perf` | the five gates below: what is measured over a whole town | Release, and Debug for one class | yes |
 | `Maps` | the shipped cities, asked for by name | Release | **no** |
 | `E2E` | the visual tier, tier 4 above | Debug | **no** |
 
 **Three multipliers separate a tier from the untiered suite**: Debug costs roughly four times Release
 across the whole suite, `Perf` is serialised on purpose, and a town is only ticked once however many
-claims are asked of that minute of it. **The unit tier stands no world up at all** — it is two
-seconds and about half the cases, which is the whole reason it is the one run after every edit.
+claims are asked of that minute of it. **The unit tier stands no world up at all**, which is the whole
+reason it is the one run after every edit.
 
 ## The suite has five minutes, and a new test is paid for out of them
 
@@ -61,30 +62,13 @@ machine as much as the suite, and this project's own rule is that a bound is a f
 not a reading off a stopwatch. What the figure is for is the moment somebody wants to add a test.
 
 **When the budget is spent, what gives way is chosen from the bottom of a ladder and never from the top.**
-Every test class carries a rung as well as a tier — `[Trait(Priority.Key, Priority.P…)]`,
-[tests/Priority.cs](../src/tests/Priority.cs) — and the rung answers one question: *what is the town if
-this is wrong?*
-
-| Rung | What is wrong | Classes | Summed |
-|---|---|--:|--:|
-| `P0` | the engine is not one — the two rules, the solver, the clock | 14 | 23 s |
-| `P1` | the town is unsafe — bodies overlap, ground is granted twice, a body is hurt wrongly | 17 | 99 s |
-| `P2` | an agent does not do its job — a trip, a rescue, a recovery, a right of way | 33 | 271 s |
-| `P3` | the town is laid wrong — the generator, and the bar every map is held to | 13 | 32 s |
-| `P4` | something derived from the plan disagrees with it — graphs, networks, registries | 16 | 36 s |
-| `P5` | what is drawn is in the wrong place | 8 | 7 s |
-| `P6` | the player cannot do something | 20 | 22 s |
-| `P7` | an instrument lies | 6 | 11 s |
-| `P8` | authored data is malformed | 5 | 1 s |
-| `P9` | a detail is off | 5 | 1 s |
-
-**A tier is what a question costs; a rung is what its answer is worth**, and neither can be read off the
-other — the cheapest class in the suite guards the solver and one of the dearest checks where a lamp is
-drawn. `TierTests` fails the suite for a class naming neither, because a class in no filter is never run
-again and nothing says so.
-
-**`qq tests --upto=N` cuts a run at a rung.** `--upto=1` is every claim about the engine's integrity and
-the town's safety, which is a few seconds and is the cut worth taking while chasing a solver bug.
+Every test class carries a rung as well as a tier — `[Trait(Priority.Key, Priority.P…)]` — and the rung
+answers one question: *what is the town if this is wrong?* The rungs are
+[tests/Priority.cs](../src/tests/Priority.cs)'s own XML docs, from `P0`, the engine is not one, to `P9`, a
+detail is off. **A tier is what a question costs; a rung is what its answer is worth**, and `TierTests`
+fails the suite for a class missing either. **`qq tests --upto=N` cuts a run at a rung**;
+`--upto=1` is the engine's integrity and the town's safety, the cut worth taking while chasing a solver
+bug.
 
 ## A shipped city is content, and content is not the suite's subject
 
@@ -112,8 +96,8 @@ added or its brief retuned, not for an edit to the engine. **The bar itself is o
 and by this tier for the cities somebody ships, so the two cannot disagree about what a town owes.
 
 **A gate is not an exception to this.** A gate is a question about the engine and a town is only the load
-it is put under, so what it wants is the worst load this build can stand up — `Towns.EveryMapWorthAGate`:
-the suite's own two, and the laboratories whose traffic actually piles up.
+it is put under, so what it wants is the worst load this build can stand up — `Towns.EveryMapWorthAGate`,
+which is the suite's own two.
 
 **Two things want Debug and neither is a tier.** `CrossingGateTests` reads a counter that is
 `[Conditional("DEBUG")]`, so `qq tests perf` takes that one class in Debug and the rest of the gates in
@@ -133,13 +117,9 @@ and the ground's triangles are functions of the plan and the figures, and a clai
 one build of it however many claims there are.
 
 **A soak is asked of the towns that can answer it.** Driving a town for minutes is how a state that turns
-up rarely is caught, and what makes one turn up is traffic: the maps behind the scenario submenu are laid
-to put one behaviour under a microscope, so a ten-minute run over five streets with a walker apiece
-witnesses nothing the first ten seconds did not and costs the whole of the run to say so. Minutes of
-driving go to `Towns.City`; a claim answered off a plan, a graph or a town at rest goes on being asked of
-`Towns.EveryTown` and, where it is about the arrangement rather than about one place,
-`Towns.EveryLaidMap` — where a small map costs a tenth of a second and is the one that catches the odd
-shape.
+up rarely is caught, and what makes one turn up is traffic, so minutes of driving go to `Towns.City`. A
+claim answered off a plan, a graph or a town at rest is asked of `Towns.EveryTown` and, where it is about
+the arrangement rather than about one place, `Towns.EveryLaidMap`.
 
 **A soak's subject is staged, and never waited for.** Whether a town knocks one of its own people down
 inside ten minutes is a fact about how crowded it is, so a claim about what happens to a casualty orders
@@ -184,7 +164,7 @@ break the thing it names and watch: a test that stays green is not a test of it.
 
 ## The gates
 
-Four tests in [tests/gates/](../src/tests/gates/) that assert what would otherwise be a habit, and each is
+Five tests in [tests/gates/](../src/tests/gates/) that assert what would otherwise be a habit, and each is
 re-taken on the largest town the project can open:
 
 | Gate | Asserts |
@@ -193,6 +173,7 @@ re-taken on the largest town the project can open:
 | `CrossingGateTests` | The frame's managed→native crossings are flat in the size of the town (rule 1) |
 | `OverlapGateTests` | `PHY-1` on a town that is *running*, not on a staged pair |
 | `SolverGateTests` | `SOL-20`, including **across contact churn** as bodies touch and separate |
+| `ClaimGateTests` | `TER-4c.3`, `TER-5c.2`, `TER-4c.1` and `TER-5g.1` on the shape of every way's claims: nothing held twice, no hold with a hole in it, nothing held that the answer refused, and nothing held more strongly than the road to it |
 
 `OverlapGateTests` asserts that no **one** body stays inside another, and not that nothing is ever inside
 anything — the second is not a fact about this town: a soft-step solver answers an approach by letting a
@@ -219,8 +200,8 @@ question and one the probe is entitled to answer for itself.
 
 ## Fixtures
 
-**Every town the suite asks a question of is read once and handed out** — reading a city is a tenth of a
-second and there are a dozen questions to ask of it.
+**Every town the suite asks a question of is laid once and handed out**, since there are a dozen
+questions to ask of it.
 
 **A shared plan must not be written to.** A test that breaks a town on purpose reads its own copy
 (`Towns.Fresh`), and the generator's determinism cases lay their town twice on purpose (`Towns.LayFresh`):
@@ -242,13 +223,12 @@ suite does not take one, because a collection that does not run beside anything 
 **Ask a whole city the shallow questions only**; detailed geometry is asked of named places on the
 fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 
-**A laboratory map is asked what it was laid to answer and nothing else**, because a map laid to measure
-one thing holds whatever that question needed and no more: asked about parking, a proving ground answers
-over an empty set and reads like coverage. A town's own questions go to `Towns.EveryTown`, which is the
-fixture and the town the suite lays. What stays on `Towns.EveryLaidMap` is what is about the set of maps
-this build lays rather than about a town: that every map reads back as it was written, conforms and draws,
-and is watched against something. `Towns.EveryShippedMap` is for what is about the menu itself — that every
-map has a description and can be opened — and nothing else may use it.
+**A town's own questions go to `Towns.EveryTown`**, which is the fixture and the town the suite lays. What
+stays on `Towns.EveryLaidMap` is what is about the set of maps this build lays rather than about a town:
+that every map conforms, draws and is watched against something. `Towns.EveryShippedMap` is for what is
+about the menu itself — that every map has a description and can be opened — and nothing else may use it.
+A laboratory map, when one ships, is asked what it was laid to answer and nothing else: asked about
+parking, a proving ground answers over an empty set and reads like coverage.
 
 ## What a map claims about itself
 
@@ -268,11 +248,11 @@ is not something anybody could settle by looking at the town.
 | The suite | the town tier, asserting the same claims off the same watch |
 
 **A claim fails a run and a reading never does.** The split is the project's own: what must hold on every
-map is a claim, and what is a fact about one town — the swerves a street cost, the laps a fleet got round, how
-far an articulated pair gets through a dense city — is quoted beside it, because asserting it would be
-tuning the towns until the instrument could no longer report the thing it was laid to find. **A probe that
-gates nothing says so at the point it is listed** (`CheckCatalogue.Quoted`), rather than leaving a caller
-to read a bare exit code as a pass.
+map is a claim, and what is a fact about one town — how long a rescue took, how far an articulated pair
+gets through a dense city — is quoted beside it, because asserting it would be tuning the towns until the
+instrument could no longer report the thing it was laid to find. So **a map laid to be hard claims less,
+not more**: everything it is *for* is quoted. **A probe that gates nothing says so at the point it is
+listed** (`CheckCatalogue.Quoted`), rather than leaving a caller to read a bare exit code as a pass.
 
 **A claim nobody has answered yet is not a pass.** Every claim is `waiting`, `kept` or `BROKEN`: a lap
 nobody has been round is not a lap driven badly, and a run cut short before its subject arrives has asked
@@ -294,8 +274,8 @@ Each is a *relation holding over a sample*, not a list of cases to tick off.
 world seeds, within the attempt bound. Internal rejection is not a failure; exhausting the bound is.
 
 **VER-2** `P8` Every parking space can be entered and left by a legal manoeuvre, reverse permitted, and a car
-that has to come back the way it came can do it — in a bay of a car park (`GEN-4l`) or by working itself
-round in a dead end (`P-19`), which are the two ways round there are (TER-5f).
+that has to come back the way it came can do it — in a bay of a car park (`GEN-4l`), which is the one way
+round there is (TER-5f).
 
 **VER-3** `P8` Over a long unattended run, **no dynamic body ends up overlapping another** and **no agent is
 permanently stuck**: every agent either progresses toward a goal, is legitimately idling, or is in a
@@ -310,9 +290,9 @@ person is put down at is the slide it leaves in them.
 
 **VER-11** `P8` **Every map states what it claims about itself, and every run of it says whether it kept it** —
 in the panel a player is looking at and in the output a script reads, off one watch. A map laid to measure
-one thing claims that thing; every town, laid or traced, claims the three above it: `PHY-1`, that nothing
-goes on driving into ground it was refused (`TER-4c.1`), and that nothing stands still with no clock running
-for it. A claim the run has not answered is reported as unanswered rather than counted either way.
+one thing claims that thing; every town, laid or traced, claims the two above it: `PHY-1`, and that nothing
+goes on driving into ground it was refused (`TER-4c.1`). A claim the run has not answered is reported as
+unanswered rather than counted either way.
 
 **What the second of those counts is a body going *deeper*, never a body being past.** A grant is worked
 out from the pose every tick, so a body that stopped where it was told to and overshot by a stride latches
@@ -393,29 +373,21 @@ held by; `--check` prints the dependency read-out; and every figure is quoted wi
 whether the town it ran was a town.
 
 **A probe with claims behind it ends with them**, and its exit code is the answer: the table is what a
-person reads and the last line is what a script does. The ones that gate nothing say so where they are
-listed rather than answering a bare zero.
+person reads and the last line is what a script does.
 
 **`--bench rescue` and `--bench recovery` are the same reading said of the ambulance and the evacuator**
 ([agents/ambulance](../src/agents/ambulance/docs/requirements.md),
 [agents/evacuator](../src/agents/evacuator/docs/requirements.md)). Each stages one casualty or one wreck a
 town — through the damage roster, so what it does to the town is what a car hitting something does — and
-prints raised against collected against delivered, with the times beside them. **Both are read by a tier as
-well as by a person**: `RescueEndToEndTests` and `RecoveryEndToEndTests` assert off the probe's own row
-rather than off a run of their own, so the gate and the instrument cannot disagree about what a rescue is.
-**What each gates is what must hold on every map** — that a casualty is collected and delivered inside the
-errand's own give-up bound (`AMB-9`), that a recovery which begins actually drags something — and every
-bound it is held to is a figure on `SimConfig` rather than a wall-clock reading. **What is quoted and never
-gated is the arrival**: whether a dense city's geometry lets a nine-metre articulated pair get all the way
-home is a fact about that city (`EVA-8`), which is a reading and not a claim.
+prints raised against collected against delivered, with the times beside them. **Both are quoted and gate
+nothing**, and no tier reads their rows: the end-to-end tests that did went with the lane layer they were
+staged on.
 
-**The documents have two instruments of their own**, for the same reason and read the same way.
-`qq doclint` asks whether every rule is stated exactly once and every ID the code cites resolves — a
-citation to a renumbered or retired rule compiles, passes and misleads, and nothing else in the suite can
-see it; it runs inside `qq checks`, which builds the game and then takes the same three tiers `qq tests
-all` does, through that tool rather than through a copy of it. `qq outline`, given no argument, prints the longest files in `src/`,
-which is where "nothing grows past being readable" is checked rather than asserted.
-
-**A map laid to be hard claims less, not more.** What such a map may claim is bounded by what it can
-honestly answer, and everything it is *for* — the swerves, the back-offs, the laps given up on, what each
-look pulls at — is quoted rather than claimed, on the split above.
+**The documents have instruments of their own**, read the same way. `qq doclint` asks whether every rule
+is stated exactly once and every ID the code cites resolves — a citation to a renumbered or retired rule
+compiles, passes and misleads, and nothing else in the suite can see it; it runs inside `qq checks`, which
+builds the game and then takes the same three tiers `qq tests all` does, through that tool rather than
+through a copy of it. `qq doclint --build` also asks the compiler whether every doc comment is
+well-formed XML, which the ordinary build never generates. `qq docstats` measures the documents and what they repeat, `qq reqaudit` weighs every
+rule by what obeys it, and `qq outline`, given no argument, prints the longest files in `src/`, which is
+where "nothing grows past being readable" is checked rather than asserted.

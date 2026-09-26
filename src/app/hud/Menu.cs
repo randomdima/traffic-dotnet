@@ -20,8 +20,8 @@ internal enum MenuAction : byte
 }
 
 /// <summary>
-/// <b>There is one menu and it hangs off the gear.</b> Two pages — the map to open and the debug
-/// switches — and the way out of the game as a third tab beside them.
+/// <b>There is one menu and it hangs off the gear.</b> Four pages — the map to open, the debug
+/// switches, the figures and the ground — and the way out of the game as a fifth tab beside them.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -58,8 +58,8 @@ internal sealed partial class Menu
     /// <summary>
     /// <b>The figures, as a share of what the build ships</b> — the page a session turns a constant on and
     /// watches the town answer (<see cref="TrimFigures"/>). It is a page rather than a scenario's own panel
-    /// because what is on it is the <em>road</em>, which every map has: the skidpad is where it is read, and
-    /// every other map is where it is felt. A car's own figures are not here and have no dial.
+    /// because what is on it is the <em>road</em>, which every map has and every map is where it is felt. A
+    /// car's own figures are not here and have no dial.
     /// </summary>
     public const int Figures = 2;
 

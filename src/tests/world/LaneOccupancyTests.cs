@@ -27,7 +27,7 @@ public class LaneOccupancyTests
     static LaneOccupancy Index(out RoadGraph roads, int mostSlots = 16)
     {
         roads = RoadGraph.Build(Towns.Of("Test"), Config);
-        return new LaneOccupancy(TownWays.OfTheRoad(roads), mostSlots);
+        return new LaneOccupancy(TownWays.OfTheRoad(roads), mostSlots, roads.Crossings);
     }
 
     /// <summary>
@@ -175,7 +175,7 @@ public class LaneOccupancyTests
     {
         var index = Index(out var roads);
         var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
-        var asker = new LaneCredit(2f, LaneRoster.Driving, RightOfWay.Traffic);
+        var asker = new LaneCredit(2f, LaneRoster.Driving, ClaimPriority.Firm);
 
         // The car queueing behind for the same movement, claiming the run through the body in front of it.
         index.Begin();
@@ -231,27 +231,73 @@ public class LaneOccupancyTests
     }
 
     /// <summary>
-    /// <b>A right of way takes a claim and never a body</b> (TER-5e): ground nobody has reached is given up
-    /// to the stronger movement, and ground somebody is standing on — or committed to being able to stop in —
-    /// refuses everything, whatever ranks the two of them carry.
+    /// <b>A crossing somebody has reserved cuts no grant, and a granted movement takes it</b> (PER-27,
+    /// TER-5g p8): the traffic drives over a reservation and keeps the metres it was granted, which is the
+    /// whole of what the rung sitting below <see cref="ClaimPriority.Firm"/> comes to.
+    /// </summary>
+    /// <remarks>
+    /// <b>And it outlasts a statement</b>, which is the other half of where it sits: a driver saying it
+    /// means to use those metres does not take them off somebody who is walking the paint.
+    /// </remarks>
+    [Fact]
+    public void ACrossingReservedCutsNoGrantAndIsTakenByAGrantedMovement()
+    {
+        var index = Index(out var roads);
+        var way = index.Ways.OfRoadLane(FirstLongLane(roads, 60f));
+        var asker = new LaneCredit(2f, LaneRoster.Driving, ClaimPriority.Firm);
+
+        index.Begin();
+        index.ClaimAhead(way, 20f, 26f, 0f, 4, ClaimPriority.Reserved, LaneRoster.Walking);
+
+        Assert.Equal(
+            float.PositiveInfinity, index.GrantedOn(way, 0f, 60f, occupant: 2, asker, out _));
+
+        // And what the traffic is granted it takes: the reservation gives the metres up to a firm claim
+        // over them and is left holding the paint nobody has taken.
+        index.ClaimAhead(way, 22f, 40f, 0f, 2, ClaimPriority.Firm);
+        Assert.Equal(22f, Held(index, way, 4).ToM, 3);
+
+        // A statement over the same metres is the other way about, and is the one thing the rung buys.
+        index.Begin();
+        index.ClaimAhead(way, 20f, 26f, 0f, 4, ClaimPriority.Reserved, LaneRoster.Walking);
+        index.ClaimAhead(way, 22f, 40f, 0f, 2, ClaimPriority.Soft);
+        Assert.Equal(26f, Held(index, way, 4).ToM, 3);
+    }
+
+    /// <summary>The one stretch of a way an occupant holds, or <see cref="LaneClaim.Nothing"/>.</summary>
+    static LaneClaim Held(LaneOccupancy index, int way, int occupant)
+    {
+        Span<LaneClaim> slots = stackalloc LaneClaim[16];
+        var count = index.CopyTo(way, slots);
+        for (var slot = 0; slot < count; slot++)
+        {
+            if (slots[slot].Occupant == occupant) return slots[slot];
+        }
+
+        return LaneClaim.Nothing;
+    }
+
+    /// <summary>
+    /// <b>A stronger movement takes a claim and never a body</b> (TER-5e): ground nobody has reached is
+    /// given up to it, and ground somebody is standing on — or committed to being able to stop in — refuses
+    /// everything, at whatever rungs the two of them hold it.
     /// </summary>
     [Fact]
-    public void ARightOfWayTakesAClaimAndNeverABody()
+    public void AStrongerMovementTakesAClaimAndNeverABody()
     {
-        var claim = new LaneClaim(
-            0f, 6f, 0f, 0f, 1, ClaimPriority.Firm, Right: RightOfWay.TurningAcross);
-        Assert.False(LaneOccupancy.Binds(claim, RightOfWay.StraightOn));
-        Assert.True(LaneOccupancy.Binds(claim, RightOfWay.TurningAcross));
+        var claim = new LaneClaim(0f, 6f, 0f, 0f, 1, ClaimPriority.FirmAcross);
+        Assert.False(LaneOccupancy.Binds(claim, ClaimPriority.FirmStraight));
+        Assert.True(LaneOccupancy.Binds(claim, ClaimPriority.FirmAcross));
 
         // The same ground held by a car that can no longer stop short of the box it is entering.
         Assert.True(
-            LaneOccupancy.Binds(claim with { Priority = ClaimPriority.Hard }, RightOfWay.StraightOn));
+            LaneOccupancy.Binds(claim with { Priority = ClaimPriority.Hard }, ClaimPriority.FirmStraight));
 
-        // And a body, which is not a rank's to take at any strength.
+        // And a body, which is nothing's to take at any rung.
         var body = claim with { StandsToM = 6f, Priority = ClaimPriority.Hard };
-        Assert.True(LaneOccupancy.Binds(body with { OnItsLine = true }, RightOfWay.StraightOn));
-        Assert.True(LaneOccupancy.Binds(body, RightOfWay.StraightOn));
-        Assert.True(LaneOccupancy.Binds(body with { Of = LaneRoster.Walking }, RightOfWay.StraightOn));
+        Assert.True(LaneOccupancy.Binds(body with { OnItsLine = true }, ClaimPriority.FirmStraight));
+        Assert.True(LaneOccupancy.Binds(body, ClaimPriority.FirmStraight));
+        Assert.True(LaneOccupancy.Binds(body with { Of = LaneRoster.Walking }, ClaimPriority.FirmStraight));
     }
 
     /// <summary>
@@ -264,13 +310,21 @@ public class LaneOccupancyTests
     {
         var stated = new LaneClaim(0f, 6f, 0f, 0f, 1, ClaimPriority.Soft);
 
-        Assert.False(LaneOccupancy.Binds(stated, RightOfWay.StraightOn));
-        Assert.False(LaneOccupancy.Binds(stated, RightOfWay.Traffic));
-        Assert.True(LaneOccupancy.Binds(stated, RightOfWay.TurningAcross));
+        Assert.False(LaneOccupancy.Binds(stated, ClaimPriority.FirmStraight));
+        Assert.False(LaneOccupancy.Binds(stated, ClaimPriority.Firm));
+        Assert.True(LaneOccupancy.Binds(stated, ClaimPriority.FirmAcross));
 
-        // Where the same ground granted refuses the equal rank as well.
+        // Where the same ground granted refuses the equal movement as well.
         Assert.True(
-            LaneOccupancy.Binds(stated with { Priority = ClaimPriority.Firm }, RightOfWay.Traffic));
+            LaneOccupancy.Binds(stated with { Priority = ClaimPriority.Firm }, ClaimPriority.Firm));
+
+        // And the stated band is the granted one read seven rungs down, which is what makes a street's
+        // statement refuse the turn across it and the turn's refuse nobody but itself.
+        Assert.Equal(ClaimPriority.Firm, LaneOccupancy.SaidAhead(ClaimPriority.Soft));
+        Assert.True(
+            LaneOccupancy.Binds(stated with { Priority = ClaimPriority.SoftStraight }, ClaimPriority.Firm));
+        Assert.False(
+            LaneOccupancy.Binds(stated with { Priority = ClaimPriority.SoftAcross }, ClaimPriority.Firm));
     }
 
     /// <summary>
@@ -308,7 +362,7 @@ public class LaneOccupancyTests
     [Fact]
     public void OnlyAStrongerRankTakesAClaimFromItsHolder()
     {
-        var mine = RightOfWay.Traffic;
+        var mine = ClaimPriority.Firm;
         var over = new LaneClaim(0f, 6f, 6f, 0f, 1, ClaimPriority.Hard, OnItsLine: true);
 
         Assert.False(LaneOccupancy.TakesAClaim(over, mine));
@@ -316,28 +370,33 @@ public class LaneOccupancyTests
         Assert.False(LaneOccupancy.TakesAClaim(over with { Of = LaneRoster.Walking }, mine));
         Assert.False(LaneOccupancy.TakesAClaim(over with { Occupant = LaneOccupancy.Nobody }, mine));
 
-        Assert.True(LaneOccupancy.TakesAClaim(over with { Right = RightOfWay.Closed }, mine));
-        Assert.True(LaneOccupancy.TakesAClaim(over with { Right = RightOfWay.Emergency }, mine));
+        var granted = over with { StandsToM = 0f };
+        Assert.True(LaneOccupancy.TakesAClaim(granted with { Priority = ClaimPriority.Closed }, mine));
+        Assert.True(LaneOccupancy.TakesAClaim(granted with { Priority = ClaimPriority.Special }, mine));
 
-        // And a rank the holder itself carries takes nothing: a rescue does not give its own road back.
-        Assert.False(LaneOccupancy.TakesAClaim(over with { Right = RightOfWay.Emergency }, RightOfWay.Emergency));
+        // And a rung the holder itself keeps its ground at takes nothing: a rescue does not give its own
+        // road back. Neither does anything merely stated, whatever movement stated it.
+        Assert.False(
+            LaneOccupancy.TakesAClaim(
+                granted with { Priority = ClaimPriority.Special }, ClaimPriority.Special));
+        Assert.False(
+            LaneOccupancy.TakesAClaim(granted with { Priority = ClaimPriority.SoftSpecial }, mine));
     }
 
     /// <summary>
-    /// <b>Straighter is stronger</b> (TER-5e), and the order is one scale rather than a table of pairs: the
+    /// <b>Straighter is stronger</b> (TER-5e), and the order is the ladder rather than a table of pairs: the
     /// stream that turns out of nobody's way, ordinary traffic, and the turn across the oncoming stream,
     /// which is the last movement a box admits (TER-5f).
     /// </summary>
     [Fact]
-    public void AMovementsRightOfWayIsTheTurnItMakes()
+    public void AMovementIsGrantedItsGroundAtTheRungOfTheTurnItMakes()
     {
-        Assert.True(RoadGraph.RightOfWayOf(LaneTurn.Straight) > RoadGraph.RightOfWayOf(LaneTurn.NearSide));
-        Assert.True(RoadGraph.RightOfWayOf(LaneTurn.NearSide) > RoadGraph.RightOfWayOf(LaneTurn.FarSide));
+        Assert.True(RoadGraph.FirmOn(LaneTurn.Straight) < RoadGraph.FirmOn(LaneTurn.NearSide));
+        Assert.True(RoadGraph.FirmOn(LaneTurn.NearSide) < RoadGraph.FirmOn(LaneTurn.FarSide));
 
-        // Ordinary traffic is the middle of the scale and what a stretch laid without a rank is given, so
-        // nothing that is not a movement through a box is either given way to or taken from.
-        Assert.Equal(RightOfWay.Traffic, RoadGraph.RightOfWayOf(LaneTurn.NearSide));
-        Assert.Equal(RightOfWay.Traffic, LaneClaim.Nothing.Right);
+        // Ordinary traffic is the middle of the band, so nothing that is not a movement through a box is
+        // either given way to or taken from.
+        Assert.Equal(ClaimPriority.Firm, RoadGraph.FirmOn(LaneTurn.NearSide));
     }
 
     /// <summary>

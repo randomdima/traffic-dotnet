@@ -3,7 +3,7 @@
 How every agent gets from where it is to where it is going. **Both agent kinds use the same two tiers and
 the same search**; what differs is only what their network is made of — the lane graph
 ([world/road](../../road/docs/requirements.md)) or the pavement's own
-([world/foot](../../foot/)).
+([world/foot](../../foot/docs/requirements.md)).
 
 ## The split
 
@@ -11,10 +11,6 @@ the same search**; what differs is only what their network is made of — the la
 |---|---|---|---|
 | **Global** | which *ways* the whole trip uses, end to end | link weights and turn prices — **nothing else** | one planner, over an abstract graph |
 | **Local** | how to get from the end of one link onto the next | road or pavement geometry, lane direction, static objects | each agent kind's own |
-
-Below the local tier is the **manoeuvre**, which is more detailed again: it is what waits at a red light,
-picks its way down a bay to a car door, gives way. A local line is a combination of planned manoeuvres; a
-manoeuvre is not a line at all.
 
 ## Where a link ends
 
@@ -27,10 +23,12 @@ the map, shared by every agent of its kind, laid with the town and never touched
   link.
 - **There is no intersection without links that meet there.** Two ways that cross with no way on between
   them is a place bodies pass through each other and nothing in the town notices (TER-4b).
-- **A car park does not end a link, and neither does anything else a leg is aimed at.** Nor does a doorway
-  or a bay: a destination is a **place on a link**, carried with how far into that link it stands, and
-  getting to it off the link is the local tier's problem and then a manoeuvre's. A leg into a car park names
-  the metre its way in leaves the carriageway at (GEN-4h) and wants no node there.
+- **Nothing ends a link for being somewhere a leg is aimed at.** A doorway or a bay is a destination, and
+  a destination is a **place on a link**, carried with how far into that link it stands; getting to it off
+  the link is the local tier's problem. A leg into a bay names the metre of its lane the bay's way in leaves
+  at, and wants no node there.
+- **A car park's junction is a junction like any other** (GEN-4h): a car on the street through it may go
+  on or turn into a bay, so a link ends there as it does at every place with a choice.
 
 The price of the first rule is real and accepted: **a route can no longer turn round at a bend.** A
 two-road junction ends no link, so the way back is taken at a junction with a choice at it, or at a dead
@@ -70,9 +68,7 @@ ends up on, what shape any of it is and what is standing on it are all the local
 What a turn costs depends on the way the body arrived as well as the way it leaves, so **the cheapest way
 to a junction is not a fact about the junction**. Settle where links meet and the planner quietly returns
 routes that are not the cheapest — not visibly wrong, just wrong. **One search state per directed link**,
-which is also what lets the goal be a *place on a link*.
-
-Three consequences, each a bug before it was a rule:
+which is also what lets the goal be a *place on a link*. Three consequences:
 
 - **A goal on the link a body is already committed to is still a search.** A link runs one way, so a
   destination twenty metres *behind* is round the block and down this link again. Track the goal link
@@ -82,16 +78,16 @@ Three consequences, each a bug before it was a rule:
 
 ## The search is asked once a leg, not once a junction
 
-**A leg is routed and then driven.** The global search runs when the leg is drawn, again where the route
+**A leg is routed and then travelled.** The global search runs when the leg is drawn, again where the route
 in hand runs out, and again where something has invalidated it — a stretch a leg priced up after getting
-nowhere, a destination it gave up for one nearer (CAR-15a). Between those the way ahead is *read*: the pieces of a link are contracted
-with the town and copied into the lane queue, and the geometry over them is assembled once per lane the
-body leaves.
+nowhere, a destination it gave up for one nearer (CAR-15a). Between those the way ahead is *read*: the
+pieces of a link are contracted with the town and expanded into the chain of ways the body travels
+(`RouteChain`).
 
 Nothing about a body's own progress is a reason to search again. A car re-deriving its way at every
 junction drives exactly the same and costs tens of searches a leg, so the fault is invisible from
-outside: what reports it is `RouteSearches` against the legs begun over the same window, printed by
-`--bench drive` and bounded by a test.
+outside: what reports it is `RouteSearches` against the legs begun over the same window, bounded by a test
+(`ALegIsRoutedAHandfulOfTimes`).
 
 ## How a soft rule reaches the planner
 

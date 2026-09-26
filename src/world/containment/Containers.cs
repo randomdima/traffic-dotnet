@@ -235,7 +235,7 @@ internal sealed class Containers
         return true;
     }
 
-    /// <summary>Who is driving, or <see cref="NoDriver"/> — which is the whole of CAR-1's question about a car.</summary>
+    /// <summary>Who is driving, or <see cref="NoDriver"/> — which every car is, nothing in this build boarding one.</summary>
     public int DriverOf(int car) => _carDriver[car];
 
     public bool IsFree(int car) => _carDriver[car] == NoDriver;

@@ -39,11 +39,11 @@ internal enum IdlePart : byte
 /// <b>Nothing drives it that is not already in the town.</b> There is no building and no bay, so the rule
 /// that a map with nowhere to be on it drives its own cars (<c>TownWorld.DriveTheEmptyMap</c>) puts every
 /// car on the lane under it and the ordinary catalogue does the rest: the ring is a tour with no end, and
-/// what a car does on it — the gap it keeps, the speed the radius affords it, getting past what it catches
-/// — is the same driver a city gets.
+/// what a car does on it — the gap it keeps, the speed the radius affords it — is the same driver a city
+/// gets.
 /// </para>
 /// <para>
-/// <b>The whole circuit is on screen</b> (<see cref="RadiusM"/>), which is what makes it a picture rather
+/// <b>The whole circuit is on screen</b> (<see cref="HalfSideM"/>), which is what makes it a picture rather
 /// than a stretch of road with something on it now and then: every car is in the frame the whole time,
 /// and the two files meet head to head twice a lap.
 /// </para>

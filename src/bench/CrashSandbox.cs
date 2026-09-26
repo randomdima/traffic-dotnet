@@ -22,7 +22,7 @@ namespace TrafficSimulation.Bench;
 /// <para>
 /// <b>Nothing here drives, walks or decides.</b> Bodies coast: a car is given <see cref="DriveCommand.Idle"/>
 /// rather than a driver, so its wheels hold it straight and take nothing off its speed, and a walker is
-/// given no manoeuvre at all. A rig that ran the followers would be staging a crash against two control
+/// given no route at all. A rig that ran the followers would be staging a crash against two control
 /// loops trying to avoid it. What it does keep is the friction under a <em>terminal</em> body, because
 /// that is the ground's and not the agent's — a corpse and a wreck are still slowed by what they lie on.
 /// </para>

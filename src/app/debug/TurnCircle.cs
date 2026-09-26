@@ -26,8 +26,7 @@ namespace TrafficSimulation.App.Debug;
 /// <para>
 /// <b>What it is <em>not</em> is where the body is actually turning about.</b> That is the tyres' answer
 /// and is written on the road by them; the whole instrument is the daylight between the two, and a slow
-/// car closes it while a car being asked for more than its tyres hold does not
-/// (<see cref="CityGen.SkidpadPlan"/>).
+/// car closes it while a car being asked for more than its tyres hold does not.
 /// </para>
 /// </remarks>
 /// <param name="CentreM">Where the rear axle's line crosses the inner front wheel's.</param>

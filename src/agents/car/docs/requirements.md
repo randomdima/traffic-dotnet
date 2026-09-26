@@ -28,12 +28,17 @@ bay's way in front of it, or the road.
 
 ## What a car is and does
 
-**CAR-1** `P5` A car **acts only while it contains a driver and is intact**. A driverless or broken car is not
-an agent.
+**CAR-1** `P5` A car **acts only while something is driving it and it is intact** — an errand (SRV-3), an
+order (CTL-8d), a hand at the wheel (CTL-5) or the tour of a map with no bay a car can reach (CAR-8). Nobody
+boards a car, so none of those is a driver in a seat. A car nothing is driving, or a broken one, is not an
+agent.
 
 **CAR-2** `P4` A car contains at most one driver.
 
-**CAR-8** `P4` A car has no goals of its own; its destination is its driver's.
+**CAR-8** `P4` A car draws no destination of its own: **where it goes is whatever is driving it** — an
+errand's place (AMB-5, EVA-3, SRV-5, SRV-6) or an order's goal (CTL-8). On a map with no bay a car can reach,
+every car nothing else is driving takes the lane it stands on and tours the lanes with no destination at all
+(`TownWorld.DriveTheEmptyMap`, `LaneTour`).
 
 **CAR-3** `P4` Actions: set steering angle; select gear, forward or reverse; set longitudinal acceleration
 between the braking and drive bounds; handbrake.
@@ -74,7 +79,7 @@ does not rotate.
 
 **CAR-4a** `P4` Every driven line is a line for the **rear axle**, the one point on a car that travels the way
 the car is pointing, and every pose that meets a line is measured to it. The middle of the body crabs,
-and the tightest circle it can hold is `√(R² + d²)`. A template drawn through the middle of the car at
+and the tightest circle it can hold is `√(R² + d²)`. A line drawn through the middle of the car at
 the car's own minimum radius is therefore not merely hard to follow but **impossible**, and the car rides
 it `atan(d/R)` out of square all the way in.
 
@@ -101,17 +106,17 @@ one fit**, and it never draws a shape of its own to reach one either (CAR-15).
 **CAR-11** `P4` A car is driven by **its own body**: its footprint and mass, where its axles sit under it, how
 wide its track is, what its tyres hold, and what its gearing and brakes are worth. Every one of those is
 the variant's, and every decision taken for that car — the wheel, the pedals, the road it asks for, the
-gap it keeps, the bay it will fit in — is taken against them. **A fleet whose cars differ only in
+gap it keeps — is taken against them. **A fleet whose cars differ only in
 their pictures is a fleet of one car.**
 
 **CAR-11a** `P4` The **town's geometry is the nominal car's**: lane widths, junction radii, bays and the ways
 laid into and out of them are sized against `SimConfig`'s own figures and are the same for whoever turns
-up. The proving ground stands that car too — its cars differ in drive layout and in nothing else — because
-a lap whose cars differ in every figure measures nothing.
+up. **No town stands that car**: the one fleet laid on its figures is the crash sandbox's
+(`CarBuilds.OfTheNominalCar`), whose cars differ in drive layout and in nothing else.
 
-**CAR-11b** `P5` A car **takes a bay its body fits in**. A space is painted for the nominal car with a margin
-either side; a body longer or wider than that is one parked across the aisle behind it, and the bay is
-refused before a line into it is laid.
+**CAR-11b** `P5` A space is painted for the nominal car with a margin either side, and a body longer or wider
+than that is one parked across the aisle behind it. **Whether a body fits is answerable and nothing asks
+it** (`ParkingRegistry.Takes`): no bay is refused a car for its size.
 
 **CAR-12** `P4` A car's **tyres stand outside its bodywork**. Its track is the width of the panels over its
 axles — measured off its own picture, mirrors ignored — so each wheel centre stands on a flank and at least
@@ -172,9 +177,8 @@ person is made and holds for the rest of the run. It is a fact about the **perso
 same car is driven past a red by one owner and held at it by the next — so it changes nothing until they
 take a wheel, and the share is `SimConfig.Driving`.
 
-**CAR-13.1** `P5` Exactly two of the soft rules are dropped: **CAR-6.3**, the red, and the stop owed at an
-uncontrolled crossing to somebody **waiting** on the kerb (TER-4c.1). Nothing else is, and the list is
-closed — a driver who does not keep the rules is not thereby exempt from them.
+**CAR-13.1** `P5` Exactly one of the soft rules is dropped: **CAR-6.3**, the red. Nothing else is, and the
+list is closed — a driver who does not keep the rules is not thereby exempt from them.
 
 **CAR-13.2** `P3` **A body is never one of them.** Somebody already on the paint, a wreck, a queue, the ground
 another movement has committed to and the hazard the profile brakes for all bind a reckless driver exactly
@@ -192,9 +196,9 @@ actually standing on** — the shortest way back onto the network, which is the 
 same state said of a driver (PER-25). Nothing is placed and nothing is corrected: the follower steers the
 body back onto that lane's line like any other.
 
-**CAR-9a** `P5` Where no lane runs the way the body is pointing, the car covers no ground, **the leg's own
-clock ends it** (CAR-15a) and the driver continues the trip on foot. The car is then abandoned, which
-makes it no longer an agent (CAR-1) and exempt from the stuck-agent check (VER-3).
+**CAR-9a** `P5` Where no lane runs the way the body is pointing, the car covers no ground and **the leg's own
+clock ends it** (CAR-15a): it is stood down where it stands, on its handbrake, which makes it no longer an
+agent (CAR-1) and exempt from the stuck-agent check (VER-3). Nobody gets out, there being nobody in it.
 
 ## The standing rules
 
@@ -243,9 +247,6 @@ can still stop short of the box, and never after.
 
 **S-5** `P5` Hold a stop you have already made: the handbrake is pulled only at rest.
 
-**S-6** `P3` Hard rules bind everywhere. Only lane legality and the no-idling rule may be suspended, and
-only where a rule here says so.
-
 **S-7** `P7` A hand at the wheel suspends all of it.
 
 ## The tyre model
@@ -269,18 +270,8 @@ wide because the *front* pair runs out of grip at the speed it reaches. Neither 
 corrected. What answers them is a driver — the profile's own corner speed for one that drives itself, and
 a wheel and a pedal that can be held part way (CAR-3a) for a hand.
 
-**The budget is split between the two axes on slip velocities, not on force demands.** A split on demands
-weighs a lateral ask by the corner's load and a longitudinal one by the rim — two orders of magnitude
-apart — and makes braking authority mid-slide depend on the tick rate.
-
-**Three guards in that split must not be removed**, each of which cost real work to find: a **deadband**
-on carried slip, or a car pulling away counts the same pedal twice and reports a slide it is not having;
-**no overshoot** on the rim, or the wheel rings about road speed instead of settling; and the ellipse
-boundary treated as a **ceiling, never a target**, or a wheel resyncing gets the whole budget.
-
-**All four wheels read one snapshot of the body's motion taken at the start of the tick.** An impulse
-applies immediately, so reading the live velocity per wheel makes the order the wheels are stepped in
-break the axle pair's cancellation.
+How the budget is split between the two axes, the three guards in that split and the one snapshot every
+wheel reads are `TyreModel`'s and `CarPose`'s own.
 
 ## What a car shows
 

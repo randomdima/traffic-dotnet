@@ -3,16 +3,16 @@ using System.Numerics;
 namespace TrafficSimulation.Runtime;
 
 /// <summary>
-/// <b>OBS-2k — how dense the interface is drawn.</b> The display's own factor, capped by what the
-/// panels need: an interface pixel is worth as many of the display's as the platform says, right up
-/// until that would leave the window too few interface pixels for a panel to stand in.
+/// <b>OBS-2k — how dense the interface is drawn.</b> The display's own factor: an interface pixel is
+/// worth as many of the display's as the platform says, unless that would leave the window fewer
+/// interface pixels than the narrowest window the panels are laid out for at all.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>It is one file because both machines answer it</b>, unlike the two <c>AppWindow</c>s that ask.
-/// A desktop at 1× and a 1600 × 900 window is never capped and every reference frame is what it was;
-/// a phone reporting 3× on a 390-point viewport is, because 390 interface pixels is narrower than the
-/// menu — and what the cap hands back there is the density that leaves the menu on the glass.
+/// That floor (<c>InterfaceLeastWidthPx</c>, <c>InterfaceLeastHeightPx</c>) is well under any phone, so
+/// a desktop at 1× and a phone reporting 3× on a 390-point viewport both keep the display's factor: a
+/// panel wider than the window is laid narrower instead, and the density gives way only below the floor.
 /// </para>
 /// <para>
 /// <b><c>--ui-scale</c> is not capped.</b> Naming one at all says the guess underneath was wrong, and

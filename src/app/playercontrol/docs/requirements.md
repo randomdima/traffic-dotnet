@@ -8,18 +8,11 @@ town. Why it reads this way is [decision-log.md](decision-log.md).
 deselects. The selection is **marked on the town by a shape and never by a change to the unit's own
 picture** — corner brackets standing outside its box, laid in the frame that box is drawn in.
 
-- **What is drawn on the town is the mark and nothing else**, and **what the unit is doing is read off the
-  panel** (`OBS-2m`). A shape says *which* unit without covering the ground it is about to drive over;
-  words take room, and the room they take is the town. The brackets and the path are what tie the panel to
-  a body, so the corner never has to say which car it means.
-- **What the run's own watches have against that one body goes to the same panel** — how deep inside
-  something it is, how far past the ground it was granted (`OBS-2i`, `Bench.ScenarioWatch`). A claim is a
-  statement about the town and belongs on the panel that holds claims; a finding that names one car belongs
-  with that car's own figures.
-- **A unit with nothing drawn for it is still described.** Somebody inside a building or a car is not
-  drawn (`PHY-7`) and wears no brackets, and a unit the camera has been panned off has nothing on screen
-  either — a read-out that stood on the town could say nothing about any of them, and one in a corner has
-  nothing to point at and so nothing to lose.
+**What is drawn on the town is the mark and nothing else**, and **what the unit is doing — and what the
+run's watches have against it — is read off the panel** (`OBS-2m`, `OBS-2i`). A shape says *which* unit
+without covering the ground it is about to drive over; words take room, and the room they take is the town.
+The brackets and the path are what tie the panel to a body, so the corner never has to say which car it
+means.
 
 **CTL-1b** `P7` **One unit or many, and the left button moves the town.** A selection holds **a set of units and
 not one**, and everything the interface does to a selection it does to every unit in it: the brackets, the
@@ -45,7 +38,7 @@ paths, the orders, the keys and the lever.
 - **The set is bounded**, and the bound is a figure like any other. A box round more units than it holds
   takes what fits and stops.
 - **A group is counted, not described.** A single unit's behaviour state shows as CTL-1 says; several show
-  as a count of each kind, because thirty cars have no speed, no destination and no manoeuvre between them.
+  as a count of each kind, because thirty cars have no speed, no destination and no line between them.
 
 **CTL-1a** `P7` **Where it is going, drawn whole.** The selection carries a second mark: **the whole of the route
 the unit is holding**, from under its own body to the end of what it has planned, as one chevronned line
@@ -83,8 +76,9 @@ One click is **one point and one order each**: the units are all sent to the sam
 it as itself, since a group that was given a formation would be the control layer deciding where a body
 goes rather than which goal it holds.
 
-**CTL-3** `P7` **Context orders.** With a person selected, right-clicking a building or a car walks there and
-enters. **All containment checks bind unchanged** (PHY-7a).
+**CTL-3** `P7` **Context orders.** With a person selected, right-clicking a building walks there and enters,
+and right-clicking anywhere else — a car included — walks there and stands. Nobody boards a car (`CAR-1`).
+**All containment checks bind unchanged** (PHY-7a).
 
 **CTL-8** `P7` **A car's four orders, and the pointer decides which.** With a car selected, one right-click is
 one goal, and **what the pointer was over is the whole of what says which goal it is**. There is no mode
@@ -97,19 +91,19 @@ to be in and no key to hold: the town under the cursor already says what a drive
 | ground a car may drive on | drive to that place and stand there (`CTL-8a`) |
 | anything else | park nearest to it, and walk the rest (`CTL-8b`) |
 
-**Every one of them is a goal and nothing else** (CTL-2). What carries an order out is the same
-catalogue, the same route search, the same road and the same tyres that carry a trip, so an ordered car
-queues, gives way, is held at a red, recovers up the ladder and is bounded by it exactly as any other.
-**No order is a manoeuvre**, and none of them is a new entry of the catalogue.
+**Every one of them is a goal and nothing else** (CTL-2). What carries an order out is the same leg,
+the same route search, the same road and the same tyres that carry an errand, so an ordered car queues, gives
+way, is held at a red and is given up by the leg's own clock (CAR-15a) exactly as any other.
 
 **CTL-8a** `P7` **A place on the road is arrived at along the lane that reaches it.** The leg is aimed at the
 point rather than at a bay, so the route search picks whichever direction of the stretch it reaches first
 and the car comes to rest driving that lane. **Aligning to the lane is the line and never a correction
 applied after it** — nothing turns the body to face anywhere.
 
-It is the same stop point that holds a rescue beside its casualty and
-a recovery beside its wreck: one entry, three errands and a hand. The order is finished when the car is at
-rest within reach of the place — and, like every other order, when the leg ends any other way (CTL-4).
+It is the same stop point that holds a rescue beside its casualty, a recovery beside its wreck and a
+patrol at its scene — one term of the speed profile (`DrivingHold.Place`), three errands and a hand. The
+order is finished when the car is at rest within reach of the place — and, like every other order, when the
+leg ends any other way (CTL-4).
 
 **CTL-8b** `P7` **Parking is the bay machinery, and a place off the road is a park and then a walk.** A park
 order claims a bay and drives the ordinary leg to it. **The bay is the free one nearest the point**, over
@@ -160,8 +154,7 @@ and picks the call back up at the reset, its own clocks having stood still while
 
 **The reset reaches the selection and not the town.** A unit ordered somewhere and then deselected is
 still under orders; picking it out again and pressing the key is how it is handed back. The one other way
-a car leaves manual mode is **somebody getting in and driving it somewhere of their own** — a trip and an
-order cannot both say where a car goes.
+a car leaves manual mode is **being wrecked**: a terminal unit takes no orders, so it holds none either.
 
 **CTL-5** `P7` **Direct control.** The keys drive the selected units by hand — throttle/brake and steering for a
 car, walk/turn for a person, with the handbrake on its own key. **One hand reaches all of them**: the same
@@ -225,11 +218,12 @@ nothing at all for the ones that have not. It is a **lever and not a pedal**: a 
 machinery rather than on its controls — so it needs no hand at the wheel, and giving the wheel up does not
 give up what the vehicle is holding.
 
-**It is the same call the town's own crews make.** The one action anything in this town has is the
-evacuator's arm (`EVA-5`), and a crew reaching for it reaches through this and nothing else. That is what
-makes the recovery a thing that can be watched being done rather than a rule the player is outside of: a
-player who has backed a truck onto a car can pick it up, and a crew that has not got its truck there
-cannot.
+**It is the same call the town's own errand makes.** The one action anything in this town has is the
+evacuator's arm (`EVA-5`), and the recovery reaching for it reaches through this and nothing else. That is
+what makes the recovery a thing that can be watched being done rather than a rule the player is outside of.
+The errand has one thing a press has not: where the truck has stopped within reach of its wreck but the
+fork is not under it, it winches the wreck onto the fork first (`EVA-5`), and a player who has not got the
+truck there picks up nothing.
 
 **CTL-9** `P7` **A finger is a pointer, and two of them are the camera.** The town runs on a desktop, in a
 browser and on a handset, and **there is one set of gestures and not two**: what a phone can do, a mouse

@@ -5,9 +5,10 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.CityGen;
 
 /// <summary>
-/// <b>The pavement, laid once as the band the walk runs down</b> (TER-3c): the town's own tarmac — the
-/// ribbons the driven lines lay (<see cref="LaneShell"/>) — wrapped at half a walk, and the runs of that
-/// wrap that are really the outside of it.
+/// <b>The pavement, laid once</b> (TER-3c): the lines the town is driven on (<see cref="Lanes"/>), the
+/// outline of the ground they lay (<see cref="Perimeter"/>, <see cref="LaneShell"/>) and the layers struck
+/// off that outline (<see cref="Rings"/>) — the walk being the outline moved by
+/// <see cref="SimConfig.WalkOuterM"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,11 +20,11 @@ namespace TrafficSimulation.CityGen;
 /// a walker refused ground it can see it is standing on. Laid here, the two read one list.
 /// </para>
 /// <para>
-/// <b>The pavement is the ground within half a walk of the half-walk line, and it is nothing else</b>
-/// (TER-3c.3). That line is the town's tarmac wrapped at half a walk (<see cref="Perimeter"/>) and cut to
-/// the runs no tarmac stands nearer to — <em>the same line the walking lanes are laid on</em> — so the band is a walk wide the whole
-/// way round, the kerb is its inner edge, the shell against the grass is its outer edge, and a walker walks
-/// down the middle of it.
+/// <b>The pavement is the ground within one figure of the driven ground's boundary, and it is nothing
+/// else</b> (TER-3c.3, <see cref="GroundRings"/>): the boundary moved by a kerb and a walk and filled whole,
+/// with the carriageway laid back over what it covers. The town's kerb is struck along the boundary and the
+/// walk's own kerb along the outer face, and the walking lanes are struck off the same boundary at their
+/// own distances (<see cref="SimConfig.WalkingLaneAtM"/>).
 /// </para>
 /// <para>
 /// <b>The carriageway ends where the pavement starts</b> (TER-3c.7). Everything inside the kerb is tarmac,
@@ -32,15 +33,12 @@ namespace TrafficSimulation.CityGen;
 /// </para>
 /// <para>
 /// <b>A junction has no piece here, because a junction has no shape</b> (TER-5): the ground inside a box is
-/// the ground its own movements take (<see cref="LaneLines"/>) and the fillets that round the wedges
-/// between its arms, and each of those is wrapped like any other piece of tarmac.
+/// the ground its own movements take (<see cref="LaneLines"/>), and the corners between its arms are turned
+/// by the boundary itself, at the one radius every line is rounded at (TER-3c.10).
 /// </para>
 /// <para>
-/// <b>Nothing here is the picture's.</b> The drawing is a stack of layers and a layer is the union of the
-/// shapes in it (TER-7b), so it takes the same pieces at three sizes and works nothing out about how they
-/// meet — where it once needed each road cut into the stretches its sides did not change over, each
-/// junction's box walked as one outline, and every hand-over between two runs closed with a wedge, a round
-/// or a bridge.
+/// <b>Nothing here is the picture's.</b> The drawing fills the layers struck here and strokes the two kerbs
+/// along them (<c>GroundMesh.Build</c>, TER-7b), and works nothing out about how the pieces meet.
 /// </para>
 /// </remarks>
 internal sealed class Paving

@@ -13,7 +13,9 @@ namespace TrafficSimulation.Runtime;
 /// frame's crossings must be flat in the size of the town (WEB-2). The desktop's five are an acquire, a wait,
 /// a reset, a submit and a present. A standing town here makes <b>three</b> — the animation callback
 /// coming in, the input going out, and the frame — because the pass, the bundle and the submit are all
-/// on the far side of one call, and a browser has no fence to wait on.
+/// on the far side of one call, and a browser has no fence to wait on. <b>What is counted is the calls
+/// this side makes</b> (<see cref="Crossings"/>): the callback coming in is the browser's and is not among
+/// them.
 /// </para>
 /// <para>
 /// <b>Nothing is marshalled and no window onto this heap is kept.</b> Memory crosses as
@@ -35,8 +37,9 @@ internal static partial class WebGpu
     static long _crossings;
 
     /// <summary>
-    /// Crossings of this wall since the page loaded. DEBUG only, and free in a Release build for the
-    /// same reason <see cref="Vk.Crossings"/> is.
+    /// Calls out through this wall since the page loaded — every method here, and never the animation
+    /// callback coming in. DEBUG only, and free in a Release build for the same reason
+    /// <see cref="Vk.Crossings"/> is.
     /// </summary>
     public static long Crossings => _crossings;
 
@@ -154,8 +157,9 @@ internal static partial class WebGpu
     /// </summary>
     /// <remarks>
     /// <b>It is what puts one download beside another (WEB-9).</b> A page fetching in the order it happens to
-    /// read waits for the sum of what it asked for; the plan of a map is wanted while the art is being
-    /// decoded, and the art itself is wanted while the runtime is still coming down (<c>main.js</c>).
+    /// read waits for the sum of what it asked for; the listing, the figures and the briefs are wanted one
+    /// after the next at boot (<c>Data.Boot</c>), and the art is wanted while the runtime is still coming
+    /// down (<c>main.js</c>).
     /// Nothing above this changes — <see cref="Grab"/> reads a prefetched file where it would have
     /// fetched one — and <b>a prefetch that fails costs an ordinary fetch and nothing else</b>.
     /// </remarks>
@@ -173,7 +177,7 @@ internal static partial class WebGpu
     /// <b>One round trip and not three hundred</b>, which is the whole of what it is for: the town's art
     /// is small files, so what a page waited on was latency and not bytes. The archive is a plain tar
     /// and the browser undoes the gzip, which is the one decompressor a page has that this runtime does
-    /// not — the same fact that keeps the towns on gzip rather than brotli.
+    /// not.
     /// </remarks>
     public static Task<string> Unpack(string path)
     {

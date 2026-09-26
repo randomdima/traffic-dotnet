@@ -49,9 +49,10 @@ internal sealed partial class GroundShapes
     Movements _driven;
 
     /// <summary>
-    /// <b>And the lines a car is driven into or out of a bay on</b>, which is the whole of what a car park
-    /// is on the ground, for exactly the reason a junction is the movements that cross in it (GEN-4b,
-    /// <see cref="Paving"/>).
+    /// <b>And the lines a car is driven into or out of a bay on</b>, answered as the ground a car idles on
+    /// that a walker may stand on (TER-3). <b>Empty in every town this build lays</b>: it is the driven
+    /// numbering past the movements (<see cref="Paving.DrivenCount"/>), which ends there, and a bay's way is
+    /// a lane of the arm it is cut as (GEN-53) and is answered with <see cref="_driven"/>.
     /// </summary>
     /// <remarks>
     /// <b>A set of its own and not part of <see cref="_driven"/></b>, because the two answer different

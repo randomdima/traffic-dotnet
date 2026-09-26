@@ -190,7 +190,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Whether whoever has this wheel is one of the drivers that does not keep the courtesies</b>
-    /// (CAR-13). Two array reads, asked at the two places the courtesy would otherwise be paid.
+    /// (CAR-13). Two array reads, asked at the one place the courtesy would otherwise be paid — the red
+    /// (<see cref="SignalStopM"/>, CAR-13.1). Nobody boards a car (CAR-1), so it answers no.
     /// </summary>
     /// <remarks>
     /// <b>It is asked of the driver rather than mirrored onto the car</b>, unlike the blue light, because

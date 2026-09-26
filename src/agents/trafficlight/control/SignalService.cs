@@ -7,13 +7,13 @@ namespace TrafficSimulation.Agents.TrafficLight.Control;
 
 /// <summary>
 /// <b>The one town-wide lookup</b>: what colour an approach is showing, and what colour a crossing is.
-/// Cars and walkers query this and <em>neither ever holds a bundle</em>.
+/// Cars query this and <em>none ever holds a bundle</em>; a walker reads no signal at all (TLT-2).
 /// </summary>
 /// <remarks>
 /// <para>
-/// Keeping it one lookup is what makes the driver's crossing exemption safe: a driver reads the
-/// <em>pedestrian</em> side of the same table to know the walkers are being held, so what a driver may
-/// do and what the people on the kerb have been told can never disagree.
+/// <b>Both sides of a junction are one table</b>: a crossing's colour is the negation of the axis of the arm
+/// it is painted across, so a car head and the pedestrian head over the same arm can never disagree. The
+/// pedestrian side is asked by the heads' picture and the census, and by no agent.
 /// </para>
 /// <para>
 /// <b>An arm's axis is decided once, when the town is laid, off the bearing it meets the junction at.</b>
@@ -156,9 +156,9 @@ internal sealed class SignalService
     /// <b>Fewer than three arms admits none</b> (TER-5c): a dead end has one carriageway and an inline
     /// junction is a place <em>on</em> a road (TER-5b), so the two arms are one street's two halves passing
     /// a lane apart. What such a junction carries is a crossing, and a crossing with no conflicting traffic
-    /// to phase against is an uncontrolled one, where the walker has the right of way (TER-5e) and the
-    /// traffic gives way to whoever is standing at the kerb. Lit instead, a mid-block zebra holds a street
-    /// on a timer that nothing on it is waiting for.
+    /// to phase against is an uncontrolled one, where what holds the traffic off a walker is the walker's own
+    /// claim on the paint (TER-5e). Lit instead, a mid-block zebra holds a street on a timer that nothing on
+    /// it is waiting for.
     /// </remarks>
     static bool AdmitsConflictingMovements(RoadGraph roads, int junction) => roads.LanesIntoJunction(junction).Length >= 3;
 

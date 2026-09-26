@@ -84,7 +84,7 @@ internal sealed class RecoveryDuty
     /// <summary>
     /// The car actually on this one's bar, or <see cref="Nothing"/>. It is not the same as
     /// <see cref="Wreck"/>: a recovery has a wreck from the moment it is taken and something on the hook
-    /// only once the crew has got it there.
+    /// only once the arm has got it there.
     /// </summary>
     public int[] Towing { get; }
 
@@ -122,7 +122,7 @@ internal sealed class RecoveryDuty
     /// <summary>How long this leg has been running, which is the bound that ends an unreachable recovery.</summary>
     public float[] SinceS { get; }
 
-    /// <summary>How long the crew has been working on the hook — the clock both ends of a tow are timed on.</summary>
+    /// <summary>How long the truck has stood working the hook — the clock both ends of a tow are timed on.</summary>
     public float[] HitchedForS { get; }
 
     /// <summary>

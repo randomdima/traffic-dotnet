@@ -101,16 +101,24 @@ internal sealed partial class TownWorld
 
         Cars.ClaimToM[car] = noseM + wantedM;
 
+        // <b>As far as it gets and no further</b> (TER-5c.2): one stretch of road over however many ways the
+        // line is numbered in, so a way that would not take the whole of it is where the hold ends. What the
+        // body itself covers past that is written from the pose instead (<see cref="PlaceTheBody"/>).
         var count = WaysAlong(car, Cars.ClaimFromM[car], Cars.ClaimToM[car], ways);
         for (var index = 0; index < count; index++)
         {
             ref readonly var way = ref ways[index];
-            _occupancy.ClaimUnderWay(
-                way.Way, way.FromM, OnTheWayM(way, noseM), way.ToM, Cars.AlongMps[car], car,
-                right: AskingRightOn(car, way.Way));
+            // <b>At the rung nothing takes</b> (TER-5g): what this claim holds is the body and the road the
+            // body can no longer give back, and neither is anybody's to be granted. The movement it is on
+            // decides what the car may be granted <em>ahead</em> of this and never what it is standing on.
+            var whole = _occupancy.ClaimUnderWay(
+                way.Way, way.FromM, OnTheWayM(way, noseM), way.ToM, Cars.AlongMps[car], car);
+
+            if (!whole) break;
         }
 
         StateTheRoadItMeansToUse(car, noseM, wantedM, heldAtM, brakingMps2, ways);
+        StateTheRoadToTheMovement(car, ways);
     }
 
     /// <summary>
@@ -157,10 +165,14 @@ internal sealed partial class TownWorld
     /// a millimetre a second and would otherwise be stating a road for as long as it sat there.
     /// </para>
     /// <para>
-    /// <b>Nothing is stated on the way the car is already crossing on.</b> What it holds there is its
-    /// movement's claim (<see cref="LayTheMovement"/>), laid over the very runs a stated claim would cover
-    /// and at the rank a committed body is entitled to — so a second stretch of the same way would be this
-    /// car counted twice (TER-5c.2) and would hold nothing the claim was not holding already.
+    /// <b>The road to a box this car already holds is not this ask</b> and is stated beside it
+    /// (<see cref="StateTheRoadToTheMovement"/>), which is why a body at rest can still be saying something:
+    /// this one is where the car is going, and that one is the span between it and ground it has been given.
+    /// </para>
+    /// <para>
+    /// <b>And the way the car is crossing on is stated up to its own claim and no further.</b> What it holds
+    /// there is its movement's claim (<see cref="LayTheMovement"/>), so the statement is cut back where the
+    /// two meet and a second stretch over the same metres would be this car counted twice (TER-5c.2).
     /// </para>
     /// </remarks>
     void StateTheRoadItMeansToUse(
@@ -189,9 +201,12 @@ internal sealed partial class TownWorld
 
             // Its near edge is its own body edge, because there is no body in it: ground somebody has
             // already reached is behind them, and a claim nothing stands in can be cut to nothing.
-            _occupancy.ClaimAhead(
-                way.Way, way.FromM, way.ToM, Cars.AlongMps[car], car, ClaimPriority.Soft,
-                right: RightOfWayOf(car, way.Way));
+            // <b>And it stops at the first way that would not take the whole of it</b> (TER-5c.2), like
+            // every other stretch laid over a run of ways.
+            var whole = _occupancy.ClaimAhead(
+                way.Way, way.FromM, way.ToM, Cars.AlongMps[car], car, SoftOf(car, way.Way));
+
+            if (!whole) break;
         }
     }
 
@@ -393,6 +408,14 @@ internal sealed partial class TownWorld
         // of itself, so a cut found only past the first shortens what the car is saying without touching
         // what it is committed to (TER-5g).
         var lookToM = LookForTheCutToM(car, brakingMps2);
+
+        // How far up the line this car asked for road it means to be committed to. The walk below reaches
+        // past it — a braking distance, and the statement beyond that — and a way out there is one the car
+        // holds nothing on because it asked for nothing there rather than because anything refused it.
+        // <b>The committed ask and never the statement</b> (TER-5g): what a car merely states is not a hold,
+        // so a window that took it in would cut every grant back to the nose the moment the line ran past
+        // the road the car had committed to.
+        var laidToM = Cars.ClaimToM[car];
         var count = WaysAlong(car, Cars.ClaimFromM[car], MathF.Max(lookToM, Cars.StatedToM[car]), ways);
         for (var index = 0; index < count; index++)
         {
@@ -409,8 +432,8 @@ internal sealed partial class TownWorld
             if (noseOnTheWayM >= way.ToM) continue;
 
             // The terms this car is cut on, which the walk applies and does not decide: the ground it keeps
-            // off whatever is going nowhere, and the rank it holds this way's ground with.
-            var asker = new LaneCredit(build.BodyMarginM, LaneRoster.Driving, AskingRightOn(car, way.Way));
+            // off whatever is going nowhere, and the rung it holds this way's ground at.
+            var asker = new LaneCredit(build.BodyMarginM, LaneRoster.Driving, AskingRungOn(car, way.Way));
 
             // In front of the nose and not of the ground this car holds: every stretch begins a margin
             // behind its owner, so a walk taken from the near edge of this car's own would answer with the
@@ -424,9 +447,37 @@ internal sealed partial class TownWorld
             var cutM = _occupancy.GrantedOn(way.Way, noseOnTheWayM, way.ToM, car, asker, out var heldBy);
             if (float.IsFinite(cutM)) Cut(OnTheLineM(way, cutM), KindOf(heldBy));
 
+            // <b>And the answer the claim itself came back with</b> (TER-4c.1, TER-5c.1). A stretch is made
+            // nobody else's before it goes in — on its own way and on every way that way is driven over
+            // (<see cref="LaneOccupancy.AcrossTheWays"/>) — so what is left of it is the road this car was
+            // granted, and the ground where two lines meet is in it without this ever having asked a second
+            // question about a way the car will not be on.
+            //
+            // <b>Asked out to what was laid and never to the end of the window.</b> The walk above reaches a
+            // braking distance past the ask so that a cut found there can shorten the statement; a way past
+            // everything this car laid is one it holds nothing on because it wanted nothing there, and read
+            // as a hold cut short it is a car braking for the end of its own sentence.
+            var laidOnTheWayM = OnTheWayM(way, laidToM);
+            if (laidOnTheWayM > noseOnTheWayM)
+            {
+                // <b>What it holds and never what it says</b> (TER-5g). A statement is laid over the same
+                // ground a moment later and is in the weakest band there is; counted here, a car whose committed
+                // road was taken off it at a crossing would read as still holding that road because it was
+                // still saying it meant to use it.
+                var heldToM = _occupancy.HeldToM(
+                    way.Way, noseOnTheWayM, laidOnTheWayM, car, asked: ClaimsAsked.Held);
+                if (heldToM < laidOnTheWayM) TheGroundEndsAt(OnTheLineM(way, heldToM));
+            }
+
+            // <b>And how far the nose may go over ground this car keeps</b> (TER-4c.1). Holding a crossing is
+            // not being able to drive through what is standing on it: a body past the point it could stop
+            // gives nothing back (TER-5e) and still has to brake for whatever is in the box, so the grant is
+            // cut at what <see cref="LaneOccupancy.Binds"/> says binds — which is the question the ownership
+            // above does not ask and must not be made to answer.
+            //
             // A crossing point is a place and has no margin of its own, so the asker's is taken off it here
             // — the one cut in the town that is not made at somebody else's stretch, on the same figure.
-            var crossedAtM = WhereTheGroundIsCrossed(car, way, noseOnTheWayM, asker.Right, out var by);
+            var crossedAtM = WhereTheGroundIsCrossed(car, way, noseOnTheWayM, asker.Asking, out var by);
             if (float.IsFinite(crossedAtM)) Cut(OnTheLineM(way, crossedAtM) + asker.AtAPlaceM, KindOf(by));
         }
 
@@ -437,6 +488,20 @@ internal sealed partial class TownWorld
 
             grantedToM = atM;
             cutBy = by;
+        }
+
+        // <b>The one bound that is not a look-ahead</b> (TER-4c.1). What the walks above find is ground in
+        // front that the car has still to be answered about, and a find past the window it is committed to
+        // shortens only what it is saying; this is the answer itself — metres the town has already given
+        // somebody else — so the road stops there whether the window reached it or not. Left inside the
+        // window, a car held a grant running through ground its own claim had given up.
+        void TheGroundEndsAt(float atM)
+        {
+            if (atM < statedToM) statedToM = atM;
+            if (atM >= grantedToM) return;
+
+            grantedToM = atM;
+            cutBy = HeadwayKind.Claimed;
         }
 
         if (float.IsFinite(statedToM)) Cars.StatedGrantM[car] = statedToM - noseM;
@@ -474,6 +539,18 @@ internal sealed partial class TownWorld
     /// it as one piece of ground; cut without the claim following, the metres between the answer and the ask
     /// fall out of both.
     /// </para>
+    /// <para>
+    /// <b>Every stretch the ask laid and not the one with the body in it</b>
+    /// (<see cref="LaneOccupancy.CutTheAskTo"/>). A hold is one run of ways, and on the ways ahead of the nose
+    /// it carries no body at all — so an answer scoped to the body's own stretch cut the lane a car was
+    /// standing in and left the join past it holding the far end of the ask, with the metres the answer took
+    /// belonging to nobody in between.
+    /// </para>
+    /// <para>
+    /// <b>And what it took is stated</b> (<see cref="StateWhatTheAnswerTook"/>), because a hold may not have a
+    /// hole in it (TER-5c.2) and the honest name for road a car asked for and did not get is road it means to
+    /// use and has not reached.
+    /// </para>
     /// </remarks>
     void CutTheGroundToTheGrant(int car, Span<LineWay> ways)
     {
@@ -488,6 +565,17 @@ internal sealed partial class TownWorld
             var noseM = Cars.ProgressM[car] + LeadingEdgeAheadOfTheAxleM(car);
             var statedToM = MathF.Max(
                 noseM, MathF.Min(Cars.StatedToM[car], noseM + Cars.StatedGrantM[car]));
+
+            // <b>Never back past ground this car already holds</b> (TER-5c.2). The answer is about road the
+            // car is asking for; the metres between it and a box the gate has already given it are the span
+            // that carries one to the other (<see cref="StateTheRoadToTheMovement"/>), and cut at the first
+            // body on the paint in front the car held the far side of a junction and not the way in to it.
+            var holdsToM = TheMovementHoldEndsAtM(car);
+            if (float.IsFinite(holdsToM))
+            {
+                statedToM = MathF.Max(statedToM, MathF.Min(holdsToM, Cars.StatedToM[car]));
+            }
+
             var stated = WaysAlong(car, Cars.ClaimToM[car], Cars.StatedToM[car], ways);
             for (var index = 0; index < stated; index++)
             {
@@ -496,20 +584,94 @@ internal sealed partial class TownWorld
             }
         }
 
+        CutTheRoadToTheGrant(car, ways);
+        StateWhatTheAnswerTook(car, ways);
+    }
+
+    /// <summary>
+    /// The committed claim itself, brought in to the answer on every way it was laid over — and the ground
+    /// of the movement beyond it handed the metres that came off.
+    /// </summary>
+    void CutTheRoadToTheGrant(int car, Span<LineWay> ways)
+    {
         if (float.IsPositiveInfinity(Cars.AuthorityM[car])) return;
 
+        var movementWay = Cars.MovementWay[car];
         var grantedToM = GroundEndsAtM(car);
+
+        // Where the cut landed on the way this car is crossing on, kept as the walk makes it rather than
+        // worked out again from the line: the ground beyond it is handed to the claim carrying the rest of
+        // the same stretch, and two routes to one metre put a hair of road between them.
+        var cutOnTheMovementM = float.NaN;
+
         var count = WaysAlong(car, Cars.ClaimFromM[car], Cars.ClaimToM[car], ways);
         for (var index = 0; index < count; index++)
         {
             ref readonly var way = ref ways[index];
-            _occupancy.CutTo(way.Way, car, OnTheWayM(way, grantedToM));
+            var cutToM = OnTheWayM(way, grantedToM);
+            _occupancy.CutTheAskTo(way.Way, car, way.FromM, way.ToM, cutToM);
+            if (way.Way == movementWay) cutOnTheMovementM = cutToM;
         }
 
-        var movementWay = Cars.MovementWay[car];
-        if (movementWay != CarFleet.NoWay)
+        // A road that never reached the movement at all leaves nothing to hand over: what carries the span
+        // over those metres is the statement (<see cref="StateTheRoadItMeansToUse"/>), which was answered on
+        // its own reach above.
+        if (movementWay != CarFleet.NoWay && !float.IsNaN(cutOnTheMovementM))
         {
-            ClaimWhatTheAnswerTook(car, movementWay, Cars.ClaimToM[car], grantedToM);
+            ClaimWhatTheAnswerTook(car, movementWay, cutOnTheMovementM);
+        }
+    }
+
+    /// <summary>
+    /// <b>The metres the answer took off the ask, stated</b> (TER-5g, TER-5c.2) — the road this car asked for,
+    /// did not get, and is still going down, which is the whole of what the honest name for them is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Without it the answer leaves a hole where it cut.</b> Everything a car holds beyond its own road is
+    /// anchored at the far edge of the ask — the statement of where it is going
+    /// (<see cref="StateTheRoadItMeansToUse"/>), the span to a box it holds
+    /// (<see cref="StateTheRoadToTheMovement"/>), the ground of the movement itself
+    /// (<see cref="LayTheMovement"/>) — because at the moment those are laid there is no answer yet
+    /// (<see cref="RebuildLaneOccupancy"/>). So the answer moves one edge and leaves every other where the
+    /// question put it, and the metres between are a body nothing can be cut at through the middle of.
+    /// </para>
+    /// <para>
+    /// <b>Stated, because that is what they are.</b> The car has been refused them and is not committed to
+    /// them, so holding them at the rank its road carries would be the answer handed back as the question. It
+    /// is also what makes them affordable: everything stronger takes a soft claim, so the traffic this car was
+    /// cut at is refused nothing by the metres it was cut over.
+    /// </para>
+    /// <para>
+    /// <b>One interval of every way, so the statement already there reaches back over them</b>
+    /// (<see cref="LaneOccupancy.ReachBackTo"/>) rather than being met by a second stretch at the seam; a way
+    /// with no statement on it — the ways the ask ran over before the one it ended on — gets one.
+    /// </para>
+    /// <para>
+    /// <b>Asked of the whole of the ask and not of the metres the grant took</b>, because the answer is not
+    /// the only thing that shortens a road: an ask is cut back where it is laid as well
+    /// (<see cref="LaneOccupancy.MakeRoomFor"/>), and where it ran onto ground somebody else already held it
+    /// went in shorter than the figure the car carries. So the near edges here are <em>found</em>, each
+    /// stretch stopping at whatever is behind it, and nothing is worked out from a figure a second time.
+    /// </para>
+    /// <para>
+    /// <b>It is not the pull-away horizon TER-5g withholds from a body at rest.</b> These metres are inside
+    /// the road the car asked for, which is bounded by every rule that stops it — a red, a bar, a crossing, a
+    /// box it has not been given — so a car waiting at a give-way line states no metre of the box it is
+    /// waiting for.
+    /// </para>
+    /// </remarks>
+    void StateWhatTheAnswerTook(int car, Span<LineWay> ways)
+    {
+        var count = WaysAlong(car, Cars.ClaimFromM[car], Cars.ClaimToM[car], ways);
+        for (var index = 0; index < count; index++)
+        {
+            ref readonly var way = ref ways[index];
+            if (_occupancy.ReachBackTo(way.Way, car, way.FromM, ClaimsAsked.Stated)) continue;
+
+            _occupancy.ClaimAhead(
+                way.Way, way.FromM, way.ToM, Cars.AlongMps[car], car, SoftOf(car, way.Way),
+                takingUpAgain: true);
         }
     }
 
@@ -531,18 +693,17 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The first metre of one of this car's own ways that somebody else's ground is driven over</b>, in
-    /// that way's own metres, or infinity where none of it is. The town says once, when it is laid, where
-    /// each way through a junction crosses each other one (<see cref="WayCrossings"/>); a driver looks
-    /// its own way up in that table and reads the far side of every section it finds.
+    /// that way's own metres, or infinity where none of it is — <b>how far the nose may go</b> and never who
+    /// holds the metres it stops at.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>This is the whole of what makes a claim on a lane mean something globally.</b> A stretch of a
-    /// way is a piece of the world and not a piece of a lane, and inside a junction the pieces overlap; a
-    /// car that only ever read the way it was driving would be granted the metre two lines meet on at the
-    /// same time as the car on the other line. What it does not do is take ground it will never be on —
-    /// which is what marking the crossed ways did, and what a junction under a fan of one car's claims
-    /// looked like.
+    /// <b>It is the grant and not the ownership</b> (TER-4c.1, TER-5c.1), and the pair is the same pair a
+    /// single way already carries: what a stretch may <em>hold</em> across a crossing is settled when it is
+    /// laid (<see cref="LaneOccupancy.AcrossTheWays"/>), and what a nose may <em>reach</em> is this. They part
+    /// company at exactly one body, and it is the one that matters: a car past the point it could stop gives
+    /// its ground back to nobody (TER-5e) and still has to brake for whatever is standing in the box. Read off
+    /// the ownership alone, such a car was cut by nothing at all and drove into it at speed.
     /// </para>
     /// <para>
     /// <b>In front means in front of the nose</b>, exactly as it does for a stretch
@@ -553,27 +714,21 @@ internal sealed partial class TownWorld
     /// metres inside somebody else's road while it was doing nothing but sitting on a junction it had crossed.
     /// </para>
     /// <para>
-    /// <b>The cut is at the near edge of the section and carries no credit past it</b>, where the cut at a
-    /// body carries that body's stopping distance. There is nothing on the section to come to rest — it is a
-    /// place, and what is standing on it is standing on another way's metres, at a pose and a heading this
-    /// car has no reading of.
+    /// <b>The cut is at the near edge of the section and carries no credit past it.</b> There is nothing on a
+    /// section to come to rest — it is a place, and what is standing on it is standing on another way's
+    /// metres, at a pose and a heading this car has no reading of. <b>Nor a margin</b>: the margin a body
+    /// keeps off a place is in the section itself (<see cref="LineOverlap.Measure"/>), taken once where the
+    /// section was measured rather than once per reader.
     /// </para>
     /// <para>
-    /// <b>Every way is asked, lanes included.</b> A lane is driven over by nothing a junction admits, since
-    /// the lanes hand over clear of the box (TER-5d) — but the way into a parking space leaves a lane
-    /// part-way along it and sweeps the one running back the other way, so a lane's row is empty on most
-    /// streets and is not empty on a street with a car park on it. The walk over an empty row is a bounds
-    /// check, which is what makes asking every way affordable on every way every car is on.
-    /// </para>
-    /// <para>
-    /// <b>And ground a greater right of way has taken off somebody is not a cut</b> (TER-5e). A movement
+    /// <b>And ground a stronger movement has taken off somebody is not a cut</b> (TER-5e). A movement
     /// this one is driven over reads its own claim on that ground as given up the moment the stronger
     /// movement asks for it, so the pair of them are cut one way round rather than both — which is the
     /// whole of the difference between a right of way and a deadlock.
     /// </para>
     /// </remarks>
     float WhereTheGroundIsCrossed(
-        int car, in LineWay way, float noseOnTheWayM, RightOfWay mine, out LaneClaim held)
+        int car, in LineWay way, float noseOnTheWayM, ClaimPriority mine, out LaneClaim held)
     {
         held = LaneClaim.Nothing;
         var leastM = float.PositiveInfinity;
@@ -633,7 +788,7 @@ internal sealed partial class TownWorld
     /// </para>
     /// </param>
     float FirstHeldOn(
-        int car, int way, float fromM, float toM, RightOfWay mine, out LaneClaim held,
+        int car, int way, float fromM, float toM, ClaimPriority mine, out LaneClaim held,
         int crossingOn = CarFleet.NoWay)
     {
         var at = LaneOccupancy.FromTheStart;

@@ -71,6 +71,5 @@ finds a growing array is a contact set that turns over.
 dispatch, no LINQ, scratch from a pool or the stack, one thread — is
 [CLAUDE.md](../../../../CLAUDE.md#the-two-rules-everything-else-answers-to) rule 2 and
 [goals.md](../../../../docs/goals.md#what-is-pinned-and-what-is-left-open), which hold it for the whole
-project and gate it. Restating it here made the solver the one slice with a second copy of the
-engineering rules, and a technique named as a requirement is a technique nothing may be measured against.
-What the solver owes on top of that is `SOL-20` and `SOL-22`, which are its own and are gated as its own.
+project and gate it. What the solver owes on top of that is `SOL-20` and `SOL-22`, which are its own and are
+gated as its own.

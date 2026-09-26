@@ -48,7 +48,7 @@ internal sealed partial class TownWorld
     public long LinesReacquired { get; internal set; }
 
     /// <summary>
-    /// <b>How many car-ticks spent the margin the speed profile keeps back</b> (CAR-14). Frequent use of
+    /// <b>How many car-ticks spent the margin the speed profile keeps back</b> (S-2's usable grip). Frequent use of
     /// it is a planning failure and not a safety feature: constant flat-out braking means the profile or
     /// the looking is wrong upstream, which is why it is counted rather than merely done.
     /// </summary>
@@ -108,9 +108,9 @@ internal sealed partial class TownWorld
         if (way != CarFleet.NoWay) return TheWayAtTheBayIsDriven(car, way);
 
         // The bay this leg is going to, whose own way in leaves the lane the car has stopped on — named
-        // when the line was laid (<see cref="TheWayIntoTheBay"/>). It is the end of the leg and not a
-        // manoeuvre: the way is one of the town's, so the claim runs along it and the traffic it crosses
-        // is cut by the town's own table.
+        // when the line was laid (<see cref="TheWayIntoTheBay"/>). It is the end of the leg: the way is one
+        // of the town's, so the claim runs along it and the traffic it crosses is cut by the town's own
+        // table.
         if (TakeTheWayAtTheBay(car, Cars.TailWayOf(car))) return true;
 
         // Anywhere else the road has run out under the car, so it is taken again from where the body has
@@ -160,7 +160,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The car is in the bay and the leg is over</b>: the place is this car's until something else
-    /// drives it away, and whoever is sitting in it is handed back their trip.
+    /// drives it away, and the car is stood down in it.
     /// </summary>
     void ParkIt(int car, int bay)
     {
@@ -195,8 +195,7 @@ internal sealed partial class TownWorld
         }
 
         // The road was not the problem, so the place this leg is going to might be: another bay near where
-        // the car has actually got to, and the route to that one. It is the destination's own last chance
-        // and it is the router's rather than a manoeuvre.
+        // the car has actually got to, and the route to that one. It is the destination's own last chance.
         if (RetargetTheBay(car, Cars.PositionM[car], BayAimedAt(car)))
         {
             PlacesGivenUp++;
@@ -238,8 +237,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>The leg given up where the car stands</b>: the place it was going to is the town's again, the
-    /// line is dropped and whoever is in it is asked to get out and walk. It is the one exit every stuck
-    /// car reaches, and it is finite because the clock that reaches it is.
+    /// line is dropped and the car is stood down (CAR-9a). It is the one exit every stuck car reaches, and
+    /// it is finite because the clock that reaches it is.
     /// </summary>
     void GiveUpTheLeg(int car)
     {

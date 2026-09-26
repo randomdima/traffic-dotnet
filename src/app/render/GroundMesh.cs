@@ -32,27 +32,28 @@ internal enum Surface : uint
 internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vector3 Tint, Surface Surface);
 
 /// <summary>
-/// The town's standing ground, triangulated once at load from the plan's <b>shapes</b> — road ribbons
-/// bent along their own splines, the lines a car is turned through a box on, corner fillets, decks, slabs,
-/// lots and water outlines. Never from the cell grid: no arrangement of metre squares is a kerb running
-/// at 40°.
+/// The town's standing ground, triangulated once at load from the plan's <b>shapes</b> — the driven
+/// ground's boundary and the walk struck off it (<see cref="GroundRings"/>), decks along their roads' own
+/// splines, slabs and water outlines, and the paint the lanes, bays and crossings carry. Never from the cell
+/// grid: no arrangement of metre squares is a kerb running at 40°.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>The ground is a stack of layers and a layer beside a road is a region of the town's own boundary</b>
 /// (TER-7b): grass over the whole world, then the pavement and the kerb along its outer face, then the water
-/// and the decks, then the carriageway at its own size and what the blocks take back, then the town's kerb,
-/// then the paint. <b>The two layers are one boundary read at two distances</b> (<see cref="GroundRings"/>,
+/// and the decks, then the carriageway at its own size and the slabs, then the town's kerb, then the paint.
+/// A block is a hole in both layers, read off its ring's own winding, and takes no pass of its own. <b>The two layers are one boundary read at two distances</b> (<see cref="GroundRings"/>,
 /// TER-3c.3) — the carriageway inside it and the walk out to the pavement's outer face — so the inner
 /// encloses nothing the outer does not and each is simply laid over the one before it. There is no depth
 /// buffer and nothing to sort: one indexed draw in one pass.
 /// </para>
 /// <para>
-/// <b>It is <c>GroundShapes.At</c>'s order, forwards</b> (TER-7), and it is one layer ahead of it: the
-/// answer still says grass off the kerb, so a point on the concrete is drawn as concrete and answered as
-/// turf. That is the deviation named in the [known gaps](../../../docs/index.md#known-gaps) and it closes
-/// when the answer is fed the same rings. Everywhere else a shape added to one is added to the other, at
-/// the same place in the order.
+/// <b>It is <c>GroundShapes.At</c>'s order, forwards</b> (TER-7), and the two part at a corner: the answer
+/// is the ground within the one figure of the driven bands, measured square, where this fills the boundary
+/// rounded at <c>Road.LineRoundedM</c> and moved by that figure — so along a street they are one region and
+/// at a corner they stand up to that radius apart. That is the deviation named in the
+/// [known gaps](../../../docs/index.md#known-gaps). Everywhere else a shape added to one is added to the
+/// other, at the same place in the order.
 /// </para>
 /// <para>
 /// <b>A kerb is a line with a mesh of its own</b> (<see cref="Stroke"/>, TER-3d): the shell it belongs to
@@ -77,10 +78,6 @@ internal sealed partial class GroundMesh
     /// <summary>How far a drawn chord is allowed to bow off the arc it stands for.</summary>
     public const float ChordSagM = 0.02f;
 
-    /// <summary>
-    /// <b>How far a filled shell's boundary may be let off the arcs it stands for</b>, in exchange for the
-    /// corners that carrying them exactly would cost (<see cref="ShellFill"/>).
-    /// </summary>
     /// <summary>
     /// <b>How much of a kerb's half-width a fill may be let get wrong</b>, the kerb being laid over it: the
     /// thinning every filled shell here is cut at, as a share of the stone that hides it.

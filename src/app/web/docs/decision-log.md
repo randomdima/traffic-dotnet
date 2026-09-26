@@ -2,6 +2,15 @@
 
 Why this slice reads as it does. The rules themselves are [requirements.md](requirements.md).
 
+## 2026-09-26 — rules reworded to what the code does
+
+The owner ruled the code the source of truth for this audit.
+
+- `WEB-2`: `WebGpu.Crossings` counts the calls going out and not the callback coming in, and the per-frame
+  figure is taken round the frame call alone, so it reads one.
+- `WEB-4`: the art is fetched for the first town opened after the first frame — the idle ring or the named
+  map — not when the first map is picked.
+
 ## 2026-08-30 — the callback is handed over before any town is opened
 
 A desktop run has its plan and art on disk, so opening before the first frame costs nothing; a page has
@@ -11,16 +20,13 @@ The only thing given up is that `?map=Odesa` has a menu in the first frame and i
 
 ## 2026-08-30 — nothing waits for what it does not need yet
 
-Everything was fetched in the order it happened to be read, one thing at a time: measured with no latency,
-the art was not asked for until 237 ms and the plan not until 544. The art and the engine are the pairing
-that matters — about three megabytes each, neither needing the other — so `main.js` starts the archive
-before the runtime asks for it. It is conditional on a map having been named, because a menu waits for
-nothing, not even a fetch nobody is awaiting. The decode was the other half: one awaited
-`createImageBitmap` per file cost 216 ms for 174 sheets against 57 asked for together. The other eight
-plans come down after the callback is handed over, which is 3.4 MB behind a picture that is already
-drawing rather than in front of a menu. `EventSourceSupport`, `MetadataUpdaterSupport` and
-`DebuggerSupport` were switched off, moved nothing, and are not in the project file — a knob that buys
-nothing is a knob somebody has to read.
+Everything was fetched in the order it happened to be read: measured with no latency, the art was not
+asked for until 237 ms. The art and the engine are the pairing that matters — about three megabytes each,
+neither needing the other — so `main.js` starts the archive before the runtime asks for it, but only where a
+map was named, because a menu waits for nothing, not even a fetch nobody is awaiting. The decode was the
+other half: one awaited `createImageBitmap` per file cost 216 ms for 174 sheets against 57 asked for
+together. `EventSourceSupport`, `MetadataUpdaterSupport` and `DebuggerSupport` were switched off, moved
+nothing, and are not in the project file — a knob that buys nothing is a knob somebody has to read.
 
 ## 2026-08-30 — four questions before the runtime, and a card while it comes
 
@@ -34,39 +40,29 @@ the page cannot know, and the batches fill it.
 
 The town cost 313 fetches, thirty-two at a time — ten waves of latency for four megabytes. The build packs
 `assets/` as a plain tar, gzipped because a fifth of it is catalogues and the WebP is incompressible; the
-browser undoes it with `DecompressionStream`, the one decompressor a page has that its .NET runtime does
-not. The menu's six files became one, five having been ground surfaces a menu does not draw. The chain to
-the runtime is `modulepreload`ed into one wave, but the nine megabytes behind `dotnet.js` deliberately are
-not: a browser that cannot run this page should not spend them to be told so.
+browser undoes it with `DecompressionStream`. The menu's six files became one, five having been ground
+surfaces a menu does not draw. The chain to the runtime is `modulepreload`ed into one wave, and the nine
+megabytes behind `dotnet.js` deliberately are not.
 
 ## 2026-08-30 — the menu stands on what it draws
 
-A static host took about a minute to put a menu up, and what accounted for it was 319 round trips at
-185 ms. `Game`'s constructor read the catalogues and packed every sheet in the town into an atlas, so a
-page could not draw a list of map names until it had fetched, decoded and packed art it was not going to
-draw. The catalogues are read at the first `Open` and the menu's renderer is laid for no sheets at all.
-It is a saving on the desktop too, where the atlas was being packed twice.
+A static host took about a minute to put a menu up: 319 round trips at 185 ms. `Game`'s constructor read
+the catalogues and packed every sheet in the town into an atlas, so a page could not draw a list of map
+names until it had fetched, decoded and packed art it was not going to draw. The catalogues are read at the
+first `Open` and the menu's renderer is laid for no sheets. It is a saving on the desktop too, where the
+atlas was being packed twice.
 
 ## 2026-08-30 — a map picked is a name written down, not a town opened
 
 The page fetched all nine maps at boot to open one. The obstacle was never the fetching: `Open` is reached
 from inside `Game.Step`, which in a browser *is* the animation callback, and a frame cannot await.
 `PickMap` is the seam — the desktop's half opens the map where it stands, the browser's writes the name
-down and lets the boot's own wait loop drain it. `Data` lays an empty file per map at boot, because
-`ProjectPaths.ShippedMaps` reads the folder and the listing is the name; it is the one place here where a
-file on disk is not yet what it claims, and it is never read in that state.
-
-## 2026-08-30 — the towns stay gzipped, because a page cannot unpack brotli
-
-Brotli is a quarter smaller over these plans and was refused, not as a trade: `BrotliStream` does not work
-in a browser — the wasm build carries zlib and no brotli symbol at all — and `DecompressionStream` has
-none either. The only brotli a page can read is one the *server* marks `Content-Encoding: br`, which is a
-fact about the host. Depending on it would half-load on a host nobody configured, to save 270 KB.
+down and lets the boot's own wait loop drain it.
 
 ## 2026-08-30 — the timezone database is not something this town reads
 
 `InvariantTimezone` at its default linked the whole tz database into the native blob for an engine whose
-only clocks are a tick count and a `Stopwatch`. Switched off it is 244 KB of blob and 91 KB brotli.
+only clocks are a tick count and a `Stopwatch`. Switched off it is 244 KB of blob and 54 KB on the wire.
 
 ## 2026-08-30 — no image codec on this head, because the browser is one
 
@@ -74,21 +70,21 @@ ImageSharp was 205 KB brotli of IL and 4.56 MB of the 27 MB of object code the A
 an unknown share of generic instantiations. Narrowing it was written, measured and reverted:
 `DecoderOptions` initialises its `Configuration` from `Configuration.Default`, so the factory that news up
 all nine modules is rooted whatever you pass. The cut went in three pieces — `ImageHeader` reads PNG's
-IHDR and WebP's chunks in forty lines, checked against ImageSharp over every shipped picture; `Rgba32`
-became this project's own `Texel`; and the decode became the page's own. Only half a browser decode can
-wait, so `Data` makes every bitmap at boot and `Texels.Web` reads a sheet's texels out synchronously where
-the packer stands — nothing above either changed. Bitmaps are kept for the run, since picking a second map
-packs the atlas again. The options on `createImageBitmap` are load-bearing: premultiplied alpha or a
-colour profile is a sheet that no longer matches what the desktop draws. **On this head an assembly is
-priced by what it makes the AOT compiler emit, not by what it weighs on the wire.**
+IHDR and WebP's chunks in forty lines, `Rgba32` became this project's own `Texel`, and the decode became
+the page's own. Bitmaps are kept for the run, since picking a second map packs the atlas again. The options
+on `createImageBitmap` are load-bearing: premultiplied alpha or a colour profile is a sheet that no longer
+matches what the desktop draws. **On this head an assembly is priced by what it makes the AOT compiler
+emit, not by what it weighs on the wire.**
 
 ## 2026-08-30 — the publish is the deployment, so it holds real files
 
 `wwwroot/assets` was a symlink made when the art was thirty megabytes of PNG, and a link into somebody's
 home directory is a page that serves on one machine. Everything is copied by build and publish alike. The
 guard that unlinks a stale link first is not tidiness: the copy would otherwise go *through* it and write
-the whole publish into `assets/`. Brotli is the one thing the build cannot finish — only the host can
-serve the `.br` copies, so WEB-6's figure is a claim about a host that negotiates encodings.
+the whole publish into `assets/`. Brotli is the one thing the build cannot finish, because a page cannot
+unpack it: `BrotliStream` does not work in a browser — the wasm build carries zlib and no brotli symbol at
+all — and `DecompressionStream` has none either. Only a host that marks `Content-Encoding: br` serves the
+`.br` copies, so WEB-6's figure is a claim about a host that negotiates encodings.
 
 ## 2026-08-30 — the page's own fetch, not an HttpClient
 
@@ -102,9 +98,8 @@ published runtime came down 327 KB brotli.
 ## 2026-08-30 — whether the run is over is not something the page saw
 
 Exit was an eleventh axis in the input arrays the page owns, so the pump at the top of the next frame
-copied the page's zero over it and the way out lived for eight milliseconds. It is a field now. The shape
-is the lesson: an axis is by definition what the page saw, so anything the run decides for itself cannot
-be one.
+copied the page's zero over it and the way out lived for eight milliseconds. It is a field now: an axis is
+by definition what the page saw, so anything the run decides for itself cannot be one.
 
 ## 2026-08-30 — the frame is timed around the wait, not through it
 

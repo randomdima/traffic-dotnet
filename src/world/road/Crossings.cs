@@ -6,36 +6,35 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.World.Road;
 
 /// <summary>
-/// <b>The bands of carriageway a town's pedestrian nodes hand a crossing over</b> (TER-6): <b>one wherever a
-/// pair of them face each other across a road</b> (WLK-10), from the kerb one of them stands off to the kerb
-/// the other does — and none anywhere else.
+/// <b>The bands of carriageway a walk crosses</b> (TER-6): <b>one across every pair of points it is
+/// handed</b> (WLK-10) — in a town, a station of the kerb ends (<see cref="KerbEnds"/>) — and none anywhere
+/// else.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A band is where a walk meets a road, and that is the whole of the placement.</b> Nothing here asks
-/// whether the junction behind it forks, how far back an arm's lanes hand over, or how much road is left:
-/// the walking side stands a pair of nodes facing each other across a carriageway and the band goes between
-/// them. Every figure the old placement turned on — a setback off the arm's end, one crossing for a node
-/// that forks nothing, a road too short to carry its two ends' paint — is gone with it.
+/// <b>Where a band goes is decided before it gets here, and this lays what it is handed.</b> Nothing here
+/// asks whether the junction behind it forks, how far back an arm's lanes hand over, or how much road is
+/// left: a town's kerb ends put a station across each end of each street at a box where three or more roads
+/// meet, and the band goes between its two points.
 /// </para>
 /// <para>
-/// <b>The walk has two answers and this is laid from either of them</b> (<see cref="KerbEnds"/>): the places
-/// it crosses, which is what the town is painted with, and the places it is cut at the ends of each street,
-/// which is what the traffic is held at (<see cref="StopBars"/>) and what the lane paint stops behind
-/// (<see cref="CentrelineRuns"/>). They are the same list but for a road too short to be crossed twice,
-/// which is crossed once midway between its two ends (<see cref="Midway"/>) while still being held at both
-/// of them.
+/// <b>The kerb ends have two answers and this is laid from either of them</b> (<see cref="KerbEnds"/>): the
+/// places the walk crosses, which is what the town is painted with, and the places it is cut at the ends of
+/// each street, which is what the traffic is held at (<see cref="StopBars"/>) and what the lane paint stops
+/// behind (<see cref="CentrelineRuns"/>). They are the same list but for a road too short to be crossed
+/// twice, which is crossed once midway between its two ends (<see cref="Midway"/>) while still being held at
+/// both of them.
 /// </para>
 /// <para>
-/// <b>Its span is the two kerbs it runs between</b>, which is the carriageway's width where the kerb is
-/// straight and more at a mouth, where the ground a junction's movements are driven over reaches past the
-/// arm's own edge. <b>What carries no node carries no band</b>: a bay, a roundabout's circulating
-/// carriageway (GEN-19), and a car park's junction.
+/// <b>Its span is the two points it is handed</b> — at a station, the carriageway's two edges, read off the
+/// width of the lanes there. <b>What is handed no station carries no band</b>: a bay, a roundabout's
+/// circulating carriageway (GEN-19), every end at a car park's junction, and every end at a box that does not
+/// fork.
 /// </para>
 /// </remarks>
 internal sealed class Crossings
 {
-    /// <summary>No crossing, which is what an arm too short for one carries and what a bay's way carries.</summary>
+    /// <summary>No crossing, which is what every end nothing asked a band at carries.</summary>
     public const int None = -1;
 
     readonly Vector2[] _centreM;
@@ -65,7 +64,7 @@ internal sealed class Crossings
 
     public int Count => _centreM.Length;
 
-    /// <summary>The middle of the band, which stands half its depth back from the arm's own end.</summary>
+    /// <summary>The middle of the band, midway between the two points it was handed.</summary>
     public ReadOnlySpan<Vector2> CentreM => _centreM;
 
     /// <summary>The way the traffic crossing it is going, which the stripes are laid along.</summary>
@@ -105,19 +104,17 @@ internal sealed class Crossings
     public int At(int road, bool atTo) => _atEnd[JunctionArms.End(road, atTo)];
 
     /// <summary>
-    /// <b>The bands a town's pedestrian nodes ask for</b> (TER-6): one across every place a pair of them
-    /// face each other over a road, from the kerb one stands off to the kerb the other does, and none
-    /// anywhere else.
+    /// <b>The bands a town's kerb ends ask for</b> (TER-6): one across every station
+    /// (<see cref="KerbNodes"/>), from one of its two points to the other, and none anywhere else.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Where they go is not decided here and is not read off the roads.</b> A band is the ground between
-    /// two places a walk arrives at, so the walking side says where one is wanted (WLK-10) and this lays what
-    /// it asks for. <b>What comes down is the data and not the type</b>: the road tier stands below the walk
-    /// ([slice-map.md](../../../../docs/slice-map.md)), so what it is handed is a pair of points per station.
+    /// <b>Where they go is not decided here.</b> A band is the ground between two places a walk crosses
+    /// between, so the kerb ends say where one is wanted (WLK-10) and this lays what they ask for, as a pair
+    /// of points per station.
     /// </para>
     /// <para>
-    /// <b>Which of the walk's two answers it is handed is the reader's</b> — <see cref="KerbEnds.CrossedM"/>
+    /// <b>Which of the kerb ends' two answers it is handed is the reader's</b> — <see cref="KerbEnds.CrossedM"/>
     /// for the paint, <see cref="KerbEnds.HeldM"/> for what the traffic is held at. <b>The filing is here
     /// and not at either reader</b>: it is the one place that knows both how a station is named and how an
     /// arm is numbered (<see cref="JunctionArms.End"/>), and a mapping written out twice is two answers about
@@ -204,13 +201,14 @@ internal sealed class Crossings
 }
 
 /// <summary>
-/// <b>Where a zebra is wanted across one road end</b> (TER-6, WLK-10): the two places that end's pedestrian
-/// nodes hand a crossing over at, one on each kerb, and whether the end asks for one at all.
+/// <b>Where a zebra is wanted across one road end</b> (TER-6, WLK-10): the two points a crossing there runs
+/// between, one at each edge of the carriageway, and whether the end asks for one at all.
 /// </summary>
 /// <remarks>
 /// <para>
-/// It is the walking side's answer carried down as plain points, the road tier standing below it — so the
-/// paint is laid where a walk crosses without <see cref="Crossings"/> knowing anything about a walk.
+/// It is an answer from outside this slice carried as plain points — a kerb end's station
+/// (<see cref="KerbNodes"/>), or the pair of pedestrian nodes the node network hands a crossing over at — so
+/// the paint is laid where a walk crosses without <see cref="Crossings"/> knowing anything about a walk.
 /// </para>
 /// <para>
 /// <b><see cref="Midway"/> is the one thing an end says about the other end</b>: a road too short to be

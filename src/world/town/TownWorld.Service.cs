@@ -192,7 +192,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>How many people a town stands in each service vehicle</b> (SRV-3), which is nobody while no
-    /// errand is worked on foot. It is what the walker roster is sized by, so it is a constant here rather
+    /// errand is worked on foot. It is what the walker roster grows by, so it is a constant here rather
     /// than a figure — a town cannot be given a different number of crew after its rosters are laid.
     /// </summary>
     const int CrewPerServiceVehicle = 0;
@@ -223,18 +223,18 @@ internal sealed partial class TownWorld
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
         _parking.Occupy(bay, car);
 
-        // <b>No crew</b> (SRV-3). Nothing on this vehicle's errands is done on foot while the walking side
-        // carries no crew at all, so a body sat in a seat for the whole run would be a person the town
-        // stands up, feeds a person slot and never once uses. It is named in the known gaps.
+        // <b>No crew</b> (SRV-3). Nothing on this vehicle's errands is done on foot, so a body sat in a seat
+        // for the whole run would be a person the town stands up, feeds a person slot and never once uses.
+        // It is named in the known gaps.
         return car;
     }
 
     /// <summary>
-    /// Whether this car is one a town stood on purpose (SRV-3), which is what says its crew stays aboard
-    /// when a leg ends. <b>It is the look <em>and</em> the building it is on the strength of</b>: the
-    /// fleet's wrap cannot reach a service look, so a car wearing one was named by whoever stood it — and a
-    /// vehicle struck off its building (EVA-7) is an ordinary car in service paint, whose driver has to be
-    /// let out like anybody else's.
+    /// Whether this car is one a town stood on purpose (SRV-3), which is what says the reset hands it back to
+    /// its errand rather than standing it down (<see cref="ReleaseOrderOfCar"/>). <b>It is the look
+    /// <em>and</em> the building it is on the strength of</b>: the fleet's wrap cannot reach a service look,
+    /// so a car wearing one was named by whoever stood it — and a vehicle struck off its building (EVA-7) is
+    /// an ordinary car in service paint, stood down like anybody else's.
     /// </summary>
     bool IsAServiceVehicle(int car) =>
         CarCatalog.Shared.IsService(Cars.Variant[car]) &&

@@ -7,6 +7,7 @@ using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
+using TrafficSimulation.World.Foot;
 using TrafficSimulation.World.Parking;
 using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
@@ -139,7 +140,7 @@ public class LaneOccupancyInATownTests
 
         // And it is a body and not a claim, which is the whole of the difference: a rank takes a claim and
         // nothing takes this (TER-5e).
-        Assert.False(LaneOccupancy.TakesAClaim(body, RightOfWay.Emergency));
+        Assert.False(LaneOccupancy.TakesAClaim(body, ClaimPriority.Special));
     }
 
     /// <summary>
@@ -451,6 +452,164 @@ public class LaneOccupancyInATownTests
 
         var way = roads.WayOfConnector(roads.ConnectorsFrom(lane)[0]);
         Assert.Equal(car, HolderOn(world, way, 0.25f));
+    }
+
+    /// <summary>
+    /// <b>A car standing on a zebra holds the crossing way and the lane under it alike</b> (TER-4c.2,
+    /// TER-5c.1): the paint is ground two networks name, and a body on two ways is on two ways.
+    /// </summary>
+    /// <remarks>
+    /// <b>The write used to turn on the kind of body standing there</b>: a car that had mounted a kerb was
+    /// written onto the footway and the same car on a zebra onto nothing of the walk, so the one stretch of
+    /// pavement a car is likeliest to be standing on was the one nothing could see it on.
+    /// </remarks>
+    [Fact]
+    public void ACarOnAZebraHoldsTheCrossingWayUnderIt()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
+
+        var crossing = ACrossingWay(world);
+        Assert.True(crossing >= 0, "the town painted no zebra to stand a car on");
+
+        // Square across the paint, which is how a car meets one: along the road the zebra is painted over.
+        var alongM = world.Ways.LengthM(crossing) * 0.5f;
+        var on = Spline.SampleAt(world.LineOfWay(crossing, out _), alongM);
+        var across = Heading.RightOf(on.Direction);
+        var car = StandTheBodyAt(world, on.PositionM, MathF.Atan2(across.Y, across.X));
+
+        Assert.Equal(car, HolderOn(world, crossing, alongM));
+
+        // And the lane beneath, which is the claim that actually refuses the traffic: the two are one body
+        // on two ways and not one of them instead of the other.
+        Assert.True(
+            HoldsAWayOfKind(world, car, WayKind.Lane),
+            $"car {car} stands on crossing way {crossing} and holds no lane under it");
+    }
+
+    /// <summary>
+    /// <b>And every body of a running town holds every metre of every way of the road its box is standing
+    /// on</b> (TER-4c.2), which is the same rule asked of the whole fleet at once rather than of one body a
+    /// test placed: the ground under a car is what its box covers, and a metre of it held by nobody is a
+    /// metre somebody else can be granted with a car standing on it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every way and every direction</b> — the lane it is in, the lane running back against it, the joins
+    /// of a box it is lying across, a lane it stands past the end of, the ways of a bay. Which of those a
+    /// body is on is a question about the ground and the box, and a body left out of one of them is a body
+    /// the traffic there cannot see.
+    /// </para>
+    /// <para>
+    /// <b>It is the one shape a staged body cannot show</b>, because what it is about is a body under way. A
+    /// car standing still is square to the lane it was put on and its claim is its own length; a car driving
+    /// is yawed against the line its claim is measured from, so its leading corner reaches past the nose that
+    /// claim ends at, and the ways its box touches are ways its line never named. <b>Three things went
+    /// missing at once</b>: a projection reads microns past the end of the lane it is square in, so the
+    /// reading that tells a body inside a lane from one past it dropped every way under every driving body
+    /// in the town; the rows that survived were dropped again as ground the body already held
+    /// (<see cref="LaneOccupancy.StandOutTo"/>); and a driver under way was held back from writing the joins
+    /// and the ways running against it at all.
+    /// </para>
+    /// <para>
+    /// <b>The claims are re-laid before they are read, and that is what makes the figure exact.</b> A tick
+    /// of a car at speed is 40 cm, which is the size of the shortfall this is about — so asked of the poses
+    /// the ticking left behind, the question would be answered by how fast the town was going.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EveryBodyHoldsEveryMetreOfEveryWayItStandsOn()
+    {
+        using var world = new TownWorld(Towns.Of(Towns.City), Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(TicksWatched);
+        world.RebuildProximityIndex();
+
+        Span<WayUnder> under = stackalloc WayUnder[MostWaysUnderABox];
+        var stood = 0;
+
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            // Under the vehicle pulling it where there is one (EVA-5): a coupled pair is one occupant, so
+            // the trailer's ground is in the truck's stretch and under the truck's number.
+            var hauler = world.Recovery.OnTheHookOf[car];
+            var occupant = hauler >= 0 ? hauler : car;
+
+            ref readonly var build = ref world.Cars.BuildOf(car);
+            var box = new BodyFootprint(
+                build.HalfLengthM, build.FlankM, Heading.Unit(world.Cars.HeadingRad[car]));
+            var atM = world.Cars.PositionM[car];
+
+            var found = GroundUnder.At(world.Roads.Ways, atM, box, Config.CrossesOntoAWayM, under);
+            found += GroundUnder.At(world.BayWays.Ways, atM, box, Config.CrossesOntoAWayM, under[found..]);
+
+            for (var index = 0; index < found; index++)
+            {
+                ref readonly var way = ref under[index];
+
+                // Clipped to the way, since the metres of a box that are off the end of one way are the
+                // next way's ground and are held there.
+                var fromM = MathF.Max(0f, way.AlongM + way.BackM);
+                var toM = MathF.Min(world.Ways.LengthM(way.Way), way.AlongM + way.AheadM);
+                if (toM - fromM <= Tolerance) continue;
+
+                stood++;
+                Assert.True(
+                    BodyHeldOver(world, way.Way, occupant, fromM, toM) >= toM - fromM - Tolerance,
+                    $"car {car} stands on {toM - fromM:0.00} m of {world.Ways.KindOf(way.Way)} way "
+                    + $"{way.Way} ({fromM:0.00}–{toM:0.00} m) and holds "
+                    + $"{BodyHeldOver(world, way.Way, occupant, fromM, toM):0.00} m of it as a body");
+            }
+        }
+
+        // The census, without which a town whose boxes stood on nothing would keep this perfectly.
+        Assert.True(stood > 0, "no body in a busy town was standing on a way of the road");
+    }
+
+    /// <summary>How much of a run of one way this occupant's own body covers, which for one body is one stretch.</summary>
+    static float BodyHeldOver(TownWorld world, int way, int occupant, float fromM, float toM)
+    {
+        Span<LaneClaim> slots = stackalloc LaneClaim[64];
+        var count = world.Occupancy.CopyTo(way, slots);
+        var heldM = 0f;
+        for (var slot = 0; slot < count; slot++)
+        {
+            if (slots[slot].Occupant != occupant || slots[slot].Of != LaneRoster.Driving) continue;
+            if (!slots[slot].HasBody) continue;
+
+            var overM = MathF.Min(toM, slots[slot].StandsToM) - MathF.Max(fromM, slots[slot].FromM);
+            if (overM > heldM) heldM = overM;
+        }
+
+        return heldM;
+    }
+
+    /// <summary>Room for the ways one box may be standing on at once, which is both of the road's networks.</summary>
+    const int MostWaysUnderABox = 64;
+
+    /// <summary>One of the ways a town's zebras are walked, or <c>-1</c> where it painted none.</summary>
+    static int ACrossingWay(TownWorld world)
+    {
+        for (var way = 0; way < world.Ways.Count; way++)
+        {
+            if (world.Ways.KindOf(way) != WayKind.Footway) continue;
+            if (world.Foot.KindOf(world.Ways.FootwayOf(way)) != FootEdgeKind.Crossing) continue;
+
+            return way;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Whether this body holds a stretch of any way of that kind.</summary>
+    static bool HoldsAWayOfKind(TownWorld world, int car, WayKind kind)
+    {
+        foreach (var way in world.Occupancy.OccupiedWays)
+        {
+            if (world.Ways.KindOf(way) != kind) continue;
+            if (LengthHeldOn(world, way, car) > 0f) return true;
+        }
+
+        return false;
     }
 
     /// <summary>A lane nobody is on that runs into a junction its first movement has a line of its own over.</summary>

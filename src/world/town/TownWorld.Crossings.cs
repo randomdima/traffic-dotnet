@@ -65,7 +65,7 @@ internal sealed partial class TownWorld
         for (var slot = painted.From; slot < painted.To; slot++)
         {
             var crossing = painted.CrossingAt(slot);
-            var halfDepthM = _plan.Crosswalks.DepthM[crossing] * 0.5f;
+            var halfDepthM = _zebras.DepthM[crossing] * 0.5f;
             var onLineM = OnTheLineM(car, slotOfLane, painted.AlongM(slot));
             var nearEdgeM = onLineM - halfDepthM;
             var farEdgeM = onLineM + halfDepthM;
@@ -94,21 +94,20 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Where the paint is under a car driving geometry of its own</b> — a swerve, a bay entry, a bay
-    /// exit — so a shape standing over a crossing knows it has nowhere to swing to.
+    /// <b>Where the paint is along the line a car is driving</b>, measured on that line rather than on the
+    /// lane under the car — which differ wherever the line is not that lane, as a bay's way backed out of is
+    /// not.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The lane says which crossings there are and the template says where they are.</b> A template is
-    /// laid over no lane and its metres are its own, so a distance along the lane under the car is not a
-    /// distance along the shape being driven; the paint is projected onto that shape instead, which is the
-    /// same measurement the town made to put the paint on the lane in the first place.
+    /// <b>The lane says which crossings there are and the line says where they are.</b> A distance along the
+    /// lane under the car is not a distance along the line being driven, so the paint is projected onto the
+    /// line, which is the same measurement the town made to put the paint on the lane in the first place.
     /// </para>
     /// <para>
     /// <b>Where it is and never a stop.</b> A body on a crossing is a body on the lane under it and cuts the
-    /// ground a template asked for like anything else standing there (`PER-26`), which is the reading
-    /// the grant already takes; a second refusal owed to the paint would be that stop kept
-    /// twice (SIM-7).
+    /// ground the line asked for like anything else standing there (`PER-26`), which is the reading the
+    /// grant already takes; a second refusal owed to the paint would be that stop kept twice (SIM-7).
     /// </para>
     /// </remarks>
     /// <param name="leadM">Where the leading edge of the body stands along the line, in whichever gear it is being driven.</param>
@@ -123,8 +122,8 @@ internal sealed partial class TownWorld
         for (var slot = painted.From; slot < painted.To; slot++)
         {
             var crossing = painted.CrossingAt(slot);
-            var centreM = _plan.Crosswalks.CentreM[crossing];
-            var halfDepthM = _plan.Crosswalks.DepthM[crossing] * 0.5f;
+            var centreM = _zebras.CentreM[crossing];
+            var halfDepthM = _zebras.DepthM[crossing] * 0.5f;
             var onLineM = Spline.ProjectM(line, centreM, leadM, reachM + halfDepthM);
 
             // The paint has to be on the shape and not merely inside the window searched for it: a

@@ -25,14 +25,11 @@ teleport, snap, clamp or nudge a body because it is somewhere illegal (SIM-1).
 
 ## What the layer must provide
 
-Rigid bodies in 2D with mass, linear and angular velocity and a collision shape; contact resolution that
-prevents overlap and produces an impulse response; an impulse interface, central and at a point; contact
-reporting naming which two bodies **began** touching and the velocities they carried into that tick;
-static bodies; layers and masks under the rule that two bodies interact when **either** scans the other,
-and a body's layer changeable while it stands; per-body rotation lock and gravity off. **A pair is exempt
-only where a layer says so** — a coupled tow (`EVA-5`) is not one, and `PHY-5b` is the only one there is.
-
-**Nothing is swept** (`SOL-17`): a stated limit of the solver, not a defect of this layer.
+What the solver presents is [solver.md](solver.md#what-it-presents); on top of it the town needs a body's
+layer changeable while it stands, and the velocities a pair carried **into** the tick they began touching in,
+which the roster keeps because the solver's own are the response. **A pair is exempt only where a layer says
+so** — a coupled tow (`EVA-5`) is not one, and `PHY-5b` is the only one there is. **Nothing is swept**
+(`SOL-17`): a stated limit of the solver, not a defect of this layer.
 
 ## Damage
 
@@ -77,7 +74,8 @@ ground under it (`PHY-8`), and still somewhere an ambulance has to come to. **A 
 wreck stays a full participant and is shunted like any other obstruction.
 
 This is the one exemption from `PHY-9`, and it is narrow: a casualty is put where the impact throws it and
-is dragged where a stretcher crew drags it, so it is still moved by things outside its own intent. What it
+is taken aboard where an ambulance stands off it (`AMB-10`), so it is still moved by things outside its own
+intent. What it
 is no longer is something for the town to push around for the length of a rescue.
 
 **PHY-5a** `P3` A body that is already what a contact could make of it — a wreck, or somebody already lying in
@@ -94,9 +92,9 @@ beside the car and waits while there is none (`PHY-7a`), and a driver left waiti
 casualty nothing will ever come for (`AMB-7`).
 
 **Damage is judged once per touch, on the tick the pair start touching, at the speed both carried *into*
-that tick.** A pair resting against each other in a queue is one judgement, never sixty a second. This
-needs a pair table with an explicit end-of-tick sweep; getting it wrong is the difference between a queue
-and a massacre.
+that tick.** A pair resting against each other in a queue is one judgement, never sixty a second. The
+solver's begin-touch report (`SOL-6`) is that pair table, and no second one is kept beside it; getting it
+wrong is the difference between a queue and a massacre.
 
 **One component owns this arithmetic** and is the only place damage is decided.
 

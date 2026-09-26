@@ -523,8 +523,8 @@ internal static class Program
         bool BotWaits)
     {
         /// <summary>
-        /// What every check that is not about a particular town is staged on: it is one screen, it
-        /// carries one of every kind of ground, and it opens in a fraction of the time a city does.
+        /// What every check that is not about a particular town is staged on: a small town laid from a
+        /// brief that asks for no building, so it opens in a fraction of the time a city does.
         /// </summary>
         public const string FixtureMap = "Test";
 

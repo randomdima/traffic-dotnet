@@ -2,9 +2,9 @@ namespace TrafficSimulation.World.Road;
 
 /// <summary>
 /// <b>The terms one asker's grant is cut on</b>: the ground it keeps off whatever is not going anywhere,
-/// which roster's claims it reads as traffic, and the right of way it asks with. <b>One statement of
-/// where somebody else's ground stops an asker</b>, so the road and the pavement cannot come to two answers
-/// about it.
+/// which roster's claims it reads as traffic, and the rung it asks with. <b>One statement of where
+/// somebody else's ground stops an asker</b>, which a driver's grant is cut on
+/// (<see cref="LaneOccupancy.GrantedOn"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -17,32 +17,29 @@ namespace TrafficSimulation.World.Road;
 /// <para>
 /// <b>The two ends of it are one figure read twice.</b> <see cref="Of"/> is what a stretch in front is worth,
 /// and <see cref="AtAPlaceM"/> is what a place that is nobody's stretch is worth — a junction's crossing
-/// point, the kerb line of a lane a walker was refused. Neither has a margin of its own, so the asker's is
-/// taken off both, and it is the same margin.
+/// point. Neither has a margin of its own, so the asker's is taken off both, and it is the same margin.
 /// </para>
 /// </remarks>
 /// <param name="StandingMarginM">
-/// The ground the asker keeps off a body that is going nowhere — <see cref="Agents.Car.Body.CarBuild.BodyMarginM"/>
-/// for a driver, the standstill gap for a walker.
+/// The ground the asker keeps off a body that is going nowhere — a driver's
+/// <see cref="Agents.Car.Body.CarBuild.BodyMarginM"/>.
 /// </param>
 /// <param name="Under">
 /// Which roster's bodies under way are bodies under way rather than another roster's bleeding through.
 /// A claim is laid by a body on the network it is on (TER-5c.1), so this is the asker's own roster and the
 /// check is total rather than defensive.
 /// </param>
-/// <param name="Right">
-/// The right of way the asker holds the ground it is asking for with (TER-5e). <b>The weakest rank is an
-/// asker that outranks nothing</b>, which is every walker on the pavement: no claim there is anybody's to
-/// take, so every stretch binds.
+/// <param name="Asking">
+/// The rung the asker would hold the ground it is asking for at (TER-5e, <see cref="LaneOccupancy.Binds"/>).
 /// </param>
 /// <param name="AcrossM">
 /// <b>Where across the way's own line the asker is asking from</b>, signed to the way's right
-/// (<see cref="LaneOccupancy.StandsAside"/>). <b>Nought is travelling the line</b>, which is every driver and
-/// every walker that has not stepped off it, and what it buys is that a body which has stepped aside asks
-/// about the ground it has stepped to rather than about the ground it left.
+/// (<see cref="LaneOccupancy.StandsAside"/>). <b>Nought is travelling the line</b>, which is where every
+/// driver asks from; what it buys is that a body which has stepped aside asks about the ground it has
+/// stepped to rather than about the ground it left.
 /// </param>
 internal readonly record struct LaneCredit(
-    float StandingMarginM, LaneRoster Under, RightOfWay Right, float AcrossM = 0f)
+    float StandingMarginM, LaneRoster Under, ClaimPriority Asking, float AcrossM = 0f)
 {
     /// <summary>
     /// <b>Where this stretch stops the asker, measured from its near edge</b>: at the edge itself where the

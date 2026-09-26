@@ -294,6 +294,273 @@ public class WalkingTests
         return best;
     }
 
+    /// <summary>
+    /// <b>PER-27: a walker walking a crossing reserves it to the far kerb.</b> The paint in front of the
+    /// body on the stretch it is taking, and the band of every lane that paint is laid across, are
+    /// stretches of this walker's at p7 — the far kerb spoken for from the moment the walk is on the zebra,
+    /// and not only the metre under the feet.
+    /// </summary>
+    /// <remarks>
+    /// <b>Stood on the paint by hand</b>, because no walk a town lays takes a zebra yet
+    /// ([the known gaps](../../../../docs/index.md#known-gaps)): what this asks is what a body walking one
+    /// claims, and a case that waited for the router to offer a crossing would be asking about the router.
+    /// </remarks>
+    [Fact]
+    public void AWalkerWalkingACrossingReservesIt()
+    {
+        using var world = Walking(out var afoot);
+
+        var edge = ACrossingOfTheTown(world);
+        Assert.True(edge >= 0, "the town painted no zebra with a lane under it");
+
+        var person = afoot[0];
+        var way = world.Ways.OfFootway(edge);
+        var lengthM = world.Ways.LengthM(way);
+        WalkTheCrossing(world, person, edge, lengthM * 0.5f);
+
+        Assert.True(
+            Holds(world, way, person, ClaimPriority.Reserved, lengthM * 0.75f),
+            $"walker {person} is half way over crossing way {way} and has not reserved the rest of it");
+
+        // And the carriageway under it, which is where the traffic meets the reservation at all.
+        var lane = world.Ways.OfRoadLane(world.Bands.On(edge)[0].Lane);
+        Assert.True(
+            ClaimsOf(world, lane, person, ClaimPriority.Reserved).Count > 0,
+            $"walker {person} walks crossing way {way} and has reserved no band of lane way {lane} under it");
+    }
+
+    /// <summary>
+    /// <b>PER-27: what a walker reserves is the stretch of paint it is taking and not the crossing's other
+    /// one.</b> A zebra is two walking lanes over one carriageway (WLK-15) and the second of them is the
+    /// walk back, which this body is not on — so nothing of it is this walker's at p7.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is what keeps the cut at the body's near edge cut.</b> The two lanes run the same paint
+    /// opposite ways, so a reservation laid on both covered from the other one's far end exactly the half
+    /// the walker had already crossed.
+    /// </remarks>
+    [Fact]
+    public void AWalkerWalkingACrossingLeavesItsOtherStretchAlone()
+    {
+        using var world = Walking(out var afoot);
+
+        var edge = ACrossingOfTheTown(world);
+        Assert.True(edge >= 0, "the town painted no zebra with a lane under it");
+
+        var back = TheWalkBackOver(world, edge);
+        Assert.True(back >= 0, $"the town walks crossing {world.Bands.CrossingOf(edge)} one way only");
+
+        var person = afoot[0];
+        var way = world.Ways.OfFootway(edge);
+        WalkTheCrossing(world, person, edge, world.Ways.LengthM(way) * 0.5f);
+
+        var twin = world.Ways.OfFootway(back);
+        Assert.True(
+            ClaimsOf(world, twin, person, ClaimPriority.Reserved).Count == 0,
+            $"walker {person} walks crossing way {way} and has reserved the walk back over it,"
+            + $" way {twin}, which carries {WhatIsOn(world, twin)}");
+    }
+
+    /// <summary>
+    /// <b>PER-27: a walker at a kerb stands off a crossing the traffic has.</b> The reservation is asked of
+    /// the claims, and a wheeled body on the paint is the answer that a walker still on the corner may not
+    /// step out — which is the whole of what the reservation buys, since it refuses the traffic nothing.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asked of a crossing nothing is on</b>, so that the clear answer is the case's own construction
+    /// and the taken one is the car it stands there. Both are asserted, because an answer that is always
+    /// "wait" would pass a case that only asked the second.
+    /// </remarks>
+    [Fact]
+    public void AWalkerAtAKerbStandsOffACrossingTheTrafficHas()
+    {
+        using var world = Walking(out var afoot);
+        Assert.True(world.Cars.Count > 0, "the town stood no car to put on a zebra");
+        Assert.True(
+            AQuietCrossing(world, out var edge, out var from),
+            "the town painted no zebra nobody was on that a walk arrives at");
+
+        var person = afoot[0];
+        StandAtTheKerbOf(world, person, from, edge);
+        Assert.Equal(world.Bands.CrossingOf(edge), world.People.OnCrossing[person]);
+        Assert.False(
+            world.People.WaitsToCross[person],
+            $"walker {person} waits at the kerb of crossing {edge} with nothing on it");
+
+        // Square across the paint, which is how a car comes to be standing on one.
+        var way = world.Ways.OfFootway(edge);
+        var on = Spline.SampleAt(world.LineOfWay(way, out _), world.Ways.LengthM(way) * 0.5f);
+        var across = Heading.RightOf(on.Direction);
+        StandTheBodyAt(world, on.PositionM, MathF.Atan2(across.Y, across.X));
+
+        Assert.True(
+            world.People.WaitsToCross[person],
+            $"walker {person} is at the kerb of crossing {edge} with a car standing on it and does not wait"
+            + $" — paint way {way} carries {WhatIsOn(world, way)}");
+
+        // And the wait is the walk standing still: the body aims at its own feet, so nothing steps onto the
+        // paint while somebody else is on it.
+        world.RebuildProximityIndex();
+        Assert.Equal(world.People.PositionM[person], world.People.DestinationM[person]);
+    }
+
+    /// <summary>
+    /// A stretch of paint whose first metres are kerb rather than carriageway, with nothing of the driving
+    /// roster on it or on a lane beneath it — so that what a walker is told about it is the case's own
+    /// doing — and the pavement a walk arrives at it from.
+    /// </summary>
+    static bool AQuietCrossing(TownWorld world, out int edge, out int from)
+    {
+        for (edge = 0; edge < world.Foot.EdgeCount; edge++)
+        {
+            if (world.Foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
+            if (world.Bands.On(edge).Length == 0 || !IsQuiet(world, world.Ways.OfFootway(edge))) continue;
+
+            var quiet = true;
+            foreach (var band in world.Bands.On(edge)) quiet &= IsQuiet(world, world.Ways.OfRoadLane(band.Lane));
+            if (!quiet) continue;
+
+            from = TheWalkOnto(world, edge);
+            if (from != PersonFleet.NoWay) return true;
+        }
+
+        edge = -1;
+        from = PersonFleet.NoWay;
+        return false;
+    }
+
+    /// <summary>Everything on one way, for a message that has to say why an answer was not the one wanted.</summary>
+    static string WhatIsOn(TownWorld world, int way)
+    {
+        var claims = new LaneClaim[MostClaimsOnAWay];
+        var count = world.Occupancy.CopyTo(way, claims);
+        var said = new List<string>();
+        for (var at = 0; at < count; at++)
+        {
+            said.Add($"{claims[at].Of} {claims[at].Occupant} p{(byte)claims[at].Priority} "
+                + $"{claims[at].FromM:0.0}-{claims[at].ToM:0.0}");
+        }
+
+        return said.Count == 0 ? "nothing" : string.Join(", ", said);
+    }
+
+    /// <summary>Whether no wheeled body and no driver's road is anywhere on this way.</summary>
+    static bool IsQuiet(TownWorld world, int way)
+    {
+        var claims = new LaneClaim[MostClaimsOnAWay];
+        var count = world.Occupancy.CopyTo(way, claims);
+        for (var at = 0; at < count; at++)
+        {
+            if (claims[at].Of == LaneRoster.Driving) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>The pavement a walk reaches this stretch of paint from, or <see cref="PersonFleet.NoWay"/>.</summary>
+    static int TheWalkOnto(TownWorld world, int edge)
+    {
+        for (var from = 0; from < world.Foot.EdgeCount; from++)
+        {
+            foreach (var turn in world.Walking.TurnsFrom(from))
+            {
+                if (turn == edge) return from;
+            }
+        }
+
+        return PersonFleet.NoWay;
+    }
+
+    /// <summary>
+    /// This walker put at the far end of the pavement that arrives at one stretch of paint, walking a chain
+    /// of the two — a body at a kerb, which is where a crossing is asked for and not yet stepped onto.
+    /// </summary>
+    static void StandAtTheKerbOf(TownWorld world, int person, int from, int edge)
+    {
+        var people = world.People;
+        var route = people.RouteOf(person);
+        route[0] = from;
+        route[1] = edge;
+        people.RouteCount[person] = 2;
+        people.RouteTaken[person] = 1;
+        people.RouteToM[person] = world.Walking.WayLengthM(edge);
+
+        var atM = MathF.Max(0f, world.Walking.WayLengthM(from) - AtTheKerbM);
+        people.OnWayM[person] = atM;
+        people.VelocityMps[person] = Vector2.Zero;
+        people.PositionM[person] = Spline.SampleAt(world.Walking.WayArcs(from), atM).PositionM;
+
+        world.RebuildProximityIndex();
+    }
+
+    /// <summary>
+    /// How far short of the kerb the body is stood: inside any stopping distance a walking pace produces,
+    /// so that the case is about the crossing being asked for and not about how far off one is asked from.
+    /// </summary>
+    const float AtTheKerbM = 0.1f;
+
+    /// <summary>A car of the fleet stood where it is asked for, going nowhere — a body and nothing else.</summary>
+    static void StandTheBodyAt(TownWorld world, Vector2 atM, float headingRad)
+    {
+        world.Cars.Driven[0] = false;
+        world.Cars.Broken[0] = true;
+        world.Cars.VelocityMps[0] = Vector2.Zero;
+        world.Cars.PositionM[0] = atM;
+        world.Cars.HeadingRad[0] = headingRad;
+        world.RebuildProximityIndex();
+    }
+
+    /// <summary>
+    /// One of the ways the town's zebras are walked, with a lane actually running under it, or <c>-1</c>
+    /// where it painted none.
+    /// </summary>
+    static int ACrossingOfTheTown(TownWorld world)
+    {
+        for (var edge = 0; edge < world.Foot.EdgeCount; edge++)
+        {
+            if (world.Foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
+            if (world.Bands.On(edge).Length == 0) continue;
+
+            return edge;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// The other stretch of the same zebra — the walk back over it — or <c>-1</c> where there is none.
+    /// </summary>
+    static int TheWalkBackOver(TownWorld world, int edge)
+    {
+        var crossing = world.Bands.CrossingOf(edge);
+        for (var other = 0; other < world.Foot.EdgeCount; other++)
+        {
+            if (other != edge && world.Bands.CrossingOf(other) == crossing) return other;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// This walker put onto one stretch of paint by hand, as far along it as asked, with the claims rebuilt
+    /// around it — the route it is walking and the body on it, which is what
+    /// <see cref="PersonFleet.OnCrossing"/> is read off.
+    /// </summary>
+    static void WalkTheCrossing(TownWorld world, int person, int edge, float alongM)
+    {
+        var people = world.People;
+        var way = world.Ways.OfFootway(edge);
+        var route = people.RouteOf(person);
+        route[0] = edge;
+        people.RouteCount[person] = 1;
+        people.RouteTaken[person] = 1;
+        people.RouteToM[person] = world.Ways.LengthM(way);
+        people.OnWayM[person] = alongM;
+        people.PositionM[person] = Spline.SampleAt(world.LineOfWay(way, out _), alongM).PositionM;
+
+        world.RebuildProximityIndex();
+    }
+
     /// <summary>Whether this body holds a stretch of any way of the pavement at p0, which is PER-26's first claim.</summary>
     static bool HoldsAnyPavement(TownWorld world, int person)
     {

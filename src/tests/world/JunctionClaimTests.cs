@@ -100,10 +100,16 @@ public class JunctionClaimTests
             Drivers++;
         }
 
-        public string? Disagreed, Waved, PastARed, MissedTheNearEdge, KeptWhatItPassed, TookGroundItCrosses,
-            Overlapped, CutFromBehind;
+        /// <summary>
+        /// And which of them held one when the claims were last laid, which is what tells a movement taken
+        /// during this tick's decisions from one the rebuild has already written the approach to.
+        /// </summary>
+        public readonly bool[] HeldWhenTheClaimsWereLaid = new bool[cars];
 
-        public int Granted, Reaching, WalkedUp, Whole, Crossed, AsFarAsASection, HeldByAClaim;
+        public string? Disagreed, Waved, PastARed, MissedTheNearEdge, KeptWhatItPassed, TookGroundItCrosses,
+            Overlapped, CutFromBehind, SaidNothingOfTheApproach;
+
+        public int Granted, Reaching, WalkedUp, Whole, Crossed, AsFarAsASection, HeldByAClaim, ShortOfItsBox;
 
         /// <summary>How many crossings were given to a movement over the ground a weaker one was holding (TER-5e).</summary>
         public int TakenFromAWeakerMovement;
@@ -150,6 +156,7 @@ public class JunctionClaimTests
             NoGroundIsTakenOnAWayOnlyDrivenOver(world, map, found);
             NoGrantReachesGroundAnotherBodyHas(world, map, tick, found);
             NoClaimCutsAGrantFromBehindTheNose(world, map, tick, found);
+            TheApproachToABoxItHoldsIsSpokenFor(world, map, tick, found);
         }
 
         return found;
@@ -294,14 +301,14 @@ public class JunctionClaimTests
     }
 
     /// <summary>
-    /// <b>The rank this car actually holds its movement at</b> (TER-5e): the turn's own, and
-    /// <see cref="RightOfWay.Emergency"/> for anybody answering a call (AMB-4, EVA-4, SRV-6). <b>It is the
-    /// car's and not the turn's</b>, because a blue light is exactly a rank a movement does not otherwise
+    /// <b>The rung this car actually holds its movement at</b> (TER-5e): the turn's own, and
+    /// <see cref="ClaimPriority.Special"/> for anybody answering a call (AMB-4, EVA-4, SRV-6). <b>It is the
+    /// car's and not the turn's</b>, because a blue light is exactly a rung a movement does not otherwise
     /// carry — read off the turn alone, every claim a rescue takes off ordinary traffic reads as a car
     /// waved into a junction.
     /// </summary>
-    static RightOfWay RankOf(TownWorld world, int car, int turn) =>
-        world.Cars.BlueLight[car] ? RightOfWay.Emergency : world.Roads.RightOfWayOfConnector(turn);
+    static ClaimPriority RankOf(TownWorld world, int car, int turn) =>
+        world.Cars.BlueLight[car] ? ClaimPriority.Special : world.Roads.FirmOnConnector(turn);
 
     /// <summary>
     /// <b>Nothing waiting at a red holds the ground beyond it.</b> A phase greens the arms that do not
@@ -436,6 +443,14 @@ public class JunctionClaimTests
             // has no metres and a claim over it holds nothing.
             if (world.Roads.ConnectorLengthM(slot) <= 0f) continue;
 
+            // <b>And a car whose own stretch never reached the boundary is owed nothing past it</b>
+            // (TER-5c.2). A hold is one run of ways and it ends at the first of them that gave ground up, so
+            // a body standing on the last metres of the arm — a car in the box, whose own box reaches back
+            // over the boundary (TER-4c.2) — is where this car's road stops, whatever it was granted beyond
+            // it. What carries the car over those metres is its statement, which is the honest name for road
+            // it asked for and did not get.
+            if (!HoldsTheLastMetreOf(world, chain[0], car)) continue;
+
             found.Reaching++;
             if (found.MissedTheNearEdge is not null) continue;
 
@@ -449,6 +464,27 @@ public class JunctionClaimTests
                 + $"{world.GroundEndsAtM(car):0.00} m past a boundary at {boundaryM:0.00} m, "
                 + $"and join {slot} has none of it";
         }
+    }
+
+    /// <summary>
+    /// Whether this car's own stretch of the lane it is leaving reaches that lane's last metre — which is
+    /// what says its road got as far as the boundary at all.
+    /// </summary>
+    static bool HoldsTheLastMetreOf(TownWorld world, int lane, int car)
+    {
+        var way = world.Ways.OfRoadLane(lane);
+        var lengthM = world.Ways.LengthM(way);
+
+        Span<LaneClaim> slots = stackalloc LaneClaim[32];
+        var count = world.Occupancy.CopyTo(way, slots);
+        for (var at = 0; at < count; at++)
+        {
+            if (slots[at].Occupant != car || slots[at].Of != LaneRoster.Driving) continue;
+            if (slots[at].IsRejected || slots[at].IsStated) continue;
+            if (slots[at].ToM >= lengthM - Tolerance) return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -478,7 +514,9 @@ public class JunctionClaimTests
     {
         var run = Of(map);
 
-        Assert.Null(run.KeptWhatItPassed);
+        // Said as a condition and a message rather than as a null: the finding is a sentence naming a car,
+        // a join and a tick, and an equality failure prints the first fifty characters of it.
+        Assert.True(run.KeptWhatItPassed is null, run.KeptWhatItPassed);
         Assert.True(
             run.WalkedUp > 0 && run.Whole > 0,
             $"{map}: {run.WalkedUp} runs walked up, {run.Whole} held whole");
@@ -529,6 +567,60 @@ public class JunctionClaimTests
 
     /// <summary>Ground on a join is metres, and a tail is arithmetic on floats: a millimetre is not a finding.</summary>
     const float Tolerance = 1e-2f;
+
+    /// <summary>
+    /// <b>A car whose road stops short of the box it holds says so over the metres in between</b> (TER-5g).
+    /// A driver's committed road is a braking distance and no more, and at a standstill it is the car's own
+    /// length and a metre — so a car granted its way through a junction holds the crossings long before its
+    /// road gets there, and what carries the hold across the approach is the road it states.
+    /// </summary>
+    /// <remarks>
+    /// <b>It is how far the car says it is going that is asked about and not how strongly it holds it</b>,
+    /// because the second is a different question with a later answer: the approach is laid as a statement
+    /// and is carried up to the box's own rung once the grant is in, or left as one where the grant came back
+    /// short (TER-5g.1). What that rung is is <c>ClaimGateTests</c>'s; what is asked here is that the metres
+    /// are spoken for at all.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void ACarShortOfTheBoxItHoldsStatesTheRoadToIt(string map)
+    {
+        var run = Of(map);
+
+        Assert.True(run.SaidNothingOfTheApproach is null, run.SaidNothingOfTheApproach);
+        Assert.Equal(run.Drivers > 0, run.ShortOfItsBox > 0);
+    }
+
+    /// <summary>What <see cref="ACarShortOfTheBoxItHoldsStatesTheRoadToIt"/> watches for.</summary>
+    static void TheApproachToABoxItHoldsIsSpokenFor(TownWorld world, string map, int tick, Watched found)
+    {
+        for (var car = 0; car < world.Cars.Count; car++)
+        {
+            var holding = MovementOf(world, car) != CarFleet.NoWay && OnARoute(world, car);
+            var heldAlready = found.HeldWhenTheClaimsWereLaid[car];
+            found.HeldWhenTheClaimsWereLaid[car] = holding;
+
+            // <b>A movement taken during this tick's decisions was nobody's when the claims were laid</b>,
+            // and what writes the approach is the next rebuild rather than the walk that took it.
+            if (!holding || !heldAlready) continue;
+
+            var holdsToM = world.TheMovementHoldEndsAtM(car);
+            if (!float.IsFinite(holdsToM) || holdsToM <= world.Cars.ClaimToM[car]) continue;
+
+            found.ShortOfItsBox++;
+            if (found.SaidNothingOfTheApproach is not null) continue;
+
+            // The line is where a statement runs out: ground past the end of it is ground nothing has
+            // worked out a route over (CAR-11).
+            var wantedM = MathF.Min(holdsToM, world.Cars.Line[car].LengthM);
+            if (world.Cars.StatedToM[car] >= wantedM - Tolerance) continue;
+
+            found.SaidNothingOfTheApproach =
+                $"{map}: at tick {tick} car {car} holds its box out to {holdsToM:0.00} m of its line, its "
+                + $"road ends at {world.Cars.ClaimToM[car]:0.00} m, and it states only "
+                + $"{world.Cars.StatedToM[car]:0.00} m";
+        }
+    }
 
     /// <summary>
     /// <b>A car claims the ways it drives and no others</b> (TER-5c). A movement crosses the other ways
@@ -655,7 +747,7 @@ public class JunctionClaimTests
                         // rather than driven through (TER-5e): it is a claim, which is a piece of the world
                         // its holder has not reached and is not committed to. A body, and the road a body is
                         // committed to being able to stop in, still cut the grant here as they always did.
-                        if (!LaneOccupancy.Binds(theirs[other], asked.Right)) continue;
+                        if (!LaneOccupancy.Binds(theirs[other], asked.Priority)) continue;
 
                         found.Overlapped =
                             $"{map}: car {asked.Occupant} is granted to {grantedToM:0.00} m of way "
@@ -729,12 +821,23 @@ public class JunctionClaimTests
     }
 
     /// <summary>
-    /// <b>Whether this car holds every metre of one stretch of one join</b>, across all the stretches it has
-    /// there — its road and its claim between them, which is what the traffic crossing that ground meets.
+    /// <b>Whether no metre of one stretch of one join is left unheld</b> in front of this car — its own
+    /// stretches, which are its road and its claim between them, and the bodies of anybody standing in
+    /// there, which are metres that are not this car's to hold at all.
     /// </summary>
     /// <remarks>
-    /// The stretches come back near edge first (<see cref="LaneOccupancy.CopyTo"/>), so the cover is walked
-    /// rather than searched: anything left uncovered is a gap the far side would be driven through.
+    /// <para>
+    /// <b>What the far side meets is the question, and a gap is the failure.</b> The stretches come back near
+    /// edge first (<see cref="LaneOccupancy.CopyTo"/>), so the cover is walked rather than searched: anything
+    /// left uncovered is ground the traffic crossing there would be granted and driven through.
+    /// </para>
+    /// <para>
+    /// <b>A body in front is a cover and not a hole</b> (TER-4c.2). Two cars following one another through a
+    /// box are a queue on one join, held apart by the road each was granted (TER-5c) — and the leader's body
+    /// is the one hold in the town nothing takes, so the follower cannot hold those metres and is not owed
+    /// them. Counted as a gap, this asked the follower for ground the rules forbid it: what is asserted is
+    /// that the run is covered, never that one car covers it.
+    /// </para>
     /// </remarks>
     static bool HoldsAllOf(TownWorld world, int slot, int car, float fromM, float toM)
     {
@@ -744,10 +847,11 @@ public class JunctionClaimTests
         for (var at = 0; at < count && reachedM < toM; at++)
         {
             ref readonly var taken = ref slots[at];
-            if (taken.Occupant != car || taken.Of != LaneRoster.Driving) continue;
+            var mine = taken.Occupant == car && taken.Of == LaneRoster.Driving;
+            if (!mine && !taken.HasBody) continue;
             if (taken.FromM > reachedM + Tolerance) break;
 
-            reachedM = MathF.Max(reachedM, taken.ToM);
+            reachedM = MathF.Max(reachedM, mine ? taken.ToM : taken.StandsToM);
         }
 
         return reachedM >= toM - Tolerance;

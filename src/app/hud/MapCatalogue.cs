@@ -10,10 +10,10 @@ internal enum MapKind
     Place,
 
     /// <summary>
-    /// A town laid to put one behaviour under a microscope, and the fixture every detailed check is
-    /// staged on. Still an ordinary map in every way that matters — the ordinary game, camera and
-    /// agents — and behind its own submenu so that a menu of two cities does not read as a menu of
-    /// two cities and a laboratory.
+    /// A town laid to put one behaviour under a microscope; no map this build ships is one, the fixture
+    /// being a brief like a city's. Still an ordinary map in every way that matters — the ordinary game,
+    /// camera and agents — and behind its own submenu so that a menu of two cities does not read as a menu
+    /// of two cities and a laboratory.
     /// </summary>
     Scenario,
 }

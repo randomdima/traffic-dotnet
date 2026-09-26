@@ -26,8 +26,9 @@ namespace TrafficSimulation.CityGen;
 internal static class Maps
 {
     /// <summary>
-    /// The map every detailed check is staged on: one screen, one of every kind of ground, furnished
-    /// thinly and with a crowd on it. <b>Named here because this is where a name becomes a town</b> —
+    /// The map every detailed check is staged on: a small town from a brief of its own — water, districts
+    /// and a dozen cars, and no building, so no car park, crossing or walker (the known gaps in
+    /// <c>docs/index.md</c>). <b>Named here because this is where a name becomes a town</b> —
     /// the suite, the warm-up and the command line's own default all mean this one map, and three
     /// spellings of it is two chances to mean a different one.
     /// </summary>

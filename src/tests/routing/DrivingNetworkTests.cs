@@ -54,13 +54,14 @@ public class DrivingNetworkTests
     /// <b>A link ends at a place a driver can go more than one way, and nowhere else.</b> Asked both ways
     /// round, because each direction catches a different fault: a bend a link ends at is a decision nobody
     /// makes, and a junction no link ends at is a turn no route could ever plan. <b>Nowhere is promoted for
-    /// being somewhere a leg is sent</b> (GEN-4h): a destination is a place on a link and carries how far
-    /// into it it stands, so a car park's frontage is named without a node of its own.
+    /// being somewhere a leg is sent</b>: a destination is a place on a link and carries how far into it it
+    /// stands (<see cref="RouteGoal"/>), so a bay's way in is named as a metre of its lane without a node of
+    /// its own.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The one bend a link ends at is a ring's own anchor.</b> A closed run nothing splits — the band a
-    /// car park is wrapped in, a circuit of the test track — would contract to nothing at all, so
+    /// <b>The one bend a link ends at is a ring's own anchor.</b> A closed run nothing splits would contract
+    /// to nothing at all, so
     /// <see cref="RunNetwork"/> promotes one of its bends and the ring becomes two links leaving and
     /// returning to that one place. Exactly one, and only where the ring really has no choice on it.
     /// </para>

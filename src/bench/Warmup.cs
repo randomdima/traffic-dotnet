@@ -80,9 +80,9 @@ internal static class Warmup
         _warm = true;
         SolverProbe.WarmTheProcess(config);
 
-        // The fixture, because what is being warmed is the code a town with a crowd on it runs — queueing,
-        // giving way, bodies in contact — and a path only reached by a crowd is one the JIT would
-        // otherwise first see inside a measured window. It is named rather than taken off the front of the
+        // The fixture, because what is being warmed is the code a running town runs — queueing, giving
+        // way, bodies in contact — and a path only reached by traffic is one the JIT would otherwise first
+        // see inside a measured window. Its dozen cars are the traffic; it stands no walker (GEN-7). It is named rather than taken off the front of the
         // list: whichever map that happened to be was never a choice anybody made, and a city here would
         // be its whole generation paid twice over for a warm-up.
         var plan = Maps.Plan(Maps.Fixture, config, BuildingCatalog.Roofs);

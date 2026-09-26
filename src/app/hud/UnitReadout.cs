@@ -80,7 +80,7 @@ internal static class UnitReadout
 
     /// <summary>
     /// <b>How many units are picked out and of what</b> (CTL-1b), which is the whole of what a set can be
-    /// asked. Thirty cars have no speed, no destination and no manoeuvre between them.
+    /// asked. Thirty cars have no speed, no destination and no line between them.
     /// </summary>
     static void Group(ref RowWriter rows, TownWorld world)
     {
@@ -110,7 +110,7 @@ internal static class UnitReadout
 
     /// <summary>
     /// What a car is worth and what it is up against: its own figures, then the driver's reading of the
-    /// road, then how much of the trip is left.
+    /// road, then how much of the leg is left.
     /// </summary>
     static void Car(ref RowWriter rows, TownWorld world, int car)
     {
@@ -220,8 +220,8 @@ internal static class UnitReadout
     }
 
     /// <summary>
-    /// <b>What a car under the player's orders is holding</b> (CTL-8), which is the same question the
-    /// catalogue answers of its behaviour. An order that is finished still says something, and what it says
+    /// <b>What a car under the player's orders is holding</b> (CTL-8), which is the same question
+    /// <see cref="DrivingWords.CarName"/> answers of its driving. An order that is finished still says something, and what it says
     /// is CTL-4's: the car is the player's and is waiting to be told what to do next.
     /// </summary>
     static string OrderWords(PlayerOrder order) => order switch
