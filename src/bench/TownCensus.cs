@@ -189,6 +189,7 @@ internal static class TownCensus
         Console.WriteLine();
 
         Networks(plan, config);
+        RibbonCensus.Run(plan, config);
     }
 
     /// <summary>How many samples a walk of one axis takes, by the recurrence the walk itself is written as.</summary>

@@ -120,6 +120,8 @@ internal readonly struct BayNetwork(BayWays bays, RoadGraph roads, float spaceWi
 
     public float ConnectorLengthM(int connector) => 0f;
 
+    public float ConnectorWidthM(int connector) => spaceWidthM;
+
     public int MostWaysUnderAPlace => GroundUnder.MostWaysUnderAPlace(0, bays.MostWaysAtABay);
 
     /// <summary>

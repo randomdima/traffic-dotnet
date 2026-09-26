@@ -304,6 +304,12 @@ internal sealed partial class SimConfig
     /// </summary>
     public float CrossesOntoAWayM => Car.WidthM * Road.CrossesOntoAWayInCarWidths;
 
+    /// <summary>How far apart the ribbon atlas's points stand (<see cref="RoadFigures.RibbonLatticeInCarWidths"/>).</summary>
+    public float RibbonLatticeStepM => Car.WidthM * Road.RibbonLatticeInCarWidths;
+
+    /// <summary>How deep two ribbons' shared ground has to be before they are marked (<see cref="RoadFigures.RibbonTouchInCarWidths"/>).</summary>
+    public float RibbonTouchM => Car.WidthM * Road.RibbonTouchInCarWidths;
+
     /// <summary>Half the carriageway is one direction's, and a lane's own line is the middle of that.</summary>
     public float LaneOffsetM => LaneWidthM * 0.5f;
 

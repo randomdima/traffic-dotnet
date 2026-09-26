@@ -39,6 +39,26 @@ internal sealed class RoadFigures
     /// </remarks>
     public float CrossesOntoAWayInCarWidths { get; init; } = 0.15f;
 
+    /// <summary>
+    /// <b>How far apart the points of the ribbon atlas stand</b>, in car widths (TER-4c.4) — the lattice a
+    /// body's collider is read against to find the ways it stands on.
+    /// </summary>
+    /// <remarks>
+    /// <b>A point is sampled and never a cell</b>, so a coarse lattice claims nothing that is not really
+    /// overlapped; what it costs is the overlaps it can miss, which are those thinner than its diagonal. A
+    /// quarter of a car keeps that under half a car's width — a car straddling the line between two lanes is
+    /// on both — and holds the atlas to a few bytes per square metre of road.
+    /// </remarks>
+    public float RibbonLatticeInCarWidths { get; init; } = 0.25f;
+
+    /// <summary>
+    /// <b>How far inside both of two ribbons their shared ground has to lie before the two are marked</b>, in
+    /// car widths (TER-5c). Ribbons laid edge to edge — the two lanes of a carriageway, a lane and the
+    /// connector it hands over to — share an edge and no ground, and this keeps rounding in the lines from
+    /// marking them.
+    /// </summary>
+    public float RibbonTouchInCarWidths { get; init; } = 0.02f;
+
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
 
     /// <summary>

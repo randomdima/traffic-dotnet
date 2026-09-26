@@ -146,6 +146,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// </summary>
     readonly WayCrossings _crossings;
 
+    /// <summary>The ground of every way, and which ways share it (<see cref="RibbonAtlas"/>).</summary>
+    readonly RibbonAtlas _atlas;
+
     /// <summary>
     /// <b>The zebras this town paints, laid once and read by both networks</b> (TER-6, WLK-10): the walk is
     /// cut and joined at them, the lanes they are painted across carry them as furniture, and the bands
@@ -252,6 +255,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _furniture = LaneFurniture.Project(plan, _zebras, _roads);
         _bands = CrossingBands.Project(_zebras, _roads, _furniture, _walking);
         _standing = StaticsOnTheRoad();
+
+        // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
+        // it. Laid over the one numbering, so it comes after every network that numbers a way.
+        var atlasAt = Stopwatch.GetTimestamp();
+        _atlas = RibbonAtlas.Lay(new TownRibbons(this), config.RibbonLatticeStepM, config.RibbonTouchM);
+        AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
 
         var walkers = 0;
         var drivers = 0;
@@ -364,6 +373,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public double WalkingMs { get; }
 
+    public double AtlasMs { get; }
+
     /// <summary>
     /// How many runs one search may return. A bound on the work rather than a figure behaviour reads:
     /// the longest route any shipped town needs is a fraction of it, and a route that would not fit is
@@ -411,6 +422,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     /// <summary>Every way in the town and what kind of ground each is, for whoever holds a way number.</summary>
     public TownWays Ways => _ways;
+
+    /// <summary>The ground of every way and which ways share it, for whoever measures or draws it.</summary>
+    public RibbonAtlas Atlas => _atlas;
 
     /// <summary>The one town-wide lookup a car reads — a walker reads no signal — and the only thing that knows what colour anything is.</summary>
     public SignalService Signals => _signals;

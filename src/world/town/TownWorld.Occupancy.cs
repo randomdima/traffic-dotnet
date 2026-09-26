@@ -366,7 +366,7 @@ internal sealed partial class TownWorld
 
             case WayKind.Connector:
                 var slot = _ways.RoadConnectorOf(way);
-                widthM = _roads.LaneWidthM[_roads.ConnectorTo(slot)];
+                widthM = _roads.ConnectorWidthM(slot);
                 return _roads.ConnectorArcs(slot);
 
             case WayKind.Bay:
@@ -383,6 +383,14 @@ internal sealed partial class TownWorld
                 widthM = WalkedWidthM(_walking.TurnToEdge(mitre));
                 return _walking.JoinArcs(mitre);
         }
+    }
+
+    /// <summary>Every way of the town as the line and width the atlas is laid from (<see cref="LineOfWay"/>).</summary>
+    sealed class TownRibbons(TownWorld town) : IRibbonLines
+    {
+        public int WayCount => town._ways.Count;
+
+        public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM) => town.LineOfWay(way, out widthM);
     }
 
     /// <summary>

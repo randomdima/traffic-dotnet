@@ -74,6 +74,12 @@ internal interface IWayNetwork
 
     float ConnectorLengthM(int connector);
 
+    /// <summary>
+    /// How wide the ground one connector is travelled over — <b>one figure per connector</b>, which every
+    /// reader of its band takes rather than the width of whichever of its two lanes it happens to hold.
+    /// </summary>
+    float ConnectorWidthM(int connector);
+
     /// <summary>How much room the walk over this network needs (<see cref="GroundUnder.MostWaysUnderAPlace"/>).</summary>
     int MostWaysUnderAPlace { get; }
 }
@@ -119,6 +125,9 @@ internal readonly struct RoadWays(RoadGraph roads) : IWayNetwork
     public ReadOnlySpan<ArcSeg> ConnectorArcs(int connector) => roads.ConnectorArcs(connector);
 
     public float ConnectorLengthM(int connector) => roads.ConnectorLengthM(connector);
+
+    /// <summary>The narrower of the two lanes a movement joins (TER-5d.1).</summary>
+    public float ConnectorWidthM(int connector) => roads.ConnectorWidthM(connector);
 
     public int MostWaysUnderAPlace =>
         GroundUnder.MostWaysUnderAPlace(roads.MostConnectorsAtAPlace, roads.Places.MostLanesAtOne);

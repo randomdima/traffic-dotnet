@@ -244,7 +244,7 @@ internal static class GroundUnder
 
                 var lengthM = ways.ConnectorLengthM(connector);
                 var alongM = Spline.ProjectM(arcs, atM, lengthM * 0.5f, lengthM);
-                var bandM = ways.LaneWidthM(arriving);
+                var bandM = ways.ConnectorWidthM(connector);
                 if (!RoadGraph.WithinTheBand(arcs, alongM, atM, bandM, body, crossesByM, out var reach)) continue;
 
                 into[written++] = new WayUnder(

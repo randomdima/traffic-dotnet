@@ -79,6 +79,9 @@ internal readonly struct PavementWays(WalkingNetwork walking, int firstFootwayWa
 
     public float ConnectorLengthM(int connector) => walking.JoinLengthM(connector);
 
+    /// <summary>A mitre is the ground of the lane it leads onto, and that lane's width (WLK-8).</summary>
+    public float ConnectorWidthM(int connector) => walking.LaneWidthM(walking.TurnToEdge(connector));
+
     public int MostWaysUnderAPlace =>
         GroundUnder.MostWaysUnderAPlace(walking.MostTurnsAtANode, walking.Places.MostLanesAtOne);
 

@@ -114,6 +114,21 @@ public class SimConfigTests
         Assert.Equal(SimConfig.Shipped().Car.LengthM, applied.Car.LengthM);
     }
 
+    /// <summary>
+    /// <b>The ribbon atlas is fine enough that a car straddling the line between two lanes is on both</b>
+    /// (TER-4c.4): a lattice point is sampled and never a cell, so what one can miss is an overlap thinner
+    /// than its diagonal — and a car half over the line overlaps the lane beside by half its width.
+    /// </summary>
+    [Fact]
+    public void AnOverlapOfHalfACarAlwaysHoldsALatticePoint()
+    {
+        var config = SimConfig.Shipped();
+
+        Assert.True(
+            config.RibbonLatticeStepM * MathF.Sqrt(2f) < config.Car.WidthM * 0.5f,
+            $"a lattice {config.RibbonLatticeStepM:F2} m apart can miss an overlap of half a car");
+    }
+
     /// <summary>And the shipped file is the one <see cref="SimConfig.Load"/> reads, wherever it is run from.</summary>
     [Fact]
     public void TheFiguresTheGameRunsOnAreTheSharedFileAppliedToTheShippedOnes() =>

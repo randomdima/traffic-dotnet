@@ -298,6 +298,9 @@ internal sealed class RoadGraph : ILaneEnds
 
     public float ConnectorLengthM(int connector) => _lines.ConnectorLengthM[connector];
 
+    /// <summary>How wide the ground a movement is driven over is: the narrower of the two lanes it joins (TER-5d.1).</summary>
+    public float ConnectorWidthM(int connector) => _lines.ConnectorWidthM(connector);
+
     /// <summary>
     /// The network in the words a walk over ground is written in (<see cref="IWayNetwork"/>) — a view and
     /// not a second structure, so it is taken wherever it is wanted rather than kept.

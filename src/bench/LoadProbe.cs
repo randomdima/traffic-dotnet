@@ -60,7 +60,9 @@ internal static class LoadProbe
         Say("  roads", world.RoadsMs, $"{world.Roads.LaneCount} lanes");
         Say("  foot", world.FootMs, $"{world.Foot.EdgeCount} lanes");
         Say("  walking", world.WalkingMs, $"{world.Walking.Runs.LinkCount} runs");
-        Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs,
+        Say("  atlas", world.AtlasMs,
+            $"{world.Atlas.PointCount} points, {world.Atlas.EntryCount} entries, {world.Atlas.Bytes / 1048576.0:F1} MiB");
+        Say("  the rest", world.StoodMs - world.RoadsMs - world.FootMs - world.WalkingMs - world.AtlasMs,
             "fleets, the tables they are numbered in, the roster and the spawn");
 
         Console.WriteLine();
