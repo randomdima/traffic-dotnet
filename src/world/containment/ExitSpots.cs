@@ -2,13 +2,12 @@ using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Physics;
-using TrafficSimulation.World.Terrain;
 
 namespace TrafficSimulation.World.Containment;
 
 /// <summary>
 /// <b>PHY-7a, and it is one rule for both container kinds</b>: a person coming out of a container is
-/// placed at the nearest unoccupied walkable position within the exit search radius of the way out,
+/// placed at the nearest unoccupied position on the map within the exit search radius of the way out,
 /// and while there is no such position <em>the exit action is unavailable</em>.
 /// </summary>
 /// <remarks>
@@ -20,8 +19,12 @@ namespace TrafficSimulation.World.Containment;
 /// <para>
 /// <b>Nearest, by construction rather than by comparison.</b> The rings widen outward from the way out
 /// and the first spot that answers all three questions is taken, so nothing is scored and nothing is
-/// sorted. The three questions are the rule's own: is the ground walkable, is anything standing there,
-/// and is the body's own footprint clear of the town's furniture.
+/// sorted. The three questions are the rule's own: is it on the map, is anything standing there, and is
+/// the body's own footprint clear of the town's furniture.
+/// </para>
+/// <para>
+/// <b>The ground is not asked</b> (TER-2): what a person stands on is nothing to a person, and a spot on
+/// the carriageway beside a door is a spot like any other.
 /// </para>
 /// </remarks>
 internal static class ExitSpots
@@ -44,18 +47,13 @@ internal static class ExitSpots
 
     /// <summary>
     /// The nearest place a person may be put down outside <paramref name="wayOutM"/>, or false where
-    /// there is none. <paramref name="towardsM"/> is where the ring starts from, so a driver gets out
-    /// of the side of the car the pavement is on rather than the side the traffic is.
+    /// there is none. <paramref name="towardsM"/> is where the ring starts from, so the first spot tried
+    /// is the one the container faces.
     /// </summary>
-    /// <param name="anyGround">
-    /// Whether ground a person may not stand on will do. <b>It is an abandoned car's and nothing else's</b>: a
-    /// wrecked car in a lane has to be got out of at once, and the rule that gets the body off the road
-    /// afterwards is the walker's own. Every other exit takes PHY-7a literally and waits for walkable
-    /// ground.
-    /// </param>
+    /// <param name="worldSizeM">The town's own box, which a spot has to be inside.</param>
     public static bool TryFind(
-        SimConfig config, GroundLocator terrain, PhysicsWorld physics, BucketGrid nearby, Standing standing,
-        Vector2 wayOutM, Vector2 towardsM, Span<int> scratch, out Vector2 spotM, bool anyGround = false)
+        SimConfig config, Vector2 worldSizeM, PhysicsWorld physics, BucketGrid nearby, Standing standing,
+        Vector2 wayOutM, Vector2 towardsM, Span<int> scratch, out Vector2 spotM)
     {
         var bodyM = config.PersonDiameterM;
         var reachM = config.PersonExitSearchRadiusM;
@@ -70,7 +68,7 @@ internal static class ExitSpots
                 // it, so "nearest" is nearest to the way the container faces as well as to the door.
                 var turnRad = firstRad + (place % 2 == 0 ? 1f : -1f) * ((place + 1) / 2) * (MathF.Tau / PlacesPerRing);
                 var atM = wayOutM + Heading.Unit(turnRad) * ringM;
-                if (!IsFree(config, terrain, physics, nearby, standing, atM, scratch, anyGround)) continue;
+                if (!IsFree(config, worldSizeM, physics, nearby, standing, atM, scratch)) continue;
 
                 spotM = atM;
                 return true;
@@ -81,13 +79,12 @@ internal static class ExitSpots
         return false;
     }
 
-    /// <summary>Walkable ground, nobody standing on it, and nothing immovable inside the body's own footprint.</summary>
+    /// <summary>On the map, nobody standing on it, and nothing immovable inside the body's own footprint.</summary>
     static bool IsFree(
-        SimConfig config, GroundLocator terrain, PhysicsWorld physics, BucketGrid nearby, Standing standing,
-        Vector2 atM, Span<int> scratch, bool anyGround)
+        SimConfig config, Vector2 worldSizeM, PhysicsWorld physics, BucketGrid nearby, Standing standing,
+        Vector2 atM, Span<int> scratch)
     {
-        if (!terrain.Contains(atM)) return false;
-        if (!anyGround && !terrain.At(atM).Walkable) return false;
+        if (atM.X < 0f || atM.Y < 0f || atM.X >= worldSizeM.X || atM.Y >= worldSizeM.Y) return false;
 
         var bodyM = config.PersonDiameterM;
         var half = new Vector2(bodyM * 0.5f);

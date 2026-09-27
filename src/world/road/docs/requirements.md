@@ -266,7 +266,8 @@ Six rules govern all of it:
 - **A ribbon atlas over every way of the town** (TER-4c.4), laid once from the lines and widths each network
   hands over as data: which ways a collider stands over, and the marks — every pair of ways whose ribbons share
   ground, in both ways' own metres (TER-5c). **There is no register of who is inside a junction**: the marks
-  are read as a plan is laid, and the answer comes off the reservations everything else reads (TER-5c.1).
+  place a plan's secondary claims as it is laid, and the answer comes off the reservations everything else
+  reads (TER-5c.1).
 - **The reservations over every way of the town in one numbering** (TER-4c.2) — the lanes, the connectors
   between them, the ways a slice above lays off them and the pavement's — carrying every body where it is and
   every plan where it means to be, so that **who is in front and how much road is whose** are answered from

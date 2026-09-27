@@ -595,7 +595,7 @@ internal sealed partial class Game : IDisposable
 
         if (taken == ClickTaken.Yes) return;
 
-        _hands.Click(button, atPx, alsoKeep, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler, _ui.Pick);
+        _hands.Click(button, atPx, alsoKeep, _camera, _uiPx, _world!, _ui.Switches, _ui.Ruler);
 
         // The same, for the gesture on the town: a release is read off the button's state and not off an
         // event (CTL-1b).
@@ -609,7 +609,7 @@ internal sealed partial class Game : IDisposable
     /// </summary>
     void ReadTheGesture()
     {
-        if (_hands.Pointer(_window, _camera, _uiPx, _config, _world!)) AskToFollow();
+        if (_hands.Pointer(_window, _camera, _uiPx, _config, _world!, _ui.Pick)) AskToFollow();
     }
 
     /// <summary>
@@ -834,8 +834,8 @@ internal sealed partial class Game : IDisposable
         parts.Mark(ref parts.InterfaceMs);
 
         // OBS-2v: which layers of the ground are drawn, asked every frame and answered by the renderer
-        // only when the set has changed — a run that has touched the ground page is the only one that
-        // ever pays for it, and the page is the one place the answer is kept.
+        // only when the set has changed — a run that has touched the ground's own switches is the only one
+        // that ever pays for it, and the switches are the one place the answer is kept.
         _renderer.ShowGround(_ui.Switches.Ground.Shown);
 
         var (centreM, clipPerM, facing) = _camera.ForShader(_uiPx);

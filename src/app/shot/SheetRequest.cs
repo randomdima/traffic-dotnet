@@ -65,6 +65,12 @@ internal sealed record SheetRequest
     /// <summary>Every pair of points a tape is laid between, as <c>[x1, y1, x2, y2]</c>.</summary>
     public float[][]? Rule { get; init; }
 
+    /// <summary>Where the pointer stands on the town, <c>[x, y]</c> in metres, as <c>--point</c> puts it (OBS-2t).</summary>
+    public float[]? Point { get; init; }
+
+    /// <summary>Where a click on the town lands, as <c>--pick</c> puts it: what the layers draw there is pinned.</summary>
+    public float[]? Pick { get; init; }
+
     /// <summary>What a reviewer is being asked to look at. Drawn in the caption and kept in the notes.</summary>
     public string? Note { get; init; }
 
@@ -138,11 +144,13 @@ internal sealed record SheetRequest
             WidthPx: widthPx,
             HeightPx: heightPx,
             ViewM: over.View ?? View,
-            AtM: Point(over.At) ?? Point(At),
+            AtM: Place(over.At) ?? Place(At),
             Ui: over.Ui ?? Ui,
             UiScale: UiScale,
             Seconds: over.Seconds ?? Seconds,
             RulerPointsM: Tape(over.Rule ?? Rule),
+            PointerM: Place(over.Point) ?? Place(Point),
+            PickedM: Place(over.Pick) ?? Place(Pick),
             Validate: Validate);
     }
 
@@ -156,11 +164,16 @@ internal sealed record SheetRequest
                 $"{named} asks for {CellCount} cells; a sheet holds at most {MostCells}. Take two sheets.");
 
         Place(named, "at", At);
+        Place(named, "point", Point);
+        Place(named, "pick", Pick);
         Tape(Rule, named);
         for (var cell = 0; cell < (Cells?.Length ?? 0); cell++)
         {
-            Place($"{named}, cell {cell + 1}", "at", Cells![cell].At);
-            Tape(Cells[cell].Rule, $"{named}, cell {cell + 1}");
+            var cellNamed = $"{named}, cell {cell + 1}";
+            Place(cellNamed, "at", Cells![cell].At);
+            Place(cellNamed, "point", Cells[cell].Point);
+            Place(cellNamed, "pick", Cells[cell].Pick);
+            Tape(Cells[cell].Rule, cellNamed);
         }
     }
 
@@ -170,7 +183,7 @@ internal sealed record SheetRequest
             throw new ArgumentException($"{named}: \"{member}\" is [x, y] in metres.");
     }
 
-    static Vector2? Point(float[]? point) => point is { Length: 2 } ? new Vector2(point[0], point[1]) : null;
+    static Vector2? Place(float[]? point) => point is { Length: 2 } ? new Vector2(point[0], point[1]) : null;
 
     /// <summary>The tape's points, flattened the way the ruler is clicked: two points to a measurement.</summary>
     static List<Vector2>? Tape(float[][]? pairs, string? named = null)
@@ -214,4 +227,8 @@ internal sealed record SheetCell
     public string[]? Ui { get; init; }
 
     public float[][]? Rule { get; init; }
+
+    public float[]? Point { get; init; }
+
+    public float[]? Pick { get; init; }
 }

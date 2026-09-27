@@ -3,8 +3,8 @@ namespace TrafficSimulation.World.Road;
 /// <summary>
 /// <b>The questions the reservations are asked</b>: what body is in front on one way, and everything on one
 /// way for whoever draws or measures it — every one of them a walk of one way's own lists, and none of them a
-/// decision (SIM-7). <b>A reader only ever reads the way it is on</b> (TER-4c.5): whatever shares ground with
-/// that way has already been settled onto it by the marks.
+/// decision (SIM-7). <b>A reader only ever reads the way it is on</b> (TER-4c.5): whatever holds ground that
+/// way shares has placed a secondary claim on it.
 /// </summary>
 internal sealed partial class LaneOccupancy
 {
@@ -40,7 +40,7 @@ internal sealed partial class LaneOccupancy
         AheadBody(way, fromM, toM, excluding, out _, excludingOf);
 
     /// <summary>
-    /// <b>How far along one way a holder's own planned ground reaches</b> from <paramref name="fromM"/>, in
+    /// <b>How far along one way a holder's own main claim reaches</b> from <paramref name="fromM"/>, in
     /// that way's metres — <paramref name="fromM"/> where it holds none of it there.
     /// </summary>
     public float PlannedToM(int way, float fromM, int occupant, LaneRoster of)
@@ -49,7 +49,7 @@ internal sealed partial class LaneOccupancy
         for (var at = _planned[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var piece = ref _slots[at];
-            if (piece.Occupant != occupant || piece.Of != of || piece.Linked) continue;
+            if (piece.Occupant != occupant || piece.Of != of || piece.Secondary) continue;
             if (piece.ToM <= reachM || piece.FromM > reachM) continue;
 
             reachM = piece.ToM;

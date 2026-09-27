@@ -243,7 +243,7 @@ internal static class Theme
     public static readonly Vector4 SolverMovingEdge = new(1f, 0.70f, 0.24f, 0.62f);
 
     /// <summary>
-    /// What the pointer is over, and what a picked cell holds (OBS-2t). <b>Near white and warm</b>: it has
+    /// What the pointer is over, and what is pinned (OBS-2t). <b>Near white and warm</b>: it has
     /// to lift a line out of whichever layer's colour that line is already drawn in — orange, blue, pink or
     /// green — so it is the one mark here that is told apart by being <em>brighter</em> rather than by being
     /// a hue of its own, which is also what a reader expects of something they are pointing at.
@@ -251,11 +251,17 @@ internal static class Theme
     public static readonly Vector4 DebugPicked = new(1f, 1f, 0.72f, 0.98f);
 
     /// <summary>
-    /// What a picked cell holds (OBS-2t). <b>The same colour at half the weight</b>, because the two are
+    /// What a cell picked out holds (OBS-2t). <b>The same colour at half the weight</b>, because the two are
     /// read together and are not the same answer: one is the thing under the pointer now, the other is the
     /// set a question asked in that cell would be narrowed to. A second hue would say they are unrelated.
     /// </summary>
     public static readonly Vector4 DebugHeld = new(1f, 1f, 0.72f, 0.45f);
+
+    /// <summary>
+    /// The dark band under a route (<c>PathMarks.Casing</c>). <b>Let down rather than solid</b>, so the ground
+    /// under a route still reads through the edge it is given.
+    /// </summary>
+    public static readonly Vector4 Casing = new(0.03f, 0.03f, 0.05f, 0.6f);
 
     public static readonly Vector4 RulerTape = new(1f, 0.95f, 0.35f, 1f);
 

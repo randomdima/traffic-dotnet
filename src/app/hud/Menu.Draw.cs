@@ -10,7 +10,7 @@ namespace TrafficSimulation.App.Hud;
 internal sealed partial class Menu
 {
     /// <param name="mesh">
-    /// The ground the renderer was handed, which the ground page reads its figures off (OBS-2v). Null
+    /// The ground the renderer was handed, which the ground's section reads its figures off (OBS-2v). Null
     /// where no town is standing, and the page then reads zeroes rather than being drawn as something
     /// else.
     /// </param>
@@ -53,13 +53,8 @@ internal sealed partial class Menu
                 Theme.TextPx, picked ? Theme.Text : Theme.Dim, Theme.FitWidthPx(_tabs[tab]));
         }
 
-        switch (Page)
-        {
-            case Maps: DrawMaps(ref draw, pointerPx); break;
-            case Figures: DrawTrims(ref draw, pointerPx, switches, trims); break;
-            case Ground: DrawGround(ref draw, pointerPx, switches.Ground, mesh); break;
-            default: DrawSwitches(ref draw, pointerPx, switches); break;
-        }
+        if (Page == Maps) DrawMaps(ref draw, pointerPx);
+        else DrawDebug(ref draw, pointerPx, switches, trims, mesh);
     }
 
     void DrawMaps(ref ScreenDraw draw, Vector2 pointerPx)
@@ -125,14 +120,6 @@ internal sealed partial class Menu
             new Vector2(atX, atY + travelPx), new Vector2(ScrollBarPx, thumbPx), ScrollBarPx * 0.5f, Theme.Accent);
     }
 
-    void DrawSwitches(ref ScreenDraw draw, Vector2 pointerPx, DebugSwitches switches)
-    {
-        for (var line = 0; line < MostLines; line++)
-        {
-            Check(ref draw, _lines[line], pointerPx, Lines[line], Switch(switches, line));
-        }
-    }
-
     /// <summary>
     /// <b>One row a layer of the ground</b> (OBS-2v): whether it is being drawn, what it came to in
     /// triangles, and what cutting it cost. Under them the whole mesh in the same two figures, and the
@@ -196,6 +183,7 @@ internal sealed partial class Menu
     /// track it is dragged along. <b>The track fills from the middle rather than from its left end</b>,
     /// because the middle is what the build ships and which way a figure has been taken is the reading.
     /// </summary>
+    /// <remarks>A slider the section showing does not carry was laid as no rectangle, and is not drawn.</remarks>
     void DrawTrims(ref ScreenDraw draw, Vector2 pointerPx, DebugSwitches switches, TrimFigures trims)
     {
         Span<char> text = stackalloc char[16];
@@ -204,6 +192,8 @@ internal sealed partial class Menu
         for (var slider = 0; slider < Sliders; slider++)
         {
             var box = _trims[slider];
+            if (box.SizePx.X <= 0f) continue;
+
             var value = ValueOf(slider, switches, trims);
             var atHome = value == HomeOf(slider);
             Theme.Face(
@@ -237,6 +227,8 @@ internal sealed partial class Menu
         // The row under the tracks, which is not one of them: it is the way back to the build's own figures
         // and it is dim while there is nothing to come back from.
         var reset = _trims[ResetRow];
+        if (reset.SizePx.X <= 0f) return;
+
         Theme.Button(
             ref draw, reset, pointerPx, "Reset to shipped", trims.Untouched ? Theme.RowRest : Theme.Accent);
     }

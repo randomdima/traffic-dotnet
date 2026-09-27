@@ -40,11 +40,11 @@ public class WalkerFollowerTests
         Assert.True(far.ImpulseNs.Length() > 0f, "a walker asked for full pace from rest spent nothing");
     }
 
-    /// <summary>A walker at rest on tarmac, asked to get to a place — the case every claim below varies.</summary>
-    static WalkerStep Step(Vector2 aimM, float terrainCoefficient = 1f, bool onFeet = true) =>
+    /// <summary>A walker at rest, asked to get to a place — the case every claim below varies.</summary>
+    static WalkerStep Step(Vector2 aimM, bool onFeet = true) =>
         WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM, moving: true,
-            terrainCoefficient, onFeet, MassKg, Dt);
+            onFeet, MassKg, Dt);
 
     [Fact]
     public void AWalkerAlreadyAtItsPaceIsAskedForNothing()
@@ -52,7 +52,7 @@ public class WalkerFollowerTests
         var atPace = new Vector2(Config.PersonWalkSpeedMps, 0f);
         var step = WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.Zero, atPace, aimM: new Vector2(100f, 0f), moving: true,
-            terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
+            onFeet: true, MassKg, Dt);
 
         // Not "small": the brief asks for nothing at all, and it is the rule that keeps several hundred
         // standing walkers out of the solver's write path.
@@ -65,35 +65,10 @@ public class WalkerFollowerTests
         var moving = new Vector2(Config.PersonWalkSpeedMps, 0f);
         var step = WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.Zero, moving, aimM: new Vector2(100f, 0f), moving: false,
-            terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
+            onFeet: true, MassKg, Dt);
 
         Assert.Equal(Vector2.Zero, step.DesiredMps);
         Assert.True(step.ImpulseNs.X < 0f);
-    }
-
-    /// <summary>
-    /// TER-2: the movement effect applies to every body on the terrain, and <b>it scales the pace</b> —
-    /// ground worth a fifth declares a fifth of the pace the same walker declares on tarmac.
-    /// </summary>
-    [Theory]
-    [InlineData(0.8f)]
-    [InlineData(0.15f)]
-    public void TheGroundScalesThePaceItDeclares(float coefficient)
-    {
-        var onTarmac = Step(aimM: new Vector2(100f, 0f)).DesiredMps.Length();
-
-        Assert.Equal(onTarmac * coefficient, Step(new Vector2(100f, 0f), coefficient).DesiredMps.Length(), 4);
-    }
-
-    /// <summary>And the same factor scales the grip: one factor, both figures.</summary>
-    [Theory]
-    [InlineData(0.8f)]
-    [InlineData(0.15f)]
-    public void TheGroundScalesTheGripAsWellAsThePace(float coefficient)
-    {
-        var onTarmac = Step(aimM: new Vector2(100f, 0f)).ImpulseNs.Length();
-
-        Assert.Equal(onTarmac * coefficient, Step(new Vector2(100f, 0f), coefficient).ImpulseNs.Length(), 3);
     }
 
     /// <summary>
@@ -125,7 +100,7 @@ public class WalkerFollowerTests
         var mostRad = Config.PersonTurnRateDegPerS * MathF.PI / 180f * Dt;
         var step = WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM: new Vector2(-100f, 0f), moving: true,
-            terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
+            onFeet: true, MassKg, Dt);
 
         Assert.Equal(mostRad, MathF.Abs(step.HeadingRad), 5);
     }
@@ -148,7 +123,7 @@ public class WalkerFollowerTests
     {
         var step = WalkerFollower.Step(
             Config, headingRad: 0f, Vector2.One, Vector2.Zero, aimM: Vector2.One, moving: true,
-            terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
+            onFeet: true, MassKg, Dt);
 
         Assert.Equal(Vector2.Zero, step.DesiredMps);
     }
@@ -158,7 +133,7 @@ public class WalkerFollowerTests
     {
         var step = WalkerFollower.Step(
             Config, headingRad: 1.234f, Vector2.One, Vector2.Zero, aimM: Vector2.One, moving: false,
-            terrainCoefficient: 1f, onFeet: true, MassKg, Dt);
+            onFeet: true, MassKg, Dt);
 
         Assert.Equal(1.234f, step.HeadingRad, 5);
     }

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Numerics;
+using TrafficSimulation.CityGen.Exam;
 using TrafficSimulation.CityGen.Gen;
 using TrafficSimulation.Core.Config;
 
@@ -35,18 +36,19 @@ internal static class Maps
     public const string Fixture = "Test";
 
     /// <summary>
-    /// The maps laid in code. <b>One row, and it is the ring the start menu stands over</b> (GEN-1b): the
-    /// laboratories that used to sit beside it were laid against the layer the lane rework replaces, and the
-    /// ones that come back will be laid against the new one.
+    /// The maps laid in code: the ring the start menu stands over (GEN-1b), and the scenario map — a lattice
+    /// with one traffic scenario staged at each of its junctions (<see cref="ExamPlan"/>).
     /// </summary>
     static readonly (string Name, Func<SimConfig, CityPlan> Lay)[] Laid =
     [
         (IdlePlan.Name, IdlePlan.Lay),
+        (ExamPlan.Name, ExamPlan.Lay),
     ];
 
     /// <summary>
-    /// Every map there is to open, in name order — which is the briefs on disk. <b>A map is a brief or it is
-    /// laid in code</b>: no town is carried as a file, the fixture having been the last of them.
+    /// Every map there is to open, in name order — the briefs on disk and the laboratories laid in code.
+    /// <b>A map is a brief or it is laid in code</b>: no town is carried as a file, the fixture having been the
+    /// last of them.
     /// </summary>
     /// <remarks>
     /// <b>The idle ring is laid but not shipped.</b> Every probe and every sweep reads this list, and the
@@ -55,7 +57,7 @@ internal static class Maps
     /// </remarks>
     public static string[] Shipped()
     {
-        var names = new List<string>(ProjectPaths.TownBriefs());
+        var names = new List<string>(ProjectPaths.TownBriefs()) { ExamPlan.Name };
         names.Sort(StringComparer.Ordinal);
         return [.. names];
     }

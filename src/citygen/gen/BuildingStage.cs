@@ -351,12 +351,10 @@ internal static class BuildingStage
     /// <b>Whether any of the building would stand on the town's paving</b> — its own street's or another's.
     /// </summary>
     /// <remarks>
-    /// <b>The ground's answer is not the drawn walk at a corner</b> (<c>GroundShapes.At</c>,
-    /// <see href="../../../docs/index.md">the known gaps</see>): it is the ground within a walk of the driven
-    /// bands, measured square, where the walk is drawn off the rounded boundary. So what holds a building off
-    /// a walk is the distance that walk was struck at, read off the boundary itself
-    /// (<see cref="GroundRings.PavedWithin"/>) — the front wall clears it by half a kerbstone by
-    /// construction, and this is what keeps the back of a deep building out of the street behind it.
+    /// <b>Read off the boundary itself and not off the ground's answer</b>
+    /// (<see cref="GroundRings.PavedWithin"/>): what holds a building off a walk is the distance that walk was
+    /// struck at, so the front wall clears it by half a kerbstone by construction, and this is what keeps the
+    /// back of a deep building out of the street behind it.
     /// </remarks>
     static bool ReachesThePaving(
         GroundShapes ground, Vector2 centreM, Vector2 axis, Vector2 halfM, float stepM)

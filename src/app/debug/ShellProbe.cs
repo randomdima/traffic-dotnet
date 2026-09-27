@@ -38,16 +38,15 @@ internal sealed class ShellProbe
     public bool Drawn;
 
     /// <summary>
-    /// What the figures page calls the distance, beside the figures the build ships
-    /// (<c>Core.Config.TrimFigures.Names</c>). <b>Printable ASCII only</b>, as every string the interface
-    /// draws is.
+    /// What the menu calls the switch and the distance's slider under it. <b>Printable ASCII only</b>, as
+    /// every string the interface draws is.
     /// </summary>
     public const string Named = "Shell probe";
 
-    /// <summary>And what the row that turns the rounding is called, the two standing together on that page.</summary>
+    /// <summary>And what the row that turns the rounding is called, the two sliders standing together.</summary>
     public const string NamedRounding = "Shell rounding";
 
-    /// <summary>How far out the shape standing was struck, which is what the slider on the figures page turns.</summary>
+    /// <summary>How far out the shape standing was struck, which is what the probe's first slider turns.</summary>
     public float OutwardM => _outwardM;
 
     /// <summary>

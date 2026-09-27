@@ -64,12 +64,6 @@ internal sealed partial class DebugOverlay
     /// </summary>
     const int StretchesDrawn = 2;
 
-    /// <summary>
-    /// Below this a body is a few pixels across and a label over it is a bar of unreadable text over
-    /// the thing it names, so none is drawn. It is why a town-wide framing carries no labels at all.
-    /// </summary>
-    const float LabelPixelsPerMetre = 10f;
-
     readonly OverlayQuad[] _town = new OverlayQuad[TownQuadCapacity];
 
     /// <summary>Which stones the town layer's marks took, kept beside its quads and re-laid with them.</summary>
@@ -104,7 +98,7 @@ internal sealed partial class DebugOverlay
     /// The ground the renderer was handed, for the one layer that draws how the town is <em>made</em>
     /// rather than what it is doing (OBS-2o). Null where nothing has been laid yet.
     /// </param>
-    /// <param name="pick">The cell of the geometry grid a reader has picked out, if any (OBS-2t).</param>
+    /// <param name="pick">What the pointer is over and what a click has pinned (OBS-2t), both answered here.</param>
     /// <param name="pointerM">
     /// Where the pointer stands on the town, and <paramref name="pointerPx"/> where it stands on the glass —
     /// the first is what the readings are asked about and the second is where they are written.
@@ -155,10 +149,7 @@ internal sealed partial class DebugOverlay
 
         // <b>After everything, because it is an answer about what is already drawn</b> (OBS-2t): a highlight
         // under the layer it picks out of is a line somebody has to look for.
-        if (switches.NeedsTownGeometry)
-        {
-            Pointer(ref draw, world, config, switches, pick, pointerM, pointerPx, uiPx, pixelsPerMetre);
-        }
+        Pointer(ref draw, world, config, switches, pick, pointerM, pointerPx, uiPx, pixelsPerMetre);
     }
 
     /// <summary>OBS-2b's cull, coarsely: whether a place is inside the view once the body standing there has been allowed its own reach.</summary>

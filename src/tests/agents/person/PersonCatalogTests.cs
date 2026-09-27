@@ -41,7 +41,7 @@ public class PersonCatalogTests
     }
 
     /// <summary>
-    /// Stepped by distance and never by time, so ground that slows a walker slows its stride: half a
+    /// Stepped by distance and never by time, so whatever slows a walker slows its stride: half a
     /// cycle further along is half the columns further along, whatever the walker's pace was.
     /// </summary>
     [Fact]

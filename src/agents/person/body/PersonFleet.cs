@@ -47,7 +47,6 @@ internal sealed class PersonFleet
         Variant = new byte[capacity];
         Draw = new Rng[capacity];
         DistanceWalkedM = new float[capacity];
-        GroundCoefficient = new float[capacity];
         RouteWays = new int[capacity * RouteWaysPerPerson];
         RouteCount = new int[capacity];
         RouteTaken = new int[capacity];
@@ -285,11 +284,8 @@ internal sealed class PersonFleet
     /// <summary>The agent's own stream, so a walker's destinations are its own and are reproducible.</summary>
     public Rng[] Draw;
 
-    /// <summary>Metres covered on foot. The walk cycle is stepped by <em>distance</em>, not by time, so ground that slows a walker slows its stride.</summary>
+    /// <summary>Metres covered on foot. The walk cycle is stepped by <em>distance</em>, not by time, so whatever slows a walker slows its stride.</summary>
     public float[] DistanceWalkedM { get; }
-
-    /// <summary>The ground's own factor under this walker, sampled once a tick and read by everything that needs it.</summary>
-    public float[] GroundCoefficient { get; }
 
     /// <summary>One more person on the roster, with everything about them at the value a new one holds.</summary>
     /// <param name="reckless">
@@ -318,7 +314,6 @@ internal sealed class PersonFleet
         Draw[person] = draw;
         Reckless[person] = reckless;
         DistanceWalkedM[person] = 0f;
-        GroundCoefficient[person] = 1f;
         GoalM[person] = positionM;
         RouteCount[person] = 0;
         RouteTaken[person] = 0;

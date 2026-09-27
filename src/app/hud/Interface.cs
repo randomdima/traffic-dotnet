@@ -120,7 +120,7 @@ internal sealed class Interface(TrimFigures trims)
 
     public Ruler Ruler { get; } = new();
 
-    /// <summary>The cell of the geometry grid a reader has clicked, which the layers read themselves against (OBS-2t).</summary>
+    /// <summary>What the pointer is over, and the one thing a click has pinned (OBS-2t).</summary>
     public DebugPick Pick { get; } = new();
 
     /// <summary>
@@ -170,65 +170,31 @@ internal sealed class Interface(TrimFigures trims)
                     Menu.Show();
                     Menu.OpenAt(Menu.Debug);
                     break;
-                case "menu-figures":
-                    Menu.ShutOntoTheTown();
-                    Menu.Show();
-                    Menu.OpenAt(Menu.Figures);
-                    break;
-                case "menu-ground":
-                    Menu.ShutOntoTheTown();
-                    Menu.Show();
-                    Menu.OpenAt(Menu.Ground);
-                    break;
                 case "controls":
                     Controls.Show();
                     break;
                 case "frame":
                     Status.Show();
                     break;
-                case "car-lines":
-                    Switches.Toggle(ref Switches.CarLines);
-                    break;
-                case "walker-lines":
-                    Switches.Toggle(ref Switches.WalkerLines);
-                    break;
-                case "nodes":
-                    Switches.Toggle(ref Switches.Nodes);
-                    break;
-                case "claims":
-                    Switches.Toggle(ref Switches.Claims);
-                    break;
-                case "collision":
-                    Switches.Toggle(ref Switches.Collision);
-                    break;
-                case "turn-circles":
-                    Switches.Toggle(ref Switches.TurnCircles);
-                    break;
-                case "wireframe":
-                    Switches.Toggle(ref Switches.Wireframe);
-                    break;
-                case "perimeter":
-                    Switches.Toggle(ref Switches.Perimeter);
-                    break;
-                case "ribbons":
-                    Switches.Toggle(ref Switches.Ribbons);
-                    break;
-                case "grid":
-                    Switches.Toggle(ref Switches.Grid);
-                    break;
-                case "solver-grid":
-                    Switches.Toggle(ref Switches.SolverGrid);
-                    break;
-                case "ruler":
-                    Switches.Toggle(ref Switches.Ruler);
-                    break;
-                case "shell":
-                    Switches.Toggle(ref Switches.Shell.Drawn);
-                    break;
                 case "scenario":
                     Status.ShowSection(StatusPanel.Claims);
                     break;
                 default:
+                    if (DebugLayers.Worded(name) is { } layer)
+                    {
+                        Switches.Toggle(layer);
+                        break;
+                    }
+
+                    if (SectionWorded(name) is var section and >= 0)
+                    {
+                        Menu.ShutOntoTheTown();
+                        Menu.Show();
+                        Menu.OpenAt(Menu.Debug);
+                        Menu.OpenSection(section);
+                        break;
+                    }
+
                     if (HiddenPart(name) is { } part)
                     {
                         Switches.Ground.Toggle(part);
@@ -244,16 +210,23 @@ internal sealed class Interface(TrimFigures trims)
                     }
 
                     throw new ArgumentException(
-                        $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-figures, " +
-                        "menu-ground, menu-run, controls, frame, scenario, car-lines, walker-lines, nodes, " +
-                        "claims, collision, turn-circles, wireframe, perimeter, ribbons, grid, solver-grid, " +
-                        "ruler, shell, " +
+                        $"Unknown --ui switch {name}. Takes none, menu, menu-scenarios, menu-debug, menu-run, " +
+                        $"menu-<section> ({string.Join(", ", Array.ConvertAll(DebugLayers.Sections, s => s.Word))}), " +
+                        "controls, frame, scenario, " +
+                        $"{string.Join(", ", Array.ConvertAll(DebugLayers.All, e => e.Word))}, " +
                         $"shell-<metres> and shell-<metres>-<metres> for the probe struck at a distance " +
                         $"({ShellProbe.LeastM:F0} to {ShellProbe.MostM:F0} m) and rounded at a radius " +
                         $"({ShellProbe.LeastRoundM:F0} to {ShellProbe.MostRoundM:F0} m), and hide-<layer> for " +
                         $"one layer of the ground ({string.Join(", ", GroundParts.Words)}).");
             }
         }
+    }
+
+    /// <summary><c>menu-cars</c> and its siblings: the debug page open on one section (OBS-2y), or −1.</summary>
+    static int SectionWorded(string word)
+    {
+        const string menu = "menu-";
+        return word.StartsWith(menu, StringComparison.Ordinal) ? DebugLayers.SectionWorded(word[menu.Length..]) : -1;
     }
 
     /// <summary>

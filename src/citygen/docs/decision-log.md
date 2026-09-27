@@ -1,5 +1,55 @@
 # CityGen — decision log
 
+## 2026-09-27 — the exam is a scenario map of this engine, and going round a ring is straight on
+
+**The owner ruled that the map is an end-to-end test of this engine and not an exam in anybody's rules of
+the road**: the name was a way to fill it. So every card now says what the engine is to make of the
+scenario and which of the engine's own rules that exercises (`ExamCard.Expects`, `ExamCard.Rules`), and
+**every card is expected to pass** ([verification](../../../docs/verification.md#the-scenario-map)). The
+tier stays outside `all`, as the frames do, because it is a whole town driven for a minute and a half.
+
+- **Most of it is now the plainest cases**: a car alone through every movement of every shape, and cars
+  whose ways never meet — two passing each other through a junction and on a road, a car driving past one
+  or a line of cars standing in the oncoming lane, right turns on their own corners, two cars round opposite
+  halves of a ring. None of them may be held at all.
+- **A right of way is asked as the engine means it** (TER-5e: it orders who waits): the car it favours is
+  never made to wait, and which of the two is over the shared ground first is not asked. Priority to the
+  right, first-to-arrive and every other rule-book ordering went with the rule books; the cards that asked
+  them ask now that everybody gets through and nobody touches.
+- **What the engine refuses to do is not asked**: turning round in a box (TER-5f) or at a dead end
+  (TER-5a), overtaking, and keeping a box or a junction clear of a queue past it. The dead end asks a car to
+  drive out of one.
+- **Somebody walking round a corner** was added — past the kerb ends of two zebras and over neither, which
+  is where a pavement's ribbon comes nearest a lane's (TER-5c) — and **a road anybody walks is driven both
+  ways**: a one-way road is one lane wide, so the far side of its zebra is its traffic's lane, and the first
+  lattice left a walker standing there and a left turn behind it for good.
+- **The lattice is eleven by eleven**, for 109 cards.
+
+**Going round a roundabout was the weakest movement at every ring node.** A movement is classified by the
+angle between the two lane ends, and a ring's lanes stop a standoff short of each node on both sides, so
+read end to end the ring turned 60–75° towards the island: a turn across (p7), below every entry (p6) it
+met, and a car on the ring gave way to a car coming onto it — against the road's own rule that circulating
+traffic holds for nothing. **So the angle is taken against the arriving lane carried on along its own curve
+across the node** (`LaneLines`): the ring comes out straight on and the entries and exits keep their
+near-side turns; a straight lane carries on straight, so no other movement changes class. On six seeds of
+Odesa, one minute each, against the same six before it: knocked down 3 → 3, wrecked 34 → 34, walks given up
+448 → 447, km driven 2415 → 2407, touches 191 → 202.
+
+## 2026-09-26 — the scenario lattice is laid like a town, and its pedestrians walk paint to paint
+
+**Its roads are laid the way the generator lays them**, stand point to stand point on the arms the town's
+own draw gives each end. Laid straight from node to node, as the parked exam's were, the lanes the plan is
+read back into end where the lines do not go and the junctions lay no turn: the first lattice routed every
+turn round the block. **It lays the lights and the bars its cards are about**, which no generated town
+does yet, because a lit junction with no bar is one nothing stops at.
+
+**Its pedestrians walk paint to paint and stand in the lane.** A walk from the pavement is not reliably
+routed over a zebra (the known gaps), and a body crosses a carriageway in about a second at the town's
+pace, so one sent kerb to kerb is either walked round the block or out of the car's lane before the car
+arrives. Two stagings were tried and dropped: three walkers side by side walk into one another on the
+zebra's one line, and one pacing back and forth steps back out at the far kerb as a car arrives too near to
+stop — both cards about the walkers rather than the car.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.

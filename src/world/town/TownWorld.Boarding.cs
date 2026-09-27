@@ -62,7 +62,7 @@ internal sealed partial class TownWorld
         var centreM = _plan.Buildings.CentreM[building];
         var doorM = DoorOf(building, centreM);
         if (!ExitSpots.TryFind(
-                _config, _terrain, _physics, _nearby, StandingPeople, doorM, doorM + (doorM - centreM), _spotNearby,
+                _config, _plan.WorldSizeM, _physics, _nearby, StandingPeople, doorM, doorM + (doorM - centreM), _spotNearby,
                 out var spotM))
         {
             return false;

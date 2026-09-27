@@ -114,9 +114,9 @@ internal sealed partial class TownWorld
     public long Touches { get; private set; }
 
     /// <summary>
-    /// A body that declares nothing is still on ground that acts on it: a casualty sliding down the road
-    /// and a wreck shunted out of a junction are both slowed by what they are lying on, and this is the
-    /// one place that happens.
+    /// A body that declares nothing is still slowed: a casualty sliding down the road by its own sliding
+    /// grip, whatever it is lying on, and a wreck shunted out of a junction by the ground under each of its
+    /// wheels — and this is the one place that happens.
     /// </summary>
     /// <remarks>
     /// It also overwrites what the agent wrote on the tick it went down: the impulse arrays are read whole
@@ -133,7 +133,7 @@ internal sealed partial class TownWorld
             var positionM = People.PositionM[person];
             _impulseNs[person] = WalkerFollower.Step(
                 _config, People.HeadingRad[person], positionM, People.VelocityMps[person], positionM, moving: false,
-                _terrain.At(positionM).Coefficient, onFeet: false, People.MassKg[person], dtS).ImpulseNs;
+                onFeet: false, People.MassKg[person], dtS).ImpulseNs;
         }
 
         for (var car = 0; car < Cars.Count; car++)

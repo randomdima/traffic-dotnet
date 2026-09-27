@@ -7,9 +7,9 @@ themselves are [world/statics](../../statics/) and [agents/car](../../../agents/
 simulated**. Only the container is. A contained object's only available actions are those its container
 relationship defines (PER-6).
 
-**PHY-7a** `P3` On exit, a contained person is placed at the nearest unoccupied walkable position within the
+**PHY-7a** `P3` On exit, a contained person is placed at the nearest unoccupied position on the map within the
 exit search radius of the exit point, and **while no such position exists the exit action is
-unavailable**. One rule, both container kinds.
+unavailable**. One rule, both container kinds. The ground under the position is not asked (TER-2).
 
 **A person is never teleported out of a container, and a container places its occupant — the occupant
 never places itself.** Refused means every position round the container is occupied: stay contained and

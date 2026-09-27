@@ -185,8 +185,8 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <b>It is one of the town's own ways, and that is the whole point</b>: the plan runs along it, the
-    /// lanes it crosses are settled against it by the marks, and there is nothing here that a car on a lane
-    /// does not also do.
+    /// lanes it crosses carry its secondary claims, and there is nothing here that a car on a lane does not
+    /// also do.
     /// </remarks>
     void DriveTheWay(int car, in CarPose pose)
     {

@@ -240,14 +240,17 @@ internal static class InterfaceScenarios
             Name: "debug-car-lines",
             Group: "wider",
             Map: "Test",
-            Subject: "The same traffic with the driving layer on: every car's manoeuvre named where "
-                     + "it happens, and the line it is actually holding drawn ahead of it (OBS-2d).",
+            Subject: "The same traffic with the driving layer on: the line each car is actually holding "
+                     + "drawn ahead of it (OBS-2d), and nothing written over any car — what a car is doing "
+                     + "is the inspector's card, which only a pointer asks for (OBS-2t).",
             FrameWidthM: 64f, FinestFeatureM: 0.3f,
             AtM: new Vector2(270f, 165f), Seconds: 90, Ui: ["car-lines"],
             Expect:
             [
-                "Every driving car carries a label naming one manoeuvre from the catalogue — never a "
-                + "generic state such as 'driving' or 'busy'.",
+                "No text is drawn over or beside any car; the only words on the frame are the corner "
+                + "furniture's.",
+                "Every line is laid on a dark casing a little wider than itself, so it reads over tarmac, "
+                + "paint and crossings alike.",
                 "Each line runs ahead of its own car, from where the body is, and not from where it "
                 + "started.",
                 "A line is drawn for the rear axle: it leaves the body along the car's own axis "
@@ -261,8 +264,9 @@ internal static class InterfaceScenarios
             ],
             Expected: "debug-car-leave-bay.png",
             ExpectedNote: "The reference is one car driving the way out of its bay at a lot; this frame "
-                          + "is the same layer over moving traffic. Compare what the layer draws — "
-                          + "the label, the rear-axle line, the pose it ends on — not the place."),
+                          + "is the same layer over moving traffic, and the reference still carries the "
+                          + "label this build no longer draws. Compare the rear-axle line and the pose it "
+                          + "ends on — not the place, and not the label."),
 
         new(
             Name: "debug-collision",

@@ -14,17 +14,18 @@ the town runs.
 
 ## The ground
 
-**TER-4c.4** `P3` **Every way of the town is a ribbon, and the ribbons are laid once, onto one lattice.** A
-ribbon is its way's line swept to **the width of what travels it** — a car on anything driven, a body on
-anything walked — so a ribbon is the ground that way's traffic actually covers and never the paint it is laid
-between. The town samples every ribbon onto a lattice of points when it is laid, and each point knows which
-ways it lies under and how far along each of them it stands. **That lattice is the whole of the geometry the
-reservations ever use**: which ways a collider is over is a look-up of the points inside it, and which ways
-share ground is a look-up of the points two ribbons both hold.
+**TER-4c.4** `P3` **Every way of the town is a ribbon, and the ribbons are laid once.** A ribbon is its way's
+line swept to **the way's own width** — a lane's, a join's, a bay's, a pavement's, the paint of a crossing —
+with square ends. There is no other width a ribbon is laid at: what travels a way is a body on it (TER-4c.2),
+and not a second, narrower ribbon inside it. The town samples every ribbon onto a lattice of points when it
+is laid, and each point knows which ways it lies under, how far along each of them it stands and how far
+outside each one's band. **That lattice is how a body is read onto ways**: which ways a collider is over is
+a look-up of the points inside it. Which ways share ground is worked out from the ribbons themselves
+(TER-5c).
 
-- **A ribbon is laid a lattice's reach wider than its band**, the furthest any ground is from the point
-  standing for it — so a body over the band is never between two points, and two ribbons marked against
-  each other are always two ways a body on one could be read onto the other from.
+- **The lattice files a point a reach past every band**, the furthest any ground is from the point standing
+  for it, **and a body is on a way only where it reaches past a point further than the point stands outside
+  the band.** So a body over the band is never between two points, and a body up to its edge is not on it.
 - **How fine the lattice is, is data**, and it is sized against the ground it must not miss: an overlap
   thinner than its diagonal can fall between points, so that diagonal is held under the narrowest thing a
   body must be seen straddling.
@@ -34,10 +35,15 @@ share ground is a look-up of the points two ribbons both hold.
 
 **TER-5c** `P4` **Two ways share ground where their ribbons overlap, and the town marks every such pair
 once.** A **mark** is one piece of shared ground read from both sides: this stretch of one way and that
-section of the other. It is found from the lattice, filed under both ways, and never asked again. **It is a
-table of ground and not a table of verdicts**: a relation saying two movements conflict answers one question
-for a whole junction, so a car crossing one corner of a box shuts the far corner it never reaches, where a
-mark says *where*, and nobody is weighed against anybody over ground they do not share.
+section of the other. It is worked out from the two ribbons when the town is laid, filed under both ways, and
+never asked again. **Shared ground is ground deeper than a touch inside both ribbons**, at their sides and
+their ends alike: a pair is marked where there is any, and **each side runs exactly as far as there is** —
+from the first metre of its way whose ground lies that deep inside the other ribbon to the last. A section
+stops where the two are almost touching, so a graze marks the graze. **It is a table of ground and not a
+table of verdicts**: a relation saying two
+movements conflict answers one question for a whole junction, so a car crossing one corner of a box shuts the
+far corner it never reaches, where a mark says *where*, and nobody is weighed against anybody over ground they
+do not share.
 
 What follows from that rather than being stated beside it:
 
@@ -81,12 +87,12 @@ turned across its own lane holds the corner of the next and not its own shadow d
 **TER-4c.1** `P3` **Ground is asked for, answered, and then laid.** A holder asks for the stretch of its own
 line it means to use, from its front forward, a way at a time; **the answer is read before anything is
 laid**, so no ground is taken off another plan for a hold that then does not use it. What comes back is
-that stretch cut at the first of three things:
+that stretch cut at the first of two things, both read off the way asked about and off no other:
 
-- **the first body in front of it** on any way it is laid on — a plan is never laid over somebody standing
-  there, and a body beside or behind the holder cuts nothing;
-- **the first metre another plan keeps against it** (TER-5e), on its own way;
-- **the first mark whose section another plan keeps against it** (TER-5c.1).
+- **the first body in front of it** — a plan is never laid over somebody standing there, and a body beside
+  or behind the holder cuts nothing;
+- **the first metre another plan keeps against it** (TER-5e) — that plan's main claim on the same way, or a
+  secondary claim it placed there (TER-5c.1).
 
 **Part of what was asked for is the ordinary answer** rather than a refusal, and a holder granted none of it
 stands still. **What comes back is the holder's to move into**: whatever is laid on it later is weighed against
@@ -103,40 +109,52 @@ it, and only something that beats it takes it.
   is the ground it would come to rest in from its pace (`PER-26`), and a crossing to the far kerb (`PER-27`).
 - **A car in a box plans its way out of it**: at least to the far side of the join its nose is on and its
   own length past that, however slowly it is going.
-- **A car refused ground where it would come to rest across another movement waits at the mouth** — where it
-  can still be brought to rest there — and never on the ground it was refused. The mouth is short of the
-  answer, so waiting there takes nothing the answer did not give.
+- **A car refused ground waits short of it, wherever that is.** Refused inside a box, it waits in the box,
+  over ground it was given: its body there is on every way it stands over, and what crosses that ground is
+  held off it as it is held off any body. Nothing but the answer says where a car waits.
 - **Nothing is ever released.** Every plan is laid again from its holder every tick, so a body that stops,
   is wrecked or is taken over by a hand plans nothing on the tick after.
 
-**TER-5c.1** `P3` **To hold a marked stretch of its own way, a holder holds the whole of the section the mark
-links it to — or it holds neither.** A plan that cannot have the section is answered at the start of its own
-side of the mark; a plan laid over a mark writes the section onto the other way as its own, whole; and a plan
-whose section is taken from it later is cut at the start of its own side. **That is the whole of how two ways
-that share ground meet**: every reader reads only the way it is on, because whatever lies over that way has
-already been settled onto it.
+**TER-5c.1** `P3` **A plan is main claims and secondary claims, and only a main claim is ever answered.** A
+**main claim** is ground on a way of the holder's own line. A **secondary claim** is the whole of the section
+of another way that a mark links a main claim's stretch to, placed with the main claim and never asked for:
+a main claim over any of its own side of a mark places all of the other side, and one answered short of the
+mark places none of it. **Claims meet in two ways and no others** — a main claim and a main claim on one
+way, and a main claim and a secondary claim placed on its way — and **two secondary claims never meet**.
+That is the whole of how two ways that share ground meet: every reader reads only the way it is on, because
+whatever holds ground that way shares has placed a secondary claim on it.
 
-- **Two linked sections on one way are no answer to each other.** They are two holders whose ground each lies
-  over a third way, and where their own grounds overlap their own ways are marked against each other and meet
-  there — so held against each other on the third, two cars would be refused a corner of pavement neither of
-  them drives.
-- **A holder writes pieces only onto the ways of its own line**, and onto the ways it only crosses nothing but
-  the linked sections. A car approaching a box holds no fan of joins it is never going to be on.
+- **A main claim is answered off its own way alone.** A mark is filed under both its ways, so whatever holds
+  the far side has placed its secondary claim over the near side, where the main claim asking meets it.
+  Nothing on the far way is read, and a secondary claim placed there cuts nothing.
+- **Refused by a secondary claim, a main claim is answered where that begins** — the start of its own side
+  of the mark. A car in a turn comes to the section the oncoming straight placed over the turn, and waits
+  there.
+- **Taken, a secondary claim cuts its holder at its own side of the mark** — the metre its main claim placed
+  it from (TER-5c.2).
+- **Two secondary claims on one way are no answer to each other.** They are two holders whose ground each
+  lies over a third way, and where their own grounds overlap their own ways are marked against each other
+  and meet there — so two cars going opposite ways through a box, whose secondary claims lie over each other
+  on the turns between them and touch neither one's main claim, both go.
+- **A holder places main claims only on the ways of its own line**, and on the ways it only crosses nothing
+  but secondary claims. A car approaching a box holds no fan of joins it is never going to be on.
 
 **TER-5c.2** `P3` **A hold is one stretch of its holder's line.** Its pieces, read in the order the line runs
 over them, each begin where the one before ended; **cut anywhere, it gives up everything past the cut** — the
-pieces on the ways after and the sections it wrote through their marks. A hold with ground beyond a gap in
+main claims on the ways after and the secondary claims placed past the cut. A hold with ground beyond a gap in
 itself is ground whose holder cannot be seen coming, and ground past a place it was refused is ground it could
 not have reached without crossing what it was refused.
 
 **TER-4c.3** `P3` **No metre of any way is planned by two holders.** A plan meeting another on one way either
 keeps the ground, and the other is cut back to where the two met, or is cut itself; the two abut on an exact
-metre and neither reaches into the other. **Two linked sections are the one exception** (TER-5c.1). **Bodies
+metre and neither reaches into the other. **Two secondary claims are the one exception** (TER-5c.1). **Bodies
 are not in this at all** (TER-4c.2), and neither is a holder's own ground against itself.
 
 **Which of two keeps a metre does not turn on which was laid first**: the comparison is total and symmetric
-(TER-5e). What a cut frees is not handed back inside the tick — a plan cut by ground a later one took away is
-laid again, whole, the tick after.
+(TER-5e). **What a cut frees goes back inside the tick**: once every plan is down, each one another plan ended
+is answered again against what the rest came to, and laid again, whole, where the answer has moved. So a plan
+ends where something that beats it still stands, and waiting at a kerb binds whichever holder was laid first. A ring of holders each taking from the next never settles, and is left disjoint at a bound on the
+work.
 
 ## Right of way
 
@@ -181,7 +199,7 @@ reservations learns what a police car or an ambulance is.
 - **p3 — a closed road** ([agents/service](../../../agents/service/docs/requirements.md), `SRV-6`): ground a
   police car at a scene holds shut round it, above every ordinary plan and below a call, which is the whole
   of what lets the other services through a road that is shut.
-- **p4 — a crossing somebody is walking** (`PER-27`): the paint to the far kerb and, through the marks, the
+- **p4 — a crossing somebody is walking** (`PER-27`): the paint to the far kerb and, as secondary claims, the
   lanes under it — above every movement a box admits, so a car gives way to somebody on a zebra and a walker
   at the kerb is not cut short of one by the traffic the zebra gives way to.
 - **p5, p6, p7 — the movements** (TER-5e): straight through, then ordinary traffic — the near-side turn and

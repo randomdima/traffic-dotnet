@@ -42,7 +42,7 @@ internal sealed partial class DebugOverlay
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A part the ground page has taken out of the picture is out of this too</b>
+    /// <b>A part the ground's own switches have taken out of the picture is out of this too</b>
     /// (<paramref name="parts"/>, OBS-2v). That is not a filter over the mesh: the renderer is drawing
     /// those triangles or it is not, and a net over ground nobody can see would be this layer
     /// disagreeing with the picture it is a reading of.

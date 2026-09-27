@@ -151,7 +151,7 @@ internal sealed partial class TownWorld
         if (_bands.CrossingOfEdge[edge] == PersonFleet.NoCrossing) return PersonFleet.NoWay;
 
         var leftM = EndOfTheWayM(person, Walking) - People.OnWayM[person];
-        return leftM <= PlansAheadM(person) ? edge : PersonFleet.NoWay;
+        return leftM <= PlansAheadM ? edge : PersonFleet.NoWay;
     }
 
 
@@ -167,7 +167,7 @@ internal sealed partial class TownWorld
     /// </para>
     /// <para>
     /// <b>The paint is planned whole</b> (<see cref="ClaimPriority.Crossing"/>): what a walker wants of a
-    /// zebra is the other side, so a plan that reaches the paint runs to its far end, and through the marks
+    /// zebra is the other side, so a plan that reaches the paint runs to its far end, with secondary claims on
     /// the lanes it is painted across. Refused anywhere on it, a walker not yet on the paint waits at the
     /// kerb; one already on it has the lanes under it at p0 and walks on as far as it was granted.
     /// </para>
@@ -176,81 +176,122 @@ internal sealed partial class TownWorld
     /// walk that then stops short of it.
     /// </para>
     /// </remarks>
-    void PlanTheWalk(int person, Span<LineWay> ways)
+    void PlanTheWalk(int person, Span<LineWay> walk)
     {
         _walkerHold[person] = LaneOccupancy.NoHold;
 
-        // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
-        if (People.Inside[person].Any) return;
-        if (!People.Walking[person] || People.OnWay[person] == PersonFleet.NoWay) return;
-
-        var frontM = People.RadiusM[person];
-        var count = WaysAlongTheWalk(person, frontM + PlansAheadM(person), ways, toTheFarKerb: true);
-
-        // From the front of the body: what is behind that is the body's own, at p0.
-        var first = 0;
-        while (first < count && ways[first].LineFromM + (ways[first].ToM - ways[first].FromM) <= frontM) first++;
-        if (first == count) return;
-
-        if (ways[first].LineFromM < frontM)
-        {
-            ways[first] = ways[first] with
-            {
-                FromM = ways[first].FromM + (frontM - ways[first].LineFromM), LineFromM = frontM,
-            };
-        }
+        var ways = TheWalkAhead(person, walk);
+        if (ways.IsEmpty) return;
 
         var hold = _occupancy.BeginHold(_config.PersonStandstillGapM);
         _walkerHold[person] = hold;
-        var alongMps = AlongItsWalkMps(person);
-        Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
-        LevelTheWalk(ways[..count], rungs);
+        Span<ClaimPriority> rungs = stackalloc ClaimPriority[ways.Length];
+        LevelTheWalk(ways, rungs);
 
-        var cutLineM = float.PositiveInfinity;
-        var cutBy = LaneClaim.Nothing;
-        var cutOn = -1;
-        for (var index = first; index < count; index++)
+        LayTheWalk(person, hold, ways, rungs, AnswerTheWalk(person, hold, ways, rungs));
+    }
+
+    /// <summary>
+    /// <b>The ways a walker's plan is laid down</b>, from the front of its body — what is behind that is the
+    /// body's own, at p0 — for as far as it would take to come to rest, and a crossing to the far kerb.
+    /// Empty where it plans nothing.
+    /// </summary>
+    Span<LineWay> TheWalkAhead(int person, Span<LineWay> into)
+    {
+        // PHY-7: inside a container there is no body in the world and nothing in anybody's way.
+        if (People.Inside[person].Any) return default;
+        if (!People.Walking[person] || People.OnWay[person] == PersonFleet.NoWay) return default;
+
+        var frontM = People.RadiusM[person];
+        var count = WaysAlongTheWalk(person, frontM + PlansAheadM, into, toTheFarKerb: true);
+
+        var first = 0;
+        while (first < count && into[first].LineFromM + (into[first].ToM - into[first].FromM) <= frontM) first++;
+        if (first == count) return default;
+
+        if (into[first].LineFromM < frontM)
+        {
+            into[first] = into[first] with
+            {
+                FromM = into[first].FromM + (frontM - into[first].LineFromM), LineFromM = frontM,
+            };
+        }
+
+        return into[first..count];
+    }
+
+    /// <summary>
+    /// <b>How far this walker's plan can be had</b>, read and never written — and <b>to the far kerb or
+    /// none</b>: a walker still off the paint, refused anywhere on it, waits at the kerb.
+    /// </summary>
+    PlanAnswer AnswerTheWalk(int person, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs)
+    {
+        for (var index = 0; index < ways.Length; index++)
         {
             ref readonly var way = ref ways[index];
-            var reachM = _occupancy.Reach(
-                WalkAsk(person, hold, way, rungs[index], frontM, alongMps), way.Way, way.ToM, way.FromM, out var by);
+            var reachM = _occupancy.Reach(WalkAsk(person, hold, way, rungs[index]), way.Way, way.ToM, way.FromM, out var cutBy);
             if (reachM >= way.ToM) continue;
 
-            cutLineM = OnTheLineM(way, reachM);
-            cutBy = by;
-            cutOn = index;
-            break;
+            if (IsTheCrossing(way.Way) && way.Way != People.OnWay[person])
+            {
+                return new PlanAnswer(way.LineFromM, 0f, LaneClaim.Nothing, way.Way);
+            }
+
+            var gapM = _config.PersonStandstillGapM;
+            return new PlanAnswer(
+                OnTheLineM(way, reachM), new LaneCredit(gapM, gapM, LaneRoster.Walking).Of(cutBy), cutBy, way.Way);
         }
 
-        var marginM = cutBy.Found
-            ? new LaneCredit(_config.PersonStandstillGapM, _config.PersonStandstillGapM, LaneRoster.Walking).Of(cutBy)
-            : 0f;
+        return PlanAnswer.Whole;
+    }
 
-        // To the far kerb or none: a walker still off the paint, refused anywhere on it, waits at the kerb.
-        if (cutOn >= 0 && IsTheCrossing(ways[cutOn].Way) && ways[cutOn].Way != People.OnWay[person])
-        {
-            cutLineM = ways[cutOn].LineFromM;
-            cutBy = LaneClaim.Nothing;
-            marginM = 0f;
-        }
-
-        for (var index = first; index < count; index++)
+    /// <summary><b>A walker's plan laid</b> over what its answer left, and finished with what it came to.</summary>
+    void LayTheWalk(
+        int person, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs, in PlanAnswer answer)
+    {
+        for (var index = 0; index < ways.Length; index++)
         {
             ref readonly var way = ref ways[index];
-            if (way.LineFromM >= cutLineM) break;
+            if (way.LineFromM >= answer.CutLineM) break;
 
-            _occupancy.Take(WalkAsk(person, hold, way, rungs[index], frontM, alongMps), way.Way, OnTheWayM(way, cutLineM));
+            _occupancy.Take(WalkAsk(person, hold, way, rungs[index]), way.Way, OnTheWayM(way, answer.CutLineM));
         }
 
-        _occupancy.EndHold(hold, cutLineM, marginM, cutBy, cutOn >= 0 ? ways[cutOn].Way : LaneOccupancy.NoHold);
+        _occupancy.EndHold(hold, answer.CutLineM, answer.MarginM, answer.CutBy, answer.CutOn);
+    }
+
+    /// <summary>
+    /// <b>This walker's plan answered again against what every other came to</b>, and laid again where the
+    /// answer has moved (<see cref="SettleThePlans"/>) — true where it did.
+    /// </summary>
+    bool SettleTheWalk(int person, Span<LineWay> walk)
+    {
+        var hold = _walkerHold[person];
+        if (hold == LaneOccupancy.NoHold) return false;
+
+        var endsAtM = _occupancy.HoldEndsAtM(hold, out _, out var cutBy);
+        if (float.IsPositiveInfinity(endsAtM) || (cutBy.Found && cutBy.HasBody)) return false;
+
+        var ways = TheWalkAhead(person, walk);
+        Span<ClaimPriority> rungs = stackalloc ClaimPriority[ways.Length];
+        LevelTheWalk(ways, rungs);
+
+        var answer = AnswerTheWalk(person, hold, ways, rungs);
+        if (answer.CutLineM == endsAtM) return false;
+
+        _occupancy.ReopenHold(hold);
+        LayTheWalk(person, hold, ways, rungs, answer);
+        return true;
     }
 
     /// <summary>The hold a walker laid this rebuild, for an instrument asking what held it.</summary>
     public int WalkHold(int person) => _walkerHold[person];
 
     /// <summary>One piece of a walker's plan as the terms it is asked on.</summary>
-    PlannedAsk WalkAsk(int person, int hold, in LineWay way, ClaimPriority rung, float frontM, float alongMps) =>
-        new(hold, person, LaneRoster.Walking, rung, way.FromM, way.LineFromM, way.LineFromM - frontM, float.NegativeInfinity, alongMps);
+    PlannedAsk WalkAsk(int person, int hold, in LineWay way, ClaimPriority rung) =>
+        new(
+            hold, person, LaneRoster.Walking, rung, way.FromM, way.LineFromM, way.LineFromM - People.RadiusM[person],
+            float.NegativeInfinity, AlongItsWalkMps(person));
 
     /// <summary>
     /// <b>The rung each piece of a walk is held at</b> (TER-5g.1): the paint's on a crossing and on the pavement
@@ -293,10 +334,11 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <b>Sized by the pace it walks at and not by what it is doing</b>: a walker stopped behind something
-    /// plans the ground it would set off into, or nothing would ever say it meant to move.
+    /// plans the ground it would set off into, or nothing would ever say it meant to move. <b>And one figure
+    /// for every walker</b>, since a walker's pace and grip are its own and not the ground's (TER-2).
     /// </remarks>
-    float PlansAheadM(int person) =>
-        StoppingM(_config.PersonWalkSpeedMps, FootGripMps2(person)) + _config.PersonStandstillGapM;
+    float PlansAheadM =>
+        StoppingM(_config.PersonWalkSpeedMps, _config.PersonFootGripMps2) + _config.PersonStandstillGapM;
 
     /// <summary>
     /// Whether this walker is a body on a line of its own rather than a shape on the pavement — <b>the
@@ -408,7 +450,4 @@ internal sealed partial class TownWorld
     /// <summary>How fast this walker is going the way it is facing, which is the only direction it walks in.</summary>
     float AlongItsWalkMps(int person) =>
         Vector2.Dot(People.VelocityMps[person], Heading.Unit(People.HeadingRad[person]));
-
-    /// <summary>What the feet can put down on the ground this walker is standing on (TER-2, PER-3).</summary>
-    float FootGripMps2(int person) => _config.PersonFootGripMps2 * People.GroundCoefficient[person];
 }

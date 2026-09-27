@@ -12,8 +12,9 @@ Roads, junctions and what is painted on them are [world/road](../../road/docs/re
 **TER-1** `P3` The city is fully covered by terrain: no empty space and no holes.
 
 **TER-2** `P3` Every terrain type declares which agents may traverse it under soft rules and its effect on
-movement (grip, drag, mark threshold). **The movement effect applies to every body occupying it whether or
-not it is permitted there** — legality is a soft-rule matter only.
+a wheel (grip, drag, mark threshold). **The effect applies to every wheel on it whether or not the car is
+permitted there** — legality is a soft-rule matter only. **A person is not affected by terrain at all**: its
+pace, its grip and where it may be set down are its own on every surface.
 
 **TER-2a** `P4` Rules address terrain by **set** — drivable, walkable, preferred, permitted-to-nobody — and
 never by type name. A rule written against `Sidewalk` breaks the day the town gains a boardwalk; one
@@ -37,7 +38,7 @@ rather than of the ground under a point.
 it is on ground and can leave under its own power. What makes it impassable is only that no route is ever
 planned across it.
 
-**PHY-8** `P3` Terrain is not a collider. It modulates the movement of the body occupying it and never blocks
+**PHY-8** `P3` Terrain is not a collider. It modulates the movement of a wheel on it and never blocks
 movement outright; what makes ground impassable is permission.
 
 ## One geometry
@@ -77,10 +78,11 @@ cut to leave room for the next.
 
 Four consequences follow and all four are the point.
 
-- **The picture and the answer are one distance.** What the ground is at a point is which line of the town
-  lays it and how far off the kerb it stands, compared against the same table the drawing is laid from
-  (TER-7) — so a distance added to one is added to the other, and the question of whether the two agree
-  cannot be asked. This is the whole of what the rule buys.
+- **The picture and the answer are one line.** What the ground is at a point is which side it stands of
+  each layer's own rings — the very rings the drawing fills (TER-7) — so a distance added to one is added to
+  the other, and the question of whether the two agree cannot be asked. This is the whole of what the rule
+  buys. **No lane is read for it**: a lane is where a driver means to go and is the actors' alone, and what a
+  wheel stands on is the shell's.
 - **A kerb is a line and is struck along a shell of its own, at its own width** (TER-3d). It belongs to no
   layer: a kerb is where one ground hands over to another, and a stroke laid about the shell that parts them
   is that line said once, at the width a kerbstone is, wherever the shell runs. There are two of

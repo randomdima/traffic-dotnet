@@ -477,7 +477,7 @@ internal static class Program
         Console.WriteLine($"{plan.Name} {plan.WorldSizeM.X:F0}x{plan.WorldSizeM.Y:F0} m read in {read.TotalMilliseconds:F1} ms — " +
                           $"{plan.Roads.Count} roads, {plan.Buildings.Count} buildings, {plan.Props.Count} props, {plan.Spawns.Count} spawns");
         // <b>The mesh's own figures and not a second stopwatch round the same call</b> (OBS-2v): what a
-        // layer cost is written down as it is laid, and the ground page reads the same tallies.
+        // layer cost is written down as it is laid, and the menu's ground section reads the same tallies.
         Console.WriteLine($"{"",-9}ground laid as {mesh.Indices.Length / 3} triangles in {mesh.LaidMs:F0} ms " +
                           $"({mesh.BoundaryMs:F0} ms of it the boundary); " +
                           $"the first spawn stands on {ground.Ground} ({ground.Rules})");

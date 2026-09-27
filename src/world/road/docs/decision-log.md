@@ -4,6 +4,125 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-27 — a car refused in a box waits there, and nothing moves the answer
+
+The owner ruled the flow pure: a patch beside it goes, and what the flow gets wrong is fixed in it. So
+**`WaitsClearOfTheBoxes` went** (TER-4c.1). A car refused by a plan where it would rest on ground its join
+shares with any way was sent back to the mouth. It judged from the marks, not the claims, and the ground it
+kept a car off was often ground nobody held. It cut at a place nothing stood, as `LaneClaim.Nothing`, so
+`TheBoxGiven` and the stuck probe each had to handle a cut with no cause. It spared cars cut by a body. And it
+judged "can still stop" by a third stopping distance. `WayCrossings.OwnRuns` went with it, read by nothing
+else.
+
+**Measured** over six agent seeds of a minute each, the rule against none:
+
+| | Odesa | River |
+|---|---|---|
+| wrecked | 27 → 37 | 52 → 46 |
+| touches | 214 → 202 | 226 → 224 |
+| km driven | 2417 → 2409 | 1980 → 1955 |
+| walks given up | 450 → 472 | 405 → 407 |
+| car-ticks at rest inside a box | 178 k → 184 k | 242 k → 268 k |
+| rebuilds left unsettled | 15 213 → 17 786 | 16 201 → 20 852 |
+
+The wrecks move both ways, inside a spread of 0 to 16 a seed. The three crashes of the Odesa seed that went
+0 → 6 involve no car waiting in a box. A walker steps onto a zebra three metres in front of a car at 13 m/s.
+Two cars on the two lanes of one road meet as shapes, off each other's ribbons. A car running wide on a corner
+at 29 m/s hits one standing off its line. What does move is the waiting in boxes, and with it the rebuilds the
+settling leaves at its bound. The exam is 108 of 109 cards either way, card 59 failing on the same 0.2 s.
+
+## 2026-09-27 — a claim is main or secondary, and a main claim reads its own way alone
+
+The owner named the claim a holder places on a way its own crosses a **secondary claim**, and ruled that
+**two secondary claims never meet**: main against main on one way, and main against secondary, are the only
+meetings. Placing a claim reads the main way alone, and the secondary claims go down with it (TER-5c.1).
+
+**The reads of the other way went, because they were a second copy of one answer.** `Reach` walked each
+mark's far way for main claims over its section (`LosesTheSection`), and `Take` cut those main claims when it
+placed the section. A mark is filed under both its ways, so each such main claim had already placed a
+secondary claim over the asker's own way. The ordinary walk of that way met it at the same metre, on the
+same terms. The one term that moved is whether a holder's body stands on the ground: it is now read off
+the asker's way rather than the far one. Taking that secondary claim had already cut its holder short of the
+mark, too. **So the atlas files a pair only where both sides hold ground**: a side clamped to nothing would
+take a secondary claim and place none back. `Beats` lost its second metre, since every meeting is on the
+asker's way.
+
+**Measured**: the exam is 108 of 109 cards before and after, card 59 failing both times on the same 0.2 s;
+`qq tests all` passes, the gates included.
+
+## 2026-09-27 — a ribbon is its way's own width, and a mark is worked out from the ribbons
+
+The owner ruled that **a ribbon is its way's own width** — a lane's, a join's, a pavement's — and that there
+is no ribbon at a car's width; and that **a mark's section runs as far as the two ribbons share ground, up to
+where they are almost touching** (TER-4c.4, TER-5c). On the overlay a join's marked section had stopped about
+a metre inside the lane it crossed: the block was drawn at the lane's width, and the section had been cut
+from ribbons a car wide, sampled on the lattice.
+
+**Marks are worked out from the ribbons and not from the lattice** (`RibbonMarks`, `RibbonPiece`). A piece of
+a way's line swept to its width is a rectangle or a sector of an annulus; a metre of one meets another's
+ground where the slice across it does, and each end of a section is walked for a lattice step at a time and
+then halved to under a micrometre. Lane-width ribbons had failed before on the lattice's reach: laid that much
+wider, the two lanes of a carriageway overlapped by 0.7 m and every pair of joins out of neighbouring lanes
+was marked. Worked from the ribbons, ribbons laid edge to edge only touch — on Odesa, joins marked against
+joins went 71 833 → 72 411, and lanes against joins 1 920 → 12, since a hand-over is no longer one.
+
+**Shared ground is ground deeper than the touch inside both**, each ribbon worn back by it at the sides and at
+the square ends, and a section runs over all of that and no further. Run to where the ribbons last touched, a
+2 m pavement edge stepping onto a zebra's kerb end at an angle — its square end dipping a few centimetres
+into the lane — was marked whole, and a car passing locked the pavement. Worn, those 1 050 pairs on Odesa
+share 0.22 m of pavement edge on average and 0.90 m at most.
+
+**A body is read over only ground it and the band both hold.** The lattice still files a point a reach past
+every band, now with how far outside the band it stands, and a point counts where the collider reaches
+further past it than that. At lane width the reach alone put a car 0.45 m off its line on the next lane.
+
+**Measured** on Odesa over six agent seeds of a minute each (`--bench soak`), against the tree before:
+knocked down 2 → 3, wrecked 34 → 34, touches 183 → 191, walks given up 269 → 448, km driven 2533 → 2415. Taken
+while sections still ran to the touch, the same marks and body reading at the old widths gave 22 wrecked, 186
+touches, 265 walks given up and 2561 km, and driven ways alone at their own width 35, 251, 360 and 2439 km:
+what costs is the width, most of it on the driven side. The atlas on Odesa is 3.5 M points and 6.3 M
+entries — 54 MiB — laid in 0.75 s, against 2.7 M, 3.9 M, 30 MiB and 0.7 s.
+
+## 2026-09-26 — what a cut frees goes back inside the tick
+
+Plans were laid once, in the same order every tick — cars by index, then closures, then walkers — and a cut
+only ever shortened a hold. Two faults came of it, and both held for as long as the town stood the same way,
+not for one tick.
+
+- **Refused by ground a later cut took away.** Car A was cut by car B at a box, then a walker on a zebra cut B
+  back short of the box. A still waited on ground nobody held.
+- **Refused by a piece its own taking removed.** A hold is answered way by way before it is laid. A straight
+  movement beat a near-side turn at the mark where their joins merge, and lost to it on the exit lane on
+  arrival. Its taking at the merge then removed the turn's exit-lane piece, and the straight car still braked
+  at the far edge of the box.
+
+**Every plan another plan ended is now answered again once all are down, and laid again where the answer
+moved** (`TownWorld.SettleThePlans`, `LaneOccupancy.ReopenHold`). Chosen over laying the walkers and closures
+first, which would have fixed only the commonest chain.
+
+**The passes are bounded at four, and the bound is not a gate.** Nearly everything moves in the first pass; at
+two, four and eight passes the same seeds give the same crashes and walks. Rebuilds still moving at four
+are still moving at eight. They are rings, where each holder takes from the next, and whether a town has them
+depends on its junctions. On Odesa, over six seeds of a minute each, 0 to 1824 of 4200 rebuilds hit the bound.
+
+**Measured** on Odesa over those six seeds, against the tree before:
+
+- km driven: 2100 → 2542
+- walks given up: 316 → 269
+- wrecked: 30 → 34 (1.43 → 1.34 per 100 km)
+- touches: 195 → 183
+- car-ticks spent past the braking margin, per km: 1.52 → 1.53
+
+Five minutes of `--bench stuck`:
+
+- drive legs given up: 603 → 354
+- walks given up: 1011 → 721
+- cars that ever stood still: 403 → 264
+- in that one run, wrecked 14 → 18 and touches 265 → 355
+
+The exam went from 26 failed cards to 23. Cards 20, 50, 92 and 93 now pass. Card 15 now fails — a straight
+giving way to a left turn from its right, which the ladder does not state.
+
 ## 2026-09-26 — two layers over a ribbon atlas: where the bodies are, and where they mean to be
 
 The owner set the reservations three rules. **A body reserves, at p0, every ribbon its collider overlaps,
@@ -14,19 +133,12 @@ at runtime**. **And those are the only two ways ordinary agents meet.** Everythi
 [claims.md](claims.md) was rewritten to them.
 
 **The atlas is laid once** (TER-4c.4, `RibbonAtlas`): every way's ribbon sampled onto a lattice a quarter
-of a car apart, each point knowing which ways it lies under and how far along each. Odesa lays 3.4 M points
-and 5.0 M entries — 38 MiB — in 0.7 s. It replaced a per-body walk of the nearest lanes with a band test
-every tick, a crossing table measured from centrelines for joins alone, a zebra's bands projected while the
-town ran, and the furniture's claims: which ways a collider is over is now a look-up of the points inside it,
-and which ways share ground (TER-5c) is the points two ribbons both hold.
-
-**A ribbon is the width that travels it, not the lane's.** Laid at lane width, a join's ribbon at its mouth
-lies over the lane beside it, and every pair of joins out of neighbouring lanes was marked: a box shut against
-movements that pass side by side. At a car's width and the lattice's reach either side, the two lanes of a
-carriageway stay apart — a gap of 1.48 m against 0.71 m of reach — and a body off its line by more than the
-reach is on the other way at p0, which is what bodies are for. **Joins that diverge from one lane or merge
-into one are marked**, their ribbons sharing their first or last metres: that ground is one piece of the world
-and two bodies cannot both be on it.
+of a car apart, each point knowing which ways it lies under and how far along each. It replaced a per-body
+walk of the nearest lanes with a band test every tick, a crossing table measured from centrelines for joins
+alone, a zebra's bands projected while the town ran, and the furniture's claims: which ways a collider is over
+is now a look-up of the points inside it. **Joins that diverge from one lane or merge into one are marked**,
+their ribbons sharing their first or last metres: that ground is one piece of the world and two bodies cannot
+both be on it.
 
 **Ground a car can no longer stop short of became the first term of the comparison, not a p0 claim** — p0
 is the collider and nothing else. The ladder was redrawn round it (TER-5g): body, committed, call, closure,
@@ -34,17 +146,15 @@ crossing, then the three movements. **The stated band, `Reserved` and `Rejected`
 from the nose, answered before it is laid, so there is no weaker band to tell apart from it.
 
 **The comparison is committed, standing, rung, box already given, arrival** (TER-5e), and each term is a
-fault it closed. **Standing**: a walker on the paint and a car whose linked section lay over it each waited
+fault it closed. **Standing**: a walker on the paint and a car whose secondary claim lay over it each waited
 for the other. **A box already given**: a tie-break on the metre each hold entered the box at jumped as cars
 passed marks, and boxes changed hands under cars on their way in — into crashes. **Arrival alone between two
 holders that can no longer stop**, since the one further off has road left to brake on and the box it was
 given last time is no reason to drive into the car already there.
 
-**A car refused where it would come to rest across another movement waits at the mouth** — only where it can
-still stop there at its utmost, and never past what the answer gave (`PlanTheDrive`). Placed at its committed
-distance instead, the cut rode ahead of the car at exactly its stopping distance: a car refused a box held
-19 m/s into it, and the plan laid past its answer took the box from the car that had won it. Collisions at
-and in a box fell from about seventeen to seven over six seeds.
+**A plan is never laid past what its answer gave** (`PlanTheDrive`). A car's refusal placed at its committed
+distance instead rode ahead of the car at exactly its stopping distance: a car refused a box held 19 m/s into
+it, and the plan laid past its answer took the box from the car that had won it.
 
 **A light is infrastructure and clips the plan** (TER-4c.5): a red is where the plan ends, so nothing waiting
 at one holds the box beyond it, and `JunctionStopM` reads the light and nothing else.
@@ -60,7 +170,7 @@ capacity exempt by name; a bay's ways planned like any other when bays return; a
 own line as its control rather than the reservation path.
 
 **Tried and taken out**: extending a car's committed ground through the box it was in, which handed every car
-creeping through a junction absolute priority and put them into each other; and ribbons at lane width, above.
+creeping through a junction absolute priority and put them into each other.
 
 **Measured** on Odesa over six agent seeds of a minute each, against the tree before: wrecked 34 → 26, knocked
 down 14 → 2, touches 2719 → 187, walks given up 666 → 316, 1878 → 2092 km driven; over five minutes of
@@ -263,14 +373,12 @@ agreed with the road until something laid one of the two again. The reach is sol
 the road decides. The skew is part of the relation and not an exception: `Zebras`' off-square crossing was
 8.83 m of an 8.00 m road, which is what the file held and what the derivation gave without being told.
 
-## 2026-08-29 — the box refuses a car at a place, and only lets it in where it can wait clear
+## 2026-08-29 — the box refuses a car at a place
 
 The gate answered *whether* and the grant answered *where*, the same question at two resolutions, so a body
 on a box's far corner held the near half against a car that would never have reached it. The gate answers in
 metres on the same figure, and the body margin keeps it from deadlocking — a car held a margin short claims
-no metre of the section, so the crossing movement still reads it free. Until the second half went in it
-stranded cars in the box, so a car is only let in as far as it can come to rest with its whole body in a gap
-between the runs (`WaitsClearOfTheBoxes`).
+no metre of the section, so the crossing movement still reads it free.
 
 ## 2026-08-28 — the walkers claim the road before the grants
 

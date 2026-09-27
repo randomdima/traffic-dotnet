@@ -18,6 +18,21 @@ namespace TrafficSimulation.World.Town;
 internal readonly record struct LineWay(int Way, float FromM, float ToM, float LineFromM);
 
 /// <summary>
+/// <b>What one agent's plan was answered</b>, read against the reservations and not yet laid: where on its own
+/// line it ends, the ground it keeps off what ended it, what that was, and on which way.
+/// </summary>
+/// <param name="CutLineM">Infinity where it can have all it asked for.</param>
+/// <param name="CutBy">
+/// <see cref="LaneClaim.Nothing"/> where nothing ended it, or where a walker is held back of what did, at the
+/// kerb.
+/// </param>
+/// <param name="CutOn">The way it was refused on, or <see cref="LaneOccupancy.NoHold"/>.</param>
+internal readonly record struct PlanAnswer(float CutLineM, float MarginM, LaneClaim CutBy, int CutOn)
+{
+    public static PlanAnswer Whole => new(float.PositiveInfinity, 0f, LaneClaim.Nothing, LaneOccupancy.NoHold);
+}
+
+/// <summary>
 /// <b>The lane index</b> (<see cref="LaneOccupancy"/>): every body where its collider stands, every agent's
 /// plan settled against every other, and the two questions a driver asks of it — what is in front of me on
 /// the road I am driving, and how much of that road is mine.
@@ -35,7 +50,7 @@ internal readonly record struct LineWay(int Way, float FromM, float ToM, float L
 /// </para>
 /// <para>
 /// <b>The passes are in this file, in order</b>: every walker's place on its walk, every body, every plan,
-/// and last what each plan came to.
+/// every plan settled against what the others came to, and last what each plan came to.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -53,8 +68,8 @@ internal sealed partial class TownWorld
     const int MostWaysUnderABody = 48;
 
     /// <summary>
-    /// <b>How many reservations one plan may lay</b>: a piece on every way of its line, and every section of
-    /// another way those pieces are marked against (TER-5c.1).
+    /// <b>How many reservations one plan may lay</b>: a main claim on every way of its line, and a secondary
+    /// claim for every mark those lie over (TER-5c.1).
     /// </summary>
     static int MostPlannedPer(int waysAlong, WayCrossings marks) => waysAlong * (1 + marks.MostCrossedByOne);
 
@@ -66,8 +81,8 @@ internal sealed partial class TownWorld
     /// <b>Every body first and every plan after all of them</b> (TER-4c.2): a plan is cut at the first body in
     /// front of it, so what it is laid against is the whole of the town's bodies rather than whichever were
     /// written first. Plans are settled against each other as they are laid, by a comparison that does not
-    /// depend on the order (<see cref="LaneOccupancy.Beats"/>), and what each came to is read once all of
-    /// them are down.
+    /// depend on the order (<see cref="LaneOccupancy.Beats"/>), settled again once all of them are down
+    /// (<see cref="SettleThePlans"/>), and what each came to is read after that.
     /// </remarks>
     void RebuildLaneOccupancy()
     {
@@ -92,8 +107,67 @@ internal sealed partial class TownWorld
         Span<LineWay> walk = stackalloc LineWay[MostWaysAlongAWalk];
         for (var person = 0; person < People.Count; person++) PlanTheWalk(person, walk);
 
+        SettleThePlans(ways, walk);
+
         for (var car = 0; car < Cars.Count; car++) ReadTheGrant(car);
         for (var person = 0; person < People.Count; person++) ReadTheWalkersGrant(person);
+    }
+
+    /// <summary>
+    /// <b>How many rebuilds ran out of settling passes with a plan still moving</b> since the town was laid
+    /// (<see cref="SettleThePlans"/>) — a layer left disjoint but not where its answers say.
+    /// </summary>
+    public long Unsettled { get; private set; }
+
+    /// <summary>How many plans have been taken up and laid again by the settling since the town was laid.</summary>
+    public long PlansLaidAgain { get; private set; }
+
+    /// <summary>
+    /// <b>Every plan answered again against the finished layer, until none moves</b> — so a plan ends where
+    /// something that beats it still stands, and not where something stood when it was laid.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A cut frees ground, and whoever was refused that ground was answered before it was freed.</b> A car
+    /// refused by a plan that a walker laid after both then cut back, or a plan refused on a later way by a
+    /// piece its own taking removed on an earlier one: laid once, each stayed short of ground nobody held —
+    /// every tick for as long as the town stood that way, since the holders are laid in the same order every
+    /// tick.
+    /// </para>
+    /// <para>
+    /// <b>And a plan cut after it was laid is held to the rules of one refused while it was laid</b>: a walker
+    /// refused the paint waits at the kerb, whichever of the two holders was laid first.
+    /// </para>
+    /// <para>
+    /// <b>Only a plan another plan ended is asked.</b> One that had all it asked for or that a body stopped has
+    /// nothing to gain, since no body moves inside a tick. A closure is laid once: it outranks every movement,
+    /// so what refuses it is a call or ground somebody can no longer stop short of, and neither is often cut
+    /// back.
+    /// </para>
+    /// <para>
+    /// <b>The passes are bounded</b> (<see cref="RoadFigures.MostSettlingPasses"/>), and a ring is why. The
+    /// comparison is total at one metre but not transitive along a line: one hold cut back frees ground a
+    /// second takes, which cuts a third, which frees the ground the first was cut back from. Such a ring never
+    /// settles, so a layer still moving at the bound is left as it stands — disjoint as ever, and
+    /// counted. <b>It is an instrument's to report and not a gate's</b>: whether a town has rings is a fact
+    /// about its junctions. Nearly everything moves in the first pass.
+    /// </para>
+    /// </remarks>
+    void SettleThePlans(Span<LineWay> ways, Span<LineWay> walk)
+    {
+        if (_occupancy.Cuts == 0) return;
+
+        for (var pass = 0; pass < _config.Road.MostSettlingPasses; pass++)
+        {
+            var laidAgain = 0;
+            for (var car = 0; car < Cars.Count; car++) laidAgain += SettleTheDrive(car, ways) ? 1 : 0;
+            for (var person = 0; person < People.Count; person++) laidAgain += SettleTheWalk(person, walk) ? 1 : 0;
+
+            PlansLaidAgain += laidAgain;
+            if (laidAgain == 0) return;
+        }
+
+        Unsettled++;
     }
 
     /// <summary>
@@ -244,19 +318,14 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Every way of the town as the ribbon the atlas is laid from</b> (TER-4c.4): its line
-    /// (<see cref="LineOfWay"/>), swept to the width of what travels it — a car on anything driven, a body on
-    /// anything walked.
+    /// <b>Every way of the town as the ribbon the atlas is laid from</b> (TER-4c.4): its line swept to its
+    /// own width, both as <see cref="LineOfWay"/> gives them.
     /// </summary>
     sealed class TownRibbons(TownWorld town) : IRibbonLines
     {
         public int WayCount => town._ways.Count;
 
-        public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM)
-        {
-            widthM = town._ways.IsDriven(way) ? town._config.Car.WidthM : town._config.PersonDiameterM;
-            return town.LineOfWay(way, out _);
-        }
+        public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM) => town.LineOfWay(way, out widthM);
     }
 
     /// <summary>

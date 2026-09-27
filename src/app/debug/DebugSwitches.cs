@@ -2,7 +2,7 @@ namespace TrafficSimulation.App.Debug;
 
 /// <summary>
 /// <b>OBS-2c — each thing a debug session can be opened for has a switch of its own, and no switch
-/// turns on anything a second one owns.</b> Thirteen checkboxes, and the ground's own layers
+/// turns on anything a second one owns.</b> One a <see cref="DebugLayer"/>, and the ground's own layers
 /// (<see cref="Ground"/>) are not among them.
 /// </summary>
 /// <remarks>
@@ -109,9 +109,8 @@ internal sealed class DebugSwitches
     /// the simulation produced, because neither is a thing the town does.
     /// </para>
     /// <para>
-    /// <b>It is also the one layer that takes the mouse</b> (OBS-2t, <see cref="DebugPick"/>): a lattice is
-    /// read by asking it about one cell, so while it is ticked a click on the town picks the cell under it
-    /// rather than selecting what is standing there. The ruler is offered the click first.
+    /// <b>A lattice is read by asking it about one cell</b> (OBS-2t, <see cref="DebugPick"/>), so while it is
+    /// ticked the cell under the pointer is what the inspector finds where nothing drawn over it is.
     /// </para>
     /// </remarks>
     public bool Grid;
@@ -125,7 +124,6 @@ internal sealed class DebugSwitches
     /// index a question about which line is where is narrowed with, and this is the index a question about
     /// what could hit what is narrowed with. Two indexes, laid from different corners over different
     /// things, so one switch drawing both would be a switch that answers two questions at once (OBS-2c).
-    /// <b>It does not take the mouse</b> — the pick belongs to the geometry grid alone (OBS-2t).
     /// </remarks>
     public bool SolverGrid;
 
@@ -134,7 +132,7 @@ internal sealed class DebugSwitches
 
     /// <summary>
     /// <b>The shape the reader strikes off that boundary for themselves</b> (OBS-2w,
-    /// <see cref="ShellProbe"/>), at a distance the figures page turns. It is a layer of its own and not
+    /// <see cref="ShellProbe"/>), at a distance a slider beside it turns. It is a layer of its own and not
     /// part of <see cref="Perimeter"/>: that one draws the town's own layers and this draws one the town
     /// was not laid with, and a shape nobody stands on drawn under that switch would be read for one.
     /// </summary>
@@ -183,4 +181,55 @@ internal sealed class DebugSwitches
         _generation++;
     }
 
+    public void Toggle(DebugLayer layer) => Toggle(ref this[layer]);
+
+    /// <summary>
+    /// The switch a layer is. <b>One place, so a row drawn, a word typed and a layer thrown cannot come apart</b>
+    /// — they were two switch statements once, and a layer inserted in the middle of the list toggled its
+    /// neighbour.
+    /// </summary>
+    public ref bool this[DebugLayer layer]
+    {
+        get
+        {
+            switch (layer)
+            {
+                case DebugLayer.CarLines: return ref CarLines;
+                case DebugLayer.TurnCircles: return ref TurnCircles;
+                case DebugLayer.WalkerLines: return ref WalkerLines;
+                case DebugLayer.Nodes: return ref Nodes;
+                case DebugLayer.Claims: return ref Claims;
+                case DebugLayer.Collision: return ref Collision;
+                case DebugLayer.SolverGrid: return ref SolverGrid;
+                case DebugLayer.Perimeter: return ref Perimeter;
+                case DebugLayer.Ribbons: return ref Ribbons;
+                case DebugLayer.Grid: return ref Grid;
+                case DebugLayer.Shell: return ref Shell.Drawn;
+                case DebugLayer.Wireframe: return ref Wireframe;
+                default: return ref Ruler;
+            }
+        }
+    }
+
+    /// <summary>Whether any layer drawn over the town is on. The ground's own layers are not among them (OBS-2v).</summary>
+    public bool AnyOn
+    {
+        get
+        {
+            foreach (var entry in DebugLayers.All)
+            {
+                if (this[entry.Layer]) return true;
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>Every layer drawn over the town off at once, which is the town back as it is seen without them.</summary>
+    public void AllOff()
+    {
+        foreach (var entry in DebugLayers.All) this[entry.Layer] = false;
+
+        _generation++;
+    }
 }

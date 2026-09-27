@@ -1,4 +1,5 @@
 using TrafficSimulation.CityGen;
+using TrafficSimulation.CityGen.Exam;
 using TrafficSimulation.Core.Config;
 
 namespace TrafficSimulation.App.Hud;
@@ -34,13 +35,14 @@ internal readonly record struct MapEntry(string Name, MapKind Kind, string Descr
 internal static class MapCatalogue
 {
     /// <summary>
-    /// Every map this engine knows what to say about that does not say it for itself. <b>Empty, because
-    /// every map this build ships is a brief</b> and a brief carries its own description — a row here
-    /// beside one would be the copy that goes stale. A map laid in code would take a row; the idle ring
-    /// does not, being the frame the start menu stands over (GEN-1b) rather than a map anybody picks.
+    /// Every map this engine knows what to say about that does not say it for itself: <b>the maps laid in
+    /// code</b>, a brief carrying its own description. The idle ring takes no row, being the frame the start
+    /// menu stands over (GEN-1b) rather than a map anybody picks.
     /// </summary>
     static readonly MapEntry[] Known =
     [
+        new(ExamPlan.Name, MapKind.Scenario,
+            "A lattice of junctions, one traffic scenario staged at each and marked passed or failed"),
     ];
 
     /// <summary>The shipped maps in menu order, places first — read off the folder and described from the catalogue.</summary>

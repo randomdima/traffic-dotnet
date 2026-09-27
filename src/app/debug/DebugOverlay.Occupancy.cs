@@ -25,8 +25,8 @@ namespace TrafficSimulation.App.Debug;
 /// keeps them apart.
 /// </para>
 /// <para>
-/// <b>The wash is how strong the hold is</b> (<see cref="Wash"/>), and <b>the pieces of one hold are told
-/// apart by a bar across the end of each</b>. A block is drawn per stretch and a body's ground is regularly
+/// <b>The wash is how strong the hold is</b> (<see cref="Wash"/>), <b>the pieces of one hold are told
+/// apart by a bar across the end of each</b>, and <b>a secondary claim is an outline with no wash</b>. A block is drawn per stretch and a body's ground is regularly
 /// several of them at one strength — a lane, the join after it, the ground beyond its own road it has
 /// committed to — which butt exactly and are one continuous band. So those joints are marked rather than
 /// shaded, and the shade is left to say the one thing a reader cannot get anywhere else: which of the asks
@@ -175,7 +175,7 @@ internal sealed partial class DebugOverlay
 
                 Block(
                     ref draw, arcs, fromM, toM, sagM, widthM, Colour(slots[slot]), slots[slot].Priority,
-                    viewCentreM, viewSpanM);
+                    slots[slot].Secondary, viewCentreM, viewSpanM);
             }
         }
     }
@@ -237,19 +237,28 @@ internal sealed partial class DebugOverlay
     /// <summary>
     /// One stretch, as the piece of lane it is: a run of quads down the way at the lane's full width,
     /// butted end to end so the block bends with the ground under it — and <b>a thin bar across either
-    /// end of it</b>.
+    /// end of it</b>. <b>A secondary claim is the same block's outline and no wash</b>.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>The bars are how a claim laid over several ways can still be read as several.</b> One body's
     /// ground is one colour (<see cref="Colour"/>), so the joints would otherwise be invisible: a lane, the
     /// join after it and the ground the body has committed to beyond its own road all butt exactly, and a
     /// continuous wash says nothing about which of them is which or where one ends. Said with shade instead,
     /// the pieces read as different <em>kinds</em> of ground, which is a stronger claim than the picture has
     /// any business making.
+    /// </para>
+    /// <para>
+    /// <b>The outline is a different kind of ground, and meant as one</b> (TER-5c.1): the section of a way
+    /// its holder only crosses, which weighs against the main claims there and never against another
+    /// secondary claim. Washed, two secondary claims over one stretch — which the flow lets stand together —
+    /// read as that stretch held twice, and one butted against a main claim read as the next piece of the same
+    /// car's road. The edges keep the wash's strength (<see cref="Edge"/>), so how strong it is still reads.
+    /// </para>
     /// </remarks>
     static void Block(
         ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float widthM,
-        Vector4 colour, ClaimPriority priority, Vector2 viewCentreM, Vector2 viewSpanM)
+        Vector4 colour, ClaimPriority priority, bool secondary, Vector2 viewCentreM, Vector2 viewSpanM)
     {
         var headM = Spline.SampleAt(arcs, fromM).PositionM;
         var tailM = Spline.SampleAt(arcs, toM).PositionM;
@@ -260,9 +269,53 @@ internal sealed partial class DebugOverlay
         if (!OnScreen((headM + tailM) * 0.5f, viewCentreM, viewSpanM, reachM)) return;
 
         var edge = colour * Edge(priority);
-        PathMarks.Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour * Wash(priority));
+        if (secondary) Sides(ref draw, arcs, fromM, toM, sagM, widthM, edge);
+        else PathMarks.Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour * Wash(priority));
+
         Cap(ref draw, arcs, fromM, widthM, edge);
         Cap(ref draw, arcs, toM, widthM, edge);
+    }
+
+    /// <summary>
+    /// The two long edges of one stretch, each half the way's width to its own side of the line — stepped
+    /// piece by piece at the chord each piece's curvature affords, as <see cref="PathMarks.Banded"/> steps
+    /// the wash they stand in for.
+    /// </summary>
+    static void Sides(
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float widthM,
+        Vector4 colour)
+    {
+        var halfM = widthM * 0.5f;
+        var pieceStartM = 0f;
+        foreach (var arc in arcs)
+        {
+            var lastM = MathF.Min(toM, pieceStartM + arc.LengthM);
+            var stepM = MathF.Max(PathMarks.PathLineM, Spline.ChordForSagM(arc.Curvature, sagM));
+            var atM = MathF.Max(fromM, pieceStartM);
+            if (atM < lastM)
+            {
+                var (left, right) = Edges(arc, atM - pieceStartM, halfM);
+                while (atM < lastM)
+                {
+                    var onwardM = MathF.Min(lastM, atM + stepM);
+                    var (onLeft, onRight) = Edges(arc, onwardM - pieceStartM, halfM);
+                    draw.LineM(left, onLeft, BlockEdgeM, colour);
+                    draw.LineM(right, onRight, BlockEdgeM, colour);
+                    (left, right, atM) = (onLeft, onRight, onwardM);
+                }
+            }
+
+            pieceStartM += arc.LengthM;
+            if (pieceStartM >= toM) return;
+        }
+    }
+
+    /// <summary>The two edges of a way at one metre of one of its pieces.</summary>
+    static (Vector2 Left, Vector2 Right) Edges(in ArcSeg arc, float alongM, float halfM)
+    {
+        var centreM = arc.PointAtM(alongM);
+        var acrossM = Heading.RightOf(Heading.Unit(arc.HeadingAtRad(alongM))) * halfM;
+        return (centreM - acrossM, centreM + acrossM);
     }
 
     /// <summary>One end of a block, as a bar square across the way at that metre.</summary>
@@ -300,10 +353,10 @@ internal sealed partial class DebugOverlay
     /// block could be followed off the front of the body holding it.
     /// </para>
     /// <para>
-    /// <b>What is deliberately not drawn is the ground a car is driven <em>over</em>.</b> A movement's
-    /// crossing points are the town's own table and are read rather than claimed (TER-5c), so the block on
-    /// a join is the one car that is going down it — where a fan of claims over every way through a box said
-    /// nothing about which of them anybody was on.
+    /// <b>A secondary claim is drawn in its holder's colour on the way it lies over</b> (TER-5c.1), as an
+    /// outline (<see cref="Block"/>): the section of a crossed way that a main claim placed through a mark, and
+    /// nothing more of that way — so a washed block on a join is the car going down it, an outline is the exact
+    /// ground a crossing movement shares with it, and neither is a fan of claims over every way through a box.
     /// </para>
     /// <para>
     /// What is left with a colour of its own is what belongs to no body at all: the town's own furniture.

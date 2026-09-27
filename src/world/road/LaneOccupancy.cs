@@ -14,7 +14,8 @@ internal enum LaneRoster : byte
 
 /// <summary>
 /// <b>One reservation on one stretch of one way</b>, in the way's own metres — a body standing there
-/// (<see cref="ClaimPriority.Hard"/>) or ground somebody plans to use (every other rung).
+/// (<see cref="ClaimPriority.Hard"/>) or ground somebody plans to use (every other rung): a main claim on the
+/// holder's own line, or a secondary claim on a way that one crosses (TER-5c.1).
 /// </summary>
 /// <remarks>
 /// <b>Both edges are distances along the bending ground</b>: a way is a chain of arcs, its metres are that
@@ -37,13 +38,14 @@ internal enum LaneRoster : byte
 /// </param>
 /// <param name="Hold">Planned only: the hold it is a piece of (<see cref="LaneOccupancy.BeginHold"/>).</param>
 /// <param name="LineFromM">
-/// Planned only: where <paramref name="FromM"/> falls on its holder's own line — and, for a piece written
-/// through a mark, where on that line the mark begins, which is the metre the hold is cut at if the piece is
-/// taken.
+/// Planned only: where <paramref name="FromM"/> falls on its holder's own line — and, for a secondary claim,
+/// where on that line its main claim comes to the mark, which is the metre the hold is cut at if the secondary
+/// claim is taken.
 /// </param>
 /// <param name="AheadM">
-/// Planned only: <b>how far its holder has to travel to reach <paramref name="FromM"/></b> — or, through a
-/// mark, the start of that mark on its own way. The tie nothing else breaks goes to whoever gets there first.
+/// Planned only: <b>how far its holder has to travel to reach <paramref name="FromM"/></b> — or, for a
+/// secondary claim, to reach the mark on its own way. The tie nothing else breaks goes to whoever gets there
+/// first.
 /// </param>
 /// <param name="Held">
 /// Planned only: <b>ground on the way to and through a box its holder has already been given</b> — a movement
@@ -54,14 +56,15 @@ internal enum LaneRoster : byte
 /// Planned only: where the ground its holder can no longer stop short of ends on this way
 /// (<see cref="ClaimPriority.Committed"/>); everything short of it outranks every rung.
 /// </param>
-/// <param name="Linked">
-/// Planned only: <b>written through a mark rather than laid on the holder's own line</b> (TER-5c.1) — the
-/// section of another way that a stretch of the holder's own needs, held whole or not at all.
+/// <param name="Secondary">
+/// Planned only: <b>a secondary claim</b> (TER-5c.1) — the whole section of another way that a mark links a
+/// stretch of the holder's main claim to, placed with that main claim rather than laid on the holder's own
+/// line. It is weighed against main claims and never against another secondary claim.
 /// </param>
 internal readonly record struct LaneClaim(
     float FromM, float ToM, float AlongMps, int Occupant, ClaimPriority Priority,
     LaneRoster Of = LaneRoster.Driving, bool OnItsLine = false, int Hold = LaneOccupancy.NoHold,
-    float LineFromM = 0f, float AheadM = 0f, float CommittedToM = float.NegativeInfinity, bool Linked = false,
+    float LineFromM = 0f, float AheadM = 0f, float CommittedToM = float.NegativeInfinity, bool Secondary = false,
     bool Held = false)
 {
     public static LaneClaim Nothing => new(
@@ -79,7 +82,7 @@ internal readonly record struct LaneClaim(
     public bool CommittedAt(float atM) => !HasBody && atM < CommittedToM;
 
     /// <summary>How far its holder has to travel to reach the metre <paramref name="atM"/> of it.</summary>
-    public float ArrivalAt(float atM) => AheadM + (Linked ? 0f : MathF.Max(0f, atM - FromM));
+    public float ArrivalAt(float atM) => AheadM + (Secondary ? 0f : MathF.Max(0f, atM - FromM));
 }
 
 /// <summary>
@@ -124,22 +127,30 @@ internal readonly record struct PlannedAsk(
 /// </para>
 /// <para>
 /// <b>The planned layer is where they mean to be</b> (TER-4c.1). A hold is one stretch of its holder's own
-/// line, laid way by way from the nose forward. On each way it is <b>cut at the first body in front of it</b>,
-/// and weighed against every other hold it meets — on its own way, and on every way a mark says its ground is
-/// shared with (TER-5c.1) — by one comparison (<see cref="Beats"/>): the stronger keeps the ground and the
-/// weaker is cut back to where the two met. <b>A marked section is held whole or not at all</b>: to hold the
-/// stretch of its own way a mark names, a hold must hold the section of the other way it links to, and one
-/// that cannot is cut at the start of its own side of the mark. <b>A hold is one stretch</b> (TER-5c.2):
-/// cut anywhere, it gives up everything past the cut, marked sections included.
+/// line, laid way by way from the nose forward as <b>main claims</b> — and, wherever a mark says a main claim's
+/// ground is shared with another way, a <b>secondary claim</b> over the whole of that way's section, placed
+/// with it (TER-5c.1). <b>A main claim is answered off its own way alone</b>: cut at the first body in front of
+/// it, and weighed by one comparison (<see cref="Beats"/>) against every other hold's claim there, main or
+/// secondary — the stronger keeps the ground and the weaker is cut back to where the two met. <b>Two secondary
+/// claims never meet.</b> <b>A hold is one stretch</b> (TER-5c.2): cut anywhere, it gives up everything past
+/// the cut, secondary claims included.
+/// </para>
+/// <para>
+/// <b>Nothing on another way is read, because nothing there could answer differently.</b> A mark is filed
+/// under both its ways (<see cref="WayCrossings"/>), so whatever holds the far side of it has placed its own
+/// secondary claim over the near side, where the main claim asking meets it. Main meets main on one way and
+/// main meets secondary on the main claim's own way, and those are the only two meetings there are.
 /// </para>
 /// <para>
 /// <b>No two holds share a metre</b> (TER-4c.3), and the comparison is total and symmetric, so which of two
-/// holds keeps a piece of ground does not turn on which was laid first. What a cut frees is not handed back
-/// inside the tick: a hold cut earlier by ground a later one took away is laid again, whole, the tick after.
+/// holds keeps a piece of ground does not turn on which was laid first. <b>What a cut frees is handed back by
+/// the holder that was refused it</b>: a hold answered against ground a later cut took away is taken up and
+/// laid again, whole, over a new answer (<see cref="ReopenHold"/>) — which is the holder's to ask for, since
+/// only it knows what it was asking.
 /// </para>
 /// <para>
-/// <b>Nothing here computes any geometry.</b> Which ways a body is on comes from the atlas, which ground two
-/// ways share comes from its marks, and everything else is an interval of one way's own metres.
+/// <b>Nothing here computes any geometry.</b> Which ways a body is on comes from the atlas, where a secondary
+/// claim goes comes from its marks, and everything else is an interval of one way's own metres.
 /// </para>
 /// <para>
 /// <b>It is rebuilt from the bodies every tick and never written to during a decision</b>, which is what
@@ -156,7 +167,7 @@ internal sealed partial class LaneOccupancy
 
     readonly TownWays _ways;
 
-    /// <summary><b>Which ways share ground, and where</b> (<see cref="RibbonAtlas.Marks"/>).</summary>
+    /// <summary><b>Where a main claim's secondary claims go</b> (<see cref="RibbonAtlas.Marks"/>).</summary>
     readonly WayCrossings _marks;
 
     /// <summary>The first body on each way, or <see cref="NoSlot"/>, ascending by near edge.</summary>
@@ -187,6 +198,7 @@ internal sealed partial class LaneOccupancy
     int _slotCount;
     int _touchedCount;
     int _holdCount;
+    int _cuts;
 
     /// <param name="ways">Every way in the town, in one numbering.</param>
     /// <param name="mostSlots">
@@ -230,7 +242,7 @@ internal sealed partial class LaneOccupancy
 
     public int WayCount => _ways.Count;
 
-    /// <summary>The marks the planned layer is settled over.</summary>
+    /// <summary>The marks secondary claims are placed through.</summary>
     public WayCrossings Marks => _marks;
 
     /// <summary>How many reservations the last rebuild laid, taken ones included.</summary>
@@ -240,6 +252,12 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>How many holds the last rebuild laid.</summary>
     public int HoldCount => _holdCount;
+
+    /// <summary>
+    /// <b>How many times one hold has been cut by another's taking</b> since the rebuild began — none, and every
+    /// hold still ends where it was answered.
+    /// </summary>
+    public int Cuts => _cuts;
 
     /// <summary>
     /// <b>How many reservations have been dropped for want of room</b> since the town was laid — a body or a
@@ -269,6 +287,7 @@ internal sealed partial class LaneOccupancy
         _touchedCount = 0;
         _slotCount = 0;
         _holdCount = 0;
+        _cuts = 0;
     }
 
     /// <summary>
@@ -327,11 +346,15 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
-    /// <b>How far along one way a hold's piece can be had</b> — read and never written: the least of the
-    /// near edge of the first body in front of the holder, the first metre of another hold that
-    /// <see cref="Beats"/> this one there, and the first mark whose linked section another hold that beats
-    /// this one is on. <paramref name="toM"/> where nothing stops it.
+    /// <b>How far along one way a hold's main claim can be had</b> — read and never written, and read off this
+    /// way alone: the lesser of the near edge of the first body in front of the holder and the first metre of
+    /// another hold's claim, main or secondary, that <see cref="Beats"/> this one there. <paramref name="toM"/>
+    /// where nothing stops it.
     /// </summary>
+    /// <remarks>
+    /// <b>The secondary claims the piece would place are not asked about</b>: whatever they would meet on the
+    /// ways they lie over has placed its own secondary claim on this one (<see cref="WayCrossings"/>).
+    /// </remarks>
     /// <param name="standsToM">
     /// How far along this way the holder's own body already reaches — its nose on the way it is on, the
     /// piece's own start beyond that. <b>A body that does not reach past it cuts nothing</b>: it is beside or
@@ -355,75 +378,53 @@ internal sealed partial class LaneOccupancy
             break;
         }
 
-        // The planned pieces on this way and the marks along it, in the order the holder comes to them.
-        var piece = _planned[way];
-        var marks = _marks.Of(way);
-        var mark = 0;
-        while (true)
+        for (var at = _planned[way]; at != NoSlot; at = _next[at])
         {
-            while (piece != NoSlot && (_slots[piece].ToM <= fromM || Owns(ask, _slots[piece]))) piece = _next[piece];
-            while (mark < marks.Length && marks[mark].MineToM <= fromM) mark++;
-
-            var pieceAtM = piece == NoSlot ? float.PositiveInfinity : MathF.Max(fromM, _slots[piece].FromM);
-            var markAtM = mark == marks.Length ? float.PositiveInfinity : MathF.Max(fromM, marks[mark].MineFromM);
-            var atM = MathF.Min(pieceAtM, markAtM);
+            ref readonly var other = ref _slots[at];
+            var atM = MathF.Max(fromM, other.FromM);
             if (atM >= limitM) break;
+            if (other.ToM <= fromM || Owns(ask, other)) continue;
 
-            if (pieceAtM <= markAtM)
+            var overToM = MathF.Min(toM, other.ToM);
+            if (Beats(
+                    ask, atM, StandsOn(way, ask.Occupant, ask.Of, atM, overToM), other,
+                    StandsOn(way, other.Occupant, other.Of, atM, overToM)))
             {
-                ref readonly var other = ref _slots[piece];
-                var overToM = MathF.Min(toM, other.ToM);
-                if (!Beats(
-                        ask, atM, StandsOn(way, ask.Occupant, ask.Of, atM, overToM), other, atM,
-                        StandsOn(way, other.Occupant, other.Of, atM, overToM)))
-                {
-                    limitM = atM;
-                    cutBy = other;
-                    break;
-                }
-
-                piece = _next[piece];
                 continue;
             }
 
-            if (LosesTheSection(ask, atM, marks[mark], out var winner))
-            {
-                limitM = atM;
-                cutBy = winner;
-                break;
-            }
-
-            mark++;
+            limitM = atM;
+            cutBy = other;
+            break;
         }
 
         return limitM;
     }
 
     /// <summary>
-    /// <b>A hold's piece laid</b> over <c>[ask.FromM, toM)</c> of one way: every other hold it beats there,
-    /// on this way and on every section a mark over these metres links it to, is cut back to where the two
-    /// met; each such section is written as this hold's own; and then the piece itself.
+    /// <b>A hold's main claim laid</b> over <c>[ask.FromM, toM)</c> of one way, and its secondary claims with
+    /// it: every other hold's claim over these metres of this way, main or secondary, is cut back to where the
+    /// two met; the main claim is laid; and every mark over these metres places the whole of its section of the
+    /// other way as a secondary claim of this hold.
     /// </summary>
     /// <remarks>
     /// <b>Laid only over what <see cref="Reach"/> said could be had</b>, so everything met here is something
-    /// this hold beats. A piece of no length lays nothing and takes nothing.
+    /// this hold beats. <b>A secondary claim cuts nothing where it is placed</b>: a main claim over that ground
+    /// has a secondary claim of its own over this way, and was cut when that was. A piece of no length lays
+    /// nothing and takes nothing.
     /// </remarks>
     public void Take(in PlannedAsk ask, int way, float toM)
     {
         var fromM = ask.FromM;
         if (toM <= fromM || ask.Hold == NoHold) return;
 
-        var taker = ask.Laid(toM);
-        TakeFrom(way, fromM, toM, ask, taker);
+        var main = ask.Laid(toM);
+        TakeFrom(way, fromM, toM, ask, main);
 
         foreach (ref readonly var mark in _marks.Of(way))
         {
             if (mark.MineFromM >= toM) break;
             if (mark.MineToM <= fromM) continue;
-
-            if (mark.ToM <= mark.FromM) continue;
-
-            TakeFrom(mark.OnWay, mark.FromM, mark.ToM, ask, taker, piecesOnly: true);
 
             var atM = MathF.Max(fromM, mark.MineFromM);
             Append(
@@ -432,10 +433,10 @@ internal sealed partial class LaneOccupancy
                     mark.FromM, mark.ToM, 0f, ask.Occupant, ask.Rung, ask.Of, Hold: ask.Hold,
                     LineFromM: ask.LineAt(atM), AheadM: ask.ArrivalAt(atM),
                     CommittedToM: ask.CommittedAt(atM) ? float.PositiveInfinity : float.NegativeInfinity,
-                    Linked: true, Held: ask.Held));
+                    Secondary: true, Held: ask.Held));
         }
 
-        Append(_planned, way, taker);
+        Append(_planned, way, main);
     }
 
     /// <summary>
@@ -453,6 +454,32 @@ internal sealed partial class LaneOccupancy
         _holdCutMarginM[hold] = cutMarginM;
         _holdCutBy[hold] = cutBy;
         _holdCutOn[hold] = cutOn;
+    }
+
+    /// <summary>
+    /// <b>A hold taken up to be laid again</b>: every main and secondary claim of it comes off the ways, and what it was answered is forgotten — laid again with <see cref="Reach"/>,
+    /// <see cref="Take"/> and <see cref="EndHold"/> as though begun.
+    /// </summary>
+    /// <remarks>
+    /// <b>An answer read before it was taken up still stands after</b>: a hold's own ground is never held
+    /// against it, so its pieces change nothing <see cref="Reach"/> says. <b>Its pieces are laid in new
+    /// slots</b>, and the ones it held are spent until the next rebuild.
+    /// </remarks>
+    public void ReopenHold(int hold)
+    {
+        if (hold == NoHold) return;
+
+        for (var at = _holdFirst[hold]; at < _holdEnd[hold]; at++)
+        {
+            if (!_gone[at]) Unlink(at);
+        }
+
+        _holdFirst[hold] = _slotCount;
+        _holdEnd[hold] = _slotCount;
+        _holdCutLineM[hold] = float.PositiveInfinity;
+        _holdCutMarginM[hold] = 0f;
+        _holdCutBy[hold] = LaneClaim.Nothing;
+        _holdCutOn[hold] = NoSlot;
     }
 
     /// <summary>Which way a hold was cut on, for an instrument saying what held somebody — or −1.</summary>
@@ -508,22 +535,23 @@ internal sealed partial class LaneOccupancy
     /// ground in question — and two exactly as near by roster and occupant.
     /// </para>
     /// </remarks>
-    /// <param name="atM">Where on its own way the asker meets the other.</param>
+    /// <param name="atM">
+    /// Where on the asker's way the two meet — the one way they are ever weighed on, since the other is a main
+    /// claim of that way or a secondary claim placed on it.
+    /// </param>
     /// <param name="askStands">Whether the asker's own body is on the ground the two want.</param>
-    /// <param name="otherAtM">And where on its own way the other is met.</param>
     /// <param name="otherStands">And whether the other's holder's body is.</param>
-    public static bool Beats(
-        in PlannedAsk ask, float atM, bool askStands, in LaneClaim other, float otherAtM, bool otherStands)
+    public static bool Beats(in PlannedAsk ask, float atM, bool askStands, in LaneClaim other, bool otherStands)
     {
         var askCommitted = ask.CommittedAt(atM);
-        var otherCommitted = other.CommittedAt(otherAtM);
+        var otherCommitted = other.CommittedAt(atM);
         if (askCommitted != otherCommitted) return askCommitted;
         if (askStands != otherStands) return askStands;
         if (!askCommitted && ask.Rung != other.Priority) return ask.Rung < other.Priority;
         if (!askCommitted && ask.Held != other.Held) return ask.Held;
 
         var askArrivalM = ask.ArrivalAt(atM);
-        var otherArrivalM = other.ArrivalAt(otherAtM);
+        var otherArrivalM = other.ArrivalAt(atM);
         if (askArrivalM != otherArrivalM) return askArrivalM < otherArrivalM;
 
         return ask.Of != other.Of ? ask.Of < other.Of : ask.Occupant < other.Occupant;
@@ -543,50 +571,10 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
-    /// Whether some other hold on the section a mark links to beats the asker there — and which, where one
-    /// does. The first found is enough: the section is held whole or not at all.
+    /// Every other hold's claim over <c>[fromM, toM)</c> of one way, main or secondary, cut back to where the
+    /// taker met it — the whole of that hold beyond the metre, its secondary claims included.
     /// </summary>
-    /// <remarks>
-    /// <b>Another hold's marked section on the same way is no answer.</b> Two marked sections on one way are
-    /// two holders whose ground each overlaps that way's ribbon, and where the two grounds overlap one
-    /// another the two holders' own ways are marked against each other and meet there — so held against
-    /// each other here, they were two cars refused a corner of pavement neither of them drives.
-    /// </remarks>
-    bool LosesTheSection(in PlannedAsk ask, float atM, in CrossedSection mark, out LaneClaim winner)
-    {
-        var way = mark.OnWay;
-        for (var at = _planned[way]; at != NoSlot; at = _next[at])
-        {
-            ref readonly var other = ref _slots[at];
-            if (other.FromM >= mark.ToM) break;
-            if (other.ToM <= mark.FromM || other.Linked || Owns(ask, other)) continue;
-
-            var overFromM = MathF.Max(mark.FromM, other.FromM);
-            var overToM = MathF.Min(mark.ToM, other.ToM);
-            if (Beats(
-                    ask, atM, StandsOn(way, ask.Occupant, ask.Of, overFromM, overToM), other, overFromM,
-                    StandsOn(way, other.Occupant, other.Of, overFromM, overToM)))
-            {
-                continue;
-            }
-
-            winner = other;
-            return true;
-        }
-
-        winner = LaneClaim.Nothing;
-        return false;
-    }
-
-    /// <summary>
-    /// Every other hold's piece over <c>[fromM, toM)</c> of one way, cut back to where the taker met it — the
-    /// whole of that hold beyond the metre, marked sections included.
-    /// </summary>
-    /// <param name="piecesOnly">
-    /// Whether what is being laid is itself a marked section, which the other holds' marked sections on the
-    /// same way do not meet (<see cref="LosesTheSection"/>).
-    /// </param>
-    void TakeFrom(int way, float fromM, float toM, in PlannedAsk ask, in LaneClaim taker, bool piecesOnly = false)
+    void TakeFrom(int way, float fromM, float toM, in PlannedAsk ask, in LaneClaim taker)
     {
         // Cutting a hold may take other pieces of it off this same list, so the walk starts again after each.
         var at = _planned[way];
@@ -594,14 +582,14 @@ internal sealed partial class LaneOccupancy
         {
             ref readonly var other = ref _slots[at];
             if (other.FromM >= toM) break;
-            if (other.ToM <= fromM || (piecesOnly && other.Linked) || Owns(ask, other))
+            if (other.ToM <= fromM || Owns(ask, other))
             {
                 at = _next[at];
                 continue;
             }
 
             var atM = MathF.Max(fromM, other.FromM);
-            CutHold(other.Hold, other.Linked ? other.LineFromM : other.LineFromM + (atM - other.FromM), taker, way);
+            CutHold(other.Hold, other.Secondary ? other.LineFromM : other.LineFromM + (atM - other.FromM), taker, way);
 
             // The line metre and the way metre are one figure carried two ways, so the piece met here is
             // held to the exact metre it was met at: a hair of overlap left by the round trip is ground two
@@ -617,11 +605,12 @@ internal sealed partial class LaneOccupancy
     }
 
     /// <summary>
-    /// <b>A hold cut at one metre of its holder's line</b>: every piece of it beyond is taken out, the piece
-    /// running over the metre ends there, and a marked section begun at or beyond it goes whole.
+    /// <b>A hold cut at one metre of its holder's line</b>: every piece of it beyond is taken out, the main
+    /// claim running over the metre ends there, and a secondary claim placed at or beyond it goes whole.
     /// </summary>
     void CutHold(int hold, float lineM, in LaneClaim cutBy, int cutOn)
     {
+        _cuts++;
         for (var at = _holdFirst[hold]; at < _holdEnd[hold]; at++)
         {
             if (_gone[at]) continue;
@@ -633,7 +622,7 @@ internal sealed partial class LaneOccupancy
                 continue;
             }
 
-            if (piece.Linked) continue;
+            if (piece.Secondary) continue;
 
             var endsAtLineM = piece.LineFromM + (piece.ToM - piece.FromM);
             if (endsAtLineM <= lineM) continue;

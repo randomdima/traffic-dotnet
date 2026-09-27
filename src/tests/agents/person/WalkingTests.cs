@@ -327,7 +327,7 @@ public class WalkingTests
 
     /// <summary>
     /// <b>PER-27: a walker walking a crossing plans it to the far kerb.</b> The paint in front of the body on
-    /// the stretch it is taking, and through the marks the section of every lane that paint lies over, are
+    /// the stretch it is taking, and a secondary claim over the section of every lane that paint lies over, are
     /// this walker's at the paint's rung — the far kerb spoken for from the moment the walk is on the zebra,
     /// and not only the metre under the feet.
     /// </summary>
@@ -358,7 +358,7 @@ public class WalkingTests
         var lane = world.Ways.OfRoadLane(world.Bands.On(edge)[^1].Lane);
         Assert.True(
             ClaimsOf(world, lane, person, ClaimPriority.Crossing).Count > 0,
-            $"walker {person} walks crossing way {way} and holds no section of lane way {lane} under it");
+            $"walker {person} walks crossing way {way} and holds no secondary claim on lane way {lane} under it");
     }
 
     /// <summary>
@@ -624,7 +624,7 @@ public class WalkingTests
         return false;
     }
 
-    /// <summary>Every piece of one way this walker plans on its own walk, whatever its rung.</summary>
+    /// <summary>Every main claim of one way this walker plans on its own walk, whatever its rung.</summary>
     static List<LaneClaim> PlannedOf(TownWorld world, int way, int person)
     {
         var found = new List<LaneClaim>();
@@ -634,7 +634,7 @@ public class WalkingTests
         var count = world.Occupancy.CopyPlannedTo(way, claims);
         for (var at = 0; at < count; at++)
         {
-            if (claims[at].Occupant == person && claims[at].Of == LaneRoster.Walking && !claims[at].Linked) found.Add(claims[at]);
+            if (claims[at].Occupant == person && claims[at].Of == LaneRoster.Walking && !claims[at].Secondary) found.Add(claims[at]);
         }
 
         return found;

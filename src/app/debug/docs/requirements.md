@@ -1,8 +1,9 @@
 # The debug layers — requirements
 
 What a debug session can be opened for, and what it may cost. **This slice owns the switches as well as
-the layers** — the panel that draws a switch is [app/hud](../../hud/docs/requirements.md)'s, and it reads
-them from here rather than the layers reaching back into the panel. The frame read-out is not one of these:
+the layers, and the sections they are shown in** — the panel that draws a switch is
+[app/hud](../../hud/docs/requirements.md)'s, and it reads them from here rather than the layers reaching back
+into the panel. The frame read-out is not one of these:
 it is furniture in the corner and is [app/hud](../../hud/docs/requirements.md)'s. What everything is drawn
 with is [app/screen](../../screen/docs/requirements.md). How each layer draws what it draws, and why, is on
 its own type (`DebugOverlay` and its parts, `PathMarks`, `MarkClaims`, `ShellProbe`).
@@ -24,6 +25,21 @@ those take the town apart rather than drawing anything over it, and they start o
 of body entirely** — its geometry and its
 manoeuvre alike — because the question is about the body, not about the kind of mark; and **what belongs
 to the *town* rather than to a body is not switched with a body at all**.
+
+**OBS-2y** `P8` **The switches are shown a section a thing a session is opened to look at, and one section at
+a time** ([`DebugLayers`](../DebugLayers.cs)). A section carries every switch and every figure that question
+turns — the road's trims beside the car layers they are felt in, the probe's two figures beside the boundary
+it is struck off, the ground's own layers (OBS-2v) beside the wireframe drawn over them — so what is on the
+glass at once is one question's worth of rows and never every switch the slice owns.
+
+- **Every switch is in exactly one section**: in two it is one switch with two rows, in none a switch nobody
+  can reach.
+- **A switch says what it draws and what each of its colours means**, on its own row: a key kept anywhere
+  else is a key nobody has open while looking at the town.
+- **A section says how many of its layers are on without being opened**, which is how a layer still drawing
+  over the town is found after the reader has moved on to another section; and **one row turns every layer
+  off at once**.
+- **A section can be photographed open**: `--ui menu-<section>`.
 
 **OBS-2d** `P8` **Between them the layers leave nothing out.** Everything that acts on an agent while it moves
 is drawn by one of them: the ways it may travel, the movements a junction allows it, the nodes it plans
@@ -110,13 +126,26 @@ glass the town was actually laid with.
 bay ways taken as the ribbons of ground they cover (OBS-2p), each drawn whole at its own line's width —
 **the area and not the edge of it**.
 
-**OBS-2t** `P8` **Where a layer draws everything at once, the pointer asks it about one thing.** Three
-readings, each drawn only while the layer it is about is on: **the driven line under the pointer**, as the
-whole ribbon it lays and the line of that ribbon alone (OBS-2s); **the stretch of boundary
-under the pointer**, as that stretch alone with a dot at each of its ends and the outline it is a stretch of
-named beside it — every outline the layer draws is searched and the nearest of all of them wins (OBS-2p);
-and **the cell of the
-geometry grid that was clicked**, as its own square and every line the index holds in it (OBS-2r).
+**OBS-2t** `P8` **Where a layer draws everything at once, the pointer asks it about one thing, and a click
+pins it.** The one thing is found in the layers that are on, and **drawn over is found first** — a body,
+then a stretch of boundary, then a way, then a ribbon, then a cell — so a thin thing is never hidden behind a
+broad one that covers it. It is drawn picked out, and what it is, is written on a card beside the pointer:
+
+- **a body** — its outline and its own two pieces of route at the picked weight (OBS-2h), and what it is
+  doing, how fast, what it sees ahead and where it must stop;
+- **a way**, under the claims or the nodes — the whole of it, and what it is, how long and wide, and with the
+  claims on **every stretch of it somebody holds**, whose and how strong, marked where it covers the pointer;
+- **a driven line's ribbon** (OBS-2s) — the ribbon it lays, and its length, width and sections;
+- **a stretch of boundary** (OBS-2p) — that stretch alone with a dot at each end, and the outline it is a
+  stretch of; every outline the layer draws is searched and the nearest of all of them wins;
+- **a cell** of the geometry grid (OBS-2r) — its square and every line the index holds in it — or of the
+  solver's (OBS-2x), both grids' cells over the place and what each holds.
+
+**The words are on the card and nowhere on the town**: a layer is lines until somebody points. **A click on
+the town pins what is under it** — its card docked under the corner buttons, and it stays picked out — and
+**a click on nothing a layer draws lets it go**. The click still selects the unit under it: **no layer takes
+the mouse**, since a reading the reader asked for is not a mode they have to leave before they can pick a
+car. A pin is dropped when every layer that could find it is off.
 
 **OBS-2r** `P8` **The grid the town's geometry is asked over is a layer**: the cells of the index a
 question about which line is where is narrowed with ([`ChainIndex`](../../../core/geometry/ChainIndex.cs)),

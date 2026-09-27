@@ -80,7 +80,7 @@ internal sealed partial class DebugOverlay
 
     /// <summary>
     /// <b>The shape the reader struck for themselves</b> (OBS-2w): the same boundary moved out by the
-    /// distance standing on the figures page, drawn as any other outline is and in a colour of its own.
+    /// distance its own slider stands at, drawn as any other outline is and in a colour of its own.
     /// </summary>
     /// <remarks>
     /// <b>Its own switch, and it draws nothing the town was laid from</b> (<see cref="ShellProbe"/>). What

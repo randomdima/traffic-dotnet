@@ -294,6 +294,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             (drivers * 2) + walkers,
             _atlas.Marks);
         _carHold = new int[drivers];
+        _carHeldToM = new float[drivers];
         _carBox = new int[drivers];
         _carBoxEndsAtM = new float[drivers];
         _walkerHold = new int[walkers];
@@ -648,8 +649,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         if (People.Wounded[agent]) return;
 
         var positionM = People.PositionM[agent];
-        var ground = _terrain.At(positionM);
-        People.GroundCoefficient[agent] = ground.Coefficient;
 
         // CTL-6's seam, read every tick: the goal is substituted and nothing under it is, so what
         // follows cannot tell this walker from any other.
@@ -663,7 +662,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         var step = WalkerFollower.Step(
             _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], aimM, People.Walking[agent],
-            ground.Coefficient, People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
+            People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
 
         People.HeadingRad[agent] = step.HeadingRad;
         _impulseNs[agent] = step.ImpulseNs;

@@ -223,9 +223,9 @@ the lead above, which is what settles a queue at the standstill gap and a second
 a tenth of one — **and that time is kept from what is being followed and from nothing else**: a grant cut
 at a wreck, at somebody on foot, at ground somebody has claimed or at the place two movements meet
 already ends the asker's own margin short of it, and a second of travel on top of that is a car holding a
-street shut at speed for something it needed only to stop short of. **And it is cut through the marks by
-the ground its ways share with the ways it only crosses** (TER-5c.1), so the grant means one plan to a piece
-of ground across a junction and not only along a lane. **What is asked for stops where a rule stops the
+street shut at speed for something it needed only to stop short of. **And it is cut by the secondary claims
+other plans place on its ways where theirs cross them** (TER-5c.1), so the grant means one plan to a piece of
+ground across a junction and not only along a lane. **What is asked for stops where a rule stops the
 car** (TER-4c.1) — a red, a bar, a zebra it must stop short of — the gap it keeps included, so a car
 standing at a stop holds the ground it is on and none of what it stopped for.
 
@@ -238,8 +238,8 @@ the traffic, anybody on foot in it, and the town's own furniture (TER-4c).
 **S-4** `P3` Take up the ground **on your own way through** the box ahead, at the places the other movements
 cross it, and give back the box behind (TER-5c). Every tick, never on the clock — a red can change
 under a car, and nothing here is a claim on the junction. **What another movement's ground costs you
-is looked up and never marked** (TER-5c.1): a car claims the ways it is going to be on, and reads the
-ways it is only driven over. **And what it costs you turns on the right of way each of you has there**
+is read on your own ways** (TER-5c.1): a car places main claims on the ways it is going to be on and
+secondary claims on the ways those cross, and reads nothing but its own. **And what it costs you turns on the right of way each of you has there**
 (TER-5e): ground held by a movement that gives way to yours is ground you are not cut at, and ground
 held by a body past the point it could stop short is ground nobody's rank takes. A crossing already taken
 is **given back** when something with the right of way over it asks for the same ground — while this car

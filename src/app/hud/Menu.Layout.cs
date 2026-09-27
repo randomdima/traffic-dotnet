@@ -51,15 +51,15 @@ internal sealed partial class Menu
     /// <summary>
     /// And the room the popup lays its rows in, off <b>how far down the window it may reach</b>
     /// (<see cref="PopupHeightShare"/>) rather than off how many rows it has. <b>It never reaches less far
-    /// than its own fixed page needs</b> — the switches are laid at a pitch rather than scrolled, so a
-    /// ceiling cutting into them would draw them outside the panel — and never past the window's margin.
+    /// than its own fixed page needs</b> — the debug page is laid at a pitch rather than scrolled, so a
+    /// ceiling cutting into it would draw its rows outside the panel — and never past the window's margin.
     /// </summary>
-    static float PopupRoomPx(Vector2 uiPx, Rect anchor)
+    static float PopupRoomPx(Vector2 uiPx, Rect anchor, float fixedPagePx)
     {
         var underTheButtonPx = anchor.Bottom + Theme.GapPx + ChromeHeightPx(atTheStart: false);
         var reachesPx = MathF.Min(
             uiPx.Y - Theme.MarginPx,
-            MathF.Max(uiPx.Y * PopupHeightShare, underTheButtonPx + LeastContentHeightPx));
+            MathF.Max(uiPx.Y * PopupHeightShare, underTheButtonPx + fixedPagePx));
 
         return MathF.Max(LinePitchPx, reachesPx - underTheButtonPx);
     }
@@ -83,16 +83,8 @@ internal sealed partial class Menu
     static float ChromeHeightPx(bool atTheStart) => ContentTopPx(atTheStart) + Theme.PaddingPx;
 
     /// <summary>
-    /// What the content column is never shorter than, which is the longest of the pages that are laid at
-    /// a pitch rather than scrolled: a ceiling cutting into either of them would draw its last rows
-    /// outside the panel.
-    /// </summary>
-    static float LeastContentHeightPx =>
-        MathF.Max(MostLines, GroundRows) * LinePitchPx - Theme.GapPx;
-
-    /// <summary>
-    /// The ground page: one row a layer, the two rows the whole mesh is read off, and the row that puts
-    /// every layer back (<see cref="WholeGroundRow"/>).
+    /// The ground's own layers: one row a layer, the two rows the whole mesh is read off, and the row that
+    /// puts every layer back (<see cref="WholeGroundRow"/>).
     /// </summary>
     const int GroundRows = GroundParts.Count + 3;
 
@@ -101,11 +93,6 @@ internal sealed partial class Menu
 
     /// <summary>And the row under them, which is not a layer either: it puts the whole ground back.</summary>
     public const int WholeGroundRow = GroundRows - 1;
-
-    static float GroundHeightPx => GroundRows * LinePitchPx - Theme.GapPx;
-
-    /// <summary>And the figures page, which is one row a slider and the one under them that resets the lot.</summary>
-    static readonly float FiguresHeightPx = (Sliders + 1) * TrimPitchPx - Theme.GapPx;
 
     /// <summary>A trim row carries its name and its share on two lines, as a map row carries its own.</summary>
     const float TrimPitchPx = Theme.TallRowPx + Theme.GapPx;
@@ -120,15 +107,15 @@ internal sealed partial class Menu
 
     readonly Rect[] _tabs = new Rect[Pages + 1];
     readonly Rect[] _rows = new Rect[MostRows];
-    readonly Rect[] _lines = new Rect[MostLines];
 
     /// <summary>
     /// One row a layer of the ground, the two the whole of it is read off, and the row that puts every
-    /// layer back.
+    /// layer back. <b>Laid only while the section holding them is showing</b>, as every rectangle of the debug
+    /// page is: a row of another section is no rectangle at all, so it takes no click.
     /// </summary>
     readonly Rect[] _grounds = new Rect[GroundRows];
 
-    /// <summary>One track a trim, and the reset row under them.</summary>
+    /// <summary>One track a slider, and the reset row under the trims.</summary>
     readonly Rect[] _trims = new Rect[Sliders + 1];
 
     /// <summary>Which trim the pointer has hold of, or -1 while nothing is being dragged.</summary>
@@ -179,6 +166,11 @@ internal sealed partial class Menu
     /// the narrow centred one standing under the gear for the rest of the run.
     /// </summary>
     bool _laidAtTheStart = true;
+
+    /// <summary>And which page and section, since a script can open either before the panel is drawn at all.</summary>
+    int _laidPage = -1;
+
+    int _laidSection = -1;
 
     int _rowCount;
 
@@ -291,6 +283,8 @@ internal sealed partial class Menu
         _laidFor = uiPx;
         _laidAt = anchor;
         _laidAtTheStart = AtTheStart;
+        _laidPage = Page;
+        _laidSection = Section;
 
         FillRows();
 
@@ -313,9 +307,10 @@ internal sealed partial class Menu
         // **The rows answer to the window rather than the window to them.** A list of maps on a short
         // display grew the panel straight off the bottom of the screen, which is a menu hiding the
         // thing it was written to expose; what does not fit scrolls.
+        var debugPx = DebugHeightPx(PaneWidthPx(contentWidthPx));
         var roomPx = AtTheStart
             ? MathF.Max(StartRoomPx(uiPx), LeastStartRoomPx())
-            : PopupRoomPx(uiPx, anchor);
+            : PopupRoomPx(uiPx, anchor, debugPx);
 
         _firstRow = Math.Clamp(_firstRow, 0, Math.Max(0, _rowCount - 1));
         while (_firstRow > 0 && HeightFrom(_firstRow - 1) <= roomPx) _firstRow--;
@@ -324,16 +319,12 @@ internal sealed partial class Menu
         // under the popup's last map, kept so that the other page would fit without the panel changing
         // height, reads as a list cut short rather than as a page that ended — where the start menu is
         // standing in a hole it has to keep inside, so there the height is the hole's and the list scrolls.
+        // **The debug page is one height whichever section is showing**, the tallest of them: a panel that
+        // jumped as its sections were clicked through would move the row the pointer is on.
         _shownRows = Page == Maps ? Fitting(_firstRow, roomPx) : 0;
         var contentHeightPx = AtTheStart
             ? roomPx
-            : MathF.Min(roomPx, Page switch
-            {
-                Maps => HeightOf(_firstRow, _shownRows),
-                Figures => FiguresHeightPx,
-                Ground => GroundHeightPx,
-                _ => MostLines * LinePitchPx - Theme.GapPx,
-            });
+            : MathF.Min(roomPx, Page == Maps ? HeightOf(_firstRow, _shownRows) : debugPx);
 
         var sizePx = new Vector2(
             Theme.PaddingPx * 2f + contentWidthPx, ChromeHeightPx(AtTheStart) + contentHeightPx);
@@ -346,8 +337,11 @@ internal sealed partial class Menu
         // A tab the layout does not carry is laid as no rectangle at all, so it takes no click and draws
         // nothing. <b>The start menu carries only the way out</b>, and it stands on the title's own line,
         // at the end of it, which is where it already was when there was a strip to be the end of.
+        // The pages from the leading edge and the way out at the trailing one, so the one tab that does not
+        // come back stands apart from the ones that do.
         var contentX = atPx.X + Theme.PaddingPx;
-        var tabWidthPx = (contentWidthPx - (Theme.GapPx * (_tabs.Length - 1))) / _tabs.Length;
+        var tabWidthPx = MathF.Min(
+            MostTabPx, (contentWidthPx - (Theme.GapPx * (_tabs.Length - 1))) / _tabs.Length);
         for (var tab = 0; tab < _tabs.Length; tab++)
         {
             if (AtTheStart && !AtTheStartTab(tab))
@@ -358,7 +352,9 @@ internal sealed partial class Menu
 
             var atPxOfTab = AtTheStart
                 ? new Vector2(contentX + contentWidthPx - ExitWidthPx, atPx.Y + Theme.PaddingPx)
-                : new Vector2(contentX + tab * (tabWidthPx + Theme.GapPx), atPx.Y + TabsTopPx(false));
+                : tab == ExitTab
+                    ? new Vector2(contentX + contentWidthPx - tabWidthPx, atPx.Y + TabsTopPx(false))
+                    : new Vector2(contentX + tab * (tabWidthPx + Theme.GapPx), atPx.Y + TabsTopPx(false));
 
             _tabs[tab] = new Rect(atPxOfTab, new Vector2(AtTheStart ? ExitWidthPx : tabWidthPx, Theme.RowPx));
         }
@@ -377,24 +373,7 @@ internal sealed partial class Menu
             downPx += heightOfRowPx + Theme.GapPx;
         }
 
-        for (var line = 0; line < MostLines; line++)
-        {
-            _lines[line] = new Rect(
-                new Vector2(contentX, contentTopY + line * LinePitchPx), new Vector2(contentWidthPx, Theme.RowPx));
-        }
-
-        for (var trim = 0; trim < _trims.Length; trim++)
-        {
-            _trims[trim] = new Rect(
-                new Vector2(contentX, contentTopY + trim * TrimPitchPx), new Vector2(contentWidthPx, Theme.TallRowPx));
-        }
-
-        for (var row = 0; row < _grounds.Length; row++)
-        {
-            _grounds[row] = new Rect(
-                new Vector2(contentX, contentTopY + row * LinePitchPx), new Vector2(contentWidthPx, Theme.RowPx));
-        }
-
+        LayDebug(contentX, contentTopY, contentWidthPx, contentHeightPx);
     }
 
     /// <summary>
@@ -500,14 +479,7 @@ internal sealed partial class Menu
             wantedPx = MathF.Max(wantedPx, GlyphSheet.WidthPx(group.Length + GroupMark.Length, Theme.TextPx));
         }
 
-        var widestSliderPx =
-            MathF.Max(WidestPx(TrimFigures.Names, Theme.TextPx), GlyphSheet.WidthPx(ShellProbe.Named.Length, Theme.TextPx));
-
-        return MathF.Max(
-            wantedPx,
-            MathF.Max(
-                MathF.Max(WidestPx(Lines, Theme.TextPx), widestSliderPx + TrimShareRoomPx),
-                TickRoomPx + WidestPx(GroundParts.Names, Theme.TextPx) + Theme.GapPx + GroundReadingRoomPx));
+        return MathF.Max(wantedPx, DebugWantedPx);
     }
 
     /// <summary>
@@ -540,7 +512,8 @@ internal sealed partial class Menu
 
     /// <summary>Whether what was laid is still the layout that would be laid now.</summary>
     public bool LaidFor(Vector2 uiPx, Rect anchor) =>
-        _laidFor == uiPx && _laidAt == anchor && _laidAtTheStart == AtTheStart;
+        _laidFor == uiPx && _laidAt == anchor && _laidAtTheStart == AtTheStart && _laidPage == Page
+        && _laidSection == Section;
 
     /// <summary>Whether the page showing has more rows than the window has room for.</summary>
     bool Scrolls => _shownRows < _rowCount;

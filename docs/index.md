@@ -156,24 +156,19 @@ owning slice's log; this list says only what is absent now and what closes it.
   ordered to the far end of a 7 m zebra it stands 3 m from walks 56 m round. It is not connectivity, and
   the search is a plain Dijkstra with a walker's turn priced at nothing; what is left is the shape of the
   contracted runs at a zebra's mouth, where the lane a body stands on runs past the mouth rather than into
-  it.
+  it. The exam map shows the same at its lattice's zebras: from a metre off the kerb some are walked over
+  and some are walked round, a walker in the middle of the paint sent to the far pavement walks back to the
+  near one and round, and only a walk from one edge of the paint to the other is the zebra every time —
+  which is how the exam stages its pedestrians.
 - **The fixture is generated, and stands nobody.** `towns/Test.json` is a brief like a city's, so the map
   every detailed check is staged on moves when the generator does, which is the one thing a fixture exists
   not to do ([verification.md](verification.md)). It asks for no buildings, so it carries no walker
   (`GEN-7`), no car park and no crossing — the shipped cities carry theirs (`--bench census`). It closes
   when the fixture can carry buildings without the car parks counted off them (`GEN-53`).
-- **No laboratory map ships.** `Track` ×3, `Exam`, `Footway`, `Skidpad` and `Zebras` were laid against
-  the lane layer that was replaced and went with it, so the scenario machinery — the status panel's claims
-  section (`OBS-2i`), `--ui scenario` and the menu's scenario group — has nothing to show. The ones that
-  come back are laid against the new layer.
-- **The ground beside a road is answered as one distance and drawn as two rings, and a corner is where
-  they part.** The answer is the ground within one figure of the driven bands, measured square
-  (`GroundShapes.At`); the picture fills the boundary rounded at `Road.LineRoundedM` and moved by the same
-  figure (`GroundRings`). Along a street the two are one region; at a corner they stand up to that radius
-  apart, so `TER-7` is deviated from by the picture's own rounding. **The answer also lacks the wedge a
-  junction's corner is paved back over** (`TER-3c.7`, `TER-5`): a corner answers as walk where it stands
-  within a walk of a movement and as grass where the box is wide enough that it does not. It closes when the
-  answer can be asked which side of a ring a point is on.
+- **One laboratory map ships, and it is the scenario map.** `Track` ×3, `Footway`, `Skidpad` and `Zebras`
+  were laid against the lane layer that was replaced and went with it; `Exam` came back laid against the new
+  one, as a lattice of traffic scenarios driven end to end ([verification](verification.md#the-scenario-map)).
+  The ones still gone come back the same way.
 - **A deck's pavement is not drawn.** The walk across a bridge is the driven ground's own boundary moved
   like anywhere else (`WLK-1`, `TER-3b.1`), and the ground answers walk there — but the ground stack is laid
   under the deck rather than across it, so the concrete is not drawn. What is owed is a boundary that knows

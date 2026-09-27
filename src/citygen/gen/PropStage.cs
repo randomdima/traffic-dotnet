@@ -159,8 +159,8 @@ internal static class PropStage
     /// <para>
     /// <b>And no collar</b> (GEN-6a): the girth is cleared against the ground's answer, which is the walk
     /// down every street, and a collar over that would only hold the verge back from the street it is a
-    /// verge of. Where the answer and the drawn walk part at a corner is TER-7's gap in the
-    /// <see href="../../../docs/index.md">known gaps</see>, not a margin this pass owes.
+    /// verge of. The answer is the drawn walk itself — the rings it is filled from (<c>GroundShapes.At</c>) — so
+    /// a girth cleared of it is clear of what is drawn, at a corner as much as down a street.
     /// </para>
     /// <para>
     /// <b>And clear of the props already laid</b> (GEN-6c). The ground cannot see them: a prop is no shape

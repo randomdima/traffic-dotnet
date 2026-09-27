@@ -192,7 +192,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
 
     public void ResolveContacts() => Judgements += ContactArbiter.Resolve(_physics, _config, this);
 
-    /// <summary>The town's rule, in a rig: a body that is down takes no actions, and the ground still acts on it.</summary>
+    /// <summary>The town's rule, in a rig: a body that is down takes no actions, and is still slowed.</summary>
     void Settle(float dtS)
     {
         for (var person = 0; person < People.Count; person++)
@@ -202,7 +202,7 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
             var positionM = People.PositionM[person];
             _impulseNs[person] = WalkerFollower.Step(
                 _config, People.HeadingRad[person], positionM, People.VelocityMps[person], positionM, moving: false,
-                _config.Terrain.PavedCoefficient, onFeet: false, People.MassKg[person], dtS).ImpulseNs;
+                onFeet: false, People.MassKg[person], dtS).ImpulseNs;
         }
 
         Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];

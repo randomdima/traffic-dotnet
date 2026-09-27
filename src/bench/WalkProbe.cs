@@ -6,8 +6,8 @@ using TrafficSimulation.World.Physics;
 namespace TrafficSimulation.Bench;
 
 /// <summary>
-/// How far a walker slides and how far it crabs, over the grounds it walks on, with the figure
-/// printed <b>beside the body's own diameter</b>.
+/// How far a walker slides and how far it crabs, on its feet and off them, with the figure printed
+/// <b>beside the body's own diameter</b>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -20,7 +20,8 @@ namespace TrafficSimulation.Bench;
 /// <para>
 /// <b>One walker, no town.</b> Every figure taken in a town is an average over crowds, kerbs and
 /// whatever the walker last collided with; what is being measured here is the model, so the world is
-/// empty and the only thing in it is the body and the ground's own factor.
+/// empty and the only thing in it is the body. <b>No ground either</b>: a walker's pace and grip are its
+/// own on every surface (TER-2).
 /// </para>
 /// </remarks>
 internal static class WalkProbe
@@ -38,15 +39,10 @@ internal static class WalkProbe
         var bodyM = config.PersonDiameterM;
         Console.WriteLine($"walk probe — one walker, no town, a {bodyM:F2} m body at {config.Person.MassKg:F0} kg, " +
                           $"{config.PersonWalkSpeedMps:F2} m/s on grip {config.PersonFootGripMps2:F0} m/s²");
-        Console.WriteLine($"{"ground",-10}{"coefficient",12}{"pace m/s",10}{"start m",10}{"stop m",9}{"v²/2a m",10}{"of a body",11}{"crab m/s",10}");
+        Console.WriteLine($"{"",-10}{"pace m/s",10}{"start m",10}{"stop m",9}{"v²/2a m",10}{"of a body",11}{"crab m/s",10}");
 
-        foreach (var (name, coefficient) in (ReadOnlySpan<(string, float)>)
-                 [("paved", config.Terrain.PavedCoefficient), ("grass", config.Terrain.GrassCoefficient), ("water", config.Terrain.WaterCoefficient)])
-        {
-            Report(name, Measure(config, coefficient, onFeet: true), coefficient);
-        }
-
-        Report("off feet", Measure(config, config.Terrain.PavedCoefficient, onFeet: false), config.Terrain.PavedCoefficient);
+        Report("on feet", Measure(config, onFeet: true));
+        Report("off feet", Measure(config, onFeet: false));
 
         Console.WriteLine($"The requirement is the relation, not the number: a walker reaches its pace and loses it inside " +
                           $"a fifth of its own body — {bodyM / 5f:F2} m here, which is what v²/2a answers.");
@@ -54,33 +50,32 @@ internal static class WalkProbe
                           "integrates position with the velocity the tick ended at, so starting spends the whole of the " +
                           "last tick already at pace and stopping spends it at nothing.");
 
-        void Report(string name, WalkRun run, float coefficient)
+        void Report(string name, WalkRun run)
         {
-            Console.WriteLine($"{name,-10}{coefficient,12:F2}{run.PaceMps,10:F2}{run.StartM,10:F3}{run.StopM,9:F3}" +
+            Console.WriteLine($"{name,-10}{run.PaceMps,10:F2}{run.StartM,10:F3}{run.StopM,9:F3}" +
                               $"{run.ContinuousM,10:F3}{run.StopM / bodyM,11:F2}{run.CrabMps,10:F4}");
         }
     }
 
     /// <summary>
-    /// One ground's answer. <see cref="ContinuousM"/> is <c>v²/2a</c> — what the same start and the
-    /// same stop would cost an integrator with no tick in it, and the figure the requirement's own
-    /// arithmetic is written in.
+    /// One run's answer. <see cref="ContinuousM"/> is <c>v²/2a</c> — what the same start and the same stop
+    /// would cost an integrator with no tick in it, and the figure the requirement's own arithmetic is
+    /// written in.
     /// </summary>
     public readonly record struct WalkRun(float PaceMps, float StartM, float StopM, float ContinuousM, float CrabMps);
 
     /// <summary>
-    /// Walk one body up to pace and then ask it to stand, on one ground. The walker is driven through
-    /// exactly the same follower the town runs it through — a probe with a movement model of its own
-    /// measures the probe.
+    /// Walk one body up to pace and then ask it to stand. The walker is driven through exactly the same
+    /// follower the town runs it through — a probe with a movement model of its own measures the probe.
     /// </summary>
-    public static WalkRun Measure(SimConfig config, float terrainCoefficient, bool onFeet)
+    public static WalkRun Measure(SimConfig config, bool onFeet)
     {
         var physics = new PhysicsWorld(config);
 
         var body = physics.AddPerson(Vector2.Zero);
         var massKg = physics.MassOf(body);
         var dt = config.TickSeconds;
-        var pace = config.PersonWalkSpeedMps * terrainCoefficient;
+        var pace = config.PersonWalkSpeedMps;
 
         var positionM = Vector2.Zero;
         var velocityMps = Vector2.Zero;
@@ -91,7 +86,7 @@ internal static class WalkProbe
         var paceReachedMps = velocityMps.Length();
         var stopM = Walk(moving: false, until: speed => speed <= pace * StoppedFraction);
 
-        var gripMps2 = (onFeet ? config.PersonFootGripMps2 : config.PersonSlidingGripMps2) * terrainCoefficient;
+        var gripMps2 = onFeet ? config.PersonFootGripMps2 : config.PersonSlidingGripMps2;
         return new WalkRun(paceReachedMps, startM, stopM, pace * pace / (2f * gripMps2), crabMps);
 
         float Walk(bool moving, Func<float, bool> until)
@@ -101,7 +96,7 @@ internal static class WalkProbe
             {
                 var step = WalkerFollower.Step(
                     config, headingRad, positionM, velocityMps, positionM + Vector2.UnitX, moving,
-                    terrainCoefficient, onFeet, massKg, dt);
+                    onFeet, massKg, dt);
                 headingRad = step.HeadingRad;
                 physics.ApplyCentralImpulse(body, step.ImpulseNs);
                 physics.Step(dt);

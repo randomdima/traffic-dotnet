@@ -207,13 +207,13 @@ public class GroundLocatorTests
     /// <remarks>
     /// <para>
     /// <b>Measured off the boundary the walking network reads</b> (<see cref="KerbLines"/>) and not off the
-    /// bands the answer projects onto, so what is weighed here is two constructions against one another
-    /// rather than one against itself.
+    /// rings the answer reads, so what is weighed here is two constructions against one another rather than
+    /// one against itself.
     /// </para>
     /// <para>
     /// <b>The slack is the rounding and not a tolerance</b> (<see cref="RoadFigures.LineRoundedM"/>,
-    /// TER-3c.10): the boundary's corners are rounded where the bands they were merged from are square, so
-    /// the two stand up to that radius apart at a corner and nowhere else.
+    /// TER-3c.10): the walk's rings are rounded at their corners where the merge the kerb is read off is not,
+    /// so the two stand up to that radius apart at a corner and nowhere else.
     /// </para>
     /// <para>
     /// <b>A deck's margin and a shore are the two grounds that are concrete away from any kerb</b> — one a

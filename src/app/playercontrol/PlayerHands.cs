@@ -152,6 +152,11 @@ internal sealed class PlayerHands
     /// ordering. A left press starts a drag and picks nothing — that is <see cref="Pointer"/>'s, on the
     /// way back up.
     /// </summary>
+    /// <remarks>
+    /// <b>No debug layer takes the mouse</b> (OBS-2t). A click on the town that turns out to have been a click
+    /// also pins whatever the layers draw under it, and still selects the unit there: a reading the reader
+    /// asked for is not a mode they have to leave before they can pick a car.
+    /// </remarks>
     /// <param name="alsoKeep">
     /// Whether shift was held as the button went down, which is the whole of what says whether this is a
     /// pan or a box (CTL-1b) — and, if it turns out to have been a click, whether the unit under it joins
@@ -159,7 +164,7 @@ internal sealed class PlayerHands
     /// </param>
     public void Click(
         MouseButton button, Vector2 atPx, bool alsoKeep, Camera2D camera, Vector2 uiPx, TownWorld world,
-        DebugSwitches switches, Ruler ruler, DebugPick pick)
+        DebugSwitches switches, Ruler ruler)
     {
         var pointM = camera.WorldAt(atPx, uiPx);
 
@@ -167,18 +172,6 @@ internal sealed class PlayerHands
         {
             if (button == MouseButton.Right) ruler.Clear();
             else if (button == MouseButton.Left) ruler.Click(pointM);
-
-            return;
-        }
-
-        // <b>And the grid takes it on the same terms while it is ticked</b> (OBS-2t): a layer drawn to be
-        // asked questions of needs the pointer to ask them with, and the reader who ticked it is not also
-        // selecting cars with the same hand. The ruler is offered it first because it is a tool the reader
-        // is holding rather than a layer they are reading.
-        if (switches.Grid)
-        {
-            if (button == MouseButton.Right) pick.Clear();
-            else if (button == MouseButton.Left) pick.Click(pointM);
 
             return;
         }
@@ -234,7 +227,8 @@ internal sealed class PlayerHands
     /// puts the camera back on a single unit (OBS-1a), and it is said even where the set came out the
     /// same: clicking the unit already picked out changes nothing and is still an ask.
     /// </returns>
-    public bool Pointer(AppWindow window, Camera2D camera, Vector2 uiPx, SimConfig config, TownWorld world)
+    public bool Pointer(
+        AppWindow window, Camera2D camera, Vector2 uiPx, SimConfig config, TownWorld world, DebugPick pick)
     {
         if (_gesture == Gesture.None || window.IsMouseDown(MouseButton.Left)) return false;
 
@@ -246,10 +240,12 @@ internal sealed class PlayerHands
         {
             // Clicking nothing deselects, which is what makes the mark readable as an answer; with shift
             // it adds the unit under the pointer, or drops it if it was already picked out.
-            var unit = world.Pick(camera.WorldAt(_fromPx, uiPx));
+            var pointM = camera.WorldAt(_fromPx, uiPx);
+            var unit = world.Pick(pointM);
             if (_alsoKeep) world.SelectAlso(unit);
             else world.Select(unit);
 
+            pick.Click(pointM);
             return true;
         }
 

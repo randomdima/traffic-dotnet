@@ -45,6 +45,13 @@ internal sealed class RoadFigures
     /// </summary>
     public float RibbonTouchInCarWidths { get; init; } = 0.02f;
 
+    /// <summary>
+    /// <b>How many times a tick's plans are answered again against what the others came to</b> before the
+    /// layer is left as it stands (TER-4c.3). A bound on the work: a layer still moving at it is disjoint but
+    /// not where its answers say, and counted (<c>TownWorld.Unsettled</c>).
+    /// </summary>
+    public int MostSettlingPasses { get; init; } = 4;
+
     public float IntersectionCornerRadiusInCarWidths { get; init; } = 2.5f;
 
     /// <summary>
@@ -442,6 +449,13 @@ internal sealed class TerrainFigures
     /// and its neighbours and not at the block.
     /// </summary>
     public float GroundBucketM { get; init; } = 8f;
+
+    /// <summary>
+    /// How wide a cell is of the lattice the town's boundary is answered off (<see cref="Geometry.RingSides"/>). A
+    /// cell the boundary does not pass through is answered by a lookup, so the narrower the cells the more of
+    /// a lane that is — at five bytes a cell for each layer answered.
+    /// </summary>
+    public float ShellCellM { get; init; } = 4f;
 
     /// <summary>
     /// How finely the ground is walked by a caller that has to <em>sample</em> it — a walk checking that a

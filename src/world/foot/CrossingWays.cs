@@ -39,8 +39,8 @@ namespace TrafficSimulation.World.Foot;
 /// </para>
 /// <para>
 /// <b>The paint stops at the kerb</b>: a crossing's own stretch runs from the boundary on one side to the
-/// boundary on the other, which is the ground the stripes cover, so what a walker has to ask the road about
-/// (TER-5c.1) is the carriageway and nothing else. What runs between the boundary and the walk is one of the
+/// boundary on the other, which is the ground the stripes cover, so what a walker's secondary claims hold of
+/// the road (TER-5c.1) is the carriageway and nothing else. What runs between the boundary and the walk is one of the
 /// junction's own connections, and it is pavement.
 /// </para>
 /// <para>

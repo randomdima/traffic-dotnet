@@ -9,8 +9,8 @@ namespace TrafficSimulation.Tests.Gates;
 
 /// <summary>
 /// <b>What the shape of the reservations must be</b>, asked of every way of a town that is running rather than
-/// of a staged pair: no metre planned by two holders (TER-4c.3), no hold in two pieces (TER-5c.2), no marked
-/// stretch held without the section it links to (TER-5c.1), no plan laid over a body (TER-4c.1), no rung
+/// of a staged pair: no metre planned by two holders (TER-4c.3), no hold in two pieces (TER-5c.2), no main
+/// claim over a mark without its secondary claim (TER-5c.1), no plan laid over a body (TER-4c.1), no rung
 /// that grows along a hold (TER-5g.1) — and nothing dropped for want of room.
 /// </summary>
 /// <remarks>
@@ -43,9 +43,8 @@ public class ClaimGateTests
     const float SeamM = 1e-3f;
 
     /// <summary>
-    /// <b>No metre of any way is planned by two holders</b> (TER-4c.3) — except two sections written through
-    /// marks, which are two holders whose ground each lies over a third way and meet on their own ways where
-    /// they meet at all.
+    /// <b>No metre of any way is planned by two holders</b> (TER-4c.3) — except two secondary claims, which are
+    /// two holders whose ground each lies over a third way and meet on their own ways where they meet at all.
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
@@ -65,13 +64,13 @@ public class ClaimGateTests
     public void NoHoldIsInTwoPieces(string map) => Watch(map, OneStretch);
 
     /// <summary>
-    /// <b>A marked stretch is held with the whole of the section it links to</b> (TER-5c.1): wherever a hold's
-    /// piece lies over a mark, the same hold holds all of the other way's section — or it would be on ground it
-    /// shares with a way nobody there could weigh it against.
+    /// <b>A main claim over a mark places the whole of its secondary claim</b> (TER-5c.1): wherever a hold's
+    /// main claim lies over a mark, the same hold holds all of the other way's section as a secondary claim —
+    /// or the main claims of that way, which read nothing but their own, could not see it.
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
-    public void EveryMarkedStretchHoldsItsLinkedSection(string map) => Watch(map, Linked);
+    public void EveryMainClaimOverAMarkPlacesItsSecondaryClaim(string map) => Watch(map, Seconded);
 
     /// <summary>
     /// <b>No plan is laid over a body</b> (TER-4c.1): a hold is cut at the first body in front of it on every
@@ -139,7 +138,7 @@ public class ClaimGateTests
                 for (var other = one + 1; other < count; other++)
                 {
                     if (slots[one].Occupant == slots[other].Occupant && slots[one].Of == slots[other].Of) continue;
-                    if (slots[one].Linked && slots[other].Linked) continue;
+                    if (slots[one].Secondary && slots[other].Secondary) continue;
                     if (slots[one].ToM <= slots[other].FromM + SeamM || slots[other].ToM <= slots[one].FromM + SeamM) continue;
 
                     Assert.Fail(
@@ -182,31 +181,30 @@ public class ClaimGateTests
         return holds.Count;
     }
 
-    static long Linked(TownWorld world, string map, int tick)
+    static long Seconded(TownWorld world, string map, int tick)
     {
         var looked = 0L;
         Span<LaneClaim> slots = stackalloc LaneClaim[MostOnAWay];
-        Span<LaneClaim> linked = stackalloc LaneClaim[MostOnAWay];
+        Span<LaneClaim> crossed = stackalloc LaneClaim[MostOnAWay];
         foreach (var way in world.Occupancy.OccupiedWays)
         {
             var count = world.Occupancy.CopyPlannedTo(way, slots);
             for (var at = 0; at < count; at++)
             {
                 ref readonly var piece = ref slots[at];
-                if (piece.Linked) continue;
+                if (piece.Secondary) continue;
 
                 foreach (ref readonly var mark in world.Occupancy.Marks.Of(way))
                 {
                     if (mark.MineFromM >= piece.ToM - SeamM || mark.MineToM <= piece.FromM + SeamM) continue;
-                    if (mark.ToM <= mark.FromM) continue;
 
                     looked++;
                     var held = false;
-                    var over = world.Occupancy.CopyPlannedTo(mark.OnWay, linked);
+                    var over = world.Occupancy.CopyPlannedTo(mark.OnWay, crossed);
                     for (var other = 0; other < over && !held; other++)
                     {
-                        held = linked[other].Linked && linked[other].Hold == piece.Hold
-                               && linked[other].FromM <= mark.FromM + SeamM && linked[other].ToM >= mark.ToM - SeamM;
+                        held = crossed[other].Secondary && crossed[other].Hold == piece.Hold
+                               && crossed[other].FromM <= mark.FromM + SeamM && crossed[other].ToM >= mark.ToM - SeamM;
                     }
 
                     Assert.True(
@@ -233,7 +231,7 @@ public class ClaimGateTests
             for (var at = 0; at < count; at++)
             {
                 ref readonly var piece = ref planned[at];
-                if (piece.Linked || piece.Priority == ClaimPriority.Closed) continue;
+                if (piece.Secondary || piece.Priority == ClaimPriority.Closed) continue;
 
                 looked++;
                 for (var body = 0; body < standing; body++)
@@ -270,7 +268,7 @@ public class ClaimGateTests
         return holds.Count;
     }
 
-    /// <summary>Every hold's own pieces — never the sections it wrote through marks — by the hold they are of.</summary>
+    /// <summary>Every hold's main claims — never its secondary claims — by the hold they are of.</summary>
     static Dictionary<int, List<LaneClaim>> Pieces(TownWorld world)
     {
         var holds = new Dictionary<int, List<LaneClaim>>();
@@ -280,7 +278,7 @@ public class ClaimGateTests
             var count = world.Occupancy.CopyPlannedTo(way, slots);
             for (var at = 0; at < count; at++)
             {
-                if (slots[at].Linked) continue;
+                if (slots[at].Secondary) continue;
 
                 if (!holds.TryGetValue(slots[at].Hold, out var pieces)) holds[slots[at].Hold] = pieces = [];
                 pieces.Add(slots[at]);
@@ -291,6 +289,6 @@ public class ClaimGateTests
     }
 
     static string Named(in LaneClaim claim) =>
-        $"{claim.Of} {claim.Occupant}'s {(claim.Linked ? "linked section" : "piece")} "
+        $"{claim.Of} {claim.Occupant}'s {(claim.Secondary ? "secondary claim" : "main claim")} "
         + $"{claim.FromM:0.000}–{claim.ToM:0.000} m at {claim.Priority}";
 }

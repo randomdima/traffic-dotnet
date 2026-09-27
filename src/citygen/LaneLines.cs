@@ -417,6 +417,15 @@ internal sealed class LaneLines
     /// </summary>
     /// <remarks>
     /// <para>
+    /// <b>The angle is taken against the arriving lane carried on along its own curve</b> across the gap the
+    /// node leaves between the two lane ends. Two lanes stand a junction's standoff back from their node on
+    /// each side, and a line that keeps its curve through that gap has turned by what the curve turns and no
+    /// more — so <b>going round a roundabout is straight on</b> (GEN-19): the ring bends through every node by
+    /// the arc the node takes out of it, which read end to end is a turn towards the island, weaker than every
+    /// entry it meets, where circulating traffic is to hold for nothing. A straight lane carries on straight,
+    /// so nothing else is read differently.
+    /// </para>
+    /// <para>
     /// <b>A lane leaving a node back onto the road this one came in on gets no connector at all</b>
     /// (TER-5f). It is the reverse of this lane, named rather than measured: the two are the two ways of one
     /// link, so the turn in the road is banned by construction and not by an angle. It is left out of the
@@ -451,7 +460,8 @@ internal sealed class LaneLines
 
         for (var lane = 0; lane < laneCount; lane++)
         {
-            var arrivingRad = HeadingAt(laneArcOffsets, laneArcs, lane, atEnd: true);
+            var arriving = laneArcs[laneArcOffsets[lane + 1] - 1];
+            var arrivingRad = arriving.HeadingAtRad(arriving.LengthM);
             var node = laneToJunction[lane];
             var outOfABay = roads.IsABay(laneRoad[lane]);
             foreach (var leaving in outLanes.AsSpan(outOffsets[node], outOffsets[node + 1] - outOffsets[node]))
@@ -459,10 +469,11 @@ internal sealed class LaneLines
                 if (leaving == laneReverse[lane]) continue;
                 if (outOfABay && roads.IsABay(laneRoad[leaving])) continue;
 
-                var leavingRad = HeadingAt(laneArcOffsets, laneArcs, leaving, atEnd: false);
-                var turnRad = Spline.WrapRad(leavingRad - arrivingRad);
-                if (MathF.PI - MathF.Abs(turnRad) <= LineTolerance.RoundingM) continue;
+                var starts = laneArcs[laneArcOffsets[leaving]];
+                if (MathF.PI - MathF.Abs(Spline.WrapRad(starts.HeadingRad - arrivingRad)) <= LineTolerance.RoundingM) continue;
 
+                var carriedOnRad = arrivingRad + CarriedOnRad(arriving.Curvature, (starts.StartM - arriving.EndM).Length());
+                var turnRad = Spline.WrapRad(starts.HeadingRad - carriedOnRad);
                 toLane.Add(leaving);
                 kind.Add(MathF.Abs(turnRad) <= straightRad
                     ? LaneTurn.Straight
@@ -477,16 +488,12 @@ internal sealed class LaneLines
         return (offsets, [.. toLane], [.. kind]);
     }
 
-    static float HeadingAt(int[] laneArcOffsets, ArcSeg[] laneArcs, int lane, bool atEnd)
-    {
-        if (atEnd)
-        {
-            var last = laneArcs[laneArcOffsets[lane + 1] - 1];
-            return last.HeadingAtRad(last.LengthM);
-        }
-
-        return laneArcs[laneArcOffsets[lane]].HeadingRad;
-    }
+    /// <summary>
+    /// How far a heading turns carried on along a curve of this curvature to a point a chord this long away —
+    /// twice the half-angle the chord subtends, and nothing on a straight.
+    /// </summary>
+    static float CarriedOnRad(float curvature, float chordM) =>
+        2f * MathF.Asin(Math.Clamp(chordM * curvature * 0.5f, -1f, 1f));
 
     /// <summary>
     /// How near two lane ends have to stand before the movement between them is no movement at all: the

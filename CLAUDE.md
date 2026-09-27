@@ -158,6 +158,7 @@ the `Tier` trait every test class carries ([tests/Tier.cs](src/tests/Tier.cs)); 
 | `qq tests unit town` | 55 s | a change to behaviour, before saying it works |
 | `qq tests all` | 1 m 25 s | touching the tick, the solver, a submit path — or before a commit |
 | `qq tests maps` | 25 s | **adding or retuning a shipped city** — never otherwise, and never as part of `all` |
+| `qq tests exam` | 10 s | **changing a right of way, a light or a crossing** — the scenario map card by card; every card passes, and it is never part of `all` |
 | `qq tests e2e` | 2 m 10 s | changing anything that draws, to look at the frames |
 | `qq tests e2e --judge` | **money**, ~30 min | a milestone, or when asked for by name — never unprompted |
 | `qq tests --upto=1 all` | 55 s | chasing a solver or a claims bug: the engine's integrity and the town's safety, and nothing else |

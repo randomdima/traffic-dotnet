@@ -19,8 +19,9 @@ public class CrossingWaysTests
 {
     /// <summary>
     /// <b>A crossing's paint runs from the kerb to the kerb</b> (WLK-15): what a zebra is painted over is the
-    /// carriageway, whose edge is the driven ground's own boundary (TER-7b) — so the stretch a walker has to
-    /// ask the road about ends where the tarmac does, and what carries on from there is the junction's.
+    /// carriageway, whose edge is the driven ground's own boundary (TER-7b) — so the stretch a walker's
+    /// secondary claims hold of the road ends where the tarmac does, and what carries on from there is the
+    /// junction's.
     /// </summary>
     /// <remarks>
     /// <b>Weighed at the figure two pieces are one line at</b> (<see cref="LineTolerance.JoinedM"/>): the

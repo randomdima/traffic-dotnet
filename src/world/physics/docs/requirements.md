@@ -69,8 +69,8 @@ angle is both what the four patches skid along and what the four tyres are drawn
 **PHY-5b** `P3` A body lying in the road **collides with nothing that moves**. The contact that put it there is
 the last one it takes: from that moment the only thing it meets is static geometry, which is what it
 fetches up against and stops on, and every car, walker and rescue in the town passes through it. It is a
-change of layer and not a removal — the body is still in the world, still dynamic, still slowed by the
-ground under it (`PHY-8`), and still somewhere an ambulance has to come to. **A broken car is not this**: a
+change of layer and not a removal — the body is still in the world, still dynamic, still slowed by its own
+sliding grip, and still somewhere an ambulance has to come to. **A broken car is not this**: a
 wreck stays a full participant and is shunted like any other obstruction.
 
 This is the one exemption from `PHY-9`, and it is narrow: a casualty is put where the impact throws it and
@@ -87,7 +87,7 @@ it. **Spent is not the same as terminal**: a casualty gets up again once a hospi
 **PHY-6** `P5` The driver of a car that breaks is **put out of it as a casualty**, on the road beside their own
 door. They are not physically simulated inside the car and take none of the contact's energy; what puts
 them there is the wreck itself, and from the moment they are down they are on `PER-18`'s terms like
-anybody a car has hit. **It is a placement and never a search**: an ordinary exit looks for clear ground
+anybody a car has hit. **It is a placement and never a search**: an ordinary exit looks for a clear spot
 beside the car and waits while there is none (`PHY-7a`), and a driver left waiting inside a wreck is a
 casualty nothing will ever come for (`AMB-7`).
 

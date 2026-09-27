@@ -72,6 +72,18 @@ public static class Tier
     public const string Maps = "Maps";
 
     /// <summary>
+    /// <b>The scenario map, asked for by name and never run as part of <c>all</c></b>: a hundred-odd traffic
+    /// scenarios staged on one map and driven end to end, each a case of its own (<c>ExamTests</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>Every card is expected to pass</b>, and one that does not is the engine not doing what its own rules
+    /// say. It is outside <c>all</c> as the frames are — one whole town driven for a minute and a half — so it
+    /// is run deliberately, <c>qq tests exam</c>, when a change can have moved how traffic meets;
+    /// <c>--bench exam</c> prints the same verdicts with what the town did instead.
+    /// </remarks>
+    public const string Exam = "Exam";
+
+    /// <summary>
     /// The visual tier, whose verdict is an agent's. It costs money and about a minute a scenario, so
     /// it is never part of a run somebody did not ask for by name.
     /// </summary>

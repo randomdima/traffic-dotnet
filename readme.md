@@ -57,20 +57,24 @@ entries: `--check` prints the dependency read-out, `--shot` takes a picture with
 the list itself is [`CheckCatalogue`](src/bench/CheckCatalogue.cs). The map list the menu reads is the map
 list the command line reads; the probes are the command line's alone.
 
-**A figure can be turned while the town runs.** The menu's `Figures` page (`--ui menu-figures`) carries a
-track for each raw term the whole town stands on — the coefficient of friction between rubber and tarmac,
-and the ground's own resistance to a wheel going round — as a share of what the build ships, a decade
-either side. What belongs to one car stays in that car's own file. **Dragging one changes it under the
-town that is standing**, as the hand moves; nothing is authored by it, and the shipped run is the run the
-suite measures.
+**The menu's `Debug` page is cut into sections, one a thing a session is opened to look at** (`OBS-2y`):
+`Cars`, `Walkers`, `Junctions`, `Physics`, `Road shape`, `Ground mesh` and `Tools`, and `--ui menu-cars`,
+`menu-junctions`, `menu-road`, `menu-ground` and the rest open one. Each switch says what it draws and what
+its colours mean, a section says how many of its layers are on, and one row turns them all off.
 
-**The last two rows of that page are not trims**: they are the shell probe's own figures (`OBS-2w`) — the
-town's driven boundary moved out by nought to twenty metres, and the radius, also nought to twenty metres,
-its corners are rounded at. It is drawn in violet under its own switch (`--ui shell`, or `--ui shell-6`
-and `--ui shell-6-0.5` for six metres out at a half-metre radius, with no hand on the slider), and changes
-what is *drawn* rather than what the town does.
+**A figure can be turned while the town runs.** The `Cars` section carries a track for each raw term the
+whole town stands on — the coefficient of friction between rubber and tarmac, and the ground's own
+resistance to a wheel going round — as a share of what the build ships, a decade either side. What belongs
+to one car stays in that car's own file. **Dragging one changes it under the town that is standing**, as
+the hand moves; nothing is authored by it, and the shipped run is the run the suite measures.
 
-**And the ground can be taken apart while the town runs.** The menu's `Ground` page (`--ui menu-ground`)
+**The `Road shape` section's two tracks are not trims**: they are the shell probe's own figures (`OBS-2w`) —
+the town's driven boundary moved out by nought to twenty metres, and the radius, also nought to twenty
+metres, its corners are rounded at. It is drawn in violet under its own switch (`--ui shell`, or
+`--ui shell-6` and `--ui shell-6-0.5` for six metres out at a half-metre radius, with no hand on the
+slider), and changes what is *drawn* rather than what the town does.
+
+**And the ground can be taken apart while the town runs.** The `Ground mesh` section (`--ui menu-ground`)
 carries a row a layer of the town's standing ground — the grass, the walk and its kerb, the water, the
 decks, the carriageway, the slabs, the town's kerb and the paint — each saying what it came to in triangles
 and in the milliseconds it took to cut. **A box unticked takes that layer out of the picture** and out of
@@ -80,11 +84,17 @@ for the rest. The same table is printed headless by `--bench census`.
 
 **Every map says what it claims about itself and whether it is keeping it.** Every headless run prints the
 table — a row a claim, the figures behind each verdict, and a last line a script can read — and a windowed
-run of a scenario map draws the same rows as the status panel's last section (`--ui scenario`), though no
-scenario map ships today. **A broken claim is a failed run**, so `--bench soak` and
-`--map Odesa --seconds 300` both exit non-zero when the town breaks something it claims. What is quoted
-beside the claims fails nothing: it is a fact about that town rather than a bound
-([verification](docs/verification.md#what-a-map-claims-about-itself)).
+run of a scenario map draws the same rows as the status panel's last section (`--ui scenario`). **A broken
+claim is a failed run**, so `--bench soak` and `--map Odesa --seconds 300` both exit non-zero when the town
+breaks something it claims. What is quoted beside the claims fails nothing: it is a fact about that town
+rather than a bound ([verification](docs/verification.md#what-a-map-claims-about-itself)).
+
+**The scenario map ships as `Exam`**: a lattice of junctions, one traffic scenario at each, end to end —
+two cars passing each other, a car driving past a queue in the oncoming lane, a left turn against oncoming
+traffic, a red light, somebody on a zebra or walking round a corner, a car on a call. `--bench exam` prints
+every card as passed or failed, with what it expects, what the town did instead and what held each car;
+`--map Exam` shows the same staging live; `qq tests exam` asserts each card
+([verification](docs/verification.md#the-scenario-map)).
 
 `--sheet FILE.json` is the same picture asked for as a document: several staged frames, each captioned
 with the map, the framing, the moment and the seed, tiled into one sheet for review
@@ -170,10 +180,10 @@ dotnet run --project traffic-dotnet.csproj -- --map Odesa --windowed --bot-waits
 ```
 
 **A picture can be taken with the pointer somewhere**, which is how the layers' own readings are asked for
-without a window (`OBS-2t`): `--point X Y` stands the pointer on that place in the town, so the ribbon and
-the boundary under it are drawn picked out and named (with `--ui ribbons` or `perimeter` on), and
-`--pick X Y` clicks there, which picks the cell of the geometry grid and lights every line the index holds
-in it (with `--ui grid` on).
+without a window (`OBS-2t`): `--point X Y` stands the pointer on that place in the town, so whatever the
+layers that are on draw there — a car, a walker, a way and its claims, a ribbon, a stretch of boundary, a
+cell — is drawn picked out with its card beside the pointer, and `--pick X Y` clicks there, which pins it
+with its card docked in the corner. A sheet's cells take the same two as `"point"` and `"pick"`.
 
 `--bench census --map NAME` says what a town holds and what the graphs made of it; `--bench shape`,
 `--bench joints` and `--bench parks` say what shape it came out — how its roads bend, where its junctions

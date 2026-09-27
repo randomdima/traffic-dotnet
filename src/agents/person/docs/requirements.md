@@ -13,7 +13,7 @@ the tier where the two are the same thing ([agents/car](../../car/docs/requireme
 **PER-1** `P4` A person is an agent **at all times**. Containment does not remove agency — it replaces the
 action set.
 
-**PER-3** `P3` Forward speed is **constant when moving**, modulated by the occupied terrain. There is **no
+**PER-3** `P3` Forward speed is **constant when moving**, on whatever ground (TER-2). There is **no
 acceleration profile** above the foot friction that produces it.
 
 **PER-6** `P5` While inside a building the only available action is exiting it.
@@ -77,7 +77,7 @@ well** — never the point the follower aims at, which travels a stride in front
 **PER-26** `P4` **A walker is a body and a plan** ([reservations](../../../world/road/docs/claims.md)): the
 ground it is standing on, and the ground in front of it down its walk. Both are laid from the body every
 tick, and **the plan is answered exactly as a driver's is** — cut at the first body in front of it, weighed
-against every other plan it meets on its own ways and through the marks, and granted what comes back.
+against every other plan's main or secondary claim it meets on its own ways, and granted what comes back.
 
 **The body is TER-4c.2 said of somebody on foot**, and it is nothing new: a body is on every way its
 collider stands over whatever kind of body it is — the pavement's two lanes, the mitres of a corner it is
@@ -100,8 +100,8 @@ body on a lane cuts the road a driver was granted like anything else standing th
 the pavement it swings across at a corner is ground a walker is cut short of.
 
 **PER-27** `P5` **A walker plans a crossing to the far kerb or not at all**, at the paint's rung (TER-5g): the
-paint in front of it on **the one stretch of the crossing it is taking**, and through the marks the section
-of every lane that paint lies over. The paint's rung is above every movement a box admits, so **the traffic
+paint in front of it on **the one stretch of the crossing it is taking**, and a secondary claim over the
+section of every lane that paint lies over. The paint's rung is above every movement a box admits, so **the traffic
 gives way to somebody on a zebra** — and below ground a driver can no longer stop short of, so nobody is
 waved in front of a car that could not have stopped for them.
 
@@ -189,8 +189,8 @@ no larger than its foot friction affords (`WalkerFollower`, PER-3). Everything e
 
 **Two grips.** On its feet, a sole pressed into the ground; off its feet, a body along it. A walker is off
 its feet exactly while it is a casualty (`PER-23`), which is what makes the impulse of an impact visible
-after the impact is over — a body sent down the road rather than stopped where it was hit. Both are scaled
-by the terrain's own grip factor. **The sliding grip is what sizes the band**: half a metre of it is what
+after the impact is over — a body sent down the road rather than stopped where it was hit. Neither is
+scaled by the ground under it (TER-2). **The sliding grip is what sizes the band**: half a metre of it is what
 being knocked over costs, so the two numbers are one decision.
 
 > **The relation that is the requirement — the number is not:** a walker reaches its pace, and loses it,

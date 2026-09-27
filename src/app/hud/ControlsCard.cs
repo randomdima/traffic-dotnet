@@ -28,6 +28,7 @@ internal sealed class ControlsCard
         "Ctrl-wheel / two fingers twisted", "Turn the town; the compass puts it back north-up",
         "Left-click / tap", "Select a unit; click nothing to deselect",
         "  one unit picked", "The camera follows it until you move the camera",
+        "  a debug layer on", "Pin what it draws there; point at it to read it",
         "Shift-drag", "Select every unit inside the box",
         "Shift-click", "Add to the selection, or drop a unit from it",
         "Right-click", "Order every selected unit there",

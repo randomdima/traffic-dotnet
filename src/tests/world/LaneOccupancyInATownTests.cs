@@ -142,8 +142,8 @@ public class LaneOccupancyInATownTests
 
     /// <summary>
     /// <b>And a body up to the paint is on the lane it is in and on no other</b> (TER-4c.2): a lane's
-    /// ribbon is the width its traffic sweeps about its own line, so a body has to reach into the lane
-    /// running back — and not merely to its edge — to be on it.
+    /// ribbon ends at the paint, so a body has to reach into the lane running back — and not merely to its
+    /// edge — to be on it.
     /// </summary>
     [Fact]
     public void ABodyUpToThePaintIsOnOnlyTheLaneItIsIn()
@@ -287,8 +287,8 @@ public class LaneOccupancyInATownTests
     /// holder twice.
     /// </summary>
     /// <remarks>
-    /// A section a holder wrote through a mark may lie over a piece of its own: it is the same holder's
-    /// ground reached two ways, and nothing is ever held against its own holder.
+    /// A holder's secondary claim may lie over a main claim of its own: it is the same holder's ground reached
+    /// two ways, and nothing is ever held against its own holder.
     /// </remarks>
     [Fact]
     public void NobodyIsTwoStretchesOfOneWay()
@@ -304,7 +304,7 @@ public class LaneOccupancyInATownTests
             var pieces = 0;
             for (var slot = 0; slot < count; slot++)
             {
-                if (!slots[slot].Linked) slots[pieces++] = slots[slot];
+                if (!slots[slot].Secondary) slots[pieces++] = slots[slot];
             }
 
             OnceEach(pieces, slots, way, "plan");

@@ -35,9 +35,9 @@ middle of the window naming the map, from the press until the town it names is r
   nothing takes a click, and what arrived while the wait was on is dropped rather than banked.
 
 **OBS-2g** `P7` **Escape opens and shuts the settings popup, and the way out of the game is the button inside
-it.** A scene with no such panel keeps Escape as its own way out. The popup holds which map to open, the
-debug switches, the figures a session turns and the ground's own layers (`OBS-2v`), and nothing else — one
-page a question, and the way out standing beside their tabs. **The start menu is the exception and not
+it.** A scene with no such panel keeps Escape as its own way out. The popup holds two pages and nothing
+else — which map to open, and everything a debug session turns, cut into its sections (`OBS-2y`) — and the
+way out standing apart from their tabs. **The start menu is the exception and not
 such a scene** (`GEN-1b`): it cannot be shut, so Escape does nothing at it and the way out is the tab that
 says so.
 
@@ -124,7 +124,8 @@ button. Both obey the same three rules.
   pressed and what appeared are visibly the same thing; one site decides that for both. **It reaches no
   further than half way down the window** — one running to the bottom edge is a panel over the very town
   its rows are questions about — and a page longer than that **scrolls**. The ceiling never cuts into what
-  the switch page needs whole, since those rows are laid at a pitch rather than scrolled.
+  the debug page needs whole, since its rows are laid at a pitch rather than scrolled — and **that page is one
+  height whichever section is showing**, so clicking through the sections moves no row the pointer is on.
 - **The button that opens it shuts it**, and so do a click anywhere off the panel and Escape. There is no
   close button inside a popup: a panel with two ways to shut it teaches neither.
 - **A popup is not a mode.** The town keeps its keys and its camera while one is up; only the wheel is
@@ -150,9 +151,9 @@ change something; the legend is where they go to find out what a key does, and a
 the settings is a legend read once and never found again.
 
 **The switch rows are drawn here and owned there** (`OBS-2b`, `OBS-2c` —
-[app/debug](../../debug/docs/requirements.md)). The menu is where a layer is turned on, and the layer is
-what a switch means; keeping the state with the layers is what stops the panel and the overlay reaching
-into each other.
+[app/debug](../../debug/docs/requirements.md)), **and so are the sections they are shown in** (`OBS-2y`).
+The menu is where a layer is turned on, and the layer is what a switch means; keeping the state with the
+layers is what stops the panel and the overlay reaching into each other.
 
 ## The interface is in the window's own pixels
 

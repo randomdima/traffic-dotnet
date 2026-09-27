@@ -58,7 +58,7 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// A body whose controller is paused — the same thing done for a body nobody is deciding for: a
-    /// walker holds its stance under the ground's friction, and a car is left with no pedals and no
+    /// walker holds its stance on its own feet, and a car is left with no pedals and no
     /// steering, so what happens to it is the tyres' and the solver's.
     /// </summary>
     void Paused(int agent)
@@ -74,7 +74,7 @@ internal sealed partial class TownWorld
         var positionM = People.PositionM[agent];
         _impulseNs[agent] = WalkerFollower.Step(
             _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], positionM, moving: false,
-            _terrain.At(positionM).Coefficient, People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds).ImpulseNs;
+            People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds).ImpulseNs;
     }
 
     /// <summary>

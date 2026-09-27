@@ -108,8 +108,8 @@ internal sealed class PersonCatalog
     }
 
     /// <summary>
-    /// Which column, stepped by <b>distance walked</b> and never by time, so ground that slows a
-    /// walker (TER-2) slows its stride with it.
+    /// Which column, stepped by <b>distance walked</b> and never by time, so whatever slows a walker — a
+    /// queue, a shove — slows its stride with it.
     /// </summary>
     /// <param name="strideCycleM">How far one whole eight-frame cycle covers.</param>
     public static int WalkColumn(float distanceWalkedM, float strideCycleM)

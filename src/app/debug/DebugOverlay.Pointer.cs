@@ -1,32 +1,40 @@
 using System.Numerics;
+using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.App.Screen;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.World.Physics;
+using TrafficSimulation.World.Road;
 using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Debug;
 
 /// <summary>
-/// <b>What the pointer is over, and what a picked cell holds</b> (OBS-2t) — the one part of this overlay
-/// that answers a question the reader asked rather than drawing everything there is at once.
+/// <b>The inspector: what the pointer is over, and the one thing the reader has pinned</b> (OBS-2t) — the part
+/// of this overlay that answers a question about one thing rather than drawing everything there is at once.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Laid every frame and never into the town's cache.</b> What it draws follows the pointer, and the cache
-/// behind the town's own layers is re-laid only when the view or a switch moves — held there, a highlight
-/// would stand where the pointer was several frames ago.
+/// <b>One thing at a time, found in the layers that are on.</b> A body before a line and a thin line before a
+/// broad one (<see cref="Under"/>), because the thing drawn over the others is the thing a reader is pointing
+/// at. Where it is found it is drawn picked out, and what it is and what holds it is written on a card beside
+/// the pointer — <b>the words are here and nowhere on the town</b>, so a layer is lines and nothing else until
+/// somebody asks.
 /// </para>
 /// <para>
-/// <b>Every reading is off the producer</b>, like the rest of this slice: what a cell holds is the index's
-/// own answer (<see cref="ChainIndex.ChainsInCell(int, int, Span{int})"/>), the ribbon is the band the merge
-/// was given (<see cref="ArcRibbon"/>), and the boundary is the merge's own output
-/// (<see cref="LaneShell"/>). Nothing here re-derives a shape in order to point at it.
+/// <b>A click pins it</b> (<see cref="DebugPick"/>): its card is docked under the corner buttons and it stays
+/// picked out, while the pointer goes on asking about everything else.
 /// </para>
 /// <para>
-/// <b>And each reading is drawn only where its own layer is.</b> A highlight over a layer that is switched
-/// off is a mark with nothing under it to be read against, which is the one thing a pointer reading cannot
-/// afford to be.
+/// <b>Laid every frame and never into the town's cache.</b> What it draws follows the pointer and the tick, and
+/// the cache behind the town's own layers is re-laid only when the view or a switch moves.
+/// </para>
+/// <para>
+/// <b>Every reading is off the producer</b>, like the rest of this slice: what a cell holds is the index's own
+/// answer, a way and what holds it are the town's (<see cref="TownWorld.LineOfWay"/>,
+/// <see cref="LaneOccupancy.CopyTo"/>), the ribbon is the band the merge was given (<see cref="ArcRibbon"/>),
+/// and the boundary is the merge's own output (<see cref="LaneShell"/>).
 /// </para>
 /// </remarks>
 internal sealed partial class DebugOverlay
@@ -43,47 +51,478 @@ internal sealed partial class DebugOverlay
     /// <summary>How far off a boundary the pointer may stand and still be on it: a finger's width on the glass.</summary>
     const float ReachPx = 10f;
 
-    /// <summary>Where a reading stands against the pointer, and how far the next one is stacked under it.</summary>
-    static readonly Vector2 LabelOffsetPx = new(14f, 10f);
-
-    const float LabelStepPx = Theme.TextPx + 4f;
+    /// <summary>What the pinned card is marked with, at the end of its title.</summary>
+    const string PinnedTag = "pinned";
 
     /// <summary>
-    /// The chains one cell holds, the lines a place could be on, and the ribbon of the line under the
-    /// pointer — <b>the working sets this pass answers out of, kept because it runs every frame</b>. The
-    /// first two are sized to the town the first time it is asked about; the ribbon is laid again only when
-    /// the pointer moves onto a different line.
+    /// Room for one card's words and lines — the longest is a way with every claim on it listed. <b>Held here
+    /// and not on the stack</b>: the card is drawn into the frame's own buffer, and a span of the stack handed
+    /// to that is one the compiler cannot prove does not outlive the call.
+    /// </summary>
+    readonly char[] _cardText = new char[1024];
+
+    readonly int[] _cardEnds = new int[12];
+
+    /// <summary>How many of the claims on one way a card lists before it counts the rest.</summary>
+    const int MostClaimsListed = 6;
+
+    /// <summary>
+    /// The chains one cell holds, the lines a place could be on, and the ribbons of the lines picked out —
+    /// <b>the working sets this pass answers out of, kept because it runs every frame</b>. The first two are
+    /// sized to the town the first time it is asked about; a ribbon is laid again only when the line it is a
+    /// ribbon of changes, one for the pin and one for the pointer so the two do not take turns.
     /// </summary>
     int[] _inCell = [];
     int[] _nearLines = [];
     float[] _nearAlongM = [];
-    ArcSeg[] _hovered = [];
-    int _hoveredLine = -1;
+    ArcSeg[] _pinnedRibbon = [];
+    ArcSeg[] _hoveredRibbon = [];
+    int _pinnedRibbonLine = -1;
+    int _hoveredRibbonLine = -1;
 
     void Pointer(
         ref ScreenDraw draw, TownWorld world, SimConfig config, DebugSwitches switches, DebugPick pick,
         Vector2 pointerM, Vector2 pointerPx, Vector2 uiPx, float pixelsPerMetre)
     {
+        var asked = pick.TakeAsked(out var askedM);
+        if (!switches.AnyOn)
+        {
+            if (asked || pick.Pinned.Thing != DebugThing.None) pick.Clear();
+            return;
+        }
+
         var paving = world.Plan.Paving(config);
         Room(paving);
 
-        var lineM = MathF.Max(PickedLineM, PickedLineFloorPx / pixelsPerMetre);
-        var sagM = PathMarks.SagPx / pixelsPerMetre;
-        var labels = 0;
+        if (asked) pick.Pin(Under(world, paving, config, switches, askedM, pixelsPerMetre));
+        if (!Findable(world, switches, pick.Pinned)) pick.Pin(DebugTarget.None);
 
-        if (switches.Grid)
+        // Off the glass is over a panel or no pointer at all (a shot takes none unless it is asked for one).
+        var onGlass = pointerPx.X >= 0f && pointerPx.Y >= 0f && pointerPx.X <= uiPx.X && pointerPx.Y <= uiPx.Y;
+        var hovered = onGlass
+            ? Under(world, paving, config, switches, pointerM, pixelsPerMetre)
+            : DebugTarget.None;
+        pick.Hovered = hovered;
+        var hoverShown = hovered.Thing != DebugThing.None && !hovered.Same(pick.Pinned);
+
+        if (switches.Grid) Standing(ref draw, uiPx, pointerM, pointerPx);
+
+        // Both marks before either card, so a card is never under a line it is about.
+        var focus = new Focus(world, paving, config, switches, pixelsPerMetre);
+        Highlight(ref draw, focus, pick.Pinned, pinned: true);
+        if (hoverShown) Highlight(ref draw, focus, hovered, pinned: false);
+
+        if (pick.Pinned.Thing != DebugThing.None)
         {
-            Standing(ref draw, uiPx, pointerM, pointerPx);
-            PickedCell(ref draw, paving, config, pick, pointerPx, lineM, sagM, ref labels);
+            var card = new InfoCard(_cardText, _cardEnds);
+            Describe(ref card, focus, pick.Pinned, pinned: true);
+            card.Draw(ref draw, DockedAt(uiPx, card.SizePx(PinnedTag.Length)), PinnedTag);
         }
 
-        if (switches.Ribbons) RibbonUnder(ref draw, paving, config, pointerM, pointerPx, lineM, sagM, ref labels);
+        if (hoverShown)
+        {
+            var card = new InfoCard(_cardText, _cardEnds);
+            Describe(ref card, focus, hovered, pinned: false);
+            card.Draw(ref draw, InfoCard.Beside(pointerPx, card.SizePx(), uiPx));
+        }
+    }
+
+    /// <summary>What every reading of one frame is asked against, gathered once.</summary>
+    readonly record struct Focus(
+        TownWorld World, Paving Paving, SimConfig Config, DebugSwitches Switches, float PixelsPerMetre)
+    {
+        public float LineM => MathF.Max(PickedLineM, PickedLineFloorPx / PixelsPerMetre);
+
+        public float SagM => PathMarks.SagPx / PixelsPerMetre;
+    }
+
+    /// <summary>
+    /// <b>The pinned card's place: under the corner buttons, against the window's trailing edge.</b> Out of the
+    /// way of the pointer and of the town it is about, and where the menu that threw the layers hangs — so a
+    /// reader opening the menu to change what is drawn covers the card rather than the town.
+    /// </summary>
+    static Vector2 DockedAt(Vector2 uiPx, Vector2 sizePx) =>
+        new(
+            MathF.Max(Theme.MarginPx, uiPx.X - Theme.MarginPx - sizePx.X),
+            Theme.MarginPx + Theme.GearPx + (Theme.GapPx * 2f));
+
+    /// <summary>
+    /// <b>The one thing the layers that are on draw at a place</b>, or nothing: a body first, then a stretch of
+    /// boundary, then a way and what holds it, then a ribbon, then a cell.
+    /// </summary>
+    /// <remarks>
+    /// <b>The order is what is drawn over what.</b> A body stands on the lines, a boundary is a hairline at the
+    /// edge of the ribbons it is the outside of, and a cell is a ruling under all of them — so a thin thing
+    /// is found before a broad one that covers it, or it could never be pointed at at all. A way is found
+    /// before a ribbon only while the claims are on, since that is the layer whose whole reading is one way.
+    /// </remarks>
+    DebugTarget Under(
+        TownWorld world, Paving paving, SimConfig config, DebugSwitches switches, Vector2 pointM,
+        float pixelsPerMetre)
+    {
+        if (CarsFindable(switches))
+        {
+            var car = world.CarAt(pointM);
+            if (car >= 0) return new DebugTarget(DebugThing.Car, car);
+        }
+
+        if (WalkersFindable(switches))
+        {
+            var person = world.PersonAt(pointM);
+            if (person >= 0) return new DebugTarget(DebugThing.Walker, person);
+        }
 
         if (switches.Perimeter)
         {
-            BoundaryUnder(ref draw, paving, config, pointerM, pointerPx, pixelsPerMetre, lineM, sagM, ref labels);
+            var found = BoundaryAt(paving, config, pointM, pixelsPerMetre);
+            if (found.Chain is not null) return new DebugTarget(DebugThing.Boundary, found.Piece, found.At, pointM);
+        }
+
+        if (switches.Claims && WayAt(world, pointM, out _) is var claimed and >= 0)
+        {
+            return new DebugTarget(DebugThing.Way, Way: claimed, AtM: pointM);
+        }
+
+        if (switches.Ribbons && LineUnder(paving, config, pointM) is var line and >= 0)
+        {
+            return new DebugTarget(DebugThing.Line, line);
+        }
+
+        if (switches.Nodes && WayAt(world, pointM, out _) is var way and >= 0)
+        {
+            return new DebugTarget(DebugThing.Way, Way: way, AtM: pointM);
+        }
+
+        if (switches.SolverGrid && SolverCellAt(world, pointM) > 0)
+        {
+            return new DebugTarget(DebugThing.SolverCell, AtM: pointM);
+        }
+
+        if (switches.Grid && GeometryCellAt(paving, config, pointM, out var atX, out var atY))
+        {
+            return new DebugTarget(DebugThing.GeometryCell, atX, atY, pointM);
+        }
+
+        return DebugTarget.None;
+    }
+
+    static bool CarsFindable(DebugSwitches switches) =>
+        switches.CarLines || switches.TurnCircles || switches.Collision || switches.Claims;
+
+    static bool WalkersFindable(DebugSwitches switches) =>
+        switches.WalkerLines || switches.Collision || switches.Claims;
+
+    /// <summary>Whether a pinned thing is still one the layers that are on could find, in a roster that still has it.</summary>
+    static bool Findable(TownWorld world, DebugSwitches switches, in DebugTarget target) => target.Thing switch
+    {
+        DebugThing.None => true,
+        DebugThing.Car => CarsFindable(switches) && target.Index < world.Cars.Count,
+        DebugThing.Walker => WalkersFindable(switches) && target.Index < world.People.Count,
+        DebugThing.Boundary => switches.Perimeter,
+        DebugThing.Way => switches.Claims || switches.Nodes,
+        DebugThing.Line => switches.Ribbons,
+        DebugThing.SolverCell => switches.SolverGrid,
+        _ => switches.Grid,
+    };
+
+    void Highlight(ref ScreenDraw draw, in Focus focus, in DebugTarget target, bool pinned)
+    {
+        switch (target.Thing)
+        {
+            case DebugThing.Car: FocusCar(ref draw, focus, target.Index); break;
+            case DebugThing.Walker: FocusWalker(ref draw, focus, target.Index); break;
+            case DebugThing.Boundary: FocusBoundary(ref draw, focus, target.AtM); break;
+            case DebugThing.Way: FocusWay(ref draw, focus, target.Way, target.AtM); break;
+            case DebugThing.Line: FocusRibbon(ref draw, focus, target.Index, pinned); break;
+            case DebugThing.SolverCell: FocusSolverCells(ref draw, focus, target.AtM); break;
+            case DebugThing.GeometryCell: FocusGeometryCell(ref draw, focus, target.AtM); break;
         }
     }
+
+    void Describe(ref InfoCard card, in Focus focus, in DebugTarget target, bool pinned)
+    {
+        switch (target.Thing)
+        {
+            case DebugThing.Car: DescribeCar(ref card, focus.World, target.Index); break;
+            case DebugThing.Walker: DescribeWalker(ref card, focus.World, target.Index); break;
+            case DebugThing.Boundary: DescribeBoundary(ref card, focus, target.AtM); break;
+            case DebugThing.Way: DescribeWay(ref card, focus, target.Way, target.AtM); break;
+            case DebugThing.Line: DescribeRibbon(ref card, focus, target.Index, pinned); break;
+            case DebugThing.SolverCell: DescribeSolverCells(ref card, focus.World, target.AtM); break;
+            case DebugThing.GeometryCell: DescribeGeometryCell(ref card, focus, target.AtM); break;
+        }
+    }
+
+    /// <summary>
+    /// <b>A body picked out</b>: its outline on a dark casing, and its own two pieces of route drawn at the
+    /// picked weight whichever of the layers found it — the route is what a reader pointing at a car is asking
+    /// about, and it stands out of the crowd of the others only when it is the one drawn heavier.
+    /// </summary>
+    static void FocusCar(ref ScreenDraw draw, in Focus focus, int car)
+    {
+        var cars = focus.World.Cars;
+        ref readonly var build = ref cars.BuildOf(car);
+        var sizeM = new Vector2(build.LengthM, build.WidthM);
+        var lineM = focus.LineM;
+        draw.BoxM(cars.PositionM[car], sizeM, cars.HeadingRad[car], lineM * PathMarks.CasingWidthFactor, Theme.Casing);
+        draw.BoxM(cars.PositionM[car], sizeM, cars.HeadingRad[car], lineM, Theme.DebugPicked);
+
+        CarRoute(
+            ref draw, focus.World, car, PathMarks.MarkPitchAt(focus.PixelsPerMetre), focus.SagM, lineM,
+            Theme.AgentLine(car));
+    }
+
+    static void FocusWalker(ref ScreenDraw draw, in Focus focus, int person)
+    {
+        var people = focus.World.People;
+        var lineM = focus.LineM;
+        var radiusM = people.RadiusM[person] + lineM;
+        draw.RingM(people.PositionM[person], radiusM, lineM * PathMarks.CasingWidthFactor, Theme.Casing);
+        draw.RingM(people.PositionM[person], radiusM, lineM, Theme.DebugPicked);
+
+        WalkerRoute(
+            ref draw, focus.World, person, PathMarks.MarkPitchAt(focus.PixelsPerMetre), lineM, Theme.AgentLine(person));
+    }
+
+    static void DescribeCar(ref InfoCard card, TownWorld world, int car)
+    {
+        var cars = world.Cars;
+        ref readonly var build = ref cars.BuildOf(car);
+
+        var line = card.Next();
+        line.Add("car ");
+        line.Add(car);
+        line.Add(": ");
+
+        // <b>A car whose wheel is held over is named by the command and not by the catalogue.</b> It is in no
+        // manoeuvre and holds no line — a hand at the wheel substitutes the whole behaviour (CTL-5) — so the
+        // words its own controller uses would call it parked, which is the one thing a car circling on full
+        // lock is not.
+        if (world.WheelIsHeldOver(car)) WheelWords(cars.Command[car], build, ref line);
+        else line.Add(CarName(cars, car));
+        card.Keep(in line);
+
+        line = card.Next();
+        line.Add("speed ");
+        line.Add(cars.VelocityMps[car].Length() * 3.6f, "F0");
+        if (cars.Driven[car] && cars.PlannedMps[car] > 0f && float.IsFinite(cars.PlannedMps[car]))
+        {
+            line.Add(" of ");
+            line.Add(cars.PlannedMps[car] * 3.6f, "F0");
+        }
+
+        line.Add(" km/h");
+        card.Keep(in line);
+
+        // The follower's own figures, the ring and the bar the route is drawn with.
+        var context = cars.Context[car];
+        line = card.Next();
+        line.Add("ahead ");
+        if (float.IsFinite(context.HeadwayM))
+        {
+            line.Add(context.HeadwayM, "F1");
+            line.Add(" m from the nose");
+        }
+        else
+        {
+            line.Add("clear");
+        }
+
+        card.Keep(in line);
+
+        if (float.IsFinite(context.StopAtM))
+        {
+            line = card.Next();
+            line.Add("stop in ");
+            line.Add(context.StopAtM, "F1");
+            line.Add(" m");
+            card.Keep(in line);
+        }
+
+        if (cars.LineOf(car).Length > 0)
+        {
+            var totalM = cars.Line[car].LengthM;
+            line = card.Next();
+            line.Add("line ");
+            line.Add(Math.Clamp(cars.ProgressM[car], 0f, totalM), "F1");
+            line.Add(" of ");
+            line.Add(totalM, "F1");
+            line.Add(" m driven");
+            card.Keep(in line);
+        }
+    }
+
+    static void DescribeWalker(ref InfoCard card, TownWorld world, int person)
+    {
+        var people = world.People;
+        var line = card.Next();
+        line.Add("walker ");
+        line.Add(person);
+        line.Add(": ");
+        line.Add(WalkingWords.WalkName(people, person));
+        card.Keep(in line);
+
+        line = card.Next();
+        line.Add("speed ");
+        line.Add(people.VelocityMps[person].Length(), "F1");
+        line.Add(" m/s");
+        card.Keep(in line);
+
+        var at = people.RouteAt(person);
+        var count = people.RouteCount[person];
+        if (!people.Walking[person] || at < 0 || at >= count) return;
+
+        line = card.Next();
+        line.Add("way ");
+        line.Add(at + 1);
+        line.Add(" of ");
+        line.Add(count);
+        line.Add(", ");
+        line.Add(people.OnWayM[person], "F1");
+        line.Add(" m along it");
+        card.Keep(in line);
+    }
+
+    /// <summary>
+    /// <b>The way the pointer is on</b> — any of the town's ways, whatever ground it is laid on — and how far
+    /// along it the pointer stands, or −1. The nearest where several cover the place, which is the one the
+    /// reader is pointing at; nothing off either end, since a way's ground has square ends.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every way is weighed, and most in one comparison.</b> A way further from the place than its own
+    /// length and half its width from where it starts cannot reach it, which turns away everything outside a
+    /// street's length of the pointer before anything is projected onto.
+    /// </remarks>
+    static int WayAt(TownWorld world, Vector2 pointM, out float alongM)
+    {
+        var ways = world.Ways;
+        var best = -1;
+        var bestSq = float.MaxValue;
+        alongM = 0f;
+        for (var way = 0; way < ways.Count; way++)
+        {
+            var arcs = world.LineOfWay(way, out var widthM);
+            if (arcs.Length == 0) continue;
+
+            var halfM = widthM * 0.5f;
+            var lengthM = ways.LengthM(way);
+            var reachM = lengthM + halfM;
+            if (Vector2.DistanceSquared(arcs[0].StartM, pointM) > reachM * reachM) continue;
+
+            var atM = Spline.ProjectM(arcs, pointM, lengthM * 0.5f, reachM, out var offSq);
+            if (atM <= 0f || atM >= lengthM || offSq >= halfM * halfM || offSq >= bestSq) continue;
+
+            best = way;
+            bestSq = offSq;
+            alongM = atM;
+        }
+
+        return best;
+    }
+
+    /// <summary>How far along one way a place stands, which is what a pinned way is asked again at every frame.</summary>
+    static float AlongWay(TownWorld world, int way, Vector2 pointM)
+    {
+        var arcs = world.LineOfWay(way, out _);
+        var lengthM = world.Ways.LengthM(way);
+        return arcs.Length == 0 ? 0f : Spline.ProjectM(arcs, pointM, lengthM * 0.5f, lengthM);
+    }
+
+    /// <summary>The way whole at the picked weight, and a bar across it where the pointer stood.</summary>
+    static void FocusWay(ref ScreenDraw draw, in Focus focus, int way, Vector2 atM)
+    {
+        var arcs = focus.World.LineOfWay(way, out var widthM);
+        var lengthM = focus.World.Ways.LengthM(way);
+        var lineM = focus.LineM;
+        PathMarks.Casing(ref draw, arcs, 0f, lengthM, focus.SagM, lineM);
+        PathMarks.Banded(ref draw, arcs, 0f, lengthM, focus.SagM, lineM, Theme.DebugPicked);
+
+        var at = Spline.SampleAt(arcs, AlongWay(focus.World, way, atM));
+        var halfM = widthM * 0.5f;
+        draw.LineM(at.PositionM - (at.Right * halfM), at.PositionM + (at.Right * halfM), lineM, Theme.DebugPicked);
+    }
+
+    /// <summary>
+    /// <b>What a way is and who holds it</b>: its kind, its length and width, where along it the pointer
+    /// stands, and — with the claims on — every stretch of it somebody holds, <b>marked where it covers the
+    /// pointer</b>, since what a reader at a junction wants is who has the ground under the cursor and how
+    /// strongly, which the wash alone says only for the top one of several.
+    /// </summary>
+    static void DescribeWay(ref InfoCard card, in Focus focus, int way, Vector2 atM)
+    {
+        var world = focus.World;
+        var ways = world.Ways;
+        world.LineOfWay(way, out var widthM);
+        var alongM = AlongWay(world, way, atM);
+
+        var line = card.Next();
+        line.Add(WayWords[(int)ways.KindOf(way)]);
+        line.Add(' ');
+        line.Add(way);
+        card.Keep(in line);
+
+        line = card.Next();
+        line.Add(ways.LengthM(way), "F1");
+        line.Add(" m long, ");
+        line.Add(widthM, "F2");
+        line.Add(" m wide, pointer at ");
+        line.Add(alongM, "F1");
+        line.Add(" m");
+        card.Keep(in line);
+
+        if (!focus.Switches.Claims) return;
+
+        Span<LaneClaim> slots = stackalloc LaneClaim[MostDrawnSlotsOnAWay];
+        var count = world.Occupancy.CopyTo(way, slots);
+        if (count == 0)
+        {
+            line = card.Next();
+            line.Add("nothing holds it");
+            card.Keep(in line);
+            return;
+        }
+
+        for (var slot = 0; slot < count && slot < MostClaimsListed; slot++)
+        {
+            ref readonly var claim = ref slots[slot];
+            line = card.Next();
+            line.Add(claim.FromM <= alongM && alongM <= claim.ToM ? "> " : "  ");
+            if (claim.Occupant == LaneOccupancy.Nobody) line.Add("furniture");
+            else
+            {
+                line.Add(claim.Of == LaneRoster.Driving ? "car " : "walker ");
+                line.Add(claim.Occupant);
+            }
+
+            line.PadTo(14);
+            line.Add(PriorityWords[(int)claim.Priority]);
+            line.PadTo(28);
+            line.Add(claim.FromM, "F1");
+            line.Add(" - ");
+            line.Add(claim.ToM, "F1");
+            line.Add(" m");
+            if (claim.Secondary) line.Add(", crossed");
+            card.Keep(in line);
+        }
+
+        if (count <= MostClaimsListed) return;
+
+        line = card.Next();
+        line.Add("and ");
+        line.Add(count - MostClaimsListed);
+        line.Add(" more");
+        card.Keep(in line);
+    }
+
+    /// <summary>What each kind of way is called on a card, by <see cref="WayKind"/>.</summary>
+    static readonly string[] WayWords = ["lane", "join", "bay way", "footway", "corner"];
+
+    /// <summary>
+    /// What each rung of the ladder is called on a card, by <see cref="ClaimPriority"/>. <b>A table and not the
+    /// enum's own names</b>: those are written for code and cost a string each time one is asked for.
+    /// </summary>
+    static readonly string[] PriorityWords =
+        ["body", "committed", "special", "closed", "crossing", "firm straight", "firm", "firm across"];
 
     /// <summary>
     /// Room for a town this size, and the widest band in it — both taken once, because a town is laid
@@ -124,8 +563,6 @@ internal sealed partial class DebugOverlay
     /// </remarks>
     static void Standing(ref ScreenDraw draw, Vector2 uiPx, Vector2 pointerM, Vector2 pointerPx)
     {
-        // Off the glass is over a panel or no pointer at all (a shot takes none): a coordinate for a place
-        // nobody is pointing at is a figure the reader cannot account for.
         if (pointerPx.X < 0f || pointerPx.Y < 0f || pointerPx.X > uiPx.X || pointerPx.Y > uiPx.Y) return;
 
         Span<char> text = stackalloc char[32];
@@ -155,9 +592,21 @@ internal sealed partial class DebugOverlay
     /// </summary>
     const float AboveTheLegendPx = CornerMarginPx + 5f + 13f + Theme.SmallTextPx + Theme.TextPx + 8f;
 
+    /// <summary>The cell of the geometry grid a place is in, where the grid reaches it at all.</summary>
+    static bool GeometryCellAt(Paving paving, SimConfig config, Vector2 pointM, out int atX, out int atY)
+    {
+        var grid = paving.DrivenLines(config);
+        atX = atY = -1;
+        if (grid.Width <= 0 || grid.Height <= 0) return false;
+
+        atX = Cell(pointM.X - grid.OriginM.X, grid.CellM, grid.Width);
+        atY = Cell(pointM.Y - grid.OriginM.Y, grid.CellM, grid.Height);
+        return true;
+    }
+
     /// <summary>
-    /// <b>The cell a reader picked, and every line the index holds in it</b>: the cell's own square, and each
-    /// of those lines drawn whole at the picked weight.
+    /// <b>The cell picked out, and every line the index holds in it</b>: the cell's own square, and each of
+    /// those lines drawn whole at the picked weight.
     /// </summary>
     /// <remarks>
     /// <b>Whole lines and not the piece of each inside the cell.</b> What a cell says is which lines a
@@ -165,51 +614,134 @@ internal sealed partial class DebugOverlay
     /// little of it reaches the cell — so lighting only the part inside would be a picture of the cell rather
     /// than of the answer it gives.
     /// </remarks>
-    void PickedCell(
-        ref ScreenDraw draw, Paving paving, SimConfig config, DebugPick pick, Vector2 pointerPx, float lineM,
-        float sagM, ref int labels)
+    void FocusGeometryCell(ref ScreenDraw draw, in Focus focus, Vector2 atM)
     {
-        if (pick.AtM is not { } atM) return;
+        if (!GeometryCellAt(focus.Paving, focus.Config, atM, out var atX, out var atY)) return;
 
-        var grid = paving.DrivenLines(config);
-        if (grid.Width <= 0 || grid.Height <= 0) return;
-
+        var grid = focus.Paving.DrivenLines(focus.Config);
         var cellM = grid.CellM;
-        var atX = Cell(atM.X - grid.OriginM.X, cellM, grid.Width);
-        var atY = Cell(atM.Y - grid.OriginM.Y, cellM, grid.Height);
         var middleM = grid.OriginM + new Vector2((atX + 0.5f) * cellM, (atY + 0.5f) * cellM);
         var held = grid.ChainsInCell(atX, atY, _inCell);
 
-        draw.BoxM(middleM, new Vector2(cellM), 0f, lineM, Theme.DebugPicked);
+        draw.BoxM(middleM, new Vector2(cellM), 0f, focus.LineM, Theme.DebugPicked);
         for (var at = 0; at < held && at < _inCell.Length; at++)
         {
             var line = _inCell[at];
             PathMarks.Banded(
-                ref draw, paving.ArcsOfDriven(line), 0f, paving.DrivenLengthM(line), sagM, lineM,
-                Theme.DebugHeld);
+                ref draw, focus.Paving.ArcsOfDriven(line), 0f, focus.Paving.DrivenLengthM(line), focus.SagM,
+                focus.LineM, Theme.DebugHeld);
         }
+    }
 
-        Span<char> text = stackalloc char[64];
-        var said = new TextBuffer(text);
-        said.Add("cell ");
-        said.Add(atX);
-        said.Add(", ");
-        said.Add(atY);
-        said.Add(" of ");
-        said.Add(grid.Width);
-        said.Add("x");
-        said.Add(grid.Height);
-        said.Add(" at ");
-        said.Add(cellM, "F1");
-        said.Add(" m holds ");
-        said.Add(held);
-        said.Add(" lines");
-        Label(ref draw, pointerPx, said.Written, ref labels);
+    static void DescribeGeometryCell(ref InfoCard card, in Focus focus, Vector2 atM)
+    {
+        if (!GeometryCellAt(focus.Paving, focus.Config, atM, out var atX, out var atY)) return;
+
+        var grid = focus.Paving.DrivenLines(focus.Config);
+        var line = card.Next();
+        line.Add("geometry cell ");
+        line.Add(atX);
+        line.Add(", ");
+        line.Add(atY);
+        card.Keep(in line);
+
+        line = card.Next();
+        line.Add("holds ");
+        line.Add(grid.ChainsInCell(atX, atY));
+        line.Add(" lines");
+        card.Keep(in line);
+
+        line = card.Next();
+        line.Add(grid.Width);
+        line.Add(" x ");
+        line.Add(grid.Height);
+        line.Add(" cells of ");
+        line.Add(grid.CellM, "F1");
+        line.Add(" m");
+        card.Keep(in line);
+    }
+
+    /// <summary>How many bodies the two solver grids hold between them at a place, which is whether there is a cell there to ask about.</summary>
+    static int SolverCellAt(TownWorld world, Vector2 pointM)
+    {
+        var physics = world.PhysicsForInstruments;
+        return BodiesAt(physics.MovingIndex, pointM, out _, out _) + BodiesAt(physics.StaticIndex, pointM, out _, out _);
+    }
+
+    /// <summary>How many bodies one grid holds in the cell over a place, and which cell that is — none off the grid.</summary>
+    static int BodiesAt(CellGrid grid, Vector2 pointM, out int atX, out int atY)
+    {
+        atX = atY = -1;
+        if (grid.Width <= 0 || grid.Height <= 0) return 0;
+
+        var offsetM = (pointM - grid.OriginM) / grid.CellSizeM;
+        atX = (int)MathF.Floor(offsetM.X);
+        atY = (int)MathF.Floor(offsetM.Y);
+        if (atX < 0 || atY < 0 || atX >= grid.Width || atY >= grid.Height) return 0;
+
+        return grid.Items(atX, atY).Length;
     }
 
     /// <summary>
-    /// <b>The ribbon the pointer stands on</b>: the band of ground that line covers, drawn as the closed
-    /// chain of lines it is (<see cref="ArcRibbon"/>) and nothing else.
+    /// <b>Both solver cells over a place, each in its own grid's hue</b> (OBS-2x): the two lattices are laid
+    /// from different corners at different sizes, so the one place has a cell in each and the pair is the
+    /// reading.
+    /// </summary>
+    static void FocusSolverCells(ref ScreenDraw draw, in Focus focus, Vector2 atM)
+    {
+        var physics = focus.World.PhysicsForInstruments;
+        SolverCell(ref draw, physics.StaticIndex, atM, focus.LineM, Theme.SolverStaticEdge with { W = 1f });
+        SolverCell(ref draw, physics.MovingIndex, atM, focus.LineM, Theme.SolverMovingEdge with { W = 1f });
+    }
+
+    static void SolverCell(ref ScreenDraw draw, CellGrid grid, Vector2 atM, float lineM, Vector4 colour)
+    {
+        if (BodiesAt(grid, atM, out var atX, out var atY) == 0) return;
+
+        var cellM = grid.CellSizeM;
+        var middleM = grid.OriginM + new Vector2((atX + 0.5f) * cellM, (atY + 0.5f) * cellM);
+        draw.BoxM(middleM, new Vector2(cellM), 0f, lineM * PathMarks.CasingWidthFactor, Theme.Casing);
+        draw.BoxM(middleM, new Vector2(cellM), 0f, lineM, colour);
+    }
+
+    static void DescribeSolverCells(ref InfoCard card, TownWorld world, Vector2 atM)
+    {
+        var physics = world.PhysicsForInstruments;
+        var line = card.Next();
+        line.Add("solver cells here");
+        card.Keep(in line);
+
+        SolverRow(ref card, "moving", physics.MovingIndex, atM);
+        SolverRow(ref card, "static", physics.StaticIndex, atM);
+    }
+
+    static void SolverRow(ref InfoCard card, string name, CellGrid grid, Vector2 atM)
+    {
+        var bodies = BodiesAt(grid, atM, out var atX, out var atY);
+        var line = card.Next();
+        line.Add(name);
+        line.PadTo(8);
+        if (atX < 0)
+        {
+            line.Add("off the grid");
+            card.Keep(in line);
+            return;
+        }
+
+        line.Add("cell ");
+        line.Add(atX);
+        line.Add(", ");
+        line.Add(atY);
+        line.Add(" of ");
+        line.Add(grid.CellSizeM, "F1");
+        line.Add(" m holds ");
+        line.Add(bodies);
+        card.Keep(in line);
+    }
+
+    /// <summary>
+    /// <b>The ribbon a driven line lays</b>: the band of ground that line covers, drawn as the closed chain of
+    /// lines it is (<see cref="ArcRibbon"/>) and nothing else.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -219,53 +751,59 @@ internal sealed partial class DebugOverlay
     /// the band's outline.
     /// </para>
     /// <para>
-    /// <b>The line alone, with no mark standing off it.</b> How many sections the chain has is written beside
-    /// the pointer, and a bar at each joint said the same thing a second time over the one thing the reading
-    /// is for — the path the edge takes round a corner, which a comb of marks across it is what hides.
+    /// <b>The line alone, with no mark standing off it.</b> How many sections the chain has is written on the
+    /// card, and a bar at each joint said the same thing a second time over the one thing the reading is for —
+    /// the path the edge takes round a corner, which a comb of marks across it is what hides.
     /// </para>
     /// </remarks>
-    void RibbonUnder(
-        ref ScreenDraw draw, Paving paving, SimConfig config, Vector2 pointerM, Vector2 pointerPx, float lineM,
-        float sagM, ref int labels)
+    void FocusRibbon(ref ScreenDraw draw, in Focus focus, int line, bool pinned)
     {
-        var line = LineUnder(paving, config, pointerM);
-        if (line < 0)
+        foreach (var piece in RibbonOf(focus.Paving, line, pinned))
         {
-            _hoveredLine = -1;
-            return;
+            PathMarks.Banded(ref draw, [piece], 0f, piece.LengthM, focus.SagM, focus.LineM, Theme.DebugPicked);
+        }
+    }
+
+    /// <summary>A driven line's ribbon, laid again only when the line asked about changes — this runs every frame.</summary>
+    ReadOnlySpan<ArcSeg> RibbonOf(Paving paving, int line, bool pinned)
+    {
+        ref var laid = ref pinned ? ref _pinnedRibbon : ref _hoveredRibbon;
+        ref var laidLine = ref pinned ? ref _pinnedRibbonLine : ref _hoveredRibbonLine;
+        if (laidLine != line)
+        {
+            laid = ArcRibbon.Of(paving.ArcsOfDriven(line), paving.DrivenWidthM(line) * 0.5f, LineTolerance.RoundingM);
+            laidLine = line;
         }
 
-        // Laid again only when the pointer moves onto another line: this runs every frame, and a ribbon is
-        // a fact about the line rather than about the frame.
-        if (line != _hoveredLine)
-        {
-            _hovered = ArcRibbon.Of(
-                paving.ArcsOfDriven(line), paving.DrivenWidthM(line) * 0.5f, LineTolerance.RoundingM);
-            _hoveredLine = line;
-        }
+        return laid;
+    }
 
+    void DescribeRibbon(ref InfoCard card, in Focus focus, int line, bool pinned)
+    {
+        var paving = focus.Paving;
+        var pieces = RibbonOf(paving, line, pinned);
         var roundM = 0f;
-        foreach (var piece in _hovered)
-        {
-            PathMarks.Banded(ref draw, [piece], 0f, piece.LengthM, sagM, lineM, Theme.DebugPicked);
-            roundM += piece.LengthM;
-        }
+        foreach (var piece in pieces) roundM += piece.LengthM;
 
-        Span<char> text = stackalloc char[80];
-        var said = new TextBuffer(text);
+        var said = card.Next();
         said.Add(KindOf(paving, line));
         said.Add(' ');
         said.Add(line);
-        said.Add(": ");
+        card.Keep(in said);
+
+        said = card.Next();
         said.Add(paving.DrivenLengthM(line), "F2");
         said.Add(" m driven, ");
         said.Add(paving.DrivenWidthM(line), "F2");
-        said.Add(" m wide, ");
-        said.Add(_hovered.Length);
+        said.Add(" m wide");
+        card.Keep(in said);
+
+        said = card.Next();
+        said.Add(pieces.Length);
         said.Add(" sections round ");
         said.Add(roundM, "F2");
         said.Add(" m");
-        Label(ref draw, pointerPx, said.Written, ref labels);
+        card.Keep(in said);
     }
 
     /// <summary>
@@ -302,23 +840,17 @@ internal sealed partial class DebugOverlay
         : line < paving.Lanes.LaneCount + paving.Lanes.ConnectorCount ? "movement" : "bay way";
 
     /// <summary>
-    /// <b>The one stretch of boundary the pointer is over</b>, drawn at the picked weight with a disc at each
-    /// of its ends — and which outline it belongs to, which chain of that one, and which stretch of that.
+    /// <b>The one stretch of boundary nearest a place</b>, within a finger's width of it on the glass — and which
+    /// outline it belongs to, which chain of that one, and which stretch of that.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Every outline the layer draws is searched and they are searched alike</b>
-    /// (<see cref="Boundaries"/>): the rings the merge closed, the runs it could not, and the layers struck
-    /// off the boundary (OBS-2u). A reading offered over one of them and not the others would say that the
-    /// pointer had found nothing wherever it stood over another, which is the one answer a pointer must not
-    /// give — and a layer's outer edge is exactly the outline a reader most wants to ask about, being the
-    /// one whose corners are a construction rather than a fact.
-    /// </para>
-    /// <para>
-    /// <b>A stretch and not the whole chain.</b> A ring is most of a district and lighting all of it says
-    /// nothing; what a reader following a boundary wants is which piece they are on and where that piece
-    /// stops — which is the whole of the question at an open run's two ends, and at every corner an outset
-    /// put in.
+    /// <b>Every outline the layer draws is searched and they are searched alike</b>: the rings the merge
+    /// closed, the runs it could not, and the layers struck off the boundary (OBS-2u). A reading offered over
+    /// one of them and not the others would say that the pointer had found nothing wherever it stood over
+    /// another, which is the one answer a pointer must not give — and a layer's outer edge is exactly the
+    /// outline a reader most wants to ask about, being the one whose corners are a construction rather than a
+    /// fact.
     /// </para>
     /// <para>
     /// <b>It reads the layers the picture drew and never a set of its own</b> (<see cref="Paving.Rings"/>).
@@ -326,68 +858,84 @@ internal sealed partial class DebugOverlay
     /// pointer would be a stretch of a line nobody can see.
     /// </para>
     /// </remarks>
-    void BoundaryUnder(
-        ref ScreenDraw draw, Paving paving, SimConfig config, Vector2 pointerM, Vector2 pointerPx,
-        float pixelsPerMetre, float lineM, float sagM, ref int labels)
+    static Picked BoundaryAt(Paving paving, SimConfig config, Vector2 pointM, float pixelsPerMetre)
     {
         var shell = paving.Perimeter(config);
         var rings = paving.Rings(config);
         var found = new Picked { OffM = ReachPx / MathF.Max(pixelsPerMetre, 0.001f) };
 
-        Nearest(rings.Carriageway.Rings, rings.Carriageway.Named, Ring, pointerM, ref found);
-        Nearest(shell.Loose, rings.Carriageway.Named, OpenRun, pointerM, ref found);
+        Nearest(rings.Carriageway.Rings, rings.Carriageway.Named, Ring, pointM, ref found);
+        Nearest(shell.Loose, rings.Carriageway.Named, OpenRun, pointM, ref found);
         foreach (var layer in rings.Layers)
         {
-            Nearest(layer.Rings, layer.Named, Ring, pointerM, ref found);
-            Nearest(layer.Loose, layer.Named, OpenRun, pointerM, ref found);
+            Nearest(layer.Rings, layer.Named, Ring, pointM, ref found);
+            Nearest(layer.Loose, layer.Named, OpenRun, pointM, ref found);
         }
 
+        return found;
+    }
+
+    /// <summary>
+    /// <b>A stretch and not the whole chain</b>, drawn at the picked weight with a disc at each of its ends. A
+    /// ring is most of a district and lighting all of it says nothing; what a reader following a boundary
+    /// wants is which piece they are on and where that piece stops — which is the whole of the question at an
+    /// open run's two ends, and at every corner an outset put in.
+    /// </summary>
+    static void FocusBoundary(ref ScreenDraw draw, in Focus focus, Vector2 atM)
+    {
+        var found = BoundaryAt(focus.Paving, focus.Config, atM, focus.PixelsPerMetre);
         if (found.Chain is null) return;
 
         var stretch = found.Chain[found.Piece];
-        PathMarks.Banded(ref draw, [stretch], 0f, stretch.LengthM, sagM, lineM, Theme.DebugPicked);
+        PathMarks.Banded(ref draw, [stretch], 0f, stretch.LengthM, focus.SagM, focus.LineM, Theme.DebugPicked);
         draw.DiscM(stretch.StartM, PathMarks.JoinDiscM * 2f, Theme.DebugPicked);
         draw.DiscM(stretch.EndM, PathMarks.JoinDiscM * 2f, Theme.DebugPicked);
+    }
 
-        Span<char> text = stackalloc char[160];
-        var said = new TextBuffer(text);
+    static void DescribeBoundary(ref InfoCard card, in Focus focus, Vector2 atM)
+    {
+        var found = BoundaryAt(focus.Paving, focus.Config, atM, focus.PixelsPerMetre);
+        if (found.Chain is null) return;
+
+        var stretch = found.Chain[found.Piece];
+        var said = card.Next();
         said.Add(found.Outline);
         said.Add(' ');
         said.Add(found.Kind);
         said.Add(' ');
         said.Add(found.At);
-        said.Add(", stretch ");
+        card.Keep(in said);
+
+        said = card.Next();
+        said.Add("stretch ");
         said.Add(found.Piece);
         said.Add(" of ");
         said.Add(found.Chain.Length);
         said.Add(", ");
         said.Add(stretch.LengthM, "F3");
         said.Add(" m");
-        Label(ref draw, pointerPx, said.Written, ref labels);
+        card.Keep(in said);
 
         // <b>What the stretch reads as running along, at each of its two ends, on a line of its own</b>
         // (<see cref="CityGen.KerbEnds"/>) — which is the whole of why a kerb end stands at one joint and
         // not at the next. <b>One line for each end</b>: the rounding joins consecutive stretches of one
         // circle, so a straight kerb is one stretch for every road it is straight through, and the two ends
         // of it answer two different things at two different distances back along them.
-        Said(ref draw, pointerPx, paving, config, stretch, fromStart: true, ref labels);
-        Said(ref draw, pointerPx, paving, config, stretch, fromStart: false, ref labels);
+        Said(ref card, focus.Paving, focus.Config, stretch, fromStart: true);
+        Said(ref card, focus.Paving, focus.Config, stretch, fromStart: false);
     }
 
-    /// <summary>One end of a stretch of boundary: what it reads as running along, on a label of its own.</summary>
-    static void Said(
-        ref ScreenDraw draw, Vector2 pointerPx, Paving paving, SimConfig config, in ArcSeg stretch,
-        bool fromStart, ref int labels)
+    /// <summary>One end of a stretch of boundary: what it reads as running along, on a row of its own.</summary>
+    static void Said(ref InfoCard card, Paving paving, SimConfig config, in ArcSeg stretch, bool fromStart)
     {
-        Span<char> text = stackalloc char[96];
-        var said = new TextBuffer(text);
-        said.Add(fromStart ? "  from " : "  to   ");
+        var said = card.Next();
+        said.Add(fromStart ? "from " : "to   ");
 
         var lane = CityGen.KerbEnds.LaneUnder(paving, config, stretch, fromStart);
         if (lane < 0)
         {
             said.Add("no road");
-            Label(ref draw, pointerPx, said.Written, ref labels);
+            card.Keep(in said);
             return;
         }
 
@@ -397,7 +945,7 @@ internal sealed partial class DebugOverlay
         if (road == CityGen.KerbEnds.Park)
         {
             said.Add(" of a car park");
-            Label(ref draw, pointerPx, said.Written, ref labels);
+            card.Keep(in said);
             return;
         }
 
@@ -410,7 +958,7 @@ internal sealed partial class DebugOverlay
         said.Add(", ");
         said.Add(CityGen.KerbEnds.OutM(paving, lane, stretch.PointAtM(fromStart ? 0f : stretch.LengthM)), "F1");
         said.Add(" m out");
-        Label(ref draw, pointerPx, said.Written, ref labels);
+        card.Keep(in said);
     }
 
     /// <summary>
@@ -471,16 +1019,5 @@ internal sealed partial class DebugOverlay
                 found.Piece = piece;
             }
         }
-    }
-
-    /// <summary>
-    /// One reading, written beside the pointer and stacked under the last. <b>Beside the pointer rather than
-    /// at the thing it names</b>: what it is about is under the cursor already, and a label laid on the town
-    /// covers the picture it is a reading of.
-    /// </summary>
-    static void Label(ref ScreenDraw draw, Vector2 pointerPx, scoped ReadOnlySpan<char> said, ref int labels)
-    {
-        draw.OutlinedText(pointerPx + LabelOffsetPx + new Vector2(0f, labels * LabelStepPx), said, Theme.TextPx);
-        labels++;
     }
 }

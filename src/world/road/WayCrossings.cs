@@ -7,22 +7,11 @@ namespace TrafficSimulation.World.Road;
 /// </summary>
 /// <remarks>
 /// <b>Both sides, because a shared piece of ground is one place and a holder passes it once.</b> Its own
-/// metres are where a hold on the filed way needs the other section; the other metres are the section it
-/// needs (TER-5c.1).
+/// metres are where a main claim on the filed way places a secondary claim; the other metres are the section
+/// that secondary claim covers (TER-5c.1).
 /// </remarks>
 /// <param name="OnWay">The way whose section it is, numbered as the reservations number ways (<see cref="TownWays"/>).</param>
 internal readonly record struct CrossedSection(int OnWay, float FromM, float ToM, float MineFromM, float MineToM);
-
-/// <summary>
-/// <b>One run of a way's own line that other ways' ribbons lie over</b>, in that way's metres: the
-/// overlapping <see cref="CrossedSection.MineFromM"/>..<see cref="CrossedSection.MineToM"/> intervals
-/// merged, and the metres between two marks that touch neither left out.
-/// </summary>
-/// <remarks>
-/// <b>Where a body at rest shuts somebody else's ground</b>: a car waiting with any part of itself inside
-/// one of these is across a way another movement uses, which is what keeps a queue short of a box.
-/// </remarks>
-internal readonly record struct OwnRun(float FromM, float ToM);
 
 /// <summary>
 /// <b>The marks</b> (TER-5c.1): for every way of the town, the section of every other way whose ribbon its
@@ -36,57 +25,26 @@ internal readonly record struct OwnRun(float FromM, float ToM);
 /// against whoever plans those metres and against nobody else.
 /// </para>
 /// <para>
-/// <b>It is looked up and never written into.</b> A hold is laid on the ways its holder drives or walks;
-/// where the ground of one of them is shared, the linked section is taken with it or the hold is cut short
-/// of the mark (<see cref="LaneOccupancy"/>), and that is the whole of how two ways that share ground meet.
+/// <b>It is looked up and never written into.</b> A hold's main claims are laid on the ways its holder drives
+/// or walks; where the ground of one of them is shared, a secondary claim over the other way's section is
+/// placed with it (<see cref="LaneOccupancy"/>), and that is the whole of how two ways that share ground meet.
 /// </para>
 /// <para>
 /// <b>Being over each other is mutual, and the table is symmetric because of it.</b> A pair of ribbons makes
-/// one pair of sections, filed under both ways — so what one holder needs of the other's way is exactly the
-/// ground the other finds linked back to its own.
+/// one pair of sections, each with ground in it, filed under both ways — so a main claim over one side of a
+/// mark meets, on its own way, the secondary claim of whatever holds the other side. <b>That is what lets a
+/// main claim be answered off its own way alone.</b>
 /// </para>
 /// </remarks>
 internal sealed class WayCrossings
 {
     readonly int[] _offsets;
     readonly CrossedSection[] _sections;
-    readonly int[] _ownOffsets;
-    readonly OwnRun[] _ownRuns;
 
     public WayCrossings(int[] offsets, CrossedSection[] sections)
     {
         _offsets = offsets;
         _sections = sections;
-
-        var ways = offsets.Length - 1;
-        _ownOffsets = new int[ways + 1];
-        var runs = new List<OwnRun>();
-        var mine = new List<OwnRun>();
-        for (var way = 0; way < ways; way++)
-        {
-            mine.Clear();
-            foreach (ref readonly var section in Of(way))
-            {
-                mine.Add(new OwnRun(section.MineFromM, section.MineToM));
-            }
-
-            mine.Sort(static (first, second) => first.FromM.CompareTo(second.FromM));
-            foreach (var run in mine)
-            {
-                if (runs.Count > _ownOffsets[way] && run.FromM <= runs[^1].ToM)
-                {
-                    runs[^1] = runs[^1] with { ToM = MathF.Max(runs[^1].ToM, run.ToM) };
-                    continue;
-                }
-
-                runs.Add(run);
-            }
-
-            _ownOffsets[way + 1] = runs.Count;
-            MostOwnRuns = Math.Max(MostOwnRuns, runs.Count - _ownOffsets[way]);
-        }
-
-        _ownRuns = [.. runs];
     }
 
     /// <summary>
@@ -106,20 +64,8 @@ internal sealed class WayCrossings
             : _sections.AsSpan(_offsets[way], _offsets[way + 1] - _offsets[way]);
 
     /// <summary>
-    /// <b>The runs of a way's own line the marks fall on</b>, in that way's own metres. Empty where its ribbon
-    /// lies over nothing.
-    /// </summary>
-    public ReadOnlySpan<OwnRun> OwnRuns(int way) =>
-        way < 0 || way + 1 >= _ownOffsets.Length
-            ? []
-            : _ownRuns.AsSpan(_ownOffsets[way], _ownOffsets[way + 1] - _ownOffsets[way]);
-
-    /// <summary>
-    /// How many marks the busiest way carries — <b>how many linked sections one piece of a hold may write</b>,
+    /// How many marks the busiest way carries — <b>how many secondary claims one main claim may place</b>,
     /// which sizes the planned layer.
     /// </summary>
     public int MostCrossedByOne { get; init; }
-
-    /// <summary>And how many runs of its own way the busiest one has.</summary>
-    public int MostOwnRuns { get; }
 }

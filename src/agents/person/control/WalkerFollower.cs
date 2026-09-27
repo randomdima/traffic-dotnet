@@ -18,6 +18,10 @@ internal readonly record struct WalkerStep(float HeadingRad, Vector2 DesiredMps,
 /// PER-3's "a walker's pace is a cap, never a profile" honest rather than a description.
 /// </para>
 /// <para>
+/// <b>The ground is not asked.</b> A walker's pace and grip are its own and the same on every surface: the
+/// terrain is a wheel's (TER-2), and a person reads nothing of it.
+/// </para>
+/// <para>
 /// <b>Nothing here touches a body.</b> It takes a pose and returns numbers, so the rules can be
 /// checked against a fake walker with no solver in the room — which is the reason this is a function
 /// and not a method on the fleet.
@@ -34,11 +38,10 @@ internal static class WalkerFollower
     /// One tick of one walker.
     /// </summary>
     /// <param name="aimM">Where it is walking. Its own position means "stand", and so does <paramref name="moving"/> false.</param>
-    /// <param name="terrainCoefficient">The ground's own factor, which scales the pace <em>and</em> the grip (TER-2).</param>
     /// <param name="onFeet">False while dead or inside the stumble window, which is the difference between being knocked over and being sent down the road.</param>
     public static WalkerStep Step(
         SimConfig config, float headingRad, Vector2 positionM, Vector2 velocityMps, Vector2 aimM, bool moving,
-        float terrainCoefficient, bool onFeet, float massKg, float dtS)
+        bool onFeet, float massKg, float dtS)
     {
         var toAim = aimM - positionM;
         var somewhereToGo = toAim.LengthSquared() > 1e-8f;
@@ -49,10 +52,10 @@ internal static class WalkerFollower
         // <b>An aim under the body is a stand</b>, the same as being asked for none: a walker with nowhere
         // to be does not carry on the way it was last pointed until something else stops it.
         var desired = moving && somewhereToGo
-            ? Heading.Unit(heading) * config.PersonWalkSpeedMps * terrainCoefficient
+            ? Heading.Unit(heading) * config.PersonWalkSpeedMps
             : Vector2.Zero;
 
-        var gripMps2 = (onFeet ? config.PersonFootGripMps2 : config.PersonSlidingGripMps2) * terrainCoefficient;
+        var gripMps2 = onFeet ? config.PersonFootGripMps2 : config.PersonSlidingGripMps2;
         var wanted = (desired - velocityMps) * massKg;
         var affordable = gripMps2 * massKg * dtS;
         var wantedLength = wanted.Length();

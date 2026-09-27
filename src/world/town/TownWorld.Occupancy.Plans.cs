@@ -46,9 +46,8 @@ internal sealed partial class TownWorld
     /// </para>
     /// <para>
     /// <b>It is answered before it is laid</b> (<see cref="LaneOccupancy.Reach"/>): how far each piece can
-    /// be had is read first, then a car refused somewhere it would come to rest in a box is held back at the
-    /// box (<see cref="WaitsClearOfTheBoxes"/>), and only then is anything taken — so ground is never taken
-    /// off another plan for a hold that then does not use it.
+    /// be had is read first, and only then is anything taken — so ground is never taken off another plan for
+    /// a hold that then does not use it.
     /// </para>
     /// </remarks>
     void PlanTheDrive(int car, Span<LineWay> ways)
@@ -108,6 +107,7 @@ internal sealed partial class TownWorld
 
         Cars.ClaimToM[car] = planToM;
         Cars.CommittedToM[car] = committedToM;
+        _carHeldToM[car] = heldToM;
         if (planToM <= noseM) return;
 
         var hold = _occupancy.BeginHold(build.BodyMarginM);
@@ -118,47 +118,67 @@ internal sealed partial class TownWorld
         LevelTheRungs(car, ways[..count], rungs);
         TheFirstBox(car, ways[..count]);
 
-        // Answered first: how far each piece can be had, read and never written.
-        var cutLineM = float.PositiveInfinity;
-        var cutBy = LaneClaim.Nothing;
-        var cutOn = LaneOccupancy.NoHold;
-        for (var index = 0; index < count; index++)
+        LayTheDrive(car, hold, ways[..count], rungs, AnswerTheDrive(car, hold, ways[..count], rungs));
+    }
+
+    /// <summary>
+    /// <b>How far this car's plan can be had</b>, read against the reservations as they stand and never
+    /// written: cut where the first of its ways refuses it, and short of that by the ground it keeps off what
+    /// refused it.
+    /// </summary>
+    PlanAnswer AnswerTheDrive(int car, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs)
+    {
+        for (var index = 0; index < ways.Length; index++)
         {
             ref readonly var way = ref ways[index];
-            var ask = AskOn(car, hold, way, rungs[index], noseM, committedToM, way.LineFromM < heldToM);
-            var reachM = _occupancy.Reach(ask, way.Way, way.ToM, way.FromM, out var by);
+            var reachM = _occupancy.Reach(AskOn(car, hold, way, rungs[index]), way.Way, way.ToM, way.FromM, out var cutBy);
             if (reachM >= way.ToM) continue;
 
-            cutLineM = OnTheLineM(way, reachM);
-            cutBy = by;
-            cutOn = way.Way;
-            break;
+            ref readonly var build = ref Cars.BuildOf(car);
+            var marginM = new LaneCredit(build.BodyMarginM, build.TailMarginM, LaneRoster.Driving).Of(cutBy);
+            return new PlanAnswer(OnTheLineM(way, reachM), marginM, cutBy, way.Way);
         }
 
-        // Refused by somebody's plan where it would come to rest on ground another movement crosses, the car
-        // waits at the mouth of the box instead — where it can still be brought to rest there at all. The
-        // mouth is short of the answer, so nothing is laid past what the answer gave.
-        var marginM = cutBy.Found ? new LaneCredit(build.BodyMarginM, build.TailMarginM, LaneRoster.Driving).Of(cutBy) : 0f;
-        if (cutBy.Found && !cutBy.HasBody
-            && !WaitsClearOfTheBoxes(car, cutLineM - marginM, ways[..count], out var mouthLineM)
-            && noseM + StoppingM(alongMps, build.UtmostBrakingMps2(Cars.GroundCoefficient[car])) <= mouthLineM)
-        {
-            cutLineM = MathF.Max(noseM, mouthLineM);
-            cutBy = LaneClaim.Nothing;
-            marginM = 0f;
-        }
+        return PlanAnswer.Whole;
+    }
 
-        // And then laid, over what the answer left.
-        for (var index = 0; index < count; index++)
+    /// <summary><b>A car's plan laid</b> over what its answer left, and finished with what it came to.</summary>
+    void LayTheDrive(
+        int car, int hold, ReadOnlySpan<LineWay> ways, ReadOnlySpan<ClaimPriority> rungs, in PlanAnswer answer)
+    {
+        for (var index = 0; index < ways.Length; index++)
         {
             ref readonly var way = ref ways[index];
-            if (way.LineFromM >= cutLineM) break;
+            if (way.LineFromM >= answer.CutLineM) break;
 
-            var ask = AskOn(car, hold, way, rungs[index], noseM, committedToM, way.LineFromM < heldToM);
-            _occupancy.Take(ask, way.Way, OnTheWayM(way, cutLineM));
+            _occupancy.Take(AskOn(car, hold, way, rungs[index]), way.Way, OnTheWayM(way, answer.CutLineM));
         }
 
-        _occupancy.EndHold(hold, cutLineM, marginM, cutBy, cutOn);
+        _occupancy.EndHold(hold, answer.CutLineM, answer.MarginM, answer.CutBy, answer.CutOn);
+    }
+
+    /// <summary>
+    /// <b>This car's plan answered again against what every other came to</b>, and laid again where the answer
+    /// has moved (<see cref="SettleThePlans"/>) — true where it did.
+    /// </summary>
+    bool SettleTheDrive(int car, Span<LineWay> ways)
+    {
+        var hold = _carHold[car];
+        if (hold == LaneOccupancy.NoHold) return false;
+
+        var endsAtM = _occupancy.HoldEndsAtM(hold, out _, out var cutBy);
+        if (float.IsPositiveInfinity(endsAtM) || (cutBy.Found && cutBy.HasBody)) return false;
+
+        var count = WaysAlong(car, Cars.ClaimFromM[car], Cars.ClaimToM[car], ways);
+        Span<ClaimPriority> rungs = stackalloc ClaimPriority[count];
+        LevelTheRungs(car, ways[..count], rungs);
+
+        var answer = AnswerTheDrive(car, hold, ways[..count], rungs);
+        if (answer.CutLineM == endsAtM) return false;
+
+        _occupancy.ReopenHold(hold);
+        LayTheDrive(car, hold, ways[..count], rungs, answer);
+        return true;
     }
 
     /// <summary>The hold a car laid this rebuild, for an instrument asking what held it.</summary>
@@ -186,11 +206,17 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>One piece of a car's plan as the terms it is asked on.</summary>
-    PlannedAsk AskOn(
-        int car, int hold, in LineWay way, ClaimPriority rung, float noseM, float committedToM, bool held) =>
+    PlannedAsk AskOn(int car, int hold, in LineWay way, ClaimPriority rung) =>
         new(
-            hold, car, LaneRoster.Driving, rung, way.FromM, way.LineFromM, way.LineFromM - noseM,
-            way.FromM + (committedToM - way.LineFromM), Cars.AlongMps[car], held);
+            hold, car, LaneRoster.Driving, rung, way.FromM, way.LineFromM, way.LineFromM - Cars.ClaimFromM[car],
+            way.FromM + (Cars.CommittedToM[car] - way.LineFromM), Cars.AlongMps[car],
+            way.LineFromM < _carHeldToM[car]);
+
+    /// <summary>
+    /// Where on its line the ground to and through the box a car has been given ends this rebuild
+    /// (<see cref="LaneClaim.Held"/>), or negative infinity.
+    /// </summary>
+    readonly float[] _carHeldToM;
 
     /// <summary>The first box a car's plan runs through this rebuild, and where on its line that box ends.</summary>
     readonly int[] _carBox;
@@ -258,38 +284,6 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>Whether a car brought to rest with its nose at this metre of its line would be standing clear of
-    /// every junction's crossings</b> — and where the mouth of the first one it would not be clear of is.
-    /// </summary>
-    /// <remarks>
-    /// <b>A body at rest across a crossing shuts that crossing for as long as the wait lasts</b>, whether or
-    /// not the ground it stands on is ground it was refused. The runs of a join are its marks merged
-    /// (<see cref="WayCrossings.OwnRuns"/>), so the gaps between them are the places on it there is nothing
-    /// to stand on.
-    /// </remarks>
-    bool WaitsClearOfTheBoxes(int car, float restNoseM, ReadOnlySpan<LineWay> ways, out float mouthLineM)
-    {
-        mouthLineM = float.PositiveInfinity;
-        ref readonly var build = ref Cars.BuildOf(car);
-        var restTailM = restNoseM - build.LengthM - build.TailMarginM;
-        foreach (ref readonly var way in ways)
-        {
-            if (_ways.KindOf(way.Way) != WayKind.Connector) continue;
-
-            var startsAtM = way.LineFromM - way.FromM;
-            foreach (ref readonly var run in _atlas.Marks.OwnRuns(way.Way))
-            {
-                if (startsAtM + run.FromM >= restNoseM || startsAtM + run.ToM <= restTailM) continue;
-
-                mouthLineM = startsAtM;
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary>
     /// <b>Whether this car's nose is on the join between two lanes of its line</b>, and where on the line that
     /// join ends — the way out of the box it is in.
     /// </summary>
@@ -335,8 +329,8 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Whether this car has been given the box it is driving at</b> (<see cref="CarFleet.MovementWay"/>):
-    /// its plan came through the whole of it this rebuild, or it had the box already and all that stopped it
-    /// short is a body in front — which is a queue it is waiting in and not a box it lost.
+    /// its plan came through the whole of it this rebuild, or it had the box already and nothing but a body in
+    /// front stopped its plan — which is a queue it is waiting in and not a box it lost.
     /// </summary>
     void TheBoxGiven(int car, int hold, float endsAtM, in LaneClaim cutBy)
     {
@@ -348,7 +342,8 @@ internal sealed partial class TownWorld
         }
 
         var through = MathF.Min(endsAtM, Cars.ClaimToM[car]) >= _carBoxEndsAtM[car];
-        var queueing = Cars.MovementWay[car] == box && cutBy.HasBody;
+        var stoppedByABodyAtMost = float.IsPositiveInfinity(endsAtM) || cutBy.HasBody;
+        var queueing = Cars.MovementWay[car] == box && stoppedByABodyAtMost;
         Cars.MovementWay[car] = through || queueing ? box : CarFleet.NoWay;
     }
 

@@ -12,9 +12,18 @@ using TrafficSimulation.World.Town;
 
 namespace TrafficSimulation.App.Debug;
 
-/// <summary>What is drawn over one agent: its name, its line, and the chevrons along it.</summary>
+/// <summary>What is drawn over one agent: its line, and the chevrons along it. <b>No words</b> — what a body is doing is the inspector's card (OBS-2t).</summary>
 internal sealed partial class DebugOverlay
 {
+    /// <summary>
+    /// <b>An agent's line is held to this on the glass</b>, however far out the camera is: under about a
+    /// pixel and a half a route is a dotted thread over the tarmac, and the one thing this layer is read for is
+    /// following it.
+    /// </summary>
+    const float AgentLineFloorPx = 1.5f;
+
+    static float AgentLineM(float pixelsPerMetre) => MathF.Max(PathMarks.PathLineM, AgentLineFloorPx / pixelsPerMetre);
+
     /// <summary>
     /// The walkers: the line each is actually holding, drawn ahead of it as chevrons, and the place
     /// it is holding it to.
@@ -30,48 +39,63 @@ internal sealed partial class DebugOverlay
         float pixelsPerMetre)
     {
         var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
+        var widthM = AgentLineM(pixelsPerMetre);
         var people = world.People;
         for (var person = 0; person < people.Count; person++)
         {
-            var atM = people.PositionM[person];
-            if (!OnScreen(atM, viewCentreM, viewSpanM, config.PersonDiameterM)) continue;
+            if (!OnScreen(people.PositionM[person], viewCentreM, viewSpanM, config.PersonDiameterM)) continue;
 
-            var colour = Theme.AgentLine(person);
-
-            Label(
-                ref draw, atM, WalkingWords.WalkName(people, person), viewCentreM, viewSpanM, pixelsPerMetre);
-
-            if (!people.Walking[person]) continue;
-
-            // OBS-2h for a walker, which is OBS-2h for a car in the walking network's own words: <b>the
-            // way it is walking and the one that way leads onto</b>, and the dot between them is where it
-            // hands over. A walker holds a route as ways and is held on each way's own arc, so what is
-            // drawn is sampled off that arc rather than read out of the body.
-            var route = people.RouteOf(person);
-            var at = people.RouteAt(person);
-            var count = people.RouteCount[person];
-            if (at < 0 || at >= count) continue;
-
-            var walking = world.Walking;
-            var fromM = atM;
-            draw.DiscM(fromM, PathMarks.EndDiscM, colour);
-
-            for (var slot = at; slot < count && slot < at + StretchesDrawn; slot++)
-            {
-                var way = route[slot];
-                walking.SpanOfWay(
-                    slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, way,
-                    slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out var startM, out var endM);
-
-                if (slot == count - 1) endM = MathF.Min(endM, people.RouteToM[person]);
-                if (slot == at) startM = MathF.Max(startM, people.OnWayM[person]);
-                if (slot > at) draw.DiscM(fromM, PathMarks.JoinDiscM, colour);
-
-                fromM = Chevroned(ref draw, walking.WayArcs(way), startM, endM, fromM, pitchM, colour);
-            }
-
-            draw.DiscM(fromM, PathMarks.EndDiscM, colour);
+            WalkerRoute(ref draw, world, person, pitchM, widthM, Theme.AgentLine(person));
         }
+    }
+
+    /// <summary>
+    /// <b>OBS-2h for a walker</b>, which is OBS-2h for a car in the walking network's own words: the way it is
+    /// walking and the one that way leads onto, and the dot between them is where it hands over — laid on a
+    /// dark casing first, so it reads over tarmac and grass alike.
+    /// </summary>
+    /// <remarks>
+    /// A walker holds a route as ways and is held on each way's own arc, so what is drawn is sampled off that
+    /// arc rather than read out of the body.
+    /// </remarks>
+    static void WalkerRoute(
+        ref ScreenDraw draw, TownWorld world, int person, float pitchM, float widthM, Vector4 colour)
+    {
+        if (!world.People.Walking[person]) return;
+
+        WalkerPass(ref draw, world, person, float.PositiveInfinity, widthM * PathMarks.CasingWidthFactor, Theme.Casing);
+        WalkerPass(ref draw, world, person, pitchM, widthM, colour);
+    }
+
+    static void WalkerPass(
+        ref ScreenDraw draw, TownWorld world, int person, float pitchM, float widthM, Vector4 colour)
+    {
+        var people = world.People;
+        var route = people.RouteOf(person);
+        var at = people.RouteAt(person);
+        var count = people.RouteCount[person];
+        if (at < 0 || at >= count) return;
+
+        var walking = world.Walking;
+        var discs = widthM / PathMarks.PathLineM;
+        var fromM = people.PositionM[person];
+        draw.DiscM(fromM, PathMarks.EndDiscM * discs, colour);
+
+        for (var slot = at; slot < count && slot < at + StretchesDrawn; slot++)
+        {
+            var way = route[slot];
+            walking.SpanOfWay(
+                slot > 0 ? route[slot - 1] : WalkingNetwork.NoLane, way,
+                slot + 1 < count ? route[slot + 1] : WalkingNetwork.NoLane, out var startM, out var endM);
+
+            if (slot == count - 1) endM = MathF.Min(endM, people.RouteToM[person]);
+            if (slot == at) startM = MathF.Max(startM, people.OnWayM[person]);
+            if (slot > at) draw.DiscM(fromM, PathMarks.JoinDiscM * discs, colour);
+
+            fromM = Chevroned(ref draw, walking.WayArcs(way), startM, endM, fromM, pitchM, widthM, colour);
+        }
+
+        draw.DiscM(fromM, PathMarks.EndDiscM * discs, colour);
     }
 
     /// <summary>
@@ -81,7 +105,7 @@ internal sealed partial class DebugOverlay
     /// </summary>
     static Vector2 Chevroned(
         ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, Vector2 atM, float pitchM,
-        Vector4 colour)
+        float widthM, Vector4 colour)
     {
         if (arcs.Length == 0) return atM;
 
@@ -89,7 +113,7 @@ internal sealed partial class DebugOverlay
         {
             alongM = MathF.Min(alongM + DrawnStepM, toM);
             var pointM = Spline.SampleAt(arcs, alongM).PositionM;
-            PathMarks.Chevroned(ref draw, atM, pointM, pitchM, colour);
+            PathMarks.Chevroned(ref draw, atM, pointM, pitchM, colour, widthM);
             atM = pointM;
         }
 
@@ -139,88 +163,82 @@ internal sealed partial class DebugOverlay
         float pixelsPerMetre)
     {
         var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
+        var widthM = AgentLineM(pixelsPerMetre);
+        var sagM = PathMarks.SagPx / pixelsPerMetre;
         var cars = world.Cars;
-
-        // One buffer for the whole sweep: what a held wheel is asking for is written into it per car and
-        // read straight into the label, so nothing here allocates and nothing grows down the stack.
-        Span<char> wheel = stackalloc char[WheelWordsRoom];
-
         for (var car = 0; car < cars.Count; car++)
         {
-            // Every figure below is the car's own (CAR-11), so a layer drawn over a truck is drawn at the
-            // truck's dimensions and reports what the truck was told.
-            ref readonly var build = ref cars.BuildOf(car);
-            var atM = cars.PositionM[car];
-            if (!OnScreen(atM, viewCentreM, viewSpanM, build.LengthM)) continue;
+            if (!OnScreen(cars.PositionM[car], viewCentreM, viewSpanM, cars.BuildOf(car).LengthM)) continue;
 
-            var colour = Theme.AgentLine(car);
+            CarRoute(ref draw, world, car, pitchM, sagM, widthM, Theme.AgentLine(car));
+        }
+    }
 
-            // <b>A car whose wheel is held over is named by the command and not by the catalogue.</b> It is
-            // in no manoeuvre and holds no line — a hand at the wheel substitutes the whole behaviour
-            // (CTL-5) — so the words its own controller uses would call it parked, which is the one thing a
-            // car circling on full lock is not. What it is doing is what it was told to do.
-            if (world.WheelIsHeldOver(car))
-            {
-                var words = new TextBuffer(wheel);
-                WheelWords(cars.Command[car], build, ref words);
-                Label(ref draw, atM, words.Written, viewCentreM, viewSpanM, pixelsPerMetre);
-            }
-            else
-            {
-                Label(ref draw, atM, CarName(cars, car), viewCentreM, viewSpanM, pixelsPerMetre);
-            }
+    /// <summary>
+    /// One car's two pieces of route on a dark casing, and what it was told about the road ahead of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Every figure is the car's own</b> (CAR-11), so a layer drawn over a truck is drawn at the truck's
+    /// dimensions and reports what the truck was told.
+    /// </para>
+    /// <para>
+    /// The line starts under the middle of the body and not at the end the route was planned from: the ground
+    /// already covered is where the car has been, and a layer drawing it is answering a question about the
+    /// past. The progress itself is the rear axle's, which is a car's length of line behind the body it
+    /// belongs to. Line and marks are the one colour, because they are the one line — what tells this car's
+    /// route from the next car's is the colour it is drawn in.
+    /// </para>
+    /// </remarks>
+    static void CarRoute(
+        ref ScreenDraw draw, TownWorld world, int car, float pitchM, float sagM, float widthM, Vector4 colour)
+    {
+        var cars = world.Cars;
+        var line = cars.LineOf(car);
+        if (line.Length == 0) return;
 
-            var line = cars.LineOf(car);
-            if (line.Length == 0) continue;
+        ref readonly var build = ref cars.BuildOf(car);
+        var totalM = cars.Line[car].LengthM;
+        var progressM = Math.Clamp(cars.ProgressM[car], 0f, totalM);
+        var underTheCarM = MathF.Min(progressM + build.CentreAheadOfAxleM, totalM);
 
-            // The line starts under the middle of the body and not at the end the route was planned from:
-            // the ground already covered is where the car has been, and a layer drawing it is answering a
-            // question about the past. The progress itself is the rear axle's, which is a car's length of
-            // line behind the body it belongs to. Line and marks are the one colour, because they are the
-            // one line — what tells this car's route from the next car's is the colour it is drawn in.
-            var totalM = cars.Line[car].LengthM;
-            var progressM = Math.Clamp(cars.ProgressM[car], 0f, totalM);
-            var underTheCarM = MathF.Min(progressM + build.CentreAheadOfAxleM, totalM);
+        // The piece being driven and the piece it leads onto: the rest of this lane and the junction off the
+        // end of it, or the junction being crossed and the lane it lands on. Both are the one chain the
+        // assembler wove, so they are drawn as one run of line and the dot between them is where the car
+        // changes what it is doing.
+        var joinM = PieceEndM(cars, car, underTheCarM, totalM);
+        var untilM = PieceEndM(cars, car, joinM, totalM);
+        var discs = widthM / PathMarks.PathLineM;
 
-            // The piece being driven and the piece it leads onto: the rest of this lane and the junction
-            // off the end of it, or the junction being crossed and the lane it lands on. Both are the one
-            // chain the assembler wove, so they are drawn as one run of line and the dot between them is
-            // where the car changes what it is doing.
-            var joinM = PieceEndM(cars, car, underTheCarM, totalM);
-            var untilM = PieceEndM(cars, car, joinM, totalM);
-            var sagM = PathMarks.SagPx / pixelsPerMetre;
-            PathMarks.Chained(
-                ref draw, line, underTheCarM, joinM, pitchM, bothWays: false, sagM, colour, MarkClaims.None);
-            PathMarks.Chained(
-                ref draw, line, joinM, untilM, pitchM, bothWays: false, sagM, colour, MarkClaims.None);
+        PathMarks.Casing(ref draw, line, underTheCarM, untilM, sagM, widthM);
+        PathMarks.Chained(
+            ref draw, line, underTheCarM, joinM, pitchM, bothWays: false, sagM, colour, MarkClaims.None, widthM);
+        PathMarks.Chained(
+            ref draw, line, joinM, untilM, pitchM, bothWays: false, sagM, colour, MarkClaims.None, widthM);
 
-            draw.DiscM(Spline.SampleAt(line, underTheCarM).PositionM, PathMarks.EndDiscM, colour);
-            draw.DiscM(Spline.SampleAt(line, untilM).PositionM, PathMarks.EndDiscM, colour);
-            if (joinM > underTheCarM && joinM < untilM)
-            {
-                draw.DiscM(Spline.SampleAt(line, joinM).PositionM, PathMarks.JoinDiscM, colour);
-            }
+        draw.DiscM(Spline.SampleAt(line, underTheCarM).PositionM, PathMarks.EndDiscM * discs, colour);
+        draw.DiscM(Spline.SampleAt(line, untilM).PositionM, PathMarks.EndDiscM * discs, colour);
+        if (joinM > underTheCarM && joinM < untilM)
+        {
+            draw.DiscM(Spline.SampleAt(line, joinM).PositionM, PathMarks.JoinDiscM * discs, colour);
+        }
 
-            // What is claimed in front of the car, and where the car must be stopped by — both the
-            // follower's own figures rather than this layer's arithmetic.
-            var context = cars.Context[car];
-            if (float.IsFinite(context.HeadwayM))
-            {
-                // From the nose, which is where the reading is measured from.
-                var seenM = progressM + build.NoseAheadOfAxleM + context.HeadwayM;
-                draw.RingM(
-                    Spline.SampleAt(line, seenM).PositionM, build.FlankM, PathMarks.PathLineM, Theme.HeldLine,
-                    segments: 10);
-            }
+        // What is claimed in front of the car, and where the car must be stopped by — both the follower's own
+        // figures rather than this layer's arithmetic.
+        var context = cars.Context[car];
+        if (float.IsFinite(context.HeadwayM))
+        {
+            // From the nose, which is where the reading is measured from.
+            var seenM = progressM + build.NoseAheadOfAxleM + context.HeadwayM;
+            draw.RingM(Spline.SampleAt(line, seenM).PositionM, build.FlankM, widthM, Theme.HeldLine, segments: 10);
+        }
 
-            if (float.IsFinite(context.StopAtM))
-            {
-                var stopAt = Spline.SampleAt(line, progressM + context.StopAtM);
-                draw.LineM(
-                    stopAt.PositionM - stopAt.Right * build.WidthM * 0.6f,
-                    stopAt.PositionM + stopAt.Right * build.WidthM * 0.6f, PathMarks.PathLineM * 2f, Theme.HeldLine);
-            }
-
+        if (float.IsFinite(context.StopAtM))
+        {
+            var stopAt = Spline.SampleAt(line, progressM + context.StopAtM);
+            draw.LineM(
+                stopAt.PositionM - stopAt.Right * build.WidthM * 0.6f,
+                stopAt.PositionM + stopAt.Right * build.WidthM * 0.6f, widthM * 2f, Theme.HeldLine);
         }
     }
 
@@ -300,27 +318,4 @@ internal sealed partial class DebugOverlay
     /// <summary>Where the rack counts as arrived, so a wheel a hair off its stop still reads as full lock.</summary>
     const float OnItsStopPercent = 99f;
 
-    /// <summary>Room for the longest of those lines — "100% lock right, 100% pedal astern" and a little over.</summary>
-    const int WheelWordsRoom = 48;
-
-    /// <summary>
-    /// The one thing a layer writes rather than draws: what the body under it is doing. Text carries
-    /// only what geometry cannot, and a state has no shape. Dropped below a framing at which the body
-    /// is a few pixels across, where a label is a bar of unreadable text over the thing it names.
-    /// </summary>
-    static void Label(
-        ref ScreenDraw draw, Vector2 atM, scoped ReadOnlySpan<char> text, Vector2 viewCentreM, Vector2 viewSpanM,
-        float pixelsPerMetre)
-    {
-        if (pixelsPerMetre < LabelPixelsPerMetre) return;
-
-        const float PaddingPx = 3f;
-        var uiPx = viewSpanM * pixelsPerMetre;
-        var atPx = ((atM - viewCentreM) * pixelsPerMetre) + (uiPx * 0.5f);
-        var sizePx = new Vector2(
-            GlyphSheet.WidthPx(text.Length, Theme.SmallTextPx) + (PaddingPx * 2f), Theme.SmallTextPx + (PaddingPx * 2f));
-        var box = new Rect(atPx - new Vector2(sizePx.X * 0.5f, sizePx.Y + (Theme.SmallTextPx * 0.8f)), sizePx);
-        Theme.Frame(ref draw, box);
-        draw.Text(box.AtPx + new Vector2(PaddingPx), text, Theme.SmallTextPx, Theme.Text);
-    }
 }

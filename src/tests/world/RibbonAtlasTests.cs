@@ -20,30 +20,36 @@ public class RibbonAtlasTests
 
     const float LengthM = 40f;
 
-    /// <summary>Ways laid from straights, each at the same width.</summary>
-    sealed class Straights(params (Vector2 FromM, Vector2 ToM)[] lines) : IRibbonLines
-    {
-        readonly ArcSeg[][] _arcs = [.. lines.Select(static line =>
-        {
-            var along = line.ToM - line.FromM;
-            return new[] { new ArcSeg(line.FromM, MathF.Atan2(along.Y, along.X), along.Length(), 0f) };
-        })];
+    /// <summary>How near an end of a section has to come to where the two ribbons stop touching.</summary>
+    const float ExactM = 1e-3f;
 
-        public int WayCount => _arcs.Length;
+    /// <summary>Ways laid from pieces, each at the same width.</summary>
+    sealed class Lines(params ArcSeg[][] lines) : IRibbonLines
+    {
+        public int WayCount => lines.Length;
 
         public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM)
         {
             widthM = WidthM;
-            return _arcs[way];
+            return lines[way];
         }
     }
 
+    static ArcSeg[] Straight(Vector2 fromM, Vector2 toM)
+    {
+        var along = toM - fromM;
+        return [new ArcSeg(fromM, MathF.Atan2(along.Y, along.X), along.Length(), 0f)];
+    }
+
+    static RibbonAtlas Laid(params ArcSeg[][] lines) =>
+        RibbonAtlas.Lay(new Lines(lines), Config.RibbonLatticeStepM, Config.RibbonTouchM);
+
     static RibbonAtlas Laid(params (Vector2 FromM, Vector2 ToM)[] lines) =>
-        RibbonAtlas.Lay(new Straights(lines), Config.RibbonLatticeStepM, Config.RibbonTouchM);
+        Laid([.. lines.Select(static line => Straight(line.FromM, line.ToM))]);
 
     /// <summary>
-    /// <b>Two ribbons that cross share one section on each</b>, filed under both, and each section is the
-    /// crossing ribbon's width of its own way — to within the half step a lattice point stands for.
+    /// <b>Two ribbons that cross share one section on each</b>, filed under both, and each section is exactly
+    /// the crossing ribbon's width of its own way, less the touch at either side.
     /// </summary>
     [Fact]
     public void TwoCrossingWaysAreMarkedOnceOnEachOverTheOthersWidth()
@@ -51,23 +57,43 @@ public class RibbonAtlasTests
         var atlas = Laid(
             (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
             (new Vector2(LengthM * 0.5f, -LengthM * 0.5f), new Vector2(LengthM * 0.5f, LengthM * 0.5f)));
-        var stepM = atlas.StepM;
+        var sharedM = WidthM - (2f * Config.RibbonTouchM);
 
         for (var way = 0; way < 2; way++)
         {
             var marks = atlas.Marks.Of(way);
             Assert.Single(marks.ToArray());
             Assert.Equal(1 - way, marks[0].OnWay);
-            Assert.InRange(marks[0].MineFromM, (LengthM - WidthM) * 0.5f - stepM, (LengthM - WidthM) * 0.5f);
-            Assert.InRange(marks[0].MineToM, (LengthM + WidthM) * 0.5f, (LengthM + WidthM) * 0.5f + stepM);
+            Assert.Equal((LengthM - sharedM) * 0.5f, marks[0].MineFromM, ExactM);
+            Assert.Equal((LengthM + sharedM) * 0.5f, marks[0].MineToM, ExactM);
         }
     }
 
     /// <summary>
-    /// How far apart two lines stand whose ribbons, as laid, meet edge to edge: the band and the lattice's
-    /// reach either side of each (<see cref="RibbonAtlas.ReachOf"/>).
+    /// <b>Two ways out of one mouth are marked to exactly where their ribbons part</b> (TER-5c), each worn back
+    /// by the touch: a straight and a turn of radius R leave it together, and the turn's outer edge leaves the
+    /// straight's far edge at the angle whose cosine is (R − h)/(R + h) round the turn — 2√(Rh) down the
+    /// straight — for h the half-width less the touch.
     /// </summary>
-    static float EdgeToEdgeM => WidthM + (2f * RibbonAtlas.ReachOf(Config.RibbonLatticeStepM));
+    [Fact]
+    public void TwoWaysOutOfOneMouthAreMarkedToWhereTheirRibbonsPart()
+    {
+        const float RadiusM = 12f;
+        var touchM = Config.RibbonTouchM;
+        var halfM = (WidthM * 0.5f) - touchM;
+        var atlas = Laid(
+            Straight(Vector2.Zero, new Vector2(LengthM, 0f)),
+            [new ArcSeg(Vector2.Zero, 0f, RadiusM * MathF.PI * 0.5f, 1f / RadiusM)]);
+
+        var mark = Assert.Single(atlas.Marks.Of(0).ToArray());
+        Assert.Equal(touchM, mark.MineFromM, ExactM);
+        Assert.Equal(2f * MathF.Sqrt(RadiusM * halfM), mark.MineToM, ExactM);
+        Assert.Equal(touchM, mark.FromM, ExactM);
+        Assert.Equal(RadiusM * MathF.Acos((RadiusM - halfM) / (RadiusM + halfM)), mark.ToM, ExactM);
+    }
+
+    /// <summary>How far apart two lines stand whose ribbons meet edge to edge.</summary>
+    const float EdgeToEdgeM = WidthM;
 
     /// <summary>
     /// <b>Ribbons laid edge to edge share an edge and no ground</b>: the two lanes of a carriageway, and a
@@ -119,6 +145,26 @@ public class RibbonAtlasTests
         Assert.Equal(0, under[0].Way);
         Assert.InRange(under[0].FromM, 18f - atlas.StepM, 18f);
         Assert.InRange(under[0].ToM, 22f, 22f + atlas.StepM);
+    }
+
+    /// <summary>
+    /// <b>A box up to the edge of the next lane's ribbon is not on it</b> (TER-4c.2): the lattice files points
+    /// a reach past every band, and a body is read over only the ground it and the band both hold.
+    /// </summary>
+    [Fact]
+    public void ABoxUpToTheNextLanesEdgeIsNotOnIt()
+    {
+        const float HalfWidthM = 1f;
+        var atlas = Laid(
+            (new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            (new Vector2(LengthM, WidthM), new Vector2(0f, WidthM)));
+        Span<WayCover> under = stackalloc WayCover[8];
+
+        var count = atlas.UnderBox(
+            new Vector2(20f, (WidthM * 0.5f) - HalfWidthM), Vector2.UnitX, 2f, HalfWidthM, under);
+
+        Assert.Equal(1, count);
+        Assert.Equal(0, under[0].Way);
     }
 
     /// <summary>

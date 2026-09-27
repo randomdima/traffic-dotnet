@@ -24,7 +24,7 @@ namespace TrafficSimulation.Tests;
 [Trait(Priority.Key, Priority.P0)]
 public class TierTests
 {
-    static readonly string[] Tiers = [Tier.Unit, Tier.Town, Tier.Perf, Tier.Maps, Tier.E2E];
+    static readonly string[] Tiers = [Tier.Unit, Tier.Town, Tier.Perf, Tier.Maps, Tier.Exam, Tier.E2E];
 
     [Fact]
     public void EveryTestClassNamesItsTier() => EveryTestClassNames(Tier.Key, Tiers);

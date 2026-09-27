@@ -6,8 +6,8 @@ using Xunit;
 namespace TrafficSimulation.Tests.World;
 
 /// <summary>
-/// The reservations as arithmetic: bodies go in and are read back nearest first, holds are settled against
-/// each other on one way and through the marks, and a rebuild leaves nothing of the tick before it.
+/// The reservations as arithmetic: bodies go in and are read back nearest first, a main claim is settled on
+/// its own way against main and secondary claims alike, and a rebuild leaves nothing of the tick before it.
 /// </summary>
 [Trait(Tier.Key, Tier.Unit)]
 [Trait(Priority.Key, Priority.P1)]
@@ -43,14 +43,30 @@ public class LaneOccupancyTests
     /// </summary>
     static WayCrossings Marks(params (int One, (float FromM, float ToM) Mine, int Other, (float FromM, float ToM) Theirs)[] pairs)
     {
-        var wayCount = TownWays.OfTheRoad(Roads).Count;
-        var filed = new List<CrossedSection>[wayCount];
+        var filed = new List<CrossedSection>[TownWays.OfTheRoad(Roads).Count];
         foreach (var (one, mine, other, theirs) in pairs)
         {
             (filed[one] ??= []).Add(new CrossedSection(other, theirs.FromM, theirs.ToM, mine.FromM, mine.ToM));
             (filed[other] ??= []).Add(new CrossedSection(one, mine.FromM, mine.ToM, theirs.FromM, theirs.ToM));
         }
 
+        return Table(filed);
+    }
+
+    /// <summary>
+    /// <b>One mark filed under <paramref name="one"/> and not under <paramref name="other"/></b> — a table the
+    /// atlas never lays, for asking what the reservations read of a way besides the one asked about.
+    /// </summary>
+    static WayCrossings FiledUnderOne(int one, (float FromM, float ToM) mine, int other, (float FromM, float ToM) theirs)
+    {
+        var filed = new List<CrossedSection>[TownWays.OfTheRoad(Roads).Count];
+        filed[one] = [new CrossedSection(other, theirs.FromM, theirs.ToM, mine.FromM, mine.ToM)];
+        return Table(filed);
+    }
+
+    static WayCrossings Table(List<CrossedSection>?[] filed)
+    {
+        var wayCount = filed.Length;
         var offsets = new int[wayCount + 1];
         for (var way = 0; way < wayCount; way++) offsets[way + 1] = offsets[way] + (filed[way]?.Count ?? 0);
 
@@ -284,7 +300,7 @@ public class LaneOccupancyTests
         var committed = Ask(0, 1, ClaimPriority.FirmAcross, 20f, aheadM: 10f, committedToM: 30f);
         var call = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.Special, AheadM: 1f);
 
-        Assert.True(LaneOccupancy.Beats(committed, 20f, false, call, 20f, false));
+        Assert.True(LaneOccupancy.Beats(committed, 20f, false, call, false));
     }
 
     /// <summary>
@@ -299,7 +315,7 @@ public class LaneOccupancyTests
         var further = new LaneClaim(
             20f, 40f, 5f, 2, ClaimPriority.FirmStraight, AheadM: 12f, CommittedToM: 30f, Held: true);
 
-        Assert.True(LaneOccupancy.Beats(nearer, 20f, false, further, 20f, false));
+        Assert.True(LaneOccupancy.Beats(nearer, 20f, false, further, false));
     }
 
     /// <summary>
@@ -312,8 +328,8 @@ public class LaneOccupancyTests
         var standing = Ask(0, 1, ClaimPriority.FirmAcross, 20f, aheadM: 0f);
         var straight = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.FirmStraight, AheadM: 1f);
 
-        Assert.True(LaneOccupancy.Beats(standing, 20f, askStands: true, straight, 20f, otherStands: false));
-        Assert.False(LaneOccupancy.Beats(standing, 20f, askStands: false, straight, 20f, otherStands: false));
+        Assert.True(LaneOccupancy.Beats(standing, 20f, askStands: true, straight, otherStands: false));
+        Assert.False(LaneOccupancy.Beats(standing, 20f, askStands: false, straight, otherStands: false));
     }
 
     /// <summary>
@@ -326,7 +342,7 @@ public class LaneOccupancyTests
         var given = Ask(0, 1, ClaimPriority.Firm, 20f, aheadM: 15f, held: true);
         var nearer = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.Firm, AheadM: 2f);
 
-        Assert.True(LaneOccupancy.Beats(given, 20f, false, nearer, 20f, false));
+        Assert.True(LaneOccupancy.Beats(given, 20f, false, nearer, false));
     }
 
     /// <summary>And with nothing else between them, whoever has less of its own line to cover gets there first.</summary>
@@ -336,7 +352,7 @@ public class LaneOccupancyTests
         var nearer = Ask(0, 1, ClaimPriority.Firm, 20f, aheadM: 2f);
         var further = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.Firm, AheadM: 15f);
 
-        Assert.True(LaneOccupancy.Beats(nearer, 20f, false, further, 20f, false));
+        Assert.True(LaneOccupancy.Beats(nearer, 20f, false, further, false));
     }
 
     /// <summary>
@@ -371,18 +387,18 @@ public class LaneOccupancyTests
                     CommittedToM: one.Committed ? 30f : float.NegativeInfinity, Held: one.Held);
 
                 Assert.NotEqual(
-                    LaneOccupancy.Beats(ask, 20f, one.Stands, claim, 20f, other.Stands),
-                    LaneOccupancy.Beats(flipped, 20f, other.Stands, back, 20f, one.Stands));
+                    LaneOccupancy.Beats(ask, 20f, one.Stands, claim, other.Stands),
+                    LaneOccupancy.Beats(flipped, 20f, other.Stands, back, one.Stands));
             }
         }
     }
 
     /// <summary>
-    /// <b>Taking a marked stretch writes the linked section whole</b> (TER-5c.1): the other way carries the
-    /// whole of the section the mark names, under the same holder, marked as linked.
+    /// <b>A main claim over a mark places the secondary claim whole</b> (TER-5c.1): the other way carries the
+    /// whole of the section the mark names, under the same holder, as a secondary claim.
     /// </summary>
     [Fact]
-    public void TakingAMarkedStretchWritesTheLinkedSectionWhole()
+    public void AMainClaimOverAMarkPlacesTheSecondaryClaimWhole()
     {
         var (a, b, _) = ThreeWays();
         var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
@@ -392,15 +408,16 @@ public class LaneOccupancyTests
 
         Span<LaneClaim> planned = stackalloc LaneClaim[4];
         Assert.Equal(1, index.CopyPlannedTo(b, planned));
-        Assert.Equal((30f, 35f, 1, true), (planned[0].FromM, planned[0].ToM, planned[0].Occupant, planned[0].Linked));
+        Assert.Equal((30f, 35f, 1, true), (planned[0].FromM, planned[0].ToM, planned[0].Occupant, planned[0].Secondary));
     }
 
     /// <summary>
-    /// <b>A marked section is held whole or not at all</b>: a hold that cannot have the section a mark links
-    /// to is answered at the start of its own side of the mark — however little of the section it lost.
+    /// <b>A main claim meeting a stronger secondary claim on its own way is answered where that begins</b> —
+    /// a car in a turn stopping at the ground the oncoming straight crosses it at, however little of the
+    /// straight's own way it would have shared.
     /// </summary>
     [Fact]
-    public void AHoldRefusedTheLinkedSectionIsAnsweredAtTheMark()
+    public void AMainClaimIsAnsweredAtAStrongerSecondaryClaim()
     {
         var (a, b, _) = ThreeWays();
         var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
@@ -411,15 +428,15 @@ public class LaneOccupancyTests
         var hold = index.BeginHold(0f);
         var reachM = index.Reach(Ask(hold, 1, ClaimPriority.FirmAcross, 0f), a, 50f, 0f, out var cutBy);
         Assert.Equal(20f, reachM);
-        Assert.Equal(2, cutBy.Occupant);
+        Assert.Equal((2, true), (cutBy.Occupant, cutBy.Secondary));
     }
 
     /// <summary>
-    /// <b>And a stronger hold taking the section cuts the weaker at its own side of the mark</b>, the metre it
-    /// needed the section from.
+    /// <b>And a stronger main claim taking a secondary claim cuts its holder at its own side of the mark</b>,
+    /// the metre its main claim placed the secondary one from.
     /// </summary>
     [Fact]
-    public void AHoldWhoseLinkedSectionIsTakenIsCutAtTheMark()
+    public void AHoldWhoseSecondaryClaimIsTakenIsCutAtTheMark()
     {
         var (a, b, _) = ThreeWays();
         var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
@@ -435,12 +452,12 @@ public class LaneOccupancyTests
     }
 
     /// <summary>
-    /// <b>Two linked sections on one way are no answer to each other</b>: two holders whose ground each lies
-    /// over a third way meet on their own ways where they meet at all, so held against each other there, two
-    /// cars would be refused a corner of pavement neither of them drives.
+    /// <b>Two secondary claims on one way do not meet</b>: two holders whose ground each lies over a third way
+    /// meet on their own ways where they meet at all — two cars through one box whose turns cross a third
+    /// movement both go, and neither is refused ground that neither of them drives.
     /// </summary>
     [Fact]
-    public void TwoLinkedSectionsOnOneWayDoNotMeet()
+    public void TwoSecondaryClaimsOnOneWayDoNotMeet()
     {
         var (a, b, c) = ThreeWays();
         var index = Index(Marks((a, (20f, 24f), b, (30f, 35f)), (c, (10f, 14f), b, (32f, 37f))));
@@ -454,8 +471,47 @@ public class LaneOccupancyTests
     }
 
     /// <summary>
+    /// <b>A main claim is answered off its own way alone</b> (TER-5c.1): ground held across a mark reaches it
+    /// only as the secondary claim placed back on its own way. Filed from one side only, the mark carries none
+    /// back, and the stronger main claim over the far side cuts nothing.
+    /// </summary>
+    [Fact]
+    public void AMainClaimIsAnsweredOffItsOwnWayAlone()
+    {
+        var (a, b, _) = ThreeWays();
+        var index = Index(FiledUnderOne(a, (20f, 24f), b, (30f, 35f)));
+
+        index.Begin();
+        Plan(index, b, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 30f));
+
+        var hold = index.BeginHold(0f);
+        Assert.Equal(50f, index.Reach(Ask(hold, 1, ClaimPriority.FirmAcross, 0f), a, 50f, 0f, out var cutBy));
+        Assert.False(cutBy.Found);
+    }
+
+    /// <summary>
+    /// <b>And a secondary claim placed cuts nothing where it lies</b>: what it meets there is weighed on the
+    /// main claim's way, through the secondary claim the other side places back — never on the way it is placed
+    /// on.
+    /// </summary>
+    [Fact]
+    public void ASecondaryClaimPlacedCutsNothingWhereItLies()
+    {
+        var (a, b, _) = ThreeWays();
+        var index = Index(FiledUnderOne(a, (20f, 24f), b, (30f, 35f)));
+
+        index.Begin();
+        var weaker = index.BeginHold(0f);
+        index.Take(Ask(weaker, 2, ClaimPriority.FirmAcross, 30f), b, 50f);
+        index.EndHold(weaker, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+
+        Plan(index, a, 50f, hold => Ask(hold, 1, ClaimPriority.FirmStraight, 0f));
+        Assert.Equal(50f, index.PlannedToM(b, 30f, occupant: 2, LaneRoster.Driving));
+    }
+
+    /// <summary>
     /// <b>A hold is one stretch</b> (TER-5c.2): cut on its first way, it gives up everything past the cut —
-    /// its pieces on the ways after and the sections it had written through their marks.
+    /// its main claims on the ways after and the secondary claims those had placed.
     /// </summary>
     [Fact]
     public void AHoldCutGivesUpEverythingPastTheCut()
@@ -475,6 +531,71 @@ public class LaneOccupancyTests
         Span<LaneClaim> planned = stackalloc LaneClaim[4];
         Assert.Equal(0, index.CopyPlannedTo(b, planned));
         Assert.Equal(0, index.CopyPlannedTo(c, planned));
+    }
+
+    /// <summary>
+    /// <b>A hold's own ground is never an answer to it</b> — its main claims or its secondary claims —
+    /// so an answer read while it is laid is the answer it would get taken up.
+    /// </summary>
+    [Fact]
+    public void AHoldsOwnGroundIsNoAnswerToIt()
+    {
+        var (a, b, _) = ThreeWays();
+        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
+
+        index.Begin();
+        var hold = index.BeginHold(0f);
+        index.Take(Ask(hold, 1, ClaimPriority.Firm, 0f), a, 50f);
+        index.EndHold(hold, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+
+        Assert.Equal(50f, index.Reach(Ask(hold, 1, ClaimPriority.Firm, 0f), a, 50f, 0f, out _));
+    }
+
+    /// <summary>
+    /// <b>A hold reopened holds nothing and was answered nothing</b>: its main and secondary claims come off
+    /// the ways, and what cut it is forgotten, until it is laid again.
+    /// </summary>
+    [Fact]
+    public void AReopenedHoldHoldsNothingUntilItIsLaidAgain()
+    {
+        var (a, b, _) = ThreeWays();
+        var index = Index(Marks((a, (20f, 24f), b, (30f, 35f))));
+
+        index.Begin();
+        index.LayBody(a, 40f, 44f, 0f, 9, LaneRoster.Driving, onItsLine: true);
+        var hold = index.BeginHold(0f);
+        var reachM = index.Reach(Ask(hold, 1, ClaimPriority.Firm, 0f), a, 50f, 0f, out var cutBy);
+        index.Take(Ask(hold, 1, ClaimPriority.Firm, 0f), a, reachM);
+        index.EndHold(hold, reachM, 0f, cutBy);
+
+        index.ReopenHold(hold);
+
+        Span<LaneClaim> planned = stackalloc LaneClaim[4];
+        Assert.Equal((0, 0), (index.CopyPlannedTo(a, planned), index.CopyPlannedTo(b, planned)));
+        Assert.Equal(float.PositiveInfinity, EndsAtM(index, hold));
+    }
+
+    /// <summary>
+    /// <b>A hold laid again is cut like any other</b>: a stronger hold takes its ground from the pieces it was
+    /// laid again with, not from the ones it gave up.
+    /// </summary>
+    [Fact]
+    public void AHoldLaidAgainIsCutByAStrongerOneLikeAnyOther()
+    {
+        var (way, _, _) = ThreeWays();
+        var index = Index();
+
+        index.Begin();
+        var weaker = index.BeginHold(0f);
+        index.Take(Ask(weaker, 1, ClaimPriority.FirmAcross, 0f), way, 20f);
+        index.EndHold(weaker, 20f, 0f, LaneClaim.Nothing);
+
+        index.ReopenHold(weaker);
+        index.Take(Ask(weaker, 1, ClaimPriority.FirmAcross, 0f), way, 40f);
+        index.EndHold(weaker, float.PositiveInfinity, 0f, LaneClaim.Nothing);
+
+        Plan(index, way, 50f, hold => Ask(hold, 2, ClaimPriority.FirmStraight, 25f));
+        Assert.Equal(25f, index.PlannedToM(way, 0f, occupant: 1, LaneRoster.Driving));
     }
 
     /// <summary><b>Nothing survives a rebuild</b>, which is the guarantee that makes the index need no release path.</summary>

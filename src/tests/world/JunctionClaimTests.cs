@@ -167,9 +167,10 @@ public class JunctionClaimTests
     }
 
     /// <summary>
-    /// <b>A plan's own pieces are laid on the ways its holder drives and on no other</b> (TER-5c.1): what it
-    /// holds of a way it only crosses is the section a mark links there, and never a stretch of that way's
-    /// line — or a car approaching a box would hold a fan of joins it is never going to be on.
+    /// <b>A plan's main claims are laid on the ways its holder drives and on no other</b> (TER-5c.1): what it
+    /// holds of a way it only crosses is a secondary claim over the section a mark links there, and never a
+    /// stretch of that way's line — or a car approaching a box would hold a fan of joins it is never going to be
+    /// on.
     /// </summary>
     [Theory]
     [MemberData(nameof(CrossedMaps))]
@@ -178,7 +179,7 @@ public class JunctionClaimTests
         var run = Of(map);
 
         Assert.True(run.LaidOnAWayItCrosses is null, run.LaidOnAWayItCrosses);
-        Assert.True(run.Crossing > 0, $"{map}: no plan ever wrote a section onto a way it crosses");
+        Assert.True(run.Crossing > 0, $"{map}: no plan ever placed a secondary claim on a way it crosses");
     }
 
     static void NoPieceIsLaidOnAWayOnlyCrossed(TownWorld world, string map, int tick, Watched found)
@@ -195,7 +196,7 @@ public class JunctionClaimTests
                 // A closure is held over the ground of a scene and is not a line anybody drives.
                 if (piece.Priority == ClaimPriority.Closed) continue;
 
-                if (piece.Linked)
+                if (piece.Secondary)
                 {
                     found.Crossing++;
                     continue;
@@ -267,7 +268,7 @@ public class JunctionClaimTests
     /// <summary>
     /// <b>And on no join it is standing clear of, wherever in the box it is put.</b> A body is on a way where
     /// its collider is over that way's ribbon, so no body is ever on a join whose line is further from it than
-    /// its own corner and the ribbon's half width — measured here by walking the line, which is a different
+    /// its own corner and the join's half width — measured here by walking the line, which is a different
     /// sum from the lattice that laid it.
     /// </summary>
     [Theory]
@@ -284,8 +285,6 @@ public class JunctionClaimTests
 
         var halfM = world.Cars.BuildOf(car).CollisionSizeM * 0.5f;
         var cornerM = halfM.Length();
-        var ribbonM = (Config.Car.WidthM * 0.5f) + (Config.RibbonLatticeStepM * MathF.Sqrt(2f) * 0.5f);
-        var reachM = cornerM + ribbonM + StepM;
         var overM = Config.IntersectionReachM;
 
         for (var down = -overM; down <= overM; down += halfM.X)
@@ -304,6 +303,7 @@ public class JunctionClaimTests
 
                     var apartM = ToChainM(
                         world.Roads.ConnectorArcs(join), world.Roads.ConnectorLengthM(join), world.Cars.PositionM[car]);
+                    var reachM = cornerM + (world.Roads.ConnectorWidthM(join) * 0.5f) + StepM;
                     Assert.True(
                         apartM <= reachM,
                         $"{map}: a body at {across:0.0},{down:0.0} m from {atM} is on join {join} and stands "

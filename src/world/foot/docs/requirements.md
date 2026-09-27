@@ -1,7 +1,8 @@
 # world/foot — the walking network
 
-**What a walker follows.** The ground a walker stands on is the terrain's
-([TER-3c](../../terrain/docs/requirements.md#the-pavement)) and the paint a zebra is made of is the road's
+**What a walker follows.** The pavement is the terrain's
+([TER-3c](../../terrain/docs/requirements.md#the-pavement)), though a walker reads none of it (TER-2), and
+the paint a zebra is made of is the road's
 ([TER-6](../../road/docs/requirements.md)); what is stated here is the **network** laid over them — where a
 walk may go, where it chooses, and where it crosses.
 
@@ -124,7 +125,8 @@ weld of a hand-over point the place carries two headings, and the corner there i
 than the connection's.
 
 **The paint stops at the kerb.** A crossing's own stretch runs boundary to boundary, which is the ground the
-stripes cover, so what a walker has to ask the road about (TER-5c.1) is the carriageway and nothing else. Its
+stripes cover, so what a walker's secondary claims hold of the road (TER-5c.1) is the carriageway and nothing
+else. Its
 two lanes stand in the middle of each half of the paint's depth (WLK-8), each walked the way that puts the
 traffic it is about to meet on its own walker's side (TER-4a).
 

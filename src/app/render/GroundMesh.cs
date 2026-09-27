@@ -48,12 +48,10 @@ internal readonly record struct GroundVertex(Vector2 PositionM, Vector2 Uv, Vect
 /// buffer and nothing to sort: one indexed draw in one pass.
 /// </para>
 /// <para>
-/// <b>It is <c>GroundShapes.At</c>'s order, forwards</b> (TER-7), and the two part at a corner: the answer
-/// is the ground within the one figure of the driven bands, measured square, where this fills the boundary
-/// rounded at <c>Road.LineRoundedM</c> and moved by that figure — so along a street they are one region and
-/// at a corner they stand up to that radius apart. That is the deviation named in the
-/// [known gaps](../../../docs/index.md#known-gaps). Everywhere else a shape added to one is added to the
-/// other, at the same place in the order.
+/// <b>It is <c>GroundShapes.At</c>'s order, forwards</b> (TER-7), and the two read the same rings: the answer
+/// is which side of them a point stands, and this fills them. A shape added to one is added to the other, at
+/// the same place in the order, and what parts them is only the chords a fill is cut into — which the kerb is
+/// laid over.
 /// </para>
 /// <para>
 /// <b>A kerb is a line with a mesh of its own</b> (<see cref="Stroke"/>, TER-3d): the shell it belongs to
@@ -247,7 +245,7 @@ internal sealed partial class GroundMesh
 
     /// <summary>
     /// The whole of what laying this ground cost, the boundary it was struck off included — the figure
-    /// <c>--map</c> prints and the ground page reads.
+    /// <c>--map</c> prints and the menu's ground section reads.
     /// </summary>
     public double LaidMs { get; private set; }
 
@@ -290,7 +288,7 @@ internal sealed partial class GroundMesh
         }
 
         // The one triangle is the world's own layer, so the parts still tile the mesh (<see cref="Parts"/>)
-        // and a ground page opened over no town reads zeroes rather than a mesh nothing accounts for.
+        // and a ground section opened over no town reads zeroes rather than a mesh nothing accounts for.
         mesh.Laid(GroundPart.Grass, grass);
         return mesh;
     }

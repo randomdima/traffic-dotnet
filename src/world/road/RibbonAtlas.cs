@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -29,29 +28,39 @@ internal interface IRibbonLines
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>A ribbon is a way's line swept to the width of what travels it, with square ends</b> — the band a car
-/// sweeps down a lane or a join, and a body down a pavement — <b>widened by half the lattice's diagonal
-/// either side</b> (<see cref="ReachOf"/>). Two ways meet where their ribbons share ground, and only there:
-/// the two lanes of a carriageway, a lane's hand-over to its connector and two streams passing a lane apart
-/// share none of it (<see cref="SimConfig.RibbonTouchM"/>).
+/// <b>A ribbon is a way's line swept to the way's own width, with square ends</b> — a lane's, a join's, a
+/// bay's, a pavement's. Two ways meet where their ribbons share ground, and only there: the two lanes of a
+/// carriageway, a lane's hand-over to its connector and two streams passing a lane apart lie edge to edge
+/// and share none of it (<see cref="SimConfig.RibbonTouchM"/>). <b>Which ribbons share ground, and over
+/// which metres, is worked out from the ribbons themselves</b> (<see cref="RibbonMarks"/>) and never from the
+/// lattice.
 /// </para>
 /// <para>
-/// <b>The lattice samples a point and never a cell.</b> A body covers a way where a lattice point lies inside
-/// both the body and that way's ribbon, so nothing is claimed that is not really overlapped — a car centred
-/// in its lane is on that lane and never on the one beside it — and the widening is what keeps a body over a
-/// band from falling between two points (<see cref="SimConfig.RibbonLatticeStepM"/>).
+/// <b>The lattice samples a point and never a cell</b>, and it is what a body is read over. A point is filed
+/// under every way whose band it lies within reach of (<see cref="ReachOf"/>), with how far outside the band
+/// it stands; a body covers a way where a point inside it lies inside the band — or outside it by less than
+/// the body reaches past the point. So a body over a band is never between two points, and a body up to a
+/// band's edge is not on it: a car against the paint is on its own lane alone
+/// (<see cref="SimConfig.RibbonLatticeStepM"/>).
 /// </para>
 /// <para>
 /// <b>Only points some ribbon covers are stored</b>, a row at a time: each row holds one entry per way over
 /// each of its covered points, in column order and then way order. A body's shape is a few rows of a few
-/// columns, so a lookup is a binary search per row and a walk of what it found. An entry is eight bytes —
-/// the column, the way, and the metre along it to a tenth — which is what the town's memory is quoted at.
+/// columns, so a lookup is a binary search per row and a walk of what it found. An entry is nine bytes —
+/// the column, the way, the metre along it to a tenth, and how far outside its band it stands — which is
+/// what the town's memory is quoted at.
 /// </para>
 /// </remarks>
 internal sealed class RibbonAtlas
 {
     /// <summary>How finely a metre along a way is kept: a tenth, well inside half a lattice step.</summary>
     const float AlongPerMetre = 10f;
+
+    /// <summary>What a whole reach outside a band is filed as (<see cref="_entryOutside"/>).</summary>
+    const float OutsidePerReach = byte.MaxValue;
+
+    /// <summary>Below this curvature a piece's centre is further off than any town is wide, and it is read as a straight.</summary>
+    const float StraightCurvature = 1e-6f;
 
     readonly float _stepM;
     readonly Vector2 _originM;
@@ -63,11 +72,19 @@ internal sealed class RibbonAtlas
     readonly ushort[] _entryColumn;
     readonly int[] _entryWay;
     readonly ushort[] _entryAlong;
+
+    /// <summary>
+    /// How far outside its way's band each point stands, in <see cref="OutsidePerReach"/>ths of the reach and
+    /// rounded up — nothing for a point on the band.
+    /// </summary>
+    readonly byte[] _entryOutside;
+
     readonly float[] _lengthM;
 
     RibbonAtlas(
         float stepM, Vector2 originM, int rows, int[] rowFirst, ushort[] entryColumn, int[] entryWay,
-        ushort[] entryAlong, float[] lengthM, WayCrossings marks, int points, int mostWaysAtAPoint)
+        ushort[] entryAlong, byte[] entryOutside, float[] lengthM, WayCrossings marks, int points,
+        int mostWaysAtAPoint)
     {
         _stepM = stepM;
         _originM = originM;
@@ -76,6 +93,7 @@ internal sealed class RibbonAtlas
         _entryColumn = entryColumn;
         _entryWay = entryWay;
         _entryAlong = entryAlong;
+        _entryOutside = entryOutside;
         _lengthM = lengthM;
         Marks = marks;
         PointCount = points;
@@ -84,9 +102,9 @@ internal sealed class RibbonAtlas
 
     /// <summary>
     /// <b>Which ways share ground with which, and where</b> (TER-5c): for every pair of ribbons that
-    /// overlap, the section of each that the overlap spans, filed under both. <b>The marks on the
-    /// reservation index</b> — to hold a section of one way, a holder must hold the section of the other
-    /// that it names (TER-5c.1).
+    /// overlap, the section of each over which they touch, filed under both (<see cref="RibbonMarks"/>).
+    /// <b>The marks on the reservation index</b> — a main claim over a section of one way places a secondary
+    /// claim over the section of the other that it names (TER-5c.1).
     /// </summary>
     public WayCrossings Marks { get; }
 
@@ -94,12 +112,14 @@ internal sealed class RibbonAtlas
     public float StepM => _stepM;
 
     /// <summary>
-    /// <b>How much wider than the band its traffic sweeps a ribbon is laid</b>: half the lattice's diagonal
-    /// either side, which is the furthest any ground is from the nearest point standing for it — so a body
-    /// over the band is never between two points, and two ribbons marked against each other are always two
-    /// ways a body on one of them could be read onto the other from.
+    /// <b>How far past its way's band a point is still filed under it</b>: half the lattice's diagonal, which
+    /// is the furthest any ground is from the nearest point standing for it — so a body reaching over a band
+    /// always has a point inside it within this of the band.
     /// </summary>
     public static float ReachOf(float stepM) => stepM * MathF.Sqrt(2f) * 0.5f;
+
+    /// <summary>Whether a piece is read as a straight rather than an arc.</summary>
+    public static bool IsStraight(in ArcSeg arc) => MathF.Abs(arc.Curvature) < StraightCurvature;
 
     /// <summary>How many lattice points some ribbon covers — a census.</summary>
     public int PointCount { get; }
@@ -111,12 +131,13 @@ internal sealed class RibbonAtlas
     public int MostWaysAtAPoint { get; }
 
     /// <summary>What the atlas holds, in bytes: the figure a town's memory is quoted against.</summary>
-    public long Bytes => (4L * (_rowFirst.Length + _lengthM.Length)) + (8L * _entryWay.Length);
+    public long Bytes => (4L * (_rowFirst.Length + _lengthM.Length)) + (9L * _entryWay.Length);
 
     /// <summary>
     /// <b>Every way a box stands over, and the stretch of each</b> — the collider of a car, at the pose the
-    /// solver left it in. Lattice points inside the box are looked up; the stretch is the least and most
-    /// metre among them, widened by half a lattice step at each end and held to the way.
+    /// solver left it in. Lattice points inside the box are looked up, each counted where the box reaches
+    /// further past it than it stands outside the way's band; the stretch is the least and most metre among
+    /// them, widened by half a lattice step at each end and held to the way.
     /// </summary>
     /// <returns>How many ways were written; a way past the room given is dropped and counted.</returns>
     public int UnderBox(Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Span<WayCover> into)
@@ -130,6 +151,7 @@ internal sealed class RibbonAtlas
             centreM - alongM + acrossM,
         ];
 
+        var box = new Box(centreM, forward, right, halfLengthM, halfWidthM);
         var leastY = MathF.Min(MathF.Min(corners[0].Y, corners[1].Y), MathF.Min(corners[2].Y, corners[3].Y));
         var mostY = MathF.Max(MathF.Max(corners[0].Y, corners[1].Y), MathF.Max(corners[2].Y, corners[3].Y));
         var written = 0;
@@ -137,7 +159,7 @@ internal sealed class RibbonAtlas
         {
             if (!AcrossTheBox(corners, RowY(row), out var fromX, out var toX)) continue;
 
-            written = Gather(row, fromX, toX, into, written);
+            written = Gather(row, fromX, toX, box, into, written);
         }
 
         return Widened(into, written);
@@ -146,6 +168,7 @@ internal sealed class RibbonAtlas
     /// <summary>The same for a disc — a walker's collider.</summary>
     public int UnderDisc(Vector2 centreM, float radiusM, Span<WayCover> into)
     {
+        var disc = new Disc(centreM, radiusM);
         var written = 0;
         for (var row = RowAtOrAbove(centreM.Y - radiusM); row <= RowAtOrBelow(centreM.Y + radiusM); row++)
         {
@@ -154,7 +177,7 @@ internal sealed class RibbonAtlas
             if (halfM < 0f) continue;
 
             halfM = MathF.Sqrt(halfM);
-            written = Gather(row, centreM.X - halfM, centreM.X + halfM, into, written);
+            written = Gather(row, centreM.X - halfM, centreM.X + halfM, disc, into, written);
         }
 
         return Widened(into, written);
@@ -165,17 +188,53 @@ internal sealed class RibbonAtlas
 
     long _dropped;
 
-    int Gather(int row, float fromX, float toX, Span<WayCover> into, int written)
+    /// <summary>A body's collider, as how far inside it a point lies.</summary>
+    interface IBody
+    {
+        float DepthM(Vector2 pointM);
+    }
+
+    readonly struct Box(Vector2 centreM, Vector2 forward, Vector2 right, float halfLengthM, float halfWidthM) : IBody
+    {
+        public float DepthM(Vector2 pointM)
+        {
+            var offM = pointM - centreM;
+            return MathF.Min(
+                halfLengthM - MathF.Abs(Vector2.Dot(offM, forward)), halfWidthM - MathF.Abs(Vector2.Dot(offM, right)));
+        }
+    }
+
+    readonly struct Disc(Vector2 centreM, float radiusM) : IBody
+    {
+        public float DepthM(Vector2 pointM) => radiusM - Vector2.Distance(pointM, centreM);
+    }
+
+    /// <summary>
+    /// The ways under the points of one row between two x, each point counted only where the body reaches
+    /// further past it than it stands outside that way's band — so ground the body and the band both hold
+    /// lies between them, and a body whose edge only meets the band's is not on it.
+    /// </summary>
+    int Gather<TBody>(int row, float fromX, float toX, in TBody body, Span<WayCover> into, int written)
+        where TBody : struct, IBody
     {
         var fromColumn = (int)MathF.Ceiling(((fromX - _originM.X) / _stepM) - 0.5f);
         var toColumn = (int)MathF.Floor(((toX - _originM.X) / _stepM) - 0.5f);
         if (toColumn < fromColumn) return written;
 
+        var metresPerOutside = ReachOf(_stepM) / OutsidePerReach;
+        var y = RowY(row);
         var last = _rowFirst[row + 1];
         for (var at = LowerBound(_entryColumn, _rowFirst[row], last, fromColumn);
              at < last && _entryColumn[at] <= toColumn;
              at++)
         {
+            var outside = _entryOutside[at];
+            if (outside != 0)
+            {
+                var pointM = new Vector2(_originM.X + ((_entryColumn[at] + 0.5f) * _stepM), y);
+                if (body.DepthM(pointM) <= outside * metresPerOutside) continue;
+            }
+
             written = Grow(into, written, _entryWay[at], _entryAlong[at] / AlongPerMetre);
         }
 
@@ -273,7 +332,7 @@ internal sealed class RibbonAtlas
     /// </summary>
     /// <param name="stepM">How far apart the lattice's points stand (<see cref="SimConfig.RibbonLatticeStepM"/>).</param>
     /// <param name="touchM">
-    /// How far inside both of two ribbons a point has to lie before the two share ground there
+    /// How deep inside both two ribbons have to overlap before they are marked
     /// (<see cref="SimConfig.RibbonTouchM"/>) — what keeps two ribbons laid edge to edge from being marked.
     /// </param>
     public static RibbonAtlas Lay(IRibbonLines lines, float stepM, float touchM)
@@ -342,8 +401,8 @@ internal sealed class RibbonAtlas
         var entryColumn = new ushort[total];
         var entryWay = new int[total];
         var entryAlong = new ushort[total];
-        var entryAlongM = new float[total];
-        var entryMarginM = new float[total];
+        var entryOutside = new byte[total];
+        var reachM = ReachOf(stepM);
         var points = 0;
         var mostAtAPoint = 0;
         var atThePoint = 0;
@@ -364,17 +423,18 @@ internal sealed class RibbonAtlas
                 entryColumn[at] = (ushort)column;
                 entryWay[at] = way;
                 entryAlong[at] = Filed(alongM, lengthM[way]);
-                entryAlongM[at] = alongM;
-                entryMarginM[at] = BitConverter.Int32BitsToSingle((int)(items[at] >> 32));
+
+                // Rounded up, so that a body whose edge only meets the band's is never read as over it.
+                var outsideM = reachM - BitConverter.Int32BitsToSingle((int)(items[at] >> 32));
+                entryOutside[at] = (byte)Math.Clamp(MathF.Ceiling(outsideM / reachM * OutsidePerReach), 0f, OutsidePerReach);
             }
         }
 
-        var marks = MarksOf(
-            wayCount, rowFirst, entryColumn, entryWay, entryAlongM, entryMarginM, lengthM, stepM, touchM);
+        var marks = RibbonMarks.Of(lines, lengthM, stepM, touchM);
 
         return new RibbonAtlas(
-            stepM, originM, rows, rowFirst, entryColumn, entryWay, entryAlong, lengthM, marks, points,
-            mostAtAPoint);
+            stepM, originM, rows, rowFirst, entryColumn, entryWay, entryAlong, entryOutside, lengthM, marks,
+            points, mostAtAPoint);
     }
 
     /// <summary>A metre along a way as the atlas files it, which a way longer than the field holds refuses.</summary>
@@ -394,7 +454,7 @@ internal sealed class RibbonAtlas
 
     /// <summary>
     /// <b>The lattice points one way's ribbon covers</b>, each once: every point within half the way's width
-    /// of its line, whose foot on the line falls between the line's own two ends.
+    /// and the reach of its line, whose foot on the line falls between the line's own two ends.
     /// </summary>
     /// <remarks>
     /// A point is measured against each piece whose box it is in, and a point two pieces both reach — the
@@ -472,7 +532,7 @@ internal sealed class RibbonAtlas
     static bool Foot(in ArcSeg arc, Vector2 pointM, out float alongM, out float offM)
     {
         var along = arc.StartUnit;
-        if (MathF.Abs(arc.Curvature) < 1e-6f)
+        if (IsStraight(arc))
         {
             var toPoint = pointM - arc.StartM;
             alongM = Vector2.Dot(toPoint, along);
@@ -505,7 +565,7 @@ internal sealed class RibbonAtlas
     }
 
     /// <summary>One piece's box, grown by the half-width its ribbon reaches either side of it, added to the box given.</summary>
-    static void Bound(in ArcSeg arc, float halfM, ref Vector2 leastM, ref Vector2 mostM)
+    public static void Bound(in ArcSeg arc, float halfM, ref Vector2 leastM, ref Vector2 mostM)
     {
         const int Samples = 8;
         var ownLeastM = new Vector2(float.MaxValue);
@@ -526,152 +586,4 @@ internal sealed class RibbonAtlas
         mostM = Vector2.Max(mostM, ownMostM + growM);
     }
 
-    /// <summary>What one pair of ribbons was found to share, in each one's own metres.</summary>
-    struct Shared
-    {
-        public int One;
-        public int Other;
-        public float OneFromM;
-        public float OneToM;
-        public float OtherFromM;
-        public float OtherToM;
-    }
-
-    /// <summary>One thread's pairs, keyed by the pair and held until every row has been read.</summary>
-    sealed class Pairing
-    {
-        public readonly Dictionary<long, int> At = [];
-        public readonly List<Shared> Pairs = [];
-    }
-
-    /// <summary>
-    /// <b>The marks</b>: every lattice point two ribbons both lie deeper than the touch inside, gathered per
-    /// pair into the section of each the shared ground spans — widened by half a lattice step at each end,
-    /// since a point stands for the ground round it.
-    /// </summary>
-    /// <remarks>
-    /// <b>One section per pair.</b> Two ribbons that share ground in two places are given the one section
-    /// that spans both, which holds the ground between as well: a stretch that needs both places needs what
-    /// lies between them, and a pair that only touched twice would have been a pair of lines nothing could
-    /// drive past each other on.
-    /// </remarks>
-    static WayCrossings MarksOf(
-        int wayCount, int[] rowFirst, ushort[] entryColumn, int[] entryWay, float[] entryAlongM,
-        float[] entryMarginM, float[] lengthM, float stepM, float touchM)
-    {
-        var rows = rowFirst.Length - 1;
-        var pairings = new List<Pairing>();
-        InChunks.Over(
-            rows,
-            () => new Pairing(),
-            (pairing, row) =>
-            {
-                var rowEnd = rowFirst[row + 1];
-                for (var first = rowFirst[row]; first < rowEnd;)
-                {
-                    var last = first + 1;
-                    while (last < rowEnd && entryColumn[last] == entryColumn[first]) last++;
-
-                    Pair(pairing, first, last);
-                    first = last;
-                }
-            },
-            pairing =>
-            {
-                lock (pairings) pairings.Add(pairing);
-            });
-
-        return Filed(wayCount, pairings, lengthM, stepM);
-
-        // Every two ways over one point that both lie deeper than the touch inside it.
-        void Pair(Pairing pairing, int first, int last)
-        {
-            for (var one = first; one < last; one++)
-            {
-                if (entryMarginM[one] <= touchM) continue;
-
-                for (var other = one + 1; other < last; other++)
-                {
-                    if (entryMarginM[other] <= touchM) continue;
-
-                    Share(pairing, entryWay[one], entryAlongM[one], entryWay[other], entryAlongM[other]);
-                }
-            }
-        }
-    }
-
-    /// <summary>What every thread found, merged and filed under both ways of every pair.</summary>
-    static WayCrossings Filed(int wayCount, List<Pairing> pairings, float[] lengthM, float stepM)
-    {
-        var merged = new Pairing();
-        foreach (var pairing in pairings)
-        {
-            foreach (var pair in pairing.Pairs)
-            {
-                Share(merged, pair.One, pair.OneFromM, pair.Other, pair.OtherFromM);
-                Share(merged, pair.One, pair.OneToM, pair.Other, pair.OtherToM);
-            }
-        }
-
-        var halfM = stepM * 0.5f;
-        var filed = new List<CrossedSection>[wayCount];
-        foreach (var pair in merged.Pairs)
-        {
-            var oneFromM = MathF.Max(0f, pair.OneFromM - halfM);
-            var oneToM = MathF.Min(lengthM[pair.One], pair.OneToM + halfM);
-            var otherFromM = MathF.Max(0f, pair.OtherFromM - halfM);
-            var otherToM = MathF.Min(lengthM[pair.Other], pair.OtherToM + halfM);
-            (filed[pair.One] ??= []).Add(new CrossedSection(pair.Other, otherFromM, otherToM, oneFromM, oneToM));
-            (filed[pair.Other] ??= []).Add(new CrossedSection(pair.One, oneFromM, oneToM, otherFromM, otherToM));
-        }
-
-        var offsets = new int[wayCount + 1];
-        var most = 0;
-        for (var way = 0; way < wayCount; way++)
-        {
-            var count = filed[way]?.Count ?? 0;
-            offsets[way + 1] = offsets[way] + count;
-            most = Math.Max(most, count);
-        }
-
-        var sections = new CrossedSection[offsets[wayCount]];
-        for (var way = 0; way < wayCount; way++)
-        {
-            if (filed[way] is not { } mine) continue;
-
-            mine.Sort(static (one, other) => one.MineFromM.CompareTo(other.MineFromM));
-            mine.CopyTo(sections, offsets[way]);
-        }
-
-        return new WayCrossings(offsets, sections) { MostCrossedByOne = most };
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static void Share(Pairing pairing, int oneWay, float oneM, int otherWay, float otherM)
-    {
-        if (oneWay > otherWay)
-        {
-            (oneWay, otherWay) = (otherWay, oneWay);
-            (oneM, otherM) = (otherM, oneM);
-        }
-
-        var key = ((long)oneWay << 32) | (uint)otherWay;
-        if (!pairing.At.TryGetValue(key, out var at))
-        {
-            pairing.At[key] = pairing.Pairs.Count;
-            pairing.Pairs.Add(new Shared
-            {
-                One = oneWay, Other = otherWay, OneFromM = oneM, OneToM = oneM, OtherFromM = otherM,
-                OtherToM = otherM,
-            });
-            return;
-        }
-
-        var shared = pairing.Pairs[at];
-        shared.OneFromM = MathF.Min(shared.OneFromM, oneM);
-        shared.OneToM = MathF.Max(shared.OneToM, oneM);
-        shared.OtherFromM = MathF.Min(shared.OtherFromM, otherM);
-        shared.OtherToM = MathF.Max(shared.OtherToM, otherM);
-        pairing.Pairs[at] = shared;
-    }
 }

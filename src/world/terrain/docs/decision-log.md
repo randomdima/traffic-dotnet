@@ -1,5 +1,33 @@
 # Terrain — decision log
 
+## 2026-09-27 — a person is not affected by terrain at all
+
+The owner ruled it: **walkers are not affected by terrain; it matters to tyres alone.** A walker's pace and
+grip are its own on every surface, a casualty slides on its own sliding grip, and a person leaving a building
+is set down on the nearest clear spot whatever the ground under it — so `TER-2`, `PER-3`, `PHY-8` and `PHY-7a`
+say so, and `TER-7b`'s first consequence names a wheel alone (at the owner's word). No walker asks the ground
+any more: every walker tick, every paused walker and every casualty took one ask each, and a blocked doorway
+took up to thirty-three a tick.
+
+## 2026-09-27 — the ground is answered off the shell, and a lane is the actors' alone
+
+The owner ruled it: **a lane is for the actors' logical behaviour and never for physics, and the ground is
+the shell.** What a wheel stands on is which side it is of the rings the picture fills
+(`GroundRings.Carriageway` and `Walk`), asked through a lattice over their pieces (`RingSides`,
+`Terrain.ShellCellM`): a cell no ring crosses is a lookup of the winding at its corner, and a cell one does
+cross walks two legs from that corner to the point. The answer is the rings' own, so the corner where the
+square bands and the rounded fill parted, and the wedge a junction's corner is paved back over, are no longer
+a gap — the answer is the picture. `TER-7b`'s first consequence was reworded at the owner's word, from which
+line lays a point and how far off the kerb it stands to which side it is of the layers' rings.
+
+The bands made a wheel pay for every lane and movement within a walk of it. Asked per kind on Odesa
+(`--bench census`), carriageway went 549 ns → 32, pavement 372 → 74 and grass 62 → 37; on a running Odesa the
+tyres went 1.21 → 0.29 ms a frame and the main thread 3.75 → 2.8 ms (`qq prof`). At 4 m a layer is 2.4 MB with a fifth of
+its cells crossed; at 2 m it was 9.9 MB and no faster, an ask being bound by the fetch and not by the pieces.
+The ways into a bay went with the lanes — a set empty in every town. The generator asks the same ground where
+a prop may stand, so the corners the rounded walk gives back to the grass are furnished: Odesa lays 68 855
+props where it laid 68 772, and nothing else it lays moved.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.
@@ -26,31 +54,6 @@ crossings and no bridges over 2 054 roads. Indexed only where a road can answer,
 689 ns → 555 and the mean 136 → 111. **And the working set is no longer zeroed**: `ChainIndex.Near` fills every
 slot it returns, so initialising the frame was 6 to 15 ns of every ask, and room nothing fills now costs the
 stack pointer — which is what lets the fallback that walks every driven line sit behind a cap of 256.
-
-## 2026-09-19 — the concrete is the same distance one step further out, and a junction has no kind
-
-The pavement was drawn and not answered, so a walker stood on concrete it could see and was told it was on a
-verge. **The walk is one distance off the driven bands** (`SimConfig.WalkOuterM`), TER-7b's own construction:
-one query answers every layer where a query per layer walked the same index again. On Odesa 47.65 ha — 6.9 %
-of the town, against 5.9 % of carriageway — answers as the concrete it is drawn as, all of it grass before, at
-128 ns a question, two index walks where it was three. The promise the two constructions make each other
-(TER-3c.3) was checked: every stretch of pavement lane in both towns stands on it.
-
-**The three sets became two.** A lane and a movement through a box lay one surface (TER-5), so they answer
-carriageway together and `Ground.Intersection` is gone with its catalogue row; the ways into a bay stay a set,
-a bay being ground a walker may stand on. `RoadGround.Carriageway`, computed every query and read by nobody,
-went too. **At a corner the picture and the answer part** by the fill's rounding at `Road.LineRoundedM`
-against square bands — the rounding deviating from TER-7, not a second geometry.
-
-## 2026-09-12 — the ground answer is a line and a distance
-
-`At` walked a list of shapes backwards; the list is gone. **Which tarmac a point is, is the line that lays
-it; where the tarmac stops is the boundary** — one construction asked two ways, the boundary being the
-outline of those bands. **The lanes and never the roads**: a road's band runs between its junctions while
-its lanes are cut back from them, so read off the road a sliver at every mouth was carriageway with the
-pavement standing on top. What is inside the boundary and claimed by no line is the wedge a junction's
-corner is paved back over. Gone with the list: the walk band, the kerb fillet as a shape, the grown road band,
-and the three roundings the candidate-and-cut scheme needed.
 
 ## 2026-09-06 — the carriageway ends at the pavement's inner edge, pockets included
 

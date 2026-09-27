@@ -172,6 +172,9 @@ internal static class StuckProbe
             $"legs: {world.ReroutesTaken} rerouted, {world.PlacesGivenUp} places given up, " +
             $"{world.LinesReacquired} lines taken again, {world.LegsGivenUp} given up — and " +
             $"{world.HardBrakings} car-ticks spent the braking margin");
+        Console.WriteLine(
+            $"plans: {world.PlansLaidAgain} laid again where what another came to moved their answer, " +
+            $"{world.Unsettled} rebuilds left still moving");
 
         ReportCars(world, config, carStillTicks, carWorstTicks);
         ReportPeople(world, config, personStillTicks, personWorstTicks);
@@ -325,10 +328,9 @@ internal static class StuckProbe
                 $"{people.Walking[person]}, route {people.RouteTaken[person]}/{people.RouteCount[person]} taken, " +
                 $"runs out {people.RouteRunsOut[person]}, goal ({people.GoalM[person].X:F1}, " +
                 $"{people.GoalM[person].Y:F1}), building {people.DestinationBuilding[person]}");
-            var ground = world.Terrain.At(people.PositionM[person]);
             Console.WriteLine(
                 $"    way {people.OnWay[person]} at {people.OnWayM[person]:F1} m, {people.OffWayM[person]:F2} m off, " +
-                $"crossing {people.OnCrossing[person]}, walkable {ground.Walkable} at {ground.Coefficient:F2}");
+                $"crossing {people.OnCrossing[person]}");
 
             // <b>What it is aiming at and what it is doing about it</b>, which is the difference between a
             // body that has nowhere to go and a body leaning on something that will not move.
@@ -548,7 +550,7 @@ internal static class StuckProbe
         var way = world.Occupancy.HoldCutOn(hold);
         var onWay = way < 0 ? "no way" : $"{world.Ways.KindOf(way)} way {way}";
         return by.Found
-            ? $"(a {(by.HasBody ? "body" : by.Linked ? "marked section" : "plan")} of {by.Of} {by.Occupant} at " +
+            ? $"(a {(by.HasBody ? "body" : by.Secondary ? "secondary claim" : "main claim")} of {by.Of} {by.Occupant} at " +
               $"{by.Priority}{(by.OnItsLine ? ", on its line" : "")}, {by.FromM:F1}–{by.ToM:F1} m of {onWay})"
             : $"(a place, on {onWay})";
     }

@@ -244,12 +244,30 @@ public class MenuLayoutTests
         var menu = Laid(Window);
         var box = menu.Box;
 
-        for (var page = 0; page <= Menu.Ground; page++)
+        for (var page = 0; page <= Menu.Debug; page++)
         {
             menu.OpenAt(page);
             menu.Lay(Window, Gear(Window));
             Assert.Equal(box.AtPx.X, menu.Box.AtPx.X);
             Assert.Equal(box.SizePx.X, menu.Box.SizePx.X);
+        }
+    }
+
+    /// <summary>
+    /// <b>The debug page is one size whichever section is showing</b>: a panel that grew and shrank as its
+    /// sections were clicked through would move the very row the pointer is on.
+    /// </summary>
+    [Fact]
+    public void TheDebugPageIsOneSizeWhicheverSectionIsShowing()
+    {
+        var menu = OnTheSection(0);
+        var box = menu.Box;
+
+        for (var section = 1; section < DebugLayers.Sections.Length; section++)
+        {
+            Click(menu, menu.SectionMiddlePx(section));
+            Assert.Equal(section, menu.Section);
+            Assert.Equal(box, menu.Box);
         }
     }
 
@@ -308,10 +326,11 @@ public class MenuLayoutTests
         menu.OpenGroup(Menu.MainMaps);
         menu.Lay(shortWindow, Gear(shortWindow));
 
+        // The main maps opened and the scenarios still folded away under their own heading: the two headings
+        // and the places, and none of the scenarios' rows.
         var places = MapCatalogue.On(MapKind.Place);
-        var scenarios = MapCatalogue.On(MapKind.Scenario);
         Assert.True(menu.Box.Bottom <= shortWindow.Y, $"the panel reaches {menu.Box.Bottom} of {shortWindow.Y}");
-        Assert.Equal(places.Length + scenarios.Length + 2, menu.RowCount);
+        Assert.Equal(places.Length + 2, menu.RowCount);
 
         var first = Click(menu, menu.RowMiddlePx(1));
         Assert.Equal(MenuAction.OpenMap, first.Action);
@@ -380,71 +399,81 @@ public class MenuLayoutTests
             "the panel was laid at the width its rows wanted anyway");
     }
 
-    /// <summary>
-    /// <b>The row that is drawn and the switch that is toggled are the same one.</b> They were two
-    /// switch statements, and a layer inserted in the middle of the list toggled its neighbour.
-    /// </summary>
-    [Fact]
-    public void EachDebugRowTogglesTheSwitchItNames()
+    /// <summary>The debug page, open on one section and laid.</summary>
+    static Menu OnTheSection(int section)
     {
         var menu = Laid(Window);
         menu.OpenAt(Menu.Debug);
+        menu.OpenSection(section);
         menu.Lay(Window, Gear(Window));
+        return menu;
+    }
 
-        var switches = new DebugSwitches();
-        menu.Click(menu.LineMiddlePx(0), switches, new TrimFigures());
-        Assert.True(switches.CarLines);
+    static Menu OnTheSection(string word) => OnTheSection(DebugLayers.SectionWorded(word));
 
-        menu.Click(menu.LineMiddlePx(4), switches, new TrimFigures());
-        Assert.True(switches.Collision);
+    /// <summary>
+    /// <b>The row that is drawn and the switch that is toggled are the same one</b>, in every section. They
+    /// were two switch statements, and a layer inserted in the middle of the list toggled its neighbour.
+    /// </summary>
+    [Fact]
+    public void EachDebugRowTogglesTheSwitchItNamesAndNoOther()
+    {
+        for (var section = 0; section < DebugLayers.Sections.Length; section++)
+        {
+            var menu = OnTheSection(section);
+            foreach (var layer in DebugLayers.Sections[section].Layers)
+            {
+                var switches = new DebugSwitches();
+                menu.Click(menu.LayerMiddlePx(layer), switches, new TrimFigures());
 
-        menu.Click(menu.LineMiddlePx(6), switches, new TrimFigures());
-        Assert.True(switches.TurnCircles);
-
-        menu.Click(menu.LineMiddlePx(8), switches, new TrimFigures());
-        Assert.True(switches.Ribbons);
-
-        menu.Click(menu.LineMiddlePx(9), switches, new TrimFigures());
-        Assert.True(switches.Grid);
-
-        menu.Click(menu.LineMiddlePx(10), switches, new TrimFigures());
-        Assert.True(switches.SolverGrid);
-
-        menu.Click(menu.LineMiddlePx(11), switches, new TrimFigures());
-        Assert.True(switches.Ruler);
-
-        menu.Click(menu.LineMiddlePx(12), switches, new TrimFigures());
-        Assert.True(switches.Shell.Drawn);
+                foreach (var entry in DebugLayers.All) Assert.Equal(entry.Layer == layer, switches[entry.Layer]);
+            }
+        }
     }
 
     /// <summary>
-    /// <b>Every row the debug page lays is a row it has a name for.</b> The count was a figure written
-    /// beside the list of names, and a layer taken off that list left the page laying one row more than it
-    /// could draw — which is not a blank row on the tab but the tab throwing as it opens. The failure here
-    /// is the exception: the page is drawn, and a row past the end of the names cannot be.
+    /// <b>The row that turns every layer off turns every layer off</b> (OBS-2y), whichever section they were
+    /// thrown in — and leaves the ground's own layers where they were, which are the town and not a layer
+    /// drawn over it (OBS-2v).
     /// </summary>
     [Fact]
-    public void TheDebugPageDrawsEveryRowItLays()
+    public void TheAllOffRowTurnsEveryLayerOffAndLeavesTheGround()
     {
-        var menu = Laid(Window);
-        menu.OpenAt(Menu.Debug);
-        menu.Lay(Window, Gear(Window));
+        var menu = OnTheSection(0);
+        var switches = new DebugSwitches();
+        foreach (var entry in DebugLayers.All) switches.Toggle(entry.Layer);
+        switches.Ground.Toggle(GroundPart.Paint);
 
-        var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
-        menu.Draw(ref draw, Window, Gear(Window), -Vector2.One, new DebugSwitches(), new TrimFigures(), mesh: null);
+        menu.Click(menu.AllOffMiddlePx, switches, new TrimFigures());
+
+        Assert.False(switches.AnyOn);
+        Assert.False(switches.Ground[GroundPart.Paint]);
+    }
+
+    /// <summary>
+    /// <b>Every section draws every row it lays</b>, over a run with no town standing — which is what the
+    /// ground's section has to survive, since the menu is up before there is a mesh. The failure here is the
+    /// exception.
+    /// </summary>
+    [Fact]
+    public void EverySectionDrawsEveryRowItLaysWithNoTownStanding()
+    {
+        for (var section = 0; section < DebugLayers.Sections.Length; section++)
+        {
+            var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
+            OnTheSection(section).Draw(
+                ref draw, Window, Gear(Window), -Vector2.One, new DebugSwitches(), new TrimFigures(), mesh: null);
+        }
     }
 
     /// <summary>
     /// <b>The row that is drawn and the layer that is hidden are the same one</b> (OBS-2v) — the claim
-    /// the debug page's own rows are held to, on a page whose rows are an enum rather than a list of
-    /// names.
+    /// the debug page's own rows are held to, on rows that are an enum rather than a list of names.
     /// </summary>
     [Fact]
     public void EachGroundRowTogglesTheLayerItNames()
     {
-        var menu = Laid(Window);
-        menu.OpenAt(Menu.Ground);
-        menu.Lay(Window, Gear(Window));
+        var menu = OnTheSection("ground");
 
         var switches = new DebugSwitches();
         menu.Click(menu.GroundMiddlePx((int)GroundPart.Carriageway), switches, new TrimFigures());
@@ -459,29 +488,7 @@ public class MenuLayoutTests
         Assert.True(switches.Ground.Whole);
     }
 
-    /// <summary>
-    /// <b>Every row the ground page lays is a row it can draw</b>, over a run with no town standing —
-    /// which is what a page reading a mesh has to survive, since the menu is up before there is one.
-    /// The failure here is the exception.
-    /// </summary>
-    [Fact]
-    public void TheGroundPageDrawsEveryRowItLaysWithNoTownStanding()
-    {
-        var menu = Laid(Window);
-        menu.OpenAt(Menu.Ground);
-        menu.Lay(Window, Gear(Window));
-
-        var draw = new ScreenDraw(new OverlayQuad[TownRenderer.OverlayCapacity]);
-        menu.Draw(ref draw, Window, Gear(Window), -Vector2.One, new DebugSwitches(), new TrimFigures(), mesh: null);
-    }
-
-    static Menu OnTheFigures()
-    {
-        var menu = Laid(Window);
-        menu.OpenAt(Menu.Figures);
-        menu.Lay(Window, Gear(Window));
-        return menu;
-    }
+    static Menu OnTheFigures() => OnTheSection("cars");
 
     /// <summary>
     /// <b>The middle of a track is the figure the build ships</b>, which is what makes a decade either side
@@ -535,7 +542,7 @@ public class MenuLayoutTests
     [Fact]
     public void TheShellRowsAreReadStraightOffTheirOwnTracks()
     {
-        var menu = OnTheFigures();
+        var menu = OnTheSection("road");
         var trims = new TrimFigures();
         var switches = new DebugSwitches();
 

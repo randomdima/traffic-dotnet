@@ -168,7 +168,7 @@ queue ahead and drive into things on purpose.
 
 **Nothing else changes.** The unit keeps its own action set and its **whole hard-rule envelope**:
 per-gear speed caps, bounded acceleration and braking, the turning circle and no rotating on the spot,
-the person's turn rate and constant walk speed, plus terrain effects, collisions, damage and terminal
+the person's turn rate and constant walk speed, plus a wheel's terrain effects, collisions, damage and terminal
 states. **The rest of the world is not told** — other cars look, queue and yield around a hand-driven
 car exactly as around any other, and it still claims the crossing it is entering so they can.
 

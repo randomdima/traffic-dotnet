@@ -20,8 +20,8 @@ internal enum MenuAction : byte
 }
 
 /// <summary>
-/// <b>There is one menu and it hangs off the gear.</b> Four pages — the map to open, the debug
-/// switches, the figures and the ground — and the way out of the game as a fifth tab beside them.
+/// <b>There is one menu and it hangs off the gear.</b> Two pages — the map to open, and everything a debug
+/// session turns, cut into sections (OBS-2y) — and the way out of the game as a third tab beside them.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -53,30 +53,26 @@ internal sealed partial class Menu
     /// <summary>The pages, in the order their tabs run across the top of the panel.</summary>
     public const int Maps = 0;
 
+    /// <summary>
+    /// <b>Everything a debug session turns, a section a thing it is opened to look at</b> (OBS-2y,
+    /// <see cref="DebugLayers.Sections"/>): the layers, the road's trims beside the car layers they are felt
+    /// in, the shell probe's figures beside the boundary it is struck off, and the ground's own layers beside
+    /// the wireframe drawn over them.
+    /// </summary>
     public const int Debug = 1;
 
-    /// <summary>
-    /// <b>The figures, as a share of what the build ships</b> — the page a session turns a constant on and
-    /// watches the town answer (<see cref="TrimFigures"/>). It is a page rather than a scenario's own panel
-    /// because what is on it is the <em>road</em>, which every map has and every map is where it is felt. A
-    /// car's own figures are not here and have no dial.
-    /// </summary>
-    public const int Figures = 2;
-
-    /// <summary>
-    /// <b>The ground the renderer was handed, layer by layer</b> (OBS-2v): what each of them came to in
-    /// triangles and in milliseconds, and the switch that takes it out of the picture. It is a page of
-    /// its own and not a group on <see cref="Debug"/> because nothing on it draws anything over the town —
-    /// every row here is about the town's own ground and is on rather than off to begin with.
-    /// </summary>
-    public const int Ground = 3;
-
-    const int Pages = 4;
+    const int Pages = 2;
 
     /// <summary>The last tab, which is a button rather than a page: it leaves the game.</summary>
-    public const int ExitTab = 4;
+    public const int ExitTab = 2;
 
-    static readonly string[] TabNames = ["Maps", "Debug", "Figures", "Ground", "Exit"];
+    static readonly string[] TabNames = ["Maps", "Debug", "Exit"];
+
+    /// <summary>
+    /// The widest a tab is laid. <b>A tab is a label and not a share of the panel</b>: three of them spread
+    /// across a panel laid for the longest map description are three bars a third of a screen wide.
+    /// </summary>
+    const float MostTabPx = 150f;
 
     /// <summary>The two collapsible groups the map page is cut into, and which kind of map each holds.</summary>
     public const int MainMaps = 0;
@@ -89,15 +85,6 @@ internal sealed partial class Menu
     static MapKind KindOf(int group) => group == MainMaps ? MapKind.Place : MapKind.Scenario;
 
     const int MostRows = 32;
-
-    /// <summary>
-    /// The most switch rows the debug page lays, which is what the content column is never shorter than.
-    /// <b>It is <see cref="Lines"/>'s own length and is read off it rather than written beside it</b> — it
-    /// was a constant, and a layer taken off the list left the page laying a row with no name to draw in it.
-    /// It is a property and not a static field because a static field cannot read one declared in another
-    /// half of this class, and every reader of it runs long after the class is initialised.
-    /// </summary>
-    static int MostLines => Lines.Length;
 
     /// <summary>The bar down the rows when there are more of them than the window has room for.</summary>
     const float ScrollBarPx = 4f;
@@ -168,30 +155,32 @@ internal sealed partial class Menu
     /// <summary>The mark ahead of an open group's name, which is also the room a shut one's takes.</summary>
     const string GroupMark = "- ";
 
-    /// <summary>
-    /// Every fixed line the debug page draws, so the panel is wide enough for all of them at once.
-    /// </summary>
-    /// <remarks>
-    /// <b>Printable ASCII only</b>, here and in every other string the interface draws: the glyph
-    /// sheet carries that range and nothing else, so an em dash is drawn as a space and reads as a
-    /// missing word rather than as a missing glyph.
-    /// </remarks>
-    static readonly string[] Lines =
-    [
-        "Car lines", "Walker lines", "Nodes and links", "Lane claims", "Collision",
-        "Ground wireframe", "Turn circles", "Tarmac perimeter", "Tarmac ribbons", "Geometry grid",
-        "Solver grid", "Ruler", ShellProbe.Named,
-    ];
-
     /// <summary>The middle of a laid row, which is what the suite clicks to ask the layout and the hit test the same question.</summary>
     public Vector2 RowMiddlePx(int row) => Middle(_rows[row - _firstRow]);
 
-    /// <summary>The middle of one tab, and of one switch row, on the same terms.</summary>
+    /// <summary>The middle of one tab, on the same terms.</summary>
     public Vector2 TabMiddlePx(int tab) => Middle(_tabs[tab]);
 
-    public Vector2 LineMiddlePx(int line) => Middle(_lines[line]);
+    /// <summary>And of one section's row down the side of the debug page.</summary>
+    public Vector2 SectionMiddlePx(int section) => Middle(_sections[section]);
 
-    /// <summary>And of one row of the ground page, which is a layer of the ground or the row that puts them all back.</summary>
+    /// <summary>And of the row that turns every layer off.</summary>
+    public Vector2 AllOffMiddlePx => Middle(_allOff);
+
+    /// <summary>
+    /// And of one layer's row, in the section showing. <b>A layer another section holds has no row here</b>, and
+    /// asking for one is a test asking the wrong page.
+    /// </summary>
+    public Vector2 LayerMiddlePx(DebugLayer layer)
+    {
+        var layers = DebugLayers.Sections[Section].Layers;
+        var row = Array.IndexOf(layers, layer);
+        if (row < 0) throw new InvalidOperationException($"{layer} is not in {DebugLayers.Sections[Section].Name}");
+
+        return Middle(_layerRows[row]);
+    }
+
+    /// <summary>And of one row of the ground's own layers, or of the row that puts them all back.</summary>
     public Vector2 GroundMiddlePx(int row) => Middle(_grounds[row]);
 
     /// <summary>And of one slider's track, which is where a click puts that figure back where it started.</summary>
@@ -290,25 +279,13 @@ internal sealed partial class Menu
             return MenuChoice.None;
         }
 
-        if (Page == Figures) return ClickedTrim(pointPx, switches, trims);
-
-        if (Page == Ground) return ClickedGroundRow(pointPx, switches.Ground);
-
-        for (var line = 0; line < MostLines; line++)
-        {
-            if (!_lines[line].Contains(pointPx)) continue;
-
-            switches.Toggle(ref Switch(switches, line));
-            break;
-        }
-
-        return MenuChoice.None;
+        return ClickedDebug(pointPx, switches, trims);
     }
 
     /// <summary>
-    /// A click on the ground page: one layer of the ground taken out of the picture or put back, or the
-    /// row under them that puts the whole of it back. <b>The rows that read the mesh take no click</b> —
-    /// they are what the page is looked at for and there is nothing about them to press.
+    /// A click on the ground's own layers: one taken out of the picture or put back, or the row under them
+    /// that puts the whole of it back. <b>The rows that read the mesh take no click</b> — they are what the
+    /// section is looked at for and there is nothing about them to press.
     /// </summary>
     MenuChoice ClickedGroundRow(Vector2 pointPx, GroundSwitches ground)
     {
@@ -326,9 +303,9 @@ internal sealed partial class Menu
     }
 
     /// <summary>
-    /// A press on the figures page: the row it landed in is taken hold of and moved to where the pointer
-    /// is, and it stays held until the button comes up (<see cref="Pointer"/>). The row past the last
-    /// slider is the one that puts every figure back where the build shipped it.
+    /// A press on a slider: the row it landed in is taken hold of and moved to where the pointer is, and it
+    /// stays held until the button comes up (<see cref="Pointer"/>). The row past the last trim is the one
+    /// that puts every trim back where the build shipped it.
     /// </summary>
     MenuChoice ClickedTrim(Vector2 pointPx, DebugSwitches switches, TrimFigures trims)
     {
@@ -462,7 +439,7 @@ internal sealed partial class Menu
     /// </summary>
     public const int RoundingRow = ShellRow + 1;
 
-    /// <summary>How many rows of the figures page are a figure to be dragged: one a trim, and the probe's two.</summary>
+    /// <summary>How many rows of the debug page are a figure to be dragged: one a trim, and the probe's two.</summary>
     public const int Sliders = RoundingRow + 1;
 
     /// <summary>The row under them, which is not one: it puts every figure back where the build shipped it.</summary>
@@ -539,31 +516,6 @@ internal sealed partial class Menu
     static float ProbeTravelM => ShellProbe.MostM - ShellProbe.LeastM;
 
     static float RoundingTravelM => ShellProbe.MostRoundM - ShellProbe.LeastRoundM;
-
-    /// <summary>
-    /// The switch a row of the debug page stands for. <b>One place, so the row that is drawn and the
-    /// row that is toggled cannot come apart</b> — they were two switch statements, and a layer
-    /// inserted in the middle of the list toggled its neighbour.
-    /// </summary>
-    static ref bool Switch(DebugSwitches switches, int line)
-    {
-        switch (line)
-        {
-            case 0: return ref switches.CarLines;
-            case 1: return ref switches.WalkerLines;
-            case 2: return ref switches.Nodes;
-            case 3: return ref switches.Claims;
-            case 4: return ref switches.Collision;
-            case 5: return ref switches.Wireframe;
-            case 6: return ref switches.TurnCircles;
-            case 7: return ref switches.Perimeter;
-            case 8: return ref switches.Ribbons;
-            case 9: return ref switches.Grid;
-            case 10: return ref switches.SolverGrid;
-            case 11: return ref switches.Ruler;
-            default: return ref switches.Shell.Drawn;
-        }
-    }
 
     MenuChoice ClickedRow(Vector2 pointPx)
     {

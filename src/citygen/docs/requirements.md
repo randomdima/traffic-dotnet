@@ -635,7 +635,7 @@ nodes the ordinary spacing happened to leave either side of it.
 **The list of maps is one list** (`Maps`), read by the start menu, the in-game picker and the command line;
 every check, probe and shot names the map its fixtures live on.
 
-**The idle ring** (`IdlePlan`) is the one map laid in code, the one the game opens on (GEN-1b), and it
+**The idle ring** (`IdlePlan`) is one of the two maps laid in code, the one the game opens on (GEN-1b), and it
 measures nothing. It is **one loop of road with nothing else on it** — no building, bay, paint, light or
 walker — carrying **an escorted convoy one way round and one car the other**: an armoured car between two
 police with their beacons up, and a sports car on the opposite lane of the same carriageway. What it is
@@ -651,6 +651,42 @@ its charge's pace and following closer than traffic does — is `IdlePlan`'s own
   with no station is an ordinary car in service paint, which is the state `EVA-7` already names.
 - **Nothing turns at any of its nodes** — each joins one road to the next and offers one way out — so nothing
   on it indicates, gives way, or is refused anything (`CAR-14.1`, `SIM-7`).
+
+**The scenario map** (`Exam`, [exam/](../exam/)) is the other, and it is the one laboratory this build ships:
+**a lattice of junctions with one traffic scenario staged at each** — a card of `ExamCards`, saying who is
+at the junction, what the engine is to make of it and which of the engine's own rules that exercises. It is
+an end-to-end case of this engine and not of anybody's rule book: a car alone, cars whose ways share no
+ground, cars whose ways cross, queues, lights, somebody on foot, a car on a call, a one-way street. The
+staging and the verdicts are the bench's (`ExamDrive`, `ExamJudge`), read by `--bench exam`, by the panel on
+a run of `--map Exam` and by the exam tier alike.
+
+- **A card is written once, in its own frame, and turned onto a cell of the shape it asks for**: a crossroads
+  or a ring in the middle of the lattice, a T on its edge, a dead end at the head of a spur from a corner.
+  A table asking for more of a shape than the lattice has, or staging a car on an arm its junction lacks or
+  against a one-way street, fails when the map is laid.
+- **Its roads are laid as the generator lays them** (TER-5d): the town's own draw gives each end its arm, and
+  the road runs stand point to stand point on those bearings — a road laid straight from node to node is
+  one whose lanes end where its line does not go, and whose junction lays no movement. So the lattice is
+  square in its nodes and not in its streets. A ring and a one-way arm are laid as GEN-19 and TER-4d lay
+  them.
+- **It lays the lights and the bars its cards are about**, which a generated town does not (the known gaps):
+  a lit junction with no bar is one nothing stops at. The bars stand where the town paints them, a setback
+  behind the band the traffic is held at.
+- **Somebody on a zebra is stood at the edge of its paint and walked paint to paint**, never from the
+  pavement: a walk from the pavement is not reliably routed over a zebra in this build (the known gaps), so
+  a walker sent from the kerb can go round the block and the card would ask nothing. It steps into the
+  middle of the lane the car arrives in as that car comes within a stated distance, stands there a moment
+  and goes on to the far edge — a body crosses a carriageway in about a second at the town's pace, and
+  one that did not stand would be out of the car's way before the car could have reached it. **A road
+  anybody walks is driven both ways**, because a one-way road is one lane wide and the far side of its
+  zebra is the lane its traffic drives.
+- **Somebody walking the pavement is walked round a corner**, from one arm to the next, past the kerb ends of
+  both zebras and over neither — which is where a pavement's ribbon comes nearest a lane's.
+- **It asks nothing the engine refuses to do**: nothing turns round in a box (TER-5f) or at a dead end
+  (TER-5a), nothing overtakes, and nothing is held to a rule of the road the town does not make its own.
+- **What it claims is the cards**, gathered one claim to a family (`ExamWatch`), and **every card passes**
+  ([verification](../../../docs/verification.md#the-scenario-map)): a card that fails is the engine not
+  doing what its own rules say.
 
 **The fixture map is not optional.** It is what every detailed check is staged on: small enough to build
 in a fraction of the time, and laid from a brief (`towns/Test.json`) that asks for water, three districts

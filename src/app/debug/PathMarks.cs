@@ -243,13 +243,37 @@ internal static class PathMarks
     }
 
     /// <summary>One stretch of a chain as a path: the line it is, and the marks that say which way it runs.</summary>
+    /// <param name="widthM">
+    /// What the line is drawn at, which is <see cref="PathLineM"/> except where a layer holds it to a floor on
+    /// the glass or the pointer has picked it out.
+    /// </param>
     public static void Chained(
         ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM, bool bothWays,
-        float sagM, Vector4 colour, MarkClaims claims)
+        float sagM, Vector4 colour, MarkClaims claims, float widthM = PathLineM)
     {
-        Banded(ref draw, arcs, fromM, toM, sagM, PathLineM, colour);
+        Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour);
         Marks(ref draw, arcs, fromM, toM, pitchM, bothWays, colour, claims);
     }
+
+    /// <summary>
+    /// <b>How much wider than the line its casing is.</b> Wide enough to leave a dark edge either side of the
+    /// line at any framing, narrow enough that two routes side by side in adjacent lanes stay two.
+    /// </summary>
+    public const float CasingWidthFactor = 2.6f;
+
+    /// <summary>
+    /// <b>The dark band a route is laid on</b>, so that it reads over whatever the town is under it. A body's
+    /// colour is picked to stand off the grass and the tarmac (<see cref="Theme.AgentLine"/>), and a thin line
+    /// of it over paint, a crossing or a roof still vanishes into it; a casing makes the line's own edges the
+    /// contrast instead of the ground's.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only a route is cased, never the town's own network</b>: a route is the one line a reader follows
+    /// through a crowd of others, and the network is the ground it is read against.
+    /// </remarks>
+    public static void Casing(
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float widthM) =>
+        Banded(ref draw, arcs, fromM, toM, sagM, widthM * CasingWidthFactor, Theme.Casing);
 
     /// <summary>
     /// One run of straight line, with chevrons down it rather than an arrowhead on the end: they say which
@@ -260,9 +284,10 @@ internal static class PathMarks
     /// agent walks through them, two bodies on one stretch put theirs in the same places, and a body's own
     /// line marks the pavement on the stones the network layer under it already marked.
     /// </remarks>
-    public static void Chevroned(ref ScreenDraw draw, Vector2 fromM, Vector2 toM, float pitchM, Vector4 colour)
+    public static void Chevroned(
+        ref ScreenDraw draw, Vector2 fromM, Vector2 toM, float pitchM, Vector4 colour, float widthM = PathLineM)
     {
-        draw.LineM(fromM, toM, PathLineM, colour);
+        draw.LineM(fromM, toM, widthM, colour);
 
         var alongM = toM - fromM;
         var lengthM = alongM.Length();

@@ -40,7 +40,8 @@ internal static class TownCensus
 
         Ground(plan, config);
 
-        var locator = new GroundLocator(plan, config);
+        var shapes = new GroundShapes(plan.Paving(config), config);
+        var locator = new GroundLocator(shapes, config);
 
         // <b>A share and never a count</b>: the ground is a set of shapes with no cells in it, so how much
         // of the town each kind covers is measured by asking, on a lattice this report owns and at the step
@@ -74,8 +75,8 @@ internal static class TownCensus
         // what this figure is really about, and the whole town is the cheapest honest way to take it — every
         // kind of ground in the proportion the town actually holds them. <b>Which is the mean of the rows and
         // not a sweep of its own</b>, because the two hot paths have almost nothing in common: a wheel's ask
-        // is the roads and the driven bands, and a walker's carries on into the water's rings and the walk —
-        // so one figure over the mix says what a town costs and nothing about what either of them costs.
+        // is the roads and the boundary, and a walker's carries on into the water's rings and the walk — so
+        // one figure over the mix says what a town costs and nothing about what either of them costs.
         var perAsk = askedNs / samples;
 
         Console.WriteLine($"ground, sampled every {stepM:F2} m — {samples / 1000} k asks at {perAsk:F0} ns each");
@@ -87,6 +88,12 @@ internal static class TownCensus
             Console.WriteLine($"  {(Ground)ground,-13}{samplesPerGround[ground] * stepM * stepM / 10000f,10:F2} ha  " +
                               $"{100d * samplesPerGround[ground] / samples,5:F1} %  {nsPerAsk[ground],5:F0} ns  {rules}");
         }
+
+        // <b>What the boundary is answered off</b>: a cell no ring crosses is a lookup, so the crossed share is
+        // the share of the ground that costs more than one.
+        Console.WriteLine($"  boundary answered off a {config.Terrain.ShellCellM:F2} m lattice");
+        Lattice("carriageway", shapes.CarriagewaySides);
+        Lattice("walk", shapes.WalkSides);
 
         Console.WriteLine();
 
@@ -201,6 +208,11 @@ internal static class TownCensus
         return steps;
     }
 
+    static void Lattice(string layer, RingSides sides) =>
+        Console.WriteLine($"    {layer,-12}{sides.CellCount / 1000,7} k cells, " +
+                          $"{100d * sides.CrossedCellCount / Math.Max(1, sides.CellCount),4:F1} % crossed, " +
+                          $"{sides.PieceCount / 1000} k pieces, {sides.Bytes / 1048576d:F1} MB");
+
     /// <summary>
     /// How many asks of one kind are timed. A quarter of a million is far past what the figure needs to
     /// settle, and it holds the whole reading to a fraction of a second on a city.
@@ -246,7 +258,7 @@ internal static class TownCensus
     /// <summary>
     /// <b>The same ground as the picture holds it</b> (<see cref="GroundMesh"/>): the triangles the
     /// renderer is handed, cut into the layers they were laid in, and what each layer cost to cut
-    /// (OBS-2v). The ground page reads the same tallies off the same mesh, so the figure a session sees
+    /// (OBS-2v). The menu's ground section reads the same tallies off the same mesh, so the figure a session sees
     /// and the figure a report prints are one reading.
     /// </summary>
     /// <remarks>

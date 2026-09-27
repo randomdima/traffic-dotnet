@@ -4,6 +4,33 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-27 — the switches are shown a section a question, and the words moved off the town
+
+**The debug page was thirteen boxes in a list, and the figures and the ground were pages of their own.** A
+session looking at one thing had every switch in front of it, the probe's switch on one page and its sliders
+on another, and nothing said what a layer draws or what its colours mean. **So the page is cut into sections
+by what a session is opened to look at** (OBS-2y), each carrying its switches with their keys and the
+figures that question turns; the sections are the slice's (`DebugLayers`), because which switches belong
+together is a fact about the layers and not about the panel.
+
+**The words over every body went, and the inspector took them** (OBS-2t). A label over each car at a close
+framing was the densest thing on the glass and the reason a layer read as noise: the reading a reader wants
+is about one body, and it is the body they are pointing at. The layers are lines; a card beside the pointer
+says what the thing under it is, and a click pins one. **No layer takes the mouse any more** — the geometry
+grid did, and a reader who ticked it could not pick a car — because a pin is a reading and not a mode.
+
+**A route is drawn on a dark casing and held to a width on the glass**: a body's colour stands off grass and
+tarmac, and a thin line of it over paint, a zebra or a roof did not.
+
+## 2026-09-27 — a secondary claim is drawn as an outline
+
+A secondary claim is ground a holder only crosses ([world/road](../../../world/road/docs/claims.md),
+TER-5c.1). Two of them may lie over one stretch, and one butts against the main claim it was weighed
+against. Washed like a main claim, two of them read as one stretch held twice, and one beside a main claim
+read as the next piece of the same car's road. **So it is the block's outline and no wash**: both long
+edges and the end bars, at the edge strength of its rung, so colour still says whose and alpha still says how
+strong.
+
 ## 2026-09-19 — the solver's grid is drawn as the cells it holds, not as a ruling
 
 The question that asked for the layer was whether the broad phase bins bodies the way the road bins lines,
@@ -27,9 +54,9 @@ distance the town does not use was visible only where a shipped figure happened 
 the shipped distances was the obvious way in and is **not** what was built — those lines are the ground the
 town stands on, and a layer drawing them somewhere else lies about the picture underneath it (OBS-2u).
 
-**So the probe is a switch and figures of its own** (OBS-2w), on the figures page beside the trims. **It is
-the one row there the town is not stood up for**: a trim rebuilds the fleet, this stales only the overlay's
-own cache, so the page holds two kinds of row and where they differ is one place each. **It steps**, a
+**So the probe is a switch and figures of its own** (OBS-2w). **They are the sliders the town is not stood
+up for**: a trim rebuilds the fleet, these stale only the overlay's own cache, so the menu's sliders are of
+two kinds and where they differ is one place each. **It steps**, a
 tenth of a metre, because an outset is cut against the whole town's shape and a track read off the pointer
 would strike one a pixel. **The rounding is a second row and not a setting**: the fold the offset cut and
 the corner the rounding left look alike in a frame, and only holding one figure still while turning the
@@ -52,17 +79,17 @@ fault was that there was a second way. **The correct cull is also the cheaper on
 framings of Odesa came to 4 595 → 3 621, 32 552 → 22 484 and 40 943 → 40 685 quads. **A cull may cost a quad
 and may never cost a line**: a frame that omits a lane is a frame somebody goes looking for a defect behind.
 
-## 2026-09-16 — the ground's layers are a page of their own, and they start on
+## 2026-09-16 — the ground's layers are held apart from the overlay's switches, and they start on
 
-They are switches this slice owns (OBS-2v), and not on the debug page: **every row there is a layer drawn
-over the town and starts off** (OBS-2b), every row here is the town itself and starts on, and one page whose
-boxes meant opposite things in its two halves would have to be read twice. Held in `GroundSwitches` beside
-`DebugSwitches` for the same reason.
+They are switches this slice owns (OBS-2v), and not among the overlay's: **every one of those is a layer
+drawn over the town and starts off** (OBS-2b), every one of these is the town itself and starts on. Held in
+`GroundSwitches` beside `DebugSwitches`, and drawn under a rule of their own in the ground's section, so a
+row of boxes never means opposite things in its two halves.
 
 **The generation is one number** — `DebugSwitches.Generation` carries the ground's — because the wireframe
 has to be laid again when a layer is hidden exactly as when a switch is thrown, and a reader comparing two
-numbers is a reader that forgets one. **The figures on the page are the mesh's own**: `GroundMesh` tallies
-each layer as it lays it, and the page and `--bench census` read those tallies rather than timing anything.
+numbers is a reader that forgets one. **The figures beside them are the mesh's own**: `GroundMesh` tallies
+each layer as it lays it, and the menu and `--bench census` read those tallies rather than timing anything.
 
 ## 2026-09-14 — a boundary is culled by the stretch, because a ring is the whole town
 

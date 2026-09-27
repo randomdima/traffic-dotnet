@@ -1,8 +1,10 @@
 # Verification
 
 **Four tiers, cheapest first. A claim is checked at the cheapest tier that can answer it**, and a claim
-no tier can answer has not been written falsifiably. A fifth run exists and is not one of them: `Maps`
-asks after somebody's shipped city rather than after this engine, and is never part of the suite.
+no tier can answer has not been written falsifiably. Two more runs exist and are not among them: `Maps`
+asks after somebody's shipped city rather than after this engine, and `Exam` drives the engine end to end
+through one staged scenario a junction ([the scenario map](#the-scenario-map)). Neither is ever part of
+`all`.
 
 | Tier | Answers | Cost | Where |
 |---|---|---|---|
@@ -47,6 +49,7 @@ class in no tier's filter is never run again and nothing says so.
 | `Town` | a question asked of a town that is stood up — read, laid out over, or ticked | Release | yes |
 | `Perf` | the five gates below: what is measured over a whole town | Release, and Debug for one class | yes |
 | `Maps` | the shipped cities, asked for by name | Release | **no** |
+| `Exam` | the scenario map, one case a card | Release | **no** |
 | `E2E` | the visual tier, tier 4 above | Debug | **no** |
 
 **Three multipliers separate a tier from the untiered suite**: Debug costs roughly four times Release
@@ -173,7 +176,7 @@ re-taken on the largest town the project can open:
 | `CrossingGateTests` | The frame's managed→native crossings are flat in the size of the town (rule 1) |
 | `OverlapGateTests` | `PHY-1` on a town that is *running*, not on a staged pair |
 | `SolverGateTests` | `SOL-20`, including **across contact churn** as bodies touch and separate |
-| `ClaimGateTests` | `TER-4c.3`, `TER-5c.2`, `TER-5c.1`, `TER-4c.1` and `TER-5g.1` on the planned layer of every way: no metre planned by two holders, no hold in two pieces, no marked stretch without its linked section, no plan over a body, no rung that grows along a hold — and nothing dropped for want of room. Bodies are free to overlap and are the solver's gates' question |
+| `ClaimGateTests` | `TER-4c.3`, `TER-5c.2`, `TER-5c.1`, `TER-4c.1` and `TER-5g.1` on the planned layer of every way: no metre planned by two holders, no hold in two pieces, no main claim over a mark without its secondary claim, no plan over a body, no rung that grows along a hold — and nothing dropped for want of room. Bodies are free to overlap and are the solver's gates' question |
 
 `OverlapGateTests` asserts that no **one** body stays inside another, and not that nothing is ever inside
 anything — the second is not a fact about this town: a soft-step solver answers an approach by letting a
@@ -227,8 +230,24 @@ fixture map ([citygen](../src/citygen/docs/requirements.md#the-maps)).
 stays on `Towns.EveryLaidMap` is what is about the set of maps this build lays rather than about a town:
 that every map conforms, draws and is watched against something. `Towns.EveryShippedMap` is for what is
 about the menu itself — that every map has a description and can be opened — and nothing else may use it.
-A laboratory map, when one ships, is asked what it was laid to answer and nothing else: asked about
-parking, a proving ground answers over an empty set and reads like coverage.
+A laboratory map is asked what it was laid to answer and nothing else: asked about parking, a proving
+ground answers over an empty set and reads like coverage.
+
+## The scenario map
+
+**The scenario map drives the engine end to end** — a lattice of junctions with one scenario staged at
+each, every card saying what the engine is to make of it and which of the engine's own rules that exercises
+([citygen](../src/citygen/docs/requirements.md#the-maps)). It is answered three ways by one staging:
+`--bench exam` prints every card with its verdict and, for a card failed, what it expects, what the town did
+instead and what held each car it staged; `--map Exam` draws the same verdicts gathered one claim to a
+family; and `qq tests exam` asserts each card as a case of its own.
+
+**Every card is expected to pass**, and a card that fails is the engine not doing what its own rules say.
+**It asks this engine and not a rule book**: which of two cars crossing goes first is the engine's right of
+way to settle (TER-5e), so a card asks that the one it favours is never made to wait, and nothing is asked
+that the engine refuses to do. **It is outside `all` as the frames are**: one whole town driven for a
+minute and a half, run when a change can have moved how traffic meets. A card that cannot be staged as
+written fails when the map is laid rather than passing over nothing.
 
 ## What a map claims about itself
 
@@ -245,7 +264,7 @@ is not something anybody could settle by looking at the town.
 |---|---|
 | A player watching | the status panel's last section, on a scenario map only — a broken claim counted on its always-on title, the rows opened by `--ui scenario` |
 | A script | `--bench <name>`, or `--map NAME --seconds N`: the table, and **a broken claim is a failed run** |
-| The suite | the town tier, asserting the same claims off the same watch |
+| The suite | the town tier, asserting the same claims off the same watch — and for the exam, the exam tier, one case a card |
 
 **A claim fails a run and a reading never does.** The split is the project's own: what must hold on every
 map is a claim, and what is a fact about one town — how long a rescue took, how far an articulated pair

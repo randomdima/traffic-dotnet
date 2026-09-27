@@ -21,7 +21,7 @@ public class RescuePriorityTests
         new(10f, 20f, 10f, 2, rung, AheadM: 5f, CommittedToM: committed ? 20f : float.NegativeInfinity);
 
     static bool Keeps(ClaimPriority mine, in LaneClaim theirs) =>
-        LaneOccupancy.Beats(Asking(mine), 10f, false, theirs, 10f, false);
+        LaneOccupancy.Beats(Asking(mine), 10f, false, theirs, false);
 
     /// <summary>
     /// A rescue outranks every ordinary movement, the paint and <b>a closed road</b> (SRV-6), so none of their
