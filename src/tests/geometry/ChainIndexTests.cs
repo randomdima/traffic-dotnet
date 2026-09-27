@@ -25,6 +25,9 @@ public class ChainIndexTests
     /// <summary>Well under, about, and well over a road's own width.</summary>
     public static TheoryData<float> CellSizes => [3f, 16f, 200f];
 
+    /// <summary>The level of a grid wide enough to hold every cell size asked for, at most that size.</summary>
+    static GridLevel Level(float cellM) => new WorldGrid(256f).Within(cellM);
+
     [Theory]
     [MemberData(nameof(CellSizes))]
     public void NamesTheChainTheScanWouldHave(float cellSizeM)
@@ -38,7 +41,7 @@ public class ChainIndexTests
             builder.Add(lane, roads.ArcsOf(lane), roads.LaneLengthM[lane]);
         }
 
-        var index = builder.Seal(cellSizeM);
+        var index = builder.Seal(Level(cellSizeM));
         Assert.Equal(roads.LaneCount, index.ChainCount);
 
         // An index of nothing agrees with a scan of nothing, so the population is asserted rather than
@@ -126,7 +129,7 @@ public class ChainIndexTests
                 lines + line, [new ArcSeg(new Vector2(atM, 0f), MathF.PI * 0.5f, lengthM, 0f)], lengthM);
         }
 
-        var index = builder.Seal(50f);
+        var index = builder.Seal(Level(50f));
         var offered = new int[index.ChainCount];
 
         var acrossM = apartM * 0.5f;
@@ -145,9 +148,9 @@ public class ChainIndexTests
     }
 
     /// <summary>
-    /// <b>The lattice belongs to the map and not to the set</b>: its origin stands on a whole cell, so two
-    /// indexes sealed at one cell size lay their cells on the same lines and one picture of the grid is a
-    /// picture of the ground every index is asked over (OBS-2r).
+    /// <b>The lattice belongs to the map and not to the set</b> (SIM-8): each window's corner stands on a line
+    /// of the level it was sealed at, so two indexes sealed at one level lay their cells on the same lines and
+    /// one picture of the grid is a picture of the ground every index is asked over (OBS-2r).
     /// </summary>
     [Theory]
     [MemberData(nameof(CellSizes))]
@@ -163,14 +166,15 @@ public class ChainIndexTests
             half.Add(lane, roads.ArcsOf(lane), roads.LaneLengthM[lane]);
         }
 
-        var some = half.Seal(cellSizeM);
+        var some = half.Seal(Level(cellSizeM));
 
-        Assert.Equal(whole.CellM, some.CellM);
+        var cellM = whole.Window.Level.CellM;
+        Assert.Equal(cellM, some.Window.Level.CellM);
 
-        var offsetM = whole.OriginM - some.OriginM;
+        var offsetM = whole.Window.LeastM - some.Window.LeastM;
         foreach (var alongM in (float[])[offsetM.X, offsetM.Y])
         {
-            var cells = alongM / whole.CellM;
+            var cells = alongM / cellM;
             Assert.Equal(MathF.Round(cells), cells, tolerance: 1e-3f);
         }
     }
@@ -191,13 +195,14 @@ public class ChainIndexTests
         var config = new SimConfig();
         var roads = RoadGraph.Build(Towns.Of(Towns.Fixture), config);
         var index = Laid(roads, 16f);
+        var window = index.Window;
         var held = new int[index.ChainCount];
         var seen = new bool[index.ChainCount];
         var asked = 0;
 
-        for (var y = 0; y < index.Height; y++)
+        for (var y = window.FromY; y <= window.ToY; y++)
         {
-            for (var x = 0; x < index.Width; x++)
+            for (var x = window.FromX; x <= window.ToX; x++)
             {
                 var count = index.ChainsInCell(x, y);
                 Assert.Equal(count, index.ChainsInCell(x, y, held));
@@ -249,10 +254,11 @@ public class ChainIndexTests
 
     static bool Inside(ChainIndex index, int atX, int atY, Vector2 pointM)
     {
-        var offM = pointM - index.OriginM - new Vector2(atX * index.CellM, atY * index.CellM);
+        var level = index.Window.Level;
+        var offM = pointM - level.CornerM(atX, atY);
 
         // A piece claims the cells within half a sample step of it, which is what the margin here is.
-        return offM.X >= -0.5f && offM.Y >= -0.5f && offM.X <= index.CellM + 0.5f && offM.Y <= index.CellM + 0.5f;
+        return offM.X >= -0.5f && offM.Y >= -0.5f && offM.X <= level.CellM + 0.5f && offM.Y <= level.CellM + 0.5f;
     }
 
     static ChainIndex Laid(RoadGraph roads, float cellSizeM)
@@ -263,7 +269,7 @@ public class ChainIndexTests
             builder.Add(lane, roads.ArcsOf(lane), roads.LaneLengthM[lane]);
         }
 
-        return builder.Seal(cellSizeM);
+        return builder.Seal(Level(cellSizeM));
     }
 
     /// <summary>

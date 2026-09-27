@@ -14,13 +14,16 @@ namespace TrafficSimulation.Tests.Debug;
 [Trait(Priority.Key, Priority.P9)]
 public class MarkGridTests
 {
-    const float PitchM = 1.5f;
+    /// <summary>A level of the grid finer than its main cell, as the marks stand on.</summary>
+    static readonly GridLevel Pitch = new WorldGrid(8f).Split(4);
+
+    static readonly float PitchM = Pitch.CellM;
 
     /// <summary>Where a stretch of a chain is marked, in the world rather than along the chain.</summary>
     static List<Vector2> MarksOn(ReadOnlySpan<ArcSeg> arcs, float fromM, float toM)
     {
         var atM = new List<Vector2>();
-        var grid = new MarkGrid(fromM, toM, PitchM);
+        var grid = new MarkGrid(fromM, toM, Pitch);
         while (grid.MoveNext(arcs)) atM.Add(Spline.SampleAt(arcs, grid.AtM).PositionM);
 
         return atM;
@@ -56,17 +59,19 @@ public class MarkGridTests
     [InlineData(1.9f)]
     public void EveryMarkStandsWhereTheLineCrossesTheGrid(float headingRad)
     {
+        const float curvature = 0.1f;
         var straight = Straight(new Vector2(103.4f, 41.9f), headingRad, 30f);
-        var bend = new ArcSeg(straight.EndM, headingRad, 12f, 0.1f);
+        var bend = new ArcSeg(straight.EndM, headingRad, 12f, curvature);
 
-        // A crossing on a bend is read off the chord across one step, so it stands within that chord's own
-        // sag of the line — a hundredth of a metre at the tightest bend a road is laid to, which is finer
-        // than the line the mark sits on is drawn (PathMarks.SagPx).
+        // A crossing on a bend is read off the chord across one step — half a pitch — so it stands within
+        // that chord's own sag of the line: about a centimetre at the tightest bend a road is laid to.
+        var stepM = PitchM * 0.5f;
+        var sagM = stepM * stepM * curvature / 8f;
         foreach (var atM in MarksOn([straight, bend]))
         {
             var across = MathF.Abs(MathF.IEEERemainder(atM.X, PitchM));
             var down = MathF.Abs(MathF.IEEERemainder(atM.Y, PitchM));
-            Assert.True(MathF.Min(across, down) < 0.01f, $"the mark at {atM} stands on no line of the grid");
+            Assert.True(MathF.Min(across, down) <= sagM, $"the mark at {atM} stands on no line of the grid");
         }
     }
 

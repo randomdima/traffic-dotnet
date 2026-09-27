@@ -78,7 +78,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     FootGraph(
         Vector2[] nodeM, int[] edgeFrom, int[] edgeTo, float[] edgeLengthM, float[] edgeBandM,
         FootEdgeKind[] edgeKind, int[] edgeArcOffsets, ArcSeg[] edgeArcs, int[] nodeOutOffsets, int[] nodeOutEdges,
-        int[] nodeInOffsets, int[] nodeInEdges, float nearestCellM)
+        int[] nodeInOffsets, int[] nodeInEdges, GridLevel nearestLevel)
     {
         _nodeM = nodeM;
         _edgeFrom = edgeFrom;
@@ -99,7 +99,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
         var builder = new ChainIndex.Builder();
         for (var edge = 0; edge < _edgeFrom.Length; edge++) builder.Add(edge, ArcsOf(edge), _edgeLengthM[edge]);
 
-        _nearest = builder.Seal(nearestCellM);
+        _nearest = builder.Seal(nearestLevel);
     }
 
     public int NodeCount => _nodeM.Length;
@@ -207,7 +207,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
     public static FootGraph Build(PavementLanes pavement, CrossingWays crossings, SimConfig config)
     {
         var weldM = config.Network.FootGraphNodeWeldM;
-        var builder = new Builder(weldM);
+        var builder = new Builder(weldM, config.Grid);
         var bandM = config.WalkingLaneWidthM;
         Span<ArcSeg> one = stackalloc ArcSeg[1];
         Span<ArcSeg> turned = stackalloc ArcSeg[1];
@@ -242,7 +242,7 @@ internal sealed partial class FootGraph : IFineGraph, ILaneEnds
         // points, so the weld joins them to the walk rather than standing a second node beside it.
         foreach (var way in crossings.Ways) builder.AddLane(way.Arcs, way.BandM, way.Kind);
 
-        return builder.Lay(config.NearestChainCellM);
+        return builder.Lay();
     }
 
     /// <summary>

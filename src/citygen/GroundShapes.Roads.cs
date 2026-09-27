@@ -257,7 +257,7 @@ internal sealed partial class GroundShapes
             farthestM = MathF.Max(farthestM, reachM);
         }
 
-        _roadIndex = index.Seal(config.Terrain.GroundBucketM);
+        _roadIndex = index.Seal(config.Grid.Main);
         _farthestReachM = farthestM;
     }
 

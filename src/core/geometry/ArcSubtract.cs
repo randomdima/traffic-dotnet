@@ -44,9 +44,9 @@ internal static class ArcSubtract
 {
     /// <summary>
     /// <b>The ground <paramref name="fromRings"/> bounds with the ground <paramref name="takeRings"/> bounds
-    /// taken out of it</b>, and the runs the walk could not close. <paramref name="cellM"/> is the cell both
-    /// shapes' pieces are binned at (<see cref="ChainIndex.OfPieces"/>) — the size of the features being
-    /// asked about, which for a shape and an offset of it is the distance it was offset by.
+    /// taken out of it</b>, and the runs the walk could not close. <paramref name="level"/> is the level of the
+    /// grid both shapes' pieces are binned at (<see cref="ChainIndex.OfPieces"/>) — the size of the features
+    /// being asked about, which for a shape and an offset of it is the distance it was offset by.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -63,7 +63,7 @@ internal static class ArcSubtract
     /// </para>
     /// </remarks>
     public static (ArcSeg[][] Rings, ArcSeg[][] Loose) Of(
-        ReadOnlySpan<ArcSeg[]> fromRings, ReadOnlySpan<ArcSeg[]> takeRings, float cellM)
+        ReadOnlySpan<ArcSeg[]> fromRings, ReadOnlySpan<ArcSeg[]> takeRings, GridLevel level)
     {
         var from = ArcRings.Flat(fromRings);
         if (from.Length == 0) return ([], []);
@@ -71,8 +71,8 @@ internal static class ArcSubtract
         var take = ArcRings.Flat(takeRings);
         if (take.Length == 0) return (fromRings.ToArray(), []);
 
-        var standing = new Shape(from, cellM);
-        var cutting = new Shape(take, cellM);
+        var standing = new Shape(from, level);
+        var cutting = new Shape(take, level);
 
         var fromCutM = new List<float>?[from.Length];
         var takeCutM = new List<float>?[take.Length];
@@ -90,7 +90,7 @@ internal static class ArcSubtract
             Stretches(kept, take[at], takeCutM[at], standing, keepInside: true, reversed: true, edges);
         }
 
-        return ArcRings.Of(kept, ArcRings.LeastLostM * 2f);
+        return ArcRings.Of(kept, level.Grid, ArcRings.LeastLostM * 2f);
     }
 
     /// <summary>
@@ -196,12 +196,12 @@ internal static class ArcSubtract
         readonly int[] _near;
         readonly float[] _alongM;
 
-        public Shape(ArcSeg[] boundary, float cellM)
+        public Shape(ArcSeg[] boundary, GridLevel level)
         {
             _boundary = boundary;
             _near = new int[boundary.Length];
             _alongM = new float[boundary.Length];
-            Index = ChainIndex.OfPieces(boundary, cellM);
+            Index = ChainIndex.OfPieces(boundary, level);
         }
 
         public ChainIndex Index { get; }
@@ -269,8 +269,9 @@ internal static class ArcSubtract
             nearestSq = float.MaxValue;
             if (_boundary.Length == 0) return 0;
 
-            var reachM = Index.CellM;
-            var acrossM = (Index.Width + Index.Height) * Index.CellM;
+            var window = Index.Window;
+            var reachM = window.Level.CellM;
+            var acrossM = (window.Width + window.Height) * window.Level.CellM;
             while (true)
             {
                 var offered = Index.Near(pointM, reachM, _near, _alongM);

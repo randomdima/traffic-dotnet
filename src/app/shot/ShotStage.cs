@@ -168,7 +168,7 @@ internal sealed class ShotStage : IDisposable
         camera.Turn(float.DegreesToRadians(ask.TurnDeg), uiPx * 0.5f, uiPx);
 
         _looks.ReadAspects(_renderer);
-        _looks.Lay(Plan, world.Uses);
+        _looks.Lay(Plan, world.Uses, _config);
         var sprites = _looks.Fill(world, _config, camera.CentreM, camera.CullSpanM(uiPx), _renderer.Sprites);
         _renderer.SetSpriteCount(sprites);
 

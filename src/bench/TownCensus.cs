@@ -44,17 +44,18 @@ internal static class TownCensus
         var locator = new GroundLocator(shapes, config);
 
         // <b>A share and never a count</b>: the ground is a set of shapes with no cells in it, so how much
-        // of the town each kind covers is measured by asking, on a lattice this report owns and at the step
-        // the figures name. The area is the sample's, which is what the row says.
-        var stepM = config.Terrain.GroundStepM;
-        var kindAt = new byte[Steps(plan.WorldSizeM.X, stepM) * Steps(plan.WorldSizeM.Y, stepM)];
+        // of the town each kind covers is measured by asking at the middle of every cell of the grid's level
+        // at the step the figures name (SIM-8). The area is the sample's, which is what the row says.
+        var sampled = Sampled(config.Grid.Within(config.Terrain.GroundStepM), plan.WorldSizeM);
+        var stepM = sampled.Level.CellM;
+        var kindAt = new byte[sampled.Count];
         Span<int> samplesPerGround = stackalloc int[GroundCatalog.Kinds];
         var samples = 0;
-        for (var y = stepM * 0.5f; y < plan.WorldSizeM.Y; y += stepM)
+        for (var y = sampled.FromY; y <= sampled.ToY; y++)
         {
-            for (var x = stepM * 0.5f; x < plan.WorldSizeM.X; x += stepM)
+            for (var x = sampled.FromX; x <= sampled.ToX; x++)
             {
-                var ground = locator.GroundAt(new Vector2(x, y));
+                var ground = locator.GroundAt(sampled.Level.MiddleM(x, y));
                 kindAt[samples++] = (byte)ground;
                 samplesPerGround[(int)ground]++;
             }
@@ -67,7 +68,7 @@ internal static class TownCensus
             if (samplesPerGround[ground] == 0) continue;
 
             nsPerAsk[ground] =
-                NsPerAsk(locator, kindAt, (Ground)ground, plan.WorldSizeM, stepM, samplesPerGround[ground]);
+                NsPerAsk(locator, kindAt, (Ground)ground, sampled, samplesPerGround[ground]);
             askedNs += nsPerAsk[ground] * samplesPerGround[ground];
         }
 
@@ -91,7 +92,7 @@ internal static class TownCensus
 
         // <b>What the boundary is answered off</b>: a cell no ring crosses is a lookup, so the crossed share is
         // the share of the ground that costs more than one.
-        Console.WriteLine($"  boundary answered off a {config.Terrain.ShellCellM:F2} m lattice");
+        Console.WriteLine($"  boundary answered off the grid's {config.ShellLevel.CellM:F2} m level");
         Lattice("carriageway", shapes.CarriagewaySides);
         Lattice("walk", shapes.WalkSides);
 
@@ -199,13 +200,16 @@ internal static class TownCensus
         RibbonCensus.Run(plan, config);
     }
 
-    /// <summary>How many samples a walk of one axis takes, by the recurrence the walk itself is written as.</summary>
-    static int Steps(float sizeM, float stepM)
+    /// <summary>The cells of a level whose middles stand inside the town, from its corner at the world's origin.</summary>
+    static GridWindow Sampled(GridLevel level, Vector2 worldSizeM)
     {
-        var steps = 0;
-        for (var atM = stepM * 0.5f; atM < sizeM; atM += stepM) steps++;
+        var columns = 0;
+        while (level.MiddleM(columns) < worldSizeM.X) columns++;
 
-        return steps;
+        var rows = 0;
+        while (level.MiddleM(rows) < worldSizeM.Y) rows++;
+
+        return GridWindow.Of(level, 0, 0, columns, rows);
     }
 
     static void Lattice(string layer, RingSides sides) =>
@@ -232,20 +236,19 @@ internal static class TownCensus
     /// same ring's box. And nothing is done with the answer because nothing needs to be — the ask stamps the
     /// locator's own scan, so it cannot be elided.
     /// </remarks>
-    static double NsPerAsk(
-        GroundLocator locator, byte[] kindAt, Ground ground, Vector2 worldSizeM, float stepM, int count)
+    static double NsPerAsk(GroundLocator locator, byte[] kindAt, Ground ground, GridWindow sampled, int count)
     {
         var stride = (count + MostTimedAsks - 1) / MostTimedAsks;
         var pointsM = new Vector2[(count + stride - 1) / stride];
         var taken = 0;
         var seen = 0;
         var at = 0;
-        for (var y = stepM * 0.5f; y < worldSizeM.Y; y += stepM)
+        for (var y = sampled.FromY; y <= sampled.ToY; y++)
         {
-            for (var x = stepM * 0.5f; x < worldSizeM.X; x += stepM)
+            for (var x = sampled.FromX; x <= sampled.ToX; x++)
             {
                 if (kindAt[at++] != (byte)ground) continue;
-                if (seen++ % stride == 0 && taken < pointsM.Length) pointsM[taken++] = new Vector2(x, y);
+                if (seen++ % stride == 0 && taken < pointsM.Length) pointsM[taken++] = sampled.Level.MiddleM(x, y);
             }
         }
 

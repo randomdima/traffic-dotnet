@@ -211,7 +211,7 @@ internal sealed class FootJunctions
             }
         }
 
-        var (junctionOfNode, hubM) = Merged(standsAtEnd, atM, config.Road.FootNodeMergeM);
+        var (junctionOfNode, hubM) = Merged(standsAtEnd, atM, config.Road.FootNodeMergeM, config.Grid);
         return new FootJunctions(
             standsAtEnd, outwardUnitAtEnd, onTheLineAtEnd, alongM, asideM, atM, junctionOfNode, hubM,
             RoundTheCorner(plan.Junctions.Count, standsAtEnd, junctionOfEnd, outwardUnitAtEnd),
@@ -344,19 +344,23 @@ internal sealed class FootJunctions
     /// stand — so two arms of one junction merge exactly as two junctions laid a few metres apart do, and
     /// nothing has to decide which of those a run of near neighbours is.
     /// </remarks>
-    static (int[] JunctionOfNode, Vector2[] HubM) Merged(bool[] standsAtEnd, Vector2[] atM, float mergeM)
+    static (int[] JunctionOfNode, Vector2[] HubM) Merged(
+        bool[] standsAtEnd, Vector2[] atM, float mergeM, WorldGrid grid)
     {
         var owner = new int[atM.Length];
         for (var node = 0; node < owner.Length; node++) owner[node] = node;
 
-        // Bucketed at the merge distance, so the search for a node's neighbours is the nine cells round it
-        // rather than the town: a city lays thousands of these and the pairing is otherwise its square.
+        // Bucketed on the level of the grid that covers the merge distance (SIM-8), so the search for a
+        // node's neighbours is the cells round it rather than the town: a city lays thousands of these and
+        // the pairing is otherwise its square.
+        var level = grid.Covering(mergeM);
+        var reach = level.CellsWithin(mergeM);
         var cells = new Dictionary<(int X, int Y), List<int>>();
         for (var node = 0; node < atM.Length; node++)
         {
             if (!standsAtEnd[node / 2]) continue;
 
-            var cell = Cell(atM[node], mergeM);
+            var cell = level.CellOf(atM[node]);
             if (!cells.TryGetValue(cell, out var here)) cells[cell] = here = [];
 
             here.Add(node);
@@ -364,9 +368,9 @@ internal sealed class FootJunctions
 
         foreach (var (cell, here) in cells)
         {
-            for (var y = -1; y <= 1; y++)
+            for (var y = -reach; y <= reach; y++)
             {
-                for (var x = -1; x <= 1; x++)
+                for (var x = -reach; x <= reach; x++)
                 {
                     if (!cells.TryGetValue((cell.X + x, cell.Y + y), out var there)) continue;
 
@@ -410,9 +414,6 @@ internal sealed class FootJunctions
 
         return (junctionOfNode, [.. hubM]);
     }
-
-    static (int X, int Y) Cell(Vector2 atM, float sizeM) =>
-        ((int)MathF.Floor(atM.X / sizeM), (int)MathF.Floor(atM.Y / sizeM));
 
     static int Root(int[] owner, int node)
     {

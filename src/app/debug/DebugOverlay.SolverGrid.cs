@@ -13,8 +13,8 @@ namespace TrafficSimulation.App.Debug;
 /// <remarks>
 /// It is the other half of the answer the geometry grid gives (OBS-2r), asked of the other index: that one
 /// says which lines a question about the road is narrowed to, and this says which bodies a question about a
-/// collision is. They are two lattices and not one, and the reason they are both drawn here is that
-/// nothing else in the project says so.
+/// collision is. <b>They are two stores on one grid</b> (SIM-8), so at the main level their rulings fall on
+/// the same lines, and a cell washed in both is one square of ground both indexes are asked about.
 /// </remarks>
 internal sealed partial class DebugOverlay
 {
@@ -41,40 +41,34 @@ internal sealed partial class DebugOverlay
         ref ScreenDraw draw, CellGrid grid, Vector4 wash, Vector4 edge, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        if (grid.Width <= 0 || grid.Height <= 0) return;
-
-        var cellM = grid.CellSizeM;
+        var window = grid.Window;
+        var cellM = window.Level.CellM;
         if (cellM * pixelsPerMetre < LeastCellPx) return;
 
-        var leastM = viewCentreM - (viewSpanM * 0.5f);
-        var mostM = viewCentreM + (viewSpanM * 0.5f);
-        var fromX = Cell(leastM.X - grid.OriginM.X, cellM, grid.Width);
-        var toX = Cell(mostM.X - grid.OriginM.X, cellM, grid.Width);
-        var fromY = Cell(leastM.Y - grid.OriginM.Y, cellM, grid.Height);
-        var toY = Cell(mostM.Y - grid.OriginM.Y, cellM, grid.Height);
-        if (toX < fromX || toY < fromY) return;
+        var halfSpanM = viewSpanM * 0.5f;
+        if (!window.TryOverlap(viewCentreM - halfSpanM, viewCentreM + halfSpanM, out var inView)) return;
 
-        if ((long)(toX - fromX + 1) * (toY - fromY + 1) > MostCellsDrawn) return;
+        if ((long)(inView.ToX - inView.FromX + 1) * (inView.ToY - inView.FromY + 1) > MostCellsDrawn) return;
 
         // The busiest cell in the frame, on the same terms as the geometry grid's wash (OBS-2r): crowding is
         // a comparison, and a fixed scale would read as empty everywhere over a street.
         var mostBodies = 0;
-        for (var y = fromY; y <= toY; y++)
+        for (var y = inView.FromY; y <= inView.ToY; y++)
         {
-            for (var x = fromX; x <= toX; x++) mostBodies = Math.Max(mostBodies, grid.Items(x, y).Length);
+            for (var x = inView.FromX; x <= inView.ToX; x++) mostBodies = Math.Max(mostBodies, grid.Items(x, y).Length);
         }
 
         if (mostBodies == 0) return;
 
         var lineM = MathF.Max(GridLineM, GridLineFloorPx / pixelsPerMetre);
-        for (var y = fromY; y <= toY; y++)
+        for (var y = inView.FromY; y <= inView.ToY; y++)
         {
-            for (var x = fromX; x <= toX; x++)
+            for (var x = inView.FromX; x <= inView.ToX; x++)
             {
                 var bodies = grid.Items(x, y).Length;
                 if (bodies == 0) continue;
 
-                var cornerM = grid.OriginM + new Vector2(x * cellM, y * cellM);
+                var cornerM = window.Level.CornerM(x, y);
                 var middleM = cornerM + new Vector2(cellM * 0.5f);
                 var share = LeastWash + ((1f - LeastWash) * Crowding(bodies, mostBodies));
                 draw.BandM(
@@ -110,6 +104,5 @@ internal sealed partial class DebugOverlay
             viewCentreM, viewSpanM, pixelsPerMetre);
 
     /// <summary>Whether a cell of this grid is on it at all and holds anything, which is what decides a shared edge.</summary>
-    static bool Holds(CellGrid grid, int x, int y) =>
-        x >= 0 && y >= 0 && x < grid.Width && y < grid.Height && grid.Items(x, y).Length > 0;
+    static bool Holds(CellGrid grid, int x, int y) => grid.Items(x, y).Length > 0;
 }

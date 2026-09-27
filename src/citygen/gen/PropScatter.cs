@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.CityGen.Gen;
 
@@ -9,26 +10,25 @@ namespace TrafficSimulation.CityGen.Gen;
 /// <remarks>
 /// <b>The two passes lay on patterns that know nothing of each other</b> (GEN-6b) — one walks the kerbs and
 /// one sweeps a lattice — so neither pattern can be the index that keeps them apart, and a town's hundred
-/// thousand discs cannot be asked pairwise. The grid's square is the widest prop's own width and the
-/// clearance between two: a pair too near each other is within that, so the nine squares round a candidate
-/// hold everything that could be, and everything outside them is further off than the rule can care about.
+/// thousand discs cannot be asked pairwise. <b>The index is the town's grid</b> (SIM-8), at the level whose
+/// cell covers the widest prop's own width and the clearance between two: a pair too near each other is
+/// within that, so the cells round a candidate hold everything that could be, and everything outside them is
+/// further off than the rule can care about.
 /// </remarks>
 internal sealed class PropScatter
 {
     readonly int[] _head;
     readonly List<int> _next = [];
-    readonly int _columns;
-    readonly int _rows;
-    readonly float _squareM;
+    readonly GridWindow _window;
+    readonly int _reach;
     readonly float _apartM;
 
-    PropScatter(int columns, int rows, float squareM, float apartM)
+    PropScatter(GridWindow window, int reach, float apartM)
     {
-        _columns = columns;
-        _rows = rows;
-        _squareM = squareM;
+        _window = window;
+        _reach = reach;
         _apartM = apartM;
-        _head = new int[columns * rows];
+        _head = new int[window.Count];
         Array.Fill(_head, -1);
     }
 
@@ -40,23 +40,25 @@ internal sealed class PropScatter
 
     public List<byte> Kind { get; } = [];
 
-    public static PropScatter Over(Vector2 acrossM, float widestM, float apartM)
+    public static PropScatter Over(WorldGrid grid, Vector2 acrossM, float widestM, float apartM)
     {
-        var squareM = widestM + apartM;
+        var nearestM = widestM + apartM;
+        var level = grid.Covering(nearestM);
         return new(
-            (int)MathF.Ceiling(acrossM.X / squareM) + 1, (int)MathF.Ceiling(acrossM.Y / squareM) + 1,
-            squareM, apartM);
+            GridWindow.Over(level, Vector2.Zero, Vector2.Max(acrossM, Vector2.Zero)), level.CellsWithin(nearestM),
+            apartM);
     }
 
     /// <summary>Whether a candidate stands nearer a prop already laid than the clearance between them allows (GEN-6c).</summary>
     public bool Reaches(Vector2 atM, float reachM)
     {
-        var (column, row) = SquareOf(atM);
-        for (var down = Math.Max(0, row - 1); down <= Math.Min(_rows - 1, row + 1); down++)
+        var column = _window.ClampX(_window.Level.CellOf(atM.X));
+        var row = _window.ClampY(_window.Level.CellOf(atM.Y));
+        for (var down = _window.ClampY(row - _reach); down <= _window.ClampY(row + _reach); down++)
         {
-            for (var over = Math.Max(0, column - 1); over <= Math.Min(_columns - 1, column + 1); over++)
+            for (var over = _window.ClampX(column - _reach); over <= _window.ClampX(column + _reach); over++)
             {
-                for (var prop = _head[(down * _columns) + over]; prop >= 0; prop = _next[prop])
+                for (var prop = _head[_window.IndexOf(over, down)]; prop >= 0; prop = _next[prop])
                 {
                     var clearM = reachM + RadiusM[prop] + _apartM;
                     if (Vector2.DistanceSquared(CentreM[prop], atM) < clearM * clearM) return true;
@@ -69,8 +71,7 @@ internal sealed class PropScatter
 
     public void Add(Vector2 atM, float reachM, float bearingRad, PropKind kind)
     {
-        var (column, row) = SquareOf(atM);
-        var square = (row * _columns) + column;
+        var square = _window.IndexAt(atM);
 
         _next.Add(_head[square]);
         _head[square] = CentreM.Count;
@@ -80,8 +81,4 @@ internal sealed class PropScatter
         BearingRad.Add(bearingRad);
         Kind.Add((byte)kind);
     }
-
-    (int Column, int Row) SquareOf(Vector2 atM) => (
-        Math.Clamp((int)MathF.Floor(atM.X / _squareM), 0, _columns - 1),
-        Math.Clamp((int)MathF.Floor(atM.Y / _squareM), 0, _rows - 1));
 }

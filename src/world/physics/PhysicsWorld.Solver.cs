@@ -147,11 +147,11 @@ internal sealed partial class PhysicsWorld
     {
         if (_staticIndexStale) SettleStatics();
 
-        if (!_staticGrid.TryRange(leastM, mostM, out var fromX, out var fromY, out var toX, out var toY)) return false;
+        if (!_staticGrid.TryRange(leastM, mostM, out var range)) return false;
 
-        for (var y = fromY; y <= toY; y++)
+        for (var y = range.FromY; y <= range.ToY; y++)
         {
-            for (var x = fromX; x <= toX; x++)
+            for (var x = range.FromX; x <= range.ToX; x++)
             {
                 foreach (var body in _staticGrid.Items(x, y))
                 {

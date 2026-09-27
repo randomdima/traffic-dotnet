@@ -16,9 +16,12 @@ internal sealed partial class FootGraph
     /// no stubs to prune and no line laid twice over one piece of ground to recognise. The weld is the whole
     /// of what reconciles the pieces, and it reconciles them at the points the nodes hand over at
     /// (<see cref="FootConnectors"/>). <b>Nothing feeds it at present</b>, the ways being a named gap.
+    /// <b>The nodes are kept on the level of the grid that covers the weld</b> (SIM-8), so the cells round a
+    /// node's own hold everything it could weld onto.
     /// </remarks>
-    sealed class Builder(float weldM)
+    sealed class Builder(float weldM, WorldGrid grid)
     {
+        readonly GridLevel _weldLevel = grid.Covering(weldM);
         readonly List<Vector2> _nodeM = [];
         readonly Dictionary<(int X, int Y), List<int>> _welds = [];
         readonly List<int> _edgeFrom = [];
@@ -65,10 +68,11 @@ internal sealed partial class FootGraph
 
         int NodeAt(Vector2 pointM)
         {
-            var cell = Cell(pointM);
-            for (var y = -1; y <= 1; y++)
+            var cell = _weldLevel.CellOf(pointM);
+            var reach = _weldLevel.CellsWithin(weldM);
+            for (var y = -reach; y <= reach; y++)
             {
-                for (var x = -1; x <= 1; x++)
+                for (var x = -reach; x <= reach; x++)
                 {
                     if (!_welds.TryGetValue((cell.X + x, cell.Y + y), out var here)) continue;
 
@@ -86,14 +90,11 @@ internal sealed partial class FootGraph
             return _nodeM.Count - 1;
         }
 
-        (int X, int Y) Cell(Vector2 pointM) =>
-            ((int)MathF.Floor(pointM.X / weldM), (int)MathF.Floor(pointM.Y / weldM));
-
         /// <summary>
         /// The graph as it stands: <b>a node nothing stands on is not a node</b>, so the places are numbered
         /// from what a way really meets rather than from every point the weld was ever asked about.
         /// </summary>
-        public FootGraph Lay(float nearestCellM)
+        public FootGraph Lay()
         {
             var nodeM = new List<Vector2>();
             var nodeOf = new int[_nodeM.Count];
@@ -145,7 +146,7 @@ internal sealed partial class FootGraph
 
             return new FootGraph(
                 [.. nodeM], edgeFrom, edgeTo, [.. _edgeLengthM], [.. _edgeBandM], [.. _edgeKind],
-                edgeArcOffsets, [.. edgeArcs], outOffsets, outEdges, inOffsets, inEdges, nearestCellM);
+                edgeArcOffsets, [.. edgeArcs], outOffsets, outEdges, inOffsets, inEdges, grid.Main);
         }
     }
 }

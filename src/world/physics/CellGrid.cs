@@ -1,10 +1,11 @@
 
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.World.Physics;
 
 /// <summary>
-/// A uniform grid of cells over a set of bodies' bounding boxes, which is the whole of this solver's
+/// A set of bodies' bounding boxes filed on a level of the grid (SIM-8), which is the whole of this solver's
 /// broad phase. It answers two questions and no others: <em>what could be in this box</em>, and
 /// <em>what could this segment cross, in the order it would cross it</em>.
 /// </summary>
@@ -19,20 +20,23 @@ namespace TrafficSimulation.World.Physics;
 /// Nothing is cleared between rebuilds: a cell is live only while its stamp matches the current
 /// generation, and the counting sort's prefix runs over the cells this set actually reached rather than
 /// over the grid, so a rebuild is linear in the bodies. Every array is reused, so a steady state
-/// allocates nothing. The bounds are the set's own and are retaken at each rebuild, so a rig with four
-/// bodies in it is not priced at a town's cell count.
+/// allocates nothing. The window is the set's own and is retaken at each rebuild, so a rig with four
+/// bodies in it is not priced at a town's cell count — <b>and its cells are the grid's</b>, so a cell here
+/// is the square of ground every other index means by those numbers.
+/// </para>
+/// <para>
+/// <b>A set spread wider than <see cref="MostCells"/> is kept in a window that size about its middle</b>,
+/// and whatever stands past it is filed in the rim: every box query still finds it, since a box past the
+/// rim reads the rim. A segment is walked over the window alone, so a cast wholly outside it finds nothing —
+/// which only a body flung kilometres out of the town can meet.
 /// </para>
 /// </remarks>
 internal sealed class CellGrid
 {
-    /// <summary>What no grid may exceed however far its bodies are spread: the cell size grows instead.</summary>
+    /// <summary>What no window may exceed however far its bodies are spread: the rest are filed in its rim.</summary>
     const int MostCells = 1 << 22;
 
-    float _cellM = 1f;
-    float _inverseCellM = 1f;
-    Vector2 _originM;
-    int _width;
-    int _height;
+    GridWindow _window;
 
     /// <summary>
     /// One cell's four numbers, side by side rather than in four arrays of their own. <b>Every pass over
@@ -66,25 +70,18 @@ internal sealed class CellGrid
     int _generation;
     int _entryCount;
 
-    public float CellSizeM => _cellM;
-
     /// <summary>
-    /// The corner the lattice is laid from, and how far it runs across and down in cells. <b>For whoever
-    /// draws the grid</b> (OBS-2x) and for nothing that queries it: a query hands over a box or a segment
-    /// and is given the cells, so a caller working the lattice out for itself would be a second copy of a
-    /// shape this retakes at every rebuild.
+    /// <b>The cells the set was filed over</b>, numbered on the grid. <b>For whoever draws or points at the
+    /// grid</b> (OBS-2x) and for nothing that queries it: a query hands over a box or a segment and is given
+    /// the cells.
     /// </summary>
-    public Vector2 OriginM => _originM;
-
-    public int Width => _width;
-
-    public int Height => _height;
+    public GridWindow Window => _window;
 
     /// <summary>
     /// Lay the grid over the bodies named, at their bounding boxes as they now stand. The bound arrays
     /// are the world's own and are kept by reference: an index that copied them would be a second truth.
     /// </summary>
-    public void Rebuild(ReadOnlySpan<int> bodies, Vector2[] leastM, Vector2[] mostM, float cellSizeM)
+    public void Rebuild(ReadOnlySpan<int> bodies, Vector2[] leastM, Vector2[] mostM, GridLevel level)
     {
         _leastM = leastM;
         _mostM = mostM;
@@ -94,8 +91,7 @@ internal sealed class CellGrid
 
         if (bodies.Length == 0)
         {
-            _width = 0;
-            _height = 0;
+            _window = GridWindow.Of(level, 0, 0, 0, 0);
             return;
         }
 
@@ -107,7 +103,7 @@ internal sealed class CellGrid
             most = Vector2.Max(most, mostM[body]);
         }
 
-        Size(least, most, cellSizeM);
+        Size(level, least, most);
 
         if (_block.Length < bodies.Length) _block = new CellBlock[Math.Max(bodies.Length, _block.Length * 2)];
 
@@ -120,14 +116,15 @@ internal sealed class CellGrid
             {
                 for (var x = fromX; x <= toX; x++)
                 {
-                    ref var cell = ref _cell[y * _width + x];
+                    var stored = _window.IndexOf(x, y);
+                    ref var cell = ref _cell[stored];
                     if (cell.Stamp != _generation)
                     {
                         cell.Stamp = _generation;
                         cell.Count = 0;
                         if (_touchedCount == _touched.Length) Array.Resize(ref _touched, Math.Max(64, _touched.Length * 2));
 
-                        _touched[_touchedCount++] = y * _width + x;
+                        _touched[_touchedCount++] = stored;
                     }
 
                     cell.Count++;
@@ -157,7 +154,7 @@ internal sealed class CellGrid
             {
                 for (var x = block.FromX; x <= block.ToX; x++)
                 {
-                    _items[_cell[(y * _width) + x].Cursor++] = body;
+                    _items[_cell[_window.IndexOf(x, y)].Cursor++] = body;
                 }
             }
         }
@@ -166,31 +163,22 @@ internal sealed class CellGrid
     /// <summary>The block of cells one body's box covers, as the two passes of a rebuild both want it.</summary>
     readonly record struct CellBlock(int FromX, int FromY, int ToX, int ToY);
 
-    /// <summary>What one live cell holds, or nothing where no body reached it.</summary>
+    /// <summary>What one live cell holds, numbered on the grid, or nothing where no body reached it or the window has no such cell.</summary>
     public ReadOnlySpan<int> Items(int x, int y)
     {
-        ref readonly var cell = ref _cell[(y * _width) + x];
+        if (!_window.Holds(x, y)) return ReadOnlySpan<int>.Empty;
+
+        ref readonly var cell = ref _cell[_window.IndexOf(x, y)];
         if (cell.Stamp != _generation) return ReadOnlySpan<int>.Empty;
 
         return _items.AsSpan(cell.Start, cell.Count);
     }
 
-    /// <summary>The cells an axis-aligned box could reach, or false where it lies off the grid entirely.</summary>
-    public bool TryRange(Vector2 leastM, Vector2 mostM, out int fromX, out int fromY, out int toX, out int toY)
-    {
-        fromX = (int)MathF.Floor((leastM.X - _originM.X) * _inverseCellM);
-        fromY = (int)MathF.Floor((leastM.Y - _originM.Y) * _inverseCellM);
-        toX = (int)MathF.Floor((mostM.X - _originM.X) * _inverseCellM);
-        toY = (int)MathF.Floor((mostM.Y - _originM.Y) * _inverseCellM);
-
-        if (toX < 0 || toY < 0 || fromX >= _width || fromY >= _height) return false;
-
-        fromX = Math.Max(fromX, 0);
-        fromY = Math.Max(fromY, 0);
-        toX = Math.Min(toX, _width - 1);
-        toY = Math.Min(toY, _height - 1);
-        return true;
-    }
+    /// <summary>
+    /// The cells an axis-aligned box could have a body in — the rim's where it stands past it, since that is
+    /// where a body past it was filed — or false where the set is empty.
+    /// </summary>
+    public bool TryRange(Vector2 leastM, Vector2 mostM, out CellRange range) => _window.TryRange(leastM, mostM, out range);
 
     /// <summary>The cells a segment crosses, in the order it crosses them. See <see cref="RayWalk"/>.</summary>
     public RayWalk Walk(Vector2 fromM, Vector2 travelM) => new(this, fromM, travelM);
@@ -225,19 +213,18 @@ internal sealed class CellGrid
             _grid = grid;
             _done = true;
 
-            if (grid._width == 0 || grid._height == 0) return;
-
-            var least = grid._originM;
-            var most = grid._originM + new Vector2(grid._width, grid._height) * grid._cellM;
-            if (!Clip(fromM, travelM, least, most, out var from, out var to)) return;
+            var window = grid._window;
+            if (window.IsEmpty) return;
+            if (!Clip(fromM, travelM, window.LeastM, window.MostM, out var from, out var to)) return;
 
             _to = to;
             var enteredM = fromM + travelM * from;
-            _x = Math.Clamp((int)MathF.Floor((enteredM.X - least.X) * grid._inverseCellM), 0, grid._width - 1);
-            _y = Math.Clamp((int)MathF.Floor((enteredM.Y - least.Y) * grid._inverseCellM), 0, grid._height - 1);
+            var level = window.Level;
+            _x = window.ClampX(level.CellOf(enteredM.X));
+            _y = window.ClampY(level.CellOf(enteredM.Y));
 
-            Axis(fromM.X, travelM.X, least.X, grid._cellM, _x, out _stepX, out _crossX, out _deltaX);
-            Axis(fromM.Y, travelM.Y, least.Y, grid._cellM, _y, out _stepY, out _crossY, out _deltaY);
+            Axis(fromM.X, travelM.X, level.CellM, _x, out _stepX, out _crossX, out _deltaX);
+            Axis(fromM.Y, travelM.Y, level.CellM, _y, out _stepY, out _crossY, out _deltaY);
             _done = false;
         }
 
@@ -267,7 +254,7 @@ internal sealed class CellGrid
                     _crossY += _deltaY;
                 }
 
-                if (entered >= _to || _x < 0 || _x >= _grid._width || _y < 0 || _y >= _grid._height)
+                if (entered >= _to || !_grid._window.Holds(_x, _y))
                 {
                     _done = true;
                     return false;
@@ -281,7 +268,7 @@ internal sealed class CellGrid
         }
 
         /// <summary>Which way this axis is walked, where its first cell boundary falls, and how far apart the rest are.</summary>
-        static void Axis(float fromM, float travelM, float leastM, float cellM, int cell, out int step, out float cross, out float delta)
+        static void Axis(float fromM, float travelM, float cellM, int cell, out int step, out float cross, out float delta)
         {
             if (MathF.Abs(travelM) < 1e-9f)
             {
@@ -293,7 +280,7 @@ internal sealed class CellGrid
 
             step = travelM > 0f ? 1 : -1;
             delta = MathF.Abs(cellM / travelM);
-            var boundaryM = leastM + (travelM > 0f ? cell + 1 : cell) * cellM;
+            var boundaryM = (travelM > 0f ? cell + 1 : cell) * cellM;
             cross = (boundaryM - fromM) / travelM;
         }
 
@@ -330,22 +317,24 @@ internal sealed class CellGrid
     }
 
     /// <summary>
-    /// The grid's own rectangle and cell size, one cell of margin all round so a body sitting exactly on
-    /// the far edge still has a cell of its own. Where a set is spread over a very large world the cell
-    /// size grows rather than the cell count.
+    /// The window the set is filed in: the level's cells its boxes reach, or at most <see cref="MostCells"/>
+    /// of them about the middle of those.
     /// </summary>
-    void Size(Vector2 leastM, Vector2 mostM, float cellSizeM)
+    void Size(GridLevel level, Vector2 leastM, Vector2 mostM)
     {
-        var spanM = Vector2.Max(mostM - leastM, Vector2.Zero);
-        _cellM = MathF.Max(cellSizeM, 1e-3f);
-        while (Cells(spanM, _cellM) > MostCells) _cellM *= 2f;
+        var window = GridWindow.Over(level, leastM, mostM);
+        var side = (int)Math.Sqrt(MostCells);
+        if ((long)window.Width * window.Height > MostCells)
+        {
+            var width = Math.Min(window.Width, side);
+            var height = Math.Min(window.Height, side);
+            window = GridWindow.Of(
+                level, window.FromX + ((window.Width - width) / 2), window.FromY + ((window.Height - height) / 2),
+                width, height);
+        }
 
-        _inverseCellM = 1f / _cellM;
-        _originM = leastM;
-        _width = (int)MathF.Floor(spanM.X * _inverseCellM) + 1;
-        _height = (int)MathF.Floor(spanM.Y * _inverseCellM) + 1;
-
-        var cells = _width * _height;
+        _window = window;
+        var cells = window.Count;
         if (_cell.Length >= cells) return;
 
         // Half again, because the bounds are the set's own and a roster spreading by a metre would
@@ -355,15 +344,10 @@ internal sealed class CellGrid
         _generation = 1;
     }
 
-    static long Cells(Vector2 spanM, float cellM) =>
-        ((long)MathF.Floor(spanM.X / cellM) + 1) * ((long)MathF.Floor(spanM.Y / cellM) + 1);
-
     void Span(int body, out int fromX, out int fromY, out int toX, out int toY)
     {
-        fromX = Math.Clamp((int)MathF.Floor((_leastM[body].X - _originM.X) * _inverseCellM), 0, _width - 1);
-        fromY = Math.Clamp((int)MathF.Floor((_leastM[body].Y - _originM.Y) * _inverseCellM), 0, _height - 1);
-        toX = Math.Clamp((int)MathF.Floor((_mostM[body].X - _originM.X) * _inverseCellM), 0, _width - 1);
-        toY = Math.Clamp((int)MathF.Floor((_mostM[body].Y - _originM.Y) * _inverseCellM), 0, _height - 1);
+        _window.TryRange(_leastM[body], _mostM[body], out var range);
+        (fromX, fromY, toX, toY) = (range.FromX, range.FromY, range.ToX, range.ToY);
     }
 
     /// <summary>

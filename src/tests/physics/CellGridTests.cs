@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Physics;
 using Xunit;
 
@@ -12,7 +13,8 @@ namespace TrafficSimulation.Tests.Physics;
 [Trait(Priority.Key, Priority.P2)]
 public class CellGridTests
 {
-    const float CellM = 4f;
+    /// <summary>A level of the grid a body can be wider than.</summary>
+    static readonly GridLevel Level = new WorldGrid(8f).Split(2);
 
     /// <summary>
     /// Four boxes over ground of an awkward corner: one inside a cell, one crossing a boundary, one wider
@@ -32,7 +34,7 @@ public class CellGridTests
         }
 
         var grid = new CellGrid();
-        grid.Rebuild([0, 1, 2, 3], leastM, mostM, CellM);
+        grid.Rebuild([0, 1, 2, 3], leastM, mostM, Level);
         return grid;
     }
 
@@ -44,16 +46,16 @@ public class CellGridTests
     [Fact]
     public void TheReportedLatticeCoversEveryBodyItIndexed()
     {
-        var grid = Laid(out var leastM, out var mostM);
-        var farM = grid.OriginM + (new Vector2(grid.Width, grid.Height) * grid.CellSizeM);
+        var window = Laid(out var leastM, out var mostM).Window;
 
         for (var body = 0; body < leastM.Length; body++)
         {
             Assert.True(
-                leastM[body].X >= grid.OriginM.X && leastM[body].Y >= grid.OriginM.Y,
+                leastM[body].X >= window.LeastM.X && leastM[body].Y >= window.LeastM.Y,
                 $"body {body} starts before the lattice");
             Assert.True(
-                mostM[body].X <= farM.X && mostM[body].Y <= farM.Y, $"body {body} reaches past the lattice");
+                mostM[body].X <= window.MostM.X && mostM[body].Y <= window.MostM.Y,
+                $"body {body} reaches past the lattice");
         }
     }
 
@@ -67,13 +69,14 @@ public class CellGridTests
     public void ACellNamesOnlyBodiesWhoseBoxReachesIt()
     {
         var grid = Laid(out var leastM, out var mostM);
+        var window = grid.Window;
 
-        for (var y = 0; y < grid.Height; y++)
+        for (var y = window.FromY; y <= window.ToY; y++)
         {
-            for (var x = 0; x < grid.Width; x++)
+            for (var x = window.FromX; x <= window.ToX; x++)
             {
-                var cellLeastM = grid.OriginM + (new Vector2(x, y) * grid.CellSizeM);
-                var cellMostM = cellLeastM + new Vector2(grid.CellSizeM);
+                var cellLeastM = Level.CornerM(x, y);
+                var cellMostM = Level.CornerM(x + 1, y + 1);
                 foreach (var body in grid.Items(x, y))
                 {
                     Assert.False(
@@ -94,15 +97,16 @@ public class CellGridTests
     public void ABodyWiderThanACellIsInEveryCellItCovers()
     {
         var grid = Laid(out var leastM, out var mostM);
+        var window = grid.Window;
         const int wide = 2;
 
-        var across = (int)MathF.Ceiling((mostM[wide].X - leastM[wide].X) / grid.CellSizeM);
-        var down = (int)MathF.Ceiling((mostM[wide].Y - leastM[wide].Y) / grid.CellSizeM);
+        var across = Level.CellsAcross(mostM[wide].X - leastM[wide].X);
+        var down = Level.CellsAcross(mostM[wide].Y - leastM[wide].Y);
 
         var cells = 0;
-        for (var y = 0; y < grid.Height; y++)
+        for (var y = window.FromY; y <= window.ToY; y++)
         {
-            for (var x = 0; x < grid.Width; x++)
+            for (var x = window.FromX; x <= window.ToX; x++)
             {
                 if (grid.Items(x, y).IndexOf(wide) >= 0) cells++;
             }

@@ -122,9 +122,8 @@ internal sealed class Paving
     /// asks and is right to hold lanes alone: "which lane is this car on" may not answer with a bay's way.
     /// </para>
     /// <para>
-    /// Laid on the first ask, like the perimeter, and at the cell the town indexes everything at
-    /// (<see cref="SimConfig.NearestChainCellM"/>) — which is what puts its cells on the same lattice as
-    /// every other index's.
+    /// Laid on the first ask, like the perimeter, and at the grid's main cell (<see cref="SimConfig.Grid"/>,
+    /// SIM-8) — which is what puts its cells on the same lattice as every other index's.
     /// </para>
     /// </remarks>
     public ChainIndex DrivenLines(SimConfig config)
@@ -139,7 +138,7 @@ internal sealed class Paving
                 building.Add(line, ArcsOfDriven(line), DrivenLengthM(line));
             }
 
-            return _drivenLines = building.Seal(config.NearestChainCellM);
+            return _drivenLines = building.Seal(config.Grid.Main);
         }
     }
 

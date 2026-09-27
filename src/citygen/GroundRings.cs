@@ -74,15 +74,15 @@ internal readonly record struct GroundLayer(string Named, float OutwardM, ArcSeg
 internal sealed class GroundRings
 {
     readonly GroundLayer[] _layers;
-    readonly float _cellM;
+    readonly GridLevel _kerbLevel;
     readonly Lock _indexing = new();
 
-    GroundRings(GroundLayer carriageway, GroundLayer walk, ArcSeg[][] walkEdge, float cellM)
+    GroundRings(GroundLayer carriageway, GroundLayer walk, ArcSeg[][] walkEdge, GridLevel kerbLevel)
     {
         Carriageway = carriageway;
         Walk = walk;
         WalkEdge = walkEdge;
-        _cellM = cellM;
+        _kerbLevel = kerbLevel;
         _layers = [walk];
     }
 
@@ -145,7 +145,7 @@ internal sealed class GroundRings
     public bool PavedWithin(Vector2 pointM, float reachM)
     {
         ChainIndex kerb;
-        lock (_indexing) kerb = _kerb ??= ChainIndex.OfPieces(ArcRings.Flat(Carriageway.Rings), _cellM);
+        lock (_indexing) kerb = _kerb ??= ChainIndex.OfPieces(ArcRings.Flat(Carriageway.Rings), _kerbLevel);
 
         // Whether anything is near at all, so one slot is all the room the answer needs.
         Span<int> near = stackalloc int[1];
@@ -169,6 +169,6 @@ internal sealed class GroundRings
             new GroundLayer("carriageway", 0f, inner, innerLoose),
             new GroundLayer("walk", walkM, outer, loose),
             outer,
-            config.NearestChainCellM);
+            config.Grid.Main);
     }
 }

@@ -3,21 +3,26 @@ using System.Numerics;
 namespace TrafficSimulation.Core.Geometry;
 
 /// <summary>
-/// A uniform bucket grid over a town's circles — props, buildings, and the moving bodies of the
-/// proximity index. It answers <em>what is near here</em> with a <b>superset</b>: everything that
+/// A town's circles — the walkers of the proximity index, the bays of a car park — filed by centre on a
+/// level of the grid (SIM-8). It answers <em>what is near here</em> with a <b>superset</b>: everything that
 /// could overlap the query is returned, and the caller does the fine test it was going to do anyway.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every item is indexed once, in the bucket its centre falls in, and a query is widened by the
-/// largest radius in the set instead. Writing an item into every bucket its circle touches would make
+/// Every item is indexed once, in the cell its centre falls in, and a query is widened by the
+/// largest radius in the set instead. Writing an item into every cell its circle touches would make
 /// one large item cost a hundred entries and return it a hundred times, and the deduplication that
 /// then becomes necessary is a per-query allocation.
 /// </para>
 /// <para>
-/// <b>Which is the trade <see cref="World.Physics.CellGrid"/> takes the other way round</b>, and it is
-/// right there for the same reason it is wrong here: a set of one size widens by nothing, and a set
-/// holding a tree beside a building would make every query pay for the building.
+/// <b>Which is the trade the solver's own index takes the other way round</b>, and it is right there for
+/// the same reason it is wrong here: a set of one size widens by nothing, and a set holding a tree beside
+/// a building would make every query pay for the building. Two stores, one grid.
+/// </para>
+/// <para>
+/// <b>The window is the whole town</b>, and a centre off its edge is filed in the rim — so a query reaching
+/// the edge finds it, and a query off the edge is answered, not refused: with whatever of the town it
+/// reaches, which is nothing where it reaches none.
 /// </para>
 /// <para>
 /// A rebuild is linear in the items and never in the buckets, which is what makes an index over a
@@ -28,10 +33,7 @@ namespace TrafficSimulation.Core.Geometry;
 /// </remarks>
 internal sealed class BucketGrid
 {
-    readonly float _bucketSizeM;
-    readonly float _inverseBucketM;
-    readonly int _width;
-    readonly int _height;
+    readonly GridWindow _window;
 
     /// <summary>Where a live bucket's items begin in <see cref="_items"/>, and how many it has.</summary>
     /// <remarks>Both are meaningless where <see cref="_stamp"/> does not match <see cref="_generation"/>.</remarks>
@@ -56,26 +58,26 @@ internal sealed class BucketGrid
     int _count;
     float _maxRadiusM;
 
-    public BucketGrid(Vector2 worldSizeM, float bucketSizeM)
+    /// <param name="level">The level of the grid the centres are filed at.</param>
+    /// <param name="worldSizeM">The town's extent from the world's origin, which the window covers.</param>
+    public BucketGrid(GridLevel level, Vector2 worldSizeM)
     {
-        if (bucketSizeM <= 0f) throw new ArgumentOutOfRangeException(nameof(bucketSizeM), bucketSizeM, "A bucket has a size.");
-
-        _bucketSizeM = bucketSizeM;
-        _inverseBucketM = 1f / bucketSizeM;
-        _width = Math.Max(1, (int)MathF.Ceiling(worldSizeM.X / bucketSizeM));
-        _height = Math.Max(1, (int)MathF.Ceiling(worldSizeM.Y / bucketSizeM));
-        _bucketStart = new int[_width * _height];
-        _bucketCount = new int[_width * _height];
-        _fillCursor = new int[_width * _height];
-        _stamp = new int[_width * _height];
+        _window = GridWindow.Over(level, Vector2.Zero, Vector2.Max(worldSizeM, Vector2.Zero));
+        _bucketStart = new int[_window.Count];
+        _bucketCount = new int[_window.Count];
+        _fillCursor = new int[_window.Count];
+        _stamp = new int[_window.Count];
     }
 
-    public static BucketGrid Build(Vector2 worldSizeM, float bucketSizeM, Vector2[] centresM, float[] radiiM)
+    public static BucketGrid Build(GridLevel level, Vector2 worldSizeM, Vector2[] centresM, float[] radiiM)
     {
-        var grid = new BucketGrid(worldSizeM, bucketSizeM);
+        var grid = new BucketGrid(level, worldSizeM);
         grid.Rebuild(centresM, radiiM, centresM.Length);
         return grid;
     }
+
+    /// <summary>The cells the centres are filed over — the town's, at the level given.</summary>
+    public GridWindow Window => _window;
 
     public int Count => _count;
 
@@ -133,18 +135,15 @@ internal sealed class BucketGrid
     /// </summary>
     public int Query(Vector2 centreM, float radiusM, Span<int> found)
     {
-        var reachM = radiusM + _maxRadiusM;
-        var minX = Math.Max(0, (int)MathF.Floor((centreM.X - reachM) * _inverseBucketM));
-        var maxX = Math.Min(_width - 1, (int)MathF.Floor((centreM.X + reachM) * _inverseBucketM));
-        var minY = Math.Max(0, (int)MathF.Floor((centreM.Y - reachM) * _inverseBucketM));
-        var maxY = Math.Min(_height - 1, (int)MathF.Floor((centreM.Y + reachM) * _inverseBucketM));
+        var reach = new Vector2(radiusM + _maxRadiusM);
+        if (!_window.TryOverlap(centreM - reach, centreM + reach, out var range)) return 0;
 
         var written = 0;
-        for (var y = minY; y <= maxY; y++)
+        for (var y = range.FromY; y <= range.ToY; y++)
         {
-            for (var x = minX; x <= maxX; x++)
+            for (var x = range.FromX; x <= range.ToX; x++)
             {
-                var bucket = y * _width + x;
+                var bucket = _window.IndexOf(x, y);
                 if (_stamp[bucket] != _generation) continue;
 
                 var start = _bucketStart[bucket];
@@ -167,22 +166,22 @@ internal sealed class BucketGrid
     /// </summary>
     public int Nearest(Vector2 pointM, out float distanceM)
     {
-        var originX = Math.Clamp((int)MathF.Floor(pointM.X * _inverseBucketM), 0, _width - 1);
-        var originY = Math.Clamp((int)MathF.Floor(pointM.Y * _inverseBucketM), 0, _height - 1);
-        var lastRing = Math.Max(_width, _height);
+        var originX = _window.ClampX(_window.Level.CellOf(pointM.X));
+        var originY = _window.ClampY(_window.Level.CellOf(pointM.Y));
+        var lastRing = Math.Max(_window.Width, _window.Height);
 
         var best = -1;
         var bestDistanceSquared = float.PositiveInfinity;
         for (var ring = 0; ring <= lastRing; ring++)
         {
-            for (var y = Math.Max(0, originY - ring); y <= Math.Min(_height - 1, originY + ring); y++)
+            for (var y = _window.ClampY(originY - ring); y <= _window.ClampY(originY + ring); y++)
             {
-                for (var x = Math.Max(0, originX - ring); x <= Math.Min(_width - 1, originX + ring); x++)
+                for (var x = _window.ClampX(originX - ring); x <= _window.ClampX(originX + ring); x++)
                 {
                     // Only the ring itself: everything inside it was searched on an earlier round.
                     if (ring > 0 && Math.Abs(x - originX) != ring && Math.Abs(y - originY) != ring) continue;
 
-                    var bucket = y * _width + x;
+                    var bucket = _window.IndexOf(x, y);
                     if (_stamp[bucket] != _generation) continue;
 
                     var start = _bucketStart[bucket];
@@ -200,7 +199,7 @@ internal sealed class BucketGrid
 
             // A closer item can only be in a ring nearer than the one already searched, plus the
             // largest radius by which a centre-indexed item can stick out of its own bucket.
-            var searchedM = ring * _bucketSizeM;
+            var searchedM = ring * _window.Level.CellM;
             if (best >= 0 && bestDistanceSquared <= (searchedM + _maxRadiusM) * (searchedM + _maxRadiusM)) break;
         }
 
@@ -223,10 +222,5 @@ internal sealed class BucketGrid
         _generation++;
     }
 
-    int BucketOf(Vector2 pointM)
-    {
-        var x = Math.Clamp((int)MathF.Floor(pointM.X * _inverseBucketM), 0, _width - 1);
-        var y = Math.Clamp((int)MathF.Floor(pointM.Y * _inverseBucketM), 0, _height - 1);
-        return y * _width + x;
-    }
+    int BucketOf(Vector2 pointM) => _window.IndexAt(pointM);
 }

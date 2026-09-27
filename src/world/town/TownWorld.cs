@@ -247,7 +247,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
         // it. Laid over the one numbering, so it comes after every network that numbers a way.
         var atlasAt = Stopwatch.GetTimestamp();
-        _atlas = RibbonAtlas.Lay(new TownRibbons(this), config.RibbonLatticeStepM, config.RibbonTouchM);
+        _atlas = RibbonAtlas.Lay(new TownRibbons(this), config.RibbonLevel, config.RibbonTouchM);
         AtlasMs = Stopwatch.GetElapsedTime(atlasAt).TotalMilliseconds;
         RefuseFurnitureOnTheRoad();
 
@@ -330,9 +330,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         Roster = new AgentRoster(People.Count, Cars.Count);
         DriveTheEmptyMap();
 
-        // One bucket the width of the widest question asked of it; the index is rebuilt into it every
-        // tick and survives nothing.
-        _nearby = new BucketGrid(plan.WorldSizeM, config.ProximityBucketM);
+        // At the grid's main cell, which is the reach a walker keeps clear of a car it is running from; the
+        // index is rebuilt into it every tick and survives nothing.
+        _nearby = new BucketGrid(config.Grid.Main, plan.WorldSizeM);
 
         StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
     }

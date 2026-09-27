@@ -45,8 +45,8 @@ internal static class FillProbe
     /// <summary>How many places each piece of the true boundary is measured against the cut's own.</summary>
     const int Sampled = 32;
 
-    /// <summary>The cell the cut's own edges are binned at for that measurement.</summary>
-    const float CellM = 4f;
+    /// <summary>The least cell the cut's own edges are binned at for that measurement, on the shell's own grid.</summary>
+    const float BinM = 4f;
 
     /// <summary>How many cells out the search for a near edge widens before the place counts as missed.</summary>
     /// <remarks>
@@ -280,13 +280,14 @@ internal static class FillProbe
     static (float StrayM, float MeanStrayM, double GoneM2, float MissedM) Strayed(
         BandShell shell, Vector2[] pointsM, int[] triangles)
     {
+        var level = shell.Grid.Covering(BinM);
         var grid = new Dictionary<(int X, int Y), List<(Vector2 From, Vector2 To)>>();
         foreach (var (one, other) in Boundary(triangles))
         {
             var fromM = pointsM[one];
             var toM = pointsM[other];
-            var least = Cell(Vector2.Min(fromM, toM));
-            var most = Cell(Vector2.Max(fromM, toM));
+            var least = level.CellOf(Vector2.Min(fromM, toM));
+            var most = level.CellOf(Vector2.Max(fromM, toM));
 
             for (var x = least.X; x <= most.X; x++)
             {
@@ -313,7 +314,7 @@ internal static class FillProbe
                     // The middle of each step rather than its start, so the stations are not every one of
                     // them a chord end where a cut boundary passes through the true one by construction.
                     var onM = arc.PointAtM(arc.LengthM * (step + 0.5f) / Sampled);
-                    var offM = OffM(grid, onM);
+                    var offM = OffM(grid, level, onM);
                     walkedM += stepM;
 
                     if (offM == float.MaxValue)
@@ -341,14 +342,15 @@ internal static class FillProbe
     /// once <c>r</c> cells is further than that hit: until then a closer edge can still be sitting one ring
     /// further out.
     /// </remarks>
-    static float OffM(Dictionary<(int X, int Y), List<(Vector2 From, Vector2 To)>> grid, Vector2 pointM)
+    static float OffM(
+        Dictionary<(int X, int Y), List<(Vector2 From, Vector2 To)>> grid, GridLevel level, Vector2 pointM)
     {
-        var at = Cell(pointM);
+        var at = level.CellOf(pointM);
 
         for (var reach = 1; reach <= MostReach; reach++)
         {
             var offM = Nearest(grid, pointM, at, reach);
-            if (offM <= (reach - 1) * CellM || (reach == MostReach && offM < float.MaxValue)) return offM;
+            if (offM <= (reach - 1) * level.CellM || (reach == MostReach && offM < float.MaxValue)) return offM;
         }
 
         return float.MaxValue;
@@ -381,9 +383,6 @@ internal static class FillProbe
         var along = Math.Clamp(Vector2.Dot(pointM - fromM, runM) / lengthM2, 0f, 1f);
         return Vector2.Distance(fromM + (runM * along), pointM);
     }
-
-    static (int X, int Y) Cell(Vector2 pointM) =>
-        ((int)MathF.Floor(pointM.X / CellM), (int)MathF.Floor(pointM.Y / CellM));
 
     /// <summary>The edges only one triangle uses, which is the outline of whatever the fill covered.</summary>
     static List<(int One, int Other)> Boundary(int[] triangles)

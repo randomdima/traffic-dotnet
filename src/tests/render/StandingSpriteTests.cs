@@ -27,7 +27,7 @@ public class StandingSpriteTests
     static StandingSprites Lay(CityPlan plan) => Lay(plan, BuildingUses.Of(plan));
 
     static StandingSprites Lay(CityPlan plan, BuildingUses uses) =>
-        StandingSprites.Lay(plan, Buildings, uses, Props, 0, Buildings.Count, Aspects());
+        StandingSprites.Lay(plan, Buildings, uses, Props, 0, Buildings.Count, Aspects(), SimConfig.Shipped().Grid.Main);
 
     static float[] Aspects()
     {

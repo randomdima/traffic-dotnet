@@ -1057,6 +1057,6 @@ public class GroundMeshTests
             building.Add(line, paving.ArcsOfDriven(line), paving.DrivenLengthM(line));
         }
 
-        return building.Seal(config.NearestChainCellM);
+        return building.Seal(config.Grid.Main);
     }
 }

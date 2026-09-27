@@ -38,14 +38,14 @@ internal sealed partial class DebugOverlay
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
+        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var widthM = AgentLineM(pixelsPerMetre);
         var people = world.People;
         for (var person = 0; person < people.Count; person++)
         {
             if (!OnScreen(people.PositionM[person], viewCentreM, viewSpanM, config.PersonDiameterM)) continue;
 
-            WalkerRoute(ref draw, world, person, pitchM, widthM, Theme.AgentLine(person));
+            WalkerRoute(ref draw, world, person, pitch, widthM, Theme.AgentLine(person));
         }
     }
 
@@ -59,16 +59,16 @@ internal sealed partial class DebugOverlay
     /// arc rather than read out of the body.
     /// </remarks>
     static void WalkerRoute(
-        ref ScreenDraw draw, TownWorld world, int person, float pitchM, float widthM, Vector4 colour)
+        ref ScreenDraw draw, TownWorld world, int person, GridLevel? pitch, float widthM, Vector4 colour)
     {
         if (!world.People.Walking[person]) return;
 
-        WalkerPass(ref draw, world, person, float.PositiveInfinity, widthM * PathMarks.CasingWidthFactor, Theme.Casing);
-        WalkerPass(ref draw, world, person, pitchM, widthM, colour);
+        WalkerPass(ref draw, world, person, null, widthM * PathMarks.CasingWidthFactor, Theme.Casing);
+        WalkerPass(ref draw, world, person, pitch, widthM, colour);
     }
 
     static void WalkerPass(
-        ref ScreenDraw draw, TownWorld world, int person, float pitchM, float widthM, Vector4 colour)
+        ref ScreenDraw draw, TownWorld world, int person, GridLevel? pitch, float widthM, Vector4 colour)
     {
         var people = world.People;
         var route = people.RouteOf(person);
@@ -92,7 +92,7 @@ internal sealed partial class DebugOverlay
             if (slot == at) startM = MathF.Max(startM, people.OnWayM[person]);
             if (slot > at) draw.DiscM(fromM, PathMarks.JoinDiscM * discs, colour);
 
-            fromM = Chevroned(ref draw, walking.WayArcs(way), startM, endM, fromM, pitchM, widthM, colour);
+            fromM = Chevroned(ref draw, walking.WayArcs(way), startM, endM, fromM, pitch, widthM, colour);
         }
 
         draw.DiscM(fromM, PathMarks.EndDiscM * discs, colour);
@@ -104,7 +104,7 @@ internal sealed partial class DebugOverlay
     /// difference belongs.
     /// </summary>
     static Vector2 Chevroned(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, Vector2 atM, float pitchM,
+        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, Vector2 atM, GridLevel? pitch,
         float widthM, Vector4 colour)
     {
         if (arcs.Length == 0) return atM;
@@ -113,7 +113,7 @@ internal sealed partial class DebugOverlay
         {
             alongM = MathF.Min(alongM + DrawnStepM, toM);
             var pointM = Spline.SampleAt(arcs, alongM).PositionM;
-            PathMarks.Chevroned(ref draw, atM, pointM, pitchM, colour, widthM);
+            PathMarks.Chevroned(ref draw, atM, pointM, pitch, colour, widthM);
             atM = pointM;
         }
 
@@ -162,7 +162,7 @@ internal sealed partial class DebugOverlay
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
+        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var widthM = AgentLineM(pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
         var cars = world.Cars;
@@ -170,7 +170,7 @@ internal sealed partial class DebugOverlay
         {
             if (!OnScreen(cars.PositionM[car], viewCentreM, viewSpanM, cars.BuildOf(car).LengthM)) continue;
 
-            CarRoute(ref draw, world, car, pitchM, sagM, widthM, Theme.AgentLine(car));
+            CarRoute(ref draw, world, car, pitch, sagM, widthM, Theme.AgentLine(car));
         }
     }
 
@@ -191,7 +191,7 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// </remarks>
     static void CarRoute(
-        ref ScreenDraw draw, TownWorld world, int car, float pitchM, float sagM, float widthM, Vector4 colour)
+        ref ScreenDraw draw, TownWorld world, int car, GridLevel? pitch, float sagM, float widthM, Vector4 colour)
     {
         var cars = world.Cars;
         var line = cars.LineOf(car);
@@ -212,9 +212,9 @@ internal sealed partial class DebugOverlay
 
         PathMarks.Casing(ref draw, line, underTheCarM, untilM, sagM, widthM);
         PathMarks.Chained(
-            ref draw, line, underTheCarM, joinM, pitchM, bothWays: false, sagM, colour, MarkClaims.None, widthM);
+            ref draw, line, underTheCarM, joinM, pitch, bothWays: false, sagM, colour, MarkClaims.None, widthM);
         PathMarks.Chained(
-            ref draw, line, joinM, untilM, pitchM, bothWays: false, sagM, colour, MarkClaims.None, widthM);
+            ref draw, line, joinM, untilM, pitch, bothWays: false, sagM, colour, MarkClaims.None, widthM);
 
         draw.DiscM(Spline.SampleAt(line, underTheCarM).PositionM, PathMarks.EndDiscM * discs, colour);
         draw.DiscM(Spline.SampleAt(line, untilM).PositionM, PathMarks.EndDiscM * discs, colour);

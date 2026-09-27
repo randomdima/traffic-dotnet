@@ -217,9 +217,12 @@ internal sealed partial class BandShell
 
         readonly List<ArcSeg> _kept = [];
 
+        /// <summary>The grid both indexes are laid on, and the kept pieces' ends are gathered on.</summary>
+        readonly WorldGrid _grid;
+
         public Merge(
             ArcSeg[][] along, ChainIndex lines, ArcSeg[][] ribbons, float[] halfM, float[] lengthM,
-            float mostHalfM)
+            float mostHalfM, WorldGrid grid)
         {
             _along = along;
             _ribbons = ribbons;
@@ -227,6 +230,7 @@ internal sealed partial class BandShell
             _lengthM = lengthM;
             _mostHalfM = mostHalfM;
             _lines = lines;
+            _grid = grid;
 
             _firstPiece = new int[ribbons.Length + 1];
             for (var line = 0; line < ribbons.Length; line++)
@@ -255,11 +259,11 @@ internal sealed partial class BandShell
                 }
             }
 
-            // <b>Binned as finely as the walk that bins it can tell apart</b> (<see cref="ChainIndex.FinestCellM"/>)
-            // and never at the caller's lattice for the lines. What is asked of this index is which pieces
+            // <b>Binned at the finest level the walk that bins it can tell apart</b> (<see cref="ChainIndex.FinestCellM"/>)
+            // and never at the caller's level for the lines. What is asked of this index is which pieces
             // stand <em>at</em> a place, within a weld; a cell a road wide hands back every piece running
             // through seventy square metres of a junction and each is then rejected by its own box.
-            _edges = building.Seal(ChainIndex.FinestCellM);
+            _edges = building.Seal(grid.Covering(ChainIndex.FinestCellM));
             _pieces = pieces;
         }
 
@@ -317,7 +321,7 @@ internal sealed partial class BandShell
 
             foreach (var kept in keptOfLine) _kept.AddRange(kept);
 
-            return ArcRings.Of(_kept);
+            return ArcRings.Of(_kept, _grid);
         }
 
         /// <summary>

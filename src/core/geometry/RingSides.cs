@@ -44,20 +44,19 @@ internal sealed class RingSides
     const double FilingSlackM = 1e-3;
 
     /// <summary>
-    /// How far the lattice starts short of the rings, in cells: whole cells, so no corner a query is answered
-    /// from stands on a ring, and a half, so the rings' own extremes stand mid-cell rather than on a line.
+    /// How far the window reaches past the rings, in cells: a whole one, so the rim's corners stand clear of
+    /// every ring and wind nought.
     /// </summary>
-    const double MarginCells = 1.5;
+    const int MarginCells = 1;
 
     /// <summary>How many bits of a cell's word its corner's winding takes (<see cref="_cell"/>).</summary>
     const int WindingBits = 8;
 
-    readonly double _originX;
-    readonly double _originY;
+    /// <summary>The cells of the grid the rings are filed over (SIM-8), at the level their caller chose.</summary>
+    readonly GridWindow _window;
+
+    /// <summary>The level's cell in doubles, so a corner is placed by one product wherever it is asked for.</summary>
     readonly double _cellM;
-    readonly double _perCell;
-    readonly int _width;
-    readonly int _height;
 
     /// <summary>
     /// <b>One word a cell</b>: the winding round its low corner in the low byte, and where its pieces begin in
@@ -69,29 +68,26 @@ internal sealed class RingSides
     readonly int[] _cellPiece;
     readonly Piece[] _pieces;
 
-    RingSides(
-        double originX, double originY, double cellM, int width, int height, int[] cell, int[] cellPiece,
-        Piece[] pieces)
+    RingSides(GridWindow window, int[] cell, int[] cellPiece, Piece[] pieces)
     {
-        _originX = originX;
-        _originY = originY;
-        _cellM = cellM;
-        _perCell = 1d / cellM;
-        _width = width;
-        _height = height;
+        _window = window;
+        _cellM = window.Level.CellM;
         _cell = cell;
         _cellPiece = cellPiece;
         _pieces = pieces;
     }
 
     /// <summary>No rings at all: every point is outside.</summary>
-    public static RingSides None { get; } = new(0d, 0d, 1d, 0, 0, [0], [], []);
+    public static RingSides None { get; } = new(GridWindow.Of(new WorldGrid(1f).Main, 0, 0, 0, 0), [0], [], []);
 
     /// <summary>How many pieces the rings were cut into — a census.</summary>
     public int PieceCount => _pieces.Length;
 
+    /// <summary>The cells of the grid the rings are filed over.</summary>
+    public GridWindow Window => _window;
+
     /// <summary>How many cells the lattice has.</summary>
-    public int CellCount => _width * _height;
+    public int CellCount => _window.Count;
 
     /// <summary>How many of them a ring passes through, which is where an answer costs more than a lookup.</summary>
     public int CrossedCellCount
@@ -123,18 +119,17 @@ internal sealed class RingSides
     {
         var x = (double)pointM.X;
         var y = (double)pointM.Y;
-        var column = (int)Math.Floor((x - _originX) * _perCell);
-        var row = (int)Math.Floor((y - _originY) * _perCell);
+        var (column, row) = _window.Level.CellOf(pointM);
 
         // The corner is placed the way the lattice laid it, and a point a rounding short of it is the cell's
         // below: both legs then run forwards, and a leg run backwards would count its crossings the wrong way.
-        var cornerX = _originX + (column * _cellM);
-        var cornerY = _originY + (row * _cellM);
-        if (x < cornerX) cornerX = _originX + (--column * _cellM);
-        if (y < cornerY) cornerY = _originY + (--row * _cellM);
-        if ((uint)column >= (uint)_width || (uint)row >= (uint)_height) return 0;
+        var cornerX = Edge(column);
+        var cornerY = Edge(row);
+        if (x < cornerX) cornerX = Edge(--column);
+        if (y < cornerY) cornerY = Edge(--row);
+        if (!_window.Holds(column, row)) return 0;
 
-        var cell = (row * _width) + column;
+        var cell = _window.IndexOf(column, row);
         var word = _cell[cell];
         var winding = (int)(sbyte)word;
         var first = word >> WindingBits;
@@ -157,18 +152,19 @@ internal sealed class RingSides
         return winding;
     }
 
+    /// <summary>Where a line of the lattice stands, on either axis — the one product every corner is placed by.</summary>
+    double Edge(int cell) => cell * _cellM;
+
     /// <summary>
     /// <b>The lattice laid over a set of closed rings</b>, each ring a chain whose last piece ends where its
     /// first begins. Build-time: it allocates freely.
     /// </summary>
-    /// <param name="cellM">
-    /// How wide a cell is. A cell no ring passes through is answered by a lookup, so the finer the cells the
-    /// more of the ground that is — at a word a cell.
+    /// <param name="level">
+    /// The level of the grid the pieces are filed at. A cell no ring passes through is answered by a lookup,
+    /// so the finer the cells the more of the ground that is — at a word a cell.
     /// </param>
-    public static RingSides Of(ReadOnlySpan<ArcSeg[]> rings, float cellM)
+    public static RingSides Of(ReadOnlySpan<ArcSeg[]> rings, GridLevel level)
     {
-        if (!(cellM > 0f)) throw new ArgumentOutOfRangeException(nameof(cellM), cellM, "a cell has a width");
-
         var pieces = new List<Piece>();
         foreach (var ring in rings)
         {
@@ -190,22 +186,18 @@ internal sealed class RingSides
             mostM = Vector2.Max(mostM, Vector2.Max(piece.FromM, piece.ToM));
         }
 
-        var originX = leastM.X - (MarginCells * cellM);
-        var originY = leastM.Y - (MarginCells * cellM);
-        var perCell = 1d / cellM;
-        var width = (int)Math.Floor((mostM.X - originX) * perCell) + 2;
-        var height = (int)Math.Floor((mostM.Y - originY) * perCell) + 2;
-        if ((long)width * height > Array.MaxLength / 4)
+        var window = GridWindow.Over(level, leastM, mostM, MarginCells);
+        if ((long)window.Width * window.Height > Array.MaxLength / 4)
         {
-            throw new ArgumentOutOfRangeException(nameof(cellM), cellM, $"{width}x{height} cells is too many");
+            throw new ArgumentOutOfRangeException(nameof(level), level.CellM, $"{window.Width}x{window.Height} cells is too many");
         }
 
         var laid = pieces.ToArray();
-        var cornerWinding = Corners(laid, originX, originY, cellM, width, height);
-        var (cellFirst, cellPiece) = File(laid, originX, originY, perCell, width, height);
+        var cornerWinding = Corners(laid, window);
+        var (cellFirst, cellPiece) = File(laid, window);
         if (cellPiece.Length >= 1 << (31 - WindingBits))
         {
-            throw new ArgumentOutOfRangeException(nameof(cellM), cellM, $"{cellPiece.Length} filings is too many");
+            throw new ArgumentOutOfRangeException(nameof(level), level.CellM, $"{cellPiece.Length} filings is too many");
         }
 
         var cell = new int[cellFirst.Length];
@@ -215,7 +207,7 @@ internal sealed class RingSides
             cell[at] = (cellFirst[at] << WindingBits) | (byte)winding;
         }
 
-        return new RingSides(originX, originY, cellM, width, height, cell, cellPiece, laid);
+        return new RingSides(window, cell, cellPiece, laid);
     }
 
     /// <summary>
@@ -263,42 +255,41 @@ internal sealed class RingSides
     /// past each corner, which is a ray cast from it — summed once a row from the right rather than once a
     /// corner.
     /// </summary>
-    static sbyte[] Corners(Piece[] pieces, double originX, double originY, double cellM, int width, int height)
+    static sbyte[] Corners(Piece[] pieces, GridWindow window)
     {
         var crossings = new List<(int Row, double X, int Sign)>();
-        var perCell = 1d / cellM;
+        var cellM = (double)window.Level.CellM;
         foreach (var piece in pieces)
         {
-            var leastY = Math.Min(piece.FromM.Y, piece.ToM.Y);
-            var mostY = Math.Max(piece.FromM.Y, piece.ToM.Y);
-            var fromRow = Math.Max(0, (int)Math.Ceiling((leastY - originY) * perCell) - 1);
-            var toRow = Math.Min(height - 1, (int)Math.Floor((mostY - originY) * perCell) + 1);
+            // A row either side of the ones the piece's own span reaches, so a line a rounding off it is asked.
+            var fromRow = Math.Max(window.FromY, window.Level.CellOf(MathF.Min(piece.FromM.Y, piece.ToM.Y)) - 1);
+            var toRow = Math.Min(window.ToY, window.Level.CellOf(MathF.Max(piece.FromM.Y, piece.ToM.Y)) + 1);
             for (var row = fromRow; row <= toRow; row++)
             {
-                var y = originY + (row * cellM);
+                var y = row * cellM;
                 if (!piece.Spans(y)) continue;
 
-                crossings.Add((row, piece.XAt(y), piece.Rises ? 1 : -1));
+                crossings.Add((row - window.FromY, piece.XAt(y), piece.Rises ? 1 : -1));
             }
         }
 
         crossings.Sort((one, other) => one.Row != other.Row ? one.Row.CompareTo(other.Row) : one.X.CompareTo(other.X));
 
-        var winding = new sbyte[width * height];
+        var winding = new sbyte[window.Count];
         var end = 0;
-        for (var row = 0; row < height; row++)
+        for (var row = 0; row < window.Height; row++)
         {
             var start = end;
             while (end < crossings.Count && crossings[end].Row == row) end++;
 
             var past = end;
             var sum = 0;
-            for (var column = width - 1; column >= 0; column--)
+            for (var column = window.Width - 1; column >= 0; column--)
             {
-                var x = originX + (column * cellM);
+                var x = (window.FromX + column) * cellM;
                 while (past > start && crossings[past - 1].X > x) sum += crossings[--past].Sign;
 
-                winding[(row * width) + column] = checked((sbyte)sum);
+                winding[(row * window.Width) + column] = checked((sbyte)sum);
             }
         }
 
@@ -309,31 +300,30 @@ internal sealed class RingSides
     /// Every piece filed under every cell its box reaches, closed on all four sides — the two legs of an
     /// answer run along a cell's edges as well as through it.
     /// </summary>
-    static (int[] CellFirst, int[] CellPiece) File(
-        Piece[] pieces, double originX, double originY, double perCell, int width, int height)
+    static (int[] CellFirst, int[] CellPiece) File(Piece[] pieces, GridWindow window)
     {
-        var cellFirst = new int[(width * height) + 1];
+        var cellFirst = new int[window.Count + 1];
         foreach (var piece in pieces)
         {
-            var (fromColumn, toColumn, fromRow, toRow) = Reach(piece, originX, originY, perCell, width, height);
-            for (var row = fromRow; row <= toRow; row++)
+            var range = Reach(piece, window);
+            for (var row = range.FromY; row <= range.ToY; row++)
             {
-                for (var column = fromColumn; column <= toColumn; column++) cellFirst[(row * width) + column + 1]++;
+                for (var column = range.FromX; column <= range.ToX; column++) cellFirst[window.IndexOf(column, row) + 1]++;
             }
         }
 
-        for (var cell = 0; cell < width * height; cell++) cellFirst[cell + 1] += cellFirst[cell];
+        for (var cell = 0; cell < window.Count; cell++) cellFirst[cell + 1] += cellFirst[cell];
 
         var cellPiece = new int[cellFirst[^1]];
         var written = (int[])cellFirst.Clone();
         for (var index = 0; index < pieces.Length; index++)
         {
-            var (fromColumn, toColumn, fromRow, toRow) = Reach(pieces[index], originX, originY, perCell, width, height);
-            for (var row = fromRow; row <= toRow; row++)
+            var range = Reach(pieces[index], window);
+            for (var row = range.FromY; row <= range.ToY; row++)
             {
-                for (var column = fromColumn; column <= toColumn; column++)
+                for (var column = range.FromX; column <= range.ToX; column++)
                 {
-                    cellPiece[written[(row * width) + column]++] = index;
+                    cellPiece[written[window.IndexOf(column, row)]++] = index;
                 }
             }
         }
@@ -342,14 +332,12 @@ internal sealed class RingSides
     }
 
     /// <summary>The cells one piece's box reaches, grown by <see cref="FilingSlackM"/>.</summary>
-    static (int FromColumn, int ToColumn, int FromRow, int ToRow) Reach(
-        in Piece piece, double originX, double originY, double perCell, int width, int height) =>
-        (Math.Max(0, Cell(Math.Min(piece.FromM.X, piece.ToM.X) - FilingSlackM, originX, perCell)),
-            Math.Min(width - 1, Cell(Math.Max(piece.FromM.X, piece.ToM.X) + FilingSlackM, originX, perCell)),
-            Math.Max(0, Cell(Math.Min(piece.FromM.Y, piece.ToM.Y) - FilingSlackM, originY, perCell)),
-            Math.Min(height - 1, Cell(Math.Max(piece.FromM.Y, piece.ToM.Y) + FilingSlackM, originY, perCell)));
-
-    static int Cell(double atM, double originM, double perCell) => (int)Math.Floor((atM - originM) * perCell);
+    static CellRange Reach(in Piece piece, GridWindow window)
+    {
+        var slack = new Vector2((float)FilingSlackM);
+        window.TryRange(Vector2.Min(piece.FromM, piece.ToM) - slack, Vector2.Max(piece.FromM, piece.ToM) + slack, out var range);
+        return range;
+    }
 
     /// <summary>
     /// <b>One stretch of a ring that runs one way in x and one way in y</b>: a straight, or an arc inside one

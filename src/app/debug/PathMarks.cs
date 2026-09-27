@@ -15,9 +15,10 @@ internal static class PathMarks
     /// <summary>
     /// <b>Everything drawn over the town is drawn at a size in metres</b>, so it zooms with the town under
     /// it exactly as a kerb or a car does. A mark every few metres and a short one: a run of small marks
-    /// close together says which way the line runs without burying the line itself.
+    /// close together says which way the line runs without burying the line itself. <b>The marks stand on
+    /// the lines of one level of the town's grid</b> (SIM-8), this many across a main cell.
     /// </summary>
-    const float MarkPitchM = 1.5f;
+    const int MarksAcrossGridCell = 4;
 
     /// <summary>How long a mark is against the pitch it stands at, and how heavy against the line it sits on. Heavier than the line, because a mark drawn at the line's own width reads as a kink in it.</summary>
     public const float MarkSizeFraction = 0.24f;
@@ -63,7 +64,8 @@ internal static class PathMarks
     /// </summary>
     public const float BarbM = 0.7f;
 
-    const float BarbPitchM = 5f;
+    /// <summary>And the level of the grid barbs stand on, this many across a main cell.</summary>
+    const int BarbsAcrossGridCell = 2;
 
     /// <summary>
     /// How far a chord drawn across a bend may bow off it, on screen — the one figure here that is not a
@@ -79,17 +81,20 @@ internal static class PathMarks
     public const float SagPx = 0.25f;
 
     /// <summary>
-    /// The pitch to walk a line at, or <see cref="float.PositiveInfinity"/> where the marks have shrunk
-    /// out of sight — a pitch every mark pass turns back at, so the caller needs no second reading of the
-    /// zoom. A metric pitch puts marks a few metres apart however far the camera is, and at a town-wide
-    /// framing that is tens of thousands of quads nobody can see.
+    /// The level of the grid a line's marks stand on, or none where the marks have shrunk out of sight —
+    /// which every mark pass turns back at, so the caller needs no second reading of the zoom. A metric
+    /// pitch puts marks a few metres apart however far the camera is, and at a town-wide framing that is
+    /// tens of thousands of quads nobody can see.
     /// </summary>
-    public static float MarkPitchAt(float pixelsPerMetre) =>
-        MarkPitchM * MarkSizeFraction * pixelsPerMetre >= MarkVisiblePx ? MarkPitchM : float.PositiveInfinity;
+    public static GridLevel? MarkPitchAt(WorldGrid grid, float pixelsPerMetre)
+    {
+        var level = grid.Split(MarksAcrossGridCell);
+        return level.CellM * MarkSizeFraction * pixelsPerMetre >= MarkVisiblePx ? level : null;
+    }
 
-    /// <summary>The pitch to stand barbs at, on the same terms (<see cref="MarkPitchAt"/>).</summary>
-    public static float BarbPitchAt(float pixelsPerMetre) =>
-        BarbM * pixelsPerMetre >= MarkVisiblePx ? BarbPitchM : float.PositiveInfinity;
+    /// <summary>The level to stand barbs on, on the same terms (<see cref="MarkPitchAt"/>).</summary>
+    public static GridLevel? BarbPitchAt(WorldGrid grid, float pixelsPerMetre) =>
+        BarbM * pixelsPerMetre >= MarkVisiblePx ? grid.Split(BarbsAcrossGridCell) : null;
 
     /// <summary>
     /// One stretch of a chain of arcs, as the run of quads that draws it: <b>every piece stepped at the
@@ -150,14 +155,14 @@ internal static class PathMarks
     /// and where the chords drawing the line happen to fall is a question about the zoom.
     /// </remarks>
     public static void Marks(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM, bool bothWays,
-        Vector4 colour, MarkClaims claims)
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, GridLevel? pitch,
+        bool bothWays, Vector4 colour, MarkClaims claims)
     {
-        if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
+        if (arcs.Length == 0 || pitch is not { } level) return;
 
-        var sizeM = pitchM * MarkSizeFraction;
+        var sizeM = level.CellM * MarkSizeFraction;
         var widthM = PathLineM * MarkWidthFactor;
-        var grid = new MarkGrid(fromM, toM, pitchM);
+        var grid = new MarkGrid(fromM, toM, level);
         while (grid.MoveNext(arcs))
         {
             var mark = Spline.SampleAt(arcs, grid.AtM);
@@ -179,12 +184,12 @@ internal static class PathMarks
     /// thing that drew it keeps its answer on.
     /// </remarks>
     public static void Barbed(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM,
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, GridLevel? pitch,
         bool toTheRight, float widthM, Vector4 colour)
     {
-        if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
+        if (arcs.Length == 0 || pitch is not { } level) return;
 
-        var grid = new MarkGrid(fromM, toM, pitchM);
+        var grid = new MarkGrid(fromM, toM, level);
         while (grid.MoveNext(arcs))
         {
             var barb = Spline.SampleAt(arcs, grid.AtM);
@@ -206,12 +211,12 @@ internal static class PathMarks
     /// way it was walked.
     /// </remarks>
     public static void Normals(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM,
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, GridLevel? pitch,
         bool toTheRight, float widthM, Vector4 colour)
     {
-        if (arcs.Length == 0 || !float.IsFinite(pitchM)) return;
+        if (arcs.Length == 0 || pitch is not { } level) return;
 
-        var grid = new MarkGrid(fromM, toM, pitchM);
+        var grid = new MarkGrid(fromM, toM, level);
         while (grid.MoveNext(arcs))
         {
             var at = Spline.SampleAt(arcs, grid.AtM);
@@ -235,11 +240,11 @@ internal static class PathMarks
     /// whose normals had to be pointed by whoever drew it would be a boundary with two answers.
     /// </remarks>
     public static void Bounded(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float pitchM,
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, GridLevel? pitch,
         float widthM, Vector4 colour, Vector4 normal)
     {
         Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour);
-        Normals(ref draw, arcs, fromM, toM, pitchM, toTheRight: true, widthM, normal);
+        Normals(ref draw, arcs, fromM, toM, pitch, toTheRight: true, widthM, normal);
     }
 
     /// <summary>One stretch of a chain as a path: the line it is, and the marks that say which way it runs.</summary>
@@ -248,11 +253,11 @@ internal static class PathMarks
     /// the glass or the pointer has picked it out.
     /// </param>
     public static void Chained(
-        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float pitchM, bool bothWays,
-        float sagM, Vector4 colour, MarkClaims claims, float widthM = PathLineM)
+        ref ScreenDraw draw, scoped ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, GridLevel? pitch,
+        bool bothWays, float sagM, Vector4 colour, MarkClaims claims, float widthM = PathLineM)
     {
         Banded(ref draw, arcs, fromM, toM, sagM, widthM, colour);
-        Marks(ref draw, arcs, fromM, toM, pitchM, bothWays, colour, claims);
+        Marks(ref draw, arcs, fromM, toM, pitch, bothWays, colour, claims);
     }
 
     /// <summary>
@@ -285,25 +290,24 @@ internal static class PathMarks
     /// line marks the pavement on the stones the network layer under it already marked.
     /// </remarks>
     public static void Chevroned(
-        ref ScreenDraw draw, Vector2 fromM, Vector2 toM, float pitchM, Vector4 colour, float widthM = PathLineM)
+        ref ScreenDraw draw, Vector2 fromM, Vector2 toM, GridLevel? pitch, Vector4 colour, float widthM = PathLineM)
     {
         draw.LineM(fromM, toM, widthM, colour);
 
         var alongM = toM - fromM;
         var lengthM = alongM.Length();
-        if (lengthM <= 1e-3f || !float.IsFinite(pitchM)) return;
+        if (lengthM <= 1e-3f || pitch is null) return;
 
         Span<ArcSeg> line = [new ArcSeg(fromM, MathF.Atan2(alongM.Y, alongM.X), lengthM, 0f)];
-        Marks(ref draw, line, 0f, lengthM, pitchM, bothWays: false, colour, MarkClaims.None);
+        Marks(ref draw, line, 0f, lengthM, pitch, bothWays: false, colour, MarkClaims.None);
     }
 }
 
 /// <summary>
 /// <b>The places down one stretch of a chain of arcs that carry a mark</b>, as distances along the chain.
-/// <b>A mark stands where the line crosses the town's own grid</b> — the lattice of lines a pitch apart,
-/// square to the world axes and laid from the origin — so <b>where a mark falls is a fact about the ground
-/// the line crosses and about nothing the line itself is</b>: not where it was cut, not how much of it is
-/// being drawn, not which bend it came out of.
+/// <b>A mark stands where the line crosses the town's own grid</b> — the lines of one of its levels
+/// (SIM-8) — so <b>where a mark falls is a fact about the ground the line crosses and about nothing the line
+/// itself is</b>: not where it was cut, not how much of it is being drawn, not which bend it came out of.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -325,8 +329,11 @@ internal static class PathMarks
 /// (<see cref="Crossings"/>).
 /// </para>
 /// </remarks>
-internal struct MarkGrid(float fromM, float toM, float pitchM)
+internal struct MarkGrid(float fromM, float toM, GridLevel level)
 {
+    /// <summary>How far apart the lines stand.</summary>
+    readonly float _pitchM = level.CellM;
+
     /// <summary>How far a piece is walked between samples: half a pitch, so no step can cross two lines of one family.</summary>
     const float StepFraction = 0.5f;
 
@@ -365,7 +372,7 @@ internal struct MarkGrid(float fromM, float toM, float pitchM)
 
         while (_sampleM < _walkToM || OntoTheNextPiece(arcs))
         {
-            var ontoM = MathF.Min(_walkToM, _sampleM + (pitchM * StepFraction));
+            var ontoM = MathF.Min(_walkToM, _sampleM + (_pitchM * StepFraction));
             var ontoAtM = arcs[_piece].PointAtM(ontoM - _arcFromM);
             var (firstM, secondM) = Crossings(ontoAtM, ontoM);
 
@@ -403,9 +410,9 @@ internal struct MarkGrid(float fromM, float toM, float pitchM)
             // The stroke measured across the world rather than along the line, which is what this step's
             // own bearing turns it into — so how near is near enough is asked in the coordinate the
             // answer is read in.
-            var apartM = pitchM * ApartFraction * MathF.Abs(ontoAtM.X - _sampleAtM.X) / stepM;
+            var apartM = _pitchM * ApartFraction * MathF.Abs(ontoAtM.X - _sampleAtM.X) / stepM;
             var standsAtM = float.Lerp(_sampleAtM.X, ontoAtM.X, down);
-            if (MathF.Abs(MathF.IEEERemainder(standsAtM, pitchM)) < apartM) down = float.NaN;
+            if (MathF.Abs(MathF.IEEERemainder(standsAtM, _pitchM)) < apartM) down = float.NaN;
         }
 
         var acrossM = _sampleM + (across * stepM);
@@ -422,11 +429,11 @@ internal struct MarkGrid(float fromM, float toM, float pitchM)
     /// </summary>
     float CrossedAt(float fromAtM, float ontoAtM)
     {
-        var from = MathF.Floor(fromAtM / pitchM);
-        var onto = MathF.Floor(ontoAtM / pitchM);
+        var from = level.CellOf(fromAtM);
+        var onto = level.CellOf(ontoAtM);
         if (from == onto) return float.NaN;
 
-        return ((MathF.Max(from, onto) * pitchM) - fromAtM) / (ontoAtM - fromAtM);
+        return (level.EdgeM(Math.Max(from, onto)) - fromAtM) / (ontoAtM - fromAtM);
     }
 
     /// <summary>The next piece of the chain any of the stretch falls on, walked from where the stretch takes it up.</summary>

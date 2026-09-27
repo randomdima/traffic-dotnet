@@ -67,7 +67,7 @@ internal static class TownGenerator
         brief.Check(brief.Name);
 
         var worldSizeM = new Vector2(brief.WidthM, brief.HeightM);
-        var claims = GenClaims.Over(worldSizeM, brief.CellSizeM);
+        var claims = GenClaims.Over(config.Grid, worldSizeM, brief.CellSizeM);
 
         // <b>The ground, asked about while the town is still being laid.</b> Every stage below reads it to
         // decide where a thing may stand, and it is the same reading the finished map answers with — the

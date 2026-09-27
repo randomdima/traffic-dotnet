@@ -38,9 +38,8 @@ internal sealed partial class GroundShapes
         if (paving.DrivenCount == 0) return;
 
         var rings = paving.Rings(config);
-        var cellM = config.Terrain.ShellCellM;
-        _carriageway = RingSides.Of(rings.Carriageway.Rings, cellM);
-        _walk = RingSides.Of(rings.Walk.Rings, cellM);
+        _carriageway = RingSides.Of(rings.Carriageway.Rings, config.ShellLevel);
+        _walk = RingSides.Of(rings.Walk.Rings, config.ShellLevel);
     }
 
     /// <summary>The lattice the carriageway is answered off, for a census of what it costs.</summary>

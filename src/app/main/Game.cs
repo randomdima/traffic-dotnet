@@ -681,7 +681,7 @@ internal sealed partial class Game : IDisposable
         _sheets = _looks.Sheets;
         _renderer = NewRenderer(laid.Ground, TownSprites.CapacityFor(laid.Plan, _config));
         _looks.ReadAspects(_renderer);
-        _looks.Lay(laid.Plan, laid.World.Uses);
+        _looks.Lay(laid.Plan, laid.World.Uses, _config);
 
         _world?.Dispose();
         _world = laid.World;

@@ -14,7 +14,7 @@ took up to thirty-three a tick.
 The owner ruled it: **a lane is for the actors' logical behaviour and never for physics, and the ground is
 the shell.** What a wheel stands on is which side it is of the rings the picture fills
 (`GroundRings.Carriageway` and `Walk`), asked through a lattice over their pieces (`RingSides`,
-`Terrain.ShellCellM`): a cell no ring crosses is a lookup of the winding at its corner, and a cell one does
+`Terrain.ShellCellsAcrossGridCell`): a cell no ring crosses is a lookup of the winding at its corner, and a cell one does
 cross walks two legs from that corner to the point. The answer is the rings' own, so the corner where the
 square bands and the rounded fill parted, and the wedge a junction's corner is paved back over, are no longer
 a gap — the answer is the picture. `TER-7b`'s first consequence was reworded at the owner's word, from which

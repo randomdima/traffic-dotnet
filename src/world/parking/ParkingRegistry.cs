@@ -313,7 +313,8 @@ internal sealed class ParkingRegistry
     {
         var lots = plan.ParkingLots;
         var registry = new ParkingRegistry(
-            ways, Index(plan), lots.SpaceCount, cars, config.ParkingSpaceLengthM, config.ParkingSpaceWidthM);
+            ways, new BucketGrid(config.Grid.Main, plan.WorldSizeM), lots.SpaceCount, cars,
+            config.ParkingSpaceLengthM, config.ParkingSpaceWidthM);
 
         for (var bay = 0; bay < lots.SpaceCount; bay++)
         {
@@ -333,25 +334,8 @@ internal sealed class ParkingRegistry
         }
 
         // A bay is a place in the index and not a circle: what is measured against the query is the
-        // distance to its centre, and the lot it belongs to is already the bucket.
+        // distance to its centre, filed at the grid's main cell like every other place a car is asked about.
         registry._near.Rebuild(registry._centreM, new float[lots.SpaceCount], lots.SpaceCount);
         return registry;
-    }
-
-    /// <summary>
-    /// The index the bays are binned into, <b>bucketed at the lot</b> — the cluster they actually arrive in.
-    /// A handful of spaces along one chord share a bucket, so the ring a walk searches is lots and not bays.
-    /// </summary>
-    static BucketGrid Index(CityPlan plan)
-    {
-        var lots = plan.ParkingLots;
-        var bucketM = 0f;
-        foreach (var halfExtentM in lots.HalfExtentM) bucketM = MathF.Max(bucketM, halfExtentM.Length() * 2f);
-
-        // A map with no car park on it has nothing to bin, and one bucket over the whole town is the index
-        // that says so.
-        if (bucketM <= 0f) bucketM = MathF.Max(plan.WorldSizeM.X, plan.WorldSizeM.Y);
-
-        return new BucketGrid(plan.WorldSizeM, bucketM);
     }
 }

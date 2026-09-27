@@ -1,6 +1,6 @@
 # The kernel — requirements
 
-Units, the two seeds, the tick and the clock that spreads the town's thinking across it. **Nothing here
+Units, the one grid, the two seeds, the tick and the clock that spreads the town's thinking across it. **Nothing here
 knows about a town**: `core/` is the frame everything else is written in, and a type that needs to know
 what a junction is does not belong in it ([docs/slice-map.md](../../../docs/slice-map.md)).
 
@@ -18,6 +18,22 @@ radians or degrees stated in the name.
 - **Every size is derived from the car's width.** Ratios are normative in *form* — one constant rescales
   the whole town — even where their values are not. A variant car may be smaller than the standard box
   but never larger, because lane and junction geometry is assembled once for the whole fleet against it.
+
+## The one grid
+
+**SIM-8** `P4` **Every index over the map is laid on one grid** (`WorldGrid`): lines through the world's
+origin a main cell apart, and levels under it that halve every cell. An index keeps a window of one level
+and numbers its cells on the grid, so a cell of one index is the square of ground every other index means by
+those numbers, and a cell's relation to any other level is a shift.
+
+- **No index keeps a lattice, a bucket size or an origin of its own.** A second grid is a second answer to
+  where a place is.
+- **A level other than the main one is taken for a reason the index states** — a cost it measured or a
+  resolution its answer needs — and only by halving: a size between two levels is not a level.
+- **The grid is the numbering and not the store.** What a cell holds is its index's own, and a store may keep
+  whatever window of the level it needs.
+- **Not an index**: a value rounded to a tolerance so that equal ones meet (the mesh's weld key), a texture's
+  period, and a lattice that is the town's content rather than a way of finding it (a district's streets).
 
 ## Where a figure lives
 

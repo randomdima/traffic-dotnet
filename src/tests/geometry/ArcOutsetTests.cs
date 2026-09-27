@@ -23,6 +23,12 @@ public class ArcOutsetTests
 {
     const float ToleranceM = 1e-3f;
 
+    /// <summary>The move, on a grid of the shipped main cell.</summary>
+    static (ArcSeg[][] Rings, ArcSeg[][] Loose) Outset(
+        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM,
+        ArcOutset.Corners corners = ArcOutset.Corners.Rolled) =>
+        ArcOutset.Of(rings, outwardM, roundedM, new WorldGrid(8f), corners);
+
     /// <summary>How long a side of the test square is, and how far it is moved. Metres, and no relation between them beyond the second being much the smaller.</summary>
     const float SideM = 40f;
 
@@ -37,7 +43,7 @@ public class ArcOutsetTests
     [Fact]
     public void MovingASquareOutRoundsTheFourCornersItOpens()
     {
-        var (rings, loose) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: 0f);
+        var (rings, loose) = Outset([Square(SideM)], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
         Assert.Equal(
@@ -53,7 +59,7 @@ public class ArcOutsetTests
     [Fact]
     public void MovingASquareInTrimsTheFourCornersItCloses()
     {
-        var (rings, _) = ArcOutset.Of([Square(SideM)], -MovedM, roundedM: 0f);
+        var (rings, _) = Outset([Square(SideM)], -MovedM, roundedM: 0f);
 
         Assert.Equal(4f * MovedInSideM, Spline.TotalLengthM(Assert.Single(rings)), ToleranceM);
     }
@@ -76,7 +82,7 @@ public class ArcOutsetTests
     public void ARadiusInsideTheDistanceNeverBringsTheAnswerNearerTheShape(float roundedM)
     {
         var shape = SlottedSquare(SideM, SmoothedSlotM, deepM: SideM * 0.5f);
-        var (rings, loose) = ArcOutset.Of([shape], MovedM, roundedM);
+        var (rings, loose) = Outset([shape], MovedM, roundedM);
 
         Assert.Empty(loose);
         foreach (var piece in Assert.Single(rings))
@@ -123,8 +129,8 @@ public class ArcOutsetTests
     {
         var shape = SlottedSquare(SideM, SmoothedSlotM, deepM: SideM * 0.5f);
 
-        var (plain, _) = ArcOutset.Of([shape], MovedM, roundedM: 0f);
-        var (rounded, _) = ArcOutset.Of([shape], MovedM, roundedM: MovedM);
+        var (plain, _) = Outset([shape], MovedM, roundedM: 0f);
+        var (rounded, _) = Outset([shape], MovedM, roundedM: MovedM);
 
         Assert.True(Notches(Assert.Single(plain)) > 0, "the offset had no notch in it to round");
         Assert.Equal(0, Notches(Assert.Single(rounded)));
@@ -139,8 +145,8 @@ public class ArcOutsetTests
     [Fact]
     public void AndAShapeWithNoNotchIsNotRoundedAtAll()
     {
-        var (plain, _) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: 0f);
-        var (rounded, _) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: MovedM);
+        var (plain, _) = Outset([Square(SideM)], MovedM, roundedM: 0f);
+        var (rounded, _) = Outset([Square(SideM)], MovedM, roundedM: MovedM);
 
         Assert.Equal(
             Spline.TotalLengthM(Assert.Single(plain)),
@@ -165,7 +171,7 @@ public class ArcOutsetTests
     [InlineData(MovedM)]
     public void ARadiusPastTheDistanceCutsTheCornersTheShapeTurnsAwayAt(float outwardM)
     {
-        var (rings, loose) = ArcOutset.Of([Square(SideM)], outwardM, PastTheMoveM);
+        var (rings, loose) = Outset([Square(SideM)], outwardM, PastTheMoveM);
 
         Assert.Empty(loose);
         Assert.Equal(
@@ -186,8 +192,8 @@ public class ArcOutsetTests
     [Fact]
     public void AFillLeavesTheCornersTheShapeTurnsAwayAtWhereverTheDistancePutThem()
     {
-        var (plain, _) = ArcOutset.Of([Square(SideM)], MovedM, roundedM: 0f);
-        var (filled, _) = ArcOutset.Of([Square(SideM)], MovedM, PastTheMoveM, ArcOutset.Corners.Filled);
+        var (plain, _) = Outset([Square(SideM)], MovedM, roundedM: 0f);
+        var (filled, _) = Outset([Square(SideM)], MovedM, PastTheMoveM, ArcOutset.Corners.Filled);
 
         Assert.Equal(
             Spline.TotalLengthM(Assert.Single(plain)),
@@ -204,8 +210,8 @@ public class ArcOutsetTests
     {
         var shape = SlottedSquare(SideM, FilledSlotM, deepM: SideM * 0.5f);
 
-        var (plain, _) = ArcOutset.Of([shape], MovedM, roundedM: 0f);
-        var (filled, _) = ArcOutset.Of([shape], MovedM, PastTheMoveM, ArcOutset.Corners.Filled);
+        var (plain, _) = Outset([shape], MovedM, roundedM: 0f);
+        var (filled, _) = Outset([shape], MovedM, PastTheMoveM, ArcOutset.Corners.Filled);
 
         Assert.True(Notches(Assert.Single(plain)) > 0, "the offset had no notch in it to fill");
         Assert.Equal(0, Notches(Assert.Single(filled)));
@@ -252,7 +258,7 @@ public class ArcOutsetTests
     {
         const float RadiusM = 25f;
 
-        var (rings, _) = ArcOutset.Of([Circle(RadiusM)], MovedM, roundedM: MovedM * 0.5f);
+        var (rings, _) = Outset([Circle(RadiusM)], MovedM, roundedM: MovedM * 0.5f);
 
         var piece = Assert.Single(Assert.Single(rings));
         Assert.Equal(1f / (RadiusM + MovedM), piece.Curvature, ToleranceM);
@@ -287,7 +293,7 @@ public class ArcOutsetTests
     {
         const float SlotM = MovedM * 0.8f;
 
-        var (rings, loose) = ArcOutset.Of(
+        var (rings, loose) = Outset(
             [SlottedSquare(SideM, SlotM, deepM: SideM * 0.5f)], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
@@ -306,7 +312,7 @@ public class ArcOutsetTests
     [Fact]
     public void AShapeMovedInPastItsOwnSizeCollapses()
     {
-        var (rings, loose) = ArcOutset.Of([Square(SideM)], -SideM * 0.75f, roundedM: 0f);
+        var (rings, loose) = Outset([Square(SideM)], -SideM * 0.75f, roundedM: 0f);
 
         Assert.Empty(rings);
         Assert.Empty(loose);
@@ -322,7 +328,7 @@ public class ArcOutsetTests
     {
         const float ApartM = MovedM;
 
-        var (rings, loose) = ArcOutset.Of(
+        var (rings, loose) = Outset(
             [Square(SideM), Square(SideM, new Vector2(SideM + ApartM, 0f))], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
@@ -346,7 +352,7 @@ public class ArcOutsetTests
     {
         const float RadiusM = 6f;
 
-        var (rings, loose) = ArcOutset.Of(
+        var (rings, loose) = Outset(
             [Circle(RadiusM), Circle(RadiusM, new Vector2(2f * RadiusM + MovedM, 0f))], MovedM, roundedM: 0f);
 
         Assert.Empty(loose);
@@ -372,7 +378,7 @@ public class ArcOutsetTests
     [InlineData(PastTheMoveM)]
     public void RoundingPutsNoArcWhereTheRingMerelyDoublesBack(float roundedM)
     {
-        var (rings, loose) = ArcOutset.Of([KinkedSquare(SideM)], MovedM, roundedM);
+        var (rings, loose) = Outset([KinkedSquare(SideM)], MovedM, roundedM);
 
         Assert.Empty(loose);
         foreach (var piece in Assert.Single(rings))

@@ -26,11 +26,12 @@ namespace TrafficSimulation.Core.Geometry;
 /// anything on which candidate it met first settles it on the lattice.
 /// </para>
 /// <para>
-/// <b>The lattice is the map's and not the set's</b>: the origin is snapped down to a whole cell, so two
-/// indexes sealed at one cell size lay their cells on the same lines whatever ground each of them happens
-/// to cover. That is what makes a cell a place in the town rather than a place in a set — one debug layer
-/// can draw the grid every index is asked over (OBS-2r), and two indexes' answers about one cell are
-/// answers about one square of ground.
+/// <b>The lattice is the grid's and not the set's</b> (SIM-8): the cells are a window of one level of
+/// <see cref="WorldGrid"/>, so two indexes at one level lay their cells on the same lines whatever ground
+/// each of them happens to cover, and an index at another level relates to them by a shift. That is what
+/// makes a cell a place in the town rather than a place in a set — one debug layer can draw the grid every
+/// index is asked over (OBS-2r), and two indexes' answers about one cell are answers about one square of
+/// ground.
 /// </para>
 /// <para>
 /// <b>It is built once and never written to again.</b> The networks it serves are laid with the town
@@ -41,12 +42,9 @@ namespace TrafficSimulation.Core.Geometry;
 /// (<see cref="NewScan"/>).
 /// </para>
 /// <para>
-/// <b>Geometry, and never a body.</b> What is binned here is the town's fixed lines; the moving population
-/// has a lattice of its own (<see cref="World.Physics.CellGrid"/>, stamped into every cell a box touches and
-/// rebuilt twice a step) and the circles a third (<see cref="BucketGrid"/>, indexed at the centre and
-/// widened by the largest radius in the set). They are three because a query walking one population pays
-/// for the other two, and because what each is asked is different enough that one cell size would be wrong
-/// for two of them.
+/// <b>Geometry, and never a body.</b> What is binned here is the town's fixed lines; the moving bodies are
+/// kept by the solver's own index and the circles by <see cref="BucketGrid"/>, on the same grid. They are
+/// three stores because a query walking one population pays for the other two, and never three lattices.
 /// </para>
 /// <para>
 /// A piece's box is taken by walking it at <see cref="SampleStepM"/> and grown by half that step, which
@@ -80,7 +78,7 @@ internal sealed class ChainIndex
     /// </summary>
     const float MarginM = SampleStepM * 0.5f;
 
-    /// <summary>What no index may exceed however far its chains are spread: the cell grows instead.</summary>
+    /// <summary>What no index may exceed however far its chains are spread: it is laid a level coarser instead.</summary>
     const int MostCells = 1 << 22;
 
     readonly ArcSeg[] _arcs;
@@ -103,11 +101,7 @@ internal sealed class ChainIndex
     readonly Vector2[] _slotLeastM;
     readonly Vector2[] _slotMostM;
 
-    readonly float _cellM;
-    readonly float _inverseCellM;
-    readonly Vector2 _originM;
-    readonly int _width;
-    readonly int _height;
+    readonly GridWindow _window;
 
     /// <summary>Prefix offsets, one past the last cell, so a cell's run of entries is a subtraction.</summary>
     readonly int[] _cellStart;
@@ -122,7 +116,7 @@ internal sealed class ChainIndex
 
     ChainIndex(
         ArcSeg[] arcs, int[] arcStart, float[] lengthM, int[] chainId, Vector2[] slotLeastM, Vector2[] slotMostM,
-        float cellM, Vector2 originM, int width, int height, int[] cellStart, int[] entrySlot)
+        GridWindow window, int[] cellStart, int[] entrySlot)
     {
         _arcs = arcs;
         _arcStart = arcStart;
@@ -130,11 +124,7 @@ internal sealed class ChainIndex
         _chainId = chainId;
         _slotLeastM = slotLeastM;
         _slotMostM = slotMostM;
-        _cellM = cellM;
-        _inverseCellM = 1f / cellM;
-        _originM = originM;
-        _width = width;
-        _height = height;
+        _window = window;
         _cellStart = cellStart;
         _entrySlot = entrySlot;
         _own = NewScan();
@@ -184,7 +174,7 @@ internal sealed class ChainIndex
     /// ring of a hundred thousand pieces; an index of rings answers "what is nearest" and "what crosses this"
     /// with all of them, which is the whole set for every query.
     /// </remarks>
-    public static ChainIndex OfPieces(ReadOnlySpan<ArcSeg> pieces, float cellM)
+    public static ChainIndex OfPieces(ReadOnlySpan<ArcSeg> pieces, GridLevel level)
     {
         var building = new Builder();
         for (var at = 0; at < pieces.Length; at++)
@@ -192,31 +182,21 @@ internal sealed class ChainIndex
             building.Add(at, pieces.Slice(at, 1), MathF.Abs(pieces[at].LengthM));
         }
 
-        return building.Seal(cellM);
+        return building.Seal(level);
     }
 
     /// <summary>
-    /// How wide one cell is. <b>The cell the index settled on and not the one it was asked for</b>: a set
-    /// spread far enough to want more cells than any index may hold is binned coarsely instead
-    /// (<see cref="MostCells"/>), and a caller drawing or reasoning about the lattice wants the figure the
-    /// chains were actually binned at.
+    /// <b>The cells the chains were binned into</b> — a window of the level the index settled on, which is
+    /// not always the one it was asked for: a set spread far enough to want more cells than any index may
+    /// hold is binned a level coarser instead (<see cref="MostCells"/>), and a caller drawing or reasoning
+    /// about the lattice wants the level the chains were actually binned at.
     /// </summary>
-    public float CellM => _cellM;
+    public GridWindow Window => _window;
 
     /// <summary>
-    /// The corner cell <c>(0, 0)</c> starts at, which stands on the lattice: it is the least corner of the
-    /// set snapped <em>down</em> to a whole cell, so the cells of two indexes at one cell size line up.
-    /// </summary>
-    public Vector2 OriginM => _originM;
-
-    /// <summary>How many cells across and down the lattice runs.</summary>
-    public int Width => _width;
-
-    public int Height => _height;
-
-    /// <summary>
-    /// <b>How many chains have a piece in one cell</b>, each counted once however many of its pieces are in
-    /// there — which is what a picture of the grid is a picture of (OBS-2r). Nought outside the lattice.
+    /// <b>How many chains have a piece in one cell</b>, numbered on the grid, each counted once however many
+    /// of its pieces are in there — which is what a picture of the grid is a picture of (OBS-2r). Nought
+    /// outside the window.
     /// </summary>
     /// <remarks>
     /// It counts on the queries' own stamp, so it spends their working set: a caller cannot ask this
@@ -232,10 +212,10 @@ internal sealed class ChainIndex
     /// </summary>
     public int ChainsInCell(int atX, int atY, Span<int> ids)
     {
-        if (atX < 0 || atY < 0 || atX >= _width || atY >= _height) return 0;
+        if (!_window.Holds(atX, atY)) return 0;
 
         _own.Generation++;
-        var cell = (atY * _width) + atX;
+        var cell = _window.IndexOf(atX, atY);
         var chains = 0;
         for (var entry = _cellStart[cell]; entry < _cellStart[cell + 1]; entry++)
         {
@@ -336,8 +316,8 @@ internal sealed class ChainIndex
 
         // The answer is nearly always in the first ring; where it is not, the ring is grown to whatever
         // the best found needs and the question asked again.
-        var radiusM = _cellM;
-        var acrossM = (_width + _height) * _cellM;
+        var radiusM = _window.Level.CellM;
+        var acrossM = (_window.Width + _window.Height) * _window.Level.CellM;
         while (true)
         {
             Gather(scan, pointM, radiusM);
@@ -428,17 +408,17 @@ internal sealed class ChainIndex
     /// </summary>
     void Offer(Scan scan, Vector2 leastM, Vector2 mostM)
     {
-        if (!Range(leastM, mostM, out var fromX, out var fromY, out var toX, out var toY)) return;
+        if (!_window.TryOverlap(leastM, mostM, out var range)) return;
 
         var stamp = scan.Stamp;
         var candidate = scan.Candidate;
         var generation = scan.Generation;
         var count = scan.Count;
-        for (var y = fromY; y <= toY; y++)
+        for (var y = range.FromY; y <= range.ToY; y++)
         {
-            for (var x = fromX; x <= toX; x++)
+            for (var x = range.FromX; x <= range.ToX; x++)
             {
-                var cell = y * _width + x;
+                var cell = _window.IndexOf(x, y);
                 for (var entry = _cellStart[cell]; entry < _cellStart[cell + 1]; entry++)
                 {
                     var slot = _entrySlot[entry];
@@ -547,26 +527,6 @@ internal sealed class ChainIndex
         mostM = Vector2.Max(mostM, most + margin);
     }
 
-    /// <summary>A corner taken down to the lattice the cell size lays over the map.</summary>
-    static Vector2 Snapped(Vector2 cornerM, float cellM) =>
-        new(MathF.Floor(cornerM.X / cellM) * cellM, MathF.Floor(cornerM.Y / cellM) * cellM);
-
-    bool Range(Vector2 leastM, Vector2 mostM, out int fromX, out int fromY, out int toX, out int toY)
-    {
-        fromX = (int)MathF.Floor((leastM.X - _originM.X) * _inverseCellM);
-        fromY = (int)MathF.Floor((leastM.Y - _originM.Y) * _inverseCellM);
-        toX = (int)MathF.Floor((mostM.X - _originM.X) * _inverseCellM);
-        toY = (int)MathF.Floor((mostM.Y - _originM.Y) * _inverseCellM);
-
-        if (toX < 0 || toY < 0 || fromX >= _width || fromY >= _height) return false;
-
-        fromX = Math.Max(fromX, 0);
-        fromY = Math.Max(fromY, 0);
-        toX = Math.Min(toX, _width - 1);
-        toY = Math.Min(toY, _height - 1);
-        return true;
-    }
-
     /// <summary>
     /// The chains fed in one at a time, then sealed. Build-time only: it allocates freely, and what it
     /// produces is never written to again.
@@ -608,27 +568,22 @@ internal sealed class ChainIndex
             _arcStart.Add(_arcs.Count);
         }
 
-        public ChainIndex Seal(float cellSizeM)
+        public ChainIndex Seal(GridLevel level)
         {
             var slots = _chainId.Count;
-            var cellM = MathF.Max(cellSizeM, 1e-3f);
-            if (slots == 0) return new ChainIndex([], [0], [], [], [], [], cellM, Vector2.Zero, 0, 0, [0], []);
+            if (slots == 0) return new ChainIndex([], [0], [], [], [], [], GridWindow.Of(level, 0, 0, 0, 0), [0], []);
 
-            // <b>The origin is snapped down to a whole cell, so the lattice belongs to the map</b> — two
-            // indexes sealed at one cell size then bin the same ground into the same cells, whatever each of
-            // them covers. The snap is inside the loop because it moves the corner the cells are counted
-            // from, and a cell that had to grow is a coarser lattice to snap to.
-            var originM = Snapped(_leastM, cellM);
-            while (Cells(Vector2.Max(_mostM - originM, Vector2.Zero), cellM) > MostCells)
+            // <b>A window of one level of the grid, so the lattice belongs to the map</b> (SIM-8) — two
+            // indexes at one level bin the same ground into the same cells, whatever each of them covers. A
+            // set too wide for the cells any index may hold is laid a level coarser, down to the main cell.
+            var window = GridWindow.Over(level, _leastM, _mostM);
+            while ((long)window.Width * window.Height > MostCells && level.Depth > 0)
             {
-                cellM *= 2f;
-                originM = Snapped(_leastM, cellM);
+                level = level.Coarser;
+                window = GridWindow.Over(level, _leastM, _mostM);
             }
 
-            var inverse = 1f / cellM;
-            var width = (int)MathF.Floor((_mostM.X - originM.X) * inverse) + 1;
-            var height = (int)MathF.Floor((_mostM.Y - originM.Y) * inverse) + 1;
-            var cells = width * height;
+            var cells = window.Count;
 
             // A counting sort, and the two passes are one method so they cannot disagree about which
             // cells a chain reaches — a count that missed one is a run written past its end.
@@ -641,7 +596,7 @@ internal sealed class ChainIndex
             var counts = new int[cells];
             for (var slot = 0; slot < slots; slot++)
             {
-                Bin(slot, originM, inverse, width, height, marked, ref claim, counts, null, null);
+                Bin(slot, window, marked, ref claim, counts, null, null);
             }
 
             var start = new int[cells + 1];
@@ -659,12 +614,12 @@ internal sealed class ChainIndex
             var entries = new int[at];
             for (var slot = 0; slot < slots; slot++)
             {
-                Bin(slot, originM, inverse, width, height, marked, ref claim, null, cursor, entries);
+                Bin(slot, window, marked, ref claim, null, cursor, entries);
             }
 
             return new ChainIndex(
-                [.. _arcs], [.. _arcStart], [.. _lengthM], [.. _chainId], [.. _slotLeastM], [.. _slotMostM], cellM,
-                originM, width, height, start, entries);
+                [.. _arcs], [.. _arcStart], [.. _lengthM], [.. _chainId], [.. _slotLeastM], [.. _slotMostM], window,
+                start, entries);
         }
 
         /// <summary>
@@ -701,9 +656,9 @@ internal sealed class ChainIndex
         /// </para>
         /// </remarks>
         void Bin(
-            int slot, Vector2 originM, float inverse, int width, int height, int[] marked, ref int claim,
-            int[]? counts, int[]? cursor, int[]? entries)
+            int slot, GridWindow window, int[] marked, ref int claim, int[]? counts, int[]? cursor, int[]? entries)
         {
+            var margin = new Vector2(MarginM);
             for (var index = _arcStart[slot]; index < _arcStart[slot + 1]; index++)
             {
                 var arc = _arcs[index];
@@ -711,15 +666,12 @@ internal sealed class ChainIndex
                 for (var atM = 0f; ; atM += SampleStepM)
                 {
                     var pointM = arc.PointAtM(MathF.Min(atM, arc.LengthM));
-                    var fromX = Cell(pointM.X - MarginM - originM.X, inverse, width);
-                    var fromY = Cell(pointM.Y - MarginM - originM.Y, inverse, height);
-                    var toX = Cell(pointM.X + MarginM - originM.X, inverse, width);
-                    var toY = Cell(pointM.Y + MarginM - originM.Y, inverse, height);
-                    for (var y = fromY; y <= toY; y++)
+                    window.TryRange(pointM - margin, pointM + margin, out var range);
+                    for (var y = range.FromY; y <= range.ToY; y++)
                     {
-                        for (var x = fromX; x <= toX; x++)
+                        for (var x = range.FromX; x <= range.ToX; x++)
                         {
-                            var cell = (y * width) + x;
+                            var cell = window.IndexOf(x, y);
                             if (marked[cell] == claim) continue;
 
                             marked[cell] = claim;
@@ -732,11 +684,5 @@ internal sealed class ChainIndex
                 }
             }
         }
-
-        static int Cell(float offsetM, float inverse, int extent) =>
-            Math.Clamp((int)MathF.Floor(offsetM * inverse), 0, extent - 1);
-
-        static long Cells(Vector2 spanM, float cellM) =>
-            ((long)MathF.Floor(spanM.X / cellM) + 1) * ((long)MathF.Floor(spanM.Y / cellM) + 1);
     }
 }

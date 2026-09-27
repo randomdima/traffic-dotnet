@@ -176,8 +176,9 @@ internal sealed class TownSprites
     /// The town's buildings and props laid out as instances, once. Wants the aspects, so it is called
     /// after the renderer for this town exists and its sheets have been measured.
     /// </summary>
-    public void Lay(CityPlan plan, BuildingUses uses) =>
-        Standing = StandingSprites.Lay(plan, Buildings, uses, Props, FirstBuildingSheet, FirstPropSheet, Aspects);
+    public void Lay(CityPlan plan, BuildingUses uses, SimConfig config) =>
+        Standing = StandingSprites.Lay(
+            plan, Buildings, uses, Props, FirstBuildingSheet, FirstPropSheet, Aspects, config.Grid.Main);
 
     public void Clear() => Standing = StandingSprites.Nothing;
 

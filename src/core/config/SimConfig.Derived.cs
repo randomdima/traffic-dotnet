@@ -1,3 +1,5 @@
+using TrafficSimulation.Core.Geometry;
+
 namespace TrafficSimulation.Core.Config;
 
 /// <summary>
@@ -289,8 +291,20 @@ internal sealed partial class SimConfig
     /// </summary>
     public float RoadFootprintM => RoadWidthM + (PavementWidthM * 2f);
 
-    /// <summary>How far apart the ribbon atlas's points stand (<see cref="RoadFigures.RibbonLatticeInCarWidths"/>).</summary>
-    public float RibbonLatticeStepM => Car.WidthM * Road.RibbonLatticeInCarWidths;
+    /// <summary>
+    /// <b>The one grid every index over the map is laid on</b> (SIM-8), its main cell
+    /// <see cref="SimFigures.GridCellInCarWidths"/> car widths across.
+    /// </summary>
+    public WorldGrid Grid => new(Car.WidthM * Sim.GridCellInCarWidths);
+
+    /// <summary>The level the ribbon atlas's points stand on (<see cref="RoadFigures.RibbonPointsAcrossGridCell"/>).</summary>
+    public GridLevel RibbonLevel => Grid.Split(Road.RibbonPointsAcrossGridCell);
+
+    /// <summary>How far apart the ribbon atlas's points stand.</summary>
+    public float RibbonLatticeStepM => RibbonLevel.CellM;
+
+    /// <summary>The level the town's boundary is answered off (<see cref="TerrainFigures.ShellCellsAcrossGridCell"/>).</summary>
+    public GridLevel ShellLevel => Grid.Split(Terrain.ShellCellsAcrossGridCell);
 
     /// <summary>How deep two ribbons' shared ground has to be before they are marked (<see cref="RoadFigures.RibbonTouchInCarWidths"/>).</summary>
     public float RibbonTouchM => Car.WidthM * Road.RibbonTouchInCarWidths;
@@ -810,30 +824,4 @@ internal sealed partial class SimConfig
 
     /// <summary>How early a pair is given a manifold. See <see cref="SolverFigures.AllowedPenetrationM"/>.</summary>
     public float SolverSpeculativeM => Solver.AllowedPenetrationM * 4f;
-
-    /// <summary>
-    /// The broad phase's cell. Sized at the query rather than at the population: a car's own box is what
-    /// most cells are asked about, and a cell of two car lengths puts a car in one or two of them while
-    /// keeping a hundred-metre ray's walk to a dozen.
-    /// </summary>
-    public float SolverCellSizeM => Car.LengthM * 2f;
-
-    /// <summary>
-    /// The bucket the proximity index is laid at: the widest question anything asks of it, which is the
-    /// reach a walker keeps clear of a car it is running from.
-    /// </summary>
-    /// <remarks>
-    /// Sized at the query and never at the body or the terrain cell. Too small and a query walks a field
-    /// of empty buckets to find its handful of neighbours; too large and every query hands back most of
-    /// the district. Laying it at the terrain cell — a metre — put 6.9 million buckets over Odesa.
-    /// </remarks>
-    public float ProximityBucketM => Person.FleeDistanceM;
-
-    /// <summary>
-    /// The cell a network's own lines are binned into, for the scans that ask which line a point is
-    /// nearest. Sized at the road rather than at the query: what shares a cell is then the handful of
-    /// pieces that actually run alongside each other, so the first ring holds the answer and the search
-    /// stops at it.
-    /// </summary>
-    public float NearestChainCellM => RoadWidthM * 2f;
 }

@@ -38,6 +38,17 @@ internal sealed class SimFigures
 
     /// <summary>A time scale above this integrates the physics coarsely and manufactures collisions the model never had.</summary>
     public float SoakMaxTimeScale { get; init; } = 4f;
+
+    /// <summary>
+    /// <b>How wide the one grid's main cell is</b> (SIM-8), in car widths — the cell every index over the map
+    /// numbers its own on, and the one anything asked about a car or a street is binned at.
+    /// </summary>
+    /// <remarks>
+    /// Sized at the question rather than at any one population: two car lengths puts a car's box in one or
+    /// two cells and keeps a hundred-metre ray's walk to a dozen, and a street's own lines, a walker's flight
+    /// and a car park's bays are all asked about within a cell or two of this.
+    /// </remarks>
+    public float GridCellInCarWidths { get; init; } = 4f;
 }
 
 /// <summary>What the town is looked at through, and the grids the art was cut on. Nothing here is simulated.</summary>

@@ -42,7 +42,7 @@ public class RibbonAtlasTests
     }
 
     static RibbonAtlas Laid(params ArcSeg[][] lines) =>
-        RibbonAtlas.Lay(new Lines(lines), Config.RibbonLatticeStepM, Config.RibbonTouchM);
+        RibbonAtlas.Lay(new Lines(lines), Config.RibbonLevel, Config.RibbonTouchM);
 
     static RibbonAtlas Laid(params (Vector2 FromM, Vector2 ToM)[] lines) =>
         Laid([.. lines.Select(static line => Straight(line.FromM, line.ToM))]);

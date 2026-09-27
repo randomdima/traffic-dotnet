@@ -268,7 +268,7 @@ internal sealed partial class DebugOverlay
         draw.BoxM(cars.PositionM[car], sizeM, cars.HeadingRad[car], lineM, Theme.DebugPicked);
 
         CarRoute(
-            ref draw, focus.World, car, PathMarks.MarkPitchAt(focus.PixelsPerMetre), focus.SagM, lineM,
+            ref draw, focus.World, car, PathMarks.MarkPitchAt(focus.Config.Grid, focus.PixelsPerMetre), focus.SagM, lineM,
             Theme.AgentLine(car));
     }
 
@@ -281,7 +281,7 @@ internal sealed partial class DebugOverlay
         draw.RingM(people.PositionM[person], radiusM, lineM, Theme.DebugPicked);
 
         WalkerRoute(
-            ref draw, focus.World, person, PathMarks.MarkPitchAt(focus.PixelsPerMetre), lineM, Theme.AgentLine(person));
+            ref draw, focus.World, person, PathMarks.MarkPitchAt(focus.Config.Grid, focus.PixelsPerMetre), lineM, Theme.AgentLine(person));
     }
 
     static void DescribeCar(ref InfoCard card, TownWorld world, int car)
@@ -592,15 +592,15 @@ internal sealed partial class DebugOverlay
     /// </summary>
     const float AboveTheLegendPx = CornerMarginPx + 5f + 13f + Theme.SmallTextPx + Theme.TextPx + 8f;
 
-    /// <summary>The cell of the geometry grid a place is in, where the grid reaches it at all.</summary>
+    /// <summary>The cell of the geometry grid a place is in, numbered on the grid, held to the index's window.</summary>
     static bool GeometryCellAt(Paving paving, SimConfig config, Vector2 pointM, out int atX, out int atY)
     {
-        var grid = paving.DrivenLines(config);
-        atX = atY = -1;
-        if (grid.Width <= 0 || grid.Height <= 0) return false;
+        var window = paving.DrivenLines(config).Window;
+        atX = atY = 0;
+        if (window.IsEmpty) return false;
 
-        atX = Cell(pointM.X - grid.OriginM.X, grid.CellM, grid.Width);
-        atY = Cell(pointM.Y - grid.OriginM.Y, grid.CellM, grid.Height);
+        atX = window.ClampX(window.Level.CellOf(pointM.X));
+        atY = window.ClampY(window.Level.CellOf(pointM.Y));
         return true;
     }
 
@@ -619,8 +619,9 @@ internal sealed partial class DebugOverlay
         if (!GeometryCellAt(focus.Paving, focus.Config, atM, out var atX, out var atY)) return;
 
         var grid = focus.Paving.DrivenLines(focus.Config);
-        var cellM = grid.CellM;
-        var middleM = grid.OriginM + new Vector2((atX + 0.5f) * cellM, (atY + 0.5f) * cellM);
+        var level = grid.Window.Level;
+        var cellM = level.CellM;
+        var middleM = level.MiddleM(atX, atY);
         var held = grid.ChainsInCell(atX, atY, _inCell);
 
         draw.BoxM(middleM, new Vector2(cellM), 0f, focus.LineM, Theme.DebugPicked);
@@ -651,12 +652,13 @@ internal sealed partial class DebugOverlay
         line.Add(" lines");
         card.Keep(in line);
 
+        var window = grid.Window;
         line = card.Next();
-        line.Add(grid.Width);
+        line.Add(window.Width);
         line.Add(" x ");
-        line.Add(grid.Height);
+        line.Add(window.Height);
         line.Add(" cells of ");
-        line.Add(grid.CellM, "F1");
+        line.Add(window.Level.CellM, "F1");
         line.Add(" m");
         card.Keep(in line);
     }
@@ -668,24 +670,16 @@ internal sealed partial class DebugOverlay
         return BodiesAt(physics.MovingIndex, pointM, out _, out _) + BodiesAt(physics.StaticIndex, pointM, out _, out _);
     }
 
-    /// <summary>How many bodies one grid holds in the cell over a place, and which cell that is — none off the grid.</summary>
+    /// <summary>How many bodies one index holds in the grid's cell over a place, and which cell that is — none off its window.</summary>
     static int BodiesAt(CellGrid grid, Vector2 pointM, out int atX, out int atY)
     {
-        atX = atY = -1;
-        if (grid.Width <= 0 || grid.Height <= 0) return 0;
-
-        var offsetM = (pointM - grid.OriginM) / grid.CellSizeM;
-        atX = (int)MathF.Floor(offsetM.X);
-        atY = (int)MathF.Floor(offsetM.Y);
-        if (atX < 0 || atY < 0 || atX >= grid.Width || atY >= grid.Height) return 0;
-
+        (atX, atY) = grid.Window.Level.CellOf(pointM);
         return grid.Items(atX, atY).Length;
     }
 
     /// <summary>
-    /// <b>Both solver cells over a place, each in its own grid's hue</b> (OBS-2x): the two lattices are laid
-    /// from different corners at different sizes, so the one place has a cell in each and the pair is the
-    /// reading.
+    /// <b>Both solver cells over a place, each in its own index's hue</b> (OBS-2x): the two stores are on one
+    /// grid at one level (SIM-8), so where both hold bodies the two boxes are one square drawn twice.
     /// </summary>
     static void FocusSolverCells(ref ScreenDraw draw, in Focus focus, Vector2 atM)
     {
@@ -698,8 +692,8 @@ internal sealed partial class DebugOverlay
     {
         if (BodiesAt(grid, atM, out var atX, out var atY) == 0) return;
 
-        var cellM = grid.CellSizeM;
-        var middleM = grid.OriginM + new Vector2((atX + 0.5f) * cellM, (atY + 0.5f) * cellM);
+        var cellM = grid.Window.Level.CellM;
+        var middleM = grid.Window.Level.MiddleM(atX, atY);
         draw.BoxM(middleM, new Vector2(cellM), 0f, lineM * PathMarks.CasingWidthFactor, Theme.Casing);
         draw.BoxM(middleM, new Vector2(cellM), 0f, lineM, colour);
     }
@@ -721,7 +715,7 @@ internal sealed partial class DebugOverlay
         var line = card.Next();
         line.Add(name);
         line.PadTo(8);
-        if (atX < 0)
+        if (!grid.Window.Holds(atX, atY))
         {
             line.Add("off the grid");
             card.Keep(in line);
@@ -733,7 +727,7 @@ internal sealed partial class DebugOverlay
         line.Add(", ");
         line.Add(atY);
         line.Add(" of ");
-        line.Add(grid.CellSizeM, "F1");
+        line.Add(grid.Window.Level.CellM, "F1");
         line.Add(" m holds ");
         line.Add(bodies);
         card.Keep(in line);

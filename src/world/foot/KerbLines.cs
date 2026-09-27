@@ -107,7 +107,7 @@ internal sealed class KerbLines
         foreach (var run in runs) Take(run, closes: false);
 
         return new KerbLines(
-            [.. pieces], ChainIndex.OfPieces([.. pieces], config.NearestChainCellM), [.. lineOfPiece],
+            [.. pieces], ChainIndex.OfPieces([.. pieces], config.Grid.Main), [.. lineOfPiece],
             [.. startOfPieceM], [.. lineOffsets], [.. lineLengthM], [.. lineCloses]);
 
         void Take(ReadOnlySpan<ArcSeg> line, bool closes)

@@ -271,7 +271,7 @@ internal sealed partial class PhysicsWorld
     /// </remarks>
     public void SettleStatics()
     {
-        _staticGrid.Rebuild(_static.AsSpan(0, _staticCount), _leastM, _mostM, _config.SolverCellSizeM);
+        _staticGrid.Rebuild(_static.AsSpan(0, _staticCount), _leastM, _mostM, _config.Grid.Main);
         _staticIndexStale = false;
     }
 

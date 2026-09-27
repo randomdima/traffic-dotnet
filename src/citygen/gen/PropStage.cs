@@ -36,7 +36,7 @@ internal static class PropStage
     {
         var acrossM = new Vector2(brief.WidthM, brief.HeightM);
         var widestM = MathF.Max(config.CityGen.PropDiameterMaxM, config.CityGen.PropWildDiameterMaxM);
-        var scatter = PropScatter.Over(acrossM, widestM, config.CityGen.PropApartM);
+        var scatter = PropScatter.Over(config.Grid, acrossM, widestM, config.CityGen.PropApartM);
 
         AlongTheKerbs(paving.Rings(config), ground, claims, config, scatter, ref draw);
         OverWhatIsLeft(acrossM, ground, claims, config, scatter, ref draw);

@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.World.Road;
@@ -36,12 +37,6 @@ namespace TrafficSimulation.World.Road;
 internal static class RibbonMarks
 {
     /// <summary>
-    /// How wide a cell of the search for pieces near each other is, in lattice steps. <b>A bound on the work
-    /// and not a figure anything reads</b>: every two pieces whose boxes meet are weighed whatever it is.
-    /// </summary>
-    const int CellInSteps = 16;
-
-    /// <summary>
     /// How many times an end of a section is closed in on once a step has bracketed it — a lattice step
     /// halved this often is under a micrometre.
     /// </summary>
@@ -52,10 +47,14 @@ internal static class RibbonMarks
     /// resolves nothing either.
     /// </param>
     /// <param name="touchM">How deep inside both two ribbons their ground has to lie to be shared.</param>
-    public static WayCrossings Of(IRibbonLines lines, float[] lengthM, float stepM, float touchM)
+    /// <param name="nearLevel">
+    /// The level of the grid the search for pieces near each other is filed at (SIM-8). <b>A bound on the
+    /// work and not a figure anything reads</b>: every two pieces whose boxes meet are weighed whatever it is.
+    /// </param>
+    public static WayCrossings Of(IRibbonLines lines, float[] lengthM, float stepM, float touchM, GridLevel nearLevel)
     {
         var pairings = new List<Pairing>();
-        new Near(PiecesOf(lines), stepM * CellInSteps).EachPair(
+        new Near(PiecesOf(lines), nearLevel).EachPair(
             () => new Pairing(),
             (pairing, one, other) => Weigh(pairing, one, other, stepM, touchM),
             pairing =>
@@ -190,23 +189,19 @@ internal static class RibbonMarks
     }
 
     /// <summary>
-    /// <b>Which pieces stand near which</b>: every piece filed under each cell of a coarse grid its box
-    /// covers, so that two pieces are only ever weighed where their boxes meet.
+    /// <b>Which pieces stand near which</b>: every piece filed under each cell of the grid its box covers, so
+    /// that two pieces are only ever weighed where their boxes meet.
     /// </summary>
     sealed class Near
     {
         readonly RibbonPiece[] _pieces;
-        readonly Vector2 _leastM;
-        readonly float _cellM;
-        readonly int _columns;
-        readonly int _rows;
+        readonly GridWindow _window;
         readonly int[] _cellFirst;
         readonly int[] _inCell;
 
-        public Near(RibbonPiece[] pieces, float cellM)
+        public Near(RibbonPiece[] pieces, GridLevel level)
         {
             _pieces = pieces;
-            _cellM = cellM;
             var leastM = new Vector2(float.MaxValue);
             var mostM = new Vector2(float.MinValue);
             foreach (var piece in pieces)
@@ -217,35 +212,33 @@ internal static class RibbonMarks
 
             if (pieces.Length == 0) leastM = mostM = Vector2.Zero;
 
-            _leastM = leastM;
-            _columns = (int)((mostM.X - leastM.X) / cellM) + 1;
-            _rows = (int)((mostM.Y - leastM.Y) / cellM) + 1;
+            _window = GridWindow.Over(level, leastM, mostM);
 
-            _cellFirst = new int[(_columns * _rows) + 1];
+            _cellFirst = new int[_window.Count + 1];
             foreach (var piece in pieces)
             {
-                Cells(piece, out var from, out var to);
-                for (var row = from / _columns; row <= to / _columns; row++)
+                var range = Cells(piece);
+                for (var row = range.FromY; row <= range.ToY; row++)
                 {
-                    for (var column = from % _columns; column <= to % _columns; column++)
+                    for (var column = range.FromX; column <= range.ToX; column++)
                     {
-                        _cellFirst[(row * _columns) + column + 1]++;
+                        _cellFirst[_window.IndexOf(column, row) + 1]++;
                     }
                 }
             }
 
-            for (var cell = 0; cell < _columns * _rows; cell++) _cellFirst[cell + 1] += _cellFirst[cell];
+            for (var cell = 0; cell < _window.Count; cell++) _cellFirst[cell + 1] += _cellFirst[cell];
 
             _inCell = new int[_cellFirst[^1]];
             var cursor = (int[])_cellFirst.Clone();
             for (var index = 0; index < pieces.Length; index++)
             {
-                Cells(pieces[index], out var from, out var to);
-                for (var row = from / _columns; row <= to / _columns; row++)
+                var range = Cells(pieces[index]);
+                for (var row = range.FromY; row <= range.ToY; row++)
                 {
-                    for (var column = from % _columns; column <= to % _columns; column++)
+                    for (var column = range.FromX; column <= range.ToX; column++)
                     {
-                        _inCell[cursor[(row * _columns) + column]++] = index;
+                        _inCell[cursor[_window.IndexOf(column, row)]++] = index;
                     }
                 }
             }
@@ -259,7 +252,7 @@ internal static class RibbonMarks
             Func<TWorking> working, Action<TWorking, RibbonPiece, RibbonPiece> pass, Action<TWorking> spent)
         {
             InChunks.Over(
-                _columns * _rows,
+                _window.Count,
                 working,
                 (own, cell) =>
                 {
@@ -270,7 +263,7 @@ internal static class RibbonMarks
                         {
                             var other = _pieces[_inCell[next]];
                             if (one.Way == other.Way || !one.BoxMeets(other)) continue;
-                            if (CellOf(Vector2.Max(one.LeastM, other.LeastM)) != cell) continue;
+                            if (_window.IndexAt(Vector2.Max(one.LeastM, other.LeastM)) != cell) continue;
 
                             pass(own, one, other);
                         }
@@ -312,17 +305,10 @@ internal static class RibbonMarks
             }
         }
 
-        void Cells(in RibbonPiece piece, out int from, out int to)
+        CellRange Cells(in RibbonPiece piece)
         {
-            from = CellOf(piece.LeastM);
-            to = CellOf(piece.MostM);
-        }
-
-        int CellOf(Vector2 atM)
-        {
-            var column = Math.Clamp((int)((atM.X - _leastM.X) / _cellM), 0, _columns - 1);
-            var row = Math.Clamp((int)((atM.Y - _leastM.Y) / _cellM), 0, _rows - 1);
-            return (row * _columns) + column;
+            _window.TryRange(piece.LeastM, piece.MostM, out var range);
+            return range;
         }
     }
 

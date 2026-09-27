@@ -17,6 +17,9 @@ public class RingSidesTests
 {
     public static TheoryData<float> CellSizes => [0.5f, 4f, 40f];
 
+    /// <summary>The level of a grid wide enough to hold every cell size asked for that is no wider than it.</summary>
+    static GridLevel Level(float cellM) => new WorldGrid(64f).Within(cellM);
+
     [Theory]
     [MemberData(nameof(CellSizes))]
     public void ADiscIsInsideItsCircleAndOutsideIt(float cellM)
@@ -27,7 +30,7 @@ public class RingSidesTests
         // One piece the whole way round, walked with its area positive: from the bottom of the circle,
         // heading along +x and bending towards +y.
         ArcSeg[][] rings = [[new ArcSeg(centreM - new Vector2(0f, radiusM), 0f, MathF.Tau * radiusM, 1f / radiusM)]];
-        var sides = RingSides.Of(rings, cellM);
+        var sides = RingSides.Of(rings, Level(cellM));
 
         Assert.Equal(1, sides.WindingAt(centreM));
         for (var step = 0; step < 360; step++)
@@ -45,7 +48,7 @@ public class RingSidesTests
     public void AHoleWalkedTheOtherWayIsOutside(float cellM)
     {
         ArcSeg[][] rings = [Square(new Vector2(20f, 30f), 10f, outward: true), Square(new Vector2(23f, 33f), 4f, outward: false)];
-        var sides = RingSides.Of(rings, cellM);
+        var sides = RingSides.Of(rings, Level(cellM));
 
         Assert.True(sides.Encloses(new Vector2(21f, 31f)));
         Assert.True(sides.Encloses(new Vector2(29f, 39f)));
@@ -64,7 +67,7 @@ public class RingSidesTests
         // The lattice starts a cell and a half short of the square, so at two metres a cell its lines stand at
         // odd metres, and the square's seven-metre sides end on them.
         const float sideM = 7f;
-        var sides = RingSides.Of([Square(Vector2.Zero, sideM, outward: true)], 2f);
+        var sides = RingSides.Of([Square(Vector2.Zero, sideM, outward: true)], Level(2f));
 
         for (var x = -3f; x <= 10f; x += 0.5f)
         {
@@ -89,7 +92,7 @@ public class RingSidesTests
     [Fact]
     public void AHoleNothingEnclosesIsOutside()
     {
-        var sides = RingSides.Of([Square(new Vector2(20f, 30f), 10f, outward: false)], 4f);
+        var sides = RingSides.Of([Square(new Vector2(20f, 30f), 10f, outward: false)], Level(4f));
 
         Assert.Equal(-1, sides.WindingAt(new Vector2(25f, 35f)));
         Assert.False(sides.Encloses(new Vector2(25f, 35f)));
@@ -113,7 +116,7 @@ public class RingSidesTests
         var config = new SimConfig();
         var rings = Towns.Of(Towns.Fixture).Paving(config).Rings(config).Carriageway.Rings;
         var chords = ShellFill.Outline(rings, sagM);
-        var sides = RingSides.Of(rings, cellM);
+        var sides = RingSides.Of(rings, Level(cellM));
 
         var rng = new Random(1);
         var leastM = new Vector2(float.MaxValue);

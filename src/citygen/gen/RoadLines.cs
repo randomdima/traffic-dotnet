@@ -62,10 +62,19 @@ internal sealed class RoadLines(
     readonly List<(int From, int To)> _between = [];
 
     /// <summary>
-    /// Which roads have a piece in each cell of a lattice the footprint wide, so that what a candidate has to
+    /// Which roads have a piece in each cell of the grid's main level (SIM-8), so that what a candidate has to
     /// be asked about is the handful of roads near it (GEN-49).
     /// </summary>
     readonly Dictionary<(int X, int Y), List<int>> _inCell = [];
+
+    readonly GridLevel _level = config.Grid.Main;
+
+    /// <summary>
+    /// <b>How many cells round each of a line's own a road that could share its ground is looked for in</b>:
+    /// the footprint, and the half-step a walk's stations can each stand off the place two lines come
+    /// closest — so every pair nearer than the footprint is offered, wherever the stations fell.
+    /// </summary>
+    readonly int _reach = config.Grid.Main.CellsWithin(config.RoadFootprintM * 1.5f);
 
     readonly HashSet<int> _near = [];
 
@@ -280,9 +289,9 @@ internal sealed class RoadLines(
         Cells(chain, _cells);
         foreach (var cell in _cells)
         {
-            for (var atX = cell.X - 1; atX <= cell.X + 1; atX++)
+            for (var atX = cell.X - _reach; atX <= cell.X + _reach; atX++)
             {
-                for (var atY = cell.Y - 1; atY <= cell.Y + 1; atY++)
+                for (var atY = cell.Y - _reach; atY <= cell.Y + _reach; atY++)
                 {
                     if (_inCell.TryGetValue((atX, atY), out var here)) _near.UnionWith(here);
                 }
@@ -343,22 +352,23 @@ internal sealed class RoadLines(
     }
 
     /// <summary>
-    /// The cells one line's own walk passes through, each once and in order, into the caller's own room.
-    /// <b>Filled rather than yielded</b>: it is walked for every road in the town every time a cut renumbers
-    /// the layout, and an iterator's state machine and its virtual step were a fifth of what that cost.
+    /// The cells one line's own walk passes through, each once and in order, into the caller's own room — a
+    /// station every half footprint. <b>Filled rather than yielded</b>: it is walked for every road in the
+    /// town every time a cut renumbers the layout, and an iterator's state machine and its virtual step were
+    /// a fifth of what that cost.
     /// </summary>
     void Cells(ArcSeg[] chain, List<(int X, int Y)> into)
     {
         into.Clear();
         if (chain.Length == 0) return;
 
-        var cellM = config.RoadFootprintM;
+        var stepM = config.RoadFootprintM * 0.5f;
         var lengthM = Spline.TotalLengthM(chain);
         var last = (X: int.MinValue, Y: int.MinValue);
-        for (var alongM = 0f; ; alongM += cellM * 0.5f)
+        for (var alongM = 0f; ; alongM += stepM)
         {
             var atM = Spline.SampleAt(chain, MathF.Min(alongM, lengthM)).PositionM;
-            var cell = ((int)MathF.Floor(atM.X / cellM), (int)MathF.Floor(atM.Y / cellM));
+            var cell = _level.CellOf(atM);
             if (cell != last) into.Add(last = cell);
 
             if (alongM >= lengthM) return;

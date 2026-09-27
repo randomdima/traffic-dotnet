@@ -57,7 +57,7 @@ internal sealed class RoadGraph : ILaneEnds
 
     RoadGraph(
         LaneLines lines, int[] junctionOutOffsets, int[] junctionOutLanes, int[] junctionInOffsets,
-        int[] junctionInLanes, LanePlaces places, float nearestCellM)
+        int[] junctionInLanes, LanePlaces places, GridLevel nearestLevel)
     {
         _lines = lines;
         Places = places;
@@ -72,7 +72,7 @@ internal sealed class RoadGraph : ILaneEnds
             builder.Add(lane, ArcsOf(lane), lines.LaneLengthM[lane]);
         }
 
-        _nearest = builder.Seal(nearestCellM);
+        _nearest = builder.Seal(nearestLevel);
 
         for (var place = 0; place < Places.Count; place++)
         {
@@ -332,7 +332,7 @@ internal sealed class RoadGraph : ILaneEnds
 
         return new RoadGraph(
             lines, junctionOutOffsets, junctionOutLanes, junctionInOffsets, junctionInLanes, places,
-            config.NearestChainCellM);
+            config.Grid.Main);
     }
 
     /// <summary>

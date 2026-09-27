@@ -41,10 +41,10 @@ internal sealed partial class DebugOverlay
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>It is the index's own lattice and not one laid again here.</b> The grid snaps its origin to a whole
-    /// cell and grows its cell where a set is spread too far for the one it was asked for, so a lattice drawn
-    /// from the cell size and the town's corner is a picture of a grid nothing is asked over — which is the
-    /// same rule the rest of this slice keeps: read the producer, never a copy of its shape.
+    /// <b>It is the index's own window of the grid and not one laid again here</b> (SIM-8). An index steps a
+    /// level coarser where a set is spread too far for the one it was asked for, so a lattice drawn from a
+    /// level named here is a picture of cells nothing is asked over — which is the same rule the rest of this
+    /// slice keeps: read the producer, never a copy of its shape.
     /// </para>
     /// <para>
     /// <b>The wash is scaled to the busiest cell in the frame</b> and not to a figure. What the picture is
@@ -67,37 +67,31 @@ internal sealed partial class DebugOverlay
         float pixelsPerMetre)
     {
         var grid = world.Plan.Paving(config).DrivenLines(config);
-        if (grid.Width <= 0 || grid.Height <= 0) return;
-
-        var cellM = grid.CellM;
+        var window = grid.Window;
+        var cellM = window.Level.CellM;
         if (cellM * pixelsPerMetre < LeastCellPx) return;
 
-        var leastM = viewCentreM - (viewSpanM * 0.5f);
-        var mostM = viewCentreM + (viewSpanM * 0.5f);
-        var fromX = Cell(leastM.X - grid.OriginM.X, cellM, grid.Width);
-        var toX = Cell(mostM.X - grid.OriginM.X, cellM, grid.Width);
-        var fromY = Cell(leastM.Y - grid.OriginM.Y, cellM, grid.Height);
-        var toY = Cell(mostM.Y - grid.OriginM.Y, cellM, grid.Height);
-        if (toX < fromX || toY < fromY) return;
+        var halfSpanM = viewSpanM * 0.5f;
+        if (!window.TryOverlap(viewCentreM - halfSpanM, viewCentreM + halfSpanM, out var inView)) return;
 
-        var across = toX - fromX + 1;
-        var down = toY - fromY + 1;
+        var across = inView.ToX - inView.FromX + 1;
+        var down = inView.ToY - inView.FromY + 1;
         if ((long)across * down > MostCellsDrawn) return;
 
         // The busiest cell in the frame, read before anything is drawn: the wash is a comparison and the
         // thing it is compared against has to be the whole of what is on screen.
         var mostLines = 0;
-        for (var y = fromY; y <= toY; y++)
+        for (var y = inView.FromY; y <= inView.ToY; y++)
         {
-            for (var x = fromX; x <= toX; x++) mostLines = Math.Max(mostLines, grid.ChainsInCell(x, y));
+            for (var x = inView.FromX; x <= inView.ToX; x++) mostLines = Math.Max(mostLines, grid.ChainsInCell(x, y));
         }
 
         var lineM = MathF.Max(GridLineM, GridLineFloorPx / pixelsPerMetre);
-        for (var y = fromY; y <= toY; y++)
+        for (var y = inView.FromY; y <= inView.ToY; y++)
         {
-            for (var x = fromX; x <= toX; x++)
+            for (var x = inView.FromX; x <= inView.ToX; x++)
             {
-                var cornerM = grid.OriginM + new Vector2(x * cellM, y * cellM);
+                var cornerM = window.Level.CornerM(x, y);
                 var lines = grid.ChainsInCell(x, y);
                 if (lines > 0 && mostLines > 0)
                 {
@@ -148,8 +142,4 @@ internal sealed partial class DebugOverlay
     /// </remarks>
     static float Crowding(int lines, int mostLines) =>
         mostLines <= 1 ? 1f : MathF.Log(lines) / MathF.Log(mostLines);
-
-    /// <summary>Which cell of the lattice a distance from its origin falls in, kept inside it.</summary>
-    static int Cell(float offsetM, float cellM, int extent) =>
-        Math.Clamp((int)MathF.Floor(offsetM / cellM), 0, extent - 1);
 }

@@ -165,18 +165,19 @@ internal static class ArcOutset
         Filled,
     }
 
-    /// <inheritdoc cref="Of(ReadOnlySpan{ArcSeg[]}, float, float, Corners)"/>
+    /// <inheritdoc cref="Of(ReadOnlySpan{ArcSeg[]}, float, float, WorldGrid, Corners)"/>
     public static (ArcSeg[][] Rings, ArcSeg[][] Loose) Of(
-        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM) =>
-        Of(rings, outwardM, roundedM, Corners.Rolled);
+        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM, WorldGrid grid) =>
+        Of(rings, outwardM, roundedM, grid, Corners.Rolled);
 
-    /// <inheritdoc cref="Of(ReadOnlySpan{ArcSeg[]}, float, float)"/>
+    /// <inheritdoc cref="Of(ReadOnlySpan{ArcSeg[]}, float, float, WorldGrid)"/>
+    /// <param name="grid">The grid the pieces are indexed on while the move is worked out (SIM-8).</param>
     /// <param name="corners">
     /// Whether the corners the shape turns away at may be cut, which is the whole of the difference between
     /// the two series (<see cref="Corners"/>).
     /// </param>
     public static (ArcSeg[][] Rings, ArcSeg[][] Loose) Of(
-        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM, Corners corners)
+        ReadOnlySpan<ArcSeg[]> rings, float outwardM, float roundedM, WorldGrid grid, Corners corners)
     {
         if (rings.Length == 0) return ([], []);
 
@@ -184,29 +185,29 @@ internal static class ArcOutset
         var movedM = MathF.Abs(outwardM);
         if (radiusM <= LineTolerance.RoundingM)
         {
-            return movedM <= LineTolerance.RoundingM ? (rings.ToArray(), []) : Struck(rings, outwardM);
+            return movedM <= LineTolerance.RoundingM ? (rings.ToArray(), []) : Struck(rings, outwardM, grid);
         }
 
         // Which way the series runs is the distance's, and a rounding asked for without one still runs
         // outward — the shape grows by the radius and comes back, rather than the other way about.
         var stepM = outwardM < -LineTolerance.RoundingM ? -radiusM : radiusM;
 
-        var (wide, loose) = Struck(rings, outwardM + stepM);
+        var (wide, loose) = Struck(rings, outwardM + stepM, grid);
         if (wide.Length == 0) return ([], loose);
 
         // Two moves where the third would be the identity (r <= d), and where the caller will not have a
         // corner cut at any radius: out by d + r and back in by r is the fill on its own.
         if (radiusM <= movedM || corners == Corners.Filled)
         {
-            var (closed, closedLoose) = Struck(wide, -stepM);
+            var (closed, closedLoose) = Struck(wide, -stepM, grid);
             return (closed, Both(loose, closedLoose));
         }
 
-        var (tight, tightLoose) = Struck(wide, -2f * stepM);
+        var (tight, tightLoose) = Struck(wide, -2f * stepM, grid);
         loose = Both(loose, tightLoose);
         if (tight.Length == 0) return ([], loose);
 
-        var (rounded, roundedLoose) = Struck(tight, stepM);
+        var (rounded, roundedLoose) = Struck(tight, stepM, grid);
         return (rounded, Both(loose, roundedLoose));
     }
 
@@ -218,7 +219,7 @@ internal static class ArcOutset
     /// <b>One closed shape moved off its own ground, once</b>: every ring offset whole, every corner joined,
     /// and every stretch of that kept where nothing of the shape stands nearer to it than the distance.
     /// </summary>
-    static (ArcSeg[][] Rings, ArcSeg[][] Loose) Struck(ReadOnlySpan<ArcSeg[]> rings, float outwardM)
+    static (ArcSeg[][] Rings, ArcSeg[][] Loose) Struck(ReadOnlySpan<ArcSeg[]> rings, float outwardM, WorldGrid grid)
     {
         // The pieces of a ring the stringing handed back already meet (<see cref="ArcRings.Tightened"/>);
         // this is for the caller that hands over a ring of its own, since a corner at exactly the distance
@@ -230,14 +231,14 @@ internal static class ArcOutset
         var moved = ArcRings.Flat(Moved(tight, outwardM));
         if (moved.Length == 0 || source.Length == 0) return ([], []);
 
-        // <b>The cell is the question's own radius.</b> Every query this makes asks what stands within the
-        // distance moved, so a cell of that size is the one that answers it in a handful of cells — and the
-        // index grows it by itself where a shape is spread too wide to bin that finely.
-        var cellM = MathF.Abs(outwardM);
-        var standing = ChainIndex.OfPieces(source, cellM);
+        // <b>The level is the question's own radius.</b> Every query this makes asks what stands within the
+        // distance moved, so the finest level whose cell covers it answers in a handful of cells — and the
+        // index steps a level coarser by itself where a shape is spread too wide to bin that finely.
+        var level = grid.Covering(MathF.Abs(outwardM));
+        var standing = ChainIndex.OfPieces(source, level);
         var (chains, loose) = ArcRings.Of(
-            Uncovered(moved, ChainIndex.OfPieces(moved, cellM), source, standing, MathF.Abs(outwardM), outwardM),
-            Grazed(outwardM));
+            Uncovered(moved, ChainIndex.OfPieces(moved, level), source, standing, MathF.Abs(outwardM), outwardM),
+            grid, Grazed(outwardM));
 
         return (chains, loose);
     }

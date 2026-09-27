@@ -66,7 +66,7 @@ internal static class SelectionPath
             }
             else
             {
-                WalkerPath(ref draw, world, slot, units[slot].Index, pixelsPerMetre);
+                WalkerPath(ref draw, world, config, slot, units[slot].Index, pixelsPerMetre);
             }
         }
     }
@@ -87,7 +87,7 @@ internal static class SelectionPath
     {
         var cars = world.Cars;
         var roads = world.Roads;
-        var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
+        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
         var colour = Theme.SelectionPath;
 
@@ -102,13 +102,13 @@ internal static class SelectionPath
             var totalM = cars.Line[car].LengthM;
             var underTheCarM = MathF.Min(Math.Clamp(cars.ProgressM[car], 0f, totalM) + build.CentreAheadOfAxleM, totalM);
             PathMarks.Chained(
-                ref draw, line, underTheCarM, totalM, pitchM, bothWays: false, sagM, colour, MarkClaims.None);
+                ref draw, line, underTheCarM, totalM, pitch, bothWays: false, sagM, colour, MarkClaims.None);
         }
 
         var route = cars.RouteOf(car);
         var planned = cars.RouteCount[car] - cars.RouteTaken[car];
         lastLane = Stretches(
-            ref draw, roads, route[cars.RouteTaken[car]..cars.RouteCount[car]], lastLane, pitchM, sagM, colour);
+            ref draw, roads, route[cars.RouteTaken[car]..cars.RouteCount[car]], lastLane, pitch, sagM, colour);
 
         // CTL-8c: a car it is following is a thing and not a place, and it is a thing that moves — so it
         // is wrapped wherever it has got to, and the line above stops at wherever the route was last
@@ -130,7 +130,7 @@ internal static class SelectionPath
         // The rest of the way, where what the car is carrying stops short of where it is going.
         if (cars.RouteRunsOut[car])
         {
-            Stretches(ref draw, roads, world.RouteBeyond(slot, car, lastLane), lastLane, pitchM, sagM, colour);
+            Stretches(ref draw, roads, world.RouteBeyond(slot, car, lastLane), lastLane, pitch, sagM, colour);
         }
 
         if (line.Length == 0 && planned == 0) return;
@@ -158,7 +158,7 @@ internal static class SelectionPath
     /// lane drawn, which is what the next run is joined on from.
     /// </summary>
     static int Stretches(
-        ref ScreenDraw draw, RoadGraph roads, ReadOnlySpan<int> lanes, int fromLane, float pitchM, float sagM,
+        ref ScreenDraw draw, RoadGraph roads, ReadOnlySpan<int> lanes, int fromLane, GridLevel? pitch, float sagM,
         Vector4 colour)
     {
         var lastLane = fromLane;
@@ -169,12 +169,12 @@ internal static class SelectionPath
             {
                 var join = roads.ConnectorArcs(turn);
                 PathMarks.Chained(
-                    ref draw, join, 0f, Spline.TotalLengthM(join), pitchM, bothWays: false, sagM, colour,
+                    ref draw, join, 0f, Spline.TotalLengthM(join), pitch, bothWays: false, sagM, colour,
                     MarkClaims.None);
             }
 
             PathMarks.Chained(
-                ref draw, roads.ArcsOf(lane), 0f, roads.LaneLengthM[lane], pitchM, bothWays: false, sagM, colour,
+                ref draw, roads.ArcsOf(lane), 0f, roads.LaneLengthM[lane], pitch, bothWays: false, sagM, colour,
                 MarkClaims.None);
 
             lastLane = lane;
@@ -202,7 +202,8 @@ internal static class SelectionPath
     /// reading the walker layer offers under its own switch, on the two stretches it draws.
     /// </para>
     /// </remarks>
-    static void WalkerPath(ref ScreenDraw draw, TownWorld world, int slot, int person, float pixelsPerMetre)
+    static void WalkerPath(
+        ref ScreenDraw draw, TownWorld world, SimConfig config, int slot, int person, float pixelsPerMetre)
     {
         var people = world.People;
 
@@ -210,13 +211,13 @@ internal static class SelectionPath
         // they come out has not been laid yet.
         if (people.Inside[person].Any || !people.Walking[person]) return;
 
-        var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
+        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var colour = Theme.SelectionPath;
         var fromM = people.PositionM[person];
 
         foreach (var pointM in world.WalkHeld(slot, person))
         {
-            PathMarks.Chevroned(ref draw, fromM, pointM, pitchM, colour);
+            PathMarks.Chevroned(ref draw, fromM, pointM, pitch, colour);
             fromM = pointM;
         }
 
@@ -226,7 +227,7 @@ internal static class SelectionPath
         {
             foreach (var pointM in world.WalkBeyond(slot, person, fromM))
             {
-                PathMarks.Chevroned(ref draw, fromM, pointM, pitchM, colour);
+                PathMarks.Chevroned(ref draw, fromM, pointM, pitch, colour);
                 fromM = pointM;
             }
         }

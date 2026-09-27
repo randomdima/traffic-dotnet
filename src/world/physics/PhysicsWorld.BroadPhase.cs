@@ -25,7 +25,7 @@ internal sealed partial class PhysicsWorld
 
     void IndexMoving()
     {
-        _dynamicGrid.Rebuild(_moving.AsSpan(0, _movingCount), _leastM, _mostM, _config.SolverCellSizeM);
+        _dynamicGrid.Rebuild(_moving.AsSpan(0, _movingCount), _leastM, _mostM, _config.Grid.Main);
         _movingIndexStale = false;
     }
 
@@ -89,12 +89,12 @@ internal sealed partial class PhysicsWorld
     /// </summary>
     void Gather(CellGrid grid, int body, bool movingOnly)
     {
-        if (!grid.TryRange(_leastM[body], _mostM[body], out var fromX, out var fromY, out var toX, out var toY)) return;
+        if (!grid.TryRange(_leastM[body], _mostM[body], out var range)) return;
 
         var token = ((long)_stepStamp << 32) | (uint)body;
-        for (var y = fromY; y <= toY; y++)
+        for (var y = range.FromY; y <= range.ToY; y++)
         {
-            for (var x = fromX; x <= toX; x++)
+            for (var x = range.FromX; x <= range.ToX; x++)
             {
                 foreach (var other in grid.Items(x, y))
                 {

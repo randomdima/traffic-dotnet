@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.CityGen;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Statics;
 
 namespace TrafficSimulation.App.Render;
@@ -34,59 +35,61 @@ namespace TrafficSimulation.App.Render;
 /// </remarks>
 internal sealed class StandingSprites
 {
-    /// <summary>
-    /// How wide a cell of the cull grid is. Big enough that a city is a few thousand cells rather than a
-    /// hundred thousand, small enough that a street framing does not sweep a district.
-    /// </summary>
-    const float CellM = 32f;
-
     readonly SpriteInstance[] _instances;
     readonly int[] _cellOffsets;
-    readonly int _columns;
-    readonly int _rows;
 
-    StandingSprites(SpriteInstance[] instances, int[] cellOffsets, int columns, int rows)
+    /// <summary>
+    /// <b>The cull grid is the town's own</b> (SIM-8): every instance filed by its centre in a cell of the
+    /// main level over the whole town, row by row, so the cells a view touches are one copy a row.
+    /// </summary>
+    readonly GridWindow _window;
+
+    /// <summary>
+    /// <b>How far the widest instance reaches from its centre</b>, whichever way it faces — what a view is
+    /// grown by, because an instance is filed where its centre is and drawn wherever it reaches.
+    /// </summary>
+    readonly float _reachM;
+
+    StandingSprites(SpriteInstance[] instances, int[] cellOffsets, GridWindow window, float reachM)
     {
         _instances = instances;
         _cellOffsets = cellOffsets;
-        _columns = columns;
-        _rows = rows;
+        _window = window;
+        _reachM = reachM;
     }
 
-    public static StandingSprites Nothing { get; } = new([], [0], 1, 1);
+    public static StandingSprites Nothing { get; } =
+        new([], [0], GridWindow.Of(new WorldGrid(1f).Main, 0, 0, 0, 0), 0f);
 
     public int Count => _instances.Length;
 
     /// <summary>How many instances a town's standing geometry needs, which is what the buffer is laid for.</summary>
     public static int CapacityFor(CityPlan plan) => plan.Buildings.Count + plan.Props.Count;
 
+    /// <param name="level">The level of the grid the instances are filed at — its main one.</param>
     public static StandingSprites Lay(
         CityPlan plan, BuildingCatalog buildings, BuildingUses uses, PropCatalog props, int firstBuildingSheet,
-        int firstPropSheet, ReadOnlySpan<float> aspects)
+        int firstPropSheet, ReadOnlySpan<float> aspects, GridLevel level)
     {
-        var columns = Math.Max(1, (int)MathF.Ceiling(plan.WorldSizeM.X / CellM));
-        var rows = Math.Max(1, (int)MathF.Ceiling(plan.WorldSizeM.Y / CellM));
+        var window = GridWindow.Over(level, Vector2.Zero, Vector2.Max(plan.WorldSizeM, Vector2.Zero));
 
         var total = CapacityFor(plan);
-        var cells = new int[columns * rows];
+        var cells = new int[window.Count];
         var cellOf = new int[total];
         var instances = new SpriteInstance[total];
+        var reachM = 0f;
 
         var written = 0;
         for (var building = 0; building < plan.Buildings.Count; building++)
         {
             instances[written] = Roof(plan, buildings, uses, firstBuildingSheet, building);
-            cellOf[written] = Cell(instances[written].CentreM, columns, rows);
-            cells[cellOf[written]]++;
-            written++;
+            written = Filed(instances, cellOf, cells, window, written, ref reachM);
         }
 
         for (var prop = 0; prop < plan.Props.Count; prop++)
         {
             instances[written] = Look(plan, props, firstPropSheet, aspects, prop);
-            cellOf[written] = Cell(instances[written].CentreM, columns, rows);
-            cells[cellOf[written]]++;
-            written++;
+            written = Filed(instances, cellOf, cells, window, written, ref reachM);
         }
 
         // A counting sort, because the town is laid once and read sixty times a second: the offsets are
@@ -98,7 +101,18 @@ internal sealed class StandingSprites
         var sorted = new SpriteInstance[total];
         for (var instance = 0; instance < total; instance++) sorted[next[cellOf[instance]]++] = instances[instance];
 
-        return new StandingSprites(sorted, offsets, columns, rows);
+        return new StandingSprites(sorted, offsets, window, reachM);
+    }
+
+    /// <summary>One instance filed under the cell its centre is in, and how far it reaches taken into the widest.</summary>
+    static int Filed(
+        SpriteInstance[] instances, int[] cellOf, int[] cells, GridWindow window, int written, ref float reachM)
+    {
+        ref readonly var instance = ref instances[written];
+        reachM = MathF.Max(reachM, instance.HalfSizeM.Length());
+        cellOf[written] = window.IndexAt(instance.CentreM);
+        cells[cellOf[written]]++;
+        return written + 1;
     }
 
     /// <summary>Copies every standing instance whose cell the view touches, and answers how many.</summary>
@@ -106,22 +120,16 @@ internal sealed class StandingSprites
     {
         if (_instances.Length == 0) return 0;
 
-        // A cell is emitted whole, so the margin only has to cover a body standing outside its own cell:
-        // half a roof is the widest thing in the town.
-        var half = viewSpanM * 0.5f + new Vector2(CellM * 0.5f);
-        var from = (viewCentreM - half) / CellM;
-        var to = (viewCentreM + half) / CellM;
-
-        var firstColumn = Math.Clamp((int)MathF.Floor(from.X), 0, _columns - 1);
-        var lastColumn = Math.Clamp((int)MathF.Floor(to.X), 0, _columns - 1);
-        var firstRow = Math.Clamp((int)MathF.Floor(from.Y), 0, _rows - 1);
-        var lastRow = Math.Clamp((int)MathF.Floor(to.Y), 0, _rows - 1);
+        // A cell is emitted whole, so the margin only has to cover a body standing outside its own cell,
+        // which is as far as the widest instance reaches from its centre.
+        var half = (viewSpanM * 0.5f) + new Vector2(_reachM);
+        _window.TryRange(viewCentreM - half, viewCentreM + half, out var inView);
 
         var written = 0;
-        for (var row = firstRow; row <= lastRow; row++)
+        for (var row = inView.FromY; row <= inView.ToY; row++)
         {
-            var start = _cellOffsets[(row * _columns) + firstColumn];
-            var end = _cellOffsets[(row * _columns) + lastColumn + 1];
+            var start = _cellOffsets[_window.IndexOf(inView.FromX, row)];
+            var end = _cellOffsets[_window.IndexOf(inView.ToX, row) + 1];
             var run = end - start;
             if (run <= 0) continue;
 
@@ -133,13 +141,6 @@ internal sealed class StandingSprites
         }
 
         return written;
-    }
-
-    static int Cell(Vector2 centreM, int columns, int rows)
-    {
-        var column = Math.Clamp((int)MathF.Floor(centreM.X / CellM), 0, columns - 1);
-        var row = Math.Clamp((int)MathF.Floor(centreM.Y / CellM), 0, rows - 1);
-        return (row * columns) + column;
     }
 
     /// <summary>

@@ -98,10 +98,20 @@ internal sealed class ArcRings
     readonly List<ArcSeg> _kept;
     readonly float _lostM;
 
-    ArcRings(List<ArcSeg> kept, float lostM)
+    /// <summary>
+    /// The levels of the grid the ends are gathered on (SIM-8): the finest each of the two distances fits in,
+    /// so the cells round an end's own hold everything within the distance of it.
+    /// </summary>
+    readonly GridLevel _lostLevel;
+
+    readonly GridLevel _weldLevel;
+
+    ArcRings(List<ArcSeg> kept, float lostM, WorldGrid grid)
     {
         _kept = kept;
         _lostM = MathF.Max(lostM, LeastLostM);
+        _lostLevel = grid.Covering(_lostM);
+        _weldLevel = grid.Covering(WeldM);
     }
 
     /// <summary>
@@ -115,8 +125,9 @@ internal sealed class ArcRings
     /// sides of one place (<see cref="Lost"/>); above it they are two ends of the shape and the run is
     /// handed back open.
     /// </param>
-    public static (ArcSeg[][] Chains, ArcSeg[][] Loose) Of(List<ArcSeg> kept, float lostM = LeastLostM) =>
-        new ArcRings(kept, lostM).Strung();
+    /// <param name="grid">The grid the ends are gathered on.</param>
+    public static (ArcSeg[][] Chains, ArcSeg[][] Loose) Of(List<ArcSeg> kept, WorldGrid grid, float lostM = LeastLostM) =>
+        new ArcRings(kept, lostM, grid).Strung();
 
     /// <summary>
     /// <b>The stretches the merge kept, strung end to end into the rings they are.</b> A stretch stops
@@ -469,7 +480,7 @@ internal sealed class ArcRings
         {
             if (previous[at] >= 0) continue;
 
-            var cell = Cell(_kept[at].StartM, _lostM);
+            var cell = _lostLevel.CellOf(_kept[at].StartM);
             if (!starts.TryGetValue(cell, out var here)) starts[cell] = here = [];
 
             here.Add(at);
@@ -500,10 +511,11 @@ internal sealed class ArcRings
         List<(float OffSq, int From, int Onto)> pairs, Dictionary<(int X, int Y), List<int>> starts, int from)
     {
         var endM = _kept[from].EndM;
-        var (cellX, cellY) = Cell(endM, _lostM);
-        for (var y = -1; y <= 1; y++)
+        var (cellX, cellY) = _lostLevel.CellOf(endM);
+        var reach = _lostLevel.CellsWithin(_lostM);
+        for (var y = -reach; y <= reach; y++)
         {
-            for (var x = -1; x <= 1; x++)
+            for (var x = -reach; x <= reach; x++)
             {
                 if (!starts.TryGetValue((cellX + x, cellY + y), out var here)) continue;
 
@@ -554,7 +566,7 @@ internal sealed class ArcRings
 
         for (var stretch = 0; stretch < _kept.Count; stretch++)
         {
-            arrivingAt[stretch] = Place(at, standing, _kept[stretch].EndM, null);
+            arrivingAt[stretch] = Place(_weldLevel, at, standing, _kept[stretch].EndM, null);
         }
 
         // A start is offered the places an end already stands at before any of its own: a walk arrives
@@ -564,7 +576,7 @@ internal sealed class ArcRings
 
         for (var stretch = 0; stretch < _kept.Count; stretch++)
         {
-            var place = Place(at, standing, _kept[stretch].StartM, waiting);
+            var place = Place(_weldLevel, at, standing, _kept[stretch].StartM, waiting);
             leavingAt[stretch] = place;
             if (place < waiting.Length) waiting[place]--;
         }
@@ -593,15 +605,17 @@ internal sealed class ArcRings
     /// </para>
     /// </remarks>
     static int Place(
-        Dictionary<(int X, int Y), List<int>> at, List<Vector2> standing, Vector2 pointM, int[]? waiting)
+        GridLevel level, Dictionary<(int X, int Y), List<int>> at, List<Vector2> standing, Vector2 pointM,
+        int[]? waiting)
     {
-        var (cellX, cellY) = Cell(pointM, WeldM);
+        var (cellX, cellY) = level.CellOf(pointM);
+        var reach = level.CellsWithin(WeldM);
         var bestSq = WeldM * WeldM;
         var best = -1;
         var bestWaiting = 0;
-        for (var y = -1; y <= 1; y++)
+        for (var y = -reach; y <= reach; y++)
         {
-            for (var x = -1; x <= 1; x++)
+            for (var x = -reach; x <= reach; x++)
             {
                 if (!at.TryGetValue((cellX + x, cellY + y), out var here)) continue;
 
@@ -661,7 +675,4 @@ internal sealed class ArcRings
 
         _kept.RemoveRange(kept, _kept.Count - kept);
     }
-
-    static (int X, int Y) Cell(Vector2 pointM, float sizeM) =>
-        ((int)MathF.Floor(pointM.X / sizeM), (int)MathF.Floor(pointM.Y / sizeM));
 }

@@ -59,10 +59,14 @@ internal sealed partial class BandShell
     readonly ArcSeg[][] _chains;
     readonly ArcSeg[][] _loose;
 
-    BandShell(ArcSeg[][] chains, ArcSeg[][] loose)
+    /// <summary>The grid the caller's index is laid on, which everything struck off the shape is indexed on too.</summary>
+    readonly WorldGrid _grid;
+
+    BandShell(ArcSeg[][] chains, ArcSeg[][] loose, WorldGrid grid)
     {
         _chains = chains;
         _loose = loose;
+        _grid = grid;
     }
 
     /// <summary>
@@ -78,11 +82,15 @@ internal sealed partial class BandShell
     /// </summary>
     public ReadOnlySpan<ArcSeg[]> Loose => _loose;
 
+    /// <summary>The grid the shape was merged on (SIM-8), which anything asked of it afterwards is indexed on too.</summary>
+    public WorldGrid Grid => _grid;
+
     /// <summary>
     /// <b>The bands merged into one shape.</b> <paramref name="index"/> is those same
     /// <paramref name="lines"/> under those same numbers — the merge asks it which lines are near a place,
     /// which is how it decides what covers what. The ribbons the bands come to are binned in an index of
-    /// their own, piece by piece and at the finest cell there is (<see cref="ChainIndex.FinestCellM"/>).
+    /// their own, piece by piece and at the finest level of the index's grid worth laying
+    /// (<see cref="ChainIndex.FinestCellM"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -119,9 +127,10 @@ internal sealed partial class BandShell
             ribbons[line] = ArcRibbon.Of(lines[line], halfM[line], LineTolerance.RoundingM);
         }
 
-        var merge = new Merge(lines.ToArray(), index, ribbons, halfM, lengthM, mostHalfM);
+        var grid = index.Window.Level.Grid;
+        var merge = new Merge(lines.ToArray(), index, ribbons, halfM, lengthM, mostHalfM, grid);
         var (chains, loose) = merge.Run();
-        return new BandShell(chains, loose);
+        return new BandShell(chains, loose, grid);
     }
 
     /// <summary>
@@ -149,7 +158,7 @@ internal sealed partial class BandShell
     /// </remarks>
     public (ArcSeg[][] Rings, ArcSeg[][] Loose) Outset(
         float outwardM, float roundedM, ArcOutset.Corners corners = ArcOutset.Corners.Rolled) =>
-        ArcOutset.Of(_chains, outwardM, roundedM, corners);
+        ArcOutset.Of(_chains, outwardM, roundedM, _grid, corners);
 
     /// <summary>
     /// <b>The merged shape cut into the triangles that cover it</b> (<see cref="ShellFill"/>), at one

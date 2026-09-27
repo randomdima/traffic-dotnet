@@ -18,12 +18,15 @@ public class BucketGridTests
     /// <summary>Well under, about, and well over the spacing of a town's props.</summary>
     public static TheoryData<float> BucketSizes => [2f, 16f, 128f];
 
+    /// <summary>The level of a grid wide enough to hold every bucket size asked for.</summary>
+    static GridLevel Level(float cellM) => new WorldGrid(128f).Within(cellM);
+
     [Theory]
     [MemberData(nameof(BucketSizes))]
     public void WhatIsNearAPointIsNeverMissed(float bucketSizeM)
     {
         var plan = Towns.Of(Towns.Fixture);
-        var grid = BucketGrid.Build(plan.WorldSizeM, bucketSizeM, plan.Props.CentreM, plan.Props.RadiusM);
+        var grid = BucketGrid.Build(Level(bucketSizeM), plan.WorldSizeM, plan.Props.CentreM, plan.Props.RadiusM);
         var found = new int[plan.Props.Count];
 
         foreach (var reachM in (ReadOnlySpan<float>)[0f, 1f, 25f])
@@ -55,7 +58,7 @@ public class BucketGridTests
     public void EveryItemIsIndexedOnce(float bucketSizeM)
     {
         var plan = Towns.Of(Towns.Fixture);
-        var grid = BucketGrid.Build(plan.WorldSizeM, bucketSizeM, plan.Props.CentreM, plan.Props.RadiusM);
+        var grid = BucketGrid.Build(Level(bucketSizeM), plan.WorldSizeM, plan.Props.CentreM, plan.Props.RadiusM);
 
         var everything = new int[plan.Props.Count];
         var count = grid.Query(plan.WorldSizeM * 0.5f, plan.WorldSizeM.Length(), everything);
@@ -68,7 +71,7 @@ public class BucketGridTests
     public void AQueryOffTheEdgeIsAnsweredWithWhatIsInside()
     {
         var plan = Towns.Of(Towns.Fixture);
-        var grid = BucketGrid.Build(plan.WorldSizeM, 16f, plan.Props.CentreM, plan.Props.RadiusM);
+        var grid = BucketGrid.Build(Level(16f), plan.WorldSizeM, plan.Props.CentreM, plan.Props.RadiusM);
         var found = new int[plan.Props.Count];
 
         Assert.Equal(0, grid.Query(new Vector2(-10_000f, -10_000f), 10f, found));
@@ -84,7 +87,7 @@ public class BucketGridTests
     public void AWideningSearchTerminatesOnTheNearestItem()
     {
         var plan = Towns.Of(Towns.Fixture);
-        var grid = BucketGrid.Build(plan.WorldSizeM, 16f, plan.Props.CentreM, plan.Props.RadiusM);
+        var grid = BucketGrid.Build(Level(16f), plan.WorldSizeM, plan.Props.CentreM, plan.Props.RadiusM);
 
         foreach (var pointM in (ReadOnlySpan<Vector2>)
                  [new(0f, 0f), plan.WorldSizeM * 0.5f, plan.WorldSizeM, new(-500f, -500f)])
@@ -110,7 +113,7 @@ public class BucketGridTests
     [Fact]
     public void AnEmptyIndexAnswersNothingRatherThanSearchingForEver()
     {
-        var grid = new BucketGrid(new Vector2(480f, 320f), 16f);
+        var grid = new BucketGrid(Level(16f), new Vector2(480f, 320f));
         grid.Rebuild([], [], count: 0);
 
         Assert.Equal(-1, grid.Nearest(new Vector2(240f, 160f), out var distanceM));
@@ -133,7 +136,7 @@ public class BucketGridTests
     public void ARebuildReusesItsArraysAndAllocatesNothing()
     {
         var plan = Towns.Of(Towns.Fixture);
-        var grid = BucketGrid.Build(plan.WorldSizeM, 16f, plan.Props.CentreM, plan.Props.RadiusM);
+        var grid = BucketGrid.Build(Level(16f), plan.WorldSizeM, plan.Props.CentreM, plan.Props.RadiusM);
         for (var warm = 0; warm < 64; warm++) grid.Rebuild(plan.Props.CentreM, plan.Props.RadiusM, plan.Props.Count);
 
         var before = GC.GetAllocatedBytesForCurrentThread();

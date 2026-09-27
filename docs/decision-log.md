@@ -4,6 +4,35 @@ Why the project as a whole is shaped this way. A decision belonging to one slice
 own log ([index.md](index.md)); only decisions still binding are here, and a superseded one is deleted
 rather than annotated. Rules are [requirements.md](requirements.md); how a thing works is its XML docs.
 
+## 2026-09-27 — one grid under every index
+
+The owner ruled it: **one grid indexes all geometry, and no other grid is allowed**; a level finer than the
+main cell is taken only where it differs by at least a halving and there is a reason for it (`SIM-8`, at `P4`
+until the owner says otherwise).
+
+- **The main cell is 8 m, four car widths** (`Sim.GridCellInCarWidths`): the solver, the proximity index and
+  the ground's road index were already there, and everything asked about a car or a street moved to it — the
+  lanes' and pavements' nearest-line indexes (14.4 m), a car park's bays (a lot's diagonal), and the standing
+  sprites' cull (32 m, now widened by the widest sprite's own reach rather than by half a cell).
+- **Two authored levels under it, each for a reason it names**: the boundary's 4 m
+  (`ShellCellsAcrossGridCell`; 2 m measured four times the memory for no speed, terrain log) and the ribbon
+  atlas's 0.5 m (`RibbonPointsAcrossGridCell`; a quarter car is what holds a car to the lanes under it). A
+  build-time search keyed to a tolerance — the foot graph's weld, the ring stringer's two, the merge's
+  pieces, the generator's props and roads — takes the finest level that covers the tolerance and reads as
+  many cells round as it needs.
+- **Only halvings**, because then a point's cell on every level is one scaled coordinate shifted: the relation
+  between two indexes' cells costs nothing and never disagrees at a boundary.
+- **The atlas is kept a main cell at a time**, 16 × 16 points each with where each row begins, so a body reads
+  a cell or two of contiguous memory rather than searching a town-long row per lattice row. The same points
+  and entries (3 520 613 and 6 271 856 on Odesa) in 49.2 MiB rather than 54.1; on a running Odesa `UnderBox`
+  went 0.69 → 0.43 ms a tick and the reservation rebuild 1.38 → 1.10 (`qq prof`).
+- **What moved.** The road-spacing search reads the cells within the footprint and a station's half-step,
+  where a 3 × 3 of footprint-wide cells could miss a pair whose stations fell far apart; Odesa lays
+  identically (`--bench census`). The solver's window is capped with the rest held in its rim, where it used
+  to coarsen its cell. Path marks stand on the 2 m level and barbs on the 4 m (1.5 m and 5 m before).
+- **Not indexes, and left alone**: the mesh's weld key, a texture's period, and lattices that are the town's
+  content rather than a way of finding it (a district's streets, the exam's cards).
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for the documentation audit.

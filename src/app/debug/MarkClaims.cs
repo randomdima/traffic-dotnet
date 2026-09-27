@@ -1,4 +1,5 @@
 using System.Numerics;
+using TrafficSimulation.Core.Geometry;
 
 namespace TrafficSimulation.App.Debug;
 
@@ -21,8 +22,8 @@ namespace TrafficSimulation.App.Debug;
 /// mark saying what the mark already standing there says.
 /// </para>
 /// <para>
-/// <b>The cells are the world's and not the view's</b>: their corners stand at whole numbers of the
-/// spacing from the world origin, so which stones a pass refuses does not change when the camera moves.
+/// <b>The cells are the town's grid's and not the view's</b> (SIM-8), on the level that covers the spacing,
+/// so which stones a pass refuses does not change when the camera moves.
 /// </para>
 /// </remarks>
 internal sealed class MarkClaims
@@ -34,9 +35,9 @@ internal sealed class MarkClaims
     Vector2[] _atM = [];
     Vector2[] _facing = [];
 
-    Vector2 _cornerM;
-    int _across;
-    int _down;
+    /// <summary>The cells of the view, on the level of the grid that covers the spacing — empty where the pass keeps none.</summary>
+    GridWindow _window;
+
     float _apartM;
 
     /// <summary>
@@ -44,17 +45,16 @@ internal sealed class MarkClaims
     /// claims nothing and refuses nothing</b>, which is what a framing too far out to draw a mark at all
     /// asks for.
     /// </summary>
-    public void Clear(Vector2 centreM, Vector2 spanM, float apartM)
+    public void Clear(WorldGrid grid, Vector2 centreM, Vector2 spanM, float apartM)
     {
-        _across = 0;
+        _window = default;
         if (!float.IsFinite(apartM) || apartM <= 0f) return;
 
-        _cornerM = Floored(centreM - (spanM * 0.5f), apartM);
+        var halfM = spanM * 0.5f;
+        _window = GridWindow.Over(grid.Covering(apartM), centreM - halfM, centreM + halfM);
         _apartM = apartM;
-        _across = (int)MathF.Ceiling(spanM.X / apartM) + 1;
-        _down = (int)MathF.Ceiling(spanM.Y / apartM) + 1;
 
-        var cells = _across * _down;
+        var cells = _window.Count;
         if (_facing.Length < cells)
         {
             _atM = new Vector2[cells];
@@ -71,25 +71,25 @@ internal sealed class MarkClaims
     /// </summary>
     public bool Take(Vector2 atM, Vector2 facing)
     {
-        if (_across == 0) return true;
+        if (_window.IsEmpty) return true;
 
-        var across = (int)MathF.Floor((atM.X - _cornerM.X) / _apartM);
-        var down = (int)MathF.Floor((atM.Y - _cornerM.Y) / _apartM);
-        if (across < 0 || down < 0 || across >= _across || down >= _down) return true;
+        var (across, down) = _window.Level.CellOf(atM);
+        if (!_window.Holds(across, down)) return true;
 
-        // A cell is the spacing across, so everything within the spacing of this mark stands in one of the
-        // nine around it.
-        for (var row = Math.Max(0, down - 1); row <= Math.Min(_down - 1, down + 1); row++)
+        // A cell covers the spacing, so everything within the spacing of this mark stands in the cells
+        // round its own.
+        var reach = _window.Level.CellsWithin(_apartM);
+        for (var row = _window.ClampY(down - reach); row <= _window.ClampY(down + reach); row++)
         {
-            for (var column = Math.Max(0, across - 1); column <= Math.Min(_across - 1, across + 1); column++)
+            for (var column = _window.ClampX(across - reach); column <= _window.ClampX(across + reach); column++)
             {
-                var cell = (row * _across) + column;
+                var cell = _window.IndexOf(column, row);
                 if (_facing[cell] == Vector2.Zero || Vector2.Dot(_facing[cell], facing) <= 0f) continue;
                 if (Vector2.DistanceSquared(_atM[cell], atM) < _apartM * _apartM) return false;
             }
         }
 
-        var own = (down * _across) + across;
+        var own = _window.IndexOf(across, down);
         if (_facing[own] == Vector2.Zero)
         {
             _atM[own] = atM;
@@ -98,7 +98,4 @@ internal sealed class MarkClaims
 
         return true;
     }
-
-    static Vector2 Floored(Vector2 atM, float apartM) =>
-        new(MathF.Floor(atM.X / apartM) * apartM, MathF.Floor(atM.Y / apartM) * apartM);
 }

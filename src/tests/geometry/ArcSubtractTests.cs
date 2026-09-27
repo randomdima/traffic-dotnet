@@ -28,10 +28,10 @@ public class ArcSubtractTests
     const float CutSideM = 10f;
 
     /// <summary>
-    /// The cell both shapes' pieces are binned at: the size of the features being asked about, which here is
+    /// The level both shapes' pieces are binned at: the size of the features being asked about, which here is
     /// the shape doing the cutting.
     /// </summary>
-    const float CellM = CutSideM;
+    static readonly GridLevel Level = new WorldGrid(8f).Covering(CutSideM);
 
     /// <summary>
     /// <b>A shape with a smaller one taken out of its middle comes back as the two rings it is</b>: its own
@@ -41,7 +41,7 @@ public class ArcSubtractTests
     [Fact]
     public void ASquareLessASquareInsideItComesBackAsTwoRings()
     {
-        var (rings, loose) = ArcSubtract.Of([Square(SideM)], [Square(CutSideM, new Vector2(15f, 15f))], CellM);
+        var (rings, loose) = ArcSubtract.Of([Square(SideM)], [Square(CutSideM, new Vector2(15f, 15f))], Level);
 
         Assert.Empty(loose);
         Assert.Equal(2, rings.Length);
@@ -57,7 +57,7 @@ public class ArcSubtractTests
     [Fact]
     public void TheHoleIsWalkedTheOtherWayRoundFromTheShapeItStandsIn()
     {
-        var (rings, _) = ArcSubtract.Of([Square(SideM)], [Square(CutSideM, new Vector2(15f, 15f))], CellM);
+        var (rings, _) = ArcSubtract.Of([Square(SideM)], [Square(CutSideM, new Vector2(15f, 15f))], Level);
 
         Assert.Equal(
             (SideM * SideM) - (CutSideM * CutSideM), FilledM2(rings), SideM * SideM * FillTolerance);
@@ -76,7 +76,7 @@ public class ArcSubtractTests
     {
         var overM = CutSideM * 0.5f;
         var (rings, loose) = ArcSubtract.Of(
-            [Square(SideM)], [Square(CutSideM, new Vector2(15f, -overM))], CellM);
+            [Square(SideM)], [Square(CutSideM, new Vector2(15f, -overM))], Level);
 
         // What the shape gives up is the stretch of its edge the cut covers; what it takes on is the cut's
         // far side and the two walls reaching in to it. The cut's own outermost side is on neither.
@@ -99,7 +99,7 @@ public class ArcSubtractTests
         var overM = CutSideM * 0.5f;
         var acrossM = SideM + CutSideM;
         var (rings, loose) = ArcSubtract.Of(
-            [Square(SideM)], [Rectangle(new Vector2(15f, -overM), new Vector2(CutSideM, acrossM))], CellM);
+            [Square(SideM)], [Rectangle(new Vector2(15f, -overM), new Vector2(CutSideM, acrossM))], Level);
 
         Assert.Empty(loose);
         Assert.Equal(2, rings.Length);
@@ -114,7 +114,7 @@ public class ArcSubtractTests
     public void AShapeSwallowedByTheCutComesBackAsNothing()
     {
         var (rings, loose) = ArcSubtract.Of(
-            [Square(CutSideM, new Vector2(15f, 15f))], [Square(SideM)], CellM);
+            [Square(CutSideM, new Vector2(15f, 15f))], [Square(SideM)], Level);
 
         Assert.Empty(rings);
         Assert.Empty(loose);
@@ -129,7 +129,7 @@ public class ArcSubtractTests
     {
         var farM = SideM * 3f;
         var (rings, loose) = ArcSubtract.Of(
-            [Square(SideM)], [Square(CutSideM, new Vector2(farM, farM))], CellM);
+            [Square(SideM)], [Square(CutSideM, new Vector2(farM, farM))], Level);
 
         Assert.Empty(loose);
         Assert.Equal(4f * SideM, Spline.TotalLengthM(Assert.Single(rings)), ToleranceM);
@@ -156,7 +156,7 @@ public class ArcSubtractTests
         var cutM = 1f;
 
         var (rings, loose) = ArcSubtract.Of(
-            [Square(SideM), sliver], [Square(cutM, new Vector2(18.5f, 19.5f))], cutM);
+            [Square(SideM), sliver], [Square(cutM, new Vector2(18.5f, 19.5f))], new WorldGrid(8f).Covering(cutM));
 
         Assert.Empty(loose);
         Assert.Equal(3, rings.Length);

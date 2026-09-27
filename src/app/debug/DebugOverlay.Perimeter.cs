@@ -61,20 +61,20 @@ internal sealed partial class DebugOverlay
         float pixelsPerMetre)
     {
         var sagM = PathMarks.SagPx / pixelsPerMetre;
-        var pitchM = PathMarks.BarbPitchAt(pixelsPerMetre);
+        var pitch = PathMarks.BarbPitchAt(config.Grid, pixelsPerMetre);
         var paving = world.Plan.Paving(config);
         var shell = paving.Perimeter(config);
         var rings = paving.Rings(config);
 
         Boundaries(
-            ref draw, rings.Carriageway.Rings, Theme.Perimeter, false, viewCentreM, viewSpanM, sagM, pitchM);
-        Boundaries(ref draw, shell.Loose, Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM, pitchM);
+            ref draw, rings.Carriageway.Rings, Theme.Perimeter, false, viewCentreM, viewSpanM, sagM, pitch);
+        Boundaries(ref draw, shell.Loose, Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM, pitch);
         foreach (var layer in rings.Layers)
         {
             Boundaries(
-                ref draw, layer.Loose, Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM, pitchM);
+                ref draw, layer.Loose, Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM, pitch);
             Boundaries(
-                ref draw, layer.Rings, Theme.PerimeterOutset, false, viewCentreM, viewSpanM, sagM, pitchM);
+                ref draw, layer.Rings, Theme.PerimeterOutset, false, viewCentreM, viewSpanM, sagM, pitch);
         }
     }
 
@@ -95,11 +95,11 @@ internal sealed partial class DebugOverlay
         Vector2 viewSpanM, float pixelsPerMetre)
     {
         var sagM = PathMarks.SagPx / pixelsPerMetre;
-        var pitchM = PathMarks.BarbPitchAt(pixelsPerMetre);
+        var pitch = PathMarks.BarbPitchAt(config.Grid, pixelsPerMetre);
         var (rings, loose) = probe.Off(world.Plan.Paving(config).Perimeter(config));
 
-        Boundaries(ref draw, loose, Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM, pitchM);
-        Boundaries(ref draw, rings, Theme.ShellProbe, false, viewCentreM, viewSpanM, sagM, pitchM);
+        Boundaries(ref draw, loose, Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM, pitch);
+        Boundaries(ref draw, rings, Theme.ShellProbe, false, viewCentreM, viewSpanM, sagM, pitch);
     }
 
     /// <summary>
@@ -125,7 +125,7 @@ internal sealed partial class DebugOverlay
     /// </remarks>
     static void Boundaries(
         ref ScreenDraw draw, ReadOnlySpan<ArcSeg[]> chains, Vector4 colour, bool ends, Vector2 viewCentreM,
-        Vector2 viewSpanM, float sagM, float pitchM)
+        Vector2 viewSpanM, float sagM, GridLevel? pitch)
     {
         foreach (var chain in chains)
         {
@@ -139,7 +139,7 @@ internal sealed partial class DebugOverlay
                 }
 
                 PathMarks.Bounded(
-                    ref draw, [stretch], 0f, stretch.LengthM, sagM, pitchM, PathMarks.PathLineM, colour,
+                    ref draw, [stretch], 0f, stretch.LengthM, sagM, pitch, PathMarks.PathLineM, colour,
                     Theme.PerimeterNormal);
             }
 

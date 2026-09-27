@@ -26,16 +26,17 @@ internal sealed class RoadFigures
     public float LaneWidthInCarWidths { get; init; } = 1.8f;
 
     /// <summary>
-    /// <b>How far apart the points of the ribbon atlas stand</b>, in car widths (TER-4c.4) — the lattice a
-    /// body's collider is read against to find the ways it stands on.
+    /// <b>How many points of the ribbon atlas stand across one cell of the grid</b> (TER-4c.4, SIM-8) — the
+    /// level a body's collider is read against to find the ways it stands on. A power of two.
     /// </summary>
     /// <remarks>
     /// <b>A point is sampled and never a cell</b>, so a coarse lattice claims nothing that is not really
     /// overlapped; what it costs is the overlaps it can miss, which are those thinner than its diagonal. A
     /// quarter of a car keeps that under half a car's width — a car straddling the line between two lanes is
-    /// on both — and holds the atlas to a few bytes per square metre of road.
+    /// on both — and holds the atlas to a few bytes per square metre of road. <b>It is the one level of the
+    /// grid finer than the boundary's, and that is why</b>: nothing coarser holds a car to the lanes under it.
     /// </remarks>
-    public float RibbonLatticeInCarWidths { get; init; } = 0.25f;
+    public int RibbonPointsAcrossGridCell { get; init; } = 16;
 
     /// <summary>
     /// <b>How far inside both of two ribbons their shared ground has to lie before the two are marked</b>, in
@@ -444,18 +445,16 @@ internal sealed class TerrainFigures
     public float PavedMarkFactor { get; init; } = 0.8f;
 
     /// <summary>
-    /// How wide a bucket the ground's own broad phases are laid over — the roads, the junction discs, the
-    /// kerb fillets and the car parks. Near a road's own width, so a query on a street looks at the street
-    /// and its neighbours and not at the block.
+    /// <b>How many cells of the lattice the town's boundary is answered off stand across one cell of the
+    /// grid</b> (<see cref="Geometry.RingSides"/>, SIM-8). A power of two.
     /// </summary>
-    public float GroundBucketM { get; init; } = 8f;
-
-    /// <summary>
-    /// How wide a cell is of the lattice the town's boundary is answered off (<see cref="Geometry.RingSides"/>). A
-    /// cell the boundary does not pass through is answered by a lookup, so the narrower the cells the more of
-    /// a lane that is — at five bytes a cell for each layer answered.
-    /// </summary>
-    public float ShellCellM { get; init; } = 4f;
+    /// <remarks>
+    /// A cell the boundary does not pass through is answered by a lookup, so the narrower the cells the more
+    /// of a lane that is — at five bytes a cell for each layer answered. <b>Finer than the grid's own cell
+    /// because every wheel asks it every tick</b>: at the grid's cell a two-lane street is kerb to kerb in
+    /// one cell, and every answer on it walks the kerbs.
+    /// </remarks>
+    public int ShellCellsAcrossGridCell { get; init; } = 2;
 
     /// <summary>
     /// How finely the ground is walked by a caller that has to <em>sample</em> it — a walk checking that a

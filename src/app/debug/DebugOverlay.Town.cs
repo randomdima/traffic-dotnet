@@ -171,14 +171,14 @@ internal sealed partial class DebugOverlay
         ref ScreenDraw draw, TownWorld world, SimConfig config, Vector2 viewCentreM, Vector2 viewSpanM,
         float pixelsPerMetre)
     {
-        var pitchM = PathMarks.MarkPitchAt(pixelsPerMetre);
+        var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
 
         // <b>One set of claims over both networks</b> (<see cref="MarkClaims"/>): a pavement runs a metre
         // off the carriageway it serves, so marks kept clear of each other only within a network still pile
         // a walk's chevrons onto a lane's.
         _marks.Clear(
-            viewCentreM, viewSpanM, float.IsFinite(pitchM) ? PathMarks.MarkApartM : float.PositiveInfinity);
+            config.Grid, viewCentreM, viewSpanM, pitch is not null ? PathMarks.MarkApartM : float.PositiveInfinity);
 
         // <b>Every lane of the town, whole</b> (OBS-2d), which is the same thing as every lane between its
         // two connection points: a lane ends where its movements hand over (TER-5d), so the whole of its line
@@ -187,19 +187,19 @@ internal sealed partial class DebugOverlay
         for (var lane = 0; lane < roads.LaneCount; lane++)
         {
             Chain(
-                ref draw, roads.ArcsOf(lane), sagM, pitchM, roads.LaneOverOneLine[lane], Theme.DrivingNodes,
+                ref draw, roads.ArcsOf(lane), sagM, pitch, roads.LaneOverOneLine[lane], Theme.DrivingNodes,
                 viewCentreM, viewSpanM, _marks);
         }
 
-        Movements(ref draw, roads, config, sagM, pitchM, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
-        BayApproaches(ref draw, world.BayWays, sagM, pitchM, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
+        Movements(ref draw, roads, config, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
+        BayApproaches(ref draw, world.BayWays, sagM, pitch, Theme.DrivingNodes, viewCentreM, viewSpanM, _marks);
 
         // And on the walking side, every lane of the town's pavement as the graph holds it (WLK-1), which is
         // the same reading as the driving side above: the line a body is actually held on, walked its own way.
-        PavementLanes(ref draw, world.Foot, sagM, pitchM, viewCentreM, viewSpanM, _marks);
+        PavementLanes(ref draw, world.Foot, sagM, pitch, viewCentreM, viewSpanM, _marks);
         Unwalked(
             ref draw, world.PavementLanes, viewCentreM, viewSpanM, sagM,
-            PathMarks.BarbPitchAt(pixelsPerMetre));
+            PathMarks.BarbPitchAt(config.Grid, pixelsPerMetre));
 
         KerbEnds(ref draw, world.Plan.Paving(config).RoadEnds(config), viewCentreM, viewSpanM);
         CrossingPoints(ref draw, world.CrossingWays, viewCentreM, viewSpanM);
@@ -305,13 +305,13 @@ internal sealed partial class DebugOverlay
     /// cut from</b>, because what a reader of this layer is asking is what a body may be held on.
     /// </remarks>
     static void PavementLanes(
-        ref ScreenDraw draw, FootGraph foot, float sagM, float pitchM, Vector2 viewCentreM, Vector2 viewSpanM,
+        ref ScreenDraw draw, FootGraph foot, float sagM, GridLevel? pitch, Vector2 viewCentreM, Vector2 viewSpanM,
         MarkClaims claims)
     {
         for (var lane = 0; lane < foot.EdgeCount; lane++)
         {
             Chain(
-                ref draw, foot.ArcsOf(lane), sagM, pitchM, bothWays: false, Theme.WalkingNodes, viewCentreM,
+                ref draw, foot.ArcsOf(lane), sagM, pitch, bothWays: false, Theme.WalkingNodes, viewCentreM,
                 viewSpanM, claims);
         }
     }
@@ -323,13 +323,13 @@ internal sealed partial class DebugOverlay
     /// </summary>
     static void Unwalked(
         ref ScreenDraw draw, World.Foot.PavementLanes pavement, Vector2 viewCentreM, Vector2 viewSpanM,
-        float sagM, float pitchM)
+        float sagM, GridLevel? pitch)
     {
         for (var lane = 0; lane < pavement.Count; lane++)
         {
             Boundaries(
                 ref draw, pavement.LooseOf(lane), Theme.PerimeterLoose, true, viewCentreM, viewSpanM, sagM,
-                pitchM);
+                pitch);
         }
     }
 
@@ -351,7 +351,7 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// </remarks>
     static void Movements(
-        ref ScreenDraw draw, RoadGraph roads, SimConfig config, float sagM, float pitchM, Vector4 colour,
+        ref ScreenDraw draw, RoadGraph roads, SimConfig config, float sagM, GridLevel? pitch, Vector4 colour,
         Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
     {
         for (var lane = 0; lane < roads.LaneCount; lane++)
@@ -362,7 +362,7 @@ internal sealed partial class DebugOverlay
             foreach (var connector in roads.ConnectorsFrom(lane))
             {
                 Link(
-                    ref draw, roads.ConnectorArcs(connector), sagM, pitchM, bothWays: false, colour,
+                    ref draw, roads.ConnectorArcs(connector), sagM, pitch, bothWays: false, colour,
                     viewCentreM, viewSpanM, claims);
             }
         }
@@ -392,13 +392,13 @@ internal sealed partial class DebugOverlay
     /// </para>
     /// </remarks>
     static void BayApproaches(
-        ref ScreenDraw draw, BayWays ways, float sagM, float pitchM, Vector4 colour, Vector2 viewCentreM,
+        ref ScreenDraw draw, BayWays ways, float sagM, GridLevel? pitch, Vector4 colour, Vector2 viewCentreM,
         Vector2 viewSpanM, MarkClaims claims)
     {
         for (var way = ways.FirstWay; way < ways.TotalWayCount; way++)
         {
             Link(
-                ref draw, ways.ArcsOf(way), sagM, pitchM, bothWays: false,
+                ref draw, ways.ArcsOf(way), sagM, pitch, bothWays: false,
                 ways.IsDrivenInReverse(way) ? Theme.DrivingReverse : colour, viewCentreM, viewSpanM, claims);
         }
     }
@@ -413,14 +413,14 @@ internal sealed partial class DebugOverlay
     /// per movement in the town.
     /// </remarks>
     static void Link(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, float pitchM, bool bothWays, Vector4 colour,
+        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, GridLevel? pitch, bool bothWays, Vector4 colour,
         Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
     {
         if (arcs.Length == 0) return;
 
         if (!OnScreen(arcs, viewCentreM, viewSpanM)) return;
 
-        PathMarks.Chained(ref draw, arcs, 0f, Spline.TotalLengthM(arcs), pitchM, bothWays, sagM, colour, claims);
+        PathMarks.Chained(ref draw, arcs, 0f, Spline.TotalLengthM(arcs), pitch, bothWays, sagM, colour, claims);
         draw.DiscM(arcs[0].StartM, PathMarks.JoinDiscM, colour);
         draw.DiscM(arcs[^1].EndM, PathMarks.JoinDiscM, colour);
     }
@@ -431,13 +431,13 @@ internal sealed partial class DebugOverlay
     /// in before it is sampled finely.
     /// </summary>
     static void Chain(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, float pitchM, bool bothWays, Vector4 colour,
+        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float sagM, GridLevel? pitch, bool bothWays, Vector4 colour,
         Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
     {
         if (arcs.Length == 0) return;
 
         Chain(
-            ref draw, arcs, 0f, Spline.TotalLengthM(arcs), sagM, pitchM, bothWays, colour, viewCentreM, viewSpanM,
+            ref draw, arcs, 0f, Spline.TotalLengthM(arcs), sagM, pitch, bothWays, colour, viewCentreM, viewSpanM,
             claims);
     }
 
@@ -471,7 +471,7 @@ internal sealed partial class DebugOverlay
     /// layer marks the same ground on.
     /// </summary>
     static void Chain(
-        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, float pitchM,
+        ref ScreenDraw draw, ReadOnlySpan<ArcSeg> arcs, float fromM, float toM, float sagM, GridLevel? pitch,
         bool bothWays, Vector4 colour, Vector2 viewCentreM, Vector2 viewSpanM, MarkClaims claims)
     {
         if (arcs.Length == 0 || toM <= fromM) return;
@@ -480,6 +480,6 @@ internal sealed partial class DebugOverlay
         // a corner's margin at either end, and boxing it apart would be a second reading of one line.
         if (!OnScreen(arcs, viewCentreM, viewSpanM)) return;
 
-        PathMarks.Chained(ref draw, arcs, fromM, toM, pitchM, bothWays, sagM, colour, claims);
+        PathMarks.Chained(ref draw, arcs, fromM, toM, pitch, bothWays, sagM, colour, claims);
     }
 }
