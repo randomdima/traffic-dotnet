@@ -1,5 +1,4 @@
 using TrafficSimulation.Agents.Car.Body;
-using TrafficSimulation.Agents.Car.Control;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
@@ -28,9 +27,8 @@ public class PlansInATownTests
     /// goes on slowing for a moment after the light lets it go, and that is the light's doing.
     /// </para>
     /// <para>
-    /// <b>Its speed was the road's</b>: a car whose wheel asks for more corner than its line has
-    /// (<see cref="DrivingHold.Wheel"/>) is slowing for itself, and what it plans follows the car it is. So does a
-    /// car whose front went back, which is where on its line it is being read and not what it plans.
+    /// <b>And its front moved on</b>: a car read further back along its line than it was is where it is being read
+    /// and not what it plans, and its plan follows its front.
     /// </para>
     /// <para>Read in the frame each plan was laid in: a car taking its next lane re-bases its line on that lane's nought.</para>
     /// </remarks>
@@ -63,7 +61,7 @@ public class PlansInATownTests
                 ref readonly var build = ref cars.BuildOf(car);
                 var releasedS = build.BrakingMps2 / build.PedalRateMps3;
 
-                if (uncut && uncutS[car] >= releasedS && frame[car].Held != DrivingHold.Wheel
+                if (uncut && uncutS[car] >= releasedS
                     && InOneFrame(was[car], now, out var shiftM) && now.FromM >= was[car].FromM - shiftM)
                 {
                     Assert.True(
@@ -79,17 +77,17 @@ public class PlansInATownTests
     }
 
     /// <summary>
-    /// A car's plan and the line it was laid on — the way or first lane its metres count from and the next lane's
-    /// nought — and what held the car on the tick before it was laid.
+    /// A car's plan and the line it was laid on: the way or first lane its metres count from, and the next lane's
+    /// nought.
     /// </summary>
-    readonly record struct Laid(int Way, int First, int Next, float NextStartM, DrivingHold Held, float FromM = 0f, float ToM = 0f);
+    readonly record struct Laid(int Way, int First, int Next, float NextStartM, float FromM = 0f, float ToM = 0f);
 
     static Laid FrameOf(CarFleet cars, int car)
     {
         var lanes = cars.Line[car].LaneCount;
         return new Laid(
             cars.LineWayOf(car), lanes > 0 ? cars.ChainOf(car)[0] : -1, lanes > 1 ? cars.ChainOf(car)[1] : -1,
-            lanes > 1 ? cars.LaneStartsOf(car)[1] : 0f, cars.Hold[car]);
+            lanes > 1 ? cars.LaneStartsOf(car)[1] : 0f);
     }
 
     /// <summary>Whether two plans were laid on one line, and how far the second's metres are moved on from the first's.</summary>

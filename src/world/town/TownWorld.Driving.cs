@@ -254,7 +254,7 @@ internal sealed partial class TownWorld
         Cars.PlannedMps[car] = MathF.Min(plannedMps, capMps);
 
         var pedals = CarFollower.Pedals(
-            _config, build, steerRad, targetMps, alongMps, _config.TickSeconds, lastMps2);
+            _config, build, steerRad, targetMps, alongMps, context.GroundCoefficient, _config.TickSeconds, lastMps2);
         var command = reverse ? Reversed(pedals) : pedals;
 
         // <b>The margin the profile kept back, spent</b>: the profile plans every stop against usable grip

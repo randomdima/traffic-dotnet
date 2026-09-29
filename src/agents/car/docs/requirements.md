@@ -89,6 +89,13 @@ has been paid for; past that, throttle buys no acceleration and only takes grip 
 whoever is at the pedals. What does not is the self-driver's own lift while its tyres report a slide, which
 is a driver keeping out of trouble rather than a fact about rubber — flooring it stays the player's to do.
 
+**CAR-47** `P3` **A driver of the town's own brakes inside what the patch has left.** In the ordinary way it asks
+the brake for no more than the friction circle's remainder along the roll once the corner its wheel is asking for
+has been paid for, at the share every stop is planned at (S-2): past that the brake buys a slide and costs the
+corner, and a car braking in a bend runs straight on out of it. The wheel's corner and not the one the tyres are
+carrying, because a sliding car carries less than it asks for. A hazard spends the whole of the tyres at once
+(S-2), and a hand brakes as hard as it likes.
+
 **CAR-3e** `P3` **One coefficient of friction, at every load and in every direction.** A patch is worth what it
 is carrying and nothing else, so a stop and a corner of the same car are worth the same and a transfer costs
 the four wheels nothing between them. What the loads decide is **which wheel runs out first** — a rear gone

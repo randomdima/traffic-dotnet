@@ -218,7 +218,8 @@ internal static class CarFollower
             config, car, line, entryM, progressM, lineLengthM, steerRad, alongMps, lookaheadM, context, out var hold,
             out _);
 
-        return new DriveDecision(Pedals(config, car, steerRad, targetMps, alongMps, dtS), hold, targetMps);
+        return new DriveDecision(
+            Pedals(config, car, steerRad, targetMps, alongMps, context.GroundCoefficient, dtS), hold, targetMps);
     }
 
     /// <summary>
@@ -459,10 +460,10 @@ internal static class CarFollower
     /// whole car at.
     /// </summary>
     /// <remarks>
-    /// <b>It is a figure along the roll and takes no notice of what the wheel is doing.</b> A driver
-    /// slowing into a corner spends the whole of it on top of the lateral demand the corner is already
-    /// making, and the tyres answer to one ellipse — so where a fast corner follows a fast approach the
-    /// combined ask is over the budget and the car drifts.
+    /// <b>It is a figure along the roll and takes no notice of what the wheel is doing</b>, and every stop is
+    /// planned at it. The brake a driver actually applies in a bend is less (<see cref="BrakeCeilingMps2"/>), since
+    /// the tyres answer to one ellipse: a stop planned through a corner is made over more ground than it was planned
+    /// in, and what catches the difference is the hazard (<see cref="IsAHazard"/>).
     /// </remarks>
     public static float BrakingMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
         car.UtmostBrakingMps2(groundCoefficient) * config.Driving.BrakingMargin;
@@ -525,13 +526,14 @@ internal static class CarFollower
     /// second — which the tyre model then answers with a load transfer apiece. Bounding the rate keeps the
     /// demand exactly where it was and only limits how fast the foot gets there.
     /// </remarks>
+    /// <param name="groundCoefficient">The ground under the car, which the brake's ceiling is taken on (<see cref="BrakeCeilingMps2"/>).</param>
     /// <param name="lastMps2">
     /// What the pedal was asking for last tick, throttle positive and brake negative — <c>0</c> for a
     /// caller with no previous command, which is a foot starting from neither pedal.
     /// </param>
     public static DriveCommand Pedals(
-        SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float dtS,
-        float lastMps2 = 0f)
+        SimConfig config, in CarBuild car, float steerRad, float targetMps, float alongMps, float groundCoefficient,
+        float dtS, float lastMps2 = 0f)
     {
         // Both terms, and not just the target: the handbrake is the car's own (CTL-5a), pulled on a dead
         // stop it has already made and never on the way down to one, so a car waiting holds its spot
@@ -546,7 +548,29 @@ internal static class CarFollower
 
         return wantedMps2 >= 0f
             ? new DriveCommand(steerRad, MathF.Min(wantedMps2, car.AccelerationMps2), 0f, false, false)
-            : new DriveCommand(steerRad, 0f, MathF.Min(-wantedMps2, car.BrakingMps2), false, false);
+            : new DriveCommand(
+                steerRad, 0f, MathF.Min(-wantedMps2, BrakeCeilingMps2(config, car, steerRad, alongMps, groundCoefficient)),
+                false, false);
+    }
+
+    /// <summary>
+    /// <b>The most a driver brakes at in the ordinary way</b> (CAR-47): what the tyres have left along the roll once
+    /// the corner the wheel is asking for has been paid for, at the share a stop is planned at — so on a straight it
+    /// is the braking every stop is planned against (<see cref="BrakingMps2"/>), and in a bend it is less.
+    /// </summary>
+    /// <remarks>
+    /// <b>Past it the brake buys a slide and costs the corner</b>: the pedal stands well clear of the tyres, and a
+    /// car cornering at its share of grip that was let ask for the whole of it braked straight on out of the bend,
+    /// ran wide, wound the wheel on for the corner it had lost, and was braked harder for that. <b>The wheel's corner
+    /// and not the one the tyres are carrying</b>, because a sliding car carries less than it asks for and would read
+    /// its own slide as room to brake. A hazard is not held to this (<see cref="IsAHazard"/>).
+    /// </remarks>
+    public static float BrakeCeilingMps2(
+        SimConfig config, in CarBuild car, float steerRad, float alongMps, float groundCoefficient)
+    {
+        var acrossMps2 = alongMps * alongMps * MathF.Abs(MathF.Tan(steerRad)) / car.WheelbaseM;
+        var leftMps2 = TyreModel.DriveLeftMps2(car.GripMps2 * groundCoefficient, acrossMps2);
+        return MathF.Min(car.BrakingMps2, leftMps2) * config.Driving.BrakingMargin;
     }
 
     /// <summary>Which way a command is leaning, throttle positive and brake negative — what the next tick's pedal travels from.</summary>

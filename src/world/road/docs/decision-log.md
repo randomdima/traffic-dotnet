@@ -21,9 +21,9 @@ foot coming off the throttle pulled it back over an arc's start and the plan wit
 room to pull away is bounded with the run**, or a car cornering a little faster than the entry figures (a build
 whose pedal stops it before its tyres would) planned past the bound by that and drew it back as it slowed. Over a
 minute of each of the suite's towns, ticks on which a plan nothing cut drew back went from 10 155 and 2 018 to 28
-and 31 (`PlansInATownTests`, with the wheel out of the planned speed: car log). What is left is a car slowing for
-its own wheel, a brake applied for a light still coming off the pedal, and a car read a few metres back along its
-line for a tick in a tight arc.
+and 31, and to 7 and 8 once a car braking in a bend stopped running out of it (`PlansInATownTests`; the wheel out of
+the planned speed and CAR-47 are the car log's). What is left is a brake applied for a light still coming off the
+pedal, and a car read a few metres back along its line for a tick in a tight arc.
 
 ## 2026-09-29 — a plan is laid to the metre it was answered
 

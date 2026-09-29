@@ -3,19 +3,33 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-29 — a driver brakes inside what its tyres have left
+
+**A car braking in a bend ran straight on out of it** (CAR-47). Cornering at its share of grip on a 60 m radius, a
+car whose wheel crept a few per cent past its line's curvature was held a fifth of a metre a second under its
+speed; the pedal, which closes an error in a tick and stands well clear of the tyres, went to the whole of itself —
+3.7 times what the tyres hold — and the tyres spent everything on the stop and nothing on the turn. The car ran
+wide, the wheel wound on for the corner it had lost, and the wheel's corner braked it harder: 16 m/s to 3 in a
+second and a half, a metre off its line, and its plan drawn back 7 m with nothing cutting it. **The brake now asks
+for no more than the circle leaves once the wheel's corner is paid for**, at the share every stop is planned at —
+the throttle's own ceiling (CAR-3b) on the other pedal, and on a straight exactly the braking every stop is planned
+against. The same car brakes at 4 m/s², keeps its corner and bottoms out at 13.5 m/s. `PlansInATownTests` no longer
+needs to excuse a car slowing for its wheel. **A hazard still spends everything** (S-2): a stop that cannot be
+made inside the grant is not one to keep the corner for.
+
+**An ordinary stop no longer locks the wheels**, so a town driven for a minute writes nothing on the ground: the
+first mark on the suite's city came four and a half minutes in. `GroundMarkTests` stages the stop it asks about —
+a hand on the whole pedal, which CAR-47 does not bind — rather than waiting for one of the town's own.
+
 ## 2026-09-29 — the wheel's corner is the car's and not the road's
 
 **The corner the wheel is asking for is left out of the planned speed** (S-2, TER-4c.1) and named on its own
 (`DrivingHold.Wheel`). The planned speed is the ceiling on a car's next plan, and the wheel says where the car is
 rather than what the road holds: a car steering back onto its line planned as though the road bent there, and drew
 its plan back for a bend the road did not have. With it in the planned speed, two to four in five of the ticks on
-which a plan nothing cut still drew back were this.
-
-**It is named apart because what it showed is not the road's.** A car cornering at its share of grip on a gentle
-bend braked a little, had nothing left in the tyres to turn with, ran wide, asked the wheel for more, and the
-wheel's corner braked it harder — 16 m/s to 3 in a second and a half on a 60 m radius, a metre off its line. The
-tyres answer to one ellipse and the profile brakes as though they did not (`CarFollower.BrakingMps2`); the drive
-probe's wheel column is how often that is what holds a car.
+which a plan nothing cut still drew back were this. **It is named apart because it is not the road's**: the drive
+probe's wheel column is how often the car's own steering, and not its line, holds it — six to ten car-ticks in a
+hundred, nearly all of them the wheel catching up with a bend it came into late.
 
 ## 2026-09-29 — corners are read off the arcs
 

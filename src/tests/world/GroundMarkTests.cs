@@ -1,3 +1,4 @@
+using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Simulation;
 using TrafficSimulation.Tests.CityGen;
@@ -31,20 +32,45 @@ public class GroundMarkTests
     }
 
     /// <summary>
-    /// A minute of a city is a minute of hard stops, and every one of them drags rubber over the road.
-    /// The count is a floor and not a figure: what is being held is that the marks reach the ground at
-    /// all, which nothing else in the suite would notice going missing.
+    /// <b>A car stopped on the whole of its pedal writes on the ground</b>: the pedal stands well clear of the
+    /// tyres, so the wheels lock and drag rubber over the road. What is held is that the marks reach the ground
+    /// at all, which nothing else in the suite would notice going missing.
     /// </summary>
+    /// <remarks>
+    /// <b>Staged and not waited for</b>: a driver of the town's own brakes inside what its tyres hold (CAR-47), so
+    /// an ordinary stop writes nothing and a town may drive for minutes before one of its own does. A hand is held
+    /// to nothing of the kind.
+    /// </remarks>
     [Fact]
-    public void ADrivenTownWritesOnTheGround()
+    public void ACarStoppedOnTheWholePedalWritesOnTheGround()
     {
-        using var world = new TownWorld(Towns.Of(Towns.City), Config);
+        using var world = new TownWorld(Towns.Of(Towns.Fixture), Config);
         var loop = new SimLoop<TownWorld>(world, Config);
 
-        // The minute is how long a city may take to write its first mark, not how long this watches for:
-        // the claim is that something reaches the ground, so the tick it does is the end of the question.
-        for (var tick = 0; tick < 3_600 && world.Marks.Count == 0; tick++) loop.Advance(1);
+        var car = -1;
+        for (var tick = 0; tick < LongestS * 60 && car < 0; tick++)
+        {
+            loop.Advance(1);
+            for (var at = 0; at < world.Cars.Count && car < 0; at++)
+            {
+                if (world.Cars.AlongMps[at] > BrisklyMps) car = at;
+            }
+        }
 
-        Assert.True(world.Marks.Count > 0, "a minute of a city left the road as it found it");
+        Assert.True(car >= 0, "nobody in the town got up to speed to be stopped");
+        var brake = new HandInput(Held: true, Throttle: -1f, Steer: 0f, Handbrake: false, WalkDirection: Vector2.Zero);
+        for (var tick = 0; tick < StopS * 60 && world.Marks.Count == 0; tick++)
+        {
+            world.HandOnCar(car, brake);
+            loop.Advance(1);
+        }
+
+        Assert.True(world.Marks.Count > 0, $"car {car} stopped on the whole pedal and left the road as it found it");
     }
+
+    /// <summary>Fast enough that a locked stop drags the wheels for a car length or more.</summary>
+    const float BrisklyMps = 10f;
+
+    /// <summary>How long the town is given to get a car up to that, and a hard stop to take.</summary>
+    const int LongestS = 60, StopS = 2;
 }
