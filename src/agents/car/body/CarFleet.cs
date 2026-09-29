@@ -61,8 +61,6 @@ internal sealed class CarFleet
         SinceDecisionS = new float[capacity];
         Line = new DrivenLine[capacity];
         LineArcs = new ArcSeg[capacity * arcsPerCar];
-        MovementWay = new int[capacity];
-        Array.Fill(MovementWay, NoWay);
         LineWay = new int[capacity];
         Array.Fill(LineWay, NoWay);
         TailWay = new int[capacity];
@@ -74,12 +72,11 @@ internal sealed class CarFleet
         CommittedToM = new float[capacity];
         AuthorityM = new float[capacity];
         Array.Fill(AuthorityM, float.PositiveInfinity);
+        GrantMarginM = new float[capacity];
         GrantCutBy = new Control.HeadwayKind[capacity];
         PlannedMps = new float[capacity];
         PaceMps = new float[capacity];
         Array.Fill(PaceMps, float.PositiveInfinity);
-        FollowingShare = new float[capacity];
-        Array.Fill(FollowingShare, 1f);
         GroundCoefficient = new float[capacity];
         Command = new DriveCommand[capacity];
         Hold = new Control.DrivingHold[capacity];
@@ -98,6 +95,8 @@ internal sealed class CarFleet
         InsideTheBox = new bool[capacity];
         LightAheadM = new float[capacity];
         Array.Fill(LightAheadM, float.PositiveInfinity);
+        Pass = new Control.Overtake[capacity];
+        Array.Fill(Pass, Control.Overtake.None);
         WheelSpinMps = new float[capacity * TyreModel.Wheels];
         TreadPhaseM = new float[capacity * TyreModel.Wheels];
         ScrubTravelM = new float[capacity * TyreModel.Wheels];
@@ -167,8 +166,8 @@ internal sealed class CarFleet
 
     /// <summary>
     /// <b>And whether it is answering a call</b> (AMB-4). This is the whole of the difference a call makes
-    /// to the road: what claims its ground at <c>ClaimPriority.Special</c>, what the lights and the painted
-    /// bars stop applying to, and what holds the car to the call's own pace.
+    /// to the road: what claims its ground at <c>ClaimPriority.Special</c> — above a light's hold, so no red
+    /// holds it — and what holds the car to the call's own pace.
     /// </summary>
     /// <remarks>
     /// <b>It is the errand's and not the vehicle's</b>: an ambulance on a call, an evacuator on its way to a
@@ -248,15 +247,6 @@ internal sealed class CarFleet
     public DrivenLine[] Line { get; }
 
     /// <summary>
-    /// <b>The way through a box this car has been given</b> — the movement its plan won whole the last time the
-    /// plans were laid — or <see cref="NoWay"/>. <b>Plan state</b> (TER-4c.1): it is written when the answer
-    /// is read and nowhere in the middle of anybody's decision, and what it buys is that the ground on the
-    /// way to and through that box is held (<see cref="World.Road.LaneClaim.Held"/>) — kept against an equal
-    /// movement that came nearer since, and committed whole once the car can no longer stop short of it.
-    /// </summary>
-    public int[] MovementWay { get; }
-
-    /// <summary>
     /// <b>The numbered way this car's line <em>is</em></b>, or <see cref="NoWay"/> where the line is the
     /// route's chain of lanes.
     /// </summary>
@@ -323,15 +313,20 @@ internal sealed class CarFleet
     public float[] AuthorityM { get; }
 
     /// <summary>
+    /// <b>The ground the grant was taken short of what cut it</b> — the gap the car keeps, so that the grant and
+    /// this together are the whole of the section it holds.
+    /// </summary>
+    public float[] GrantMarginM { get; }
+
+    /// <summary>
     /// <b>What cut that grant</b> — the queue in front, a body going nowhere, somebody on foot in the lane,
     /// ground somebody has claimed — or <see cref="Control.HeadwayKind.Nothing"/> where nothing did.
     /// </summary>
     /// <remarks>
-    /// <b>The reason a body is being held is a fact about what is in front and not about the distance</b>: a
-    /// queue is followed at a following time and a wreck is only stopped short of, and the two are the same
-    /// number of metres. The laying knew it when it made the cut, so anything that has to say <em>why</em> a
-    /// car is held reads it rather than searching for the answer again — the speed profile's following term,
-    /// the read-out and the stuck probe.
+    /// <b>Why a car is held, and never how fast it may go</b>: the speed is the grant's distance whatever cut
+    /// it (S-2a). The laying knew it when it made the cut, so anything that has to say <em>why</em> a car is
+    /// held reads it rather than searching for the answer again — the read-out, the leg's clock and the stuck
+    /// probe.
     /// </remarks>
     public Control.HeadwayKind[] GrantCutBy { get; }
 
@@ -350,18 +345,6 @@ internal sealed class CarFleet
     /// thing that sets one.
     /// </summary>
     public float[] PaceMps { get; }
-
-    /// <summary>
-    /// <b>How much of the ordinary following interval this driver keeps</b>, or 1 for a car that keeps all
-    /// of it — which is every car in every town but the escort of a convoy, whose whole point is running
-    /// closer to what it is escorting than traffic would.
-    /// </summary>
-    /// <remarks>
-    /// It scales the <em>following</em> term of the grant and nothing else, so a car keeping half the gap
-    /// still has every stopping distance, every corner and every stop line it had: what it gives up is the
-    /// second of travel a driver leaves on top of the road it needs.
-    /// </remarks>
-    public float[] FollowingShare { get; }
 
     public float[] GroundCoefficient { get; }
 
@@ -445,11 +428,17 @@ internal sealed class CarFleet
     public bool[] InsideTheBox { get; }
 
     /// <summary>
-    /// How far ahead stands the light showing this car anything but green, or infinity where there is
-    /// none. <b>A car queueing for a light spends none of its leg's clock</b>, and this is the whole of how
-    /// the clock knows one.
+    /// How far ahead of its nose a light holds this car's road, out to a queue's length of it, or infinity
+    /// where none does (TLT-1). <b>A car queueing for a light spends none of its leg's clock</b>, and this is
+    /// the whole of how the clock knows one.
     /// </summary>
     public float[] LightAheadM { get; }
+
+    /// <summary>
+    /// The pass this car is getting past something on (CAR-46), or <see cref="Control.Overtake.None"/>. <b>The
+    /// driver's own and read by nobody else</b>: what the town sees of it is the ground it covers (TER-4c.6).
+    /// </summary>
+    public Control.Overtake[] Pass { get; }
 
     public Span<int> RouteOf(int car) => RouteLanes.AsSpan(car * RouteLanesPerCar, RouteLanesPerCar);
 
@@ -611,15 +600,14 @@ internal sealed class CarFleet
         CommittedToTheBox[car] = false;
         SinceDecisionS[car] = 0f;
         Line[car] = default;
-        MovementWay[car] = NoWay;
         LineWay[car] = NoWay;
         TailWay[car] = NoWay;
         TurnsBackOn[car] = NoLane;
         AuthorityM[car] = float.PositiveInfinity;
+        GrantMarginM[car] = 0f;
         GrantCutBy[car] = Control.HeadwayKind.Nothing;
         PlannedMps[car] = 0f;
         PaceMps[car] = float.PositiveInfinity;
-        FollowingShare[car] = 1f;
         GroundCoefficient[car] = 1f;
         Command[car] = DriveCommand.Parked;
         Hold[car] = Control.DrivingHold.None;
@@ -635,6 +623,7 @@ internal sealed class CarFleet
         LineIsReverse[car] = false;
         InsideTheBox[car] = false;
         LightAheadM[car] = float.PositiveInfinity;
+        Pass[car] = Control.Overtake.None;
         SlipThrottle[car] = 1f;
         DrivenSlipping[car] = false;
         for (var wheel = car * TyreModel.Wheels; wheel < (car + 1) * TyreModel.Wheels; wheel++)

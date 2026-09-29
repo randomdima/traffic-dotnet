@@ -266,12 +266,11 @@ internal sealed partial class TownWorld
                 placeM = _carOrders.PointM[car];
                 return true;
 
-            // Read live rather than off the leg, so the gap is held against where the car in front
-            // actually is and not against where it was when the route was last drawn.
+            // <b>Where the leg was drawn to, and not where the car in front is now</b>: the gap to it is the
+            // grant's (S-2a), and the place only says where this leg ends until the next is drawn.
             case PlayerOrder.FollowThatCar:
-                var lead = _carOrders.Lead[car];
-                placeM = lead >= 0 && lead < Cars.Count ? TheFollowingPlaceM(lead) : default;
-                return lead >= 0 && lead < Cars.Count;
+                placeM = _carOrders.AimedAtM[car];
+                return true;
 
             default:
                 placeM = default;

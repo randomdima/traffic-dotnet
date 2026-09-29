@@ -4,6 +4,83 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-29 — a walker gets past somebody standing on its way
+
+**The owner asked for overtaking for walkers on the same four rules as cars** (PER-28, TER-4c.6). Read as
+"never pass somebody making your own next movement", the case it opens is the one a watcher sees most:
+somebody waiting at a kerb for their zebra, and a walker going on along the pavement stuck behind them.
+
+**Measured down the route, not along one way**: the person waiting stands at the end of their way, where the
+pavement is parted for the zebra, so a pass that stayed on the way it began on could never get round them. The
+pass is anchored at the route slot and metre it was asked from (`Sidestep`), which carries on across a joint
+and round a corner.
+
+**Straight across, along, and straight back**: the owner asked for the shortest pass, and a walker turns where
+it stands. Aimed a stride ahead at the lane beside, a walker had closed on it along a curve, over ground between
+the two lanes its pass did not hold — the claim began a lane over from where the walker was. Now each leg is
+walked straight at its end, and the ground is the walker's disc swept down all three from where it stands: on a
+straight, 2.0 m across, 3.9 m along and 2.0 m back in 1.3 s. **Which leg it is on is read off where it stands**,
+to within its own radius across: to within a tick's walk, a body the solver shoved off the lane beside was sent
+back across it.
+
+**Held on the pavement and nowhere else**: laid over the kerb end of a zebra's paint, a walker's pass held
+somebody crossing towards that kerb out in the road. A walker on a pass is off its way by as far as the lane
+beside stands, and is not treated as having lost it (PER-25).
+
+## 2026-09-28 — a walker has no acceleration of its own, and arrives where it aims
+
+**Walkers circled points.** The follower asked full pace at whatever the aim was, along a heading turning
+22.5° a tick — a pursuer that cannot reach anything inside its 0.28 m turning circle. Any aim that stopped
+moving ahead of the body was overshot and orbited: on Odesa over a minute, 32 of 600 walkers.
+
+**What pinned the aim was a handover asked in float.** A way is walked out at `OnWayM >= end`, and on a way of
+several arcs the projection's most is the sum of the arcs in float — an ulp (1e-7 m) short of the way's
+stored length. Every one of the 32 stood on the end of such a way aiming at it and was never handed the next.
+A way is now walked out within a tick's walk of its end (`HasWalkedOut`).
+
+**The owner asked for the simplest walk: stand, turn on the spot, walk straight at the aim at pace, no
+acceleration for its own move — and neither a walker that braces against a car nor one a car cannot throw**
+(PER-3). So what it declares it has on the next tick, and only what a contact did to it is taken back at the
+foot grip, which now sizes that and not the walker's own starts and stops; the last of a walk, short of a
+tick's, is stepped onto whatever way it faces. That needed the velocity it declared kept per walker
+(`PersonFleet.DeclaredMps`). Its aim is where the middle of its body gets to — its place plus the grant, where
+it had been the grant and a radius, harmless only while the aim was a direction — and it plans a tick's walk
+and the gap, that being what it takes to stop. Over the same minute: no walker circles, walks given up
+44 → 15, touches 8 → 3; 109 of 109 exam cards pass.
+
+## 2026-09-28 — a walker plans at one rung, one above the traffic
+
+**The owner asked for a walker's plan to outrank a car's by one rung, and for the zebra to follow from
+that** (PER-27, TER-5g). A walker had held the pavement at ordinary traffic's rung and the paint — with the
+pavement leading to it — at a rung of the paint's own, picked out by asking whether each way was a zebra. It
+now holds every way at `ClaimPriority.Afoot`, one above the strongest movement and below a light, and nothing
+in the plan asks what the ground is. The traffic still gives way on the paint, because the zebra's marks
+(TER-5c.3) bring a walker's rung to every lane under it: 109 of 109 exam cards pass, the walkers' included.
+
+**What else follows is the same rule elsewhere, and was taken with it.** A car's turn over the pavement at a
+corner, and a car a walker's hop strikes out across, give way to the walker where the car can still stop;
+where it cannot, the car keeps the ground (TER-5e), as it did before.
+
+## 2026-09-28 — every walker on a walk plans it, the hop included
+
+**Two walkers planned nothing and walked on an unbounded grant** (PER-26): one not yet on its way's own
+ground — regularly the first stretch of a leg, crossing to the far lane of a pavement — and one on the hop off
+the end of its route, onto a door or, under an order, straight across a carriageway. Both plan now: the first
+down the way it is walking, the second over the ways the atlas finds under the straight in front of it, and
+the hop is aimed no further than it was granted.
+
+**A light holding the crossing is a wait that spends no clock** (TLT-2a), as it is for a driver: a walker at a
+red kerb gave up its trip after twenty seconds.
+
+## 2026-09-28 — a walker aims on this tick's grant, and is said to be at a zebra by its hold
+
+**The aim is read after the grant** (`AimTheWalker`): it was set while the chain was walked, before the plans
+were laid, so every walker stepped on the grant the tick before had left it — a tick of walking into ground
+refused since, where a driver brakes on the grant it was given. **And which zebra a walker is at is read off
+its route and its hold** (`PersonFleet.OnCrossing`): the paint its route is on, or the paint it was refused
+on while it stands. It had a look-ahead of its own for the crossing a walk was arriving at — a second reading
+of how far the plan reaches.
+
 ## 2026-09-26 — a walker plans its walk and queues, on a driver's terms
 
 The reservations were reworked into a body and a plan for everybody
@@ -14,12 +91,6 @@ meets — and granted. **What came back was a grant, so a walker spends one**: i
 given and stands where it is when given nothing. That undoes the entry that put queueing down (a walker's
 statement read by nothing, two walkers meeting in the solver): the reservations are now the one way two
 agents meet, and a walker read by nobody is one they did not reach.
-
-**A crossing is the far kerb or none, at a rung above every movement** (PER-27) — the owner's open question
-on zebras, taken at the plan's recommendation: a car gives way to somebody on the paint, and never when it
-can no longer stop. **And the pavement to the paint is held at the paint's rung** (TER-5g.1): the last metres
-before a zebra lie over the kerbside lane at a corner, and held at ordinary traffic's they went to any car
-going straight on, cutting short of the crossing a walker the crossing would have been given.
 
 **A walk that ran out on a corner of no length walked at the town's origin.** Two stretches that meet at a
 point are joined by a mitre with no line, and a chain that ran out of room on one (`RouteRunsOut`) sampled
@@ -42,9 +113,7 @@ The owner ruled the code the source of truth for this audit.
 
 **On the one stretch being walked, because the other one is the walk back.** A zebra is two walking lanes
 over one carriageway (WLK-15) and it used to be held across both: a body half way over held, from the twin
-lane's far end, exactly the half it had just finished with. Which of the two a walker is taking is read off
-the route where its crossing is (`PersonFleet.OnCrossingWay`), with the corner onto the paint carrying the
-lane it leads to, so a body still at the kerb names the lane it is about to step onto.
+lane's far end, exactly the half it had just finished with.
 
 **Wanting a crossing had to begin off the paint.** A zebra is laid from the kerb ends and runs kerb to kerb,
 and the pavement meets it at the very point it sets off from, so the mitre is skipped

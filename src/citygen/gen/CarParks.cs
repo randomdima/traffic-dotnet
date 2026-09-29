@@ -1,5 +1,6 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
+using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
@@ -94,7 +95,8 @@ internal static class CarParks
     /// <summary>The two sides of a road, as the driver's right of its own direction and its left.</summary>
     static readonly bool[] Sides = [true, false];
 
-    public static Laid Lay(TownLayout layout, TownBrief brief, SimConfig config, ref Rng draw)
+    /// <param name="townM">The town's own middle, which a yard's rank faces (<see cref="FaceTheTown"/>).</param>
+    public static Laid Lay(TownLayout layout, TownBrief brief, SimConfig config, Vector2 townM, ref Rng draw)
     {
         var wanted = config.CarParksFor(brief.Buildings);
         if (wanted <= 0) return Laid.None;
@@ -107,7 +109,10 @@ internal static class CarParks
         var right = new List<bool>();
         var cutRoads = new List<int>();
         var forUse = new List<BuildingUse>();
-        var atM = new List<Vector2>();
+        var parks = new PointCells(config.Grid.Main);
+        var changes = new RoadChanges(layout.Edges.Count);
+        var books = new Dictionary<int, SiteBook>();
+        var refused = new List<int>();
 
         Span<int> perSide = stackalloc int[Sides.Length];
         var arms = new CutArm[config.CityGen.BaysPerLotMost * Sides.Length];
@@ -121,22 +126,60 @@ internal static class CarParks
             // bays that did not fit on it being taken back off again (GEN-10).
             var use = want < services.Count ? services[want] : BuildingUse.Ordinary;
             if (use == BuildingUse.Ordinary) BaysPerSide(config, perSide, ref draw);
-            else AYard(config, perSide, ref draw);
+            else AYard(config, perSide);
+
+            Vector2? facingM = use == BuildingUse.Ordinary ? null : townM;
 
             var mostBays = Math.Max(perSide[0], perSide[1]);
             var standoffM = config.CarParkStandoffM(mostBays);
+            var curvatureMax = config.CarParkCurvatureMax(mostBays);
 
-            var sites = CutJunctions.Sites(layout, config, standoffM, config.CarParkCurvatureMax(mostBays));
-            if (sites.Count == 0) break;
+            Cut? cut = null;
+            var taken = 0;
+            if (parks.Count == 0)
+            {
+                // <b>The first one is drawn</b>, there being nothing yet to stand away from.
+                var sites = CutJunctions.Sites(layout, config, standoffM, curvatureMax);
+                if (sites.Count == 0) break;
 
-            Spread(sites, atM, ref draw);
+                var first = draw.NextInt(sites.Count);
+                (sites[0], sites[first]) = (sites[first], sites[0]);
+                foreach (var site in sites)
+                {
+                    cut = At(layout, config, site, standoffM, mostBays, arms, perSide, facingM, onTheRight, out taken);
+                    if (cut is not null) break;
+                }
+            }
+            else
+            {
+                if (!books.TryGetValue(mostBays, out var book))
+                {
+                    books[mostBays] = book = new SiteBook(layout, config, standoffM, curvatureMax, parks, changes);
+                }
 
-            var cut = Take(
-                layout, config, sites, standoffM, mostBays, arms, perSide, onTheRight, out var taken);
+                // <b>A refusal costs that site and never the car park</b>: what a cut is refused for is the
+                // ground beside one bay rather than anything about the road it was offered on, and the site
+                // after it is somewhere else entirely. The site stays in the book for the next car park.
+                book.CatchUp();
+                refused.Clear();
+                for (var entry = book.Next(); entry >= 0; entry = book.Next())
+                {
+                    cut = At(
+                        layout, config, book[entry], standoffM, mostBays, arms, perSide, facingM, onTheRight,
+                        out taken);
+                    if (cut is not null) break;
+
+                    refused.Add(entry);
+                }
+
+                foreach (var entry in refused) book.Queue(entry);
+            }
+
             if (cut is not { } made) break;
 
             junction.Add(made.Junction);
-            atM.Add(layout.NodeM[made.Junction]);
+            parks.Add(layout.NodeM[made.Junction]);
+            changes.Parted(made);
             cutRoads.AddRange(made.Roads);
             forUse.Add(use);
             for (var bay = 0; bay < taken; bay++)
@@ -152,39 +195,47 @@ internal static class CarParks
             [.. junction], [.. bayOffsets], [.. road], [.. right], [.. cutRoads], [.. forUse]);
     }
 
-    /// <summary>
-    /// The first site the town can take, tried in order until one of them is a car park. <b>A refusal costs
-    /// that site and never the car park</b>: what a cut is refused for is the ground beside one bay rather
-    /// than anything about the road it was offered on, and the site after it is somewhere else entirely.
-    /// </summary>
-    static Cut? Take(
-        TownLayout layout, SimConfig config, List<CutJunctions.Site> sites, float standoffM, int mostBays,
-        CutArm[] arms, ReadOnlySpan<int> perSide, bool[] onTheRight, out int taken)
+    /// <summary>One car park cut at one site, or nothing where the town cannot have it there.</summary>
+    /// <param name="facingM">Where a yard's rank faces (<see cref="FaceTheTown"/>), or nothing for the town's own car park.</param>
+    static Cut? At(
+        TownLayout layout, SimConfig config, CutJunctions.Site site, float standoffM, int mostBays,
+        CutArm[] arms, ReadOnlySpan<int> perSide, Vector2? facingM, bool[] onTheRight, out int taken)
     {
+        // <b>The ranks are laid off the lane each turns off and not off the node</b> (GEN-53): a street
+        // driven one way carries its one lane half a lane to the side the traffic was moved onto
+        // (TER-4d), so the two sides ask for different leads on it and for the same lead on a street of
+        // two ways. Read here rather than once for the car park, the site being what says which road.
+        var flow = layout.Edges[site.Road].Flow;
+
+        Span<int> sides = stackalloc int[Sides.Length];
+        perSide.CopyTo(sides);
+        if (facingM is { } townM) FaceTheTown(layout, site, townM, sides);
+
         taken = 0;
-        foreach (var site in sites)
+        foreach (var right in Sides)
         {
-            // <b>The ranks are laid off the lane each turns off and not off the node</b> (GEN-53): a street
-            // driven one way carries its one lane half a lane to the side the traffic was moved onto
-            // (TER-4d), so the two sides ask for different leads on it and for the same lead on a street of
-            // two ways. Read here rather than once for the car park, the site being what says which road.
-            var flow = layout.Edges[site.Road].Flow;
-
-            taken = 0;
-            foreach (var right in Sides)
-            {
-                var laneTowardM = LaneTowardM(config, flow, right);
-                taken += Rank(
-                    config, perSide[right ? 0 : 1], right, config.CarParkBayLeadM(mostBays, laneTowardM),
-                    config.CarParkArmStandM(mostBays, laneTowardM), arms, onTheRight, taken);
-            }
-
-            var cut = CutJunctions.Into(
-                layout, config, site.Road, site.AlongM, standoffM, arms.AsSpan(0, taken));
-            if (cut is not null) return cut;
+            var laneTowardM = LaneTowardM(config, flow, right);
+            taken += Rank(
+                config, sides[right ? 0 : 1], right, config.CarParkBayLeadM(mostBays, laneTowardM),
+                config.CarParkArmStandM(mostBays, laneTowardM), arms, onTheRight, taken);
         }
 
-        return null;
+        return CutJunctions.Into(layout, config, site.Road, site.AlongM, standoffM, arms.AsSpan(0, taken));
+    }
+
+    /// <summary>
+    /// <b>A yard's one rank goes on the side of its road facing the town's middle</b> (GEN-55): its building
+    /// stands past the rank's far end, and the edge of a town is where the ground to stand one on runs out.
+    /// Drawn instead, a yard cut into a road along the edge of the map faced off it half the time and its
+    /// building stood nowhere.
+    /// </summary>
+    static void FaceTheTown(TownLayout layout, CutJunctions.Site site, Vector2 townM, Span<int> perSide)
+    {
+        var at = Spline.SampleAt(layout.LineOf(site.Road), site.AlongM);
+        var rank = Math.Max(perSide[0], perSide[1]);
+        var right = Vector2.Dot(at.Right, townM - at.PositionM) >= 0f;
+        perSide[0] = right ? rank : 0;
+        perSide[1] = right ? 0 : rank;
     }
 
     /// <summary>
@@ -227,37 +278,167 @@ internal static class CarParks
     }
 
     /// <summary>
-    /// <b>The sites in the order the town would rather have them</b>: furthest from every car park already
-    /// cut first, which spreads them over the town without a spacing of their own. <b>The first one is
-    /// drawn</b>, there being nothing yet to stand away from.
+    /// <b>Which of the layout's roads a cut has parted, and how often</b> — what tells a
+    /// <see cref="SiteBook"/> which of its sites stand on a road that is no longer there, and which roads it has
+    /// yet to read.
     /// </summary>
-    static void Spread(List<CutJunctions.Site> sites, List<Vector2> takenM, ref Rng draw)
+    sealed class RoadChanges
     {
-        if (takenM.Count == 0)
+        /// <summary>How many times each road has been parted; a site read off an earlier one is gone.</summary>
+        public readonly List<int> Version;
+
+        /// <summary>Every road a cut left a new line on — the piece before its node and the piece after — in the order cut.</summary>
+        public readonly List<int> Relaid = [];
+
+        public RoadChanges(int roads) => Version = [.. new int[roads]];
+
+        public void Parted(Cut made)
         {
-            var first = draw.NextInt(sites.Count);
-            (sites[0], sites[first]) = (sites[first], sites[0]);
-            return;
+            Version[made.Roads[0]]++;
+            for (var added = 1; added < made.Roads.Length; added++) Version.Add(0);
+
+            // The arms are car parks' own and carry no site (CutJunctions.SitesOn).
+            Relaid.Add(made.Roads[0]);
+            Relaid.Add(made.Roads[1]);
         }
-
-        // <b>Each site's distance is worked out once and carried into the sort</b>, rather than twice for
-        // every comparison the sort makes: it is a question about the site and the parks already taken, and
-        // neither moves while the sort runs. The order is the same order, and not merely one as good — the
-        // permutation a comparison sort comes to is a function of how many there are and what the
-        // comparisons answered, and both are what they were.
-        var ranked = new List<(float NearestSq, CutJunctions.Site Site)>(sites.Count);
-        foreach (var site in sites) ranked.Add((NearestM(site.AtM, takenM), site));
-
-        ranked.Sort((one, other) => other.NearestSq.CompareTo(one.NearestSq));
-        for (var at = 0; at < sites.Count; at++) sites[at] = ranked[at].Site;
     }
 
-    static float NearestM(Vector2 atM, List<Vector2> takenM)
-    {
-        var nearestM = float.PositiveInfinity;
-        foreach (var otherM in takenM) nearestM = MathF.Min(nearestM, Vector2.DistanceSquared(atM, otherM));
+    /// <summary>Where a site stands in the order it is offered: furthest from every car park first, then by road, then along it.</summary>
+    readonly record struct SiteOrder(float NearestSq, int Road, float AlongM);
 
-        return nearestM;
+    sealed class FurthestFirst : IComparer<SiteOrder>
+    {
+        public static readonly FurthestFirst Instance = new();
+
+        public int Compare(SiteOrder one, SiteOrder other)
+        {
+            var byDistance = other.NearestSq.CompareTo(one.NearestSq);
+            if (byDistance != 0) return byDistance;
+
+            var byRoad = one.Road.CompareTo(other.Road);
+            return byRoad != 0 ? byRoad : one.AlongM.CompareTo(other.AlongM);
+        }
+    }
+
+    /// <summary>
+    /// <b>Every place one size of car park could be cut, kept from one car park to the next</b> and handed out
+    /// furthest from every car park already cut first — which spreads them over the town without a spacing of
+    /// their own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The sites are read once and then only where a cut changed the road</b>
+    /// (<see cref="RoadChanges"/>): the sites on a road are a question about that road's line alone, and a cut
+    /// changes the line of the road it parts and of no other. Whether a site still stands a locality clear of
+    /// every node (GEN-16) is asked as it comes up, since the nodes a cut adds are the only other thing that
+    /// can take one away.
+    /// </para>
+    /// <para>
+    /// <b>The ranking is kept rather than sorted again.</b> A site's distance from the nearest car park only
+    /// ever falls, so each is kept with the distance it had and how many car parks that counted; the one at the
+    /// head is brought up to date as it comes up, and it is the furthest once its distance has not fallen.
+    /// Read afresh and sorted for every car park, the stage was the car parks squared times the sites — a
+    /// brief of Odesa ten times over each way was still here after ten minutes.
+    /// </para>
+    /// </remarks>
+    sealed class SiteBook
+    {
+        readonly TownLayout _layout;
+        readonly SimConfig _config;
+        readonly float _standoffM;
+        readonly float _curvatureMax;
+        readonly PointCells _parks;
+        readonly RoadChanges _changes;
+
+        readonly List<CutJunctions.Site> _site = [];
+
+        /// <summary>The version of its road each site was read off (<see cref="RoadChanges.Version"/>).</summary>
+        readonly List<int> _version = [];
+
+        readonly List<float> _nearestSq = [];
+
+        /// <summary>How many car parks each site's <see cref="_nearestSq"/> was measured against.</summary>
+        readonly List<int> _parksCounted = [];
+
+        readonly PriorityQueue<int, SiteOrder> _queue = new(FurthestFirst.Instance);
+        readonly List<CutJunctions.Site> _room = [];
+        readonly HashSet<int> _read = [];
+        int _relaidRead;
+
+        public SiteBook(
+            TownLayout layout, SimConfig config, float standoffM, float curvatureMax, PointCells parks,
+            RoadChanges changes)
+        {
+            _layout = layout;
+            _config = config;
+            _standoffM = standoffM;
+            _curvatureMax = curvatureMax;
+            _parks = parks;
+            _changes = changes;
+
+            foreach (var site in CutJunctions.Sites(layout, config, standoffM, curvatureMax)) Enter(site);
+            _relaidRead = changes.Relaid.Count;
+        }
+
+        public CutJunctions.Site this[int entry] => _site[entry];
+
+        /// <summary>The sites on every road a cut has laid again since this book last read, each road once.</summary>
+        public void CatchUp()
+        {
+            _read.Clear();
+            for (; _relaidRead < _changes.Relaid.Count; _relaidRead++)
+            {
+                var road = _changes.Relaid[_relaidRead];
+                if (!_read.Add(road)) continue;
+
+                _room.Clear();
+                CutJunctions.SitesOn(_layout, _config, road, _standoffM, _curvatureMax, _room);
+                foreach (var site in _room)
+                {
+                    if (_layout.StandsClear(site.AtM)) Enter(site);
+                }
+            }
+        }
+
+        /// <summary>The furthest site that still stands, taken out of the book, or −1 where none is left.</summary>
+        public int Next()
+        {
+            while (_queue.TryDequeue(out var entry, out _))
+            {
+                var site = _site[entry];
+                if (_version[entry] != _changes.Version[site.Road] || !_layout.StandsClear(site.AtM)) continue;
+
+                if (_parksCounted[entry] < _parks.Count)
+                {
+                    var nearestSq = _parks.NearestSq(site.AtM, _nearestSq[entry]);
+                    _parksCounted[entry] = _parks.Count;
+                    if (nearestSq < _nearestSq[entry])
+                    {
+                        _nearestSq[entry] = nearestSq;
+                        Queue(entry);
+                        continue;
+                    }
+                }
+
+                return entry;
+            }
+
+            return -1;
+        }
+
+        /// <summary>A site put back into the book, at the distance it was last measured at.</summary>
+        public void Queue(int entry) =>
+            _queue.Enqueue(entry, new SiteOrder(_nearestSq[entry], _site[entry].Road, _site[entry].AlongM));
+
+        void Enter(CutJunctions.Site site)
+        {
+            var entry = _site.Count;
+            _site.Add(site);
+            _version.Add(_changes.Version[site.Road]);
+            _nearestSq.Add(_parks.NearestSq(site.AtM));
+            _parksCounted.Add(_parks.Count);
+            Queue(entry);
+        }
     }
 
     /// <summary>
@@ -282,7 +463,7 @@ internal static class CarParks
     /// </summary>
     /// <remarks>
     /// <b>They are cut first because the sites are ranked by distance from the car parks already cut</b>
-    /// (<see cref="Spread"/>): taken first, the services land as far apart as the town's roads allow, which
+    /// (<see cref="SiteBook"/>): taken first, the services land as far apart as the town's roads allow, which
     /// is the whole of what spreading them over a town is and needs no spacing of its own.
     /// <para>
     /// <b>And they are taken out of the town's own count</b> (GEN-53): a town with fewer car parks than its
@@ -307,12 +488,12 @@ internal static class CarParks
     /// <b>A service's own car park is a yard: one rank, on one side, as wide as a car park gets</b>
     /// (GEN-55, GEN-4k). <b>One side</b> because a special building stands past the far end of its own rank
     /// and there is only one of it; <b>the widest</b> because the apron it holds is the bays nearest its
-    /// door, and a station with three bays stands three vehicles.
+    /// door, and a station with three bays stands three vehicles. <b>Which side is the site's to say</b>
+    /// (<see cref="FaceTheTown"/>), so the rank is written on the first and moved there.
     /// </summary>
-    static void AYard(SimConfig config, Span<int> perSide, ref Rng draw)
+    static void AYard(SimConfig config, Span<int> perSide)
     {
-        var side = draw.NextInt(perSide.Length);
-        for (var at = 0; at < perSide.Length; at++) perSide[at] = at == side ? config.CityGen.BaysPerLotMost : 0;
+        for (var at = 0; at < perSide.Length; at++) perSide[at] = at == 0 ? config.CityGen.BaysPerLotMost : 0;
     }
 
     static int Bays(SimConfig config, ref Rng draw, bool orNone)

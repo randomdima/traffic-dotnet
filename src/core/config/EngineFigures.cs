@@ -37,7 +37,7 @@ internal sealed class SimFigures
     public float AgentDecisionIntervalS { get; init; } = 0.1f;
 
     /// <summary>A time scale above this integrates the physics coarsely and manufactures collisions the model never had.</summary>
-    public float SoakMaxTimeScale { get; init; } = 4f;
+    public float SoakMaxTimeScale { get; init; } = 5f;
 
     /// <summary>
     /// <b>How wide the one grid's main cell is</b> (SIM-8), in car widths — the cell every index over the map

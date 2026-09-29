@@ -4,6 +4,153 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md) and [claims.md](claims.md); how
 a type works is its own XML docs.
 
+## 2026-09-29 — a zebra is planned like any other ground
+
+**The whole-or-nothing zebra went** (TER-5c.3): a plan reaching a zebra ran on to the car's own length clear of
+the far edge, and anything refusing it in between answered it where the zebra began. The grant credits nothing
+in front with a speed (S-2a), so the car ahead pulling away over the paint refused it as surely as one parked
+past it: **every car of a queue leaving a green stopped at its bar** — the bar stands a setback short of the
+zebra, and the stand-off off it put the car there — and pulled away from rest once the car ahead was a car's
+length past the paint. The owner asked for it dropped. A plan over a zebra is now cut where anything on it is,
+like a plan over any other ground, so a car can come to rest on the paint behind a queue standing just past it;
+the exam card that asked otherwise went with it.
+
+## 2026-09-29 — p0 carries a pass as well as a body
+
+**The owner asked for overtaking with the claim at p0 where it can be had** (TER-4c.6): a holder that has left
+its own way cannot safely go back, so the ground it will cover is laid where nothing compares it — p0, beside
+the bodies. It is the one new thing the ladder holds (TER-5g), and it needed three facts a body now says of
+itself, since a reader may not look the holder up (TER-4c.5): **the way its line takes next** (`LaneClaim.Onward`),
+**whether it is at rest** (`Still`), and **whether it is ground a pass covers rather than a collider**
+(`Passing`). Rule 1 of the request — never pass somebody making your own movement in that section or
+intersection — is `LaneClaim.MayBePassedBy`, read off the first and the third.
+
+**Asked, laid, then kept or withdrawn**: two passes asked over one ground on one tick read the same layer and
+would both be laid; the rebuild after, the lower by roster and occupant keeps its own and the other withdraws,
+which is the only way two holders reading one layer can come to one answer without a register of whose turn it
+is. **A pass holds nobody already standing on its ground** (`LaneOccupancy.Reach`): its holder is held off them
+instead, or each waits for the other.
+
+**Its ground is swept and read off the atlas** rather than mapped lane to lane. The first cut mapped a car's lane
+onto its reverse and refused any pass that reached a box; the owner saw cars not passing where car parks cut a
+street into short lanes and asked for junctions to stop mattering: if the claim can be placed, pass. Read off
+the atlas, the pass holds whatever a box or a mark lays under it, as a body does, with no second geometry beside
+the one the physical layer already reads. **Each network lays its passes on its own ways**: a car's pass laid
+over a pavement's band where it pokes over the kerb (WLK-16) held walkers standing on it, whose bodies then held
+the car — a ring that stood both for as long as the leg's clock let it.
+
+**The swept ground is the holder's own body, from where it stands.** A line moved across and swept a body's
+width wide from the front of the holder left the ground its body swung over as it turned out held by nobody;
+the owner saw the claim begin too far on. A body stood at every place the pass puts it now lays the pass, so one
+way is covered many times over, and `LayPass` grows a stretch of the same pass where it meets another — only
+there, since the lane a pass leaves and comes back to is two stretches with what it passes between them.
+**A movement through a box is held whole**, as a car in a box plans the rest of the join: held in part, a car
+crossing the box was let in and cut in the middle of it, over the pass's ground on the movement beside its own.
+
+## 2026-09-28 — a box is not remembered
+
+**Who had a box last time went out of the comparison** (TER-5e): a car carried the movement it had won from one
+rebuild to the next (`CarFleet.MovementWay`), its plan to and through that box won ties against an equal
+movement nearer since (`LaneClaim.Held`), and once it could not stop short of the mouth the whole join was
+committed. The owner asked for the reservations to be the whole of it, and the scenario map holds without any
+of it: **109 of 109 cards pass on ground a car stands on and ground it can no longer stop short of**, and
+nothing else.
+
+**Committing a whole box statelessly was tried both ways and refused.** Committed through the join once the car
+could not stop short of its mouth, a through car too fast to stop at the mouth took the box from a car on a call
+it had been refused against (the call card never arrived); committed once the car was in the box, a car waiting
+inside it at the metre it was refused held the car it was giving way to (five tee cards). A car in a box still
+plans the rest of the join and its own length of the way out.
+
+## 2026-09-28 — a zebra is marked whole
+
+**The owner asked for a zebra to be one piece of ground to both networks** (TER-5c.3): a car reserving any of
+it places secondary claims on both of its walking lanes whole, and a walker reserving any of it places them on
+every lane under it. The ribbons had marked only the ground the two actually share — a lane's band of each
+walking lane, and each walking lane's stretch over each lane — so a car was held off the walker's band of its
+own lane and nothing more, and a walker had to plan the paint to the far kerb, and be sent back to the kerb
+when refused anywhere on it, to hold the lanes it had not reached. **The marks now say it**, laid with every
+other mark and read the same way, and the walker's special cases went with the reason for them (`PER-27`).
+
+**Driven ways only.** The walk a zebra hands over to at each kerb shares the end of its paint as any two walks
+do; marked whole it would hold the zebra for somebody walking past the end of it.
+
+**The per-lane bands went with it** (`CrossingEdges`, `LaneFurniture`): which lanes a zebra is painted across,
+and where on each walking lane each of them falls, was read by nothing once the marks carried it.
+
+## 2026-09-28 — a light is a rung of the ladder, and its hold the one secondary claim with no main claim
+
+**A light stopped clipping the plan and started holding ground** (TER-5g, TER-5c.1): the owner asked for the
+lights to be a secondary reservation on the lanes they block, high on the ladder and not above the police or
+an ambulance. So the ladder gained a rung, **p4**, between a closed road and a walker, and everything below
+it moved down one — a walker to p5 and the movements to p6, p7 and p8. The numbers are the ladder's order
+and nothing but the ladder and its own tests names a rung by one. Why the hold is secondary, where it
+runs and why it is placed first is [agents/trafficlight](../../../agents/trafficlight/docs/decision-log.md).
+
+**The bars are laid once** (`StopBars`, TER-6): the lanes' furniture read the plan's `StopLines`, which only
+the scenario map filled, while the picture painted the town's own. The furniture, the lights and the heads
+read the one laying now.
+
+## 2026-09-28 — a crossing asks the lanes near it which it is painted across
+
+**Finding the lanes under each crossing was the town's crossings times its lanes** (`LaneFurniture`): every
+crossing projected onto every lane in the town. On a town thirty kilometres long at Odesa's density it was
+most of the 21 s standing the town cost past its graphs. **Each crossing now asks the road graph's own lane
+index for the lanes that could pass within its half-span** (`RoadGraph.LanesAround`) and asks those the
+questions it asked of all of them, in lane order — the same pairs in the same order. That part of standing
+that town went to 0.85 s, and Odesa's from 128 to 77 ms.
+
+## 2026-09-27 — the marks' pairs are hashed from both ways, and the atlas lays in time linear in the town
+
+**The atlas's time was the square of the town, and all of it was the marks' merge.** Every pair of ways
+that share ground is keyed as the two numbers in one `long`, whose own hash is the two xored — and ways that
+share ground are numbered close together, so the pairs fell in a few buckets. Odesa's atlas laid in
+0.8 s and Odesa's brief with its extent doubled each way, 4.6 times the entries, in 26 s; the merge alone
+was a third of the whole load.
+
+The key is now hashed with both halves mixed (`RibbonMarks.PairHash`). The same two towns lay in 0.39 s and
+1.8 s. What is filed is unchanged: the doubled town's census is the same line for line, and every body of
+every shipped map stands to the bit where it did after 3600 ticks.
+
+## 2026-09-27 — a body is read off the atlas point by point, and nothing it already knows is asked again
+
+The owner asked that a lookup not work out again what the town already knows, the physics grid's cells
+above all. **Which cells a car is in is not what a lookup pays for.** They are shifts of the rows of
+points the atlas needs anyway. The physics index files 1.02 cars to each 8 m cell on Odesa, so walking it a
+cell at a time shares nothing between cars. No car's pose is ever exactly the last tick's, since nothing
+sleeps, so a last answer is never reusable as it stands.
+
+**What a lookup paid for was reading entries it then passed over.** A car's row, read from its first entry,
+held 172 entries for the 50 the car stood on, and deciding which to skip was branches. So:
+
+- **Every point of a kept cell has a start**, and a lookup reads the entries of the points inside the body
+  and no others. The atlas grows from 49.2 to 58.9 MiB on Odesa.
+- **A way's stretch is gathered in the tenths the atlas files**, and turned into metres once per way rather
+  than divided once per entry. They are floats: integer least and most compile to branches, and those cost
+  a lookup a fifth.
+
+**Measured** on the fixed-tick soak, microseconds a tick, the atlas lookup alone:
+
+| | before | after |
+|---|---|---|
+| Odesa, 520 cars | 287–288 | 227–236 |
+| River, 480 cars | 254–256 | 201 |
+| Odesa walkers | 77 | 62–64 |
+
+Tried and left out:
+
+- **A start every 2 m**: 2 MiB instead of 10, and a fifth of the gain.
+- **Remembering a cell's slot across its rows**: no gain, and a call a row.
+- **Integer tenths**: 20 % slower than before.
+- **The solver's own direction for a car**, in place of a sine and cosine of the fleet's heading. The two
+  are one in a running town, but a fixture stands a body by writing the fleet, and a box read from the
+  fleet's place and the solver's direction is neither. It saves 4 µs a tick.
+- **A point's depth taken once for all the ways over it, and each point's start read once**: no gain
+  (Odesa's index 484 µs a tick before, 483 after). The profile put a quarter of the lookup on the depth
+  test, but the arithmetic was not what it was paying for.
+
+The soak's figures on all four maps are identical line for line before and after.
+
 ## 2026-09-27 — a car refused in a box waits there, and nothing moves the answer
 
 The owner ruled the flow pure: a patch beside it goes, and what the flow gets wrong is fixed in it. So
@@ -142,7 +289,7 @@ both be on it.
 
 **Ground a car can no longer stop short of became the first term of the comparison, not a p0 claim** — p0
 is the collider and nothing else. The ladder was redrawn round it (TER-5g): body, committed, call, closure,
-crossing, then the three movements. **The stated band, `Reserved` and `Rejected` went**: a plan is one hold
+light, somebody on foot, then the three movements. **The stated band, `Reserved` and `Rejected` went**: a plan is one hold
 from the nose, answered before it is laid, so there is no weaker band to tell apart from it.
 
 **The comparison is committed, standing, rung, box already given, arrival** (TER-5e), and each term is a
@@ -156,16 +303,13 @@ given last time is no reason to drive into the car already there.
 distance instead rode ahead of the car at exactly its stopping distance: a car refused a box held 19 m/s into
 it, and the plan laid past its answer took the box from the car that had won it.
 
-**A light is infrastructure and clips the plan** (TER-4c.5): a red is where the plan ends, so nothing waiting
-at one holds the box beyond it, and `JunctionStopM` reads the light and nothing else.
-
 **What is outside the two layers is named** (TER-4c.5): placing a body leaving a building (`ExitSpots`, a
 placement and not a decision), route-cost memory (`LinkSurcharges`, now one table per network — the walking
 router had been pricing its links off the driving table by id), building capacity, and the special agents.
 
 **The owner's open decisions were taken at the plan's recommendations**: the new rules at P3, not P0 or P1;
 committed ground as a plan nothing takes; a prop on a driven ribbon refused when the town is laid; the
-crossing's rung above every movement and below committed ground; lights as infrastructure; route cost and
+walker's rung above every movement and below committed ground; route cost and
 capacity exempt by name; a bay's ways planned like any other when bays return; and a body's own place on its
 own line as its control rather than the reservation path.
 

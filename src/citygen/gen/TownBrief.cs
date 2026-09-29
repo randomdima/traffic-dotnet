@@ -80,9 +80,10 @@ internal sealed class TownBrief
 
     /// <summary>
     /// How many of the junctions that could carry lights are left to the ranking instead (TER-5e). Only a
-    /// junction of three arms or more can carry any (TLT-3), so this is a share of those.
+    /// junction of three arms or more, off a roundabout and off a car park, can carry any (TLT-3), so this is a
+    /// share of those — and which ones is drawn towards the bigger (<see cref="LitJunctions"/>).
     /// </summary>
-    public float UnregulatedJunctionShare { get; init; } = 0.15f;
+    public float UnregulatedJunctionShare { get; init; } = 0.2f;
 
     /// <summary>
     /// How many cars the town stands up, if its lanes afford that many. <b>One car a lane</b>

@@ -105,7 +105,9 @@ point of the rule.
   never a way to stop somebody who cannot stop.
 - **A closure is one stretch of one way and is held once** (`TER-5c.2`), laid round the scene rather than
   round the car — what is being kept clear is the ground somebody is working on and not the ground the
-  patrol happened to stop on.
+  patrol happened to stop on. **It is placed before any plan, as a light's hold is** (`TER-5c.1`): a
+  secondary claim on the lane it closes and on nothing crossing it, so the plans on that lane are answered
+  against it and somebody on a zebra over the street still crosses it.
 - **A closure ends when its scene does, and is bounded besides.** The casualty collected and the wreck on
   the bar are both the scene over; the bound is what stops a scene nothing ever clears holding a street out
   of the town for the rest of the run.

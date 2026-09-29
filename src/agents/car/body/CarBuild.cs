@@ -168,13 +168,6 @@ internal readonly record struct CarBuild
 
     public required float ProjectionWindowM { get; init; }
 
-    /// <summary>The ground this body keeps around itself, which is its own width or its own standstill gap.</summary>
-    public required float BodyMarginM { get; init; }
-
-    public required float TailMarginM { get; init; }
-
-    public required float CrossingStandOffM { get; init; }
-
     public float HalfLengthM => LengthM * 0.5f;
 
     /// <summary>How far it reaches to either side of the line it is driven along.</summary>
@@ -316,10 +309,6 @@ internal readonly record struct CarBuild
             LookaheadFloorM = lengthM * config.Driving.LookaheadFloorInCarLengths,
             LookaheadCeilingM = lengthM * config.Driving.LookaheadCeilingInCarLengths,
             ProjectionWindowM = lengthM * config.Driving.ProjectionWindowInCarLengths,
-            BodyMarginM = MathF.Max(widthM, lengthM * config.Driving.StandstillGapInCarLengths),
-            TailMarginM = MathF.Max(widthM, lengthM * config.Driving.StandstillGapInCarLengths)
-                * config.Driving.TailMarginShare,
-            CrossingStandOffM = widthM * config.Driving.CrossingStandOffInCarWidths,
         };
     }
 

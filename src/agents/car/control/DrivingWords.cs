@@ -30,21 +30,24 @@ internal static class DrivingWords
             return cars.LineIsReverse[car] ? "backing at a bay" : "driving at a bay";
         }
 
+        // The lane beside is a line of its own to a watcher, whatever bound the speed along it (CAR-46).
+        if (cars.Pass[car].Begun) return "overtaking";
+
         return HoldName(cars.Hold[car]);
     }
 
     /// <summary>
-    /// What was found in front of a car, in the words the follower reads it by. <b>It names what the
-    /// thing is and never what the car will do about it</b>: what the car does is the speed profile's
-    /// answer, and this is the reading that answer was reached on.
+    /// What cut a car's grant, in words. <b>It names what the thing is and never what the car will do about
+    /// it</b>: what the car does is stop within the road it was given, whatever ended it.
     /// </summary>
     public static string AheadName(HeadwayKind ahead) => ahead switch
     {
         HeadwayKind.Queue => "a queue",
         HeadwayKind.Obstruction => "an obstruction",
         HeadwayKind.Claimed => "road somebody means to use",
+        HeadwayKind.Light => "a light",
         HeadwayKind.Walker => "a walker",
-        HeadwayKind.Unknown => "something unnamed",
+        HeadwayKind.Passing => "somebody overtaking",
         _ => "nothing",
     };
 
@@ -52,10 +55,8 @@ internal static class DrivingWords
     {
         DrivingHold.Corner => "slowing for a corner",
         DrivingHold.LineEnd => "stopping at the end of its line",
-        DrivingHold.Headway => "holding off something in the way",
         DrivingHold.Claimed => "queueing",
         DrivingHold.Waiting => "waiting for the junction",
-        DrivingHold.Crossing => "yielding at a crossing",
         DrivingHold.LostLine => "off its line",
         _ => "driving",
     };

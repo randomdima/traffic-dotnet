@@ -85,7 +85,7 @@ internal readonly record struct Cut(int Junction, int[] Roads, int[] Arms);
 /// any of it is installed, and a cut that fails any of it leaves the road exactly as it was.
 /// </para>
 /// <para>
-/// <b>It is the last thing done to a layout.</b> The bearings <see cref="TownLayout.Rebuilt"/> refills are
+/// <b>It is the last thing done to a layout.</b> The bearings a cut files (<see cref="TownLayout.Part"/>) are
 /// read off each road's chord, which is not where a cut road leaves its nodes — so nothing may be offered to
 /// a layout that has been cut, and the generator runs this after every stage that offers anything.
 /// </para>
@@ -154,10 +154,9 @@ internal static class CutJunctions
     public static List<Site> Sites(TownLayout layout, SimConfig config, float standoffM, float curvatureMax)
     {
         // <b>A road at a time, on as many threads as there are, and strung in road order.</b> Nothing here
-        // writes to the layout, and the locality test below is asked of every node in the town for every
-        // place on every road — which is where a city's time in this method goes, and it is asked again for
-        // every car park the brief wants. Keeping each road's answer in its own slot is what makes the order
-        // the loop's rather than the threads'.
+        // writes to the layout, and the locality test below is asked for every place on every road — of the
+        // nodes near each place (TownLayout.StandsClear). Keeping each road's answer in its own slot is what
+        // makes the order the loop's rather than the threads'.
         var onARoad = new List<Site>?[layout.Edges.Count];
         InChunks.Over(
             layout.Edges.Count,
@@ -170,7 +169,7 @@ internal static class CutJunctions
                 List<Site>? kept = null;
                 foreach (var site in room)
                 {
-                    if (ClearOfEveryJunction(layout, config, site.AtM)) (kept ??= []).Add(site);
+                    if (layout.StandsClear(site.AtM)) (kept ??= []).Add(site);
                 }
 
                 onARoad[road] = kept;
@@ -183,21 +182,6 @@ internal static class CutJunctions
         }
 
         return sites;
-    }
-
-    /// <summary>
-    /// Whether a node here would stand a locality clear of every node the town already has (GEN-16) — asked
-    /// of all of them and not of the two the road runs between, a road being free to bow past a third.
-    /// </summary>
-    static bool ClearOfEveryJunction(TownLayout layout, SimConfig config, Vector2 atM)
-    {
-        var localityM = config.CityGen.LocalityM;
-        for (var node = 0; node < layout.NodeM.Count; node++)
-        {
-            if (Vector2.DistanceSquared(layout.NodeM[node], atM) < localityM * localityM) return false;
-        }
-
-        return true;
     }
 
     /// <summary>
@@ -216,7 +200,7 @@ internal static class CutJunctions
 
         var at = Spline.SampleAt(line, alongM);
         if (!layout.Dry(at.PositionM) || !StandSquareEnough(layout, arms)) return null;
-        if (!ClearOfEveryJunction(layout, config, at.PositionM)) return null;
+        if (!layout.StandsClear(at.PositionM)) return null;
 
         var pieces = new ArcSeg[line.Length + 1];
         var before = Piece(line, 0f, alongM - standoffM, pieces);
@@ -254,33 +238,24 @@ internal static class CutJunctions
             // owes the cut's own nodes nothing, they being one junction laid out with a stub rather than two
             // spacings that landed on the same ground, exactly as a ring's nodes are (GEN-19).
             var edge = new LayoutEdge(node, node + 1 + arm, arms[arm].Class, 0f, RoadFlow.BothWays, []);
-            if (!layout.Dry(armM[arm]) || !ClearOfEveryJunction(layout, config, armM[arm])) return null;
+            if (!layout.Dry(armM[arm]) || !layout.StandsClear(armM[arm])) return null;
             if (!layout.Clear([reach], edge, instead)) return null;
         }
 
-        var nodeM = (List<Vector2>)[.. layout.NodeM, at.PositionM, .. armM];
-        var edges = (List<LayoutEdge>)[.. layout.Edges];
-        var lineOf = new List<ArcSeg[]>(edges.Count + arms.Length + 1);
-        for (var edge = 0; edge < edges.Count; edge++) lineOf.Add([.. layout.LineOf(edge)]);
-
-        edges[road] = beforeEdge;
-        lineOf[road] = before;
-
-        var cut = new List<int> { road, edges.Count };
-        edges.Add(afterEdge);
-        lineOf.Add(after);
-
+        var firstNew = layout.Edges.Count;
+        var armEdges = new LayoutEdge[arms.Length];
         var laid = new int[arms.Length];
+        var cut = new int[arms.Length + 2];
+        cut[0] = road;
+        cut[1] = firstNew;
         for (var arm = 0; arm < arms.Length; arm++)
         {
-            laid[arm] = edges.Count;
-            cut.Add(edges.Count);
-            edges.Add(new LayoutEdge(node, node + 1 + arm, arms[arm].Class, 0f, RoadFlow.BothWays, []));
-            lineOf.Add(armLine[arm]);
+            armEdges[arm] = new LayoutEdge(node, node + 1 + arm, arms[arm].Class, 0f, RoadFlow.BothWays, []);
+            laid[arm] = cut[arm + 2] = firstNew + 1 + arm;
         }
 
-        layout.Rebuilt(nodeM, edges, lineOf);
-        return new Cut(node, [.. cut], laid);
+        layout.Part(road, beforeEdge, before, afterEdge, after, at.PositionM, armM, armEdges, armLine);
+        return new Cut(node, cut, laid);
     }
 
     /// <summary>

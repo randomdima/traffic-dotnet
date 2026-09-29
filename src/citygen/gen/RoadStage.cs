@@ -36,11 +36,12 @@ internal static class RoadStage
         CityPlan.JunctionArrays Junctions,
         CityPlan.JunctionCornerArrays Corners,
         CityPlan.CrosswalkArrays Crosswalks,
-        CityPlan.StopLineArrays StopLines,
         CityPlan.BridgeArrays Bridges,
         CityPlan.RoundaboutArrays Roundabouts);
 
-    public static Laid Lay(TownLayout layout, SimConfig config, CarParks.Laid carParks)
+    /// <param name="signals">The stream which junctions are lit is drawn on (<see cref="LitJunctions"/>).</param>
+    public static Laid Lay(
+        TownLayout layout, TownBrief brief, SimConfig config, CarParks.Laid carParks, ref Rng signals)
     {
         // One lane's width for every road there is, arterial or street, and as many lanes as it is driven
         // ways (GEN-15, TER-4d). <b>Except a bay's own way</b>, which is one lane wide however it is driven:
@@ -70,20 +71,16 @@ internal static class RoadStage
 
         return new Laid(
             Roads(layout, chains, widthM, CutRoads(layout, carParks), bay),
-            Junctions(centreM, config, carParks),
+            Junctions(centreM, config, carParks, LitJunctions.Draw(layout, carParks.Junction, brief, config, ref signals)),
 
-            // <b>A junction turns no kerb corner, strikes no crossing and paints no bar.</b> A fillet is
-            // kerb geometry and the kerb is not laid here any more; the crossings and the bars come back
-            // with it (TER-6).
+            // <b>A junction turns no kerb corner and strikes no crossing.</b> A fillet is kerb geometry and the
+            // kerb is not laid here any more; the zebras and the bars are the town's, laid off its kerb ends
+            // (TER-6).
             new CityPlan.JunctionCornerArrays
             {
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
             },
             new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
-            new CityPlan.StopLineArrays
-            {
-                CentreM = [], Approach = [], SpanM = [], ThicknessM = [], Junction = [], Road = [],
-            },
             Bridges(layout, chains, config),
             Rings(layout));
     }
@@ -162,7 +159,8 @@ internal static class RoadStage
     /// <see cref="SimConfig.CarParkStandoffM"/>): its bays hang off the node a lane apart along the street
     /// rather than radiating from it, so the street stands off the whole rank and the disc is that standoff.
     /// </remarks>
-    static CityPlan.JunctionArrays Junctions(Vector2[] centreM, SimConfig config, CarParks.Laid carParks)
+    static CityPlan.JunctionArrays Junctions(
+        Vector2[] centreM, SimConfig config, CarParks.Laid carParks, LitJunctions.Drawn signals)
     {
         var radiusM = new float[centreM.Length];
         Array.Fill(radiusM, config.JunctionRadiusM);
@@ -171,15 +169,12 @@ internal static class RoadStage
             radiusM[carParks.Junction[carPark]] = config.CarParkStandoffM(MostBaysOnASide(carParks, carPark));
         }
 
-        // <b>Nothing is lit.</b> Whether a junction carries a timetable was drawn here, in a stream of its
-        // own, and the signals come back with the crossings and the bars they order (TLT-3) — so what the
-        // plan carries is a town of junctions that all rank their movements (TER-5e).
         return new CityPlan.JunctionArrays
         {
             CentreM = centreM,
             RadiusM = radiusM,
-            Lit = new bool[centreM.Length],
-            PhaseOffsetS = new float[centreM.Length],
+            Lit = signals.Lit,
+            PhaseOffsetS = signals.PhaseOffsetS,
         };
     }
 
@@ -299,8 +294,25 @@ internal static class RoadStage
             FromJunction = fromJunction, ToJunction = toJunction, WidthM = widthM, Flow = flow,
             SegmentOffsets = offsets, Segments = [.. segments],
             ThroughOffsets = throughOffsets, ThroughM = [.. throughM],
-            Cut = cut, Bay = bay,
+            Cut = cut, Bay = bay, LaidStraight = LaidStraight(layout),
         };
+    }
+
+    /// <summary>
+    /// <b>Which roads were laid straight</b> (GEN-47), as the flag per road the plan carries — <b>empty where
+    /// the town laid none.</b>
+    /// </summary>
+    static bool[] LaidStraight(TownLayout layout)
+    {
+        var straight = new bool[layout.Edges.Count];
+        var any = false;
+        for (var road = 0; road < straight.Length; road++)
+        {
+            straight[road] = layout.Edges[road].Straight;
+            any |= straight[road];
+        }
+
+        return any ? straight : [];
     }
 
     /// <summary>

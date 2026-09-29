@@ -33,9 +33,17 @@ namespace TrafficSimulation.World.Road;
 /// spans both, which holds the ground between as well: a stretch that needs both places needs what lies
 /// between them.
 /// </para>
+/// <para>
+/// <b>A zebra is the one place the ribbons do not say how far a mark runs</b> (TER-5c.3). Each of its walking
+/// lanes is marked against every way the traffic drives under either of them, all of the lane against the
+/// whole of what the zebra covers of that way — so it is held as one piece of ground from both sides.
+/// </para>
 /// </remarks>
 internal static class RibbonMarks
 {
+    /// <summary>What <see cref="IRibbonLines.ZebraOf"/> answers for a way that paints no zebra.</summary>
+    public const int NoZebra = -1;
+
     /// <summary>
     /// How many times an end of a section is closed in on once a step has bracketed it — a lattice step
     /// halved this often is under a micrometre.
@@ -62,7 +70,7 @@ internal static class RibbonMarks
                 lock (pairings) pairings.Add(pairing);
             });
 
-        return Filed(lines.WayCount, pairings, lengthM);
+        return Filed(lines, pairings, lengthM);
     }
 
     /// <summary>Every piece of every way's line, swept to half that way's width.</summary>
@@ -326,13 +334,28 @@ internal static class RibbonMarks
     /// <summary>One thread's pairs, keyed by the pair and held until every cell has been read.</summary>
     sealed class Pairing
     {
-        public readonly Dictionary<long, int> At = [];
+        public readonly Dictionary<long, int> At = new(PairHash.Instance);
         public readonly List<Shared> Pairs = [];
     }
 
-    /// <summary>What every thread found, merged, and filed under both ways of every pair.</summary>
-    static WayCrossings Filed(int wayCount, List<Pairing> pairings, float[] lengthM)
+    /// <summary>
+    /// <b>A pair's key hashed from both halves mixed.</b> A <see cref="long"/>'s own hash is its two halves
+    /// xored, and two ways that share ground are nearly always numbered close together, so their pairs would
+    /// fall in a few buckets and every lookup walk them — the square of the town's pairs.
+    /// </summary>
+    sealed class PairHash : IEqualityComparer<long>
     {
+        public static readonly PairHash Instance = new();
+
+        public bool Equals(long one, long other) => one == other;
+
+        public int GetHashCode(long key) => (int)(((ulong)key * 0x9E3779B97F4A7C15UL) >> 32);
+    }
+
+    /// <summary>What every thread found, merged, and filed under both ways of every pair.</summary>
+    static WayCrossings Filed(IRibbonLines lines, List<Pairing> pairings, float[] lengthM)
+    {
+        var wayCount = lines.WayCount;
         var merged = new Pairing();
         foreach (var pairing in pairings)
         {
@@ -343,7 +366,7 @@ internal static class RibbonMarks
         }
 
         var filed = new List<CrossedSection>[wayCount];
-        foreach (var pair in merged.Pairs)
+        foreach (var pair in ZebrasWhole(lines, merged, lengthM).Pairs)
         {
             var oneFromM = MathF.Max(0f, pair.OneFromM);
             var oneToM = MathF.Min(lengthM[pair.One], pair.OneToM);
@@ -372,11 +395,92 @@ internal static class RibbonMarks
         {
             if (filed[way] is not { } mine) continue;
 
-            mine.Sort(static (one, other) => one.MineFromM.CompareTo(other.MineFromM));
+            // Ordered by way where two begin together — every mark of a zebra's lane begins at its kerb — so the
+            // order secondary claims are placed in does not turn on which thread found a pair first.
+            mine.Sort(static (one, other) => one.MineFromM != other.MineFromM
+                ? one.MineFromM.CompareTo(other.MineFromM)
+                : one.OnWay.CompareTo(other.OnWay));
             mine.CopyTo(sections, offsets[way]);
         }
 
         return new WayCrossings(offsets, sections) { MostCrossedByOne = most };
+    }
+
+    /// <summary>
+    /// <b>Every zebra marked whole</b> (TER-5c.3): the pairs of one of its walking lanes and a driven way
+    /// taken out, and in their place every walking lane of that zebra against every driven way any of them lay
+    /// over — the whole lane, and the stretch of the driven way from where the first of them came onto it to
+    /// where the last left it. Every other pair is kept as the ribbons found it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Driven ways and no others</b>: the pavement a zebra hands over to at a kerb shares ground with its end
+    /// the way any two walks do, and is weighed over that ground and not over the road.
+    /// </remarks>
+    static Pairing ZebrasWhole(IRibbonLines lines, Pairing merged, float[] lengthM)
+    {
+        var paint = new Dictionary<int, List<int>>();
+        for (var way = 0; way < lines.WayCount; way++)
+        {
+            var zebra = lines.ZebraOf(way);
+            if (zebra == NoZebra) continue;
+
+            if (!paint.TryGetValue(zebra, out var lanes)) paint[zebra] = lanes = [];
+            lanes.Add(way);
+        }
+
+        if (paint.Count == 0) return merged;
+
+        var kept = new Pairing();
+
+        // Keyed by zebra and driven way: every lane of the zebra is marked over the one stretch, so the stretch
+        // is gathered from all of them first.
+        var under = new Dictionary<long, (float FromM, float ToM)>();
+        foreach (var pair in merged.Pairs)
+        {
+            if (!Under(lines, pair, out var zebra, out var driven, out var fromM, out var toM))
+            {
+                Share(kept, pair.One, pair.OneFromM, pair.OneToM, pair.Other, pair.OtherFromM, pair.OtherToM);
+                continue;
+            }
+
+            var key = ((long)zebra << 32) | (uint)driven;
+            under[key] = under.TryGetValue(key, out var was)
+                ? (MathF.Min(was.FromM, fromM), MathF.Max(was.ToM, toM))
+                : (fromM, toM);
+        }
+
+        foreach (var (key, stretch) in under)
+        {
+            var driven = (int)(uint)key;
+            foreach (var lane in paint[(int)(key >> 32)])
+            {
+                Share(kept, lane, 0f, lengthM[lane], driven, stretch.FromM, stretch.ToM);
+            }
+        }
+
+        return kept;
+    }
+
+    /// <summary>Whether a pair is a zebra's walking lane over a driven way, and the stretch of the driven way it covers.</summary>
+    static bool Under(
+        IRibbonLines lines, in Shared pair, out int zebra, out int driven, out float fromM, out float toM)
+    {
+        zebra = lines.ZebraOf(pair.One);
+        if (zebra != NoZebra && lines.ZebraOf(pair.Other) == NoZebra && lines.IsDriven(pair.Other))
+        {
+            (driven, fromM, toM) = (pair.Other, pair.OtherFromM, pair.OtherToM);
+            return true;
+        }
+
+        zebra = lines.ZebraOf(pair.Other);
+        if (zebra != NoZebra && lines.ZebraOf(pair.One) == NoZebra && lines.IsDriven(pair.One))
+        {
+            (driven, fromM, toM) = (pair.One, pair.OneFromM, pair.OneToM);
+            return true;
+        }
+
+        (driven, fromM, toM) = (0, 0f, 0f);
+        return false;
     }
 
     static void Share(

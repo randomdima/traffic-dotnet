@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using TrafficSimulation.App.Render;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Config;
@@ -34,14 +35,21 @@ internal static class LoadProbe
         var plan = Maps.Plan(map, config, BuildingCatalog.Roofs);
         var planMs = Stopwatch.GetElapsedTime(planAt).TotalMilliseconds;
 
+        // <b>Each stage is printed as it finishes</b>, so a town that fails further on still says what
+        // laying it cost and which plan it was.
+        Console.WriteLine($"load — {plan.Name}, seed {plan.Seed}");
+        Console.WriteLine();
+        Say("plan", planMs, $"{plan.Roads.Count} roads, {plan.Junctions.Count} junctions, {plan.Props.Count} props");
+        foreach (var (stage, ms) in plan.LaidMs) Say($"  {stage}", ms, string.Empty);
+        Console.WriteLine($"  {"digest",-12}{Digest(plan):x16}   the plan's shapes, equal across processes and builds");
+        var rings = plan.Paving(config).Rings(config);
+        Console.WriteLine(
+            $"  {"open",-12}{plan.Paving(config).Perimeter(config).Loose.Length,8} merged, " +
+            $"{rings.Carriageway.Loose.Length} carriageway, {rings.Walk.Loose.Length} walk — runs the boundary could not close");
+
         var groundAt = Stopwatch.GetTimestamp();
         var ground = GroundMesh.Build(plan, config);
         var groundMs = Stopwatch.GetElapsedTime(groundAt).TotalMilliseconds;
-
-        var world = new TownWorld(plan, config);
-
-        Console.WriteLine($"load — {plan.Name}, seed {plan.Seed}");
-        Console.WriteLine();
 
         var corners = 0;
         var triangles = 0;
@@ -51,11 +59,12 @@ internal static class LoadProbe
             triangles += part.Triangles;
         }
 
-        Say("plan", planMs, $"{plan.Roads.Count} roads, {plan.Junctions.Count} junctions, {plan.Props.Count} props");
         Say("ground", groundMs, $"{triangles} triangles over {corners} corners");
         Say("  merge", ground.MergeMs, "every driven band cut against every band near it");
         Say("  boundary", ground.BoundaryMs - ground.MergeMs, "that shape moved into each layer's own rings");
         Say("  layers", ground.LaidMs - ground.BoundaryMs, $"{GroundParts.Count} layers cut and welded");
+
+        var world = new TownWorld(plan, config);
         Say("world", world.StoodMs, $"{world.AgentCount} agents, {world.StaticBodyCount} static bodies");
         Say("  roads", world.RoadsMs, $"{world.Roads.LaneCount} lanes");
         Say("  foot", world.FootMs, $"{world.Foot.EdgeCount} lanes");
@@ -71,4 +80,31 @@ internal static class LoadProbe
 
     static void Say(string stage, double ms, string beside) =>
         Console.WriteLine($"  {stage,-12}{ms,8:F0} ms   {beside}");
+
+    /// <summary>
+    /// <b>The plan's shapes as one number that another process and another build agree on</b>, which is what
+    /// says a change to how a town is laid left the town where it was. Folded byte by byte and not with
+    /// <c>HashCode</c>, whose seed is drawn per process.
+    /// </summary>
+    static ulong Digest(CityPlan plan)
+    {
+        var hash = 14695981039346656037UL;
+        Fold(ref hash, plan.Roads.Segments);
+        Fold(ref hash, plan.Roads.FromJunction);
+        Fold(ref hash, plan.Roads.ToJunction);
+        Fold(ref hash, plan.Junctions.CentreM);
+        Fold(ref hash, plan.Junctions.Lit);
+        Fold(ref hash, plan.CarParks.Junction);
+        Fold(ref hash, plan.Buildings.CentreM);
+        Fold(ref hash, plan.Buildings.HeadingRad);
+        Fold(ref hash, plan.Props.CentreM);
+        Fold(ref hash, plan.Spawns.PositionM);
+        return hash;
+    }
+
+    static void Fold<T>(ref ulong hash, ReadOnlySpan<T> values)
+        where T : unmanaged
+    {
+        foreach (var value in MemoryMarshal.AsBytes(values)) hash = (hash ^ value) * 1099511628211UL;
+    }
 }

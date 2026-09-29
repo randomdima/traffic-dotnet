@@ -87,7 +87,7 @@ Four consequences of what is there, and the last is the reason for the rule:
   lane and onto a footway — not by an arithmetic of the bay's, and not from the register that says which bay
   it claimed. So an occupied bay is a fact the town reads rather than a flag it is told; a car standing across
   a bay it never claimed is on that bay's ways too; and what stops a driver aiming at the bay is the body at
-  the end of the way, on the headway that stops it behind anything else. **A body and not a car**: a person on
+  the end of the way, through the grant that stops it behind anything else. **A body and not a car**: a person on
   foot in a space is a stretch of that space's ways on the same terms.
 - **The last dozen metres of a leg are driven, not manoeuvred around.** A route's line stops where the bay's
   way leaves its lane and the car takes that way as its next line (`CAR-15`), so a driver working into a bay

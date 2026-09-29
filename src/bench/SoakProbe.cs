@@ -66,7 +66,20 @@ internal static class SoakProbe
     /// </summary>
     public const int PastAfterTicks = 150;
 
-    public static bool Run(SimConfig config)
+    /// <summary>
+    /// How many of its agents' seeds one map named on the command line is soaked over — the plan's own and
+    /// five more. A bound on the reading and not a figure the town reads.
+    /// </summary>
+    const int SeedsForOneMap = 6;
+
+    /// <summary>
+    /// Where the other seeds are counted from — clear of the small numbers a brief's own seed is written as, so
+    /// that none of them is the plan's seed over again.
+    /// </summary>
+    const ulong OtherSeeds = 0x5EED_0000UL;
+
+    /// <param name="map">One map to soak, or every shipped one where none is named.</param>
+    public static bool Run(SimConfig config, string? map = null)
     {
         // Nothing here is a time, so a cold process would not make a figure wrong — it would make sixty
         // seconds of four towns take several minutes of somebody's, which is its own kind of untrue.
@@ -79,18 +92,26 @@ internal static class SoakProbe
             $"{"touches",9}{"peak mm",10}{"peak body",12}{"stuck ticks",13}{"stuck body",12}" +
             $"{"past mm",10}{"drove on",10}{"drove body",12}");
 
-        var maps = Maps.Shipped();
-        var watched = new TownWatch[maps.Length];
-        for (var map = 0; map < maps.Length; map++)
+        // One map asked for by name is soaked over several of its agents' seeds: a minute of one seed is one
+        // draw of who meets whom, and a wreck more or less in it is that draw as much as the town.
+        string[] maps = map is null ? Maps.Shipped() : [map];
+        var seeds = map is null ? 1 : SeedsForOneMap;
+        var watched = new TownWatch[maps.Length][];
+        for (var at = 0; at < maps.Length; at++)
         {
-            var sample = watched[map] = Sample(maps[map], config);
-            Console.WriteLine(
-                $"{maps[map],-10}{sample.Walkers,9}{sample.Cars,6}{sample.Down,6}{sample.Wrecked,9}" +
-                $"{sample.DrivenM / 1000f,12:F1}{sample.WalksGivenUp,9}{sample.Touches,9}" +
-                $"{sample.DeepestOverlapM * 1_000f,10:F1}{Named(sample, sample.DeepestBody),12}" +
-                $"{sample.LongestStuckTicks,13}{Named(sample, sample.StuckBody),12}" +
-                $"{sample.FurthestPastTheGrantM * 1_000f,10:F0}{sample.LongestPastTicks,10}" +
-                $"{Named(sample, sample.PastBody),12}");
+            watched[at] = new TownWatch[seeds];
+            for (var seed = 0; seed < seeds; seed++)
+            {
+                var sample = watched[at][seed] = Sample(maps[at], config, seed == 0 ? null : OtherSeeds + (ulong)seed);
+                var name = seeds == 1 ? maps[at] : $"{maps[at]}#{seed}";
+                Console.WriteLine(
+                    $"{name,-10}{sample.Walkers,9}{sample.Cars,6}{sample.Down,6}{sample.Wrecked,9}" +
+                    $"{sample.DrivenM / 1000f,12:F1}{sample.WalksGivenUp,9}{sample.Touches,9}" +
+                    $"{sample.DeepestOverlapM * 1_000f,10:F1}{Named(sample, sample.DeepestBody),12}" +
+                    $"{sample.LongestStuckTicks,13}{Named(sample, sample.StuckBody),12}" +
+                    $"{sample.FurthestPastTheGrantM * 1_000f,10:F0}{sample.LongestPastTicks,10}" +
+                    $"{Named(sample, sample.PastBody),12}");
+            }
         }
 
         Console.WriteLine(
@@ -104,9 +125,9 @@ internal static class SoakProbe
         // The same soak said as claims, one map at a time, which is what a caller reads to decide whether
         // the town kept PHY-1 rather than reading the millimetres itself.
         var kept = true;
-        for (var map = 0; map < maps.Length; map++)
+        for (var at = 0; at < maps.Length; at++)
         {
-            kept &= ScenarioReport.Print(maps[map], [watched[map]], MeasuredTicks / config.Sim.TickRateHz);
+            kept &= ScenarioReport.Print(maps[at], [.. watched[at]], MeasuredTicks / config.Sim.TickRateHz);
         }
 
         return kept;
@@ -117,9 +138,10 @@ internal static class SoakProbe
     /// run of the game keeps against the map on screen — so this table and that panel cannot disagree
     /// about how deep anything got or how long it stayed there.
     /// </summary>
-    public static TownWatch Sample(string map, SimConfig config)
+    /// <param name="agentSeed">The agents' own seed, or the plan's where none is given (<see cref="TownWorld"/>).</param>
+    public static TownWatch Sample(string map, SimConfig config, ulong? agentSeed = null)
     {
-        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Roofs), config);
+        using var world = new TownWorld(Maps.Plan(map, config, BuildingCatalog.Roofs), config, agentSeed: agentSeed);
         var loop = new SimLoop<TownWorld>(world, config);
         loop.Advance(WarmupTicks);
 

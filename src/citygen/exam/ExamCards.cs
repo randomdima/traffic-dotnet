@@ -14,7 +14,8 @@ namespace TrafficSimulation.CityGen.Exam;
 /// (TER-5g), ways that meet only where their ribbons do (TER-5c), a red, somebody on the paint — and the
 /// larger part of the table is the plainest of it: a car alone, and cars whose ways never meet, none of which
 /// may be held at all. <b>What the engine refuses to do is not asked of it</b>: nothing turns round in a box
-/// (TER-5f) or at a dead end (TER-5a), and nothing overtakes.
+/// (TER-5f) or at a dead end (TER-5a). One card is about getting past something (CAR-46), on a street short
+/// of the box — a pass is never taken over a zebra's paint, and a lattice junction has one on every arm.
 /// </para>
 /// <para>
 /// <b>Every card is written in its own frame</b>, north up and traffic keeping right: a car from the south
@@ -77,9 +78,6 @@ internal static class ExamCards
     /// </summary>
     const float BlockingM = 12f;
 
-    /// <summary>And a car stood just past the zebra on the far side, so a car queueing behind it would stand on the paint.</summary>
-    const float PastThePaintM = 17f;
-
     /// <summary>How long a car blocking the far side stands there before it drives on.</summary>
     const float BlocksForS = 10f;
 
@@ -104,7 +102,7 @@ internal static class ExamCards
 
     const string RightOfWay = "TER-5e, TER-5g";
 
-    /// <summary>A plan is cut at the first body in front of it, and a car does not come to rest on the paint.</summary>
+    /// <summary>A plan is cut at the first body in front of it.</summary>
     const string Queue = "TER-4c.1";
 
     const string Light = "CAR-6.3, TLT-4";
@@ -295,7 +293,7 @@ internal static class ExamCards
             $"{Ring}, {RightOfWay}", [DrivesAfter(South, North, BackM, OnTheRingFirstS), Drives(West, East, CloseM)],
             [Yields(0, 1)]),
 
-        // Queues, and the paint a queue must not stand on.
+        // Queues.
         Card("Following the car in front through the junction", ExamFamily.Queues, ExamShape.Crossroads,
             "A car follows the one in front through the junction, in order and keeping its distance.", Queue,
             [Drives(South, North, AheadM, WellPastM), Drives(South, North, BehindM)], [Before(0, 1)]),
@@ -310,9 +308,6 @@ internal static class ExamCards
         Card("A queue past the junction holds the car behind it until it moves", ExamFamily.Queues, ExamShape.Crossroads,
             "A car behind a queue standing past the junction follows it out once it moves, and nobody touches.", Queue,
             [Blocks(North, BlockingM), Drives(South, North)], []),
-        Card("Not stopping on a zebra in a queue", ExamFamily.Queues, ExamShape.Crossroads,
-            "A car does not come to rest on a zebra with a queue just past it: it waits short of the paint.", Queue,
-            [Blocks(North, PastThePaintM), Drives(South, North)], [NotOnThePaint(1)]),
         Card("Two cars queued in the stem", ExamFamily.Queues, ExamShape.Tee,
             "The second car in the stem goes after the first.", Queue,
             [Drives(South, East, AheadM, WellPastM), Drives(South, East, BehindM)], [Before(0, 1)]),
@@ -484,7 +479,15 @@ internal static class ExamCards
         Card("Left into the stem gives way to the oncoming straight, another way round", ExamFamily.Across, ExamShape.Tee,
             "A left turn into the stem never holds the oncoming straight on the through road.", RightOfWay,
             [Drives(East, South, NearerM), Drives(West, East)], [Yields(0, 1)]),
+
+        // Getting past what stands in the lane: the one card whose car goes round another rather than waiting.
+        Card("Getting past a car stood in its lane", ExamFamily.Queues, ExamShape.Crossroads,
+            "A car behind one stood in its lane goes round it over the free lane beside, and on through the junction.",
+            Pass, [Stands(South, BackM), Drives(South, North, FarM)], []),
     ];
+
+    /// <summary>A car gets past a body going nowhere in its lane, over the lane beside where that is free.</summary>
+    const string Pass = "CAR-46, TER-4c.6";
 
     static ExamCard Card(
         string name, ExamFamily family, ExamShape shape, string expects, string rules, ExamDriver[] drivers,
@@ -609,6 +612,4 @@ internal static class ExamCards
     static ExamClaim Waits(int subject) => new(ExamRule.Waits, subject);
 
     static ExamClaim ForWalker(int subject, int walker) => new(ExamRule.ForWalker, subject, walker);
-
-    static ExamClaim NotOnThePaint(int subject) => new(ExamRule.NotOnThePaint, subject);
 }

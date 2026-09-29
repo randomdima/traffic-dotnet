@@ -33,6 +33,14 @@ internal readonly record struct RouteGoal(int Link, float AlongM);
 /// <see cref="TravelGraph"/>'s slice log.
 /// </para>
 /// <para>
+/// <b>What a plan costs is the ground cheaper than its answer.</b> Every link cheaper than the route is
+/// settled — a disc about the entry as wide as the trip — so for a destination drawn from anywhere in the
+/// town it is about half the graph (<c>--bench census</c> samples it), a plan grows with the town's area,
+/// and a town's planning with its area times its roster. On Odesa's brief with its extent doubled each way
+/// and its counts four times over, planning is about 7 % of the tick against 2 % on Odesa, and walkers
+/// drawing and re-laying trips are nearly all of it.
+/// </para>
+/// <para>
 /// <b>The goal is tracked apart from the frontier.</b> A link runs one way, so a destination twenty
 /// metres behind is round the block and down this link again; a goal link settled cheaply on the way past
 /// would otherwise never be reached again. Every relaxation into a goal link offers its own arrival,

@@ -165,6 +165,11 @@ internal sealed class GroundRings
         var (inner, innerLoose) = shell.Outset(0f, roundedM);
         var (outer, loose) = shell.Outset(walkM, roundedM);
 
+        // <b>A layer is a region, so it is filled from rings shut across whatever its move left open</b>
+        // (<see cref="ArcRings.Shut"/>), and the open runs are handed back beside them as the fault they are.
+        if (innerLoose.Length > 0) inner = [.. inner, .. ArcRings.Shut(innerLoose)];
+        if (loose.Length > 0) outer = [.. outer, .. ArcRings.Shut(loose)];
+
         return new GroundRings(
             new GroundLayer("carriageway", 0f, inner, innerLoose),
             new GroundLayer("walk", walkM, outer, loose),

@@ -160,12 +160,11 @@ internal sealed partial class TownWorld
         var wreck = PatrolDuty.Nobody;
         var bestM = float.PositiveInfinity;
 
+        // Whether a scene is taken is a walk of the fleet, so only one nearer than the best is asked it.
         for (var person = 0; person < People.Count; person++)
         {
-            if (!IsASceneWorthClosing(person, aCar: false)) continue;
-
             var farM = (People.PositionM[person] - fromM).LengthSquared();
-            if (farM >= bestM) continue;
+            if (farM >= bestM || !IsASceneWorthClosing(person, aCar: false)) continue;
 
             casualty = person;
             wreck = PatrolDuty.Nobody;
@@ -174,10 +173,8 @@ internal sealed partial class TownWorld
 
         for (var broken = 0; broken < Cars.Count; broken++)
         {
-            if (!IsASceneWorthClosing(broken, aCar: true)) continue;
-
             var farM = (Cars.PositionM[broken] - fromM).LengthSquared();
-            if (farM >= bestM) continue;
+            if (farM >= bestM || !IsASceneWorthClosing(broken, aCar: true)) continue;
 
             wreck = broken;
             casualty = PatrolDuty.Nobody;
@@ -290,7 +287,25 @@ internal sealed partial class TownWorld
             return;
         }
 
+        FindTheClosure(car, sceneM);
         EnterThePatrolStage(car, PatrolStage.Closing);
+    }
+
+    /// <summary>
+    /// <b>The stretch of lane a closure round this scene holds</b> (SRV-6): the lane the scene is on, the closure's
+    /// reach either side of it — found once, since neither the scene nor the lane moves.
+    /// </summary>
+    void FindTheClosure(int car, Vector2 sceneM)
+    {
+        _beat.ClosedWay[car] = PatrolDuty.Nobody;
+
+        var lane = _roads.NearestLane(sceneM, out var alongM);
+        if (lane < 0) return;
+
+        var way = _ways.OfRoadLane(lane);
+        _beat.ClosedWay[car] = way;
+        _beat.ClosedFromM[car] = MathF.Max(0f, alongM - _config.PoliceClosureM);
+        _beat.ClosedToM[car] = MathF.Min(_ways.LengthM(way), alongM + _config.PoliceClosureM);
     }
 
     /// <summary>
@@ -314,39 +329,38 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The stretch of lane this police car is holding closed</b> (SRV-6), laid with the rest of the
-    /// plans: a hold of its own at the closure's own rung, over the scene and whatever stands in it.
+    /// <b>The stretch of lane this police car is holding closed</b> (SRV-6): a secondary claim at the closure's
+    /// own rung, placed before any plan the way a light's hold is (TLT-1), over the scene and whatever stands in
+    /// it.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing reading it learns a new word.</b> It keeps its ground against whatever
-    /// <see cref="LaneOccupancy.Beats"/> says it beats — every ordinary movement, and not an ambulance or an
-    /// evacuator answering a call (AMB-4, EVA-4), nor a car that can no longer stop. That is the whole of
-    /// "the police give way to the other services", and neither of them is told a police car exists.
+    /// <para>
+    /// <b>Nothing reading it learns a new word.</b> Every plan on that lane is answered against it like any
+    /// other claim, and it keeps its ground against whatever <see cref="LaneOccupancy.Beats"/> says it beats —
+    /// every ordinary movement, and not an ambulance or an evacuator answering a call (AMB-4, EVA-4), nor a car
+    /// that can no longer stop. That is the whole of "the police give way to the other services", and neither
+    /// of them is told a police car exists.
+    /// </para>
+    /// <para>
+    /// <b>It holds the lane and nothing crossing it</b>: placed and not taken, it follows no mark, so somebody
+    /// on a zebra over a closed street crosses it.
+    /// </para>
     /// </remarks>
     void CloseTheRoad(int car)
     {
         if (!IsAPatrolCar(car) || _beat.Stage[car] != PatrolStage.Closing) return;
 
-        var casualty = _beat.Casualty[car];
-        var wreck = _beat.Wreck[car];
-        if (casualty < 0 && wreck < 0) return;
+        var way = _beat.ClosedWay[car];
+        var fromM = _beat.ClosedFromM[car];
+        var toM = _beat.ClosedToM[car];
+        if (way == PatrolDuty.Nobody || toM <= fromM) return;
 
-        var lane = _roads.NearestLane(TheSceneM(casualty, wreck), out var alongM);
-        if (lane < 0) return;
-
-        var way = _ways.OfRoadLane(lane);
-        var fromM = MathF.Max(0f, alongM - _config.PoliceClosureM);
-        var toM = MathF.Min(_ways.LengthM(way), alongM + _config.PoliceClosureM);
-        if (toM <= fromM) return;
-
-        // The scene is inside the closure and so is whatever stands there: the hold is laid over the bodies
-        // it closes the road round, and given up only to a plan that beats it.
         var hold = _occupancy.BeginHold(0f);
-        var ask = new Road.PlannedAsk(
-            hold, car, Road.LaneRoster.Driving, Road.ClaimPriority.Closed, fromM, 0f, 0f, float.NegativeInfinity, 0f);
-        var reachM = _occupancy.Reach(ask, way, toM, toM, out var by);
-        _occupancy.Take(ask, way, reachM);
-        _occupancy.EndHold(hold, reachM < toM ? reachM - fromM : float.PositiveInfinity, 0f, by);
+        _occupancy.Place(
+            new Road.PlannedAsk(
+                hold, car, Road.LaneRoster.Driving, Road.ClaimPriority.Closed, fromM, 0f, 0f, float.NegativeInfinity, 0f),
+            way, toM);
+        _occupancy.EndHold(hold, float.PositiveInfinity, 0f, Road.LaneClaim.Nothing);
     }
 
     /// <summary>

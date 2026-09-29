@@ -184,10 +184,9 @@ internal sealed partial class TownWorld
         var bestM = float.PositiveInfinity;
         for (var wreck = 0; wreck < Cars.Count; wreck++)
         {
-            if (!IsAWreckWorthFetching(wreck)) continue;
-
+            // Whether a wreck is taken is a walk of the fleet, so only one nearer than the best is asked it.
             var farM = (Cars.PositionM[wreck] - fromM).LengthSquared();
-            if (farM >= bestM) continue;
+            if (farM >= bestM || !IsAWreckWorthFetching(wreck)) continue;
 
             best = wreck;
             bestM = farM;

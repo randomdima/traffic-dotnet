@@ -103,11 +103,15 @@ internal sealed partial class SimConfig
     public float PersonTurnRateDegPerS => Person.RealPivotDegPerS * Person.PaceScale;
 
     /// <summary>
-    /// <b>What the feet hold</b>: whatever stops a body inside
-    /// <see cref="PersonFigures.StopsWithinDiameters"/> of its own diameter at the pace it is going.
-    /// <b>The relation is the figure</b> — move the pace or the body and this follows, which is the whole
-    /// reason it is not a number somebody chose.
+    /// <b>What the feet hold</b>: whatever stops a body shoved at walking pace inside
+    /// <see cref="PersonFigures.StopsWithinDiameters"/> of its own diameter. <b>The relation is the figure</b>
+    /// — move the pace or the body and this follows, which is the whole reason it is not a number somebody
+    /// chose.
     /// </summary>
+    /// <remarks>
+    /// <b>It bounds what was done to a walker and never what it does</b>: its own change of pace is delivered
+    /// whole (PER-3), and only the difference a contact made is taken back at this.
+    /// </remarks>
     public float PersonFootGripMps2 =>
         PersonWalkSpeedMps * PersonWalkSpeedMps / (2f * PersonDiameterM * Person.StopsWithinDiameters);
 
@@ -246,6 +250,12 @@ internal sealed partial class SimConfig
     /// anybody laid, and the window its place on that way is searched in.
     /// </summary>
     public float PersonWalkAheadM => PersonDiameterM * Person.WalkAheadInDiameters;
+
+    /// <summary>
+    /// <b>How far a walker covers in one tick at its pace</b> — 0.11 m at the shipped figures. A walker has no
+    /// acceleration of its own (PER-3), so it is also the whole of what one takes to come to rest.
+    /// </summary>
+    public float PersonStepM => PersonWalkSpeedMps * TickSeconds;
 
 
     /// <summary>
@@ -664,55 +674,6 @@ internal sealed partial class SimConfig
     public float CarJunctionClaimM => Driving.NominalCarLengthM * Driving.JunctionClaimInCarLengths;
 
     /// <summary>
-    /// <b>The ground a car keeps around itself</b> — asked for in front of its nose as part of its own
-    /// stretch, and claimed behind its tail at <see cref="CarTailMarginM"/> (TER-4c.1), so that
-    /// <b>what a queue at rest stands at and what a body in a junction is still swinging through are one
-    /// figure and one stretch</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It is a margin on a lossy reading before it is a comfort.</b> A claim puts a body on a way as one
-    /// interval of that way's arclength, which is the whole width of the road thrown away: a crossing point
-    /// is where two <em>lines</em> pass, and what has to be clear of it is a body that is off its own line by
-    /// up to the road's tolerance and swings wider still at the back. A tail exactly on the far edge of a
-    /// section is a body that may well still be standing on it, and this is what covers the difference.
-    /// </para>
-    /// <para>
-    /// <b>It is measured, and it is at its floor.</b> Against the 0 wrecked, 56 touches and 97.9 mm peak
-    /// interpenetration Odesa's soak gives at a body's width:
-    /// <list type="bullet">
-    /// <item>at nothing at all — a body's ground released at its bare tail — <b>2 wrecked and 923.6 mm</b>;</item>
-    /// <item>at half a body's width, <b>2 wrecked and 263 touches</b>, near five times as many.</item>
-    /// </list>
-    /// Both are a car granted a crossing point that the body ahead of it is still swinging off. So the floor
-    /// is a body's width, and a fleet tuned to queue closer than that gets the floor rather than the wreck:
-    /// <see cref="DrivingFigures.StandstillGapInCarLengths"/> sets the gap and never lowers the margin.
-    /// </para>
-    /// <para>
-    /// <b>What it costs is the stretch on the overlay behind a body</b> — a block that begins
-    /// <see cref="CarTailMarginM"/> behind the tail, on every way that body is on. It was a claim of its own
-    /// on a junction's join once, which made one body two occupants of one piece of ground and left a bar
-    /// across the road behind a car that looked to have left it.
-    /// </para>
-    /// </remarks>
-    public float CarBodyMarginM =>
-        MathF.Max(Car.WidthM, Car.LengthM * Driving.StandstillGapInCarLengths);
-
-    /// <summary>
-    /// <b>The part of that ground a claim keeps behind the tail</b>
-    /// (<see cref="DrivingFigures.TailMarginShare"/>) — where a body's stretch begins, on every way it is on,
-    /// and therefore where whoever comes up behind it is cut.
-    /// </summary>
-    /// <remarks>
-    /// The end that swings widest is also the end that queues the road behind it, and the two ends are read
-    /// by different traffic: in front the margin is this car's own cover against a bar or a body it is
-    /// closing on, behind it is what the claim owes the width it threw away. Only the tail is short of
-    /// <see cref="CarBodyMarginM"/>, and how short is a question `--bench soak` answers.
-    /// </remarks>
-    public float CarTailMarginM => CarBodyMarginM * Driving.TailMarginShare;
-
-
-    /// <summary>
     /// How far off its line a car is no longer on it: half a lane, which is the width of ground the lane
     /// it is meant to be in actually has to spare.
     /// </summary>
@@ -758,8 +719,6 @@ internal sealed partial class SimConfig
     public float CarSightM =>
         Car.MaxSpeedMps * Car.MaxSpeedMps
         / (2f * MathF.Min(CarBrakingMps2, TyreGripMps2) * Driving.GripMargin);
-
-    public float CarCrossingStandOffM => Car.WidthM * Driving.CrossingStandOffInCarWidths;
 
     /// <summary>The patience a drive leg is given up after, 30 s at the shipped figures — four full red phases.</summary>
     public float CarPatienceS => Signals.CycleS * Patience.BlockedRoadInLightCycles;

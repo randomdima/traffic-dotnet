@@ -40,7 +40,7 @@ internal sealed class ControlsCard
         "Space", "Handbrake: a car's rear pair, a walker stands",
         "E", "Work each selected unit's own lever",
         "R", "Release the wheel and the orders; the units decide again",
-        "1 2 3", "Pace, as a multiple of real time, capped at 3x",
+        "1 2 3 4 5", "Pace, as a multiple of real time",
         "`", "Freeze: nothing decides, steps, collides or ages",
         "Pause", "Hold the agents; the bodies keep stepping",
         "F11", "Fullscreen",

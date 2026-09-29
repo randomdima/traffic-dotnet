@@ -52,8 +52,14 @@ internal enum RoadClass : byte
 /// turned out to be nowhere two roads met: the corner is the town's and the road keeps it, so the road
 /// stage lays the line through them rather than drawing a middle of its own.
 /// </param>
+/// <param name="Straight">
+/// <b>Whether the road is laid straight</b> (GEN-47): each arm on the chord to the place the road runs for
+/// rather than jittered off it (GEN-46), and no wander of its own — so between two places it is one straight
+/// piece, and it bends only at a corner it was joined through. Some of every district's streets are, drawn
+/// street by street at the district's own share (<see cref="Lattice"/>).
+/// </param>
 internal readonly record struct LayoutEdge(
-    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow, Vector2[] ThroughM);
+    int From, int To, RoadClass Class, float Curvature, RoadFlow Flow, Vector2[] ThroughM, bool Straight = false);
 
 /// <summary>
 /// <b>The town as nodes and what joins them</b>, before any of it is a curve or a cell — the product of the
@@ -84,9 +90,15 @@ internal readonly record struct LayoutEdge(
 /// </para>
 /// </remarks>
 internal sealed class TownLayout(
-    float shortestRoadM, float armsApartMinRad, float localityM, WaterRules water, RoadLines lines)
+    float shortestRoadM, float armsApartMinRad, float localityM, GridLevel level, WaterRules water, RoadLines lines)
 {
     readonly List<Vector2> _nodeM = [];
+
+    /// <summary>
+    /// The nodes filed by cell (SIM-8, the main level), for <see cref="StandsClear"/>. Laid on the first ask and
+    /// added to as nodes are; a settle or a rebuild renumbers the nodes and drops it.
+    /// </summary>
+    PointCells? _nodesIn;
 
     /// <summary>The line each road was laid as, drawn when it was offered and carried with it thereafter.</summary>
     readonly List<ArcSeg[]> _lineOf = [];
@@ -125,8 +137,29 @@ internal sealed class TownLayout(
         if (water.Wet(atM)) return -1;
 
         _nodeM.Add(atM);
+        _nodesIn?.Add(atM);
         _armsAt.Add([]);
         return _nodeM.Count - 1;
+    }
+
+    /// <summary>
+    /// <b>Whether a node here would stand a locality clear of every node the layout has</b> (GEN-16) — asked
+    /// of all of them and not of the two a road runs between, a road being free to bow past a third.
+    /// </summary>
+    /// <remarks>
+    /// <b>Safe to ask from several threads at once</b> while nothing is added, the index being laid whole
+    /// before any of them reads it.
+    /// </remarks>
+    public bool StandsClear(Vector2 atM)
+    {
+        var nodesIn = LazyInitializer.EnsureInitialized(ref _nodesIn, () =>
+        {
+            var index = new PointCells(level);
+            foreach (var nodeM in _nodeM) index.Add(nodeM);
+            return index;
+        });
+
+        return !nodesIn.AnyWithin(atM, localityM);
     }
 
     /// <summary>
@@ -197,6 +230,7 @@ internal sealed class TownLayout(
 
         _nodeM.Clear();
         _nodeM.AddRange(kept);
+        _nodesIn = null;
         _armsAt.Clear();
         for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
         return moved;
@@ -225,7 +259,9 @@ internal sealed class TownLayout(
     /// deleted with its own piece (<see cref="KeepTheLargestComponent"/>) rather than joined some other way.
     /// </summary>
     /// <returns>The road, or <c>−1</c> where it was refused.</returns>
-    public int Join(int from, int to, RoadClass roadClass, float curvature = 0f, Vector2[]? throughM = null)
+    public int Join(
+        int from, int to, RoadClass roadClass, float curvature = 0f, Vector2[]? throughM = null,
+        bool straight = false)
     {
         if (from == to) return -1;
 
@@ -234,7 +270,7 @@ internal sealed class TownLayout(
         if (!water.Carries(_nodeM[from], _nodeM[to], roadClass)) return -1;
         if (!_joined.Add(from < to ? (from, to) : (to, from))) return -1;
 
-        var road = new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays, throughM ?? []);
+        var road = new LayoutEdge(from, to, roadClass, curvature, RoadFlow.BothWays, throughM ?? [], straight);
         var (outOfFrom, outOfTo) = BearingsOf(road);
         if (!StandsSquareEnough(from, outOfFrom) || !StandsSquareEnough(to, outOfTo)
             || !lines.CanLay(road, _nodeM, out var line))
@@ -695,6 +731,7 @@ internal sealed class TownLayout(
     {
         _nodeM.Clear();
         _nodeM.AddRange(nodeM);
+        _nodesIn = null;
         _edges.Clear();
         _edges.AddRange(edges);
         _lineOf.Clear();
@@ -703,12 +740,63 @@ internal sealed class TownLayout(
         _armsAt.Clear();
         lines.Reset(_edges, _lineOf);
         for (var node = 0; node < _nodeM.Count; node++) _armsAt.Add([]);
-        foreach (var edge in _edges)
-        {
-            _joined.Add(edge.From < edge.To ? (edge.From, edge.To) : (edge.To, edge.From));
-            var (outOfFrom, outOfTo) = BearingsOf(edge);
-            _armsAt[edge.From].Add(outOfFrom);
-            _armsAt[edge.To].Add(outOfTo);
-        }
+        foreach (var edge in _edges) Joined(edge);
+    }
+
+    /// <summary>
+    /// <b>One road parted at a node of its own, with arms laid off that node</b> (GEN-52,
+    /// <see cref="CutJunctions.Into"/>), done where the layout stands. The piece before the node keeps the
+    /// road's number, the piece after it and then each arm take the next ones, and the node and then each
+    /// arm's far node are appended.
+    /// </summary>
+    /// <remarks>
+    /// <b>It leaves the layout <see cref="Rebuilt"/> would over the same lists</b> and touches only what the cut
+    /// touched: rebuilt, every road in the town was copied and filed again for every car park, which made
+    /// cutting a town's car parks the square of the town.
+    /// </remarks>
+    public void Part(
+        int road, in LayoutEdge before, ArcSeg[] beforeLine, in LayoutEdge after, ArcSeg[] afterLine,
+        Vector2 nodeM, ReadOnlySpan<Vector2> armM, ReadOnlySpan<LayoutEdge> arms, ReadOnlySpan<ArcSeg[]> armLines)
+    {
+        var was = _edges[road];
+        var (wasOutOfFrom, wasOutOfTo) = BearingsOf(was);
+        _armsAt[was.From].Remove(wasOutOfFrom);
+        _armsAt[was.To].Remove(wasOutOfTo);
+        _joined.Remove(was.From < was.To ? (was.From, was.To) : (was.To, was.From));
+
+        Appended(nodeM);
+        foreach (var atM in armM) Appended(atM);
+
+        _edges[road] = before;
+        _lineOf[road] = beforeLine;
+        lines.Refile(road, before, beforeLine);
+        Joined(before);
+
+        Added(after, afterLine);
+        for (var arm = 0; arm < arms.Length; arm++) Added(arms[arm], armLines[arm]);
+    }
+
+    void Appended(Vector2 atM)
+    {
+        _nodeM.Add(atM);
+        _nodesIn?.Add(atM);
+        _armsAt.Add([]);
+    }
+
+    void Added(in LayoutEdge edge, ArcSeg[] line)
+    {
+        _edges.Add(edge);
+        _lineOf.Add(line);
+        lines.Keep(edge, line);
+        Joined(edge);
+    }
+
+    /// <summary>A road's two ends marked joined, and the bearing it leaves each of them on kept there.</summary>
+    void Joined(in LayoutEdge edge)
+    {
+        _joined.Add(edge.From < edge.To ? (edge.From, edge.To) : (edge.To, edge.From));
+        var (outOfFrom, outOfTo) = BearingsOf(edge);
+        _armsAt[edge.From].Add(outOfFrom);
+        _armsAt[edge.To].Add(outOfTo);
     }
 }

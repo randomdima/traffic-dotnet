@@ -59,6 +59,11 @@ lands on, the pavement and the crossing at the kerb, the lane and the bay templa
 it. One piece leaves out the decision the agent is about to act on and three are the route again, and
 the route past the second piece belongs to the nodes layer or to no layer at all.
 
+**A pass is drawn with the line it leaves** ([CAR-46](../../../agents/car/docs/requirements.md),
+[PER-28](../../../agents/person/docs/requirements.md)): the line the pass aims its holder along, from where it
+steps out to where it is back — and for a car on a step, the circle the pass bends round where the car is,
+which is what the car's own turn circle (OBS-2j) lies over while it drives the pass.
+
 **OBS-2j** `P8` **The one layer that computes rather than reads is the turn circle, and it says so.** Every
 other mark here is read off whatever produced it; **there is no producer for this one** — nothing in the
 simulation ever works out a centre of rotation, because a car turns by four contact patches spending four

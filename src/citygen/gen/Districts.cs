@@ -10,13 +10,20 @@ namespace TrafficSimulation.CityGen.Gen;
 /// at its own block spacing.
 /// </summary>
 /// <param name="Strict">
-/// Whether its streets are chords or are allowed to wander. A strict district is a grid, and the traced
-/// cities say a grid is straight: half of Odesa's straight road length stands inside one five-degree band.
+/// Whether it is a grid, whose streets are mostly straight, rather than a loose district, whose streets
+/// mostly wander (<paramref name="StraightShare"/>). The traced cities say a grid is straight: half of
+/// Odesa's straight road length stands inside one five-degree band.
 /// </param>
 /// <param name="BlockAlongM">How far apart its streets stand along its own bearing.</param>
 /// <param name="BlockAcrossM">And across it, which is the longer of the two: a block is a rectangle.</param>
+/// <param name="StraightShare">
+/// <b>How many of its streets are laid straight</b> (GEN-47), drawn for the district near its kind's own
+/// share, so no two of a kind lay the same mix. The lattice takes it as a count that is never all of them
+/// and never none (<see cref="Lattice"/>).
+/// </param>
 internal readonly record struct District(
-    int Sector, bool Inside, float BearingRad, float BlockAlongM, float BlockAcrossM, bool Strict)
+    int Sector, bool Inside, float BearingRad, float BlockAlongM, float BlockAcrossM, bool Strict,
+    float StraightShare)
 {
     /// <summary>The tighter of its two spacings, which is what a street's own wander is bounded by.</summary>
     public float BlockTightestM => MathF.Min(BlockAlongM, BlockAcrossM);
@@ -108,7 +115,8 @@ internal sealed class Districts
                 townBearingRad + draw.NextFloat(-spreadRad, spreadRad),
                 alongM,
                 alongM * draw.NextFloat(config.CityGen.BlockAspectMin, config.CityGen.BlockAspectMax),
-                strictOf[district]);
+                strictOf[district],
+                StraightShareOf(brief.Seed, district, strictOf[district], config));
         }
 
         // <b>A river town is turned so that one spoke runs down the river's own normal</b> (GEN-14b). The
@@ -175,6 +183,21 @@ internal sealed class Districts
 
     /// <summary>The town's own centre, and the bearing each spoke leaves it on, as a direction.</summary>
     public Vector2 SpokeUnit(int spoke) => Heading.Unit(SpokeBearingRad(spoke));
+
+    /// <summary>
+    /// <b>How many of one district's streets are laid straight</b>: its kind's share, moved by a draw inside
+    /// <see cref="CityGenFigures.StraightShareSpread"/>. <b>A stream of its own, keyed on the district</b>, so
+    /// the mix is retuned without turning the wheel or moving a block.
+    /// </summary>
+    static float StraightShareOf(ulong seed, int district, bool strict, SimConfig config)
+    {
+        var draw = new Rng(seed, StraightShareStream ^ (ulong)district);
+        var spread = config.CityGen.StraightShareSpread;
+        var share = strict ? config.CityGen.GridStraightShare : config.CityGen.LooseStraightShare;
+        return share + draw.NextFloat(-spread, spread);
+    }
+
+    const ulong StraightShareStream = 0x7374_7261_6967_6874;
 
     static bool[] StrictSectors(int count, float share, ref Rng draw)
     {

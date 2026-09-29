@@ -131,9 +131,11 @@ internal sealed partial class TownWorld
             if (!People.Wounded[person] || People.Inside[person].Any) continue;
 
             var positionM = People.PositionM[person];
-            _impulseNs[person] = WalkerFollower.Step(
-                _config, People.HeadingRad[person], positionM, People.VelocityMps[person], positionM, moving: false,
-                onFeet: false, People.MassKg[person], dtS).ImpulseNs;
+            var step = WalkerFollower.Step(
+                _config, People.HeadingRad[person], positionM, People.VelocityMps[person], People.DeclaredMps[person],
+                positionM, moving: false, onFeet: false, People.MassKg[person], dtS);
+            People.DeclaredMps[person] = step.DesiredMps;
+            _impulseNs[person] = step.ImpulseNs;
         }
 
         for (var car = 0; car < Cars.Count; car++)

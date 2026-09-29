@@ -458,6 +458,22 @@ internal sealed class WalkingNetwork
     }
 
     /// <summary>
+    /// <b>How far across the lane beside a lane of the walk stands</b> at one metre of it (WLK-8) — along a
+    /// walker's right, negative on its left — or <see cref="float.NaN"/> where none runs back past it within a
+    /// pavement, or the way is a corner. It is where a walker getting past somebody walks (PER-28).
+    /// </summary>
+    public float AsideM(int way, float alongM)
+    {
+        if (IsACorner(way)) return float.NaN;
+
+        var at = Spline.SampleAt(LaneOf(way), alongM);
+        var back = LaneBeside(way, at.Direction, at.PositionM, out var backM);
+        return back == NoLane
+            ? float.NaN
+            : Vector2.Dot(Spline.SampleAt(_foot.ArcsOf(back), backM).PositionM - at.PositionM, at.Right);
+    }
+
+    /// <summary>
     /// <b>The lane running back the other way past this place</b>, or <see cref="NoLane"/> where there is
     /// none within a pavement of it — the nearest lane whose line at that place heads against this one's.
     /// </summary>
@@ -467,7 +483,11 @@ internal sealed class WalkingNetwork
     /// ground of, which is the nearest of them. <b>A crossing is a candidate like any other</b> — a body
     /// halfway over a zebra may turn back the way it came, if the town laid a way back.
     /// </remarks>
-    int LaneBeside(int edge, float alongM, Vector2 pointM, out float besideAlongM)
+    int LaneBeside(int edge, float alongM, Vector2 pointM, out float besideAlongM) =>
+        LaneBeside(edge, Spline.SampleAt(_foot.ArcsOf(edge), alongM).Direction, pointM, out besideAlongM);
+
+    /// <summary>The same, for a caller that has the lane's heading at the place already.</summary>
+    int LaneBeside(int edge, Vector2 heading, Vector2 pointM, out float besideAlongM)
     {
         besideAlongM = 0f;
 
@@ -475,8 +495,6 @@ internal sealed class WalkingNetwork
         Span<float> atM = stackalloc float[MostLanesWithinAPavement];
         var found = _foot.EdgesNear(pointM, _bothWaysWithinM, near, atM);
         if (found > near.Length) found = near.Length;
-
-        var heading = Spline.SampleAt(_foot.ArcsOf(edge), alongM).Direction;
 
         var best = NoLane;
         var bestSq = float.MaxValue;

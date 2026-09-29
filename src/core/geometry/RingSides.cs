@@ -63,12 +63,16 @@ internal sealed class RingSides
     /// <see cref="_cellPiece"/> above it — one past the last cell carrying the total. One word and not two
     /// arrays, because an answer is a read the lattice cannot predict and one line fetched is half of two.
     /// </summary>
-    readonly int[] _cell;
+    /// <remarks>
+    /// <b>A long and not an int</b>: twenty-four bits of filing are sixteen million, and a town thirty
+    /// kilometres across files fourteen million of its carriageway's pieces into a lattice at the shell's level.
+    /// </remarks>
+    readonly long[] _cell;
 
     readonly int[] _cellPiece;
     readonly Piece[] _pieces;
 
-    RingSides(GridWindow window, int[] cell, int[] cellPiece, Piece[] pieces)
+    RingSides(GridWindow window, long[] cell, int[] cellPiece, Piece[] pieces)
     {
         _window = window;
         _cellM = window.Level.CellM;
@@ -105,7 +109,8 @@ internal sealed class RingSides
     }
 
     /// <summary>What the lattice and the pieces hold, in bytes.</summary>
-    public long Bytes => (4L * (_cell.Length + _cellPiece.Length)) + ((long)Unsafe.SizeOf<Piece>() * _pieces.Length);
+    public long Bytes =>
+        (8L * _cell.Length) + (4L * _cellPiece.Length) + ((long)Unsafe.SizeOf<Piece>() * _pieces.Length);
 
     /// <summary>Whether the point stands inside the shape the rings bound.</summary>
     public bool Encloses(Vector2 pointM) => WindingAt(pointM) > 0;
@@ -132,8 +137,8 @@ internal sealed class RingSides
         var cell = _window.IndexOf(column, row);
         var word = _cell[cell];
         var winding = (int)(sbyte)word;
-        var first = word >> WindingBits;
-        var last = _cell[cell + 1] >> WindingBits;
+        var first = (int)(word >> WindingBits);
+        var last = (int)(_cell[cell + 1] >> WindingBits);
         if (first == last) return winding;
 
         // Up the cell's own left edge from its corner to the point's height, then across to the point: every
@@ -195,16 +200,12 @@ internal sealed class RingSides
         var laid = pieces.ToArray();
         var cornerWinding = Corners(laid, window);
         var (cellFirst, cellPiece) = File(laid, window);
-        if (cellPiece.Length >= 1 << (31 - WindingBits))
-        {
-            throw new ArgumentOutOfRangeException(nameof(level), level.CellM, $"{cellPiece.Length} filings is too many");
-        }
 
-        var cell = new int[cellFirst.Length];
+        var cell = new long[cellFirst.Length];
         for (var at = 0; at < cell.Length; at++)
         {
             var winding = at < cornerWinding.Length ? cornerWinding[at] : (sbyte)0;
-            cell[at] = (cellFirst[at] << WindingBits) | (byte)winding;
+            cell[at] = ((long)cellFirst[at] << WindingBits) | (byte)winding;
         }
 
         return new RingSides(window, cell, cellPiece, laid);

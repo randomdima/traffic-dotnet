@@ -29,14 +29,20 @@ internal sealed partial class TownWorld
     /// PER-25's second half.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Asked of the way and not of a line laid under the body</b>, because the way is where the body
     /// actually is: a walker's place on the network is written when it is handed a way and carried forward
     /// as it walks, so being off it is a distance from ground the town already numbers.
+    /// </para>
+    /// <para>
+    /// <b>A walker on a pass is that much further off it on purpose</b> (PER-28): the lane beside is where it was
+    /// sent, and laid again from there its route would set off down that lane the other way.
+    /// </para>
     /// </remarks>
     bool HasLostItsLine(int person) =>
         People.Walking[person]
         && People.CurrentRouteWay(person) != PersonFleet.NoWay
-        && People.OffWayM[person] > _config.WalkerOffLaneM * OffLineTolerance;
+        && People.OffWayM[person] > (_config.WalkerOffLaneM * OffLineTolerance) + MathF.Abs(People.Pass[person].AsideM);
 
     /// <summary>
     /// <b>Whether the body is on the ground of the way it is walking</b>, rather than merely near it: a
@@ -47,8 +53,8 @@ internal sealed partial class TownWorld
     /// <b>It is regularly false for a stretch at the start of a walk</b>, and that is the state and not a
     /// fault: a walker standing on one lane of a pavement may be routed down the other (WLK-8,
     /// <see cref="WalkingNetwork.EntriesNear"/>), and until it has crossed to it, it is between the two —
-    /// holding the ground its own box is over like any body, and stating nothing, there being no one way
-    /// it is on to state from.
+    /// holding the ground its own disc is over like any body, and not yet on the way it walks. What it plans
+    /// is that way all the same (<see cref="HasAWalkToPlan"/>): where it is going does not wait on its feet.
     /// </remarks>
     bool IsOnItsWay(int person)
     {
@@ -72,9 +78,11 @@ internal sealed partial class TownWorld
         }
 
         var positionM = People.PositionM[agent];
-        _impulseNs[agent] = WalkerFollower.Step(
-            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], positionM, moving: false,
-            People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds).ImpulseNs;
+        var step = WalkerFollower.Step(
+            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], People.DeclaredMps[agent],
+            positionM, moving: false, People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
+        People.DeclaredMps[agent] = step.DesiredMps;
+        _impulseNs[agent] = step.ImpulseNs;
     }
 
     /// <summary>
@@ -186,8 +194,9 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>One tick of walking the chain</b>: where the body now stands on the way it is on, the next way
-    /// off the chain where it has walked this one out, and the point along it to aim at.
+    /// <b>One tick of walking the chain</b>: where the body now stands on the way it is on, and the next way
+    /// off the chain where it has walked this one out. Where along it the body aims is the grant's, and is
+    /// read once the grant is (<see cref="AimTheWalker"/>).
     /// </summary>
     /// <remarks>
     /// <b>It is the driver's line-taking in the walking side's words</b> — a car takes the next lane off
@@ -215,16 +224,7 @@ internal sealed partial class TownWorld
         var walking = Walking;
         PlaceItOnItsWay(person, walking, AStrideM);
 
-        // <b>A walker with no road granted stands where it is</b> (PER-26): the body in front of it on its
-        // way, somebody else's plan it gives way to, or a crossing the traffic has (PER-27). It is the grant
-        // the last rebuild left it, and the clock that gives up on a leg going nowhere runs through the wait.
-        if (People.GrantM[person] <= 0f)
-        {
-            People.DestinationM[person] = People.PositionM[person];
-            return;
-        }
-
-        while (People.OnWayM[person] >= EndOfTheWayM(person, walking) && !People.OnTheLastWay(person))
+        while (HasWalkedOut(person, EndOfTheWayM(person, walking)) && !People.OnTheLastWay(person))
         {
             var before = People.CurrentRouteWay(person);
             if (!People.TakeNextRouteWay(person, out var next)) break;
@@ -239,9 +239,8 @@ internal sealed partial class TownWorld
             _progress.Restart(person);
         }
 
-        var way = People.CurrentRouteWay(person);
         var stopsAtM = EndOfTheWayM(person, walking);
-        if (People.OnTheLastWay(person) && People.OnWayM[person] >= stopsAtM)
+        if (People.OnTheLastWay(person) && HasWalkedOut(person, stopsAtM))
         {
             // The chain is walked out. What is left is the hop onto the goal, over ground the network does
             // not number — or, where the chain stopped for want of room rather than because it arrived,
@@ -262,15 +261,77 @@ internal sealed partial class TownWorld
             {
                 People.Walking[person] = false;
             }
+        }
+    }
+
+    /// <summary>
+    /// <b>Whether the body has walked a way out as far as <paramref name="endM"/></b> — standing within a
+    /// tick's walk of it, which is the tick that would carry it there.
+    /// </summary>
+    /// <remarks>
+    /// <b>Never "at or past" it.</b> The body's metre is a projection onto the way's arcs, and on a way of
+    /// several arcs the most it can come back as is the sum of their lengths in float — an ulp short of the
+    /// way's own length on some. Asked exactly, a walker stood on the end of such a way aiming at the end of
+    /// it and was never handed the next.
+    /// </remarks>
+    bool HasWalkedOut(int person, float endM) => People.OnWayM[person] >= endM - _config.PersonStepM;
+
+    /// <summary>
+    /// <b>Where a walker on its way aims, on the grant this rebuild gave it</b> (PER-26): a stride down the
+    /// way, or along the hop off the end of it towards where that is walked (<see cref="WalkTheWay"/>), and never
+    /// past the road it was granted — so a walker with none granted stands where it is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Read after the grant and not before it</b>, as a driver's is: aimed while the chain was walked, a
+    /// walker stepped on the grant the tick before had left it.
+    /// </para>
+    /// <para>
+    /// <b>The aim is where the middle of the body gets to</b>, and the follower takes it there and no further
+    /// (<see cref="WalkerFollower"/>). The grant is how far the front of the body may go, which is how far
+    /// the middle may, so it is the grant that is added to the body's own place and not the grant and a radius.
+    /// </para>
+    /// </remarks>
+    void AimTheWalker(int person)
+    {
+        if (!People.Walking[person]) return;
+
+        var way = People.CurrentRouteWay(person);
+        if (way == PersonFleet.NoWay) return;
+
+        if (People.GrantM[person] <= 0f)
+        {
+            People.DestinationM[person] = People.PositionM[person];
+            return;
+        }
+
+        // The hop is aimed at where it was walked to, and no further along the straight than it was granted.
+        if (IsHopping(person))
+        {
+            var towards = People.DestinationM[person] - People.PositionM[person];
+            var reachM = People.GrantM[person];
+            if (towards.LengthSquared() > reachM * reachM)
+            {
+                People.DestinationM[person] = People.PositionM[person] + (Vector2.Normalize(towards) * reachM);
+            }
 
             return;
         }
 
-        // Aimed a stride ahead, and never past the road it was granted.
-        var strideM = MathF.Min(_config.PersonWalkAheadM, People.RadiusM[person] + People.GrantM[person]);
-        var aheadM = MathF.Min(People.OnWayM[person] + strideM, stopsAtM);
+        if (AimTheSidestep(person)) return;
+
+        var walking = Walking;
+        var strideM = MathF.Min(_config.PersonWalkAheadM, People.GrantM[person]);
+        var aheadM = MathF.Min(People.OnWayM[person] + strideM, EndOfTheWayM(person, walking));
         People.DestinationM[person] = Spline.SampleAt(walking.WayArcs(way), aheadM).PositionM;
     }
+
+    /// <summary>
+    /// <b>Whether this walker has walked its chain out</b> and what is left is the hop off the end of it — onto the
+    /// goal, over ground the network does not number.
+    /// </summary>
+    bool IsHopping(int person) =>
+        People.OnTheLastWay(person) && HasWalkedOut(person, EndOfTheWayM(person, Walking));
 
     /// <summary>
     /// How far along the way it is on this walk goes: the end of that way's own stretch of the chain, or
@@ -341,7 +402,12 @@ internal sealed partial class TownWorld
         var goals = _walkSearch.Goals;
         if (_walking.GoalsAt(People.PositionM[person], goals) == 0) return false;
 
-        Place(person, NetworkPointM(goals[0]), People.HeadingRad[person]);
+        // Set down where nobody has the ground, as a body out of a door is (PHY-7a): a lift onto somebody, or
+        // in front of a car that cannot stop, is a failure moved rather than mended. Taken, it waits a tick.
+        var atM = NetworkPointM(goals[0]);
+        if (new DoorStep(this).IsTaken(atM, People.RadiusM[person])) return false;
+
+        Place(person, atM, People.HeadingRad[person]);
         WalkersSetDown++;
         return true;
     }
@@ -379,7 +445,7 @@ internal sealed partial class TownWorld
 
         // Past the end of the chain what is left is the hop onto a place that stands still, so the
         // straight to it is a distance that shrinks as the body covers it.
-        if (People.OnTheLastWay(person) && People.OnWayM[person] >= People.RouteToM[person])
+        if (People.OnTheLastWay(person) && HasWalkedOut(person, People.RouteToM[person]))
         {
             return (People.DestinationM[person] - People.PositionM[person]).Length();
         }

@@ -20,38 +20,112 @@ public class WalkerFollowerTests
 
     static float Dt => Config.TickSeconds;
 
-    /// <summary>
-    /// <b>The impulse saturates</b>: at rest and asked for full pace the correction wanted is already more
-    /// than a tick of grip affords, so asking for ten times as much again buys nothing.
-    /// </summary>
-    /// <remarks>
-    /// <b>Two steps against each other and not one against the figure it was computed from.</b> Asserting
-    /// the impulse equals grip × mass × dt is the implementation written out twice (VER-12): it can only
-    /// fail on the day somebody retunes the grip, and on that day it is edited rather than read. What
-    /// saturation means is that the output stops following the input, and that is what is asked here.
-    /// </remarks>
-    [Fact]
-    public void TheImpulseIsNeverMoreThanTheFeetCanSpend()
-    {
-        var far = Step(aimM: new Vector2(100f, 0f));
-        var further = Step(aimM: new Vector2(1_000f, 0f));
+    static float MostTurnRad => Config.PersonTurnRateDegPerS * MathF.PI / 180f * Dt;
 
-        Assert.Equal(far.ImpulseNs.Length(), further.ImpulseNs.Length(), 3);
-        Assert.True(far.ImpulseNs.Length() > 0f, "a walker asked for full pace from rest spent nothing");
-    }
-
-    /// <summary>A walker at rest, asked to get to a place — the case every claim below varies.</summary>
+    /// <summary>A walker at rest, facing +x, asked to get to a place — the case most claims below vary.</summary>
     static WalkerStep Step(Vector2 aimM, bool onFeet = true) =>
         WalkerFollower.Step(
-            Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM, moving: true,
+            Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, Vector2.Zero, aimM, moving: true,
             onFeet, MassKg, Dt);
+
+    /// <summary><b>PER-3: no acceleration of its own</b> — a walker at rest facing somewhere far is at its pace a tick later.</summary>
+    [Fact]
+    public void AWalkerFacingItsAimIsAtItsPaceATickLater()
+    {
+        var step = Step(aimM: new Vector2(100f, 0f));
+
+        var velocityMps = step.ImpulseNs / MassKg;
+        Assert.Equal(Config.PersonWalkSpeedMps, velocityMps.X, 4);
+        Assert.Equal(0f, velocityMps.Y, 4);
+    }
+
+    /// <summary>
+    /// <b>An aim nearer than a tick's walk is stood on at the end of the tick</b>, whichever way the body faces:
+    /// it is what makes a walker arrive rather than overshoot and come back.
+    /// </summary>
+    [Fact]
+    public void AnAimInsideATicksWalkIsReachedExactly()
+    {
+        var aimM = new Vector2(-0.03f, 0.05f);
+        var step = Step(aimM);
+
+        Assert.Equal(aimM.X, step.ImpulseNs.X / MassKg * Dt, 5);
+        Assert.Equal(aimM.Y, step.ImpulseNs.Y / MassKg * Dt, 5);
+    }
+
+    /// <summary><b>A walker not facing its aim turns on the spot</b>: it walks at nothing it is not facing.</summary>
+    [Fact]
+    public void AWalkerNotFacingItsAimStandsWhileItTurns()
+    {
+        var step = Step(aimM: new Vector2(-100f, 1f));
+
+        Assert.Equal(Vector2.Zero, step.DesiredMps);
+    }
+
+    /// <summary>
+    /// <b>The walk that used to circle its aim</b>: a body facing away from a point beside it, which at its pace
+    /// and turn rate cannot be reached by turning while walking. It turns, walks, and stands on it.
+    /// </summary>
+    /// <remarks>
+    /// Stepped on a fake body that keeps whatever it is given — the follower's own sums with no contact in
+    /// them — for a second, which is several times what the turn and the walk together take.
+    /// </remarks>
+    [Fact]
+    public void AWalkerFacingAwayFromAPointBesideItArrivesAndStands()
+    {
+        var aimM = new Vector2(-0.2f, 0.3f);
+        var positionM = Vector2.Zero;
+        var velocityMps = Vector2.Zero;
+        var declaredMps = Vector2.Zero;
+        var headingRad = 0f;
+
+        for (var tick = 0; tick < Config.Sim.TickRateHz; tick++)
+        {
+            var step = WalkerFollower.Step(
+                Config, headingRad, positionM, velocityMps, declaredMps, aimM, moving: true, onFeet: true, MassKg, Dt);
+            headingRad = step.HeadingRad;
+            declaredMps = step.DesiredMps;
+            velocityMps += step.ImpulseNs / MassKg;
+            positionM += velocityMps * Dt;
+        }
+
+        Assert.True(
+            (positionM - aimM).Length() < 1e-4f && velocityMps.Length() < 1e-4f,
+            $"a second on, the walker is {(positionM - aimM).Length():F3} m off its aim at {velocityMps.Length():F2} m/s");
+    }
+
+    /// <summary>
+    /// <b>What a contact did to the body is taken back no faster than the feet grip</b>: a shove at ten times
+    /// the pace costs the feet what one at the pace does, so a walker is carried by a shove and does not brace
+    /// against a car.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two shoves against each other and not one against the figure it was computed from.</b> Asserting
+    /// the impulse equals grip × mass × dt is the implementation written out twice (VER-12): it can only
+    /// fail on the day somebody retunes the grip, and on that day it is edited rather than read.
+    /// </remarks>
+    [Fact]
+    public void AShoveIsTakenBackNoFasterThanTheFeetGrip()
+    {
+        var shoved = Standing(new Vector2(0f, Config.PersonWalkSpeedMps));
+        var thrown = Standing(new Vector2(0f, Config.PersonWalkSpeedMps * 10f));
+
+        Assert.Equal(shoved.ImpulseNs.Length(), thrown.ImpulseNs.Length(), 3);
+        Assert.True(shoved.ImpulseNs.Length() > 0f, "a walker shoved sideways spent nothing taking it back");
+
+        // A walker that declared nothing and is moving: it is what a contact left it doing.
+        static WalkerStep Standing(Vector2 velocityMps) =>
+            WalkerFollower.Step(
+                Config, headingRad: 0f, Vector2.Zero, velocityMps, Vector2.Zero, Vector2.Zero, moving: true,
+                onFeet: true, MassKg, Dt);
+    }
 
     [Fact]
     public void AWalkerAlreadyAtItsPaceIsAskedForNothing()
     {
         var atPace = new Vector2(Config.PersonWalkSpeedMps, 0f);
         var step = WalkerFollower.Step(
-            Config, headingRad: 0f, Vector2.Zero, atPace, aimM: new Vector2(100f, 0f), moving: true,
+            Config, headingRad: 0f, Vector2.Zero, atPace, atPace, aimM: new Vector2(100f, 0f), moving: true,
             onFeet: true, MassKg, Dt);
 
         // Not "small": the brief asks for nothing at all, and it is the rule that keeps several hundred
@@ -64,7 +138,7 @@ public class WalkerFollowerTests
     {
         var moving = new Vector2(Config.PersonWalkSpeedMps, 0f);
         var step = WalkerFollower.Step(
-            Config, headingRad: 0f, Vector2.Zero, moving, aimM: new Vector2(100f, 0f), moving: false,
+            Config, headingRad: 0f, Vector2.Zero, moving, moving, aimM: new Vector2(100f, 0f), moving: false,
             onFeet: true, MassKg, Dt);
 
         Assert.Equal(Vector2.Zero, step.DesiredMps);
@@ -97,12 +171,9 @@ public class WalkerFollowerTests
     [Fact]
     public void TheHeadingTurnsNoFasterThanTheTurnRate()
     {
-        var mostRad = Config.PersonTurnRateDegPerS * MathF.PI / 180f * Dt;
-        var step = WalkerFollower.Step(
-            Config, headingRad: 0f, Vector2.Zero, Vector2.Zero, aimM: new Vector2(-100f, 0f), moving: true,
-            onFeet: true, MassKg, Dt);
+        var step = Step(aimM: new Vector2(-100f, 0f));
 
-        Assert.Equal(mostRad, MathF.Abs(step.HeadingRad), 5);
+        Assert.Equal(MostTurnRad, MathF.Abs(step.HeadingRad), 5);
     }
 
     /// <summary>A body that turns on the spot has no reason to take the long way round.</summary>
@@ -122,7 +193,7 @@ public class WalkerFollowerTests
     public void AnAimUnderTheBodyDeclaresAStandEvenWhileMoving()
     {
         var step = WalkerFollower.Step(
-            Config, headingRad: 0f, Vector2.One, Vector2.Zero, aimM: Vector2.One, moving: true,
+            Config, headingRad: 0f, Vector2.One, Vector2.Zero, Vector2.Zero, aimM: Vector2.One, moving: true,
             onFeet: true, MassKg, Dt);
 
         Assert.Equal(Vector2.Zero, step.DesiredMps);
@@ -132,7 +203,7 @@ public class WalkerFollowerTests
     public void AnAimUnderTheBodyLeavesTheHeadingAlone()
     {
         var step = WalkerFollower.Step(
-            Config, headingRad: 1.234f, Vector2.One, Vector2.Zero, aimM: Vector2.One, moving: false,
+            Config, headingRad: 1.234f, Vector2.One, Vector2.Zero, Vector2.Zero, aimM: Vector2.One, moving: false,
             onFeet: true, MassKg, Dt);
 
         Assert.Equal(1.234f, step.HeadingRad, 5);

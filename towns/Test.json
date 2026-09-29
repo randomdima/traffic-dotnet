@@ -15,6 +15,6 @@
   "gridDistrictShare": 0.5,
   "bearingSpreadDeg": 25,
   "ringShare": 0.34,
-  "unregulatedJunctionShare": 0.15,
+  "unregulatedJunctionShare": 0.2,
   "cars": 12
 }

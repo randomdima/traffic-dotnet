@@ -646,8 +646,24 @@ internal sealed class CityGenFigures
     /// </summary>
     public float StreetWanderInBlocks { get; init; } = 0.06f;
 
-    /// <summary>The same for a district laid as a strict grid, where a street is very nearly a chord.</summary>
-    public float GridWanderInBlocks { get; init; } = 0.012f;
+    /// <summary>The same for an arterial, which is very nearly a chord.</summary>
+    public float ArterialWanderInBlocks { get; init; } = 0.012f;
+
+    /// <summary>
+    /// <b>How many of a grid district's streets are laid straight</b> (GEN-47), as the chance each one is:
+    /// most, and short of all, so a grid carries a street or two that wanders. Each district draws its own
+    /// within <see cref="StraightShareSpread"/> of it.
+    /// </summary>
+    public float GridStraightShare { get; init; } = 0.9f;
+
+    /// <summary>The same for a loose district, whose streets mostly wander and some of which run straight.</summary>
+    public float LooseStraightShare { get; init; } = 0.3f;
+
+    /// <summary>
+    /// How far either side of its kind's share a district's own is drawn, so no two districts of a kind lay
+    /// the same mix. Inside the gap either share leaves to none and to all.
+    /// </summary>
+    public float StraightShareSpread { get; init; } = 0.08f;
 
     /// <summary>How many virtual nodes a road's middle span may carry. Odesa's most-bent road holds nine arcs.</summary>
     public int WanderNodesMost { get; init; } = 3;

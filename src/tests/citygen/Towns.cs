@@ -119,7 +119,7 @@ internal static class Towns
         GridDistrictShare = gridDistrictShare,
         BearingSpreadDeg = 30f,
         RingShare = 0.34f,
-        UnregulatedJunctionShare = 0.15f,
+        UnregulatedJunctionShare = 0.2f,
         Cars = cars,
         Water = water,
         WaterBearingDeg = 100f,
@@ -402,7 +402,6 @@ internal static class Towns
             Bridges = plan.Bridges,
             PavedAreas = plan.PavedAreas,
             Crosswalks = plan.Crosswalks,
-            StopLines = plan.StopLines,
             ParkingLots = plan.ParkingLots,
             Buildings = new CityPlan.BuildingArrays
             {

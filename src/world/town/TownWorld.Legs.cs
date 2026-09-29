@@ -287,7 +287,7 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// The one wait that spends no clock: <b>a light</b>, which will change on its own.
+    /// The one wait that spends no clock: <b>a light</b>, which will change on its own (TLT-2a).
     /// </summary>
     /// <remarks>
     /// Everything else that stands still spends the clock, including a lawful yield: waiting for a
@@ -296,13 +296,15 @@ internal sealed partial class TownWorld
     /// its way out is a movement across the street like a junction's, and a bay it cannot get out of for
     /// half a minute is a place to give up rather than a wait to be excused.
     /// </remarks>
-    bool WaitingForAReasonItCanSee(int car) =>
-        Cars.LightAheadM[car] <= Cars.BuildOf(car).LengthM * QueueLengthInCars;
+    bool WaitingForAReasonItCanSee(int car) => Cars.LightAheadM[car] <= QueueReachM(car);
 
     /// <summary>
-    /// How long a queue at a light reaches back, in cars. <b>The test is "a red ahead, within a queue's
-    /// length of it"</b>, so it has to cover the whole queue and not only its front — and a body bogged
-    /// on the verge beside that junction meets it too.
+    /// How far back a queue at a light reaches, for a car of this length. <b>The test is "a light's hold
+    /// ahead, within a queue's length of it"</b>, so it has to cover the whole queue and not only its front —
+    /// and a body bogged on the verge beside that junction meets it too.
     /// </summary>
+    float QueueReachM(int car) => Cars.BuildOf(car).LengthM * QueueLengthInCars;
+
+    /// <summary>How long a queue at a light reaches back, in cars.</summary>
     const float QueueLengthInCars = 20f;
 }

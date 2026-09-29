@@ -44,13 +44,20 @@ internal readonly record struct ArcSeg(Vector2 StartM, float HeadingRad, float L
     /// distance and the half turn is zero, so <see cref="StartUnit"/> is the answer and the angle is
     /// never reduced. Most of a town's pieces are straights and most of a tick's samples land on one.
     /// </remarks>
-    public Vector2 PointAtM(float distanceM)
+    public Vector2 PointAtM(float distanceM) => StartM + FromStartM(distanceM);
+
+    /// <summary>
+    /// <b>Where a distance along the piece stands, measured from the piece's own start</b> — the chord of
+    /// <see cref="PointAtM"/> before it is added to where the piece stands, for a caller comparing two places
+    /// that stand far from the origin (<see cref="LineTolerance.Coarseness"/>).
+    /// </summary>
+    public Vector2 FromStartM(float distanceM)
     {
         var halfTurnRad = Curvature * distanceM * 0.5f;
-        if (halfTurnRad == 0f) return StartM + distanceM * StartUnit;
+        if (halfTurnRad == 0f) return distanceM * StartUnit;
 
         var chordM = distanceM * Sinc(halfTurnRad);
-        return StartM + chordM * Heading.Unit(HeadingRad + halfTurnRad);
+        return chordM * Heading.Unit(HeadingRad + halfTurnRad);
     }
 
     /// <summary>

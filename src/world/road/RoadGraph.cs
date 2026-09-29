@@ -302,6 +302,14 @@ internal sealed class RoadGraph : ILaneEnds
     /// </remarks>
     public int NearestLane(Vector2 pointM, out float progressM) => _nearest.Nearest(pointM, out progressM);
 
+    /// <summary>
+    /// <b>Every lane that could pass within <paramref name="radiusM"/> of a point</b>, and possibly some that
+    /// do not — the lanes filed in the cells round it (<see cref="ChainIndex.Around(Vector2, float, Span{int})"/>).
+    /// Build-time: it reads the index's own scan, which one caller at a time may use.
+    /// </summary>
+    /// <returns>How many there are, which may be more than <paramref name="lanes"/> has room for.</returns>
+    public int LanesAround(Vector2 pointM, float radiusM, Span<int> lanes) => _nearest.Around(pointM, radiusM, lanes);
+
     public SplineSample StartOf(int lane) => Spline.SampleAt(ArcsOf(lane), 0f);
 
     public SplineSample EndOf(int lane) => Spline.SampleAt(ArcsOf(lane), LaneLengthM[lane]);

@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Core.Geometry;
@@ -24,8 +25,9 @@ internal sealed partial class TownWorld
     /// </para>
     /// <para>
     /// <b>Where it is travelling a way of its own line it says so</b> (<see cref="LaneClaim.OnItsLine"/>),
-    /// with the speed it is doing down it — which is what makes it a queue to the car behind. Anywhere else it
-    /// is standing on the way, going nowhere down it.
+    /// with the speed it is doing down it and the way it takes next — which is what makes it a queue to the car
+    /// behind, and one making that car's own movement (TER-4c.6). Anywhere else it is standing on the way, going
+    /// nowhere down it. <b>And whether it is at rest</b>, which is what a body something may get past is.
     /// </para>
     /// <para>
     /// <b>A car on a bar is laid under the vehicle pulling it</b> (EVA-5): the pair is one movement, so it is
@@ -43,13 +45,16 @@ internal sealed partial class TownWorld
         var count = _atlas.UnderBox(Cars.PositionM[car], Heading.Unit(Cars.HeadingRad[car]), halfM.X, halfM.Y, under);
 
         var travelling = IsUnderWay(occupant);
+        var stopMps = _config.Driving.StopSpeedMps;
+        var still = Cars.VelocityMps[car].LengthSquared() <= stopMps * stopMps;
         for (var at = 0; at < count; at++)
         {
             ref readonly var cover = ref under[at];
-            var onItsLine = travelling && IsOnItsLine(occupant, cover.Way);
+            var onward = LaneOccupancy.NoWay;
+            var onItsLine = travelling && IsOnItsLine(occupant, cover.Way, out onward);
             _occupancy.LayBody(
                 cover.Way, cover.FromM, cover.ToM, onItsLine ? Cars.AlongMps[occupant] : 0f, occupant,
-                LaneRoster.Driving, onItsLine);
+                LaneRoster.Driving, onItsLine, onward, still);
         }
     }
 
@@ -83,6 +88,11 @@ internal sealed partial class TownWorld
         var radiusM = People.RadiusM[person];
         var walking = People.OnWay[person];
         var alongMps = AlongItsWalkMps(person);
+        var onward = walking == PersonFleet.NoWay ? LaneOccupancy.NoWay : WayOf(People.PeekNextRouteWay(person));
+
+        // A walker has no acceleration (PER-3): it is walking or it has declared nothing, and a casualty declares
+        // nothing whatever it is sliding at.
+        var still = People.Wounded[person] || People.DeclaredMps[person] == Vector2.Zero;
 
         Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
         var count = _atlas.UnderDisc(People.PositionM[person], radiusM, under);
@@ -92,7 +102,7 @@ internal sealed partial class TownWorld
             var onItsLine = cover.Way == walking;
             _occupancy.LayBody(
                 cover.Way, cover.FromM, cover.ToM, onItsLine ? alongMps : 0f, person, LaneRoster.Walking,
-                onItsLine);
+                onItsLine, onItsLine ? onward : LaneOccupancy.NoWay, still);
         }
 
         if (walking == PersonFleet.NoWay) return;
@@ -100,7 +110,7 @@ internal sealed partial class TownWorld
         var atM = People.OnWayM[person];
         _occupancy.LayBody(
             walking, MathF.Max(0f, atM - radiusM), MathF.Min(_ways.LengthM(walking), atM + radiusM), alongMps,
-            person, LaneRoster.Walking, onItsLine: true);
+            person, LaneRoster.Walking, onItsLine: true, onward, still);
     }
 
     /// <summary>

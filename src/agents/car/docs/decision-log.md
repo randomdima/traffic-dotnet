@@ -3,6 +3,169 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-29 — one stand-off
+
+**The owner asked for one gap**: a car comes to rest one stand-off short of the end of its grant whatever ended
+it, and further back only behind something it may come to pass, to keep the room to step out (S-2a, CAR-46,
+`DrivingFigures.StandOffM`). There had been three — a queue's 1.2 m, 2 m off anything else, and the room to step
+out behind a body going nowhere — and the third was read wrongly: **a body's line ending on the way it is on
+was taken for a body going nowhere**. A line is laid a sight distance ahead, about 120 m, and grown a lane at a
+time, so every car on the first stretch of a long lane was on the last lane of its line, and a queue there was
+waited behind 4.5 m back, moving or not. A body now says its line runs on (`LaneOccupancy.RunsOn`) until it is at
+the line's end, and only a body at rest is going nowhere (`LaneClaim.GoesNowhere`). A line not yet laid past a way
+makes every movement on it, so such a queue is never passed either.
+
+**The gap was floored at a body's width** because a claim once read a body as one interval of a way, the road's
+width thrown away. Bodies are read off their colliders now (TER-4c.2), and the floor went with that reading.
+
+**It is 1.5 m, because a metre costs wrecks.** The owner asked for a metre. Over 24 agents' seeds of Odesa, a
+minute each, 23 cars were wrecked at 1 m, 11 at 1.5 m and 10 at 2 m, everything else the same. Against the town
+before this change, the soak's six seeds at 1.5 m wrecked 5 cars to 7, touched 35 times to 36 and drove 3 %
+further. Nearly every wreck is one shape, and it is there at 2 m too: a car turning at a box swings off its line
+over the mouth of the approach lane beside the lane it turns into, which neither plan holds, and the car coming
+down that lane meets the body with its grant cut at its nose. A tighter gap only leaves it more to hit.
+
+**The profile's lead travels from where the pedal is** (`CarFollower.LeadS`). It counted the pedal's travel from
+rest, so a car on full throttle began braking late by the release: pulling away hard towards a red, it stopped
+short of the bar at 2 m and was committed past it at 1 m (the scenario map, card 66).
+
+## 2026-09-29 — a car gets past what stands in its lane
+
+**The owner asked for overtaking on four rules** (CAR-46, TER-4c.6): the body in the way is not making the
+car's own movement there, it is not moving, there is a lane to pass in, and the whole of the pass is claimed —
+at p0 where it can be — before the car leaves its lane, because a pass cannot safely be abandoned. The
+reservations carry it (roads' log); what the driver adds is the line and the pace.
+
+**The pass is the car's own line aimed across**, not a shape drawn beside it (`Overtake`), and the line is
+still the town's (CAR-15). The swerve the catalogue drew had 352 of 353 shapes refused by the terrain; this one
+needs no terrain answer, its ground being read off the atlas and refused where it is not carriageway.
+
+**Each step is one swing of the wheel, the shortest the car can drive at the speed it is doing.** Steps of two
+arcs at the lock, taken at the crawl that swings the rack between them, were the shortest on the ground and the
+longest on the lane beside: a car at 23 m/s asked 43 m out to slow to the crawl, and its pass took 20 s. The
+owner asked for the fastest pass instead, with a little more room if that is what it costs. A step is now
+d·(u − sin 2πu ⁄ 2π) across (`Overtake`): its bend never jumps, so no change of lock waits on the rack, and its
+length is the least that keeps the bend inside the lock and what the tyres hold at the speed, and the change
+of bend inside what the rack turns while the car rolls it (`CarFollower.ShapeAPass`). It is drawn for the speed
+the car is doing and held to it. In the fixture a car at 12 m/s took a 22 m step without slowing, and one from
+rest a 10 m step at 4.75 m/s, each within 7 cm of the drawn line. Both bounds are read off the step's rise and
+not its arc, which leaves a steep step up to a tenth longer than the shortest: the exact bend was not worth a
+search on every ask. An earlier try at steps sized to the speed failed on where they were put, not their
+shape — they stepped out 29 m short of a wreck at 13 m/s, the whole step done behind it.
+
+**Out as late and back as early as the body allows** (`StepOutLeadM`, `StepBackTrailM`): the step out begins as
+far short of what is passed as any of the body, grown by the spare, is still over the lane it leaves, read as
+the atlas reads it — so the step runs on alongside what it passes and is often straight into the step back.
+
+**Asked from where the car would begin slowing, and slowed for gently** (`WaitingToPassBrakingShare`). With the
+lane beside free the car never slows; with it held the car comes up slowly, asking every tick it is still far
+enough back to step out at the pace it is doing. Asking before the step holds the lane beside a little longer
+before the car is on it — 1.4 s at 12 m/s in the fixture — and that is the price of not slowing.
+
+**The wheel is the pass's own bend, corrected by pursuit.** Pursuit alone turns into each step a lookahead early
+and cuts it. The bend is worked out and not read off three samples of the line, whose sag at speed is a float's
+grain.
+
+**The ground is the car's collider swept from where it stands.** It had been the line moved across, a car's
+width wide, from the nose on — so the ground the body swings over as it turns out was nobody's, and the owner
+saw the claim begin too far on.
+
+**Asked with room to spare, laid and kept without.** Asked and kept on the same exact ground, a car that had
+closed up on a car reversing out at a crawl asked its pass one rebuild and had it withdrawn the next, as the
+other settled a hair nearer: 3 865 asked and 3 847 withdrawn over 300 s of Odesa. With a spare ahead and to the
+sides on the ask (`PassSpareM`), none are withdrawn.
+
+**A movement through a box the pass touches is held whole.** Held in part, a car crossing the box after the pass
+was laid was cut in the middle of it, its body over the pass's ground on the movement beside its own, and the
+two waited on each other for the rest of the minute the town test gives it.
+
+**A car waits behind a body going nowhere with room to step out from a standstill, and no more**
+(`KeptOffM`). Waiting at its stand-off, a car asked for a step it could not drive, clipped what it was passing
+and stood half out, holding its pass: in 100 s of Odesa 14 cars stalled that way. Waiting a whole step and its
+margin back, 8.6 m off the claim, it stood where the owner called the gap ridiculous; the room the step out
+needs is 4.5 m in the fixture. **A car whose line ends where it stands is going nowhere too**: the scenario
+map's stood car is one, and the car behind closed up to 0.7 m of it and could never pull out.
+
+**And it plans that far at rest.** A standing car plans a pull-away and its stand-off; standing 4.5 m off, the
+wreck fell out of its plan, the grant opened, and the car crept in — past where it could step out, for good. A
+standing car now plans past the ground it was last kept off what cut it.
+
+**A place in the road bars only a pass that would end past it.** Barred on the way to any place at all, no car
+under an order passed anything — which is every car the scenario map sends.
+
+**Never over a zebra.** A pass holding part of a zebra stood a walker on the rest of the paint in the car's
+way, and each waited for the other. A car park's junction carries no zebra (WLK-10), so this costs nothing of
+what the owner asked junctions to stop costing.
+
+**AMB-4.4 is reworded**: it counted a queue as something a call gets past, which rule 1 forbids for any car.
+
+Measured on Odesa over 300 s: 57 passes asked, none withdrawn, 56 made (at the lock and the crawl it was 17 and
+16); 52 drive legs given up; 30 touches and 8 wrecked, none of the wrecks within 700 m of a pass. With passes
+asked and with none, an earlier build gave **drive legs given up 86 against 101**, and walks given up 396 against 183 — of which
+passes account for little: over the same run 5 800 of 466 000 walker-ticks spent held were held by a pass or by
+somebody on one. **A pass is rare because what may be passed is**: over 40 s of
+Odesa, of the car-ticks a still body cut, one in eight was a queue making the car's own movement, and most of
+the rest had something past it that could not be passed, or ground somebody held; a zebra refused 2 400 and
+ground off the carriageway 10.
+
+## 2026-09-28 — a car keeps to the section it was granted, and follows nothing
+
+**The owner asked for cars to have no following state**: a car checks its reservation and drives so it can
+stop inside it, and its speed follows from that alone (S-2a, S-3). What went:
+
+- **The headway term** — a second walk of the bodies on the line, stopping a car half its own length plus a
+  lead short of the nearest one and crediting that body with its own speed. The grant had already been cut at
+  the same body; the two were one reading taken twice.
+- **The following time** (`Driving.FollowingHeadwayS`, `CarFleet.FollowingShare`, the convoy's share of it)
+  and **the light's own lead**: the grant is read a lead ahead whatever cut it, as every stop point is.
+- **What a car in front is** decides nothing any more; it is kept for the words and the leg's clock.
+
+**The margin is spent against the section and not the grant** (`IsAHazard`): read against the grant, a slow
+car cut where its committed ground ends was left less than it could stop in by the gap it keeps, and the
+margin fired on 1 799 car-ticks of a minute of Odesa. Read against the section — the grant and that gap — it
+fires where the section is cut shorter than the car can stop in, which is the hazard.
+
+**A car under a hand holds what it cannot help** (S-7): it laid nothing, so the traffic planned into its
+path. It now holds the road it can no longer stop short of, straight ahead of it on whatever ways that
+crosses, as committed ground. **A car following another on an order stops where its leg was drawn to** and
+not a live gap behind the car in front (CTL-8c): that gap is the grant's.
+
+Measured over a minute of each, the town's own seed, before the day's reservation work and after all of it:
+
+| | Odesa | River |
+|---|---|---|
+| hard braking, car-ticks | 252 → 233 | 40 → 66 |
+| stopped share | 11 % → 13 % | 14 % → 18 % |
+| mean speed, m/s | 11.44 → 11.34 | 10.54 → 10.51 |
+| touches | 17 → 7 | 77 → 41 |
+| wrecked | 0 → 2 | 4 → 2 |
+
+**Every wreck of the six-seed soak on Odesa is one car taking a corner too fast**, running two to five metres
+wide into the next lane on a grant nothing had cut, and a car in that lane cut by the body at a negative grant
+— a car reserves its line and not where it is going when it leaves it.
+
+## 2026-09-28 — a driver reads no paint either
+
+**The stop short of a zebra went from the profile** (`DriveContext.CrossingStopM`, `DrivingHold.Crossing`,
+`CrossingStandOffInCarWidths`): a car is held off the paint by what the reservations answer and nothing else.
+The distance to the nearest paint the driver carried beside it (`CrossingAtM`) was read by nothing and went too.
+
+**A plan is sized at the pace the car drives** (`PlannedMps`): it was taken before the bay's reverse cap, a
+call's pace (AMB-4) and an escort's were folded in, so a car on a call held ground at its gear's top speed —
+at the call's rung, which nothing below it can take — for a pace it never drove.
+
+## 2026-09-28 — a driver reads no light, and a reckless one drops nothing
+
+**The lights hold ground now** ([agents/trafficlight](../../trafficlight/docs/decision-log.md)), so the
+driver's own reading of them went: the stop term the profile braked for (`DriveContext.StopAtM`), the stop
+point its plan was laid short of, and the two exemptions that lifted it — a blue light's, which is now its
+rung, and a reckless driver's. **The reckless driver's was dropped rather than moved** (`CAR-13.1`):
+reinstated, it would be an exemption the ladder does not state, for a habit no driver has while nobody
+boards a car (`CAR-1`). The red-crossing count stays, counting what the ladder lets over a bar.
+
+**A grant a light cut is read at the reaction lead** (`S-2a`), and every other grant still at the following
+time — the one place the grant's own reading changed, for the reason the trafficlight log gives.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.
@@ -16,10 +179,6 @@ The owner ruled the code the source of truth for this audit.
 - `CAR-11`: the bay a car will fit in was among its decisions → nothing decides that (`CAR-11b`).
 - `CAR-11a`: the proving ground stood the nominal car → no town does; the crash sandbox's fleet is the one.
 - `CAR-11b`: a bay was refused a car too big for it → `ParkingRegistry.Takes` answers it and nothing asks.
-- `CAR-13.1`: two courtesies dropped, the red and the uncontrolled crossing → the red alone.
-- `TLT-2`: walkers read the signals → cars do; a walker reads none.
-- `TLT-2a`: walkers began on green and a car shunted over the bar returned behind it → a car only, and a
-  rear axle past the bar has started however it got there.
 - The heads (`agents/trafficlight`): a car head stood beside the carriageway → on the bar's own centre line,
   on the tarmac.
 
@@ -53,8 +212,7 @@ what the panel drew beside the entry's name anyway.
 swerve's own log had recorded 352 of 353 shapes refused by the terrain. Over five minutes of Odesa against
 the tree this replaced: **cars standing still at the end 350 → 170, the longest any one held a spot 300 s
 → 142 s, never moved 1 → 0**, and the drive probe unchanged — mean 11.79 → 11.85 m/s, off-line 0.193 →
-0.190 m. The catalogue was not driving. What is given up is in
-[the known gaps](../../../../docs/index.md#known-gaps).
+0.190 m. The catalogue was not driving.
 
 ## 2026-09-07 — a speed cap is a figure, and `CAR-5` is retired
 
@@ -229,14 +387,6 @@ written as geometry. Every lamp is a read of something else — the pedal, the g
 so a frame drawn twice at the same tick draws the same lamps. The beacon shows the priority and nothing
 else (CAR-14.4): lighting a patrol's bar because it looks better would show a claim on the road that SRV-5
 does not honour.
-
-## 2026-08-25 — recklessness is the person's, and it drops two courtesies rather than the rule set
-
-The habit is read off the driver and not flagged on the car (`TownWorld.RecklessAtTheWheel` says why). A
-driver that ignores the road's claims was tempting and is a second physics: the claims' right of way
-(TER-5e) is the whole of why nobody is ever driven into on purpose. So a reckless driver runs the red and
-does not wait for somebody on the kerb, then meets the same profile and the same bodies as everybody else.
-The red they cross is counted, where AMB-4.2 exempts a rescue and so counts nothing.
 
 ## 2026-08-25 — the wheel travels, and the throttle is bounded by the corner
 

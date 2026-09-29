@@ -153,24 +153,8 @@ internal static class UnitReadout
             rows.Keep(in line);
         }
 
-        // What was claimed in front of the nose, and how much room that left to stop in. Two readings and
-        // not one: a queue eight metres off with room to stop is an ordinary follow, and the same queue with
-        // no room is the car that is about to be the reason somebody looked at this panel.
-        var context = cars.Context[car];
-        line = rows.Next("ahead");
-        if (float.IsFinite(context.HeadwayM))
-        {
-            line.Add(context.HeadwayM, "F1");
-            line.Add(" m, ");
-            line.Add(DrivingWords.AheadName(context.Ahead));
-        }
-        else
-        {
-            line.Add("clear");
-        }
-
-        rows.Keep(in line);
-
+        // How much room the reservations left it to stop in, and what ended it — the one reading a car drives
+        // by (S-2a).
         line = rows.Next("room");
         if (float.IsFinite(cars.AuthorityM[car]))
         {

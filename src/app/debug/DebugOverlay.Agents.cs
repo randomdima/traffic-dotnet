@@ -46,6 +46,7 @@ internal sealed partial class DebugOverlay
             if (!OnScreen(people.PositionM[person], viewCentreM, viewSpanM, config.PersonDiameterM)) continue;
 
             WalkerRoute(ref draw, world, person, pitch, widthM, Theme.AgentLine(person));
+            WalkerSidestep(ref draw, world, person, widthM, Theme.AgentLine(person));
         }
     }
 
@@ -164,6 +165,7 @@ internal sealed partial class DebugOverlay
     {
         var pitch = PathMarks.MarkPitchAt(config.Grid, pixelsPerMetre);
         var widthM = AgentLineM(pixelsPerMetre);
+        var hairlineM = MathF.Max(TurnLineM, TurnLineFloorPx / pixelsPerMetre);
         var sagM = PathMarks.SagPx / pixelsPerMetre;
         var cars = world.Cars;
         for (var car = 0; car < cars.Count; car++)
@@ -171,6 +173,7 @@ internal sealed partial class DebugOverlay
             if (!OnScreen(cars.PositionM[car], viewCentreM, viewSpanM, cars.BuildOf(car).LengthM)) continue;
 
             CarRoute(ref draw, world, car, pitch, sagM, widthM, Theme.AgentLine(car));
+            CarPass(ref draw, world, car, widthM, hairlineM, Theme.AgentLine(car));
         }
     }
 
@@ -223,19 +226,20 @@ internal sealed partial class DebugOverlay
             draw.DiscM(Spline.SampleAt(line, joinM).PositionM, PathMarks.JoinDiscM * discs, colour);
         }
 
-        // What is claimed in front of the car, and where the car must be stopped by — both the follower's own
-        // figures rather than this layer's arithmetic.
+        // Where the road it was granted ends, and where a light holds its road — both the town's own figures
+        // rather than this layer's arithmetic.
         var context = cars.Context[car];
-        if (float.IsFinite(context.HeadwayM))
+        if (float.IsFinite(context.AuthorityM))
         {
-            // From the nose, which is where the reading is measured from.
-            var seenM = progressM + build.NoseAheadOfAxleM + context.HeadwayM;
-            draw.RingM(Spline.SampleAt(line, seenM).PositionM, build.FlankM, widthM, Theme.HeldLine, segments: 10);
+            // From the nose, which is where the grant is measured from.
+            var grantedM = progressM + build.NoseAheadOfAxleM + MathF.Max(0f, context.AuthorityM);
+            draw.RingM(Spline.SampleAt(line, grantedM).PositionM, build.FlankM, widthM, Theme.HeldLine, segments: 10);
         }
 
-        if (float.IsFinite(context.StopAtM))
+        // Where a light holds the road in front of it (TLT-1), from the nose like the reading above.
+        if (float.IsFinite(cars.LightAheadM[car]))
         {
-            var stopAt = Spline.SampleAt(line, progressM + context.StopAtM);
+            var stopAt = Spline.SampleAt(line, progressM + build.NoseAheadOfAxleM + cars.LightAheadM[car]);
             draw.LineM(
                 stopAt.PositionM - stopAt.Right * build.WidthM * 0.6f,
                 stopAt.PositionM + stopAt.Right * build.WidthM * 0.6f, widthM * 2f, Theme.HeldLine);

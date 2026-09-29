@@ -56,6 +56,18 @@ with the driven ground on one hand throughout (TER-3c.9), so which way a lane is
 once for the town, and the lane beside it is the other move walked the other way rather than this one read
 backwards. A walker turns round by reaching the end of a lane and setting off down the one going back.
 
+**WLK-16** `P3` **The walk shares ground with the traffic on the paint and nowhere else.** No way a walker is
+laid on but a zebra's own lanes has a ribbon lying over one the traffic drives, deeper than a touch
+([TER-5c](../../road/docs/claims.md)) — so off the paint no walker's claim is ever weighed against a car's,
+and neither body stands on the other's ground. **It is asked of the ribbon and not the line**: a way's ground
+is its line swept to its own width (TER-4c.4), so a line that never leaves the pavement can still carry its
+band over the kerb. The census reports the pairs that break it (`--bench census`).
+
+**A lane lies against the kerb and not over it**: the lane beside the road stands half its own width off the
+boundary (WLK-1), so its edge is the carriageway's. **And a turn off it keeps that edge**: a turn on a circle
+of half the band pivots about its own inside edge, which on that lane is a point of the kerb — where any
+wider circle swings the inside edge out past it, onto the road, and a tighter one folds it back onto the walk.
+
 ## Where the walk crosses the road
 
 **WLK-10** `P4` **A town's zebras stand where its kerb ends put a station, and nowhere else**
@@ -117,12 +129,17 @@ it, or back over the paint it just crossed** (WLK-13). A pavement's two lanes ar
 (WLK-8), so a way from one to the other at the same junction is a walker turning round; **what joins the two
 lanes is the crossing** — out over the paint and back over it.
 
-**A connection is the curve between the two poses it joins** (WLK-14, WLK-13), as a junction's connectors
-are on the road side ([TER-5d](../../road/docs/requirements.md)), held to the circle the feet can hold at
-pace (`WalkerTightestTurnM`) — so a body steps onto a crossing and off it without pivoting. **What no such
-curve joins is a movement the place does not offer** and is not laid. Where the walk turns a corner within a
-weld of a hand-over point the place carries two headings, and the corner there is the pavement's own rather
-than the connection's.
+**A connection is the lane's own course and one turn onto the paint** (WLK-14, WLK-13, WLK-16), as a
+junction's connectors are on the road side ([TER-5d](../../road/docs/requirements.md)): down the stretch of
+course the junction owns, from the first place one arc no wider than half the walk's band and no tighter than
+the feet can hold at pace (`WalkerTightestTurnM`) turns it onto the paint's own line, and straight down that
+line to the kerb — so a body steps onto a crossing and off it without pivoting, and on no ground the lane and
+the paint do not already cover. **Where no place on the course turns that tight onto the paint** — a course
+rounded well back from a tight corner — the connection is the curve straight from the hand-over point, laid
+only where its band stays off the road. **What neither joins is a movement the place does not offer** and is
+not laid. A connection between two crossings merged into one place is the same turn between their two lines.
+Where the walk turns a corner within a weld of a hand-over point the place carries two headings, and the
+corner there is the pavement's own rather than the connection's.
 
 **The paint stops at the kerb.** A crossing's own stretch runs boundary to boundary, which is the ground the
 stripes cover, so what a walker's secondary claims hold of the road (TER-5c.1) is the carriageway and nothing

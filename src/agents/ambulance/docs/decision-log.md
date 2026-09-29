@@ -1,5 +1,12 @@
 # The ambulance — decision log
 
+## 2026-09-29 — a call gets past what any car gets past, and no queue
+
+**AMB-4.4 counted a queue as something a call gets past.** Overtaking came back as a pass (CAR-46) on the
+owner's rule that nobody passes somebody making their own movement there, and that rule has no exemption for a
+call; the patience AMB-4.4 spared an ambulance is gone for everybody, since a pass is asked the tick it can be
+had. What a call still has over a queue is its rung on every ground it asks for (AMB-4.1).
+
 ## 2026-08-27 — the standoff is a place on the lane
 
 One figure answered both how near the ambulance parks and how near the casualty is worked from, which put an

@@ -9,9 +9,10 @@ namespace TrafficSimulation.Agents.TrafficLight.Body;
 /// <summary>One head standing in the town: where it is, which way round it is, and what it is showing.</summary>
 /// <remarks>
 /// <para>
-/// A head is <b>the bundle's visual and nothing else</b> — no agent reads one: a car reads
-/// <see cref="SignalService"/> and a walker reads no signal. What it carries is therefore what a picture of it needs: a place, a
-/// bearing, and the thing to ask for its colour — a lane for a car head, a crossing for a walker's.
+/// A head is <b>the bundle's visual and nothing else</b> — no agent reads one, nor the colour it shows: what
+/// holds anybody is the light's hold on the road (<see cref="SignalHolds"/>). What it carries is therefore what
+/// a picture of it needs: a place, a bearing, and the thing to ask for its colour — a lane for a car head, a
+/// crossing for a walker's.
 /// </para>
 /// <para>
 /// <b><see cref="HeadingRad"/> is the quad's own rotation and not the head's bearing</b>, because the two
@@ -53,37 +54,55 @@ internal sealed class SignalHeads
 
     public int Count => Heads.Length;
 
-    public static SignalHeads Place(CityPlan plan, RoadGraph roads, SignalService signals, SimConfig config)
+    /// <summary>
+    /// <b>The most heads a plan can stand</b>, known before the town is: one car head and two pedestrian heads
+    /// at every road end a lit junction stands at, since an end has one lane arriving and one crossing at most.
+    /// A bound on what the picture lays room for, and not a count.
+    /// </summary>
+    public static int MostFor(CityPlan plan)
+    {
+        var ends = 0;
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            if (plan.Junctions.Lit[plan.Roads.FromJunction[road]]) ends++;
+            if (plan.Junctions.Lit[plan.Roads.ToJunction[road]]) ends++;
+        }
+
+        return ends * HeadsAtAnEnd;
+    }
+
+    /// <summary>A car head over the one lane arriving, and a pedestrian head each way over the one crossing.</summary>
+    const int HeadsAtAnEnd = 3;
+
+    /// <param name="bars">The town's own bars (<see cref="StopBars"/>): a car head stands past every one a lit junction's lane arrives at.</param>
+    /// <param name="zebras">The town's own crossings, which <paramref name="signals"/> numbers its crossings by.</param>
+    public static SignalHeads Place(
+        StopBars bars, Crossings zebras, RoadGraph roads, SignalService signals, SimConfig config)
     {
         var heads = new List<SignalHead>();
-        var bars = plan.StopLines;
 
         for (var bar = 0; bar < bars.Count; bar++)
         {
-            var junction = bars.Junction[bar];
-            if (!signals.Lit(junction)) continue;
+            var lane = bars.Lane[bar];
+            if (signals.AxisOfLane(lane) == SignalService.NoAxis) continue;
 
             var approach = bars.Approach[bar];
             if (approach.LengthSquared() <= 0f) continue;
 
-            approach = Vector2.Normalize(approach);
-            var lane = ApproachLane(roads, junction, bars.Road[bar], approach);
-            if (lane < 0) continue;
-
             // The lamps run along the driver's right, which with +y down is the heading turned a
             // quarter turn the way curvature counts positive.
+            approach = Vector2.Normalize(approach);
             var lamps = new Vector2(-approach.Y, approach.X);
             heads.Add(new SignalHead(
                 bars.CentreM[bar] + (approach * config.Signals.HeadSetbackM), MathF.Atan2(lamps.Y, lamps.X),
                 ForCars: true, lane));
         }
 
-        var crossings = plan.Crosswalks;
-        for (var crossing = 0; crossing < crossings.Count; crossing++)
+        for (var crossing = 0; crossing < zebras.Count; crossing++)
         {
             if (!signals.CrossingIsLit(crossing)) continue;
 
-            var axis = crossings.Axis[crossing];
+            var axis = zebras.Axis[crossing];
             if (axis.LengthSquared() <= 0f) continue;
 
             var along = Vector2.Normalize(axis);
@@ -97,9 +116,9 @@ internal sealed class SignalHeads
             // frame where the car head runs them across it.
             var headingRad = MathF.Atan2(upright.Y, upright.X) - (MathF.PI * 0.5f);
 
-            var alongM = (crossings.DepthM[crossing] * 0.5f) + (config.Signals.WalkHeadWidthM * 0.5f) +
+            var alongM = (zebras.DepthM[crossing] * 0.5f) + (config.Signals.WalkHeadWidthM * 0.5f) +
                          config.Signals.HeadClearanceM;
-            var acrossM = (plan.CrossingSpanM(crossing) * 0.5f) + (config.Signals.WalkHeadLengthM * 0.5f) +
+            var acrossM = (zebras.SpanM[crossing] * 0.5f) + (config.Signals.WalkHeadLengthM * 0.5f) +
                           config.Signals.HeadClearanceM;
 
             // Diagonally opposite, because the near-left corner of one direction is the far-right of
@@ -109,33 +128,11 @@ internal sealed class SignalHeads
             foreach (var corner in (ReadOnlySpan<float>)[-1f, 1f])
             {
                 heads.Add(new SignalHead(
-                    crossings.CentreM[crossing] + (along * (alongM * corner)) - (walked * (acrossM * corner)),
+                    zebras.CentreM[crossing] + (along * (alongM * corner)) - (walked * (acrossM * corner)),
                     headingRad, ForCars: false, crossing));
             }
         }
 
         return new SignalHeads([.. heads]);
-    }
-
-    /// <summary>
-    /// Which lane a painted bar governs: the one arriving at that junction, on that road, going the way
-    /// the bar's own approach points. A bar on a road that runs <em>through</em> a junction has an
-    /// opposite number on the same road, and the approach is what tells the two apart.
-    /// </summary>
-    static int ApproachLane(RoadGraph roads, int junction, int road, Vector2 approach)
-    {
-        var best = -1;
-        var bestAgreement = 0f;
-        foreach (var lane in roads.LanesIntoJunction(junction))
-        {
-            if (roads.LaneRoad[lane] != road) continue;
-
-            var agreement = Vector2.Dot(roads.EndOf(lane).Direction, approach);
-            if (agreement <= bestAgreement) continue;
-
-            (best, bestAgreement) = (lane, agreement);
-        }
-
-        return best;
     }
 }

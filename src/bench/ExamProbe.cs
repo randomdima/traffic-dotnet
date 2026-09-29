@@ -31,7 +31,8 @@ internal static class ExamProbe
             $"scenarios — {lattice.Cards} cards on {ExamPlan.Name}, a {ExamLattice.Rows} by {ExamLattice.Columns} "
             + $"lattice, {drive.Ticks} ticks ({drive.Ticks / hz} s), {drive.Cars} cars and {lattice.Walkers} walkers");
         Console.WriteLine();
-        Console.WriteLine($"{"card",5}  {"cell",-7}{"family",-13}{"verdict",-9}scenario");
+        // Where each box stands, so a card can be framed for a picture (`--shot`, `--sheet`) without a search.
+        Console.WriteLine($"{"card",5}  {"cell",-7}{"box at",-14}{"family",-13}{"verdict",-9}scenario");
 
         var passed = 0;
         for (var card = 0; card < lattice.Cards; card++)
@@ -41,9 +42,10 @@ internal static class ExamProbe
             var wrong = drive.Verdict(card);
             if (wrong is null) passed++;
 
+            var boxM = lattice.StageM(card);
             Console.WriteLine(
-                $"{card,5}  {$"{cell / ExamLattice.Columns},{cell % ExamLattice.Columns}",-7}{of.Family,-13}"
-                + $"{(wrong is null ? "passed" : "FAILED"),-9}{of.Name}");
+                $"{card,5}  {$"{cell / ExamLattice.Columns},{cell % ExamLattice.Columns}",-7}"
+                + $"{$"{boxM.X:F0}, {boxM.Y:F0}",-14}{of.Family,-13}{(wrong is null ? "passed" : "FAILED"),-9}{of.Name}");
             if (wrong is null) continue;
 
             Console.WriteLine($"{"",14}expects: {of.Expects} ({of.Rules})");
@@ -76,8 +78,8 @@ internal static class ExamProbe
 
         var told = log.HeldIn;
         var heldBy = log.HeldTicks > 0
-            ? $", last held for {log.HeldFor} by {drive.Cut(log.HeldBy)} (headway {told.HeadwayM:F1} m {told.Ahead}, "
-              + $"stop {told.StopAtM:F1} m, crossing stop {told.CrossingStopM:F1} m, place {told.PlaceStopM:F1} m)"
+            ? $", last held for {log.HeldFor} by {drive.Cut(log.HeldBy)} (granted {told.AuthorityM:F1} m, "
+              + $"place {told.PlaceStopM:F1} m)"
             : "";
         return log.Drives.Parked
             ? $"driver {log.Driver} stood in its lane as an obstruction"

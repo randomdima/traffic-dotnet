@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Core.Simulation;
@@ -11,14 +12,24 @@ internal readonly record struct WayCover(int Way, float FromM, float ToM);
 
 /// <summary>
 /// <b>What the atlas is laid from</b>: every way of the town's one numbering (<see cref="TownWays"/>) as its
-/// line and the width it is travelled at. Handed over as data, so the atlas learns nothing about which
-/// network drew a way.
+/// line, the width it is travelled at, and which zebra it paints. Handed over as data, so the atlas learns
+/// nothing about which network drew a way.
 /// </summary>
 internal interface IRibbonLines
 {
     int WayCount { get; }
 
     ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM);
+
+    /// <summary>
+    /// <b>The zebra a way is the paint of</b> — one of the walking lanes over it — or
+    /// <see cref="RibbonMarks.NoZebra"/>, which is every other way. Its marks with the traffic are the whole
+    /// zebra and not the ground the two ribbons share (TER-5c.3).
+    /// </summary>
+    int ZebraOf(int way);
+
+    /// <summary>Whether the traffic drives this way, as against walks it.</summary>
+    bool IsDriven(int way);
 }
 
 /// <summary>
@@ -47,11 +58,17 @@ internal interface IRibbonLines
 /// <para>
 /// <b>Kept a main cell of the grid at a time</b>, and only where some ribbon covers a point of it: each cell
 /// holds one entry per way over each of its covered points, in row order, then column, then way, with where
-/// each of its rows begins. A body's shape is a cell or two of a few rows each, so a lookup is a read of
-/// where the row begins and a walk of it, <b>all in memory the cell holds together</b> — the town's rows
-/// run kilometres, and a body read off a row at a time was a search of each of them and a fetch from
-/// wherever it landed. An entry is eight bytes — the column in its cell, how far outside its band it
-/// stands, the metre along the way to a tenth, and the way — which is what the town's memory is quoted at.
+/// each point's entries begin. A body's shape is a cell or two of a few rows each, so a lookup reads the
+/// entries of the points inside it and no others, <b>all in memory the cell holds together</b> — the town's
+/// rows run kilometres, and a body read off a row at a time was a search of each of them and a fetch from
+/// wherever it landed. An entry is eight bytes — how far outside its band it stands, the metre along the way
+/// to a tenth, and the way — and every point of a kept cell has a start of two more, which is what the
+/// town's memory is quoted at.
+/// </para>
+/// <para>
+/// <b>A start for every point rather than every row</b> is a fifth more memory, and it is what keeps a lookup
+/// to the points inside the body: read from its row's first entry, a car's row holds over three entries for
+/// every one the car stands on, and passing over them is a fifth of the lookup.
 /// </para>
 /// </remarks>
 internal sealed class RibbonAtlas
@@ -65,21 +82,37 @@ internal sealed class RibbonAtlas
     /// <summary>Below this curvature a piece's centre is further off than any town is wide, and it is read as a straight.</summary>
     const float StraightCurvature = 1e-6f;
 
-    /// <summary>The most points a main cell may hold across, which is what a column in a byte can name.</summary>
-    const int MostPointsAcross = byte.MaxValue + 1;
+    /// <summary>
+    /// <b>One way over one point</b>: how far outside the way's band the point stands in
+    /// <see cref="OutsidePerReach"/>ths of the reach and rounded up — nothing for a point on the band — the
+    /// metre along the way in tenths, and the way. Which point it is over is where it is kept.
+    /// </summary>
+    readonly record struct Entry(byte Outside, ushort Along, int Way);
 
     /// <summary>
-    /// <b>One way over one point</b>: the point's column in its cell, how far outside the way's band it stands
-    /// in <see cref="OutsidePerReach"/>ths of the reach and rounded up — nothing for a point on the band — the
-    /// metre along the way in tenths, and the way.
+    /// One way found under a body so far, in the tenths the atlas files a metre in, so a body's stretch of it
+    /// is the least and most of what was filed and is turned into metres once (<see cref="Widened"/>).
     /// </summary>
-    readonly record struct Entry(byte Column, byte Outside, ushort Along, int Way);
+    /// <remarks>
+    /// <b>The tenths are floats</b>, because a float's least and most are taken without a branch and an
+    /// integer's are not: kept as integers, the jumps they mispredict cost a lookup a fifth.
+    /// </remarks>
+    readonly record struct Found(int Way, float FromTenths, float ToTenths);
 
     /// <summary>The level the points stand at the middles of.</summary>
     readonly GridLevel _level;
 
     /// <summary>How many halvings a main cell is cut into to reach the points, so a point's cell is a shift away.</summary>
     readonly int _shift;
+
+    /// <summary>A point's row or column within its main cell, as a mask.</summary>
+    readonly int _mask;
+
+    /// <summary>How many starts one kept cell has: one a point, and one past the last.</summary>
+    readonly int _startsPerCell;
+
+    /// <summary>What one step of <see cref="Entry.Outside"/> is in metres.</summary>
+    readonly float _metresPerOutside;
 
     /// <summary>The main cells the ribbons reach.</summary>
     readonly GridWindow _cells;
@@ -91,24 +124,27 @@ internal sealed class RibbonAtlas
     readonly int[] _slotFirst;
 
     /// <summary>
-    /// Where each row of a kept cell begins, counted from the cell's first entry — one past the last row is
-    /// the cell's count.
+    /// Where each point of a kept cell has its entries, row by row, counted from the cell's first entry — one
+    /// past the last point is the cell's count.
     /// </summary>
-    readonly ushort[] _slotRow;
+    readonly ushort[] _pointStart;
 
     readonly Entry[] _entries;
     readonly float[] _lengthM;
 
     RibbonAtlas(
-        GridLevel level, GridWindow cells, int[] cellSlot, int[] slotFirst, ushort[] slotRow, Entry[] entries,
+        GridLevel level, GridWindow cells, int[] cellSlot, int[] slotFirst, ushort[] pointStart, Entry[] entries,
         float[] lengthM, WayCrossings marks, int points, int mostWaysAtAPoint)
     {
         _level = level;
         _shift = level.Depth - cells.Level.Depth;
+        _mask = (1 << _shift) - 1;
+        _startsPerCell = (1 << (2 * _shift)) + 1;
+        _metresPerOutside = ReachOf(level.CellM) / OutsidePerReach;
         _cells = cells;
         _cellSlot = cellSlot;
         _slotFirst = slotFirst;
-        _slotRow = slotRow;
+        _pointStart = pointStart;
         _entries = entries;
         _lengthM = lengthM;
         Marks = marks;
@@ -148,7 +184,7 @@ internal sealed class RibbonAtlas
 
     /// <summary>What the atlas holds, in bytes: the figure a town's memory is quoted against.</summary>
     public long Bytes =>
-        (4L * (_cellSlot.Length + _slotFirst.Length + _lengthM.Length)) + (2L * _slotRow.Length)
+        (4L * (_cellSlot.Length + _slotFirst.Length + _lengthM.Length)) + (2L * _pointStart.Length)
         + ((long)Unsafe.SizeOf<Entry>() * _entries.Length);
 
     /// <summary>
@@ -160,68 +196,89 @@ internal sealed class RibbonAtlas
     /// <returns>How many ways were written; a way past the room given is dropped and counted.</returns>
     public int UnderBox(Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM, Span<WayCover> into)
     {
-        var right = Heading.RightOf(forward);
-        var alongM = forward * halfLengthM;
-        var acrossM = right * halfWidthM;
-        Span<Vector2> corners =
-        [
-            centreM + alongM + acrossM, centreM + alongM - acrossM, centreM - alongM - acrossM,
-            centreM - alongM + acrossM,
-        ];
-
-        var box = new Box(centreM, forward, right, halfLengthM, halfWidthM);
-        var leastY = MathF.Min(MathF.Min(corners[0].Y, corners[1].Y), MathF.Min(corners[2].Y, corners[3].Y));
-        var mostY = MathF.Max(MathF.Max(corners[0].Y, corners[1].Y), MathF.Max(corners[2].Y, corners[3].Y));
-        var written = 0;
-        for (var row = _level.FirstMiddleFrom(leastY); row <= _level.LastMiddleTo(mostY); row++)
-        {
-            var y = _level.MiddleM(row);
-            if (!AcrossTheBox(corners, y, out var fromX, out var toX)) continue;
-
-            written = Gather(row, y, fromX, toX, box, into, written);
-        }
-
-        return Widened(into, written);
+        var box = new Box(centreM, forward, halfLengthM, halfWidthM);
+        return Widened(into, Read(box, box.LeastY, box.MostY, into));
     }
 
     /// <summary>The same for a disc — a walker's collider.</summary>
-    public int UnderDisc(Vector2 centreM, float radiusM, Span<WayCover> into)
-    {
-        var disc = new Disc(centreM, radiusM);
-        var written = 0;
-        for (var row = _level.FirstMiddleFrom(centreM.Y - radiusM); row <= _level.LastMiddleTo(centreM.Y + radiusM); row++)
-        {
-            var y = _level.MiddleM(row);
-            var offY = y - centreM.Y;
-            var halfM = (radiusM * radiusM) - (offY * offY);
-            if (halfM < 0f) continue;
-
-            halfM = MathF.Sqrt(halfM);
-            written = Gather(row, y, centreM.X - halfM, centreM.X + halfM, disc, into, written);
-        }
-
-        return Widened(into, written);
-    }
+    public int UnderDisc(Vector2 centreM, float radiusM, Span<WayCover> into) =>
+        Widened(into, Read(new Disc(centreM, radiusM), centreM.Y - radiusM, centreM.Y + radiusM, into));
 
     /// <summary>How many ways have been dropped for want of room since the town was laid — a gate's figure.</summary>
     public long Dropped => _dropped;
 
     long _dropped;
 
-    /// <summary>A body's collider, as how far inside it a point lies.</summary>
+    /// <summary>A body's collider, as how far inside it a point lies and where a row of points crosses it.</summary>
     interface IBody
     {
         float DepthM(Vector2 pointM);
+
+        /// <summary>Where one horizontal line crosses the body, as the span of x inside it.</summary>
+        bool Across(float y, out float fromX, out float toX);
     }
 
-    readonly struct Box(Vector2 centreM, Vector2 forward, Vector2 right, float halfLengthM, float halfWidthM) : IBody
+    /// <summary>A car's collider: its two axes, and its four corners in order round it.</summary>
+    readonly struct Box : IBody
     {
+        readonly Vector2 _centreM, _forward, _right, _a, _b, _c, _d;
+        readonly float _halfLengthM, _halfWidthM;
+
+        public Box(Vector2 centreM, Vector2 forward, float halfLengthM, float halfWidthM)
+        {
+            _centreM = centreM;
+            _forward = forward;
+            _right = Heading.RightOf(forward);
+            _halfLengthM = halfLengthM;
+            _halfWidthM = halfWidthM;
+
+            var alongM = forward * halfLengthM;
+            var acrossM = _right * halfWidthM;
+            _a = centreM + alongM + acrossM;
+            _b = centreM + alongM - acrossM;
+            _c = centreM - alongM - acrossM;
+            _d = centreM - alongM + acrossM;
+        }
+
+        public float LeastY => MathF.Min(MathF.Min(_a.Y, _b.Y), MathF.Min(_c.Y, _d.Y));
+
+        public float MostY => MathF.Max(MathF.Max(_a.Y, _b.Y), MathF.Max(_c.Y, _d.Y));
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float DepthM(Vector2 pointM)
         {
-            var offM = pointM - centreM;
+            var offM = pointM - _centreM;
             return MathF.Min(
-                halfLengthM - MathF.Abs(Vector2.Dot(offM, forward)), halfWidthM - MathF.Abs(Vector2.Dot(offM, right)));
+                _halfLengthM - MathF.Abs(Vector2.Dot(offM, _forward)), _halfWidthM - MathF.Abs(Vector2.Dot(offM, _right)));
+        }
+
+        public bool Across(float y, out float fromX, out float toX)
+        {
+            fromX = float.PositiveInfinity;
+            toX = float.NegativeInfinity;
+            Cross(_a, _b, y, ref fromX, ref toX);
+            Cross(_b, _c, y, ref fromX, ref toX);
+            Cross(_c, _d, y, ref fromX, ref toX);
+            Cross(_d, _a, y, ref fromX, ref toX);
+            return toX >= fromX;
+        }
+
+        /// <summary>Where the line meets one edge, added to the span.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static void Cross(Vector2 one, Vector2 other, float y, ref float fromX, ref float toX)
+        {
+            if ((y < one.Y && y < other.Y) || (y > one.Y && y > other.Y)) return;
+
+            if (one.Y == other.Y)
+            {
+                fromX = MathF.Min(fromX, MathF.Min(one.X, other.X));
+                toX = MathF.Max(toX, MathF.Max(one.X, other.X));
+                return;
+            }
+
+            var x = one.X + ((y - one.Y) * (other.X - one.X) / (other.Y - one.Y));
+            fromX = MathF.Min(fromX, x);
+            toX = MathF.Max(toX, x);
         }
     }
 
@@ -229,122 +286,120 @@ internal sealed class RibbonAtlas
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float DepthM(Vector2 pointM) => radiusM - Vector2.Distance(pointM, centreM);
+
+        public bool Across(float y, out float fromX, out float toX)
+        {
+            var offY = y - centreM.Y;
+            var halfM = (radiusM * radiusM) - (offY * offY);
+            if (halfM < 0f)
+            {
+                fromX = toX = 0f;
+                return false;
+            }
+
+            halfM = MathF.Sqrt(halfM);
+            fromX = centreM.X - halfM;
+            toX = centreM.X + halfM;
+            return true;
+        }
     }
 
     /// <summary>
-    /// The ways under the points of one row between two x, each point counted only where the body reaches
-    /// further past it than it stands outside that way's band — so ground the body and the band both hold
-    /// lies between them, and a body whose edge only meets the band's is not on it.
+    /// <b>The ways under a body's points</b>, a row at a time, each point counted only where the body reaches
+    /// further past it than it stands outside that way's band — so ground the body and the band both hold lies
+    /// between them, and a body whose edge only meets the band's is not on it.
     /// </summary>
-    int Gather<TBody>(int row, float y, float fromX, float toX, in TBody body, Span<WayCover> into, int written)
-        where TBody : struct, IBody
+    int Read<TBody>(in TBody body, float leastY, float mostY, Span<WayCover> into) where TBody : struct, IBody
     {
-        var fromColumn = _level.FirstMiddleFrom(fromX);
-        var toColumn = _level.LastMiddleTo(toX);
-        if (toColumn < fromColumn) return written;
+        var found = MemoryMarshal.Cast<WayCover, Found>(into);
+        var firstRow = _level.FirstMiddleFrom(leastY);
+        var lastRow = _level.LastMiddleTo(mostY);
 
-        var cellRow = row >> _shift;
-        var mask = (1 << _shift) - 1;
-        var rows = (1 << _shift) + 1;
-        var rowInCell = row & mask;
-        var metresPerOutside = ReachOf(_level.CellM) / OutsidePerReach;
-        for (var cellColumn = fromColumn >> _shift; cellColumn <= toColumn >> _shift; cellColumn++)
+        var written = 0;
+        for (var row = firstRow; row <= lastRow; row++)
         {
-            if (!_cells.Holds(cellColumn, cellRow)) continue;
+            var y = _level.MiddleM(row);
+            if (!body.Across(y, out var fromX, out var toX)) continue;
 
-            var slot = _cellSlot[_cells.IndexOf(cellColumn, cellRow)];
-            if (slot < 0) continue;
+            var fromColumn = _level.FirstMiddleFrom(fromX);
+            var toColumn = _level.LastMiddleTo(toX);
+            if (toColumn < fromColumn) continue;
 
-            var first = _slotFirst[slot];
-            var rowAt = (slot * rows) + rowInCell;
-            var end = first + _slotRow[rowAt + 1];
-            var cellFirstColumn = cellColumn << _shift;
-            var least = fromColumn - cellFirstColumn;
-            var most = toColumn - cellFirstColumn;
-            for (var at = first + _slotRow[rowAt]; at < end; at++)
+            var cellRow = row >> _shift;
+            var rowFirstPoint = (row & _mask) << _shift;
+            for (var cellColumn = fromColumn >> _shift; cellColumn <= toColumn >> _shift; cellColumn++)
             {
-                ref readonly var entry = ref _entries[at];
-                if (entry.Column < least) continue;
-                if (entry.Column > most) break;
+                if (!_cells.Holds(cellColumn, cellRow)) continue;
 
-                if (entry.Outside != 0)
+                var slot = _cellSlot[_cells.IndexOf(cellColumn, cellRow)];
+                if (slot < 0) continue;
+
+                var cellFirstColumn = cellColumn << _shift;
+                var first = _slotFirst[slot];
+                var starts = (slot * _startsPerCell) + rowFirstPoint;
+                var lastColumn = Math.Min(toColumn - cellFirstColumn, _mask);
+                for (var column = Math.Max(fromColumn - cellFirstColumn, 0); column <= lastColumn; column++)
                 {
-                    var pointM = new Vector2(_level.MiddleM(cellFirstColumn + entry.Column), y);
-                    if (body.DepthM(pointM) <= entry.Outside * metresPerOutside) continue;
-                }
+                    var end = first + _pointStart[starts + column + 1];
+                    for (var at = first + _pointStart[starts + column]; at < end; at++)
+                    {
+                        ref readonly var entry = ref _entries[at];
+                        if (entry.Outside != 0 &&
+                            body.DepthM(new Vector2(_level.MiddleM(cellFirstColumn + column), y)) <= entry.Outside * _metresPerOutside)
+                        {
+                            continue;
+                        }
 
-                written = Grow(into, written, entry.Way, entry.Along / AlongPerMetre);
+                        written = Grow(found, written, entry.Way, entry.Along);
+                    }
+                }
             }
         }
 
         return written;
     }
 
-    int Grow(Span<WayCover> into, int written, int way, float alongM)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    int Grow(Span<Found> found, int written, int way, float alongTenths)
     {
         for (var slot = 0; slot < written; slot++)
         {
-            if (into[slot].Way != way) continue;
+            if (found[slot].Way != way) continue;
 
-            into[slot] = new WayCover(
-                way, MathF.Min(into[slot].FromM, alongM), MathF.Max(into[slot].ToM, alongM));
+            found[slot] = new Found(
+                way, MathF.Min(found[slot].FromTenths, alongTenths), MathF.Max(found[slot].ToTenths, alongTenths));
             return written;
         }
 
-        if (written == into.Length)
+        if (written == found.Length)
         {
             _dropped++;
             return written;
         }
 
-        into[written] = new WayCover(way, alongM, alongM);
+        found[written] = new Found(way, alongTenths, alongTenths);
         return written + 1;
     }
 
     /// <summary>
     /// A point stands for the half step either side of it along the way, so the stretch a body covers is
-    /// widened by that much — and held to the way's own two ends.
+    /// widened by that much — and held to the way's own two ends. The tenths it was gathered in become metres
+    /// here, once a way.
     /// </summary>
     int Widened(Span<WayCover> into, int written)
     {
+        var found = MemoryMarshal.Cast<WayCover, Found>(into);
         var halfM = _level.CellM * 0.5f;
         for (var slot = 0; slot < written; slot++)
         {
-            ref readonly var cover = ref into[slot];
-            into[slot] = cover with
-            {
-                FromM = MathF.Max(0f, cover.FromM - halfM),
-                ToM = MathF.Min(_lengthM[cover.Way], cover.ToM + halfM),
-            };
+            var one = found[slot];
+            into[slot] = new WayCover(
+                one.Way,
+                MathF.Max(0f, (one.FromTenths / AlongPerMetre) - halfM),
+                MathF.Min(_lengthM[one.Way], (one.ToTenths / AlongPerMetre) + halfM));
         }
 
         return written;
-    }
-
-    /// <summary>Where one horizontal line crosses a convex quadrilateral, as the span of x inside it.</summary>
-    static bool AcrossTheBox(ReadOnlySpan<Vector2> corners, float y, out float fromX, out float toX)
-    {
-        fromX = float.PositiveInfinity;
-        toX = float.NegativeInfinity;
-        for (var index = 0; index < corners.Length; index++)
-        {
-            var one = corners[index];
-            var other = corners[(index + 1) % corners.Length];
-            if ((y < one.Y && y < other.Y) || (y > one.Y && y > other.Y)) continue;
-
-            if (one.Y == other.Y)
-            {
-                fromX = MathF.Min(fromX, MathF.Min(one.X, other.X));
-                toX = MathF.Max(toX, MathF.Max(one.X, other.X));
-                continue;
-            }
-
-            var x = one.X + ((y - one.Y) * (other.X - one.X) / (other.Y - one.Y));
-            fromX = MathF.Min(fromX, x);
-            toX = MathF.Max(toX, x);
-        }
-
-        return toX >= fromX;
     }
 
     /// <summary>
@@ -363,12 +418,6 @@ internal sealed class RibbonAtlas
     {
         var main = level.Grid.Main;
         var shift = level.Depth - main.Depth;
-        if (1 << shift > MostPointsAcross)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(level), level.CellM, $"a main cell holds at most {MostPointsAcross} points across");
-        }
-
         var stepM = level.CellM;
         var wayCount = lines.WayCount;
         var lengthM = new float[wayCount];
@@ -436,8 +485,8 @@ internal sealed class RibbonAtlas
             () => 0,
             (_, slot) => Array.Sort(keys, items, slotFirst[slot], slotFirst[slot + 1] - slotFirst[slot]));
 
-        var rows = (1 << shift) + 1;
-        var slotRow = new ushort[slots * rows];
+        var startsPerCell = (1 << (2 * shift)) + 1;
+        var pointStart = new ushort[slots * startsPerCell];
         var entries = new Entry[total];
         var reachM = ReachOf(stepM);
         var points = 0;
@@ -451,7 +500,8 @@ internal sealed class RibbonAtlas
                 throw new InvalidOperationException($"a cell {main.CellM:F0} m across holds more than {ushort.MaxValue} entries");
             }
 
-            var row = 0;
+            var starts = slot * startsPerCell;
+            var point = 0;
             for (var at = first; at < slotFirst[slot + 1]; at++)
             {
                 var inCell = (int)(keys[at] >> 32);
@@ -464,22 +514,21 @@ internal sealed class RibbonAtlas
                 }
 
                 mostAtAPoint = Math.Max(mostAtAPoint, ++atThePoint);
-                for (; row <= inCell >> shift; row++) slotRow[(slot * rows) + row] = (ushort)(at - first);
+                for (; point <= inCell; point++) pointStart[starts + point] = (ushort)(at - first);
 
                 // Rounded up, so that a body whose edge only meets the band's is never read as over it.
                 var outsideM = reachM - BitConverter.Int32BitsToSingle((int)(items[at] >> 32));
                 entries[at] = new Entry(
-                    (byte)(inCell & mask),
                     (byte)Math.Clamp(MathF.Ceiling(outsideM / reachM * OutsidePerReach), 0f, OutsidePerReach),
                     Filed(alongM, lengthM[way]), way);
             }
 
-            for (; row < rows; row++) slotRow[(slot * rows) + row] = (ushort)(slotFirst[slot + 1] - first);
+            for (; point < startsPerCell; point++) pointStart[starts + point] = (ushort)(slotFirst[slot + 1] - first);
         }
 
         var marks = RibbonMarks.Of(lines, lengthM, stepM, touchM, main);
 
-        return new RibbonAtlas(level, cells, cellSlot, slotFirst, slotRow, entries, lengthM, marks, points, mostAtAPoint);
+        return new RibbonAtlas(level, cells, cellSlot, slotFirst, pointStart, entries, lengthM, marks, points, mostAtAPoint);
     }
 
     /// <summary>A metre along a way as the atlas files it, which a way longer than the field holds refuses.</summary>

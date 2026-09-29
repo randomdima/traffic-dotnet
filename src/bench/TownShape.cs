@@ -30,7 +30,7 @@ internal static class TownShape
     /// <summary>One row a map, which is the reading a change to the generator is weighed against.</summary>
     public static void Table(SimConfig config)
     {
-        Console.WriteLine($"{"map",-10}{"m",12}{"junc",7}{"roads",7}{"km",8}{"bend",7}{"sinu",7}" +
+        Console.WriteLine($"{"map",-10}{"m",12}{"junc",7}{"roads",7}{"km",8}{"bend",7}{"strt",7}{"sinu",7}" +
                           $"{"bldg",7}{"bays",7}{"props",7}{"spawn",7}");
         foreach (var map in Maps.Shipped())
         {
@@ -38,9 +38,35 @@ internal static class TownShape
             var roads = Figures(plan);
             Console.WriteLine(
                 $"{plan.Name,-10}{Extent(plan),12}{plan.Junctions.Count,7}{plan.Roads.Count,7}" +
-                $"{roads.TotalM / 1000f,8:F1}{roads.BentShare * 100f,6:F0}%{Percentile(roads.Sinuosity, 50),7:F3}" +
+                $"{roads.TotalM / 1000f,8:F1}{roads.BentShare * 100f,6:F0}%" +
+                $"{LaidStraight(plan).StraightShare * 100f,6:F0}%{Percentile(roads.Sinuosity, 50),7:F3}" +
                 $"{plan.Buildings.Count,7}{plan.ParkingLots.SpaceCount,7}{plan.Props.Count,7}{plan.Spawns.Count,7}");
         }
+    }
+
+    /// <summary>
+    /// <b>How much of the roads laid straight came out straight</b> (GEN-47) — every district's share of its
+    /// streets, which bend only at the corners they were joined through: how many, how long, and the share of
+    /// that length on straight pieces.
+    /// </summary>
+    static (int Roads, float LengthM, float StraightShare) LaidStraight(CityPlan plan)
+    {
+        var roads = 0;
+        var lengthM = 0f;
+        var straightM = 0f;
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            if (!plan.Roads.IsLaidStraight(road)) continue;
+
+            roads++;
+            foreach (var piece in plan.Roads.SegmentsOf(road))
+            {
+                lengthM += piece.LengthM;
+                if (MathF.Abs(piece.Curvature) < StraightCurvature) straightM += piece.LengthM;
+            }
+        }
+
+        return (roads, lengthM, lengthM > 0f ? straightM / lengthM : 0f);
     }
 
     public static void Run(string map, SimConfig config)
@@ -60,6 +86,10 @@ internal static class TownShape
         Console.WriteLine("  road length      " + Spread(roads.LengthM, " m"));
         Console.WriteLine("  arcs per road    " + Spread(roads.Arcs));
         Console.WriteLine($"  curved length    {roads.BentShare * 100f:F1}% of the network");
+        var laid = LaidStraight(plan);
+        Console.WriteLine(
+            $"  laid straight    {laid.Roads} roads, {laid.LengthM / 1000f:F1} km, " +
+            $"{laid.StraightShare * 100f:F1}% of it on straight pieces");
         Console.WriteLine("  bend per road    " + Spread(roads.BendDeg, " deg"));
         Console.WriteLine("  sinuosity        " + Spread(roads.Sinuosity));
         Console.WriteLine("  curve radius     " + Spread(roads.RadiusM, " m"));

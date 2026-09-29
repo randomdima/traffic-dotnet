@@ -52,8 +52,20 @@ What follows from that rather than being stated beside it:
   stream shares exactly the metres it crosses.
 - **Ribbons laid edge to edge share no ground.** The two lanes of a carriageway and a lane and the way that
   carries on from its end touch, and are not marked.
-- **Ground two networks share is marked like any other.** A zebra's ribbon lies over the lanes it is painted
-  across, and the mark between them is the whole of how somebody on the paint and a car in the lane meet.
+- **Ground two networks share is marked like any other, except a zebra**, which is marked whole (TER-5c.3) —
+  and a zebra is the only ground the walk and the traffic share
+  ([WLK-16](../../foot/docs/requirements.md)).
+
+**TER-5c.3** `P5` **A zebra is one piece of ground, and its marks with the traffic say so.** Each of its walking
+lanes is marked against every way the traffic drives under either of them: **all of the walking lane, against
+the whole of what the zebra covers of that way** — from where the first of its lanes comes onto it to where the
+last leaves it. So a car's plan over any of the zebra on its lane holds both of its walking lanes from kerb to
+kerb, and a walker's plan over any of the paint holds every lane under it, the ones it has crossed and the ones
+it has still to cross alike (TER-5c.1). Where the two meet is settled by the ladder (TER-5e, `PER-27`): the
+walker plans the paint like any other way, and the car its lane.
+
+- **The traffic's ways and no others.** The pavement a zebra hands over to at a kerb shares ground with the
+  end of its paint the way two walks do, and is marked over that ground alone.
 
 ## Bodies
 
@@ -74,13 +86,53 @@ turned across its own lane holds the corner of the next and not its own shadow d
   question (`PHY-1`), not a reservation gone wrong.
 - **A body is one stretch of each way it is on** (TER-5c.2). Read at two places — a walker's disc and its
   place on the way it walks — it grows to cover both.
-- **A body says whether it is travelling the way it is on.** A car on a way of its own line, or a walker on
-  the way it is walking, is a queue to whoever comes up behind it; anywhere else it is standing there, going
-  nowhere down it. The holder says it of itself, so no reader looks another agent up to find out.
+- **A body says whether it is travelling the way it is on**, and if so **which way its line takes next** — or
+  that its line runs on down this way and is not yet laid past it, or ends where it stands. A car on a way of
+  its own line, or a walker on the way it is walking, is a queue to whoever comes up behind it; anywhere else it
+  is standing there, going nowhere down it. **And it says whether it is at rest.** The holder says all of it of
+  itself, so no reader looks another agent up to find out.
 - **A coupled pair is one occupant** (`EVA-5`): the car on the bar is laid under the vehicle pulling it, so a
   truck's own plan is never cut at its own trailer.
 - **A walker is always on the way it walks**, over the stretch its own body takes of it — the one way it must
   never be missing from, however the lattice falls under a body narrower than it.
+
+**TER-4c.6** `P3` **Getting past something standing in the way is a pass, and a pass is laid as a body over
+all the ground it will cover** — at p0, where nothing compares it, cuts it or takes it, because a holder that
+has left its own way cannot safely go back. So it is asked for only where it can be had whole:
+
+- **Only past a body at rest that is not making the asker's own movement**: not a pass itself, and not
+  travelling that way on to the way the asker's own line takes next. Something waiting for what the asker
+  would wait for is a queue, and is never passed. **A line not yet laid past the way makes every movement**,
+  the holder's or the asker's: its holder is further than it can see from the way's end, so what holds it
+  there is on the way.
+- **Over the lane beside and back**: the asker's own line moved across onto the way running back beside it,
+  and back onto that line past what it passes, with room there to come back into. **A junction is no end to
+  one**: the line runs on through a box, and so does the pass, wherever its ground can be had.
+- **Its ground is the holder's own body swept down the whole of it and read off the atlas, as a body's is**
+  (TER-4c.2): from where the holder stands to where it is back on its line, a body stood at every place the
+  pass puts it and turned the way the pass turns it there, and whichever ways lie under those bodies are the
+  ways it holds. It is laid on the network its holder travels and on no other — a car's on the ways the traffic
+  drives, a walker's on the pavement — so neither holds the other's ground, and a pass whose body stands over
+  ground the holder's network does not have is a pass run off it, and is not asked for.
+- **A movement through a box is held whole**, as a car in a box plans the rest of the join: held in part, a car
+  crossing the box is let in and cut in the middle of it, standing over the pass's ground on the movement beside
+  its own, the pass and it each waiting on the other.
+- **Only over ground nobody has**: no body on any of it but the asker's, and no ground another holder plans,
+  the plans of what is being passed aside — a body at rest plans the room to pull away and nothing it can no
+  longer stop short of, and the pass laid over it cuts it. The paint of a zebra a walker's pass only skirts at
+  the kerb is aside too: the traffic holds it whole wherever it crosses (TER-5c.3). **A car asks with room to
+  spare** — as far as it is let stray off its steps — and lays and keeps without it, so a pass clearing
+  something by a hair is not asked one rebuild and withdrawn the next.
+- **Asked for, laid, then kept or withdrawn once**, in the rebuild after: withdrawn where a body has stepped
+  onto the ground since, and — of two passes asked over one ground on one tick — kept by the lower of the two
+  by roster and occupant. Kept, it is never given up, and **what it has covered is given back as it goes**: it
+  is laid from where its holder stands every rebuild.
+- **Whoever holds it plans from its far end**, the ground up to there being its own, and is held short of its
+  end by nothing but a body standing inside it. **And a pass holds nobody already standing on its ground**:
+  its holder is held off them instead, since held against each other the two would each wait for the other.
+
+How far a pass runs and how sharply it steps across is the holder's (`CAR-46`, `PER-28`); what it holds is
+this rule's.
 
 ## Plans
 
@@ -89,8 +141,8 @@ line it means to use, from its front forward, a way at a time; **the answer is r
 laid**, so no ground is taken off another plan for a hold that then does not use it. What comes back is
 that stretch cut at the first of two things, both read off the way asked about and off no other:
 
-- **the first body in front of it** — a plan is never laid over somebody standing there, and a body beside
-  or behind the holder cuts nothing;
+- **the first body in front of it** — a plan is never laid over somebody standing there, or over ground
+  somebody's pass will cover (TER-4c.6), and a body beside or behind the holder cuts nothing;
 - **the first metre another plan keeps against it** (TER-5e) — that plan's main claim on the same way, or a
   secondary claim it placed there (TER-5c.1).
 
@@ -100,13 +152,14 @@ it, and only something that beats it takes it.
 
 - **A plan begins at its holder's front.** Ground behind the nose is ground the body is on or has passed,
   never road it was granted, so nothing behind the nose can be what ends a grant.
-- **A rule that stops a body stops its plan.** A red, a bar, a crossing a car must stop short of: the plan is
-  not laid past the place the body is held at, so a car waiting at a red holds none of the box beyond it.
+- **Nothing but the answer stops a plan.** A red is ground: the light holds its bar (`TLT-1`), and a plan
+  refused there is one stretch that ends there, so a car waiting at a red holds none of the box beyond it. A
+  zebra is ground too, cut where anything on it is like any other (TER-5c.3).
 - **A plan reaches as far as its holder means to be able to stop**, and no further. For a driver that is the
   ground it can no longer stop short of, the room to pull away, and — while it is moving — what it reaches over
   a stated run pulling up to the speed it is planning for and a stop from there; a body at rest plans the
   room to pull away and nothing more, so a queue waiting at a junction plans none of the box. For a walker it
-  is the ground it would come to rest in from its pace (`PER-26`), and a crossing to the far kerb (`PER-27`).
+  is the ground it would come to rest in from its pace (`PER-26`).
 - **A car in a box plans its way out of it**: at least to the far side of the join its nose is on and its
   own length past that, however slowly it is going.
 - **A car refused ground waits short of it, wherever that is.** Refused inside a box, it waits in the box,
@@ -138,6 +191,10 @@ whatever holds ground that way shares has placed a secondary claim on it.
   on the turns between them and touch neither one's main claim, both go.
 - **A holder places main claims only on the ways of its own line**, and on the ways it only crosses nothing
   but secondary claims. A car approaching a box holds no fan of joins it is never going to be on.
+- **A light's hold and a closure are secondary claims placed with no main claim** (`TLT-1`, `SRV-6`): on the
+  way each governs and no other, before any plan is laid — a light's from its start to the first body travelling
+  that way, a closure's over the scene and whatever stands in it — so each meets the main claims on that way, and
+  what crosses that way is held by nothing of it.
 
 **TER-5c.2** `P3` **A hold is one stretch of its holder's line.** Its pieces, read in the order the line runs
 over them, each begin where the one before ended; **cut anywhere, it gives up everything past the cut** — the
@@ -167,13 +224,13 @@ order:
    driven until that body has left them, and held against that body it is two holders each waiting for the
    other.
 3. **Below that it is the ladder** (TER-5g).
-4. **Then a box already given**: of two equal movements, the one that won the box last time keeps it, so a
-   box does not change hands under a car on its way into it because another came nearer since.
-5. **And last, whoever gets there first** — the holder with less of its own line to cover before the ground in
+4. **And last, whoever gets there first** — the holder with less of its own line to cover before the ground in
    question — and two exactly as near by roster and occupant, arbitrary and the same every tick.
 
-**Neither the ladder nor the box is asked between two holders that can no longer stop.** Both are going in,
-and what is left to settle is who is there first: the one further off is the one with road left to brake on.
+**The ladder is not asked between two holders that can no longer stop.** Both are going in, and what is left
+to settle is who is there first: the one further off is the one with road left to brake on. **Nothing is
+remembered from one rebuild to the next**: who had a box last time is no term of who has it now, and a car
+already in one keeps what it stands on and what it can no longer stop short of, and nothing more.
 
 **The right of way is carried by the ground and not by the body.** One car holds the lane it is leaving at one
 rung and the turn across the oncoming stream at another. **Straighter is stronger**: a stream that turns out of
@@ -188,10 +245,11 @@ rather than a rule's.
 ## The ladder
 
 **TER-5g** `P4` **A plan is who holds it, where, and at what rung.** Low is strong, and the ladder is one
-order: a closure and a call are placed on it rather than carried beside it, so nothing reading the
-reservations learns what a police car or an ambulance is.
+order: a closure, a call and a light are placed on it rather than carried beside it, so nothing reading the
+reservations learns what a police car, an ambulance or a signal is.
 
-- **p0 — a body.** The physical layer (TER-4c.2); never compared, so above every rung by construction.
+- **p0 — a body.** The physical layer (TER-4c.2), and the ground a pass will cover (TER-4c.6); never
+  compared, so above every rung by construction.
 - **p1 — ground its holder can no longer stop short of.** Carried by a plan rather than laid as a rung of its
   own, and beaten by nothing (TER-5e).
 - **p2 — a call** ([agents/ambulance](../../../agents/ambulance/docs/requirements.md), `AMB-4`): ground
@@ -199,17 +257,21 @@ reservations learns what a police car or an ambulance is.
 - **p3 — a closed road** ([agents/service](../../../agents/service/docs/requirements.md), `SRV-6`): ground a
   police car at a scene holds shut round it, above every ordinary plan and below a call, which is the whole
   of what lets the other services through a road that is shut.
-- **p4 — a crossing somebody is walking** (`PER-27`): the paint to the far kerb and, as secondary claims, the
-  lanes under it — above every movement a box admits, so a car gives way to somebody on a zebra and a walker
-  at the kerb is not cut short of one by the traffic the zebra gives way to.
-- **p5, p6, p7 — the movements** (TER-5e): straight through, then ordinary traffic — the near-side turn and
+- **p4 — a light's hold** ([agents/trafficlight](../../../agents/trafficlight/docs/requirements.md),
+  `TLT-1`): an approach past its bar while it is not green, and the paint of a crossing while it is red, as
+  secondary claims of the way they are placed on and no other — above a walker and every movement, and
+  below a closure and a call, which go through it.
+- **p5 — somebody on foot** (`PER-27`): every way a walker plans, one rung above the strongest movement and
+  below a light. Nothing about it names a zebra: a car gives way on the paint because the paint's marks
+  (TER-5c.3) bring this rung to its lane, and gives up the pavement its turn sweeps at a corner the same way.
+- **p6, p7, p8 — the movements** (TER-5e): straight through, then ordinary traffic — the near-side turn and
   every way that is not a join through a box — and then the turn across the oncoming stream.
 
 **TER-5g.1** `P3` **The rung never grows along a hold.** One holder's ground is one run from its front
 outward (TER-5c.2), and nothing it holds further along is held more strongly than what it holds this side
-of it: **the approach to a box is worth what the box is**, a movement taken after a weaker one is worth no
-more than that, and the pavement to a zebra is worth what the paint is. A hold whose rung grew would win the
-far side of a junction and lose the road to it — and cut there, give the far side up again for nothing.
+of it: **the approach to a box is worth what the box is**, and a movement taken after a weaker one is worth no
+more than that. A hold whose rung grew would win the far side of a junction and lose the road to it — and
+cut there, give the far side up again for nothing.
 
 ## The only two ways
 
@@ -217,7 +279,8 @@ far side of a junction and lose the road to it — and cut there, give the far s
 car or a walker decides reads another car or walker except through what is laid on the way it is on — no
 look-up of another agent's state, no register of whose turn it is, and nothing one agent writes during the
 decisions that another reads in the same walk of them. What is left outside is the town's own infrastructure and its
-special agents, each named where it is made: **a light**, which is a clock and clips the plan of whoever it
-stops; **a call and a closure**, which are rungs of the ladder; **a hand at the wheel, a recovery and a
-tow**, which place a body where they put it; and **the solver**, which is what two bodies in one place come
-to.
+special agents, each named where it is made: **a light, a call and a closure**, which are rungs of the
+ladder, a light's and a closure's placed before any plan is laid (`TLT-1`, `SRV-6`); **a hand at the wheel,
+a recovery and a tow**, which place a body where they put it — a hand holding what its car can no longer stop
+short of like any moving body (`S-7`); **a pass**, which places a body over ground its holder has still to
+reach (TER-4c.6); and **the solver**, which is what two bodies in one place come to.

@@ -35,6 +35,7 @@ const KEYS = {
     Escape: 10, F11: 11, Backquote: 12, Pause: 13, Space: 14,
     Digit1: 15, Digit2: 16, Digit3: 17,
     ShiftLeft: 18, ShiftRight: 19, ControlLeft: 20, ControlRight: 21,
+    Digit4: 22, Digit5: 23,
 };
 
 const KEY_COUNT = 32;

@@ -22,9 +22,8 @@ internal static class WalkingWords
     /// a hot path for a word that never changes.
     /// </para>
     /// <para>
-    /// <b>There is no word for being held</b> (PER-26). Nothing hands a walker a distance it may walk, so a
-    /// body that is not getting anywhere is one whatever is in front of it is leaning on — which is the
-    /// solver's reading and not a state this roster carries.
+    /// <b>Being held is the grant's to say</b> (PER-26): a walker granted nothing is giving way, and one granted
+    /// nothing at a zebra is waiting to cross it.
     /// </para>
     /// </remarks>
     public static string WalkName(PersonFleet people, int person)
@@ -46,6 +45,8 @@ internal static class WalkingWords
 
         // A crossing the traffic has is a walker standing at a kerb (PER-27), which is a state of its
         // own and not a walk: what it is doing is the thing a watcher wants named.
+        if (people.Pass[person].Begun) return "stepping round somebody";
+
         var held = people.GrantM[person] <= 0f;
         if (held && people.OnCrossing[person] != PersonFleet.NoCrossing) return "waiting to cross";
         if (people.OnCrossing[person] != PersonFleet.NoCrossing) return "on the crossing";

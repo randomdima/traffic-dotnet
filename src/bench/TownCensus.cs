@@ -380,7 +380,8 @@ internal static class TownCensus
         // What the town actually lights, which is not what the map asks for: a bundle wants movements to
         // conflict (TLT-3), so a place where a road is merely cut carries an uncontrolled crossing and the
         // walker's right of way is the whole of what governs it (TER-5e).
-        var signals = SignalService.Build(plan, roads, config);
+        var zebras = Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM);
+        var signals = SignalService.Build(plan, roads, zebras, config);
         var bundles = 0;
         for (var junction = 0; junction < signals.JunctionCount; junction++)
         {

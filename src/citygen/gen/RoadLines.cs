@@ -147,13 +147,76 @@ internal sealed class RoadLines(
     /// The lines of a layout that has been renumbered, in its new order — every road carried over as the line
     /// it was laid as, because a deletion moves nothing.
     /// </summary>
+    /// <remarks>
+    /// <b>Only a road whose number now names other nodes or another line is filed again</b>, and the roads past
+    /// the old count are kept as new: a cut parts one road and adds its arms, and walking every road's cells
+    /// again for each one would make cutting a town's car parks the square of the town. <b>The index answers as one
+    /// laid afresh</b>, since what a cell is asked for is which roads it holds and never in what order
+    /// (<see cref="SharesGround"/>).
+    /// </remarks>
     public void Reset(IReadOnlyList<LayoutEdge> edges, IReadOnlyList<ArcSeg[]> kept)
     {
-        _laid.Clear();
-        _between.Clear();
-        _inCell.Clear();
-        for (var road = 0; road < kept.Count; road++) Keep(edges[road], kept[road]);
+        var carried = Math.Min(_laid.Count, kept.Count);
+        _moved.Clear();
+        for (var road = 0; road < _laid.Count; road++)
+        {
+            if (road < carried && _between[road] == (edges[road].From, edges[road].To) && SameLine(_laid[road], kept[road]))
+            {
+                _laid[road] = kept[road];
+                continue;
+            }
+
+            File(road, add: false);
+            if (road < carried) _moved.Add(road);
+        }
+
+        _laid.RemoveRange(carried, _laid.Count - carried);
+        _between.RemoveRange(carried, _between.Count - carried);
+        foreach (var road in _moved)
+        {
+            _laid[road] = kept[road];
+            _between[road] = (edges[road].From, edges[road].To);
+            File(road, add: true);
+        }
+
+        for (var road = carried; road < kept.Count; road++) Keep(edges[road], kept[road]);
     }
+
+    /// <summary>
+    /// One road's line replaced by the one it now stands on, under the same number — what <see cref="Reset"/>
+    /// does for a road a renumbering moved, asked of the one road a cut parted (<see cref="TownLayout.Part"/>).
+    /// </summary>
+    public void Refile(int road, in LayoutEdge edge, ArcSeg[] chain)
+    {
+        File(road, add: false);
+        _laid[road] = chain;
+        _between[road] = (edge.From, edge.To);
+        File(road, add: true);
+    }
+
+    /// <summary>The roads <see cref="Reset"/> files again, kept rather than made again.</summary>
+    readonly List<int> _moved = [];
+
+    /// <summary>One road put into, or taken out of, every cell its line's walk passes through.</summary>
+    void File(int road, bool add)
+    {
+        Cells(_laid[road], _cells);
+        foreach (var cell in _cells)
+        {
+            if (!add)
+            {
+                if (_inCell.TryGetValue(cell, out var held)) held.Remove(road);
+                continue;
+            }
+
+            if (!_inCell.TryGetValue(cell, out var here)) _inCell[cell] = here = [];
+            if (!here.Contains(road)) here.Add(road);
+        }
+    }
+
+    /// <summary>Whether two lines are the same to the bit, which is when their walks pass the same cells.</summary>
+    static bool SameLine(ArcSeg[] one, ArcSeg[] other) =>
+        MemoryMarshal.AsBytes(one.AsSpan()).SequenceEqual(MemoryMarshal.AsBytes(other.AsSpan()));
 
     /// <summary>
     /// <b>One road's own curve</b>, laid to arrive on the bearings its two ends were drawn with (TER-5d). It
@@ -172,7 +235,8 @@ internal sealed class RoadLines(
     /// ends are the junctions it was one road through, so its middle is already chosen and drawing a second one
     /// would move the carriageway off the ground both its pieces were laid on. It turns those corners at a
     /// junction's own floor and not at its class's (GEN-47), because every one of them was a junction and what
-    /// a car held there was the movement across it.
+    /// a car held there was the movement across it. A road laid straight rounds those corners instead of
+    /// passing their points (<see cref="Spline.RoundedInto"/>).
     /// </para>
     /// </remarks>
     ArcSeg[] Chain(in LayoutEdge edge, IReadOnlyList<Vector2> nodeM)
@@ -197,7 +261,7 @@ internal sealed class RoadLines(
         var draw = new Rng(seed, WanderStream ^ ConnectionPoints.Keyed(nodeM[edge.From], nodeM[edge.To]));
         var wanderNodes = edge.ThroughM.Length > 0
             ? edge.ThroughM.Length
-            : WanderNodes(edge, from.NodeM, to.NodeM, ref draw);
+            : WanderNodes(edge, ref draw);
 
         Span<Vector2> pointsM = stackalloc Vector2[wanderNodes + 2];
         pointsM[0] = from.StandM;
@@ -209,6 +273,18 @@ internal sealed class RoadLines(
         else
         {
             Wander(pointsM, edge, wanderNodes, ref draw);
+        }
+
+        // <b>A road laid straight is straights</b> (GEN-47): one between its two stand points, or one a leg
+        // with every corner it was joined through rounded at its class's own radius — tighter only where the
+        // legs have no room for that, and never past the floor. A biarc through the corner instead would bend
+        // the whole of both legs to pass the corner's own point.
+        if (edge.Straight)
+        {
+            Span<ArcSeg> laid = stackalloc ArcSeg[(2 * pointsM.Length) - 3];
+            var count = Spline.RoundedInto(pointsM, FloorRadiusM(config, edge.Class), laid);
+            ArcSeg[] straights = [.. laid[..count]];
+            return count > 0 && TightestRadiusM(straights) >= floorM ? straights : [];
         }
 
         // <b>Nothing bends tighter than its own floor.</b> A road that asks for one is straightened before it
@@ -245,7 +321,8 @@ internal sealed class RoadLines(
         var curvature = atFrom ? edge.Curvature : -edge.Curvature;
 
         return ConnectionPoints.ArmOf(
-                   seed, config, junction, nodeM[junction], towardM, settled, settled ? curvature : 0f)
+                   seed, config, junction, nodeM[junction], towardM, settled, settled ? curvature : 0f,
+                   edge.Straight)
                with { OnTheLine = edge.Class == RoadClass.Roundabout };
     }
 
@@ -353,9 +430,9 @@ internal sealed class RoadLines(
 
     /// <summary>
     /// The cells one line's own walk passes through, each once and in order, into the caller's own room — a
-    /// station every half footprint. <b>Filled rather than yielded</b>: it is walked for every road in the
-    /// town every time a cut renumbers the layout, and an iterator's state machine and its virtual step were
-    /// a fifth of what that cost.
+    /// station every half footprint. <b>Filled rather than yielded</b>: it is walked for every road laid and
+    /// every road a renumbering moves, and an iterator's state machine and its virtual step were a fifth of
+    /// what that cost.
     /// </summary>
     void Cells(ArcSeg[] chain, List<(int X, int Y)> into)
     {
@@ -480,19 +557,18 @@ internal sealed class RoadLines(
         }
     }
 
-    int WanderNodes(in LayoutEdge edge, Vector2 fromM, Vector2 toM, ref Rng draw)
+    /// <summary>
+    /// <b>How many virtual nodes a street wanders through</b>: none for a road laid straight and between one
+    /// and the town's own bound for every other street, whatever district it runs in (GEN-47) — the district
+    /// says how many of its streets are which, and a street that wanders wanders like any other.
+    /// </summary>
+    int WanderNodes(in LayoutEdge edge, ref Rng draw)
     {
         // A spoke is straight because the layout reads it as a ray: everything that asks whether a point
         // stands clear of an arterial asks it of a line through the hub.
-        if (edge.Class != RoadClass.Street) return 0;
+        if (edge.Class != RoadClass.Street || edge.Straight) return 0;
 
-        // <b>A strict district wanders through at most one virtual node and a loose one through the town's own
-        // bound</b> (<see cref="CityGenFigures.WanderNodesMost"/>), which is what makes a strict district's
-        // streets read as near-chords and a loose one's as curves.
-        var most = config.CityGen.WanderNodesMost;
-        var districtAt = districts.At((fromM + toM) * 0.5f);
-        var strict = districtAt < 0 || districts[districtAt].Strict;
-        return strict ? draw.NextInt(2) : 1 + draw.NextInt(most);
+        return 1 + draw.NextInt(config.CityGen.WanderNodesMost);
     }
 
     /// <summary>
@@ -512,18 +588,19 @@ internal sealed class RoadLines(
 
     /// <summary>
     /// <b>How far off its own chord a road is allowed to wander</b>: the block spacing of the district it runs
-    /// through, at the share of a block that class of road is allowed (GEN-47). A grid's share is the tighter
-    /// one, because a grid is straight.
+    /// through, at the share of a block that class of road is allowed (GEN-47). An arterial's share is the
+    /// tighter one, and a road laid straight wanders nowhere.
     /// </summary>
     public static float WanderM(Districts districts, in LayoutEdge edge, Vector2 middleM, SimConfig config)
     {
+        if (edge.Straight) return 0f;
+
         var districtAt = districts.At(middleM);
         var spacingM = districtAt < 0
             ? config.CityGen.BlockSpacingAlongMinM
             : districts[districtAt].BlockTightestM;
-        var strict = districtAt >= 0 && districts[districtAt].Strict;
-        return spacingM * (edge.Class == RoadClass.Arterial || strict
-            ? config.CityGen.GridWanderInBlocks
+        return spacingM * (edge.Class == RoadClass.Arterial
+            ? config.CityGen.ArterialWanderInBlocks
             : config.CityGen.StreetWanderInBlocks);
     }
 

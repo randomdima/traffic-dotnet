@@ -37,7 +37,7 @@ internal static partial class ShellFill
         var ring = Linked(points, outer.From, outer.Count);
         if (ring is null || ring.Next == ring.Prev) return;
 
-        if (holes.Count > 0) ring = Bridged(points, holes, ring);
+        if (holes.Count > 0) ring = Bridged(points, holes, ring, outer);
 
         // The box is the outer ring's, every hole being inside it, and it is what the Z-order is measured
         // over. A piece small enough that the scan is cheaper than the index is clipped without one.
@@ -268,9 +268,10 @@ internal static partial class ShellFill
     /// in that order can only ever bridge to the outer ring or to a hole already cut into it, both of which
     /// are one ring by then.
     /// </remarks>
-    static Node Bridged(ReadOnlySpan<Vector2> points, List<Ring> holes, Node outer)
+    static Node Bridged(ReadOnlySpan<Vector2> points, List<Ring> holes, Node outer, Ring box)
     {
         var queue = new List<Node>(holes.Count);
+        var corners = box.Count;
         foreach (var hole in holes)
         {
             var ring = Linked(points, hole.From, hole.Count);
@@ -278,21 +279,168 @@ internal static partial class ShellFill
 
             if (ring == ring.Next) ring.Steiner = true;
             queue.Add(Leftmost(ring));
+            corners += hole.Count;
         }
 
         queue.Sort(static (one, other) => one.X.CompareTo(other.X));
 
+        var rows = new EdgeRows(box.MinM.Y, box.MaxM.Y, corners);
+        rows.AddRing(outer);
+        Action<Node> refiled = rows.Add;
         foreach (var hole in queue)
         {
-            var bridge = HoleBridge(hole, outer);
+            var bridge = HoleBridge(hole, outer, rows);
             if (bridge is null) continue;
 
+            // The hole's edges join the ring, and a split and a filter change the edge a corner leaves on:
+            // each is filed again under the rows its new edge crosses.
+            rows.AddRing(hole);
             var reverse = Split(bridge, hole);
-            Filtered(reverse, reverse.Next);
-            outer = Filtered(bridge, bridge.Next) ?? outer;
+            rows.Add(bridge);
+            rows.Add(reverse);
+            rows.Add(reverse.Next);
+            Filtered(reverse, reverse.Next, refiled);
+            outer = Filtered(bridge, bridge.Next, refiled) ?? outer;
         }
 
         return outer;
+    }
+
+    /// <summary>
+    /// <b>Which corner of the ring a hole is joined to, asked of the corners near the hole</b>
+    /// (<see cref="EdgeRows"/>) — the same corner <see cref="HoleBridge(Node, Node)"/> finds by walking the
+    /// whole ring, and that walk itself wherever two corners tie and the order it meets them in decides.
+    /// </summary>
+    /// <remarks>
+    /// <b>Walked for every hole, the join was the ring's corners times its holes</b>: a town thirty
+    /// kilometres by twenty-three has a hundred thousand blocks in one ring of millions of corners, and its
+    /// ground did not finish filling in a quarter of an hour.
+    /// </remarks>
+    static Node? HoleBridge(Node hole, Node outer, EdgeRows rows)
+    {
+        var holeX = hole.X;
+        var holeY = hole.Y;
+        var reachedX = double.MinValue;
+        Node? found = null;
+        var tied = false;
+
+        foreach (var node in rows.Crossing(holeY, holeY))
+        {
+            if (holeY > node.Y || holeY < node.Next.Y || node.Next.Y == node.Y) continue;
+
+            var atX = node.X + ((holeY - node.Y) * (node.Next.X - node.X) / (node.Next.Y - node.Y));
+            if (atX > holeX) continue;
+
+            if (atX > reachedX)
+            {
+                reachedX = atX;
+                found = node.X < node.Next.X ? node : node.Next;
+                tied = false;
+            }
+            else if (atX == reachedX)
+            {
+                tied = true;
+            }
+        }
+
+        if (tied) return HoleBridge(hole, outer);
+        if (found is null) return null;
+        if (reachedX == holeX) return found;
+
+        var foundX = found.X;
+        var foundY = found.Y;
+        var leastTan = double.MaxValue;
+        var best = found;
+        foreach (var node in rows.Crossing(Math.Min(holeY, foundY), Math.Max(holeY, foundY)))
+        {
+            var above = holeY < foundY;
+            if (!(holeX >= node.X && node.X >= foundX && holeX != node.X
+                  && Inside(
+                      above ? holeX : reachedX, holeY, foundX, foundY, above ? reachedX : holeX, holeY,
+                      node.X, node.Y)))
+            {
+                continue;
+            }
+
+            var tan = Math.Abs(holeY - node.Y) / (holeX - node.X);
+            if (!LocallyInside(node, hole)) continue;
+
+            if (tan < leastTan)
+            {
+                leastTan = tan;
+                best = node;
+                tied = false;
+            }
+            else if (tan == leastTan)
+            {
+                tied = true;
+            }
+        }
+
+        return tied ? HoleBridge(hole, outer) : best;
+    }
+
+    /// <summary>
+    /// <b>The ring's corners filed by the rows of the piece's own box their edge crosses</b> — so a hole asks
+    /// the edges beside it rather than the ring. An edge a corner no longer leaves on stays filed and is
+    /// passed over when it is read, so what a row hands back is never short of an edge that crosses it.
+    /// </summary>
+    sealed class EdgeRows
+    {
+        readonly double _fromY;
+        readonly double _rowM;
+        readonly List<Node>[] _rows;
+        readonly List<Node> _read = [];
+        int _stamp;
+
+        /// <param name="corners">How many corners the ring will hold, which the rows are cut to: as many rows as the square root of that, so a row holds as many.</param>
+        public EdgeRows(float fromY, float toY, int corners)
+        {
+            _rows = new List<Node>[Math.Max(1, (int)Math.Sqrt(corners))];
+            for (var row = 0; row < _rows.Length; row++) _rows[row] = [];
+
+            _fromY = fromY;
+            _rowM = Math.Max(((double)toY - fromY) / _rows.Length, double.Epsilon);
+        }
+
+        public void Add(Node node)
+        {
+            var to = Row(Math.Max(node.Y, node.Next.Y));
+            for (var row = Row(Math.Min(node.Y, node.Next.Y)); row <= to; row++) _rows[row].Add(node);
+        }
+
+        public void AddRing(Node start)
+        {
+            var node = start;
+            do
+            {
+                Add(node);
+                node = node.Next;
+            }
+            while (node != start);
+        }
+
+        /// <summary>Every corner still on the ring whose edge was filed under a row between two heights, each once.</summary>
+        public List<Node> Crossing(double fromY, double toY)
+        {
+            _stamp++;
+            _read.Clear();
+            var to = Row(toY);
+            for (var row = Row(fromY); row <= to; row++)
+            {
+                foreach (var node in _rows[row])
+                {
+                    if (node.Seen == _stamp || node.Prev.Next != node) continue;
+
+                    node.Seen = _stamp;
+                    _read.Add(node);
+                }
+            }
+
+            return _read;
+        }
+
+        int Row(double y) => Math.Clamp((int)Math.Floor((y - _fromY) / _rowM), 0, _rows.Length - 1);
     }
 
     /// <summary>
@@ -455,7 +603,8 @@ internal static partial class ShellFill
     /// The corners of one ring rubbed out where they turn through nothing or stand where the one before
     /// them stands, which is what a bridge and a clip both leave behind.
     /// </summary>
-    static Node? Filtered(Node? start, Node? end)
+    /// <param name="refiled">Told of every corner whose edge a removal lengthened, for an index of the edges to file it again.</param>
+    static Node? Filtered(Node? start, Node? end, Action<Node>? refiled = null)
     {
         if (start is null) return null;
 
@@ -469,6 +618,7 @@ internal static partial class ShellFill
             if (!node.Steiner && (Same(node, node.Next) || Wind(node.Prev, node, node.Next) == 0.0))
             {
                 Remove(node);
+                refiled?.Invoke(node.Prev);
                 node = end = node.Prev;
                 if (node == node.Next) break;
 
@@ -709,6 +859,9 @@ internal static partial class ShellFill
         public Node? PrevZ;
 
         public Node? NextZ;
+
+        /// <summary>The last read of <see cref="EdgeRows"/> that handed this corner back, so no read hands it back twice.</summary>
+        public int Seen;
 
         /// <summary>
         /// Whether this corner may never be rubbed out: a hole that came to one point is still a hole, and

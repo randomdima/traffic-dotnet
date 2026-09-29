@@ -1,6 +1,7 @@
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
+using TrafficSimulation.Core.Simulation;
 
 namespace TrafficSimulation.CityGen.Gen;
 
@@ -48,7 +49,7 @@ internal static class Lattice
     /// it cannot be closed until they are placed — and it has to be laid before them, or a street would take
     /// ground the arterial needs and the town would give way to its own lattice (GEN-49).
     /// </remarks>
-    public static List<(int From, int To)> Place(
+    public static List<(int From, int To, bool Straight)> Place(
         TownLayout layout, Districts districts, Arterials arterials, TownBrief brief, GroundShapes ground,
         SimConfig config, float marginM)
     {
@@ -56,13 +57,51 @@ internal static class Lattice
         var clearanceM = CorridorM(config);
         var weldM = config.RoadWidthM;
 
-        var streets = new List<(int From, int To)>();
+        var streets = new List<(int From, int To, bool Straight)>();
         for (var district = 0; district < districts.Count; district++)
         {
-            PlaceOne(layout, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, streets);
+            PlaceOne(
+                layout, districts, district, arterials, ground, extentM, marginM, clearanceM, weldM, brief.Seed,
+                streets);
         }
 
         return streets;
+    }
+
+    /// <summary>The stream a street's place in its district's ranking is drawn on (GEN-11).</summary>
+    const ulong StraightStream = 0x6C61_6964_7374_7200;
+
+    /// <summary>
+    /// <b>Which of one district's streets are laid straight</b> (GEN-47, <see cref="LayoutEdge.Straight"/>):
+    /// its share of them, rounded, and <b>never all and never none</b> where it lays two, so every district
+    /// lays streets of both kinds. Drawn street by street instead, a district at nineteen in twenty laid
+    /// seventy streets straight and none that wandered.
+    /// </summary>
+    /// <remarks>
+    /// <b>Which ones is each street's own draw, keyed on the link and not on the walk over the lattice</b>
+    /// (GEN-11): the streets are ranked by it and the share taken off the top, and they are handed on in the
+    /// order they were found, which is the order they are offered in.
+    /// </remarks>
+    static void Straighten(
+        TownLayout layout, List<(int From, int To)> found, float share, ulong seed,
+        List<(int From, int To, bool Straight)> streets)
+    {
+        var ranked = new (float Draw, int At)[found.Count];
+        for (var at = 0; at < found.Count; at++)
+        {
+            var key = ConnectionPoints.Keyed(layout.NodeM[found[at].From], layout.NodeM[found[at].To]);
+            ranked[at] = (new Rng(seed, StraightStream ^ key).NextFloat(), at);
+        }
+
+        Array.Sort(ranked);
+
+        var straight = (int)MathF.Round(share * found.Count);
+        if (found.Count >= 2) straight = Math.Clamp(straight, 1, found.Count - 1);
+
+        var laidStraight = new bool[found.Count];
+        for (var rank = 0; rank < straight; rank++) laidStraight[ranked[rank].At] = true;
+
+        for (var at = 0; at < found.Count; at++) streets.Add((found[at].From, found[at].To, laidStraight[at]));
     }
 
     /// <summary>
@@ -71,9 +110,18 @@ internal static class Lattice
     /// A link whose two ends fell into one cluster is no road and is refused where every other refusal is
     /// (<see cref="TownLayout.Join"/>).
     /// </summary>
-    public static void Lay(TownLayout layout, List<(int From, int To)> streets, int[] moved)
+    /// <remarks>
+    /// <b>Every district lays straight streets and wandering ones</b> (GEN-47, <see cref="LayoutEdge.Straight"/>),
+    /// a grid mostly the first and a loose district mostly the second (<see cref="District.StraightShare"/>).
+    /// A street drawn to two jittered arms is an S between them however strictly its nodes stand, so a straight
+    /// one is laid straight rather than merely left to wander less.
+    /// </remarks>
+    public static void Lay(TownLayout layout, List<(int From, int To, bool Straight)> streets, int[] moved)
     {
-        foreach (var (from, to) in streets) layout.Join(moved[from], moved[to], RoadClass.Street);
+        foreach (var (from, to, straight) in streets)
+        {
+            layout.Join(moved[from], moved[to], RoadClass.Street, straight: straight);
+        }
     }
 
     /// <summary>
@@ -85,7 +133,8 @@ internal static class Lattice
 
     static void PlaceOne(
         TownLayout layout, Districts districts, int district, Arterials arterials, GroundShapes ground,
-        Vector2 extentM, float marginM, float clearanceM, float weldM, List<(int From, int To)> streets)
+        Vector2 extentM, float marginM, float clearanceM, float weldM, ulong seed,
+        List<(int From, int To, bool Straight)> streets)
     {
         var alongSpacingM = districts[district].BlockAlongM;
         var acrossSpacingM = districts[district].BlockAcrossM;
@@ -108,6 +157,7 @@ internal static class Lattice
             }
         }
 
+        var found = new List<(int From, int To)>();
         for (var u = -reach; u <= reach; u++)
         {
             for (var v = -reach; v <= reach; v++)
@@ -115,11 +165,15 @@ internal static class Lattice
                 var from = node[Slot(u, v, reach, side)];
                 if (from < 0) continue;
 
-                Reach(layout, node, arterials, u, v, 1, 0, reach, side, streets);
-                Reach(layout, node, arterials, u, v, 0, 1, reach, side, streets);
-                Hang(layout, node, districts, district, arterials, extentM, marginM, clearanceM, weldM, u, v, reach, side, streets);
+                Reach(layout, node, arterials, u, v, 1, 0, reach, side, found);
+                Reach(layout, node, arterials, u, v, 0, 1, reach, side, found);
+                Hang(
+                    layout, node, districts, district, arterials, extentM, marginM, clearanceM, weldM, u, v, reach,
+                    side, found);
             }
         }
+
+        Straighten(layout, found, districts[district].StraightShare, seed, streets);
     }
 
     /// <summary>Whether a lattice point is somewhere a junction may stand at all.</summary>

@@ -67,13 +67,13 @@ internal static class DebugLayers
     public static readonly LayerEntry[] All =
     [
         new(DebugLayer.CarLines, "Car lines", "car-lines",
-            "The road each car is on and the piece after it, what it sees ahead and where it must stop",
+            "The road each car is on and the piece after it, its pass and circles, and where it must stop",
             [new("route", Theme.AgentLine(0)), new("ahead / stop", Theme.HeldLine)]),
         new(DebugLayer.TurnCircles, "Turn circles", "turn-circles",
             "The circle each car's front wheels say it is turning, worked from its axles",
             [new("centre and arc", Theme.TurnCircle)]),
         new(DebugLayer.WalkerLines, "Walker lines", "walker-lines",
-            "The way each walker is on and the one after it, to where it hands over",
+            "The way each walker is on and the one after it, to where it hands over, and any pass",
             [new("route", Theme.AgentLine(2))]),
         new(DebugLayer.Nodes, "Nodes and links", "nodes",
             "Every lane, movement and pavement the router plans over",

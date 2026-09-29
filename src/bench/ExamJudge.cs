@@ -141,11 +141,6 @@ internal static class ExamJudge
 
                 return null;
 
-            case ExamRule.NotOnThePaint:
-                return subject.LongestRestOnThePaintTicks > held
-                    ? $"{name} stood on a zebra for {subject.LongestRestOnThePaintTicks / hz:F1} s"
-                    : null;
-
             default:
                 return $"no judge for {claim.Rule}";
         }

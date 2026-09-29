@@ -1,5 +1,55 @@
 # The kernel — decision log
 
+## 2026-09-28 — a ring is joined again once its joints meet
+
+**A straight kerb meets the kerb across a junction a few centimetres short or long**, which is outside the
+millimetre a join is measured to, so `ArcRings.Joined` left the two apart. `Tightened` then closed the
+joint, and the result was one straight cut in two. With grid streets laid straight (citygen, GEN-47),
+that joint is on every street through every junction, and the fixture and the suite's city carried 2 and
+8 of them. **So a ring is joined, tightened, joined again and tightened again** (`ArcRings.Closed`). The
+second join is ringwise and exact to what the first allowed, and the last tighten closes the joins it made.
+
+## 2026-09-28 — a town past 8 km is worked about its middle, to tolerances a float can hold there
+
+**A millimetre is a float's own step at 8 192 m and two of them at 16 384 m**, and the boundary's figures are
+a millimetre or two (`LineTolerance.RoundingM`, `BandShell.Merge`). Odesa's brief tripled each way lost its
+carriageway past 8 192 m — the outset left every ring there open — and a town thirty kilometres long at
+Odesa's density came back with 1 249 of its merge's runs open and no carriageway at all. Four changes, and a
+town inside 8 192 m is answered to the bit as it was:
+
+- **An arithmetic tolerance grows with the distance from the origin** (`LineTolerance.At`): two of a float's
+  steps where that is wider than the figure. Four were tried and left twice as many runs open again, a wider
+  figure keeping folds as shallow as itself.
+- **The merge and every move off it are worked about the shape's middle** (`BandShell`), so nothing is
+  computed further out than half the town. The merge's own tolerances are the coarser of where a place
+  stands in the world, where the lines it weighs were computed, and where it stands about the middle, where
+  it is weighed: read about the middle alone the open runs went 27 → 70, and read in the world alone a road
+  beside the world's origin — fourteen kilometres from the middle — lost its outline.
+- **Where two places far out are compared, the difference is taken before the sum**: a crossing of two
+  pieces is solved about the first one's start (`Spline.AlongBoth`), and the fold test measures off the
+  piece's start (`ArcOutset.FromThePlace`). Two readings of the chord a corner is swung on were tried the
+  same way and made it worse: the end a ring's next piece starts at is the one to read.
+- **What a merge or a move still leaves open is shut across its holes for whoever wants the ground**
+  (`ArcRings.Shut`), and handed back as the fault it is as well.
+
+The thirty-kilometre town's merge went 1 249 → 25 open runs and its carriageway 236 → 12, and the ring round
+its outside, open by 3.5 m in a car park at the town's far edge, is shut across it. Odesa's brief ten times
+over each way leaves 323, 103 and 48 of its merge's, carriageway's and walk's runs open among 280 000 roads,
+every one of them shut for the ground, and not a prop of its 6.8 million stands on a lane.
+
+**A lattice word is a long** (`RingSides`): twenty-four bits of filing are sixteen million, and that town
+files fourteen million pieces of its carriageway.
+
+**A hole is joined to its ring off the edges near it** (`ShellFill.EdgeRows`): the join walked the whole ring
+for every hole, and a hundred thousand blocks in one ring of millions of corners had not filled in a quarter
+of an hour. The nine layers fill in two minutes now. **Where two corners tie, the ring is walked as it was**,
+so every shipped map fills to the same triangles.
+
+**The merge's cuts are counted and then written, a run a piece** (`BandShell.Merge.Filing`): held a thread
+at a time and then filed a list a piece, the ten-times town's 1.2 billion cuts were held twice at once, and
+opening it peaked at 53 GB. It peaks at 42 GB on the same cuts, and the merge crosses every pair twice to
+count them first.
+
 ## 2026-09-18 — a rounding is the move run again, at a radius in metres
 
 **The guarded smoothing was a figure nobody could set.** It trimmed each corner by the tangent its turn asked

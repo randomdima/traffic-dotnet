@@ -138,7 +138,7 @@ internal sealed partial class DebugOverlay
     /// <para>
     /// <b>A block is drawn ahead of the body that holds it and that is not a fault</b>: it is the ground
     /// that body may come to rest on. A walker's is short where a driver's is long, because a walker loses
-    /// its pace inside a fifth of its own body and the whole of what it asks for is the gap it keeps.
+    /// its pace inside a tick and the whole of what it asks for is the gap it keeps.
     /// </para>
     /// <para>
     /// <b>A car that has mounted a kerb is drawn on the footway, and a car on a zebra on the crossing way</b>

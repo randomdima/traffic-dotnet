@@ -116,10 +116,8 @@ internal sealed partial class TownWorld
     /// ceiling is a second gate on what the model already refuses (SIM-7), and a disagreeing one: a look
     /// grippier than nominal has its throttle shut off at a lateral its own rubber is still holding, gets
     /// it back the moment the car slows for want of it, and hunts between the two for as long as the pedal
-    /// is held. The self-driver keeps the nominal patch until <c>CrossingOnTheTemplate</c> stops reading
-    /// the crossings of the lane the car is standing over — a grippier car reaches the paint sooner than
-    /// that lookup can answer for. That is a <c>world/road</c> fix and the car's decision log has it; a
-    /// hand reads no crossings, so nothing about it waits on that.
+    /// is held. The self-driver keeps the nominal patch for the reason the car's decision log gives; a hand
+    /// reads no crossings, so nothing about it waits on that.
     /// </para>
     /// </remarks>
     float DriveCeilingMps2(int car)

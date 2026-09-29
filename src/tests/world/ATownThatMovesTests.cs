@@ -60,15 +60,16 @@ public class ATownThatMovesTests
     }
 
     /// <summary>
-    /// <b>And what stands over nothing is inert rather than broken.</b> The bays, the crossings and the
-    /// signals are all coming back, and a brief that plans no buildings has no car park either — so their
-    /// slices are kept standing over a town with none of their subject on it, which is a state nothing
-    /// exercises unless it is exercised on purpose.
+    /// <b>And what stands over nothing is inert rather than broken.</b> The bays and the people are coming
+    /// back, and a brief that plans no buildings has no car park either — so their slices are kept standing
+    /// over a town with none of their subject on it, which is a state nothing exercises unless it is
+    /// exercised on purpose.
     /// </summary>
     /// <remarks>
     /// <b>One case for the lot of them</b>, because what is being checked is that an empty subject is a
-    /// supported state and not that any one type works: a registry with no bay, a roster with nobody in it
-    /// and a crossing table with nothing on it are stood up, ticked and read, and nothing raises.
+    /// supported state and not that any one type works: a registry with no bay and a roster with nobody in
+    /// it are stood up, ticked and read, and nothing raises. The lights are not among them: a town lights its
+    /// junctions and holds its zebras (TLT-3).
     /// </remarks>
     [Fact]
     public void StandingTheEmptySlicesOverAGeneratedTownRaisesNothing()
@@ -85,7 +86,6 @@ public class ATownThatMovesTests
         // Every one of them answered, over a town that has none of what it is about.
         Assert.Equal(0, world.Parking.BayCount);
         Assert.Equal(0, world.People.Count);
-        Assert.Equal(0, world.Signals.CrossingCount);
 
         // The walk is not among them — a generated town lays its courses like any other (WLK-1) and crosses
         // its carriageways where its kerbs end (WLK-15) — so what is asked of it here is only that the

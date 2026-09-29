@@ -9,7 +9,8 @@ The driver and the body it drives: what a car *is*, what the driver does with it
 one search of the network (`world/routing/`), it is held on each in turn, and the leg is laid again from
 wherever the body has got to when a chain runs out — **which is the walker's own tick** (PER-25) and the
 same code at the tier where the two are the same thing. **A driver lays no geometry**: every line it
-drives is the town's lanes and the joins between them, or one of the town's own ways at a bay. What a
+drives is the town's lanes and the joins between them, or one of the town's own ways at a bay — and on a
+pass, the lane it is on aimed across into the lane beside (CAR-46), which is the town's too. What a
 driver has that a walker has not is three things and they are named: the **line assembled over the next
 few lanes**, because a car at road speed must see the corners a walker takes one stride at a time; the
 **gear**, because a bay's ways are driven in whichever one they were laid for (GEN-4j); and **a light**,
@@ -24,7 +25,39 @@ the car is stood down where it stands. **There is no other exit**, and it is fin
 **CAR-15b** `P4` **What a driver is doing is which line it is on and which term bound its speed**
 (`DrivingHold`). There is no name beside those to drift from them, no state to be in and no step to be
 recorded: which part of a leg a car is at is read off where it is standing — a bay's way under it, a
-bay's way in front of it, or the road.
+bay's way in front of it, or the road — and whether it is on a pass (CAR-46).
+
+**CAR-46** `P5` **A car gets past what stands in its lane over the lane beside it**, as a pass
+([TER-4c.6](../../../world/road/docs/claims.md)): asked for where its grant was ended by a body at rest that
+is not making its own next movement, anywhere on its line, while the lane it is on has a lane running back
+beside it.
+
+- **Along its own line, through a box as along a street**: the pass is the car's line moved across and back,
+  and it is had wherever its ground is carriageway nobody holds — a car park's junction cutting a street into
+  short lanes is no end to one. A stretch with no lane back (TER-4d) offers no pass.
+- **Never over a zebra**: somebody on the paint is somebody crossing, and a pass holding the rest of the zebra
+  in front of them would stand them in the car's way with nowhere to go.
+- **Not short of a place in the road it was sent to** (AMB-5, EVA-3, SRV-6, CTL-8a): what stands before a car
+  sent there is what it was sent to, and a pass ending past the place would drive it by.
+- **As short on the lane beside as the car can make it**: the step out begins as late as the car's body can be
+  off its own lane by the time it is level with what it passes, and the step back as soon past it as the body
+  can come back — a step runs on alongside what it passes rather than being done behind it.
+- **Each step the shortest the car can drive at the speed it is doing**, and driven at that speed: one swing of
+  the wheel and back, its bend never tighter than the lock or than the tyres hold at that speed, and changing no
+  faster than the rack turns (CAR-3a) while the car rolls it. Where the line bends under the pass, what it bends
+  is taken off what the step may. A car getting past from a standstill is let up to the pace below which a step
+  at the lock is no shorter.
+- **Without slowing where the lane beside is free**: a car asks from where it would begin slowing for what it
+  passes, and slows for it gently (`SimConfig.Driving`), asking again all the way in — so a pass it can have is
+  had at the pace it came up at, and one it cannot is waited for coming up slowly.
+- **Waited for with room to step out, and no more**: behind a body going nowhere — at rest and not travelling
+  the way on: a wreck, a car stood down, a car whose line ends where it stands, somebody standing in the road — a
+  car stands where it could step out round it from a standstill, where the lane it is on has one back beside it,
+  and keeps it in its plan while it stands. Everything else, a queue whatever it does next, is waited behind at
+  the stand-off (S-2a).
+- **Driven as the pass bends**: the wheel is turned for the bend of the pass where the car is and corrected by
+  pure pursuit of it (S-1) — pursuit alone turns into each step a lookahead early and cuts it — and a car on a
+  pass is off its line by how far off the pass it is and no further (CAR-9).
 
 ## What a car is and does
 
@@ -157,7 +190,8 @@ defined recovery (CAR-9) rather than a correction applied to the body.
 **CAR-6.2a** `P5` On non-directional drivable terrain heading is unconstrained, but the car must enter from and
 leave to legal ground.
 
-**CAR-6.2b** `P5` The centreline may be crossed into the oncoming lane **only to pass a stationary obstacle**.
+**CAR-6.2b** `P5` The centreline may be crossed into the oncoming lane **only to pass a stationary obstacle**
+(CAR-46).
 
 **CAR-6.3** `P5` Do not cross a red car light.
 
@@ -174,20 +208,22 @@ resolve conflicts.
 
 **CAR-13** `P5` **A small share of people do not keep the courtesies**, and which ones is drawn once when the
 person is made and holds for the rest of the run. It is a fact about the **person and not the car** — the
-same car is driven past a red by one owner and held at it by the next — so it changes nothing until they
-take a wheel, and the share is `SimConfig.Driving`.
+same car is driven one way by one owner and another by the next — so it changes nothing until they take a
+wheel, and the share is `SimConfig.Driving`.
 
-**CAR-13.1** `P5` Exactly one of the soft rules is dropped: **CAR-6.3**, the red. Nothing else is, and the
-list is closed — a driver who does not keep the rules is not thereby exempt from them.
+**CAR-13.1** `P5` **Nothing is dropped.** The one courtesy the habit could drop is **CAR-6.3**, the red, and a
+red is ground a light holds on the road (TLT-1) rather than a courtesy a driver pays: the ladder answers it,
+and has no rung for a habit (TER-5g). The list is closed — a driver who does not keep the rules is not
+thereby exempt from them.
 
 **CAR-13.2** `P3` **A body is never one of them.** Somebody already on the paint, a wreck, a queue, the ground
 another movement has committed to and the hazard the profile brakes for all bind a reckless driver exactly
 as they bind anybody else. What the habit removes is a courtesy owed to whoever has not started; what
 follows from it is a matter for the geometry and the tyres, and never a licence.
 
-**CAR-13.3** `P8` **A red they cross is a violation**, which is the whole of how this differs from AMB-4.2. An
-ambulance is exempt from the rule and cannot be in breach of it; a reckless driver is in breach and is
-counted, so the count and `TownWorld.RecklessDrivers` are read together and neither means anything alone.
+**CAR-13.3** `P8` **A red crossed is counted**, whatever carried the car over the bar — ground it could no
+longer stop short of when the amber ran out, or a shunt (`TownWorld.RedBarCrossings`). A car on a call is
+not: the light's hold is below its rung (AMB-4.2), so it cannot be in breach of it.
 
 ## Recovery
 
@@ -209,31 +245,29 @@ may repeat them.
 **S-1** `P5` Hold the driven line, measured at the rear axle, aiming a speed-scaled distance ahead and
 never further than the corner being driven is wide.
 
-**S-2** `P5` Speed is the minimum of every constraint — the gear cap, the corners, the end of the line, the
-headway, **the road the car was granted**, the stop point, the stop short of a crossing and the place the
-car was sent to — every distance taken a lead ahead of where the car is, against *usable* grip. The lead
-is the staleness of the driver's own decision and the travel of the pedal that answers it.
+**S-2** `P5` Speed is the minimum of every constraint — the gear cap, the corners, the end of the line,
+**the road the car was granted** and the place the car was sent to — every distance taken a lead ahead of
+where the car is, against *usable* grip. The lead is the staleness of the driver's own decision and the
+travel of the pedal that answers it, from wherever the pedal is.
 
-**S-2a** `P3` **Take the road ahead before driving down it.** Every tick, a driver plans the stretch of
-its own line from its nose (TER-4c.1) to where it means to be able to stop, and is granted what is left of
-it in front of the first body on it and short of ground another plan keeps. Nobody is granted ground
-another car is standing on, and **that is the whole of following**: the car behind has less road to stop
-in and holds the speed that road affords. **The grant alone is read at a following time** rather than at
-the lead above, which is what settles a queue at the standstill gap and a second of travel rather than at
-a tenth of one — **and that time is kept from what is being followed and from nothing else**: a grant cut
-at a wreck, at somebody on foot, at ground somebody has claimed or at the place two movements meet
-already ends the asker's own margin short of it, and a second of travel on top of that is a car holding a
-street shut at speed for something it needed only to stop short of. **And it is cut by the secondary claims
-other plans place on its ways where theirs cross them** (TER-5c.1), so the grant means one plan to a piece of
-ground across a junction and not only along a lane. **What is asked for stops where a rule stops the
-car** (TER-4c.1) — a red, a bar, a zebra it must stop short of — the gap it keeps included, so a car
-standing at a stop holds the ground it is on and none of what it stopped for.
+**S-2a** `P3` **Take the road ahead before driving down it, and keep to what was granted.** Every tick, a
+driver plans the stretch of its own line from its nose (TER-4c.1) to where it means to be able to stop, and
+is granted what is left of it in front of the first body on it and short of ground another plan keeps, less
+**one stand-off, whatever ended it** — or the room to step out round a body it may come to pass (CAR-46). **The
+grant is read like every other stop point, a lead ahead, and whatever cut it** — a queue, a wreck, somebody on
+foot, a light's hold, a movement it gives way to: a car is
+driven so it can come to rest inside the section it holds, and that is **the whole of following**. Nothing
+in front is followed or credited with a speed of its own; the car behind has less road to stop in and holds
+the speed that road affords, and what is in front moving on is its section growing. **It is cut by the
+secondary claims other plans place on its ways where theirs cross them** (TER-5c.1), so the grant means one
+plan to a piece of ground across a junction and not only along a lane — a light's hold among them.
 
-**S-3** `P5` Watch ahead along the line actually being driven, in the gear it is being driven in. **Every
-tick, and out of the town's own claims** — what is in front, what it is and how far off it is are one walk
-of the ways being driven, over the same stretches the grant in S-2a was taken against, so the reading
-and the road the car was given can never disagree. **Everything that can be on a lane has claimed it**:
-the traffic, anybody on foot in it, and the town's own furniture (TER-4c).
+**S-3** `P5` **What is ahead is read off the reservations, once, as the grant.** There is no second reading of
+what is in front — no headway to a body beside the grant, no ray and no speed of the thing ahead — because
+**everything that can be on a lane has claimed it**: the traffic, anybody on foot in it, and the town's own
+furniture (TER-4c). What cut the grant is kept beside it for the words and the leg's clock, and is no term of
+the speed. **The margin is spent where the section is cut shorter than the car can stop in** even at what its
+tyres can put down: somebody stepping out, a car pulling in.
 
 **S-4** `P3` Take up the ground **on your own way through** the box ahead, at the places the other movements
 cross it, and give back the box behind (TER-5c). Every tick, never on the clock — a red can change
@@ -242,12 +276,14 @@ is read on your own ways** (TER-5c.1): a car places main claims on the ways it i
 secondary claims on the ways those cross, and reads nothing but its own. **And what it costs you turns on the right of way each of you has there**
 (TER-5e): ground held by a movement that gives way to yours is ground you are not cut at, and ground
 held by a body past the point it could stop short is ground nobody's rank takes. A crossing already taken
-is **given back** when something with the right of way over it asks for the same ground — while this car
-can still stop short of the box, and never after.
+is **given back** when something with the right of way over it asks for the same ground — all but what this
+car can no longer stop short of, and what it is standing on.
 
 **S-5** `P5` Hold a stop you have already made: the handbrake is pulled only at rest.
 
-**S-7** `P7` A hand at the wheel suspends all of it.
+**S-7** `P7` A hand at the wheel suspends all of it — **except what the car cannot help**: it holds the road
+it can no longer stop short of, straight ahead of it on whatever ways that crosses, as any moving body does
+(TER-5e), so the traffic gives way to it and nothing is said about where the hand means to go.
 
 ## The tyre model
 
@@ -297,7 +333,7 @@ lamp the artist did draw it reads as a sticker on the paint.
 **CAR-14.1** `P6` The **indicator announces the turn a car is about to make at the junction in front of it**,
 and nothing else. It is shown only while a junction is **within reach** of the car and only where the
 movement its own line takes through that junction is a **turn rather than straight on** — the road's own
-classification of the pair of lanes the line joins (`TownWorld.JunctionStopM`, `CarFleet.TurningAtTheBox`),
+classification of the pair of lanes the line joins (`TownWorld.ReadTheBoxAhead`, `CarFleet.TurningAtTheBox`),
 so what a car announces and what it gives way to are one answer about one movement.
 
 **A bend is not a turn.** A road of constant radius bends past any threshold for ever, and a car announcing

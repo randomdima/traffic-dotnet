@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace TrafficSimulation.Core.Geometry;
 
@@ -130,6 +131,97 @@ internal sealed class ArcRings
         new ArcRings(kept, lostM, grid).Strung();
 
     /// <summary>
+    /// <b>Runs a construction could not close, shut across the holes they leave</b>: every run's end joined
+    /// by a straight to the nearest start of a run not yet taken up, nearest pair first, and every ring that
+    /// makes handed back — less any that encloses nothing, which is a sliver and not a hole.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>For a reader that has to have the ground a shape bounds and not only its outline.</b> A ring with a
+    /// hole in it bounds nothing, and at a town's size one crossing missed anywhere on the ring round its
+    /// outside was every square metre of its carriageway (<see cref="LineTolerance.RoundingM"/>). <b>The runs
+    /// stay the fault they are</b> (<see cref="Strung"/>): the caller hands them back as well, so a reading of
+    /// them and a picture of them say what they said before.
+    /// </para>
+    /// <para>
+    /// <b>Nearest first and each end once</b>, so a run takes up the one starting where it stopped wherever
+    /// those two ends are nearer than anything else — which is every hole a missed crossing leaves — and no
+    /// two holes are shut across each other.
+    /// </para>
+    /// </remarks>
+    public static ArcSeg[][] Shut(ReadOnlySpan<ArcSeg[]> loose)
+    {
+        var count = loose.Length;
+        var pairs = new List<(float GapSq, int Tail, int Head)>(count * count);
+        for (var tail = 0; tail < count; tail++)
+        {
+            for (var head = 0; head < count; head++)
+            {
+                pairs.Add((Vector2.DistanceSquared(loose[tail][^1].EndM, loose[head][0].StartM), tail, head));
+            }
+        }
+
+        pairs.Sort(static (one, other) =>
+            one.GapSq != other.GapSq ? one.GapSq.CompareTo(other.GapSq)
+            : one.Tail != other.Tail ? one.Tail.CompareTo(other.Tail)
+            : one.Head.CompareTo(other.Head));
+
+        var next = new int[count];
+        Array.Fill(next, -1);
+        var takenUp = new bool[count];
+        foreach (var (_, tail, head) in pairs)
+        {
+            if (next[tail] >= 0 || takenUp[head]) continue;
+
+            next[tail] = head;
+            takenUp[head] = true;
+        }
+
+        var rings = new List<ArcSeg[]>();
+        var walked = new bool[count];
+        var chain = new List<ArcSeg>();
+        var cornersM = new List<Vector2>();
+        for (var first = 0; first < count; first++)
+        {
+            if (walked[first]) continue;
+
+            chain.Clear();
+            for (var run = first; !walked[run]; run = next[run])
+            {
+                walked[run] = true;
+                chain.AddRange(loose[run]);
+                var gapM = loose[next[run]][0].StartM - loose[run][^1].EndM;
+                if (gapM != Vector2.Zero)
+                {
+                    chain.Add(new ArcSeg(loose[run][^1].EndM, MathF.Atan2(gapM.Y, gapM.X), gapM.Length(), 0f));
+                }
+            }
+
+            cornersM.Clear();
+            foreach (var piece in chain) cornersM.Add(piece.StartM);
+            if (MathF.Abs(SignedAreaM2(cornersM)) <= WeldM * WeldM) continue;
+
+            rings.Add(Closed(Joined(CollectionsMarshal.AsSpan(chain), shut: true)));
+        }
+
+        return [.. rings];
+    }
+
+    /// <summary>The area a polygon's corners enclose, taken about its first corner so a town's far edge costs it no figures.</summary>
+    static float SignedAreaM2(List<Vector2> cornersM)
+    {
+        var twiceM2 = 0f;
+        for (var at = 1; at < cornersM.Count - 1; at++)
+        {
+            var fromM = cornersM[at] - cornersM[0];
+            var toM = cornersM[at + 1] - cornersM[0];
+            twiceM2 += (fromM.X * toM.Y) - (toM.X * fromM.Y);
+        }
+
+        return twiceM2 * 0.5f;
+    }
+
+    /// <summary>
     /// <b>The stretches the merge kept, strung end to end into the rings they are.</b> A stretch stops
     /// where another ribbon's boundary crossed it and the stretch that takes over starts at that same
     /// crossing, so the ring is followed by the ends themselves and nothing has to decide which piece
@@ -208,8 +300,20 @@ internal sealed class ArcRings
             return;
         }
 
-        chains.Add(Tightened(chain));
+        chains.Add(Closed(chain));
     }
+
+    /// <summary>
+    /// <b>A joined ring with its joints made to meet, joined again where meeting them showed two pieces to be
+    /// one</b> (<see cref="Joined"/>, <see cref="Tightened"/>), and made to meet once more at the joins that
+    /// left.
+    /// </summary>
+    /// <remarks>
+    /// <b>A joint the walk left open is not joined across</b>: a straight street's kerb meets the kerb across
+    /// the junction it runs through a few centimetres short or long, which is outside the millimetre a join
+    /// is measured to — and once <see cref="Tightened"/> has closed it, the two are one straight cut in two.
+    /// </remarks>
+    static ArcSeg[] Closed(ArcSeg[] joined) => Tightened(Joined(Tightened(joined), shut: true));
 
     /// <summary>
     /// <b>Whether a run is shorter than the boundary one place can lose</b> (<see cref="LeastLostM"/>), which

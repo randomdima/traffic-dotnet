@@ -14,7 +14,7 @@ namespace TrafficSimulation.Tests.World;
 
 /// <summary>
 /// <b>The reservations at a junction</b>: how far into a box a plan reaches and from where, what it may
-/// write on the ways it only crosses, what holds it short of a red — and which joins a body standing in a
+/// write on the ways it only crosses, what a light's hold leaves it — and which joins a body standing in a
 /// box is on.
 /// </summary>
 [Trait(Tier.Key, Tier.Town)]
@@ -86,10 +86,11 @@ public class JunctionClaimTests
     }
 
     /// <summary>
-    /// <b>Nothing waiting at a red holds the box beyond it</b> (TER-5g, SIM-7): a plan is never laid past a
-    /// light it is holding short of, so a car that can still stop at the bar is given no movement through the
-    /// junction. A phase greens the arms that do not conflict, and a box kept by a car stopped at a bar is the
-    /// phase's own decision undone.
+    /// <b>Nothing a light holds short of a box holds the box</b> (TLT-1, TER-5c.2): a car's plan cut at a
+    /// light's hold is one stretch of its line, and gives up everything past the cut — so a car held at the bar
+    /// of the box ahead of it is given no movement through that box. A phase greens the arms that do not
+    /// conflict, and a box kept by a car stopped at a bar is the phase's own decision undone. A car whose plan
+    /// runs through the box ahead and is held at the next one's bar is not this case.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -104,19 +105,38 @@ public class JunctionClaimTests
     {
         for (var car = 0; car < world.Cars.Count; car++)
         {
-            if (!OnARoute(world, car) || world.Cars.InsideTheBox[car]) continue;
-            if (float.IsPositiveInfinity(world.Cars.LightAheadM[car])) continue;
-
-            // Past the point it could have stopped at, a car is not waiting at anything: it is going in.
-            if (world.Cars.CommittedToM[car] > world.Cars.ClaimFromM[car] + world.Cars.ToTheBoxM[car]) continue;
+            if (!OnARoute(world, car) || world.Cars.GrantCutBy[car] != HeadwayKind.Light) continue;
+            if (world.Cars.InsideTheBox[car] || world.Cars.AuthorityM[car] >= world.Cars.ToTheBoxM[car]) continue;
 
             found.AtARed++;
-            if (found.PastARed is not null || world.Cars.MovementWay[car] == CarFleet.NoWay) continue;
+            if (found.PastARed is not null) continue;
+
+            var join = TheJoinItPlans(world, car);
+            if (join < 0) continue;
 
             found.PastARed =
-                $"{map}: car {car} holds movement {world.Cars.MovementWay[car]} at tick {tick} with a light "
-                + $"stopping it {world.Cars.LightAheadM[car]:0.00} m short of the box";
+                $"{map}: car {car} plans join way {join} at tick {tick} with a light "
+                + $"holding it {world.Cars.AuthorityM[car]:0.00} m on, {world.Cars.ToTheBoxM[car]:0.00} m short of the box";
         }
+    }
+
+    /// <summary>A join this car holds a main claim on, or −1 — which is what having a movement through a box is.</summary>
+    static int TheJoinItPlans(TownWorld world, int car)
+    {
+        var claims = new LaneClaim[64];
+        foreach (var way in world.Occupancy.OccupiedWays)
+        {
+            if (world.Ways.KindOf(way) != WayKind.Connector) continue;
+
+            var count = world.Occupancy.CopyPlannedTo(way, claims);
+            for (var at = 0; at < count; at++)
+            {
+                ref readonly var claim = ref claims[at];
+                if (claim.Occupant == car && claim.Of == LaneRoster.Driving && !claim.Secondary) return way;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>
@@ -233,7 +253,7 @@ public class JunctionClaimTests
             if (world.Cars.GrantCutBy[car] != HeadwayKind.Claimed) continue;
 
             found.HeldByAPlan++;
-            var marginM = world.Cars.BuildOf(car).BodyMarginM;
+            var marginM = Config.Driving.StandOffM;
             if (found.CutFromBehind is not null || world.Cars.AuthorityM[car] >= -marginM - Tolerance) continue;
 
             found.CutFromBehind =

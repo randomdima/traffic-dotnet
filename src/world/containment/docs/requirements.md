@@ -13,8 +13,10 @@ unavailable**. One rule, both container kinds. The ground under the position is 
 
 **A person is never teleported out of a container, and a container places its occupant — the occupant
 never places itself.** Refused means every position round the container is occupied: stay contained and
-ask again next tick, which is the only legal outcome and not a stall. What is standing about is handed in
-as data, so this slice never learns what an agent is
+ask again next tick, which is the only legal outcome and not a stall. **Occupied is the reservations'
+word** (`TER-4c`): a position is occupied where somebody's body stands on the ground under it, or somebody
+has ground there they can no longer stop short of — so nobody is put down on a walker or in front of a car
+that could not stop for them. The town answers the question, so this slice never learns what an agent is
 ([slice-map](../../../../docs/slice-map.md#the-three-seams-that-keep-the-tiers-apart)).
 
 The point a person enters and leaves a building by is `OBJ-4`, in the

@@ -107,7 +107,8 @@ internal static class ConnectionPoints
     /// <summary>
     /// <b>The arm one road leaves one of its two junctions on.</b> The bearing is the chord to the other
     /// junction turned by a drawn angle inside <see cref="CityGenFigures.ConnectionJitterDeg"/>, except on
-    /// the two kinds of link whose shape is already settled.
+    /// the two kinds of link whose shape is already settled and on a road laid straight
+    /// (<see cref="CityPlan.RoadArrays.LaidStraight"/>), which takes the chord.
     /// </summary>
     public static Arm ArmOf(GroundPieces ground, SimConfig config, int road, bool atFrom)
     {
@@ -132,7 +133,7 @@ internal static class ConnectionPoints
         var ring = Ringed(ground, road, atFrom, out var curvature);
         return ArmOf(
             ground.Seed, config, junction, ground.Junctions.CentreM[junction], towardM,
-            ring || Array.IndexOf(ground.Bridges.Road, road) >= 0, curvature)
+            ring || Array.IndexOf(ground.Bridges.Road, road) >= 0, curvature, roads.IsLaidStraight(road))
                with { OnTheLine = ring || roads.DrivenOverOneLine(road) };
     }
 
@@ -186,12 +187,16 @@ internal static class ConnectionPoints
     /// standoff laid straight off a thirty-metre circle stands nearly two metres inside it, which is a break
     /// in the one shape GEN-19 sizes.
     /// </param>
+    /// <param name="straight">
+    /// Whether the road is laid straight (GEN-47), which leaves on the chord to the place it runs for and is
+    /// not jittered off it.
+    /// </param>
     public static Arm ArmOf(
         ulong seed, SimConfig config, int junction, Vector2 nodeM, Vector2 towardM, bool settled,
-        float curvature)
+        float curvature, bool straight = false)
     {
-        var outward = settled
-            ? Tangent(nodeM, towardM, curvature)
+        var outward = settled ? Tangent(nodeM, towardM, curvature)
+            : straight ? Chord(nodeM, towardM)
             : Jittered(Chord(nodeM, towardM), config, seed, nodeM, towardM);
 
         var arm = new Arm(junction, nodeM, outward, curvature, nodeM, outward);

@@ -32,10 +32,6 @@ public class CarFollowerTests
             Figures, Car, line, progressM, Spline.TotalLengthM(line), 0f, alongMps,
             CarFollower.LookaheadM(Car, alongMps, Figures.Driving.LookaheadS), context, out hold, out _);
 
-    /// <summary>Something the lane index has nothing to say about, which is the one reading the rays still hold a car off.</summary>
-    static DriveContext Unnamed(float headwayM, float headwaySpeedMps = 0f) =>
-        DriveContext.Clear with { HeadwayM = headwayM, HeadwaySpeedMps = headwaySpeedMps, Ahead = HeadwayKind.Unknown };
-
     [Fact]
     public void AStraightAheadAsksForNoSteeringAtAll()
     {
@@ -105,114 +101,78 @@ public class CarFollowerTests
     {
         var open = Target(Straight, 10f, 20f, DriveContext.Clear, out _);
 
-        var behindSomething = Target(Straight, 10f, 20f, Unnamed(6f), out var queued);
-        var shortOfALine = Target(Straight, 10f, 20f, DriveContext.Clear with { StopAtM = 8f }, out var waiting);
+        var shortOfALight = Target(
+            Straight, 10f, 20f, DriveContext.Clear with { AuthorityM = 8f, GrantCutBy = HeadwayKind.Light },
+            out var waiting);
         var nearTheEnd = Target(Straight, 380f, 20f, DriveContext.Clear, out var ending);
         var shortOfGround = Target(
             Straight, 10f, 20f, DriveContext.Clear with { AuthorityM = 8f }, out var granted);
 
-        Assert.True(behindSomething < open);
-        Assert.True(shortOfALine < open);
+        Assert.True(shortOfALight < open);
         Assert.True(nearTheEnd < open);
         Assert.True(shortOfGround < open);
-        Assert.Equal(DrivingHold.Headway, queued);
         Assert.Equal(DrivingHold.Waiting, waiting);
         Assert.Equal(DrivingHold.LineEnd, ending);
         Assert.Equal(DrivingHold.Claimed, granted);
     }
 
     /// <summary>
-    /// A moving queue is followed at its own speed rather than stopped short of, and the arithmetic that
-    /// does it is the grant's alone: the car in front claimed from where <em>it</em> will have stopped, so
-    /// the ground behind that is the follower's to use.
-    /// </summary>
-    [Fact]
-    public void AMovingQueueIsFollowedRatherThanStoppedFor()
-    {
-        var leaderMps = 15f;
-        var gapM = Figures.CarTailMarginM + (leaderMps * Figures.Driving.FollowingHeadwayS);
-
-        // The same pair of cars at the same gap, one at rest and one doing fifteen: the moving one's own
-        // stopping distance is ground its follower is credited with, and that is the whole of the difference.
-        var behindAWreck = Target(Straight, 10f, leaderMps, Granted(gapM, 0f), out _);
-        var behindACar = Target(Straight, 10f, leaderMps, Granted(gapM, leaderMps), out _);
-
-        Assert.True(behindACar > behindAWreck);
-
-        // <b>To the last bit of the arithmetic and not to the last bit of the float.</b> The grip cancels
-        // between what the leader claimed and what the follower inverts, so the answer is the leader's own
-        // speed — but the two sides reach it by different routes and the cancellation is exact in algebra
-        // rather than in single precision.
-        Assert.True(
-            behindACar >= leaderMps - (leaderMps * 1e-5f),
-            $"and never asked to go slower than the thing it is following: {behindACar:F6} of {leaderMps:F6}");
-    }
-
-    /// <summary>
-    /// <b>What a queue settles at is the standstill gap and a following time, and the braking figure is not
-    /// in it.</b> A car in front is credited with its own stopping distance out of the same arithmetic the
-    /// follower inverts, so the grip cancels and what is left is a distance nobody had to choose twice.
+    /// <b>A car keeps to the section it was granted</b> (S-2a): a grant of exactly its lead and its stop at the
+    /// speed it is doing is what holds that speed — less road slows it and more lets it gather pace.
     /// </summary>
     [Theory]
     [InlineData(8f)]
     [InlineData(15f)]
     [InlineData(25f)]
-    public void AQueueAtOneSpeedSettlesToTheStandstillGapAndAFollowingTime(float queueMps)
+    public void AGrantOfItsLeadAndItsStopHoldsTheSpeedItIsDoing(float alongMps)
     {
-        var settledM = Figures.CarTailMarginM + (queueMps * Figures.Driving.FollowingHeadwayS);
+        var brakingMps2 = CarFollower.BrakingMps2(Figures, Car, 1f);
+        var neededM = (alongMps * CarFollower.LeadS(Figures, Car, brakingMps2))
+                      + (alongMps * alongMps / (2f * brakingMps2));
 
-        var targetMps = Target(Straight, 10f, queueMps, Granted(settledM, queueMps), out var hold);
+        var held = Target(Straight, 10f, alongMps, DriveContext.Clear with { AuthorityM = neededM }, out var hold);
+        var shorter = Target(Straight, 10f, alongMps, DriveContext.Clear with { AuthorityM = neededM - 5f }, out _);
+        var longer = Target(Straight, 10f, alongMps, DriveContext.Clear with { AuthorityM = neededM + 5f }, out _);
 
-        Assert.Equal(queueMps, targetMps, 1e-2f);
+        Assert.Equal(alongMps, held, 1e-2f);
         Assert.Equal(DrivingHold.Claimed, hold);
-    }
-
-    /// <summary>Nearer than that it slows, further back it closes up — which is what makes the gap settle at all.</summary>
-    [Fact]
-    public void ACarNearerThanTheFollowingTimeSlowsAndOneFurtherBackClosesUp()
-    {
-        var queueMps = 15f;
-        var settledM = Figures.CarTailMarginM + (queueMps * Figures.Driving.FollowingHeadwayS);
-
-        var tooNear = Target(Straight, 10f, queueMps, Granted(settledM - 5f, queueMps), out _);
-        var tooFar = Target(Straight, 10f, queueMps, Granted(settledM + 5f, queueMps), out _);
-
-        Assert.True(tooNear < queueMps);
-        Assert.True(tooFar > queueMps);
+        Assert.True(shorter < alongMps);
+        Assert.True(longer > alongMps);
     }
 
     /// <summary>
-    /// The grant a follower gets at a given gap, as the town works one out: the ground from the nose to the
-    /// tail in front, credited with what that body will have vacated once it is at rest, less the gap kept
-    /// behind wherever it stops.
+    /// <b>What cut the grant is no term of the speed</b>: a queue, a light, a walker and ground somebody claimed
+    /// are all the same distance to a driver, which is the whole of following.
     /// </summary>
-    /// <remarks>
-    /// <b>Cut by a queue, which is what makes it a following distance</b>: a following time is kept from what
-    /// is being followed and from nothing else, so what the grant was cut at is part of the grant.
-    /// </remarks>
-    static DriveContext Granted(float gapToTheTailM, float aheadMps) =>
-        DriveContext.Clear with
-        {
-            AuthorityM = gapToTheTailM
-                         + (aheadMps * aheadMps / (2f * CarFollower.BrakingMps2(Figures, Car, 1f)))
-                         - Figures.CarTailMarginM,
-            GrantCutBy = HeadwayKind.Queue,
-        };
+    /// <remarks>The kinds are passed as their bytes, the enum being the engine's own and not the suite's.</remarks>
+    [Theory]
+    [InlineData((byte)HeadwayKind.Queue)]
+    [InlineData((byte)HeadwayKind.Obstruction)]
+    [InlineData((byte)HeadwayKind.Light)]
+    [InlineData((byte)HeadwayKind.Walker)]
+    public void WhateverCutTheGrantTheSpeedIsTheSame(byte cutBy)
+    {
+        var claimed = Target(
+            Straight, 10f, 15f, DriveContext.Clear with { AuthorityM = 30f, GrantCutBy = HeadwayKind.Claimed }, out _);
+        var cut = Target(
+            Straight, 10f, 15f, DriveContext.Clear with { AuthorityM = 30f, GrantCutBy = (HeadwayKind)cutBy }, out _);
+
+        Assert.Equal(claimed, cut);
+    }
 
     /// <summary>
-    /// <b>The grant and the rays measure different things</b>, so each holds the car off what the other
-    /// cannot see: road spoken for beyond an empty corridor, and a shape in one nothing has claimed.
+    /// <b>What is left of the tyre is spent where the grant is cut shorter than the car can stop in</b> (S-2):
+    /// short of what even the tyres' utmost stops it in, and never on road it can.
     /// </summary>
     [Fact]
-    public void TheGrantAndTheRaysEachHoldTheCarOffWhatTheOtherCannotSee()
+    public void AGrantCutShortUnderTheCarIsAHazardAndOneItCanStopInIsNot()
     {
-        var spokenFor = Target(Straight, 10f, 20f, DriveContext.Clear with { AuthorityM = 6f }, out var granted);
-        var inTheWay = Target(Straight, 10f, 20f, Unnamed(6f), out var seen);
+        const float AlongMps = 15f;
+        var utmostM = AlongMps * AlongMps / (2f * Car.UtmostBrakingMps2(1f));
 
-        Assert.Equal(DrivingHold.Claimed, granted);
-        Assert.Equal(DrivingHold.Headway, seen);
-        Assert.True(spokenFor < Figures.Car.MaxSpeedMps);
-        Assert.True(inTheWay < Figures.Car.MaxSpeedMps);
+        Assert.True(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear with { AuthorityM = utmostM * 0.9f }));
+        Assert.False(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear with { AuthorityM = utmostM * 1.1f }));
+        Assert.False(CarFollower.IsAHazard(Figures, Car, AlongMps, DriveContext.Clear));
     }
 
     /// <summary>Ground worth less is planned against as ground worth less, in the corner and in the stop alike.</summary>
@@ -284,7 +244,7 @@ public class CarFollowerTests
     {
         var stopAtM = 40f;
         var withoutLead = CarFollower.ApproachMps(0f, stopAtM, Figures.CarBrakingMps2 * Figures.Driving.GripMargin);
-        var asked = Target(Straight, 0f, 20f, DriveContext.Clear with { StopAtM = stopAtM }, out _);
+        var asked = Target(Straight, 0f, 20f, DriveContext.Clear with { PlaceStopM = stopAtM }, out _);
 
         Assert.True(asked < withoutLead);
     }

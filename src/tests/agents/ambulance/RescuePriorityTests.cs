@@ -30,24 +30,24 @@ public class RescuePriorityTests
     /// </summary>
     /// <remarks>
     /// <b>The movements are named by their byte</b>, because a theory's parameters are as public as the test
-    /// and the ladder is not: 5, 6 and 7 are straight on, ordinary and the turn across.
+    /// and the ladder is not: 6, 7 and 8 are straight on, ordinary and the turn across.
     /// </remarks>
     [Theory]
-    [InlineData((byte)5)]
     [InlineData((byte)6)]
     [InlineData((byte)7)]
+    [InlineData((byte)8)]
     public void ARescueKeepsGroundAgainstEveryOrdinaryMovement(byte theirs)
     {
         Assert.True(Keeps(ClaimPriority.Special, Planned((ClaimPriority)theirs)));
         Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Closed)));
-        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Crossing)));
+        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Afoot)));
     }
 
     /// <summary>And the mirror of it: everything below a rescue gives it way, which is what "yield" means here.</summary>
     [Theory]
-    [InlineData((byte)5)]
     [InlineData((byte)6)]
     [InlineData((byte)7)]
+    [InlineData((byte)8)]
     public void EverythingBelowARescueGivesItWay(byte mine)
     {
         Assert.False(Keeps((ClaimPriority)mine, Planned(ClaimPriority.Special)));
@@ -60,9 +60,9 @@ public class RescuePriorityTests
     /// order — so it is asserted here beside the rescue's rather than in a slice of its own.
     /// </summary>
     [Theory]
-    [InlineData((byte)5)]
     [InlineData((byte)6)]
     [InlineData((byte)7)]
+    [InlineData((byte)8)]
     public void AClosedRoadKeepsOrdinaryTrafficOutAndLetsACallThrough(byte theirs)
     {
         Assert.True(Keeps(ClaimPriority.Closed, Planned((ClaimPriority)theirs)));

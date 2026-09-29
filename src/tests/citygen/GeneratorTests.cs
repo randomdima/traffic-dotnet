@@ -503,21 +503,78 @@ public class GeneratorTests
     }
 
     /// <summary>
-    /// <b>No bar is painted on a roundabout's circulating carriageway</b> (GEN-19): a bar is where a driver
-    /// holds when the junction refuses them, and circulating traffic is never refused.
+    /// <b>The brief's share of the junctions that can carry lights is left unlit, to the junction</b> (TLT-3):
+    /// every junction of three arms or more that is on no ring and is no car park's is in the draw, and nothing
+    /// else is ever lit.
     /// </summary>
     [Theory]
     [MemberData(nameof(Seeds))]
-    public void NoBarIsPaintedOnARoundabout(ulong seed)
+    public void TheBriefsShareOfTheJunctionsThatCanBeLitIsLit(ulong seed)
+    {
+        var brief = Brief(seed);
+        var plan = Lay(brief);
+        var drawn = Lightable(plan);
+
+        var candidates = 0;
+        var lit = 0;
+        for (var junction = 0; junction < plan.Junctions.Count; junction++)
+        {
+            if (!drawn[junction])
+            {
+                Assert.False(plan.Junctions.Lit[junction], $"junction {junction} cannot carry lights and is lit");
+                continue;
+            }
+
+            candidates++;
+            if (plan.Junctions.Lit[junction]) lit++;
+        }
+
+        Assert.Equal((int)MathF.Round(candidates * (1f - brief.UnregulatedJunctionShare)), lit);
+    }
+
+    /// <summary>
+    /// <b>A junction is lit more often the more arms it has</b> (TLT-3): the draw is weighted by the movements
+    /// each admits, so of the junctions that can carry lights a larger share of the crossroads is lit than of
+    /// the tees.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void ACrossroadsIsLitMoreOftenThanATee(ulong seed)
     {
         var plan = Lay(Brief(seed));
-        var circulating = OneWays.Circulating(plan);
-        for (var bar = 0; bar < plan.StopLines.Count; bar++)
+        var drawn = Lightable(plan);
+        var arms = ArmsOf(plan);
+
+        var (tees, teesLit, crossroads, crossroadsLit) = (0, 0, 0, 0);
+        for (var junction = 0; junction < plan.Junctions.Count; junction++)
         {
-            Assert.False(
-                circulating[plan.StopLines.Road[bar]],
-                $"bar {bar} at {plan.StopLines.CentreM[bar]} is painted on a roundabout");
+            if (!drawn[junction]) continue;
+
+            var isLit = plan.Junctions.Lit[junction] ? 1 : 0;
+            if (arms[junction] == 3) (tees, teesLit) = (tees + 1, teesLit + isLit);
+            else (crossroads, crossroadsLit) = (crossroads + 1, crossroadsLit + isLit);
         }
+
+        Assert.True(tees > 0 && crossroads > 0, $"seed {seed} lays {tees} tees and {crossroads} crossroads to draw from");
+        Assert.True(
+            (float)crossroadsLit / crossroads > (float)teesLit / tees,
+            $"{crossroadsLit} of {crossroads} crossroads lit against {teesLit} of {tees} tees");
+    }
+
+    /// <summary>
+    /// The junctions that can carry lights (TLT-3): three arms or more, on no roundabout's ring (GEN-19) and
+    /// cut for no car park (GEN-53).
+    /// </summary>
+    static bool[] Lightable(CityPlan plan)
+    {
+        var arms = ArmsOf(plan);
+        var ringOf = RingOf(plan);
+        var drawn = new bool[plan.Junctions.Count];
+        for (var junction = 0; junction < drawn.Length; junction++) drawn[junction] = arms[junction] >= 3 && ringOf[junction] < 0;
+
+        foreach (var junction in plan.CarParks.Junction) drawn[junction] = false;
+
+        return drawn;
     }
 
     /// <summary>
@@ -917,6 +974,23 @@ public class GeneratorTests
     }
 
     /// <summary>
+    /// <b>A road laid straight that passes nowhere is straight end to end</b> (GEN-47): its arms stand on the
+    /// chord and it wanders nowhere, so nothing is left to bend it — cut into car parks or not.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Seeds))]
+    public void EveryRoadLaidStraightThatPassesNowhereIsStraight(ulong seed)
+    {
+        var plan = Lay(Brief(seed));
+        for (var road = 0; road < plan.Roads.Count; road++)
+        {
+            if (!plan.Roads.IsLaidStraight(road) || plan.Roads.ThroughOf(road).Length > 0) continue;
+
+            foreach (var piece in plan.Roads.SegmentsOf(road)) Assert.Equal(0f, piece.Curvature);
+        }
+    }
+
+    /// <summary>
     /// <b>A town on a river is bridged</b> (GEN-14b). The wheel is turned so a spoke runs down the river's
     /// own normal, which is what buys a crossing short enough to build — asked over every seed at once,
     /// because how many a town gets is a fact about where the banks fell.
@@ -967,61 +1041,6 @@ public class GeneratorTests
         for (var junction = 0; junction < plan.Junctions.Count; junction++)
         {
             Assert.False(plan.Junctions.Lit[junction] && arms[junction] < 3, $"junction {junction} is lit on {arms[junction]} arm(s)");
-        }
-    }
-
-    /// <summary>
-    /// <b>A junction that admits no fork is crossed once, and barred either side of that crossing</b>
-    /// (TER-6): its two arms are one road, so the node carries one zebra rather than one per arm, and the
-    /// paint on it is that zebra with the bar of each of the two lanes running over it, clear of it and
-    /// facing it.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(Seeds))]
-    public void AJunctionWithNoForkIsCrossedOnceAndBarredEitherSideOfIt(ulong seed)
-    {
-        var plan = Lay(Brief(seed));
-        var arms = ArmsOf(plan);
-
-        for (var junction = 0; junction < plan.Junctions.Count; junction++)
-        {
-            if (arms[junction] != 2) continue;
-
-            var only = -1;
-            for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
-            {
-                if (plan.Crosswalks.Junction[crossing] != junction) continue;
-
-                Assert.True(only < 0, $"junction {junction} forks nothing and carries crossings {only} and {crossing}");
-                only = crossing;
-            }
-
-            if (only < 0) continue;
-
-            var axis = Vector2.Normalize(plan.Crosswalks.Axis[only]);
-            var clearM = plan.Crosswalks.DepthM[only] * 0.5f;
-            var sides = 0;
-            for (var bar = 0; bar < plan.StopLines.Count; bar++)
-            {
-                if (plan.StopLines.Junction[bar] != junction) continue;
-
-                Assert.Equal(plan.Crosswalks.Road[only], plan.StopLines.Road[bar]);
-
-                // Which side of the paint the bar stands, and whether the traffic it stops is driving at
-                // the paint from that side: a bar facing away is one the walkers are behind.
-                var alongM = Vector2.Dot(plan.StopLines.CentreM[bar] - plan.Crosswalks.CentreM[only], axis);
-                Assert.True(
-                    MathF.Abs(alongM) > clearM,
-                    $"junction {junction}: bar {bar} stands {alongM:F2} m off a crossing {clearM * 2f:F2} m deep");
-
-                var side = alongM > 0f ? 1 : 2;
-                Assert.True(
-                    Vector2.Dot(plan.StopLines.Approach[bar], axis) * alongM < 0f,
-                    $"junction {junction}: bar {bar} faces away from the crossing it belongs to");
-
-                Assert.True((sides & side) == 0, $"junction {junction} carries two bars on one side of its crossing");
-                sides |= side;
-            }
         }
     }
 

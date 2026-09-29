@@ -1,0 +1,22 @@
+{
+  "name": "BigOdesa",
+  "description": "Odesa ten times over each way, a hundred times the people: the same coast and wheel at metropolitan scale",
+  "seed": 1,
+  "widthM": 30000,
+  "heightM": 23040,
+  "cellSizeM": 1,
+
+  "water": "Coast",
+  "waterBearingDeg": 18,
+  "waterShare": 0.2,
+  "waterMeander": 0.6,
+
+  "districts": 8,
+  "gridDistrictShare": 0.66,
+  "bearingSpreadDeg": 35,
+  "ringShare": 0.34,
+  "unregulatedJunctionShare": 0.2,
+  "cars": 52000,
+  "buildings": 240000,
+  "people": 60000
+}

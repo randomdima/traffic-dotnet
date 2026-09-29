@@ -42,9 +42,11 @@ namespace TrafficSimulation.Core.Geometry;
 /// radius, and a reader counting them is counting corners.
 /// </para>
 /// <para>
-/// <b>A run that will not close is handed back apart</b> (<see cref="Loose"/>) rather than being shut with a
-/// straight or dropped in silence. A merge that leaves one is a merge that lost a crossing somewhere, and
-/// the length of it is the reading that says so.
+/// <b>A run that will not close is handed back apart</b> (<see cref="Loose"/>) rather than dropped in silence.
+/// A merge that leaves one is a merge that lost a crossing somewhere, and the length of it is the reading
+/// that says so. <b>And it is shut across its holes as well</b> (<see cref="ArcRings.Shut"/>), because
+/// everything struck off the shape wants the ground it bounds: one ring round the outside of a town left
+/// open was every square metre of its carriageway.
 /// </para>
 /// <para>
 /// <b>It knows nothing about what laid the lines.</b> Lanes, movements and the ways into a parking bay are
@@ -56,31 +58,82 @@ namespace TrafficSimulation.Core.Geometry;
 /// </remarks>
 internal sealed partial class BandShell
 {
+    /// <summary>The rings as they were merged, about <see cref="_originM"/> and not about the world's origin.</summary>
     readonly ArcSeg[][] _chains;
     readonly ArcSeg[][] _loose;
+
+    /// <summary>
+    /// <b>Where the merge was worked about</b>: the world's origin for a shape inside 8 192 m, and the middle
+    /// of the shape, on a line of the grid, for one reaching further (<see cref="LineTolerance.Coarseness"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>A float's step doubles with the distance from the origin, and the merge and every move off it are
+    /// asked to a millimetre.</b> Worked where it stands, a town thirty kilometres across is worked in
+    /// two-millimetre steps at its far edge and its ring round the outside came back open; worked about its
+    /// middle it is never further out than half of that. The rings are handed out where they stand in the
+    /// world, and every move off them is worked about the same place (<see cref="Outset"/>).
+    /// </remarks>
+    readonly Vector2 _originM;
 
     /// <summary>The grid the caller's index is laid on, which everything struck off the shape is indexed on too.</summary>
     readonly WorldGrid _grid;
 
-    BandShell(ArcSeg[][] chains, ArcSeg[][] loose, WorldGrid grid)
+    BandShell(ArcSeg[][] chains, ArcSeg[][] loose, Vector2 originM, WorldGrid grid)
     {
         _chains = chains;
         _loose = loose;
+        _originM = originM;
         _grid = grid;
+        _worldChains = Shifted(chains, originM);
+        _worldLoose = Shifted(loose, originM);
     }
+
+    readonly ArcSeg[][] _worldChains;
+    readonly ArcSeg[][] _worldLoose;
 
     /// <summary>
     /// <b>The outside of the merged shape as closed rings</b> — one round the outside of it and one round
     /// every hole it encloses, each walked with the covered ground on its right.
     /// </summary>
-    public ReadOnlySpan<ArcSeg[]> Chains => _chains;
+    public ReadOnlySpan<ArcSeg[]> Chains => _worldChains;
 
     /// <summary>
     /// <b>The runs the merge could not close</b>, each a chain with two ends. It is a fault in the merge
     /// rather than a shape the bands have: the boundary of a union of closed bands is closed, so a run with
     /// ends is a crossing that was not found or a piece that was kept when it should have been covered.
     /// </summary>
-    public ReadOnlySpan<ArcSeg[]> Loose => _loose;
+    public ReadOnlySpan<ArcSeg[]> Loose => _worldLoose;
+
+    /// <summary>
+    /// <b>The place a shape spread this far is worked about</b>: nowhere but the world's origin while every
+    /// corner of it is inside the ground a float answers to a millimetre, and the middle of it on a line of
+    /// the main cell otherwise — so the move there and back shifts cells by whole cells (SIM-8).
+    /// </summary>
+    static Vector2 Origin(Vector2 leastM, Vector2 mostM, WorldGrid grid)
+    {
+        if (LineTolerance.Coarseness(leastM) <= 1f && LineTolerance.Coarseness(mostM) <= 1f) return Vector2.Zero;
+
+        var (x, y) = grid.Main.CellOf((leastM + mostM) * 0.5f);
+        return grid.Main.CornerM(x, y);
+    }
+
+    /// <summary>Every piece of every chain moved by one offset, or the chains themselves where it is none.</summary>
+    static ArcSeg[][] Shifted(ArcSeg[][] chains, Vector2 byM)
+    {
+        if (byM == Vector2.Zero) return chains;
+
+        var moved = new ArcSeg[chains.Length][];
+        for (var chain = 0; chain < chains.Length; chain++)
+        {
+            moved[chain] = new ArcSeg[chains[chain].Length];
+            for (var piece = 0; piece < chains[chain].Length; piece++)
+            {
+                moved[chain][piece] = chains[chain][piece] with { StartM = chains[chain][piece].StartM + byM };
+            }
+        }
+
+        return moved;
+    }
 
     /// <summary>The grid the shape was merged on (SIM-8), which anything asked of it afterwards is indexed on too.</summary>
     public WorldGrid Grid => _grid;
@@ -113,6 +166,26 @@ internal sealed partial class BandShell
     {
         ArgumentOutOfRangeException.ThrowIfGreaterThan(index.ChainCount, lines.Length);
 
+        var grid = index.Window.Level.Grid;
+        var window = index.Window;
+        var originM = window.Count == 0
+            ? Vector2.Zero
+            : Origin(window.Level.CornerM(window.FromX, window.FromY), window.Level.CornerM(window.ToX + 1, window.ToY + 1), grid);
+
+        var along = Shifted(lines.ToArray(), -originM);
+        if (originM != Vector2.Zero)
+        {
+            // The caller's index answers where the lines stand in the world; the merge asks where they stand
+            // about its own origin, so it is laid again over the lines as they were moved, at the same level.
+            var building = new ChainIndex.Builder();
+            for (var line = 0; line < along.Length; line++)
+            {
+                building.Add(line, along[line], Spline.TotalLengthM(along[line]));
+            }
+
+            index = building.Seal(window.Level);
+        }
+
         var halfM = new float[lines.Length];
         var lengthM = new float[lines.Length];
         var ribbons = new ArcSeg[lines.Length][];
@@ -121,16 +194,15 @@ internal sealed partial class BandShell
         for (var line = 0; line < lines.Length; line++)
         {
             halfM[line] = widthM[line] * 0.5f;
-            lengthM[line] = Spline.TotalLengthM(lines[line]);
+            lengthM[line] = Spline.TotalLengthM(along[line]);
             mostHalfM = MathF.Max(mostHalfM, halfM[line]);
 
-            ribbons[line] = ArcRibbon.Of(lines[line], halfM[line], LineTolerance.RoundingM);
+            ribbons[line] = ArcRibbon.Of(along[line], halfM[line], LineTolerance.RoundingM);
         }
 
-        var grid = index.Window.Level.Grid;
-        var merge = new Merge(lines.ToArray(), index, ribbons, halfM, lengthM, mostHalfM, grid);
+        var merge = new Merge(along, index, ribbons, halfM, lengthM, mostHalfM, originM, grid);
         var (chains, loose) = merge.Run();
-        return new BandShell(chains, loose, grid);
+        return new BandShell(loose.Length == 0 ? chains : [.. chains, .. ArcRings.Shut(loose)], loose, originM, grid);
     }
 
     /// <summary>
@@ -157,8 +229,11 @@ internal sealed partial class BandShell
     /// </para>
     /// </remarks>
     public (ArcSeg[][] Rings, ArcSeg[][] Loose) Outset(
-        float outwardM, float roundedM, ArcOutset.Corners corners = ArcOutset.Corners.Rolled) =>
-        ArcOutset.Of(_chains, outwardM, roundedM, _grid, corners);
+        float outwardM, float roundedM, ArcOutset.Corners corners = ArcOutset.Corners.Rolled)
+    {
+        var (rings, loose) = ArcOutset.Of(_chains, outwardM, roundedM, _grid, corners);
+        return (Shifted(rings, _originM), Shifted(loose, _originM));
+    }
 
     /// <summary>
     /// <b>The merged shape cut into the triangles that cover it</b> (<see cref="ShellFill"/>), at one
@@ -173,6 +248,14 @@ internal sealed partial class BandShell
     /// shape rather than about any ring — and it is one this type's winding already carries, so the fill
     /// reads it off the rings instead of being told.
     /// </remarks>
-    public (Vector2[] PointsM, int[] Triangles) Fill(float sagM, float thriftM = 0f, float turnRad = 0f) =>
-        ShellFill.Of(_chains, sagM, thriftM, turnRad);
+    public (Vector2[] PointsM, int[] Triangles) Fill(float sagM, float thriftM = 0f, float turnRad = 0f)
+    {
+        var (pointsM, triangles) = ShellFill.Of(_chains, sagM, thriftM, turnRad);
+        if (_originM != Vector2.Zero)
+        {
+            for (var point = 0; point < pointsM.Length; point++) pointsM[point] += _originM;
+        }
+
+        return (pointsM, triangles);
+    }
 }

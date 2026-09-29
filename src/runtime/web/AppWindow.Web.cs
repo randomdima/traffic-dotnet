@@ -226,6 +226,8 @@ internal sealed class AppWindow : IDisposable
         Key.ShiftRight => 19,
         Key.ControlLeft => 20,
         Key.ControlRight => 21,
+        Key.Number4 => 22,
+        Key.Number5 => 23,
         _ => Keys - 1,
     };
 

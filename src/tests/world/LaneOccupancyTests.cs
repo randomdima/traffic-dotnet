@@ -85,9 +85,9 @@ public class LaneOccupancyTests
     /// <summary>One piece a holder asks for, from <paramref name="fromM"/> of a way that begins its line.</summary>
     static PlannedAsk Ask(
         int hold, int occupant, ClaimPriority rung, float fromM, float aheadM = 0f,
-        float committedToM = float.NegativeInfinity, bool held = false, LaneRoster of = LaneRoster.Driving) =>
+        float committedToM = float.NegativeInfinity, LaneRoster of = LaneRoster.Driving) =>
         new(hold, occupant, of, rung, fromM, LineFromM: fromM, AheadM: aheadM, CommittedToM: committedToM,
-            AlongMps: 5f, Held: held);
+            AlongMps: 5f);
 
     /// <summary>A whole hold of one piece: answered, laid over what the answer gave, and finished.</summary>
     static float Plan(LaneOccupancy index, int way, float toM, Func<int, PlannedAsk> ask)
@@ -276,7 +276,7 @@ public class LaneOccupancyTests
         var index = Index();
         index.Begin();
 
-        var stronger = (Func<int, PlannedAsk>)(hold => Ask(hold, 2, ClaimPriority.Crossing, 25f));
+        var stronger = (Func<int, PlannedAsk>)(hold => Ask(hold, 2, ClaimPriority.Afoot, 25f));
         var weaker = (Func<int, PlannedAsk>)(hold => Ask(hold, 1, ClaimPriority.Firm, 0f));
         if (strongerFirst)
         {
@@ -305,15 +305,15 @@ public class LaneOccupancyTests
 
     /// <summary>
     /// <b>Of two holders that can no longer stop, the one that gets there first keeps the ground</b> —
-    /// whatever either one's rung, and whichever was given the box before: both are going in, and the one
-    /// further off is the one with road left to brake on.
+    /// whatever either one's rung: both are going in, and the one further off is the one with road left to
+    /// brake on.
     /// </summary>
     [Fact]
     public void OfTwoCommittedHoldersTheNearerKeepsTheGround()
     {
         var nearer = Ask(0, 1, ClaimPriority.FirmAcross, 20f, aheadM: 3f, committedToM: 30f);
         var further = new LaneClaim(
-            20f, 40f, 5f, 2, ClaimPriority.FirmStraight, AheadM: 12f, CommittedToM: 30f, Held: true);
+            20f, 40f, 5f, 2, ClaimPriority.FirmStraight, AheadM: 12f, CommittedToM: 30f);
 
         Assert.True(LaneOccupancy.Beats(nearer, 20f, false, further, false));
     }
@@ -330,19 +330,6 @@ public class LaneOccupancyTests
 
         Assert.True(LaneOccupancy.Beats(standing, 20f, askStands: true, straight, otherStands: false));
         Assert.False(LaneOccupancy.Beats(standing, 20f, askStands: false, straight, otherStands: false));
-    }
-
-    /// <summary>
-    /// <b>Of two equal movements, the one given the box last time keeps it</b> — even against one that has
-    /// come nearer since, so a box does not change hands under a car on its way into it.
-    /// </summary>
-    [Fact]
-    public void ABoxAlreadyGivenStaysWithItsHolderAgainstAnEqualOneNearer()
-    {
-        var given = Ask(0, 1, ClaimPriority.Firm, 20f, aheadM: 15f, held: true);
-        var nearer = new LaneClaim(20f, 40f, 5f, 2, ClaimPriority.Firm, AheadM: 2f);
-
-        Assert.True(LaneOccupancy.Beats(given, 20f, false, nearer, false));
     }
 
     /// <summary>And with nothing else between them, whoever has less of its own line to cover gets there first.</summary>
@@ -362,29 +349,28 @@ public class LaneOccupancyTests
     [Fact]
     public void OfAnyTwoHoldersExactlyOneKeepsTheGround()
     {
-        ClaimPriority[] rungs = [ClaimPriority.Special, ClaimPriority.Crossing, ClaimPriority.FirmStraight, ClaimPriority.FirmAcross];
+        ClaimPriority[] rungs = [ClaimPriority.Special, ClaimPriority.Afoot, ClaimPriority.FirmStraight, ClaimPriority.FirmAcross];
         float[] aheads = [0f, 4f];
         bool[] flags = [false, true];
 
-        var terms = new List<(ClaimPriority Rung, float AheadM, bool Committed, bool Held, bool Stands)>();
+        var terms = new List<(ClaimPriority Rung, float AheadM, bool Committed, bool Stands)>();
         foreach (var rung in rungs)
         foreach (var aheadM in aheads)
         foreach (var committed in flags)
-        foreach (var held in flags)
-        foreach (var stands in flags) terms.Add((rung, aheadM, committed, held, stands));
+        foreach (var stands in flags) terms.Add((rung, aheadM, committed, stands));
 
         foreach (var one in terms)
         {
             foreach (var other in terms)
             {
-                var ask = Ask(0, 1, one.Rung, 20f, one.AheadM, one.Committed ? 30f : float.NegativeInfinity, one.Held);
+                var ask = Ask(0, 1, one.Rung, 20f, one.AheadM, one.Committed ? 30f : float.NegativeInfinity);
                 var claim = new LaneClaim(
                     20f, 40f, 5f, 2, other.Rung, AheadM: other.AheadM,
-                    CommittedToM: other.Committed ? 30f : float.NegativeInfinity, Held: other.Held);
-                var flipped = Ask(0, 2, other.Rung, 20f, other.AheadM, other.Committed ? 30f : float.NegativeInfinity, other.Held);
+                    CommittedToM: other.Committed ? 30f : float.NegativeInfinity);
+                var flipped = Ask(0, 2, other.Rung, 20f, other.AheadM, other.Committed ? 30f : float.NegativeInfinity);
                 var back = new LaneClaim(
                     20f, 40f, 5f, 1, one.Rung, AheadM: one.AheadM,
-                    CommittedToM: one.Committed ? 30f : float.NegativeInfinity, Held: one.Held);
+                    CommittedToM: one.Committed ? 30f : float.NegativeInfinity);
 
                 Assert.NotEqual(
                     LaneOccupancy.Beats(ask, 20f, one.Stands, claim, other.Stands),

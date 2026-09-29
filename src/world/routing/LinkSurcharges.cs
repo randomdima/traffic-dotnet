@@ -23,8 +23,17 @@ internal sealed class LinkSurcharges
     readonly float[] _untilS;
     readonly float[] _priceM;
 
+    /// <summary>
+    /// The slots that may still be live, each once: every slot live when a life last ran out, and every one
+    /// marked since. What <see cref="PriceM"/> walks, so a table full of spent marks costs it nothing.
+    /// </summary>
+    readonly int[] _live;
+
+    readonly bool[] _listed;
+
     int _count;
     int _oldest;
+    int _liveCount;
     float _nowS;
     float _nextExpiryS = float.PositiveInfinity;
 
@@ -37,6 +46,8 @@ internal sealed class LinkSurcharges
         _link = new int[most];
         _untilS = new float[most];
         _priceM = new float[most];
+        _live = new int[most];
+        _listed = new bool[most];
     }
 
     /// <summary>Moves whenever what is marked changes, expiry included.</summary>
@@ -51,6 +62,7 @@ internal sealed class LinkSurcharges
         _priceM[slot] = priceM;
         _untilS[slot] = _nowS + forS;
         _nextExpiryS = MathF.Min(_nextExpiryS, _untilS[slot]);
+        List(slot);
         Generation++;
     }
 
@@ -59,11 +71,16 @@ internal sealed class LinkSurcharges
     /// holds a handful of entries against a network of thousands of links, so an array per link would be
     /// a town's worth of zeroes to say that almost nothing is marked.
     /// </summary>
+    /// <remarks>
+    /// <b>Only the slots that may be live are walked</b> (<see cref="_live"/>), and a mark that has expired
+    /// since it was listed is still asked its life, so what is walked changes the cost and never the answer.
+    /// </remarks>
     public float PriceM(int link)
     {
         var priceM = 0f;
-        for (var slot = 0; slot < _count; slot++)
+        for (var index = 0; index < _liveCount; index++)
         {
+            var slot = _live[index];
             if (_link[slot] == link && _untilS[slot] > _nowS) priceM = MathF.Max(priceM, _priceM[slot]);
         }
 
@@ -76,14 +93,34 @@ internal sealed class LinkSurcharges
     /// </summary>
     public void Advance(float nowS)
     {
+        // A clock run backwards brings spent marks back to life, so every slot is listed again.
+        if (nowS < _nowS)
+        {
+            for (var slot = 0; slot < _count; slot++) List(slot);
+        }
+
         _nowS = nowS;
         if (nowS < _nextExpiryS) return;
 
         Generation++;
         _nextExpiryS = float.PositiveInfinity;
+        _liveCount = 0;
         for (var slot = 0; slot < _count; slot++)
         {
-            if (_untilS[slot] > nowS) _nextExpiryS = MathF.Min(_nextExpiryS, _untilS[slot]);
+            _listed[slot] = false;
+            if (_untilS[slot] > nowS)
+            {
+                _nextExpiryS = MathF.Min(_nextExpiryS, _untilS[slot]);
+                List(slot);
+            }
         }
+    }
+
+    void List(int slot)
+    {
+        if (_listed[slot]) return;
+
+        _listed[slot] = true;
+        _live[_liveCount++] = slot;
     }
 }

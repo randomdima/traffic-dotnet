@@ -199,7 +199,8 @@ and one of them then found to have a car park outside it.
 
 - **A yard is a car park of its own** (`GEN-53`): one rank, on one side, as wide as a car park gets. One
   side because there is one building and it stands past the far end of the rank; the widest because the
-  apron a station holds is the bays nearest its door.
+  apron a station holds is the bays nearest its door. **The side faces the town's middle**, because the
+  edge of a town is where the ground to stand the building on runs out.
 - **The yards are cut before the town's own car parks and out of the same count.** Each car park is cut at
   the site furthest from every car park already cut (`GEN-53`), so taking the services first puts them as
   far apart as the town's roads allow with no spacing rule of its own. **A town with fewer car parks than
@@ -283,15 +284,25 @@ so a road has two bearings to satisfy and they do not agree.
   circle rather than leaving straight off the tangent to it. **The bend it takes is the ring piece's own** —
   the curvature the layout sized the circle at — never a circle fitted back through three of the ring's
   nodes, which is the same figure worked out a second way.
+- **A road laid straight takes the chord and draws nothing** (GEN-47): each arm leaves on the chord to the
+  place its road runs for. It is a fact about the road and not a kind of link, so the plan carries it per
+  road (`RoadArrays.LaidStraight`) — a derivation that drew the jitter again would draw an arm the road was
+  never laid to.
 - **The disc a junction is drawn on is the standoff** (`SimConfig.JunctionRadiusM`) and the arms follow it.
   Sized off the arms instead, the standoff would be read back off a disc sized by the arms that end at the
   standoff.
 
 **GEN-47** `P3` **A road is the line that leaves on one of its bearings and arrives on the other**, bending no
 tighter than the radius its own class's design speed affords on tarmac (`SimConfig.CarCorneringRadiusM`),
-which is derived from a speed and a grip and is never authored as a radius. How much it wanders between
-them is drawn from the district it runs in: a strict district lays near-straight roads and a loose one lays
-curves, bounded by the block spacing so no street may reach the one a block over. **A road that cannot be
+which is derived from a speed and a grip and is never authored as a radius. **A street is laid straight or
+it wanders, and every district lays both**: a grid mostly straight ones and a loose district mostly wandering
+ones, each district at a share of its own drawn near its kind's (`CityGenFigures.GridStraightShare`,
+`LooseStraightShare`), taken as a count of its streets that is never all of them and never none. A street
+laid straight has each arm on its chord (GEN-46) and no wander of its own, so it is one straight between two
+places, and a corner it was joined through (GEN-51) is rounded at its class's own radius with a straight
+either side, tighter only where the legs have no room for that. A street that wanders does so bounded by
+the block spacing, so no street may reach the one a block over. A joined road is laid the way most of its
+length was. **A road that cannot be
 laid inside those bounds is not laid**: the wander gives way first, and a link that still cannot be met is
 deleted with the layout repaired behind it (GEN-8, GEN-5). **A roundabout's ring has a floor of its own**
 (GEN-19), because the whole of one is a corner.
@@ -328,7 +339,8 @@ leaves unreachable is deleted with its own piece (GEN-8).
 merely carry on through is not a junction: it is where the town's own arithmetic stopped a line — a spacing
 along an arterial nothing welded onto, a lattice point the prunes left holding two of its four arms — and
 the two arms there are **one road**, laid through the place the node stood so that the corner the town had
-is the corner it keeps.
+is the corner it keeps. **A road laid straight rounds the corner rather than passing its point** (GEN-47):
+passing it would bend the whole of both legs.
 
 It is a rule about the layout and not about the picture. A junction is a standoff every lane ends at, a
 movement between each pair of arms, a claim on the ground those take and a place the router plans through,
@@ -669,9 +681,8 @@ a run of `--map Exam` and by the exam tier alike.
   one whose lanes end where its line does not go, and whose junction lays no movement. So the lattice is
   square in its nodes and not in its streets. A ring and a one-way arm are laid as GEN-19 and TER-4d lay
   them.
-- **It lays the lights and the bars its cards are about**, which a generated town does not (the known gaps):
-  a lit junction with no bar is one nothing stops at. The bars stand where the town paints them, a setback
-  behind the band the traffic is held at.
+- **It lights the junctions its cards are about and no other**, where a generated town draws its share of
+  them (TLT-3). The bars are the town's own, a setback behind the band the traffic is held at.
 - **Somebody on a zebra is stood at the edge of its paint and walked paint to paint**, never from the
   pavement: a walk from the pavement is not reliably routed over a zebra in this build (the known gaps), so
   a walker sent from the kerb can go round the block and the card would ask nothing. It steps into the

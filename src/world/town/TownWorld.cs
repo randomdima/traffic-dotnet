@@ -51,7 +51,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly CityPlan _plan;
     readonly GroundLocator _terrain;
     readonly PhysicsWorld _physics;
-    readonly BucketGrid _nearby;
 
     readonly RoadGraph _roads;
 
@@ -70,6 +69,18 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly LaneOccupancy _occupancy;
     readonly SignalService _signals;
     readonly SignalHeads _heads;
+
+    /// <summary>
+    /// <b>The ground every light holds against it</b> (TLT-1): laid into the reservations each rebuild, and the
+    /// whole of what a light does to anybody.
+    /// </summary>
+    readonly SignalHolds _signalHolds;
+
+    /// <summary>
+    /// <b>The bars this town paints, laid once and read by everything that holds at one</b> (TER-6): the lanes
+    /// that carry them as furniture, the lights that hold from them and the heads that stand past them.
+    /// </summary>
+    readonly StopBars _bars;
 
     /// <summary>The paint each lane meets — its stop bar and the crossings across it — projected once at load.</summary>
     readonly LaneFurniture _furniture;
@@ -96,11 +107,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     readonly SelectionPaths _paths;
 
     /// <summary>
-    /// Which crossing each stretch of the foot graph is, the ways each crossing is made of, and the band
-    /// of each of those every lane running underneath covers — the whole join between the paint, the
-    /// pavement and the carriageway.
+    /// Which crossing each stretch of the foot graph is — which ways of the pavement are paint. What the
+    /// paint covers of the carriageway is the marks' (TER-5c.3).
     /// </summary>
-    readonly CrossingBands _bands;
+    readonly CrossingEdges _crossingEdges;
 
     float _elapsedS;
 
@@ -199,9 +209,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _roads = RoadGraph.Build(plan, config);
         RoadsMs = Stopwatch.GetElapsedTime(roadsAt).TotalMilliseconds;
 
-        _signals = SignalService.Build(plan, _roads, config);
-        _heads = SignalHeads.Place(plan, _roads, _signals, config);
-
         // The bays' own ways come before the network that prices them: the one movement a route may make
         // that no junction admits is a turn back — at a car park (GEN-4l) or at a dead end — and whether a
         // frontage lays one is a question about its bays' ways.
@@ -222,7 +229,14 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // <b>The town's zebras, once</b> (TER-6): where the walk is crossed is where the road is crossed,
         // so the walk that is cut at them, the lanes that carry them and the bands under them are all read
         // off this one laying.
-        _zebras = Crossings.Lay(plan, config, plan.Paving(config).RoadEnds(config).CrossedM);
+        var ends = plan.Paving(config).RoadEnds(config);
+        _zebras = Crossings.Lay(plan, config, ends.CrossedM);
+
+        // <b>And its bars, off what each arm holds behind</b> rather than where it is crossed (WLK-10a): a street
+        // crossed once midway is still held at both of its ends.
+        _bars = StopBars.Lay(plan.Paving(config).Lanes, Crossings.Lay(plan, config, ends.HeldM), config);
+        _signals = SignalService.Build(plan, _roads, _zebras, config);
+        _heads = SignalHeads.Place(_bars, _zebras, _roads, _signals, config);
         _crossingWays = CrossingWays.Of(plan, _pavementLanes, _zebras, config);
         _foot = FootGraph.Build(_pavementLanes, _crossingWays, config);
         FootMs = Stopwatch.GetElapsedTime(footAt).TotalMilliseconds;
@@ -241,8 +255,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // The interface's own room to plan a whole route into (CTL-1a), laid with the selection it is
         // bounded by and never on the frame that wants it.
         _paths = new SelectionPaths(_selected.Capacity, _driving.Graph, _walking.Graph, MostRunsInARoute);
-        _furniture = LaneFurniture.Project(plan, _zebras, _roads);
-        _bands = CrossingBands.Project(_zebras, _roads, _furniture, _walking);
+        _furniture = LaneFurniture.Project(_bars, _zebras, _roads);
+        _crossingEdges = CrossingEdges.Of(_zebras, _walking.Foot);
+        _signalHolds = SignalHolds.Of(_signals, _bars, _crossingEdges, _roads, _ways);
 
         // <b>The ground of every way at once</b> (TER-4c.4): which ribbons cover which ground, and which share
         // it. Laid over the one numbering, so it comes after every network that numbers a way.
@@ -286,17 +301,16 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
         // over, and a plan down its own line with every section its marks link it to. A driver may also
-        // hold a road shut (SRV-6), which is a second plan of one way.
+        // hold a road shut (SRV-6), and every stretch a light holds is a hold (TLT-1) — each one piece placed
+        // on one way.
         _occupancy = new LaneOccupancy(
             _ways,
             (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)))
-            + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(MostWaysAlongAWalk, _atlas.Marks))),
-            (drivers * 2) + walkers,
+            + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(MostWaysAlongAWalk, _atlas.Marks)))
+            + _signalHolds.Count,
+            (drivers * 2) + walkers + _signalHolds.Count,
             _atlas.Marks);
         _carHold = new int[drivers];
-        _carHeldToM = new float[drivers];
-        _carBox = new int[drivers];
-        _carBoxEndsAtM = new float[drivers];
         _walkerHold = new int[walkers];
         _wheels = new WheelScratch(drivers);
         _behindTheBar = new bool[drivers];
@@ -329,10 +343,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // decision loop would hand a tick to and the solver has never heard of.
         Roster = new AgentRoster(People.Count, Cars.Count);
         DriveTheEmptyMap();
-
-        // At the grid's main cell, which is the reach a walker keeps clear of a car it is running from; the
-        // index is rebuilt into it every tick and survives nothing.
-        _nearby = new BucketGrid(config.Grid.Main, plan.WorldSizeM);
 
         StoodMs = Stopwatch.GetElapsedTime(stoodAt).TotalMilliseconds;
     }
@@ -409,11 +419,17 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// <summary>The ground of every way and which ways share it, for whoever measures or draws it.</summary>
     public RibbonAtlas Atlas => _atlas;
 
-    /// <summary>The one town-wide lookup a car reads — a walker reads no signal — and the only thing that knows what colour anything is.</summary>
+    /// <summary>
+    /// The only thing that knows what colour anything is. No agent reads it: a light holds ground
+    /// (<see cref="SignalHolds"/>), and this is for the picture and the instruments.
+    /// </summary>
     public SignalService Signals => _signals;
 
     /// <summary>The heads, for whoever draws them. No agent reads one.</summary>
     public SignalHeads Heads => _heads;
+
+    /// <summary>The bars this town paints, which the lights hold from (<see cref="StopBars"/>).</summary>
+    public StopBars Bars => _bars;
 
     /// <summary>The town's own clock, which is what a phase is derived from.</summary>
     public float ElapsedS => _elapsedS;
@@ -423,20 +439,16 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     /// as it happens rather than sampled.
     /// </summary>
     /// <remarks>
-    /// <b>It has two sources</b>, so it is read against <see cref="RecklessDrivers"/> rather than against
-    /// nothing. A share of the town does not keep the rule at all (CAR-13), which counts only while one of
-    /// them is at a wheel; the rest cross a bar the way anything crosses ground it did not mean to — a
-    /// shunt, or a phase that turned while the car was already committed. What a rise in this figure means
-    /// therefore depends on which of the two moved, and the figure alone does not say.
+    /// <b>A light holds nobody who can no longer stop short of its bar</b> (TER-5e), so a car crosses one on a
+    /// red the way anything crosses ground it did not mean to — committed when the amber ran out, or shunted
+    /// over it (CAR-13.3). A car on a call is not counted: the light's hold is below its rung (AMB-4), so it
+    /// breaches nothing.
     /// </remarks>
     public long RedBarCrossings { get; private set; }
 
     /// <summary>
-    /// <b>How many of this town's people do not keep the driver's courtesies</b> (CAR-13) — the
-    /// denominator <see cref="RedBarCrossings"/> is read against. A red one of these crosses is a violation
-    /// and is counted (CAR-13.3), which
-    /// is the whole of how they differ from an ambulance: AMB-4.2 exempts a rescue, so it breaches
-    /// nothing and adds to neither figure.
+    /// <b>How many of this town's people do not keep the driver's courtesies</b> (CAR-13). Nothing reads the
+    /// habit while a light is a hold on the road, which no driver's habit is a rung of (CAR-13.1).
     /// </summary>
     public int RecklessDrivers { get; private set; }
 
@@ -510,12 +522,8 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public WalkingNetwork Walking => _walking;
 
-    /// <summary>
-    /// <b>Which carriageway runs under each stretch of paint</b>, for whoever has to hold one network's
-    /// metres against the other's — which crossing a walk is on (PER-27), and which lanes that crossing is
-    /// painted across.
-    /// </summary>
-    public CrossingBands Bands => _bands;
+    /// <summary><b>Which crossing each stretch of the foot graph is</b> — which crossing a walk is on.</summary>
+    public CrossingEdges CrossingEdges => _crossingEdges;
 
     public DrivingNetwork Driving => _driving;
 
@@ -569,7 +577,6 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
     {
         DriveTheEmptyMap();
         MendTheYards(_config.TickSeconds);
-        _nearby.Rebuild(People.PositionM, People.RadiusM, People.Count);
         RebuildLaneOccupancy();
 
         // Phase 3 begins on the walkers, which is the end of the roster the loop walks first.
@@ -641,6 +648,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         if (People.Inside[agent].Any)
         {
             _impulseNs[agent] = Vector2.Zero;
+            People.DeclaredMps[agent] = Vector2.Zero;
             return;
         }
 
@@ -654,17 +662,18 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // follows cannot tell this walker from any other.
         if (_hands.Held && _selected.Holds(SelectionKind.Person, agent)) HandWalk(agent);
 
-        // <b>The aim is a point along the way in front of it and nothing else</b> (PER-25). There is no
-        // grant to read and no offset to apply: a walker walks the way it was handed, on that way's own
-        // line, and what it walks into is the solver's. Where that point is was settled with the rest of
-        // the walk's own state this tick (<see cref="StationTheWalker"/>).
+        // <b>The aim is a point along the way in front of it and nothing else</b> (PER-25), and no further
+        // than the walker was granted: a walker walks the way it was handed, on that way's own line, and
+        // what it walks into is the solver's. Where that point is was settled once the grant was read this
+        // tick (<see cref="AimTheWalker"/>).
         var aimM = People.DestinationM[agent];
 
         var step = WalkerFollower.Step(
-            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], aimM, People.Walking[agent],
-            People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
+            _config, People.HeadingRad[agent], positionM, People.VelocityMps[agent], People.DeclaredMps[agent], aimM,
+            People.Walking[agent], People.IsOnItsFeet(agent), People.MassKg[agent], _config.TickSeconds);
 
         People.HeadingRad[agent] = step.HeadingRad;
+        People.DeclaredMps[agent] = step.DesiredMps;
         _impulseNs[agent] = step.ImpulseNs;
     }
 
@@ -742,7 +751,12 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         // answer: restarted here, a walker wedged against a wall with the pavement four metres through it
         // re-laid, restarted and re-laid for the rest of the run, never walking and never giving up — and
         // the leg it could not finish was the one thing nothing in the town was counting.
-        _progress.Note(agent, RemainingOnTheWalkM(agent), _config.PersonDiameterM, sinceLastDecisionS);
+        //
+        // <b>A light holding the crossing in front is the one wait that spends no clock</b>, as it is a driver's
+        // (TLT-2a): it will change on its own, so the wait is bought and the standing is not given back.
+        var remainingM = RemainingOnTheWalkM(agent);
+        if (HeldByALight(agent)) _progress.Hold(agent, remainingM);
+        else _progress.Note(agent, remainingM, _config.PersonDiameterM, sinceLastDecisionS);
 
         // Standing here means the follower has already answered: either it arrived, or it never had
         // anywhere to go. Being stuck is the other way a leg ends, and it is the one that needs a

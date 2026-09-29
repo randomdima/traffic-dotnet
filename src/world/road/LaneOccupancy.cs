@@ -10,6 +10,12 @@ internal enum LaneRoster : byte
     Driving,
 
     Walking,
+
+    /// <summary>
+    /// <b>The lights</b> (TLT-1): an occupant is one stretch a light holds, and never a body — a light has no
+    /// collider and stands on no way.
+    /// </summary>
+    Signal,
 }
 
 /// <summary>
@@ -47,11 +53,6 @@ internal enum LaneRoster : byte
 /// secondary claim, to reach the mark on its own way. The tie nothing else breaks goes to whoever gets there
 /// first.
 /// </param>
-/// <param name="Held">
-/// Planned only: <b>ground on the way to and through a box its holder has already been given</b> — a movement
-/// it won the last time the plans were laid (<c>CarFleet.MovementWay</c>). It is what keeps a box with the car
-/// that has it, where the ladder does not say otherwise, rather than handing it to whoever came nearer since.
-/// </param>
 /// <param name="CommittedToM">
 /// Planned only: where the ground its holder can no longer stop short of ends on this way
 /// (<see cref="ClaimPriority.Committed"/>); everything short of it outranks every rung.
@@ -61,11 +62,21 @@ internal enum LaneRoster : byte
 /// stretch of the holder's main claim to, placed with that main claim rather than laid on the holder's own
 /// line. It is weighed against main claims and never against another secondary claim.
 /// </param>
+/// <param name="Onward">
+/// A body travelling this way only: <b>the way its line takes next</b>; <see cref="LaneOccupancy.RunsOn"/> where
+/// its line runs on past it down this way and is not yet laid past it; or <see cref="LaneOccupancy.NoWay"/>
+/// where its line ends where it stands — what says whether it is making the reader's own movement (TER-4c.6).
+/// </param>
+/// <param name="Still">A body only: <b>whether its holder is at rest</b>, which the holder says of itself.</param>
+/// <param name="Passing">
+/// A body only: <b>ground an overtake will cover</b> (TER-4c.6) rather than ground a collider stands on —
+/// laid at p0 all the same, and never itself something to get past.
+/// </param>
 internal readonly record struct LaneClaim(
     float FromM, float ToM, float AlongMps, int Occupant, ClaimPriority Priority,
     LaneRoster Of = LaneRoster.Driving, bool OnItsLine = false, int Hold = LaneOccupancy.NoHold,
     float LineFromM = 0f, float AheadM = 0f, float CommittedToM = float.NegativeInfinity, bool Secondary = false,
-    bool Held = false)
+    int Onward = LaneOccupancy.NoWay, bool Still = false, bool Passing = false)
 {
     public static LaneClaim Nothing => new(
         float.PositiveInfinity, float.PositiveInfinity, 0f, LaneOccupancy.Nobody, ClaimPriority.Hard);
@@ -74,6 +85,33 @@ internal readonly record struct LaneClaim(
 
     /// <summary><b>Whether this is a body</b> — the physical layer — rather than ground somebody plans to use.</summary>
     public bool HasBody => Priority == ClaimPriority.Hard;
+
+    /// <summary>
+    /// <b>Whether a holder whose own line takes <paramref name="onward"/> next may get past this</b> (TER-4c.6):
+    /// a body at rest that is not a pass itself, and not making the reader's own movement — somebody making it is
+    /// waiting for what the reader would wait for.
+    /// </summary>
+    public bool MayBePassedBy(int onward) => HasBody && Still && !Passing && !MakesTheMovementOf(onward);
+
+    /// <summary>
+    /// <b>Whether this is a body going nowhere down this way</b>: at rest, not a pass, and not travelling the way
+    /// on to anywhere — a wreck, a car stood down or off its line, a car whose line ends where it stands, somebody
+    /// standing in the road. It is the one body a driver keeps room to step out round (CAR-46).
+    /// </summary>
+    public bool GoesNowhere => HasBody && Still && !Passing && !(OnItsLine && Onward != LaneOccupancy.NoWay);
+
+    /// <summary>
+    /// Whether this body is travelling this way on to where a holder whose own line takes
+    /// <paramref name="onward"/> next is going.
+    /// </summary>
+    /// <remarks>
+    /// <b>A line not yet laid past this way makes every movement</b> (<see cref="LaneOccupancy.RunsOn"/>): its
+    /// holder is further than it can see from the way's end, so what holds it here is on this way, and the reader
+    /// would wait for that too.
+    /// </remarks>
+    bool MakesTheMovementOf(int onward) =>
+        OnItsLine && Onward != LaneOccupancy.NoWay
+        && (Onward == onward || Onward == LaneOccupancy.RunsOn || onward == LaneOccupancy.RunsOn);
 
     /// <summary><b>Whether this is wheeled traffic standing here</b>: a body of the driving roster.</summary>
     public bool IsTraffic => HasBody && Of == LaneRoster.Driving;
@@ -93,10 +131,9 @@ internal readonly record struct LaneClaim(
 /// <param name="LineFromM">And where that falls on the holder's own line.</param>
 /// <param name="AheadM">How far the holder has to travel to reach <paramref name="FromM"/>.</param>
 /// <param name="CommittedToM">Where on this way the ground it can no longer stop short of ends.</param>
-/// <param name="Held">Whether this is ground on the way to or through a box the holder has already been given (<see cref="LaneClaim.Held"/>).</param>
 internal readonly record struct PlannedAsk(
     int Hold, int Occupant, LaneRoster Of, ClaimPriority Rung, float FromM, float LineFromM, float AheadM,
-    float CommittedToM, float AlongMps, bool Held = false)
+    float CommittedToM, float AlongMps)
 {
     /// <summary>Whether the metre <paramref name="atM"/> of it is ground its holder can no longer stop short of.</summary>
     public bool CommittedAt(float atM) => atM < CommittedToM;
@@ -110,7 +147,7 @@ internal readonly record struct PlannedAsk(
     /// <summary>The same terms as the piece of ground they lay.</summary>
     public LaneClaim Laid(float toM) =>
         new(FromM, toM, AlongMps, Occupant, Rung, Of, Hold: Hold, LineFromM: LineFromM, AheadM: AheadM,
-            CommittedToM: CommittedToM, Held: Held);
+            CommittedToM: CommittedToM);
 }
 
 /// <summary>
@@ -162,6 +199,15 @@ internal sealed partial class LaneOccupancy
     public const int Nobody = -1;
 
     public const int NoHold = -1;
+
+    /// <summary>No way: a body's line ending where it stands (<see cref="LaneClaim.Onward"/>).</summary>
+    public const int NoWay = -1;
+
+    /// <summary>
+    /// A body's line running on past it down the way it is on, and not yet laid past that way
+    /// (<see cref="LaneClaim.Onward"/>).
+    /// </summary>
+    public const int RunsOn = -2;
 
     const int NoSlot = -1;
 
@@ -294,27 +340,69 @@ internal sealed partial class LaneOccupancy
     /// <b>A body on one way</b> (TER-4c.2), over the stretch its collider covers of it. A body already on
     /// the way under the same name grows to cover both — one body is one stretch of one way.
     /// </summary>
+    /// <param name="onward">Where a body travelling this way goes next (<see cref="LaneClaim.Onward"/>).</param>
     public void LayBody(
-        int way, float fromM, float toM, float alongMps, int occupant, LaneRoster of, bool onItsLine)
+        int way, float fromM, float toM, float alongMps, int occupant, LaneRoster of, bool onItsLine,
+        int onward = NoWay, bool still = false)
     {
         if (toM < fromM) return;
 
         for (var at = _bodies[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var body = ref _slots[at];
-            if (body.Occupant != occupant || body.Of != of) continue;
+            if (body.Occupant != occupant || body.Of != of || body.Passing) continue;
 
             var grown = body with
             {
                 FromM = MathF.Min(body.FromM, fromM), ToM = MathF.Max(body.ToM, toM),
-                OnItsLine = body.OnItsLine || onItsLine,
+                OnItsLine = body.OnItsLine || onItsLine, Onward = onItsLine ? onward : body.Onward,
             };
             Unlink(at);
             Link(_bodies, at, way, grown);
             return;
         }
 
-        Append(_bodies, way, new LaneClaim(fromM, toM, alongMps, occupant, ClaimPriority.Hard, of, onItsLine));
+        Append(
+            _bodies, way,
+            new LaneClaim(fromM, toM, alongMps, occupant, ClaimPriority.Hard, of, onItsLine, Onward: onward, Still: still));
+    }
+
+    /// <summary>
+    /// <b>Ground an overtake will cover</b> (TER-4c.6), laid at p0 over one stretch of one way: a body in
+    /// everything but having a collider, so every plan is cut short of it and nothing compares or takes it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Its own stretch and never grown into its holder's body</b>: the two lie over one way at once — a car
+    /// half out of its lane is on both — and a body grown over the pass would stand over whatever is being
+    /// passed.
+    /// </para>
+    /// <para>
+    /// <b>Grown where it meets its own stretch of the same pass, and only there</b>: a pass is laid as the body
+    /// swept down it, a station at a time, and one way it leaves and comes back to — its own lane either side of
+    /// what it passes — is two stretches with that between them.
+    /// </para>
+    /// </remarks>
+    public void LayPass(int way, float fromM, float toM, float alongMps, int occupant, LaneRoster of)
+    {
+        if (toM <= fromM) return;
+
+        for (var at = _bodies[way]; at != NoSlot; at = _next[at])
+        {
+            ref readonly var pass = ref _slots[at];
+            if (!pass.Passing || pass.Occupant != occupant || pass.Of != of || pass.ToM < fromM || pass.FromM > toM)
+            {
+                continue;
+            }
+
+            var grown = pass with { FromM = MathF.Min(pass.FromM, fromM), ToM = MathF.Max(pass.ToM, toM) };
+            Unlink(at);
+            Link(_bodies, at, way, grown);
+            return;
+        }
+
+        Append(
+            _bodies, way, new LaneClaim(fromM, toM, alongMps, occupant, ClaimPriority.Hard, of, Passing: true));
     }
 
     /// <summary>
@@ -372,6 +460,10 @@ internal sealed partial class LaneOccupancy
             ref readonly var body = ref _slots[at];
             if (body.FromM >= limitM) break;
             if (Owns(ask, body) || body.ToM <= standsToM) continue;
+
+            // A pass holds nobody already standing on its ground: its own holder is held off them (TER-4c.6), and
+            // held against them too, the two would each wait for the other.
+            if (body.Passing && StandsOn(way, ask.Occupant, ask.Of, body.FromM, body.ToM)) continue;
 
             limitM = MathF.Max(fromM, body.FromM);
             cutBy = body;
@@ -433,10 +525,29 @@ internal sealed partial class LaneOccupancy
                     mark.FromM, mark.ToM, 0f, ask.Occupant, ask.Rung, ask.Of, Hold: ask.Hold,
                     LineFromM: ask.LineAt(atM), AheadM: ask.ArrivalAt(atM),
                     CommittedToM: ask.CommittedAt(atM) ? float.PositiveInfinity : float.NegativeInfinity,
-                    Secondary: true, Held: ask.Held));
+                    Secondary: true));
         }
 
         Append(_planned, way, main);
+    }
+
+    /// <summary>
+    /// <b>A secondary claim placed where it stands</b> over <c>[ask.FromM, toM)</c> of one way, and nothing
+    /// else: no main claim, no mark followed and nothing cut (TER-5c.1). It is a light's hold (TLT-1) or a closure
+    /// (SRV-6) — ground held on the way it governs and on no other — so it meets the main claims asked of that way
+    /// and no secondary claim placed there.
+    /// </summary>
+    /// <remarks>
+    /// <b>Placed before any plan is laid</b>: a secondary claim cuts nothing where it is placed, so a main claim
+    /// already over these metres would share them with it (TER-4c.3). Whether it may lie over a body is the
+    /// placer's to say — a light's stops at the first body travelling its way (<see cref="AheadTraveller"/>) and
+    /// lies over any other, and a closure is laid over the scene it closes the road round.
+    /// </remarks>
+    public void Place(in PlannedAsk ask, int way, float toM)
+    {
+        if (toM <= ask.FromM || ask.Hold == NoHold) return;
+
+        Append(_planned, way, ask.Laid(toM) with { Secondary = true });
     }
 
     /// <summary>
@@ -520,19 +631,19 @@ internal sealed partial class LaneOccupancy
     /// that body it is two holders each waiting for the other.
     /// </para>
     /// <para>
-    /// <b>Below that it is the ladder</b> — a call, a closure, a crossing somebody is walking, and the three
+    /// <b>Below that it is the ladder</b> — a call, a closure, a light, somebody on foot, and the three
     /// movements a box admits, straightest first.
     /// </para>
     /// <para>
-    /// <b>Then a box already given</b> (<see cref="LaneClaim.Held"/>): of two equal movements, the one that
-    /// won the box last time keeps it, so a box does not change hands under a car that is on its way into it
-    /// because another came nearer since. <b>Neither the ladder nor the box is asked between two holders that
-    /// can no longer stop</b>: both are going in, and what is left to settle is who is there first — the one
-    /// further off is the one with road left to brake on.
+    /// <b>And last, whoever gets there first</b> — the holder with less of its own line to cover before the
+    /// ground in question — and two exactly as near by roster and occupant. <b>The ladder is not asked between
+    /// two holders that can no longer stop</b>: both are going in, and what is left to settle is who is there
+    /// first — the one further off is the one with road left to brake on.
     /// </para>
     /// <para>
-    /// <b>And last, whoever gets there first</b> — the holder with less of its own line to cover before the
-    /// ground in question — and two exactly as near by roster and occupant.
+    /// <b>Nothing is remembered from the rebuild before</b>: a box does not stay with a car because it won it
+    /// last time. A car that can no longer stop short of a box's mouth, or is already in it, holds it as ground
+    /// it cannot give back, which is the first tier and not a tier of its own.
     /// </para>
     /// </remarks>
     /// <param name="atM">
@@ -548,7 +659,6 @@ internal sealed partial class LaneOccupancy
         if (askCommitted != otherCommitted) return askCommitted;
         if (askStands != otherStands) return askStands;
         if (!askCommitted && ask.Rung != other.Priority) return ask.Rung < other.Priority;
-        if (!askCommitted && ask.Held != other.Held) return ask.Held;
 
         var askArrivalM = ask.ArrivalAt(atM);
         var otherArrivalM = other.ArrivalAt(atM);
@@ -557,14 +667,17 @@ internal sealed partial class LaneOccupancy
         return ask.Of != other.Of ? ask.Of < other.Of : ask.Occupant < other.Occupant;
     }
 
-    /// <summary>Whether one holder's body is on a stretch of one way.</summary>
+    /// <summary>
+    /// Whether one holder's body is on a stretch of one way — its collider, and never the ground a pass of its
+    /// will cover, which it is not standing on yet.
+    /// </summary>
     bool StandsOn(int way, int occupant, LaneRoster of, float fromM, float toM)
     {
         for (var at = _bodies[way]; at != NoSlot; at = _next[at])
         {
             ref readonly var body = ref _slots[at];
             if (body.FromM >= toM) break;
-            if (body.Occupant == occupant && body.Of == of && body.ToM > fromM) return true;
+            if (body.Occupant == occupant && body.Of == of && !body.Passing && body.ToM > fromM) return true;
         }
 
         return false;

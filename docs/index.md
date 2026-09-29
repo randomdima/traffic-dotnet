@@ -26,14 +26,14 @@ what the project is made of and how to run it is [../readme.md](../readme.md).
 | [world/foot/](../src/world/foot/) — the walking network | [requirements](../src/world/foot/docs/requirements.md) | [log](../src/world/foot/docs/decision-log.md) |
 | [world/routing/](../src/world/routing/) — the two tiers | [requirements](../src/world/routing/docs/requirements.md) | [log](../src/world/routing/docs/decision-log.md) |
 | [world/physics/](../src/world/physics/) — the wall | [requirements](../src/world/physics/docs/requirements.md) · [solver](../src/world/physics/docs/solver.md) | [log](../src/world/physics/docs/decision-log.md) |
-| [world/containment/](../src/world/containment/) — being inside something | [requirements](../src/world/containment/docs/requirements.md) | — |
+| [world/containment/](../src/world/containment/) — being inside something | [requirements](../src/world/containment/docs/requirements.md) | [log](../src/world/containment/docs/decision-log.md) |
 | [world/parking/](../src/world/parking/) — bays and lots | [requirements](../src/world/parking/docs/requirements.md) | [log](../src/world/parking/docs/decision-log.md) |
 | [agents/car/](../src/agents/car/) — the driver | [requirements](../src/agents/car/docs/requirements.md) | [log](../src/agents/car/docs/decision-log.md) |
 | [agents/ambulance/](../src/agents/ambulance/) — the rescue | [requirements](../src/agents/ambulance/docs/requirements.md) | [log](../src/agents/ambulance/docs/decision-log.md) |
 | [agents/service/](../src/agents/service/) — the patrol and what a service vehicle is | [requirements](../src/agents/service/docs/requirements.md) | [log](../src/agents/service/docs/decision-log.md) |
 | [agents/evacuator/](../src/agents/evacuator/) — the recovery | [requirements](../src/agents/evacuator/docs/requirements.md) | [log](../src/agents/evacuator/docs/decision-log.md) |
 | [agents/person/](../src/agents/person/) — the walker | [requirements](../src/agents/person/docs/requirements.md) | [log](../src/agents/person/docs/decision-log.md) |
-| [agents/trafficlight/](../src/agents/trafficlight/) — the signal | [requirements](../src/agents/trafficlight/docs/requirements.md) | — |
+| [agents/trafficlight/](../src/agents/trafficlight/) — the signal | [requirements](../src/agents/trafficlight/docs/requirements.md) | [log](../src/agents/trafficlight/docs/decision-log.md) |
 | [app/camera/](../src/app/camera/) | [requirements](../src/app/camera/docs/requirements.md) | [log](../src/app/camera/docs/decision-log.md) |
 | [app/screen/](../src/app/screen/) — the chrome | [requirements](../src/app/screen/docs/requirements.md) | — |
 | [app/render/](../src/app/render/) — the picture | [requirements](../src/app/render/docs/requirements.md) | [log](../src/app/render/docs/decision-log.md) |
@@ -70,14 +70,14 @@ retired number, which the owning slice's log records.
 | `GEN-1…3`, `GEN-5…19`, `GEN-46…55` | The brief and the maps, laying a town, buildings and their uses, lane width, water and bridges, one-way streets, roundabouts, junctions as connection points and movements, no dangling lane, car parks cut into a road, where a building stands and which are services | [citygen](../src/citygen/docs/requirements.md) |
 | `TER-1…3d`, `TER-7…7b`, `PHY-8` | The ground, the pavement and its kerb, water and decks, and the stack of layers the mesh is | [world/terrain](../src/world/terrain/docs/requirements.md) |
 | `TER-4`, `TER-4a`, `TER-4b`, `TER-4d`, `TER-5…5b`, `TER-5d`, `TER-5d.1`, `TER-5f`, `TER-5i`, `TER-6`, `TER-6a` | Roads, junctions, crossings, paint and the arrow a lane carries | [world/road](../src/world/road/docs/requirements.md) |
-| `TER-4c…4c.5`, `TER-5c…5c.2`, `TER-5e`, `TER-5g`, `TER-5g.1` | The ribbon atlas and its marks, where the bodies are, where they mean to be, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
-| `WLK-1`, `WLK-1a…3`, `WLK-8…15` | The pavement's lanes, the zebras and the junction a crossing is, the joints a walk carries on at, and the node network held in code | [world/foot](../src/world/foot/docs/requirements.md) |
+| `TER-4c…4c.6`, `TER-5c…5c.3`, `TER-5e`, `TER-5g`, `TER-5g.1` | The ribbon atlas and its marks, a zebra held whole, where the bodies are, the ground a pass covers, where they mean to be, right of way and the ladder | [world/road/claims](../src/world/road/docs/claims.md) |
+| `WLK-1`, `WLK-1a…3`, `WLK-8…16` | The pavement's lanes, the zebras and the junction a crossing is, the joints a walk carries on at, the walk kept off the road, and the node network held in code | [world/foot](../src/world/foot/docs/requirements.md) |
 | `PHY-1…6`, `PHY-9` | Collision, damage energy, what a body is left in and what a wreck does to its driver | [world/physics](../src/world/physics/docs/requirements.md) |
 | `SOL-1…22`, `SOL-35`, `SOL-36` | What this project's own solver must be | [world/physics/solver](../src/world/physics/docs/solver.md) |
 | `PHY-7`, `PHY-7a` | Containment and how a container is left | [world/containment](../src/world/containment/docs/requirements.md) |
 | `GEN-4…4m` | A car park as a junction whose arms are bays, the ways at one, the claim on one, and the apron held for a service building's vehicles | [world/parking](../src/world/parking/docs/requirements.md) |
-| `CAR-1…15b`, `CAR-45`, `S-1…7`, `S-2a` | The driver and its leg, the car, its controls, its tyres and its lamps, and the standing rules every tick answers to | [agents/car](../src/agents/car/docs/requirements.md) |
-| `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25…27` | The walker, its route, its body and its plan, the crossing it plans to the far kerb, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
+| `CAR-1…15b`, `CAR-45`, `CAR-46`, `S-1…7`, `S-2a` | The driver and its leg, getting past what stands in its lane, the car, its controls, its tyres and its lamps, and the standing rules every tick answers to | [agents/car](../src/agents/car/docs/requirements.md) |
+| `PER-1`, `PER-3`, `PER-6…9`, `PER-11`, `PER-18`, `PER-23`, `PER-25…28` | The walker, its route, its body and its plan, the one rung it plans at, getting past somebody standing on its way, the trip and what a car does to it | [agents/person](../src/agents/person/docs/requirements.md) |
 | `AMB-1…10` | Hospitals, the apron of ambulances, the priority a call carries, the rescue and the standoff it stops at | [agents/ambulance](../src/agents/ambulance/docs/requirements.md) |
 | `SRV-1…6` | Police stations and depots, what a service vehicle is and that none carries a crew, what a wrecked one costs, the beat, and the road a police car closes by its own claim | [agents/service](../src/agents/service/docs/requirements.md) |
 | `EVA-1…8` | The wreck as a call, a depot's yard, the recovery, the tow's priority, the arm and the set-down | [agents/evacuator](../src/agents/evacuator/docs/requirements.md) |
@@ -121,28 +121,20 @@ owning slice's log; this list says only what is absent now and what closes it.
   casualty is taken aboard at the ambulance's standoff by a placement (`AMB-10`), a wreck is hitched and
   set down from the truck (`EVA-5`, `EVA-6`), and a police car's closure is the car's own claim round the
   scene (`SRV-6`). **Nobody wears a service uniform** (`SRV-3a`), since nobody is named to.
-- **Nothing gets past anything.** A driver is held behind whatever is in front of it until its leg's
-  patience runs out and the leg is given up (`CAR-15a`); it does not cross the centreline to pass a wreck,
-  a broken-down car or a body standing in its lane (`CAR-6.2b` is not reworded, and nothing exercises it).
-  A walker queues behind what is in front of it on its way and waits at a kerb while the crossing is
-  somebody else's (`PER-25`…`PER-27`): no signal, no patience, and no step round another walker. It closes
-  when getting past something comes back as a movement the road offers rather than a shape an agent draws
-  ([agents/car](../src/agents/car/docs/decision-log.md), [agents/person](../src/agents/person/docs/decision-log.md)).
 - **A car is neither brought back nor turned round.** A car whose rear axle is off drivable ground gives
   its leg up; on the road it takes the nearest lane only where that runs its way (`CAR-9`). There is no
   straight back onto the carriageway and no reversing out of a jam, and a car routed into a dead end stands
   there until its leg's clock gives the leg up — the route turns at one, and nothing turns the car
   (`GEN-4l`).
-- **Nothing is lit, and the plan paints no bar.** Whether a junction carries a timetable is not drawn any
-  more, so `agents/trafficlight/` stands over a town with no lit junction (`TLT-3`), no signal head hangs
-  anywhere, and `CAR-6.3` has no red to keep. `CityPlan.StopLines` is empty, so
-  `LaneFurniture.StopBarAlongM` is infinity on every lane and nothing a signal governs has a line to be held
-  at (`TLT-1`, `TER-6`); nor does the ground answer whether a point is on a crossing
-  (`GroundShapes.Roads` reads the plan's empty `Crosswalks`), which a slice below the road cannot ask the
-  road for. Both close the way the zebras did: one laying — `Crossings`, handed to the walk, the lanes that
-  carry it and the bands beneath it — handed to whoever reads it. **No kerb is filleted** (`TER-5`), and **a
+- **The ground does not answer whether a point is on a crossing** (`GroundShapes.Roads` reads the plan's
+  empty `Crosswalks`), which a slice below the road cannot ask the road for. It closes the way the zebras
+  and the bars did: one laying — `Crossings`, handed to the walk, the lanes that carry it, the bands beneath
+  it and the lights that hold it — handed to whoever reads it. **No kerb is filleted** (`TER-5`), and **a
   node that forks nothing carries neither crossing nor bar** (`TER-6`, `TER-5b`), so the mid-block crossing
   an inline junction exists to carry is not laid.
+- **No walker is ever held by a light.** A lit crossing's paint is held while it shows red (`TLT-1`), but no
+  walk chooses a zebra (below), so the hold refuses nobody in a town; the unit tier asks it of the
+  reservations alone.
 - **A town stands no pedestrian node, so the walk is the courses and the crossings cut into them.** The
   pavement is two moves of the driven ground's boundary, each closed line one lane, parted wherever a zebra
   meets it and joined across the carriageway (`WLK-1`, `WLK-8`, `WLK-15`). The node network — `WLK-1a`,

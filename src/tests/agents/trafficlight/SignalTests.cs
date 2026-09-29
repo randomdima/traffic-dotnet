@@ -11,7 +11,7 @@ using Xunit;
 namespace TrafficSimulation.Tests.Agents.TrafficLight;
 
 /// <summary>
-/// The cycle table and the heads, asked of every shipped map with no town stood up. <b>The table's
+/// The cycle table and the heads, asked of the suite's towns with no town stood up. <b>The table's
 /// shape is the safety argument</b> (TLT-4), so what is asserted here is that the shape holds across a
 /// whole cycle and not that some sampled instant looked right.
 /// </summary>
@@ -27,6 +27,16 @@ public class SignalTests
     static IEnumerable<float> WholeCycle()
     {
         for (var step = 0; step <= 600; step++) yield return Config.Signals.CycleS * step / 600f;
+    }
+
+    /// <summary>The town's zebras and its bars, each laid the one way the town lays it (TER-6, WLK-10a).</summary>
+    static (Crossings Zebras, StopBars Bars) Paint(CityPlan plan)
+    {
+        var paving = plan.Paving(Config);
+        var ends = paving.RoadEnds(Config);
+        return (
+            Crossings.Lay(plan, Config, ends.CrossedM),
+            StopBars.Lay(paving.Lanes, Crossings.Lay(plan, Config, ends.HeldM), Config));
     }
 
     [Fact]
@@ -78,8 +88,8 @@ public class SignalTests
 
     /// <summary>
     /// <b>No two conflicting arms are ever green together</b>, over a whole cycle and over every lit
-    /// junction of every shipped map — and both ends of one road always agree, because they are one
-    /// axis rather than two directions that happen to be timed alike.
+    /// junction of every map — and both ends of one road always agree, because they are one axis rather
+    /// than two directions that happen to be timed alike.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -87,7 +97,7 @@ public class SignalTests
     {
         var plan = Towns.Of(map);
         var roads = RoadGraph.Build(plan, Config);
-        var signals = SignalService.Build(plan, roads, Config);
+        var signals = SignalService.Build(plan, roads, Paint(plan).Zebras, Config);
 
         var lit = 0;
         for (var junction = 0; junction < roads.JunctionCount; junction++)
@@ -130,10 +140,7 @@ public class SignalTests
             }
         }
 
-        // Every junction the map lights that admits movements to conflict, and no other (TLT-3). The
-        // crossing scenario map lights nothing on purpose, and every town has places where a road is
-        // merely cut — a dead end, a mid-block crossing — whose crossings are the give-way rule at the
-        // kerb rather than a bundle (TER-5e).
+        // Every junction the plan lights that admits movements to conflict, and no other (TLT-3).
         var conflicting = 0;
         for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
@@ -147,8 +154,9 @@ public class SignalTests
     }
 
     /// <summary>
-    /// TLT-3's placement: a crossing on a lit junction is governed, an approach at an unlit junction is
-    /// shown green because there is nothing there to obey, and the offsets are the plan's own.
+    /// TLT-3's placement: a crossing is governed where it is painted on an arm of a lit junction and nowhere
+    /// else, an approach at an unlit junction is shown green because there is nothing there to obey, and the
+    /// offsets are the plan's own.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -156,7 +164,8 @@ public class SignalTests
     {
         var plan = Towns.Of(map);
         var roads = RoadGraph.Build(plan, Config);
-        var signals = SignalService.Build(plan, roads, Config);
+        var zebras = Paint(plan).Zebras;
+        var signals = SignalService.Build(plan, roads, zebras, Config);
 
         for (var junction = 0; junction < roads.JunctionCount; junction++)
         {
@@ -169,10 +178,12 @@ public class SignalTests
             }
         }
 
-        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+        for (var crossing = 0; crossing < zebras.Count; crossing++)
         {
-            var junction = plan.Crosswalks.Junction[crossing];
-            Assert.Equal(signals.Lit(junction), signals.CrossingIsLit(crossing));
+            // A zebra painted midway along a road stands at no junction's arm, and nothing holds the traffic
+            // behind it (WLK-10a).
+            var governed = signals.Lit(zebras.Junction[crossing]) && !zebras.Midway[crossing];
+            Assert.Equal(governed, signals.CrossingIsLit(crossing));
 
             // An unlit crossing shows red: nothing is telling a walker it may go, and a green there
             // would be a permission with no bundle behind it.
@@ -184,8 +195,36 @@ public class SignalTests
     }
 
     /// <summary>
+    /// <b>Every lane arriving at a lit junction is held at a bar</b> (TLT-1, TER-6): a light holds an approach
+    /// from its bar, so a lane with none is one whose red would hold nothing.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Maps))]
+    public void EveryLaneArrivingAtALitJunctionIsHeldAtABar(string map)
+    {
+        var plan = Towns.Of(map);
+        var roads = RoadGraph.Build(plan, Config);
+        var (zebras, bars) = Paint(plan);
+        var signals = SignalService.Build(plan, roads, zebras, Config);
+
+        var barred = new bool[roads.LaneCount];
+        for (var bar = 0; bar < bars.Count; bar++) barred[bars.Lane[bar]] = true;
+
+        for (var lane = 0; lane < roads.LaneCount; lane++)
+        {
+            if (signals.AxisOfLane(lane) == SignalService.NoAxis) continue;
+
+            Assert.True(
+                barred[lane],
+                $"{map}: lane {lane} arrives at lit junction {roads.LaneToJunction[lane]} at "
+                + $"{roads.EndOf(lane).PositionM} with no bar to be held at");
+        }
+    }
+
+    /// <summary>
     /// The heads: one per painted bar at a lit junction, two per lit crossing, all of them apart from
-    /// one another, and every one of them showing exactly one lamp at every moment of a cycle.
+    /// one another, and every one of them showing exactly one lamp at every moment of a cycle — and never
+    /// more than the picture laid room for.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -193,11 +232,12 @@ public class SignalTests
     {
         var plan = Towns.Of(map);
         var roads = RoadGraph.Build(plan, Config);
-        var signals = SignalService.Build(plan, roads, Config);
-        var heads = SignalHeads.Place(plan, roads, signals, Config);
+        var (zebras, bars) = Paint(plan);
+        var signals = SignalService.Build(plan, roads, zebras, Config);
+        var heads = SignalHeads.Place(bars, zebras, roads, signals, Config);
 
         var litCrossings = 0;
-        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+        for (var crossing = 0; crossing < zebras.Count; crossing++)
         {
             if (signals.CrossingIsLit(crossing)) litCrossings++;
         }
@@ -206,14 +246,15 @@ public class SignalTests
         var walkHeads = heads.Count - carHeads;
         Assert.Equal(litCrossings * 2, walkHeads);
 
-        // Every painted bar at a lit junction carries one head, and nothing else does.
+        // Every painted bar a lit junction's lane arrives at carries one head, and nothing else does.
         var governedBars = 0;
-        for (var bar = 0; bar < plan.StopLines.Count; bar++)
+        for (var bar = 0; bar < bars.Count; bar++)
         {
-            if (signals.Lit(plan.StopLines.Junction[bar])) governedBars++;
+            if (signals.AxisOfLane(bars.Lane[bar]) != SignalService.NoAxis) governedBars++;
         }
 
         Assert.Equal(governedBars, carHeads);
+        Assert.True(heads.Count <= SignalHeads.MostFor(plan), $"{map}: {heads.Count} heads over a bound of {SignalHeads.MostFor(plan)}");
 
         // No head stands on top of another. A pair a centimetre apart is two bundles claiming one arm,
         // which reads on a picture as one head and in the table as two.
@@ -249,16 +290,17 @@ public class SignalTests
     {
         var plan = Towns.Of(map);
         var roads = RoadGraph.Build(plan, Config);
-        var signals = SignalService.Build(plan, roads, Config);
+        var zebras = Paint(plan).Zebras;
+        var signals = SignalService.Build(plan, roads, zebras, Config);
 
-        for (var crossing = 0; crossing < plan.Crosswalks.Count; crossing++)
+        for (var crossing = 0; crossing < zebras.Count; crossing++)
         {
             if (!signals.CrossingIsLit(crossing)) continue;
 
-            var junction = plan.Crosswalks.Junction[crossing];
+            var junction = zebras.Junction[crossing];
             foreach (var arm in roads.LanesIntoJunction(junction))
             {
-                if (!RunsOverThePaint(plan, roads, arm, crossing)) continue;
+                if (!RunsOverThePaint(zebras, roads, arm, crossing)) continue;
 
                 foreach (var atS in WholeCycle())
                 {
@@ -271,12 +313,12 @@ public class SignalTests
     }
 
     /// <summary>Whether a lane's own line passes through a crossing's rectangle on its way to the junction.</summary>
-    static bool RunsOverThePaint(CityPlan plan, RoadGraph roads, int lane, int crossing)
+    static bool RunsOverThePaint(Crossings zebras, RoadGraph roads, int lane, int crossing)
     {
-        var centreM = plan.Crosswalks.CentreM[crossing];
-        var along = Vector2.Normalize(plan.Crosswalks.Axis[crossing]);
-        var halfDepthM = plan.Crosswalks.DepthM[crossing] * 0.5f;
-        var halfSpanM = plan.CrossingSpanM(crossing) * 0.5f;
+        var centreM = zebras.CentreM[crossing];
+        var along = Vector2.Normalize(zebras.Axis[crossing]);
+        var halfDepthM = zebras.DepthM[crossing] * 0.5f;
+        var halfSpanM = zebras.SpanM[crossing] * 0.5f;
 
         var arcs = roads.ArcsOf(lane);
         var lengthM = roads.LaneLengthM[lane];

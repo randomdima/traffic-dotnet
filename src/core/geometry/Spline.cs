@@ -367,10 +367,12 @@ internal static class Spline
     {
         joined = new ArcSeg(one.StartM, one.HeadingRad, one.LengthM + other.LengthM, one.Curvature);
         if (one.LengthM <= 0f || other.LengthM <= 0f) return false;
-        if (Vector2.DistanceSquared(one.EndM, other.StartM) > withinM * withinM) return false;
+
+        var nearM = LineTolerance.At(withinM, other.StartM);
+        if (Vector2.DistanceSquared(one.EndM, other.StartM) > nearM * nearM) return false;
 
         var carried = new ArcSeg(other.StartM, one.HeadingAtRad(one.LengthM), other.LengthM, one.Curvature);
-        return Vector2.DistanceSquared(carried.EndM, other.EndM) <= withinM * withinM;
+        return Vector2.DistanceSquared(carried.EndM, other.EndM) <= nearM * nearM;
     }
 
     /// <summary>
@@ -461,32 +463,22 @@ internal static class Spline
         Span<SplineCrossing> into, float beyondM = 0f)
     {
         var kept = 0;
-        Span<Vector2> atM = stackalloc Vector2[2];
+        Span<float> alongOneM = stackalloc float[2];
+        Span<float> alongOtherM = stackalloc float[2];
         var onePieceM = 0f;
         for (var onePiece = 0; onePiece < one.Length; onePiece++)
         {
             var otherPieceM = 0f;
             for (var otherPiece = 0; otherPiece < other.Length; otherPiece++)
             {
-                var found = CrossingsOf(one[onePiece], other[otherPiece], atM);
+                var found = AlongBoth(
+                    one[onePiece], other[otherPiece], Behind(onePiece, one.Length, beyondM),
+                    Past(onePiece, one.Length, beyondM), Behind(otherPiece, other.Length, beyondM),
+                    Past(otherPiece, other.Length, beyondM), alongOneM, alongOtherM);
                 for (var at = 0; at < found; at++)
                 {
-                    if (!AlongOf(
-                            one[onePiece], atM[at], Behind(onePiece, one.Length, beyondM),
-                            Past(onePiece, one.Length, beyondM), out var alongOneM))
-                    {
-                        continue;
-                    }
-
-                    if (!AlongOf(
-                            other[otherPiece], atM[at], Behind(otherPiece, other.Length, beyondM),
-                            Past(otherPiece, other.Length, beyondM), out var alongOtherM))
-                    {
-                        continue;
-                    }
-
                     kept = Ranked(
-                        into, kept, new SplineCrossing(onePieceM + alongOneM, otherPieceM + alongOtherM),
+                        into, kept, new SplineCrossing(onePieceM + alongOneM[at], otherPieceM + alongOtherM[at]),
                         nearOneM, nearOtherM);
                 }
 
@@ -525,15 +517,39 @@ internal static class Spline
     /// bend it is out by centimetres, which is a corner that does not close.
     /// </remarks>
     public static int CrossingsOf(
-        in ArcSeg one, in ArcSeg other, float beyondM, Span<float> alongOneM, Span<float> alongOtherM)
+        in ArcSeg one, in ArcSeg other, float beyondM, Span<float> alongOneM, Span<float> alongOtherM) =>
+        AlongBoth(one, other, beyondM, beyondM, beyondM, beyondM, alongOneM, alongOtherM);
+
+    /// <summary>
+    /// <b>Where two pieces' circles or lines meet, as the distance along each</b> — every meeting both of
+    /// them reach, each run on behind and past itself by the figures given.
+    /// </summary>
+    /// <remarks>
+    /// <b>Solved about the first piece's own start where a float is coarser than a millimetre</b>
+    /// (<see cref="LineTolerance.Coarseness"/>). A distance along a piece is the same number in any frame,
+    /// but the point the two meet at is not: read at a town's far edge it is rounded to two millimetres
+    /// before either piece is asked where it stands, and two pieces cut there stop that far apart. Moved to
+    /// the piece's start, the two starts differ exactly and everything after is arithmetic on metres.
+    /// </remarks>
+    static int AlongBoth(
+        in ArcSeg one, in ArcSeg other, float oneBehindM, float onePastM, float otherBehindM, float otherPastM,
+        Span<float> alongOneM, Span<float> alongOtherM)
     {
+        if (LineTolerance.Coarseness(one.StartM) > 1f)
+        {
+            var originM = one.StartM;
+            return AlongBoth(
+                one with { StartM = Vector2.Zero }, other with { StartM = other.StartM - originM }, oneBehindM,
+                onePastM, otherBehindM, otherPastM, alongOneM, alongOtherM);
+        }
+
         Span<Vector2> atM = stackalloc Vector2[2];
         var found = CrossingsOf(one, other, atM);
         var kept = 0;
         for (var at = 0; at < found && kept < alongOneM.Length && kept < alongOtherM.Length; at++)
         {
-            if (!AlongOf(one, atM[at], beyondM, beyondM, out var alongOne)) continue;
-            if (!AlongOf(other, atM[at], beyondM, beyondM, out var alongOther)) continue;
+            if (!AlongOf(one, atM[at], oneBehindM, onePastM, out var alongOne)) continue;
+            if (!AlongOf(other, atM[at], otherBehindM, otherPastM, out var alongOther)) continue;
 
             alongOneM[kept] = alongOne;
             alongOtherM[kept] = alongOther;
@@ -833,6 +849,49 @@ internal static class Spline
         return written + Straight(cursorM, pointsM[^1], into[written..]);
     }
 
+    /// <summary>
+    /// <b>A polyline laid as straights, with every corner it turns at rounded at one radius</b> — or, where the
+    /// two legs either side have no room for it, at the widest the shorter leg's half affords. A leg is one
+    /// straight however many places along it the line passes, so a point a leg merely runs through is no
+    /// corner and costs nothing.
+    /// </summary>
+    /// <remarks>
+    /// Whether a cramped corner came out at a radius anything can hold is the caller's to ask; this lays
+    /// what the legs have room for. At most <c>2·points − 3</c> pieces.
+    /// </remarks>
+    public static int RoundedInto(ReadOnlySpan<Vector2> pointsM, float radiusM, Span<ArcSeg> into)
+    {
+        var written = 0;
+        var cursorM = pointsM[0];
+
+        for (var corner = 1; corner < pointsM.Length - 1; corner++)
+        {
+            var arriving = pointsM[corner] - pointsM[corner - 1];
+            var leaving = pointsM[corner + 1] - pointsM[corner];
+            var arrivingM = arriving.Length();
+            var leavingM = leaving.Length();
+            if (arrivingM < 1e-4f || leavingM < 1e-4f) continue;
+
+            arriving /= arrivingM;
+            leaving /= leavingM;
+            var turnRad = MathF.Atan2(Cross(arriving, leaving), Vector2.Dot(arriving, leaving));
+            if (MathF.Abs(turnRad) < 1e-4f) continue;
+
+            var halfTurnTan = MathF.Tan(MathF.Abs(turnRad) * 0.5f);
+            var reachM = MathF.Min(radiusM * halfTurnTan, MathF.Min(arrivingM, leavingM) * 0.5f);
+            var cornerRadiusM = reachM / halfTurnTan;
+            var enterM = pointsM[corner] - arriving * reachM;
+
+            written += Straight(cursorM, enterM, into[written..]);
+            into[written++] = new ArcSeg(
+                enterM, MathF.Atan2(arriving.Y, arriving.X), cornerRadiusM * MathF.Abs(turnRad),
+                MathF.Sign(turnRad) / cornerRadiusM);
+            cursorM = pointsM[corner] + leaving * reachM;
+        }
+
+        return written + Straight(cursorM, pointsM[^1], into[written..]);
+    }
+
     static int Straight(Vector2 fromM, Vector2 toM, Span<ArcSeg> into)
     {
         var run = toM - fromM;
@@ -926,16 +985,15 @@ internal static class Spline
         Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, float radiusM,
         Span<ArcSeg> into)
     {
-        var turnRad = WrapRad(toHeadingRad - fromHeadingRad);
-        var apart = MathF.Sin(turnRad);
-        if (MathF.Abs(apart) < 1e-4f) return 0;
+        if (!ToTheCorner(fromM, fromHeadingRad, toM, toHeadingRad, out var turnRad, out var beforeM, out var afterM))
+        {
+            return 0;
+        }
 
         var from = Heading.Unit(fromHeadingRad);
-        var to = Heading.Unit(toHeadingRad);
-        var chord = toM - fromM;
         var tangentM = radiusM * MathF.Abs(MathF.Tan(turnRad * 0.5f));
-        var beforeM = (((chord.X * to.Y) - (chord.Y * to.X)) / apart) - tangentM;
-        var afterM = (((chord.Y * from.X) - (chord.X * from.Y)) / apart) - tangentM;
+        beforeM -= tangentM;
+        afterM -= tangentM;
         if (beforeM < -LineTolerance.RoundingM || afterM < -LineTolerance.RoundingM) return 0;
 
         var laid = 0;
@@ -951,6 +1009,40 @@ internal static class Spline
         if (afterM > LineTolerance.RoundingM) into[laid++] = new ArcSeg(arc.EndM, toHeadingRad, afterM, 0f);
 
         return laid;
+    }
+
+    /// <summary>
+    /// <b>The widest circle <see cref="StraightArcStraightInto"/> fits between two poses</b>: the one whose
+    /// tangent length is the nearer pose's own distance from the corner their two lines make — nought where
+    /// the lines are parallel or facing, or either pose stands past that corner.
+    /// </summary>
+    public static float WidestTurnM(Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad)
+    {
+        if (!ToTheCorner(fromM, fromHeadingRad, toM, toHeadingRad, out var turnRad, out var beforeM, out var afterM))
+        {
+            return 0f;
+        }
+
+        return MathF.Max(0f, MathF.Min(beforeM, afterM)) / MathF.Abs(MathF.Tan(turnRad * 0.5f));
+    }
+
+    /// <summary>
+    /// The turn between two poses and where the point their two lines cross stands — how far ahead of the
+    /// first, and how far behind the second — or false where the lines are parallel or facing.
+    /// </summary>
+    static bool ToTheCorner(
+        Vector2 fromM, float fromHeadingRad, Vector2 toM, float toHeadingRad, out float turnRad,
+        out float fromCornerM, out float cornerToM)
+    {
+        turnRad = WrapRad(toHeadingRad - fromHeadingRad);
+        fromCornerM = cornerToM = 0f;
+        var apart = MathF.Sin(turnRad);
+        if (MathF.Abs(apart) < 1e-4f) return false;
+
+        var chord = toM - fromM;
+        fromCornerM = Cross(chord, Heading.Unit(toHeadingRad)) / apart;
+        cornerToM = Cross(Heading.Unit(fromHeadingRad), chord) / apart;
+        return true;
     }
 
     /// <summary>

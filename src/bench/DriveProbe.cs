@@ -33,36 +33,39 @@ internal static class DriveProbe
 
     public const int MeasuredTicks = 1800;
 
-    public static void Run(SimConfig config)
+    /// <param name="map">One map to drive, or every shipped one where none is named.</param>
+    public static void Run(SimConfig config, string? map = null)
     {
         Console.WriteLine($"drive probe — {WarmupTicks} warm-up ticks, {MeasuredTicks} measured, {config.Solver.VelocityIterations} solver iterations");
         Console.WriteLine(
             $"{"map",-10}{"cars",6}{"driven",8}{"lanes",7}{"mean m/s",10}{"top m/s",9}{"off-line m",12}{"worst m",9}{"stopped",9}{"off road",10}" +
-            $"{"corner",8}{"line end",10}{"headway",9}{"granted",9}{"waiting",9}{"crossing",10}{"place",11}{"lost",7}" +
-            $"{"covered m",11}{"stuck",7}{"arrived",9}");
+            $"{"corner",8}{"line end",10}{"granted",9}{"waiting",9}{"place",11}{"lost",7}" +
+            $"{"covered m",11}{"stuck",7}{"arrived",9}{"hard",7}{"passes",10}");
 
-        foreach (var map in Maps.Shipped())
+        foreach (var name in map is null ? Maps.Shipped() : [map])
         {
-            var sample = Sample(map, config);
+            var sample = Sample(name, config);
             Console.WriteLine(
-                $"{map,-10}{sample.Cars,6}{sample.Driven,8}{sample.Lanes,7}{sample.MeanSpeedMps,10:F2}{sample.TopSpeedMps,9:F2}" +
+                $"{name,-10}{sample.Cars,6}{sample.Driven,8}{sample.Lanes,7}{sample.MeanSpeedMps,10:F2}{sample.TopSpeedMps,9:F2}" +
                 $"{sample.MeanOffLineM,12:F3}{sample.WorstOffLineM,9:F2}" +
                 $"{sample.StoppedShare,9:P0}{sample.OffRoadShare,10:P0}" +
                 $"{sample.Held(DrivingHold.Corner),8:P0}{sample.Held(DrivingHold.LineEnd),10:P0}" +
-                $"{sample.Held(DrivingHold.Headway),9:P0}{sample.Held(DrivingHold.Claimed),9:P0}" +
+                $"{sample.Held(DrivingHold.Claimed),9:P0}" +
                 $"{sample.Held(DrivingHold.Waiting),9:P0}" +
-                $"{sample.Held(DrivingHold.Crossing),10:P0}{sample.Held(DrivingHold.Place),11:P0}" +
-                $"{sample.Held(DrivingHold.LostLine),7:P0}{sample.CoveredM,11:F0}{sample.WentNowhere,7}{sample.Arrived,9}");
+                $"{sample.Held(DrivingHold.Place),11:P0}" +
+                $"{sample.Held(DrivingHold.LostLine),7:P0}{sample.CoveredM,11:F0}{sample.WentNowhere,7}{sample.Arrived,9}" +
+                $"{sample.HardBrakings,7}{$"{sample.PassesMade}/{sample.PassesAsked}",10}");
         }
 
         Console.WriteLine(
             $"A lane's own half-width is {config.LaneOffsetM:F2} m: a car holding its line to well inside that is a car in its lane.");
+        Console.WriteLine("passes: made/asked over the lane beside (CAR-46) — asked and not made were withdrawn or are under way.");
     }
 
     public readonly record struct DriveSample(
         int Cars, int Driven, int Lanes, double MeanSpeedMps, double TopSpeedMps, double MeanOffLineM, double WorstOffLineM,
         double StoppedShare, double OffRoadShare, long[] Holds, long Samples, double CoveredM, int WentNowhere,
-        long Arrived)
+        long Arrived, long HardBrakings, long PassesAsked, long PassesMade)
     {
         /// <summary>The share of car-ticks this was the term that decided the speed.</summary>
         public double Held(DrivingHold hold) => Samples == 0 ? 0 : Holds[(int)hold] / (double)Samples;
@@ -88,6 +91,9 @@ internal static class DriveProbe
 
         var cars = world.Cars;
         var arrivedBefore = world.BaysParkedIn;
+        var hardBefore = world.HardBrakings;
+        var askedBefore = world.PassesAsked;
+        var madeBefore = world.PassesMade;
         var samples = 0L;
         var stopped = 0L;
         var offRoad = 0L;
@@ -145,6 +151,7 @@ internal static class DriveProbe
             cars.Count, DrivenCount(cars), world.Roads.LaneCount, speedSum / per, topMps, offLineSum / per, worstOffLineM,
             stopped / (double)per, offRoad / (double)per, holds, samples,
             DrivenCount(cars) == 0 ? 0 : coveredSum / DrivenCount(cars), wentNowhere,
-            world.BaysParkedIn - arrivedBefore);
+            world.BaysParkedIn - arrivedBefore, world.HardBrakings - hardBefore,
+            world.PassesAsked - askedBefore, world.PassesMade - madeBefore);
     }
 }

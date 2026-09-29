@@ -28,7 +28,14 @@ namespace TrafficSimulation.World.Physics;
 /// <b>A set spread wider than <see cref="MostCells"/> is kept in a window that size about its middle</b>,
 /// and whatever stands past it is filed in the rim: every box query still finds it, since a box past the
 /// rim reads the rim. A segment is walked over the window alone, so a cast wholly outside it finds nothing —
-/// which only a body flung kilometres out of the town can meet.
+/// which, in a town the window covers, only a body flung kilometres out of it can meet.
+/// </para>
+/// <para>
+/// <b>The rim is correct and not cheap.</b> A rim cell holds everything in its row or column past the
+/// window, so the bodies there are each other's candidates and the broad phase is quadratic in what one row
+/// of the outskirts holds. The window is 2 048 cells a side — sixteen kilometres at the main level, whose
+/// cell is four car widths — so a town wider than that pays it every tick, in the moving set and the static
+/// one alike. No shipped town is that wide.
 /// </para>
 /// </remarks>
 internal sealed class CellGrid

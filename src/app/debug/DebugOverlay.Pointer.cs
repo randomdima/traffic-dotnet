@@ -317,10 +317,10 @@ internal sealed partial class DebugOverlay
         // The follower's own figures, the ring and the bar the route is drawn with.
         var context = cars.Context[car];
         line = card.Next();
-        line.Add("ahead ");
-        if (float.IsFinite(context.HeadwayM))
+        line.Add("granted ");
+        if (float.IsFinite(context.AuthorityM))
         {
-            line.Add(context.HeadwayM, "F1");
+            line.Add(context.AuthorityM, "F1");
             line.Add(" m from the nose");
         }
         else
@@ -330,11 +330,11 @@ internal sealed partial class DebugOverlay
 
         card.Keep(in line);
 
-        if (float.IsFinite(context.StopAtM))
+        if (float.IsFinite(cars.LightAheadM[car]))
         {
             line = card.Next();
-            line.Add("stop in ");
-            line.Add(context.StopAtM, "F1");
+            line.Add("light in ");
+            line.Add(cars.LightAheadM[car], "F1");
             line.Add(" m");
             card.Keep(in line);
         }
@@ -490,7 +490,7 @@ internal sealed partial class DebugOverlay
             if (claim.Occupant == LaneOccupancy.Nobody) line.Add("furniture");
             else
             {
-                line.Add(claim.Of == LaneRoster.Driving ? "car " : "walker ");
+                line.Add(RosterWords[(int)claim.Of]);
                 line.Add(claim.Occupant);
             }
 
@@ -522,7 +522,10 @@ internal sealed partial class DebugOverlay
     /// enum's own names</b>: those are written for code and cost a string each time one is asked for.
     /// </summary>
     static readonly string[] PriorityWords =
-        ["body", "committed", "special", "closed", "crossing", "firm straight", "firm", "firm across"];
+        ["body", "committed", "special", "closed", "light", "crossing", "firm straight", "firm", "firm across"];
+
+    /// <summary>What an occupant of each roster is called on a card, by <see cref="LaneRoster"/>.</summary>
+    static readonly string[] RosterWords = ["car ", "walker ", "light "];
 
     /// <summary>
     /// Room for a town this size, and the widest band in it — both taken once, because a town is laid

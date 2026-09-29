@@ -219,7 +219,6 @@ public class ConnectionPointTests
             },
             bare.JunctionCorners,
             new CityPlan.RoundaboutArrays { RingOffsets = [0, nodes], Road = road },
-            bare.Crosswalks,
-            bare.StopLines);
+            bare.Crosswalks);
     }
 }

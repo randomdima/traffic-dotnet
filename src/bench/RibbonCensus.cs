@@ -7,9 +7,9 @@ namespace TrafficSimulation.Bench;
 
 /// <summary>
 /// <b>What the ribbon atlas came out as</b> (TER-4c.4, TER-5c): how much ground it files, which ways it
-/// marks as sharing ground and how many, and the three readings a mark table is judged by — movements that
-/// share ground with every other movement of their junction, opposing straights that were linked, and the
-/// town's furniture standing on a driven ribbon.
+/// marks as sharing ground and how many, and the four readings a mark table is judged by — movements that
+/// share ground with every other movement of their junction, opposing straights that were linked, the walk
+/// off the paint sharing the traffic's ground, and the town's furniture standing on a driven ribbon.
 /// </summary>
 internal static class RibbonCensus
 {
@@ -63,6 +63,7 @@ internal static class RibbonCensus
         }
 
         Movements(world);
+        Console.WriteLine($"  walk off the paint on the traffic's ground: {OffThePaint(world)} pairs (WLK-16)");
         Furniture(world, plan);
         Console.WriteLine();
     }
@@ -130,6 +131,27 @@ internal static class RibbonCensus
                           $"of their junction's others on average; {shutAll} linked to every other, " +
                           $"{shutOthers} to every one from another arm");
         Console.WriteLine($"  opposing straights {opposing}, {opposingLinked} of them linked");
+    }
+
+    /// <summary>
+    /// How many pairs of a walked way and a driven one share ground anywhere but on a zebra's paint — nought in
+    /// a town whose walk keeps off its road (WLK-16).
+    /// </summary>
+    static int OffThePaint(TownWorld world)
+    {
+        var ways = world.Ways;
+        var pairs = 0;
+        for (var way = ways.FirstFootwayWay; way < ways.Count; way++)
+        {
+            if (world.IsTheCrossing(way)) continue;
+
+            foreach (var mark in world.Atlas.Marks.Of(way))
+            {
+                if (ways.IsDriven(mark.OnWay)) pairs++;
+            }
+        }
+
+        return pairs;
     }
 
     static bool Linked(WayCrossings marks, int one, int other)

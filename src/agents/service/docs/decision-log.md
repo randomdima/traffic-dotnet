@@ -1,5 +1,16 @@
 # The service vehicles — decision log
 
+## 2026-09-28 — a closure is placed like a light's hold
+
+**The closure was a second plan laid after every car's**, taken over the lane round the scene, never settled
+again, and found by a nearest-lane search every rebuild. It is now placed before any plan as a secondary claim
+on that lane alone (SRV-6, TER-5c.1), the stretch found once when the closure begins: the plans on the lane
+are answered against it like against a red, what beats it — a call, a car that cannot stop — goes through,
+and it follows no mark, so somebody on a zebra over a closed street still crosses it.
+
+**What an ambulance stops at is where it was sent** (AMB-10): the standoff is worked out when the call is
+taken, and the profile no longer reads the casualty's pose and searches for the lane under it every tick.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.

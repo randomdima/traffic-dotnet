@@ -23,10 +23,9 @@ namespace TrafficSimulation.Agents.Person.Body;
 /// decision end up describing two different instants.
 /// </para>
 /// <para>
-/// <b>Nothing here is a grant</b> (PER-26). A walker holds the ground it stands on and states the ground
-/// it is walking at, and both of those live on the ways rather than in this roster — so there is no
-/// distance in front of a body for two readers to disagree about, and no field that has to be cleared
-/// when a walk ends.
+/// <b>The ground is not kept here</b> (PER-26). A walker holds the ground it stands on and plans the ground in
+/// front of it, and both of those live on the ways rather than in this roster; what comes back to it is one
+/// distance, <see cref="GrantM"/>, written once a rebuild and read by everything that asks how far it may go.
 /// </para>
 /// </remarks>
 internal sealed class PersonFleet
@@ -36,6 +35,7 @@ internal sealed class PersonFleet
         Body = new BodyId[capacity];
         PositionM = new Vector2[capacity];
         VelocityMps = new Vector2[capacity];
+        DeclaredMps = new Vector2[capacity];
         HeadingRad = new float[capacity];
         DestinationM = new Vector2[capacity];
         Walking = new bool[capacity];
@@ -58,10 +58,9 @@ internal sealed class PersonFleet
         OffWayM = new float[capacity];
         OnCrossing = new int[capacity];
         Array.Fill(OnCrossing, NoCrossing);
-        OnCrossingWay = new int[capacity];
-        Array.Fill(OnCrossingWay, NoWay);
         GrantM = new float[capacity];
         Array.Fill(GrantM, float.PositiveInfinity);
+        Pass = new Sidestep[capacity];
         GoalM = new Vector2[capacity];
         Stage = new TripStage[capacity];
         DestinationBuilding = new int[capacity];
@@ -99,6 +98,17 @@ internal sealed class PersonFleet
     public Vector2[] PositionM { get; }
 
     public Vector2[] VelocityMps { get; }
+
+    /// <summary>
+    /// <b>The velocity this walker last declared</b> — its own, as against <see cref="VelocityMps"/>, which is
+    /// what the solver made of it. The difference is what a contact did to the body, and the feet take that
+    /// back only at their grip (<see cref="Control.WalkerFollower"/>, PER-3).
+    /// </summary>
+    /// <remarks>
+    /// <b>Zero wherever the body is set down or stopped by anything but its feet</b> — made, put out of a door,
+    /// knocked over: left at a walk, it reads as a shove the feet spend four ticks taking back.
+    /// </remarks>
+    public Vector2[] DeclaredMps { get; }
 
     /// <summary>Intent, not solver output: rotation is locked, so this is set by code and read by what draws.</summary>
     public float[] HeadingRad { get; }
@@ -158,30 +168,16 @@ internal sealed class PersonFleet
     public float[] OffWayM { get; }
 
     /// <summary>
-    /// <b>The crossing this walk is on or is arriving at</b>, or −1 where it is neither: the crossing the
-    /// way being walked is part of, and otherwise the one the next way of the chain is, from a stop short
-    /// of it. <b>Written where the way is</b>, so that what a walker is doing is one reading and not a walk
-    /// of the route by everybody who wants to know.
+    /// <b>The crossing this walker is on or is held off</b>, or −1 where it is neither. <b>Written with the
+    /// grant</b>, so that what a walker is doing is one reading and not a walk of the route by everybody who
+    /// wants to know.
     /// </summary>
     /// <remarks>
-    /// <b>It is what a walker wants of a zebra and not where its feet are</b> (PER-27): a crossing of this
-    /// town runs kerb to kerb, so a body that is on one is already in the road and anything it asked for
-    /// there it would have to ask standing on the carriageway.
+    /// <b>It is what the walker is said to be doing and nothing reads it to decide anything</b>: which zebra a
+    /// walker may have is the reservations' (PER-27), and this is what they did to it read out — the paint its
+    /// route is on, or the paint its plan was refused on while it stands.
     /// </remarks>
     public int[] OnCrossing { get; }
-
-    /// <summary>
-    /// <b>The one stretch of paint that crossing is walked on</b>, as the walking network numbers its lanes,
-    /// or <see cref="NoWay"/> where there is no crossing — the way of <see cref="OnCrossing"/> this body is
-    /// on, and where it is still at the kerb the way it is about to step onto.
-    /// </summary>
-    /// <remarks>
-    /// <b>A zebra is walked one way at a time</b> (PER-27, WLK-15): its two lanes are the two directions
-    /// over the same carriageway, and what a walker reserves is the one it is taking. Written where
-    /// <see cref="OnCrossing"/> is, off the same reading of the route (SIM-7), so nothing walks the chain
-    /// again to recover which direction a crossing was being taken in.
-    /// </remarks>
-    public int[] OnCrossingWay { get; }
 
     /// <summary>
     /// <b>How far down its walk this walker was granted room to stop</b> (PER-26): its plan as it survived
@@ -189,10 +185,16 @@ internal sealed class PersonFleet
     /// nothing cut it. <b>A walker's counterpart of a driver's grant</b>, and what it walks to.
     /// </summary>
     /// <remarks>
-    /// <b>A walker refused a crossing stands at the kerb</b> (PER-27): its plan runs to the far kerb or none,
-    /// so a crossing the traffic has leaves it nothing past the near one.
+    /// <b>A walker refused a crossing stands at the kerb</b> (PER-27): what the traffic holds of a zebra it
+    /// holds of the whole of both its lanes, so a walker is refused it where the paint begins.
     /// </remarks>
     public float[] GrantM { get; }
+
+    /// <summary>
+    /// The pass this walker is getting past somebody on (PER-28), or <see cref="Sidestep.None"/>. <b>The
+    /// walker's own and read by nobody else</b>: what the town sees of it is the ground it covers (TER-4c.6).
+    /// </summary>
+    public Sidestep[] Pass { get; }
 
     /// <summary>
     /// PER-9's own state: what this person is doing about the trip they are on. <b>Observable</b> — it
@@ -251,14 +253,12 @@ internal sealed class PersonFleet
 
     /// <summary>
     /// <b>CAR-13: this one does not keep the courtesies</b> — drawn once when the person is made and true
-    /// for the rest of the run. What it changes is what they do about a red and about somebody waiting at
-    /// a kerb, and it changes nothing at all until they take a wheel.
+    /// for the rest of the run. It changes nothing while a red is a light's hold on the road rather than a
+    /// courtesy (CAR-13.1), and nothing at all until they take a wheel.
     /// </summary>
     /// <remarks>
     /// <b>It is a fact about the person and not about the car</b>, because it is the driver who does or
-    /// does not stop: the same hatchback is driven past a red by one owner and held at it by the next, and
-    /// a flag on the car would make it the paintwork's habit. The road reads it through whoever has the
-    /// wheel (<c>TownWorld.Crossings.cs</c>), so there is one copy of it and nothing to keep in step.
+    /// does not keep a courtesy, and a flag on the car would make it the paintwork's habit.
     /// </remarks>
     /// <seealso cref="DrawsReckless"/>
     public bool[] Reckless { get; }
@@ -303,6 +303,7 @@ internal sealed class PersonFleet
         Body[person] = body;
         PositionM[person] = positionM;
         VelocityMps[person] = Vector2.Zero;
+        DeclaredMps[person] = Vector2.Zero;
         HeadingRad[person] = headingRad;
         DestinationM[person] = positionM;
         Walking[person] = false;
@@ -323,8 +324,8 @@ internal sealed class PersonFleet
         OnWayM[person] = 0f;
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
-        OnCrossingWay[person] = NoWay;
         GrantM[person] = float.PositiveInfinity;
+        Pass[person] = Sidestep.None;
         Stage[person] = TripStage.StandingBy;
         DestinationBuilding[person] = NoBuilding;
         TimerS[person] = 0f;
@@ -386,6 +387,8 @@ internal sealed class PersonFleet
 
     public void ClearRoute(int person)
     {
+        // A pass is a stretch of the route it was asked for on, and goes with it (PER-28).
+        Pass[person] = Sidestep.None;
         RouteCount[person] = 0;
         RouteTaken[person] = 0;
         RouteRunsOut[person] = false;
@@ -394,7 +397,6 @@ internal sealed class PersonFleet
         OnWayM[person] = 0f;
         OffWayM[person] = 0f;
         OnCrossing[person] = NoCrossing;
-        OnCrossingWay[person] = NoWay;
         GrantM[person] = float.PositiveInfinity;
     }
 }

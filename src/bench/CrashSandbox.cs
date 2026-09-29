@@ -200,9 +200,11 @@ internal sealed class CrashSandbox : ISimWorld, IDamageRoster, IDisposable
             if (!People.Wounded[person]) continue;
 
             var positionM = People.PositionM[person];
-            _impulseNs[person] = WalkerFollower.Step(
-                _config, People.HeadingRad[person], positionM, People.VelocityMps[person], positionM, moving: false,
-                onFeet: false, People.MassKg[person], dtS).ImpulseNs;
+            var step = WalkerFollower.Step(
+                _config, People.HeadingRad[person], positionM, People.VelocityMps[person], People.DeclaredMps[person],
+                positionM, moving: false, onFeet: false, People.MassKg[person], dtS);
+            People.DeclaredMps[person] = step.DesiredMps;
+            _impulseNs[person] = step.ImpulseNs;
         }
 
         Span<Vector2> atM = stackalloc Vector2[TyreModel.Wheels];

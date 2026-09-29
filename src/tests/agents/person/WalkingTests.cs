@@ -326,10 +326,39 @@ public class WalkingTests
     }
 
     /// <summary>
-    /// <b>PER-27: a walker walking a crossing plans it to the far kerb.</b> The paint in front of the body on
-    /// the stretch it is taking, and a secondary claim over the section of every lane that paint lies over, are
-    /// this walker's at the paint's rung — the far kerb spoken for from the moment the walk is on the zebra,
-    /// and not only the metre under the feet.
+    /// <b>PER-27: a walker plans every way at one rung</b> — the pavement as much as the paint, so what the
+    /// traffic gives it on a zebra is the ladder's doing and not a rung of the zebra's own.
+    /// </summary>
+    [Fact]
+    public void AWalkerPlansEveryWayAtOneRung()
+    {
+        using var world = Walking(out _);
+
+        var claims = new LaneClaim[MostClaimsOnAWay];
+        var planned = 0;
+        for (var way = 0; way < world.Occupancy.WayCount; way++)
+        {
+            var count = world.Occupancy.CopyPlannedTo(way, claims);
+            for (var at = 0; at < count; at++)
+            {
+                ref readonly var claim = ref claims[at];
+                if (claim.Of != LaneRoster.Walking) continue;
+
+                planned++;
+                Assert.True(
+                    claim.Priority == ClaimPriority.Afoot,
+                    $"walker {claim.Occupant} plans {claim.FromM:0.00}–{claim.ToM:0.00} m of way {way} at"
+                    + $" p{(byte)claim.Priority} rather than p{(byte)ClaimPriority.Afoot}");
+            }
+        }
+
+        Assert.True(planned > 0, "no walker of the town planned anything, so nothing was asked");
+    }
+
+    /// <summary>
+    /// <b>PER-27: a walker on a zebra holds every lane under it, whole</b> (TER-5c.3). Its plan over the paint
+    /// it is walking places a secondary claim at a walker's rung over the whole of what the zebra covers of
+    /// each lane — the lanes it has crossed and the ones it has still to cross alike.
     /// </summary>
     /// <remarks>
     /// <b>Stood on the paint by hand</b>, because no walk a town lays takes a zebra yet
@@ -337,7 +366,7 @@ public class WalkingTests
     /// claims, and a case that waited for the router to offer a crossing would be asking about the router.
     /// </remarks>
     [Fact]
-    public void AWalkerWalkingACrossingReservesIt()
+    public void AWalkerOnAZebraHoldsEveryLaneUnderItWhole()
     {
         using var world = Walking(out var afoot);
 
@@ -346,19 +375,9 @@ public class WalkingTests
 
         var person = afoot[0];
         var way = world.Ways.OfFootway(edge);
-        var lengthM = world.Ways.LengthM(way);
-        WalkTheCrossing(world, person, edge, lengthM * 0.5f);
+        WalkTheCrossing(world, person, edge, world.Ways.LengthM(way) * 0.5f);
 
-        Assert.True(
-            Holds(world, way, person, ClaimPriority.Crossing, lengthM * 0.75f),
-            $"walker {person} is half way over crossing way {way} and has not planned the rest of it");
-
-        // And the carriageway it has still to cross, which is where the traffic meets the plan at all: the
-        // last lane under the paint, the one a walker half way over has not reached.
-        var lane = world.Ways.OfRoadLane(world.Bands.On(edge)[^1].Lane);
-        Assert.True(
-            ClaimsOf(world, lane, person, ClaimPriority.Crossing).Count > 0,
-            $"walker {person} walks crossing way {way} and holds no secondary claim on lane way {lane} under it");
+        HoldsTheZebraWhole(world, person, way);
     }
 
     /// <summary>
@@ -380,7 +399,7 @@ public class WalkingTests
         Assert.True(edge >= 0, "the town painted no zebra with a lane under it");
 
         var back = TheWalkBackOver(world, edge);
-        Assert.True(back >= 0, $"the town walks crossing {world.Bands.CrossingOf(edge)} one way only");
+        Assert.True(back >= 0, $"the town walks crossing {world.CrossingEdges.CrossingOf(edge)} one way only");
 
         var person = afoot[0];
         var way = world.Ways.OfFootway(edge);
@@ -394,46 +413,53 @@ public class WalkingTests
     }
 
     /// <summary>
-    /// <b>PER-27: a walker at a kerb stands off a crossing the traffic has.</b> The crossing is the far kerb
-    /// or none, and a wheeled body on the paint is ground the walk cannot be had over — so a walker still on
-    /// the corner is granted nothing past it and does not step out.
+    /// <b>PER-27: a walker holds a zebra from the kerb</b>, before it is in the road. Its plan reaches the paint
+    /// from a stop short of it, and a metre of the paint holds every lane under the zebra whole (TER-5c.3).
     /// </summary>
     /// <remarks>
-    /// <b>Asked of a crossing nothing is on</b>, so that the clear answer is the case's own construction
-    /// and the taken one is the car it stands there. Both are asserted, because an answer that is always
-    /// "wait" would pass a case that only asked the second.
+    /// <b>Asked of a crossing nothing is on</b>, so that nothing the traffic holds can be what the walker's
+    /// plan was answered at.
     /// </remarks>
     [Fact]
-    public void AWalkerAtAKerbStandsOffACrossingTheTrafficHas()
+    public void AWalkerAtAKerbHoldsTheZebraBeforeSteppingOntoIt()
     {
         using var world = Walking(out var afoot);
-        Assert.True(world.Cars.Count > 0, "the town stood no car to put on a zebra");
         Assert.True(
             AQuietCrossing(world, out var edge, out var from),
             "the town painted no zebra nobody was on that a walk arrives at");
 
         var person = afoot[0];
         StandAtTheKerbOf(world, person, from, edge);
-        Assert.Equal(world.Bands.CrossingOf(edge), world.People.OnCrossing[person]);
-        Assert.True(
-            world.People.GrantM[person] > 0f,
-            $"walker {person} waits at the kerb of crossing {edge} with nothing on it");
 
-        // Square across the paint, which is how a car comes to be standing on one.
-        var way = world.Ways.OfFootway(edge);
-        var on = Spline.SampleAt(world.LineOfWay(way, out _), world.Ways.LengthM(way) * 0.5f);
-        var across = Heading.RightOf(on.Direction);
-        StandTheBodyAt(world, on.PositionM, MathF.Atan2(across.Y, across.X));
+        HoldsTheZebraWhole(world, person, world.Ways.OfFootway(edge));
+    }
 
-        Assert.True(
-            world.People.GrantM[person] <= 0f,
-            $"walker {person} is at the kerb of crossing {edge} with a car standing on it and is granted "
-            + $"{world.People.GrantM[person]:0.00} m — paint way {way} carries {WhatIsOn(world, way)}");
+    /// <summary>
+    /// Every lane under the zebra one way of paint belongs to, held by this walker at a walker's rung over the
+    /// whole of what the zebra covers of it.
+    /// </summary>
+    static void HoldsTheZebraWhole(TownWorld world, int person, int way)
+    {
+        foreach (var under in LanesUnder(world, way))
+        {
+            Assert.True(
+                ClaimsOf(world, under.OnWay, person, ClaimPriority.Afoot)
+                    .Exists(claim => claim.FromM <= under.FromM && claim.ToM >= under.ToM),
+                $"walker {person} plans paint way {way} and does not hold {under.FromM:0.00}–{under.ToM:0.00} m "
+                + $"of way {under.OnWay} under its zebra, which carries {WhatIsOn(world, under.OnWay)}");
+        }
+    }
 
-        // And the wait is the walk standing still: the body aims at its own feet, so nothing steps onto the
-        // paint while somebody else is on it.
-        world.RebuildProximityIndex();
-        Assert.Equal(world.People.PositionM[person], world.People.DestinationM[person]);
+    /// <summary>The marks one way of paint has with the ways the traffic drives under its zebra.</summary>
+    static List<CrossedSection> LanesUnder(TownWorld world, int way)
+    {
+        var found = new List<CrossedSection>();
+        foreach (var mark in world.Occupancy.Marks.Of(way))
+        {
+            if (world.Ways.IsDriven(mark.OnWay)) found.Add(mark);
+        }
+
+        return found;
     }
 
     /// <summary>
@@ -446,10 +472,13 @@ public class WalkingTests
         for (edge = 0; edge < world.Foot.EdgeCount; edge++)
         {
             if (world.Foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
-            if (world.Bands.On(edge).Length == 0 || !IsQuiet(world, world.Ways.OfFootway(edge))) continue;
+
+            var way = world.Ways.OfFootway(edge);
+            var under = LanesUnder(world, way);
+            if (under.Count == 0 || !IsQuiet(world, way)) continue;
 
             var quiet = true;
-            foreach (var band in world.Bands.On(edge)) quiet &= IsQuiet(world, world.Ways.OfRoadLane(band.Lane));
+            foreach (var lane in under) quiet &= IsQuiet(world, lane.OnWay);
             if (!quiet) continue;
 
             from = TheWalkOnto(world, edge);
@@ -531,17 +560,6 @@ public class WalkingTests
     /// </summary>
     const float AtTheKerbM = 0.1f;
 
-    /// <summary>A car of the fleet stood where it is asked for, going nowhere — a body and nothing else.</summary>
-    static void StandTheBodyAt(TownWorld world, Vector2 atM, float headingRad)
-    {
-        world.Cars.Driven[0] = false;
-        world.Cars.Broken[0] = true;
-        world.Cars.VelocityMps[0] = Vector2.Zero;
-        world.Cars.PositionM[0] = atM;
-        world.Cars.HeadingRad[0] = headingRad;
-        world.RebuildProximityIndex();
-    }
-
     /// <summary>
     /// One of the ways the town's zebras are walked, with a lane actually running under it, or <c>-1</c>
     /// where it painted none.
@@ -551,7 +569,7 @@ public class WalkingTests
         for (var edge = 0; edge < world.Foot.EdgeCount; edge++)
         {
             if (world.Foot.KindOf(edge) != FootEdgeKind.Crossing) continue;
-            if (world.Bands.On(edge).Length == 0) continue;
+            if (LanesUnder(world, world.Ways.OfFootway(edge)).Count == 0) continue;
 
             return edge;
         }
@@ -564,10 +582,10 @@ public class WalkingTests
     /// </summary>
     static int TheWalkBackOver(TownWorld world, int edge)
     {
-        var crossing = world.Bands.CrossingOf(edge);
+        var crossing = world.CrossingEdges.CrossingOf(edge);
         for (var other = 0; other < world.Foot.EdgeCount; other++)
         {
-            if (other != edge && world.Bands.CrossingOf(other) == crossing) return other;
+            if (other != edge && world.CrossingEdges.CrossingOf(other) == crossing) return other;
         }
 
         return -1;

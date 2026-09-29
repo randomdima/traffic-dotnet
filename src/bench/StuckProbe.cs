@@ -82,6 +82,10 @@ internal static class StuckProbe
         var biggestCrowdTick = 0;
         var biggestCrowdSays = new List<string>();
 
+        var carPassing = new bool[cars.Count];
+        var personPassing = new bool[people.Count];
+        var passesBegun = new List<string>();
+
         for (var car = 0; car < cars.Count; car++) carStillFromM[car] = cars.PositionM[car];
         for (var person = 0; person < people.Count; person++) personStillFromM[person] = people.PositionM[person];
 
@@ -91,6 +95,7 @@ internal static class StuckProbe
 
             for (var car = 0; car < cars.Count; car++)
             {
+                Began(cars.Pass[car].Begun, ref carPassing[car], "car", car, cars.PositionM[car], world, passesBegun);
                 if (!Watched(cars, car))
                 {
                     carStillTicks[car] = 0;
@@ -103,6 +108,9 @@ internal static class StuckProbe
 
             for (var person = 0; person < people.Count; person++)
             {
+                Began(
+                    people.Pass[person].Begun, ref personPassing[person], "walker", person, people.PositionM[person],
+                    world, passesBegun);
                 if (!Watched(people, person))
                 {
                     personStillTicks[person] = 0;
@@ -175,7 +183,10 @@ internal static class StuckProbe
         Console.WriteLine(
             $"plans: {world.PlansLaidAgain} laid again where what another came to moved their answer, " +
             $"{world.Unsettled} rebuilds left still moving");
-
+        Console.WriteLine(
+            $"passes: cars asked {world.PassesAsked}, withdrew {world.PassesWithdrawn}, made {world.PassesMade}; " +
+            $"walkers asked {world.SidestepsAsked}, withdrew {world.SidestepsWithdrawn}, made {world.SidestepsMade}");
+        if (passesBegun.Count > 0) Console.WriteLine($"  the first begun, to frame with --shot: {string.Join("; ", passesBegun)}");
         ReportCars(world, config, carStillTicks, carWorstTicks);
         ReportPeople(world, config, personStillTicks, personWorstTicks);
         ReportCrowds(world, config, inACrowdTicks, crowd, crowdSize, biggestCrowd, biggestCrowdTick, biggestCrowdSays);
@@ -183,6 +194,21 @@ internal static class StuckProbe
 
     /// <summary>No walker at all — what a search of the roster comes back with when it finds nobody.</summary>
     const int Nobody = -1;
+
+    /// <summary>How many passes begun are said by where and when — enough to pick one to look at, and no list.</summary>
+    const int PassesSaid = 6;
+
+    /// <summary>A pass (CAR-46, PER-28) written down where and when it began, while fewer than <see cref="PassesSaid"/> have been.</summary>
+    static void Began(
+        bool begun, ref bool wasBegun, string kind, int who, Vector2 atM, TownWorld world, List<string> into)
+    {
+        if (begun && !wasBegun && into.Count < PassesSaid)
+        {
+            into.Add($"{kind} {who} at {atM.X:F0}, {atM.Y:F0} at {world.ElapsedS:F1} s");
+        }
+
+        wasBegun = begun;
+    }
 
     /// <summary>One tick of one body: still while it has not left the spot the run of stillness began at.</summary>
     static void Step(Vector2 atM, ref Vector2 fromM, ref int stillTicks, ref int worstTicks)
@@ -259,10 +285,7 @@ internal static class StuckProbe
                 $"{cars.Reroutes[car]}, speed {cars.AlongMps[car]:F2} m/s, off-line {cars.OffLineM[car]:F2} m, " +
                 $"drivable ground {world.Terrain.At(rearAxleM).Drivable}");
             Console.WriteLine(
-                $"    grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]} {WhatHeld(world, world.DriveHold(car))}, headway " +
-                $"{cars.Context[car].HeadwayM:F2} m of {cars.Context[car].Ahead} at " +
-                $"{cars.Context[car].HeadwaySpeedMps:F2} m/s, stop at {cars.Context[car].StopAtM:F2} m, " +
-                $"crossing stop {cars.Context[car].CrossingStopM:F2} m");
+                $"    grant {cars.AuthorityM[car]:F2} m cut by {cars.GrantCutBy[car]} {WhatHeld(world, world.DriveHold(car))}");
             Console.WriteLine(
                 $"    line {cars.Line[car].ArcCount} arcs, progress {cars.ProgressM[car]:F1} m, lane " +
                 $"{cars.LaneOf(car)}, line way {cars.LineWay[car]}, plan {cars.ClaimFromM[car]:F1}–{cars.ClaimToM[car]:F1} m " +
@@ -476,7 +499,7 @@ internal static class StuckProbe
     /// <remarks>
     /// The car in front is found by the geometry rather than read off the claims, because the reading a driver
     /// acts on carries the distance and not whose it was. It is a probe's approximation and never a figure
-    /// anything drives on: the nearest body sitting within a stride of the gap the driver said it had.
+    /// anything drives on: the nearest body sitting within a stride of where the grant a body cut ended.
     /// </remarks>
     static void Cycles(TownWorld world, int[] stillTicks)
     {
@@ -488,7 +511,9 @@ internal static class StuckProbe
         {
             if (stillTicks[car] < StillTicks) continue;
 
-            var gapM = cars.Context[car].HeadwayM;
+            if (cars.GrantCutBy[car] is not (HeadwayKind.Queue or HeadwayKind.Obstruction)) continue;
+
+            var gapM = cars.AuthorityM[car];
             if (!float.IsFinite(gapM)) continue;
 
             var forward = new Vector2(MathF.Cos(cars.HeadingRad[car]), MathF.Sin(cars.HeadingRad[car]));

@@ -440,9 +440,9 @@ internal sealed partial class TownWorld
     /// <remarks>
     /// Nothing under the behaviour changes: what comes out is a <see cref="DriveCommand"/> exactly as
     /// the follower produces one, so the per-gear speed caps, the steering lock and the friction ellipse
-    /// all still bind. The junction is told, though — a hand-driven car still claims the box it is
-    /// entering, so the cars around it queue and give way as they would to any other, and a car driven
-    /// off its own line lets go, because a box held by somebody who has left is a bookkeeping jam.
+    /// all still bind. The traffic is told, though — a hand-driven car holds the road it can no longer stop
+    /// short of, straight ahead of it on whatever ways that crosses, so the cars around it give way to what
+    /// the hand cannot help as they would to any other car going in (<see cref="HoldWhatTheHandCannotStopShortOf"/>).
     /// </remarks>
     void HandDrive(int car, in CarPose pose)
     {
@@ -464,8 +464,8 @@ internal sealed partial class TownWorld
                 Cars.ProgressM[car] = progressM;
 
                 // Where the car stands against the junction ahead is still the town's to count — a red run
-                // under a hand is a red run — and what it would have told this car to do is discarded.
-                JunctionStopM(car, progressM, out _, out _);
+                // under a hand is a red run.
+                ReadTheBoxAhead(car, progressM, out _, out _);
             }
         }
 

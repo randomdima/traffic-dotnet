@@ -139,7 +139,7 @@ internal static class ThroughRoads
         // A piece on its own is the road it always was, offered again exactly as it stood — and its line is a
         // function of the link, so it comes back the line it had.
         var road = pieces.Count == 1 ? was[pieces[0]] : Merged(was, layout, pieces, nodes, start);
-        if (layout.Join(road.From, road.To, road.Class, road.Curvature, road.ThroughM) >= 0) return;
+        if (layout.Join(road.From, road.To, road.Class, road.Curvature, road.ThroughM, road.Straight) >= 0) return;
 
         if (pieces.Count == 1) return;
 
@@ -230,18 +230,32 @@ internal static class ThroughRoads
     /// points it goes through, and a curvature beside them would be a second answer.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>Every road runs both ways here</b>, so there is no traffic to carry over: which streets run one way
     /// is settled on the layout that stands, after this (<see cref="OneWayStreets"/>, GEN-18).
+    /// </para>
+    /// <para>
+    /// <b>It is laid the way most of its length was</b> (<see cref="LayoutEdge.Straight"/>), each piece
+    /// weighed by the chord between its own two nodes. Straight only where every piece was, a run the length
+    /// of a district's edge came out wandering however straight its district, the chance of it being the
+    /// share raised to the number of its pieces.
+    /// </para>
     /// </remarks>
     static LayoutEdge Merged(List<LayoutEdge> was, TownLayout layout, List<int> run, List<int> nodes, int start)
     {
         var throughM = new List<Vector2>();
         var roadClass = was[run[0]].Class;
+        var straightM = 0f;
+        var wanderingM = 0f;
         var at = start;
         for (var piece = 0; piece < run.Count; piece++)
         {
             var road = was[run[piece]];
             roadClass = Keeps(roadClass, road.Class);
+
+            var chordM = Vector2.Distance(layout.NodeM[road.From], layout.NodeM[road.To]);
+            if (road.Straight) straightM += chordM;
+            else wanderingM += chordM;
 
             if (road.From == at)
             {
@@ -259,6 +273,7 @@ internal static class ThroughRoads
             at = nodes[piece];
         }
 
-        return new LayoutEdge(start, nodes[^1], roadClass, 0f, RoadFlow.BothWays, [.. throughM]);
+        return new LayoutEdge(
+            start, nodes[^1], roadClass, 0f, RoadFlow.BothWays, [.. throughM], straightM > wanderingM);
     }
 }

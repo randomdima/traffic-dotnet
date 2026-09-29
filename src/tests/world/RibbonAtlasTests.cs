@@ -23,9 +23,15 @@ public class RibbonAtlasTests
     /// <summary>How near an end of a section has to come to where the two ribbons stop touching.</summary>
     const float ExactM = 1e-3f;
 
-    /// <summary>Ways laid from pieces, each at the same width.</summary>
+    /// <summary>Ways laid from pieces, each at the same width — every one of them driven and none of them paint, unless said.</summary>
     sealed class Lines(params ArcSeg[][] lines) : IRibbonLines
     {
+        /// <summary>The zebra each way paints, by way; a way past the end of it paints none.</summary>
+        public int[] Zebras { get; init; } = [];
+
+        /// <summary>Where the walked ways begin.</summary>
+        public int FirstWalked { get; init; } = int.MaxValue;
+
         public int WayCount => lines.Length;
 
         public ReadOnlySpan<ArcSeg> LineOf(int way, out float widthM)
@@ -33,6 +39,10 @@ public class RibbonAtlasTests
             widthM = WidthM;
             return lines[way];
         }
+
+        public int ZebraOf(int way) => way < Zebras.Length ? Zebras[way] : RibbonMarks.NoZebra;
+
+        public bool IsDriven(int way) => way < FirstWalked;
     }
 
     static ArcSeg[] Straight(Vector2 fromM, Vector2 toM)
@@ -125,6 +135,57 @@ public class RibbonAtlasTests
         Assert.Single(atlas.Marks.Of(0).ToArray());
         Assert.Equal(2, atlas.Marks.Of(1)[0].OnWay);
         Assert.Single(atlas.Marks.Of(1).ToArray());
+    }
+
+    /// <summary>
+    /// <b>A zebra is marked whole</b> (TER-5c.3): each of its two walking lanes, a band apart, against both
+    /// lanes of the carriageway — all of the walking lane against the whole of what the zebra covers of each
+    /// lane, from the near edge of the one to the far edge of the other.
+    /// </summary>
+    [Fact]
+    public void AZebrasWalkingLanesAndTheLanesUnderItAreMarkedWhole()
+    {
+        const float AtM = LengthM * 0.5f;
+        var lines = new Lines(
+            Straight(new Vector2(0f, 0f), new Vector2(LengthM, 0f)),
+            Straight(new Vector2(LengthM, EdgeToEdgeM), new Vector2(0f, EdgeToEdgeM)),
+            Straight(new Vector2(AtM, -WidthM), new Vector2(AtM, WidthM * 2f)),
+            Straight(new Vector2(AtM + EdgeToEdgeM, WidthM * 2f), new Vector2(AtM + EdgeToEdgeM, -WidthM)))
+        {
+            Zebras = [RibbonMarks.NoZebra, RibbonMarks.NoZebra, 0, 0], FirstWalked = 2,
+        };
+        var marks = RibbonAtlas.Lay(lines, Config.RibbonLevel, Config.RibbonTouchM).Marks;
+
+        var paintM = WidthM * 3f;
+        var nearM = AtM - (WidthM * 0.5f) + Config.RibbonTouchM;
+        var farM = AtM + EdgeToEdgeM + (WidthM * 0.5f) - Config.RibbonTouchM;
+        (float FromM, float ToM)[] under = [(nearM, farM), (LengthM - farM, LengthM - nearM)];
+
+        for (var lane = 0; lane < 2; lane++)
+        {
+            var sections = marks.Of(lane).ToArray();
+            Assert.Equal([2, 3], sections.Select(static section => section.OnWay));
+            foreach (var section in sections)
+            {
+                Assert.Equal(0f, section.FromM);
+                Assert.Equal(paintM, section.ToM, ExactM);
+                Assert.Equal(under[lane].FromM, section.MineFromM, ExactM);
+                Assert.Equal(under[lane].ToM, section.MineToM, ExactM);
+            }
+        }
+
+        for (var paint = 2; paint < 4; paint++)
+        {
+            var sections = marks.Of(paint).ToArray();
+            Assert.Equal([0, 1], sections.Select(static section => section.OnWay));
+            foreach (var section in sections)
+            {
+                Assert.Equal(0f, section.MineFromM);
+                Assert.Equal(paintM, section.MineToM, ExactM);
+                Assert.Equal(under[section.OnWay].FromM, section.FromM, ExactM);
+                Assert.Equal(under[section.OnWay].ToM, section.ToM, ExactM);
+            }
+        }
     }
 
     /// <summary>

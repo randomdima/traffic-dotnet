@@ -298,6 +298,19 @@ internal sealed class DrivingFigures
     public float GripMargin { get; init; } = 0.7f;
 
     /// <summary>
+    /// <b>The room a pass is asked for beyond the ground the car's body sweeps</b> (CAR-46), ahead and to either
+    /// side: what the car may stray off its steps, and what it passes settle towards it, between the tick it asks
+    /// and the pass's end.
+    /// </summary>
+    public float PassSpareM { get; init; } = 0.25f;
+
+    /// <summary>
+    /// <b>How much of its braking a car coming up to something it means to get past slows at</b> (CAR-46): gently,
+    /// so it arrives slower and the lane beside has longer to clear before it must stand.
+    /// </summary>
+    public float WaitingToPassBrakingShare { get; init; } = 0.3f;
+
+    /// <summary>
     /// The same share for braking, which is <b>the one thing a driver aims a whole manoeuvre at</b> and
     /// therefore the one it may spend nearly all of. A corner is held for as long as it lasts and the
     /// margin there is what covers a bump, a camber and the wheel still being turned; a stop is planned,
@@ -323,58 +336,21 @@ internal sealed class DrivingFigures
 
     /// <summary>
     /// <b>How much of the town does not keep the driver's courtesies</b> (CAR-13) — a habit drawn once per
-    /// person and true for the rest of the run, like the one above.
+    /// person and true for the rest of the run, like the one above. It drops nothing while a red is a light's
+    /// hold on the road rather than a courtesy (CAR-13.1).
     /// </summary>
-    /// <remarks>
-    /// <b>One in a hundred, which is a rate and not a flourish.</b> Below this a shipped map goes whole runs
-    /// without one of them meeting a red, and the behaviour is then something only a test has ever seen;
-    /// much above it the town stops reading as a town and starts reading as a demolition derby, and every
-    /// figure the soak reports is about the derby instead. What it buys at this rate is that the junctions
-    /// are occasionally wrong, which is what the rest of the road is built to survive.
-    /// </remarks>
     public float RecklessShare { get; init; } = 0.01f;
 
     /// <summary>
-    /// The clear ground a driver keeps between where it will have stopped and whatever it is stopping
-    /// behind, before the tail's share of it is taken (<see cref="TailMarginShare"/>). It is the whole of
-    /// the following distance at rest.
+    /// <b>How far short of the end of its grant a car comes to rest</b> (S-2a), whatever ended it — a queue, a
+    /// light's bar, a movement it gives way to, a zebra, somebody on foot. It is the whole of the following
+    /// distance at rest, and the one figure a car keeps off anything.
     /// </summary>
     /// <remarks>
-    /// <b>It sets the gap and never lowers the margin.</b> The ground a body keeps around itself is one
-    /// figure (<see cref="SimConfig.CarBodyMarginM"/>) and it answers a measured question as well as this
-    /// one: below a body's width the soak wrecks cars in junctions, so a fleet asked to queue closer than
-    /// that queues at the floor instead.
+    /// <b>The one exception is room to step out</b> (CAR-46): behind a body at rest that is going nowhere, a car
+    /// that could get past it stands where it could step out round it, which is further back than this.
     /// </remarks>
-    public float StandstillGapInCarLengths { get; init; } = 0.5f;
-
-    /// <summary>
-    /// What share of <see cref="SimConfig.CarBodyMarginM"/> a body's claim keeps <em>behind</em> its
-    /// tail. The margin in front is the whole of it; the tail carries this much of it.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is the one place the two ends of the margin are not the same figure</b>, and what it buys is the
-    /// road behind a car — a stretch begins here, so every metre of it is a metre the traffic behind is
-    /// queued out of. What it spends is the cover a one-dimensional reading owes at the end that
-    /// swings widest, and the soak is what prices it: at 1 Odesa runs a measured minute with nothing
-    /// wrecked, and anything under a body's width at the tail wrecks cars (`--bench soak`).
-    /// </remarks>
-    public float TailMarginShare { get; init; } = 0.6f;
-
-    /// <summary>
-    /// <b>The time a driver keeps between itself and whatever cut its grant short</b>, which with
-    /// <see cref="SimConfig.CarTailMarginM"/> is the whole of the following distance: the road a car is
-    /// granted inverts to the speed it may hold, and this is the lead that inversion is read at. The gap it
-    /// settles a queue at is <c>tail margin + v·this</c> whatever the braking figure is — the grip cancels,
-    /// because the car in front was credited with its own stopping distance out of the same arithmetic.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is a following time and not a reaction time, and the difference is the whole of fluency.</b>
-    /// Read at <see cref="SimConfig.CarReactionS"/> the equilibrium gap is a tenth of a second of travel —
-    /// arithmetically safe against a leader braking at the same rate and with nothing whatever left over,
-    /// so any leader that brakes harder than the follower planned for propagates as a stop the length of
-    /// the queue. A second of travel is what a queue that has to absorb one keeps.
-    /// </remarks>
-    public float FollowingHeadwayS { get; init; } = 1f;
+    public float StandOffM { get; init; } = 1.5f;
 
     /// <summary>
     /// <b>How long a driver means to hold the speed it is planning for</b> (TER-4c.1) — the middle term of
@@ -424,13 +400,6 @@ internal sealed class DrivingFigures
 
     /// <summary>The cap on how early the junction ahead is claimed, over and above being within stopping distance.</summary>
     public float JunctionClaimInCarLengths { get; init; } = 3f;
-
-    /// <summary>
-    /// How far short of a crossing's paint a yielding car comes to rest. Leaving the crossing clear is
-    /// the whole of the figure: stopping on the near edge is stopping where somebody has to walk round
-    /// the bonnet.
-    /// </summary>
-    public float CrossingStandOffInCarWidths { get; init; } = 0.5f;
 
     /// <summary>What the route prices are quoted in, and not any actual car's length.</summary>
     public float NominalCarLengthM { get; init; } = 4.5f;
@@ -502,10 +471,10 @@ internal sealed class PersonFigures
     public float MassKg { get; init; } = 80f;
 
     /// <summary>
-    /// <b>How much of its own diameter a body is allowed to take getting under way or coming to rest</b>,
-    /// which is what the foot grip is (<see cref="SimConfig.PersonFootGripMps2"/>). A fifth: a walker stops
-    /// well inside its own footprint, which is what makes a crowd on a pavement stop like people and not
-    /// like traffic.
+    /// <b>How much of its own diameter a body is carried by a shove at walking pace before its feet have
+    /// taken it back</b>, which is what the foot grip is (<see cref="SimConfig.PersonFootGripMps2"/>). A fifth:
+    /// a walker bumped is carried well inside its own footprint, which is what makes a crowd on a pavement
+    /// jostle like people and not like traffic. Its own stops and starts spend no grip (PER-3).
     /// </summary>
     public float StopsWithinDiameters { get; init; } = 0.2f;
 

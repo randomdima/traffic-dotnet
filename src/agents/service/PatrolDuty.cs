@@ -56,6 +56,10 @@ internal sealed class PatrolDuty
         Wreck = new int[cars];
         Array.Fill(Wreck, Nobody);
         ClosedForS = new float[cars];
+        ClosedWay = new int[cars];
+        Array.Fill(ClosedWay, Nobody);
+        ClosedFromM = new float[cars];
+        ClosedToM = new float[cars];
     }
 
     /// <summary>What this police car is doing. <see cref="PatrolStage.Standing"/> for every car that is not one.</summary>
@@ -95,6 +99,17 @@ internal sealed class PatrolDuty
     /// bounds a drive is the traffic and what bounds a closure is the town it is holding a lane out of.
     /// </summary>
     public float[] ClosedForS { get; }
+
+    /// <summary>
+    /// <b>The stretch of carriageway the closure holds</b> (SRV-6): the way and its metres, found once when the
+    /// closure begins — the scene does not move, so neither does the ground round it. <see cref="Nobody"/> where
+    /// the scene stands on no lane.
+    /// </summary>
+    public int[] ClosedWay { get; }
+
+    public float[] ClosedFromM { get; }
+
+    public float[] ClosedToM { get; }
 
     public const int NoBuilding = -1;
 

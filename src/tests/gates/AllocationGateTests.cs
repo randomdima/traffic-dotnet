@@ -157,15 +157,15 @@ public class AllocationGateTests
     /// what answers this is a town whose own traffic queues into itself — and <b>how many cars that takes is a
     /// reading of the town and moves when the town does</b>: the shared town's sixty touch nothing over five
     /// minutes, two hundred and forty touched several times until the one-way streets stopped taking the last
-    /// choice away from the junctions they arrive at (GEN-18), and four hundred touch several times over one
-    /// minute now.
+    /// choice away from the junctions they arrive at (GEN-18), and every lane's worth touched within half a
+    /// minute until the lights came back to hold most of its junctions (TLT-3) — it takes a minute now.
     /// </remarks>
     [Fact]
     public void ATownWithTrafficInItActuallyProducesContacts()
     {
         var config = SimConfig.Shipped();
         using var world = new TownWorld(Towns.LayFresh(Towns.Brief(Towns.CitySeed, cars: CrowdedCars)), config);
-        new SimLoop<TownWorld>(world, config).Advance(1_800);
+        new SimLoop<TownWorld>(world, config).Advance(3_600);
 
         Assert.True(world.Touches > 0);
     }

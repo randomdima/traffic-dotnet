@@ -51,6 +51,46 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>
+    /// <b>A car on the last lane of its line is going on down it until it is at the line's end</b> (TER-4c.2). A
+    /// line is laid a sight distance ahead, so on a long lane the lane under a car is often the last its line has
+    /// yet — and read as its line ending there, a queue on it was a car going nowhere to everybody behind.
+    /// </summary>
+    [Fact]
+    public void ACarOnTheLastLaneOfItsLineIsGoingOnDownIt()
+    {
+        var world = Run(Towns.City);
+        var cars = world.Cars;
+
+        Span<LaneClaim> bodies = stackalloc LaneClaim[64];
+        var read = 0;
+        for (var car = 0; car < cars.Count; car++)
+        {
+            var lanes = cars.Line[car].LaneCount;
+            if (lanes == 0 || cars.TailWayOf(car) != CarFleet.NoWay) continue;
+
+            // A car's length of line left past its nose, so the tick driven since the bodies were laid cannot
+            // have carried it to the end.
+            ref readonly var build = ref cars.BuildOf(car);
+            if (cars.Line[car].LengthM - cars.ProgressM[car] - build.NoseAheadOfAxleM < build.LengthM) continue;
+
+            var lastWay = world.Ways.OfRoadLane(cars.ChainOf(car)[lanes - 1]);
+            var count = world.Occupancy.CopyBodiesTo(lastWay, bodies);
+            for (var slot = 0; slot < count; slot++)
+            {
+                if (bodies[slot].Occupant != car || bodies[slot].Of != LaneRoster.Driving || !bodies[slot].OnItsLine) continue;
+
+                read++;
+                Assert.True(
+                    bodies[slot].Onward == LaneOccupancy.RunsOn,
+                    $"car {car} is on the last lane of its line with {cars.Line[car].LengthM - cars.ProgressM[car]:F1} m of "
+                    + $"it to run, and was laid going on to {bodies[slot].Onward}");
+            }
+        }
+
+        if (read == 0) Assert.Fail("the town had no car on the last lane of its line with the line running on");
+    }
+
+    /// <summary>
     /// <b>A body holds the ground it stands on whatever it is doing</b> (TER-4c.2) — including a car with a
     /// hand at its wheel, which is a driver by every field the fleet carries and is on no line the town laid.
     /// </summary>
@@ -67,11 +107,10 @@ public class LaneOccupancyInATownTests
             loop.Advance(1);
             for (var car = 0; car < world.Cars.Count && driver < 0; car++)
             {
-                if (!world.Cars.Driven[car] || world.Cars.Broken[car]) continue;
-                if (world.Cars.MovementWay[car] == CarFleet.NoWay || !world.Cars.InsideTheBox[car]) continue;
+                if (!world.Cars.Driven[car] || world.Cars.Broken[car] || !world.Cars.InsideTheBox[car]) continue;
 
-                driver = car;
-                box = world.Cars.MovementWay[car];
+                box = TheJoinItStandsOn(world, car);
+                if (box != CarFleet.NoWay) driver = car;
             }
         }
 
@@ -352,7 +391,8 @@ public class LaneOccupancyInATownTests
             ref readonly var build = ref world.Cars.BuildOf(car);
             var brakingMps2 = CarFollower.BrakingMps2(Config, build, world.Cars.GroundCoefficient[car]);
             var topMps = build.MaxSpeedMps;
-            var ceilingM = (topMps * Config.Driving.PlannedRunS) + (topMps * topMps / (2f * brakingMps2)) + build.BodyMarginM;
+            var ceilingM =
+                (topMps * Config.Driving.PlannedRunS) + (topMps * topMps / (2f * brakingMps2)) + Config.Driving.StandOffM;
 
             Assert.True(
                 plannedM <= ceilingM + Tolerance,
@@ -362,8 +402,9 @@ public class LaneOccupancyInATownTests
 
     /// <summary>
     /// <b>A car at rest plans no more than the room to pull away</b> (TER-5g): a reaction interval of its own
-    /// full throttle, a stop from there and the margin it keeps — so a queue waiting at a junction plans none
-    /// of the box it is waiting for.
+    /// full throttle, a stop from there and what it keeps off what cut it — its stand-off, or the room to step
+    /// out it keeps while it stands (CAR-46) — so a queue waiting at a junction plans none of the box it is
+    /// waiting for.
     /// </summary>
     [Theory]
     [MemberData(nameof(Maps))]
@@ -385,11 +426,12 @@ public class LaneOccupancyInATownTests
             var brakingMps2 = CarFollower.BrakingMps2(Config, build, world.Cars.GroundCoefficient[car]);
             var pulledToMps = MathF.Max(0f, askedAtMps) + (build.AccelerationMps2 * Config.CarReactionS);
             var roomM = (pulledToMps * Config.CarReactionS) + (pulledToMps * pulledToMps / (2f * brakingMps2))
-                        + build.BodyMarginM;
+                        + MathF.Max(Config.Driving.StandOffM, world.Cars.GrantMarginM[car]);
 
             Assert.True(
                 plannedM <= roomM + Tolerance,
-                $"{map}: car {car} is at rest and plans {plannedM:0.0} m of road, past the {roomM:0.0} m it needs to pull away");
+                $"{map}: car {car} is at rest and plans {plannedM:0.0} m of road, past the {roomM:0.0} m it needs to "
+                + "pull away");
         }
     }
 
@@ -414,9 +456,6 @@ public class LaneOccupancyInATownTests
             var alongMps = world.Cars.AlongMps[car];
             if (alongMps <= Config.Driving.StopSpeedMps + (build.AccelerationMps2 * Config.TickSeconds)) continue;
             if (world.Cars.PlannedMps[car] < alongMps) continue;
-
-            ref readonly var context = ref world.Cars.Context[car];
-            if (float.IsFinite(context.StopAtM) || float.IsFinite(context.CrossingStopM)) continue;
 
             Assert.True(
                 world.Cars.ClaimToM[car] > world.Cars.CommittedToM[car],
@@ -562,6 +601,17 @@ public class LaneOccupancyInATownTests
     }
 
     /// <summary>How much of one way a car's body covers, which for one body is one stretch (TER-5c.2).</summary>
+    /// <summary>A join of a box this car's body stands on, or <see cref="CarFleet.NoWay"/>.</summary>
+    static int TheJoinItStandsOn(TownWorld world, int car)
+    {
+        foreach (var way in world.Occupancy.OccupiedWays)
+        {
+            if (world.Ways.KindOf(way) == WayKind.Connector && LengthHeldOn(world, way, car) > 0f) return way;
+        }
+
+        return CarFleet.NoWay;
+    }
+
     static float LengthHeldOn(TownWorld world, int way, int car)
     {
         Span<LaneClaim> slots = stackalloc LaneClaim[64];

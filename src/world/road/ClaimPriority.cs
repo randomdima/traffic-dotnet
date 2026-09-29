@@ -21,9 +21,10 @@ namespace TrafficSimulation.World.Road;
 internal enum ClaimPriority : byte
 {
     /// <summary>
-    /// <b>p0 — a body</b>: the ground its collider stands on (TER-4c.2). Never compared, never cut and never
-    /// taken, and free to overlap another body's, because it is a record of where real things are rather
-    /// than of what anybody plans.
+    /// <b>p0 — a body</b>: the ground its collider stands on (TER-4c.2), and the ground a pass will cover
+    /// (TER-4c.6). Never compared, never cut and never taken, and free to overlap another body's, because it is a
+    /// record of where real things are — or will be, past the point of going back — rather than of what anybody
+    /// plans.
     /// </summary>
     Hard = 0,
 
@@ -44,21 +45,33 @@ internal enum ClaimPriority : byte
     Closed = 3,
 
     /// <summary>
-    /// <b>p4 — a crossing somebody on foot is walking</b> (PER-27): the paint to the far kerb, and through its
-    /// marks the lanes it is painted across. Above every movement the traffic makes and below a body that can
-    /// no longer stop.
+    /// <b>p4 — a light's hold</b> (TLT-1): the stretch past a bar on an approach that is not showing green,
+    /// and the paint of a crossing that is showing red. Above a walker and every movement, below a closure
+    /// and a call.
     /// </summary>
-    Crossing = 4,
-
-    /// <summary><b>p5 — a movement through a box that turns out of nobody's way</b> (TER-4a, TER-5e): straight on.</summary>
-    FirmStraight = 5,
+    Signal = 4,
 
     /// <summary>
-    /// <b>p6 — ordinary traffic</b>: the near-side turn, and every stretch of way a driver or a walker plans
-    /// that is not a movement through a box at all.
+    /// <b>p5 — somebody on foot</b> (PER-27): every way a walker plans, one rung above the strongest movement
+    /// the traffic makes and below a light's hold.
     /// </summary>
-    Firm = 6,
+    /// <remarks>
+    /// <b>Nothing here is about a zebra</b>: that the traffic gives way on the paint is this rung meeting a
+    /// car's plan through the marks the zebra is laid with (TER-5c.3), and the pavement a car's turn sweeps at a
+    /// corner is given up the same way. Ground a car can no longer stop short of is above it all the same
+    /// (TER-5e).
+    /// </remarks>
+    Afoot = 5,
 
-    /// <summary><b>p7 — the turn across the oncoming stream</b> (TER-4a): the weakest movement a box admits, because it is the last one there is (TER-5f).</summary>
-    FirmAcross = 7,
+    /// <summary><b>p6 — a movement through a box that turns out of nobody's way</b> (TER-4a, TER-5e): straight on.</summary>
+    FirmStraight = 6,
+
+    /// <summary>
+    /// <b>p7 — ordinary traffic</b>: the near-side turn, and every stretch of way a driver plans that is not a
+    /// movement through a box at all.
+    /// </summary>
+    Firm = 7,
+
+    /// <summary><b>p8 — the turn across the oncoming stream</b> (TER-4a): the weakest movement a box admits, because it is the last one there is (TER-5f).</summary>
+    FirmAcross = 8,
 }

@@ -447,16 +447,6 @@ internal sealed class ExamGround
         return (at.PositionM + Beside(travel), travel);
     }
 
-    /// <summary>How far along a road's corridor a point stands, measured out from one of its junctions' centres.</summary>
-    public float OutAlongM(int junction, int road, Vector2 pointM)
-    {
-        var laid = _roads[road];
-        var lengthM = Spline.TotalLengthM(laid.Corridor);
-        var alongM = Spline.ProjectM(laid.Corridor, pointM, lengthM * 0.5f, lengthM);
-        var intoM = laid.FromJunction == junction ? alongM : lengthM - alongM;
-        return intoM + _config.CityGen.ConnectionStandoffM;
-    }
-
     /// <summary>How wide a road is laid (GEN-15, TER-4d): one lane's width for every way it is driven.</summary>
     public float WidthM(in ExamRoad road) => RoadStage.WidthM(_config, road.Flow);
 

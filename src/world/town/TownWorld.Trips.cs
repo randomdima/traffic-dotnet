@@ -33,11 +33,7 @@ internal sealed partial class TownWorld
     /// <summary>`PER-11`'s patience, in dwells: well above one, so an ordinary turnover is always waited out.</summary>
     const float PlacePatienceInDwells = 3f;
 
-    /// <summary>Room for the proximity index's answer at an exit search. More than a doorway ever holds.</summary>
-    const int SpotsNearAWayOut = 64;
-
     readonly int[] _bayCandidates = new int[BaysConsideredPerLeg];
-    readonly int[] _spotNearby = new int[SpotsNearAWayOut];
 
     /// <summary>How many bays a search for one considers, nearest the place first. A bound on the work, not a preference.</summary>
     const int BaysConsideredPerLeg = 4;

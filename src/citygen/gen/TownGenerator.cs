@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using TrafficSimulation.Core.Config;
 using TrafficSimulation.Core.Geometry;
@@ -54,6 +55,7 @@ internal static class TownGenerator
     const ulong SpawnStream = 0x7370_6177_6E73_0000;
     const ulong CarParkStream = 0x6361_7270_6172_6B00;
     const ulong BuildingStream = 0x6275_696C_6469_6E67;
+    const ulong SignalStream = 0x7369_676E_616C_7300;
 
     /// <summary>Nothing has been refused yet when the layout is settled, so every corner is offered to the join (GEN-51).</summary>
     static readonly HashSet<Vector2> NothingHeld = [];
@@ -65,6 +67,14 @@ internal static class TownGenerator
     public static CityPlan Lay(TownBrief brief, SimConfig config, BuildingSizes sizes)
     {
         brief.Check(brief.Name);
+
+        var laidMs = new List<(string Stage, double Ms)>();
+        var stageAt = Stopwatch.GetTimestamp();
+        void Took(string stage)
+        {
+            laidMs.Add((stage, Stopwatch.GetElapsedTime(stageAt).TotalMilliseconds));
+            stageAt = Stopwatch.GetTimestamp();
+        }
 
         var worldSizeM = new Vector2(brief.WidthM, brief.HeightM);
         var claims = GenClaims.Over(config.Grid, worldSizeM, brief.CellSizeM);
@@ -81,9 +91,11 @@ internal static class TownGenerator
         var rules = new WaterRules(
             wet, config.Terrain.GroundStepM, water, config.CityGen.BridgeDeckLongestM,
             Lattice.CorridorM(config), (config.RoadWidthM * 0.5f) + config.PavementWidthM);
+        Took("water");
 
         var district = new Rng(brief.Seed, DistrictStream);
         var districts = Districts.Lay(brief, config, wet, water, ref district);
+        Took("districts");
 
         // Nothing shorter than the ground two junctions' own discs and corners take is a road at all.
         var shortestRoadM = Lattice.CorridorM(config) * 2f;
@@ -93,7 +105,7 @@ internal static class TownGenerator
         // afterwards: every road the layout holds is one that could be drawn where it stands.
         var shapes = new RoadLines(brief.Seed, config, districts, worldSizeM, rules);
         var layout = new TownLayout(
-            shortestRoadM, config.ArmsApartMinRad, config.CityGen.LocalityM, rules, shapes);
+            shortestRoadM, config.ArmsApartMinRad, config.CityGen.LocalityM, config.Grid.Main, rules, shapes);
         var marginM = MarginM(config);
 
         // <b>Every node the town will have is placed before its first road is laid</b>, which is what lets
@@ -102,39 +114,50 @@ internal static class TownGenerator
         // offered against ground an arterial holds is the one refused (GEN-49).
         var arterials = Arterials.Lay(layout, districts, brief, rules, shortestRoadM, marginM);
         var lattice = Lattice.Place(layout, districts, arterials, brief, wet, config, marginM);
+        Took("nodes");
 
         // <b>And the nodes are settled between the placing and the laying</b> (GEN-16): every cluster standing
         // inside a locality of itself is one junction before a single road is drawn, so nothing is merged
         // afterwards, no road is drawn twice, and the ground bound holds from the first of them (GEN-49).
         var moved = layout.SettleTheNodes();
+        Took("settle");
         arterials.TheNodesMoved(moved);
         arterials.Close(layout, rules);
         Lattice.Lay(layout, lattice, moved);
+        Took("streets");
 
         layout.KeepTheLargestComponent();
         layout.PruneTheDeadEnds();
+        Took("prune");
         ThroughRoads.Lay(layout, config);
+        Took("through");
         Roundabouts.Lay(layout, districts, rules, config, worldSizeM, marginM);
+        Took("roundabouts");
         OneWayStreets.Lay(layout, config);
+        Took("one-way");
 
         // <b>And the car parks are cut into what that leaves</b> (GEN-52, GEN-53), which is the last thing
         // done to a layout: a cut road's arms are its line's own, so nothing may be offered to the layout
         // after one (<see cref="CutJunctions"/>).
         var carPark = new Rng(brief.Seed, CarParkStream);
-        var carParks = CarParks.Lay(layout, brief, config, ref carPark);
+        var carParks = CarParks.Lay(layout, brief, config, districts.HubM, ref carPark);
+        Took("car parks");
 
-        var roads = RoadStage.Lay(layout, config, carParks);
+        var signals = new Rng(brief.Seed, SignalStream);
+        var roads = RoadStage.Lay(layout, brief, config, carParks, ref signals);
+        Took("roads");
 
         var paved = bare.With(water.Rings).With(
-            roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Roundabouts, roads.Crosswalks,
-            roads.StopLines);
+            roads.Roads, roads.Bridges, roads.Junctions, roads.Corners, roads.Roundabouts, roads.Crosswalks);
 
         // <b>The boundary is settled once the roads are laid</b>, and nothing below adds driven ground — so
         // this is the boundary the finished map answers with, and the one everything left is cleared
         // against. It is also where the lanes come from: the stages below want the lines rather than the
         // records, and laying them twice would be two towns (TER-7).
         var paving = Paving.Lay(paved, config);
+        Took("paving");
         var streets = new GroundShapes(paving, config);
+        Took("ground");
 
         // <b>And the buildings stand against the boundary that settles</b> (GEN-54): every one of them off
         // the pavement's own outer face, the services first and each on the yard cut for it (GEN-55). It is
@@ -143,12 +166,15 @@ internal static class TownGenerator
         var buildings = BuildingStage.Lay(
             brief, carParks, roads.Roads, roads.Junctions.CentreM, paving, streets, claims, sizes, config,
             ref building);
+        Took("buildings");
 
         var prop = new Rng(brief.Seed, PropStream);
         var props = PropStage.Lay(brief, paving, streets, claims, config, ref prop);
+        Took("props");
 
         var spawn = new Rng(brief.Seed, SpawnStream);
         var spawns = SpawnStage.Lay(brief, paving, buildings, config, ref spawn);
+        Took("spawns");
 
         return new CityPlan
         {
@@ -168,7 +194,6 @@ internal static class TownGenerator
             },
             PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = roads.Crosswalks,
-            StopLines = roads.StopLines,
 
             // <b>No bay</b>: a car park is the junction its arms are cut as (GEN-53) and the spaces on them
             // are not laid, which is named in the known gaps rather than half-kept.
@@ -181,6 +206,7 @@ internal static class TownGenerator
             // The lanes, the movements and the ground the stages above stood on, handed over rather than
             // thrown away for whoever opens the town to lay again.
             PavingLaidWithIt = paving,
+            LaidMs = [.. laidMs],
         };
     }
 

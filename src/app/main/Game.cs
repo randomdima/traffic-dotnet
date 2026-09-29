@@ -516,6 +516,8 @@ internal sealed partial class Game : IDisposable
             if (_window.TakePress(Key.Number1)) _ui.Run.SetPace(1f);
             if (_window.TakePress(Key.Number2)) _ui.Run.SetPace(2f);
             if (_window.TakePress(Key.Number3)) _ui.Run.SetPace(3f);
+            if (_window.TakePress(Key.Number4)) _ui.Run.SetPace(4f);
+            if (_window.TakePress(Key.Number5)) _ui.Run.SetPace(5f);
             if (_window.TakePress(Key.Pause)) _ui.Run.AgentsHeld = !_ui.Run.AgentsHeld;
             if (_window.TakePress(Key.R)) _world!.ReleaseHands();
 

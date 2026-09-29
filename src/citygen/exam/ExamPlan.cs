@@ -15,17 +15,16 @@ namespace TrafficSimulation.CityGen.Exam;
 /// Odesa happens to hold; here it is a card, and the card says what the real rule makes of it.
 /// </para>
 /// <para>
-/// <b>The paint and the walk are the town's own</b>: the pavement is struck off the driven ground and the
-/// zebras are laid where three or more roads meet (TER-6, WLK-10), exactly as in a generated city. What the
-/// plan lays that a generated town does not is the <b>lights and their bars</b>, on the junctions whose cards
-/// are about lights — a town lays none of either (the known gaps), and a light with no bar is one nothing
-/// stops at (<c>LaneFurniture.StopBars</c> reads the plan's).
+/// <b>The paint, the bars and the walk are the town's own</b>: the pavement is struck off the driven ground,
+/// and the zebras and the bars behind them are laid where three or more roads meet (TER-6, WLK-10), exactly as
+/// in a generated city. <b>What the plan chooses is which junctions are lit</b> — the ones whose cards are
+/// about lights, and no other, where a generated town draws a share of them (TLT-3).
 /// </para>
 /// <para>
-/// <b>Laid in two passes because the paint is the pavement's.</b> Where a bar stands is behind the zebra on
-/// its arm and where somebody waits to cross is at that zebra's kerb, and both are read off the kerb ends the
-/// pavement comes out with (<see cref="KerbEnds"/>) — so the town is laid once without them, asked where its
-/// zebras are, and written again with the pavement it was asked of handed over whole.
+/// <b>Laid in two passes because the paint is the pavement's.</b> Where somebody waits to cross is at a
+/// zebra's kerb, which is read off the kerb ends the pavement comes out with (<see cref="KerbEnds"/>) — so the
+/// town is laid once without its people, asked where its zebras are, and written again with the pavement it
+/// was asked of handed over whole.
 /// </para>
 /// </remarks>
 internal static class ExamPlan
@@ -42,15 +41,12 @@ internal static class ExamPlan
     public static CityPlan Lay(SimConfig config)
     {
         var lattice = ExamLattice.Of(config);
-        var bare = Write(lattice, config, NoBars, NoSpawns, paving: null);
+        var bare = Write(lattice, config, NoSpawns, paving: null);
         var paving = bare.Paving(config);
-        var ends = paving.RoadEnds(config);
-        return Write(lattice, config, Bars(lattice, ends, config), Spawns(lattice, ends), paving);
+        return Write(lattice, config, Spawns(lattice, paving.RoadEnds(config)), paving);
     }
 
-    static CityPlan Write(
-        ExamLattice lattice, SimConfig config, CityPlan.StopLineArrays bars, CityPlan.SpawnArrays spawns,
-        Paving? paving)
+    static CityPlan Write(ExamLattice lattice, SimConfig config, CityPlan.SpawnArrays spawns, Paving? paving)
     {
         var ground = lattice.Ground;
         return new CityPlan
@@ -75,7 +71,6 @@ internal static class ExamPlan
             },
             PavedAreas = CityPlan.PavedAreaArrays.None,
             Crosswalks = new CityPlan.CrosswalkArrays { CentreM = [], Axis = [], DepthM = [], Road = [], Junction = [] },
-            StopLines = bars,
             ParkingLots = new CityPlan.ParkingLotArrays
             {
                 CentreM = [], Axis = [], HalfExtentM = [], SpaceOffsets = [0], SpacePositionM = [], SpaceHeadingRad = [],
@@ -132,76 +127,7 @@ internal static class ExamPlan
         };
     }
 
-    static CityPlan.StopLineArrays NoBars => new()
-    {
-        CentreM = [], Approach = [], SpanM = [], ThicknessM = [], Junction = [], Road = [],
-    };
-
     static CityPlan.SpawnArrays NoSpawns => new() { Kind = [], PositionM = [], HeadingRad = [] };
-
-    /// <summary>
-    /// <b>A bar across every lane arriving at a lit junction</b>, where the town would paint it (TER-6): a
-    /// setback clear of the near edge of the band the traffic is held behind at that arm
-    /// (<see cref="KerbEnds.HeldM"/>), so what a car stops at on a red is the paint it can see.
-    /// </summary>
-    /// <remarks>
-    /// The band's place along the arm, less half its depth, less the setback and half the bar, is where the bar
-    /// stands, in the lane arriving there. A zebra that was not painted (<see cref="KerbNodes.Painted"/>) is a
-    /// band of no depth, and the bar is held clear of the kerb end itself.
-    /// </remarks>
-    static CityPlan.StopLineArrays Bars(ExamLattice lattice, KerbEnds ends, SimConfig config)
-    {
-        var ground = lattice.Ground;
-        var centreM = new List<Vector2>();
-        var approach = new List<Vector2>();
-        var spanM = new List<float>();
-        var thicknessM = new List<float>();
-        var junction = new List<int>();
-        var road = new List<int>();
-
-        for (var cell = 0; cell < ground.Cells; cell++)
-        {
-            var node = ground.Node(cell);
-            if (node == ExamGround.NoRoad || !ground.Lit(node)) continue;
-
-            for (var arm = 0; arm < 4; arm++)
-            {
-                var on = ground.ArmRoad(cell, (ExamArm)arm);
-                if (on == ExamGround.NoRoad || !Arrives(ground.Roads[on], node)) continue;
-                if (!Held(ends, ground.Roads[on], on, node, out var held)) continue;
-
-                var depthM = held.Painted ? config.Road.CrossingDepthM : 0f;
-                var outM = ground.OutAlongM(node, on, (held.NearM + held.FarM) * 0.5f)
-                           + (depthM * 0.5f) + config.Road.StopBarSetbackM + (config.Road.StopBarThicknessM * 0.5f);
-                var (barM, travel) = ground.OnTheLane(node, on, outM, arriving: true);
-
-                centreM.Add(barM);
-                approach.Add(travel);
-                spanM.Add(config.LaneWidthM);
-                thicknessM.Add(config.Road.StopBarThicknessM);
-                junction.Add(node);
-                road.Add(on);
-            }
-        }
-
-        return new CityPlan.StopLineArrays
-        {
-            CentreM = [.. centreM], Approach = [.. approach], SpanM = [.. spanM], ThicknessM = [.. thicknessM],
-            Junction = [.. junction], Road = [.. road],
-        };
-    }
-
-    /// <summary>Whether traffic on a road can arrive at one of its two ends, which is its flow read from that end.</summary>
-    static bool Arrives(in ExamRoad road, int junction) => road.Flow switch
-    {
-        RoadFlow.WithTheRoad => road.ToJunction == junction,
-        RoadFlow.AgainstTheRoad => road.FromJunction == junction,
-        _ => true,
-    };
-
-    /// <summary>The station the traffic arriving at one end of a road is held behind (<see cref="KerbEnds.HeldM"/>).</summary>
-    static bool Held(KerbEnds ends, in ExamRoad laid, int road, int junction, out KerbNodes held) =>
-        Station(ends.HeldM, road, laid.ToJunction == junction, out held);
 
     /// <summary>
     /// The station at one end of one road, among the kerb ends' answers — which are named by the road and the

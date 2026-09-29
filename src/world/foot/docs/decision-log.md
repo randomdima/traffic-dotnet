@@ -4,6 +4,28 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-28 — a connection runs down its lane's course and turns about its own inside edge
+
+**The owner ruled that off the paint a walker is never on the traffic's ground** (WLK-16). A junction's
+connections were equal-tangent biarcs from the hand-over pose to the paint's, and the kerb-side lane's band
+lies flush on the kerb (WLK-1): the biarc's first arc, wider than half the band, swung the band's inside edge
+0.13 m over the kerb lane before its tight second arc brought it back. That is past the touch, so every such
+connection was marked against the kerb lane, and a car planning past a zebra held a walker still on the
+pavement, and the other way round — 43 marks on the fixture, 807 on Odesa, 842 on River, 957 on the scenario
+map. The marks were right; the line was not.
+
+- **One arc of at most half the band, taken off the course**: at that radius the inside edge stays on the
+  pivot, which on the kerb-side lane is a point of the boundary. A turn laid from the pose's own straight
+  instead left the lane's ground wherever the kerb turned a corner near the zebra.
+- **A slightly tighter arc where the paint stands a degree or two off square to the kerb**, since the arc
+  that wide would land a few centimetres past the mouth; a tighter one folds the edge back onto the walk.
+- **The old curve straight from the hand-over point, checked against the boundary**, only where no place
+  on the course turns that tight onto the paint: a course rounded well back from a tight corner with the
+  paint's line running along it. Refusing those cost 16 connections across the shipped maps; checked, none.
+
+Afterwards: no walked way off the paint marked against a driven one on any shipped map or the suite's own
+towns, no connection refused, and the walk laid in 180 ms on Odesa against 153.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.

@@ -159,9 +159,6 @@ internal enum ExamRule : byte
     /// they are, and they are on it before it is.
     /// </summary>
     ForWalker,
-
-    /// <summary>The subject never comes to rest on a zebra.</summary>
-    NotOnThePaint,
 }
 
 /// <summary>

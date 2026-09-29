@@ -130,25 +130,32 @@ public class ExamPlanTests
     }
 
     /// <summary>
-    /// <b>A lit junction holds every lane arriving at it at a bar</b> (TLT-1, TER-6). A lane with no bar is a
-    /// lane whose red nothing stops at, and a card about lights asked there would be about nothing.
+    /// <b>A lit junction holds every lane arriving at it at a bar</b> (TLT-1, TER-6). A light holds an approach
+    /// from its bar, so a lane with none is a lane whose red holds nothing, and a card about lights asked there
+    /// would be about nothing.
     /// </summary>
     [Fact]
     public void EveryLitJunctionHoldsEveryLaneArrivingAtItAtABar()
     {
         var plan = ExamPlan.Lay(Config);
         var roads = RoadGraph.Build(plan, Config);
+        var paving = plan.Paving(Config);
+        var bars = StopBars.Lay(paving.Lanes, Crossings.Lay(plan, Config, paving.RoadEnds(Config).HeldM), Config);
+        var barred = new bool[roads.LaneCount];
+        for (var bar = 0; bar < bars.Count; bar++) barred[bars.Lane[bar]] = true;
+
+        var lit = 0;
         for (var junction = 0; junction < plan.Junctions.Count; junction++)
         {
             if (!plan.Junctions.Lit[junction]) continue;
 
-            var bars = 0;
-            for (var bar = 0; bar < plan.StopLines.Count; bar++)
+            lit++;
+            foreach (var lane in roads.LanesIntoJunction(junction))
             {
-                if (plan.StopLines.Junction[bar] == junction) bars++;
+                Assert.True(barred[lane], $"lane {lane} arrives at lit junction {junction} with no bar to be held at");
             }
-
-            Assert.Equal(roads.LanesIntoJunction(junction).Length, bars);
         }
+
+        Assert.True(lit > 0, "the scenario map lights none of the junctions its cards about lights are staged at");
     }
 }

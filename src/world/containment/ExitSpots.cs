@@ -19,8 +19,14 @@ namespace TrafficSimulation.World.Containment;
 /// <para>
 /// <b>Nearest, by construction rather than by comparison.</b> The rings widen outward from the way out
 /// and the first spot that answers all three questions is taken, so nothing is scored and nothing is
-/// sorted. The three questions are the rule's own: is it on the map, is anything standing there, and is
-/// the body's own footprint clear of the town's furniture.
+/// sorted. The three questions are the rule's own: is it on the map, does anybody have it, and is the
+/// body's own footprint clear of the town's furniture.
+/// </para>
+/// <para>
+/// <b>Whether anybody has it is the town's to answer</b> (<see cref="IStandingGround"/>), which it does off its
+/// reservations: somebody standing there, or ground somebody can no longer stop short of. So a person is put
+/// down neither on top of a walker nor in front of a car that could not stop for them, and this slice never
+/// learns what an agent is.
 /// </para>
 /// <para>
 /// <b>The ground is not asked</b> (TER-2): what a person stands on is nothing to a person, and a spot on
@@ -33,27 +39,15 @@ internal static class ExitSpots
     const int PlacesPerRing = 8;
 
     /// <summary>
-    /// The standing bodies a spot has to be clear of, as the three columns this rule reads and no more.
-    /// <b>It is spans rather than the fleet itself</b> so that this slice stays a fact about containers:
-    /// what is standing about is the caller's to hand over, and a container never learns what an agent is.
-    /// </summary>
-    internal readonly ref struct Standing(
-        ReadOnlySpan<Vector2> atM, ReadOnlySpan<float> radiusM, ReadOnlySpan<Contained> inside)
-    {
-        public readonly ReadOnlySpan<Vector2> AtM = atM;
-        public readonly ReadOnlySpan<float> RadiusM = radiusM;
-        public readonly ReadOnlySpan<Contained> Inside = inside;
-    }
-
-    /// <summary>
     /// The nearest place a person may be put down outside <paramref name="wayOutM"/>, or false where
     /// there is none. <paramref name="towardsM"/> is where the ring starts from, so the first spot tried
     /// is the one the container faces.
     /// </summary>
     /// <param name="worldSizeM">The town's own box, which a spot has to be inside.</param>
-    public static bool TryFind(
-        SimConfig config, Vector2 worldSizeM, PhysicsWorld physics, BucketGrid nearby, Standing standing,
-        Vector2 wayOutM, Vector2 towardsM, Span<int> scratch, out Vector2 spotM)
+    public static bool TryFind<TGround>(
+        SimConfig config, Vector2 worldSizeM, PhysicsWorld physics, in TGround ground, Vector2 wayOutM,
+        Vector2 towardsM, out Vector2 spotM)
+        where TGround : struct, IStandingGround
     {
         var bodyM = config.PersonDiameterM;
         var reachM = config.PersonExitSearchRadiusM;
@@ -68,7 +62,7 @@ internal static class ExitSpots
                 // it, so "nearest" is nearest to the way the container faces as well as to the door.
                 var turnRad = firstRad + (place % 2 == 0 ? 1f : -1f) * ((place + 1) / 2) * (MathF.Tau / PlacesPerRing);
                 var atM = wayOutM + Heading.Unit(turnRad) * ringM;
-                if (!IsFree(config, worldSizeM, physics, nearby, standing, atM, scratch)) continue;
+                if (!IsFree(config, worldSizeM, physics, ground, atM)) continue;
 
                 spotM = atM;
                 return true;
@@ -79,34 +73,23 @@ internal static class ExitSpots
         return false;
     }
 
-    /// <summary>On the map, nobody standing on it, and nothing immovable inside the body's own footprint.</summary>
-    static bool IsFree(
-        SimConfig config, Vector2 worldSizeM, PhysicsWorld physics, BucketGrid nearby, Standing standing,
-        Vector2 atM, Span<int> scratch)
+    /// <summary>On the map, nobody having it, and nothing immovable inside the body's own footprint.</summary>
+    static bool IsFree<TGround>(SimConfig config, Vector2 worldSizeM, PhysicsWorld physics, in TGround ground, Vector2 atM)
+        where TGround : struct, IStandingGround
     {
         if (atM.X < 0f || atM.Y < 0f || atM.X >= worldSizeM.X || atM.Y >= worldSizeM.Y) return false;
 
-        var bodyM = config.PersonDiameterM;
-        var half = new Vector2(bodyM * 0.5f);
-        if (physics.StaticInBox(atM - half, atM + half)) return false;
-
-        var found = nearby.Query(atM, bodyM, scratch);
-        for (var slot = 0; slot < Math.Min(found, scratch.Length); slot++)
-        {
-            var person = scratch[slot];
-
-            // A contained person is not in the town (PHY-7), and its position is only where its
-            // container stands — so it can neither be stood on nor stand in anybody's way.
-            if (standing.Inside[person].Any) continue;
-            var clearM = (bodyM * 0.5f) + standing.RadiusM[person];
-            if ((standing.AtM[person] - atM).LengthSquared() < clearM * clearM)
-            {
-                return false;
-            }
-        }
-
-        // A superset that would not fit in the scratch has been read as a subset, and a place judged
-        // empty because the list was full is a body put down on top of somebody.
-        return found <= scratch.Length;
+        var halfM = config.PersonDiameterM * 0.5f;
+        var half = new Vector2(halfM);
+        return !physics.StaticInBox(atM - half, atM + half) && !ground.IsTaken(atM, halfM);
     }
+}
+
+/// <summary>
+/// <b>What a place to put a body down is asked of the town round it</b> (PHY-7a): whether anybody has the ground
+/// a disc there would stand on. The town answers it; a container never learns who.
+/// </summary>
+internal interface IStandingGround
+{
+    bool IsTaken(Vector2 atM, float radiusM);
 }

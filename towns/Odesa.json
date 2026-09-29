@@ -15,7 +15,7 @@
   "gridDistrictShare": 0.66,
   "bearingSpreadDeg": 35,
   "ringShare": 0.34,
-  "unregulatedJunctionShare": 0.15,
+  "unregulatedJunctionShare": 0.2,
   "cars": 520,
   "buildings": 2400,
   "people": 600

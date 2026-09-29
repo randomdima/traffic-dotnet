@@ -34,12 +34,14 @@ the service list. The rest of what it is made of is `SRV-3`.
 
 - **AMB-4.1** `P5` Every stretch of road it asks for is held at the call's own rung, so ground another
   movement has merely *claimed* is not ground it is refused by.
-- **AMB-4.2** `P5` A red light and a painted bar do not apply to it, and a red it crosses is not a violation.
+- **AMB-4.2** `P5` **A light's hold is below its rung** (TLT-1, TER-5g), so a red holds it nowhere, and a red it
+  crosses is not a violation.
 - **AMB-4.3** `P5` A body on the paint refuses it exactly as any other body does — which is the ladder's own
   answer (TER-5g) and not a courtesy this rule grants. **There is nothing else at a crossing for a blue
   light to outrank**, a walker being granted nothing of its own.
-- **AMB-4.4** `P5` It crosses the centreline to get past what is in front of it without first spending the
-  patience every other driver spends, and a queue counts as something to get past.
+- **AMB-4.4** `P5` It crosses the centreline to get past what stands in front of it as any car does
+  (CAR-46), which spends no patience first, and a queue making its own movement is no more something to get
+  past for it than for anybody: the ground it asks for past the queue is already at its rung (AMB-4.1).
 
 **AMB-4a** `P3` **The blue light buys the road and never the tyres.** A rescue keeps every constraint the
 speed profile already takes — the corners, the grip, the body in front, the hazard — and is held to a

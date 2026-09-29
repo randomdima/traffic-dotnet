@@ -238,7 +238,7 @@ internal static class ArcOutset
         var standing = ChainIndex.OfPieces(source, level);
         var (chains, loose) = ArcRings.Of(
             Uncovered(moved, ChainIndex.OfPieces(moved, level), source, standing, MathF.Abs(outwardM), outwardM),
-            grid, Grazed(outwardM));
+            grid, Grazed(outwardM, Furthest(source)));
 
         return (chains, loose);
     }
@@ -262,9 +262,23 @@ internal static class ArcOutset
     /// <b>It is the figure the walk may close across and never one anything is moved by</b> — the hole stays
     /// exactly as wide as it is, which is what a ring already does at every piece a cut passed over.
     /// </para>
+    /// <para>
+    /// <b>The fold is as deep as a float is coarse where the shape reaches</b> (<see cref="LineTolerance.At"/>):
+    /// a town beyond 8 192 m folds its lines through each other by the arithmetic's own error, and on one
+    /// thirty kilometres long the holes that left stood just past the centimetre's figure.
+    /// </para>
     /// </remarks>
-    static float Grazed(float outwardM) =>
-        MathF.Sqrt(2f * LineTolerance.JoinedM * MathF.Abs(outwardM)) + ArcRings.LeastLostM;
+    static float Grazed(float outwardM, Vector2 furthestM) =>
+        MathF.Sqrt(2f * LineTolerance.At(LineTolerance.JoinedM, furthestM) * MathF.Abs(outwardM)) + ArcRings.LeastLostM;
+
+    /// <summary>The corner of the pieces' box furthest from the origin, where a float is at its coarsest.</summary>
+    static Vector2 Furthest(ArcSeg[] pieces)
+    {
+        var furthestM = Vector2.Zero;
+        foreach (var piece in pieces) furthestM = Vector2.Max(furthestM, Vector2.Abs(piece.StartM));
+
+        return furthestM;
+    }
 
     /// <summary>
     /// <b>Every ring moved and its corners joined</b>, which is the offset before anything is asked about
@@ -423,7 +437,7 @@ internal static class ArcOutset
     {
         var runM = toM - fromM;
         var lengthM = runM.Length();
-        if (lengthM <= LineTolerance.RoundingM) return 0;
+        if (lengthM <= LineTolerance.At(LineTolerance.RoundingM, fromM)) return 0;
 
         into[0] = new ArcSeg(fromM, MathF.Atan2(runM.Y, runM.X), lengthM, 0f);
         return 1;
@@ -690,7 +704,7 @@ internal static class ArcOutset
         ArcSeg[] source, ChainIndex standing, Vector2 pointM, float keepM, float outwardM, int[] near,
         float[] alongM)
     {
-        var insideM = keepM - SlackM;
+        var insideM = keepM - LineTolerance.At(SlackM, pointM);
         var found = standing.Near(pointM, keepM, near, alongM);
         if (found > near.Length) found = near.Length;
 
@@ -699,7 +713,7 @@ internal static class ArcOutset
         {
             ref readonly var piece = ref source[near[at]];
             var atM = Math.Clamp(alongM[at], 0f, piece.LengthM);
-            var offM = Vector2.DistanceSquared(piece.PointAtM(atM), pointM);
+            var offM = FromThePlace(piece, atM, pointM).LengthSquared();
             if (offM < insideM * insideM) return true;
 
             nearestM = MathF.Min(nearestM, offM);
@@ -709,27 +723,37 @@ internal static class ArcOutset
 
         // Two pieces meeting at a corner compute the one point they share through their own arithmetic, so
         // what is one distance comes back as two that differ in the last bits of a float.
-        var tiedM = MathF.Sqrt(nearestM) + LineTolerance.RoundingM;
+        var tiedM = MathF.Sqrt(nearestM) + LineTolerance.At(LineTolerance.RoundingM, pointM);
         var sideM = 0f;
         for (var at = 0; at < found; at++)
         {
             ref readonly var piece = ref source[near[at]];
             var atM = Math.Clamp(alongM[at], 0f, piece.LengthM);
-            var ontoM = piece.PointAtM(atM);
-            if (Vector2.Distance(ontoM, pointM) > tiedM) continue;
+            var ontoM = FromThePlace(piece, atM, pointM);
+            if (ontoM.Length() > tiedM) continue;
 
-            sideM += Vector2.Dot(pointM - ontoM, Heading.RightOf(Heading.Unit(piece.HeadingAtRad(atM))));
+            sideM -= Vector2.Dot(ontoM, Heading.RightOf(Heading.Unit(piece.HeadingAtRad(atM))));
         }
 
         return sideM * outwardM > 0f;
     }
+
+    /// <summary>
+    /// <b>A place on a piece, from the place being weighed</b>: taken where it stands inside 8 192 m, and
+    /// off the piece's own start beyond it, where a place read in world coordinates is already rounded by
+    /// more than the test it is asked for (<see cref="LineTolerance.Coarseness"/>).
+    /// </summary>
+    static Vector2 FromThePlace(in ArcSeg piece, float atM, Vector2 pointM) =>
+        LineTolerance.Coarseness(pointM) > 1f
+            ? (piece.StartM - pointM) + piece.FromStartM(atM)
+            : piece.PointAtM(atM) - pointM;
 
     /// <summary>The straight across a gap, which is nothing at all unless there is one.</summary>
     static void Bridge(List<ArcSeg> run, Vector2 fromM, Vector2 toM)
     {
         var runM = toM - fromM;
         var lengthM = runM.Length();
-        if (lengthM <= LineTolerance.RoundingM) return;
+        if (lengthM <= LineTolerance.At(LineTolerance.RoundingM, fromM)) return;
 
         run.Add(new ArcSeg(fromM, MathF.Atan2(runM.Y, runM.X), lengthM, 0f));
     }

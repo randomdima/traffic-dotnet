@@ -29,8 +29,8 @@ namespace TrafficSimulation.World.Town;
 /// </para>
 /// <para>
 /// <b>The whole of what a blue light does to the road is elsewhere</b>, because it belongs to the road:
-/// the rung a plan is laid at (<see cref="RungOn"/>) and the red that stops applying
-/// (<see cref="SignalStopM"/>). What this file decides is only whether the light is on.
+/// the rung a plan is laid at (<see cref="RungOn"/>), which is also what takes it through a red — a light's
+/// hold is below it (TLT-1). What this file decides is only whether the light is on.
 /// </para>
 /// </remarks>
 internal sealed partial class TownWorld
@@ -225,10 +225,10 @@ internal sealed partial class TownWorld
         for (var person = 0; person < People.Count; person++)
         {
             if (!People.Wounded[person] || People.Inside[person].Any) continue;
-            if (IsSpokenFor(person)) continue;
 
+            // Whether a call is taken is a walk of the fleet, so only a body nearer than the best is asked it.
             var farM = (People.PositionM[person] - fromM).LengthSquared();
-            if (farM >= bestM) continue;
+            if (farM >= bestM || IsSpokenFor(person)) continue;
 
             best = person;
             bestM = farM;
@@ -574,12 +574,14 @@ internal sealed partial class TownWorld
         // <b>The place has to outlast the arrival</b>, as the recovery's does: a stop point that went away
         // the moment the ambulance reached it would let the vehicle roll off while the casualty was being
         // got aboard.
+        // Where it was sent, which is the standoff worked out when it was: a casualty lying in the road does not
+        // move, so neither does the place behind them.
         if (Cars.Ambulance[car] && IsAtOrOnItsWayToAScene(car))
         {
             var casualty = _duty.Casualty[car];
-            return casualty < 0 || People.Inside[casualty].Any
+            return casualty < 0 || People.Inside[casualty].Any || !Cars.HasDestination[car]
                 ? float.PositiveInfinity
-                : ToThePlaceOnTheLineM(car, TheStandoffM(car, casualty), _config.AmbulanceSceneReachM);
+                : ToThePlaceOnTheLineM(car, Cars.DestinationM[car], _config.AmbulanceSceneReachM);
         }
 
         // <b>And asked of a police car's scene</b> (SRV-6), which is the same place further back along the

@@ -6,32 +6,16 @@ using TrafficSimulation.Core.Geometry;
 namespace TrafficSimulation.Agents.Car.Control;
 
 /// <summary>
-/// What the driver found in front of it on the road it is driving: how far off it is <em>from the nose</em>,
-/// and how fast it is going along this car's own heading — the second of which is the whole difference
-/// between a queue that will move and an obstruction that will not.
+/// <b>What ended a car's grant</b> — the reservation its plan was refused at, named for whoever reads it out.
 /// </summary>
 /// <remarks>
-/// Both come out of the town's own claims, in the way's own metres. There is no ray behind it: everything
-/// that can be on a lane is a stretch of that lane, so the gap is a subtraction rather than a cast.
-/// </remarks>
-internal readonly record struct HeadwayReading(float DistanceM, float AlongMps)
-{
-    public static HeadwayReading Nothing => new(float.PositiveInfinity, 0f);
-
-    public bool Found => float.IsFinite(DistanceM);
-}
-
-/// <summary>
-/// <b>What the thing in front actually is</b>, which a ray cannot say and the lane index can: a shape at
-/// a distance is the same reading whether it is a driver waiting his turn or a wreck.
-/// </summary>
-/// <remarks>
-/// It is a reading and never a decision: everything in front is waited behind, and the leg's own clock
-/// is what eventually gets a car out from behind a queue that never moves (CAR-15).
+/// <b>It is a reading and never a decision</b>: the grant is a distance whatever cut it, and the car is driven
+/// to stop within it (S-2a). The leg's own clock is what eventually gets a car out from behind a queue that
+/// never moves (CAR-15), and it asks this whether the wait is a light's.
 /// </remarks>
 internal enum HeadwayKind : byte
 {
-    /// <summary>Nothing in front, or nothing near enough to read.</summary>
+    /// <summary>Nothing cut it.</summary>
     Nothing,
 
     /// <summary>
@@ -49,69 +33,57 @@ internal enum HeadwayKind : byte
 
     /// <summary>
     /// <b>Ground another holder plans to use</b> (TER-4c.1) — a movement this car gives way to, a bay being
-    /// backed out of, a closed road. A place and not a body, so it is stopped short of rather than followed,
-    /// and no station is kept behind it.
+    /// backed out of, a closed road.
     /// </summary>
     Claimed,
 
     /// <summary>
+    /// <b>A light's hold</b> (TLT-1): the stretch past a bar a light is not showing green at — a wait that
+    /// spends no clock, since the light changes on its own (TLT-2a).
+    /// </summary>
+    Light,
+
+    /// <summary>
     /// <b>A person standing in the lane</b> — on the paint or on bare carriageway, it is the same fact to a
-    /// driver, and the body's own reservation is what holds the traffic off it (PER-26, TER-4c.2) rather than
-    /// a rule of the paint's own.
+    /// driver, and the body's own reservation is what holds the traffic off it (PER-26, TER-4c.2).
     /// </summary>
     Walker,
 
     /// <summary>
-    /// Something the reservations do not account for. <b>No reading is this</b>: every body on a way is laid
-    /// there under the roster it is in, and names what it is.
+    /// <b>Somebody getting past something</b> (TER-4c.6): the ground an overtake will cover, which is held
+    /// like a body and is never itself something to get past.
     /// </summary>
-    Unknown,
+    Passing,
 }
 
 /// <summary>
-/// What the driver has been told about the world this tick, over and above the line it is driving:
-/// what is in front of it, how fast that is going, and where it must be stopped by.
+/// What the driver has been told about the world this tick, over and above the line it is driving: the
+/// ground under it, and the road it was granted.
 /// </summary>
-/// <param name="HeadwayM">From the nose to whatever is claimed in front, or <see cref="float.PositiveInfinity"/> for an empty road.</param>
-/// <param name="HeadwaySpeedMps">How fast that thing is going <em>along this car's heading</em> — the whole difference between a queue that will move and an obstruction that will not.</param>
-/// <param name="StopAtM">How far ahead along the line the car must be stopped: an unclaimed junction, a stop bar, a red light. Infinite where nothing stops it.</param>
 /// <param name="GroundCoefficient">What the surface under it is worth, which scales every grip figure the profile plans against.</param>
-/// <param name="CrossingStopM">Where a crossing says to stop short of its paint: a queue beyond it that would leave this car standing on it. Somebody on the paint has already cut the grant. Infinite where none does.</param>
-/// <param name="CrossingAtM">How far ahead the nearest paint within reach begins, and zero while the body is over it. Infinite where there is none within reach.</param>
-/// <param name="Ahead">What the thing <see cref="HeadwayM"/> is about actually is, which decides whether the way past it is round it.</param>
 /// <param name="AuthorityM">
-/// How far ahead of the nose the lane index cut this car's own ask short, or
-/// <see cref="float.PositiveInfinity"/> where nothing cut it — an empty road, or one the road has nothing
-/// to say about. <b>It is what makes a queue a queue</b>: no two grants
-/// overlap, so the car behind simply has less road to stop in.
+/// How far ahead of the nose the reservations cut this car's own plan short, or
+/// <see cref="float.PositiveInfinity"/> where nothing cut it. <b>It is the whole of following</b>: no two
+/// grants overlap, so the car behind simply has less road to stop in, and drives at what that road affords.
 /// </param>
-/// <param name="GrantCutBy">
-/// What cut it, which is what says whether the car is <em>following</em> something or merely stopping short
-/// of it. <see cref="HeadwayKind.Nothing"/> where nothing did.
-/// </param>
-/// <param name="FollowingShare">
-/// How much of the ordinary following interval this driver keeps (<see cref="CarFleet.FollowingShare"/>).
-/// <b>One for every car in every town</b>: it is the escort of a convoy, and nothing else, that keeps a
-/// gap other traffic would not.
-/// </param>
+/// <param name="GrantCutBy">What cut it — a reading for the words and the clock, and never a term of the speed.</param>
 /// <param name="PlaceStopM">
 /// How far ahead along the line the place this car was sent to stands — a casualty, a wreck, a scene, a
 /// place a hand named. Infinite for every car that is not on its way to one.
 /// </param>
+/// <param name="MarginM">
+/// The gap the grant was taken short of what cut it, so that <see cref="AuthorityM"/> and this together are
+/// the section the car holds.
+/// </param>
+/// <param name="WaitsToPass">Whether what cut it is something this car means to get past (CAR-46).</param>
 internal readonly record struct DriveContext(
-    float HeadwayM, float HeadwaySpeedMps, float StopAtM, float GroundCoefficient,
-    float CrossingStopM, float CrossingAtM, HeadwayKind Ahead = HeadwayKind.Nothing,
-    float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
-    float FollowingShare = 1f, float PlaceStopM = float.PositiveInfinity)
+    float GroundCoefficient, float AuthorityM = float.PositiveInfinity, HeadwayKind GrantCutBy = HeadwayKind.Nothing,
+    float PlaceStopM = float.PositiveInfinity, float MarginM = 0f, bool WaitsToPass = false)
 {
-    public DriveContext(float headwayM, float headwaySpeedMps, float stopAtM, float groundCoefficient)
-        : this(
-            headwayM, headwaySpeedMps, stopAtM, groundCoefficient, float.PositiveInfinity, float.PositiveInfinity)
-    {
-    }
+    public static DriveContext Clear => new(1f);
 
-    public static DriveContext Clear => new(
-        float.PositiveInfinity, 0f, float.PositiveInfinity, 1f, float.PositiveInfinity, float.PositiveInfinity);
+    /// <summary>How far ahead of the nose the section this car holds ends — where what cut it begins.</summary>
+    public float HeldM => AuthorityM + MarginM;
 }
 
 /// <summary>
@@ -130,22 +102,15 @@ internal enum DrivingHold : byte
     /// <summary>The end of the line it has been given.</summary>
     LineEnd,
 
-    /// <summary>The nearest body claimed on the line in front of it — a walker, a wreck, the car it is following.</summary>
-    Headway,
-
     /// <summary>
-    /// The ground it was granted to stop in has run out: somebody in front claimed the rest of it.
-    /// <b>This is what queueing is</b> — the whole of following, and a speed behaviour rather than a
-    /// decision. It binds where the grant says more than the nearest body does: road spoken for round a
-    /// bend, across a join, or by a car that is not on this line yet.
+    /// The ground it was granted to stop in has run out: somebody in front stands on or claimed the rest of
+    /// it. <b>This is what queueing is</b> — the whole of following, and a speed behaviour rather than a
+    /// decision.
     /// </summary>
     Claimed,
 
-    /// <summary>A junction it has not been given, a bar or a red.</summary>
+    /// <summary>A light holding the road in front of it (<see cref="HeadwayKind.Light"/>): the grant, cut at a bar.</summary>
     Waiting,
-
-    /// <summary>A crossing it would come to rest on: the paint ahead, with a queue beyond it (TER-5e).</summary>
-    Crossing,
 
     /// <summary>
     /// <b>The place this car was sent to</b> — a casualty, a wreck, a scene a police car is closing the
@@ -209,9 +174,15 @@ internal static class CarFollower
     public static float ProgressM(in CarBuild car, ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float lastProgressM) =>
         Spline.ProjectM(line, rearAxleM, lastProgressM, car.ProjectionWindowM);
 
-    /// <summary>How far off its own line the car is, which is what says whether it is still on it at all.</summary>
-    public static float OffLineM(ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float progressM) =>
-        (Spline.SampleAt(line, progressM).PositionM - rearAxleM).Length();
+    /// <summary>
+    /// How far off its own line the car is, which is what says whether it is still on it at all — measured to
+    /// where it is aimed across the line, <paramref name="asideM"/> to the right of it on a pass (CAR-46).
+    /// </summary>
+    public static float OffLineM(ReadOnlySpan<ArcSeg> line, Vector2 rearAxleM, float progressM, float asideM = 0f)
+    {
+        var on = Spline.SampleAt(line, progressM);
+        return (on.PositionM + (on.Right * asideM) - rearAxleM).Length();
+    }
 
     /// <summary>One tick of one driver: the line, what is on it, and what the body is doing, into one command.</summary>
     public static DriveDecision Step(
@@ -237,33 +208,120 @@ internal static class CarFollower
     /// </summary>
     public static float Steer(
         in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, Vector2 rearAxleM, Vector2 forward,
-        float lookaheadM)
-    {
-        var toLead = Spline.SampleAt(line, progressM + lookaheadM).PositionM - rearAxleM;
-        var reachM = toLead.Length();
-        if (reachM < 1e-3f) return 0f;
+        float lookaheadM) =>
+        SteerFor(car, PursuitBend(rearAxleM, forward, Spline.SampleAt(line, progressM + lookaheadM).PositionM));
 
-        // The circle through the axle, tangent to the heading, that passes through the lead point: its
-        // curvature is 2·sin α ⁄ reach, and the steering angle that holds it is what <em>this car's</em>
-        // wheelbase says — the same line asks a long car for more lock than a short one, and past the lock
-        // it is asking for a circle the car cannot hold at all (CAR-11).
-        var curvature = 2f * Spline.Cross(forward, toLead) / (reachM * reachM);
-        return Math.Clamp(MathF.Atan(curvature * car.WheelbaseM), -car.MaxSteerRad, car.MaxSteerRad);
+    /// <summary>
+    /// <b>The wheel on a pass</b> (CAR-46): turned for how the pass bends where the car is, and corrected by what
+    /// pure pursuit asks beyond that — its answer for where the car is less its answer for where the pass puts
+    /// it, which is nothing for a car on the pass.
+    /// </summary>
+    /// <remarks>
+    /// <b>Pursuit alone would cut every step</b>: it aims a lookahead ahead, so it turns into a step before the
+    /// step begins, and one drawn as short as the car can drive is one it would then need more than it has to get
+    /// back onto.
+    /// </remarks>
+    public static float SteerThePass(
+        in CarBuild car, ReadOnlySpan<ArcSeg> line, in Overtake pass, float progressM, Vector2 rearAxleM,
+        Vector2 forward, float lookaheadM)
+    {
+        pass.PoseAtM(line, progressM, out var drawnM, out var drawnForward);
+        pass.PoseAtM(line, progressM + lookaheadM, out var leadM, out _);
+
+        var curvature = pass.BendAtM(line, progressM)
+                        + PursuitBend(rearAxleM, forward, leadM) - PursuitBend(drawnM, drawnForward, leadM);
+        return SteerFor(car, curvature);
     }
 
     /// <summary>
-    /// <b>How far in front of itself the profile plans</b>: the staleness of the driver's own decision, and
-    /// the time the pedal takes to arrive at the rate that decision asked for.
+    /// <b>How a pass is drawn for a car doing this speed</b> (CAR-46): the speed its steps are drawn for, and the
+    /// shortest step that speed allows (<see cref="Overtake.ShortestStepM"/>) — false where the line under it
+    /// bends as tight as the lock on its own.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>Drawn for the speed the car is doing, and never slower than a step bent to the lock needs</b>: below
+    /// that the rack keeps up with a step at the lock whatever the pace, and a slower step is no shorter — so a
+    /// car getting past from a standstill is let up to that pace.
+    /// </para>
+    /// <para>
+    /// <b>The line's own bend is taken off what the step may bend</b>, so the two together never ask for more than
+    /// the lock or the tyres.
+    /// </para>
+    /// </remarks>
+    /// <param name="lineBend">The most the line under the pass bends, at the lane or the lane beside.</param>
+    public static bool ShapeAPass(
+        in CarBuild car, float speedMps, float asideM, float corneringMps2, float lineBend, out float stepM,
+        out float driveMps)
+    {
+        stepM = 0f;
+        driveMps = 0f;
+        var lockBend = (1f / car.TurningRadiusM) - lineBend;
+        if (lockBend <= 0f) return false;
+
+        var acrossM = MathF.Abs(asideM);
+        var atTheLockM = Overtake.ShortestStepM(acrossM, lockBend, float.PositiveInfinity);
+        var rackMps = atTheLockM * atTheLockM * atTheLockM * car.SteerRateRadPerS
+                      / (4f * MathF.PI * MathF.PI * acrossM * car.WheelbaseM);
+        var gripMps = MathF.Sqrt(corneringMps2 * car.TurningRadiusM);
+        driveMps = MathF.Max(speedMps, MathF.Min(rackMps, gripMps));
+
+        var mostBend = MathF.Min(lockBend, (corneringMps2 / (driveMps * driveMps)) - lineBend);
+        if (mostBend <= 0f) return false;
+
+        stepM = Overtake.ShortestStepM(acrossM, mostBend, car.SteerRateRadPerS / (driveMps * car.WheelbaseM));
+        return true;
+    }
+
+    /// <summary>What the car plans a corner to hold on the ground it is on: the tyres' grip, less the margin kept back.</summary>
+    public static float CorneringMps2(SimConfig config, in CarBuild car, float groundCoefficient) =>
+        car.GripMps2 * groundCoefficient * config.Driving.GripMargin;
+
+    /// <summary>
+    /// The circle through the axle, tangent to the heading, that passes through the lead point: its curvature is
+    /// 2·sin α ⁄ reach.
+    /// </summary>
+    static float PursuitBend(Vector2 rearAxleM, Vector2 forward, Vector2 leadM)
+    {
+        var toLead = leadM - rearAxleM;
+        var reachM = toLead.Length();
+        return reachM < 1e-3f ? 0f : 2f * Spline.Cross(forward, toLead) / (reachM * reachM);
+    }
+
+    /// <summary>
+    /// The steering angle that holds a curvature on <em>this car's</em> wheelbase — the same line asks a long car
+    /// for more lock than a short one, and past the lock it is asking for a circle the car cannot hold at all
+    /// (CAR-11).
+    /// </summary>
+    static float SteerFor(in CarBuild car, float curvature) =>
+        Math.Clamp(MathF.Atan(curvature * car.WheelbaseM), -car.MaxSteerRad, car.MaxSteerRad);
+
+    /// <summary>
+    /// <b>How far in front of itself the profile plans</b>: the staleness of the driver's own decision, and
+    /// the time the pedal takes to travel from where it is to the rate that decision asked for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
     /// <b>Both halves are delays and neither is a margin.</b> A pedal that travels rather than snapping
     /// (<see cref="SimConfig.CarPedalRateMps3"/>) reaches the planned rate after a ramp, and a car that
     /// planned as though it arrived at once brakes over less ground than it asked for and makes up the
     /// difference by braking harder than it planned. The ramp costs half of itself, which is the area a
     /// triangle of it has against the rectangle it is standing in.
+    /// </para>
+    /// <para>
+    /// <b>A pedal still on the throttle has that to come off first</b>, and the car goes on gaining speed while
+    /// it does: a release taking <c>t = p / r</c> costs <c>t (1 + p / 2b)</c> of lead. Left out, a car pulling
+    /// away hard towards a red began braking a metre late and was committed past the bar.
+    /// </para>
     /// </remarks>
-    public static float LeadS(SimConfig config, in CarBuild car, float brakingMps2) =>
-        config.CarReactionS + (brakingMps2 / (2f * car.PedalRateMps3));
+    /// <param name="throttleMps2">What the pedal is asking for now, throttle positive (<see cref="PedalMps2"/>).</param>
+    public static float LeadS(SimConfig config, in CarBuild car, float brakingMps2, float throttleMps2 = 0f)
+    {
+        var onMps2 = MathF.Max(0f, throttleMps2);
+        var releaseS = onMps2 / car.PedalRateMps3;
+        return config.CarReactionS + (brakingMps2 / (2f * car.PedalRateMps3))
+               + (releaseS * (1f + (onMps2 / (2f * brakingMps2))));
+    }
 
     /// <summary>How far ahead the wheel is aimed: a time, floored at the car's own length and ceilinged.</summary>
     public static float LookaheadM(in CarBuild car, float speedMps, float lookaheadS) =>
@@ -280,15 +338,20 @@ internal static class CarFollower
     /// road a car holds is bounded by the speed it is driving towards as well as by the one it can reach
     /// before the next decision.
     /// </param>
+    /// <param name="pass">
+    /// The pass the car is on (CAR-46), whose steps are drawn for <see cref="Overtake.DriveMps"/> and driven no
+    /// faster: quicker, the rack could not keep up with their bend nor the tyres hold it.
+    /// </param>
+    /// <param name="lastMps2">Where the pedal was left last tick (<see cref="PedalMps2"/>), which the lead travels from.</param>
     public static float TargetSpeedMps(
         SimConfig config, in CarBuild car, ReadOnlySpan<ArcSeg> line, float progressM, float lineLengthM,
         float steerRad, float alongMps, float lookaheadM, in DriveContext context, out DrivingHold hold,
-        out float plannedMps)
+        out float plannedMps, in Overtake pass = default, float lastMps2 = 0f)
     {
         hold = DrivingHold.None;
-        var lateralMps2 = car.GripMps2 * context.GroundCoefficient * config.Driving.GripMargin;
+        var lateralMps2 = CorneringMps2(config, car, context.GroundCoefficient);
         var brakingMps2 = BrakingMps2(config, car, context.GroundCoefficient);
-        var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2);
+        var leadM = MathF.Abs(alongMps) * LeadS(config, car, brakingMps2, lastMps2);
 
         var targetMps = car.MaxSpeedMps;
         Bind(ref targetMps, CornerMps(MathF.Tan(steerRad) / car.WheelbaseM, lateralMps2), DrivingHold.Corner, ref hold);
@@ -322,58 +385,38 @@ internal static class CarFollower
             startM = endM;
         }
 
+        // Held to it from the tick the pass begins: a car let run on up to the step out has to brake back down onto it.
+        if (pass.Begun) Bind(ref targetMps, pass.DriveMps, DrivingHold.Corner, ref hold);
+
         Bind(ref targetMps, ApproachMps(0f, lineLengthM - progressM - leadM, brakingMps2), DrivingHold.LineEnd, ref hold);
-        Bind(ref targetMps, ApproachMps(0f, context.StopAtM - leadM, brakingMps2), DrivingHold.Waiting, ref hold);
 
         // The place this car was sent to, which is a term of the same minimum rather than an errand's own
         // hand on the wheel: an ambulance stopping at a casualty is running its line on the road that
         // casualty left it.
         Bind(ref targetMps, ApproachMps(0f, context.PlaceStopM - leadM, brakingMps2), DrivingHold.Place, ref hold);
 
-        // The stop short of the paint, which is the crossing's own term rather than the junction's: a car
-        // may not come to rest on a crossing (TER-5e), so a queue that would leave it standing there stops
-        // it short. Somebody on the paint is not asked here — their claim has already cut the grant. <b>Paint
-        // with no queue beyond it costs nothing</b> — it is driven at the speed the rest of the road affords.
-        Bind(ref targetMps, ApproachMps(0f, context.CrossingStopM - leadM, brakingMps2), DrivingHold.Crossing, ref hold);
-
-        // <b>The gap to a shape, which is a different measurement from the grant below and not a second
-        // gate on it</b> (SIM-7). A claim holds a body as an interval of the way's own arclength,
-        // which follows the road round every bend but carries no width and no angle — so what it cannot
-        // say is how near the *shape* of a car mid-turn, one straddling a join or one cutting a corner
-        // actually is, and a walker has no claim of that kind at all.
-        // Suppressing this wherever the index had a name for what was ahead cost 290 emergency stops in a
-        // minute of Odesa.
-        var gapM = context.HeadwayM - car.HalfLengthM - leadM;
-        Bind(
-            ref targetMps, ApproachMps(MathF.Max(0f, context.HeadwaySpeedMps), gapM, brakingMps2),
-            DrivingHold.Headway, ref hold);
-
         // The road to itself, which is the figure the next claim is asked for at — before the grant
         // is folded in, and never after it.
         plannedMps = MathF.Max(0f, targetMps);
 
-        // <b>And the grant, which is the whole of following.</b> The ground the index gave this car to
-        // stop in inverts straight into a speed: what may be held here to be at rest by the far end of it.
-        // A car in front is credited with the ground it will have vacated, because its own claim
-        // begins where it will have stopped and not where it is.
-        //
-        // <b>Read at a following time and not at the reaction lead</b>, which is the one term here that is
-        // — every other distance is measured from where the car will be when it next decides, and this one
-        // is measured from the gap it means to keep. The braking figure cancels out of the equilibrium
-        // (the car in front was credited out of the same arithmetic), so what a queue settles at is the
-        // standstill gap and a second of travel, and nothing else.
-        //
-        // <b>And a following time is kept from what is being followed, and from nothing else.</b> A grant cut
-        // at a wreck, at somebody on foot, at ground somebody has claimed or at a crossing point already ends
-        // the asker's own margin short of it (<c>LaneCredit.AtAPlaceM</c>) — none of them is a body to keep
-        // station behind, and a second of travel on top of that margin is a car holding a street shut at
-        // speed for something it needed only to stop short of.
-        var followingM = context.GrantCutBy == HeadwayKind.Queue
-            ? MathF.Abs(alongMps) * config.Driving.FollowingHeadwayS * context.FollowingShare
-            : 0f;
+        // <b>And the grant, which is the whole of following</b> (S-2a). The ground the reservations gave this
+        // car to stop in inverts straight into a speed, taken a lead ahead as every stop point above is: what may
+        // be held here to be at rest by the far end of it whatever cut it — a queue, a light, somebody on foot.
+        // Nothing in front is followed or credited with a speed of its own; a car keeps to the section it was
+        // given, and what is in front moving on is that section growing.
         Bind(
-            ref targetMps, ApproachMps(0f, context.AuthorityM - followingM, brakingMps2),
-            DrivingHold.Claimed, ref hold);
+            ref targetMps, ApproachMps(0f, context.AuthorityM - leadM, brakingMps2),
+            context.GrantCutBy == HeadwayKind.Light ? DrivingHold.Waiting : DrivingHold.Claimed, ref hold);
+
+        // Something the car means to get past is slowed for gently (CAR-46), so it is come up to slower and the
+        // lane beside has longer to clear before the car has to stand.
+        if (context.WaitsToPass)
+        {
+            Bind(
+                ref targetMps,
+                ApproachMps(0f, context.AuthorityM - leadM, brakingMps2 * config.Driving.WaitingToPassBrakingShare),
+                DrivingHold.Claimed, ref hold);
+        }
 
         return MathF.Max(0f, targetMps);
     }
@@ -394,37 +437,30 @@ internal static class CarFollower
         car.UtmostBrakingMps2(groundCoefficient) * config.Driving.BrakingMargin;
 
     /// <summary>
-    /// <b>The tick where the usable grip this profile plans against is no longer enough</b> (S-2): what is
-    /// in front cannot be stopped short of at <see cref="BrakingMps2"/>, so what is left of the tyre is
-    /// spent at once. Braking that ramps up wastes the most valuable distance there is.
+    /// <b>The tick where the section this car holds cannot be stopped in</b> (S-2) even at what the tyres can
+    /// put down, so what is left of them is spent at once. Braking that ramps up wastes the most valuable
+    /// distance there is.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The closing speed and not this car's own</b>: a queue moving at the same pace is not an
-    /// emergency however close it is, and that difference is the second thing the reading carries.
+    /// <b>The section and nothing beside it</b> (<see cref="DriveContext.HeldM"/>): a car keeps to the section
+    /// it was given, so the only way its stop runs past the end of it is the section being cut short under it
+    /// — somebody stepping out, a car pulling in. Braking into the gap it keeps off the end is ordinary braking.
     /// </para>
     /// <para>
     /// <b>It is read against the utmost and never a figure of its own</b> (SIM-7). The profile plans
     /// every stop at <see cref="DrivingFigures.BrakingMargin"/> of that, so a threshold below it fires on
-    /// the profile's own ordinary braking and takes the pedal off it — read at the grip margin it stood
-    /// at three quarters of what the profile was already planning with, and a sixth of every car-tick was
-    /// spent here.
+    /// the profile's own ordinary braking and takes the pedal off it.
     /// </para>
     /// </remarks>
     public static bool IsAHazard(SimConfig config, in CarBuild car, float alongMps, in DriveContext context)
     {
-        if (alongMps <= config.Driving.StopSpeedMps || float.IsPositiveInfinity(context.HeadwayM))
-        {
-            return false;
-        }
+        if (alongMps <= config.Driving.StopSpeedMps || float.IsPositiveInfinity(context.AuthorityM)) return false;
 
-        var closingMps = alongMps - MathF.Max(0f, context.HeadwaySpeedMps);
-        if (closingMps <= config.Driving.StopSpeedMps) return false;
+        var heldM = context.HeldM;
+        if (heldM <= 0f) return true;
 
-        var gapM = context.HeadwayM - car.HalfLengthM;
-        if (gapM <= 0f) return true;
-
-        return closingMps * closingMps / (2f * gapM) > car.UtmostBrakingMps2(context.GroundCoefficient);
+        return alongMps * alongMps / (2f * heldM) > car.UtmostBrakingMps2(context.GroundCoefficient);
     }
 
     static void Bind(ref float targetMps, float limitMps, DrivingHold limit, ref DrivingHold hold)

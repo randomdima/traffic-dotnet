@@ -1,5 +1,98 @@
 # CityGen — decision log
 
+## 2026-09-28 — which junctions are lit is drawn again, on a stream of its own
+
+**The roads stage lights the brief's share of the junctions that can carry lights** (`LitJunctions`, TLT-3),
+on the signal stream it had before the lights were taken out (GEN-11) — so bringing them back moved no road,
+building or prop of any town. Why the draw is exact and weighted is the
+[trafficlight log](../../agents/trafficlight/docs/decision-log.md). **The plan carries no bars any more**
+(`CityPlan.StopLines`): the town lays its own off its kerb ends, and the scenario map's second laying of the
+same bars went with the field.
+
+## 2026-09-28 — every district lays straight streets and wandering ones
+
+**No street in the town was straight.** Every arm was jittered off its chord (`ConnectionJitterDeg`) and
+the two ends of a link drawn apart, so every road was a biarc; half a strict district's streets took a
+virtual node besides, a metre off the chord. Odesa was 83.9 % curved by length, and nearly all that was
+straight was bays. **The owner asked for a grid's streets to be straight or mostly straight, about four
+fifths of them — and then for every district to carry both kinds**, a grid laid all straight and a loose
+district all wandering reading as two towns stitched together.
+
+- **Laid straight is a fact about a road, not a kind of link** (`LayoutEdge.Straight`,
+  `RoadArrays.LaidStraight`): the arms take the chord, the line wanders nowhere, and the plan carries it
+  because the lanes draw the arms again. It borrows nothing from a bridge's settled bearing, being the
+  owner's call that it stand alone; a bridge may take it up later.
+- **A district lays a count of straight streets, not a chance of one** (`Lattice`, `District.StraightShare`):
+  its share, drawn near its kind's (0.9 for a grid and 0.3 for a loose district, 0.08 either way, set by
+  hand against the four fifths asked for), rounded and held off all and none. Drawn street by street, a
+  district at 0.97 laid seventy straight and none that wandered. Which streets is each one's own keyed
+  draw, ranked. A street that is not straight wanders like any other, wherever it runs.
+- **A joined road is laid the way most of its length was.** Straight only where every piece was, a
+  district's edge (a run of six or eight pieces) came out wandering however straight its district.
+- **A corner a straight road was joined through is rounded rather than passed** (`Spline.RoundedInto`):
+  straight legs, the corner at the class's own radius, tighter only where the legs are short, and refused
+  under the junction's floor as before. A biarc through the corner's point bent the whole of both legs,
+  and left grid streets 65.9 % straight on Odesa when they were all laid straight.
+- **A yard now faces the town's middle** (GEN-55). Straight edge roads carry car parks, and furthest-first
+  cut Odesa's sixth hospital yard into one at the map's west edge. The side was drawn, so its rank faced
+  off the map and the hospital stood nowhere. The draw is gone with it.
+- **Turning the jitter off everywhere was tried and not taken.** It moved the exam's own lanes, and it
+  left one carriageway run and one walk run open on Odesa.
+- **Snapping near-straight arcs onto lines was not an option.** The gentlest radius Odesa carried was
+  9.3 km, and at a p90 of 1.8 km a hundred-metre piece bows 0.7 m. A line laid in its place moves the
+  carriageway and breaks the bearing the arm was drawn on.
+
+**What it came to**, by length of street on straight pieces: Odesa's grids 70–90 % a district and 80 % over
+all of them, its loose districts 20–34 %; River's grids 74–94 % and 80 %, its loose districts 21–26 %.
+River's smallest grid, eighteen streets, lays all of them straight: its one wandering street was joined
+into a run laid straight. Curved length over the whole network: Odesa 84 → 35 %, River 85 → 47 %.
+
+**Car parks are the town's gain.** A car park needs a straight stretch to be cut into, and Odesa cut
+483 of the 600 it asked for where it had cut 217, and River 285 of 550 where it had cut 138. Odesa stands
+2328 of its 2400 buildings where it stood them all, the ranks taking face the buildings had, and River 1689
+of 1703. The town opens somewhat slower for its extra bays (Odesa 1.8 → 2.2 s). **The tick is not the
+reason for any of this.** A car on an arc pays a few `SinCos` and an `Atan2` more than one on a straight,
+all of it under a tenth of a profiled tick, and with every arm on its chord Odesa's cars phase read
+408 → 397 µs, inside the probe's own spread.
+
+## 2026-09-28 — the ground's layers are filled from rings shut across what a move left open
+
+**A layer is a region, so it is filled from closed rings** (`GroundRings`): what the outset leaves open is
+shut across its holes (`ArcRings.Shut`) and handed back beside the rings as the fault it still is. Filled
+from the closed rings alone, one hole in the ring round the outside of a town took every square metre of
+its carriageway with it — the ground read grass on every road, props were stood on the lanes and the world
+refused the town. A town thirty kilometres long at Odesa's density left its ring round the outside open by
+3.5 m, and Odesa's brief ten times over each way left 88 runs of its carriageway open. **River moves by it**: its one open run of walk is now walk, and a prop or two with
+it. Odesa and the fixture have none and are the same to the bit.
+
+**A place on the face asks the ranks near it which owns it** (`BuildingStage.Ranks`), in the list's own
+order: asked of every rank, placing the buildings was the town's stations times its car parks, 129 s of a
+town thirty kilometres by twenty-three.
+
+## 2026-09-27 — car parks are cut from sites kept between cuts, and a cut changes the layout where it stands
+
+**Cutting the car parks grew faster than the square of the town.** Every car park read every place on every
+road again, asked each whether it stood a locality clear of every node, ranked each against every car park
+already cut, and the cut then copied and filed again every road in the town. On Odesa's brief with its
+extent scaled each way the stage took 0.2 s at one, 1.5 s at two, 47 s at four, and at ten had not
+finished in ten minutes.
+
+- **A book of sites for each size of car park** (`CarParks.SiteBook`): read once, then read again only on
+  the roads a cut laid again, since a cut changes the line of the road it parts and of no other. Whether a
+  site still stands a locality clear of every node is asked as it comes up.
+- **Furthest-first is kept rather than sorted again.** A site's distance from the nearest car park only
+  falls, so the one at the head is brought up to date as it comes up and is the furthest once it has not
+  fallen.
+- **The nodes and the car parks are filed by cell** (`PointCells` on the main level,
+  `TownLayout.StandsClear`), and **a cut parts its road where the layout stands** (`TownLayout.Part`,
+  `RoadLines.Refile`) rather than the layout being rebuilt round it.
+
+**Two sites at the same distance are now offered by road and then by place along it.** The sort that
+ranked them was unstable, so a tie came out in whatever order the runtime's introsort left it: the order
+was .NET's and not this engine's. **Odesa has such a tie at its 188th car park and moves by it** — a few car
+parks stand elsewhere, and seven props with them. River and the fixture are the same to the bit. The stage
+is now 0.07 s on Odesa, 0.18 s at two and 1.5 s at four.
+
 ## 2026-09-27 — the exam is a scenario map of this engine, and going round a ring is straight on
 
 **The owner ruled that the map is an end-to-end test of this engine and not an exam in anybody's rules of
@@ -40,8 +133,8 @@ Odesa, one minute each, against the same six before it: knocked down 3 → 3, wr
 **Its roads are laid the way the generator lays them**, stand point to stand point on the arms the town's
 own draw gives each end. Laid straight from node to node, as the parked exam's were, the lanes the plan is
 read back into end where the lines do not go and the junctions lay no turn: the first lattice routed every
-turn round the block. **It lays the lights and the bars its cards are about**, which no generated town
-does yet, because a lit junction with no bar is one nothing stops at.
+turn round the block. **It lights the junctions its cards are about and no other**, so a card about a light
+is about the one it is staged at.
 
 **Its pedestrians walk paint to paint and stand in the lane.** A walk from the pavement is not reliably
 routed over a zebra (the known gaps), and a body crosses a carriageway in about a second at the town's
@@ -652,10 +745,9 @@ pace is read against the *tightest* corner, where a convoy comes apart if it is 
 Two convoys of three read as a staging rather than as traffic. Police tyres are worth nearly twice the grip,
 so the escort cornered a third faster and left its charge inside a lap: **a pace ceiling set from what the
 escorted build affords on this radius**, rather than an escort built on the armoured car's figures and
-painted white — a police car that corners like an APC is the paint and the physics coming apart. The ceiling
-alone did not close the convoy up, the gap being the road a follower is granted plus the interval on top, so
-**a per-car share of the following interval** closes it; `Driving.FollowingHeadwayS` was not cut, being what
-every car in every town keeps.
+painted white — a police car that corners like an APC is the paint and the physics coming apart. The gap
+the three keep is the road each is granted and nothing on top of it (`S-2a`), so a slower convoy is a closer
+one.
 
 ## 2026-08-30 — the menu is drawn over the ring, and GEN-1b now says which map that is
 

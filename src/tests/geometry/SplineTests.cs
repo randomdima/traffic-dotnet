@@ -193,6 +193,56 @@ public class SplineTests
     }
 
     /// <summary>
+    /// <b>A right angle with room either side is a straight, a quarter circle at the radius asked and a
+    /// straight</b> (<see cref="Spline.RoundedInto"/>): the arc leaves the first leg the radius short of the
+    /// corner and meets the second leg the radius past it.
+    /// </summary>
+    [Fact]
+    public void ARightAngleIsRoundedAtTheRadiusAskedWithAStraightEitherSide()
+    {
+        Span<ArcSeg> laid = stackalloc ArcSeg[3];
+        var written = Spline.RoundedInto([Vector2.Zero, new Vector2(100f, 0f), new Vector2(100f, 100f)], 20f, laid);
+
+        Assert.Equal(3, written);
+        Assert.Equal(0f, laid[0].Curvature);
+        Assert.Equal(80f, laid[0].LengthM, Tolerance);
+        Assert.Equal(1f / 20f, laid[1].Curvature, Tolerance);
+        Assert.Equal(100f, laid[1].EndM.X, Tolerance);
+        Assert.Equal(20f, laid[1].EndM.Y, Tolerance);
+        Assert.Equal(0f, laid[2].Curvature);
+        Assert.Equal(100f, laid[2].EndM.X, Tolerance);
+        Assert.Equal(100f, laid[2].EndM.Y, Tolerance);
+    }
+
+    /// <summary>
+    /// <b>A corner whose shorter leg has no room for the radius asked takes half that leg</b>
+    /// (<see cref="Spline.RoundedInto"/>), which for a right angle is a radius of half the leg.
+    /// </summary>
+    [Fact]
+    public void ACornerOnAShortLegIsRoundedAsWideAsHalfTheLegAffords()
+    {
+        Span<ArcSeg> laid = stackalloc ArcSeg[3];
+        var written = Spline.RoundedInto([Vector2.Zero, new Vector2(10f, 0f), new Vector2(10f, 100f)], 20f, laid);
+
+        Assert.Equal(3, written);
+        Assert.Equal(5f, laid[1].StartM.X, Tolerance);
+        Assert.Equal(0f, laid[1].StartM.Y, Tolerance);
+        Assert.Equal(1f / 5f, laid[1].Curvature, Tolerance);
+    }
+
+    /// <summary><b>A point a leg only runs through is no corner</b>, and the two legs either side of it are one straight.</summary>
+    [Fact]
+    public void APointALegRunsThroughIsNoCorner()
+    {
+        Span<ArcSeg> laid = stackalloc ArcSeg[3];
+        var written = Spline.RoundedInto([Vector2.Zero, new Vector2(40f, 0f), new Vector2(100f, 0f)], 20f, laid);
+
+        Assert.Equal(1, written);
+        Assert.Equal(0f, laid[0].Curvature);
+        Assert.Equal(100f, laid[0].LengthM, Tolerance);
+    }
+
+    /// <summary>
     /// The tightest circle the corner is asked to hold, which is the walker's
     /// (<see cref="SimConfig.WalkerTightestTurnM"/>) because the walk is what lays corners at this scale.
     /// </summary>

@@ -6,14 +6,14 @@ using TrafficSimulation.World.Road;
 namespace TrafficSimulation.Agents.TrafficLight.Control;
 
 /// <summary>
-/// <b>The one town-wide lookup</b>: what colour an approach is showing, and what colour a crossing is.
-/// Cars query this and <em>none ever holds a bundle</em>; a walker reads no signal at all (TLT-2).
+/// <b>The one town-wide lookup</b>: what colour an approach is showing, and what colour a crossing is. <b>No
+/// agent asks it</b> (TLT-2): what a colour does to the traffic is the hold a light lays for it
+/// (<see cref="SignalHolds"/>), and the heads' picture and the instruments are the only other readers.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>Both sides of a junction are one table</b>: a crossing's colour is the negation of the axis of the arm
-/// it is painted across, so a car head and the pedestrian head over the same arm can never disagree. The
-/// pedestrian side is asked by the heads' picture and the census, and by no agent.
+/// it is painted across, so a car head and the pedestrian head over the same arm can never disagree.
 /// </para>
 /// <para>
 /// <b>An arm's axis is decided once, when the town is laid, off the bearing it meets the junction at.</b>
@@ -76,7 +76,7 @@ internal sealed class SignalService
 
     /// <summary>
     /// What the traffic arriving on this lane is being shown. <b>An approach at an unlit junction is
-    /// green</b> — there is no light to obey, and a driver that read a red there would stop for nothing.
+    /// green</b> — there is no light there, and a hold laid for a red there would stop traffic for nothing.
     /// </summary>
     public SignalColour ForApproach(int lane, float timeS)
     {
@@ -94,7 +94,12 @@ internal sealed class SignalService
         return SignalCycle.ForCrossing(_config, _crossingAxis[crossing], _offsetS[_crossingJunction[crossing]], timeS);
     }
 
-    public static SignalService Build(CityPlan plan, RoadGraph roads, SimConfig config)
+    /// <param name="zebras">
+    /// <b>The town's own crossings</b> (<see cref="Crossings"/>, TER-6), which a crossing index here is an
+    /// index into. One painted midway along a road rather than at an arm (<see cref="Crossings.Midway"/>) is
+    /// never lit: it is at no junction's arm, and nothing holds the traffic behind it.
+    /// </param>
+    public static SignalService Build(CityPlan plan, RoadGraph roads, Crossings zebras, SimConfig config)
     {
         var junctions = plan.Junctions;
         var lit = new bool[roads.JunctionCount];
@@ -127,12 +132,11 @@ internal sealed class SignalService
             }
         }
 
-        var crossings = plan.Crosswalks;
-        var crossingAxis = new int[crossings.Count];
-        var crossingJunction = new int[crossings.Count];
-        for (var crossing = 0; crossing < crossings.Count; crossing++)
+        var crossingAxis = new int[zebras.Count];
+        var crossingJunction = new int[zebras.Count];
+        for (var crossing = 0; crossing < zebras.Count; crossing++)
         {
-            var junction = crossings.Junction[crossing];
+            var junction = zebras.Junction[crossing];
             crossingJunction[crossing] = junction;
 
             // A crossing's axis is *the axis of the arm it is painted across*, found by which arm its
@@ -140,8 +144,8 @@ internal sealed class SignalService
             // At a skewed junction the two answers can differ, and a crossing that greened against a
             // different axis from the traffic it is painted across is the one failure the whole table
             // exists to make impossible.
-            crossingAxis[crossing] = junction >= 0 && junction < lit.Length && lit[junction]
-                ? AxisOfArmAlong(roads, laneAxis, junction, crossings.Axis[crossing])
+            crossingAxis[crossing] = junction >= 0 && junction < lit.Length && lit[junction] && !zebras.Midway[crossing]
+                ? AxisOfArmAlong(roads, laneAxis, junction, zebras.Axis[crossing])
                 : NoAxis;
         }
 

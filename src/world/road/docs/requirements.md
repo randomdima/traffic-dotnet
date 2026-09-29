@@ -186,8 +186,8 @@ beyond their terrain attributes.
   (TER-4c).
 
 **A crossing with no conflicting traffic to phase against carries no lights** (TLT-3), and what governs an
-uncontrolled one is the reservations alone (TER-5e): a walker plans the paint to the far kerb at a rung above
-every movement, a body on the paint is on the lane under it, and a car may not come to rest on the paint.
+uncontrolled one is the reservations alone (TER-5e): the zebra is one piece of ground (TER-5c.3), a walker
+plans every way at a rung above every movement (PER-27), and a body on the paint is on the lane under it.
 
 ## Markings
 

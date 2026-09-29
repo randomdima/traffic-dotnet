@@ -97,11 +97,10 @@ internal sealed partial class TownWorld
     }
 
     /// <summary>
-    /// <b>The escort, as an escort</b>: its beacons up, its pace held under the pace the car between them
-    /// keeps on the ring (<see cref="IdlePlan.EscortPaceShare"/>), and the three of them following at half
-    /// the interval traffic keeps (<see cref="IdlePlan.ConvoyFollowingShare"/>). Nothing else on the idle
-    /// map is arranged — they drive under the standing rules like any other traffic, and what makes them
-    /// one convoy is that the leading car can no longer run away from what it is leading.
+    /// <b>The escort, as an escort</b>: its beacons up, and its pace held under the pace the car between them
+    /// keeps on the ring (<see cref="IdlePlan.EscortPaceShare"/>). Nothing else on the idle map is arranged —
+    /// they drive under the standing rules like any other traffic, and what makes them one convoy is that the
+    /// leading car can no longer run away from what it is leading.
     /// </summary>
     /// <remarks>
     /// <b>The pace is the escorted car's own and not a figure of the map's.</b> It is what that build's
@@ -120,9 +119,6 @@ internal sealed partial class TownWorld
 
         for (var car = 0; car < IdlePlan.ConvoyCars; car++)
         {
-            // The gap is kept by whoever is behind, so it is the whole convoy that keeps a short one —
-            // including the car being escorted, which is following the police in front of it.
-            Cars.FollowingShare[car] = IdlePlan.ConvoyFollowingShare;
             if (car == IdlePlan.Escorted) continue;
 
             Cars.BlueLight[car] = true;

@@ -4,6 +4,17 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-29 — a pass is drawn with its holder's line, circles and all
+
+**The owner asked to see that cars follow the turn a pass is drawn at.** The pass's line and its circle are drawn
+under the car and walker line switches rather than a switch of their own: a pass is the manoeuvre the agent is in
+(OBS-2c, OBS-2d). The reading is two layers laid together — the car lines' circle, which is what the pass asks
+for where the car is, and the turn circles (OBS-2j), which are what the wheels ask for — so a car off its pass
+shows as two rings apart. **The circle is the one at the car and not one per step**: a step's bend changes all
+the way along it, and a ring drawn where it is tightest is one the car's own lies over for an instant. It is
+drawn to the nearest rear wheel, as the turn circle is, so the two rings lie on each other rather than half a
+track apart.
+
 ## 2026-09-27 — the switches are shown a section a question, and the words moved off the town
 
 **The debug page was thirteen boxes in a list, and the figures and the ground were pages of their own.** A

@@ -77,7 +77,7 @@ internal static class BuildingStage
         var stations = AlongTheFace(paving.Rings(config), config);
         if (stations.Count == 0) return CityPlan.BuildingArrays.None;
 
-        var ranks = TheRanks(carParks, roads, junctionM);
+        var ranks = new Ranks(TheRanks(carParks, roads, junctionM), config);
         var built = new Built();
         TheServices(carParks, ranks, stations, sizes, config, ground, claims, built);
 
@@ -204,10 +204,10 @@ internal static class BuildingStage
     /// else to put a hospital.
     /// </summary>
     static void TheServices(
-        CarParks.Laid carParks, List<Rank> ranks, List<Station> stations, BuildingSizes sizes,
+        CarParks.Laid carParks, Ranks ranks, List<Station> stations, BuildingSizes sizes,
         SimConfig config, GroundShapes ground, GenClaims claims, Built built)
     {
-        foreach (var rank in ranks)
+        foreach (var rank in ranks.All)
         {
             var use = carParks.For[rank.Park];
             if (use == BuildingUse.Ordinary) continue;
@@ -284,11 +284,11 @@ internal static class BuildingStage
     /// of verge, and the building the draw wanted there goes somewhere it fits (GEN-8).
     /// </para>
     /// </remarks>
-    static bool SquareOnItsRank(List<Rank> ranks, Vector2 atM, float halfFrontageM, SimConfig config)
+    static bool SquareOnItsRank(Ranks ranks, Vector2 atM, float halfFrontageM, SimConfig config)
     {
         var walkM = config.WalkOuterM;
         var slackM = LineTolerance.RoundingM;
-        foreach (var rank in ranks)
+        foreach (var rank in ranks.Near(atM))
         {
             var along = Heading.RightOf(rank.Outward);
             var alongM = Vector2.Dot(atM - rank.TipM, along);
@@ -323,7 +323,7 @@ internal static class BuildingStage
     /// </para>
     /// </remarks>
     static bool Stand(
-        Station station, Vector2 footprintM, BuildingUse use, List<Rank> ranks, SimConfig config,
+        Station station, Vector2 footprintM, BuildingUse use, Ranks ranks, SimConfig config,
         GroundShapes ground, GenClaims claims, Built built)
     {
         if (footprintM.X <= 0f || footprintM.Y <= 0f) return false;
@@ -345,6 +345,54 @@ internal static class BuildingStage
             centreM, footprintM, station.HeadingRad, use,
             station.AtM - (station.Outward * (config.WalkOuterM - config.BuildingWayInM)));
         return true;
+    }
+
+    /// <summary>
+    /// <b>The town's ranks, filed by the place their bays end</b> (SIM-8, the main level), so a place on the
+    /// face asks the ranks that could own it rather than every rank in the town.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same ranks in the same order as the list</b>: a rank's own ground grown by a walk lies inside
+    /// the reach of its tip read here, so a rank left out is one that could not have owned the place, and
+    /// the first that does is the first a scan of the list would have met. Asked of every rank, the stage
+    /// was the town's stations times its car parks.
+    /// </remarks>
+    sealed class Ranks
+    {
+        readonly PointCells _tips;
+        readonly float _reachM;
+        readonly List<int> _near = [];
+        readonly List<Rank> _found = [];
+
+        public Ranks(List<Rank> all, SimConfig config)
+        {
+            All = all;
+            _tips = new PointCells(config.Grid.Main);
+            var walkM = config.WalkOuterM + LineTolerance.RoundingM;
+            foreach (var rank in all)
+            {
+                _tips.Add(rank.TipM);
+                var acrossM = rank.HalfAcrossM + walkM;
+                var deepM = MathF.Max(walkM, rank.DeepM + walkM);
+                _reachM = MathF.Max(_reachM, MathF.Sqrt((acrossM * acrossM) + (deepM * deepM)));
+            }
+
+            // A centimetre over, so no rounding between the ownership test's two readings and this one's
+            // distance leaves an owner out.
+            _reachM += LineTolerance.JoinedM;
+        }
+
+        public List<Rank> All { get; }
+
+        /// <summary>The ranks whose tip stands within reach of a place, in the list's own order.</summary>
+        public List<Rank> Near(Vector2 atM)
+        {
+            _tips.Within(atM, _reachM, _near);
+            _found.Clear();
+            foreach (var rank in _near) _found.Add(All[rank]);
+
+            return _found;
+        }
     }
 
     /// <summary>

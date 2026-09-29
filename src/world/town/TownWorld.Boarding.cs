@@ -1,9 +1,11 @@
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using TrafficSimulation.Agents.Person.Body;
 using TrafficSimulation.Agents.Person.Control;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.World.Containment;
 using TrafficSimulation.World.Parking;
+using TrafficSimulation.World.Road;
 
 namespace TrafficSimulation.World.Town;
 
@@ -11,10 +13,25 @@ namespace TrafficSimulation.World.Town;
 internal sealed partial class TownWorld
 {
     /// <summary>
-    /// The three columns <see cref="ExitSpots"/> reads, handed over as spans: the containment slice
-    /// places a body without ever learning what an agent is (PHY-7a).
+    /// <b>The town's reservations as the ground a body coming out of a door is put down on</b> (PHY-7a): a spot
+    /// is taken where somebody stands on any way under it, or has ground there it can no longer stop short of.
+    /// The containment slice places a body without ever learning what an agent is.
     /// </summary>
-    ExitSpots.Standing StandingPeople => new(People.PositionM, People.RadiusM, People.Inside);
+    readonly struct DoorStep(TownWorld town) : IStandingGround
+    {
+        [SkipLocalsInit]
+        public bool IsTaken(Vector2 atM, float radiusM)
+        {
+            Span<WayCover> under = stackalloc WayCover[MostWaysUnderABody];
+            var count = town._atlas.UnderDisc(atM, radiusM, under);
+            for (var at = 0; at < count; at++)
+            {
+                if (town._occupancy.IsTaken(under[at].Way, under[at].FromM, under[at].ToM)) return true;
+            }
+
+            return false;
+        }
+    }
 
     /// <summary>
     /// OBJ-5: the door. Capacity is checked here, atomically — the claim held during the walk was
@@ -62,8 +79,7 @@ internal sealed partial class TownWorld
         var centreM = _plan.Buildings.CentreM[building];
         var doorM = DoorOf(building, centreM);
         if (!ExitSpots.TryFind(
-                _config, _plan.WorldSizeM, _physics, _nearby, StandingPeople, doorM, doorM + (doorM - centreM), _spotNearby,
-                out var spotM))
+                _config, _plan.WorldSizeM, _physics, new DoorStep(this), doorM, doorM + (doorM - centreM), out var spotM))
         {
             return false;
         }
@@ -104,6 +120,7 @@ internal sealed partial class TownWorld
         People.Walking[person] = false;
         People.ClearRoute(person);
         _impulseNs[person] = Vector2.Zero;
+        People.DeclaredMps[person] = Vector2.Zero;
         _physics.Contain(People.Body[person]);
     }
 
@@ -112,6 +129,7 @@ internal sealed partial class TownWorld
     {
         People.PositionM[person] = atM;
         People.VelocityMps[person] = Vector2.Zero;
+        People.DeclaredMps[person] = Vector2.Zero;
         People.HeadingRad[person] = headingRad;
         People.DestinationM[person] = atM;
         People.GoalM[person] = atM;
@@ -186,22 +204,5 @@ internal sealed partial class TownWorld
         if (building >= 0) _containers.GiveUpClaim(building);
 
         People.DestinationBuilding[person] = PersonFleet.NoBuilding;
-    }
-
-    /// <summary>
-    /// <b>Whether whoever has this wheel is one of the drivers that does not keep the courtesies</b>
-    /// (CAR-13). Two array reads, asked at the one place the courtesy would otherwise be paid — the red
-    /// (<see cref="SignalStopM"/>, CAR-13.1). Nobody boards a car (CAR-1), so it answers no.
-    /// </summary>
-    /// <remarks>
-    /// <b>It is asked of the driver rather than mirrored onto the car</b>, unlike the blue light, because
-    /// the light is the errand's and this is the person's: a car changes hands and the habit does not go
-    /// with it. A flag on the car would have to be written on boarding, cleared on alighting, cleared again
-    /// on a wreck and on an abandonment — four places to disagree about one fact, for one array read saved.
-    /// </remarks>
-    bool RecklessAtTheWheel(int car)
-    {
-        var driver = _containers.DriverOf(car);
-        return driver >= 0 && People.Reckless[driver];
     }
 }

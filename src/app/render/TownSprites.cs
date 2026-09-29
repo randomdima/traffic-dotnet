@@ -2,6 +2,7 @@ using System.Numerics;
 using TrafficSimulation.Agents.Car.Body;
 using TrafficSimulation.Agents.Evacuator;
 using TrafficSimulation.Agents.Person.Body;
+using TrafficSimulation.Agents.TrafficLight.Body;
 using TrafficSimulation.CityGen;
 using TrafficSimulation.Core.Geometry;
 using TrafficSimulation.Runtime;
@@ -183,15 +184,13 @@ internal sealed class TownSprites
     public void Clear() => Standing = StandingSprites.Nothing;
 
     /// <summary>
-    /// How many instances the town needs at most, which is what the instance buffer is laid for. Two
-    /// heads a crossing and one a painted bar is the bound on the signals, four tyres, a tow arm and
-    /// every lens with its glow a car, and the whole ring of marks — none of which needs the town stood
-    /// up to be known.
+    /// How many instances the town needs at most, which is what the instance buffer is laid for. The heads
+    /// a lit junction can stand (<see cref="SignalHeads.MostFor"/>), four tyres, a tow arm and every lens
+    /// with its glow a car, and the whole ring of marks — none of which needs the town stood up to be known.
     /// </summary>
     public static int CapacityFor(CityPlan plan, SimConfig config) =>
         plan.Spawns.Count + (CarsIn(plan) * (TyreModel.Wheels + CarLamps.Most + 1))
-        + StandingSprites.CapacityFor(plan) + plan.StopLines.Count + (plan.Crosswalks.Count * 2)
-        + config.Marks.Capacity;
+        + StandingSprites.CapacityFor(plan) + SignalHeads.MostFor(plan) + config.Marks.Capacity;
 
     static int CarsIn(CityPlan plan)
     {

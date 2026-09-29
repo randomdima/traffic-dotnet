@@ -336,11 +336,6 @@ internal sealed class ExamDrive
 
         log.WasHeld = log.MovedOff && atRest && log.ClearedAt < 0 && !red;
 
-        var onAnyPaint = false;
-        for (var arm = 0; arm < 4; arm++) onAnyPaint |= _bands[(log.Card * 4) + arm].Covers(noseM, tailM);
-        log.RestOnThePaintTicks = atRest && onAnyPaint && log.StartedAt >= 0 ? log.RestOnThePaintTicks + 1 : 0;
-        log.LongestRestOnThePaintTicks = Math.Max(log.LongestRestOnThePaintTicks, log.RestOnThePaintTicks);
-
         var of = _lattice.Card(log.Card);
         for (var walker = 0; walker < of.Walkers.Length; walker++)
         {
@@ -370,12 +365,10 @@ internal sealed class ExamDrive
     /// </summary>
     bool PastTheBar(ExamCarLog log, Vector2 noseM)
     {
-        var bars = _world.Plan.StopLines;
-        var road = _world.Roads.LaneRoad[log.ApproachLane];
-        var junction = _world.Roads.LaneToJunction[log.ApproachLane];
+        var bars = _world.Bars;
         for (var bar = 0; bar < bars.Count; bar++)
         {
-            if (bars.Road[bar] != road || bars.Junction[bar] != junction) continue;
+            if (bars.Lane[bar] != log.ApproachLane) continue;
 
             var farEdgeM = bars.CentreM[bar] + (bars.Approach[bar] * bars.ThicknessM[bar] * 0.5f);
             return Vector2.Dot(noseM - farEdgeM, bars.Approach[bar]) > 0f;
@@ -493,13 +486,16 @@ internal sealed class ExamDrive
         if (!by.Found) return "nothing (its plan whole)";
 
         var what = by.HasBody ? "the body" : by.Secondary ? "the secondary claim" : "the main claim";
-        var whose = by.Of == LaneRoster.Walking
-            ? by.Occupant < _walkers.Length
+        var whose = by.Of switch
+        {
+            LaneRoster.Signal => $"light stretch {by.Occupant}",
+            LaneRoster.Walking => by.Occupant < _walkers.Length
                 ? $"walker {_walkers[by.Occupant].Walker} of card {_walkers[by.Occupant].Card}"
-                : $"walker {by.Occupant}, staged by no card"
-            : by.Occupant < _cars.Length
+                : $"walker {by.Occupant}, staged by no card",
+            _ => by.Occupant < _cars.Length
                 ? $"driver {_cars[by.Occupant].Driver} of card {_cars[by.Occupant].Card}"
-                : $"car {by.Occupant}, staged by no card";
+                : $"car {by.Occupant}, staged by no card",
+        };
         return $"{what} of {whose} at {by.Priority}";
     }
 
@@ -632,9 +628,6 @@ internal sealed class ExamCarLog
 
     /// <summary>And every tick at rest there, a red included.</summary>
     public int StoodTicks;
-
-    public int RestOnThePaintTicks;
-    public int LongestRestOnThePaintTicks;
 
     /// <summary>The first tick its body lay over each of its card's walkers' paint, or −1.</summary>
     public int[] OnThePaintAt { get; }

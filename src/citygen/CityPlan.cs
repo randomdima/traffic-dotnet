@@ -71,9 +71,6 @@ internal sealed class CityPlan
 
     public required CrosswalkArrays Crosswalks { get; init; }
 
-    /// <summary>The bars that were <em>painted</em>, not the ones the plan called for: a bar nobody painted is a bar nobody stops at.</summary>
-    public required StopLineArrays StopLines { get; init; }
-
     public required ParkingLotArrays ParkingLots { get; init; }
 
     public required BuildingArrays Buildings { get; init; }
@@ -90,7 +87,7 @@ internal sealed class CityPlan
     /// </summary>
     public GroundPieces Ground => new(
         Seed, WorldSizeM, PavementWidthM, Roads, Bridges, Junctions, JunctionCorners, Roundabouts,
-        ParkingLots, PavedAreas, Crosswalks, StopLines, Water);
+        ParkingLots, PavedAreas, Crosswalks, Water);
 
     Paving? _paving;
 
@@ -104,6 +101,13 @@ internal sealed class CityPlan
     /// carries, which is why nothing after the roads may add driven ground (<c>TownGenerator</c>).
     /// </remarks>
     public Paving? PavingLaidWithIt { get; init; }
+
+    /// <summary>
+    /// <b>What laying this plan cost, stage by stage and in the order they ran</b> (<c>--bench load</c>). A
+    /// generated town times its own stages, so the reading is the lay's and not a probe's second run of it; a
+    /// map laid in code has none.
+    /// </summary>
+    public (string Stage, double Ms)[] LaidMs { get; init; } = [];
 
     /// <summary>
     /// <b>The pavement of this plan, laid once</b> (<see cref="Paving"/>). The ground answers off it, the
@@ -260,6 +264,17 @@ internal sealed class CityPlan
         /// <inheritdoc cref="Cut"/>
         public bool WasCut(int road) => Cut.Length > 0 && Cut[road];
 
+        /// <summary>
+        /// <b>Which roads were laid straight</b> (GEN-47): their arms leave on the chord rather than jittered
+        /// off it (<see cref="ConnectionPoints.ArmOf"/>), so the plan has to carry it or it would draw a
+        /// different arm when it was read back than the one the road was laid to. <b>Empty where the town laid
+        /// none.</b>
+        /// </summary>
+        public bool[] LaidStraight { get; init; } = [];
+
+        /// <inheritdoc cref="LaidStraight"/>
+        public bool IsLaidStraight(int road) => LaidStraight.Length > 0 && LaidStraight[road];
+
         public int Count => WidthM.Length;
 
         public ReadOnlySpan<ArcSeg> SegmentsOf(int road) =>
@@ -388,17 +403,6 @@ internal sealed class CityPlan
         /// <summary>The junction the crossing belongs to, or <see cref="NoRecord"/> where it was struck mid-block.</summary>
         public required int[] Junction { get; init; }
 
-        public int Count => CentreM.Length;
-    }
-
-    internal sealed class StopLineArrays
-    {
-        public required Vector2[] CentreM { get; init; }
-        public required Vector2[] Approach { get; init; }
-        public required float[] SpanM { get; init; }
-        public required float[] ThicknessM { get; init; }
-        public required int[] Junction { get; init; }
-        public required int[] Road { get; init; }
         public int Count => CentreM.Length;
     }
 

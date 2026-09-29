@@ -178,32 +178,11 @@ internal static class IdlePlan
     /// straight instead, the same margin would be a leading car the charge could not catch on the bends.
     /// </para>
     /// <para>
-    /// <b>It is also half of what closes the convoy up</b>, with <see cref="ConvoyFollowingShare"/> the
-    /// other half: the road a follower is granted is the road it needs to stop in, so a slower convoy is a
-    /// tighter one. The two together run the three at about half the spacing ordinary traffic keeps.
+    /// <b>It is also what closes the convoy up</b>: the road a follower is granted is the road it needs to
+    /// stop in, so a slower convoy is a tighter one.
     /// </para>
     /// </remarks>
     public const float EscortPaceShare = 0.9f;
-
-    /// <summary>
-    /// And how much of the ordinary following interval the convoy keeps (<c>CarFleet.FollowingShare</c>) —
-    /// <b>half of it, because a convoy is one thing and not three</b>. Left at what traffic keeps, the three
-    /// run at a spacing anybody would read as three cars that happen to be on the same road.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>It is the interval and never the stopping distance.</b> What it gives up is the second of travel
-    /// a driver leaves on top of the road it needs; every corner, every stop point and the ground the car
-    /// in front has yet to vacate are untouched, so a convoy running close is still a convoy that can stop.
-    /// </para>
-    /// <para>
-    /// <b>A quarter was too little and the convoy stopped for itself.</b> The interval is also the slack a
-    /// follower has when the car in front reaches its own corner speed a tick before it does; cut to a
-    /// quarter, the escorted car ran out of granted road on the bends and came to a standstill behind an
-    /// escort that was still moving. Half of it keeps the three reading as one and leaves that slack.
-    /// </para>
-    /// </remarks>
-    public const float ConvoyFollowingShare = 0.5f;
 
     /// <summary>
     /// How far apart the cars of the convoy are put down. <b>Not nearer than the gap they will drive at</b>:
@@ -299,13 +278,6 @@ internal static class IdlePlan
             // nobody is ground the picture would have to explain.
             PavementWidthM = 0f,
             Junctions = Nodes(nodeM, config),
-
-            // No paint and no light anywhere on the ring: nothing meets at a node here, so a bar or a
-            // signal would be a second thing refusing a movement nothing refuses (SIM-7).
-            StopLines = new CityPlan.StopLineArrays
-            {
-                CentreM = [], Approach = [], SpanM = [], ThicknessM = [], Junction = [], Road = [],
-            },
             JunctionCorners = new CityPlan.JunctionCornerArrays
             {
                 CornerM = [], ArcCentreM = [], RadiusM = [], TangentAM = [], TangentBM = [],
@@ -401,6 +373,9 @@ internal static class IdlePlan
     {
         CentreM = nodeM,
         RadiusM = Filled(Roads, config.LaneOffsetM),
+
+        // No light anywhere on the ring: nothing meets at a node here, so a light would be a second thing
+        // refusing a movement nothing refuses (SIM-7).
         Lit = new bool[Roads],
         PhaseOffsetS = new float[Roads],
     };
