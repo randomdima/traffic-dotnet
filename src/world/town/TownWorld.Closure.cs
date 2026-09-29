@@ -168,7 +168,52 @@ internal sealed partial class TownWorld
 
         _beat.ClosedCount[car] = best;
         _beat.SceneLane[car] = sceneLane;
+        if (best > 0) PlaceTheClosure(car);
         return best > 0;
+    }
+
+    /// <summary>
+    /// <b>Where the officer and the car stand in the entrance</b> (SRV-9, SRV-11), found once with the closure.
+    /// Where a zebra is painted over the mouth, <b>the officer stands short of it and the car past it</b>: the
+    /// crossing between them stays the walkers', and the officer is still what a car turning in meets first.
+    /// </summary>
+    void PlaceTheClosure(int car)
+    {
+        var entrance = _beat.EntranceOf(car);
+        var service = _config.Service;
+        var postM = service.OfficerIntoTheLaneM;
+        var clearFromM = postM + (_config.PersonDiameterM * 0.5f);
+        if (TheZebraOverTheMouth(entrance, out var zebraFromM, out var zebraToM))
+        {
+            postM = MathF.Min(postM, zebraFromM - service.OfficerShortOfTheZebraM - (_config.PersonDiameterM * 0.5f));
+            clearFromM = MathF.Max(clearFromM, zebraToM);
+        }
+
+        var tailBehindAxleM = (_config.Car.LengthM * 0.5f) - _config.CarCentreAheadOfAxleM;
+        _beat.PostM[car] = postM;
+        _beat.StandM[car] = MathF.Min(clearFromM + service.PoliceCarTailClearM + tailBehindAxleM, _roads.LaneLengthM[entrance]);
+    }
+
+    /// <summary>
+    /// <b>The zebra painted over the mouth of a lane</b>, as the metres of the lane under it, or false where there is
+    /// none — read off the lane's marks (TER-5c.3), as far in as a closure's officer and car would stand. Two zebras
+    /// touching are one stretch of paint.
+    /// </summary>
+    public bool TheZebraOverTheMouth(int lane, out float fromM, out float toM)
+    {
+        fromM = float.PositiveInfinity;
+        toM = float.NegativeInfinity;
+        var reachM = _config.Service.OfficerIntoTheLaneM + _config.Service.PoliceCarTailClearM + _config.Car.LengthM;
+        foreach (ref readonly var mark in _occupancy.Marks.Of(_ways.OfRoadLane(lane)))
+        {
+            if (mark.MineFromM >= MathF.Max(reachM, toM + _config.Service.PoliceCarTailClearM)) break;
+            if (ZebraOf(mark.OnWay) == RibbonMarks.NoZebra) continue;
+
+            fromM = MathF.Min(fromM, mark.MineFromM);
+            toM = MathF.Max(toM, mark.MineToM);
+        }
+
+        return toM > fromM;
     }
 
     /// <summary>
@@ -185,19 +230,23 @@ internal sealed partial class TownWorld
         return false;
     }
 
+    /// <summary>Where on its entrance lane a police car stands (<see cref="PlaceTheClosure"/>).</summary>
+    Vector2 TheStandM(int car) => OnTheEntranceM(car, _beat.StandM[car]);
+
+    /// <summary>And where its officer stands (SRV-11), for whoever draws or measures it.</summary>
+    public Vector2 TheOfficersPostM(int car) => OnTheEntranceM(car, _beat.PostM[car]);
+
     /// <summary>
-    /// <b>Where on its entrance lane a police car stands</b> (SRV-9): its rear axle a stride past where its officer
-    /// stands, so the car is inside the lane it closes and its officer between it and the traffic.
+    /// A place on the entrance lane at so many of its metres — <b>and short of its first one, on the line it leaves
+    /// the box along</b>, which is where an officer standing short of a zebra over the mouth is.
     /// </summary>
-    Vector2 TheStandM(int car) => OnTheEntranceM(car, _config.Service.OfficerIntoTheLaneM + _config.Service.PoliceCarPastTheOfficerM);
-
-    /// <summary>And where its officer stands: the mouth of the lane (SRV-11).</summary>
-    Vector2 TheOfficersPostM(int car) => OnTheEntranceM(car, _config.Service.OfficerIntoTheLaneM);
-
     Vector2 OnTheEntranceM(int car, float alongM)
     {
         var lane = _beat.EntranceOf(car);
-        return Spline.SampleAt(_roads.ArcsOf(lane), MathF.Min(alongM, _roads.LaneLengthM[lane])).PositionM;
+        if (alongM >= 0f) return Spline.SampleAt(_roads.ArcsOf(lane), MathF.Min(alongM, _roads.LaneLengthM[lane])).PositionM;
+
+        var mouth = Spline.SampleAt(_roads.ArcsOf(lane), 0f);
+        return mouth.PositionM + (mouth.Direction * alongM);
     }
 
     /// <summary>
@@ -212,8 +261,7 @@ internal sealed partial class TownWorld
         if (!IsAPatrolCar(car) || _beat.Stage[car] != PatrolStage.Attending || _beat.ClosedCount[car] == 0) return false;
 
         lane = _beat.EntranceOf(car);
-        alongM = MathF.Min(
-            _config.Service.OfficerIntoTheLaneM + _config.Service.PoliceCarPastTheOfficerM, _roads.LaneLengthM[lane]);
+        alongM = _beat.StandM[car];
         return true;
     }
 
@@ -324,7 +372,7 @@ internal sealed partial class TownWorld
     bool ACallIsComingThrough(int car)
     {
         var entrance = _beat.EntranceOf(car);
-        var postM = _config.Service.OfficerIntoTheLaneM;
+        var postM = _beat.PostM[car];
         for (var other = 0; other < Cars.Count; other++)
         {
             if (other == car || !Cars.BlueLight[other] || Cars.Broken[other]) continue;
@@ -344,9 +392,8 @@ internal sealed partial class TownWorld
     Vector2 TheKerbBesideThePostM(int car)
     {
         var lane = _beat.EntranceOf(car);
-        var at = Spline.SampleAt(_roads.ArcsOf(lane), MathF.Min(_config.Service.OfficerIntoTheLaneM, _roads.LaneLengthM[lane]));
-        var kerb = at.Right * _config.RoadSideSign;
-        return at.PositionM + (kerb * ((_roads.LaneWidthM[lane] * 0.5f) + _config.PersonDiameterM));
+        var across = Spline.SampleAt(_roads.ArcsOf(lane), Math.Clamp(_beat.PostM[car], 0f, _roads.LaneLengthM[lane])).Right;
+        return TheOfficersPostM(car) + (across * _config.RoadSideSign * ((_roads.LaneWidthM[lane] * 0.5f) + _config.PersonDiameterM));
     }
 
     /// <summary>The ground off a car's kerb-side door, a body's width clear of its panels — where its officer gets out and back in.</summary>

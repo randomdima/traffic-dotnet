@@ -34,7 +34,8 @@ public class RoadClosureInATownTests
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(WarmUpTicks);
 
-        var (wreck, lane) = StageAWreck(world, acrossTheRoad: false);
+        var lane = TheLongestStreetLane(world);
+        var wreck = StageAWreck(world, lane, acrossTheRoad: false);
         var patrol = WaitForAClosure(world, loop, wreck, holding: 1);
         loop.Advance(OfficerWalksTicks);
 
@@ -50,8 +51,66 @@ public class RoadClosureInATownTests
 
         // At the mouth, and on the road: where they stand for as long as no call is coming down the lane, which is
         // what they step aside for (SRV-6).
-        var entrance = closed[0];
-        var postM = Spline.SampleAt(world.Roads.ArcsOf(entrance), Config.Service.OfficerIntoTheLaneM).PositionM;
+        var nearestM = OfficerComesNearestTheirPostM(world, loop, patrol, officer);
+        Assert.True(
+            nearestM <= Config.Service.CrewReachM,
+            $"the officer came no nearer their post at the mouth of lane {closed[0]} than {nearestM:F2} m");
+    }
+
+    /// <summary>
+    /// <b>A zebra over the mouth stays the walkers'</b> (SRV-9): the officer stands on the traffic's side of the
+    /// paint, and the police car with its tail past it.
+    /// </summary>
+    [Fact]
+    public void TheOfficerStandsShortOfAZebraOverTheMouthAndTheCarPastIt()
+    {
+        using var world = new TownWorld(Towns.Built, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var lane = AStreetLaneClosedAtAZebra(world, out var zebraFromM, out var zebraToM);
+        var wreck = StageAWreck(world, lane, acrossTheRoad: false);
+        var patrol = WaitForAClosure(world, loop, wreck, holding: 1);
+        Assert.Equal(lane, world.Beat.EntranceOf(patrol));
+
+        var officer = world.Beat.Officer[patrol];
+        var nearestM = OfficerComesNearestTheirPostM(world, loop, patrol, officer);
+        Assert.True(nearestM <= Config.Service.CrewReachM, $"the officer came no nearer their post than {nearestM:F2} m");
+
+        var officerM = IntoTheLaneM(world, lane, world.People.PositionM[officer]) + (Config.PersonDiameterM * 0.5f);
+        Assert.True(officerM < zebraFromM, $"the officer reaches {officerM:F2} m into lane {lane}, over a zebra from {zebraFromM:F2} m");
+
+        var tailM = world.Cars.PositionM[patrol] - (Heading.Unit(world.Cars.HeadingRad[patrol]) * world.Cars.BuildOf(patrol).HalfLengthM);
+        var carFromM = IntoTheLaneM(world, lane, tailM);
+        Assert.True(carFromM > zebraToM, $"the police car's tail is {carFromM:F2} m into lane {lane}, over a zebra to {zebraToM:F2} m");
+    }
+
+    /// <summary>
+    /// <b>The light stays up while the car stands at its closure</b> (SRV-6, AMB-4b): it is still on the call.
+    /// </summary>
+    [Fact]
+    public void APoliceCarShowsItsLightWhileItsRoadIsClosed()
+    {
+        using var world = new TownWorld(Towns.Built, Config);
+        var loop = new SimLoop<TownWorld>(world, Config);
+        loop.Advance(WarmUpTicks);
+
+        var wreck = StageAWreck(world, TheLongestStreetLane(world), acrossTheRoad: false);
+        var patrol = WaitForAClosure(world, loop, wreck, holding: 1);
+        for (var tick = 0; tick < WatchedTicks && world.Beat.Closes(patrol); tick++)
+        {
+            Assert.True(world.Cars.BlueLight[patrol], $"the police car put its light out {tick} ticks into its closure");
+            loop.Advance(1);
+        }
+    }
+
+    /// <summary>
+    /// How near the officer comes to the post the closure gave them, watched while the road stays closed — a call
+    /// coming down the lane is stood aside for, so the nearest is the question and not the last.
+    /// </summary>
+    static float OfficerComesNearestTheirPostM(TownWorld world, SimLoop<TownWorld> loop, int patrol, int officer)
+    {
+        var postM = world.TheOfficersPostM(patrol);
         var nearestM = float.PositiveInfinity;
         for (var tick = 0; tick < WatchedTicks && world.Beat.Closes(patrol) && nearestM > Config.Service.CrewReachM; tick++)
         {
@@ -59,20 +118,16 @@ public class RoadClosureInATownTests
             loop.Advance(1);
         }
 
-        var calls = "";
-        for (var car = 0; car < world.Cars.Count; car++)
-        {
-            if (!world.Cars.BlueLight[car]) continue;
+        return nearestM;
+    }
 
-            calls += $"\n  call {car} lane {world.Cars.LaneOf(car)} hold {world.Cars.Hold[car]} cut {world.Cars.GrantCutBy[car]} " +
-                     $"pass {world.Cars.Pass[car].Any}/{world.Cars.Pass[car].Begun} aside {world.Cars.Context[car].PassAsideM:F2} " +
-                     $"at {world.Cars.PositionM[car]} chain {string.Join(",", world.Cars.ChainOf(car)[..world.Cars.Line[car].LaneCount].ToArray())}";
-        }
-
-        Assert.True(
-            nearestM <= Config.Service.CrewReachM,
-            $"the officer came no nearer the mouth of lane {entrance} than {nearestM:F2} m; closure of {closed.Length} lanes, " +
-            $"police car at {world.Cars.PositionM[patrol]}{calls}");
+    /// <summary>How far into a lane a place stands along it — and short of its first metre, on the line it leaves the box along, as a negative.</summary>
+    static float IntoTheLaneM(TownWorld world, int lane, Vector2 atM)
+    {
+        var arcs = world.Roads.ArcsOf(lane);
+        var mouth = Spline.SampleAt(arcs, 0f);
+        var shortM = Vector2.Dot(atM - mouth.PositionM, mouth.Direction);
+        return shortM < 0f ? shortM : Spline.ProjectM(arcs, atM, shortM, world.Roads.LaneLengthM[lane]);
     }
 
     /// <summary>
@@ -86,7 +141,8 @@ public class RoadClosureInATownTests
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(WarmUpTicks);
 
-        var (wreck, lane) = StageAWreck(world, acrossTheRoad: true);
+        var lane = TheLongestStreetLane(world);
+        var wreck = StageAWreck(world, lane, acrossTheRoad: true);
         var back = world.Roads.LaneReverse[lane];
         var toLane = -1;
         var toBack = -1;
@@ -119,7 +175,7 @@ public class RoadClosureInATownTests
         var loop = new SimLoop<TownWorld>(world, Config);
         loop.Advance(WarmUpTicks);
 
-        var (wreck, _) = StageAWreck(world, acrossTheRoad: false);
+        var wreck = StageAWreck(world, TheLongestStreetLane(world), acrossTheRoad: false);
         var patrol = WaitForAClosure(world, loop, wreck, holding: 1);
         loop.Advance(OfficerWalksTicks);
 
@@ -154,11 +210,8 @@ public class RoadClosureInATownTests
         }
     }
 
-    /// <summary>
-    /// A parked car of the town's own, put down in the middle of a long street lane — along it, or across the whole
-    /// road — and wrecked there the way a crash wrecks one, so the town is told of it (EVA-1).
-    /// </summary>
-    static (int Wreck, int Lane) StageAWreck(TownWorld world, bool acrossTheRoad)
+    /// <summary>The longest lane of a two-way street in the town, which is room to stage a scene in the middle of.</summary>
+    static int TheLongestStreetLane(TownWorld world)
     {
         var roads = world.Roads;
         var lane = -1;
@@ -168,6 +221,45 @@ public class RoadClosureInATownTests
             if (lane < 0 || roads.LaneLengthM[candidate] > roads.LaneLengthM[lane]) lane = candidate;
         }
 
+        Assert.True(lane >= 0, "the built city has no two-way street");
+        return lane;
+    }
+
+    /// <summary>
+    /// <b>The longest two-way street lane that is its own closure's entrance and has a zebra painted over its
+    /// mouth</b>, and the metres of it the paint covers — where the officer and the car have a crossing to keep
+    /// clear of.
+    /// </summary>
+    static int AStreetLaneClosedAtAZebra(TownWorld world, out float zebraFromM, out float zebraToM)
+    {
+        var roads = world.Roads;
+        Span<int> stretch = stackalloc int[Config.Service.ClosureMostLanes];
+        var lane = -1;
+        zebraFromM = 0f;
+        zebraToM = 0f;
+        for (var candidate = 0; candidate < roads.LaneCount; candidate++)
+        {
+            if (roads.IsABayArm(candidate) || roads.LaneReverse[candidate] < 0) continue;
+            if (lane >= 0 && roads.LaneLengthM[candidate] <= roads.LaneLengthM[lane]) continue;
+            if (RoadClosure.Stretch(roads, candidate, stretch) == 0 || stretch[0] != candidate) continue;
+            if (!world.TheZebraOverTheMouth(candidate, out var fromM, out var toM)) continue;
+
+            lane = candidate;
+            zebraFromM = fromM;
+            zebraToM = toM;
+        }
+
+        Assert.True(lane >= 0, "the built city has no street lane entered over a zebra");
+        return lane;
+    }
+
+    /// <summary>
+    /// A parked car of the town's own, put down in the middle of a street lane — along it, or across the whole road —
+    /// and wrecked there the way a crash wrecks one, so the town is told of it (EVA-1).
+    /// </summary>
+    static int StageAWreck(TownWorld world, int lane, bool acrossTheRoad)
+    {
+        var roads = world.Roads;
         var victim = -1;
         for (var car = 0; car < world.Cars.Count && victim < 0; car++)
         {
@@ -178,7 +270,7 @@ public class RoadClosureInATownTests
             }
         }
 
-        Assert.True(lane >= 0 && victim >= 0, "the built city has no street lane or no parked car to wreck on it");
+        Assert.True(victim >= 0, "the built city has no parked car to wreck");
 
         var at = Spline.SampleAt(roads.ArcsOf(lane), roads.LaneLengthM[lane] * 0.5f);
         var positionM = acrossTheRoad
@@ -191,7 +283,7 @@ public class RoadClosureInATownTests
         world.Cars.VelocityMps[victim] = Vector2.Zero;
         world.PhysicsForInstruments.Release(world.Cars.Body[victim], positionM, headingRad);
         world.Apply(new BodyTag(BodyKind.Car, victim), DamageOutcome.Broken);
-        return (victim, lane);
+        return victim;
     }
 
     /// <summary>

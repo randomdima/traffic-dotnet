@@ -118,9 +118,12 @@ is the point of the rule.
 - **The leg out carries the priority and nothing else does** — the whole of `AMB-4` for that one leg, on
   `EVA-4`'s terms, aimed at the entrance lane itself and never the other side of its street. What is urgent
   about a closure is getting the road shut before somebody else drives into the scene; the drive home
-  afterwards is a police car going back to work.
+  afterwards is a police car going back to work. **The light stays up while the car stands at its closure**, on
+  `AMB-4b`'s terms — it is still on the call — **and buys nothing there**: a car standing plans no ground.
 - **The car stands in the entrance and its officer at the mouth, between it and the traffic**
-  (`OfficerIntoTheLaneM`, `PoliceCarPastTheOfficerM`). What refuses a car the lane is the officer's body, which
+  (`OfficerIntoTheLaneM`, `PoliceCarTailClearM`). **A zebra painted over the mouth stays the walkers'**: the
+  officer stands on the traffic's side of the paint (`OfficerShortOfTheZebraM`), in the box's edge where the paint
+  begins at the lane's first metre, and the car with its tail past the paint. What refuses a car the lane is the officer's body, which
   every car stops short of like any other body (TER-4c.1); what keeps cars from planning to go there is the
   ban (SRV-10) — a route never enters a closed lane's run (`RoutePlanner`) and a tour never draws one
   (`LaneTour`). **No claim of the closure's own is laid** (SIM-7): a body is already the thing the road refuses
@@ -142,7 +145,7 @@ is the point of the rule.
 On `SimConfig.Service` ([core](../../../core/docs/requirements.md#where-a-figure-lives)): how many of a
 town's buildings are police stations and how many are depots, how near its own building one may stand, how
 many bays an apron holds — a hospital's as well as a station's — the three the beat is drawn from (the
-places on one, the interval between two, and the bound on a leg), and **the four a closure is**: how many lanes
-back it may reach, how far into the entrance its officer stands and the car past them, and how long one may
-stand — with **the two its officer walks by**, how near a place counts as there and how long they have to get
-back to their seat.
+places on one, the interval between two, and the bound on a leg), and **the five a closure is**: how many lanes
+back it may reach, how far into the entrance its officer stands or how far short of a zebra over it, how much
+clear ground the car keeps behind its tail, and how long one may stand — with **the two its officer walks by**,
+how near a place counts as there and how long they have to get back to their seat.

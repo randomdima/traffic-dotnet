@@ -1,5 +1,16 @@
 # The service vehicles — decision log
 
+## 2026-09-29 — the car stands past a zebra and the officer short of it, and the light stays up
+
+**The owner saw a police car closing a lane from on top of the zebra across its mouth**, and asked for the car to
+be left after the zebra and the officer before it, and for the sirens to stay on. The zebra is read off the entrance
+lane's own marks (TER-5c.3), as far in as the officer and the car would stand; the officer then stands the traffic's
+side of the paint — in the box's edge where the paint begins at the lane's first metre — and the car's tail keeps a
+stride clear of whichever is further in, the officer or the paint (`PlaceTheClosure`). The one figure that set the
+car a fixed distance past the officer became a clearance behind its tail, since the paint is now the other thing it
+may have to clear. **The light stays up from the leg out until the officer is back aboard**, on AMB-4b's own terms: a
+car standing at its closure is still on the call, and holds no plan for the priority to buy anything with.
+
 ## 2026-09-29 — the police close a road by standing at its entrances, and the lanes leave the router
 
 **The owner asked for the police back** — no police car had stood in any town since the bays went — and said

@@ -159,7 +159,7 @@ internal sealed partial class TownWorld
         var closed = _beat.Closes(car);
         _beat.Stage[car] = stage;
         _beat.SinceS[car] = 0f;
-        Cars.BlueLight[car] = _beat.IsHurrying(car);
+        Cars.BlueLight[car] = _beat.ShowsItsLight(car);
         if (_beat.Closes(car) != closed) _closuresChanged = true;
     }
 

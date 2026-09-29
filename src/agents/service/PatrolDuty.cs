@@ -67,6 +67,8 @@ internal sealed class PatrolDuty
         ClosedCount = new int[cars];
         SceneLane = new int[cars];
         Array.Fill(SceneLane, Nobody);
+        PostM = new float[cars];
+        StandM = new float[cars];
         Officer = new int[cars];
         Array.Fill(Officer, Nobody);
     }
@@ -128,6 +130,15 @@ internal sealed class PatrolDuty
     public int[] SceneLane { get; }
 
     /// <summary>
+    /// <b>Where on its entrance lane the officer stands</b>, in that lane's metres (SRV-11): short of a zebra over
+    /// the mouth, and so possibly short of the lane's own first metre, in the box it leaves.
+    /// </summary>
+    public float[] PostM { get; }
+
+    /// <summary>And where the car's rear axle stands: its tail clear of the officer and of the zebra (SRV-9).</summary>
+    public float[] StandM { get; }
+
+    /// <summary>
     /// <b>The officer this car carries</b> (SRV-11), or <see cref="Nobody"/> — who stands at the entrance and whose
     /// body is what blocks it (SRV-9). Laid with the car and never another, since the walker roster is not grown.
     /// </summary>
@@ -160,11 +171,11 @@ internal sealed class PatrolDuty
         ClosedCount[car] > 0 && Stage[car] is PatrolStage.Closing or PatrolStage.Reopening;
 
     /// <summary>
-    /// Whether it is carrying the priority (SRV-6): <b>the leg out to a scene and nothing else</b>. A patrol
-    /// is ordinary traffic (SRV-5), and what is urgent about a closure is getting the road shut before
-    /// anybody else drives into it — never the drive home afterwards.
+    /// <b>Whether its light is up</b> (SRV-6, AMB-4b): from the leg out until its officer is back aboard. A car
+    /// standing at a closure is still on the call — and plans no ground, so the priority the light carries is
+    /// the leg out's alone. A patrol is ordinary traffic (SRV-5), and so is the drive home afterwards.
     /// </summary>
-    public bool IsHurrying(int car) => Stage[car] == PatrolStage.Attending;
+    public bool ShowsItsLight(int car) => Stage[car] is PatrolStage.Attending or PatrolStage.Closing or PatrolStage.Reopening;
 
     /// <summary>The call given up or discharged: everything it held, dropped in one place.</summary>
     public void ClearTheCall(int car)

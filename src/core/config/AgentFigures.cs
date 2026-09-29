@@ -776,10 +776,17 @@ internal sealed class ServiceFigures
     public float OfficerIntoTheLaneM { get; init; } = 1f;
 
     /// <summary>
-    /// <b>And how far past the officer the police car's rear axle stands</b>: its tail a stride behind them, so
-    /// the car is inside the lane it closes and its officer between it and the traffic.
+    /// <b>Or, where a zebra is painted over the mouth, how far short of the paint they stand</b> (SRV-9): on the
+    /// traffic's side of it, so the crossing between them and their car stays the walkers'.
     /// </summary>
-    public float PoliceCarPastTheOfficerM { get; init; } = 2.5f;
+    public float OfficerShortOfTheZebraM { get; init; } = 0.5f;
+
+    /// <summary>
+    /// <b>How much clear ground the police car keeps behind its tail</b> — to its officer, or to the far edge of a
+    /// zebra over the mouth, whichever is further in: a stride, so the car is inside the lane it closes and
+    /// stands on nobody's crossing.
+    /// </summary>
+    public float PoliceCarTailClearM { get; init; } = 1f;
 
     /// <summary>
     /// How long a closure may stand before it is given up and the lane given back, in blocked-road
