@@ -39,7 +39,7 @@ public class RescuePriorityTests
     public void ARescueKeepsGroundAgainstEveryOrdinaryMovement(byte theirs)
     {
         Assert.True(Keeps(ClaimPriority.Special, Planned((ClaimPriority)theirs)));
-        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Closed)));
+        Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Signal)));
         Assert.True(Keeps(ClaimPriority.Special, Planned(ClaimPriority.Afoot)));
     }
 
@@ -51,22 +51,6 @@ public class RescuePriorityTests
     public void EverythingBelowARescueGivesItWay(byte mine)
     {
         Assert.False(Keeps((ClaimPriority)mine, Planned(ClaimPriority.Special)));
-        Assert.False(Keeps(ClaimPriority.Closed, Planned(ClaimPriority.Special)));
-    }
-
-    /// <summary>
-    /// <b>SRV-6, both halves at once</b>: a closed road keeps its ground against every ordinary movement, and
-    /// gives it up to a vehicle answering a call. It is the whole mechanism of the closure — one rung in one
-    /// order — so it is asserted here beside the rescue's rather than in a slice of its own.
-    /// </summary>
-    [Theory]
-    [InlineData((byte)6)]
-    [InlineData((byte)7)]
-    [InlineData((byte)8)]
-    public void AClosedRoadKeepsOrdinaryTrafficOutAndLetsACallThrough(byte theirs)
-    {
-        Assert.True(Keeps(ClaimPriority.Closed, Planned((ClaimPriority)theirs)));
-        Assert.False(Keeps(ClaimPriority.Closed, Planned(ClaimPriority.Special)));
     }
 
     /// <summary>
@@ -88,17 +72,5 @@ public class RescuePriorityTests
     {
         Assert.True(ClaimPriority.Special < ClaimPriority.FirmStraight);
         Assert.True(ClaimPriority.Special > ClaimPriority.Committed);
-    }
-
-    /// <summary>
-    /// <b>And a closed road stands between the traffic and a rescue</b> (SRV-6) — the one placing in the
-    /// order that gives a closure both of the things it is for, and the one an inserted rung could silently
-    /// move.
-    /// </summary>
-    [Fact]
-    public void AClosedRoadStandsBetweenTheTrafficAndARescue()
-    {
-        Assert.True(ClaimPriority.Closed < ClaimPriority.FirmStraight);
-        Assert.True(ClaimPriority.Closed > ClaimPriority.Special);
     }
 }

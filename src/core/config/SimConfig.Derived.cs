@@ -745,17 +745,8 @@ internal sealed partial class SimConfig
     /// <summary>How long one leg of a beat may run before the patrol is sent somewhere else (SRV-5).</summary>
     public float PatrolGiveUpS => CarPatienceS * Service.GiveUpInBlockedClocks;
 
-    /// <summary>
-    /// How long a hand who is out would have to walk back to their seat before being put in it. <b>Nothing
-    /// reads it</b>: no service vehicle carries a crew (SRV-3).
-    /// </summary>
+    /// <summary>How long an officer who is out has to walk back to their seat before being put in it (SRV-11).</summary>
     public float ServiceRecallS => CarPatienceS * Service.RecallInBlockedClocks;
-
-    /// <summary>How much road a police car holds either side of the scene it is closing (SRV-6).</summary>
-    public float PoliceClosureM => Car.LengthM * Service.ClosureInCarLengths;
-
-    /// <summary>And how far short of that scene the car itself is parked (SRV-6).</summary>
-    public float PoliceStandoffM => Car.LengthM * Service.SceneStandoffInCarLengths;
 
     /// <summary>How long a closure may stand before the lane is given back to the town (SRV-6).</summary>
     public float PoliceClosureLifeS => CarPatienceS * Service.ClosureInBlockedClocks;

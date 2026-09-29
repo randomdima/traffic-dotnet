@@ -145,6 +145,20 @@ internal sealed partial class LaneOccupancy
         return IsUnplannedForAPass(way, heldFromM, heldToM, occupant, of, passed);
     }
 
+    /// <summary>
+    /// <b>Whether one holder's body stands on a way at all</b> — which of the town's lanes a scene lies across
+    /// (SRV-9), read off the ground the body was laid on rather than measured again.
+    /// </summary>
+    public bool HasTheBodyOf(int way, int occupant, LaneRoster of)
+    {
+        for (var at = _bodies[way]; at != NoSlot; at = _next[at])
+        {
+            if (_slots[at].Occupant == occupant && _slots[at].Of == of) return true;
+        }
+
+        return false;
+    }
+
     /// <summary>Whether no holder but the asker and what it passes plans any of a stretch of one way.</summary>
     bool IsUnplannedForAPass(
         int way, float fromM, float toM, int occupant, LaneRoster of, ReadOnlySpan<LaneClaim> passed)

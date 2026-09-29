@@ -31,15 +31,16 @@ public class WalkingTests
     /// <summary>
     /// <b>GEN-7: everybody the plan stands is inside a building before the first tick.</b> A body stood at
     /// a way in walks through it as the town is stood up, so the first thing any walker does is a dwell and
-    /// not a leg nothing drew.
+    /// not a leg nothing drew. <b>The plan's people are stood first</b>, and a police car's officer after them,
+    /// aboard their car (SRV-11).
     /// </summary>
     [Fact]
     public void EverybodyTheTownStandsBeginsInsideABuilding()
     {
         using var world = Stood(out var plan);
 
-        Assert.Equal(PeopleStood(plan), world.People.Count);
-        for (var person = 0; person < world.People.Count; person++)
+        Assert.Equal(PeopleStood(plan) + world.PoliceCars, world.People.Count);
+        for (var person = 0; person < PeopleStood(plan); person++)
         {
             Assert.Equal(TripStage.Dwelling, world.People.Stage[person]);
             Assert.True(world.People.Inside[person].Any, $"walker {person} was stood outside every door");

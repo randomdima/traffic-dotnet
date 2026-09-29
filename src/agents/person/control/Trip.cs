@@ -27,4 +27,11 @@ internal enum TripStage : byte
 
     /// <summary>CTL-2: the goal was pinned by a hand, so nothing here draws another when it is reached.</summary>
     UnderOrders,
+
+    /// <summary>
+    /// <b>A police officer on duty</b> (SRV-11): aboard their car, or out of it walking straight to where the
+    /// closure puts them and standing there. <b>The errand is the car's</b>, so nothing of the trip runs — no
+    /// route, no clock that gives the walk up, nothing drawn when it arrives.
+    /// </summary>
+    OnDuty,
 }

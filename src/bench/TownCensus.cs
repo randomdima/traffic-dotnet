@@ -189,7 +189,7 @@ internal static class TownCensus
         var uses = BuildingUses.Of(plan);
         var apron = (uses.Hospitals.Count + uses.PoliceStations.Count) * config.Service.ApronBays;
         Console.WriteLine(
-            $"  plus an apron of {config.Service.ApronBays} cars, nobody aboard any of them (SRV-3), at " +
+            $"  plus an apron of {config.Service.ApronBays} cars, an officer aboard each police car (SRV-11), at " +
             $"each of the map's own hospitals ({uses.Hospitals.Count} of {HospitalRoster.CountIn(plan, config)} " +
             $"this build would place) and police stations ({uses.PoliceStations.Count} of " +
             $"{PoliceStationRoster.CountIn(plan, config)}), and one at each of its depots " +

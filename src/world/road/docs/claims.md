@@ -215,10 +215,9 @@ whatever holds ground that way shares has placed a secondary claim on it.
   on the turns between them and touch neither one's main claim, both go.
 - **A holder places main claims only on the ways of its own line**, and on the ways it only crosses nothing
   but secondary claims. A car approaching a box holds no fan of joins it is never going to be on.
-- **A light's hold and a closure are secondary claims placed with no main claim** (`TLT-1`, `SRV-6`): on the
-  way each governs and no other, before any plan is laid — a light's from its start to the first body travelling
-  that way, a closure's over the scene and whatever stands in it — so each meets the main claims on that way, and
-  what crosses that way is held by nothing of it.
+- **A light's hold is a secondary claim placed with no main claim** (`TLT-1`): on the way it governs and no
+  other, before any plan is laid, from its start to the first body travelling that way — so it meets the main
+  claims on that way, and what crosses that way is held by nothing of it.
 
 **TER-5c.2** `P3` **A hold is one stretch of its holder's line.** Its pieces, read in the order the line runs
 over them, each begin where the one before ended; **cut anywhere, it gives up everything past the cut** — the
@@ -269,8 +268,8 @@ rather than a rule's.
 ## The ladder
 
 **TER-5g** `P4` **A plan is who holds it, where, and at what rung.** Low is strong, and the ladder is one
-order: a closure, a call and a light are placed on it rather than carried beside it, so nothing reading the
-reservations learns what a police car, an ambulance or a signal is.
+order: a call and a light are placed on it rather than carried beside it, so nothing reading the reservations
+learns what an ambulance or a signal is.
 
 - **p0 — a body.** The physical layer (TER-4c.2), and the ground a pass will cover (TER-4c.6); never
   compared, so above every rung by construction.
@@ -278,13 +277,10 @@ reservations learns what a police car, an ambulance or a signal is.
   own, and beaten by nothing (TER-5e).
 - **p2 — a call** ([agents/ambulance](../../../agents/ambulance/docs/requirements.md), `AMB-4`): ground
   somebody answering one plans to use, above everything a road carries of itself.
-- **p3 — a closed road** ([agents/service](../../../agents/service/docs/requirements.md), `SRV-6`): ground a
-  police car at a scene holds shut round it, above every ordinary plan and below a call, which is the whole
-  of what lets the other services through a road that is shut.
 - **p4 — a light's hold** ([agents/trafficlight](../../../agents/trafficlight/docs/requirements.md),
   `TLT-1`): an approach past its bar while it is not green, and the paint of a crossing while it is red, as
   secondary claims of the way they are placed on and no other — above a walker and every movement, and
-  below a closure and a call, which go through it.
+  below a call, which goes through it.
 - **p5 — somebody on foot** (`PER-27`): every way a walker plans, one rung above the strongest movement and
   below a light. Nothing about it names a zebra: a car gives way on the paint because the paint's marks
   (TER-5c.3) bring this rung to its lane, and gives up the pavement its turn sweeps at a corner the same way.
@@ -305,8 +301,9 @@ cut there, give the far side up again for nothing.
 car or a walker decides reads another car or walker except through what is laid on the way it is on — no
 look-up of another agent's state, no register of whose turn it is, and nothing one agent writes during the
 decisions that another reads in the same walk of them. What is left outside is the town's own infrastructure and its
-special agents, each named where it is made: **a light, a call and a closure**, which are rungs of the
-ladder, a light's and a closure's placed before any plan is laid (`TLT-1`, `SRV-6`); **a hand at the wheel,
+special agents, each named where it is made: **a light and a call**, which are rungs of the ladder, a light's
+placed before any plan is laid (`TLT-1`); **a closure**, which is an officer's body standing at the mouth of the
+lanes it holds and those lanes out of every route and every tour (`SRV-9`, `SRV-10`); **a hand at the wheel,
 a recovery and a tow**, which place a body where they put it — a hand holding what its car can no longer stop
 short of like any moving body (`S-7`); **a pass**, which places a body over ground its holder has still to
 reach (TER-4c.6); and **the solver**, which is what two bodies in one place come to.

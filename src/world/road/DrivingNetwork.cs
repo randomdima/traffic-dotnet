@@ -88,6 +88,18 @@ internal sealed class DrivingNetwork
         return count;
     }
 
+    /// <summary>
+    /// <b>A place on one named lane as the only goal</b> — for a leg that has to arrive on that lane and not on
+    /// the other side of its street, as a police car standing at the mouth of a lane it is closing does.
+    /// </summary>
+    public int GoalOnLane(int lane, float alongLaneM, Span<RouteGoal> into)
+    {
+        if (into.Length == 0 || _linkOfLane[lane] == TravelGraph.NoLink) return 0;
+
+        into[0] = new RouteGoal(_linkOfLane[lane], PlaceOfM(lane, alongLaneM));
+        return 1;
+    }
+
     /// <param name="turnsAtALot">
     /// One flag per lane: <b>whether a leg may come back down the other side of this stretch</b> by parking
     /// in a bay off it and leaving the other way (GEN-4l). It is handed in as data rather than read off the

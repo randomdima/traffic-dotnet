@@ -284,9 +284,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         var served = ((_uses.Hospitals.Count + _uses.PoliceStations.Count) * config.Service.ApronBays)
                      + _uses.Depots.Count;
 
-        // <b>The car roster grows by the vehicles, and the walker roster by the crew each carries, which is
-        // none</b> (SRV-3, <see cref="CrewPerServiceVehicle"/>).
-        walkers += served * CrewPerServiceVehicle;
+        // <b>The car roster grows by the vehicles, and the walker roster by the officer each police car carries</b>
+        // (SRV-3, SRV-11) — laid now, since a roster is never grown once the town stands.
+        walkers += _uses.PoliceStations.Count * config.Service.ApronBays;
         drivers += served;
 
         People = new PersonFleet(walkers);
@@ -301,15 +301,15 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
         // <b>One table, sized for every shape either roster can be in</b> (TER-4c): every way a body can be
         // over, and a plan down its own line with every section its marks link it to. A driver may also
-        // hold a road shut (SRV-6) and the ground behind it it backs up over (TER-4c.7), and every stretch a
-        // light holds is a hold (TLT-1) — each one piece placed on one way.
+        // hold the ground behind it it backs up over (TER-4c.7), and every stretch a light holds is a hold
+        // (TLT-1) — each one piece placed on one way.
         _occupancy = new LaneOccupancy(
             _ways,
             (drivers * (MostWaysUnderABody + MostPlannedPer(MostWaysAlongALine + 1, _atlas.Marks)
                         + MostPlannedPer(BackingPieces, _atlas.Marks)))
             + (walkers * (MostWaysUnderABody + 1 + MostPlannedPer(MostWaysAlongAWalk, _atlas.Marks)))
             + _signalHolds.Count,
-            (drivers * 3) + walkers + _signalHolds.Count,
+            (drivers * 2) + walkers + _signalHolds.Count,
             _atlas.Marks);
         _carHold = new int[drivers];
         _walkerHold = new int[walkers];
@@ -329,7 +329,9 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
         _driveProgress = new LegProgress(drivers);
         _carOrders = new PlayerOrders(drivers);
         _duty = new RescueDuty(drivers);
-        _beat = new PatrolDuty(drivers);
+        _beat = new PatrolDuty(drivers, config.Service.ClosureMostLanes);
+        _closedLanes = new bool[_roads.LaneCount];
+        _closedLinks = new bool[_driving.Graph.LinkCount];
         _recovery = new RecoveryDuty(drivers);
 
         if (standStatics) StandStatics();
@@ -578,6 +580,7 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
 
     public void RebuildProximityIndex()
     {
+        LayTheClosures();
         DriveTheEmptyMap();
         MendTheYards(_config.TickSeconds);
         RebuildLaneOccupancy();
@@ -727,6 +730,10 @@ internal sealed partial class TownWorld : ISimWorld, IDamageRoster, IDisposable
             DecideContained(agent, sinceLastDecisionS);
             return;
         }
+
+        // An officer on duty is the police car's errand on foot (SRV-11): where they stand is the car's to say,
+        // and none of a trip's clocks or walks runs for them.
+        if (People.Stage[agent] == TripStage.OnDuty) return;
 
         // A beat stood on purpose is not a leg going wrong. It is the walking side's own idle between two
         // goals, and a clock that gave a leg up while it ran would end the stand rather than the stand

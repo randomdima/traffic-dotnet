@@ -29,37 +29,48 @@ namespace TrafficSimulation.Agents.Car.Control;
 /// </remarks>
 internal static class LaneTour
 {
-    public static int NextLane(RoadGraph graph, SimConfig config, int lane, ref Rng draw)
+    /// <param name="closed">
+    /// <b>The lanes a closure holds</b> (SRV-9), one flag a lane, or empty where none is closed: never drawn, for
+    /// the reason a route never enters one — a tour turns nowhere a route could not.
+    /// </param>
+    public static int NextLane(RoadGraph graph, SimConfig config, int lane, ReadOnlySpan<bool> closed, ref Rng draw)
     {
         var connectors = graph.ConnectorsFrom(lane);
         var total = 0f;
-        var streets = 0;
+        var open = 0;
         foreach (var connector in connectors)
         {
-            total += Weight(graph, config, connector);
-            if (!graph.IsABayArm(graph.ConnectorTo(connector))) streets++;
+            total += Weight(graph, config, connector, closed);
+            if (IsOpen(graph, graph.ConnectorTo(connector), closed)) open++;
         }
 
-        if (streets == 0) return CarFleetNoLane;
-        if (total <= 0f) return TheStreetDrawn(graph, connectors, draw.NextInt(streets));
+        if (open == 0) return CarFleetNoLane;
+        if (total <= 0f) return TheOpenDrawn(graph, connectors, closed, draw.NextInt(open));
 
         var drawn = draw.NextFloat(0f, total);
         foreach (var connector in connectors)
         {
-            drawn -= Weight(graph, config, connector);
+            drawn -= Weight(graph, config, connector, closed);
             if (drawn <= 0f) return graph.ConnectorTo(connector);
         }
 
-        return TheStreetDrawn(graph, connectors, streets - 1);
+        return TheOpenDrawn(graph, connectors, closed, open - 1);
     }
 
-    /// <summary>The <paramref name="nth"/> of the movements onto the carriageway, a car park's arms not counted.</summary>
-    static int TheStreetDrawn(RoadGraph graph, ConnectorRun connectors, int nth)
+    /// <summary>
+    /// Whether a lane may be toured onto: a lane of the carriageway, never a car park's arm (GEN-4h), and one no
+    /// closure holds.
+    /// </summary>
+    static bool IsOpen(RoadGraph graph, int lane, ReadOnlySpan<bool> closed) =>
+        !graph.IsABayArm(lane) && (closed.IsEmpty || !closed[lane]);
+
+    /// <summary>The <paramref name="nth"/> of the movements onto a lane <see cref="IsOpen"/> lets a tour onto.</summary>
+    static int TheOpenDrawn(RoadGraph graph, ConnectorRun connectors, ReadOnlySpan<bool> closed, int nth)
     {
         foreach (var connector in connectors)
         {
             var onto = graph.ConnectorTo(connector);
-            if (graph.IsABayArm(onto)) continue;
+            if (!IsOpen(graph, onto, closed)) continue;
             if (nth-- == 0) return onto;
         }
 
@@ -67,12 +78,12 @@ internal static class LaneTour
     }
 
     /// <summary>
-    /// The cheaper the turn, the likelier it is drawn — at the prices the router quotes. <b>Never onto a car
-    /// park's arm</b> (GEN-4h): an arm is a bay, driven only as the bay's own ways.
+    /// The cheaper the turn, the likelier it is drawn — at the prices the router quotes. <b>Never onto a lane
+    /// the tour may not take</b> (<see cref="IsOpen"/>).
     /// </summary>
-    static float Weight(RoadGraph graph, SimConfig config, int connector)
+    static float Weight(RoadGraph graph, SimConfig config, int connector, ReadOnlySpan<bool> closed)
     {
-        if (graph.IsABayArm(graph.ConnectorTo(connector))) return 0f;
+        if (!IsOpen(graph, graph.ConnectorTo(connector), closed)) return 0f;
 
         // A lane with no connector out of it is a dead end, and nothing turns a car round in one: driven
         // in, a car stands at the end until its leg's clock runs out. Declining it keeps a car nobody is

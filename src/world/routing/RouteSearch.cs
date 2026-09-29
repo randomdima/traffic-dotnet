@@ -28,9 +28,14 @@ internal sealed class RouteSearch
     /// <summary>The links of the last plan, valid until the next one over this search.</summary>
     public ReadOnlySpan<int> Links(int count) => _links.AsSpan(0, count);
 
-    /// <inheritdoc cref="RoutePlanner.Plan"/>
+    /// <inheritdoc cref="RoutePlanner.Plan(ReadOnlySpan{RouteEntry}, ReadOnlySpan{RouteGoal}, LinkSurcharges?, Span{int}, out float, out int)"/>
     public int Plan(int entryCount, int goalCount, LinkSurcharges? surcharges, out int goalSlot) =>
+        Plan(entryCount, goalCount, surcharges, default, out goalSlot);
+
+    /// <inheritdoc cref="RoutePlanner.Plan(ReadOnlySpan{RouteEntry}, ReadOnlySpan{RouteGoal}, LinkSurcharges?, ReadOnlySpan{bool}, Span{int}, out float, out int)"/>
+    public int Plan(
+        int entryCount, int goalCount, LinkSurcharges? surcharges, ReadOnlySpan<bool> closed, out int goalSlot) =>
         _planner.Plan(
-            _entries.AsSpan(0, entryCount), _goals.AsSpan(0, goalCount), surcharges, _links, out _,
+            _entries.AsSpan(0, entryCount), _goals.AsSpan(0, goalCount), surcharges, closed, _links, out _,
             out goalSlot);
 }

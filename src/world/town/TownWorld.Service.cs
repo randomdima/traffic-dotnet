@@ -161,6 +161,7 @@ internal sealed partial class TownWorld
                 if (car < 0) continue;
 
                 BeginTheBeat(car, station, _parking.BayOf(car));
+                StandTheOfficer(car);
                 PoliceCars++;
             }
         }
@@ -191,21 +192,14 @@ internal sealed partial class TownWorld
     const int NoCar = -1;
 
     /// <summary>
-    /// <b>How many people a town stands in each service vehicle</b> (SRV-3), which is nobody while no
-    /// errand is worked on foot. It is what the walker roster grows by, so it is a constant here rather
-    /// than a figure — a town cannot be given a different number of crew after its rosters are laid.
-    /// </summary>
-    const int CrewPerServiceVehicle = 0;
-
-    /// <summary>
     /// One service vehicle standing in its bay (SRV-3). <b>The same pose a spawned car comes
     /// to rest in</b> (GEN-4i): the bay's ways meet at it, so the first thing it does when it is given
     /// something to do is drive rather than recover.
     /// </summary>
     /// <remarks>
-    /// <b>Nobody aboard</b> (SRV-3): what makes it a car that acts is the errand rather than the seat, and
-    /// what keeps it out of anybody else's hands is the building it stands on the strength of
-    /// (<see cref="IsAServiceVehicle"/>).
+    /// <b>What makes it a car that acts is the errand rather than a seat</b> (SRV-3), and what keeps it out of
+    /// anybody else's hands is the building it stands on the strength of (<see cref="IsAServiceVehicle"/>). A
+    /// police car's officer rides in a crew seat and is stood with it (<see cref="StandTheOfficer"/>).
     /// </remarks>
     int StandAServiceVehicle(int bay, byte variant, ulong stream)
     {
@@ -222,10 +216,6 @@ internal sealed partial class TownWorld
         var car = Cars.Add(body, positionM, headingRad, variant, backsIn, draw);
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
         _parking.Occupy(bay, car);
-
-        // <b>No crew</b> (SRV-3). Nothing on this vehicle's errands is done on foot, so a body sat in a seat
-        // for the whole run would be a person the town stands up, feeds a person slot and never once uses.
-        // It is named in the known gaps.
         return car;
     }
 

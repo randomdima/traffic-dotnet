@@ -213,9 +213,6 @@ public class JunctionClaimTests
                 ref readonly var piece = ref slots[slot];
                 if (piece.Of != LaneRoster.Driving || world.Cars.LineWayOf(piece.Occupant) != CarFleet.NoWay) continue;
 
-                // A closure is held over the ground of a scene and is not a line anybody drives.
-                if (piece.Priority == ClaimPriority.Closed) continue;
-
                 if (piece.Secondary)
                 {
                     found.Crossing++;

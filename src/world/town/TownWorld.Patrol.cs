@@ -7,9 +7,10 @@ namespace TrafficSimulation.World.Town;
 
 /// <summary>
 /// <b>The beat</b> (SRV-5): the police cars standing on a station's apron, and the errand that takes each
-/// of them round the town and brings it back. <b>The driving itself is the leg's</b> — a police car
-/// drives what every other car drives (CAR-15) — and what is here is only the reason those legs are
-/// being driven.
+/// of them round the town and brings it back — and <b>the call that interrupts it</b> (SRV-6), which is what a
+/// police car is for (SRV-8). <b>The driving itself is the leg's</b> — a police car drives what every other car
+/// drives (CAR-15) — and what is here is only the reason those legs are being driven. What happens at a scene
+/// once the car is there is <c>TownWorld.Closure.cs</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -40,13 +41,14 @@ internal sealed partial class TownWorld
 
     /// <summary>
     /// <b>Whether this patrol's leg ends at a place on a lane rather than in a bay</b>: a beat's place and a
-    /// scene's are both somewhere in the road (SRV-5, SRV-6), and only the drive home is aimed at a bay.
+    /// closure's entrance are both somewhere in the road (SRV-5, SRV-9), and only the drive home is aimed at a bay.
     /// </summary>
     bool IsOnItsBeatOrToAScene(int car) =>
-        IsAPatrolCar(car) && _beat.Stage[car] is PatrolStage.Patrolling or PatrolStage.Attending or PatrolStage.Closing;
+        IsAPatrolCar(car) && _beat.Stage[car] is PatrolStage.Patrolling or PatrolStage.Attending or PatrolStage.Closing
+            or PatrolStage.Reopening;
 
     /// <summary>
-    /// A police car stood on its station's apron (SRV-2), standing by for its first beat. <b>The first
+    /// A police car stood on its station's apron (SRV-2, SRV-7), standing by for its first beat. <b>The first
     /// stand is drawn like every later one</b>, so four cars stood in the same instant do not leave in it.
     /// </summary>
     void BeginTheBeat(int car, int station, int bay)
@@ -62,7 +64,11 @@ internal sealed partial class TownWorld
     /// </summary>
     void RunThePatrol(int car, float sinceLastDecisionS)
     {
-        if (Cars.Broken[car]) return;
+        if (Cars.Broken[car])
+        {
+            LetTheCallOfAWreckGo(car);
+            return;
+        }
 
         // The elapsed the beat's own clocks integrate over is the driver's and not the loop's nominal
         // interval, for the reason a rescue's is (<see cref="RunTheRescue"/>).
@@ -93,14 +99,21 @@ internal sealed partial class TownWorld
                 return;
 
             case PatrolStage.Attending:
-                RunToTheSceneToCloseIt(car);
+                RunToTheEntrance(car);
                 return;
 
             case PatrolStage.Closing:
                 HoldTheRoadClosed(car, elapsedS);
                 return;
 
+            case PatrolStage.Reopening:
+                BringTheOfficerBack(car);
+                return;
+
             case PatrolStage.ReturningToStation:
+                // <b>A drive home is a car with nothing to do</b>, and a scene is worth more than the bay.
+                if (TakeAScene(car)) return;
+
                 // <b>Home, or out of clock, or a leg that ended short of it.</b> The last of those is laid
                 // again from where the car has got to rather than given up on (CAR-15): a patrol that stood
                 // down in the street the first time the traffic stopped it would leave its apron empty for
@@ -138,20 +151,24 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>The one place a patrol's stage changes</b>, so the priority is decided in exactly one place
     /// (SRV-6) and the beat's own clock means the same thing in each of them — the shape a rescue's
-    /// <see cref="EnterTheStage"/> and a recovery's <see cref="EnterTheRecoveryStage"/> both take.
+    /// <see cref="EnterTheStage"/> and a recovery's <see cref="EnterTheRecoveryStage"/> both take. <b>And the one
+    /// place a closure begins or ends</b>, which is what says the road's closures are to be laid again.
     /// </summary>
     void EnterThePatrolStage(int car, PatrolStage stage)
     {
+        var closed = _beat.Closes(car);
         _beat.Stage[car] = stage;
         _beat.SinceS[car] = 0f;
         Cars.BlueLight[car] = _beat.IsHurrying(car);
+        if (_beat.Closes(car) != closed) _closuresChanged = true;
     }
 
     /// <summary>
-    /// <b>The nearest scene nobody is on their way to, and the run to it</b> (SRV-6) — a casualty lying in
-    /// the road (AMB-5) or a wreck standing in one (EVA-1), on the terms a rescue and a recovery already
-    /// take their own calls: nearest is measured against every other free patrol and not against every other
-    /// scene, and it is one call to a scene and one scene to a call.
+    /// <b>The nearest scene with a lane nobody is closing yet, and the run to that lane's entrance</b> (SRV-6,
+    /// SRV-9) — a casualty lying in the road (AMB-5) or a wreck standing in it (EVA-1), taken on the terms a rescue
+    /// and a recovery take their own calls: nearest is measured against every other free patrol and not against
+    /// every other scene, and <b>it is one patrol to each lane the scene lies across</b> — two where it spans the
+    /// road (SRV-9).
     /// </summary>
     /// <remarks>
     /// <b>The common case is two integers.</b> A town with nobody down and nothing broken asks
@@ -162,6 +179,10 @@ internal sealed partial class TownWorld
     {
         if (_woundedCount == 0 && _wreckCount == 0) return false;
 
+        // What closes a lane is somebody standing at its mouth (SRV-9), so a car with nobody aboard to put
+        // there has nothing to close it with.
+        if (!HasItsOfficerAboard(car)) return false;
+
         var fromM = Cars.PositionM[car];
         var casualty = PatrolDuty.Nobody;
         var wreck = PatrolDuty.Nobody;
@@ -171,7 +192,7 @@ internal sealed partial class TownWorld
         for (var person = 0; person < People.Count; person++)
         {
             var farM = (People.PositionM[person] - fromM).LengthSquared();
-            if (farM >= bestM || !IsASceneWorthClosing(person, aCar: false)) continue;
+            if (farM >= bestM || !IsASceneWorthClosing(car, person, PatrolDuty.Nobody)) continue;
 
             casualty = person;
             wreck = PatrolDuty.Nobody;
@@ -181,7 +202,7 @@ internal sealed partial class TownWorld
         for (var broken = 0; broken < Cars.Count; broken++)
         {
             var farM = (Cars.PositionM[broken] - fromM).LengthSquared();
-            if (farM >= bestM || !IsASceneWorthClosing(broken, aCar: true)) continue;
+            if (farM >= bestM || !IsASceneWorthClosing(car, PatrolDuty.Nobody, broken)) continue;
 
             wreck = broken;
             casualty = PatrolDuty.Nobody;
@@ -190,37 +211,40 @@ internal sealed partial class TownWorld
 
         if (casualty < 0 && wreck < 0) return false;
         if (!IsTheNearestFreePatrolTo(car, TheSceneM(casualty, wreck), bestM)) return false;
+        if (!TakeALaneOfTheScene(car, casualty, wreck)) return false;
 
         _beat.Casualty[car] = casualty;
         _beat.Wreck[car] = wreck;
         _beat.ClosedForS[car] = 0f;
+        ClosuresTaken++;
         EnterThePatrolStage(car, PatrolStage.Attending);
-        SendTo(car, ThePoliceStandoffM(TheSceneM(casualty, wreck)), ParkingRegistry.NoBay);
+        SendTo(car, TheStandM(car), ParkingRegistry.NoBay);
         return true;
     }
 
     /// <summary>
-    /// A scene still worth putting a road closed round: a body still lying in the town, or a wreck still
-    /// standing in it, and neither already somebody's.
+    /// <b>A scene still worth closing</b>: a body still lying in the town, or a wreck still standing in it and on
+    /// nobody's hook, <b>with a lane under it no other patrol is closing yet</b> (SRV-9) — for this scene or for
+    /// another lying on the same lane, since one closure holds a lane for everything on it.
     /// </summary>
-    bool IsASceneWorthClosing(int index, bool aCar)
+    bool IsASceneWorthClosing(int car, int casualty, int wreck)
     {
-        if (aCar)
+        if (!TheSceneStands(casualty, wreck)) return false;
+
+        Span<int> lanes = stackalloc int[MostLanesUnderAScene];
+        var count = TheScenesLanes(casualty, wreck, lanes);
+        for (var at = 0; at < count; at++)
         {
-            if (!Cars.Broken[index] || _recovery.InTheYard[index]) return false;
-        }
-        else if (!People.Wounded[index] || People.Inside[index].Any)
-        {
-            return false;
+            if (!IsClosedByAnother(car, lanes[at])) return true;
         }
 
-        for (var car = 0; car < Cars.Count; car++)
-        {
-            if ((aCar ? _beat.Wreck[car] : _beat.Casualty[car]) == index) return false;
-        }
-
-        return true;
+        return false;
     }
+
+    /// <summary>Whether a scene is still there to be closed round — the one question the errand and the dispatch both ask of it.</summary>
+    bool TheSceneStands(int casualty, int wreck) => casualty >= 0
+        ? People.Wounded[casualty] && !People.Inside[casualty].Any
+        : wreck >= 0 && Cars.Broken[wreck] && !_recovery.InTheYard[wreck] && _recovery.OnTheHookOf[wreck] < 0;
 
     /// <summary>Where the scene this call is for actually is — the one place the two rosters are read as one thing.</summary>
     Vector2 TheSceneM(int casualty, int wreck) =>
@@ -232,11 +256,16 @@ internal sealed partial class TownWorld
     /// station: the call belongs to the scene and the choice belongs to the patrol, and asking them the other
     /// way round sends whichever car's decision happened to run first.
     /// </summary>
+    /// <remarks>
+    /// <b>Free is a patrol that would take the call</b> — standing, on its beat or on its way home, with its
+    /// officer aboard and no hand on it. Counted as free while it would not, it held back every patrol behind it
+    /// and the scene was taken by nobody.
+    /// </remarks>
     bool IsTheNearestFreePatrolTo(int car, Vector2 sceneM, float farM)
     {
         for (var other = 0; other < Cars.Count; other++)
         {
-            if (other == car || !IsAPatrolCar(other) || Cars.Broken[other] || _beat.IsOnACall(other)) continue;
+            if (other == car || !TakesCalls(other)) continue;
 
             var otherM = (sceneM - Cars.PositionM[other]).LengthSquared();
             if (otherM < farM || (otherM == farM && other < car)) return false;
@@ -245,182 +274,40 @@ internal sealed partial class TownWorld
         return true;
     }
 
-    /// <summary>
-    /// <b>Where a police car is stopped for a scene</b> (SRV-6): further back along the lane than the
-    /// ambulance's own standoff (AMB-10), because the vehicle whose errand is to keep the ground clear is
-    /// the one that has no business standing on it.
-    /// </summary>
-    Vector2 ThePoliceStandoffM(Vector2 sceneM)
-    {
-        var lane = _roads.NearestStreetLane(sceneM, out var alongM);
-        if (lane < 0) return sceneM;
-
-        var forward = Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction;
-        return sceneM - (forward * _config.PoliceStandoffM);
-    }
+    /// <summary>A patrol that would take a call now, which is what <see cref="IsTheNearestFreePatrolTo"/> counts as free.</summary>
+    bool TakesCalls(int car) =>
+        IsAPatrolCar(car) && !Cars.Broken[car] && !_beat.IsOnACall(car) && !IsUnderOrders(car)
+        && HasItsOfficerAboard(car)
+        && _beat.Stage[car] is PatrolStage.Standing or PatrolStage.Patrolling or PatrolStage.ReturningToStation;
 
     /// <summary>
-    /// <b>The drive out to a scene</b>, and the closure begun once the car has stopped near one.
-    /// The bound is the beat's own (SRV-5): a scene the traffic will not let a patrol reach costs it the
-    /// leg and nothing more, because the closure is a courtesy to whoever is working there and never the
-    /// thing that saves anybody.
-    /// </summary>
-    void RunToTheSceneToCloseIt(int car)
-    {
-        if (!TheSceneStillStands(car, out var sceneM)) return;
-
-        if (_beat.SinceS[car] >= _config.PatrolGiveUpS)
-        {
-            GiveUpTheScene(car);
-            return;
-        }
-
-        var standoffM = ThePoliceStandoffM(sceneM);
-        if (!Cars.Driven[car])
-        {
-            SendTo(car, standoffM, ParkingRegistry.NoBay);
-            return;
-        }
-
-        // <b>Near the scene rather than on its own mark</b>, and that is the standoff paying for itself: a
-        // police car queues behind whatever else has been called here — the ambulance is aimed at a mark
-        // half as far back (AMB-10) — and what closes the road is a claim round the scene, so where the
-        // traffic let the car stop matters only up to how near it got.
-        var atRest = Cars.VelocityMps[car].Length() <= _config.Driving.StopSpeedMps;
-        if (!atRest || (Cars.PositionM[car] - sceneM).Length() > _config.PoliceClosureM)
-        {
-            if (atRest && StoppedWhereItWasSent(car)) SendTo(car, standoffM, ParkingRegistry.NoBay);
-
-            return;
-        }
-
-        FindTheClosure(car, sceneM);
-        EnterThePatrolStage(car, PatrolStage.Closing);
-    }
-
-    /// <summary>
-    /// <b>The stretch of lane a closure round this scene holds</b> (SRV-6): the lane the scene is on, the closure's
-    /// reach either side of it — found once, since neither the scene nor the lane moves.
-    /// </summary>
-    void FindTheClosure(int car, Vector2 sceneM)
-    {
-        _beat.ClosedWay[car] = PatrolDuty.Nobody;
-
-        var lane = _roads.NearestStreetLane(sceneM, out var alongM);
-        if (lane < 0) return;
-
-        var way = _ways.OfRoadLane(lane);
-        _beat.ClosedWay[car] = way;
-        _beat.ClosedFromM[car] = MathF.Max(0f, alongM - _config.PoliceClosureM);
-        _beat.ClosedToM[car] = MathF.Min(_ways.LengthM(way), alongM + _config.PoliceClosureM);
-    }
-
-    /// <summary>
-    /// <b>The road held closed</b> (SRV-6): the police car standing at the scene holds a stretch of the
-    /// carriageway that scene lies on, at a rung ordinary traffic does not outrank and a rescue does.
-    /// </summary>
-    /// <remarks>
-    /// <b>The claim is the vehicle's and is laid where every other claim is</b>
-    /// (<see cref="CloseTheRoad"/>). What a closure is, is ground spoken for, so nothing standing in the
-    /// lane is needed to state it — and a body put there would be a thing the rescue itself has to be held
-    /// off (AMB-4a), which is the closure working backwards. What runs here is the clock and the errand.
-    /// </remarks>
-    void HoldTheRoadClosed(int car, float sinceLastDecisionS)
-    {
-        if (!TheSceneStillStands(car, out _)) return;
-
-        // <b>A closure is bounded</b> (SRV-6). A scene nothing ever clears would otherwise hold a street out
-        // of the town for the rest of the run, which is the one failure a closure's claim can cause.
-        _beat.ClosedForS[car] += sinceLastDecisionS;
-        if (_beat.ClosedForS[car] >= _config.PoliceClosureLifeS) GiveUpTheScene(car);
-    }
-
-    /// <summary>
-    /// <b>The stretch of lane this police car is holding closed</b> (SRV-6): a secondary claim at the closure's
-    /// own rung, placed before any plan the way a light's hold is (TLT-1), over the scene and whatever stands in
-    /// it.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Nothing reading it learns a new word.</b> Every plan on that lane is answered against it like any
-    /// other claim, and it keeps its ground against whatever <see cref="LaneOccupancy.Beats"/> says it beats —
-    /// every ordinary movement, and not an ambulance or an evacuator answering a call (AMB-4, EVA-4), nor a car
-    /// that can no longer stop. That is the whole of "the police give way to the other services", and neither
-    /// of them is told a police car exists.
-    /// </para>
-    /// <para>
-    /// <b>It holds the lane and nothing crossing it</b>: placed and not taken, it follows no mark, so somebody
-    /// on a zebra over a closed street crosses it.
-    /// </para>
-    /// </remarks>
-    void CloseTheRoad(int car)
-    {
-        if (!IsAPatrolCar(car) || _beat.Stage[car] != PatrolStage.Closing) return;
-
-        var way = _beat.ClosedWay[car];
-        var fromM = _beat.ClosedFromM[car];
-        var toM = _beat.ClosedToM[car];
-        if (way == PatrolDuty.Nobody || toM <= fromM) return;
-
-        var hold = _occupancy.BeginHold(0f);
-        _occupancy.Place(
-            new Road.PlannedAsk(
-                hold, car, Road.LaneRoster.Driving, Road.ClaimPriority.Closed, fromM, 0f, 0f, float.NegativeInfinity, 0f),
-            way, toM);
-        _occupancy.EndHold(hold, float.PositiveInfinity, 0f, Road.LaneClaim.Nothing);
-    }
-
-    /// <summary>
-    /// <b>Whether there is still a scene here to be closed round</b>: the casualty collected or the wreck
-    /// hitched is the errand over, which is the same question the rescue and the recovery ask of their own
-    /// calls before giving them up.
-    /// </summary>
-    bool TheSceneStillStands(int car, out Vector2 sceneM)
-    {
-        var casualty = _beat.Casualty[car];
-        var wreck = _beat.Wreck[car];
-        sceneM = default;
-
-        var stands = casualty >= 0
-            ? People.Wounded[casualty] && !People.Inside[casualty].Any
-            : wreck >= 0 && Cars.Broken[wreck] && !_recovery.InTheYard[wreck]
-              && _recovery.OnTheHookOf[wreck] < 0;
-
-        if (!stands)
-        {
-            GiveUpTheScene(car);
-            return false;
-        }
-
-        sceneM = TheSceneM(casualty, wreck);
-        return true;
-    }
-
-    /// <summary>
-    /// <b>Where this police car is to be stopped</b>, and false when nothing is asking it to (SRV-6). The
-    /// place outlasts the arrival for the reason a recovery's does: a stop point that went away the moment
-    /// the car reached it would let the vehicle roll off from the scene it is closing.
-    /// </summary>
-    bool TheClosureStopsAt(int car, out Vector2 standoffM)
-    {
-        standoffM = default;
-        if (_beat.Stage[car] is not (PatrolStage.Attending or PatrolStage.Closing)) return false;
-
-        if (!Cars.HasDestination[car]) return false;
-
-        standoffM = Cars.DestinationM[car];
-        return true;
-    }
-
-    /// <summary>
-    /// The scene let go of: the lane given back to the town — the closure is laid from the stage every
-    /// tick, so leaving the stage is the whole of releasing it — and <b>the beat picked up where the call
-    /// interrupted it</b>, since a call is an interruption and not the end of a shift (SRV-5).
+    /// <b>The call given up on the way</b>: the priority lost with it, and the beat picked up where the call
+    /// interrupted it, since a call is an interruption and not the end of a shift (SRV-5).
     /// </summary>
     void GiveUpTheScene(int car)
     {
         _beat.ClearTheCall(car);
         TakeTheNextPlace(car);
+    }
+
+    /// <summary>
+    /// <b>A police car wrecked</b> (SRV-4): whatever it was closing is given back, and an officer standing out on
+    /// the road is an ordinary walker from then — the car is not coming back for them.
+    /// </summary>
+    void LetTheCallOfAWreckGo(int car)
+    {
+        if (!_beat.IsOnACall(car) && _beat.Officer[car] < 0) return;
+
+        if (_beat.Closes(car)) _closuresChanged = true;
+
+        var officer = _beat.Officer[car];
+        if (officer >= 0 && !People.Inside[officer].Any)
+        {
+            ReleaseTheOfficer(officer);
+            _beat.Officer[car] = PatrolDuty.Nobody;
+        }
+
+        _beat.ClearTheCall(car);
     }
 
     /// <summary>

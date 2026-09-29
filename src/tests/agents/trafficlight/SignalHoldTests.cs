@@ -91,13 +91,12 @@ public class SignalHoldTests
     public void ALightHoldsEveryMovementAndEverybodyOnFoot(byte rung) => Assert.False(Keeps((ClaimPriority)rung));
 
     /// <summary>
-    /// <b>And gives way to a closure, a call and ground its holder can no longer stop short of</b>: the police
-    /// and anything answering a call go through, and the amber is what a car that cannot stop drives on.
+    /// <b>And gives way to a call and ground its holder can no longer stop short of</b>: anything answering a
+    /// call goes through, and the amber is what a car that cannot stop drives on.
     /// </summary>
     [Fact]
-    public void ALightGivesWayToAClosureACallAndGroundThatCannotStop()
+    public void ALightGivesWayToACallAndGroundThatCannotStop()
     {
-        Assert.True(Keeps(ClaimPriority.Closed));
         Assert.True(Keeps(ClaimPriority.Special));
         Assert.True(Keeps(ClaimPriority.Firm, committed: true));
     }

@@ -427,7 +427,7 @@ internal sealed partial class TownWorld
         // way into that bay, so it is not grown past it and the route is not asked for again.
         if (TheWayIntoTheBay(car, fromLane) != CarFleet.NoWay) return CarFleet.NoLane;
 
-        if (searched) return LaneTour.NextLane(_roads, _config, fromLane, ref Cars.Draw[car]);
+        if (searched) return LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
 
         searched = true;
         PlanRoute(car, fromLane);
@@ -437,7 +437,7 @@ internal sealed partial class TownWorld
 
         return TheWayIntoTheBay(car, fromLane) != CarFleet.NoWay
             ? CarFleet.NoLane
-            : LaneTour.NextLane(_roads, _config, fromLane, ref Cars.Draw[car]);
+            : LaneTour.NextLane(_roads, _config, fromLane, _closedLanes, ref Cars.Draw[car]);
     }
 
     /// <summary>
@@ -531,6 +531,10 @@ internal sealed partial class TownWorld
     /// </remarks>
     int RouteGoalsFor(int car, Span<RouteGoal> into)
     {
+        // A police car sent to close a lane has to arrive on that lane (SRV-9): the other side of its street is
+        // the mouth of a lane it is not closing.
+        if (TheEntranceItIsSentTo(car, out var entrance, out var alongM)) return _driving.GoalOnLane(entrance, alongM, into);
+
         if (!IsAimedAtAPlaceInTheRoad(car)) return BayGoals(BayAimedAt(car), into);
 
         return _driving.GoalsAt(Cars.DestinationM[car], into);
@@ -549,7 +553,7 @@ internal sealed partial class TownWorld
         // A place on a lane is arrived at and not got near, so a goal the car has driven past is searched
         // for rather than counted as reached: the route round the block is what a driver who has overshot
         // the turn-in actually does.
-        var linkCount = SearchTheDrivingNetwork(goalCount, out var goalSlot);
+        var linkCount = SearchTheDrivingNetwork(goalCount, ClosedLinksFor(car), out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return RouteFound.Nowhere;
 
         ExpandRoute(car, fromLane, _driveSearch.Links(linkCount), _driveSearch.Goals[goalSlot]);
@@ -582,12 +586,13 @@ internal sealed partial class TownWorld
     /// <b>The one place the driving network is searched</b>, so that what a leg spends on finding its way
     /// is counted where it is spent rather than estimated from the outside. Every entry is the car's own
     /// (<see cref="RouteSearch.Entries"/>), because a body under way joins the network by the link it is
-    /// already committed to.
+    /// already committed to. <b>The closed runs are what it may not enter</b> (SRV-10), handed in by the asker:
+    /// every one of them, or none for a car carrying a call (<see cref="ClosedLinksFor"/>).
     /// </summary>
-    int SearchTheDrivingNetwork(int goalCount, out int goalSlot)
+    int SearchTheDrivingNetwork(int goalCount, ReadOnlySpan<bool> closed, out int goalSlot)
     {
         RouteSearches++;
-        return _driveSearch.Plan(1, goalCount, _surcharges, out goalSlot);
+        return _driveSearch.Plan(1, goalCount, _surcharges, closed, out goalSlot);
     }
 
     /// <summary>The lanes a search's links are driven as, laid into this car's own queue.</summary>

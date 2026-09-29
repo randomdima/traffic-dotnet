@@ -241,7 +241,7 @@ internal sealed partial class TownWorld
             if (goals[slot].Link == entry.Link) return true;
         }
 
-        return SearchTheDrivingNetwork(goalCount, out var goalSlot) > 0 && goalSlot >= 0;
+        return SearchTheDrivingNetwork(goalCount, _closedLinks, out var goalSlot) > 0 && goalSlot >= 0;
     }
 
     /// <summary>

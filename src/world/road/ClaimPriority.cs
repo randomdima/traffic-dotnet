@@ -41,13 +41,9 @@ internal enum ClaimPriority : byte
     /// </summary>
     Special = 2,
 
-    /// <summary><b>p3 — a road a police car at a scene is holding shut</b> (SRV-6): above every ordinary movement and below a call.</summary>
-    Closed = 3,
-
     /// <summary>
     /// <b>p4 — a light's hold</b> (TLT-1): the stretch past a bar on an approach that is not showing green,
-    /// and the paint of a crossing that is showing red. Above a walker and every movement, below a closure
-    /// and a call.
+    /// and the paint of a crossing that is showing red. Above a walker and every movement, below a call.
     /// </summary>
     Signal = 4,
 

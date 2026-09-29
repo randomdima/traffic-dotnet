@@ -58,6 +58,46 @@ public class RoutePlannerTests
     }
 
     /// <summary>
+    /// <b>A closed link is never entered</b> (SRV-10): with the only way round the block closed, a goal beyond it
+    /// has no route at all, rather than a dear one.
+    /// </summary>
+    [Fact]
+    public void AClosedLinkIsNeverEntered()
+    {
+        var block = Block(turnAroundM: 200f);
+        var planner = new RoutePlanner(block.Graph);
+        Span<int> route = stackalloc int[8];
+        var closed = new bool[block.Graph.LinkCount];
+        closed[block.East] = true;
+
+        var written = planner.Plan(
+            [new RouteEntry(block.South, 50f, 50f)], [new RouteGoal(block.West, 50f)], null, closed, route,
+            out _, out var goalSlot);
+
+        Assert.Equal(0, written);
+        Assert.Equal(-1, goalSlot);
+    }
+
+    /// <summary>
+    /// <b>And the link a body is already on is never refused</b>: a car inside a closure is routed out of it.
+    /// </summary>
+    [Fact]
+    public void TheLinkTheBodyIsOnIsRoutedOffEvenClosed()
+    {
+        var block = Block(turnAroundM: 200f);
+        var planner = new RoutePlanner(block.Graph);
+        Span<int> route = stackalloc int[8];
+        var closed = new bool[block.Graph.LinkCount];
+        closed[block.South] = true;
+
+        var written = planner.Plan(
+            [new RouteEntry(block.South, 50f, 50f)], [new RouteGoal(block.North, 50f)], null, closed, route,
+            out _, out _);
+
+        Assert.Equal([block.South, block.East, block.North], route[..written].ToArray());
+    }
+
+    /// <summary>
     /// The same goal in front of the body is the one thing the search must <em>not</em> go round for:
     /// both costs are real and which is cheaper is exactly what the search decides.
     /// </summary>

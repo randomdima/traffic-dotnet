@@ -74,8 +74,7 @@ public class ClaimGateTests
 
     /// <summary>
     /// <b>No plan is laid over a body</b> (TER-4c.1): a hold is cut at the first body in front of it on every
-    /// way it is laid on, so none of its own pieces lies over anybody else's body — except a closure, which is
-    /// laid round the scene it closes (SRV-6).
+    /// way it is laid on, so none of its own pieces lies over anybody else's body.
     /// </summary>
     [Theory]
     [MemberData(nameof(Towns.EveryMapWorthAGate), MemberType = typeof(Towns))]
@@ -159,8 +158,7 @@ public class ClaimGateTests
             pieces.Sort(static (one, other) => one.LineFromM.CompareTo(other.LineFromM));
 
             var first = pieces[0];
-            if (first.Of == LaneRoster.Driving && first.Priority != ClaimPriority.Closed
-                && world.DriveHold(first.Occupant) == hold)
+            if (first.Of == LaneRoster.Driving && world.DriveHold(first.Occupant) == hold)
             {
                 Assert.True(
                     MathF.Abs(first.LineFromM - world.Cars.ClaimFromM[first.Occupant]) <= SeamM,
@@ -231,7 +229,7 @@ public class ClaimGateTests
             for (var at = 0; at < count; at++)
             {
                 ref readonly var piece = ref planned[at];
-                if (piece.Secondary || piece.Priority == ClaimPriority.Closed) continue;
+                if (piece.Secondary) continue;
 
                 looked++;
                 for (var body = 0; body < standing; body++)

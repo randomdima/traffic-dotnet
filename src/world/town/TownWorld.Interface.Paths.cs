@@ -125,7 +125,7 @@ internal sealed partial class TownWorld
         search.Entries[0] = _driving.EntryOnLane(fromLane, _roads.LaneLengthM[fromLane]);
         if (search.Entries[0].Link == TravelGraph.NoLink) return 0;
 
-        var linkCount = search.Plan(1, goalCount, _surcharges, out var goalSlot);
+        var linkCount = search.Plan(1, goalCount, _surcharges, ClosedLinksFor(car), out var goalSlot);
         if (linkCount == 0 || goalSlot < 0) return 0;
 
         return LayRouteLanes(fromLane, search.Links(linkCount), search.Goals[goalSlot], into, out _, out _);

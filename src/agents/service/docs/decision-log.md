@@ -1,12 +1,40 @@
 # The service vehicles — decision log
 
-## 2026-09-28 — a closure is placed like a light's hold
+## 2026-09-29 — the police close a road by standing at its entrances, and the lanes leave the router
 
-**The closure was a second plan laid after every car's**, taken over the lane round the scene, never settled
-again, and found by a nearest-lane search every rebuild. It is now placed before any plan as a secondary claim
-on that lane alone (SRV-6, TER-5c.1), the stretch found once when the closure begins: the plans on the lane
-are answered against it like against a red, what beats it — a call, a car that cannot stop — goes through,
-and it follows no mark, so somebody on a zebra over a closed street still crosses it.
+**The owner asked for the police back** — no police car had stood in any town since the bays went — and said
+what one is for, as rules of their own at `P1`: it starts on its station's parking (SRV-7), its goal is the scene
+of an incident (SRV-8), it marks a lane or the whole road inaccessible by standing at the lanes' entrances and an
+officer standing there is what blocks one (SRV-9), a scene across both lanes gets two cars, one at each end
+(SRV-9), a closed lane is out of path finding (SRV-10), and the officer gets out and stands on the road (SRV-11).
+
+- **The closure is no longer a claim, and `ClaimPriority.Closed` is gone.** A claim round the scene was a
+  second mechanism beside the officer's body and the ban (SIM-7): the body refuses a car the lane, as any body
+  does (TER-4c.1), and the ban keeps anybody planning to go there. It also refused nothing a route had not
+  already sent a car into.
+- **A closure is a stretch walked back to a junction a driver chooses at** (`RoadClosure`). Stood at the scene's
+  own lane, the entrance was regularly a car park's cut or a bend, and a car turned back there had no way on.
+  **A lane that leads only into the closure is closed with it**: a single lane feeding the entrance, and one of
+  several — the suite's city had a lane at a junction whose one movement was into a scene's lane, and a car on it
+  stood at the officer for the whole closure.
+- **The ban is a flag per run of the router, and a tour's per lane** (`RoutePlanner`, `LaneTour`), read off the
+  closures only when one begins or ends. **A call is routed as if nothing were closed** — SIM-6's lifting for the
+  one agent whose goal lies inside — and **the officer steps to the kerb for a call coming down the lane short of
+  them**; stepping aside for any call whose line named the lane, they stood at the kerb for the evacuator
+  already working at the wreck.
+- **A route through a closed lane is dropped when the closure begins, for every car**: skipped for a car on a
+  bay's way, a patrol leaving its yard took its stale queue up at the end of the way and drove into the officer.
+- **A police car is stopped at its stand only in the entrance lane** — within half that lane. At the
+  ambulance's working reach it stopped in the other lane beside its stand.
+- **The officer is laid with the car** (`StandTheOfficer`), in a crew seat and in uniform, since the walker
+  roster is never grown once a town stands. On the road they walk straight at their post under their own stage
+  (`TripStage.OnDuty`), with no route and no clock: the trip's machinery stood them still for want of a way of
+  the network and would have given the walk up.
+- **Four faults in the old dispatch are gone with it**: a patrol's legs were re-aimed at a bay near where it was;
+  a patrol driving home counted as free and held back every patrol behind it; a wreck already on a hook read
+  as a scene; and a wrecked police car kept its call.
+
+## 2026-09-28 — what an ambulance stops at is where it was sent
 
 **What an ambulance stops at is where it was sent** (AMB-10): the standoff is worked out when the call is
 taken, and the profile no longer reads the casualty's pose and searches for the lane under it every tick.
@@ -19,17 +47,6 @@ The owner ruled the code the source of truth for this audit.
   the errand is.
 - `SRV-4`: a wrecked evacuator's bay went back to the town → it is held for nobody
   (`ParkingRegistry.Claimed`).
-
-## 2026-08-27 — a closed road is a rung and not a use, and it stands below a call
-
-A sixth lane use would have been a decision in a dozen queries about whether a closure counts, and a
-closure a query forgot is a street that shuts against nobody or against everybody. Weighting the routing
-is more faithful and needs a second thing that has to agree with the claims. A closure is therefore an
-ordinary claim at a rung between the paint and a call, which the one comparison already reads. Fitting it found the
-grant on a car's *own* way cut at every spoken-for stretch without asking the rung, so `AMB-4.1` was half
-implemented and a closure would have shut the road against the rescue it was put there for. The bound is
-ten clocks, because a closure only buys something while somebody is working and every errand is written
-off at ten.
 
 ## 2026-08-26 — a depot wears the repair shop's roof
 

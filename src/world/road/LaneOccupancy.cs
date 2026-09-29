@@ -252,7 +252,7 @@ internal sealed partial class LaneOccupancy
     /// reads</b>, and one that must never be reached: a dropped reservation is a body or a plan nobody can
     /// see, which the gates count (<see cref="Dropped"/>).
     /// </param>
-    /// <param name="mostHolds">How many holds may be laid in one rebuild: every driver, every walker, every closure.</param>
+    /// <param name="mostHolds">How many holds may be laid in one rebuild: every driver's, every walker's, every light's.</param>
     /// <param name="marks">
     /// <b>Which ways share ground</b> (<see cref="RibbonAtlas.Marks"/>); <see cref="WayCrossings.None"/> for a
     /// fixture whose ways touch nothing.
@@ -533,15 +533,15 @@ internal sealed partial class LaneOccupancy
 
     /// <summary>
     /// <b>A secondary claim placed where it stands</b> over <c>[ask.FromM, toM)</c> of one way, and nothing
-    /// else: no main claim, no mark followed and nothing cut (TER-5c.1). It is a light's hold (TLT-1) or a closure
-    /// (SRV-6) — ground held on the way it governs and on no other — so it meets the main claims asked of that way
-    /// and no secondary claim placed there.
+    /// else: no main claim, no mark followed and nothing cut (TER-5c.1). It is a light's hold (TLT-1) — ground held
+    /// on the way it governs and on no other — so it meets the main claims asked of that way and no secondary claim
+    /// placed there.
     /// </summary>
     /// <remarks>
     /// <b>Placed before any plan is laid</b>: a secondary claim cuts nothing where it is placed, so a main claim
     /// already over these metres would share them with it (TER-4c.3). Whether it may lie over a body is the
     /// placer's to say — a light's stops at the first body travelling its way (<see cref="AheadTraveller"/>) and
-    /// lies over any other, and a closure is laid over the scene it closes the road round.
+    /// lies over any other.
     /// </remarks>
     public void Place(in PlannedAsk ask, int way, float toM)
     {
@@ -631,7 +631,7 @@ internal sealed partial class LaneOccupancy
     /// that body it is two holders each waiting for the other.
     /// </para>
     /// <para>
-    /// <b>Below that it is the ladder</b> — a call, a closure, a light, somebody on foot, and the three
+    /// <b>Below that it is the ladder</b> — a call, a light, somebody on foot, and the three
     /// movements a box admits, straightest first.
     /// </para>
     /// <para>

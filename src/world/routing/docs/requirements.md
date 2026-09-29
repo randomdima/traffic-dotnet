@@ -98,3 +98,10 @@ or **as a price**, which distance is meant to outbid.
 
 The consequence for this slice: **a banned option is never in the graph**, so the planner has no lifting
 mechanism of its own. Where a ban must lift, the graph is built differently for that search.
+
+**A ban that comes and goes is handed to the search as the links it may not enter** (`RoutePlanner.Plan`'s
+`closed`): a road the police have closed (`SRV-10`) is out of the graph for as long as it is closed, and the
+caller lifts it for the one agent whose goal lies inside by handing in none (`SIM-6`). **The link a body is
+already on is never refused**, since it is where the search starts from and the way off it is what a car
+inside a closure needs. It is a flag a link laid with the network and read by the relaxation, so a search
+still allocates nothing.

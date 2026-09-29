@@ -209,7 +209,8 @@ internal sealed partial class TownWorld
     /// </remarks>
     void WalkTheWay(int person)
     {
-        if (!People.Walking[person]) return;
+        // An officer on duty walks straight at their post and has no way of the network to walk (SRV-11).
+        if (!People.Walking[person] || People.Stage[person] == TripStage.OnDuty) return;
 
         // Walking with no way of the network under it: a body stands until the next decision lays it a
         // route, whose first leg is the straight back onto the pavement (PER-25). Aimed at the goal

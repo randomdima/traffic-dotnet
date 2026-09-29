@@ -746,9 +746,8 @@ internal sealed class ServiceFigures
     public float GiveUpInBlockedClocks { get; init; } = 10f;
 
     /// <summary>
-    /// <b>How near a thing a crew on foot would have to be standing to take hold of it</b> — a casualty, a
-    /// wreck's fork, a yard slot, the door of their own vehicle. An arm's length and a stride. <b>Nothing
-    /// reads it</b>: no service vehicle carries a crew (SRV-3).
+    /// <b>How near a place an officer on foot has to be standing to count as there</b> — the post at a closure's
+    /// entrance, the door of their own car. An arm's length and a stride.
     /// </summary>
     /// <remarks>
     /// <b>Metres and not car lengths</b>, unlike every reach a vehicle is held to: what this measures is a
@@ -757,25 +756,30 @@ internal sealed class ServiceFigures
     public float CrewReachM { get; init; } = 1.5f;
 
     /// <summary>
-    /// <b>How long a hand who is out would have to get back to their seat</b> before being put in it, in
-    /// blocked-road clocks. <b>Nothing reads it but <see cref="SimConfig.ServiceRecallS"/>, and nothing reads
-    /// that</b>: no service vehicle carries a crew (SRV-3).
+    /// <b>How long an officer who is out has to get back to their seat</b> before being put in it, in
+    /// blocked-road clocks (<see cref="SimConfig.ServiceRecallS"/>) — the bound on the one walk a closure's end
+    /// waits on (SRV-11).
     /// </summary>
     public float RecallInBlockedClocks { get; init; } = 3f;
 
     /// <summary>
-    /// <b>How much road a police car closes</b> (SRV-6), in car lengths, either side of the scene along the
-    /// lane it lies on. Long enough that traffic is stopped well short of somebody working in the road, and
-    /// short enough that a closure is one street's business rather than a quarter's.
+    /// <b>How many lanes back one closure may reach</b> (SRV-9): the lane a scene stands on and the lanes
+    /// upstream that lead nowhere else, walked back to a junction a driver chooses at. A stretch of a street and
+    /// never a district, and the room each police car's closure is written into.
     /// </summary>
-    public float ClosureInCarLengths { get; init; } = 6f;
+    public int ClosureMostLanes { get; init; } = 8;
 
     /// <summary>
-    /// And how far short of the scene the police car itself is parked, in car lengths —
-    /// <see cref="AmbulanceFigures.StandoffInCarLengths"/> said of a vehicle whose whole errand is to keep
-    /// the ground clear, so it stands further back than the one that has to work there.
+    /// <b>How far into a closed lane its officer stands</b> (SRV-9, SRV-11): the mouth, just clear of the box it
+    /// leaves, where a car turning in meets them before it meets the lane.
     /// </summary>
-    public float SceneStandoffInCarLengths { get; init; } = 5f;
+    public float OfficerIntoTheLaneM { get; init; } = 1f;
+
+    /// <summary>
+    /// <b>And how far past the officer the police car's rear axle stands</b>: its tail a stride behind them, so
+    /// the car is inside the lane it closes and its officer between it and the traffic.
+    /// </summary>
+    public float PoliceCarPastTheOfficerM { get; init; } = 2.5f;
 
     /// <summary>
     /// How long a closure may stand before it is given up and the lane given back, in blocked-road

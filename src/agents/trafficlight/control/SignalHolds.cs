@@ -18,7 +18,7 @@ namespace TrafficSimulation.Agents.TrafficLight.Control;
 /// </para>
 /// <para>
 /// <b>Where it stands in the ladder is the whole of who it holds</b> (TER-5e, TER-5g): above a walker and
-/// every movement, below a closure and a call. Ground a holder can no longer stop short of beats it as it beats
+/// every movement, below a call. Ground a holder can no longer stop short of beats it as it beats
 /// every rung, which is what the amber is for.
 /// </para>
 /// <para>

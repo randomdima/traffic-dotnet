@@ -105,10 +105,9 @@ internal sealed partial class TownWorld
         for (var car = 0; car < Cars.Count; car++) LayTheCarsPass(car);
         for (var person = 0; person < People.Count; person++) LayTheWalkersPass(person);
 
-        // The lights and the closures before any plan: each is placed rather than asked for, so it has to be down
-        // before the plans it refuses are answered (TLT-1, SRV-6).
+        // The lights before any plan: a light's hold is placed rather than asked for, so it has to be down before
+        // the plans it refuses are answered (TLT-1).
         LightTheWays();
-        for (var car = 0; car < Cars.Count; car++) CloseTheRoad(car);
 
         Span<LineWay> ways = stackalloc LineWay[MostWaysAlongALine];
         for (var car = 0; car < Cars.Count; car++) PlanTheDrive(car, ways);

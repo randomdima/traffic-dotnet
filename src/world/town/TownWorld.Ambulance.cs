@@ -584,11 +584,11 @@ internal sealed partial class TownWorld
                 : ToThePlaceOnTheLineM(car, Cars.DestinationM[car], _config.AmbulanceSceneReachM);
         }
 
-        // <b>And asked of a police car's scene</b> (SRV-6), which is the same place further back along the
-        // same lane: a police car standing at one is held there for as long as the road is closed.
-        if (TheClosureStopsAt(car, out var standoffM))
+        // <b>And asked of a police car on its way to close a lane</b> (SRV-9): it stops at its stand in that lane's
+        // entrance, and only in that lane.
+        if (TheClosureStopsAt(car, out var standM, out var standReachM))
         {
-            return ToThePlaceOnTheLineM(car, standoffM, _config.AmbulanceSceneReachM);
+            return ToThePlaceOnTheLineM(car, standM, standReachM);
         }
 
         // <b>The same question asked of a wreck</b> (EVA-3, EVA-6). A recovery stops beside what it has come

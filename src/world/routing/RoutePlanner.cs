@@ -88,7 +88,19 @@ internal sealed class RoutePlanner
     /// <param name="surcharges">What the town has priced up since the network was laid, or nothing.</param>
     public int Plan(
         ReadOnlySpan<RouteEntry> entries, ReadOnlySpan<RouteGoal> goals, LinkSurcharges? surcharges,
-        Span<int> intoLinks, out float costM, out int goalSlot)
+        Span<int> intoLinks, out float costM, out int goalSlot) =>
+        Plan(entries, goals, surcharges, default, intoLinks, out costM, out goalSlot);
+
+    /// <inheritdoc cref="Plan(ReadOnlySpan{RouteEntry}, ReadOnlySpan{RouteGoal}, LinkSurcharges?, Span{int}, out float, out int)"/>
+    /// <param name="closed">
+    /// <b>The links a search may not enter</b>, one flag a link, or empty where none is closed — a ban and not a
+    /// price (SIM-6): a closed link is never relaxed into, and so never a goal either. <b>The link a body is
+    /// already on is never refused</b>: it is where the search starts from, and the way off it is the one thing
+    /// a car inside a closure needs.
+    /// </param>
+    public int Plan(
+        ReadOnlySpan<RouteEntry> entries, ReadOnlySpan<RouteGoal> goals, LinkSurcharges? surcharges,
+        ReadOnlySpan<bool> closed, Span<int> intoLinks, out float costM, out int goalSlot)
     {
         _generation++;
         _heapCount = 0;
@@ -136,6 +148,8 @@ internal sealed class RoutePlanner
             for (var turn = 0; turn < turns.Length; turn++)
             {
                 var onto = turns[turn];
+                if (!closed.IsEmpty && closed[onto]) continue;
+
                 var enterM = prices[turn] + (surcharges?.PriceM(onto) ?? 0f);
 
                 for (var slot = 0; slot < goals.Length; slot++)

@@ -1,15 +1,15 @@
 namespace TrafficSimulation.Agents.Service;
 
 /// <summary>
-/// <b>What a police car is doing about its beat</b> (SRV-5). The life cycle as observable states, on the
-/// terms <see cref="Ambulance.RescueStage"/> names a rescue's: there is no state a patrol car can be in
-/// that this does not name, and every transition between two of them is one line of
+/// <b>What a police car is doing about its beat</b> (SRV-5) and its calls (SRV-6). The life cycle as observable
+/// states, on the terms <see cref="Ambulance.RescueStage"/> names a rescue's: there is no state a patrol car can
+/// be in that this does not name, and every transition between two of them is one line of
 /// <c>TownWorld.Patrol.cs</c>.
 /// </summary>
 /// <remarks>
 /// <b>These are not actions and do not pretend to be.</b> A police car drives the legs every other car
-/// drives (AGT-7, CAR-15), with the scene named as the place it is stopped at; what is here is the errand
-/// those legs are being run for.
+/// drives (AGT-7, CAR-15), with the place it is sent to named as where it is stopped; what is here is the
+/// errand those legs are being run for.
 /// </remarks>
 internal enum PatrolStage : byte
 {
@@ -19,11 +19,14 @@ internal enum PatrolStage : byte
     /// <summary>Under way to somewhere in the town it was sent, with no priority over anybody.</summary>
     Patrolling,
 
-    /// <summary>Under way to a scene it has been called to, and carrying the priority for that leg (SRV-6).</summary>
+    /// <summary>Under way to the entrance of a lane it has been called to close, carrying the priority for that leg (SRV-6).</summary>
     Attending,
 
-    /// <summary>Stopped short of the scene, holding the road round it closed (SRV-6).</summary>
+    /// <summary>Standing in the entrance of the lane it closes, its officer out on the road in front of it (SRV-9, SRV-11).</summary>
     Closing,
+
+    /// <summary>The scene over: its officer walking back to the car, which waits for them before it goes (SRV-11).</summary>
+    Reopening,
 
     /// <summary>The beat driven out, on its way back to its own bay.</summary>
     ReturningToStation,
@@ -41,8 +44,12 @@ internal enum PatrolStage : byte
 /// </remarks>
 internal sealed class PatrolDuty
 {
-    public PatrolDuty(int cars)
+    /// <param name="mostLanesClosed">
+    /// How many lanes one closure may hold at most — the room <see cref="RoadClosure.Stretch"/> is walked into.
+    /// </param>
+    public PatrolDuty(int cars, int mostLanesClosed)
     {
+        MostLanesClosed = mostLanesClosed;
         Stage = new PatrolStage[cars];
         Station = new int[cars];
         Array.Fill(Station, NoBuilding);
@@ -56,10 +63,12 @@ internal sealed class PatrolDuty
         Wreck = new int[cars];
         Array.Fill(Wreck, Nobody);
         ClosedForS = new float[cars];
-        ClosedWay = new int[cars];
-        Array.Fill(ClosedWay, Nobody);
-        ClosedFromM = new float[cars];
-        ClosedToM = new float[cars];
+        ClosedLanes = new int[cars * mostLanesClosed];
+        ClosedCount = new int[cars];
+        SceneLane = new int[cars];
+        Array.Fill(SceneLane, Nobody);
+        Officer = new int[cars];
+        Array.Fill(Officer, Nobody);
     }
 
     /// <summary>What this police car is doing. <see cref="PatrolStage.Standing"/> for every car that is not one.</summary>
@@ -100,16 +109,29 @@ internal sealed class PatrolDuty
     /// </summary>
     public float[] ClosedForS { get; }
 
+    /// <summary>The room one closure's lanes are written into: <see cref="MostLanesClosed"/> a car.</summary>
+    public int MostLanesClosed { get; }
+
     /// <summary>
-    /// <b>The stretch of carriageway the closure holds</b> (SRV-6): the way and its metres, found once when the
-    /// closure begins — the scene does not move, so neither does the ground round it. <see cref="Nobody"/> where
-    /// the scene stands on no lane.
+    /// <b>The lanes this car's closure holds</b> (SRV-9), entrance first (<see cref="RoadClosure.Stretch"/>), found
+    /// once when the call is taken — the scene does not move, so neither does the road round it.
     /// </summary>
-    public int[] ClosedWay { get; }
+    public int[] ClosedLanes { get; }
 
-    public float[] ClosedFromM { get; }
+    /// <summary>How many of them there are, and nought for a car closing nothing.</summary>
+    public int[] ClosedCount { get; }
 
-    public float[] ClosedToM { get; }
+    /// <summary>
+    /// <b>The lane of the scene this car closes</b>, or <see cref="Nobody"/> — which of a scene's lanes is this
+    /// car's, where a scene across the road is closed by two (SRV-9).
+    /// </summary>
+    public int[] SceneLane { get; }
+
+    /// <summary>
+    /// <b>The officer this car carries</b> (SRV-11), or <see cref="Nobody"/> — who stands at the entrance and whose
+    /// body is what blocks it (SRV-9). Laid with the car and never another, since the walker roster is not grown.
+    /// </summary>
+    public int[] Officer { get; }
 
     public const int NoBuilding = -1;
 
@@ -117,8 +139,25 @@ internal sealed class PatrolDuty
 
     public const int Nobody = -1;
 
+    /// <summary>The lanes one car's closure holds, entrance first.</summary>
+    public ReadOnlySpan<int> ClosedLanesOf(int car) =>
+        ClosedLanes.AsSpan(car * MostLanesClosed, ClosedCount[car]);
+
+    /// <summary>Room for them, to be written when a call is taken.</summary>
+    public Span<int> RoomForTheClosureOf(int car) => ClosedLanes.AsSpan(car * MostLanesClosed, MostLanesClosed);
+
+    /// <summary>The lane whose mouth the car and its officer stand at, or <see cref="Nobody"/>.</summary>
+    public int EntranceOf(int car) => ClosedCount[car] > 0 ? ClosedLanes[car * MostLanesClosed] : Nobody;
+
     /// <summary>Whether this car has a scene to be at, which is what a beat gives way to (SRV-6).</summary>
     public bool IsOnACall(int car) => Casualty[car] != Nobody || Wreck[car] != Nobody;
+
+    /// <summary>
+    /// <b>Whether its lanes are closed now</b> (SRV-9, SRV-10): standing at the entrance, and until its officer is
+    /// back aboard — the lane is not given back while somebody is still standing in it.
+    /// </summary>
+    public bool Closes(int car) =>
+        ClosedCount[car] > 0 && Stage[car] is PatrolStage.Closing or PatrolStage.Reopening;
 
     /// <summary>
     /// Whether it is carrying the priority (SRV-6): <b>the leg out to a scene and nothing else</b>. A patrol
@@ -133,5 +172,7 @@ internal sealed class PatrolDuty
         Casualty[car] = Nobody;
         Wreck[car] = Nobody;
         ClosedForS[car] = 0f;
+        ClosedCount[car] = 0;
+        SceneLane[car] = Nobody;
     }
 }
