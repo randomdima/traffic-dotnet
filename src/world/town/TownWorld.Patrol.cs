@@ -39,6 +39,13 @@ internal sealed partial class TownWorld
     bool IsAPatrolCar(int car) => _beat.Station[car] != PatrolDuty.NoBuilding;
 
     /// <summary>
+    /// <b>Whether this patrol's leg ends at a place on a lane rather than in a bay</b>: a beat's place and a
+    /// scene's are both somewhere in the road (SRV-5, SRV-6), and only the drive home is aimed at a bay.
+    /// </summary>
+    bool IsOnItsBeatOrToAScene(int car) =>
+        IsAPatrolCar(car) && _beat.Stage[car] is PatrolStage.Patrolling or PatrolStage.Attending or PatrolStage.Closing;
+
+    /// <summary>
     /// A police car stood on its station's apron (SRV-2), standing by for its first beat. <b>The first
     /// stand is drawn like every later one</b>, so four cars stood in the same instant do not leave in it.
     /// </summary>
@@ -245,7 +252,7 @@ internal sealed partial class TownWorld
     /// </summary>
     Vector2 ThePoliceStandoffM(Vector2 sceneM)
     {
-        var lane = _roads.NearestLane(sceneM, out var alongM);
+        var lane = _roads.NearestStreetLane(sceneM, out var alongM);
         if (lane < 0) return sceneM;
 
         var forward = Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction;
@@ -299,7 +306,7 @@ internal sealed partial class TownWorld
     {
         _beat.ClosedWay[car] = PatrolDuty.Nobody;
 
-        var lane = _roads.NearestLane(sceneM, out var alongM);
+        var lane = _roads.NearestStreetLane(sceneM, out var alongM);
         if (lane < 0) return;
 
         var way = _ways.OfRoadLane(lane);
@@ -447,8 +454,15 @@ internal sealed partial class TownWorld
         var lanes = _roads.LaneCount;
         if (lanes == 0) return false;
 
+        // <b>A street and never a bay's arm</b> (GEN-4h): an arm is a space and a dead end, and a leg aimed
+        // at a place on it is a car driven into a bay it holds no claim on.
         ref var draw = ref Cars.Draw[car];
         var lane = draw.NextInt(lanes);
+        for (var redraw = 0; redraw < lanes && _roads.IsABayArm(lane); redraw++)
+        {
+            lane = (lane + 1) % lanes;
+        }
+
         var alongM = draw.NextFloat() * _roads.LaneLengthM[lane];
 
         EnterThePatrolStage(car, PatrolStage.Patrolling);

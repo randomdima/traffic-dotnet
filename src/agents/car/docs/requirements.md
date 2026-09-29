@@ -85,16 +85,26 @@ that cannot is going nowhere** ([TER-4c.7](../../../world/road/docs/claims.md)).
 ## What a car is and does
 
 **CAR-1** `P5` A car **acts only while something is driving it and it is intact** — an errand (SRV-3), an
-order (CTL-8d), a hand at the wheel (CTL-5) or the tour of a map with no bay a car can reach (CAR-8). Nobody
-boards a car, so none of those is a driver in a seat. A car nothing is driving, or a broken one, is not an
-agent.
+order (CTL-8d), a hand at the wheel (CTL-5), or its own round or the tour of a map with no bay a car can reach
+(CAR-8). Nobody boards a car, so none of those is a driver in a seat. A car nothing is driving, or a broken one,
+is not an agent.
 
 **CAR-2** `P4` A car contains at most one driver.
 
-**CAR-8** `P4` A car draws no destination of its own: **where it goes is whatever is driving it** — an
-errand's place (AMB-5, EVA-3, SRV-5, SRV-6) or an order's goal (CTL-8). On a map with no bay a car can reach,
-every car nothing else is driving takes the lane it stands on and tours the lanes with no destination at all
-(`TownWorld.DriveTheEmptyMap`, `LaneTour`).
+**CAR-8** `P4` **Where a car goes is whatever is driving it** — an errand's place (AMB-5, EVA-3, SRV-5, SRV-6)
+or an order's goal (CTL-8). **A car nothing else is driving runs its own round** (`TownWorld.RunTheRound`): it
+stands in its bay for a drawn while, then drives to a free bay near a place drawn within reach of it and parks
+there. Nobody boards a car (PER-11), so without the round a town's cars would stand where they were put for the
+rest of the run. **On a map with no bay a car can reach** there is no round to run, and every such car takes
+the lane it stands on and tours the lanes with no destination at all (`TownWorld.DriveTheEmptyMap`, `LaneTour`).
+Three things follow:
+
+- **A car stood down anywhere but a bay sets off for one at once** — a leg given up in the street leaves a body
+  standing in a lane, which is an obstruction and not a stand.
+- **The while is drawn each time the car parks** (`SimConfig.Driving.ParkedMinS`, `…MaxS`), so a car park stood
+  full before the first tick does not empty in one, and most of a town's cars are parked at any moment.
+- **The place is drawn near the car** (`SimConfig.Driving.RoundReachM`): drawn anywhere in the town, every trip
+  crossed it down the same few arterials and locked their junctions.
 
 **CAR-3** `P4` Actions: set steering angle; select gear, forward or reverse; set longitudinal acceleration
 between the braking and drive bounds; handbrake.

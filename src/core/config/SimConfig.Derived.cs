@@ -653,7 +653,7 @@ internal sealed partial class SimConfig
     /// </summary>
     public float ParkingSpaceWidthM => Car.WidthM * (1f + Road.ParkingSpaceSideMarginInCarWidths * 2f);
 
-    /// <summary>How far before a bay a way in leaves its lane. Read by <see cref="ParkingFrontageClearOfTheEndsM"/> alone.</summary>
+    /// <summary>How much of its street lane a bay's way runs along (<see cref="RoadFigures.ParkingStagedInCarLengths"/>).</summary>
     public float ParkingStagedInM => Car.LengthM * Road.ParkingStagedInCarLengths;
 
     /// <summary>And how much straight it ends on, which is what puts the car in the bay square.</summary>

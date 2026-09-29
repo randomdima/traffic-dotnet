@@ -312,7 +312,7 @@ internal sealed partial class TownWorld
     {
         if (!_terrain.At(rearAxleM).Drivable) return;
 
-        var lane = _roads.NearestLane(rearAxleM, out var alongM);
+        var lane = _roads.NearestStreetLane(rearAxleM, out var alongM);
         if (lane < 0) return;
 
         var forward = ForwardOf(car);

@@ -168,6 +168,7 @@ internal sealed partial class TownWorld
 
         BaysParkedIn++;
         StandTheCarDown(car);
+        BeginTheStand(car);
     }
 
     /// <summary>

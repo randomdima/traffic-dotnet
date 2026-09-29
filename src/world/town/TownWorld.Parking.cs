@@ -47,7 +47,11 @@ internal sealed partial class TownWorld
     /// </summary>
     void LayTheFirstLine(int car)
     {
+        // <b>The bay the body is in, whether or not it was registered there</b>: a leg given up on the way
+        // into a bay stands the car down in the space it never reached the end of, and the arm under it is not a
+        // lane it may take (GEN-4h).
         var standingIn = _parking.BayOf(car);
+        if (standingIn < 0) standingIn = _parking.BayHolding(Cars.PositionM[car]);
         if (standingIn >= 0 && TakeTheWayOutOfTheBay(car, standingIn)) return;
 
         TakeTheLaneUnderIt(car);
@@ -155,13 +159,15 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// Refused where the car is standing on no lane at all, which is a leg with nothing to drive: the
-    /// clock is what ends one (<see cref="WatchTheProgress"/>).
+    /// clock is what ends one (<see cref="WatchTheProgress"/>). <b>A lane of the carriageway and never a car
+    /// park's arm</b> (GEN-4h): an arm is a bay, driven only as its own ways, and taken as a lane it is a dead
+    /// end the car drives to the back of.
     /// </remarks>
     bool TakeTheLaneUnderIt(int car)
     {
         var forward = ForwardOf(car);
         var rearAxleM = CarFollower.RearAxleM(Cars.BuildOf(car), Cars.PositionM[car], forward);
-        var lane = _roads.NearestLane(rearAxleM, out var alongM);
+        var lane = _roads.NearestStreetLane(rearAxleM, out var alongM);
         if (lane < 0) return false;
 
         if (Vector2.Dot(Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction, forward) <= 0f)
@@ -239,8 +245,9 @@ internal sealed partial class TownWorld
             Cars.ClearRoute(car);
 
             // The place changed, so the route that was aiming at the old one is not this leg's any more:
-            // the line is laid again from the lane under the body, which plans to the new place.
-            TakeTheLaneUnderIt(car);
+            // the line is laid again from where the body is — the bay's way out where it is still in one,
+            // and the lane under it otherwise — which plans to the new place.
+            LayTheFirstLine(car);
             return true;
         }
 
@@ -392,7 +399,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     public bool StandOnTheSameSideOfTheRoad(Vector2 bayM, Vector2 placeM)
     {
-        var lane = _roads.NearestLane(bayM, out var alongM);
+        var lane = _roads.NearestStreetLane(bayM, out var alongM);
         if (lane < 0) return false;
 
         var arcs = _roads.ArcsOf(lane);

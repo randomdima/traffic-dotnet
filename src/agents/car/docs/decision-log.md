@@ -3,6 +3,20 @@
 Why this slice reads the way it does — the driver, the body and the tyres. Only decisions still binding
 are here: a superseded one is deleted, not annotated.
 
+## 2026-09-29 — a car nothing drives runs its own round from bay to bay
+
+**Once bays could be driven into, nothing moved a car** (CAR-1): nobody boards one (PER-11), and the tour was
+the rule of a map with no bay. So a car nothing else drives parks, stands a drawn while and drives to a free bay
+near a place drawn from its own stream (CAR-8, `TownWorld.RunTheRound`). It is a car's own errand and the
+smallest one that keeps a town's traffic real; walkers driving their own trips is the round's replacement and
+not its extension.
+
+- **The place is drawn within reach of the car** (`RoundReachM`, 600 m). Drawn anywhere in the town, every
+  trip crossed it down the same arterials: the stuck probe's Odesa locked a signalled Y-junction solid, 174 cars
+  standing at the end of the run against the tour's 30.
+- **The stand is half a minute to four** (`ParkedMinS`, `…MaxS`). At ten seconds to a minute every car in
+  Odesa was on the road at once.
+
 ## 2026-09-29 — a car too near to step out backs up, and one that cannot is going nowhere
 
 **The owner saw cars that would not get past something because they stood too near it**, and asked for a car

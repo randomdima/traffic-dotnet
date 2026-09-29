@@ -258,7 +258,7 @@ internal sealed partial class TownWorld
     Vector2 TheStandoffM(int car, int casualty)
     {
         var lyingAtM = People.PositionM[casualty];
-        var lane = _roads.NearestLane(lyingAtM, out var alongM);
+        var lane = _roads.NearestStreetLane(lyingAtM, out var alongM);
         if (lane < 0) return lyingAtM;
 
         var forward = Spline.SampleAt(_roads.ArcsOf(lane), alongM).Direction;
@@ -683,13 +683,15 @@ internal sealed partial class TownWorld
     /// route search is aimed and whether a bay is claimed for the arrival.
     /// </summary>
     /// <remarks>
-    /// The two errands that have one are a rescue's run to a body in the road (AMB-5) and a recovery's run
-    /// to a wreck and haul to a yard slot (EVA-3, EVA-6) — a leg that claimed a bay would be a car that
-    /// parked instead of arriving. <b>And two of the player's four orders</b> (CTL-8a, CTL-8c), which is
-    /// the whole of what makes "drive to that spot" different from "park near it".
+    /// The errands that have one are a rescue's run to a body in the road (AMB-5), a recovery's run to a
+    /// wreck and haul to a yard slot (EVA-3, EVA-6) and a patrol's beat and run to a scene (SRV-5, SRV-6) — a
+    /// leg that claimed a bay would be a car that parked instead of arriving. <b>And two of the player's four
+    /// orders</b> (CTL-8a, CTL-8c), which is the whole of what makes "drive to that spot" different from
+    /// "park near it".
     /// </remarks>
     bool IsAimedAtAPlaceInTheRoad(int car) =>
-        IsOnItsWayToAScene(car) || IsOnItsWayToAWreck(car) || IsOrderedToAPlaceInTheRoad(car);
+        IsOnItsWayToAScene(car) || IsOnItsWayToAWreck(car) || IsOnItsBeatOrToAScene(car)
+        || IsOrderedToAPlaceInTheRoad(car);
 
     /// <summary>The world seed's stream an ambulance is drawn from, which belongs to nothing else.</summary>
     const ulong RescueStream = 0x414D4255;

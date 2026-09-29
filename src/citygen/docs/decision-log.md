@@ -1,5 +1,13 @@
 # CityGen — decision log
 
+## 2026-09-29 — a car is stood in a bay again, and on a lane only where a town cut none
+
+**The spawn stage stands the brief's cars in the town's own car parks** (GEN-7), spread over their bays as it
+spread them over the lanes, now that a bay can be driven out of ([parking](../../world/parking/docs/decision-log.md)).
+**A yard is not one of them** (GEN-55): its bays are its service's apron and are claimed before the plan's cars
+are stood (GEN-4k), so a car stood in one was a car the town moved elsewhere or did not stand. **A town that cut
+no car park keeps one car a lane** — the fixture, which asks for no buildings and so for no parking.
+
 ## 2026-09-28 — which junctions are lit is drawn again, on a stream of its own
 
 **The roads stage lights the brief's share of the junctions that can carry lights** (`LitJunctions`, TLT-3),

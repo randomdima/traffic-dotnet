@@ -95,10 +95,10 @@ internal static class Towns
     /// <param name="buildings">
     /// <b>None, except for <see cref="Built"/> and the cases about what a town stands</b> (GEN-54). The
     /// count is also what the car parks are cut off (GEN-53, <see cref="SimConfig.CarParksFor"/>), and a
-    /// car park's arm ends at the bays nothing lays yet
-    /// ([the known gaps](../../../docs/index.md#known-gaps)) — so a town carrying one has a lane a car is
-    /// driven onto and not off, which is the one thing GEN-50 is about and not something to make every
-    /// other case on this brief carry an exemption for.
+    /// car park's arm [dangles as a lane](../../../docs/index.md#known-gaps) — so a town carrying one has a
+    /// lane a car is driven onto and not off, which is the one thing GEN-50 is about and not something to make
+    /// every other case on this brief carry an exemption for. Its cars also park and run a round (CAR-8)
+    /// rather than tour, which is a different town to ask a question about traffic of.
     /// </param>
     /// <param name="people">
     /// <b>None, unless the case is about somebody walking</b> (GEN-7). A walker is stood at a door, so a
@@ -182,10 +182,12 @@ internal static class Towns
     /// asks for any, and therefore the one town that carries car parks.
     /// </summary>
     /// <remarks>
-    /// <b>It is a town of its own and not the default</b>: a car park's arm ends at bays nothing lays yet
-    /// ([the known gaps](../../../docs/index.md#known-gaps)), so a town carrying one has a lane a car is
+    /// <b>It is a town of its own and not the default</b>: a car park's arm
+    /// [dangles as a lane](../../../docs/index.md#known-gaps), so a town carrying one has a lane a car is
     /// driven onto and not off — which is the one thing GEN-50 is about, and not something to make every
-    /// other case on this brief carry an exemption for.
+    /// other case on this brief carry an exemption for. <b>And its cars park</b>: they run a round from bay to
+    /// bay (CAR-8), where every other brief's cars tour, and its stations, hospitals and depots stand their
+    /// vehicles (GEN-4k).
     /// </remarks>
     public static CityPlan Built => _built.Value;
 

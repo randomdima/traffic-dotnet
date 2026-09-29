@@ -217,15 +217,15 @@ internal sealed partial class TownWorld
     /// <summary>
     /// <b>A map with no bay a car can reach drives its own cars</b> (CAR-8). A car does nothing unless
     /// something is driving it (CAR-1), and on such a map nothing but an order ever sends one anywhere — an
-    /// errand needs an apron, and an apron needs a bay — so its cars would stand where they were put for ever.
+    /// errand needs an apron, a car's own round needs a bay, and both need a car park — so its cars would stand
+    /// where they were put for ever.
     /// </summary>
     /// <remarks>
     /// <para>
     /// <b>It is a fact about the map and not a name in a list</b>, and the fact is <em>whether a bay can be
-    /// reached</em> — which in this build none can (<c>BayWays.Build</c> lays no way), so every town
-    /// runs it. Each car takes the lane it is standing on, exactly as a car that has lost its line takes one
-    /// back (CAR-9), and drives from there under the standing rules — no destination, so it is carried by
-    /// the tour.
+    /// reached</em> — which on a town that cut no car park, the fixture among them, none can. Each car takes
+    /// the lane it is standing on, exactly as a car that has lost its line takes one back (CAR-9), and drives
+    /// from there under the standing rules — no destination, so it is carried by the tour.
     /// </para>
     /// <para>
     /// <b>It is asked every tick and not done once.</b> A toured car's leg ends the way every leg does, by
@@ -235,10 +235,7 @@ internal sealed partial class TownWorld
     /// </remarks>
     void DriveTheEmptyMap()
     {
-        for (var bay = 0; bay < _parking.BayCount; bay++)
-        {
-            if (_parking.CanBeReached(bay)) return;
-        }
+        if (_townParks) return;
 
         for (var car = 0; car < Cars.Count; car++)
         {
@@ -270,15 +267,15 @@ internal sealed partial class TownWorld
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Its bay, where it has one, is the registry's from the first tick. Where it has none — every car of
-    /// this build, no bay being reachable (GEN-7) — it stands at the plan's own pose.
+    /// Its bay, where it has one, is the registry's from the first tick, and its first stand begins there
+    /// (CAR-8). Where it has none — a town that cut no car park (GEN-7) — it stands at the plan's own pose.
     /// </para>
     /// <para>
     /// <b>And the pose is the bay's own and not the plan's</b> (GEN-4i), for a spawn that lands in one: the
     /// bay's ways meet at the pose a car square in the middle of the space stands at, and a car standing off
     /// the way it is about to drive is a car whose first move out of the car park is a recovery. <b>Which of
     /// the two poses that is is the driver's habit</b> (GEN-4j), so a town starts with cars standing both
-    /// ways round wherever its bays lay both.
+    /// ways round wherever its bays lay a way out of both.
     /// </para>
     /// </remarks>
     void StandCar(int spawn, byte variant)
@@ -320,7 +317,10 @@ internal sealed partial class TownWorld
         var car = Cars.Add(body, positionM, headingRad, variant, backsIn, draw);
         _physics.Tag(body, new BodyTag(BodyKind.Car, car));
 
-        if (bay >= 0) _parking.Occupy(bay, car);
+        if (bay < 0) return;
+
+        _parking.Occupy(bay, car);
+        BeginTheStand(car);
     }
 
     /// <summary>

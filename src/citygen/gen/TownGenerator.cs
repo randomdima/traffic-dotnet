@@ -173,7 +173,7 @@ internal static class TownGenerator
         Took("props");
 
         var spawn = new Rng(brief.Seed, SpawnStream);
-        var spawns = SpawnStage.Lay(brief, paving, buildings, config, ref spawn);
+        var spawns = SpawnStage.Lay(brief, paving, carParks, buildings, config, ref spawn);
         Took("spawns");
 
         return new CityPlan

@@ -14,8 +14,8 @@ namespace TrafficSimulation.Tests.CityGen;
 /// </summary>
 /// <remarks>
 /// <b>Asked of <see cref="Towns.Built"/></b>, the one town the suite lays with buildings on it — every
-/// other brief asks for none, because a town with buildings carries car parks and a car park's arm ends at
-/// bays nothing lays yet.
+/// other brief asks for none, because a town with buildings carries car parks, and its cars park and run a
+/// round rather than tour (CAR-8).
 /// </remarks>
 [Trait(Tier.Key, Tier.Town)]
 [Trait(Priority.Key, Priority.P3)]

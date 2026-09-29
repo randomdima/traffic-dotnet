@@ -230,11 +230,13 @@ the car park at an angle, and one down a side fronts the row of bays edge-on.
 building the map stood them at**, dwelling out the interval an arrival dwells (PER-11). A trip ends by
 walking through a door and dwelling, so a body that begins there begins in the state every later trip
 returns it to (`PER-25`). **Which building is read off the pose the plan left the body in** — the way in it is
-standing at — so the plan carries nothing to say it.
+standing at — so the plan carries nothing to say it. **A car is stood in a bay of the town's own car parks**,
+never a service's yard (GEN-55); **a town that cut no car park stands its cars on its lanes**, one a lane, and
+they tour (CAR-8) — the fixture, which asks for no buildings and is owed no parking.
 
 **How many of each is the brief's**, and **the bound is the town rather than the count**: a car is stood
-on a lane long enough to hold one and a person at a way in, so a brief asking for more than the ground
-carries gets what fitted (GEN-8).
+in a bay, or on a lane long enough to hold one, and a person at a way in, so a brief asking for more than the
+ground carries gets what fitted (GEN-8).
 
 **GEN-8** `P6` **No candidate city is ever rejected.** A violation of GEN-3…GEN-5 is a defect in the
 arrangement rather than a seed to throw away, and the gate that catches it is the suite. Where the ground

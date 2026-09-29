@@ -72,7 +72,7 @@ internal sealed class DrivingNetwork
     /// </summary>
     public int GoalsAt(Vector2 pointM, Span<RouteGoal> into)
     {
-        var lane = _roads.NearestLane(pointM, out var alongM);
+        var lane = _roads.NearestStreetLane(pointM, out var alongM);
         if (lane < 0) return 0;
 
         var count = 0;
@@ -144,16 +144,24 @@ internal sealed class DrivingNetwork
     /// one way this graph could hand a driver a route with no ground under it. A stretch some bay is worked
     /// off both ways is the exception, and it is priced rather than free because what happens there is a
     /// whole park and a whole unpark with the traffic given way to twice.
+    /// <para>
+    /// <b>A car park's arm is never a lane a route runs down</b> (GEN-4h): it is a bay, driven only as that
+    /// bay's own ways (GEN-4f), and a route is aimed at the street lane a bay's way leaves. Offered as a lane,
+    /// every arm is a dead end the search may turn a leg at (<see cref="Parking.BayWays.WhereALegMayTurn"/>)
+    /// and nothing turns the car there — which is a car routed nose first into a neighbour's space.
+    /// </para>
     /// </remarks>
     readonly struct Pricer(RoadGraph roads, bool[] turnsAtALot, SimConfig config) : IEdgeTurnPricer
     {
-        public float PriceM(int fromEdge, int toEdge) => roads.TurnBetween(fromEdge, toEdge) switch
-        {
-            LaneTurn.NearSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceNearSideCarLengths,
-            LaneTurn.FarSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceAcrossOncomingCarLengths,
-            LaneTurn.Straight => 0f,
-            _ => TurnsAtTheLotM(fromEdge, toEdge),
-        };
+        public float PriceM(int fromEdge, int toEdge) => roads.IsABayArm(fromEdge) || roads.IsABayArm(toEdge)
+            ? float.PositiveInfinity
+            : roads.TurnBetween(fromEdge, toEdge) switch
+            {
+                LaneTurn.NearSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceNearSideCarLengths,
+                LaneTurn.FarSide => config.Driving.NominalCarLengthM * config.Driving.TurnPriceAcrossOncomingCarLengths,
+                LaneTurn.Straight => 0f,
+                _ => TurnsAtTheLotM(fromEdge, toEdge),
+            };
 
         /// <summary>
         /// What the pair costs where the road has no turn between them: the park and the unpark where they

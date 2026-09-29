@@ -32,11 +32,16 @@ internal static class LaneTour
     public static int NextLane(RoadGraph graph, SimConfig config, int lane, ref Rng draw)
     {
         var connectors = graph.ConnectorsFrom(lane);
-        if (connectors.Count == 0) return CarFleetNoLane;
-
         var total = 0f;
-        foreach (var connector in connectors) total += Weight(graph, config, connector);
-        if (total <= 0f) return graph.ConnectorTo(connectors[draw.NextInt(connectors.Count)]);
+        var streets = 0;
+        foreach (var connector in connectors)
+        {
+            total += Weight(graph, config, connector);
+            if (!graph.IsABayArm(graph.ConnectorTo(connector))) streets++;
+        }
+
+        if (streets == 0) return CarFleetNoLane;
+        if (total <= 0f) return TheStreetDrawn(graph, connectors, draw.NextInt(streets));
 
         var drawn = draw.NextFloat(0f, total);
         foreach (var connector in connectors)
@@ -45,12 +50,30 @@ internal static class LaneTour
             if (drawn <= 0f) return graph.ConnectorTo(connector);
         }
 
-        return graph.ConnectorTo(connectors[connectors.Count - 1]);
+        return TheStreetDrawn(graph, connectors, streets - 1);
     }
 
-    /// <summary>The cheaper the turn, the likelier it is drawn — at the prices the router quotes.</summary>
+    /// <summary>The <paramref name="nth"/> of the movements onto the carriageway, a car park's arms not counted.</summary>
+    static int TheStreetDrawn(RoadGraph graph, ConnectorRun connectors, int nth)
+    {
+        foreach (var connector in connectors)
+        {
+            var onto = graph.ConnectorTo(connector);
+            if (graph.IsABayArm(onto)) continue;
+            if (nth-- == 0) return onto;
+        }
+
+        return CarFleetNoLane;
+    }
+
+    /// <summary>
+    /// The cheaper the turn, the likelier it is drawn — at the prices the router quotes. <b>Never onto a car
+    /// park's arm</b> (GEN-4h): an arm is a bay, driven only as the bay's own ways.
+    /// </summary>
     static float Weight(RoadGraph graph, SimConfig config, int connector)
     {
+        if (graph.IsABayArm(graph.ConnectorTo(connector))) return 0f;
+
         // A lane with no connector out of it is a dead end, and nothing turns a car round in one: driven
         // in, a car stands at the end until its leg's clock runs out. Declining it keeps a car nobody is
         // routing on roads it can drive off again; it is not a rule — a dead end is a real place and a real

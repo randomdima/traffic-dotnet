@@ -341,6 +341,23 @@ internal sealed class DrivingFigures
     public float BacksIntoBaysShare { get; init; } = 0.5f;
 
     /// <summary>
+    /// <b>How long a car nothing else drives stands in a bay before it leaves for another</b> (CAR-8), drawn
+    /// between the two each time it parks. The spread is what keeps a car park stood full before the first
+    /// tick from emptying in one, and the scale is what keeps a town's cars mostly parked, as a town's are:
+    /// at a minute or less every car in Odesa was on the road at once and its arterial junctions locked.
+    /// </summary>
+    public float ParkedMinS { get; init; } = 30f;
+
+    public float ParkedMaxS { get; init; } = 240f;
+
+    /// <summary>
+    /// <b>How far from where it stands a car's next bay is looked for</b> (CAR-8) — a radius, the place drawn
+    /// inside it. Most of a town's trips are local; drawn anywhere in the town, every one of them crossed it
+    /// down the same few arterials.
+    /// </summary>
+    public float RoundReachM { get; init; } = 600f;
+
+    /// <summary>
     /// <b>How much of the town does not keep the driver's courtesies</b> (CAR-13) — a habit drawn once per
     /// person and true for the rest of the run, like the one above. It drops nothing while a red is a light's
     /// hold on the road rather than a courtesy (CAR-13.1).

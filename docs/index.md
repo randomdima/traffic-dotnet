@@ -96,26 +96,12 @@ retired number, which the owning slice's log records.
 Absences that are gaps rather than decisions, and none of them is silent. Why each came about is the
 owning slice's log; this list says only what is absent now and what closes it.
 
-- **No town lays a bay, so no service vehicle is ever stood.** A car park is a junction cut into a road
-  that already stands, with its arms the bays (`GEN-52`, `GEN-53`, `GEN-4h`) — but the bays themselves are
-  not laid, so an arm ends at a node nothing leaves (`GEN-50`). What follows from that one absence:
-  - **No car makes a trip.** With no bay that can be reached, every town runs the empty map's tour
-    (`TownWorld.DriveTheEmptyMap`): each car takes the lane it stands on and drives with no destination
-    until its leg's clock stands it down, and is then put back on the road.
-  - **Every apron is empty** (`GEN-4k`), so no ambulance, police car or evacuator stands in any town. The
-    errands (`AMB-*`, `SRV-*`, `EVA-*`) are exercised by the unit tier alone, and `--bench rescue` and
-    `--bench recovery` stage calls nothing can answer.
-  - **`GEN-7`'s first half is false**: a car is stood on a lane, there being no bay to start it in. The
-    second half holds — a person starts inside a building and walks out through its way in.
-  - **A park order is refused**, and `CTL-8b`'s park-and-walk would be a park-there order anyway, there
-    being no driver to hand the walk to.
-  - **Nothing is left for `VER-2` to ask**, a bay being the one way round there is (`TER-5f`).
-  - **A lot's own arithmetic is not reworded**: `GEN-4b`, `GEN-4c` and `GEN-4d` still describe kerbside
-    lots, which the plan partly reads (`CarParks.BaysPerLotMost`), and what replaces them is laid with the
-    bays rather than guessed at now.
-
-  It closes when the bays land. The shipped cities cut car parks, so their geometry can be looked at
-  (`qq town --parks Odesa`).
+- **A lot's own arithmetic is not reworded**: `GEN-4b`, `GEN-4c` and `GEN-4d` still describe kerbside lots,
+  which the plan partly reads (`CarParks.BaysPerLotMost`). A car park is a junction cut into a road with its
+  arms the bays (`GEN-52`, `GEN-53`, `GEN-4h`), and the rules that size one are the cut's.
+- **An arm still dangles** (`GEN-50`): a bay's arm is a lane of the road graph that ends at a node nothing
+  leaves. It is driven only as the bay's own ways and never as a lane (`GEN-4h`), which is what keeps it from
+  mattering, and it is the one exemption `GEN-50` is asked with.
 - **Nothing is done on foot but walking.** No leg of a trip is driven (`PER-11`) and no service vehicle
   carries a crew (`SRV-3`), so each errand that had a body working it covers the ground another way: a
   casualty is taken aboard at the ambulance's standoff by a placement (`AMB-10`), a wreck is hitched and
@@ -125,7 +111,9 @@ owning slice's log; this list says only what is absent now and what closes it.
   its leg up; on the road it takes the nearest lane only where that runs its way (`CAR-9`). There is no
   straight back onto the carriageway and no reversing out of a jam, and a car routed into a dead end stands
   there until its leg's clock gives the leg up — the route turns at one, and nothing turns the car
-  (`GEN-4l`).
+  (`GEN-4l`). **No car park lays a turn either**: nosed in, a car reverses out onto the lane it came down,
+  and nothing reverses into a bay (`GEN-4j`), so a bay turns nobody round and a leg comes back the other way
+  only by going round the block.
 - **The ground does not answer whether a point is on a crossing** (`GroundShapes.Roads` reads the plan's
   empty `Crosswalks`), which a slice below the road cannot ask the road for. It closes the way the zebras
   and the bars did: one laying — `Crossings`, handed to the walk, the lanes that carry it, the bands beneath

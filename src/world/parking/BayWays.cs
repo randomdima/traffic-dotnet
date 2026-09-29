@@ -26,8 +26,8 @@ namespace TrafficSimulation.World.Parking;
 /// </para>
 /// <para>
 /// <b>A car stands in a bay one of two ways round</b> (GEN-4j). Nose in, it drove in and must reverse out;
-/// backed in, it reversed in and drives out — so the four ways differ only in which end is the bay's and
-/// which gear the car is in (<see cref="IsDrivenInReverse"/>).
+/// backed in, it was stood there and drives out — nothing reverses into a bay. So the ways differ only in
+/// which end is the bay's and which gear the car is in (<see cref="IsDrivenInReverse"/>).
 /// </para>
 /// <para>
 /// <b>The way is the bay's and not the car's</b> (GEN-4e, and the same argument the walker's way in is
@@ -37,8 +37,10 @@ namespace TrafficSimulation.World.Parking;
 /// other line in the town.
 /// </para>
 /// <para>
-/// <b>Nothing lays one</b> (<see cref="Build"/>): every bay is a bay with no way, and that is the whole of
-/// what <see cref="CanBeReached"/> means.
+/// <b>A bay is an arm of a car park's junction</b> (GEN-4h), so every way here is laid over ground the road
+/// already has — the arm's own lanes and the movements onto and off them (<see cref="Build"/>). The road's
+/// lanes and these ways cover the same ground, and the atlas marks every pair of them that does, which is
+/// what holds a car on one off a body on the other.
 /// </para>
 /// </remarks>
 internal sealed class BayWays
@@ -226,12 +228,27 @@ internal sealed class BayWays
         TheWay(bay, NoLane, entry: true, noseIn) != NoWay && TheWay(bay, NoLane, entry: false, noseIn) != NoWay;
 
     /// <summary>
-    /// <b>The standing a driver actually gets here</b>: the one it would take where the bay lays it, and the
-    /// other where it does not. A bay that lays neither is one <see cref="CanBeReached"/> refuses.
+    /// <b>The standing a car put in this bay is stood in</b> — a spawn, a service vehicle, a wreck set down:
+    /// the one asked for where the bay lays a way out of it, and the other where it does not. <b>A way out is
+    /// all it needs</b>, since nothing drove it in; a car backed into a bay no car is ever reversed into still
+    /// drives out of it (<see cref="Laying.BackedIn"/>).
     /// </summary>
-    public bool TheStandingOnOffer(int bay, bool wantsNoseIn) => CanStand(bay, wantsNoseIn) ? wantsNoseIn : !wantsNoseIn;
+    public bool TheStandingOnOffer(int bay, bool wantsNoseIn) =>
+        TheWay(bay, NoLane, entry: false, wantsNoseIn) != NoWay ? wantsNoseIn : !wantsNoseIn;
 
     public bool CanBeReached(int bay) => WayCountOf(bay) > 0;
+
+    /// <summary>
+    /// <b>The bay a lane of the road is the arm of</b> (GEN-4h), or <see cref="NoBay"/> for a lane of the
+    /// carriageway. A body standing in a bay stands on its arm, which is the road's nearest lane to it and
+    /// not one its ways are worked off.
+    /// </summary>
+    public int BayOnArm(int lane) => lane >= 0 && lane < ArmOfLane.Length ? ArmOfLane[lane] : NoBay;
+
+    /// <summary>No bay: what a lane of the carriageway is the arm of.</summary>
+    public const int NoBay = -1;
+
+    int[] ArmOfLane { get; init; } = [];
 
     /// <summary>One of this bay's ways, or <see cref="NoWay"/>; <see cref="NoLane"/> asks of any lane.</summary>
     int TheWay(int bay, int lane, bool entry, bool noseIn)
@@ -316,24 +333,293 @@ internal sealed class BayWays
     public int MostArcs { get; private init; }
 
     /// <summary>
-    /// <b>The ways, as the plan would carry them</b> rather than laid here. A bay's way is ground the town is
-    /// made of — it is what a car park <em>is</em>, the way a junction is its own movements (TER-5) — so it
-    /// would be laid where the ground is laid, and this holds what the driving makes of it: which lane each
-    /// way works, which way round the car ends up, and the numbering the rest of the network reads them by.
+    /// <b>The ways, read off the car parks the plan cut</b> (GEN-53, GEN-4h): a bay is its arm, the arm's two
+    /// lanes are the space driven in over and out over, and the car park's own movements are what join the
+    /// arm to the street. <b>Nothing here draws a curve</b> — every way is the town's lines, joined end to end
+    /// and, for the half driven in reverse, walked the other way.
     /// </summary>
     /// <remarks>
-    /// <b>Nothing lays a bay's way and nothing is read</b>: every bay the plan carries is given none, so each
-    /// is a bay no way reaches — which is what <see cref="CanBeReached"/> already answers for, and is the
-    /// state a map with no frontage has always stood up in. The slice stands rather than being unpicked:
-    /// parking is in the road back, and the lines it will read come with it.
+    /// <para>
+    /// <b>Nose in, the shape is the last of the lane the movement leaves, the movement onto the arm and the
+    /// arm</b>: driven forwards, and backed out over the same ground onto the same place. <b>Backed in, it is
+    /// the arm, the movement off it and the first of the lane it lands on</b>: driven out forwards, and
+    /// reversed in from there — so a car backing in has passed the car park and stands clear of its box before
+    /// it changes gear. <b>Either shape runs a staging length along its lane</b>
+    /// (<see cref="SimConfig.ParkingStagedInM"/>): a leg hands one line over to the next with the car at rest in
+    /// the last car length of it (<c>TownWorld.TheLineIsSpent</c>), and a way that ended on the turn would hand
+    /// a car over crosswise in the street.
+    /// </para>
+    /// <para>
+    /// <b>Only a way that crosses no oncoming stream is reversed over</b> (GEN-4j): the near side's, and
+    /// either side of a street that runs one way. Across the carriageway a car noses in and drives out, and
+    /// backs over neither.
+    /// </para>
     /// </remarks>
-    public static BayWays Build(CityPlan plan, RoadGraph roads, SimConfig config) =>
-        new(
-            TownWays.FirstBayWay(roads), firstWayOfBay: new int[plan.ParkingLots.SpaceCount + 1],
-            firstBayOfLane: new int[roads.LaneCount + 1],
-            baysOffLane: [], bay: [], lane: [], atLaneM: [], lengthM: [], drivenM: [], isEntry: [],
-            isNoseIn: [], arcOffsets: [0], arcs: [], atTheBayM: [])
+    public static BayWays Build(CityPlan plan, RoadGraph roads, SimConfig config)
+    {
+        var parks = plan.CarParks;
+        var (armIn, armOut) = TheArms(parks, roads);
+        var armOfLane = ArmsByLane(roads.LaneCount, armIn, armOut);
+        var (turnsIn, turnsOut) = TheMovements(roads, armIn, armOut, armOfLane);
+        var laying = new Laying(roads, config, MostArcsOfAShape(roads), parks.Road.Length);
+
+        for (var bay = 0; bay < parks.Road.Length; bay++)
         {
-            MostArcs = 0, OffTheRoad = roads, SpaceWidthM = config.ParkingSpaceWidthM,
-        };
+            laying.Begin(bay);
+            if (armIn[bay] < 0 || armOut[bay] < 0) continue;
+
+            laying.AtTheArm(armIn[bay], armOut[bay]);
+            foreach (var connector in turnsIn[bay]) laying.NoseIn(connector);
+            foreach (var connector in turnsOut[bay]) laying.BackedIn(connector);
+        }
+
+        return laying.Into(TownWays.FirstBayWay(roads), armOfLane);
+    }
+
+    /// <summary>
+    /// <b>The ways as they are laid, one bay at a time</b> — a bay's run of ways being contiguous is what
+    /// <see cref="WayOf"/> reads them by.
+    /// </summary>
+    sealed class Laying(RoadGraph roads, SimConfig config, int mostArcsOfAShape, int bays)
+    {
+        readonly int[] _firstWayOfBay = new int[bays + 1];
+        readonly List<int> _bay = [];
+        readonly List<int> _lane = [];
+        readonly List<float> _atLaneM = [];
+        readonly List<float> _lengthM = [];
+        readonly List<float> _drivenM = [];
+        readonly List<bool> _isEntry = [];
+        readonly List<bool> _isNoseIn = [];
+        readonly List<int> _arcOffsets = [0];
+        readonly List<ArcSeg> _arcs = [];
+        readonly List<Vector2> _atTheBayM = [];
+        readonly ArcSeg[] _shape = new ArcSeg[mostArcsOfAShape];
+        readonly ArcSeg[] _reversed = new ArcSeg[mostArcsOfAShape];
+        int _mostArcs;
+        int _space;
+        int _in;
+        int _out;
+        float _armM;
+        float _noseInM;
+        float _backedInM;
+        Vector2 _noseInAxleM;
+        Vector2 _backedInAxleM;
+
+        public void Begin(int bay)
+        {
+            _space = bay;
+            _firstWayOfBay[bay] = _bay.Count;
+        }
+
+        /// <summary>
+        /// <b>Square in the middle of the space</b> (GEN-4i), which the arm is. The arm's two lanes run over one
+        /// line (GEN-53), so the way out reads the same metres from its own end.
+        /// </summary>
+        public void AtTheArm(int into, int outOf)
+        {
+            _in = into;
+            _out = outOf;
+            _armM = roads.LaneLengthM[into];
+            _noseInM = BayTemplate.RearAxleIntoTheBayM(config.CarCentreAheadOfAxleM, _armM, noseIn: true);
+            _backedInM = MathF.Max(
+                0f,
+                roads.LaneLengthM[outOf] - BayTemplate.RearAxleIntoTheBayM(config.CarCentreAheadOfAxleM, _armM, noseIn: false));
+            _noseInAxleM = Spline.SampleAt(roads.ArcsOf(into), _noseInM).PositionM;
+            _backedInAxleM = Spline.SampleAt(roads.ArcsOf(outOf), _backedInM).PositionM;
+        }
+
+        /// <summary>
+        /// The last of the lane, the movement onto the arm and the arm: in forwards, and out in reverse where that
+        /// crosses nothing.
+        /// </summary>
+        public void NoseIn(int connector)
+        {
+            var lane = roads.ConnectorFrom(connector);
+            var laneM = roads.LaneLengthM[lane];
+            var stagedM = MathF.Min(config.ParkingStagedInM, laneM);
+            var turnM = roads.ConnectorLengthM(connector);
+
+            var count = Spline.SubChainInto(roads.ArcsOf(lane), laneM - stagedM, laneM, _shape);
+            count = Append(_shape, count, roads.ConnectorArcs(connector));
+            count = Append(_shape, count, roads.ArcsOf(_in));
+            var inM = stagedM + turnM;
+            Add(lane, laneM - stagedM, _noseInAxleM, _shape.AsSpan(0, count), inM + _armM, inM + _noseInM, entry: true, noseIn: true);
+
+            if (!BacksOverNothingOncoming(roads, connector, lane)) return;
+
+            count = Spline.SubChainInto(roads.ArcsOf(lane), laneM - stagedM, laneM, _shape);
+            count = Append(_shape, count, roads.ConnectorArcs(connector));
+            count += Spline.SubChainInto(roads.ArcsOf(_in), 0f, _noseInM, _shape.AsSpan(count));
+            Spline.ReverseInto(_shape.AsSpan(0, count), _reversed);
+            Add(lane, laneM - stagedM, _noseInAxleM, _reversed.AsSpan(0, count), inM + _noseInM, inM + _noseInM, entry: false, noseIn: true);
+        }
+
+        /// <summary>
+        /// The arm, the movement off it and the first of the lane it lands on, driven out forwards. <b>Never
+        /// reversed in</b>: a car backing in has driven past the car park first, and whoever was following it
+        /// stops at its tail — on the ground it has to reverse over, and waiting on it to move.
+        /// </summary>
+        public void BackedIn(int connector)
+        {
+            var lane = roads.ConnectorTo(connector);
+            var turnM = roads.ConnectorLengthM(connector);
+            var onM = MathF.Min(config.ParkingStagedInM, roads.LaneLengthM[lane]);
+            var armOutM = roads.LaneLengthM[_out];
+
+            var count = Spline.SubChainInto(roads.ArcsOf(_out), _backedInM, armOutM, _shape);
+            count = Append(_shape, count, roads.ConnectorArcs(connector));
+            count += Spline.SubChainInto(roads.ArcsOf(lane), 0f, onM, _shape.AsSpan(count));
+            var outM = armOutM - _backedInM + turnM + onM;
+            Add(lane, onM, _backedInAxleM, _shape.AsSpan(0, count), outM, outM, entry: false, noseIn: false);
+        }
+
+        public BayWays Into(int firstWay, int[] armOfLane)
+        {
+            _firstWayOfBay[bays] = _bay.Count;
+            var (firstBayOfLane, baysOffLane) = BaysByLane(roads.LaneCount, _bay, _lane);
+
+            return new BayWays(
+                firstWay, _firstWayOfBay, firstBayOfLane, baysOffLane, [.. _bay], [.. _lane], [.. _atLaneM],
+                [.. _lengthM], [.. _drivenM], [.. _isEntry], [.. _isNoseIn], [.. _arcOffsets], [.. _arcs],
+                [.. _atTheBayM])
+            {
+                MostArcs = _mostArcs, OffTheRoad = roads, SpaceWidthM = config.ParkingSpaceWidthM, ArmOfLane = armOfLane,
+            };
+        }
+
+        void Add(
+            int lane, float onLaneM, Vector2 axleM, ReadOnlySpan<ArcSeg> line, float lengthM, float drivenM,
+            bool entry, bool noseIn)
+        {
+            _bay.Add(_space);
+            _lane.Add(lane);
+            _atLaneM.Add(onLaneM);
+            _atTheBayM.Add(axleM);
+            _lengthM.Add(lengthM);
+            _drivenM.Add(drivenM);
+            _isEntry.Add(entry);
+            _isNoseIn.Add(noseIn);
+            foreach (var arc in line) _arcs.Add(arc);
+            _arcOffsets.Add(_arcs.Count);
+            _mostArcs = Math.Max(_mostArcs, line.Length);
+        }
+    }
+
+    /// <summary>
+    /// <b>Every movement onto each bay's arm and off it</b>, found in one pass over the town's movements
+    /// rather than one pass a bay — a city has thousands of each.
+    /// </summary>
+    static (List<int>[] In, List<int>[] Out) TheMovements(RoadGraph roads, int[] armIn, int[] armOut, int[] armOfLane)
+    {
+        var turnsIn = new List<int>[armIn.Length];
+        var turnsOut = new List<int>[armIn.Length];
+        for (var bay = 0; bay < armIn.Length; bay++)
+        {
+            turnsIn[bay] = [];
+            turnsOut[bay] = [];
+        }
+
+        for (var connector = 0; connector < roads.ConnectorCount; connector++)
+        {
+            var onto = roads.ConnectorTo(connector);
+            if (armOfLane[onto] is var bayOn and >= 0 && armIn[bayOn] == onto) turnsIn[bayOn].Add(connector);
+
+            var off = roads.ConnectorFrom(connector);
+            if (armOfLane[off] is var bayOff and >= 0 && armOut[bayOff] == off) turnsOut[bayOff].Add(connector);
+        }
+
+        return (turnsIn, turnsOut);
+    }
+
+    /// <summary>
+    /// Whether a car may reverse over the movement between this lane and a bay (GEN-4j): <b>one that crosses
+    /// no oncoming stream</b> — the kerb side's, or any on a street with no stream the other way.
+    /// </summary>
+    static bool BacksOverNothingOncoming(RoadGraph roads, int connector, int lane) =>
+        roads.KindOf(connector) == LaneTurn.NearSide || roads.LaneReverse[lane] < 0;
+
+    /// <summary>Each bay's arm as its two lanes: the one driven in along, and the one driven out along.</summary>
+    static (int[] In, int[] Out) TheArms(CityPlan.CarParkArrays parks, RoadGraph roads)
+    {
+        var bayOfRoad = new Dictionary<int, int>(parks.Road.Length);
+        for (var bay = 0; bay < parks.Road.Length; bay++) bayOfRoad[parks.Road[bay]] = bay;
+
+        var into = new int[parks.Road.Length];
+        var outOf = new int[parks.Road.Length];
+        Array.Fill(into, NoLane);
+        Array.Fill(outOf, NoLane);
+        for (var lane = 0; lane < roads.LaneCount; lane++)
+        {
+            if (!bayOfRoad.TryGetValue(roads.LaneRoad[lane], out var bay)) continue;
+
+            // A bay's road runs from the car park's junction out to the bay's own node (GEN-53), so the lane
+            // with the road is the one driven in.
+            if (roads.LaneForward[lane]) into[bay] = lane;
+            else outOf[bay] = lane;
+        }
+
+        return (into, outOf);
+    }
+
+    /// <summary>
+    /// The most pieces one shape can take: the longest arm, the longest movement and the longest stretch of
+    /// lane a backed-in way is carried on down — each bounded by the most any one line of the town took.
+    /// </summary>
+    static int MostArcsOfAShape(RoadGraph roads)
+    {
+        var mostLane = 0;
+        for (var lane = 0; lane < roads.LaneCount; lane++) mostLane = Math.Max(mostLane, roads.ArcsOf(lane).Length);
+
+        var mostTurn = 0;
+        for (var connector = 0; connector < roads.ConnectorCount; connector++)
+        {
+            mostTurn = Math.Max(mostTurn, roads.ConnectorArcs(connector).Length);
+        }
+
+        return (2 * mostLane) + mostTurn;
+    }
+
+    static int Append(ArcSeg[] into, int count, ReadOnlySpan<ArcSeg> arcs)
+    {
+        arcs.CopyTo(into.AsSpan(count));
+        return count + arcs.Length;
+    }
+
+    /// <summary>
+    /// The ways read the other way round: which bays each lane works. A bay lays up to four ways off one
+    /// lane — the pair per standing — and appears in its lane's run once.
+    /// </summary>
+    static (int[] Offsets, int[] Bays) BaysByLane(int laneCount, List<int> bayOfWay, List<int> laneOfWay)
+    {
+        var perLane = new List<int>?[laneCount];
+        for (var way = 0; way < bayOfWay.Count; way++)
+        {
+            var bays = perLane[laneOfWay[way]] ??= [];
+            if (!bays.Contains(bayOfWay[way])) bays.Add(bayOfWay[way]);
+        }
+
+        var offsets = new int[laneCount + 1];
+        var flat = new List<int>();
+        for (var lane = 0; lane < laneCount; lane++)
+        {
+            if (perLane[lane] is { } bays) flat.AddRange(bays);
+            offsets[lane + 1] = flat.Count;
+        }
+
+        return (offsets, [.. flat]);
+    }
+
+    /// <summary>Which bay each lane is an arm of, or <see cref="NoBay"/> for every lane of the carriageway.</summary>
+    static int[] ArmsByLane(int laneCount, int[] armIn, int[] armOut)
+    {
+        var arms = new int[laneCount];
+        Array.Fill(arms, NoBay);
+        for (var bay = 0; bay < armIn.Length; bay++)
+        {
+            if (armIn[bay] >= 0) arms[armIn[bay]] = bay;
+            if (armOut[bay] >= 0) arms[armOut[bay]] = bay;
+        }
+
+        return arms;
+    }
 }

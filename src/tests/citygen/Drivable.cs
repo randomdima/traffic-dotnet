@@ -20,10 +20,10 @@ internal static class Drivable
 {
     /// <summary>
     /// <b>The lanes of a car park's own arms</b> (GEN-53) — <b>the one thing in this build that a car is
-    /// driven onto and not off again</b>. An arm ends where its bays begin and
-    /// [nothing lays the bays yet](../../../docs/index.md#known-gaps), so the questions below are asked of
-    /// the rest of the town rather than answered with a state that is already named. <b>It goes when the
-    /// bays land</b>, and it is the whole of what GEN-50 is excused for.
+    /// driven onto and not off again as a lane</b>. An arm is a bay, driven only as the bay's own ways and never
+    /// as a lane (GEN-4h), and [it dangles as one](../../../docs/index.md#known-gaps), so the questions below
+    /// are asked of the rest of the town rather than answered with a state that is already named. It is the
+    /// whole of what GEN-50 is excused for.
     /// </summary>
     public static bool[] OnACarParksArm(CityPlan plan, RoadGraph roads)
     {

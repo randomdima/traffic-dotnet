@@ -69,6 +69,11 @@ internal readonly struct BayNetwork(BayWays bays, RoadGraph roads, float spaceWi
 
         var nearest = BayWays.NoWay;
         var nearestM2 = float.MaxValue;
+
+        // <b>A body in a bay stands on its arm</b> (GEN-4h), which is the road's nearest lane to it and not a
+        // lane any of the bay's ways is worked off.
+        if (bays.BayOnArm(lane) is var arm and not BayWays.NoBay) NearestOf(arm, atM, ref nearest, ref nearestM2);
+
         Nearest(lane, atM, ref nearest, ref nearestM2);
 
         // And the bays of the other side of the same street, which are as near the middle of it as these are.
@@ -130,16 +135,18 @@ internal readonly struct BayNetwork(BayWays bays, RoadGraph roads, float spaceWi
 
     void Nearest(int lane, Vector2 atM, ref int nearest, ref float nearestM2)
     {
-        foreach (var bay in bays.BaysOffLane(lane))
-        {
-            foreach (var way in bays.WaysOf(bay))
-            {
-                var reachM2 = (atM - bays.AtTheBayM(way)).LengthSquared();
-                if (reachM2 >= nearestM2) continue;
+        foreach (var bay in bays.BaysOffLane(lane)) NearestOf(bay, atM, ref nearest, ref nearestM2);
+    }
 
-                nearestM2 = reachM2;
-                nearest = way;
-            }
+    void NearestOf(int bay, Vector2 atM, ref int nearest, ref float nearestM2)
+    {
+        foreach (var way in bays.WaysOf(bay))
+        {
+            var reachM2 = (atM - bays.AtTheBayM(way)).LengthSquared();
+            if (reachM2 >= nearestM2) continue;
+
+            nearestM2 = reachM2;
+            nearest = way;
         }
     }
 }

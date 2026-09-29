@@ -130,6 +130,22 @@ internal sealed class ParkingRegistry
     }
 
     /// <summary>
+    /// <b>The bay whose space a body standing here is in</b> (<see cref="HoldsTheBody"/>), or
+    /// <see cref="NoBay"/> — read off the place and never off the register, for a body that is in a bay it was
+    /// never written into.
+    /// </summary>
+    public int BayHolding(Vector2 atM)
+    {
+        var candidates = _near.Query(atM, _spaceLengthM, _candidates);
+        for (var slot = 0; slot < candidates; slot++)
+        {
+            if (HoldsTheBody(_candidates[slot], atM)) return _candidates[slot];
+        }
+
+        return NoBay;
+    }
+
+    /// <summary>
     /// The bay this car has been left in, or <see cref="NoBay"/>. <b>Where it is registered and not where it
     /// is</b> — <see cref="HoldsTheBody"/> is the second question.
     /// </summary>
@@ -309,17 +325,24 @@ internal sealed class ParkingRegistry
         return count;
     }
 
+    /// <summary>
+    /// <b>One bay per arm of every car park the plan cut</b> (GEN-53), numbered as the plan lists them — the
+    /// numbering <see cref="BayWays"/> lays their ways in. The space is the arm: its middle is where a car
+    /// stands (GEN-4i), and its bearing out from the car park is the way a car nosed in points.
+    /// </summary>
     public static ParkingRegistry Build(CityPlan plan, BayWays ways, SimConfig config, int cars)
     {
-        var lots = plan.ParkingLots;
+        var arms = plan.CarParks.Road;
         var registry = new ParkingRegistry(
-            ways, new BucketGrid(config.Grid.Main, plan.WorldSizeM), lots.SpaceCount, cars,
-            config.ParkingSpaceLengthM, config.ParkingSpaceWidthM);
+            ways, new BucketGrid(config.Grid.Main, plan.WorldSizeM), arms.Length, cars,
+            config.CarParkBayLengthM, config.ParkingSpaceWidthM);
 
-        for (var bay = 0; bay < lots.SpaceCount; bay++)
+        for (var bay = 0; bay < arms.Length; bay++)
         {
-            var centreM = lots.SpacePositionM[bay];
-            var headingRad = lots.SpaceHeadingRad[bay];
+            var line = plan.Roads.SegmentsOf(arms[bay]);
+            var middle = Spline.SampleAt(line, Spline.TotalLengthM(line) * 0.5f);
+            var centreM = middle.PositionM;
+            var headingRad = middle.HeadingRad;
             registry._centreM[bay] = centreM;
             registry._headingRad[bay] = headingRad;
 
@@ -335,7 +358,7 @@ internal sealed class ParkingRegistry
 
         // A bay is a place in the index and not a circle: what is measured against the query is the
         // distance to its centre, filed at the grid's main cell like every other place a car is asked about.
-        registry._near.Rebuild(registry._centreM, new float[lots.SpaceCount], lots.SpaceCount);
+        registry._near.Rebuild(registry._centreM, new float[arms.Length], arms.Length);
         return registry;
     }
 }

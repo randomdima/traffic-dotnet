@@ -347,11 +347,13 @@ internal sealed class RoadFigures
     public float ParkingSpaceSideMarginInCarWidths { get; init; } = 0.25f;
 
     /// <summary>
-    /// How far before a bay a way in leaves its lane: where a car drops to manoeuvring pace, and the
-    /// run-in the entry template needs to hold its own radius. It is also how far beyond a car park's
-    /// frontage the road is cut for it, so the run-in stands inside the section's own stretch.
+    /// <b>How much of its street lane a bay's way runs along</b> (GEN-4f): the last of the lane a car noses in
+    /// off and the first of the lane a car backs in from and drives out onto. <b>More than a car</b>, because a
+    /// line is handed over with the car at rest in its last car length, and a way that ended on the turn
+    /// would hand a car over crosswise in the street; <b>not much more</b>, because a car backing in reverses
+    /// the whole of it.
     /// </summary>
-    public float ParkingStagedInCarLengths { get; init; } = 3f;
+    public float ParkingStagedInCarLengths { get; init; } = 2f;
 
     /// <summary>
     /// <b>The least straight a parking template may end on</b>, so it does not end with the rack still

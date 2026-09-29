@@ -226,6 +226,10 @@ public class OvertakeInATownTests
             var lane = cars.LaneOf(driver);
             if (!cars.Driven[driver] || cars.Broken[driver] || lane < 0 || cars.Line[driver].LaneCount < 2) continue;
 
+            // Driving through and not parking there: a line that ends in a bay is a car arriving where it was
+            // sent, which passes nothing (CAR-46).
+            if (cars.TailWayOf(driver) != CarFleet.NoWay) continue;
+
             var beyond = cars.ChainOf(driver)[1];
             var join = roads.ConnectorBetween(lane, beyond);
             if (join == RoadGraph.NoConnector || roads.KindOf(join) != LaneTurn.Straight) continue;

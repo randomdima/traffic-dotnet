@@ -343,7 +343,7 @@ internal sealed partial class TownWorld
     bool TheHitchingPlaceM(int car, int wreck, out Vector2 placeM)
     {
         var lyingAtM = Cars.PositionM[wreck];
-        var lane = _roads.NearestLane(lyingAtM, out var alongM);
+        var lane = _roads.NearestStreetLane(lyingAtM, out var alongM);
         if (lane < 0)
         {
             placeM = default;

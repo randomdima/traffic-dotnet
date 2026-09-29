@@ -6,25 +6,20 @@ using TrafficSimulation.Core.Simulation;
 namespace TrafficSimulation.CityGen.Gen;
 
 /// <summary>
-/// <b>Where the roster stands at the first tick</b>: a car on a lane, and a person at a door.
+/// <b>Where the roster stands at the first tick</b>: a car in a bay, and a person at a door (GEN-7).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>GEN-7 says a car starts stopped in a parking space and a person starts inside a building.</b> The
-/// second half holds now — a body stood at a way in walks through it before the town's first tick
-/// (<c>TownWorld.MoveIn</c>) — and the first does not, there being no bay to stand a car in. That half is
-/// named in the known gaps rather than reworded to match the code.
+/// <b>A car is stood in the middle of a bay of one of the town's own car parks</b>, pointing into it, and
+/// the town turns it round to whichever way its driver parks (<c>TownWorld.StandCar</c>, GEN-4j). A yard is
+/// a service's (GEN-55) and nobody else's, so none is stood in one. <b>How many is what the brief asks, up
+/// to the bays there are</b> — spread over the town rather than filling whichever car park was cut first.
 /// </para>
 /// <para>
-/// <b>A car is stood on a lane because otherwise the town does not move at all.</b> Nothing else stands one
-/// up: the roster is the plan's spawns, and a stage that placed nothing would leave a perfect road fabric
-/// with no traffic on it — which looks right in a picture, passes every static test, and makes every
-/// dynamic reading vacuous at once.
-/// </para>
-/// <para>
-/// <b>One car a lane, and that is also the bound.</b> Clear of the other cars by construction rather than
-/// by a search, and the count a brief may ask for is how many lanes the town laid that are long enough to
-/// stand one on — which is the bound that replaces the bays a car count used to be clamped to.
+/// <b>A town that cut no car park stands its cars on its lanes</b>, one a lane — the fixture, which asks for
+/// no buildings and so is owed no parking (GEN-8). Otherwise the town would not move at all, and a picture
+/// of a perfect road fabric with no traffic on it passes every static test while making every dynamic
+/// reading vacuous at once. Such a car tours (CAR-8).
 /// </para>
 /// </remarks>
 internal static class SpawnStage
@@ -35,28 +30,14 @@ internal static class SpawnStage
     const byte Person = 0;
 
     public static CityPlan.SpawnArrays Lay(
-        TownBrief brief, Paving paving, CityPlan.BuildingArrays buildings, SimConfig config, ref Rng draw)
+        TownBrief brief, Paving paving, CarParks.Laid carParks, CityPlan.BuildingArrays buildings,
+        SimConfig config, ref Rng draw)
     {
         var lanes = paving.Lanes;
+        var places = TheBays(lanes, carParks);
+        if (places.Count == 0) places = TheLanes(lanes, config);
 
-        // A lane a car cannot be stood clear of both its ends on is not one this stage can use: a body
-        // standing over a lane's own end is a body in the box beyond it before the town has ticked once.
-        var roomM = config.Car.LengthM + (config.Car.WidthM * 2f);
-        var standable = new List<int>();
-        for (var lane = 0; lane < lanes.LaneCount; lane++)
-        {
-            // <b>And a lane with no movement off it is not one either</b>: a car stood there is a car with
-            // nowhere to go, which is a body standing still with no clock running for it. The town lays one
-            // such lane — the way in to a car park's bays, which nothing has yet laid the bays at
-            // ([the known gaps](../../../docs/index.md#known-gaps)) — and asking the lane rather than the
-            // road it is one of is what makes this a fact about the town and not about car parks.
-            if (lanes.LaneLengthM[lane] < roomM) continue;
-            if (lanes.ConnectorAt[lane + 1] == lanes.ConnectorAt[lane]) continue;
-
-            standable.Add(lane);
-        }
-
-        var cars = Math.Min(brief.Cars, standable.Count);
+        var cars = Math.Min(brief.Cars, places.Count);
         var doors = buildings.EntryPointM.Length;
         var people = Math.Min(brief.People, doors);
         var kind = new byte[cars + people];
@@ -64,9 +45,9 @@ internal static class SpawnStage
         var headingRad = new float[cars + people];
 
         var taken = 0;
-        foreach (var lane in Spread(standable.Count, cars, ref draw))
+        foreach (var place in Spread(places.Count, cars, ref draw))
         {
-            var on = standable[lane];
+            var on = places[place];
             var at = Spline.SampleAt(lanes.ArcsOf(on), lanes.LaneLengthM[on] * 0.5f);
 
             kind[taken] = Car;
@@ -93,6 +74,52 @@ internal static class SpawnStage
         }
 
         return new CityPlan.SpawnArrays { Kind = kind, PositionM = positionM, HeadingRad = headingRad };
+    }
+
+    /// <summary>
+    /// <b>Every bay of the town's own car parks, as the lane driven into it</b> (GEN-53): the middle of that
+    /// lane is the middle of the space, and its bearing is the way a car nosed in points.
+    /// </summary>
+    static List<int> TheBays(LaneLines lanes, CarParks.Laid carParks)
+    {
+        var ordinary = new HashSet<int>();
+        for (var park = 0; park < carParks.Junction.Length; park++)
+        {
+            if (carParks.For[park] != BuildingUse.Ordinary) continue;
+
+            for (var bay = carParks.BayOffsets[park]; bay < carParks.BayOffsets[park + 1]; bay++)
+            {
+                ordinary.Add(carParks.Road[bay]);
+            }
+        }
+
+        var bays = new List<int>();
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            if (lanes.LaneForward[lane] && ordinary.Contains(lanes.LaneRoad[lane])) bays.Add(lane);
+        }
+
+        return bays;
+    }
+
+    /// <summary>
+    /// <b>The lanes a car can be stood on where a town has no bay</b>: long enough to stand one clear of
+    /// both ends — a body over a lane's own end is in the box beyond it before the town has ticked once —
+    /// and with a movement off the end, or the car is a body with nowhere to go.
+    /// </summary>
+    static List<int> TheLanes(LaneLines lanes, SimConfig config)
+    {
+        var roomM = config.Car.LengthM + (config.Car.WidthM * 2f);
+        var standable = new List<int>();
+        for (var lane = 0; lane < lanes.LaneCount; lane++)
+        {
+            if (lanes.LaneLengthM[lane] < roomM) continue;
+            if (lanes.ConnectorAt[lane + 1] == lanes.ConnectorAt[lane]) continue;
+
+            standable.Add(lane);
+        }
+
+        return standable;
     }
 
     /// <summary>Which building a way in belongs to, walked from the offsets that index them.</summary>

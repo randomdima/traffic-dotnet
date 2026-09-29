@@ -37,7 +37,7 @@ internal static class TripProbe
             $"({MeasuredTicks / config.Sim.TickRateHz} s), {config.Solver.VelocityIterations} solver iterations");
         Console.WriteLine(
             $"{"map",-10}{"walkers",9}{"cars",6}{"drawn",8}{"arrived",9}{"entered",9}{"full",6}" +
-            $"{"given up",10}{"set down",10}{"down",6}{"wrecked",9}");
+            $"{"given up",10}{"set down",10}{"down",6}{"wrecked",9}{"set off",9}{"parked",8}{"legs lost",11}");
 
         var walkers = 0;
         foreach (var map in Maps.Shipped())
@@ -47,12 +47,14 @@ internal static class TripProbe
             Console.WriteLine(
                 $"{map,-10}{sample.Walkers,9}{sample.Cars,6}{sample.TripsDrawn,8}{sample.WalkArrivals,9}" +
                 $"{sample.BuildingsEntered,9}{sample.DoorsFoundFull,6}{sample.TripsGivenUp,10}" +
-                $"{sample.WalkersSetDown,10}{sample.Down,6}{sample.Wrecked,9}");
+                $"{sample.WalkersSetDown,10}{sample.Down,6}{sample.Wrecked,9}{sample.RoundsSetOff,9}" +
+                $"{sample.BaysParkedIn,8}{sample.LegsGivenUp,11}");
         }
 
         Console.WriteLine(
             "VER-8 is met while a town's people are entering doors they walked to: drawn → arrived → entered " +
-            "is one whole trip, and the three counts move together or not at all.");
+            "is one whole trip, and the three counts move together or not at all. A car's round is the same " +
+            "question asked of the cars (CAR-8): set off → parked, with the legs given up beside it.");
 
         // <b>A probe that could not stage its scenario says so</b>, because "nothing went wrong" and "nothing
         // happened" are the same row otherwise.
@@ -70,9 +72,13 @@ internal static class TripProbe
     /// And how many had to be lifted back onto the pavement (PER-8), which is the count of the times the
     /// town's own ground beat a body rather than anything the walking does.
     /// </param>
+    /// <param name="RoundsSetOff">How many times a car on its round left where it stood for a bay (CAR-8).</param>
+    /// <param name="BaysParkedIn">And how many times a car came to rest in the bay it was aiming at.</param>
+    /// <param name="LegsGivenUp">And how many legs were given up where the car stood, round or errand.</param>
     public readonly record struct TripSample(
         int Walkers, int Cars, long TripsDrawn, long WalkArrivals, long BuildingsEntered, long DoorsFoundFull,
-        long TripsGivenUp, long WalkersSetDown, int Down, int Wrecked);
+        long TripsGivenUp, long WalkersSetDown, int Down, int Wrecked, long RoundsSetOff, long BaysParkedIn,
+        long LegsGivenUp);
 
     public static TripSample Sample(string map, SimConfig config)
     {
@@ -86,6 +92,9 @@ internal static class TripProbe
         var full = world.DoorsFoundFull;
         var givenUp = world.TripsGivenUp;
         var setDown = world.WalkersSetDown;
+        var setOff = world.RoundsSetOff;
+        var parked = world.BaysParkedIn;
+        var legsLost = world.LegsGivenUp;
 
         loop.Advance(MeasuredTicks);
 
@@ -104,6 +113,7 @@ internal static class TripProbe
         return new TripSample(
             world.People.Count, world.Cars.Count, world.TripsDrawn - drawn, world.WalkArrivals - arrived,
             world.BuildingsEntered - entered, world.DoorsFoundFull - full, world.TripsGivenUp - givenUp,
-            world.WalkersSetDown - setDown, down, wrecked);
+            world.WalkersSetDown - setDown, down, wrecked, world.RoundsSetOff - setOff,
+            world.BaysParkedIn - parked, world.LegsGivenUp - legsLost);
     }
 }

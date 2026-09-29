@@ -4,19 +4,40 @@ Why this slice reads the way it does. Only decisions still binding are here: a s
 not annotated. The rules themselves are [requirements.md](requirements.md); how a type works is its own
 XML docs.
 
+## 2026-09-29 — the bays are laid off their car parks, and nothing reverses into one
+
+**The owner asked for parking and unparking back, for every vehicle**, so a police car can go home to its
+station. A car park had been a junction cut into a road with its arms the bays (GEN-53) since 2026-09-14, with
+the arms laid as lanes and no bay's ways laid at all.
+
+- **A bay's ways are read off its car park and draw nothing** (GEN-4f, `BayWays.Build`): nose in, the last of
+  the lane, the movement onto the arm and the arm; backed in, the arm, the movement off it and the first of the
+  lane it lands on. Each runs `ParkingStagedInM` along its street lane: ended on the turn, a way handed its car
+  over crosswise in the street, because a line is handed on with the car at rest anywhere in its last car
+  length — on Odesa a car stood 4 m off its line in the middle of a street, the traffic queued behind it.
+- **Nothing reverses into a bay** (GEN-4j). A car backing in had driven past the car park, the car following it
+  stopped at its tail on the ground it had to reverse over, and each waited on the other until both clocks ran
+  out — a queue of six on Odesa behind one. A car in a bay has nobody queued behind it, so reversing out cannot
+  lock that way. A car stood backed in — a spawn, a service vehicle — still drives out forwards.
+- **An arm is never a lane a route or a tour runs down** (GEN-4h). Offered as lanes, every arm was a dead end
+  the router could turn a leg at (`WhereALegMayTurn`), and cars leaving one bay were routed nose first into the
+  next to turn round — 44 cars on Odesa stood at the back of a neighbour's space for the rest of the run.
+- **A body in a bay is found by the bay whose space holds it** as well as by the register
+  (`ParkingRegistry.BayHolding`): a leg given up on the way in stood a car down in a space it was never written
+  into, and the lane under it was the arm.
+
+On the stuck probe's five minutes of Odesa: 400 cars parked, no leg given up, 32 cars standing still at the
+end — against the tour's 46 legs given up and 30 standing.
+
 ## 2026-09-26 — rules reworded to what the code does
 
 The owner ruled the code the source of truth for this audit.
 
 - `GEN-4e`: a walk to a parked car was aimed at the bay's point → the point is kept and nothing asks for it.
-- `GEN-4f`: one shape solved per standing and per lane, near and far, swinging away → the ways' structure
-  as it is, and nothing lays one (`BayWays.Build`).
 - `GEN-4g`: the hold began when a trip picked the bay → when a leg is sent or re-aimed; a bay is also
   refused while turned in, held or unreachable.
 - `GEN-4i`: the pose the ways are drawn to, and a depth priced by the street's crossing → the pose a car is
   stood at and a way ends at.
-- `GEN-4j`: near lane and far lane, and the swing and its two figures → a standing is a pair of ways, and
-  what one takes of the street is the table's.
 - `GEN-4k`: a hospital's and a station's apron → a depot's too, and a struck-off vehicle's bay held for
   nobody.
 - `GEN-4l`: the only way round, kerb-side against across the carriageway, the habit settling a bay that lays
@@ -56,14 +77,6 @@ the same code as the other two, and `PlaceTheBody` has no branches left. Which n
 over is stated once, because naming them at the call site left the walkers behind. The band is the space's
 width and not the lane's, or every car driving past a frontage would stand on every bay it passed.
 
-## 2026-09-01 — the swing into a bay was bought with a straight nothing was keeping
-
-A quarter turn carries the rear axle its own radius sideways; the shipped lot stood bays 4.4 m off the
-lane and the tightest circle is 3.94 m, so one arc reaches with half a metre to spare. The swing existed
-only because a tenth over the minimum radius and a quarter of a car length of settling straight had already
-spent it. Both are a twentieth now: the way in went from 11.9 m with a 27° swing over the centreline to
-6.8 m with no swing, and the follower hands on about twenty degrees out of square at either figure.
-
 ## 2026-08-27 — a bay is where a car turns round, and the turn claims it like any other
 
 No junction admits a movement that reverses direction (TER-5f), and a bay already has a way in off either
@@ -80,16 +93,6 @@ was a second gate in front of one already answering (`SIM-7`) and it refused 126
 With it gone, Odesa's parks over the measured minute went 22 → 35 and emergency stops 83 → 65; River's
 narrow bays swept the middle of their street, taking emergency stops 19 → 31, which is the table doing its
 job rather than the bar doing it early.
-
-## 2026-08-24 — a car stands in a bay one of two ways round, and reverses only to the lane beside it
-
-Every car nosed in and reversed out, across the whole carriageway if the far lane suited, and nothing ever
-backed *into* a space — the commoner habit, and the one that leaves a car able to drive away. A bay carries
-a standing and not just a shape; what tells the four ways apart is `IsEntry ≠ IsNoseIn` and no fifth field.
-Only the lane beside the bay lays both ways, so the far lane is kept only in the direction driven forwards.
-Which way round a driver parks is a habit drawn once per car, because two draws would disagree. The price
-was Odesa parking 35 in the minute against 47; nose-in only with no far-lane reverse cost 90 emergency stops
-against 65, which is worse than either.
 
 ## 2026-08-24 — one shape at a bay, driven both ways
 
